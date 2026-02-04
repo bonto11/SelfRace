@@ -67,7 +67,7 @@ def service_save_state_to_db(
     """
     jwt = None if service else require_jwt(user_jwt)
 
-    model = str(analysis.get("model") or "Trainalyze Coach")
+    model = str(analysis.get("model"))
     version = int(analysis.get("schema_version") or 1)
     return db_insert_athlete_state(
         user_id=user_id,

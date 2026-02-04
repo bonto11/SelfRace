@@ -120,7 +120,7 @@ def generate_weekly_plan_json(
             now_local = datetime.now(tzinfo)
             parsed["schema_version"] = int(parsed.get("schema_version") or 1)
             parsed["generated_at"] = now_local.isoformat()
-            parsed["model"] = str(getattr(res, "model", None) or requested_model or "Trainalyze Coach")
+            parsed["model"] = str(getattr(res, "model", None) or requested_model)
 
             plan_meta = parsed.get("plan_meta")
             if not isinstance(plan_meta, dict):

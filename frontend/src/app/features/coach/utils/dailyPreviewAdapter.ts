@@ -39,7 +39,7 @@ export function buildDailyAnalysisFromPlan(resp: any): {
   const analysis = {
     schema_version: daily.schema_version ?? 1,
     generated_at: daily.generated_at ?? null,
-    model: daily.model ?? "Trainalyze Coach",
+    model: daily.model ?? null,
     summary,
     next_10_days,
     insights: [] as string[],

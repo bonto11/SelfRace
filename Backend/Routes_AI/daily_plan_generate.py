@@ -386,7 +386,7 @@ def generate_daily_week_json(
         now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 2)
         parsed["generated_at"] = now_local.isoformat()
-        parsed["model"] = str(getattr(res, "model", None) or requested_model or "Trainalyze Coach")
+        parsed["model"] = str(getattr(res, "model", None) or requested_model)
 
         parsed.setdefault("week_index", week_index)
         if week_start:

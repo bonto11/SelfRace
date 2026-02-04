@@ -141,7 +141,7 @@ def build_prompts_for_analyze(
 {{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name or 'Trainalyze Coach')",
+  "model": "string (your model name)",
   "user_summary": {{
     "headline": "short summary in {lang_label} (1 sentence, 2nd person)",
     "bullets": string[],
@@ -237,7 +237,7 @@ def build_prompts_for_progress(
 {{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name or 'Trainalyze Coach')",
+  "model": "string (your model name)",
   "summary": {{
     "headline": "1 sentence in {lang_label}, 2nd person",
     "bullets": string[]

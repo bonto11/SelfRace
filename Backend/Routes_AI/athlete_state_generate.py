@@ -62,7 +62,7 @@ def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
     """
     provider = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or requested_model)
-
+    print("MBP model", used_model)
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
         # doplň povinné polia, ak by chýbali
@@ -126,8 +126,7 @@ def generate_athlete_state_json(
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
         parsed["generated_at"] = parsed.get("generated_at") or now_local
-        parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
-
+        parsed["model"] = str(getattr(res, "model", None) or model) 
         # sync trace ok_model
         if isinstance(trace, dict) and not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]

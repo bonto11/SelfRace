@@ -338,7 +338,7 @@ def build_prompts_for_weekly(
 {{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name or 'Trainalyze Coach')",
+  "model": "string (your model name)",
   "plan_meta": {{
     "start_date": "YYYY-MM-DD" | null,
     "weeks": number,
