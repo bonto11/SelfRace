@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ASYNC_JOBS
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -23,44 +24,13 @@ def db_insert_job(
       - service_enqueue_job → service=True (default)
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
         res = sb.table(TABLE_ASYNC_JOBS).insert(row).execute()
         data = res.data or []
         return data[0] if data else None
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] insert error:", repr(e))
         return None
-
-
-def db_get_active_jobs(
-    user_id: int,
-    job_types: Optional[List[str]] = None,
-    limit: int = 50,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
-) -> List[Dict[str, Any]]:
-    """
-    Aktívne joby pre usera – status v ('queued', 'running').
-    """
-    try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
-        q = (
-            sb.table(TABLE_ASYNC_JOBS)
-            .select("*")
-            .eq("user_id", user_id)
-            .in_("status", ["queued", "running"])
-            .order("created_at", desc=True)
-            .limit(limit)
-        )
-        if job_types:
-            q = q.in_("job_type", job_types)
-
-        res = q.execute()
-        return res.data or []
-    except Exception as e:  # noqa: BLE001
-        print("[DB-JOBS] get_active error:", repr(e))
-        return []
 
 
 def db_get_recent_jobs(
@@ -75,7 +45,7 @@ def db_get_recent_jobs(
     Posledné joby (akýkoľvek status) pre usera.
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -104,7 +74,7 @@ def db_get_job_by_id(
     Jednotlivý job podľa ID – istíme sa aj user_id.
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -134,7 +104,7 @@ def db_mark_job_running(
     Upraví len ak je aktuálne 'queued' – ochrana pred race conditions.
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .update(
@@ -184,82 +154,128 @@ def db_update_job_finished(
         fields["progress"] = int(progress)
 
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="async_jobs")
-        res = (
-            sb.table(TABLE_ASYNC_JOBS)
-            .update(fields)
-            .eq("id", job_id)
-            .execute()
-        )
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        res = sb.table(TABLE_ASYNC_JOBS).update(fields).eq("id", job_id).execute()
         data = res.data or []
         return data[0] if data else None
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] update_finished error:", repr(e))
         return None
 
-def db_find_active_job_by_dedupe(
-    user_id: int,
-    dedupe_key: str,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+
+def _try_lock_job_row(
+    row: Dict[str, Any], *, worker_id: str
 ) -> Optional[Dict[str, Any]]:
     """
-    Nájde existujúci job (queued/running) s rovnakým dedupe_key.
+    Skúsi locknúť konkrétny row (queued -> running).
+    Ak to už niekto lockol, vráti None.
     """
-    if not dedupe_key:
+    jid = row.get("id")
+    if jid is None:
         return None
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
-        res = (
-            sb.table(TABLE_ASYNC_JOBS)
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("dedupe_key", dedupe_key)
-            .in_("status", ["queued", "running"])
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        data = res.data or []
-        return data[0] if data else None
-    except Exception as e:  # noqa: BLE001
-        print("[DB-JOBS] find_by_dedupe error:", repr(e))
+        job_id = int(jid)
+    except Exception:
         return None
 
+    # attempts inkrementujeme na DB úrovni cez existujúci field job.attempts
+    try:
+        attempts_old = int(row.get("attempts") or 0)
+    except Exception:
+        attempts_old = 0
 
-def db_pick_next_queued_job_for_user(
+    locked = db_mark_job_running(
+        job_id=job_id,
+        worker_id=worker_id,
+        attempts=attempts_old + 1,
+        user_jwt=None,
+        service=True,
+    )
+    return locked
+
+
+def db_pick_next_job_for_user(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
+    worker_id: str,
     service: bool = True,
+    user_jwt: Optional[str] = None,
+    max_scan: int = 5,
 ) -> Optional[Dict[str, Any]]:
     """
-    Vyberie ďalší runnable job:
-      - status = queued
-      - run_after je NULL alebo <= now
-      - order: priority ASC, created_at ASC
+    ✅ Worker-safe: vyberie ďalší runnable job pre usera a ATOMICKY ho lockne.
+    - status=queued
+    - run_after NULL alebo <= now
+    - order: priority ASC, created_at ASC
+    - skúsi locknúť prvých max_scan kandidátov (kvôli race medzi workermi)
     """
     now_iso = _now_iso()
     try:
         sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
 
-        # Pozn.: Supabase python client má obmedzenia na OR filtre,
-        # ale toto funguje cez .or_() string.
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
-            .eq("user_id", user_id)
+            .eq("user_id", int(user_id))
             .eq("status", "queued")
             .or_(f"run_after.is.null,run_after.lte.{now_iso}")
             .order("priority", desc=False)
             .order("created_at", desc=False)
-            .limit(1)
+            .limit(int(max_scan or 5))
         )
-
         res = q.execute()
-        data = res.data or []
-        return data[0] if data else None
+        rows = res.data or []
     except Exception as e:  # noqa: BLE001
-        print("[DB-JOBS] pick_next_queued error:", repr(e))
+        print("[DB-JOBS] pick_next_for_user select error:", repr(e))
         return None
+
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        locked = _try_lock_job_row(r, worker_id=worker_id)
+        if locked:
+            return locked
+
+    return None
+
+
+def db_pick_next_job_global(
+    *,
+    worker_id: str,
+    service: bool = True,
+    user_jwt: Optional[str] = None,
+    max_scan: int = 10,
+) -> Optional[Dict[str, Any]]:
+    """
+    ✅ Worker-safe: vyberie ďalší runnable job globálne a ATOMICKY ho lockne.
+    - status=queued
+    - run_after NULL alebo <= now
+    - order: priority ASC, created_at ASC
+    - skúsi locknúť prvých max_scan kandidátov (kvôli race medzi workermi)
+    """
+    now_iso = _now_iso()
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("status", "queued")
+            .or_(f"run_after.is.null,run_after.lte.{now_iso}")
+            .order("priority", desc=False)
+            .order("created_at", desc=False)
+            .limit(int(max_scan or 10))
+        )
+        res = q.execute()
+        rows = res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] pick_next_global select error:", repr(e))
+        return None
+
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        locked = _try_lock_job_row(r, worker_id=worker_id)
+        if locked:
+            return locked
+
+    return None
