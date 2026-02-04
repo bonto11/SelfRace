@@ -1,3 +1,4 @@
+# Services/AI/openai_client.py
 from __future__ import annotations
 
 import json
@@ -27,12 +28,6 @@ def _uniq_keep_order(items: List[str]) -> List[str]:
 
 
 def _models_priority(explicit_model: Optional[str]) -> List[str]:
-    """
-    Poradie:
-      1) explicit_model (ak je)
-      2) OPENAI_DEFAULT_MODEL
-      3) OPENAI_MODEL_FALLBACKS
-    """
     base: List[str] = []
     if OPENAI_DEFAULT_MODEL:
         base.append(str(OPENAI_DEFAULT_MODEL))
@@ -50,28 +45,6 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
     return base
 
 
-def _call_openai_once(
-    *,
-    client: OpenAI,
-    model: str,
-    system_txt: str,
-    user_txt: str,
-    max_tokens: int,
-    temperature: float,
-) -> str:
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_txt},
-            {"role": "user", "content": user_txt},
-        ],
-        temperature=float(temperature),
-        max_tokens=int(max_tokens),
-        response_format={"type": "json_object"},
-    )
-    return (resp.choices[0].message.content or "").strip()
-
-
 def openai_call_json_model(
     *,
     context_payload: Dict[str, Any],
@@ -79,7 +52,6 @@ def openai_call_json_model(
     user_instructions: str,
     model: Optional[str] = None,
     max_tokens: int = 2000,
-    debug_raw: bool = False,
     temperature: float = 0.2,
 ) -> AiResult[Dict[str, Any]]:
     if not OPENAI_API_KEY:
@@ -89,19 +61,27 @@ def openai_call_json_model(
             error=AiError(code="ai_missing_key", message="Missing OPENAI_API_KEY"),
             provider="openai",
             model=model or "unknown",
+            trace={
+                "provider": "openai",
+                "models_tried": _models_priority(model),
+                "attempts": [],
+                "usage": None,
+                "ok_model": None,
+            },
         )
 
     timeout_s = int(LLM_TIMEOUT_S or 30)
     retries = int(LLM_RETRIES or 2)
-
     client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
-    models = _models_priority(model)
 
-    trace: Dict[str, Any] = {"models_tried": models, "attempts": []}
-    last_err: Optional[str] = None
-    last_raw: Optional[str] = None
-    last_cleaned: Optional[str] = None
-    ok_model: Optional[str] = None
+    models = _models_priority(model)
+    trace: Dict[str, Any] = {
+        "provider": "openai",
+        "models_tried": models,
+        "attempts": [],
+        "usage": None,
+        "ok_model": None,
+    }
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
     user_txt = (
@@ -110,49 +90,67 @@ def openai_call_json_model(
         + ctx_json
     )
 
+    last_err: Optional[str] = None
+
     for m in models:
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
-                raw = _call_openai_once(
-                    client=client,
+                resp = client.chat.completions.create(
                     model=m,
-                    system_txt=system_prompt,
-                    user_txt=user_txt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_txt},
+                    ],
+                    temperature=float(temperature),
+                    max_tokens=int(max_tokens),
+                    response_format={"type": "json_object"},
                 )
+
+                raw = (resp.choices[0].message.content or "").strip()
                 dur_ms = int((time.time() - started) * 1000)
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
-                last_raw, last_cleaned = raw_keep, cleaned
 
+                ok = isinstance(parsed, dict)
                 trace["attempts"].append(
                     {
                         "model": m,
                         "attempt": attempt,
-                        "ok": isinstance(parsed, dict),
+                        "ok": ok,
                         "duration_ms": dur_ms,
-                        "raw_preview": raw[:800] + ("…[truncated]" if len(raw) > 800 else ""),
+                        "raw_preview": raw[:600]
+                        + ("…[truncated]" if len(raw) > 600 else ""),
                     }
                 )
 
-                if not isinstance(parsed, dict):
+                if not ok:
                     last_err = "OpenAI returned invalid JSON"
                     continue
 
-                ok_model = m
-                if debug_raw:
-                    trace["raw"] = raw_keep
-                    trace["cleaned"] = cleaned
-                    trace["ok_model"] = m
+                # ✅ usage tokeny
+                usage_obj = getattr(resp, "usage", None)
+                if usage_obj is not None:
+                    trace["usage"] = {
+                        "prompt_tokens": int(
+                            getattr(usage_obj, "prompt_tokens", 0) or 0
+                        ),
+                        "completion_tokens": int(
+                            getattr(usage_obj, "completion_tokens", 0) or 0
+                        ),
+                        "total_tokens": int(getattr(usage_obj, "total_tokens", 0) or 0),
+                        "reasoning_tokens": 0,
+                    }
+
+                trace["ok_model"] = m
 
                 return AiResult(
                     ok=True,
                     data=parsed,
                     error=None,
                     provider="openai",
-                    model=ok_model,
+                    model=m,
+                    trace=trace,
                 )
 
             except Exception as e:  # noqa: BLE001
@@ -170,18 +168,11 @@ def openai_call_json_model(
                 time.sleep(0.3 * attempt)
 
     msg = f"AI call failed: {last_err or 'unknown error'}"
-    if debug_raw:
-        trace["raw"] = last_raw
-        trace["cleaned"] = last_cleaned
-
     return AiResult(
         ok=False,
         data=None,
-        error=AiError(
-            code="ai_openai_failed",
-            message=msg,
-            trace=(trace if debug_raw else None),
-        ),
+        error=AiError(code="ai_openai_failed", message=msg),
         provider="openai",
-        model=(ok_model or (models[0] if models else "unknown")),
+        model=(models[0] if models else "unknown"),
+        trace=trace,
     )

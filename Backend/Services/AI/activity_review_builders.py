@@ -1,7 +1,8 @@
+# Services/AI/activity_review_builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Literal
+from typing import Any, Dict, Optional, List
 
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
@@ -10,6 +11,7 @@ from Routes_DB.activities_summary import db_get_summary_for_activities
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
 from Services.users import require_jwt
+
 
 def _to_float(x: Any) -> Optional[float]:
     try:
@@ -71,20 +73,10 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             "days_ago": None,
             "sport": "other",
             "metrics": {},
-            "zones": {
-                "z1": None,
-                "z2": None,
-                "z3": None,
-                "z4": None,
-                "z5": None,
-                "dominant_zone": None,
-            },
+            "zones": {"z1": None, "z2": None, "z3": None, "z4": None, "z5": None, "dominant_zone": None},
             "flags": {"is_hard": None, "is_long": None},
         },
-        "context": {
-            "recovery": None,
-            "recent_load": None,
-        },
+        "context": {"recovery": None, "recent_load": None},
     }
 
 
@@ -103,11 +95,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
 
     weeks = recent_load.get("weeks")
     if not isinstance(weeks, list):
-        return {
-            "schema_version": recent_load.get("schema_version"),
-            "window_days": recent_load.get("window_days"),
-            "weeks": [],
-        }
+        return {"schema_version": recent_load.get("schema_version"), "window_days": recent_load.get("window_days"), "weeks": []}
 
     keep_idx = {-1, 0}
     out_weeks: List[Dict[str, Any]] = []
@@ -131,11 +119,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
         )
 
     out_weeks.sort(key=lambda x: int(x.get("week_index_from_now", 0)))
-    return {
-        "schema_version": recent_load.get("schema_version"),
-        "window_days": recent_load.get("window_days"),
-        "weeks": out_weeks,
-    }
+    return {"schema_version": recent_load.get("schema_version"), "window_days": recent_load.get("window_days"), "weeks": out_weeks}
 
 
 def _build_activity_block_from_rows(
@@ -167,6 +151,7 @@ def _build_activity_block_from_rows(
     z5 = _to_float(enr_row.get("z5_min"))
 
     zones_min = {"z1": z1, "z2": z2, "z3": z3, "z4": z4, "z5": z5}
+
     dominant_zone = None
     best_val = -1.0
     for k, v in zones_min.items():
@@ -208,7 +193,6 @@ def build_input_from_db(
 
     input_data = build_base_input(user_id, activity_id)
 
-    # context
     recovery = service_build_recovery_block_for_analysis(user_id, user_jwt=jwt, service=service)
     recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, user_jwt=jwt, service=service)
     recent_load = _minify_recent_load_to_week_horizon(recent_load_raw)
@@ -216,7 +200,6 @@ def build_input_from_db(
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = recent_load
 
-    # DB fetch
     summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
     enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
 
@@ -226,7 +209,6 @@ def build_input_from_db(
     if not isinstance(summary_row, dict):
         return input_data
 
-    # Build activity
     input_data["activity"] = _build_activity_block_from_rows(
         activity_id=activity_id,
         summary_row=summary_row,

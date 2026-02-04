@@ -4,36 +4,10 @@ from __future__ import annotations
 from datetime import datetime, timezone, date
 from typing import Any, Dict, Optional, Tuple, List
 from zoneinfo import ZoneInfo
-import os
 
 from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
 from Services.AI.provider import ai_call_json_model
-
-
-# -----------------------------------------------------------------------------
-# DEBUG (env-controlled)
-# -----------------------------------------------------------------------------
-# zapneš:
-#   DAILY_DEBUG=1
-# raw trace:
-#   DAILY_DEBUG_RAW=1
-_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
-
-def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED:
-        return
-    try:
-        msg = " ".join(str(p) for p in parts)
-        print(f"[DAILY_GEN] {msg}")
-    except Exception:
-        pass
 
 
 # -----------------------------------------------------------------------------
@@ -220,33 +194,95 @@ def _validate_external_events_included(
 
 
 # -----------------------------------------------------------------------------
-# Provider-agnostic generator
+# Trace helpers (ALWAYS ON)
+# -----------------------------------------------------------------------------
+def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
+    return {
+        "provider": provider,
+        "models_tried": [],
+        "attempts": [],
+        "usage": None,  # {prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, model}
+        "ok_model": model,
+    }
+
+
+def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[str, Any]:
+    provider = str(getattr(res, "provider", None) or "unknown")
+    used_model = str(getattr(res, "model", None) or requested_model or "unknown")
+
+    tr = getattr(res, "trace", None)
+    if isinstance(tr, dict):
+        tr.setdefault("provider", provider)
+        tr.setdefault("models_tried", [])
+        tr.setdefault("attempts", [])
+        tr.setdefault("usage", None)
+        tr.setdefault("ok_model", used_model)
+        return tr
+
+    err = getattr(res, "error", None)
+    tr2 = getattr(err, "trace", None) if err is not None else None
+    if isinstance(tr2, dict):
+        tr2.setdefault("provider", provider)
+        tr2.setdefault("models_tried", [])
+        tr2.setdefault("attempts", [])
+        tr2.setdefault("usage", None)
+        tr2.setdefault("ok_model", used_model)
+        return tr2
+
+    return _trace_fallback(provider=provider, model=used_model)
+
+
+def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not isinstance(a, dict) and not isinstance(b, dict):
+        return None
+    out: Dict[str, Any] = {}
+    aa = a if isinstance(a, dict) else {}
+    bb = b if isinstance(b, dict) else {}
+
+    # model: keep last non-empty
+    out["model"] = str(bb.get("model") or aa.get("model") or "")
+
+    def _i(x: Any) -> int:
+        try:
+            return int(x or 0)
+        except Exception:
+            return 0
+
+    out["prompt_tokens"] = _i(aa.get("prompt_tokens")) + _i(bb.get("prompt_tokens"))
+    out["completion_tokens"] = _i(aa.get("completion_tokens")) + _i(bb.get("completion_tokens"))
+    out["reasoning_tokens"] = _i(aa.get("reasoning_tokens")) + _i(bb.get("reasoning_tokens"))
+
+    tot = _i(aa.get("total_tokens")) + _i(bb.get("total_tokens"))
+    if tot <= 0:
+        tot = out["prompt_tokens"] + out["completion_tokens"] + out["reasoning_tokens"]
+    out["total_tokens"] = tot
+
+    # if all zero -> None
+    if out["prompt_tokens"] == 0 and out["completion_tokens"] == 0 and out["reasoning_tokens"] == 0 and out["total_tokens"] == 0:
+        return None
+
+    return out
+
+# -----------------------------------------------------------------------------
+# Provider-agnostic generator (TRACE ALWAYS)
 # -----------------------------------------------------------------------------
 def generate_daily_week_json(
     context_payload: dict,
     model: Optional[str],
     *,
-    debug_raw: bool = False,
-    # voliteľné overrides (inak idú env defaulty cez Configs.config)
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
-) -> Tuple[dict, Optional[dict]]:
+) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-agnostic daily generator:
-      - používa ai_call_json_model()
-      - bez OpenAI importov a bez daily_plan_llm helperov
-      - max 2 attempts, keď zlyhá hard validácia (dates/ext events)
+      - ai_call_json_model()
+      - max 2 attempts when hard validation fails (dates/ext events)
+      - ✅ ALWAYS returns (parsed_or_fallback, trace)
     """
-    ctx = context_payload if isinstance(context_payload, dict) else {}
-
-    if str(os.getenv("DAILY_DEBUG_RAW", "0") or "").strip().lower() in {"1", "true", "yes", "on"}:
-        debug_raw = True
+    ctx: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
 
     raw_settings = ctx.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
-
-    _dprint("=== generate_daily_week_json start ===")
-    _dprint("model_hint=", model, "| debug_raw=", debug_raw)
 
     system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = _build_prompts_for_daily(
         ctx,
@@ -254,7 +290,7 @@ def generate_daily_week_json(
     )
 
     week = ctx.get("week") or {}
-    week_index = int(week.get("week_index") or ctx.get("week_index") or 1)
+    week_index = int((week.get("week_index") or ctx.get("week_index") or 1) or 1)
     week_start = week.get("week_start") or ctx.get("week_start") or None
     week_end = week.get("week_end") or ctx.get("week_end") or None
 
@@ -264,61 +300,93 @@ def generate_daily_week_json(
     except Exception:
         tzinfo = timezone.utc
 
+    resolved_max_tokens = int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2500))
+    resolved_temperature = float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2))
+
+    requested_model = model.strip() if isinstance(model, str) and model.strip() else None
+
     attempts = 2
 
-    trace: Optional[Dict[str, Any]] = None
-    if debug_raw:
-        trace = {
-            "attempts": [],
-            "timezone": str(tz_name),
-            "week_index": week_index,
-            "week_start": week_start,
-            "week_end": week_end,
-            "max_tokens": int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2500)),
-            "temperature": float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)),
-        }
+    trace: Dict[str, Any] = {
+        "provider": None,
+        "models_tried": [],
+        "attempts": [],
+        "usage": None,       # last usage wins (billing expects trace["usage"])
+        "usage_sum": None,   # optional sum across attempts
+        "ok_model": None,
+        "timezone": str(tz_name),
+        "week_index": week_index,
+        "week_start": week_start,
+        "week_end": week_end,
+        "max_tokens": resolved_max_tokens,
+        "temperature": resolved_temperature,
+    }
 
     last_err_code: Optional[str] = None
     last_err_msg: Optional[str] = None
+    usage_sum: Optional[Dict[str, Any]] = None
 
     for attempt in range(1, attempts + 1):
-        _dprint("provider_call attempt=", attempt)
-
         res = ai_call_json_model(
             context_payload=ctx,
             system_prompt=system_txt,
             user_instructions=user_txt,
-            model=model,  # None => provider default
-            max_tokens=int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2500)),
-            temperature=float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)),
-            debug_raw=debug_raw,
+            model=requested_model,  # None => provider default
+            max_tokens=resolved_max_tokens,
+            temperature=resolved_temperature,
         )
 
-        if debug_raw and trace is not None:
-            trace["attempts"].append(
-                {
-                    "attempt": attempt,
-                    "ok": bool(getattr(res, "ok", False)),
-                    "provider": getattr(res, "provider", None),
-                    "model": getattr(res, "model", None),
-                    "error_code": (res.error.code if getattr(res, "error", None) else None),
-                    "error_message": (res.error.message if getattr(res, "error", None) else None),
-                    "provider_trace": (res.error.trace if getattr(res, "error", None) else None),
-                }
-            )
+        # --- safe error fields ---
+        err = getattr(res, "error", None)
+        err_code = getattr(err, "code", None) if err is not None else None
+        err_msg = getattr(err, "message", None) if err is not None else None
 
-        if not res.ok or not isinstance(res.data, dict):
-            last_err_code = (res.error.code if getattr(res, "error", None) else "ai_failed")
-            last_err_msg = (res.error.message if getattr(res, "error", None) else "AI provider failed")
-            _dprint("provider failed:", last_err_code, "|", last_err_msg)
+        # --- normalize provider trace (may live on res.trace or res.error.trace) ---
+        tr = _get_trace_from_result(res, requested_model=requested_model)
+
+        # update top-level trace meta (keep last)
+        trace["provider"] = tr.get("provider") or getattr(res, "provider", None)
+        trace["ok_model"] = tr.get("ok_model") or getattr(res, "model", None)
+        if isinstance(tr.get("models_tried"), list) and tr.get("models_tried"):
+            trace["models_tried"] = tr.get("models_tried")
+
+        # usage accumulation
+        this_usage = tr.get("usage") if isinstance(tr, dict) else None
+        if isinstance(this_usage, dict):
+            usage_sum = _sum_usage(usage_sum, this_usage)
+            trace["usage"] = this_usage
+            trace["usage_sum"] = usage_sum
+
+        trace["attempts"].append(
+            {
+                "attempt": attempt,
+                "ok": bool(getattr(res, "ok", False)),
+                "provider": getattr(res, "provider", None),
+                "model": getattr(res, "model", None),
+                "error_code": err_code,
+                "error_message": err_msg,
+                "trace": tr,
+            }
+        )
+
+        # --- hard success gate (Pylance-safe) ---
+        if not bool(getattr(res, "ok", False)):
+            last_err_code = err_code or "ai_failed"
+            last_err_msg = err_msg or "AI provider failed"
             continue
 
-        parsed = res.data
+        data = getattr(res, "data", None)
+        if not isinstance(data, dict):
+            last_err_code = err_code or "ai_failed"
+            last_err_msg = err_msg or "AI provider failed"
+            continue
+
+        parsed: Dict[str, Any] = dict(data)
 
         now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 2)
         parsed["generated_at"] = now_local.isoformat()
-        parsed["model"] = str(getattr(res, "model", None) or model or "Trainalyze Coach")
+        parsed["model"] = str(getattr(res, "model", None) or requested_model or "Trainalyze Coach")
 
         parsed.setdefault("week_index", week_index)
         if week_start:
@@ -332,21 +400,23 @@ def generate_daily_week_json(
         if not ok_dates:
             last_err_code = "dates_out_of_week_range"
             last_err_msg = f"AI returned dates outside week range: {bad_dates[:12]}"
-            _dprint("validation FAILED: dates out of range:", bad_dates[:12])
             continue
 
         ok_ext, missing = _validate_external_events_included(parsed, ctx)
         if not ok_ext:
             last_err_code = "missing_external_events_in_output"
             last_err_msg = f"AI omitted external events: {missing[:12]}"
-            _dprint("validation FAILED: missing external events:", missing[:12])
             continue
 
-        _dprint("return ok | days=", len(parsed.get("days") or []))
+        # success: stamp ok_model if missing
+        if not trace.get("ok_model"):
+            trace["ok_model"] = parsed.get("model")
+
         return parsed, trace
 
+    # fallback
     now_fallback = datetime.now(tzinfo).isoformat()
-    fallback = {
+    fallback: Dict[str, Any] = {
         "schema_version": 2,
         "generated_at": now_fallback,
         "model": "daily-fallback",
@@ -359,5 +429,9 @@ def generate_daily_week_json(
         "warnings": ["daily_generation_failed"],
     }
 
-    _dprint("=== generate_daily_week_json fallback ===", "error_code=", fallback["error_code"])
-    return fallback, trace if debug_raw else None
+    trace["error_code"] = last_err_code or "daily_generation_failed"
+    trace["error_message"] = last_err_msg or "daily_generation_failed"
+
+    return fallback, trace
+
+

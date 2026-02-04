@@ -16,17 +16,6 @@ from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
 
 
-# -----------------------------------------------------------------------------
-# NEW APPROACH (Simplified, agreed)
-# - AI plans the whole week calendar (days + sessions).
-# - Only HARD constraint is external events from DB (must be present in AI output).
-# - No weekly_template fixed days, no prefs hard_locks, no day_constraints/open_slots.
-# - We pass minimal constraints/preferences to the LLM via prefs + planning_constraints:
-#     - preferences.long_run_days (soft preference)
-#     - preferences.two_a_day.max_days_per_week cap (0..2)
-#     - strength_settings.sessions_per_week target
-# -----------------------------------------------------------------------------
-
 _WEEKDAY_TO_ABBR: Dict[int, str] = {
     0: "Mon",
     1: "Tue",
@@ -39,29 +28,6 @@ _WEEKDAY_TO_ABBR: Dict[int, str] = {
 
 _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
 _ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
-
-
-# -----------------------------------------------------------------------------
-# Debug / Railway prints
-# -----------------------------------------------------------------------------
-# Zapneš na Railway env varom:
-#   DAILY_DEBUG=1
-_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
-
-def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED:
-        return
-    try:
-        msg = " ".join(str(p) for p in parts)
-        print(f"[DAILY_BUILDER] {msg}")
-    except Exception:
-        pass
 
 
 def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
@@ -98,9 +64,6 @@ def _weekday_abbr_from_iso(d: str) -> Optional[str]:
 
 
 def _coerce_session_sport(raw_sport: Any) -> str:
-    """
-    Map arbitrary sports to the FE schema sport enum.
-    """
     s = str(raw_sport or "").strip().lower()
     if s in _ALLOWED_SESSION_SPORTS:
         return s
@@ -116,10 +79,6 @@ def _coerce_session_sport(raw_sport: Any) -> str:
 
 
 def _normalize_external_intensity(v: Any) -> Optional[str]:
-    """
-    Normalizes intensity to: hard | medium | easy | None
-    Accepts common variants.
-    """
     s = str(v or "").strip().lower()
     if not s:
         return None
@@ -132,19 +91,11 @@ def _normalize_external_intensity(v: Any) -> Optional[str]:
     return s if s in _ALLOWED_EXTERNAL_INTENSITIES else None
 
 
-# -------------------------
-# Daily rows (AI -> DB rows)
-# -------------------------
-
 def build_daily_rows_from_ai(
     user_id: int,
     plan_id: Optional[str],
     daily_plan: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
-    """
-    Converts the final daily_plan JSON (already enriched with strength mapper)
-    into rows for coach_plan_daily.
-    """
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
 
@@ -190,16 +141,7 @@ def build_daily_rows_from_ai(
     return rows
 
 
-# -------------------------
-# Prefs helpers
-# -------------------------
-
 def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    build_input_from_db can return:
-      "prefs": { "value": { ... } } or already a plain dict.
-    We want a plain dict for AI/logic.
-    """
     raw = analyze_input.get("prefs") or {}
     if isinstance(raw, dict) and "value" in raw and isinstance(raw["value"], dict):
         return raw["value"]
@@ -212,10 +154,6 @@ def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _two_a_day_cap_from_prefs(prefs: Dict[str, Any]) -> int:
-    """
-    prefs.preferences.two_a_day = { enabled: bool, max_days_per_week: int }
-    AI can choose which days are two-a-day, but must respect this cap (0..2).
-    """
     pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
     if not isinstance(pref_obj, dict):
         return 0
@@ -265,21 +203,10 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
     return None
 
 
-# -------------------------
-# External events -> normalized occurrences
-# -------------------------
 def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    service_list_external_events_window may return various shapes depending on implementation:
-      - {"success": True, "events": [...]}
-      - {"success": True, "occurrences": [...]}
-      - {"success": True, "window": {"events":[...]}}  (fallback)
-    We normalize to occurrences[] with {date,title,sport_raw,duration_min,...}.
-    """
     if not isinstance(ext_window, dict):
         return []
 
-    # try common keys
     raw_list: Any = ext_window.get("occurrences")
     if not isinstance(raw_list, list):
         raw_list = ext_window.get("events")
@@ -296,7 +223,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         if not isinstance(e, dict):
             continue
 
-        # accept multiple possible date keys
         occ_date = (
             e.get("occurrence_date")
             or e.get("date")
@@ -362,10 +288,6 @@ def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, we
     }
 
 
-# -------------------------
-# Context builder (DB -> AI context)
-# -------------------------
-
 def build_daily_context_from_db(
     user_id: int,
     *,
@@ -375,16 +297,8 @@ def build_daily_context_from_db(
     user_jwt: Optional[str],
     service: bool,
 ) -> Dict[str, Any]:
-    jwt = user_jwt
-
-    _dprint(
-        "START build_daily_context_from_db | user_id=",
-        user_id,
-        "| week_index=",
-        week_index,
-        "| plan_id(in)=",
-        plan_id,
-    )
+    # ✅ AUTH FIX: service=True => jwt=None (service client)
+    jwt = None if service else user_jwt
 
     # 1) resolve plan_id
     plan_id_effective: Optional[str] = plan_id
@@ -400,10 +314,10 @@ def build_daily_context_from_db(
                 plan_id_effective = meta2["plan_id"]
                 resolved_via = "latest_meta"
 
-    _dprint("plan_id_effective=", plan_id_effective, "| resolved_via=", resolved_via)
-
-    # 2) analyze input (prefs, recent_load, zones, thresholds)
+    # 2) analyze input
     analyze_input = build_input_from_db(user_id=user_id, user_jwt=jwt, service=service)
+    if not isinstance(analyze_input, dict):
+        analyze_input = {}
 
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
@@ -411,18 +325,6 @@ def build_daily_context_from_db(
     two_a_day_cap = _two_a_day_cap_from_prefs(prefs_ai)
     long_run_days = _long_run_days_from_prefs(prefs_ai)
     strength_target = _strength_sessions_target_from_prefs(prefs_ai)
-
-    _dprint(
-        "prefs summary:",
-        "main_sport=",
-        (prefs_ai.get("main_sport") if isinstance(prefs_ai, dict) else None),
-        "| two_a_day_cap=",
-        two_a_day_cap,
-        "| long_run_days=",
-        long_run_days,
-        "| strength_sessions_per_week=",
-        strength_target,
-    )
 
     recent_load = analyze_input.get("recent_load") or {}
     zones = analyze_input.get("zones") or {}
@@ -439,9 +341,6 @@ def build_daily_context_from_db(
             service=service,
         )
 
-    if not week_row:
-        _dprint("WARNING: week_row is None/empty. Check DB: coach_plan_weekly row exists for plan_id+week_index.")
-
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
         "week_start": week_row.get("week_start") if week_row else None,
@@ -456,10 +355,10 @@ def build_daily_context_from_db(
     # 4) external occurrences (DB) – ONLY hard constraint
     external_block: Optional[Dict[str, Any]] = None
     external_occurrences_norm: List[Dict[str, Any]] = []
+    external_fetch_error: Optional[str] = None
 
     if week_meta.get("week_start") and week_meta.get("week_end"):
         try:
-            _dprint("external_events: querying window", week_meta["week_start"], "->", week_meta["week_end"])
             ext_window = service_list_external_events_window(
                 user_id=user_id,
                 from_iso=str(week_meta["week_start"]),
@@ -468,26 +367,22 @@ def build_daily_context_from_db(
                 service=service,
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
-            _dprint("external_events: success=", ext_window.get("success"), "| normalized=", len(external_occurrences_norm))
 
             external_block = _build_external_block(
                 external_occurrences_norm,
                 week_meta["week_start"],
                 week_meta["week_end"],
             )
-        except Exception as e:
-            _dprint("external_events: ERROR", repr(e))
+        except Exception as e:  # noqa: BLE001
             external_block = None
             external_occurrences_norm = []
-    else:
-        _dprint("external_events: SKIP (missing week_start/week_end)")
+            external_fetch_error = repr(e)
 
     # 5) athlete_state
     state_row = db_get_latest_state_for_user(user_id=user_id, version=1, user_jwt=jwt, service=service)
     athlete_state_json = (state_row or {}).get("state_json") or None
-    _dprint("athlete_state:", "present" if athlete_state_json else "missing", "| state_row_id=", (state_row or {}).get("id"))
 
-    # 6) context payload for AI / services
+    # 6) context payload
     context_payload: Dict[str, Any] = {
         "schema_version": 2,
         "user_id": user_id,
@@ -501,7 +396,6 @@ def build_daily_context_from_db(
         "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
-        # small helper summary (optional, but makes prompts robust)
         "planning_constraints": {
             "two_a_day_max_days_per_week": int(two_a_day_cap),
             "long_run_days": long_run_days,
@@ -512,17 +406,9 @@ def build_daily_context_from_db(
 
     if external_block is not None:
         context_payload["external_events"] = external_block
-
-    _dprint(
-        "DONE build_daily_context_from_db | plan_id_effective=",
-        plan_id_effective,
-        "| week_start=",
-        week_meta.get("week_start"),
-        "| week_end=",
-        week_meta.get("week_end"),
-        "| external_occurrences_total=",
-        len(external_occurrences_norm),
-    )
+    elif external_fetch_error:
+        # optional: pomôže promptu + debug
+        context_payload["planning_constraints"]["external_events_fetch_error"] = external_fetch_error
 
     return {
         "context_payload": context_payload,

@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-import os
 import json
 
 from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
@@ -31,31 +30,6 @@ from Services.AI.daily_plan_builders import (
 )
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
-
-
-# -----------------------------------------------------------------------------
-# DEBUG (env-controlled)
-# -----------------------------------------------------------------------------
-# zapnes:
-#   DAILY_DEBUG=1
-# vypnes:
-#   DAILY_DEBUG=0
-_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG", "0") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
-
-def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED:
-        return
-    try:
-        msg = " ".join(str(p) for p in parts)
-        print(f"[DAILY] {msg}")
-    except Exception:
-        pass
 
 
 def _append_note(existing: Any, extra: str) -> str:
@@ -87,7 +61,6 @@ def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
         sessions = day.get("sessions")
         if not isinstance(sessions, list):
             continue
-        # keep only dict sessions for indexing
         dict_sessions = [s for s in sessions if isinstance(s, dict)]
         for i, s in enumerate(dict_sessions):
             s["session_index"] = i
@@ -136,7 +109,6 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             if str(s.get("session_type") or "").strip().lower() == "external_event":
                 continue
 
-            # konzistentný produkt (zatiaľ vždy 75)
             s["duration_min"] = 75
             s["session_type"] = s.get("session_type") or "strength_full"
             s["intensity"] = s.get("intensity") or "moderate"
@@ -184,37 +156,14 @@ def service_generate_daily_week(
 ) -> Dict[str, Any]:
     jwt = user_jwt if service else require_jwt(user_jwt)
 
-    # allow forcing debug on Railway without FE
-    if str(os.getenv("DAILY_DEBUG", "0") or "").strip().lower() in {"1", "true", "yes", "on"}:
-        debug = True
-
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
     daily_model = model
 
-    _dprint("=== service_generate_daily_week start ===")
-    _dprint(
-        "user_id=",
-        user_id,
-        "| week_index=",
-        week_index,
-        "| plan_id_in=",
-        plan_id,
-        "| overwrite=",
-        overwrite,
-        "| model=",
-        daily_model,
-        "| debug=",
-        debug,
-        "| service=",
-        service,
-    )
-
     # quota only for non-service calls
     if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
         used = get_user_monthly_usage_tokens(user_id)
-        _dprint("quota exceeded:", used)
         return {
             "daily_plan": None,
             "plan_id": plan_id,
@@ -236,7 +185,7 @@ def service_generate_daily_week(
             },
         }
 
-    # 1) context z buildera (NEW: no day_constraints; external events are in context for AI)
+    # 1) context z buildera
     ctx = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
@@ -252,17 +201,15 @@ def service_generate_daily_week(
     state_row: Optional[Dict[str, Any]] = ctx["state_row"]
     prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
 
-    _dprint("plan_id_effective=", plan_id_effective)
-    _dprint("week_meta=", json.dumps(week_meta, ensure_ascii=False))
-
-    # 2) LLM -> FULL weekly plan (AI must include external events)
+    # 2) AI -> plan
     ai_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
-        debug_raw=debug,
     )
     if not isinstance(ai_plan, dict):
         ai_plan = {}
+    if not isinstance(trace, dict):
+        trace = {}
 
     week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
     week_end = str(week_meta.get("week_end") or ai_plan.get("week_end") or "") or None
@@ -276,25 +223,30 @@ def service_generate_daily_week(
     if plan_id_effective:
         ai_plan["plan_id"] = plan_id_effective
 
-    _dprint(
-        "ai_plan meta:",
-        "model=",
-        ai_plan.get("model"),
-        "| generated_at=",
-        ai_plan.get("generated_at"),
-        "| week_start=",
-        week_start,
-        "| week_end=",
-        week_end,
-        "| days=",
-        (len(ai_plan.get("days") or []) if isinstance(ai_plan.get("days"), list) else "na"),
-    )
-
     daily_plan = ai_plan
 
     # --- Safety: do not overwrite DB with empty plan ---
     days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
     if days_n == 0:
+        # billing aj tak spravíme (ak máme usage)
+        usage = extract_usage_from_trace(trace)
+        if usage:
+            used_model = str(daily_plan.get("model") or getattr(usage, "model", None) or daily_model or "")
+            if used_model:
+                usage["model"] = used_model
+            try:
+                log_ai_usage_for_user(
+                    user_id=user_id,
+                    usage=usage,
+                    job_type="coach.generate_daily_plan",
+                    source="service" if service else "user",
+                    billed_via="internal",
+                    charge_wallet=False,
+                    meta={"week_index": week_index, "plan_id": plan_id_effective},
+                )
+            except Exception as e:  # noqa: BLE001
+                print("[AI_BILLING] daily_plan billing error:", repr(e))
+
         return {
             "daily_plan": daily_plan,
             "plan_id": plan_id_effective,
@@ -310,19 +262,20 @@ def service_generate_daily_week(
             "warnings": ["daily_plan_empty"],
         }
 
-    # 3) normalize strength sessions (quality template) – no date moving
+    # 3) normalize strength sessions
     try:
         daily_plan = normalize_strength_sessions_quality(daily_plan)
     except Exception as e:  # noqa: BLE001
-        _dprint("normalize_strength_sessions_quality error:", repr(e))
+        print("normalize_strength_sessions_quality error:", repr(e))
 
-    # 4) billing
+    # 4) billing (always attempt)
     usage = extract_usage_from_trace(trace)
-    _dprint("usage extracted:", json.dumps(usage or {}, ensure_ascii=False))
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
-        if daily_model:
-            usage["model"] = daily_model
+        # prefer actual model used (from AI output or trace usage), fallback to caller model
+        used_model = str(daily_plan.get("model") or usage.get("model") or daily_model or "").strip()
+        if used_model:
+            usage["model"] = used_model
         try:
             billing_result = log_ai_usage_for_user(
                 user_id=user_id,
@@ -334,7 +287,7 @@ def service_generate_daily_week(
                 meta={"week_index": week_index, "plan_id": plan_id_effective},
             )
         except Exception as e:  # noqa: BLE001
-            _dprint("[AI_BILLING] daily_plan billing error:", repr(e))
+            print("[AI_BILLING] daily_plan billing error:", repr(e))
 
     # 5) strength mapper – doplní konkrétne cviky
     strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
@@ -343,8 +296,6 @@ def service_generate_daily_week(
         available_equipment = []
 
     equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
-
-    _dprint("strength_mapper:", "equipment_mode=", equipment_mode, "| available_equipment=", available_equipment)
 
     daily_plan = enrich_daily_plan_with_strength_exercises(
         user_id=user_id,
@@ -371,17 +322,14 @@ def service_generate_daily_week(
             user_jwt=jwt,
             service=service,
         )
-    _dprint("db_clear:", "deleted_rows=", deleted_rows)
 
     rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
         user_id=user_id,
         plan_id=plan_id_effective,
         daily_plan=daily_plan,
     )
-    _dprint("rows_to_insert=", len(rows_to_insert))
 
     inserted_rows = db_insert_daily_rows(rows_to_insert, user_jwt=jwt, service=service) if rows_to_insert else 0
-    _dprint("db_insert:", "inserted_rows=", inserted_rows)
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
@@ -390,20 +338,20 @@ def service_generate_daily_week(
         "week_start": daily_plan.get("week_start") or week_meta.get("week_start"),
         "week_end": daily_plan.get("week_end") or week_meta.get("week_end"),
         "state_id": (state_row or {}).get("id"),
-        "model": daily_model,
+        "model": daily_plan.get("model") or daily_model,
         "overwrite": overwrite,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
+        "error": None,
     }
 
     if debug:
-        resp["debug"] = trace
+        resp["debug_trace"] = trace
         resp["context_payload"] = context_payload
         resp["ai_usage"] = usage
         resp["billing"] = billing_result
         resp["ai_plan_raw"] = ai_plan
 
-    _dprint("=== service_generate_daily_week done ===")
     return resp
 
 

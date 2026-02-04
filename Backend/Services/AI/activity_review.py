@@ -1,3 +1,4 @@
+# Services/AI/activity_review.py
 from __future__ import annotations
 
 import json
@@ -39,18 +40,13 @@ def _default_ai_model() -> str:
 
 
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Service-level minify:
-    - drop internal user id
-    - drop any debug blocks (we print them in logs anyway)
-    """
     ctx = json.loads(json.dumps(payload, default=str))
 
     u = ctx.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
 
-    # ak by sa niekde objavil _debug
+    # nikdy neposielame debug bloky do AI
     ctx.pop("_debug", None)
     return ctx
 
@@ -69,7 +65,6 @@ def service_activity_review(
     # quota (len user-triggered)
     if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
         used = get_user_monthly_usage_tokens(user_id)
-
         return {
             "ok": False,
             "activity_id": activity_id,
@@ -78,6 +73,8 @@ def service_activity_review(
             "summary": None,
             "highlights": None,
             "recommendations": None,
+            "trace": None,
+            "ai_usage": None,
             "error": {
                 "code": "ai_quota_exceeded",
                 "message": "Mesačný limit AI bol vyčerpaný.",
@@ -85,7 +82,7 @@ def service_activity_review(
             },
         }
 
-    # build input (builder prints DB info)
+    # build input (DB calls)
     input_data = build_review_input(
         user_id=user_id,
         activity_id=activity_id,
@@ -95,7 +92,7 @@ def service_activity_review(
 
     context_for_ai = _minify_context_for_ai(input_data)
 
-    # hard stop – ak nemáme metrics, nemá zmysel volať AI
+    # hard stop – ak nemáme metrics, AI sa nemá o čo oprieť
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
     metrics = act.get("metrics") if isinstance(act, dict) else None
 
@@ -108,32 +105,40 @@ def service_activity_review(
             "summary": None,
             "highlights": None,
             "recommendations": None,
-            "error": {"code": "missing_activity_data", "message": "Missing activity metrics (summary/enrichment not loaded)"},
-            "input": input_data,
+            "trace": {
+                "models_tried": [model_to_use],
+                "attempts": [],
+                "usage": None,
+                "ok_model": None,
+            },
+            "ai_usage": None,
+            "error": {
+                "code": "missing_activity_data",
+                "message": "Missing activity metrics (summary/enrichment not loaded)",
+            },
         }
 
-    # AI call
+    # AI call (generator má VŽDY vracať trace)
     review, trace = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model_to_use,
-        user_id=user_id,   # timezone/jazyk
-        debug_raw=True,    # nech trace existuje, keď provider vie
+        user_id=user_id,  # timezone/jazyk
     )
+
+    if not isinstance(trace, dict):
+        trace = {"models_tried": [model_to_use], "attempts": [], "usage": None, "ok_model": None}
 
     if not isinstance(review, dict):
         review = {}
 
     review.setdefault("schema_version", 1)
     review.setdefault("generated_at", _now_iso())
-    review["model"] = str(review.get("model") or model_to_use)
+    review["model"] = str(review.get("model") or trace.get("ok_model") or model_to_use)
     review.setdefault("activity_id", activity_id)
 
-    # billing
-    print("[AR][service] trace", trace)
-    usage = extract_usage_from_trace(trace)
-
+    # ✅ billing (usage = z trace; model doplníme fallbackom)
+    usage = extract_usage_from_trace(trace, model_fallback=review["model"])
     if usage:
-        usage["model"] = review["model"]
         try:
             log_ai_usage_for_user(
                 user_id=user_id,
@@ -147,11 +152,12 @@ def service_activity_review(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] activity_review billing error:", repr(e))
 
+    # ✅ DB (len output JSON)
     try:
-        ok = db_update_ai_review_one(
+        db_update_ai_review_one(
             user_id=user_id,
             activity_id=activity_id,
-            ai_review=review,  # iba AI output JSON
+            ai_review=review,
             user_jwt=jwt if not service else None,
             service=service,
         )
@@ -166,7 +172,7 @@ def service_activity_review(
         "summary": review.get("summary"),
         "highlights": review.get("highlights"),
         "recommendations": review.get("next_steps"),
+        "trace": trace,      # ✅ ALWAYS
+        "ai_usage": usage,   # ✅ best-effort
         "error": None,
     }
-
-service_review_activity = service_activity_review

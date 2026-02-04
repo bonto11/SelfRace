@@ -1,3 +1,4 @@
+# Services/AI/provider.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -30,7 +31,6 @@ def ai_call_json_model(
     user_instructions: str,
     model: Optional[str] = None,
     max_tokens: int = 2000,
-    debug_raw: bool = False,
     temperature: float = 0.2,
 ) -> AiResult[Dict[str, Any]]:
     p = _provider()
@@ -45,7 +45,6 @@ def ai_call_json_model(
             user_instructions=user_instructions,
             model=m,
             max_tokens=max_tokens,
-            debug_raw=debug_raw,
             temperature=temperature,
         )
 
@@ -57,6 +56,12 @@ def ai_call_json_model(
                 error=AiError(code="ai_missing_key", message="Missing GEMINI_API_KEY"),
                 provider="gemini",
                 model=(m or "unknown"),
+                trace={
+                    "models_tried": [m or "unknown"],
+                    "attempts": [],
+                    "usage": None,
+                    "ok_model": None,
+                },
             )
 
         from Services.AI.gemini_client import gemini_call_json_model
@@ -67,7 +72,6 @@ def ai_call_json_model(
             user_instructions=user_instructions,
             model=m,
             max_tokens=max_tokens,
-            debug_raw=debug_raw,
             temperature=temperature,
         )
 
@@ -80,4 +84,10 @@ def ai_call_json_model(
         ),
         provider=p,
         model=(m or "unknown"),
+        trace={
+            "models_tried": [m or "unknown"],
+            "attempts": [],
+            "usage": None,
+            "ok_model": None,
+        },
     )

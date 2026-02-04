@@ -71,24 +71,15 @@ def service_generate_weekly_plan(
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
     model: Optional[str] = None,
-    debug: bool = False,
 ) -> Dict[str, Any]:
     """
     Hlavná service pre weekly plán.
 
-    Nový štýl:
-      - model je voliteľný (keď None, provider/generator si vyberie default)
-      - resp["model"] preferuje model z AI výstupu, ak ho AI vráti
-
-    SAFE pravidlá:
-      - debug=False → nevraciame FE celý weekly_plan (len meta)
-      - debug=True  → weekly_plan + trace
+    Aktuálne: vraciame aj weekly_plan + trace + usage (na FE tuning).
+    Neskôr to môžeš stripnúť pred odoslaním do FE.
     """
     # --- auth ---
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     # --- quota (len user-trigger) ---
     if not service and is_user_over_token_quota(
@@ -110,7 +101,7 @@ def service_generate_weekly_plan(
             ),
         }
 
-    # --- build context (LLM payload nemeníme) ---
+    # --- build context ---
     ctx = build_weekly_context_from_db(
         user_id=user_id,
         user_jwt=jwt,
@@ -126,22 +117,23 @@ def service_generate_weekly_plan(
     used_state_id = state_bundle["state_id"]
 
     # --- AI call ---
-    # Pozn.: generate_weekly_plan_json u teba musí mať model: Optional[str],
-    # alebo sem posielame string (model or "").
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
-        model=model,     # ✅ bezpečné aj keď model=None
-        debug_raw=debug,
+        model=model,  # None => provider default
     )
 
     if not isinstance(weekly_plan, dict):
         weekly_plan = {}
 
-    # preferuj model, ktorý AI vráti (ak vráti), inak "auto" / explicit model
+    # TRACE: chceme vždy dict (kvôli FE tuning / billing)
+    if not isinstance(trace, dict):
+        trace = {}
+
+    # preferuj model, ktorý AI vráti (ak vráti)
     model_used = str(weekly_plan.get("model") or model or "auto")
 
     # --- billing (best effort) ---
-    usage = extract_usage_from_trace(trace) if trace else None
+    usage = extract_usage_from_trace(trace)
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
         usage["model"] = model_used
@@ -233,7 +225,7 @@ def service_generate_weekly_plan(
         service=service,
     )
 
-    # --- SAFE RESPONSE (default) ---
+    # --- RESPONSE ---
     error_norm = _normalize_weekly_error(weekly_plan.get("error"))
 
     resp: Dict[str, Any] = {
@@ -250,12 +242,11 @@ def service_generate_weekly_plan(
     if meta_row is not None:
         resp["plan_meta"] = meta_row
 
-    # --- DEBUG (only when explicitly requested) ---
-    if debug:
-        resp["weekly_plan"] = weekly_plan
-        resp["debug_trace"] = trace
-        resp["ai_usage"] = usage
-        resp["billing"] = billing_result
+    # dočasne vraciame všetko (na FE ladenie)
+    resp["weekly_plan"] = weekly_plan
+    resp["debug_trace"] = trace
+    resp["ai_usage"] = usage
+    resp["billing"] = billing_result
 
     return resp
 

@@ -45,7 +45,6 @@ def _now_iso() -> str:
 def _default_ai_model() -> str:
     """
     Default model podľa aktuálneho providera.
-    Toto je len fallback pre prípady, keď caller nedá explicit model.
     """
     p = (AI_PROVIDER or "openai").strip().lower()
     if p == "gemini":
@@ -66,10 +65,7 @@ def service_save_state_to_db(
     """
     Uloží AI stav atleta do coach_athlete_state.
     """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     model = str(analysis.get("model") or "Trainalyze Coach")
     version = int(analysis.get("schema_version") or 1)
@@ -89,14 +85,7 @@ def service_get_athlete_state_by_id(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Načíta konkrétny záznam z coach_athlete_state podľa id
-    a rozbalí state_json do samostatného kľúča "state".
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_state_by_id(
         state_id,
@@ -126,13 +115,7 @@ def service_get_latest_athlete_state(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Najnovší stav pre usera (podľa created_at DESC).
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_latest_state_for_user(
         user_id=user_id,
@@ -163,14 +146,7 @@ def service_list_athlete_states_meta(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    """
-    História stavov – len meta info (bez state_json),
-    vhodné na výpis v UI / debug.
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     rows = db_list_states_for_user(
         user_id=user_id,
@@ -207,16 +183,16 @@ def service_analyze_athlete(
 
     - service=False (FE): kontroluje mesačný limit AI tokenov.
     - service=True  (cron/webhook): ignoruje limit, ide cez service klienta.
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
 
-    # resolve model (provider-aware default)
+    Dôležité:
+    - trace/usage sa počítajú vždy (kvôli billing).
+    - do FE ich posielame len keď debug=True.
+    """
+    jwt = None if service else require_jwt(user_jwt)
+
     model_to_use = (model or _default_ai_model()).strip()
 
-    # 0) QUOTA CHECK – obmedzenie pre user-trigger volania
+    # 0) QUOTA CHECK – len user-trigger
     if not service and is_user_over_token_quota(
         user_id,
         user_jwt=jwt,
@@ -248,7 +224,7 @@ def service_analyze_athlete(
     # 1b) Kontext pre AI – deep copy + drop interných polí
     context_for_ai = json.loads(json.dumps(input_data, default=str))
 
-    # drop internal user id z AI payloadu (PII / internal)
+    # drop internal user id
     try:
         u = context_for_ai.get("user")
         if isinstance(u, dict):
@@ -267,12 +243,14 @@ def service_analyze_athlete(
     except Exception:
         pass
 
-    # 2) AI CALL – generator nech sa postará o provider (ďalší krok),
+    # 2) AI CALL
+    # POZOR: generator MUSÍ vracať trace vždy (aj bez debug flagov)
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,
-        debug_raw=debug,
     )
+    if not isinstance(trace, dict):
+        trace = {}
 
     if not isinstance(analysis, dict):
         analysis = {}
@@ -299,7 +277,7 @@ def service_analyze_athlete(
             print("[AI_BILLING] analyze_state billing error:", repr(e))
     # =======================================================
 
-    # 2b) deterministic plan_adjustment z našich heuristík
+    # 2b) deterministic plan_adjustment (heuristics)
     try:
         signals = compute_plan_adjustment_signals(
             analyze_input=input_data,
@@ -355,9 +333,12 @@ def service_analyze_athlete(
         "model": str(analysis.get("model") or model_to_use),
         "analysis": analysis,
         "input": input_data,
+        "error": None,
     }
     if compare_previous is not None:
         resp["compare_previous"] = compare_previous
+
+    # do FE len keď debug (aby si to vedel neskôr minify/odstrániť)
     if debug:
         resp["debug_trace"] = trace
         resp["ai_usage"] = usage
@@ -377,11 +358,12 @@ def service_compare_latest_athlete_states(
     """
     Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
     Report sa zároveň uloží do compare_previous na najnovšom state.
+
+    Dôležité:
+    - trace/usage sa počítajú vždy.
+    - do FE ich posielame len keď debug=True.
     """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     model_to_use = (model or _default_ai_model()).strip()
 
@@ -426,12 +408,15 @@ def service_compare_latest_athlete_states(
         current_state=current_state,
         model=model_to_use,
         user_id=user_id,
-        debug_raw=debug,
     )
+    if not isinstance(trace, dict):
+        trace = {}
 
     if not isinstance(report, dict):
         report = {}
 
+    report.setdefault("schema_version", 1)
+    report.setdefault("generated_at", _now_iso())
     report["model"] = str(report.get("model") or model_to_use)
 
     # === AI BILLING – usage za PROGRESS REPORT ============
@@ -487,6 +472,7 @@ def service_compare_latest_athlete_states(
         "report": report,
         "source": "generated",
     }
+
     if debug:
         resp["debug_trace"] = trace
         resp["ai_usage"] = usage
@@ -501,13 +487,7 @@ def service_get_latest_athlete_progress(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Najnovší progress report (compare_previous) pre usera.
-    """
-    if service:
-        jwt = None
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_latest_athlete_progress(
         user_id=user_id,

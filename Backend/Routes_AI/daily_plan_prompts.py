@@ -5,27 +5,6 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-# -----------------------------------------------------------------------------
-# DEBUG (env controlled)
-# -----------------------------------------------------------------------------
-_DEBUG_ENABLED = str(os.getenv("DAILY_DEBUG") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
-
-def _dprint(*parts: Any) -> None:
-    if not _DEBUG_ENABLED:
-        return
-    try:
-        msg = " ".join(str(p) for p in parts)
-        print(f"[DAILY_PROMPTS] {msg}")
-    except Exception:
-        pass
-
-
 def _safe_int(
     v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
 ) -> int:
@@ -125,33 +104,6 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             "language": us.get("language"),
             "timezone": us.get("timezone"),
         }
-
-    try:
-        wk = ctx2.get("week") or {}
-        ext = ctx2.get("external_events") or {}
-        ext_n = len(ext.get("occurrences") or []) if isinstance(ext, dict) else 0
-        pref_obj2 = (ctx2.get("prefs") or {}).get("preferences") or {}
-        two = pref_obj2.get("two_a_day") or {}
-        strength = (ctx2.get("prefs") or {}).get("strength_settings") or {}
-        _dprint(
-            "_minify_context_for_ai:",
-            "week_start=",
-            wk.get("week_start"),
-            "week_end=",
-            wk.get("week_end"),
-            "| external_occurrences=",
-            ext_n,
-            "| two_a_day=",
-            json.dumps(two, ensure_ascii=False)[:160],
-            "| intensity_model=",
-            pref_obj2.get("intensity_model"),
-            "| blocks=",
-            json.dumps(pref_obj2.get("training_blocks") or {}, ensure_ascii=False)[:160],
-            "| strength_sessions_per_week=",
-            strength.get("sessions_per_week"),
-        )
-    except Exception as e:
-        _dprint("_minify_context_for_ai: debug summary failed:", repr(e))
 
     return ctx2
 
@@ -282,34 +234,6 @@ def _build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
-
-    _dprint(
-        "build_prompts:",
-        "week_index=",
-        week_index,
-        "| range=",
-        week_start,
-        "..",
-        week_end,
-        "| main_sport=",
-        main_sport,
-        "| planned_minutes=",
-        planned_minutes,
-        "| external_occurrences=",
-        ext_count,
-        "| two_a_day_cap=",
-        two_cap,
-        "| long_run_days=",
-        long_run_days,
-        "| strength_target=",
-        strength_target_int,
-        "| avoid_b2b_hard=",
-        avoid_back_to_back_hard,
-        "| intensity_model=",
-        intensity_model,
-        "| blocks=",
-        blocks_str,
-    )
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -452,7 +376,6 @@ def _build_prompts_for_daily(
             "- You MUST NOT invent calendar dates.\n"
             "- Return days: [] and add warnings: ['missing_week_range'].\n"
         )
-        _dprint("build_prompts: FALLBACK MODE active (missing week_start/week_end)")
 
     context_for_ai = _minify_context_for_ai(context_payload)
 
@@ -493,5 +416,4 @@ def _build_prompts_for_daily(
         + "- For EVERY session_type='external_event', payload.external_event is REQUIRED and must match the exact keys/rules above.\n"
     )
 
-    _dprint("prompt sizes: system_chars=", len(system_txt), "| user_chars=", len(user_txt))
     return system_txt, user_txt, [], strength_target_int

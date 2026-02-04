@@ -40,60 +40,59 @@ def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
     return datetime.now(tzinfo).isoformat()
 
 
-def _trace_base(
-    *,
-    provider: str,
-    model: str,
-    debug_raw: bool,
-    ai_debug_trace: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     """
-    Normalizovaný trace objekt pre FE/billing:
-      - models_tried: list
-      - attempts: list
-      - usage: dict (zatiaľ prázdne, kým nevyťahujeme tokeny z providerov)
+    Minimal trace objekt (keď klient nič nevrátil).
     """
-    t: Dict[str, Any] = {
+    return {
         "provider": provider,
         "models_tried": [],
         "attempts": [],
-        "usage": {},
+        "usage": None,   # sem sa má ukladať {prompt_tokens, completion_tokens, total_tokens, reasoning_tokens}
         "ok_model": model,
     }
 
-    # ak provider vrátil vlastný trace (napr. z AiError.trace), skús ho prebrať
-    if isinstance(ai_debug_trace, dict):
-        mt = ai_debug_trace.get("models_tried")
-        at = ai_debug_trace.get("attempts")
-        if isinstance(mt, list):
-            t["models_tried"] = mt
-        if isinstance(at, list):
-            t["attempts"] = at
 
-        # ak niekedy doplníme usage do trace v clients, tu to automaticky preberie
-        u = ai_debug_trace.get("usage")
-        if isinstance(u, dict):
-            t["usage"] = u
+def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
+    """
+    ✅ Trace vždy:
+    - primárne res.trace (nové správanie ako pri activity_review)
+    - fallback na res.error.trace (ak ešte niekde zostalo staré správanie)
+    - inak minimálny fallback
+    """
+    provider = str(getattr(res, "provider", None) or "unknown")
+    used_model = str(getattr(res, "model", None) or requested_model)
 
-        # raw/cleaned len ak debug
-        if debug_raw:
-            if "raw" in ai_debug_trace:
-                t["raw"] = ai_debug_trace.get("raw")
-            if "cleaned" in ai_debug_trace:
-                t["cleaned"] = ai_debug_trace.get("cleaned")
+    tr = getattr(res, "trace", None)
+    if isinstance(tr, dict):
+        # doplň povinné polia, ak by chýbali
+        tr.setdefault("provider", provider)
+        tr.setdefault("models_tried", [])
+        tr.setdefault("attempts", [])
+        tr.setdefault("usage", None)
+        tr.setdefault("ok_model", used_model)
+        return tr
 
-    return t
+    err = getattr(res, "error", None)
+    tr2 = getattr(err, "trace", None) if err is not None else None
+    if isinstance(tr2, dict):
+        tr2.setdefault("provider", provider)
+        tr2.setdefault("models_tried", [])
+        tr2.setdefault("attempts", [])
+        tr2.setdefault("usage", None)
+        tr2.setdefault("ok_model", used_model)
+        return tr2
+
+    return _trace_fallback(provider=provider, model=used_model)
 
 
 def generate_athlete_state_json(
     context_payload: dict,
     model: str,
-    *,
-    debug_raw: bool = False,
-) -> Tuple[dict, Optional[dict]]:
+) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-aware (OpenAI/Gemini) generate analyze JSON.
-    Zachováva pôvodný výstup + fallback štruktúru.
+    ✅ Vracia (data, trace) VŽDY.
     """
     user_id = _safe_user_id_from_context(context_payload)
 
@@ -111,41 +110,34 @@ def generate_athlete_state_json(
         settings=settings,
     )
 
-    # Provider call (OpenAI alebo Gemini podľa AI_PROVIDER)
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
-        debug_raw=debug_raw,
-        # max_tokens/temperature nech sa riadia globálne (Configs/env),
-        # ale keď chceš override sem, môžeš doplniť:
-        # max_tokens=...,
-        # temperature=...,
     )
+
+    trace = _get_trace_from_result(res, requested_model=model)
 
     # --- Success path ---
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
-        parsed: Dict[str, Any] = dict(res.data)
+        parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
 
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
         parsed["generated_at"] = parsed.get("generated_at") or now_local
         parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
 
-        # Trace (ak clients nepodporujú success-trace, stále dáme aspoň meta)
-        trace = _trace_base(
-            provider=str(getattr(res, "provider", None) or "unknown"),
-            model=str(getattr(res, "model", None) or model),
-            debug_raw=debug_raw,
-            ai_debug_trace=(getattr(getattr(res, "error", None), "trace", None) if debug_raw else None),
-        )
+        # sync trace ok_model
+        if isinstance(trace, dict) and not trace.get("ok_model"):
+            trace["ok_model"] = parsed["model"]
 
-        return parsed, (trace if debug_raw else None)
+        return parsed, trace
 
     # --- Failure path ---
     provider_name = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or model)
+
     err_msg = None
     try:
         err = getattr(res, "error", None)
@@ -192,16 +184,12 @@ def generate_athlete_state_json(
         "error": last_err,
     }
 
-    trace = _trace_base(
-        provider=provider_name,
-        model=used_model,
-        debug_raw=debug_raw,
-        ai_debug_trace=(getattr(getattr(res, "error", None), "trace", None) if debug_raw else None),
-    )
-    if debug_raw:
-        trace["error"] = last_err
+    # doplň trace error (ale trace nech je vždy)
+    trace.setdefault("provider", provider_name)
+    trace.setdefault("ok_model", used_model)
+    trace["error"] = last_err
 
-    return fallback, (trace if debug_raw else None)
+    return fallback, trace
 
 
 def generate_athlete_progress_report(
@@ -210,11 +198,10 @@ def generate_athlete_progress_report(
     current_state: dict,
     model: str,
     user_id: Optional[int] = None,
-    debug_raw: bool = False,
-) -> Tuple[dict, Optional[dict]]:
+) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-aware progress report.
-    Zachováva pôvodný výstup + fallback štruktúru.
+    ✅ Vracia (data, trace) VŽDY.
     """
     settings: Dict[str, Any] = {}
     if user_id:
@@ -231,10 +218,6 @@ def generate_athlete_progress_report(
         settings=settings,
     )
 
-    # Pri progress reporte dáva zmysel poslať kontext ako dict.
-    # Ak tvoj prompt builder už vkladá JSON do user_txt, je to stále OK,
-    # len sa kontext pošle dvakrát (nie fatálne).
-    # Keď budeš chcieť, zoptimalizujeme prompt builder aby nevkladal JSON.
     context_payload = {
         "previous_state": previous_state,
         "current_state": current_state,
@@ -247,28 +230,26 @@ def generate_athlete_progress_report(
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
-        debug_raw=debug_raw,
     )
 
+    trace = _get_trace_from_result(res, requested_model=model)
+
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
-        parsed: Dict[str, Any] = dict(res.data)
+        parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
 
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
         parsed["generated_at"] = parsed.get("generated_at") or now_local
         parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
 
-        trace = _trace_base(
-            provider=str(getattr(res, "provider", None) or "unknown"),
-            model=str(getattr(res, "model", None) or model),
-            debug_raw=debug_raw,
-            ai_debug_trace=(getattr(getattr(res, "error", None), "trace", None) if debug_raw else None),
-        )
+        if isinstance(trace, dict) and not trace.get("ok_model"):
+            trace["ok_model"] = parsed["model"]
 
-        return parsed, (trace if debug_raw else None)
+        return parsed, trace
 
     provider_name = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or model)
+
     err_msg = None
     try:
         err = getattr(res, "error", None)
@@ -292,13 +273,8 @@ def generate_athlete_progress_report(
         "error": last_err,
     }
 
-    trace = _trace_base(
-        provider=provider_name,
-        model=used_model,
-        debug_raw=debug_raw,
-        ai_debug_trace=(getattr(getattr(res, "error", None), "trace", None) if debug_raw else None),
-    )
-    if debug_raw:
-        trace["error"] = last_err
+    trace.setdefault("provider", provider_name)
+    trace.setdefault("ok_model", used_model)
+    trace["error"] = last_err
 
-    return fallback, (trace if debug_raw else None)
+    return fallback, trace

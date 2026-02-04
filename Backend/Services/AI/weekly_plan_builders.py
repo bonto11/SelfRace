@@ -1,12 +1,11 @@
 # Services/AI/weekly_plan_builders.py
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional, List
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
-    COACH_PLAN_DEAFULT_WEEKS,  # pozn.: historický názov, nechávame
+    COACH_PLAN_DEAFULT_WEEKS,  # historický názov, nechávame
     COACH_PLAN_MAX_WEEKS,
 )
 
@@ -18,25 +17,7 @@ from Routes_DB.coach_athlete_state import (
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
-
-
-def _debug_enabled() -> bool:
-    return (os.getenv("COACH_DEBUG", "") or "").lower() in ("1", "true", "yes", "on")
-
-
-def _include_full_analyze_input() -> bool:
-    # explicit opt-in; debug tiež povoľ
-    return _debug_enabled() or (os.getenv("COACH_INCLUDE_ANALYZE_INPUT", "") or "").lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-
-
-def _dbg(*args: Any) -> None:
-    if _debug_enabled():
-        print(*args)
+from Services.users import require_jwt
 
 
 def load_athlete_state_for_plan(
@@ -53,7 +34,8 @@ def load_athlete_state_for_plan(
       1) explicitný state_id (ak existuje),
       2) najnovší stav pre usera (version=1).
     """
-    jwt = user_jwt
+    jwt = None if service else require_jwt(user_jwt)
+
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
@@ -145,7 +127,6 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
             if not isinstance(a, dict):
                 continue
 
-            # NOTE: v athlete_state_builders ukladáš "duration_min" + "distance_km"
             dur_min = (
                 a.get("duration_min")
                 or a.get("moving_time_min")
@@ -160,9 +141,7 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
                     "avg_hr": a.get("avg_hr"),
                     "load": a.get("load") or a.get("trimp"),
                     "day_offset": a.get("day_offset"),
-                    # ak máš relatívne dátumy (today/today-N), nechaj to
                     "date": a.get("date"),
-                    # basic zone mins ak sú (benefit pre weekly)
                     "z1_min": a.get("z1_min"),
                     "z2_min": a.get("z2_min"),
                     "z3_min": a.get("z3_min"),
@@ -175,7 +154,6 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
                 break
         ai["last_activities"] = trimmed
 
-    # drop raw streams/laps/splits ak by sa objavili
     ai.pop("streams", None)
     ai.pop("laps", None)
     ai.pop("splits", None)
@@ -228,26 +206,16 @@ def build_weekly_context_from_db(
     athlete_state = state_bundle["state"]
 
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
-
-    _dbg("[DB-COACH-WEEKLY] weeks(payload):", weeks)
-    _dbg("[DB-COACH-WEEKLY] prefs_ai.weeks:", prefs_ai.get("weeks"))
-    _dbg("[DB-COACH-WEEKLY] raw_weeks:", raw_weeks)
-
-    horizon_weeks = max(
-        COACH_PLAN_MIN_WEEKS,
-        min(raw_weeks, COACH_PLAN_MAX_WEEKS),
-    )
+    horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
     analyze_input_min = _minify_analyze_input_for_weekly(analyze_input)
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
-        # držíš user_id kvôli server-side logike (settings, billing, meta)
         "user_id": user_id,
         "weeks": horizon_weeks,
         "overwrite": overwrite,
         "prefs": prefs_ai,
-        # ✅ default: only minified
         "analyze_input_min": analyze_input_min,
         "athlete_state": athlete_state,
         "athlete_state_meta": {
@@ -257,10 +225,6 @@ def build_weekly_context_from_db(
             "created_at": state_bundle.get("created_at"),
         },
     }
-
-    # opt-in: full analyze_input iba keď chceš
-    if _include_full_analyze_input():
-        context_payload["analyze_input"] = analyze_input
 
     if external_events_block is not None:
         context_payload["external_events"] = external_events_block

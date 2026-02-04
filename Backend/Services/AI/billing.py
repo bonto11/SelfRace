@@ -1,3 +1,4 @@
+# Services/AI/billing.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -20,18 +21,25 @@ from Services.app_subscription import (
 
 # ---------------------- usage extraction ----------------------
 
-
-def extract_usage_from_trace(trace: Any) -> Optional[Dict[str, Any]]:
+def extract_usage_from_trace(trace: Any, *, model_fallback: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Bezpečne vytiahne usage dict z trace (ak existuje).
+    Bezpečne vytiahne usage dict z trace (ak existuje) v NOVOM formáte.
 
-    Očakávaný formát:
-      trace["usage"] = {
+    Očakávame:
+      trace = {
+        "models_tried": [...],
+        "attempts": [...],
+        "usage": { "prompt_tokens": int, "completion_tokens": int, "total_tokens": int, ... } | None,
+        "ok_model": "gpt-4o-mini" | None
+      }
+
+    Vrátime jednotný dict pre billing:
+      {
         "model": str,
         "prompt_tokens": int,
         "completion_tokens": int,
         "total_tokens": int,
-        # voliteľne: "reasoning_tokens": int
+        "reasoning_tokens": int
       }
     """
     if not isinstance(trace, dict):
@@ -41,26 +49,40 @@ def extract_usage_from_trace(trace: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(usage, dict):
         return None
 
+    def _i(x: Any) -> int:
+        try:
+            return int(x or 0)
+        except Exception:
+            return 0
+
+    # ✅ model už nie je v usage -> doplníme ho z trace
+    model = (
+        str(usage.get("model") or "").strip()
+        or str(trace.get("ok_model") or "").strip()
+        or str(trace.get("model") or "").strip()
+        or str(model_fallback or "").strip()
+        or "unknown"
+    )
+
     out: Dict[str, Any] = {
-        "model": str(usage.get("model") or ""),
-        "prompt_tokens": int(usage.get("prompt_tokens") or 0),
-        "completion_tokens": int(usage.get("completion_tokens") or 0),
-        "total_tokens": int(usage.get("total_tokens") or 0),
-        "reasoning_tokens": int(usage.get("reasoning_tokens") or 0),
+        "model": model,
+        "prompt_tokens": _i(usage.get("prompt_tokens")),
+        "completion_tokens": _i(usage.get("completion_tokens")),
+        "total_tokens": _i(usage.get("total_tokens")),
+        "reasoning_tokens": _i(usage.get("reasoning_tokens")),  # väčšinou 0
     }
 
-    if (
-        out["prompt_tokens"] == 0
-        and out["completion_tokens"] == 0
-        and out["total_tokens"] == 0
-    ):
+    # ak provider nedáva total_tokens, dopočítaj (bez vymýšľania)
+    if out["total_tokens"] <= 0 and (out["prompt_tokens"] > 0 or out["completion_tokens"] > 0):
+        out["total_tokens"] = out["prompt_tokens"] + out["completion_tokens"] + out["reasoning_tokens"]
+
+    if out["prompt_tokens"] == 0 and out["completion_tokens"] == 0 and out["total_tokens"] == 0:
         return None
 
     return out
 
 
 # ---------------------- core cost math ------------------------
-
 
 def _calc_cost_micros(
     *,
@@ -71,10 +93,6 @@ def _calc_cost_micros(
     price_output_micros_per_1k: int,
     price_reasoning_micros_per_1k: int,
 ) -> Dict[str, int]:
-    """
-    Čistá matematika – žiadny I/O.
-    Všetky ceny sú v µ (micros) na 1k tokenov.
-    """
     ti = max(int(input_tokens or 0), 0)
     to = max(int(output_tokens or 0), 0)
     tr = max(int(reasoning_tokens or 0), 0)
@@ -91,10 +109,7 @@ def _calc_cost_micros(
 
     cost_micros = cost_input + cost_output + cost_reason
 
-    if total_tokens > 0:
-        unit_price_micros = cost_micros // total_tokens
-    else:
-        unit_price_micros = 0
+    unit_price_micros = (cost_micros // total_tokens) if total_tokens > 0 else 0
 
     return {
         "total_tokens": total_tokens,
@@ -115,16 +130,10 @@ def log_ai_usage_and_charge(
     price_input_micros_per_1k: int,
     price_output_micros_per_1k: int,
     price_reasoning_micros_per_1k: int,
-    billed_via: str = "internal",  # 'internal' | 'included_quota' | 'wallet'
+    billed_via: str = "internal",
     meta: Optional[Dict[str, Any]] = None,
-    charge_wallet: bool = False,  # či má spraviť zápis do wallet
+    charge_wallet: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Zapíše ai_usage_events + (voliteľne) ai_wallet_transactions.
-
-    - čistú matematiku robí _calc_cost_micros
-    - DB zápisy idú cez Routes_DB.ai_billing
-    """
     if not user_id:
         raise ValueError("user_id is required")
 
@@ -177,14 +186,10 @@ def log_ai_usage_and_charge(
         tx_row: Dict[str, Any] = {
             "user_id": user_id,
             "kind": "usage_charge",
-            "amount_micros": -cost_micros,  # mínus = odpis
+            "amount_micros": -cost_micros,
             "source": "ai_usage",
             "related_usage_event_id": usage_id,
-            "meta": {
-                "job_type": job_type,
-                "model": model,
-                **meta,
-            },
+            "meta": {"job_type": job_type, "model": model, **meta},
         }
         try:
             wallet_tx = db_insert_ai_wallet_transaction(tx_row)
@@ -201,7 +206,6 @@ def log_ai_usage_and_charge(
 
 # ---------------------- high-level helpers -------------------
 
-
 def log_ai_usage_for_user(
     *,
     user_id: int,
@@ -212,20 +216,8 @@ def log_ai_usage_for_user(
     charge_wallet: bool = False,
     meta: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Vezme usage dict z extract_usage_from_trace a:
-
-      - vyberie model a tokeny,
-      - vytiahne pricing z Configs.ai_pricing,
-      - zavolá log_ai_usage_and_charge.
-    """
     if not user_id or not usage:
-        return {
-            "usage": None,
-            "wallet_tx": None,
-            "total_tokens": 0,
-            "cost_micros": 0,
-        }
+        return {"usage": None, "wallet_tx": None, "total_tokens": 0, "cost_micros": 0}
 
     model = str(usage.get("model") or "").strip()
     pricing = get_ai_pricing_for_model(model)
@@ -248,9 +240,6 @@ def log_ai_usage_for_user(
 
 
 def get_user_wallet_balance_micros(user_id: int) -> int:
-    """
-    Helper – prečíta celkový stav walletu v µ.
-    """
     return db_get_wallet_balance_micros(user_id)
 
 
@@ -260,21 +249,13 @@ def get_user_monthly_usage_tokens(
     year: Optional[int] = None,
     month: Optional[int] = None,
 ) -> int:
-    """
-    Celkový počet tokenov za daný mesiac (default = aktuálny).
-    """
     now = datetime.now(timezone.utc)
     y = year or now.year
     m = month or now.month
-    return db_get_monthly_usage_tokens(
-        user_id=user_id,
-        year=y,
-        month=m,
-    )
+    return db_get_monthly_usage_tokens(user_id=user_id, year=y, month=m)
 
 
 # ---------------------- quota podľa tieru --------------------
-
 
 def get_user_ai_quota_status_for_current_tier(
     user_id: int,
@@ -282,20 +263,6 @@ def get_user_ai_quota_status_for_current_tier(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Vráti info o kvóte podľa aktuálneho app subscription tieru:
-
-      {
-        "user_id": int,
-        "tier_code": "...",
-        "limit_tokens": int,
-        "used_tokens": int,
-        "remaining_tokens": int,
-        "is_over": bool,
-        "reset_at": str | None,
-      }
-    """
-    # Zober status z app_subscription service
     status: Dict[str, Any] = service_get_user_app_subscription_status(
         user_id=user_id,
         user_jwt=user_jwt,
@@ -315,7 +282,6 @@ def get_user_ai_quota_status_for_current_tier(
                 limit_tokens = 0
             break
 
-    # Fallback na globálnu free hodnotu (staré správanie), ak nič v DB
     if limit_tokens is None or limit_tokens <= 0:
         try:
             limit_tokens = int(AI_MONTHLY_FREE_TOKENS or 0)
@@ -347,13 +313,6 @@ def is_user_over_token_quota(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> bool:
-    """
-    True = user má minutý (alebo prebitý) mesačný limit AI tokenov.
-
-    - Ak `limit_tokens` je zadaný, použije sa priamo.
-    - Ak je None, použije sa limit podľa aktuálneho tieru.
-    """
-    # Nové správanie – podľa tieru
     if limit_tokens is None:
         quota = get_user_ai_quota_status_for_current_tier(
             user_id=user_id,
@@ -362,8 +321,8 @@ def is_user_over_token_quota(
         )
         return bool(quota.get("is_over"))
 
-    # Manuálne zadaný limit (kompatibilita so starým použitím)
     if limit_tokens <= 0:
         return False
+
     used = get_user_monthly_usage_tokens(user_id)
     return used >= int(limit_tokens)
