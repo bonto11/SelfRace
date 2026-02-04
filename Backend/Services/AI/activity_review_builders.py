@@ -11,7 +11,7 @@ from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
 from Services.users import require_jwt
 
-DebugLevel = Literal["none", "basic", "db", "full"]
+DebugLevel = Literal["basic", "db", "full"]
 
 
 def _to_float(x: Any) -> Optional[float]:
@@ -66,10 +66,6 @@ def _days_ago(date_str: Any) -> Optional[int]:
 
 
 def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
-    """
-    Minimal stable shape for activity review.
-    Horizon: ~1 week (recovery + recent load + activity metrics).
-    """
     return {
         "schema_version": 1,
         "user": {"id": user_id},
@@ -88,7 +84,10 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             },
             "flags": {"is_hard": None, "is_long": None},
         },
-        "context": {"recovery": None, "recent_load": None},
+        "context": {
+            "recovery": None,
+            "recent_load": None,
+        },
     }
 
 
@@ -102,9 +101,6 @@ def _to_int_safe(v: Any) -> Optional[int]:
 
 
 def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
-    """
-    Keep only last week (-1) + current week (0).
-    """
     if not isinstance(recent_load, dict):
         return recent_load
 
@@ -122,11 +118,9 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
     for w in weeks:
         if not isinstance(w, dict):
             continue
-
         idx = _to_int_safe(w.get("week_index_from_now"))
         if idx is None or idx not in keep_idx:
             continue
-
         out_weeks.append(
             {
                 "week_index_from_now": idx,
@@ -139,8 +133,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
             }
         )
 
-    out_weeks.sort(key=lambda x: int(x.get("week_index_from_now") or 0))
-
+    out_weeks.sort(key=lambda x: int(x.get("week_index_from_now", 0)))
     return {
         "schema_version": recent_load.get("schema_version"),
         "window_days": recent_load.get("window_days"),
@@ -156,7 +149,7 @@ def _pick(d: Dict[str, Any], keys: List[str]) -> Dict[str, Any]:
     return out
 
 
-def _debug_row_meta(rows: Any) -> Dict[str, Any]:
+def _row_meta(rows: Any) -> Dict[str, Any]:
     if not isinstance(rows, list):
         return {"rows_type": type(rows).__name__, "rows_len": None}
     first = rows[0] if rows else None
@@ -184,10 +177,10 @@ def _build_activity_block_from_rows(
     elev_gain_m = _to_float(summary_row.get("elevation_gain_m"))
     avg_hr = _to_int(summary_row.get("average_heartrate_bpm"))
     max_hr = _to_int(summary_row.get("max_heartrate_bpm"))
-    pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
 
     dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
     dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
+    pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
 
     z1 = _to_float(enr_row.get("z1_min"))
     z2 = _to_float(enr_row.get("z2_min"))
@@ -196,15 +189,13 @@ def _build_activity_block_from_rows(
     z5 = _to_float(enr_row.get("z5_min"))
 
     zones_min = {"z1": z1, "z2": z2, "z3": z3, "z4": z4, "z5": z5}
-
     dominant_zone = None
     best_val = -1.0
     for k, v in zones_min.items():
         if v is None:
             continue
-        fv = float(v)
-        if fv > best_val:
-            best_val = fv
+        if float(v) > best_val:
+            best_val = float(v)
             dominant_zone = k.upper()
 
     is_long = True if (dur_min is not None and dur_min >= 75) else False
@@ -234,120 +225,57 @@ def build_input_from_db(
     user_jwt: Optional[str] = None,
     *,
     service: bool = False,
-    debug: bool = False,
-    debug_level: DebugLevel = "basic",
+    debug_level: DebugLevel = "db",
 ) -> Dict[str, Any]:
     jwt = None if service else require_jwt(user_jwt)
 
+    print("[AR][builder] start", {"user_id": user_id, "activity_id": activity_id, "service": service, "has_jwt": bool(jwt)})
     input_data = build_base_input(user_id, activity_id)
 
-    dbg: Dict[str, Any] = {}
-    if debug and debug_level != "none":
-        dbg.update(
-            {
-                "debug_level": debug_level,
-                "service": service,
-                "user_id": user_id,
-                "activity_id": activity_id,
-            }
-        )
+    # context
+    recovery = service_build_recovery_block_for_analysis(user_id, user_jwt=jwt, service=service)
+    recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, user_jwt=jwt, service=service)
+    recent_load = _minify_recent_load_to_week_horizon(recent_load_raw)
 
-    # ---- context ----
-    recovery = service_build_recovery_block_for_analysis(
-        user_id,
-        user_jwt=jwt,
-        service=service,
-    )
     input_data["context"]["recovery"] = recovery
+    input_data["context"]["recent_load"] = recent_load
 
-    recent_load_raw = service_build_recent_load_block_for_analysis(
-        user_id=user_id,
-        window_days=14,
-        user_jwt=jwt,
-        service=service,
-    )
-    input_data["context"]["recent_load"] = _minify_recent_load_to_week_horizon(recent_load_raw)
+    print("[AR][builder] recovery", {"ok": isinstance(recovery, dict), "keys": sorted(list(recovery.keys())) if isinstance(recovery, dict) else None})
+    if isinstance(recent_load_raw, dict):
+        weeks = recent_load_raw.get("weeks")
+        print("[AR][builder] recent_load_raw", {"keys": sorted(list(recent_load_raw.keys())), "weeks_len": len(weeks) if isinstance(weeks, list) else None})
+    else:
+        print("[AR][builder] recent_load_raw", {"type": type(recent_load_raw).__name__})
 
-    if debug and debug_level in ("basic", "db", "full"):
-        dbg["context_recovery_present"] = isinstance(recovery, dict) and bool(recovery)
-        dbg["context_recent_load_present"] = isinstance(recent_load_raw, dict) and bool(recent_load_raw)
-        if isinstance(recovery, dict):
-            dbg["context_recovery_keys"] = sorted(list(recovery.keys()))
-        if isinstance(recent_load_raw, dict):
-            dbg["recent_load_raw_keys"] = sorted(list(recent_load_raw.keys()))
-            weeks = recent_load_raw.get("weeks")
-            dbg["recent_load_raw_weeks_len"] = len(weeks) if isinstance(weeks, list) else None
+    # DB fetch
+    summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
+    enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
 
-    # ---- DB ----
-    summary_rows = (
-        db_get_summary_for_activities(
-            user_id=user_id,
-            activity_ids=[activity_id],
-            user_jwt=jwt,
-            service=service,
-        )
-        or []
-    )
-
-    enr_rows = (
-        db_get_enrichment_for_activities(
-            user_id=user_id,
-            activity_ids=[activity_id],
-            user_jwt=jwt,
-            service=service,
-        )
-        or []
-    )
-
-    if debug and debug_level in ("basic", "db", "full"):
-        dbg["db_summary_meta"] = _debug_row_meta(summary_rows)
-        dbg["db_enrichment_meta"] = _debug_row_meta(enr_rows)
+    print("[AR][builder] db_summary_meta", _row_meta(summary_rows))
+    print("[AR][builder] db_enrich_meta", _row_meta(enr_rows))
 
     summary_row = summary_rows[0] if summary_rows else None
-    enr_row = enr_rows[0] if (enr_rows and isinstance(enr_rows[0], dict)) else {}
+    enr_row = enr_rows[0] if enr_rows and isinstance(enr_rows[0], dict) else {}
 
     if not isinstance(summary_row, dict):
-        if debug and debug_level in ("db", "full"):
-            dbg["note"] = "summary_row_missing_or_invalid -> activity block not built"
-        if debug and debug_level != "none":
-            input_data["_debug"] = dbg
+        print("[AR][builder] summary_row invalid -> returning base shape")
         return input_data
 
-    if debug and debug_level in ("db", "full"):
-        dbg["db_summary_preview"] = _pick(
-            summary_row,
-            [
-                "date",
-                "sport_type",
-                "sport_type_fe",
-                "distance_m",
-                "moving_time_s",
-                "pace_seconds_per_km",
-                "average_heartrate_bpm",
-                "max_heartrate_bpm",
-                "elevation_gain_m",
-            ],
-        )
+    if debug_level in ("db", "full"):
+        print("[AR][builder] summary_preview", _pick(summary_row, [
+            "activity_id", "date", "sport_type", "sport_type_fe",
+            "distance_m", "moving_time_s", "pace_seconds_per_km",
+            "average_heartrate_bpm", "max_heartrate_bpm", "elevation_gain_m"
+        ]))
         if isinstance(enr_row, dict):
-            dbg["db_enrichment_preview"] = _pick(enr_row, ["z1_min", "z2_min", "z3_min", "z4_min", "z5_min"])
-        if debug_level == "full":
-            dbg["db_summary_keys"] = sorted(list(summary_row.keys()))
-            dbg["db_enrichment_keys"] = sorted(list(enr_row.keys())) if isinstance(enr_row, dict) else None
+            print("[AR][builder] enrich_preview", _pick(enr_row, ["activity_id", "z1_min", "z2_min", "z3_min", "z4_min", "z5_min"]))
 
+    # Build activity
     input_data["activity"] = _build_activity_block_from_rows(
         activity_id=activity_id,
         summary_row=summary_row,
         enr_row=enr_row if isinstance(enr_row, dict) else {},
     )
 
-    if debug and debug_level in ("basic", "db", "full"):
-        act = input_data.get("activity")
-        if isinstance(act, dict):
-            dbg["final_activity_metrics"] = act.get("metrics")
-            dbg["final_activity_zones"] = act.get("zones")
-            dbg["final_activity_flags"] = act.get("flags")
-
-    if debug and debug_level != "none":
-        input_data["_debug"] = dbg
-
+    print("[AR][builder] final_activity", input_data["activity"])
     return input_data

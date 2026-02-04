@@ -1,4 +1,3 @@
-# Routes_AI/activity_review_prompts.py
 from __future__ import annotations
 
 import json
@@ -7,52 +6,36 @@ from typing import Dict, Optional, Tuple, Any
 
 def minify_activity_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Keep only what matters for 1-week activity review:
-    - user: drop PII
-    - context: recovery + recent_load (already minified by builder, but keep safe)
-    - activity: metrics + zones + flags
-    Drop anything else if present.
+    Do AI posielame len to, čo má reálny vplyv na hodnotenie v horizonte ~1 týždeň.
+    - drop user id
+    - drop debug
+    - drop všetko heavy (streams/laps/splits)
     """
     if not isinstance(ctx, dict):
         return {}
 
     out = json.loads(json.dumps(ctx, default=str))
 
-    # --- user (remove PII/internal) ---
+    # user
     u = out.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
         u.pop("email", None)
         u.pop("name", None)
 
-    # --- hard drop common heavy/noisy keys (defensive) ---
-    for k in ("streams", "laps", "splits", "external_events", "prefs", "targets", "thresholds", "zones", "active_plan"):
-        if k in out:
-            out.pop(k, None)
+    # debug preč
+    out.pop("_debug", None)
 
-    # --- keep only context.recovery + context.recent_load ---
-    ctx_obj = out.get("context")
-    if isinstance(ctx_obj, dict):
-        keep_ctx = {
-            "recovery": ctx_obj.get("recovery"),
-            "recent_load": ctx_obj.get("recent_load"),
-        }
-        out["context"] = keep_ctx
-    else:
-        out["context"] = {"recovery": None, "recent_load": None}
+    # heavy preč (ak by sa tam niekedy objavili)
+    out.pop("streams", None)
+    out.pop("laps", None)
+    out.pop("splits", None)
 
-    # --- activity: keep only compact fields ---
+    # activity safety
     act = out.get("activity")
     if isinstance(act, dict):
-        keep_act = {
-            "activity_id": act.get("activity_id"),
-            "days_ago": act.get("days_ago"),
-            "sport": act.get("sport"),
-            "metrics": act.get("metrics"),
-            "zones": act.get("zones"),
-            "flags": act.get("flags"),
-        }
-        out["activity"] = keep_act
+        act.pop("name", None)
+        act.pop("external_id", None)
 
     return out
 
@@ -71,10 +54,6 @@ def build_prompts_for_activity_review(
     *,
     settings: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str]:
-    """
-    Prompt builder for ONE activity evaluation with ~1-week horizon.
-    Focus on: recovery (HRV/RHR/sleep trend) + recent load (current/prev weeks) + this activity intensity.
-    """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
@@ -88,8 +67,8 @@ def build_prompts_for_activity_review(
 
     system_txt = (
         "You are an endurance coaching assistant evaluating ONE completed training session. "
-        "You receive compact JSON with: recovery status, recent load (week horizon), and activity metrics/zones. "
-        "Return ONLY a single valid JSON object. No prose, no markdown."
+        "You receive structured JSON about the athlete and one activity. "
+        "Return a SINGLE valid JSON object only. No prose, no markdown."
     )
 
     schema = f"""
@@ -122,6 +101,8 @@ def build_prompts_for_activity_review(
 
   "highlights": string[],
   "risks": string[],
+  "what_went_well": string[],
+  "what_to_improve": string[],
 
   "next_steps": [
     {{ "type": "recovery" | "training" | "nutrition" | "sleep" | "mobility", "text": string }}
@@ -130,7 +111,7 @@ def build_prompts_for_activity_review(
 """.strip()
 
     user_txt = (
-        "Evaluate the activity using ONLY the provided data.\n\n"
+        "Evaluate the completed activity with emphasis on 7-day horizon context (recovery + recent load).\n\n"
         "CONTEXT_JSON:\n"
         + json.dumps(ctx_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
@@ -138,11 +119,9 @@ def build_prompts_for_activity_review(
         + "\n\nRules:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        "- Focus on ~1 week horizon: recovery (HRV/RHR/sleep trend) + recent load + this session intensity.\n"
-        "- Be objective and concise. Do not moralize.\n"
+        "- Be objective and concise.\n"
         "- Do NOT invent missing data.\n"
-        "- If recovery trend is down / sleep not ok, reflect it in risks/next_steps (without panic).\n"
-        "- Do NOT talk about long-term races, season goals, or multi-week planning.\n"
+        "- If recovery signals show strain (HRV down, sleep bad, RHR high), highlight risk and suggest easier next steps.\n"
     )
 
     return system_txt, user_txt
