@@ -196,11 +196,6 @@ def db_update_job_finished(
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] update_finished error:", repr(e))
         return None
-    
-
-
-    from __future__ import annotations
-
 
 def db_find_active_job_by_dedupe(
     user_id: int,
