@@ -1,3 +1,4 @@
+# Services/AI/activity_review.py
 from __future__ import annotations
 
 import json
@@ -28,6 +29,10 @@ from Routes_DB.activities_enrichment import (
 )
 
 
+# ---------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -42,10 +47,11 @@ def _default_ai_model() -> str:
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deep copy + drop internals (PII / internal ids).
-    (Skutočný "horizon" minify rieši builder + prompts)
+    NOTE: finálne "skutočné" minify (7d horizon) spravíme v builder/prompts.
     """
     ctx = json.loads(json.dumps(payload, default=str))
 
+    # drop internal user id
     try:
         u = ctx.get("user")
         if isinstance(u, dict):
@@ -56,16 +62,9 @@ def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     return ctx
 
 
-def _has_activity_metrics(ctx: Dict[str, Any]) -> bool:
-    """
-    Builder dáva activity.metrics (nie activity.summary).
-    """
-    act = ctx.get("activity")
-    if not isinstance(act, dict):
-        return False
-    metrics = act.get("metrics")
-    return isinstance(metrics, dict) and bool(metrics)
-
+# ---------------------------------------------------------------------
+# MAIN SERVICE (used by async worker)
+# ---------------------------------------------------------------------
 
 def service_activity_review(
     user_id: int,
@@ -76,16 +75,28 @@ def service_activity_review(
     debug: bool = False,
     save_to_db: bool = True,
     model: Optional[str] = None,
-    debug_level: str = "basic",  # "none"|"basic"|"db"|"full"
 ) -> Dict[str, Any]:
     """
     Activity review service.
+
+    - service=False (FE):
+        - JWT required
+        - quota check enabled
+    - service=True (webhook / cron / async worker):
+        - no JWT
+        - no quota check
     """
     jwt = None if service else require_jwt(user_jwt)
     model_to_use = (model or _default_ai_model()).strip()
 
-    # 0) quota (only user-triggered)
-    if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
+    # --------------------------------------------------
+    # 0) QUOTA CHECK (only user-triggered)
+    # --------------------------------------------------
+    if not service and is_user_over_token_quota(
+        user_id,
+        user_jwt=jwt,
+        service=service,
+    ):
         used = get_user_monthly_usage_tokens(user_id)
         return {
             "ok": False,
@@ -102,59 +113,63 @@ def service_activity_review(
             },
         }
 
-    # 1) build input
+    # --------------------------------------------------
+    # 1) BUILD INPUT (DB → builder)
+    # --------------------------------------------------
     input_data = build_review_input(
         user_id=user_id,
         activity_id=activity_id,
         user_jwt=jwt,
         service=service,
-        debug=debug,
-        debug_level=debug_level if isinstance(debug_level, str) else "basic",
     )
-
-    if debug:
-        print(f"[activity_review] built_input keys={list(input_data.keys())}")
-        act = input_data.get("activity")
-        if isinstance(act, dict):
-            print(f"[activity_review] activity keys={list(act.keys())}")
-            print(f"[activity_review] metrics present={isinstance(act.get('metrics'), dict) and bool(act.get('metrics'))}")
 
     context_for_ai = _minify_context_for_ai(input_data)
 
-    # hard stop (NOW CORRECT)
-    if not _has_activity_metrics(context_for_ai):
-        err = {"code": "missing_activity_data", "message": "Missing activity metrics (summary row not loaded?)"}
-        out = {
-            "ok": False,
-            "activity_id": activity_id,
-            "model": model_to_use,
-            "review": None,
-            "summary": None,
-            "highlights": None,
-            "recommendations": None,
-            "error": err,
-        }
-        if debug:
-            out["input"] = input_data
-        return out
+    # hard stop – nemá zmysel volať AI bez summary/enrichment
+    try:
+        act = context_for_ai.get("activity") or {}
+        summ = act.get("summary") if isinstance(act, dict) else None
+        if not isinstance(summ, dict) or not summ:
+            return {
+                "ok": False,
+                "activity_id": activity_id,
+                "model": model_to_use,
+                "review": None,
+                "summary": None,
+                "highlights": None,
+                "recommendations": None,
+                "error": {
+                    "code": "missing_activity_data",
+                    "message": "Missing activity summary/enrichment",
+                },
+                **({"input": input_data} if debug else {}),
+            }
+    except Exception:
+        # necháme prejsť, AI si poradí / alebo fallback
+        pass
 
-    # 2) ai call
+    # --------------------------------------------------
+    # 2) AI CALL
+    # --------------------------------------------------
     review, trace = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model_to_use,
-        user_id=user_id,  # settings: language/timezone
+        user_id=user_id,          # ✅ dôležité pre timezone/jazyk (settings)
         debug_raw=debug,
     )
 
     if not isinstance(review, dict):
         review = {}
 
+    # normalize review meta (neprepisuj, ak už existuje z generatora)
     review.setdefault("schema_version", 1)
     review.setdefault("generated_at", _now_iso())
     review["model"] = str(review.get("model") or model_to_use)
     review.setdefault("activity_id", activity_id)
 
-    # 2b) billing
+    # --------------------------------------------------
+    # 2b) BILLING
+    # --------------------------------------------------
     usage = extract_usage_from_trace(trace)
     if usage:
         usage["model"] = review["model"]
@@ -171,29 +186,42 @@ def service_activity_review(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] activity_review billing error:", repr(e))
 
-    # 3) store
+    # --------------------------------------------------
+    # 3) STORE RESULT
+    # --------------------------------------------------
     if save_to_db:
         try:
             db_upsert_enrichment_rows(
-                [{"user_id": user_id, "activity_id": activity_id, "ai_review": review}],
+                [
+                    {
+                        "user_id": user_id,
+                        "activity_id": activity_id,
+                        "ai_review": review,
+                    }
+                ],
                 user_jwt=jwt if not service else None,
                 service=service,
             )
         except Exception as e:  # noqa: BLE001
             print("[service_activity_review] db_upsert_enrichment_rows error:", repr(e))
 
-    # 4) FE-friendly response (sync s async_job minify)
+    # --------------------------------------------------
+    # 4) RESPONSE (FE-friendly)
+    # --------------------------------------------------
     resp: Dict[str, Any] = {
         "ok": True,
         "activity_id": activity_id,
         "model": review.get("model"),
         "review": review,
+        # ✅ tieto polia očakáva tvoj async job minify
         "summary": review.get("summary"),
         "highlights": review.get("highlights"),
-        "recommendations": review.get("next_steps"),  # schema field
+        # v schema sa to volá next_steps → mapni to sem (alebo neskôr premenuj schema)
+        "recommendations": review.get("next_steps"),
         "error": None,
     }
 
+    # input + trace len keď debug (inak zbytočne nafukuje payload a DB)
     if debug:
         resp["input"] = input_data
         resp["debug_trace"] = trace
@@ -202,8 +230,16 @@ def service_activity_review(
     return resp
 
 
+# ---------------------------------------------------------------------
+# BACKWARD COMPAT (safe alias)
+# ---------------------------------------------------------------------
+
 service_review_activity = service_activity_review
 
+
+# ---------------------------------------------------------------------
+# READ-ONLY FETCH (for FE)
+# ---------------------------------------------------------------------
 
 def service_get_activity_review(
     user_id: int,
@@ -212,6 +248,9 @@ def service_get_activity_review(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
+    """
+    Load stored review from activities_enrichment.ai_review
+    """
     jwt = None if service else require_jwt(user_jwt)
 
     rows = db_get_enrichment_for_activities(
