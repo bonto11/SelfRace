@@ -493,14 +493,11 @@ def service_run_job_now(
             except Exception:
                 raise ValueError("activity_review: activity_id must be int")
 
-
-
             run_as_service = bool(input_payload.get("service", False))
 
             # ak NIE service → vyžadujeme user_jwt
             if not run_as_service and payload_jwt is None:
                 raise ValueError("activity_review: user_jwt is required unless service=True")
-            
             
             result_payload = service_activity_review(
                 user_id=user_id,
@@ -509,18 +506,6 @@ def service_run_job_now(
                 service=run_as_service,
                 model=input_payload.get("model"),
             )
-            
-            print("[JOB][activity_review] input keys:", list(input_payload.keys()))
-            print("[JOB][activity_review] activity_id:", activity_id, "service:", run_as_service, "has_jwt:", payload_jwt is not None)
-
-            # po service call
-            print("[JOB][activity_review] result keys:", list(result_payload.keys()) if isinstance(result_payload, dict) else type(result_payload))
-            if isinstance(result_payload, dict):
-                rv = result_payload.get("review")
-                print("[JOB][activity_review] review keys:", list(rv.keys()) if isinstance(rv, dict) else type(rv))
-                if isinstance(rv, dict):
-                    print("[JOB][activity_review] review summary/higlights/reco:",
-                        rv.get("summary") is not None, rv.get("highlights") is not None, rv.get("recommendations") is not None)
 
         else:
             raise ValueError(f"Unsupported job_type for worker: {job_type}")

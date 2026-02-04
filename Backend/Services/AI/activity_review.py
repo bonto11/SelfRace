@@ -24,7 +24,6 @@ from Routes_AI.activity_review_generate import generate_activity_review_json
 
 from Routes_DB.activities_enrichment import (
     db_update_ai_review_one,
-    db_get_enrichment_for_activities,
 )
 
 
@@ -35,8 +34,8 @@ def _now_iso() -> str:
 def _default_ai_model() -> str:
     p = (AI_PROVIDER or "openai").strip().lower()
     if p == "gemini":
-        return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash").strip()
-    return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
+        return (GEMINI_DEFAULT_MODEL).strip()
+    return (OPENAI_DEFAULT_MODEL).strip()
 
 
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,12 +66,10 @@ def service_activity_review(
     jwt = None if service else require_jwt(user_jwt)
     model_to_use = (model or _default_ai_model()).strip()
 
-    print("[AR][service] start", {"user_id": user_id, "activity_id": activity_id, "service": service, "has_jwt": bool(jwt), "model": model_to_use})
-
     # quota (len user-triggered)
     if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
         used = get_user_monthly_usage_tokens(user_id)
-        print("[AR][service] quota_exceeded", {"used_tokens": used})
+
         return {
             "ok": False,
             "activity_id": activity_id,
@@ -94,24 +91,15 @@ def service_activity_review(
         activity_id=activity_id,
         user_jwt=jwt,
         service=service,
-        debug_level="db",
     )
-
-    print("[AR][service] built_input_keys", sorted(list(input_data.keys())))
-    if isinstance(input_data.get("activity"), dict):
-        print("[AR][service] built_activity_keys", sorted(list(input_data["activity"].keys())))
-        print("[AR][service] built_activity_metrics", input_data["activity"].get("metrics"))
-        print("[AR][service] built_activity_zones", input_data["activity"].get("zones"))
-    else:
-        print("[AR][service] built_activity_invalid", {"type": type(input_data.get("activity")).__name__})
 
     context_for_ai = _minify_context_for_ai(input_data)
 
     # hard stop – ak nemáme metrics, nemá zmysel volať AI
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
     metrics = act.get("metrics") if isinstance(act, dict) else None
+
     if not isinstance(metrics, dict) or not metrics:
-        print("[AR][service] missing_activity_data -> stop", {"activity_id": activity_id})
         return {
             "ok": False,
             "activity_id": activity_id,
@@ -125,12 +113,6 @@ def service_activity_review(
         }
 
     # AI call
-    print("[AR][service] ai_payload_keys", {
-        "top": sorted(list(context_for_ai.keys())),
-        "activity": sorted(list((context_for_ai.get("activity") or {}).keys())) if isinstance(context_for_ai.get("activity"), dict) else None,
-        "context": sorted(list((context_for_ai.get("context") or {}).keys())) if isinstance(context_for_ai.get("context"), dict) else None,
-    })
-
     review, trace = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model_to_use,
@@ -149,7 +131,6 @@ def service_activity_review(
     # billing
     print("[AR][service] trace", trace)
     usage = extract_usage_from_trace(trace)
-    print("[AR][service] usage", usage)
 
     if usage:
         usage["model"] = review["model"]
@@ -174,7 +155,6 @@ def service_activity_review(
             user_jwt=jwt if not service else None,
             service=service,
         )
-        print("[AR][service] db_update_ai_review_one ok:", ok)
     except Exception as e:  # noqa: BLE001
         print("[AR][service] db_update_ai_review_one error:", repr(e))
 
@@ -187,37 +167,6 @@ def service_activity_review(
         "highlights": review.get("highlights"),
         "recommendations": review.get("next_steps"),
         "error": None,
-        "input": input_data,     # nech to vidíš hneď v response
-        "debug_trace": trace,    # tiež
-        "ai_usage": usage,
     }
 
 service_review_activity = service_activity_review
-
-def service_get_activity_review(
-    user_id: int,
-    activity_id: int,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Optional[Dict[str, Any]]:
-    jwt = None if service else require_jwt(user_jwt)
-
-    rows = db_get_enrichment_for_activities(
-        user_id=user_id,
-        activity_ids=[activity_id],
-        user_jwt=jwt,
-        service=service,
-    ) or []
-
-    row = rows[0] if rows else None
-    if not isinstance(row, dict):
-        return None
-
-    # NOTE: updated_at ti padá, lebo ho v tabuľke nemáš.
-    return {
-        "user_id": user_id,
-        "activity_id": activity_id,
-        "ai_review": row.get("ai_review"),
-        "updated_at": None,
-    }

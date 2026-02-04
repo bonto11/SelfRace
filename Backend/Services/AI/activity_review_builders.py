@@ -11,9 +11,6 @@ from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
 from Services.users import require_jwt
 
-DebugLevel = Literal["basic", "db", "full"]
-
-
 def _to_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
@@ -141,25 +138,6 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
     }
 
 
-def _pick(d: Dict[str, Any], keys: List[str]) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    for k in keys:
-        if k in d:
-            out[k] = d.get(k)
-    return out
-
-
-def _row_meta(rows: Any) -> Dict[str, Any]:
-    if not isinstance(rows, list):
-        return {"rows_type": type(rows).__name__, "rows_len": None}
-    first = rows[0] if rows else None
-    return {
-        "rows_len": len(rows),
-        "first_type": type(first).__name__ if first is not None else None,
-        "first_keys": sorted(list(first.keys())) if isinstance(first, dict) else None,
-    }
-
-
 def _build_activity_block_from_rows(
     *,
     activity_id: int,
@@ -225,11 +203,9 @@ def build_input_from_db(
     user_jwt: Optional[str] = None,
     *,
     service: bool = False,
-    debug_level: DebugLevel = "db",
 ) -> Dict[str, Any]:
     jwt = None if service else require_jwt(user_jwt)
 
-    print("[AR][builder] start", {"user_id": user_id, "activity_id": activity_id, "service": service, "has_jwt": bool(jwt)})
     input_data = build_base_input(user_id, activity_id)
 
     # context
@@ -240,35 +216,15 @@ def build_input_from_db(
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = recent_load
 
-    print("[AR][builder] recovery", {"ok": isinstance(recovery, dict), "keys": sorted(list(recovery.keys())) if isinstance(recovery, dict) else None})
-    if isinstance(recent_load_raw, dict):
-        weeks = recent_load_raw.get("weeks")
-        print("[AR][builder] recent_load_raw", {"keys": sorted(list(recent_load_raw.keys())), "weeks_len": len(weeks) if isinstance(weeks, list) else None})
-    else:
-        print("[AR][builder] recent_load_raw", {"type": type(recent_load_raw).__name__})
-
     # DB fetch
     summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
     enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
-
-    print("[AR][builder] db_summary_meta", _row_meta(summary_rows))
-    print("[AR][builder] db_enrich_meta", _row_meta(enr_rows))
 
     summary_row = summary_rows[0] if summary_rows else None
     enr_row = enr_rows[0] if enr_rows and isinstance(enr_rows[0], dict) else {}
 
     if not isinstance(summary_row, dict):
-        print("[AR][builder] summary_row invalid -> returning base shape")
         return input_data
-
-    if debug_level in ("db", "full"):
-        print("[AR][builder] summary_preview", _pick(summary_row, [
-            "activity_id", "date", "sport_type", "sport_type_fe",
-            "distance_m", "moving_time_s", "pace_seconds_per_km",
-            "average_heartrate_bpm", "max_heartrate_bpm", "elevation_gain_m"
-        ]))
-        if isinstance(enr_row, dict):
-            print("[AR][builder] enrich_preview", _pick(enr_row, ["activity_id", "z1_min", "z2_min", "z3_min", "z4_min", "z5_min"]))
 
     # Build activity
     input_data["activity"] = _build_activity_block_from_rows(
@@ -277,5 +233,4 @@ def build_input_from_db(
         enr_row=enr_row if isinstance(enr_row, dict) else {},
     )
 
-    print("[AR][builder] final_activity", input_data["activity"])
     return input_data
