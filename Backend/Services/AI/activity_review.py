@@ -63,7 +63,6 @@ def service_activity_review(
     user_jwt: Optional[str] = None,
     service: bool = False,
     debug: bool = False,   # nechávam v signatúre kvôli kompatibilite, ale prints idú vždy
-    save_to_db: bool = True,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
     jwt = None if service else require_jwt(user_jwt)
@@ -170,17 +169,15 @@ def service_activity_review(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] activity_review billing error:", repr(e))
 
-    # store
-    if save_to_db:
-        try:
-            db_upsert_enrichment_rows(
-                [{"user_id": user_id, "activity_id": activity_id, "ai_review": review}],
-                user_jwt=jwt if not service else None,
-                service=service,
-            )
-            print("[AR][service] saved_ai_review", {"activity_id": activity_id})
-        except Exception as e:  # noqa: BLE001
-            print("[AR][service] db_upsert_enrichment_rows error:", repr(e))
+    try:
+        db_upsert_enrichment_rows(
+            [{"user_id": user_id, "activity_id": activity_id, "ai_review": review}],
+            user_jwt=jwt if not service else None,
+            service=service,
+        )
+        print("[AR][service] saved_ai_review", {"activity_id": activity_id})
+    except Exception as e:  # noqa: BLE001
+        print("[AR][service] db_upsert_enrichment_rows error:", repr(e))
 
     return {
         "ok": True,

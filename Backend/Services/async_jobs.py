@@ -509,7 +509,6 @@ def service_run_job_now(
                 service=run_as_service,
                 model=input_payload.get("model"),
                 debug=bool(input_payload.get("debug", False)),
-                save_to_db=bool(input_payload.get("save_to_db", True)),
             )
             
             print("[JOB][activity_review] input keys:", list(input_payload.keys()))
