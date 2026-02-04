@@ -57,7 +57,7 @@ export async function apiEnqueueActivityReview(
     user_uuid: userUuid, 
     payload: {
       activity_id: activityId,
-      debug: Boolean(opts.debug ?? false),
+      debug: Boolean(opts.debug ?? true),
       model: opts.model ?? null,
       service: Boolean(opts.service ?? false), // FE → false (worker použije user_jwt)
     },
