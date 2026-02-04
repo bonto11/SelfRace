@@ -13,34 +13,22 @@ def db_get_enrichment_for_activities(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> List[Dict[str, Any]]:
-    """
-    Načíta enrichment pre daného usera a zoznam activity_id.
-
-    Vráti polia potrebné pre Pareto aj ďalšie analytiky:
-      - activity_id
-      - z1_min .. z5_min
-      - sport_type_fe
-      - avg_hr_bpm
-      - moving_time_s
-      - distance_m
-
-    Použitie:
-    - FE/AI:      db_get_enrichment_for_activities(..., user_jwt=jwt)
-    - worker/cron db_get_enrichment_for_activities(..., service=True)
-    """
     if not activity_ids:
         return []
 
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
+    # ✅ Supabase select musí byť JEDEN string, nie 2 args.
+    fields = (
+        "activity_id,"
+        "z1_min,z2_min,z3_min,z4_min,z5_min,"
+        "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
+        "ai_review,updated_at"
+    )
+
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .select(
-            "activity_id,"
-            "z1_min,z2_min,z3_min,z4_min,z5_min,"
-            "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m",
-            "ai_review",
-        )
+        .select(fields)
         .eq("user_id", user_id)
         .in_("activity_id", list(set(activity_ids)))
         .execute()
@@ -54,25 +42,26 @@ def db_upsert_enrichment_rows(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> int:
-    """
-    Batch upsert do activities_enrichment podľa activity_id (+ user_id).
-    """
     if not rows:
         return 0
 
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
-    print("[db_upsert_enrichment_rows] rows:", rows)
     saved = 0
     BATCH = 200
+
     for i in range(0, len(rows), BATCH):
         chunk = rows[i : i + BATCH]
+
+        # ⚠️ odporúčam mať unikát (user_id, activity_id).
+        # Ak ho máš, nastav on_conflict na "user_id,activity_id".
         sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
             chunk,
-            on_conflict="activity_id",  # ak chceš, môžeš zmeniť na "user_id,activity_id"
+            on_conflict="user_id,activity_id",
         ).execute()
+
         saved += len(chunk)
-    print("[db_upsert_enrichment_rows] chunk:", chunk)
+
     return saved
 
 

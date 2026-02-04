@@ -1,8 +1,7 @@
-# Services/AI/activity_review_builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Literal, Tuple
+from typing import Any, Dict, Optional, List, Literal
 
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
@@ -80,15 +79,16 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             "sport": "other",
             "metrics": {},
             "zones": {
-                "z1": None, "z2": None, "z3": None, "z4": None, "z5": None,
-                "dominant_zone": None
+                "z1": None,
+                "z2": None,
+                "z3": None,
+                "z4": None,
+                "z5": None,
+                "dominant_zone": None,
             },
             "flags": {"is_hard": None, "is_long": None},
         },
-        "context": {
-            "recovery": None,
-            "recent_load": None,
-        },
+        "context": {"recovery": None, "recent_load": None},
     }
 
 
@@ -102,6 +102,9 @@ def _to_int_safe(v: Any) -> Optional[int]:
 
 
 def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
+    """
+    Keep only last week (-1) + current week (0).
+    """
     if not isinstance(recent_load, dict):
         return recent_load
 
@@ -113,7 +116,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
             "weeks": [],
         }
 
-    keep_idx = {-1, 0}  # last week + current week
+    keep_idx = {-1, 0}
     out_weeks: List[Dict[str, Any]] = []
 
     for w in weeks:
@@ -136,7 +139,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
             }
         )
 
-    out_weeks.sort(key=lambda x: int(x.get("week_index_from_now", 0)))
+    out_weeks.sort(key=lambda x: int(x.get("week_index_from_now") or 0))
 
     return {
         "schema_version": recent_load.get("schema_version"),
@@ -170,12 +173,6 @@ def _build_activity_block_from_rows(
     summary_row: Dict[str, Any],
     enr_row: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """
-    Build compact activity block:
-    - only metrics that influence evaluation
-    - zones (minutes) from enrichment
-    - flags (hard/long)
-    """
     dt_raw = str(summary_row.get("date") or "")
     date_str = dt_raw[:10] if dt_raw else None
 
@@ -187,13 +184,11 @@ def _build_activity_block_from_rows(
     elev_gain_m = _to_float(summary_row.get("elevation_gain_m"))
     avg_hr = _to_int(summary_row.get("average_heartrate_bpm"))
     max_hr = _to_int(summary_row.get("max_heartrate_bpm"))
+    pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
 
     dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
     dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
 
-    pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
-
-    # enrichment zone minutes
     z1 = _to_float(enr_row.get("z1_min"))
     z2 = _to_float(enr_row.get("z2_min"))
     z3 = _to_float(enr_row.get("z3_min"))
@@ -207,11 +202,11 @@ def _build_activity_block_from_rows(
     for k, v in zones_min.items():
         if v is None:
             continue
-        if float(v) > best_val:
-            best_val = float(v)
+        fv = float(v)
+        if fv > best_val:
+            best_val = fv
             dominant_zone = k.upper()
 
-    # flags
     is_long = True if (dur_min is not None and dur_min >= 75) else False
     is_hard = True if ((z4 or 0.0) + (z5 or 0.0)) >= 12.0 else False
 
@@ -242,33 +237,22 @@ def build_input_from_db(
     debug: bool = False,
     debug_level: DebugLevel = "basic",
 ) -> Dict[str, Any]:
-    """
-    Minimal activity review input (1-week horizon):
-
-    context:
-      - recovery (HRV/RHR/sleep/trend)
-      - recent_load (minified to last+current week)
-    activity:
-      - metrics + zones minutes + flags
-
-    Debug:
-      - basic: add high-level trace (counts)
-      - db: include DB rows meta + previews
-      - full: include safe full rows (still scrubbed to selected keys)
-    """
     jwt = None if service else require_jwt(user_jwt)
 
     input_data = build_base_input(user_id, activity_id)
 
-    # internal debug container (never relied upon by prompts)
     dbg: Dict[str, Any] = {}
     if debug and debug_level != "none":
-        dbg["debug_level"] = debug_level
-        dbg["service"] = service
-        dbg["user_id"] = user_id
-        dbg["activity_id"] = activity_id
+        dbg.update(
+            {
+                "debug_level": debug_level,
+                "service": service,
+                "user_id": user_id,
+                "activity_id": activity_id,
+            }
+        )
 
-    # --- context blocks ---
+    # ---- context ----
     recovery = service_build_recovery_block_for_analysis(
         user_id,
         user_jwt=jwt,
@@ -287,29 +271,33 @@ def build_input_from_db(
     if debug and debug_level in ("basic", "db", "full"):
         dbg["context_recovery_present"] = isinstance(recovery, dict) and bool(recovery)
         dbg["context_recent_load_present"] = isinstance(recent_load_raw, dict) and bool(recent_load_raw)
-
         if isinstance(recovery, dict):
             dbg["context_recovery_keys"] = sorted(list(recovery.keys()))
-
         if isinstance(recent_load_raw, dict):
             dbg["recent_load_raw_keys"] = sorted(list(recent_load_raw.keys()))
             weeks = recent_load_raw.get("weeks")
             dbg["recent_load_raw_weeks_len"] = len(weeks) if isinstance(weeks, list) else None
 
-    # --- activity rows (DB) ---
-    summary_rows = db_get_summary_for_activities(
-        user_id=user_id,
-        activity_ids=[activity_id],
-        user_jwt=jwt,
-        service=service,
-    ) or []
+    # ---- DB ----
+    summary_rows = (
+        db_get_summary_for_activities(
+            user_id=user_id,
+            activity_ids=[activity_id],
+            user_jwt=jwt,
+            service=service,
+        )
+        or []
+    )
 
-    enr_rows = db_get_enrichment_for_activities(
-        user_id=user_id,
-        activity_ids=[activity_id],
-        user_jwt=jwt,
-        service=service,
-    ) or []
+    enr_rows = (
+        db_get_enrichment_for_activities(
+            user_id=user_id,
+            activity_ids=[activity_id],
+            user_jwt=jwt,
+            service=service,
+        )
+        or []
+    )
 
     if debug and debug_level in ("basic", "db", "full"):
         dbg["db_summary_meta"] = _debug_row_meta(summary_rows)
@@ -318,21 +306,14 @@ def build_input_from_db(
     summary_row = summary_rows[0] if summary_rows else None
     enr_row = enr_rows[0] if (enr_rows and isinstance(enr_rows[0], dict)) else {}
 
-    # If summary missing, keep base shape.
     if not isinstance(summary_row, dict):
         if debug and debug_level in ("db", "full"):
-            dbg["db_summary_preview"] = (
-                summary_row if summary_row is None else {"type": type(summary_row).__name__}
-            )
-            # helpful hint: show what activity_id you asked for
             dbg["note"] = "summary_row_missing_or_invalid -> activity block not built"
         if debug and debug_level != "none":
             input_data["_debug"] = dbg
         return input_data
 
-    # DB previews
     if debug and debug_level in ("db", "full"):
-        # show a safe preview of what we actually expect to use
         dbg["db_summary_preview"] = _pick(
             summary_row,
             [
@@ -348,17 +329,11 @@ def build_input_from_db(
             ],
         )
         if isinstance(enr_row, dict):
-            dbg["db_enrichment_preview"] = _pick(
-                enr_row,
-                ["z1_min", "z2_min", "z3_min", "z4_min", "z5_min"],
-            )
-
+            dbg["db_enrichment_preview"] = _pick(enr_row, ["z1_min", "z2_min", "z3_min", "z4_min", "z5_min"])
         if debug_level == "full":
-            # still not "full dump", but more keys
             dbg["db_summary_keys"] = sorted(list(summary_row.keys()))
             dbg["db_enrichment_keys"] = sorted(list(enr_row.keys())) if isinstance(enr_row, dict) else None
 
-    # Build activity
     input_data["activity"] = _build_activity_block_from_rows(
         activity_id=activity_id,
         summary_row=summary_row,
@@ -366,10 +341,11 @@ def build_input_from_db(
     )
 
     if debug and debug_level in ("basic", "db", "full"):
-        # show the final shape that goes to AI (activity + context only)
-        dbg["final_activity_keys"] = sorted(list((input_data.get("activity") or {}).keys())) if isinstance(input_data.get("activity"), dict) else None
-        dbg["final_activity_metrics"] = (input_data.get("activity") or {}).get("metrics") if isinstance(input_data.get("activity"), dict) else None
-        dbg["final_activity_zones"] = (input_data.get("activity") or {}).get("zones") if isinstance(input_data.get("activity"), dict) else None
+        act = input_data.get("activity")
+        if isinstance(act, dict):
+            dbg["final_activity_metrics"] = act.get("metrics")
+            dbg["final_activity_zones"] = act.get("zones")
+            dbg["final_activity_flags"] = act.get("flags")
 
     if debug and debug_level != "none":
         input_data["_debug"] = dbg
