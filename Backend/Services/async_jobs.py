@@ -237,10 +237,8 @@ def service_enqueue_job(
     *,
     job_type: str,
     payload: Dict[str, Any],
-    priority: int = 100,
     run_after: Optional[str] = None,
     max_attempts: int = 3,
-    dedupe_key: Optional[str] = None,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
