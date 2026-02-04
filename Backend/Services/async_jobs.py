@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Set, cast, Tuple
+from typing import Any, Dict, Optional, List, Set, cast
 
 from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Routes_DB.async_jobs import (
@@ -10,6 +10,8 @@ from Routes_DB.async_jobs import (
     db_get_job_by_id,
     db_mark_job_running,
     db_update_job_finished,
+    db_find_active_job_by_dedupe,
+    db_pick_next_queued_job_for_user,
 )
 
 from Services.AI.athlete_state import service_analyze_athlete  # ai_analyze
@@ -24,7 +26,6 @@ from Services.AI.activity_review import service_activity_review
 from Services.users import require_jwt
 
 
-# typy jobov, ktoré worker vie spracovať
 ALLOWED_JOB_TYPES: Set[str] = {
     "sync",
     "uspert_enrichment_zones",
@@ -36,7 +37,6 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "activity_review",
 }
 
-# kľúče, ktoré nikdy nechceme posielať FE
 SENSITIVE_KEYS: Set[str] = {
     "user_jwt",
     "jwt",
@@ -54,7 +54,6 @@ SENSITIVE_KEYS: Set[str] = {
     "session",
 }
 
-# debug/traces, ktoré môžu obsahovať citlivé dáta alebo prompt
 SENSITIVE_DEBUG_KEYS: Set[str] = {
     "debug_trace",
     "trace",
@@ -69,10 +68,8 @@ SENSITIVE_DEBUG_KEYS: Set[str] = {
     "response_format",
 }
 
-# keys, ktoré nechceme vracať FE z result payloadu (aj keby neboli “secret”)
 NOISY_RESULT_KEYS: Set[str] = {
     "input",
-    # "ai_usage",  # nechaj ak chceš zobrazovať usage; inak odkomentuj
 }
 
 
@@ -85,9 +82,6 @@ def _as_dict(x: Any) -> Dict[str, Any]:
 
 
 def _scrub_dict(x: Any) -> Any:
-    """
-    Rekurzívne odstráni citlivé/debug kľúče zo slovníkov aj nested štruktúr.
-    """
     if isinstance(x, dict):
         out: Dict[str, Any] = {}
         for k, v in x.items():
@@ -106,27 +100,24 @@ def _minify_external_events_for_client(external_events: Any) -> Any:
         return external_events
     evs = external_events.get("events")
     if isinstance(evs, list):
-        return {"schema_version": external_events.get("schema_version"), "events": evs}
+        return {"events": evs, "schema_version": external_events.get("schema_version")}
     return {"schema_version": external_events.get("schema_version"), "events": []}
 
 
 def _minify_result_for_client(job_type: str, result: Any) -> Any:
-    """
-    Zredukuje result na to, čo FE reálne potrebuje.
-    Potom sa ešte scrubne cez _scrub_dict().
-    """
     if not isinstance(result, dict):
         return result
 
     if job_type == "ai_analyze":
         analysis = result.get("analysis")
-        return {
+        out: Dict[str, Any] = {
             "state_id": result.get("state_id"),
             "model": result.get("model"),
             "analysis": analysis,
             "compare_previous": result.get("compare_previous"),
             "error": result.get("error"),
         }
+        return out
 
     if job_type == "weekly_generate":
         return {
@@ -156,31 +147,10 @@ def _minify_result_for_client(job_type: str, result: Any) -> Any:
             "error": result.get("error"),
         }
 
-    if job_type == "daily_extend":
-        return {
-            "changed": result.get("changed"),
-            "reason": result.get("reason"),
-            "generated_weeks": result.get("generated_weeks"),
-            "final_days_left": result.get("final_days_left"),
-            "last_daily_date": result.get("last_daily_date"),
-            "plan_id": result.get("plan_id"),
-            "error": result.get("error"),
-        }
-
-    if job_type == "plan_match":
-        return {
-            "ok": result.get("ok"),
-            "mapped": result.get("mapped"),
-            "unmapped": result.get("unmapped"),
-            "stats": result.get("stats"),
-            "daily_extend_job": result.get("daily_extend_job"),
-            "daily_extend_job_error": result.get("daily_extend_job_error"),
-            "error": result.get("error"),
-        }
-
     if job_type == "sync":
         return {
             "ok": result.get("ok"),
+            "plan": result.get("plan"),
             "stats": result.get("stats"),
             "range": result.get("range"),
             "error": result.get("error"),
@@ -193,11 +163,10 @@ def _minify_result_for_client(job_type: str, result: Any) -> Any:
             "summary": result.get("summary"),
             "highlights": result.get("highlights"),
             "recommendations": result.get("recommendations"),
-            "review": result,  # ak chceš full review payload
+            "review": result,
             "error": result.get("error"),
         }
 
-    # default: drop noisy keys
     out2 = dict(result)
     for k in list(out2.keys()):
         if str(k).lower() in NOISY_RESULT_KEYS:
@@ -217,7 +186,10 @@ def _sanitize_job_for_client(job: Optional[Dict[str, Any]]) -> Optional[Dict[str
     job_type = str(j.get("job_type") or "")
 
     inp = j.get("input")
-    j["input"] = cast(Dict[str, Any], _scrub_dict(inp)) if isinstance(inp, dict) else {}
+    if isinstance(inp, dict):
+        j["input"] = cast(Dict[str, Any], _scrub_dict(inp))
+    else:
+        j["input"] = {}
 
     res = j.get("result")
     res_min = _minify_result_for_client(job_type, res)
@@ -227,77 +199,26 @@ def _sanitize_job_for_client(job: Optional[Dict[str, Any]]) -> Optional[Dict[str
 
 
 # -----------------------------------------------------------------------------
-# Queue helpers (NO POLLING; event-driven chaining)
+# Queue chain helpers (NO polling)
 # -----------------------------------------------------------------------------
-
-def _is_runnable_now(job: Dict[str, Any]) -> bool:
-    """
-    run_after: ak existuje a je v budúcnosti, job ešte nespúšťaj.
-    """
-    ra = job.get("run_after")
-    if not ra:
-        return True
-    try:
-        # očakávame ISO string
-        dt = datetime.fromisoformat(str(ra).replace("Z", "+00:00"))
-        return dt <= datetime.now(timezone.utc)
-    except Exception:
-        return True
-
-
-def _pick_next_queued_job_for_user(
-    user_id: int,
-    *,
-    limit: int = 50,
-) -> Optional[Dict[str, Any]]:
-    """
-    Vyber najbližší queued job (FIFO-ish) pre usera.
-    Používa db_get_active_jobs (už existuje) aby sme nemuseli pridávať nový DB call.
-    """
-    rows = db_get_active_jobs(user_id=user_id, job_types=None, limit=limit) or []
-    queued: List[Dict[str, Any]] = []
-    running_found = False
-
-    for r in rows:
-        if not isinstance(r, dict):
-            continue
-        status = str(r.get("status") or "")
-        if status == "running":
-            running_found = True
-        if status == "queued" and _is_runnable_now(r):
-            queued.append(r)
-
-    if running_found:
-        return None
-
-    if not queued:
-        return None
-
-    def _sort_key(x: Dict[str, Any]) -> Tuple[int, str, int]:
-        pr = x.get("priority")
-        try:
-            pr_i = int(pr) if pr is not None else 100
-        except Exception:
-            pr_i = 100
-        ra = str(x.get("run_after") or "")
-        ca = str(x.get("created_at") or "")
-        # nižšia priority číslo = skôr (ak to tak používaš), ak nie, otoč
-        return (pr_i, ra or ca, int(x.get("id") or 0))
-
-    queued_sorted = sorted(queued, key=_sort_key)
-    return queued_sorted[0]
-
-
-def _try_kick_user_queue(
+def _kick_user_queue_once(
     user_id: int,
     *,
     worker_id: str,
     chain_limit: int,
 ) -> Optional[Dict[str, Any]]:
     """
-    Ak nič nerunninguje, zober prvý queued job a odštartuj chain.
+    Ak nič nerunning → vyber next queued job a spusť ho (service mode).
+    Vracia sanitizovaný job alebo None.
     """
-    next_job = _pick_next_queued_job_for_user(user_id, limit=50)
+    # 1) ak je už niečo running, nekopeme (zabráni duplicitám)
+    active = db_get_active_jobs(user_id=user_id, job_types=None, limit=5) or []
+    for j in active:
+        if str(j.get("status") or "") == "running":
+            return None
+
+    # 2) pick next queued
+    next_job = db_pick_next_queued_job_for_user(user_id=user_id, service=True, user_jwt=None)
     if not next_job:
         return None
 
@@ -307,22 +228,47 @@ def _try_kick_user_queue(
     except Exception:
         return None
 
-    # spustí a chainne
-    return service_run_job_now(
+    # 3) spusti job (service=True), ale bez rekurzie; chain urobíme my
+    out = service_run_job_now(
         user_id=user_id,
         job_id=jid_i,
         worker_id=worker_id,
         user_jwt=None,
         service=True,
-        run_chain=True,
+        run_chain=False,
         chain_limit=chain_limit,
-    ).get("job")
+    )
+    return out.get("job")
+
+
+def _run_user_queue_chain(
+    user_id: int,
+    *,
+    worker_id: str,
+    chain_limit: int,
+) -> List[Dict[str, Any]]:
+    """
+    Spustí max chain_limit jobov postupne, kým sú queued.
+    """
+    ran: List[Dict[str, Any]] = []
+    limit = int(chain_limit or 10)
+    if limit < 1:
+        limit = 1
+    if limit > 25:
+        limit = 25
+
+    for _ in range(limit):
+        j = _kick_user_queue_once(user_id, worker_id=worker_id, chain_limit=limit)
+        if not j:
+            break
+        if isinstance(j, dict):
+            ran.append(j)
+    return ran
 
 
 # -----------------------------------------------------------------------------
-# Public API
+# Public services
 # -----------------------------------------------------------------------------
-
 def service_enqueue_job(
     user_id: int,
     user_uid: str,
@@ -335,29 +281,26 @@ def service_enqueue_job(
     dedupe_key: Optional[str] = None,
     user_jwt: Optional[str] = None,
     service: bool = False,
-    # ✅ new:
-    auto_kick: bool = True,
-    chain_limit: int = 10,
+    auto_kick: bool = True,              # ✅ default ON pre webhook/service flow
+    kick_chain_limit: int = 10,
 ) -> Dict[str, Any]:
-    """
-    Vytvorí nový job v async_jobs.
-
-    auto_kick=True:
-      - keď pre usera nič nerunninguje, automaticky spustí prvý queued job
-      - nevzniká polling; deje sa iba pri enqueue
-    """
-    jwt = user_jwt if service else require_jwt(user_jwt)
+    if service:
+        jwt = user_jwt
+    else:
+        jwt = require_jwt(user_jwt)
 
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unsupported job_type: {job_type}")
 
+    # dedupe: ak existuje queued/running s rovnakým dedupe_key, vráť ho
+    if dedupe_key:
+        existing = db_find_active_job_by_dedupe(user_id=user_id, dedupe_key=dedupe_key, service=True, user_jwt=None)
+        if existing:
+            return {"job": _sanitize_job_for_client(existing), "note": "deduped"}
+
     clean_payload: Dict[str, Any] = dict(payload or {})
     if jwt is not None:
         clean_payload.setdefault("user_jwt", jwt)
-
-    # allow job-defined service mode (worker will respect it)
-    if service:
-        clean_payload.setdefault("service", True)
 
     row: Dict[str, Any] = {
         "user_id": int(user_id),
@@ -369,32 +312,33 @@ def service_enqueue_job(
         "max_attempts": int(max_attempts or 3),
         "progress": 0,
         "priority": int(priority or 100),
+        "dedupe_key": dedupe_key,
+        "updated_at": _now_iso(),
     }
 
     if run_after:
         row["run_after"] = run_after
-    if dedupe_key:
-        row["dedupe_key"] = dedupe_key
 
-    created = db_insert_job(row)
+    created = db_insert_job(row, user_jwt=None, service=True)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
-    kicked_job: Optional[Dict[str, Any]] = None
+    # ✅ kick chain bez pollingu
+    kicked: List[Dict[str, Any]] = []
     if auto_kick:
         try:
-            kicked_job = _try_kick_user_queue(
-                user_id=int(user_id),
-                worker_id="auto_enqueue",
-                chain_limit=int(chain_limit or 10),
+            kicked = _run_user_queue_chain(
+                user_id=user_id,
+                worker_id=f"kick:{job_type}",
+                chain_limit=kick_chain_limit,
             )
-        except Exception:
-            kicked_job = None
+        except Exception as e:
+            print("[JOBS] auto_kick error:", repr(e))
 
-    resp: Dict[str, Any] = {"job": _sanitize_job_for_client(created), "note": "enqueued"}
-    if kicked_job is not None:
-        resp["kicked"] = kicked_job
-    return resp
+    out = {"job": _sanitize_job_for_client(created), "note": "enqueued"}
+    if kicked:
+        out["kicked"] = kicked
+    return out
 
 
 def service_list_active_jobs(
@@ -404,13 +348,11 @@ def service_list_active_jobs(
     user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     _ = require_jwt(user_jwt)
-    rows = db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit) or []
+    rows = db_get_active_jobs(user_id=user_id, job_types=job_types, limit=limit, user_jwt=user_jwt, service=False) or []
     out: List[Dict[str, Any]] = []
     for r in rows:
         if isinstance(r, dict):
-            s = _sanitize_job_for_client(r)
-            if isinstance(s, dict):
-                out.append(s)
+            out.append(_sanitize_job_for_client(r) or r)
     return out
 
 
@@ -421,18 +363,13 @@ def service_run_job_now(
     worker_id: str = "manual",
     user_jwt: Optional[str] = None,
     service: bool = False,
-    # ✅ new:
-    run_chain: bool = True,
+    run_chain: bool = True,           # ✅ po dokončení spusti ďalší queued
     chain_limit: int = 10,
 ) -> Dict[str, Any]:
-    """
-    Spustí konkrétny job (id) pre daného usera – mini worker.
-    Po dobehnutí (success/fail) môže automaticky spustiť ďalšie queued joby (chain).
-    """
     if not service:
         _ = require_jwt(user_jwt)
 
-    job = db_get_job_by_id(user_id=user_id, job_id=job_id)
+    job = db_get_job_by_id(user_id=user_id, job_id=job_id, user_jwt=None, service=True)
     if not job:
         return {"job": None, "error": "job_not_found"}
 
@@ -448,9 +385,15 @@ def service_run_job_now(
     except Exception:
         attempts = 0
 
-    locked = db_mark_job_running(job_id=job_id, worker_id=worker_id, attempts=attempts + 1)
+    locked = db_mark_job_running(
+        job_id=job_id,
+        worker_id=worker_id,
+        attempts=attempts + 1,
+        user_jwt=None,
+        service=True,
+    )
     if not locked:
-        job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id)
+        job_latest = db_get_job_by_id(user_id=user_id, job_id=job_id, user_jwt=None, service=True)
         return {"job": _sanitize_job_for_client(job_latest), "error": "job_not_queued_or_already_running"}
 
     job_type = str(job.get("job_type") or "")
@@ -458,39 +401,27 @@ def service_run_job_now(
     payload_jwt: Optional[str] = input_payload.get("user_jwt")
 
     result_payload: Optional[Dict[str, Any]] = None
-    job_error: Optional[str] = None
-    final_row: Optional[Dict[str, Any]] = None
 
     try:
-        # -------------------- DISPATCH --------------------
         if job_type == "ai_analyze":
             run_as_service = bool(input_payload.get("service", False))
             if not run_as_service and payload_jwt is None:
                 raise ValueError("ai_analyze: job.input.user_jwt is required unless service=True")
 
             model_override = input_payload.get("model")
-            debug = bool(input_payload.get("debug", False))
-            save_to_db = bool(input_payload.get("save_to_db", True))
-
             result_payload = service_analyze_athlete(
                 user_id=user_id,
                 user_jwt=None if run_as_service else payload_jwt,
                 service=run_as_service,
-                debug=debug,
-                save_to_db=save_to_db,
                 model=model_override,
             )
 
         elif job_type == "weekly_generate":
-            if payload_jwt is None and not bool(input_payload.get("service", False)):
-                raise ValueError("weekly_generate: job.input.user_jwt is required unless service=True")
-
-            run_as_service = bool(input_payload.get("service", False))
-
+            if payload_jwt is None:
+                raise ValueError("weekly_generate: job.input.user_jwt is required")
             result_payload = service_generate_weekly_plan(
                 user_id=user_id,
-                user_jwt=None if run_as_service else payload_jwt,
-                service=run_as_service,
+                user_jwt=payload_jwt,
                 overwrite=bool(input_payload.get("overwrite", True)),
                 state_id=input_payload.get("state_id"),
                 weeks=input_payload.get("weeks"),
@@ -498,10 +429,8 @@ def service_run_job_now(
             )
 
         elif job_type == "daily_generate":
-            if payload_jwt is None and not bool(input_payload.get("service", False)):
-                raise ValueError("daily_generate: job.input.user_jwt is required unless service=True")
-
-            run_as_service = bool(input_payload.get("service", False))
+            if payload_jwt is None:
+                raise ValueError("daily_generate: job.input.user_jwt is required")
 
             week_index = input_payload.get("week_index")
             if week_index is None:
@@ -509,13 +438,11 @@ def service_run_job_now(
 
             result_payload = service_generate_daily_week(
                 user_id=user_id,
-                user_jwt=None if run_as_service else payload_jwt,
-                service=run_as_service,
+                user_jwt=payload_jwt,
                 week_index=int(week_index),
                 plan_id=input_payload.get("plan_id"),
                 overwrite=bool(input_payload.get("overwrite", True)),
                 model=input_payload.get("model"),
-                debug=bool(input_payload.get("debug", False)),
             )
 
         elif job_type == "plan_match":
@@ -538,19 +465,27 @@ def service_run_job_now(
             score_threshold_raw = input_payload.get("score_threshold")
             score_threshold = float(score_threshold_raw) if score_threshold_raw is not None else 0.55
 
-            # plan_match môže ísť aj service=True (bez jwt)
-            run_as_service = bool(input_payload.get("service", False)) or (payload_jwt is None)
+            # service path: keď nemáš jwt (webhook), volaj service=True
+            if payload_jwt is None:
+                result_payload = auto_map_plans_for_activities(
+                    user_id=user_id,
+                    activity_ids=activity_ids,
+                    days_window=days_window,
+                    score_threshold=score_threshold,
+                    user_jwt=None,
+                    service=True,
+                )
+            else:
+                result_payload = auto_map_plans_for_activities(
+                    user_id=user_id,
+                    activity_ids=activity_ids,
+                    days_window=days_window,
+                    score_threshold=score_threshold,
+                    user_jwt=payload_jwt,
+                    service=False,
+                )
 
-            result_payload = auto_map_plans_for_activities(
-                user_id=user_id,
-                activity_ids=activity_ids,
-                days_window=days_window,
-                score_threshold=score_threshold,
-                user_jwt=None if run_as_service else payload_jwt,
-                service=run_as_service,
-            )
-
-            # enqueue follow-up daily_extend (nech ide do queue, nie inline)
+            # enqueue follow-up daily_extend (dedupe!)
             try:
                 extend_job = service_enqueue_job(
                     user_id=user_id,
@@ -559,40 +494,36 @@ def service_run_job_now(
                     payload={"min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS},
                     user_jwt=payload_jwt,
                     service=(payload_jwt is None),
-                    auto_kick=False,  # nech to spraví chain po skončení tohto jobu
+                    dedupe_key=f"daily_extend:{user_id}",
+                    priority=80,
+                    auto_kick=False,  # chain sa spustí po dokončení aktuálneho jobu
                 )
                 if isinstance(result_payload, dict):
                     result_payload["daily_extend_job"] = extend_job.get("job")
+                    result_payload["daily_extend_note"] = extend_job.get("note")
             except Exception as e:
                 if isinstance(result_payload, dict):
                     result_payload["daily_extend_job_error"] = str(e)
 
         elif job_type == "daily_extend":
-            if payload_jwt is None and not bool(input_payload.get("service", False)):
-                raise ValueError("daily_extend: job.input.user_jwt is required unless service=True")
-
-            run_as_service = bool(input_payload.get("service", False))
+            if payload_jwt is None:
+                raise ValueError("daily_extend: job.input.user_jwt is required")
 
             min_horizon_raw = input_payload.get("min_horizon_days")
-            min_horizon_days = (
-                int(min_horizon_raw) if min_horizon_raw is not None else COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
-            )
+            min_horizon_days = int(min_horizon_raw) if min_horizon_raw is not None else COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 
             result_payload = service_auto_extend_daily_plan(
                 user_id=user_id,
-                user_jwt=None if run_as_service else payload_jwt,
-                service=run_as_service,
+                user_jwt=payload_jwt,
                 min_horizon_days=min_horizon_days,
             )
 
         elif job_type == "sync":
             if payload_jwt is None:
                 raise ValueError("sync: job.input.user_jwt is required")
-
             trigger = str(input_payload.get("trigger") or "manual")
 
             from Services.synchronization_bulk import import_activities_bulk
-
             result_payload = import_activities_bulk(
                 user_id=user_id,
                 user_jwt=payload_jwt,
@@ -604,7 +535,7 @@ def service_run_job_now(
             if activity_id is None:
                 raise ValueError("activity_review: activity_id is required in job.input")
             try:
-                activity_id_i = int(activity_id)
+                activity_id = int(activity_id)
             except Exception:
                 raise ValueError("activity_review: activity_id must be int")
 
@@ -614,7 +545,7 @@ def service_run_job_now(
 
             result_payload = service_activity_review(
                 user_id=user_id,
-                activity_id=activity_id_i,
+                activity_id=activity_id,
                 user_jwt=None if run_as_service else payload_jwt,
                 service=run_as_service,
                 model=input_payload.get("model"),
@@ -623,65 +554,55 @@ def service_run_job_now(
         else:
             raise ValueError(f"Unsupported job_type for worker: {job_type}")
 
-        final_row = db_update_job_finished(
+        finished = db_update_job_finished(
             job_id=job_id,
             status="succeeded",
             result=result_payload,
             error=None,
             progress=100,
+            user_jwt=None,
+            service=True,
         )
 
+        resp = {"job": _sanitize_job_for_client(finished), "error": None}
+
+        # ✅ po dokončení – spusti ďalšie queued (bez pollingu)
+        if run_chain:
+            try:
+                resp["chain_ran"] = _run_user_queue_chain(
+                    user_id=user_id,
+                    worker_id=f"chain:{worker_id}",
+                    chain_limit=chain_limit,
+                )
+            except Exception as e:
+                resp["chain_error"] = str(e)
+
+        return resp
+
     except Exception as e:  # noqa: BLE001
-        job_error = str(e)
-        final_row = db_update_job_finished(
+        finished = db_update_job_finished(
             job_id=job_id,
             status="failed",
             result=None,
-            error=job_error,
+            error=str(e),
             progress=100,
+            user_jwt=None,
+            service=True,
         )
+        resp = {"job": _sanitize_job_for_client(finished), "error": str(e)}
 
-    # -------------------- CHAIN (event-driven) --------------------
-    # Spusti ďalšie queued joby pre usera, len ak:
-    # - run_chain=True
-    # - chain_limit > 0
-    chained: List[Dict[str, Any]] = []
-    if run_chain and int(chain_limit or 0) > 0:
-        left = int(chain_limit)
-        # už jeden job prebehol, takže chainuješ max (chain_limit - 1)
-        left = max(0, left - 1)
-
-        while left > 0:
-            next_job = _pick_next_queued_job_for_user(user_id=int(user_id), limit=50)
-            if not next_job:
-                break
-
-            nid = next_job.get("id")
+        # aj po fail môžeš chainovať (napr. fail review nemá blokovať extend)
+        if run_chain:
             try:
-                nid_i = int(nid)
-            except Exception:
-                break
+                resp["chain_ran"] = _run_user_queue_chain(
+                    user_id=user_id,
+                    worker_id=f"chain:{worker_id}",
+                    chain_limit=chain_limit,
+                )
+            except Exception as ee:
+                resp["chain_error"] = str(ee)
 
-            # rekurzia, ale kontrolovaná (run_chain=False aby sme nerobili nested while)
-            r = service_run_job_now(
-                user_id=int(user_id),
-                job_id=nid_i,
-                worker_id=worker_id,
-                user_jwt=None,
-                service=True,
-                run_chain=False,
-                chain_limit=0,
-            )
-            j = r.get("job")
-            if isinstance(j, dict):
-                chained.append(j)
-
-            left -= 1
-
-    resp: Dict[str, Any] = {"job": _sanitize_job_for_client(final_row), "error": job_error}
-    if chained:
-        resp["chained"] = chained
-    return resp
+        return resp
 
 
 def service_enqueue_ai_analyze_job_service(
@@ -707,6 +628,7 @@ def service_enqueue_ai_analyze_job_service(
         payload=payload,
         user_jwt=None,
         service=True,
+        dedupe_key=f"ai_analyze:{user_id}",
+        priority=50,
         auto_kick=True,
-        chain_limit=10,
     )

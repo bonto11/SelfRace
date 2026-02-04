@@ -196,3 +196,75 @@ def db_update_job_finished(
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] update_finished error:", repr(e))
         return None
+    
+
+
+    from __future__ import annotations
+
+
+def db_find_active_job_by_dedupe(
+    user_id: int,
+    dedupe_key: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """
+    Nájde existujúci job (queued/running) s rovnakým dedupe_key.
+    """
+    if not dedupe_key:
+        return None
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("dedupe_key", dedupe_key)
+            .in_("status", ["queued", "running"])
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        data = res.data or []
+        return data[0] if data else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] find_by_dedupe error:", repr(e))
+        return None
+
+
+def db_pick_next_queued_job_for_user(
+    user_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """
+    Vyberie ďalší runnable job:
+      - status = queued
+      - run_after je NULL alebo <= now
+      - order: priority ASC, created_at ASC
+    """
+    now_iso = _now_iso()
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+
+        # Pozn.: Supabase python client má obmedzenia na OR filtre,
+        # ale toto funguje cez .or_() string.
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("status", "queued")
+            .or_(f"run_after.is.null,run_after.lte.{now_iso}")
+            .order("priority", desc=False)
+            .order("created_at", desc=False)
+            .limit(1)
+        )
+
+        res = q.execute()
+        data = res.data or []
+        return data[0] if data else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] pick_next_queued error:", repr(e))
+        return None
