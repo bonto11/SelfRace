@@ -39,12 +39,12 @@ export type ActivityReviewEnqueueOpts = {
 
 export async function apiEnqueueActivityReview(
   userId: number,
-  userUid: string,      // ✅ povinné pre BE schema (body.user_uid)
+  userUuid: string,
   activityId: number,
   opts: ActivityReviewEnqueueOpts = {}
 ): Promise<{ success: true; job: AsyncJobRow; result: any }> {
   if (!userId) throw new Error("userId is required");
-  if (!userUid) throw new Error("userUid is required");
+  if (!userUuid) throw new Error("userUuid is required");
   if (!activityId) throw new Error("activityId is required");
 
   const runNow = opts.runNow ?? true;
@@ -54,7 +54,7 @@ export async function apiEnqueueActivityReview(
 
   const enqueueBody = {
     job_type: "activity_review",
-    user_uid: userUid, // ✅ FIX: BE chce user_uid (nie user_uuid)
+    userUuid: userUuid, 
     payload: {
       activity_id: activityId,
       debug: Boolean(opts.debug ?? false),
