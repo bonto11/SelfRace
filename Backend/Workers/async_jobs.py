@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-import os
+# Workers/async_jobs.py (úplne hore, ešte pred imports)
+import os, sys
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+    
 import time
 import random
 from typing import Dict, Optional
