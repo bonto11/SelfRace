@@ -115,6 +115,7 @@ export async function apiEnqueueActivityReview(
   }
 
   const result = runJson.job.result;
+  console.log("MBP result", result)
 
   // ak BE vracia quota error v result-e, vyhodí to exception
   maybeThrowAiQuotaError(result);
