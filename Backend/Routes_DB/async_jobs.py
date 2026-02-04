@@ -32,6 +32,37 @@ def db_insert_job(
         print("[DB-JOBS] insert error:", repr(e))
         return None
 
+#used?
+def db_get_active_jobs(
+    user_id: int,
+    job_types: Optional[List[str]] = None,
+    limit: int = 50,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Aktívne joby pre usera – status v ('queued', 'running').
+    """
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        q = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["queued", "running"])
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if job_types:
+            q = q.in_("job_type", job_types)
+
+        res = q.execute()
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] get_active error:", repr(e))
+        return []
+
 
 def db_get_recent_jobs(
     user_id: int,
@@ -160,6 +191,37 @@ def db_update_job_finished(
         return data[0] if data else None
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] update_finished error:", repr(e))
+        return None
+
+#used?
+def db_find_active_job_by_dedupe(
+    user_id: int,
+    dedupe_key: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = True,
+) -> Optional[Dict[str, Any]]:
+    """
+    Nájde existujúci job (queued/running) s rovnakým dedupe_key.
+    """
+    if not dedupe_key:
+        return None
+    try:
+        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("dedupe_key", dedupe_key)
+            .in_("status", ["queued", "running"])
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        data = res.data or []
+        return data[0] if data else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] find_by_dedupe error:", repr(e))
         return None
 
 
