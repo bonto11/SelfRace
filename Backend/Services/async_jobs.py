@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List, Set, cast
+from typing import Any, Dict, Optional, Set, cast, List
 
 from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Routes_DB.async_jobs import (
     db_insert_job,
     db_update_job_finished,
+    db_get_active_jobs,
+    db_get_job_by_id,
+    db_mark_job_running,
+    db_find_active_job_by_dedupe,
 )
 
 from Services.AI.athlete_state import service_analyze_athlete
@@ -20,8 +24,6 @@ from Services.AI.activity_review import service_activity_review
 from Services.users import require_jwt
 
 
-# ---------------- CONFIG ----------------
-
 ALLOWED_JOB_TYPES: Set[str] = {
     "ai_analyze",
     "weekly_generate",
@@ -32,27 +34,33 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "sync",
 }
 
-SENSITIVE_KEYS = {
-    "user_jwt", "jwt", "authorization",
-    "access_token", "refresh_token",
-    "api_key", "openai_api_key",
+SENSITIVE_KEYS: Set[str] = {
+    "user_jwt",
+    "jwt",
+    "authorization",
+    "access_token",
+    "refresh_token",
+    "api_key",
+    "openai_api_key",
 }
 
-# ---------------- HELPERS ----------------
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
 def _as_dict(x: Any) -> Dict[str, Any]:
     return x if isinstance(x, dict) else {}
 
+
 def _scrub_dict(x: Any) -> Any:
     if isinstance(x, dict):
-        return {
-            k: _scrub_dict(v)
-            for k, v in x.items()
-            if str(k).lower() not in SENSITIVE_KEYS
-        }
+        out: Dict[str, Any] = {}
+        for k, v in x.items():
+            if str(k).lower() in SENSITIVE_KEYS:
+                continue
+            out[k] = _scrub_dict(v)
+        return out
     if isinstance(x, list):
         return [_scrub_dict(v) for v in x]
     return x
@@ -74,8 +82,7 @@ def service_enqueue_job(
     service: bool = False,
 ) -> Dict[str, Any]:
     """
-    🔹 Jediné čo robí: INSERT do DB.
-    🔹 Nevykonáva job.
+    🔹 Robí len INSERT (a voliteľne dedupe lookup).
     🔹 Okamžite vracia FE.
     """
     jwt = user_jwt if service else require_jwt(user_jwt)
@@ -83,27 +90,44 @@ def service_enqueue_job(
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unsupported job_type: {job_type}")
 
+    if dedupe_key:
+        existing = db_find_active_job_by_dedupe(
+            user_id=int(user_id),
+            dedupe_key=str(dedupe_key),
+            user_jwt=None,
+            service=True,
+        )
+        if existing:
+            return {
+                "job": {
+                    "id": existing.get("id"),
+                    "job_type": existing.get("job_type"),
+                    "status": existing.get("status"),
+                },
+                "note": "deduped",
+            }
+
     clean_payload = dict(payload or {})
     if jwt:
         clean_payload["user_jwt"] = jwt
 
-    row = {
+    row: Dict[str, Any] = {
         "user_id": int(user_id),
-        "user_uid": user_uid,
+        "user_uid": user_uid or "00000000-0000-0000-0000-000000000000",
         "job_type": job_type,
         "status": "queued",
-        "priority": int(priority),
+        "priority": int(priority or 100),
         "dedupe_key": dedupe_key,
         "run_after": run_after,
         "input": clean_payload,
         "attempts": 0,
-        "max_attempts": int(max_attempts),
+        "max_attempts": int(max_attempts or 3),
         "progress": 0,
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
     }
 
-    created = db_insert_job(row, service=True)
+    created = db_insert_job(row, user_jwt=None, service=True)
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
@@ -117,12 +141,39 @@ def service_enqueue_job(
     }
 
 
-# ---------------- EXECUTE (WORKER ONLY) ----------------
+def service_list_active_jobs(
+    user_id: int,
+    *,
+    job_types: Optional[List[str]] = None,
+    limit: int = 50,
+    user_jwt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    _ = require_jwt(user_jwt)
+    rows = db_get_active_jobs(
+        user_id=int(user_id),
+        job_types=job_types,
+        limit=int(limit or 50),
+        user_jwt=user_jwt,
+        service=False,
+    ) or []
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        # minimal scrub
+        j = dict(r)
+        j["input"] = _scrub_dict(j.get("input"))
+        j["result"] = _scrub_dict(j.get("result"))
+        out.append(j)
+    return out
+
+
+# ---------------- EXECUTE (WORKER) ----------------
 
 def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     """
     ⚠️ Volá IBA background worker.
-    Job je už 'running'.
+    Predpoklad: job je už 'running' (locknutý).
     """
     job_id = int(job["id"])
     user_id = int(job["user_id"])
@@ -135,7 +186,7 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
             result = service_analyze_athlete(
                 user_id=user_id,
                 user_jwt=jwt,
-                service=jwt is None,
+                service=(jwt is None),
                 model=payload.get("model"),
             )
 
@@ -162,30 +213,32 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
         elif job_type == "plan_match":
             result = auto_map_plans_for_activities(
                 user_id=user_id,
-                activity_ids=payload.get("activity_ids", []),
+                activity_ids=cast(list, payload.get("activity_ids", [])),
                 days_window=int(payload.get("days_window", 1)),
                 score_threshold=float(payload.get("score_threshold", 0.55)),
                 user_jwt=jwt,
-                service=jwt is None,
+                service=(jwt is None),
             )
 
-            # follow-up
+            # follow-up (len enqueue)
             service_enqueue_job(
                 user_id=user_id,
-                user_uid=job["user_uid"],
+                user_uid=str(job.get("user_uid") or ""),
                 job_type="daily_extend",
                 payload={"min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS},
                 dedupe_key=f"daily_extend:{user_id}",
                 priority=80,
                 user_jwt=jwt,
-                service=jwt is None,
+                service=(jwt is None),
             )
 
         elif job_type == "daily_extend":
             result = service_auto_extend_daily_plan(
                 user_id=user_id,
                 user_jwt=jwt,
-                min_horizon_days=int(payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)),
+                min_horizon_days=int(
+                    payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)
+                ),
             )
 
         elif job_type == "activity_review":
@@ -193,8 +246,16 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 activity_id=int(payload["activity_id"]),
                 user_jwt=jwt,
-                service=jwt is None,
+                service=(jwt is None),
                 model=payload.get("model"),
+            )
+
+        elif job_type == "sync":
+            from Services.synchronization_bulk import import_activities_bulk
+            result = import_activities_bulk(
+                user_id=user_id,
+                user_jwt=jwt,
+                trigger=str(payload.get("trigger") or "async_worker"),
             )
 
         else:
@@ -203,18 +264,66 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
         db_update_job_finished(
             job_id=job_id,
             status="succeeded",
-            result=_scrub_dict(result),
+            result=cast(Optional[Dict[str, Any]], _scrub_dict(result)),
+            error=None,
             progress=100,
+            user_jwt=None,
             service=True,
         )
         return {"ok": True}
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         db_update_job_finished(
             job_id=job_id,
             status="failed",
+            result=None,
             error=str(e),
             progress=100,
+            user_jwt=None,
             service=True,
         )
         return {"ok": False, "error": str(e)}
+
+
+def service_run_job_now(
+    user_id: int,
+    job_id: int,
+    *,
+    worker_id: str = "api_run",
+    user_jwt: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Debug/manual endpoint: zamkne job a vykoná ho inline (bude blokovať request).
+    """
+    _ = require_jwt(user_jwt)
+
+    job = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), user_jwt=None, service=True)
+    if not job:
+        return {"job": None, "error": "job_not_found"}
+
+    status = str(job.get("status") or "")
+    if status not in ("queued", "running"):
+        return {"job": job, "error": f"job_not_runnable (status={status})"}
+
+    try:
+        attempts_old = int(job.get("attempts") or 0)
+    except Exception:
+        attempts_old = 0
+
+    # lock len keď je queued
+    if status == "queued":
+        locked = db_mark_job_running(
+            job_id=int(job_id),
+            worker_id=worker_id,
+            attempts=attempts_old + 1,
+            user_jwt=None,
+            service=True,
+        )
+        if not locked:
+            latest = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), user_jwt=None, service=True)
+            return {"job": latest, "error": "job_not_queued_or_already_running"}
+        job = locked
+
+    out = service_execute_job(job)
+    latest = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), user_jwt=None, service=True)
+    return {"job": latest, "error": out.get("error")}
