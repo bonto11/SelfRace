@@ -54,7 +54,7 @@ export async function apiEnqueueActivityReview(
 
   const enqueueBody = {
     job_type: "activity_review",
-    userUuid: userUuid, 
+    user_uuid: userUuid, 
     payload: {
       activity_id: activityId,
       debug: Boolean(opts.debug ?? false),
