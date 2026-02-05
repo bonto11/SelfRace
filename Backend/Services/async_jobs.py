@@ -90,7 +90,7 @@ def _enqueue_autoadjust_debounced(*, user_id: int, delay_sec: int = 120) -> None
     service_enqueue_job(
         user_id=int(user_id),
         job_type="coach_autoadjust",
-        payload={"service": True},
+        payload={},
         priority=180,
         dedupe_key=f"coach_autoadjust:{user_id}",
         run_after=run_after,
@@ -243,9 +243,6 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     user_id = int(job["user_id"])
     job_type = str(job["job_type"])
     payload = _as_dict(job.get("input"))
-
-  # may contain user_jwt for user-initiated jobs
-
     jwt = payload.get("user_jwt")
     run_as_service = jwt is None
 
@@ -349,7 +346,7 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 int(user_id),
                 int(activity_id),
                 fetch_details,
-                None,   # service mode
+                None,
             )
 
             # 2) FOLLOWUPS (async jobs, deduped)
@@ -390,17 +387,18 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
             """
             Worker-only:
               - marks activity in activities_summary as deleted_at
+              - prefer deleted_at from payload (webhook event_time), fallback to now
             """
             activity_id = int(payload.get("activity_id") or 0)
             if not activity_id:
                 raise ValueError("missing activity_id")
 
-            now_iso = _now_iso()
+            deleted_at = payload.get("deleted_at") or _now_iso()
             supabase.table("activities_summary").update(
-                {"deleted_at": now_iso}
+                {"deleted_at": deleted_at}
             ).eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
 
-            result = {"ok": True, "deleted_at": now_iso}
+            result = {"ok": True, "deleted_at": deleted_at}
 
         else:
             raise ValueError(f"Unsupported job_type: {job_type}")
