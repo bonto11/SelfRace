@@ -4,12 +4,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-import json
-
 from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
 from Routes_AI.daily_plan_generate import generate_daily_week_json
 from Routes_DB.coach_plan_daily import (
-    db_clear_daily_for_user_week,
+    db_clear_daily_for_user_range,
     db_insert_daily_rows,
     db_list_daily_for_user_horizon,
 )
@@ -30,19 +28,6 @@ from Services.AI.daily_plan_builders import (
 )
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Services.users import require_jwt
-
-
-def _append_note(existing: Any, extra: str) -> str:
-    base = existing if isinstance(existing, str) else ""
-    extra = (extra or "").strip()
-    if not extra:
-        return base
-    if not base:
-        return extra
-    if extra in base:
-        return base
-    return base.rstrip() + " " + extra
-
 
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -311,14 +296,29 @@ def service_generate_daily_week(
     # Ensure stable ordering for FE + DB
     daily_plan = _reindex_sessions_per_day(daily_plan)
 
+    days = daily_plan.get("days")
+    if not isinstance(days, list):
+        days = []
+
+    dates: List[str] = []
+    for d in days:
+        if not isinstance(d, dict):
+            continue
+        v = d.get("date")
+        if isinstance(v, str) and v:
+            dates.append(v)
+
+    date_from = min(dates) if dates else None
+    date_to = max(dates) if dates else None
+
     # 6) DB write
     deleted_rows = 0
-    if overwrite and plan_id_effective and week_meta.get("week_start") and week_meta.get("week_end"):
-        deleted_rows = db_clear_daily_for_user_week(
+    if overwrite and plan_id_effective and date_from and date_to:
+        deleted_rows = db_clear_daily_for_user_range(
             user_id=user_id,
             plan_id=plan_id_effective,
-            week_start=week_meta["week_start"],
-            week_end=week_meta["week_end"],
+            date_from=date_from,
+            date_to=date_to,
             user_jwt=jwt,
             service=service,
         )

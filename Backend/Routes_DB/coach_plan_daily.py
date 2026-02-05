@@ -209,3 +209,26 @@ def db_clear_daily_for_user_plan(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] clear_plan error:", repr(e))
         return 0
+
+def db_clear_daily_for_user_range(
+    user_id: int,
+    plan_id: str,
+    date_from: str,
+    date_to: str,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> int:
+    sb = get_sb(user_jwt=user_jwt, service=service)
+
+    res = (
+        sb.table(TABLE_COACH_PLAN_DAILY)
+        .delete()
+        .eq("user_id", user_id)
+        .eq("plan_id", plan_id)
+        .gte("plan_date", date_from)
+        .lte("plan_date", date_to)
+        .execute()
+    )
+
+    return len(res.data or [])
