@@ -346,7 +346,7 @@ async def strava_webhook_handler(request: Request):
                 user_jwt=None,
                 service=True,
             )
-            _insert_webhook_audit_row(event=event, payload=data, status="enqueued", error=None)
+            _insert_webhook_audit_row(event=event, payload=data, status="processed", error=None)
             return JSONResponse({"ok": True})
 
         if event.aspect_type in ("create", "update"):
@@ -364,7 +364,7 @@ async def strava_webhook_handler(request: Request):
                 user_jwt=None,
                 service=True,
             )
-            _insert_webhook_audit_row(event=event, payload=data, status="enqueued", error=None)
+            _insert_webhook_audit_row(event=event, payload=data, status="processed", error=None)
             return JSONResponse({"ok": True})
 
         _insert_webhook_audit_row(event=event, payload=data, status="ignored", error="unknown_aspect_type")
