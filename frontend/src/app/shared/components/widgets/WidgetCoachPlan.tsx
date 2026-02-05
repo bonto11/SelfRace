@@ -106,15 +106,19 @@ function RowAction({
         </Button>
       </div>
 
-      <button
+      {/* ✅ chevron -> tiež Button komponent */}
+      <Button
         type="button"
+        size="xs"
+        variant="secondary"
+        disabled={disabled}
         onClick={onDetail}
         className={[WIDGET_ACTION_CHEVRON_BTN, WIDGET_ACTION_CHEVRON_SURFACE].join(" ")}
         aria-label="Otvoriť detail"
         title="Otvoriť detail"
       >
         →
-      </button>
+      </Button>
     </div>
   );
 }
