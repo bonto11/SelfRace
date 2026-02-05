@@ -203,6 +203,14 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
     return None
 
 
+def _weekday_abbr_from_int(v: Any) -> Optional[str]:
+    try:
+        n = int(v)
+    except Exception:
+        return None
+    return {1:"Mon",2:"Tue",3:"Wed",4:"Thu",5:"Fri",6:"Sat",7:"Sun"}.get(n)
+
+
 def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not isinstance(ext_window, dict):
         return []
@@ -235,7 +243,12 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
             continue
 
         ds = occ_date[:10]
-        wd = _weekday_abbr_from_iso(ds)
+
+        # ✅ preferuj čo vrátil BE, fallback na výpočet z dátumu
+        wd = None
+        wd = wd or _weekday_abbr_from_int(e.get("occurrence_weekday_int"))
+        wd = wd or (e.get("occurrence_weekday") if isinstance(e.get("occurrence_weekday"), str) else None)
+        wd = wd or _weekday_abbr_from_iso(ds)
         if not wd:
             continue
 
@@ -262,7 +275,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         )
 
     return out
-
 
 def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any) -> Dict[str, Any]:
     return {
