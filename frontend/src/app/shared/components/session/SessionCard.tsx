@@ -165,6 +165,12 @@ function shortSkDate(iso?: string | null) {
   return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
 }
 
+function shortSkDay(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("sk-SK", { weekday: "short" });
+}
+
 function statusLabel(status: PlanStatus): string {
   if (status === "done") return "hotovo";
   if (status === "missed") return "missed";
@@ -188,6 +194,9 @@ export default function SessionCard({
   planReschedule,
 }: SessionCardProps) {
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
+
+  // ✅ Plan-only UI state (hidden by default)
+  const [showReschedule, setShowReschedule] = useState(false);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
 
   useEffect(() => {
@@ -198,6 +207,11 @@ export default function SessionCard({
     // keep select in sync when parent updates item.dateIso
     if (item.kind === "plan") setPendingDate(item.dateIso ?? null);
   }, [item.kind, item.dateIso]);
+
+  // if card is collapsed, hide reschedule controls so it never "shouts"
+  useEffect(() => {
+    if (!opened) setShowReschedule(false);
+  }, [opened]);
 
   const dateLine =
     item.hideDateLine || variant === "calendar"
@@ -260,7 +274,7 @@ export default function SessionCard({
 
     return dates.map((d) => {
       const cnt = Number(dayCounts[d] ?? 0);
-      const label = `${shortSkDate(d)} (${cnt}/${maxPerDay})`;
+      const label = `${shortSkDate(d)} · ${shortSkDay(d)} (${cnt}/${maxPerDay})`;
       return { value: d, label, cnt };
     });
   }, [canReschedulePlan, planReschedule, dayCounts, maxPerDay]);
@@ -274,15 +288,19 @@ export default function SessionCard({
       return;
     }
 
-    // hard guard: 3+ never allow, and if already max, ask confirm
     const cnt = Number(dayCounts[toDate] ?? 0);
 
+    // hard rule: never allow 3+
+    if (cnt >= maxPerDay + 1) {
+      setPendingDate(fromDate);
+      return;
+    }
+
+    // if moving to a full day (2/2), require confirm
     if (cnt >= maxPerDay) {
-      // maxPerDay=2 => allow only with explicit confirm for 2/2
       const ok = await confirm({
         title: "V tento deň už máš 2 tréningy",
-        message:
-          "Presunúť tréning aj tak? (Max je 2 tréningy za deň – viac nepovolíme.)",
+        message: "Presunúť tréning aj tak? (Max je 2 tréningy za deň.)",
         okText: "Presunúť",
         cancelText: "Zrušiť",
         tone: "danger",
@@ -301,6 +319,9 @@ export default function SessionCard({
       fromDate,
       toDate,
     });
+
+    // subtle UX: auto-hide after successful change
+    setShowReschedule(false);
   };
 
   return (
@@ -345,24 +366,8 @@ export default function SessionCard({
               </span>
             )}
 
-            {/* ✅ PLAN ONLY: reschedule select */}
-            {canReschedulePlan ? (
-              <div className="w-[140px]">
-                <SelectField
-                  value={String(pendingDate ?? item.dateIso ?? "")}
-                  onChange={(e) => handlePlanDateChange(String(e.target.value))}
-                  options={planDateOptions.map((o) => ({
-                    value: o.value,
-                    label: o.label,
-                  }))}
-                  variant="editable"
-                />
-              </div>
-            ) : null}
-
             <SportBadge sport={item.sport} />
 
-            {/* keep your toggle, but use Button if you want consistent UI later */}
             <button
               type="button"
               aria-expanded={opened}
@@ -395,6 +400,21 @@ export default function SessionCard({
               item={item}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
+              planRescheduleUI={
+                canReschedulePlan
+                  ? {
+                      show: showReschedule,
+                      setShow: setShowReschedule,
+                      currentDate: String(item.dateIso ?? ""),
+                      pendingDate: pendingDate ?? String(item.dateIso ?? ""),
+                      options: planDateOptions.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      })),
+                      onSelect: handlePlanDateChange,
+                    }
+                  : null
+              }
             />
           </div>
         </div>
@@ -410,11 +430,20 @@ function DetailBody({
   item,
   onOpenActivity,
   showPlanDebug,
+  planRescheduleUI,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
+  planRescheduleUI: null | {
+    show: boolean;
+    setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
+    currentDate: string;
+    pendingDate: string;
+    options: { value: string; label: string }[];
+    onSelect: (toDate: string) => void | Promise<void>;
+  };
 }) {
   const compactChart = variant !== "activity";
 
@@ -433,11 +462,46 @@ function DetailBody({
 
   if (item.kind === "plan") {
     return (
-      <PlanSessionDetail
-        variant={variant}
-        item={item as any}
-        showPlanDebug={showPlanDebug}
-      />
+      <div className="space-y-3">
+        {/* ✅ hidden by default, only visible after clicking button */}
+        {planRescheduleUI ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs opacity-70">Presunúť tréning na iný deň</div>
+
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={() => planRescheduleUI.setShow((s) => !s)}
+              >
+                {planRescheduleUI.show ? "Zavrieť" : "Reschedule"}
+              </Button>
+            </div>
+
+            {planRescheduleUI.show ? (
+              <div className="mt-2">
+                <SelectField
+                  value={planRescheduleUI.pendingDate}
+                  onChange={(e) => planRescheduleUI.onSelect(String(e.target.value))}
+                  options={planRescheduleUI.options}
+                  variant="editable"
+                />
+
+                <div className="mt-1 text-[11px] opacity-60">
+                  Aktuálne: {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
+                  {shortSkDay(planRescheduleUI.currentDate)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <PlanSessionDetail
+          variant={variant}
+          item={item as any}
+          showPlanDebug={showPlanDebug}
+        />
+      </div>
     );
   }
 
