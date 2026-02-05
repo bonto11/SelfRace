@@ -40,7 +40,20 @@ def enqueue_job(
             dedupe_key=payload.dedupe_key,
             user_jwt=user_jwt,
         )
-        return {"success": True, "job": out.get("job"), "note": out.get("note")}
+
+        if not out.get("job"):
+            return {
+                "success": False,
+                "job": None,
+                "note": out.get("note") or "enqueue_failed",
+            }
+
+        return {
+            "success": True,
+            "job": out["job"],
+            "note": out.get("note"),
+        }
+
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:  # noqa: BLE001

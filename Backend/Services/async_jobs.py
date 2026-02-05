@@ -126,6 +126,7 @@ def service_enqueue_job(
     }
 
     created = db_insert_job(row, user_jwt=None, service=True)
+    
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
