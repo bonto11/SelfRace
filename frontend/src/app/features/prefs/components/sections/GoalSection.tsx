@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
+import DateField from "@/app/shared/ui/components/DateField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -319,16 +320,19 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <TextField
-                      label="Race date"
-                      type="date"
-                      value={race.date ?? ""}
-                      onChange={(e) =>
-                        updateRaceAt(index, {
-                          date: e.currentTarget.value || null,
-                        })
-                      }
-                    />
+                    {/* ✅ DateField instead of native date input */}
+                    <div>
+                      <div className="text-xs opacity-70 mb-1">Race date</div>
+                      <DateField
+                        value={(race.date as string | null) ?? null}
+                        onChange={(v) =>
+                          updateRaceAt(index, {
+                            date: v || null,
+                          })
+                        }
+                        variant="editable"
+                      />
+                    </div>
 
                     <SelectField
                       label="Race priority"
