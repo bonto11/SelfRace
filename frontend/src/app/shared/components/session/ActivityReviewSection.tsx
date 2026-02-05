@@ -274,19 +274,19 @@ export default function ActivityCoachReviewSection({
     if (!startDt) {
       note = (
         <div className="text-xs opacity-70">
-          AI review sa nedá spustiť – chýba dátum aktivity.
+          Zhodnotenie trénera sa nedá spustiť – chýba dátum aktivity.
         </div>
       );
     } else if (!isEligible) {
       note = (
         <div className="text-xs opacity-70">
-          AI review je dostupné len pre aktivity z posledných 7 dní.
+          Zhodnotenie trénera je dostupné len pre aktivity z posledných 7 dní.
         </div>
       );
     } else {
       note = (
         <div className="text-xs opacity-70">
-          Môžeš vygenerovať coach komentár k tejto aktivite.
+          Môžeš požiadať o zhodnotenie trénera k tejto aktivite.
         </div>
       );
     }
@@ -298,7 +298,6 @@ export default function ActivityCoachReviewSection({
     try {
       await apiEnqueueActivityReview(Number(userId), Number(activityId), {
         runNow: true,
-        debug: false,
       });
 
       // refresh – worker môže dobehnúť o chvíľu
@@ -362,12 +361,12 @@ export default function ActivityCoachReviewSection({
         )}
 
         {!busyLoad && !hasReview && (
-          <div className="text-sm opacity-80">Zatiaľ bez coach komentára.</div>
+          <div className="text-sm opacity-80">Zatiaľ bez zhodnotenia trénera.</div>
         )}
 
         {reviewUpdatedAt && (
           <div className="mt-3 text-[11px] opacity-60">
-            Update: {reviewUpdatedAt}
+            Aktualizácia: {reviewUpdatedAt}
           </div>
         )}
       </div>

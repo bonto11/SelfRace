@@ -177,10 +177,11 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     user_id = int(job["user_id"])
     job_type = str(job["job_type"])
     payload = _as_dict(job.get("input"))
+
     jwt = payload.get("user_jwt")
 
-    # ✅ bezpečné prepínanie režimu
-    run_as_service = bool(payload.get("service")) and (jwt is None)
+    # job beží ako service LEN ak nemá jwt
+    run_as_service = jwt is None
 
     try:
         if job_type == "ai_analyze":
@@ -220,10 +221,9 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 days_window=int(payload.get("days_window", 1)),
                 score_threshold=float(payload.get("score_threshold", 0.55)),
                 user_jwt=jwt,
-                service=(jwt is None),
+                service=run_as_service,
             )
 
-            # follow-up (len enqueue)
             service_enqueue_job(
                 user_id=user_id,
                 job_type="daily_extend",
@@ -231,13 +231,13 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 dedupe_key=f"daily_extend:{user_id}",
                 priority=80,
                 user_jwt=jwt,
-                service=(jwt is None),
+                service=run_as_service,
             )
 
         elif job_type == "daily_extend":
             result = service_auto_extend_daily_plan(
                 user_id=user_id,
-                service=True,
+                service=run_as_service,
                 min_horizon_days=int(
                     payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)
                 ),
@@ -248,7 +248,7 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 activity_id=int(payload["activity_id"]),
                 user_jwt=jwt,
-                service=(jwt is None),
+                service=run_as_service,
                 model=payload.get("model"),
             )
 

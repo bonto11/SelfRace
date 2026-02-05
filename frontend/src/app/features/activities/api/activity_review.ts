@@ -32,7 +32,6 @@ type RunJobResponse = {
 
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
-  debug?: boolean;
   model?: string | null;
   // ⚠️ FE sem service nedávaj (produkcia). Worker/cron si to rieši sám.
 };
@@ -53,7 +52,6 @@ export async function apiEnqueueActivityReview(
     job_type: "activity_review",
     payload: {
       activity_id: activityId,
-      debug: Boolean(opts.debug ?? false),
       model: opts.model ?? null,
       // service: false implicit – BE nech si zoberie auth z cookies/JWT
     },
