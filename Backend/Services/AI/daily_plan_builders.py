@@ -30,7 +30,9 @@ _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
 _ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
 
 
-def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
+def _safe_int(
+    v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
+) -> int:
     try:
         if v is None:
             out = default
@@ -61,6 +63,14 @@ def _weekday_abbr_from_iso(d: str) -> Optional[str]:
         return _WEEKDAY_TO_ABBR.get(dd.weekday())
     except Exception:
         return None
+
+
+def _weekday_abbr_from_int(v: Any) -> Optional[str]:
+    try:
+        n = int(v)
+    except Exception:
+        return None
+    return {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}.get(n)
 
 
 def _coerce_session_sport(raw_sport: Any) -> str:
@@ -193,7 +203,11 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
                 return None
 
     targets = prefs.get("targets")
-    legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
+    legacy = (
+        (targets.get("strength") or {}).get("sessions_per_week")
+        if isinstance(targets, dict)
+        else None
+    )
     if isinstance(legacy, (int, float, str)):
         try:
             return int(legacy)
@@ -203,15 +217,9 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
     return None
 
 
-def _weekday_abbr_from_int(v: Any) -> Optional[str]:
-    try:
-        n = int(v)
-    except Exception:
-        return None
-    return {1:"Mon",2:"Tue",3:"Wed",4:"Thu",5:"Fri",6:"Sat",7:"Sun"}.get(n)
-
-
-def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _normalize_external_occurrences_from_service(
+    ext_window: Dict[str, Any],
+) -> List[Dict[str, Any]]:
     if not isinstance(ext_window, dict):
         return []
 
@@ -247,7 +255,11 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         # ✅ preferuj čo vrátil BE, fallback na výpočet z dátumu
         wd = None
         wd = wd or _weekday_abbr_from_int(e.get("occurrence_weekday_int"))
-        wd = wd or (e.get("occurrence_weekday") if isinstance(e.get("occurrence_weekday"), str) else None)
+        wd = wd or (
+            e.get("occurrence_weekday")
+            if isinstance(e.get("occurrence_weekday"), str)
+            else None
+        )
         wd = wd or _weekday_abbr_from_iso(ds)
         if not wd:
             continue
@@ -276,7 +288,10 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
 
     return out
 
-def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any) -> Dict[str, Any]:
+
+def _build_external_block(
+    occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any
+) -> Dict[str, Any]:
     return {
         "schema_version": 1,
         "occurrences": [
@@ -316,12 +331,16 @@ def build_daily_context_from_db(
     plan_id_effective: Optional[str] = plan_id
     resolved_via = "input"
     if not plan_id_effective:
-        meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt, service=service)
+        meta = db_get_active_plan_meta_for_user(
+            user_id=user_id, user_jwt=jwt, service=service
+        )
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
             resolved_via = "active_meta"
         else:
-            meta2 = db_get_latest_plan_meta_for_user(user_id=user_id, user_jwt=jwt, service=service)
+            meta2 = db_get_latest_plan_meta_for_user(
+                user_id=user_id, user_jwt=jwt, service=service
+            )
             if meta2 and isinstance(meta2.get("plan_id"), str):
                 plan_id_effective = meta2["plan_id"]
                 resolved_via = "latest_meta"
@@ -378,7 +397,9 @@ def build_daily_context_from_db(
                 user_jwt=jwt,
                 service=service,
             )
-            external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
+            external_occurrences_norm = _normalize_external_occurrences_from_service(
+                ext_window
+            )
 
             external_block = _build_external_block(
                 external_occurrences_norm,
@@ -391,7 +412,9 @@ def build_daily_context_from_db(
             external_fetch_error = repr(e)
 
     # 5) athlete_state
-    state_row = db_get_latest_state_for_user(user_id=user_id, version=1, user_jwt=jwt, service=service)
+    state_row = db_get_latest_state_for_user(
+        user_id=user_id, version=1, user_jwt=jwt, service=service
+    )
     athlete_state_json = (state_row or {}).get("state_json") or None
 
     # 6) context payload
@@ -420,7 +443,9 @@ def build_daily_context_from_db(
         context_payload["external_events"] = external_block
     elif external_fetch_error:
         # optional: pomôže promptu + debug
-        context_payload["planning_constraints"]["external_events_fetch_error"] = external_fetch_error
+        context_payload["planning_constraints"][
+            "external_events_fetch_error"
+        ] = external_fetch_error
 
     return {
         "context_payload": context_payload,
