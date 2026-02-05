@@ -79,7 +79,6 @@ export async function apiAnalyzeAthleteState(
 
   const enqueueBody = {
     job_type: "ai_analyze",
-    user_uuid: userUuid,
     payload: {
       debug: !!opts.debugRaw,
       save_to_db: true,

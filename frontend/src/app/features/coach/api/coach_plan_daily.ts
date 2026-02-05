@@ -67,7 +67,6 @@ export async function apiGenerateDailyForWeek(
 
   const enqueueBody = {
     job_type: "daily_generate",
-    user_uuid: userUuid,
     payload,
     priority: 100,
     max_attempts: 1,

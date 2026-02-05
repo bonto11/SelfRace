@@ -262,7 +262,6 @@ export async function apiSyncActivities(
 
   const enqueueBody = {
     job_type: "sync",
-    user_uuid: "", // nepoužívame, BE to defaultne vyplní
     payload: {
       trigger: "manual", // ✅ tvoja autorita (decide_sync_plan)
       // voliteľné: nechaj, ak chceš override – inak worker ignoruje / alebo použije ako fallback

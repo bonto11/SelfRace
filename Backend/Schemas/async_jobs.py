@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 class EnqueueJobPayload(BaseModel):
     # čo posiela FE
     job_type: str = Field(..., min_length=1)
-    user_uuid: str
     payload: Dict[str, Any] = Field(default_factory=dict)
 
     priority: int = 100

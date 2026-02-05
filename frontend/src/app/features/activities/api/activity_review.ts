@@ -118,8 +118,6 @@ export async function apiGetActivityReview(
     cache: "no-store",
   });
 
-  console.log("apiGetActivityReview", json);
-
   if (!json?.success) {
     throw new Error(
       json?.detail || json?.error || "Failed to load activity review",

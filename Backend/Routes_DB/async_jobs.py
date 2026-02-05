@@ -226,13 +226,13 @@ def db_user_has_running_job(
 
 def _try_lock_job_row(row: Dict[str, Any], *, worker_id: str) -> Optional[Dict[str, Any]]:
     jid = row.get("id")
-    uid = row.get("user_id")
-    if jid is None or uid is None:
+    userId = row.get("user_id")
+    if jid is None or userId is None:
         return None
 
     try:
         job_id = int(jid)
-        user_id = int(uid)
+        user_id = int(userId)
     except Exception:
         return None
 
@@ -334,11 +334,11 @@ def db_pick_next_queued_job_global(
         if not isinstance(r, dict):
             continue
 
-        uid = r.get("user_id")
-        if uid is None:
+        userId = r.get("user_id")
+        if userId is None:
             continue
         try:
-            user_id = int(uid)
+            user_id = int(userId)
         except Exception:
             continue
 

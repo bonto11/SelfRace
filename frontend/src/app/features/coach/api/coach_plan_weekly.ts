@@ -61,7 +61,6 @@ export async function apiGenerateWeeklyPlan(
 
   const enqueueBody = {
     job_type: "weekly_generate",
-    user_uuid: userUuid,
     payload,
     priority: 100,
     max_attempts: 1,
