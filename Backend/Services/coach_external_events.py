@@ -10,70 +10,146 @@ from Routes_DB.coach_external_events import (
 )
 from Services.users import require_jwt
 
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
+# 1=Mon ... 7=Sun
+INT_TO_ABBR: Dict[int, str] = {
+    1: "Mon",
+    2: "Tue",
+    3: "Wed",
+    4: "Thu",
+    5: "Fri",
+    6: "Sat",
+    7: "Sun",
 }
 
-_WEEKDAY_TO_ABBR: Dict[int, str] = {
-    0: "Mon",
-    1: "Tue",
-    2: "Wed",
-    3: "Thu",
-    4: "Fri",
-    5: "Sat",
-    6: "Sun",
+ABBR_TO_INT: Dict[str, int] = {
+    "Mon": 1,
+    "Tue": 2,
+    "Wed": 3,
+    "Thu": 4,
+    "Fri": 5,
+    "Sat": 6,
+    "Sun": 7,
 }
 
+# JS/Python weekday for date.weekday(): 0=Mon..6=Sun
+PY_WEEKDAY_TO_INT: Dict[int, int] = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7}
 
-def _normalize_weekday_abbr(v: Any) -> str:
+
+def _normalize_weekday_int(v: Any) -> Optional[int]:
+    """
+    Vráti 1..7 alebo None.
+    Podporí:
+      - int 1..7
+      - string "1".."7"
+      - stringy: Mon/Wed, wed, Wednesday
+      - SK: pondelok, utorok, streda, štvrtok, piatok, sobota, nedeľa
+    """
+    if isinstance(v, bool):
+        return None
+
+    if isinstance(v, int):
+        return v if 1 <= v <= 7 else None
+
+    if isinstance(v, float) and v.is_integer():
+        n = int(v)
+        return n if 1 <= n <= 7 else None
+
     if not isinstance(v, str):
-        return ""
-    s = v.strip()
-    # normalizuj kapitalizáciu (Mon, Tue...)
-    if len(s) < 3:
-        return ""
-    s3 = s[:3].title()
-    return s3 if s3 in WEEKDAY_ORDER else ""
+        return None
+
+    s = v.strip().lower()
+    if not s:
+        return None
+
+    if s in ("1", "2", "3", "4", "5", "6", "7"):
+        return int(s)
+
+    # EN abbrev / full
+    if s.startswith("mon") or s == "monday":
+        return 1
+    if s.startswith("tue") or s == "tuesday":
+        return 2
+    if s.startswith("wed") or s == "wednesday":
+        return 3
+    if s.startswith("thu") or s == "thursday":
+        return 4
+    if s.startswith("fri") or s == "friday":
+        return 5
+    if s.startswith("sat") or s == "saturday":
+        return 6
+    if s.startswith("sun") or s == "sunday":
+        return 7
+
+    # SK (bez diakritiky aj s)
+    if s in ("pondelok",):
+        return 1
+    if s in ("utorok",):
+        return 2
+    if s in ("streda",):
+        return 3
+    if s in ("stvrtok", "štvrtok"):
+        return 4
+    if s in ("piatok",):
+        return 5
+    if s in ("sobota",):
+        return 6
+    if s in ("nedela", "nedeľa"):
+        return 7
+
+    return None
 
 
 def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
     """
     Normalizácia jedného eventu z FE.
 
-    Očakáva:
-      - weekday: "Mon".."Sun"  (ty chceš "Wed" -> toto je správne)
-      - recurrence_kind: "weekly" | "single"
-      - single_date pri single
-      - start_time_local voliteľné
+    Nové:
+      - weekday_int: 1..7 (1=Mon)
+    Legacy:
+      - weekday: "Mon".."Sun" alebo hocijaký text -> preložíme
     """
-    weekday = _normalize_weekday_abbr(ev.get("weekday"))
-    if not weekday:
-        raise ValueError("weekday must be one of: Mon, Tue, Wed, Thu, Fri, Sat, Sun")
-
     recurrence_kind = (ev.get("recurrence_kind") or "weekly").lower()
     if recurrence_kind not in ("weekly", "single"):
         raise ValueError("recurrence_kind must be 'weekly' or 'single'")
 
+    # weekday_int len pre weekly
+    weekday_int: Optional[int] = None
+    if recurrence_kind == "weekly":
+        weekday_int = _normalize_weekday_int(ev.get("weekday_int"))
+        if weekday_int is None:
+            # fallback legacy field
+            weekday_int = _normalize_weekday_int(ev.get("weekday"))
+        if weekday_int is None:
+            raise ValueError("weekday_int is required for weekly events (1=Mon..7=Sun)")
+
     single_date = ev.get("single_date") or None
-    if single_date:
+    if recurrence_kind == "single":
+        if not single_date:
+            raise ValueError("single_date is required when recurrence_kind='single'")
         try:
             date.fromisoformat(single_date)
         except Exception as exc:  # noqa: BLE001
             raise ValueError(f"Invalid single_date: {single_date}") from exc
+    else:
+        # weekly -> single_date must be null
+        single_date = None
 
     start_time_local = ev.get("start_time_local") or None
+
+    # optional legacy weekday text for debugging/compat (not a source of truth)
+    weekday_abbr = INT_TO_ABBR.get(weekday_int) if weekday_int else None
 
     return {
         "user_id": user_id,
         "title": str(ev.get("title") or "").strip() or "Externá aktivita",
         "sport": ev.get("sport") or None,
-        "weekday": weekday,  # TEXT "Wed"
+
+        # ✅ new source of truth
+        "weekday_int": weekday_int,
+
+        # optional legacy column (keep if your DB still has it)
+        "weekday": weekday_abbr,
+
         "duration_min": int(ev["duration_min"]) if ev.get("duration_min") is not None else None,
         "priority": ev.get("priority") or "fixed",
         "notes": ev.get("notes") or None,
@@ -112,33 +188,33 @@ def _expand_events_to_window(
     date_to: date,
 ) -> List[Dict[str, Any]]:
     """
-    Vygeneruje konkrétne výskyty v [date_from, date_to].
-
-    Každý výsledok obsahuje:
-      - occurrence_date: "YYYY-MM-DD"
-      - occurrence_weekday: "Mon".."Sun"
+    Occurrence expand v [date_from, date_to].
+    Používa weekday_int (1..7).
     """
     out: List[Dict[str, Any]] = []
     current = date_from
 
     while current <= date_to:
         iso = current.isoformat()
-        wd_abbr = _WEEKDAY_TO_ABBR.get(current.weekday())  # 0..6 -> "Mon".. "Sun"
+        wd_int = PY_WEEKDAY_TO_INT.get(current.weekday(), 1)  # 1..7
+        wd_abbr = INT_TO_ABBR.get(wd_int, "Mon")
 
         for ev in events:
             rk = (ev.get("recurrence_kind") or "weekly").lower()
 
             if rk == "weekly":
-                ev_wd = _normalize_weekday_abbr(ev.get("weekday"))
-                if not ev_wd:
-                    continue
-                if ev_wd != wd_abbr:
+                ev_wd = ev.get("weekday_int")
+                if not isinstance(ev_wd, int) or not (1 <= ev_wd <= 7):
+                    # fallback legacy
+                    ev_wd = _normalize_weekday_int(ev.get("weekday"))
+                if ev_wd != wd_int:
                     continue
                 if not _in_date_range(ev, current):
                     continue
 
                 occ = dict(ev)
                 occ["occurrence_date"] = iso
+                occ["occurrence_weekday_int"] = wd_int
                 occ["occurrence_weekday"] = wd_abbr
                 out.append(occ)
 
@@ -151,18 +227,21 @@ def _expand_events_to_window(
 
                 occ = dict(ev)
                 occ["occurrence_date"] = iso
+                occ["occurrence_weekday_int"] = wd_int
                 occ["occurrence_weekday"] = wd_abbr
                 out.append(occ)
 
         current += timedelta(days=1)
 
-    # stabilné poradie: podľa dátumu, potom weekday poradia
-    out.sort(
-        key=lambda r: (
+    # stabilné poradie: date, weekday_int, start_time_local
+    def _sort_key(r: Dict[str, Any]):
+        return (
             str(r.get("occurrence_date") or ""),
-            WEEKDAY_ORDER.get(str(r.get("occurrence_weekday") or ""), 99),
+            int(r.get("occurrence_weekday_int") or 99),
+            str(r.get("start_time_local") or ""),
         )
-    )
+
+    out.sort(key=_sort_key)
     return out
 
 
@@ -174,9 +253,6 @@ def service_list_external_events_window(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Vracia expandnuté occurrences pre okno.
-    """
     try:
         d_from = date.fromisoformat(from_iso)
         d_to = date.fromisoformat(to_iso)
@@ -198,7 +274,7 @@ def service_list_external_events_window(
 
     return {
         "success": True,
-        "occurrences": occurrences,  # <- kľúčové: occurrences
+        "occurrences": occurrences,
     }
 
 
@@ -229,6 +305,8 @@ def service_save_external_events(
 
     norm_rows: List[Dict[str, Any]] = []
     for raw in events:
+        if not isinstance(raw, dict):
+            raise ValueError("events must contain objects")
         norm_rows.append(_normalize_event_input(user_id, raw))
 
     deleted = db_clear_external_events_for_user(
@@ -259,9 +337,6 @@ def service_build_external_events_block_for_analysis(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Blok pre analyze/weekly/daily – AI-friendly.
-    """
     today = date.today()
     d_from = today - timedelta(days=days_past)
     d_to = today + timedelta(days=days_future)
@@ -281,6 +356,7 @@ def service_build_external_events_block_for_analysis(
             occurrences.append(
                 {
                     "occurrence_date": ev.get("occurrence_date"),
+                    "occurrence_weekday_int": ev.get("occurrence_weekday_int"),
                     "occurrence_weekday": ev.get("occurrence_weekday"),
                     "sport": ev.get("sport"),
                     "title": ev.get("title"),

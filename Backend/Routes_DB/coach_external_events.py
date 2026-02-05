@@ -5,16 +5,13 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
 
-# weekday v DB berieme ako text: "Mon".."Sun"
-WEEKDAY_ORDER: Dict[str, int] = {
-    "Mon": 0,
-    "Tue": 1,
-    "Wed": 2,
-    "Thu": 3,
-    "Fri": 4,
-    "Sat": 5,
-    "Sun": 6,
-}
+# 1=Mon..7=Sun
+def _wk(v: Any) -> int:
+    try:
+        n = int(v)
+        return n if 1 <= n <= 7 else 99
+    except Exception:  # noqa: BLE001
+        return 99
 
 
 def db_list_external_events_for_user(
@@ -25,9 +22,7 @@ def db_list_external_events_for_user(
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky externé eventy pre usera.
-
-    Pozn.: V DB je weekday ako text ("Mon".."Sun"), takže .order("weekday")
-    je lexikografické. Preto to zoraď ešte server-side podľa WEEKDAY_ORDER.
+    Triedi primárne podľa weekday_int (1..7), potom created_at.
     """
     try:
         sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
@@ -40,7 +35,8 @@ def db_list_external_events_for_user(
         )
         rows = res.data or []
 
-        rows.sort(key=lambda r: WEEKDAY_ORDER.get(str(r.get("weekday") or ""), 99))
+        # stable sort: weekday_int then created_at
+        rows.sort(key=lambda r: (_wk(r.get("weekday_int")), str(r.get("created_at") or "")))
         return rows
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] list error:", repr(e))
