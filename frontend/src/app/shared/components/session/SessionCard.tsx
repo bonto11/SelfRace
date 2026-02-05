@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 
 import SportBadge from "@/app/shared/ui/components/SportBadge";
+import Button from "@/app/shared/ui/components/Button";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import { confirm } from "@/app/shared/ui/components/Confirm";
+
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
 import PlanSessionDetail from "@/app/shared/components/session/PlanSessionDetail";
@@ -121,6 +125,24 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
+
+  /**
+   * Optional: enable rescheduling ONLY for plan cards.
+   * - dates: ISO dates available in plan (YYYY-MM-DD)
+   * - dayCounts: map date -> number of plan sessions already on that day (for 0/2,1/2,2/2)
+   * - maxPerDay: default 2
+   */
+  planReschedule?: {
+    enabled?: boolean;
+    dates: string[];
+    dayCounts?: Record<string, number>;
+    maxPerDay?: number;
+    onChangeDate: (args: {
+      sessionId: string | number;
+      fromDate: string;
+      toDate: string;
+    }) => void | Promise<void>;
+  };
 };
 
 /** ========== Helpers ========== */
@@ -135,6 +157,12 @@ function prettySkDate(iso?: string | null) {
   });
   const wk = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wk} · ${day}`;
+}
+
+function shortSkDate(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
 }
 
 function statusLabel(status: PlanStatus): string {
@@ -157,12 +185,19 @@ export default function SessionCard({
   item,
   onOpenActivity,
   showPlanDebug = false,
+  planReschedule,
 }: SessionCardProps) {
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
+  const [pendingDate, setPendingDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
+
+  useEffect(() => {
+    // keep select in sync when parent updates item.dateIso
+    if (item.kind === "plan") setPendingDate(item.dateIso ?? null);
+  }, [item.kind, item.dateIso]);
 
   const dateLine =
     item.hideDateLine || variant === "calendar"
@@ -207,9 +242,74 @@ export default function SessionCard({
     }
   }, [item, variant]);
 
+  const canReschedulePlan =
+    item.kind === "plan" &&
+    !!planReschedule?.enabled &&
+    Array.isArray(planReschedule?.dates) &&
+    planReschedule.dates.length > 0 &&
+    typeof planReschedule.onChangeDate === "function" &&
+    typeof item.dateIso === "string" &&
+    !!item.dateIso;
+
+  const maxPerDay = planReschedule?.maxPerDay ?? 2;
+  const dayCounts = planReschedule?.dayCounts ?? {};
+
+  const planDateOptions = useMemo(() => {
+    if (!canReschedulePlan) return [];
+    const dates = planReschedule!.dates;
+
+    return dates.map((d) => {
+      const cnt = Number(dayCounts[d] ?? 0);
+      const label = `${shortSkDate(d)} (${cnt}/${maxPerDay})`;
+      return { value: d, label, cnt };
+    });
+  }, [canReschedulePlan, planReschedule, dayCounts, maxPerDay]);
+
+  const handlePlanDateChange = async (toDate: string) => {
+    if (!canReschedulePlan) return;
+
+    const fromDate = (item.dateIso as string) ?? "";
+    if (!fromDate || !toDate || toDate === fromDate) {
+      setPendingDate(fromDate || null);
+      return;
+    }
+
+    // hard guard: 3+ never allow, and if already max, ask confirm
+    const cnt = Number(dayCounts[toDate] ?? 0);
+
+    if (cnt >= maxPerDay) {
+      // maxPerDay=2 => allow only with explicit confirm for 2/2
+      const ok = await confirm({
+        title: "V tento deň už máš 2 tréningy",
+        message:
+          "Presunúť tréning aj tak? (Max je 2 tréningy za deň – viac nepovolíme.)",
+        okText: "Presunúť",
+        cancelText: "Zrušiť",
+        tone: "danger",
+      });
+
+      if (!ok) {
+        setPendingDate(fromDate);
+        return;
+      }
+    }
+
+    setPendingDate(toDate);
+
+    await planReschedule!.onChangeDate({
+      sessionId: item.id,
+      fromDate,
+      toDate,
+    });
+  };
+
   return (
     <section
-      className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(" ")}
+      className={[
+        SESSION_CARD,
+        SESSION_CARD_HOVER,
+        SESSION_VARIANT_PAD[variant],
+      ].join(" ")}
       style={SESSION_CARD_STYLE}
     >
       {/* HEADER */}
@@ -237,20 +337,40 @@ export default function SessionCard({
             {item.kind === "plan" && (
               <span
                 className={SESSION_PILL}
-                style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+                style={
+                  SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]
+                }
               >
                 {statusLabel((item as PlanSession).status)}
               </span>
             )}
 
+            {/* ✅ PLAN ONLY: reschedule select */}
+            {canReschedulePlan ? (
+              <div className="w-[140px]">
+                <SelectField
+                  value={String(pendingDate ?? item.dateIso ?? "")}
+                  onChange={(e) => handlePlanDateChange(String(e.target.value))}
+                  options={planDateOptions.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  variant="editable"
+                />
+              </div>
+            ) : null}
+
             <SportBadge sport={item.sport} />
 
+            {/* keep your toggle, but use Button if you want consistent UI later */}
             <button
               type="button"
               aria-expanded={opened}
               onClick={() => setOpened((s) => !s)}
               title={opened ? "Skryť detail" : "Otvoriť detail"}
-              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
+              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(
+                " ",
+              )}
               style={SESSION_TOGGLE_BTN_STYLE}
             >
               <span
