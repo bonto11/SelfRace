@@ -240,7 +240,8 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
         elif job_type == "daily_extend":
             result = service_auto_extend_daily_plan(
                 user_id=user_id,
-                user_jwt=jwt,
+                user_jwt="",
+                service=True,
                 min_horizon_days=int(
                     payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)
                 ),
