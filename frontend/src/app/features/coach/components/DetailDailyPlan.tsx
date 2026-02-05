@@ -212,9 +212,11 @@ export default function DetailDailyPlan() {
       />
 
       <Card
-        title="Denný rozpis tréningov"
-        subtitle="Každá karta je jeden tréning. Môžeš zmeniť deň v rámci existujúceho plánu."
+        title="AI Daily plan – detail"
+        subtitle="Detail denného tréningového plánu. Presúvanie dní je lokálne (Save príde neskôr)."
       >
+        {null}
+      </Card>
         <div className={PANEL_STACK}>
           {days.flatMap((d) => {
             if (!d.sessions || d.sessions.length === 0) return [];
