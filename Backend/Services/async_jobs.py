@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, Set, cast, List
 
 from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
@@ -23,6 +23,16 @@ from Services.plan_activity_match import auto_map_plans_for_activities
 from Services.AI.activity_review import service_activity_review
 from Services.users import require_jwt
 
+# service-mode DB access / Strava sync / coach autoadjust
+from Modules.Supabase.client import get_service_client
+from Services.synchronization_single import service_sync_single_activity
+from Services.coach_plan_adjustment import service_coach_autoadjust_after_update
+
+supabase = get_service_client()
+
+# ============================================================
+# JOB TYPES
+# ============================================================
 
 ALLOWED_JOB_TYPES: Set[str] = {
     "ai_analyze",
@@ -31,7 +41,12 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "daily_extend",
     "plan_match",
     "activity_review",
-    "sync",
+    "sync",  # bulk sync/import
+
+    # ---- Strava webhook pipeline (minimal webhook => 1 enqueue) ----
+    "strava_sync_activity",      # sync single + enqueue followups (review/autoadjust/optional match)
+    "mark_activity_deleted",     # only marks deleted_at
+    "coach_autoadjust",          # debounced per user
 }
 
 SENSITIVE_KEYS: Set[str] = {
@@ -66,7 +81,54 @@ def _scrub_dict(x: Any) -> Any:
     return x
 
 
-# ---------------- ENQUEUE (FAST) ----------------
+def _enqueue_autoadjust_debounced(*, user_id: int, delay_sec: int = 120) -> None:
+    """
+    Debounce per user: pri burst webhookoch nespúšťaj autoadjust 20x.
+    Spraví sa jediný job s dedupe_key, ktorý sa vykoná po run_after.
+    """
+    run_after = (datetime.now(timezone.utc) + timedelta(seconds=int(delay_sec))).isoformat()
+    service_enqueue_job(
+        user_id=int(user_id),
+        job_type="coach_autoadjust",
+        payload={"service": True},
+        priority=180,
+        dedupe_key=f"coach_autoadjust:{user_id}",
+        run_after=run_after,
+        user_jwt=None,
+        service=True,
+    )
+
+
+def _enqueue_activity_review_best_effort(*, user_id: int, activity_id: int) -> None:
+    """
+    Best-effort: review nikdy nesmie zhodiť import.
+    """
+    try:
+        service_enqueue_job(
+            user_id=int(user_id),
+            job_type="activity_review",
+            payload={
+                "activity_id": int(activity_id),
+                "service": True,
+                "save_to_db": True,
+            },
+            priority=150,
+            dedupe_key=f"activity_review:{user_id}:{activity_id}",
+            user_jwt=None,
+            service=True,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(
+            "[ACTIVITY-REVIEW][enqueue] failed",
+            "user_id=", user_id,
+            "activity_id=", activity_id,
+            "err=", repr(e),
+        )
+
+
+# ============================================================
+# ENQUEUE (FAST)
+# ============================================================
 
 def service_enqueue_job(
     user_id: int,
@@ -84,6 +146,7 @@ def service_enqueue_job(
     🔹 Robí len INSERT (a voliteľne dedupe lookup).
     🔹 Okamžite vracia FE.
     """
+    # service=True => NEvyžaduj jwt (webhook / internal)
     jwt = user_jwt if service else require_jwt(user_jwt)
 
     if job_type not in ALLOWED_JOB_TYPES:
@@ -107,6 +170,7 @@ def service_enqueue_job(
             }
 
     clean_payload = dict(payload or {})
+    # iba FE/user-flow joby nesú jwt (RLS). Webhook/worker bežia service=True => jwt=None.
     if jwt:
         clean_payload["user_jwt"] = jwt
 
@@ -126,7 +190,7 @@ def service_enqueue_job(
     }
 
     created = db_insert_job(row, user_jwt=None, service=True)
-    
+
     if not created:
         return {"job": None, "note": "enqueue_failed"}
 
@@ -159,7 +223,6 @@ def service_list_active_jobs(
     for r in rows:
         if not isinstance(r, dict):
             continue
-        # minimal scrub
         j = dict(r)
         j["input"] = _scrub_dict(j.get("input"))
         j["result"] = _scrub_dict(j.get("result"))
@@ -167,7 +230,9 @@ def service_list_active_jobs(
     return out
 
 
-# ---------------- EXECUTE (WORKER) ----------------
+# ============================================================
+# EXECUTE (WORKER)
+# ============================================================
 
 def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -179,9 +244,9 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
     job_type = str(job["job_type"])
     payload = _as_dict(job.get("input"))
 
-    jwt = payload.get("user_jwt")
+  # may contain user_jwt for user-initiated jobs
 
-    # job beží ako service LEN ak nemá jwt
+    jwt = payload.get("user_jwt")
     run_as_service = jwt is None
 
     try:
@@ -225,6 +290,7 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 service=run_as_service,
             )
 
+            # follow-up: extend daily plan (deduped)
             service_enqueue_job(
                 user_id=user_id,
                 job_type="daily_extend",
@@ -260,6 +326,81 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
                 user_jwt=jwt,
                 trigger=str(payload.get("trigger") or "async_worker"),
             )
+
+        # -------------------------------
+        # STRAVA PIPELINE (webhook => one enqueue)
+        # -------------------------------
+
+        elif job_type == "strava_sync_activity":
+            """
+            Worker-only:
+              - sync single activity (Strava -> DB)
+              - then enqueue: activity_review (dedupe) + coach_autoadjust (debounced)
+              - optional: plan_match / daily_extend later, but keep default minimal
+            """
+            activity_id = int(payload.get("activity_id") or 0)
+            if not activity_id:
+                raise ValueError("missing activity_id")
+
+            fetch_details = bool(payload.get("fetch_details", True))
+
+            # 1) DATA IMPORT (pure)
+            result = service_sync_single_activity(
+                int(user_id),
+                int(activity_id),
+                fetch_details,
+                None,   # service mode
+            )
+
+            # 2) FOLLOWUPS (async jobs, deduped)
+            _enqueue_activity_review_best_effort(user_id=int(user_id), activity_id=int(activity_id))
+            _enqueue_autoadjust_debounced(user_id=int(user_id), delay_sec=int(payload.get("autoadjust_delay_sec", 120)))
+
+            # 3) OPTIONAL hooks (default OFF)
+            if bool(payload.get("enqueue_plan_match", False)):
+                try:
+                    service_enqueue_job(
+                        user_id=int(user_id),
+                        job_type="plan_match",
+                        payload={
+                            "activity_ids": [int(activity_id)],
+                            "days_window": int(payload.get("plan_match_days_window", 2)),
+                            "score_threshold": float(payload.get("plan_match_score_threshold", 0.55)),
+                        },
+                        priority=120,
+                        dedupe_key=f"plan_match:{user_id}:{activity_id}",
+                        user_jwt=None,
+                        service=True,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    print("[PLAN-MATCH][enqueue] failed", "user_id=", user_id, "activity_id=", activity_id, "err=", repr(e))
+
+        elif job_type == "coach_autoadjust":
+            """
+            Worker-only:
+              - best-effort plan autoadjust (debounced by dedupe_key + run_after)
+            """
+            result = service_coach_autoadjust_after_update(
+                user_id=int(user_id),
+                user_jwt=None,
+                service=True,
+            )
+
+        elif job_type == "mark_activity_deleted":
+            """
+            Worker-only:
+              - marks activity in activities_summary as deleted_at
+            """
+            activity_id = int(payload.get("activity_id") or 0)
+            if not activity_id:
+                raise ValueError("missing activity_id")
+
+            now_iso = _now_iso()
+            supabase.table("activities_summary").update(
+                {"deleted_at": now_iso}
+            ).eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
+
+            result = {"ok": True, "deleted_at": now_iso}
 
         else:
             raise ValueError(f"Unsupported job_type: {job_type}")
