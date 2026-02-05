@@ -1,7 +1,6 @@
 # Modules/Strava/webhook_strava.py
 from __future__ import annotations
 
-import asyncio
 import base64
 import hashlib
 import hmac
@@ -9,7 +8,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Literal, Mapping, Optional, Sequence
+from typing import Any, Dict, Literal, Mapping, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -25,7 +24,8 @@ from Configs.config import (
 
 from Routes_DB.activities_summary import db_get_last_activity_start
 from Services.synchronization_utils import decide_sync_plan
-from Modules.Strava.webhook_strava_processor import _process_single_event
+from Services.async_jobs import service_enqueue_job
+
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
 
@@ -61,13 +61,6 @@ def _get_env_opt(name: str) -> Optional[str]:
     return v or None
 
 
-def _get_env_bool(name: str, default: bool = False) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    return v.strip().lower() in ("1", "true", "yes", "y", "on")
-
-
 def get_verify_token() -> str:
     return _get_env("STRAVA_VERIFY_TOKEN")
 
@@ -92,6 +85,10 @@ def get_expected_subscription_id() -> Optional[int]:
         return int(v)
     except ValueError as e:
         raise RuntimeError("STRAVA_SUBSCRIPTION_ID must be an integer") from e
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # =================================================
@@ -219,7 +216,7 @@ def parse_oauth_state(state: str) -> int:
 
 
 # =================================================
-# 1) WEBHOOK – VERIFY
+# WEBHOOK – VERIFY
 # =================================================
 @router.get("/webhook")
 async def strava_webhook_verify(
@@ -236,86 +233,55 @@ async def strava_webhook_verify(
 
 
 # =================================================
-# 2) INSERT EVENT (with subscription_id filtering)
+# WEBHOOK – INSERT AUDIT ROW
 # =================================================
-def _insert_event_from_dict(data: dict) -> dict:
-    event = StravaWebhookEventIn(**data)
-    dt = datetime.fromtimestamp(event.event_time, tz=timezone.utc).isoformat()
+def _insert_webhook_audit_row(
+    *,
+    event: StravaWebhookEventIn,
+    payload: dict,
+    status: str,
+    error: Optional[str],
+) -> Optional[dict]:
+    """
+    Audit-only insert. Never blocks webhook success if it fails.
+    """
+    try:
+        dt = datetime.fromtimestamp(event.event_time, tz=timezone.utc).isoformat()
+    except Exception:
+        dt = _utc_now_iso()
 
-    expected_sub_id = get_expected_subscription_id()
-    status = "pending"
-    error: Optional[str] = None
-
-    if expected_sub_id is not None:
-        if event.subscription_id is None or int(event.subscription_id) != int(expected_sub_id):
-            status = "ignored"
-            error = "unexpected_subscription_id"
-
-    resp = (
-        supabase.table("strava_webhook_events")
-        .insert(
-            {
-                "subscription_id": event.subscription_id,
-                "object_type": event.object_type,
-                "object_id": event.object_id,
-                "aspect_type": event.aspect_type,
-                "owner_id": event.owner_id,
-                "event_time": dt,
-                "payload": data,
-                "status": status,
-                "error": error,
-                "processed_at": None,
-            }
+    try:
+        resp = (
+            supabase.table("strava_webhook_events")
+            .insert(
+                {
+                    "subscription_id": event.subscription_id,
+                    "object_type": event.object_type,
+                    "object_id": event.object_id,
+                    "aspect_type": event.aspect_type,
+                    "owner_id": event.owner_id,
+                    "event_time": dt,
+                    "payload": payload,
+                    "status": status,
+                    "error": error,
+                    "processed_at": _utc_now_iso(),  # webhook ends here by design
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
-
-    rows = getattr(resp, "data", None) or []
-    err = getattr(resp, "error", None)
-    if err or not rows:
-        raise RuntimeError(str(err or "insert_failed"))
-    return rows[0]
+        rows = getattr(resp, "data", None) or []
+        return rows[0] if rows else None
+    except Exception as e:  # noqa: BLE001
+        print("[STRAVA][audit] insert failed:", repr(e))
+        return None
 
 
 # =================================================
-# 3) PROCESSOR CORE (shared)
-# =================================================
-async def _process_pending_events_core(limit: int = 20) -> dict:
-    resp = (
-        supabase.table("strava_webhook_events")
-        .select("*")
-        .is_("processed_at", None)
-        .eq("status", "pending")
-        .order("id", desc=False)
-        .limit(limit)
-        .execute()
-    )
-
-    rows: Sequence[Mapping[str, Any]] = resp.data or []
-    processed = 0
-    errors = 0
-
-    for row in rows:
-        try:
-            await _process_single_event(row)
-            processed += 1
-        except HTTPException as e:
-            print(f"[STRAVA] HTTPException pri spracovaní eventu {row.get('id')}: {e}")
-            errors += 1
-        except Exception as e:  # noqa: BLE001
-            print(f"[STRAVA] Chyba pri spracovaní eventu {row.get('id')}: {e}")
-            errors += 1
-
-    return {"ok": True, "fetched": len(rows), "processed": processed, "errors": errors}
-
-
-# =================================================
-# 4) WEBHOOK HANDLER
+# WEBHOOK – HANDLER (ONE ENQUEUE)
 # =================================================
 @router.post("/webhook")
 async def strava_webhook_handler(request: Request):
     raw_body = await request.body()
-
     if not raw_body:
         raise HTTPException(status_code=400, detail="empty_body")
 
@@ -325,33 +291,93 @@ async def strava_webhook_handler(request: Request):
         print("[STRAVA] invalid json:", repr(e))
         raise HTTPException(status_code=400, detail="invalid_json")
 
+    # Validate payload shape
     try:
-        row = _insert_event_from_dict(data)
+        event = StravaWebhookEventIn(**data)
     except Exception as e:  # noqa: BLE001
-        print("[STRAVA] insert failed:", repr(e))
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        print("[STRAVA] invalid payload:", repr(e))
+        raise HTTPException(status_code=400, detail="invalid_payload")
 
-    if row.get("status") == "ignored":
+    # Only activity events are supported (ignore athlete events)
+    if event.object_type != "activity":
+        _insert_webhook_audit_row(event=event, payload=data, status="ignored", error="object_type_not_activity")
         return JSONResponse({"ok": True, "ignored": True})
 
-    async def _bg():
-        try:
-            res = await _process_pending_events_core(limit=5)
-            print("[STRAVA] bg process_pending:", res)
-        except Exception as e:  # noqa: BLE001
-            print("[STRAVA] bg process_pending failed:", repr(e))
+    # Subscription id filtering (if configured)
+    expected_sub_id = get_expected_subscription_id()
+    if expected_sub_id is not None:
+        if event.subscription_id is None or int(event.subscription_id) != int(expected_sub_id):
+            _insert_webhook_audit_row(event=event, payload=data, status="ignored", error="unexpected_subscription_id")
+            return JSONResponse({"ok": True, "ignored": True})
 
-    asyncio.create_task(_bg())
-    return JSONResponse({"ok": True})
+    # Find linked Strava account (active only)
+    try:
+        acc_resp = (
+            supabase.table("strava_accounts")
+            .select("user_id, athlete_id")
+            .eq("athlete_id", int(event.owner_id))
+            .is_("deauthorized_at", None)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(acc_resp, "data", None) or []
+        account = rows[0] if rows else None
+    except Exception as e:  # noqa: BLE001
+        _insert_webhook_audit_row(event=event, payload=data, status="error", error=f"account_lookup_failed:{e}")
+        # Strava expects 2xx typically; returning 200 prevents retries storms on transient DB issues
+        return JSONResponse({"ok": True, "note": "account_lookup_failed"})
 
+    if not account:
+        _insert_webhook_audit_row(event=event, payload=data, status="orphan", error="no_strava_account_or_deauthorized")
+        return JSONResponse({"ok": True, "orphan": True})
 
-@router.post("/webhook/process-pending")
-async def process_pending_events(limit: int = 20):
-    return JSONResponse(await _process_pending_events_core(limit=limit))
+    user_id = int(account["user_id"])
+    activity_id = int(event.object_id)
+
+    # One enqueue, nothing else
+    try:
+        if event.aspect_type == "delete":
+            service_enqueue_job(
+                user_id=user_id,
+                job_type="mark_activity_deleted",
+                payload={"activity_id": activity_id},
+                priority=60,
+                dedupe_key=f"mark_activity_deleted:{user_id}:{activity_id}",
+                user_jwt=None,
+                service=True,
+            )
+            _insert_webhook_audit_row(event=event, payload=data, status="enqueued", error=None)
+            return JSONResponse({"ok": True})
+
+        if event.aspect_type in ("create", "update"):
+            service_enqueue_job(
+                user_id=user_id,
+                job_type="strava_sync_activity",
+                payload={
+                    "activity_id": activity_id,
+                    "fetch_details": True,
+                    # worker pipeline will schedule autoadjust/review; keep webhook dumb
+                    "autoadjust_delay_sec": 120,
+                },
+                priority=120,
+                dedupe_key=f"strava_sync_activity:{user_id}:{activity_id}",
+                user_jwt=None,
+                service=True,
+            )
+            _insert_webhook_audit_row(event=event, payload=data, status="enqueued", error=None)
+            return JSONResponse({"ok": True})
+
+        _insert_webhook_audit_row(event=event, payload=data, status="ignored", error="unknown_aspect_type")
+        return JSONResponse({"ok": True, "ignored": True})
+
+    except Exception as e:  # noqa: BLE001
+        _insert_webhook_audit_row(event=event, payload=data, status="error", error=f"enqueue_failed:{e}")
+        # Again: 200 to avoid Strava retry storms; your queue/worker can recover separately.
+        return JSONResponse({"ok": True, "note": "enqueue_failed"})
 
 
 # =================================================
-# 6) OAUTH FLOW: START + CALLBACK
+# OAUTH FLOW: START + CALLBACK
 # =================================================
 @router.get("/oauth/start")
 async def strava_oauth_start(user_id: int = Query(..., description="SelfRace user_id")):
@@ -495,7 +521,7 @@ async def strava_oauth_callback(
 
 
 # =================================================
-# 7) STATUS
+# STATUS
 # =================================================
 @router.get("/status")
 async def strava_status(user_id: int = Query(..., description="SelfRace user_id")):
@@ -527,17 +553,14 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
             "sync_import_window_days": 0,
             "sync_import_max_activities": 0,
         }
-    
+
     ever_synced_at = row.get("ever_synced_at")
     deauth_at = row.get("deauthorized_at")
     has_tokens = bool(row.get("access_token")) and bool(row.get("refresh_token"))
     connected = (not bool(deauth_at)) and has_tokens
 
-    # reconnect_after dáva zmysel len keď je deauthorized
     reconnect_after = _calc_reconnect_after(deauth_at) if deauth_at else None
 
-    # can_connect: keď nie si connected, tak buď nemáš tokeny (OK pripojiť hneď),
-    # alebo si deauthorized a platí cooldown
     if connected:
         can_connect = False
     else:
@@ -549,16 +572,9 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     sync_days = None
     sync_max = None
 
-    if ever_synced_at is None:
-        trigger="firstConnect"
-    else:
-        trigger="reconnect"
-
     if connected:
-        # rovnaká autorita ako bulk
         last_dt = db_get_last_activity_start(user_id, user_jwt=None, service=True)
         plan = decide_sync_plan(last_activity_dt=last_dt, ever_synced_at=ever_synced_at)
-
         sync_days = int(plan.days_back)
         sync_max = int(plan.max_activities)
 
@@ -575,8 +591,9 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
         "sync_import_max_activities": sync_max,
     }
 
+
 # =================================================
-# 8) DISCONNECT (+ DRY RUN)
+# DISCONNECT (+ DRY RUN)
 # =================================================
 class DisconnectBody(BaseModel):
     consent: bool = Field(default=False)
@@ -599,8 +616,6 @@ async def strava_disconnect(
         dry_run=bool(dry_run),
     )
 
-    # v dry-run nikdy nefailujeme "disconnect_failed" len kvôli tomu,
-    # že sme nič nemenili. Fail len keď helper explicitne vráti ok=False.
     if not res.get("ok"):
         raise HTTPException(status_code=500, detail="disconnect_failed")
 

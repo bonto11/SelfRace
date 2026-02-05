@@ -1,24 +1,21 @@
 """
-Webhook processor:
+Webhook processor (thin):
  - mapuje athlete_id -> user_id cez strava_accounts
- - pre activity create/update spúšťa sync + coach auto-adjust
- - pre activity delete označuje activity ako deleted_at
+ - pre activity create/update iba ENQUEUE strava_sync_activity
+ - pre activity delete iba ENQUEUE mark_activity_deleted
+ - nič nesťahuje zo Stravy, nič nepočítá, nič neadjustuje
 
 Bezpečnostná pointa:
  - webhook je iba trigger (id + owner_id + subscription_id)
- - reálne dáta sa ťahajú zo Strava API cez tokeny v service_sync_single_activity
+ - reálne dáta sa ťahajú zo Strava API cez tokeny v async worker jobe
 """
 
 from __future__ import annotations
 
-import asyncio
-from functools import partial
 from datetime import datetime, timezone
-from typing import Any, Mapping, Sequence, Optional
+from typing import Any, Mapping, Sequence
 
 from Modules.Supabase.client import get_service_client
-from Services.synchronization_single import service_sync_single_activity
-from Services.coach_plan_adjustment import service_coach_autoadjust_after_update
 from Services.async_jobs import service_enqueue_job
 
 supabase = get_service_client()
@@ -44,56 +41,38 @@ def _mark_event(
     ).eq("id", event_id).execute()
 
 
-async def _sync_activity(*, user_id: int, strava_activity_id: int) -> None:
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        service_sync_single_activity,
-        int(user_id),
-        int(strava_activity_id),
-        True,   # fetch_details
-        None,   # user_jwt (service mode)
-    )
-
-
-async def _run_coach_autoadjust_service(user_id: int) -> dict:
-    loop = asyncio.get_running_loop()
-    fn = partial(
-        service_coach_autoadjust_after_update,
+def _enqueue_strava_sync(*, user_id: int, activity_id: int) -> None:
+    # Dedupe: viac webhookov na tú istú aktivitu (create+update spam) nech sa zlepí do 1 jobu
+    service_enqueue_job(
         user_id=int(user_id),
+        job_type="strava_sync_activity",
+        payload={
+            "activity_id": int(activity_id),
+            "fetch_details": True,
+            # service mode (webhook)
+            "service": True,
+        },
         user_jwt=None,
         service=True,
+        priority=80,
+        dedupe_key=f"strava_sync_activity:{user_id}:{activity_id}",
     )
-    return await loop.run_in_executor(None, fn)
 
 
-def _enqueue_activity_review_job(*, user_id: int, user_uid: str, activity_id: int) -> None:
-    """
-    Enqueue AI activity review ako samostatný async job.
-    Nech je to best-effort a nikdy neblokuje webhook.
-    """
-    try:
-        service_enqueue_job(
-            user_id=int(user_id),
-            job_type="activity_review",
-            payload={
-                "activity_id": int(activity_id),
-                "service": True,   # webhook = service mode
-                "save_to_db": True,
-            },
-            user_jwt=None,
-            service=True,
-            # priority/dedupe_key sem zatiaľ nedávam do DB (často nemáš stĺpce)
-            priority=150,
-            dedupe_key=f"activity_review:{user_id}:{activity_id}",
-        )
-    except Exception as e:
-        print(
-            "[ACTIVITY-REVIEW][enqueue] failed",
-            "user_id=", user_id,
-            "activity_id=", activity_id,
-            "err=", repr(e),
-        )
+def _enqueue_mark_deleted(*, user_id: int, activity_id: int, deleted_at_iso: str) -> None:
+    service_enqueue_job(
+        user_id=int(user_id),
+        job_type="mark_activity_deleted",
+        payload={
+            "activity_id": int(activity_id),
+            "deleted_at": str(deleted_at_iso),
+            "service": True,
+        },
+        user_jwt=None,
+        service=True,
+        priority=60,
+        dedupe_key=f"mark_activity_deleted:{user_id}:{activity_id}",
+    )
 
 
 async def _process_single_event(row: Mapping[str, Any]) -> None:
@@ -132,7 +111,6 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     # 3) nájsť prepojený strava_account (len aktívny)
-    # ⚠️ NEselectuj user_uid ak ho nemáš v tabuľke -> padne to.
     acc_resp = (
         supabase.table("strava_accounts")
         .select("user_id, athlete_id")
@@ -154,47 +132,27 @@ async def _process_single_event(row: Mapping[str, Any]) -> None:
         return
 
     user_id = int(account["user_id"])
-    user_uid = "00000000-0000-0000-0000-000000000000"
 
-    # 4) DELETE → označiť activity ako deleted
+    # 4) DELETE → len enqueue mark_deleted
     if aspect_type == "delete":
         try:
-            supabase.table("activities_summary").update(
-                {"deleted_at": now_iso}
-            ).eq("user_id", user_id).eq("activity_id", object_id).execute()
+            _enqueue_mark_deleted(user_id=user_id, activity_id=object_id, deleted_at_iso=now_iso)
         except Exception as e:  # noqa: BLE001
-            _mark_event(event_id, status="error", error=f"delete_mark_failed: {e}", processed_at_iso=now_iso)
+            _mark_event(event_id, status="error", error=f"enqueue_delete_failed: {e}", processed_at_iso=now_iso)
             return
 
         _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)
         return
 
-    # 5) CREATE / UPDATE → sync + enqueue review + auto-adjust
+    # 5) CREATE / UPDATE → len enqueue sync job
     if aspect_type not in ("create", "update"):
         _mark_event(event_id, status="ignored", error="unknown_aspect_type", processed_at_iso=now_iso)
         return
 
     try:
-        # 5a) sync single activity (blokujúca časť, ale beží v executor)
-        await _sync_activity(user_id=user_id, strava_activity_id=object_id)
-
-        # 5b) enqueue review job (non-blocking, best-effort)
-        _enqueue_activity_review_job(user_id=user_id, user_uid=user_uid, activity_id=object_id)
-
-        # 5c) best-effort auto-adjust
-        try:
-            auto_res = await _run_coach_autoadjust_service(user_id=user_id)
-            print(
-                "[COACH-AUTOADJUST][service]",
-                "user_id=", user_id,
-                "mode=", auto_res.get("mode"),
-                "reason=", auto_res.get("reason"),
-            )
-        except Exception as e:  # noqa: BLE001
-            print("[COACH-AUTOADJUST][service] error user_id=", user_id, "err=", repr(e))
-
+        _enqueue_strava_sync(user_id=user_id, activity_id=object_id)
     except Exception as e:  # noqa: BLE001
-        _mark_event(event_id, status="error", error=str(e), processed_at_iso=now_iso)
+        _mark_event(event_id, status="error", error=f"enqueue_sync_failed: {e}", processed_at_iso=now_iso)
         return
 
     _mark_event(event_id, status="processed", error=None, processed_at_iso=now_iso)
