@@ -102,10 +102,14 @@ def db_get_enrichment_for_activity(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
+    
+    print("db_get_enrichment_for_activity IN",user_id, activity_id, user_jwt, service)
+    
     rows = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=[activity_id],
         user_jwt=user_jwt,
         service=service,
     )
+    print("db_get_enrichment_for_activity OUT",rows)
     return rows[0] if rows else None

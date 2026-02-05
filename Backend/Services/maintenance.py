@@ -44,7 +44,6 @@ def service_weekly_athlete_state_analysis(
         # ✅ iba enqueue, nič viac
         resp = service_enqueue_job(
             user_id=int(user_id),
-            user_uid=str(auth_uid),
             job_type="ai_analyze",
             payload={
                 # dôležité: cron = service režim, takže job musí vedieť bežať bez user_jwt

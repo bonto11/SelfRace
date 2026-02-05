@@ -422,7 +422,7 @@ def service_get_daily_overview(
 def service_auto_extend_daily_plan(
     user_id: int,
     *,
-    min_horizon_days: int = 6,
+    min_horizon_days: int = 4,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Dict[str, Any]:

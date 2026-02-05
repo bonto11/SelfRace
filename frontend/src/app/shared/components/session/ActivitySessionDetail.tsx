@@ -25,8 +25,9 @@ import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
 import type { ActivitySession } from "./SessionCard";
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
-import { apiEnqueueActivityReview } from "@/app/features/activities/api/activity_review";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+
+import ActivityCoachReviewSection from "./ActivityReviewSection";
 
 /** ================= helpers ================= */
 
@@ -131,7 +132,8 @@ const INFO_TILE_STYLE: CSSProperties = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-function ActivitySectionShell({ title, defaultOpen, items, children }: SectionProps) {
+// ✅ export – použijeme v ActivityCoachReviewSection, bez nových tokenov
+export function ActivitySectionShell({ title, defaultOpen, items, children }: SectionProps) {
   const [open, setOpen] = useState(!!defaultOpen);
   const hasItems = hasMeaningfulValue(items);
   const showShell = hasItems || !!children;
@@ -195,17 +197,14 @@ export function ActivitySessionDetail({
 }: ActivitySessionDetailProps) {
   const act = item;
 
-  // ✅ userId (nepoužívame uuid)
-  const { userId, userUuid } = useUserId();
+  const { userId } = useUserId();
 
-  // ✅ zmena: používame getExtras
   const activityData: any = useActivityData() as any;
   const { getSummary, getExtras } = activityData;
 
   const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
   const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
-
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
 
   const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
@@ -243,9 +242,6 @@ export function ActivitySessionDetail({
 
   const [busyFetch, setBusyFetch] = useState(false);
 
-  // ✅ NEW: activity review button busy state
-  const [busyReview, setBusyReview] = useState(false);
-
   const applyExtrasToState = (ex: any) => {
     const rawStreams: any = ex?.streams ?? null;
 
@@ -280,7 +276,6 @@ export function ActivitySessionDetail({
     setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
   };
 
-  // init: iba DB (fetch=false)
   useEffect(() => {
     let alive = true;
     if (!act.activityId) return;
@@ -306,30 +301,12 @@ export function ActivitySessionDetail({
     if (!act.activityId || busyFetch) return;
     setBusyFetch(true);
     try {
-      const ex = await getExtras(act.activityId, { fetch: true }); // ✅ môže ísť na Stravu
+      const ex = await getExtras(act.activityId, { fetch: true });
       applyExtrasToState(ex);
     } catch (e) {
       console.error("[ActivitySessionDetail] fetchMore error", e);
     } finally {
       setBusyFetch(false);
-    }
-  };
-
-  // ✅ NEW: enqueue + run activity_review (bez uuid)
-  const onGenerateAiReview = async () => {
-    if (!act.activityId || busyReview) return;
-
-    setBusyReview(true);
-    try {
-      const out = await apiEnqueueActivityReview(Number(userId), String(userUuid), Number(act.activityId), {
-        runNow: true,
-        debug: false,
-      });
-      console.log("[ActivitySessionDetail] activity_review result:", out?.result);
-    } catch (e) {
-      console.error("[ActivitySessionDetail] activity_review error", e);
-    } finally {
-      setBusyReview(false);
     }
   };
 
@@ -396,7 +373,6 @@ export function ActivitySessionDetail({
   const hasSplits = Array.isArray(splits) && splits.length > 1;
   const hasLaps = Array.isArray(laps) && laps.length > 1;
 
-  // keď nič nemáme, dovolíme userovi explicitne fetchovať
   const canFetchMore = !hasStreams && !hasSplits && !hasLaps && !!act.activityId;
 
   const canShowActions = "onEdit" in act && (act.onEdit || act.onDelete || act.onToggleFavorite);
@@ -455,21 +431,6 @@ export function ActivitySessionDetail({
             </Button>
           )}
 
-          {/* ✅ NEW: AI review */}
-          {!!act.activityId && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={onGenerateAiReview}
-              disabled={busyReview || !userId}
-              title={!userId ? "Missing userId" : "Generate AI activity review (async job)"}
-            >
-              {busyReview ? "Generating…" : "AI review"}
-            </Button>
-          )}
-
-          {/* ✅ Fetch more */}
           {canFetchMore && (
             <Button
               type="button"
@@ -486,6 +447,9 @@ export function ActivitySessionDetail({
       )}
 
       {showOverview && <ActivitySectionShell title="Prehľad" defaultOpen={true} items={overviewItems} />}
+
+      {/* ✅ NEW: Coach komentár (AI review + output) */}
+      {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
       {showHr && (
         <ActivitySectionShell title="Heart rate" items={hrItems}>

@@ -70,7 +70,6 @@ def _scrub_dict(x: Any) -> Any:
 
 def service_enqueue_job(
     user_id: int,
-    user_uid: str,
     *,
     job_type: str,
     payload: Dict[str, Any],
@@ -113,7 +112,6 @@ def service_enqueue_job(
 
     row: Dict[str, Any] = {
         "user_id": int(user_id),
-        "user_uid": user_uid or "00000000-0000-0000-0000-000000000000",
         "job_type": job_type,
         "status": "queued",
         "priority": int(priority or 100),
@@ -228,7 +226,6 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
             # follow-up (len enqueue)
             service_enqueue_job(
                 user_id=user_id,
-                user_uid=str(job.get("user_uid") or ""),
                 job_type="daily_extend",
                 payload={"min_horizon_days": COACH_PLAN_GENERATE_MIN_HORIZON_DAYS},
                 dedupe_key=f"daily_extend:{user_id}",

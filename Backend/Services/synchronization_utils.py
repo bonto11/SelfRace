@@ -462,7 +462,6 @@ def enrich_activities_for_ids(
             
             enqueue = service_enqueue_job(
                 user_id=user_id,
-                user_uid="",
                 job_type="plan_match",
                 payload={
                     "activity_ids": activity_ids,
@@ -485,7 +484,6 @@ def enrich_activities_for_ids(
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
                     user_jwt=jwt,
-                    service=service,
                 )
 
                 job_row = run.get("job") or {}

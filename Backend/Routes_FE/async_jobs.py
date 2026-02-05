@@ -32,7 +32,6 @@ def enqueue_job(
     try:
         out = service_enqueue_job(
             user_id=user_id,
-            user_uid=payload.user_uuid,
             job_type=payload.job_type,
             payload=payload.payload,
             priority=payload.priority,

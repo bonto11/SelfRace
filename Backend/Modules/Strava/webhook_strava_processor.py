@@ -75,7 +75,6 @@ def _enqueue_activity_review_job(*, user_id: int, user_uid: str, activity_id: in
     try:
         service_enqueue_job(
             user_id=int(user_id),
-            user_uid=user_uid or "00000000-0000-0000-0000-000000000000",
             job_type="activity_review",
             payload={
                 "activity_id": int(activity_id),

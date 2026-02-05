@@ -31,94 +31,103 @@ type RunJobResponse = {
 };
 
 export type ActivityReviewEnqueueOpts = {
-  runNow?: boolean; // default true
-  debug?: boolean; // default false
+  runNow?: boolean;
+  debug?: boolean;
   model?: string | null;
-  service?: boolean; // default false (FE mode)
+  // ⚠️ FE sem service nedávaj (produkcia). Worker/cron si to rieši sám.
 };
 
 export async function apiEnqueueActivityReview(
   userId: number,
-  userUuid: string,
   activityId: number,
-  opts: ActivityReviewEnqueueOpts = {}
+  opts: ActivityReviewEnqueueOpts = {},
 ): Promise<{ success: true; job: AsyncJobRow; result: any }> {
   if (!userId) throw new Error("userId is required");
-  if (!userUuid) throw new Error("userUuid is required");
   if (!activityId) throw new Error("activityId is required");
 
   const runNow = opts.runNow ?? true;
 
-  // 1) ENQUEUE
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
     job_type: "activity_review",
-    user_uuid: userUuid, 
     payload: {
       activity_id: activityId,
-      debug: Boolean(opts.debug ?? true),
+      debug: Boolean(opts.debug ?? false),
       model: opts.model ?? null,
-      service: Boolean(opts.service ?? false), // FE → false (worker použije user_jwt)
+      // service: false implicit – BE nech si zoberie auth z cookies/JWT
     },
     priority: 150,
     max_attempts: 1,
     dedupe_key: `activity_review:${userId}:${activityId}`,
   };
 
-  let enqueueJson: EnqueueJobResponse;
-  try {
-    enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify(enqueueBody),
-    });
-  } catch (err: any) {
-    console.error("[ActivityReview][enqueue] ERROR", err);
-    throw err instanceof Error ? err : new Error(String(err));
-  }
+  const enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(enqueueBody),
+  });
 
   if (!enqueueJson?.success || !enqueueJson.job) {
-    const msg =
+    throw new Error(
       enqueueJson.detail ||
-      enqueueJson.error ||
-      enqueueJson.note ||
-      "Failed to enqueue activity_review job";
-    throw new Error(msg);
+        enqueueJson.error ||
+        enqueueJson.note ||
+        "Failed to enqueue activity_review job",
+    );
   }
 
   const job = enqueueJson.job;
 
-  // 2) RUN (optional) – rovnako ako weekly
-  if (!runNow) {
-    return { success: true, job, result: job.result };
-  }
+  if (!runNow) return { success: true, job, result: job.result };
 
   const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(job.id))}`;
 
-  let runJson: RunJobResponse;
-  try {
-    runJson = await callBackend<RunJobResponse>(runPath, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-    });
-  } catch (err: any) {
-    console.error("[ActivityReview][run] ERROR", err);
-    throw err instanceof Error ? err : new Error(String(err));
-  }
+  const runJson = await callBackend<RunJobResponse>(runPath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+  });
 
   if (!runJson?.success || !runJson.job) {
-    const msg = runJson.detail || runJson.error || "activity_review job failed";
-    throw new Error(msg);
+    throw new Error(
+      runJson.detail || runJson.error || "activity_review job failed",
+    );
   }
 
   const result = runJson.job.result;
-  console.log("MBP result", result)
-
-  // ak BE vracia quota error v result-e, vyhodí to exception
   maybeThrowAiQuotaError(result);
 
   return { success: true, job: runJson.job, result };
+}
+
+// ✅ NEW: GET review pre activity
+export async function apiGetActivityReview(
+  userId: number,
+  activityId: number,
+): Promise<{ review: any | null; created_at?: string | null }> {
+  if (!userId) throw new Error("userId is required");
+  if (!activityId) throw new Error("activityId is required");
+
+  const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
+
+  // očakávame napr { success:true, review:..., created_at:... } alebo {success:true, review:null}
+  const json = await callBackend<any>(path, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  console.log("apiGetActivityReview", json);
+
+  if (!json?.success) {
+    throw new Error(
+      json?.detail || json?.error || "Failed to load activity review",
+    );
+  }
+
+  return {
+    review: json.review ?? null,
+    created_at: json.created_at ?? null,
+  };
 }

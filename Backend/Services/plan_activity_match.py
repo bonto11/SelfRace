@@ -268,12 +268,6 @@ def auto_map_plans_for_activities(
     else:
         jwt = require_jwt(user_jwt)
 
-    print(
-        f"[PLAN-MATCH] start user={user_id} "
-        f"activity_ids={activity_ids} days_window={days_window} "
-        f"threshold={score_threshold} service={service}"
-    )
-
     if not activity_ids:
         print("[PLAN-MATCH] no activity_ids -> nothing to do")
         return {"processed": 0, "candidates": 0, "mapped": 0, "skipped": 0}
@@ -339,14 +333,6 @@ def auto_map_plans_for_activities(
             print(f"[PLAN-MATCH][ACT] skip (missing id or date) raw={a}")
             continue
 
-        print(
-            f"[PLAN-MATCH][ACT] aid={aid} date={a_date.isoformat()} "
-            f"sport_type_fe={a.get('sport_type_fe')} "
-            f"moving_time_s={a.get('moving_time_s')} "
-            f"avg_hr={a.get('avg_hr_bpm')} "
-            f"name={a.get('name')!r}"
-        )
-
         # kandidáti: všetky session v ±days_window
         candidates: List[Tuple[Dict[str, Any], int]] = []
         for delta in range(-days_window, days_window + 1):
@@ -355,7 +341,6 @@ def auto_map_plans_for_activities(
                 for sess in plan_by_date[d]:
                     candidates.append((sess, delta))
 
-        print(f"[PLAN-MATCH][ACT] aid={aid} candidates_found={len(candidates)}")
         total_candidates += len(candidates)
 
         if not candidates:
@@ -367,27 +352,9 @@ def auto_map_plans_for_activities(
 
         # 4) scoring kandidátov
         for sess, delta in candidates:
-            if sess.get("activity_id"):
-                print(
-                    f"[PLAN-MATCH][CAND] aid={aid} plan_row_id={sess.get('id')} "
-                    f"plan_date={sess.get('plan_date')} ALREADY_MAPPED "
-                    f"activity_id={sess.get('activity_id')}"
-                )
-                continue
 
             score, detail = _compute_match_score(a, sess, day_diff=delta)
-
-            print(
-                "[PLAN-MATCH][CAND] "
-                f"aid={aid} plan_row_id={sess.get('id')} "
-                f"plan_date={sess.get('plan_date')} "
-                f"sport={sess.get('sport')} title={sess.get('title')!r} "
-                f"session_type={sess.get('session_type')!r} "
-                f"∆day={delta} "
-                f"score={score:.3f} "
-                f"detail={detail}"
-            )
-
+            
             if score > best_score:
                 best_score = score
                 best_sess = sess
@@ -403,7 +370,7 @@ def auto_map_plans_for_activities(
         # 5) rozhodnutie podľa threshold
         if best_score >= score_threshold:
             try:
-                updated = db_link_session_to_activity(
+                db_link_session_to_activity(
                     user_id=user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
@@ -411,14 +378,7 @@ def auto_map_plans_for_activities(
                     service=service,
                 )
                 mapped += 1
-                print(
-                    f"[PLAN-MATCH][RESULT] aid={aid} "
-                    f"mapped_plan_row_id={best_sess['id']} "
-                    f"best_score={best_score:.3f} "
-                    f"threshold={score_threshold} "
-                    f"detail={best_detail} "
-                    f"db_updated_rows={updated}"
-                )
+
             except Exception as e:
                 skipped += 1
                 print(
@@ -441,6 +401,5 @@ def auto_map_plans_for_activities(
         "skipped": int(skipped),
         "service": service,
     }
-    print(f"[PLAN-MATCH][SUMMARY] {summary}")
 
     return summary
