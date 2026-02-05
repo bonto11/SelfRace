@@ -24,7 +24,7 @@ from Services.AI.activity_review_builders import build_input_from_db as build_re
 from Routes_AI.activity_review_generate import generate_activity_review_json
 
 from Routes_DB.activities_enrichment import (
-    db_update_ai_review_one,
+    db_upsert_ai_review_one,
 )
 
 
@@ -154,7 +154,7 @@ def service_activity_review(
 
     # ✅ DB (len output JSON)
     try:
-        db_update_ai_review_one(
+        db_upsert_ai_review_one(
             user_id=user_id,
             activity_id=activity_id,
             ai_review=review,
@@ -162,7 +162,7 @@ def service_activity_review(
             service=service,
         )
     except Exception as e:  # noqa: BLE001
-        print("[AR][service] db_update_ai_review_one error:", repr(e))
+        print("[AR][service] db_upsert_ai_review_one error:", repr(e))
 
     return {
         "ok": True,

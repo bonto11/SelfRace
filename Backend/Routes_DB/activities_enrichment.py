@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-
+from datetime import datetime, timezone
 from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
@@ -129,8 +129,6 @@ def db_upsert_enrichment_rows_merge(
 # =========================
 # AI REVIEW (INSERT-IF-MISSING)
 # =========================
-
-
 def db_upsert_ai_review_one(
     *,
     user_id: int,
@@ -139,56 +137,24 @@ def db_upsert_ai_review_one(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> bool:
-    """
-    Set ai_review for one (user_id, activity_id).
-    - If row exists -> updates ai_review
-    - If row missing -> inserts minimal row with ai_review
-    Returns True if request succeeded (best-effort).
-    """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
-    payload = {
+    row = {
         "user_id": int(user_id),
         "activity_id": int(activity_id),
         "ai_review": ai_review,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Use upsert so it inserts even when row doesn't exist.
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .upsert(
-            [payload],
-            on_conflict="user_id,activity_id",
-        )
+        .upsert(row, on_conflict="user_id,activity_id")
         .execute()
     )
 
-    data = getattr(res, "data", None)
-    return bool(isinstance(data, list) and len(data) > 0)
+    err = getattr(res, "error", None)
+    if err:
+        print("[ENRICH][ai_review upsert] error:", err)
+        return False
 
-
-# ----------------------
-# Backwards-compatible name (optional)
-# ----------------------
-
-
-def db_update_ai_review_one(
-    *,
-    user_id: int,
-    activity_id: int,
-    ai_review: Any,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> bool:
-    """
-    Backwards compatible wrapper.
-    Historically: update-only.
-    Now: upsert so it inserts when missing.
-    """
-    return db_upsert_ai_review_one(
-        user_id=user_id,
-        activity_id=activity_id,
-        ai_review=ai_review,
-        user_jwt=user_jwt,
-        service=service,
-    )
+    return True
