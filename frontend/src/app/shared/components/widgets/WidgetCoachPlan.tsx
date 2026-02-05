@@ -91,21 +91,37 @@ function RowAction({
   loading,
   disabled,
   onDetail,
+  title,
 }: {
   onPrimary: () => void;
   primaryLabel: string;
   loading: boolean;
   disabled: boolean;
   onDetail: () => void;
+  title?: string;
 }) {
+  // 🔧 FIX white frame: force no border + transparent bg, but keep your token layout.
+  const rowClass = [
+    WIDGET_ACTION_ROW,
+    WIDGET_ACTION_ROW_SURFACE,
+    "border-0 bg-transparent", // <- kills the “white frame” without new tokens
+  ].join(" ");
+
+  const chevronClass = [
+    WIDGET_ACTION_CHEVRON_BTN,
+    WIDGET_ACTION_CHEVRON_SURFACE,
+    "border-0 bg-transparent", // <- same here
+  ].join(" ");
+
   return (
-    <div className={[WIDGET_ACTION_ROW, WIDGET_ACTION_ROW_SURFACE].join(" ")}>
+    <div className={rowClass} title={title}>
       <div className={WIDGET_ACTION_ROW_INNER}>
         <Button
           size="xs"
           variant="secondary"
           disabled={disabled}
           onClick={onPrimary}
+          title={title}
         >
           {loading ? (
             <span className="inline-flex items-center gap-1">
@@ -121,11 +137,9 @@ function RowAction({
       <button
         type="button"
         onClick={onDetail}
-        className={[
-          WIDGET_ACTION_CHEVRON_BTN,
-          WIDGET_ACTION_CHEVRON_SURFACE,
-        ].join(" ")}
+        className={chevronClass}
         aria-label="Otvoriť detail"
+        title="Otvoriť detail"
       >
         →
       </button>
@@ -168,9 +182,7 @@ export default function WidgetCoachPlan() {
 
     (async () => {
       try {
-        const p = await apiFetchUserPref(userId, "coach.prefs").catch(
-          () => null,
-        );
+        const p = await apiFetchUserPref(userId, "coach.prefs").catch(() => null);
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff as CoachPrefs | null);
       } catch {
@@ -227,10 +239,7 @@ export default function WidgetCoachPlan() {
         }
       } catch (e: any) {
         if (!alive) return;
-        console.warn(
-          "[CoachPlan] active status error:",
-          e?.message || String(e),
-        );
+        console.warn("[CoachPlan] active status error:", e?.message || String(e));
       } finally {
         if (!alive) return;
         setLoadingKind(null);
@@ -311,15 +320,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [
-    userId,
-    userUuid,
-    prefs,
-    result,
-    latestStateId,
-    markGenerated,
-    ensurePlanStartFuture,
-  ]);
+  }, [userId, userUuid, prefs, result, latestStateId, markGenerated, ensurePlanStartFuture]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -415,14 +416,15 @@ export default function WidgetCoachPlan() {
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
-  const statusLabel = activePlanId
-    ? "Aktívny plán ✓"
-    : hasGenerated
-      ? "Vygenerovaný ✓"
-      : "Žiadny plán";
-  const statusColor = activePlanId
-    ? appColors.brandPrimary
-    : appColors.textMuted;
+  // ✅ when plan active => lock generation + analyze (your requirement)
+  const planLocked = !!activePlanId;
+
+  const statusLabel = planLocked ? "Aktívny plán ✓" : hasGenerated ? "Vygenerovaný ✓" : "Žiadny plán";
+  const statusColor = planLocked ? appColors.brandPrimary : appColors.textMuted;
+
+  const lockReason = planLocked
+    ? "Plán je aktívny – generovanie a analýza sú dočasne vypnuté. Ukonči plán (Cancel plan), ak chceš plán prepočítať."
+    : undefined;
 
   return (
     <WidgetCard
@@ -442,41 +444,36 @@ export default function WidgetCoachPlan() {
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
-          primaryLabel={
-            loadingKind === "analyze"
-              ? "Analyzujem…"
-              : "Analyzuj stav trénovanosti"
-          }
+          primaryLabel={loadingKind === "analyze" ? "Analyzujem…" : "Analyzuj stav trénovanosti"}
           loading={loadingKind === "analyze"}
-          disabled={disabled}
+          disabled={disabled || planLocked}
+          title={planLocked ? lockReason : undefined}
           onDetail={() => router.push("/coach/ai/athleteState")}
         />
 
         <RowAction
           onPrimary={handleGenerateWeekly}
-          primaryLabel={
-            loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"
-          }
+          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"}
           loading={loadingKind === "weekly"}
-          disabled={disabled}
+          disabled={disabled || planLocked}
+          title={planLocked ? lockReason : undefined}
           onDetail={() => router.push("/coach/ai/weeklyPlan")}
         />
 
         <RowAction
           onPrimary={handleGenerateDaily}
-          primaryLabel={
-            loadingKind === "daily" ? "Generating…" : "Generate daily plan"
-          }
+          primaryLabel={loadingKind === "daily" ? "Generating…" : "Generate daily plan"}
           loading={loadingKind === "daily"}
-          disabled={disabled}
+          disabled={disabled || planLocked}
+          title={planLocked ? lockReason : undefined}
           onDetail={() => router.push("/coach/ai/dailyPlan")}
         />
 
         <div className={WIDGET_CTA_ROW}>
           <Button
             size="xs"
-            variant={activePlanId ? "success" : "primary"}
-            disabled={disabled || !!activePlanId}
+            variant={planLocked ? "success" : "primary"}
+            disabled={disabled || planLocked}
             onClick={handleStartPlan}
           >
             {loadingKind === "start" ? (
@@ -484,7 +481,7 @@ export default function WidgetCoachPlan() {
                 <LoadingSpinner size="button" />
                 Starting…
               </span>
-            ) : activePlanId ? (
+            ) : planLocked ? (
               "Plan active ✓"
             ) : (
               "Start plan"
@@ -494,7 +491,7 @@ export default function WidgetCoachPlan() {
           <Button
             size="xs"
             variant="secondary"
-            disabled={!activePlanId || loadingKind === "cancel"}
+            disabled={!planLocked || loadingKind === "cancel"}
             onClick={handleCancelPlan}
           >
             {loadingKind === "cancel" ? (
@@ -507,6 +504,12 @@ export default function WidgetCoachPlan() {
             )}
           </Button>
         </div>
+
+        {planLocked && (
+          <div className="text-[11px] opacity-70">
+            {lockReason}
+          </div>
+        )}
       </div>
     </WidgetCard>
   );
