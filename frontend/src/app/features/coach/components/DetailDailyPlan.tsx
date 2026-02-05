@@ -55,17 +55,7 @@ function weekdayLabel(value: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
-type ViewModel = {
-  hasPlan: boolean;
-  horizonDays: number;
-  days: DailyPlanDay[];
-  daysCount: number;
-  sessionsCount: number;
-  startDateLabel: string | null;
-  endDateLabel: string | null;
-};
-
-/* ---------- tiny Card wrapper (token-first) ---------- */
+/* ---------- tiny Card wrapper ---------- */
 
 function Card({
   title,
@@ -128,50 +118,61 @@ export default function DetailDailyPlan() {
     };
   }, [userId]);
 
-  const view = useMemo<ViewModel>(() => {
-    if (!overview || !overview.days || overview.days.length === 0) {
-      return {
-        hasPlan: false,
-        horizonDays: 0,
-        days: [],
-        daysCount: 0,
-        sessionsCount: 0,
-        startDateLabel: null,
-        endDateLabel: null,
-      };
+  /* ---------- derived FE state ---------- */
+
+  const days = overview?.days ?? [];
+
+  const planDates = useMemo(
+    () => days.map((d) => d.date!).filter(Boolean),
+    [days],
+  );
+
+  const dayCounts = useMemo<Record<string, number>>(() => {
+    const out: Record<string, number> = {};
+    for (const d of days) {
+      out[d.date!] = d.sessions?.length ?? 0;
     }
+    return out;
+  }, [days]);
 
-    const days = overview.days;
-    const daysCount = days.length;
+  /* ---------- local reschedule (FE only) ---------- */
 
-    let sessionsCount = 0;
-    for (const d of days) sessionsCount += d.sessions?.length ?? 0;
+  const moveSession = (
+    fromDate: string,
+    toDate: string,
+    sessionIndex: number,
+  ) => {
+    setOverview((prev) => {
+      if (!prev) return prev;
 
-    const startDateLabel = formatDate(days[0]?.date);
-    const endDateLabel = formatDate(days[days.length - 1]?.date);
+      const daysNext: DailyPlanDay[] = prev.days.map((d) => {
+        if (d.date === fromDate) {
+          const nextSessions = [...(d.sessions ?? [])];
+          nextSessions.splice(sessionIndex, 1);
+          return { ...d, sessions: nextSessions };
+        }
 
-    return {
-      hasPlan: true,
-      horizonDays: overview.horizon_days ?? daysCount,
-      days,
-      daysCount,
-      sessionsCount,
-      startDateLabel,
-      endDateLabel,
-    };
-  }, [overview]);
+        if (d.date === toDate) {
+          const moved = prev.days
+            .find((x) => x.date === fromDate)
+            ?.sessions?.[sessionIndex];
 
-  const {
-    hasPlan,
-    days,
-    daysCount,
-    sessionsCount,
-    horizonDays,
-    startDateLabel,
-    endDateLabel,
-  } = view;
+          if (!moved) return d;
 
-  /* ---------- stavy ---------- */
+          return {
+            ...d,
+            sessions: [...(d.sessions ?? []), moved],
+          };
+        }
+
+        return d;
+      });
+
+      return { ...prev, days: daysNext };
+    });
+  };
+
+  /* ---------- states ---------- */
 
   if (!userId) {
     return (
@@ -207,98 +208,74 @@ export default function DetailDailyPlan() {
     <div className={PANEL_STACK}>
       <Card
         title="AI Daily plan – detail"
-        subtitle={
-          <>
-            Tu vidíš aktuálny tréningový plán podľa AI. Správa plánu (generovanie,
-            spustenie, zrušenie, predĺženie) prebieha cez widget{" "}
-            <strong>Coach — Plan</strong> na hlavnom coach dashboarde.
-          </>
-        }
+        subtitle="Detail denného tréningového plánu. Presúvanie dní je lokálne (Save príde neskôr)."
+      />
+
+      <Card
+        title="Denný rozpis tréningov"
+        subtitle="Každá karta je jeden tréning. Môžeš zmeniť deň v rámci existujúceho plánu."
       >
-        {hasPlan ? (
-          <div className={PANEL_GRID_3}>
-            <div className={PANEL_INNER_STACK}>
-              <div className={PANEL_SECTION_SUBTITLE}>Rozsah plánu</div>
-              <div className={PANEL_SECTION_TITLE}>
-                {startDateLabel && endDateLabel
-                  ? `${startDateLabel} – ${endDateLabel}`
-                  : "—"}
-              </div>
-            </div>
+        <div className={PANEL_STACK}>
+          {days.flatMap((d) => {
+            if (!d.sessions || d.sessions.length === 0) return [];
 
-            <div className={PANEL_INNER_STACK}>
-              <div className={PANEL_SECTION_SUBTITLE}>Počet dní / horizon</div>
-              <div className={PANEL_SECTION_TITLE}>
-                {daysCount} dní (horizon {horizonDays} d)
-              </div>
-            </div>
+            const dateIso = d.date ?? null;
+            const dateLabel = formatDate(d.date) ?? d.date ?? "";
+            const wd = weekdayLabel(d.date) ?? "";
 
-            <div className={PANEL_INNER_STACK}>
-              <div className={PANEL_SECTION_SUBTITLE}>Počet tréningov</div>
-              <div className={PANEL_SECTION_TITLE}>{sessionsCount}</div>
-            </div>
-          </div>
-        ) : (
-          <div className={PANEL_PREVIEW}>
-            Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB. Vygeneruj ho
-            a spusti cez widget <strong>Coach — Plan</strong>, potom sa tu zobrazí detail.
-          </div>
-        )}
+            return d.sessions.map((s, idx) => {
+              const kpis: KPI[] = [];
+
+              if (s.duration_min) {
+                kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
+              }
+              if (s.intensity) {
+                kpis.push({ label: "INTENSITY", value: String(s.intensity) });
+              }
+              if (s.zone_text) {
+                kpis.push({ label: "TARGET", value: String(s.zone_text) });
+              }
+
+              const item: PlanSession = {
+                id: `${d.date}-${idx}`,
+                kind: "plan",
+                status: "planned",
+                title: s.title || s.session_type || s.sport || "Tréning",
+                dateIso,
+                sport: s.sport || "other",
+                subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
+                kpis,
+                notes: s.notes ?? null,
+
+                planDur: s.duration_min ? `${s.duration_min} min` : null,
+                planIntensity: s.intensity ?? null,
+                planTarget: s.zone_text ?? null,
+                planNotes: s.notes ?? null,
+
+                planRaw: s,
+                planStructure: s.structure ?? null,
+                planExercises: (s.structure?.strength_exercises as any[]) ?? [],
+              };
+
+              return (
+                <SessionCard
+                  key={item.id}
+                  variant="calendar"
+                  item={item}
+                  planReschedule={{
+                    enabled: true,
+                    dates: planDates,
+                    dayCounts,
+                    maxPerDay: 2,
+                    onChangeDate: ({ fromDate, toDate }) =>
+                      moveSession(fromDate, toDate, idx),
+                  }}
+                />
+              );
+            });
+          })}
+        </div>
       </Card>
-
-      {hasPlan ? (
-        <Card
-          title="Denný rozpis tréningov"
-          subtitle="Každá karta predstavuje jeden tréning z AI plánu – rovnaká Session card ako v kalendári."
-        >
-          <div className={PANEL_STACK}>
-            {days.flatMap((d) => {
-              if (!d.sessions || d.sessions.length === 0) return [];
-
-              const dateIso = d.date ?? null;
-              const dateLabel = formatDate(d.date) ?? d.date ?? "";
-              const wd = weekdayLabel(d.date) ?? "";
-
-              return d.sessions.map((s, idx) => {
-                const kpis: KPI[] = [];
-
-                if (s.duration_min) {
-                  kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
-                }
-                if (s.intensity) {
-                  kpis.push({ label: "INTENSITY", value: String(s.intensity) });
-                }
-                if (s.zone_text) {
-                  kpis.push({ label: "TARGET", value: String(s.zone_text) });
-                }
-
-                const item: PlanSession = {
-                  id: `${d.date}-${idx}`,
-                  kind: "plan",
-                  status: "planned",
-                  title: s.title || s.session_type || s.sport || "Tréning",
-                  dateIso,
-                  sport: s.sport || "other",
-                  subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
-                  kpis,
-                  notes: s.notes ?? null,
-
-                  planDur: s.duration_min ? `${s.duration_min} min` : null,
-                  planIntensity: s.intensity ?? null,
-                  planTarget: s.zone_text ?? null,
-                  planNotes: s.notes ?? null,
-
-                  planRaw: s,
-                  planStructure: s.structure ?? null,
-                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
-                };
-
-                return <SessionCard key={item.id} variant="calendar" item={item} />;
-              });
-            })}
-          </div>
-        </Card>
-      ) : null}
     </div>
   );
 }
