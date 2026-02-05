@@ -1,7 +1,7 @@
 // src/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -23,20 +23,10 @@ import {
   WIDGET_ERROR_LINE_COLORED,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiFetchUserPref,
-  apiEnsureCoachPlanStartFuture,
-} from "@/app/features/prefs/api/prefs";
+import { apiFetchUserPref, apiEnsureCoachPlanStartFuture } from "@/app/features/prefs/api/prefs";
 
-import {
-  apiAnalyzeAthleteState,
-  apiGetLatestAthleteState,
-} from "@/app/features/coach/api/coach_athlete_state";
-import {
-  apiActivePlanSave,
-  apiActivePlanCancel,
-  apiActivePlanStatus,
-} from "@/app/features/coach/api/coach_plan_active";
+import { apiAnalyzeAthleteState, apiGetLatestAthleteState } from "@/app/features/coach/api/coach_athlete_state";
+import { apiActivePlanSave, apiActivePlanCancel, apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
@@ -46,14 +36,7 @@ import { confirm } from "@/app/shared/ui/components/Confirm";
 
 /* ---------- helpers ---------- */
 
-type LoadingKind =
-  | "analyze"
-  | "weekly"
-  | "daily"
-  | "start"
-  | "cancel"
-  | "status"
-  | null;
+type LoadingKind = "analyze" | "weekly" | "daily" | "start" | "cancel" | "status" | null;
 
 function readPrefsFromStorage(): CoachPrefs | null {
   if (typeof window === "undefined") return null;
@@ -68,9 +51,7 @@ function readPrefsFromStorage(): CoachPrefs | null {
 }
 
 function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
-  if (!prefs) {
-    return <span className="text-xs opacity-70">Prefs: —</span>;
-  }
+  if (!prefs) return <span className="text-xs opacity-70">Prefs: —</span>;
 
   const main = (prefs as any).main_sport ?? prefs.main_sport?.[0] ?? "—";
   const goal = (prefs as any).goal_kind ?? "—";
@@ -100,29 +81,20 @@ function RowAction({
   onDetail: () => void;
   title?: string;
 }) {
-  // 🔧 FIX white frame: force no border + transparent bg, but keep your token layout.
-  const rowClass = [
-    WIDGET_ACTION_ROW,
-    WIDGET_ACTION_ROW_SURFACE,
-    "border-0 bg-transparent", // <- kills the “white frame” without new tokens
-  ].join(" ");
-
-  const chevronClass = [
-    WIDGET_ACTION_CHEVRON_BTN,
-    WIDGET_ACTION_CHEVRON_SURFACE,
-    "border-0 bg-transparent", // <- same here
-  ].join(" ");
+  // ✅ pekný "frame" bez nových tokenov
+  const frameStyle: React.CSSProperties = {
+    background: appColors.backgroundAlt,
+    borderColor: appColors.surfaceCardBorder,
+  };
 
   return (
-    <div className={rowClass} title={title}>
+    <div
+      className={[WIDGET_ACTION_ROW, WIDGET_ACTION_ROW_SURFACE, "rounded-xl border overflow-hidden"].join(" ")}
+      style={frameStyle}
+      title={title}
+    >
       <div className={WIDGET_ACTION_ROW_INNER}>
-        <Button
-          size="xs"
-          variant="secondary"
-          disabled={disabled}
-          onClick={onPrimary}
-          title={title}
-        >
+        <Button size="xs" variant="secondary" disabled={disabled} onClick={onPrimary} title={title}>
           {loading ? (
             <span className="inline-flex items-center gap-1">
               <LoadingSpinner size="button" />
@@ -137,7 +109,7 @@ function RowAction({
       <button
         type="button"
         onClick={onDetail}
-        className={chevronClass}
+        className={[WIDGET_ACTION_CHEVRON_BTN, WIDGET_ACTION_CHEVRON_SURFACE].join(" ")}
         aria-label="Otvoriť detail"
         title="Otvoriť detail"
       >
@@ -152,17 +124,29 @@ function formatAiError(e: any): string {
   if (code === "ai_quota_exceeded") {
     const used = (e as any).usedTokensThisMonth;
     if (typeof used === "number") {
-      return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString(
-        "sk-SK",
-      )}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
+      return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString("sk-SK")}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
     }
     return `AI limit pre tento mesiac je vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
   }
-
   return e?.message || String(e);
 }
 
-/* ---------- hlavný widget ---------- */
+/* ---------- localStorage flags ---------- */
+
+const LS_GEN_WEEKLY = "coach.generated.weekly";
+const LS_GEN_DAILY = "coach.generated.daily";
+const LS_GEN_ANY = "coach.generated"; // legacy
+
+function readBoolLS(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return !!localStorage.getItem(key);
+  } catch {
+    return false;
+  }
+}
+
+/* ---------- main widget ---------- */
 
 export default function WidgetCoachPlan() {
   const router = useRouter();
@@ -174,12 +158,14 @@ export default function WidgetCoachPlan() {
 
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasGenerated, setHasGenerated] = useState(false);
+
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
+
+  const [hasWeekly, setHasWeekly] = useState(false);
+  const [hasDaily, setHasDaily] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
-
     (async () => {
       try {
         const p = await apiFetchUserPref(userId, "coach.prefs").catch(() => null);
@@ -212,11 +198,15 @@ export default function WidgetCoachPlan() {
   }, [userId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      setHasGenerated(!!localStorage.getItem("coach.generated"));
-    } catch {
-      setHasGenerated(false);
+    // init LS flags
+    setHasWeekly(readBoolLS(LS_GEN_WEEKLY));
+    setHasDaily(readBoolLS(LS_GEN_DAILY));
+
+    // legacy fallback: ak máš iba coach.generated z minulosti, nech to aspoň neblokuje úplne
+    const legacy = readBoolLS(LS_GEN_ANY);
+    if (legacy && (!readBoolLS(LS_GEN_WEEKLY) || !readBoolLS(LS_GEN_DAILY))) {
+      // neprepisujem explicitne weekly/daily, len UI naznačí, že niečo bolo generované
+      // (reálne gating je weekly+daily – a to je správne)
     }
   }, []);
 
@@ -251,16 +241,6 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  const markGenerated = useCallback(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("coach.generated", "1");
-      setHasGenerated(true);
-    } catch {
-      // ignore
-    }
-  }, []);
-
   const ensurePlanStartFuture = useCallback(async () => {
     if (!userId) return;
     try {
@@ -270,6 +250,24 @@ export default function WidgetCoachPlan() {
       console.warn("[CoachPlan] ensurePlanStartFuture error", e);
     }
   }, [userId]);
+
+  const markWeeklyGenerated = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(LS_GEN_WEEKLY, "1");
+      localStorage.setItem(LS_GEN_ANY, "1");
+      setHasWeekly(true);
+    } catch {}
+  }, []);
+
+  const markDailyGenerated = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(LS_GEN_DAILY, "1");
+      localStorage.setItem(LS_GEN_ANY, "1");
+      setHasDaily(true);
+    } catch {}
+  }, []);
 
   const handleAnalyze = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -314,13 +312,13 @@ export default function WidgetCoachPlan() {
         state_id: stateId,
       });
 
-      markGenerated();
+      markWeeklyGenerated();
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, result, latestStateId, markGenerated, ensurePlanStartFuture]);
+  }, [userId, userUuid, prefs, result, latestStateId, ensurePlanStartFuture, markWeeklyGenerated]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -336,33 +334,47 @@ export default function WidgetCoachPlan() {
         overwrite: true,
       });
 
-      markGenerated();
+      markDailyGenerated();
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, markGenerated, ensurePlanStartFuture]);
+  }, [userId, userUuid, ensurePlanStartFuture, markDailyGenerated]);
+
+  const planLocked = !!activePlanId;
+
+  const canStartPlan = useMemo(() => {
+    if (!userId) return false;
+    if (planLocked) return false;
+    if (!latestStateId) return false;
+    if (!hasWeekly || !hasDaily) return false;
+    return true;
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily]);
+
+  const startDisabledReason = useMemo(() => {
+    if (!userId) return "Chýba userId.";
+    if (planLocked) return "Plán je už aktívny.";
+    if (!latestStateId) return "Najprv spusti analýzu trénovanosti.";
+    if (!hasWeekly && !hasDaily) return "Najprv vygeneruj weekly aj daily plán.";
+    if (!hasWeekly) return "Najprv vygeneruj weekly plán.";
+    if (!hasDaily) return "Najprv vygeneruj daily plán.";
+    return null;
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId) return;
     setError(null);
 
-    if (!latestStateId) {
-      setError("Najprv spusti analýzu trénovanosti.");
-      return;
-    }
-    if (!hasGenerated) {
-      setError("Najprv vygeneruj weekly aj daily plán.");
+    if (!canStartPlan) {
+      setError(startDisabledReason || "Nie je možné spustiť plán.");
       return;
     }
 
     setLoadingKind("start");
-
     try {
       const res = await apiActivePlanSave(userId, {});
       const pid = res.plan_id ?? null;
-
       setActivePlanId(pid);
 
       if (typeof window !== "undefined" && pid) {
@@ -373,7 +385,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, latestStateId, hasGenerated]);
+  }, [userId, canStartPlan, startDisabledReason]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
@@ -391,7 +403,6 @@ export default function WidgetCoachPlan() {
     if (!ok) return;
 
     setLoadingKind("cancel");
-
     try {
       await apiActivePlanCancel(userId, activePlanId);
 
@@ -403,9 +414,7 @@ export default function WidgetCoachPlan() {
       try {
         const stat = await apiActivePlanStatus(userId);
         setActivePlanId(stat.has_active ? (stat.plan_id ?? null) : null);
-      } catch {
-        // ignore
-      }
+      } catch {}
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -416,21 +425,27 @@ export default function WidgetCoachPlan() {
   const loading = loadingKind !== null && loadingKind !== "status";
   const disabled = !userId || loading;
 
-  // ✅ when plan active => lock generation + analyze (your requirement)
-  const planLocked = !!activePlanId;
+  const statusLabel = planLocked
+    ? "Aktívny plán ✓"
+    : hasWeekly && hasDaily
+      ? "Weekly+Daily ✓"
+      : hasWeekly
+        ? "Weekly ✓"
+        : hasDaily
+          ? "Daily ✓"
+          : "Žiadny plán";
 
-  const statusLabel = planLocked ? "Aktívny plán ✓" : hasGenerated ? "Vygenerovaný ✓" : "Žiadny plán";
   const statusColor = planLocked ? appColors.brandPrimary : appColors.textMuted;
 
   const lockReason = planLocked
-    ? "Plán je aktívny – generovanie a analýza sú dočasne vypnuté. Ukonči plán (Cancel plan), ak chceš plán prepočítať."
+    ? "Plán je aktívny – generovanie a analýza sú vypnuté. Ak chceš prepočítať plán, ukonči ho (Cancel plan)."
     : undefined;
 
   return (
     <WidgetCard
       title="Plánovanie trénera"
       accent="none"
-      note="Analyzuj stav, vygeneruj týždenný a denný plán a začni plán."
+      note="Analyzuj stav, vygeneruj týždenný a denný plán a spusti plán."
       interactive={false}
       minH={210}
     >
@@ -473,8 +488,9 @@ export default function WidgetCoachPlan() {
           <Button
             size="xs"
             variant={planLocked ? "success" : "primary"}
-            disabled={disabled || planLocked}
+            disabled={disabled || !canStartPlan}
             onClick={handleStartPlan}
+            title={!canStartPlan ? (startDisabledReason ?? undefined) : "Spusti plán"}
           >
             {loadingKind === "start" ? (
               <span className="inline-flex items-center gap-1">
@@ -486,6 +502,16 @@ export default function WidgetCoachPlan() {
             ) : (
               "Start plan"
             )}
+          </Button>
+
+          <Button
+            size="xs"
+            variant="secondary"
+            disabled={disabled}
+            onClick={() => router.push("/coach/ai/dailyPlan")}
+            title="Otvoriť tréningový plán"
+          >
+            Otvoriť plán
           </Button>
 
           <Button
@@ -505,9 +531,18 @@ export default function WidgetCoachPlan() {
           </Button>
         </div>
 
-        {planLocked && (
+        {planLocked && <div className="text-[11px] opacity-70">{lockReason}</div>}
+
+        {!planLocked && (!hasWeekly || !hasDaily) && (
           <div className="text-[11px] opacity-70">
-            {lockReason}
+            Pre spustenie plánu potrebuješ:{" "}
+            <span className="font-semibold">
+              {latestStateId ? "analýzu ✓" : "analýzu"}
+            </span>
+            {" • "}
+            <span className="font-semibold">{hasWeekly ? "weekly ✓" : "weekly"}</span>
+            {" • "}
+            <span className="font-semibold">{hasDaily ? "daily ✓" : "daily"}</span>
           </div>
         )}
       </div>
