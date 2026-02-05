@@ -265,19 +265,15 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               Poznámka
             </div>
-            <textarea
-              rows={3}
+
+            <TextField
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               placeholder="Poznámka k dňu (jet lag, svadba, preťaženie...)"
               disabled={saving}
-              className="w-full"
             />
           </section>
         </div>

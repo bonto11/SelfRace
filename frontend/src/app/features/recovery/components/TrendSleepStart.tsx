@@ -36,6 +36,32 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 
 ensureChartJSRegistered();
 
+/* ---------------- helpers (fix 26:40) ---------------- */
+
+const DAY_MIN = 24 * 60;
+
+// vždy zobrazuj “hodiny v dni” 00:00–23:59 (aj keď je hodnota 1500 min)
+function minutesToClockLabel(v: number): string {
+  if (!Number.isFinite(v)) return "—";
+  const m = ((Math.round(v) % DAY_MIN) + DAY_MIN) % DAY_MIN;
+  return minutesToHHMM(m);
+}
+
+// parse z DB tolerantne: ak príde "26:40", normalizuj na 02:40
+function parseHHMMToDayMinutesSafe(hhmm: string): number {
+  const raw = HHMMToMinutes(hhmm); // number | null
+  if (raw === null || !Number.isFinite(raw)) return NaN;
+  return ((raw % DAY_MIN) + DAY_MIN) % DAY_MIN;
+}
+
+// kvôli kontinuite: časy po polnoci posuň na “ďalší deň” (napr. 01:10 -> 25:10)
+function shiftAfterMidnightForChart(dayMin: number): number {
+  if (!Number.isFinite(dayMin)) return NaN;
+  const cutoff = 12 * 60;
+  return dayMin < cutoff ? dayMin + DAY_MIN : dayMin;
+}
+/* ----------------------------------------------------- */
+
 export default function DetailSleepStart() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
@@ -76,10 +102,14 @@ export default function DetailSleepStart() {
     () =>
       labelsISO.map((d) => {
         const rec = byDate.get(d);
-        const m = rec?.sleep_start_time
-          ? HHMMToMinutes(rec.sleep_start_time)
-          : null;
-        return typeof m === "number" ? m : NaN;
+        if (!rec?.sleep_start_time) return NaN;
+
+        // 1) normalizuj “26:40” -> 02:40
+        const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
+
+        // 2) posuň po polnoci na +24h kvôli kontinuite (ale zobrazovanie bude modulo 24h)
+        const chartMin = shiftAfterMidnightForChart(dayMin);
+        return Number.isFinite(chartMin) ? chartMin : NaN;
       }),
     [labelsISO, byDate],
   );
@@ -235,7 +265,9 @@ export default function DetailSleepStart() {
       buildRecoveryLineOptions({
         labelsISO,
         yTitle: "čas",
-        yTickFormatter: (v: number) => minutesToHHMM(v),
+        // ✅ FIX: nikdy nevypisuj 26:40
+        yTickFormatter: (v: number) => minutesToClockLabel(v),
+
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
             "sk-SK",
@@ -247,7 +279,7 @@ export default function DetailSleepStart() {
             const v = startMin[idx];
             const out: string[] = [];
             if (Number.isFinite(v))
-              out.push(`Zaspal: ${minutesToHHMM(v as number)}`);
+              out.push(`Zaspal: ${minutesToClockLabel(v as number)}`); // ✅ modulo 24h
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "Zaspal: –";

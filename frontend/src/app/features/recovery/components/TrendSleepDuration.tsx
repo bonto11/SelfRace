@@ -41,6 +41,14 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
+// ✅ duration sanity: 0..18h in minutes, inak missing
+function sanitizeSleepDurationMin(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) return NaN;
+  if (v < 0) return NaN;
+  if (v > 18 * 60) return NaN; // 18h je brutálny strop, 26:40 už neprejde
+  return v;
+}
+
 export default function DetailSleepDuration() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
@@ -81,9 +89,7 @@ export default function DetailSleepDuration() {
     () =>
       labelsISO.map((d) => {
         const rec = byDate.get(d);
-        return typeof rec?.sleep_duration_min === "number"
-          ? rec.sleep_duration_min
-          : NaN;
+        return sanitizeSleepDurationMin(rec?.sleep_duration_min);
       }),
     [labelsISO, byDate],
   );
