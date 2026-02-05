@@ -6,6 +6,11 @@ from Modules.Supabase.client import get_sb
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
 
+# =========================
+# GET
+# =========================
+
+
 def db_get_enrichment_for_activities(
     user_id: int,
     activity_ids: List[int],
@@ -18,7 +23,6 @@ def db_get_enrichment_for_activities(
 
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
-    # ✅ Supabase select musí byť JEDEN string, nie 2 args.
     fields = (
         "activity_id,"
         "z1_min,z2_min,z3_min,z4_min,z5_min,"
@@ -29,19 +33,50 @@ def db_get_enrichment_for_activities(
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
         .select(fields)
-        .eq("user_id", user_id)
-        .in_("activity_id", list(set(activity_ids)))
+        .eq("user_id", int(user_id))
+        .in_("activity_id", list(set(int(x) for x in activity_ids)))
         .execute()
     )
     return res.data or []
 
 
-def db_upsert_enrichment_rows(
+def db_get_enrichment_for_activity(
+    user_id: int,
+    activity_id: int,
+    *,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> Optional[Dict[str, Any]]:
+    rows = db_get_enrichment_for_activities(
+        user_id=user_id,
+        activity_ids=[activity_id],
+        user_jwt=user_jwt,
+        service=service,
+    )
+    return rows[0] if rows else None
+
+
+# =========================
+# UPSERT (MERGE NON-NULL)
+# =========================
+
+
+def _strip_none(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove keys with None values so they don't overwrite existing DB values."""
+    return {k: v for k, v in (d or {}).items() if v is not None}
+
+
+def db_upsert_enrichment_rows_merge(
     rows: List[Dict[str, Any]],
     *,
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> int:
+    """
+    Upsert rows into activities_enrichment but NEVER overwrite existing values with None.
+    - If row exists (user_id, activity_id): update only provided (non-None) fields.
+    - If row doesn't exist: insert (can be partial).
+    """
     if not rows:
         return 0
 
@@ -51,18 +86,91 @@ def db_upsert_enrichment_rows(
     BATCH = 200
 
     for i in range(0, len(rows), BATCH):
-        chunk = rows[i : i + BATCH]
+        chunk_in = rows[i : i + BATCH]
 
-        # ⚠️ odporúčam mať unikát (user_id, activity_id).
-        # Ak ho máš, nastav on_conflict na "user_id,activity_id".
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT).upsert(
-            chunk,
-            on_conflict="user_id,activity_id",
-        ).execute()
+        # 1) normalize + drop None fields (per row)
+        chunk: List[Dict[str, Any]] = []
+        for r in chunk_in:
+            if not isinstance(r, dict):
+                continue
+            if r.get("user_id") is None or r.get("activity_id") is None:
+                continue
+
+            clean = _strip_none(dict(r))
+            clean["user_id"] = int(clean["user_id"])
+            clean["activity_id"] = int(clean["activity_id"])
+            chunk.append(clean)
+
+        if not chunk:
+            continue
+
+        # 2) upsert by composite key
+        # NOTE: This will still overwrite provided columns with provided values,
+        # but because we stripped None, we won't null-out existing data.
+        print("[ENRICH][upsert] chunk:", chunk)
+        res = (
+            sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+            .upsert(
+                chunk,
+                on_conflict="user_id,activity_id",
+            )
+            .execute()
+        )
+
+        err = getattr(res, "error", None)
+        if err:
+            print("[ENRICH][upsert] error:", err)
 
         saved += len(chunk)
 
     return saved
+
+
+# =========================
+# AI REVIEW (INSERT-IF-MISSING)
+# =========================
+
+
+def db_upsert_ai_review_one(
+    *,
+    user_id: int,
+    activity_id: int,
+    ai_review: Any,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
+) -> bool:
+    """
+    Set ai_review for one (user_id, activity_id).
+    - If row exists -> updates ai_review
+    - If row missing -> inserts minimal row with ai_review
+    Returns True if request succeeded (best-effort).
+    """
+    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
+
+    payload = {
+        "user_id": int(user_id),
+        "activity_id": int(activity_id),
+        "ai_review": ai_review,
+    }
+
+    # Use upsert so it inserts even when row doesn't exist.
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .upsert(
+            [payload],
+            on_conflict="user_id,activity_id",
+        )
+        .execute()
+    )
+
+    data = getattr(res, "data", None)
+    return bool(isinstance(data, list) and len(data) > 0)
+
+
+# ----------------------
+# Backwards-compatible name (optional)
+# ----------------------
+
 
 def db_update_ai_review_one(
     *,
@@ -73,37 +181,14 @@ def db_update_ai_review_one(
     service: bool = False,
 ) -> bool:
     """
-    Update ONLY activities_enrichment.ai_review for one (user_id, activity_id).
-    Returns True if the update call succeeded and updated at least one row.
+    Backwards compatible wrapper.
+    Historically: update-only.
+    Now: upsert so it inserts when missing.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
-
-    res = (
-        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .update({"ai_review": ai_review})
-        .eq("user_id", int(user_id))
-        .eq("activity_id", int(activity_id))
-        .execute()
-    )
-
-    data = getattr(res, "data", None)
-    updated = bool(isinstance(data, list) and len(data) > 0)
-
-    return updated
-
-def db_get_enrichment_for_activity(
-    user_id: int,
-    activity_id: int,
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Optional[Dict[str, Any]]:
-    
-    rows = db_get_enrichment_for_activities(
+    return db_upsert_ai_review_one(
         user_id=user_id,
-        activity_ids=[activity_id],
+        activity_id=activity_id,
+        ai_review=ai_review,
         user_jwt=user_jwt,
         service=service,
     )
-
-    return rows[0] if rows else None

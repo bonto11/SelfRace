@@ -15,7 +15,7 @@ from Routes_DB.activities_summary import (
     db_fetch_summary_since,
     db_get_summary_for_activities,
 )
-from Routes_DB.activities_enrichment import db_upsert_enrichment_rows
+from Routes_DB.activities_enrichment import db_upsert_enrichment_rows_merge
 from Routes_DB.activities_streams import (
     db_get_streams_one,
     db_get_streams_ids_present,
@@ -477,7 +477,7 @@ def upsert_enrichment_minutes(
     if not rows:
         return {"saved": 0, "skipped": skipped}
 
-    saved = db_upsert_enrichment_rows(
+    saved = db_upsert_enrichment_rows_merge(
         rows,
         user_jwt=jwt,
         service=service,
