@@ -58,7 +58,7 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
   }, [startDt]);
 
   const [review, setReview] = useState<any | null>(null);
-  const [reviewMeta, setReviewMeta] = useState<{ created_at?: string | null } | null>(null);
+  const [reviewMeta, setReviewMeta] = useState<{ updated_at?: string | null } | null>(null);
 
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
@@ -72,7 +72,7 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
       const out = await apiGetActivityReview(Number(userId), Number(activityId));
       const r = out?.review ?? null;
       setReview(r);
-      setReviewMeta({ created_at: out?.created_at ?? null });
+      setReviewMeta({ updated_at: out?.updated_at ?? null });
       setOpenByDefault(!!r); // keď existuje review, rozbaľ default
     } catch (e) {
       console.error("[ActivityCoachReviewSection] load error", e);
@@ -167,8 +167,8 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
           <div className="text-sm opacity-80">Zatiaľ bez coach komentára.</div>
         )}
 
-        {!!reviewMeta?.created_at && (
-          <div className="mt-2 text-[11px] opacity-60">Created: {String(reviewMeta.created_at)}</div>
+        {!!reviewMeta?.updated_at && (
+          <div className="mt-2 text-[11px] opacity-60">Update: {String(reviewMeta.updated_at)}</div>
         )}
       </div>
     </ActivitySectionShell>

@@ -78,8 +78,6 @@ def db_update_ai_review_one(
     """
     sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
 
-    print("[db_update_ai_review_one] start", {"user_id": user_id, "activity_id": activity_id})
-
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
         .update({"ai_review": ai_review})
@@ -91,8 +89,6 @@ def db_update_ai_review_one(
     data = getattr(res, "data", None)
     updated = bool(isinstance(data, list) and len(data) > 0)
 
-    print("[db_update_ai_review_one] done", {"updated": updated, "returned_rows": len(data) if isinstance(data, list) else None})
-
     return updated
 
 def db_get_enrichment_for_activity(
@@ -103,13 +99,11 @@ def db_get_enrichment_for_activity(
     service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     
-    print("db_get_enrichment_for_activity IN",user_id, activity_id, user_jwt, service)
-    
     rows = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=[activity_id],
         user_jwt=user_jwt,
         service=service,
     )
-    print("db_get_enrichment_for_activity OUT",rows)
+
     return rows[0] if rows else None

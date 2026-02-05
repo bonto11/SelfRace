@@ -106,7 +106,7 @@ export async function apiEnqueueActivityReview(
 export async function apiGetActivityReview(
   userId: number,
   activityId: number,
-): Promise<{ review: any | null; created_at?: string | null }> {
+): Promise<{ review: any | null; updated_at?: string | null }> {
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
@@ -128,6 +128,6 @@ export async function apiGetActivityReview(
 
   return {
     review: json.review ?? null,
-    created_at: json.created_at ?? null,
+    updated_at: json.updated_at ?? null,
   };
 }
