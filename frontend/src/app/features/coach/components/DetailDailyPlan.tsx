@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+
 import {
   apiGetDailyOverview,
   type DailyOverview,
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
+
 import SessionCard, {
   type KPI,
   type PlanSession,
@@ -21,7 +24,6 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
-  PANEL_GRID_3,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 
@@ -55,7 +57,7 @@ function weekdayLabel(value: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
-/* ---------- tiny Card wrapper ---------- */
+/* ---------- tiny Card wrapper (token-first) ---------- */
 
 function Card({
   title,
@@ -88,10 +90,11 @@ function Card({
   );
 }
 
-/* ---------- hlavný komponent ---------- */
+/* ---------- main ---------- */
 
 export default function DetailDailyPlan() {
   const { userId } = useUserId();
+
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export default function DetailDailyPlan() {
     if (!userId) return;
 
     let alive = true;
+
     (async () => {
       setLoading(true);
       setError(null);
@@ -118,32 +122,30 @@ export default function DetailDailyPlan() {
     };
   }, [userId]);
 
-  /* ---------- derived FE state ---------- */
-
   const days = overview?.days ?? [];
+  const hasPlan = days.length > 0;
 
-  const planDates = useMemo(
-    () => days.map((d) => d.date!).filter(Boolean),
-    [days],
-  );
+  const planDates = useMemo(() => {
+    return days.map((d) => d.date).filter(Boolean) as string[];
+  }, [days]);
 
   const dayCounts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
     for (const d of days) {
-      out[d.date!] = d.sessions?.length ?? 0;
+      if (!d.date) continue;
+      out[d.date] = d.sessions?.length ?? 0;
     }
     return out;
   }, [days]);
 
-  /* ---------- local reschedule (FE only) ---------- */
-
-  const moveSession = (
-    fromDate: string,
-    toDate: string,
-    sessionIndex: number,
-  ) => {
+  // FE-only presun (bez save)
+  const moveSession = (fromDate: string, toDate: string, sessionIndex: number) => {
     setOverview((prev) => {
       if (!prev) return prev;
+
+      const fromDay = prev.days.find((x) => x.date === fromDate);
+      const moved = fromDay?.sessions?.[sessionIndex];
+      if (!moved) return prev;
 
       const daysNext: DailyPlanDay[] = prev.days.map((d) => {
         if (d.date === fromDate) {
@@ -153,16 +155,7 @@ export default function DetailDailyPlan() {
         }
 
         if (d.date === toDate) {
-          const moved = prev.days
-            .find((x) => x.date === fromDate)
-            ?.sessions?.[sessionIndex];
-
-          if (!moved) return d;
-
-          return {
-            ...d,
-            sessions: [...(d.sessions ?? []), moved],
-          };
+          return { ...d, sessions: [...(d.sessions ?? []), moved] };
         }
 
         return d;
@@ -209,74 +202,81 @@ export default function DetailDailyPlan() {
       <Card
         title="AI Daily plan – detail"
         subtitle="Detail denného tréningového plánu. Presúvanie dní je lokálne (Save príde neskôr)."
-      />
+      >
+        {!hasPlan ? (
+          <div className={PANEL_PREVIEW}>
+            Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB.
+          </div>
+        ) : (
+          <div className={PANEL_PREVIEW}>
+            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na
+            Session karte.
+          </div>
+        )}
+      </Card>
 
       <Card
-        title="AI Daily plan – detail"
-        subtitle="Detail denného tréningového plánu. Presúvanie dní je lokálne (Save príde neskôr)."
+        title="Denný rozpis tréningov"
+        subtitle="Každá karta je jeden tréning. Môžeš zmeniť deň v rámci existujúceho plánu."
       >
-        {null}
-      </Card>
-        <div className={PANEL_STACK}>
-          {days.flatMap((d) => {
-            if (!d.sessions || d.sessions.length === 0) return [];
+        {!hasPlan ? (
+          <div className={PANEL_PREVIEW}>—</div>
+        ) : (
+          <div className={PANEL_STACK}>
+            {days.flatMap((d) => {
+              if (!d.date) return [];
+              if (!d.sessions || d.sessions.length === 0) return [];
 
-            const dateIso = d.date ?? null;
-            const dateLabel = formatDate(d.date) ?? d.date ?? "";
-            const wd = weekdayLabel(d.date) ?? "";
+              const dateIso = d.date;
+              const dateLabel = formatDate(d.date) ?? d.date;
+              const wd = weekdayLabel(d.date) ?? "";
 
-            return d.sessions.map((s, idx) => {
-              const kpis: KPI[] = [];
+              return d.sessions.map((s, idx) => {
+                const kpis: KPI[] = [];
+                if (s.duration_min) kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
+                if (s.intensity) kpis.push({ label: "INTENSITY", value: String(s.intensity) });
+                if (s.zone_text) kpis.push({ label: "TARGET", value: String(s.zone_text) });
 
-              if (s.duration_min) {
-                kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
-              }
-              if (s.intensity) {
-                kpis.push({ label: "INTENSITY", value: String(s.intensity) });
-              }
-              if (s.zone_text) {
-                kpis.push({ label: "TARGET", value: String(s.zone_text) });
-              }
+                const item: PlanSession = {
+                  id: `${d.date}-${idx}`,
+                  kind: "plan",
+                  status: "planned",
+                  title: s.title || s.session_type || s.sport || "Tréning",
+                  dateIso,
+                  sport: s.sport || "other",
+                  subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
+                  kpis,
+                  notes: s.notes ?? null,
 
-              const item: PlanSession = {
-                id: `${d.date}-${idx}`,
-                kind: "plan",
-                status: "planned",
-                title: s.title || s.session_type || s.sport || "Tréning",
-                dateIso,
-                sport: s.sport || "other",
-                subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
-                kpis,
-                notes: s.notes ?? null,
+                  planDur: s.duration_min ? `${s.duration_min} min` : null,
+                  planIntensity: s.intensity ?? null,
+                  planTarget: s.zone_text ?? null,
+                  planNotes: s.notes ?? null,
 
-                planDur: s.duration_min ? `${s.duration_min} min` : null,
-                planIntensity: s.intensity ?? null,
-                planTarget: s.zone_text ?? null,
-                planNotes: s.notes ?? null,
+                  planRaw: s,
+                  planStructure: s.structure ?? null,
+                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
+                };
 
-                planRaw: s,
-                planStructure: s.structure ?? null,
-                planExercises: (s.structure?.strength_exercises as any[]) ?? [],
-              };
-
-              return (
-                <SessionCard
-                  key={item.id}
-                  variant="calendar"
-                  item={item}
-                  planReschedule={{
-                    enabled: true,
-                    dates: planDates,
-                    dayCounts,
-                    maxPerDay: 2,
-                    onChangeDate: ({ fromDate, toDate }) =>
-                      moveSession(fromDate, toDate, idx),
-                  }}
-                />
-              );
-            });
-          })}
-        </div>
+                return (
+                  <SessionCard
+                    key={item.id}
+                    variant="calendar"
+                    item={item}
+                    planReschedule={{
+                      enabled: true,
+                      dates: planDates,
+                      dayCounts,
+                      maxPerDay: 2,
+                      onChangeDate: ({ fromDate, toDate }) =>
+                        moveSession(fromDate, toDate, idx),
+                    }}
+                  />
+                );
+              });
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
