@@ -163,6 +163,7 @@ def _parse_json_value(val: Any) -> Dict[str, Any]:
 def service_load_user_settings(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Načíta user nastavenia spod key="user.settings" a doplní defaulty.

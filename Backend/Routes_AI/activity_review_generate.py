@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from Services.user_prefs import service_load_user_settings
+from Services.users import require_jwt
 from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 
@@ -64,7 +65,6 @@ def _get_trace_from_result(res: Any) -> Dict[str, Any]:
     if isinstance(tr2, dict):
         return tr2
 
-    # minimálny fallback
     return {
         "provider": str(getattr(res, "provider", None) or "unknown"),
         "models_tried": [],
@@ -79,14 +79,32 @@ def generate_activity_review_json(
     context_payload: Dict[str, Any],
     model: str,
     user_id: Optional[int] = None,
+    user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    print("[AR][generate_activity_review_json] user_id", user_id)
+    """
+    IMPORTANT:
+    - Keď service=True (job/worker), NESMIE vyžadovať Authorization JWT.
+    - Keď service=False (FE), JWT je povinný.
+    """
+    print("[AR][generate_activity_review_json] user_id", user_id, "service", service)
+
+    # JWT routing: FE -> require_jwt, worker -> None/forward
+    jwt = user_jwt if service else require_jwt(user_jwt)
 
     settings: Dict[str, Any] = {}
     if user_id is not None:
         try:
-            settings = service_load_user_settings(int(user_id)) or {}
-        except Exception as e:
+            # musí podporovať service=True (service client) bez JWT
+            settings = (
+                service_load_user_settings(
+                    int(user_id),
+                    user_jwt=jwt,
+                    service=service,
+                )
+                or {}
+            )
+        except Exception as e:  # noqa: BLE001
             print("[AR][generate] settings load error", repr(e))
             settings = {}
 
@@ -117,7 +135,6 @@ def generate_activity_review_json(
         parsed["model"] = str(parsed.get("model") or ok_model)
         parsed.setdefault("activity_id", _safe_activity_id(context_payload))
 
-        # zosúlaď trace ok_model
         if isinstance(trace, dict) and not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]
 
