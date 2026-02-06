@@ -72,3 +72,46 @@ def get_daily_overview(
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+# NEW imports
+from pydantic import BaseModel, Field
+from Services.coach_plan_adjustment import service_reschedule_daily_plan
+
+
+class DailyRescheduleMove(BaseModel):
+    session_id: int = Field(..., description="PK id z coach_plan_daily")
+    from_date: str = Field(..., description="YYYY-MM-DD (len pre audit/validáciu)")
+    to_date: str = Field(..., description="YYYY-MM-DD")
+
+
+class DailyReschedulePayload(BaseModel):
+    moves: list[DailyRescheduleMove] = Field(default_factory=list)
+
+
+@router.post("/reschedule/{user_id}")
+def reschedule_daily_plan(
+    req: Request,
+    user_id: int,
+    payload: DailyReschedulePayload,
+) -> Dict[str, Any]:
+    """
+    Presunie konkrétne daily sessions (podľa PK) na iné dni.
+    Update: plan_date (+ session_index auto na koniec cieľového dňa).
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+
+        overview = service_reschedule_daily_plan(
+            user_id=user_id,
+            moves=[m.model_dump() for m in (payload.moves or [])],
+            horizon_days=COACH_PLAN_OVERVIEW_HORIZON_DAYS,
+            ctx=ctx,
+        )
+
+        return {"success": True, "overview": overview}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
