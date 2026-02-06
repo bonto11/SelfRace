@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, Optional, List
 from statistics import mean
+from Routes_DB.coach_plan_daily import db_reschedule_daily_sessions_bulk
+
 
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state import service_analyze_athlete
@@ -11,6 +13,7 @@ from Services.AI.weekly_plan import service_generate_weekly_plan
 from Services.AI.daily_plan import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
+    service_get_daily_overview,
 )
 from Services.analytics_RecentLoad import service_build_recent_load_raw
 from Routes_DB.coach_plan_meta import (
@@ -464,3 +467,71 @@ def service_coach_autoadjust_after_update(
         "analyze_state_id": state_id,
         "plan_adjustment": plan_adjustment,
     }
+    
+    
+
+def service_reschedule_daily_plan(
+    user_id: int,
+    *,
+    moves: List[Dict[str, Any]],
+    horizon_days: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Reschedule daily sessions podľa PK (coach_plan_daily.id).
+    Zmení plan_date (+ session_index na koniec cieľového dňa).
+    Následne vráti nový overview.
+    """
+    if not moves:
+        # nič nemeníme, len vráť aktuálny overview
+        return service_get_daily_overview(
+            user_id=user_id,
+            horizon_days=horizon_days,
+            ctx=ctx,
+        )
+
+    # minimálna validácia payloadu
+    cleaned: List[Dict[str, Any]] = []
+    for m in moves:
+        sid = m.get("session_id")
+        to_date = (m.get("to_date") or "").strip()
+        from_date = (m.get("from_date") or "").strip()
+
+        if not isinstance(sid, int):
+            raise ValueError("moves[].session_id must be int")
+        if not to_date or len(to_date) < 10:
+            raise ValueError("moves[].to_date is required (YYYY-MM-DD)")
+        if not from_date or len(from_date) < 10:
+            raise ValueError("moves[].from_date is required (YYYY-MM-DD)")
+
+        # basic ISO date shape check (neimportujem dateutil)
+        if to_date[4] != "-" or to_date[7] != "-":
+            raise ValueError(f"Invalid to_date: {to_date}")
+        if from_date[4] != "-" or from_date[7] != "-":
+            raise ValueError(f"Invalid from_date: {from_date}")
+
+        cleaned.append(
+            {
+                "session_id": int(sid),
+                "from_date": from_date[:10],
+                "to_date": to_date[:10],
+            }
+        )
+
+    # DB update (RLS – iba userove sessions)
+    out = db_reschedule_daily_sessions_bulk(
+        user_id=user_id,
+        moves=cleaned,
+        max_per_day=2,
+        ctx=ctx,
+    )
+
+    if not out.get("ok"):
+        raise ValueError(out.get("error") or "reschedule_failed")
+
+    # fresh overview (už bude zoradený podľa plan_date/session_index z DB)
+    return service_get_daily_overview(
+        user_id=user_id,
+        horizon_days=horizon_days,
+        ctx=ctx,
+    )
