@@ -311,7 +311,6 @@ def service_execute_job(job: Dict[str, Any]) -> Dict[str, Any]:
             result = service_activity_review(
                 user_id=user_id,
                 activity_id=int(payload["activity_id"]),
-                user_jwt=jwt,
                 service=run_as_service,
                 model=payload.get("model"),
             )
