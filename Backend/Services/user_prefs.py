@@ -39,17 +39,6 @@ def service_get_user_prefs_list(
     return db_get_prefs_all(user_id, user_jwt=jwt, service=service)
 
 
-def service_get_user_prefs_map(
-    user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-) -> Dict[str, Any]:
-    """Mapovanie {key: value} pre všetky prefs daného usera."""
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    rows = db_get_prefs_all(user_id, user_jwt=jwt, service=service)
-    return {str(r["key"]): r.get("value") for r in (rows or [])}
-
-
 def service_get_user_pref(
     user_id: int,
     key: str,
