@@ -21,6 +21,7 @@ from Configs.config import (
     FRONTEND_URL,
     STRAVA_RECONNECT_COOLDOWN_SECONDS,
 )
+from Modules.Supabase.auth import service_ctx
 
 from Routes_DB.activities_summary import db_get_last_activity_start
 from Services.synchronization_utils import decide_sync_plan
@@ -28,7 +29,7 @@ from Services.async_jobs import service_enqueue_job
 
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Modules.Supabase.client import get_service_client
-
+from Modules.Supabase.auth import get_auth_ctx, require_user
 supabase = get_service_client()
 router = APIRouter(prefix="/api/strava", tags=["strava"])
 
@@ -281,6 +282,9 @@ def _insert_webhook_audit_row(
 # =================================================
 @router.post("/webhook")
 async def strava_webhook_handler(request: Request):
+
+    ctx = service_ctx("Webhook.Strava")
+
     raw_body = await request.body()
     if not raw_body:
         raise HTTPException(status_code=400, detail="empty_body")
@@ -343,8 +347,7 @@ async def strava_webhook_handler(request: Request):
                 payload={"activity_id": activity_id},
                 priority=60,
                 dedupe_key=f"mark_activity_deleted:{user_id}:{activity_id}",
-                user_jwt=None,
-                service=True,
+                ctx=ctx,
             )
             _insert_webhook_audit_row(event=event, payload=data, status="processed", error=None)
             return JSONResponse({"ok": True})
@@ -361,8 +364,7 @@ async def strava_webhook_handler(request: Request):
                 },
                 priority=120,
                 dedupe_key=f"strava_sync_activity:{user_id}:{activity_id}",
-                user_jwt=None,
-                service=True,
+                ctx=ctx,
             )
             _insert_webhook_audit_row(event=event, payload=data, status="processed", error=None)
             return JSONResponse({"ok": True})
@@ -524,7 +526,11 @@ async def strava_oauth_callback(
 # STATUS
 # =================================================
 @router.get("/status")
-async def strava_status(user_id: int = Query(..., description="SelfRace user_id")):
+async def strava_status(req: Request, user_id: int = Query(..., description="SelfRace user_id"), ):
+
+
+    ctx = require_user(get_auth_ctx(req))
+
     try:
         resp = (
             supabase.table("strava_accounts")
@@ -573,7 +579,7 @@ async def strava_status(user_id: int = Query(..., description="SelfRace user_id"
     sync_max = None
 
     if connected:
-        last_dt = db_get_last_activity_start(user_id, user_jwt=None, service=True)
+        last_dt = db_get_last_activity_start(user_id=user_id, ctx=ctx)
         plan = decide_sync_plan(last_activity_dt=last_dt, ever_synced_at=ever_synced_at)
         sync_days = int(plan.days_back)
         sync_max = int(plan.max_activities)

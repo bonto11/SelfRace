@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_STREAMS
 
 
@@ -16,10 +17,9 @@ def db_get_streams_one(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+    sb = get_sb(ctx, caller="activities_streams.db_get_streams_one")
 
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
@@ -49,12 +49,12 @@ def db_get_streams_one(
 
     return data[0]
 
+
 def db_get_streams_ids_present(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[int]:
     """
     Vráti activity_id, ktoré majú PLATNÉ streamy (nie expirované).
@@ -62,7 +62,7 @@ def db_get_streams_ids_present(
     if not activity_ids:
         return []
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+    sb = get_sb(ctx, caller="activities_streams.db_get_streams_ids_present")
     now = _now_iso()
 
     res = (
@@ -98,15 +98,14 @@ def db_upsert_streams_with_sport(
     speed: List[float],
     grade: List[float],
     temp: List[float],
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
     """
     RPC upsert.
     Dôležité: expires_at neriešime tu — DB default pri INSERT,
     a pri UPSERT ho nemeníme (RPC nech to nerieši vôbec).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+    sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
 
     params = {
         "p_user_id": int(user_id),
@@ -139,15 +138,14 @@ def db_upsert_stream_arrays(
     grade_smooth: Optional[List[float]] = None,
     temp_c: Optional[List[float]] = None,
     moving: Optional[List[bool]] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
     """
     Priamy upsert do activities_streams.
     - expires_at neposielame -> DB default pri INSERT, pri UPSERT sa nemení.
     - deleted_at tiež nemeníme tu.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_streams")
+    sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
 
     payload: Dict[str, Any] = {
         "user_id": user_id,

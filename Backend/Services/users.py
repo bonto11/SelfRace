@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from fastapi import HTTPException
 
 from Routes_DB.users import (
     db_get_user_by_auth_uid,
@@ -12,22 +11,20 @@ from Routes_DB.users import (
     db_delete_user_by_email,
 )
 
+from Modules.Supabase.auth import AuthCtx
 
-def require_jwt(user_jwt: Optional[str]) -> str:
-    if not user_jwt:
-        raise HTTPException(status_code=401, detail="Missing Authorization JWT")
-    return user_jwt
+
 
 
 def service_resolve_user(
     auth_uid: str,
-    user_jwt: Optional[str] = None,
+    ctx:AuthCtx,
 ) -> Optional[int]:
     """
     Resolve /users/resolve – nájde user_id podľa auth_uid.
     DB vrstva sama rieši RLS vs service-role podľa user_jwt.
     """
-    row = db_get_user_by_auth_uid(auth_uid, user_jwt=user_jwt)
+    row = db_get_user_by_auth_uid(auth_uid, ctx=ctx)
     if not row:
         return None
     return int(row["id"])
@@ -35,8 +32,7 @@ def service_resolve_user(
 
 def service_get_user_uid(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx:AuthCtx,
 ) -> str:
     """
     Vráti auth_uid pre dané user_id, alebo hodí RuntimeError ak chýba.
@@ -45,15 +41,9 @@ def service_get_user_uid(
       - service=False (default): RLS klient → require_jwt
       - service=True: service klient → user_jwt sa len forwarduje (môže byť aj None)
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
-
     uid = db_get_user_uid(
-        user_id,
-        user_jwt=jwt,
-        service=service,
+        user_id=user_id,
+        ctx=ctx
     )
     if not uid:
         raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
@@ -64,15 +54,16 @@ def service_create_user(
     name: str,
     age: int,
     mail_address: str,
+    ctx:AuthCtx,
     display_name: Optional[str] = None,
     auth_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
+
 ) -> Dict[str, Any]:
     """
     Vytvorí usera, ak daný e-mail ešte v DB nie je.
     Môže bežať pod RLS (JWT) aj pod service rolou (bez JWT).
     """
-    existing = db_get_user_by_email(mail_address, user_jwt=user_jwt)
+    existing = db_get_user_by_email(mail_address, ctx=ctx)
     if existing:
         print(f"E-mail {mail_address} už existuje. Nevkladám.")
         return existing
@@ -86,24 +77,24 @@ def service_create_user(
     if auth_uid:
         payload["auth_uid"] = auth_uid
 
-    row = db_insert_user(payload, user_jwt=user_jwt)
+    row = db_insert_user(payload=payload, ctx=ctx)
     print("Úspešne vložené:", row)
     return row
 
 
 def service_get_user_by_email(
     mail_address: str,
-    user_jwt: Optional[str] = None,
+    ctx:AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Wrapper na get by email.
     """
-    return db_get_user_by_email(mail_address, user_jwt=user_jwt)
+    return db_get_user_by_email(mail_address, ctx=ctx)
 
 
 def service_update_user(
     mail_address: str,
-    user_jwt: Optional[str] = None,
+    ctx:AuthCtx,
     **fields: Any,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -111,17 +102,17 @@ def service_update_user(
     """
     if not fields:
         return None
-    return db_update_user_by_email(mail_address, fields, user_jwt=user_jwt)
+    return db_update_user_by_email(mail_address, fields, ctx=ctx)
 
 
 def service_delete_user(
     mail_address: str,
-    user_jwt: Optional[str] = None,
+    ctx:AuthCtx,
 ) -> None:
     """
     Delete podľa mail_address.
     """
-    db_delete_user_by_email(mail_address, user_jwt=user_jwt)
+    db_delete_user_by_email(mail_address, ctx=ctx)
 
 
 def service_get_or_create_user_id(
@@ -130,12 +121,12 @@ def service_get_or_create_user_id(
     name: str = "New User",
     display_name: Optional[str] = None,
     auth_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
+    ctx:AuthCtx,
 ) -> int:
     """
     get_or_create user podľa e-mailu – funguje aj pod RLS, aj pod service role.
     """
-    user = db_get_user_by_email(email, user_jwt=user_jwt)
+    user = db_get_user_by_email(email, ctx=ctx)
     if not user:
         print(f"Užívateľ {email} neexistuje, vytváram ho.")
         service_create_user(
@@ -144,9 +135,9 @@ def service_get_or_create_user_id(
             mail_address=email,
             display_name=display_name or name,
             auth_uid=auth_uid,
-            user_jwt=user_jwt,
+            ctx=ctx
         )
-        user = db_get_user_by_email(email, user_jwt=user_jwt)
+        user = db_get_user_by_email(email, ctx=ctx)
         if not user:
             raise RuntimeError("Nepodarilo sa vytvoriť používateľa")
     return int(user["id"])

@@ -9,7 +9,7 @@ from Routes_DB.coach_strength_history import (
     db_get_strength_history_for_user,
     db_insert_strength_history_rows,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 SLOT_TO_EXERCISES: Dict[str, List[str]] = {
@@ -210,13 +210,8 @@ def enrich_daily_plan_with_strength_exercises(
     equipment_mode: Optional[str] = None,
     today: date,
     weeks_back: int = 8,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     # normalize equipment
     if not isinstance(available_equipment, list):
@@ -226,8 +221,7 @@ def enrich_daily_plan_with_strength_exercises(
     history = db_get_strength_history_for_user(
         user_id=user_id,
         weeks_back=weeks_back,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     ) or []
     _normalize_history_dates(history)
 
@@ -316,8 +310,7 @@ def enrich_daily_plan_with_strength_exercises(
     if new_history_rows:
         db_insert_strength_history_rows(
             new_history_rows,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
     return daily_plan

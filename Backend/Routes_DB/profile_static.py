@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_PROFILE_STATIC
 
 def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
@@ -18,13 +19,12 @@ def db_fetch_static(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Vytiahne static profil – preferuje user_uid, inak user_id.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
+    sb = get_sb(ctx, caller="profile_static.db_fetch_static")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("*").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -38,13 +38,12 @@ def db_upsert_static(
     data: Dict[str, Any],
     conflict_col: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Upsert static profilu, vracia uložený riadok.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
+    sb = get_sb(ctx, caller="profile_static.db_upsert_static")
 
     res = (
         sb.table(TABLE_PROFILE_STATIC)
@@ -60,10 +59,9 @@ def db_fetch_static_basic(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
+    sb = get_sb(ctx, caller="profile_static.db_fetch_static_basic")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date,height_cm").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -76,10 +74,9 @@ def db_get_static_sex_birth(
     user_id: int,
     user_uid: Optional[str] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
+    sb = get_sb(ctx, caller="profile_static.db_get_static_sex_birth")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date").limit(1)
     q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
@@ -91,13 +88,12 @@ def db_get_static_sex_birth(
 def db_fetch_user_sex(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[str]:
     """
     Jednoduchý helper na zistenie pohlavia usera (pod RLS alebo service).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_static")
+    sb = get_sb(ctx, caller="profile_static.db_fetch_user_sex")
 
     try:
         rec = (

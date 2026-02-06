@@ -4,19 +4,19 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_THRESHOLDS
 
 
 def db_list_user_thresholds_raw(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky threshold riadky daného usera, zoradené DESC podľa updated_at.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_thresholds")
+    sb = get_sb(ctx, caller="user_thresholds.db_list_user_thresholds_raw")
 
     try:
         res = (
@@ -39,13 +39,12 @@ def db_get_user_threshold_latest(
     sport: str,
     threshold_type: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší riadok pre danú kombináciu (user, sport, threshold_type).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_thresholds")
+    sb = get_sb(ctx, caller="user_thresholds.db_get_user_threshold_latest")
 
     try:
         res = (
@@ -71,13 +70,12 @@ def db_upsert_user_threshold(
     user_id: int,
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
     """
     Zapíše / upsertne threshold riadok.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_thresholds")
+    sb = get_sb(ctx, caller="user_thresholds.db_upsert_user_threshold")
 
     payload = {
         "user_id": user_id,
@@ -92,7 +90,6 @@ def db_upsert_user_threshold(
 def fetch_user_thresholds(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    return db_list_user_thresholds_raw(user_id, user_jwt=user_jwt, service=service)
+    return db_list_user_thresholds_raw(ctx=ctx, user_id=user_id)

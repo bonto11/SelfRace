@@ -9,6 +9,7 @@ from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Services.user_prefs import service_load_user_settings
 from Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
 from Services.AI.provider import ai_call_json_model
+from Modules.Supabase.auth import AuthCtx
 
 
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
@@ -49,21 +50,23 @@ def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[
 
 def generate_weekly_plan_json(
     context_payload: dict,
+    ctx:AuthCtx,
     model: Optional[str] = None,
     *,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
+    
 ) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-agnostic weekly plan generator.
     ✅ ALWAYS returns (weekly_plan_dict, trace)
     """
-    ctx: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
+    context: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
 
-    # authoritative user_id is always ctx["user_id"]
+    # authoritative user_id is always context["user_id"]
     user_id: Optional[int] = None
     try:
-        uid = ctx.get("user_id")
+        uid = context.get("user_id")
         user_id = int(uid) if uid is not None else None
     except Exception:
         user_id = None
@@ -72,15 +75,15 @@ def generate_weekly_plan_json(
     settings: Dict[str, Any] = {}
     if user_id:
         try:
-            settings = service_load_user_settings(int(user_id)) or {}
+            settings = service_load_user_settings(ctx=ctx, user_id=int(user_id)) or {}
         except Exception:
             settings = {}
 
-    system_txt, user_txt = build_prompts_for_weekly(ctx, settings=settings)
+    system_txt, user_txt = build_prompts_for_weekly(context, settings=settings)
 
     # authoritative weeks horizon
     try:
-        horizon_weeks = int(ctx.get("weeks") or 6)
+        horizon_weeks = int(context.get("weeks") or 6)
     except Exception:
         horizon_weeks = 6
 
@@ -96,7 +99,7 @@ def generate_weekly_plan_json(
     requested_model = model.strip() if isinstance(model, str) and model.strip() else None
 
     res = ai_call_json_model(
-        context_payload=ctx,
+        context_payload=context,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=requested_model,
@@ -143,7 +146,7 @@ def generate_weekly_plan_json(
 
     now_iso = datetime.now(tzinfo).isoformat()
 
-    prefs_fb = ctx.get("prefs") or {}
+    prefs_fb = context.get("prefs") or {}
     if isinstance(prefs_fb, dict) and isinstance(prefs_fb.get("value"), dict):
         prefs_fb = prefs_fb["value"]
 

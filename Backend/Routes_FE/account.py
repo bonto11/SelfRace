@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import os
-from fastapi import APIRouter, HTTPException, Depends, Request
-
-from Modules.HTTP.auth_deps import require_user_jwt
+from fastapi import APIRouter, HTTPException, Request
 from Services.account import (
     service_get_account_delete_status,
     service_request_account_delete,
     service_cancel_account_delete,
 )
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/account", tags=["account"])
 
@@ -17,16 +15,17 @@ router = APIRouter(prefix="/account", tags=["account"])
 @router.get("/delete/status/{user_id}")
 def get_account_delete_status(
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),
+    req: Request,
 ):
     """
     Vráti, či je účet označený na vymazanie a plánovaný dátum delete.
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_get_account_delete_status(
             user_id=user_id,
-            user_jwt=user_jwt,
-            service=False,
+            ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -35,16 +34,17 @@ def get_account_delete_status(
 @router.post("/delete/request/{user_id}")
 def request_account_delete(
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),
+    req: Request,
 ):
     """
     Označí účet na vymazanie (delete_at = now + DELETE_GRACE_DAYS).
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_request_account_delete(
             user_id=user_id,
-            user_jwt=user_jwt,
-            service=False,
+            ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -53,16 +53,17 @@ def request_account_delete(
 @router.post("/delete/cancel/{user_id}")
 def cancel_account_delete(
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),
+    req: Request,
 ):
     """
     Zruší pending delete flag (delete_at = NULL).
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_cancel_account_delete(
             user_id=user_id,
-            user_jwt=user_jwt,
-            service=False,
+            ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

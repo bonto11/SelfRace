@@ -3,20 +3,20 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_BESTS
 
 def db_fetch_user_bests(
     user_id: int,
     sport: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Low-level SELECT pre users_bests.
     Nerieši time_str ani validáciu.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+    sb = get_sb(ctx, caller="user_bests.db_fetch_user_bests")
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -37,13 +37,12 @@ def db_fetch_user_bests(
 def db_upsert_user_best(
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Low-level UPSERT. Predpokladá už zvalidované a normalizované pole `row`.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+    sb = get_sb(ctx, caller="user_bests.db_upsert_user_best")
 
     res = (
         sb.table(TABLE_USERS_BESTS)
@@ -61,13 +60,12 @@ def db_delete_user_best(
     sport: str,
     distance_m: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Hard delete; vráti počet zmazaných riadkov.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_bests")
+    sb = get_sb(ctx, caller="user_bests.db_delete_user_best")
 
     res = (
         sb.table(TABLE_USERS_BESTS)

@@ -15,7 +15,7 @@ from Services.activity_zones import (
 )
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 # ----------------------- interné helpers ------------------------
@@ -90,23 +90,18 @@ def service_pareto_source(
     months: int = 3,
     count_no_hr_as_easy: bool = True,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Proxy na veľký dataset pre session.
     Jediná zodpovednosť: forwardnúť user_jwt ďalej (RLS vs service role).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     return get_pareto_source(
         user_id=user_id,
         months=months,
         count_no_hr_as_easy=count_no_hr_as_easy,
-        user_jwt=jwt,
+        ctx=ctx,
     )
 
 
@@ -116,16 +111,11 @@ def service_pareto_widget(
     days: int = 14,
     sport: str = "all",
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Sumár za posledné `days` – vracia iba payload `data` bez `success`.
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     days = int(days)
     sports = _parse_sport_query(sport)  # None => použi default set
@@ -137,8 +127,7 @@ def service_pareto_widget(
     rows = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since_iso,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # filter podľa športu
@@ -164,8 +153,7 @@ def service_pareto_widget(
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=ids,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     easy = sum(_easy(r) for r in enr)
@@ -186,18 +174,13 @@ def service_pareto_trend(
     weeks: int = 8,
     sport: str = "all",
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
     Podporuje multi-sport query (?sport=run,ride).
     Vracia zoznam radkov (bez success wrappera).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     weeks = max(1, int(weeks))
     sports = _parse_sport_query(sport)  # None => default set
@@ -209,8 +192,7 @@ def service_pareto_trend(
     rows = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since_iso,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
@@ -249,24 +231,21 @@ def service_pareto_trend(
             user_id,
             list(set(all_ids)),
             fetch_if_missing=True,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
         if prev.get("ok"):
             upsert_enrichment_minutes(
                 user_id,
                 prev.get("items") or [],
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
 
     # načítaj enrichment z DB
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=list(set(all_ids)),
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     emap = {

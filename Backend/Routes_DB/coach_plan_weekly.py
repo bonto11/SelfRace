@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_WEEKLY
+
 
 def db_insert_weekly_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Bulk INSERT do coach_plan_weekly.
@@ -18,7 +19,7 @@ def db_insert_weekly_rows(
     if not rows:
         return 0
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_insert_weekly_rows")
 
     try:
         res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
@@ -34,13 +35,12 @@ def db_clear_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     DELETE všetkých weekly riadkov daného plánu pre usera.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_clear_weekly_for_user_plan")
 
     try:
         res = (
@@ -67,13 +67,12 @@ def db_get_weekly_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načítanie weekly riadkov pre konkrétny plan_id.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_get_weekly_for_user_plan")
 
     try:
         res = (
@@ -95,13 +94,12 @@ def db_get_week_row_for_plan(
     plan_id: str,
     week_index: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny týždeň (1 riadok) pre daný plan_id + week_index.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_get_week_row_for_plan")
 
     try:
         res = (
@@ -123,13 +121,12 @@ def db_get_week_row_for_plan(
 def db_get_latest_plan_id_for_user(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[str]:
     """
     Vracia posledný použitý plan_id pre usera (podľa created_at).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_plan_weekly")
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_get_latest_plan_id_for_user")
 
     try:
         res = (

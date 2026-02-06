@@ -14,7 +14,7 @@ from Routes_DB.coach_plan_meta import (
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
-
+from Modules.Supabase.auth import AuthCtx
 
 _WEEKDAY_TO_ABBR: Dict[int, str] = {
     0: "Mon",
@@ -320,33 +320,35 @@ def build_daily_context_from_db(
     *,
     week_index: int,
     plan_id: Optional[str],
-    overwrite: bool,
-    user_jwt: Optional[str],
-    service: bool,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     # ✅ AUTH FIX: service=True => jwt=None (service client)
-    jwt = None if service else user_jwt
 
     # 1) resolve plan_id
     plan_id_effective: Optional[str] = plan_id
     resolved_via = "input"
     if not plan_id_effective:
         meta = db_get_active_plan_meta_for_user(
-            user_id=user_id, user_jwt=jwt, service=service
+            user_id=user_id,
+            ctx=ctx,
         )
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
             resolved_via = "active_meta"
         else:
             meta2 = db_get_latest_plan_meta_for_user(
-                user_id=user_id, user_jwt=jwt, service=service
+                user_id=user_id,
+                ctx=ctx,
             )
             if meta2 and isinstance(meta2.get("plan_id"), str):
                 plan_id_effective = meta2["plan_id"]
                 resolved_via = "latest_meta"
 
     # 2) analyze input
-    analyze_input = build_input_from_db(user_id=user_id, user_jwt=jwt, service=service)
+    analyze_input = build_input_from_db(
+        user_id=user_id,
+        ctx=ctx,
+    )
     if not isinstance(analyze_input, dict):
         analyze_input = {}
 
@@ -368,8 +370,7 @@ def build_daily_context_from_db(
             user_id=user_id,
             plan_id=plan_id_effective,
             week_index=week_index,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
     week_meta: Dict[str, Any] = {
@@ -394,8 +395,7 @@ def build_daily_context_from_db(
                 user_id=user_id,
                 from_iso=str(week_meta["week_start"]),
                 to_iso=str(week_meta["week_end"]),
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
             external_occurrences_norm = _normalize_external_occurrences_from_service(
                 ext_window
@@ -413,7 +413,9 @@ def build_daily_context_from_db(
 
     # 5) athlete_state
     state_row = db_get_latest_state_for_user(
-        user_id=user_id, version=1, user_jwt=jwt, service=service
+        user_id=user_id,
+        version=1,
+        ctx=ctx,
     )
     athlete_state_json = (state_row or {}).get("state_json") or None
 
@@ -423,7 +425,7 @@ def build_daily_context_from_db(
         "user_id": user_id,
         "week_index": week_index,
         "plan_id": plan_id_effective,
-        "overwrite": overwrite,
+        "overwrite": True,
         "week": week_meta,
         "prefs": prefs_ai,
         "targets": targets_ai,

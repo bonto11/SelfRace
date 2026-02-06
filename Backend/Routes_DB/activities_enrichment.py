@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
 
@@ -15,13 +16,12 @@ def db_get_enrichment_for_activities(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     if not activity_ids:
         return []
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_enrichment_for_activities")
 
     fields = (
         "activity_id,"
@@ -44,14 +44,12 @@ def db_get_enrichment_for_activity(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     rows = db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=[activity_id],
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     return rows[0] if rows else None
 
@@ -69,8 +67,7 @@ def _strip_none(d: Dict[str, Any]) -> Dict[str, Any]:
 def db_upsert_enrichment_rows_merge(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Upsert rows into activities_enrichment but NEVER overwrite existing values with None.
@@ -80,7 +77,7 @@ def db_upsert_enrichment_rows_merge(
     if not rows:
         return 0
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
+    sb = get_sb(ctx, caller="activities_enrichment.db_upsert_enrichment_rows_merge")
 
     saved = 0
     BATCH = 200
@@ -134,10 +131,9 @@ def db_upsert_ai_review_one(
     user_id: int,
     activity_id: int,
     ai_review: Any,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> bool:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_enrichment")
+    sb = get_sb(ctx, caller="activities_enrichment.db_upsert_ai_review_one")
 
     row = {
         "user_id": int(user_id),

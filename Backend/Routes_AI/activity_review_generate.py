@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from Services.user_prefs import service_load_user_settings
 from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
+from Modules.Supabase.auth import AuthCtx
 
 
 def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
@@ -74,18 +75,15 @@ def generate_activity_review_json(
     context_payload: Dict[str, Any],
     model: str,
     user_id: Optional[int] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx:AuthCtx,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    print("[AR][generate_activity_review_json] user_id", user_id, "service", service)
 
     settings: Dict[str, Any] = {}
     if user_id is not None:
         try:
             settings = service_load_user_settings(
-                int(user_id),
-                user_jwt=user_jwt,
-                service=service,
+                user_id=int(user_id),
+                ctx=ctx
             ) or {}
         except Exception as e:
             print("[AR][generate] settings load error", repr(e))

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Modules.Strava.activities import StravaActivitiesClient
 
@@ -28,14 +28,14 @@ from Services.synchronization_single import _get_access_token_for_user
 def import_activities_bulk(
     *,
     user_id: int,
-    user_jwt: Optional[str],
+    ctx: AuthCtx,
     trigger: str,  # "panel_init" | "manual" | "reconnect" | "quick"
 ) -> Dict[str, Any]:
 
     now = datetime.now(timezone.utc)
-    last_dt = db_get_last_activity_start(user_id, user_jwt=user_jwt)
+    last_dt = db_get_last_activity_start(ctx=ctx,user_id=user_id)
 
-    ever_synced_at = get_strava_ever_synced_at_service(user_id=user_id)
+    ever_synced_at = get_strava_ever_synced_at_service(ctx=ctx,user_id=user_id)
     plan = decide_sync_plan(
         ever_synced_at=ever_synced_at,
         last_activity_dt=last_dt
@@ -45,17 +45,6 @@ def import_activities_bulk(
     after_epoch = int((now - timedelta(days=plan.days_back)).timestamp())
     since_iso = (now - timedelta(days=plan.days_back)).strftime("%Y-%m-%d")
 
-    print(
-        "[SYNC][BULK]",
-        {
-            "user": user_id,
-            "plan": plan.kind,
-            "days_back": plan.days_back,
-            "max_activities": plan.max_activities,
-            "reason": plan.reason,
-        },
-    )
-
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
         return {"imported": 0, "updated": 0, "skipped": 0, "fetched": 0}
@@ -63,9 +52,9 @@ def import_activities_bulk(
     client = StravaActivitiesClient(access_token=access_token)
 
     existing_ids = db_get_existing_activity_ids_since(
-        user_id,
-        since_iso,
-        user_jwt=user_jwt,
+        user_id=user_id,
+        since_iso_date=since_iso,
+        ctx=ctx,
     )
 
     imported = updated = skipped = fetched = 0
@@ -110,9 +99,8 @@ def import_activities_bulk(
 
         if to_upsert:
             db_upsert_activities_summary(
-                to_upsert,
-                user_jwt=user_jwt,
-                service=False,
+                rows=to_upsert,
+                ctx=ctx,
             )
             to_upsert.clear()
 
@@ -128,11 +116,11 @@ def import_activities_bulk(
     _enrich_activities_after_import(
         user_id=user_id,
         since_iso_for_scan=since_iso,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
 
 
-    mark_strava_ever_synced_now(user_id=user_id)
+    mark_strava_ever_synced_now(ctx=ctx, user_id=user_id)
 
     return {
         "ok": True,
@@ -161,13 +149,12 @@ def import_activities_bulk(
 def service_sync_activities(
     user_id: int,
     *,
-    user_jwt: Optional[str],
+    ctx: AuthCtx,
 ) -> Dict[str, int]:
 
-    jwt = require_jwt(user_jwt)
 
     return import_activities_bulk(
         user_id=user_id,
-        user_jwt=jwt,
+    ctx=ctx,
         trigger="manual",
     )

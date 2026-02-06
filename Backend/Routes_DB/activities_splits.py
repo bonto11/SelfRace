@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_SPLITS
 
 
@@ -14,23 +15,21 @@ def _now_iso() -> str:
 def db_delete_splits_for_activity(
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_splits")
+    sb = get_sb(ctx, caller="activities_splits.db_delete_splits_for_activity")
     sb.table(TABLE_ACTIVITIES_SPLITS).delete().eq("activity_id", activity_id).execute()
 
 
 def db_upsert_split(
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
     """
     expires_at neriešime -> DB default pri INSERT, pri UPSERT sa nemení (lebo ho neposielame).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_splits")
+    sb = get_sb(ctx, caller="activities_splits.db_upsert_split")
     sb.table(TABLE_ACTIVITIES_SPLITS).upsert(
         row,
         on_conflict="activity_id,split_index",
@@ -41,15 +40,14 @@ def db_get_activity_splits(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Všetky splits pre danú aktivitu daného usera – iba platné:
       - deleted_at IS NULL
       - expires_at > now()
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="activities_splits")
+    sb = get_sb(ctx, caller="activities_splits.db_get_activity_splits")
     now = _now_iso()
 
     res = (

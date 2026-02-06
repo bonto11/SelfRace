@@ -17,15 +17,14 @@ from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.user_recovery import db_get_recent_recovery
 from Routes_DB.profile_static import db_fetch_user_sex
 from Routes_DB.profile_metrics import fetch_user_hr_max
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def service_weekly_analytics(
     user_id: int,
     weeks: int = 12,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Týždenná agregácia za posledných N týždňov.
@@ -43,21 +42,15 @@ def service_weekly_analytics(
       - FE / RLS: service=False, user_jwt povinný → require_jwt
       - worker / cron: service=True, user_jwt môže byť None → DB vrstvy používajú service klienta
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     # ---------------- HR parametre (sex, HR_max) ----------------
     sex: Optional[str] = db_fetch_user_sex(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     hr_max: Optional[float] = fetch_user_hr_max(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # ---------------- časové okno ----------------
@@ -71,8 +64,7 @@ def service_weekly_analytics(
     recovery_rows: List[Dict[str, Any]] = db_get_recent_recovery(
         user_id=user_id,
         days=days_window,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     rhr_by_date: Dict[str, float] = {}
@@ -111,8 +103,7 @@ def service_weekly_analytics(
     rows: List[Dict[str, Any]] = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since_iso,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     def new_week() -> Dict[str, Any]:

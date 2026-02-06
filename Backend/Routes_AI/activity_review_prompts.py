@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import json
 from typing import Dict, Optional, Tuple, Any
+from Modules.Supabase.auth import AuthCtx
 
 
-def minify_activity_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
+def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Do AI posielame len to, čo má reálny vplyv na hodnotenie v horizonte ~1 týždeň.
     - drop user id
     - drop debug
     - drop všetko heavy (streams/laps/splits)
     """
-    if not isinstance(ctx, dict):
+    if not isinstance(context, dict):
         return {}
 
-    out = json.loads(json.dumps(ctx, default=str))
+    out = json.loads(json.dumps(context, default=str))
 
     # user
     u = out.get("user")
@@ -57,13 +58,13 @@ def build_prompts_for_activity_review(
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
-    ctx = dict(context_payload)
-    ctx["user_settings"] = {
+    context = dict(context_payload)
+    context["user_settings"] = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
     }
 
-    ctx_for_llm = minify_activity_context_for_ai(ctx)
+    context_for_llm = minify_activity_context_for_ai(context)
 
     system_txt = (
         "You are an endurance coaching assistant evaluating ONE completed training session. "
@@ -113,7 +114,7 @@ def build_prompts_for_activity_review(
     user_txt = (
         "Evaluate the completed activity with emphasis on 7-day horizon context (recovery + recent load).\n\n"
         "CONTEXT_JSON:\n"
-        + json.dumps(ctx_for_llm, ensure_ascii=False)
+        + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
         + schema
         + "\n\nRules:\n"

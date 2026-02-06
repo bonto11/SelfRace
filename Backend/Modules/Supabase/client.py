@@ -1,94 +1,45 @@
 # Modules/Supabase/client.py
+from __future__ import annotations
 
 from typing import Optional
 
 from supabase import create_client
 
 from Configs.config import SUPABASE_URL, SUPABASE_SERVICE_ROLE, SUPABASE_ANON_KEY
+from Modules.Supabase.auth import AuthCtx
 
 
-def get_sb(
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-    caller: str = "db",
-):
-    """
-    - user_jwt != None → RLS klient (FE / AI)
-    - service=True     → service klient (webhook / worker / cron)
-    - nikdy nepovoľ oboje naraz
-    """
-    if user_jwt is not None and service:
-        raise RuntimeError(f"{caller}: both user_jwt and service=True supplied")
-
-    if user_jwt is not None:
-        return get_client(user_jwt=user_jwt)
-    if service:
-        return get_service_client()
-
-    raise RuntimeError(f"{caller}: missing user_jwt or service=True in DB helper")
-
-# ------------------------------------------------------------------
-# SERVICE CLIENT – obchádza RLS (SERVICE_ROLE key)
-# ------------------------------------------------------------------
-
-_service_client = None  # lazy init, zdieľaný v rámci procesu
+_service_client = None  # lazy init, shared in-process
 
 
 def get_service_client():
-    """
-    Supabase client so SERVICE_ROLE kľúčom – úplne obchádza RLS.
-
-    Používaj ho:
-      - v existujúcich servisoch (sync, worker, webhooks, migrácie),
-      - tam, kde ešte nemáš JWT / RLS pripravené.
-
-    NEpoužívaj ho tam, kde očakávaš, že RLS má chrániť user dáta.
-    """
     global _service_client
     if _service_client is None:
         _service_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
     return _service_client
 
 
-# ------------------------------------------------------------------
-# USER CLIENT – RLS (ANON key + JWT)
-# ------------------------------------------------------------------
-
 def get_user_client(user_jwt: str):
-    """
-    Vráti Supabase client s RLS, autentifikovaný ako konkrétny používateľ.
-
-    - používa ANON kľúč
-    - nastaví JWT cez postgrest.auth(), takže RLS vie, kto je user (auth.uid()).
-    """
     if not user_jwt:
-        raise RuntimeError("get_user_client() vyžaduje ne-prázdny user_jwt")
+        raise RuntimeError("get_user_client() requires non-empty user_jwt")
 
     client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
     client.postgrest.auth(user_jwt)
     return client
 
 
-# ------------------------------------------------------------------
-# Hlavný entry point – spätná kompatibilita pre get_client()
-# ------------------------------------------------------------------
-
-def get_client(
-    user_jwt: Optional[str] = None,
-    *,
-    service: bool = False,
-):
-    if service:
-        # vedomý admin prístup – sync, webhooks, batch joby
+def get_sb(ctx: AuthCtx, *, caller: str = "db"):
+    """
+    Jediný entrypoint pre DB.
+    - ctx.mode == "user"     -> RLS client (ANON + JWT)
+    - ctx.mode == "internal" -> service role client
+    """
+    if ctx.mode == "internal":
         return get_service_client()
 
-    if not user_jwt:
-        # žiadny tichý fallback – radšej to rozbiješ a vidíš kde chýba JWT
-        raise RuntimeError(
-            "get_client(user_jwt=...) vyžaduje JWT; "
-            "pre admin použij get_client(service=True)."
-        )
+    if ctx.mode == "user":
+        if not ctx.jwt:
+            raise RuntimeError(f"{caller}: ctx.mode='user' but ctx.jwt is empty")
+        return get_user_client(ctx.jwt)
 
-    return get_user_client(user_jwt)
-
+    raise RuntimeError(f"{caller}: invalid ctx.mode={ctx.mode}")

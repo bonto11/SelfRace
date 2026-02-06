@@ -1,7 +1,7 @@
 # Routes_FE/analytics.py
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, Header
+from fastapi import APIRouter, HTTPException, Query, Header, Request
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
@@ -17,45 +17,28 @@ from Services.analytics import (
 )
 from Schemas.analytics import WeeklyAnalyticsResponse
 from Services.activities_streams import service_get_streams_cached_or_fetch  # podľa toho kde to dáš
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
-
-def _extract_user_jwt(authorization: Optional[str]) -> Optional[str]:
-    """
-    Vytiahne Bearer token z Authorization headeru.
-    Očakáva tvar: "Bearer <jwt>".
-    Ak nie je, vráti None – services/DB si poradia (napr. service-role client).
-    """
-    if not authorization:
-        return None
-    try:
-        prefix, token = authorization.split(" ", 1)
-        if prefix.lower() != "bearer":
-            return None
-        token = token.strip()
-        return token or None
-    except Exception:
-        return None
-
-
 @router.get("/weekly/{user_id}", response_model=WeeklyAnalyticsResponse)
 def weekly(
+    req: Request,
     user_id: int,
     weeks: int = 12,
-    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Týždenná agregácia za posledných N týždňov.
     (km/time/TRIMP + Monotony/Strain + hr_used)
     """
-    user_jwt = _extract_user_jwt(authorization)
-
     try:
+
+        ctx = require_user(get_auth_ctx(req))
+
         payload = service_weekly_analytics(
             user_id=user_id,
             weeks=weeks,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         print("weekly payload",payload)
         return {
@@ -70,23 +53,23 @@ def weekly(
 # --------------------------- SOURCE -----------------------------
 @router.get("/pareto8020/source/{user_id}")
 def pareto_source(
+    req: Request,
     user_id: int,
     months: int = 3,
     count_no_hr_as_easy: bool = True,
-    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Public endpoint pre veľký dataset (na SESSION).
     Zachováva starý tvar response (bez success wrappera).
     """
-    user_jwt = _extract_user_jwt(authorization)
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         res = service_pareto_source(
             user_id=user_id,
             months=months,
             count_no_hr_as_easy=count_no_hr_as_easy,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return res
     except Exception as e:  # noqa: BLE001
@@ -96,10 +79,10 @@ def pareto_source(
 # --------------------------- WIDGET -----------------------------
 @router.get("/pareto8020/widget/{user_id}")
 def pareto_widget(
+    req: Request,
     user_id: int,
     days: int = 14,
     sport: str = "all",
-    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Sumár za posledné `days` (číta iba enrichment).
@@ -108,14 +91,14 @@ def pareto_widget(
     Response shape ostáva:
       { "success": true, "data": { easy_min, hard_min, total_min, days } }
     """
-    user_jwt = _extract_user_jwt(authorization)
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         data = service_pareto_widget(
             user_id=user_id,
             days=days,
             sport=sport,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         print("pareto_widget payload",data)
         return {
@@ -129,24 +112,25 @@ def pareto_widget(
 # ---------------------------- TREND -----------------------------
 @router.get("/pareto8020/{user_id}")
 def pareto_trend(
+    req: Request,
     user_id: int,
     weeks: int = 8,
     sport: str = "all",
-    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
     Response shape ostáva:
       { "success": true, "data": [ ... ] }
     """
-    user_jwt = _extract_user_jwt(authorization)
 
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         rows = service_pareto_trend(
             user_id=user_id,
             weeks=weeks,
             sport=sport,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         print("pareto_trend payload",rows)
         return {
@@ -160,17 +144,17 @@ def pareto_trend(
 # GET: detail (summary + laps + splits)
 @router.get("/activitiesDetail/{user_id}/{activity_id}")
 def get_activity_detail(
+    req: Request,
     user_id: int,
     activity_id: int,
-    authorization: Optional[str] = Header(None),
 ):
-    user_jwt = _extract_user_jwt(authorization)
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         payload = service_get_activity_detail(
             user_id=user_id,
             activity_id=activity_id,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {
             "success": True,
@@ -183,19 +167,17 @@ def get_activity_detail(
 
 @router.post("/activityStreams/{user_id}/{activity_id}")
 def activity_streams_fetch(
+    req: Request,
     user_id: int,
     activity_id: int,
-    fetch: bool = Query(False),  # fetch=true => natiahni zo Stravy ak chýba
-    authorization: Optional[str] = Header(None),
 ):
-    user_jwt = _extract_user_jwt(authorization)
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         payload = service_get_streams_cached_or_fetch(
             user_id=user_id,
             activity_id=activity_id,
-            fetch_if_missing=bool(fetch),
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
 
         return {"success": True, **payload}
@@ -205,19 +187,18 @@ def activity_streams_fetch(
 
 @router.post("/activityExtras/{user_id}/{activity_id}")
 def activity_extras_fetch(
+    req: Request,
     user_id: int,
     activity_id: int,
-    fetch: bool = Query(False),
-    authorization: Optional[str] = Header(None),
 ):
-    user_jwt = _extract_user_jwt(authorization)
 
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         payload = service_get_activity_extras_cached_or_fetch(
             user_id=user_id,
             activity_id=activity_id,
-            fetch_if_missing=bool(fetch),
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {"success": True, **payload}
     except Exception as e:  # noqa: BLE001

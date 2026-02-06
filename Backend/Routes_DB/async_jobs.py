@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Set
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ASYNC_JOBS
 
 
@@ -14,11 +15,10 @@ def _now_iso() -> str:
 def db_insert_job(
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_insert_job")
         res = sb.table(TABLE_ASYNC_JOBS).insert(row).execute()
         data = res.data or []
         return data[0] if data else None
@@ -32,11 +32,10 @@ def db_get_active_jobs(
     job_types: Optional[List[str]] = None,
     limit: int = 50,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_get_active_jobs")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -60,11 +59,10 @@ def db_get_recent_jobs(
     job_types: Optional[List[str]] = None,
     limit: int = 20,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_get_recent_jobs")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -86,11 +84,10 @@ def db_get_job_by_id(
     user_id: int,
     job_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_get_job_by_id")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -111,14 +108,13 @@ def db_mark_job_running(
     *,
     worker_id: str,
     attempts: int,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     queued -> running (atomic via WHERE status='queued')
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_mark_job_running")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .update(
@@ -149,8 +145,7 @@ def db_update_job_finished(
     result: Optional[Dict[str, Any]] = None,
     error: Optional[str] = None,
     progress: Optional[int] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     fields: Dict[str, Any] = {
         "status": str(status),
@@ -165,7 +160,7 @@ def db_update_job_finished(
         fields["progress"] = int(progress)
 
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_update_job_finished")
         res = sb.table(TABLE_ASYNC_JOBS).update(fields).eq("id", int(job_id)).execute()
         data = res.data or []
         return data[0] if data else None
@@ -178,13 +173,12 @@ def db_find_active_job_by_dedupe(
     user_id: int,
     dedupe_key: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     if not dedupe_key:
         return None
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_find_active_job_by_dedupe")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -205,11 +199,10 @@ def db_find_active_job_by_dedupe(
 def db_user_has_running_job(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> bool:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_user_has_running_job")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("id")
@@ -224,7 +217,9 @@ def db_user_has_running_job(
         return False
 
 
-def _try_lock_job_row(row: Dict[str, Any], *, worker_id: str) -> Optional[Dict[str, Any]]:
+def _try_lock_job_row(
+    ctx: AuthCtx, row: Dict[str, Any], *, worker_id: str
+) -> Optional[Dict[str, Any]]:
     jid = row.get("id")
     userId = row.get("user_id")
     if jid is None or userId is None:
@@ -247,8 +242,7 @@ def _try_lock_job_row(row: Dict[str, Any], *, worker_id: str) -> Optional[Dict[s
         job_id=job_id,
         worker_id=worker_id,
         attempts=attempts_old + 1,
-        user_jwt=None,
-        service=True,
+        ctx=ctx,
     )
 
 
@@ -256,8 +250,7 @@ def db_pick_next_queued_job_for_user(
     user_id: int,
     *,
     worker_id: str,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
     max_scan: int = 5,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -265,12 +258,12 @@ def db_pick_next_queued_job_for_user(
     Worker-safe: vyberie queued job pre usera a pokúsi sa ho locknúť.
     """
     # ak user už má running -> netreba ani selectovať kandidátov
-    if db_user_has_running_job(int(user_id), user_jwt=user_jwt, service=service):
+    if db_user_has_running_job(ctx=ctx, user_id=user_id):
         return None
 
     now_iso = _now_iso()
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_pick_next_queued_job_for_user")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -290,7 +283,7 @@ def db_pick_next_queued_job_for_user(
     for r in rows:
         if not isinstance(r, dict):
             continue
-        locked = _try_lock_job_row(r, worker_id=str(worker_id))
+        locked = _try_lock_job_row(ctx=ctx, row=r, worker_id=str(worker_id))
         if locked:
             return locked
 
@@ -300,8 +293,7 @@ def db_pick_next_queued_job_for_user(
 def db_pick_next_queued_job_global(
     *,
     worker_id: str,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
     max_scan: int = 10,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -311,7 +303,7 @@ def db_pick_next_queued_job_global(
     """
     now_iso = _now_iso()
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="async_jobs")
+        sb = get_sb(ctx, caller="async_jobs.db_pick_next_queued_job_global")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -343,12 +335,12 @@ def db_pick_next_queued_job_global(
             continue
 
         if user_id not in running_cache:
-            running_cache[user_id] = db_user_has_running_job(user_id, user_jwt=user_jwt, service=service)
+            running_cache[user_id] = db_user_has_running_job(ctx=ctx, user_id=user_id)
 
         if running_cache[user_id]:
             continue
 
-        locked = _try_lock_job_row(r, worker_id=str(worker_id))
+        locked = _try_lock_job_row(ctx=ctx, row=r, worker_id=str(worker_id))
         if locked:
             return locked
 

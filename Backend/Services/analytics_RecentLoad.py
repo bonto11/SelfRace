@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from Routes_DB.activities_summary import db_fetch_summary_since
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def _norm_sport(raw: str | None) -> str:
@@ -34,8 +34,7 @@ def service_build_recent_load_raw(
     user_id: int,
     window_days: int = 42,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vypočíta weekly recent_load z tabuľky activities_summary.
@@ -57,8 +56,7 @@ def service_build_recent_load_raw(
     rows: List[Dict[str, Any]] = db_fetch_summary_since(
         user_id=user_id,
         since_iso=since,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if not rows:
@@ -198,8 +196,7 @@ def service_build_recent_load_block_for_analysis(
     user_id: int,
     window_days: int = 42,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     High-level blok pre AI (coach_athlete_state):
@@ -207,15 +204,10 @@ def service_build_recent_load_block_for_analysis(
       - spočíta weekly recent_load,
       - oseká nulové polia.
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     raw = service_build_recent_load_raw(
         user_id=user_id,
         window_days=window_days,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     return _prune_recent_load_for_ai(raw)

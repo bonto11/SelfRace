@@ -17,7 +17,7 @@ from Configs.config_ai_pricing import (
 from Services.app_subscription import (
     service_get_user_app_subscription_status,
 )
-
+from Modules.Supabase.auth import AuthCtx
 
 # ---------------------- usage extraction ----------------------
 
@@ -133,6 +133,7 @@ def log_ai_usage_and_charge(
     billed_via: str = "internal",
     meta: Optional[Dict[str, Any]] = None,
     charge_wallet: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     if not user_id:
         raise ValueError("user_id is required")
@@ -171,7 +172,7 @@ def log_ai_usage_and_charge(
     wallet_tx = None
 
     try:
-        usage = db_insert_ai_usage_event(usage_row)
+        usage = db_insert_ai_usage_event(row=usage_row, ctx=ctx)
         usage_id = usage.get("id") if isinstance(usage, dict) else None
     except Exception as e:  # noqa: BLE001
         print("[AI_BILLING] insert ai_usage_events error:", repr(e))
@@ -192,7 +193,7 @@ def log_ai_usage_and_charge(
             "meta": {"job_type": job_type, "model": model, **meta},
         }
         try:
-            wallet_tx = db_insert_ai_wallet_transaction(tx_row)
+            wallet_tx = db_insert_ai_wallet_transaction(row=tx_row, ctx=ctx)
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] insert ai_wallet_transactions error:", repr(e))
 
@@ -215,6 +216,7 @@ def log_ai_usage_for_user(
     billed_via: str = "internal",
     charge_wallet: bool = False,
     meta: Optional[Dict[str, Any]] = None,
+    ctx:AuthCtx,
 ) -> Dict[str, Any]:
     if not user_id or not usage:
         return {"usage": None, "wallet_tx": None, "total_tokens": 0, "cost_micros": 0}
@@ -236,11 +238,12 @@ def log_ai_usage_for_user(
         billed_via=billed_via,
         charge_wallet=charge_wallet,
         meta=meta or {},
+        ctx=ctx,
     )
 
 
-def get_user_wallet_balance_micros(user_id: int) -> int:
-    return db_get_wallet_balance_micros(user_id)
+def get_user_wallet_balance_micros(ctx:AuthCtx, user_id: int) -> int:
+    return db_get_wallet_balance_micros(user_id=user_id, ctx=ctx)
 
 
 def get_user_monthly_usage_tokens(
@@ -248,11 +251,12 @@ def get_user_monthly_usage_tokens(
     *,
     year: Optional[int] = None,
     month: Optional[int] = None,
+    ctx:AuthCtx,
 ) -> int:
     now = datetime.now(timezone.utc)
     y = year or now.year
     m = month or now.month
-    return db_get_monthly_usage_tokens(user_id=user_id, year=y, month=m)
+    return db_get_monthly_usage_tokens(ctx = ctx, user_id=user_id, year=y, month=m)
 
 
 # ---------------------- quota podľa tieru --------------------
@@ -260,13 +264,11 @@ def get_user_monthly_usage_tokens(
 def get_user_ai_quota_status_for_current_tier(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx:AuthCtx,
 ) -> Dict[str, Any]:
     status: Dict[str, Any] = service_get_user_app_subscription_status(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     tier_code = (status or {}).get("tier_code") or "free"
@@ -288,7 +290,7 @@ def get_user_ai_quota_status_for_current_tier(
         except Exception:
             limit_tokens = 0
 
-    used_tokens = get_user_monthly_usage_tokens(user_id)
+    used_tokens = get_user_monthly_usage_tokens(user_id=user_id, ctx=ctx)
     remaining_tokens = max(limit_tokens - used_tokens, 0) if limit_tokens > 0 else 0
     is_over = used_tokens >= limit_tokens if limit_tokens > 0 else False
 
@@ -309,20 +311,18 @@ def get_user_ai_quota_status_for_current_tier(
 
 def is_user_over_token_quota(
     user_id: int,
+    ctx:AuthCtx,
     limit_tokens: Optional[int] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
 ) -> bool:
     if limit_tokens is None:
         quota = get_user_ai_quota_status_for_current_tier(
             user_id=user_id,
-            user_jwt=user_jwt,
-            service=service,
+             ctx=ctx,
         )
         return bool(quota.get("is_over"))
 
     if limit_tokens <= 0:
         return False
 
-    used = get_user_monthly_usage_tokens(user_id)
+    used = get_user_monthly_usage_tokens(user_id=user_id, ctx=ctx)
     return used >= int(limit_tokens)

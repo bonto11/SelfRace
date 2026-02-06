@@ -19,7 +19,7 @@ from Configs.config import (
 FIRST_SYNC_DAYS, FIRST_SYNC_MAX,RECONNECT_DAYS, RECONNECT_MAX, QUICK_DAYS, QUICK_MAX, MANUAL_DAYS, MANUAL_MAX
 )
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from dataclasses import dataclass
 
@@ -400,8 +400,7 @@ def enrich_activities_for_ids(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> None:
     """
     Enrichment pipeline pre zoznam aktivít:
@@ -416,10 +415,6 @@ def enrich_activities_for_ids(
         print("[SYNC] enrich: no activity ids, skipping")
         return
 
-    if service:
-        jwt = user_jwt  # typicky None – DB/services musia použiť service klienta
-    else:
-        jwt = require_jwt(user_jwt)
 
     try:
         print(f"[SYNC] streams: fetching & storing for {len(activity_ids)} ids …")
@@ -427,8 +422,7 @@ def enrich_activities_for_ids(
             user_id,
             activity_ids,
             store=True,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         print(
             f"[SYNC] streams: stored={streams_res.get('stored')} / "
@@ -440,8 +434,7 @@ def enrich_activities_for_ids(
             user_id,
             activity_ids,
             fetch_if_missing=False,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
         to_save = [
@@ -450,8 +443,7 @@ def enrich_activities_for_ids(
         saved = upsert_enrichment_minutes(
             user_id,
             to_save,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
 
@@ -471,8 +463,7 @@ def enrich_activities_for_ids(
                 priority=90,
                 max_attempts=1,
                 dedupe_key=None,
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
 
             job = (enqueue or {}).get("job")
@@ -483,7 +474,7 @@ def enrich_activities_for_ids(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
-                    user_jwt=jwt,
+                    ctx=ctx,
                 )
 
                 job_row = run.get("job") or {}
@@ -508,7 +499,7 @@ def _enrich_activities_after_import(
     user_id: int,
     since_iso_for_scan: str,
     *,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> None:
     """
     Wrapper: vyberie recent IDs od since_iso_for_scan a pustí enrichment.
@@ -519,7 +510,7 @@ def _enrich_activities_after_import(
             user_id=user_id,
             since_iso_date=since_iso_for_scan,
             limit=500,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
 
         if not ids_recent:
@@ -529,8 +520,7 @@ def _enrich_activities_after_import(
         enrich_activities_for_ids(
             user_id=user_id,
             activity_ids=ids_recent,
-            user_jwt=user_jwt,
-            service=False,  # manuálny sync = RLS
+            ctx=ctx,
         )
     except Exception as e:
         print(f"[SYNC] enrich wrapper failed: {e}")
@@ -566,6 +556,7 @@ def generate_splits_from_laps(
     user_id: int,
     activity_id: int,
     laps: list[dict],
+    ctx: AuthCtx,
 ) -> list[dict]:
     """
     Z laps spraví 1–km splits (alebo lap-based fallback).

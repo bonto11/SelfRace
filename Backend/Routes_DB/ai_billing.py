@@ -4,25 +4,19 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_AI_USAGE_EVENTS, TABLE_AI_WALLET_TRANSACTION
 
 
-def _get_sb():
-    """
-    Vráti service klienta na Supabase pre AI billing.
-    Billing je backendová vec, preto vždy service=True.
-    """
-    return get_sb(service=True, caller="ai_billing")
-
-
 # ---------------- AI USAGE EVENTS ----------------
-
-
-def db_insert_ai_usage_event(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def db_insert_ai_usage_event(
+    ctx: AuthCtx, row: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
     """
     Vloží jeden riadok do ai_usage_events a vráti vložený záznam (alebo None).
     """
-    sb = _get_sb()
+    sb = get_sb(ctx, caller="billing.db_insert_ai_usage_event")
+
     res = sb.table(TABLE_AI_USAGE_EVENTS).insert(row).execute()
     data = res.data or []
     return data[0] if data else None
@@ -32,22 +26,25 @@ def db_insert_ai_usage_event(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def db_insert_ai_wallet_transaction(
-    row: Dict[str, Any]
+    ctx: AuthCtx,
+    row: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
     """
     Vloží jeden riadok do ai_wallet_transactions a vráti vložený záznam (alebo None).
     """
-    sb = _get_sb()
+    sb = get_sb(ctx, caller="billing.db_insert_ai_wallet_transaction")
+
     res = sb.table(TABLE_AI_WALLET_TRANSACTION).insert(row).execute()
     data = res.data or []
     return data[0] if data else None
 
 
-def db_get_wallet_balance_micros(user_id: int) -> int:
+def db_get_wallet_balance_micros(ctx: AuthCtx, user_id: int) -> int:
     """
     Jednoduchý helper: spočíta aktuálny stav walletu v µ (micros).
     """
-    sb = _get_sb()
+    sb = get_sb(ctx, caller="billing.db_get_wallet_balance_micros")
+
     try:
         res = (
             sb.table(TABLE_AI_WALLET_TRANSACTION)
@@ -72,6 +69,7 @@ def db_get_wallet_balance_micros(user_id: int) -> int:
 def db_ai_register_usage(
     *,
     user_id: int,
+    ctx: AuthCtx,
     purpose: str,
     model: Optional[str],
     prompt_tokens: int,
@@ -97,11 +95,12 @@ def db_ai_register_usage(
         "billed_via": "internal",
         "meta": meta or {},
     }
-    return db_insert_ai_usage_event(row)
+    return db_insert_ai_usage_event(ctx=ctx, row=row)
 
 
 def db_get_monthly_usage_tokens(
     user_id: int,
+    ctx: AuthCtx,
     year: int,
     month: int,
 ) -> int:
@@ -109,7 +108,7 @@ def db_get_monthly_usage_tokens(
     Spočíta total_tokens z ai_usage_events pre daného usera
     v danom mesiaci (UTC).
     """
-    sb = _get_sb()
+    sb = get_sb(ctx, caller="billing.db_get_monthly_usage_tokens")
 
     # začiatok mesiaca
     start = datetime(year, month, 1, tzinfo=timezone.utc)

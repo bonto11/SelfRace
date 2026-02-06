@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
+from Modules.Supabase.auth import AuthCtx
 
 
 def _as_dict(v: Any) -> Dict[str, Any]:
@@ -62,24 +63,24 @@ def _derive_key_slots_from_weekly_template(
     return out
 
 
-def _extract_prefs_source(ctx: Dict[str, Any]) -> Dict[str, Any]:
+def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Preferuj prefs z analyze_input_min/analyze_input (to je "ground truth" z DB buildera),
     fallback na ctx["prefs"] (ktoré môže byť už prefiltrované).
     """
-    analyze_src = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
+    analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
     prefs_any = analyze_src.get("prefs")
     if isinstance(prefs_any, dict):
         return prefs_any
 
-    prefs_any = ctx.get("prefs")
+    prefs_any = context.get("prefs")
     if isinstance(prefs_any, dict):
         return prefs_any
 
     return {}
 
 
-def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
+def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orezaný context pre WEEKLY LLM:
     - drop user_id / internal ids
@@ -87,14 +88,14 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     - recent_load/zones/thresholds/recovery berieme z TOP-LEVEL alebo z analyze_input_min/analyze_input
     - external_events podporuje oba tvary: date string aj days_from_today (z buildera)
     """
-    ctx = _as_dict(ctx)
+    context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
 
     # Source of "big blocks"
-    analyze_src = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
+    analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
 
     # --- prefs (flatten + trim) ---
-    raw_prefs = _extract_prefs_source(ctx)
+    raw_prefs = _extract_prefs_source(context)
     prefs_val = raw_prefs.get("value")
     prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else _as_dict(raw_prefs)
 
@@ -171,14 +172,14 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     ctx2["prefs"] = prefs2
 
     # --- athlete_state (len ai_state) ---
-    athlete_state = _as_dict(ctx.get("athlete_state"))
+    athlete_state = _as_dict(context.get("athlete_state"))
     if athlete_state:
         ai_state = _as_dict(athlete_state.get("ai_state"))
         ctx2["athlete_state"] = {"ai_state": ai_state}
 
     # --- recent_load / zones / thresholds / recovery ---
     for key in ("recent_load", "zones", "thresholds", "recovery"):
-        v = ctx.get(key)
+        v = context.get(key)
         if not isinstance(v, dict):
             v = analyze_src.get(key)
         if isinstance(v, dict):
@@ -188,7 +189,7 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
     # Podporujeme:
     #  A) ext["events"] alebo ext["window"]["events"]
     #  B) event date buď ako occurrence_date/date/start_date..., alebo ako days_from_today (int)
-    ext = _as_dict(ctx.get("external_events"))
+    ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
 
@@ -252,7 +253,7 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
             ctx2["external_events"] = {"events": cleaned_events}
 
     # --- settings (minify) ---
-    settings = _as_dict(ctx.get("user_settings"))
+    settings = _as_dict(context.get("user_settings"))
     if settings:
         ctx2["user_settings"] = {
             "language": settings.get("language"),
@@ -260,10 +261,10 @@ def minify_weekly_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     # --- meta ---
-    if "weeks" in ctx:
-        ctx2["weeks"] = ctx.get("weeks")
-    if "overwrite" in ctx:
-        ctx2["overwrite"] = bool(ctx.get("overwrite"))
+    if "weeks" in context:
+        ctx2["weeks"] = context.get("weeks")
+    if "overwrite" in context:
+        ctx2["overwrite"] = bool(context.get("overwrite"))
 
     return ctx2
 

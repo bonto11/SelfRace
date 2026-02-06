@@ -8,7 +8,8 @@ from Routes_DB.activities_streams import (
     db_get_streams_one,
     db_upsert_streams_with_sport,
 )
-from Services.users import require_jwt
+
+from Modules.Supabase.auth import AuthCtx
 
 
 # --------------------------------------------------------------------
@@ -56,6 +57,7 @@ def fetch_streams_from_strava(
     activity_id: int,
     *,
     timeout: int = 30,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Načíta streams pre JEDNU aktivitu zo Stravy (per-user access token).
@@ -71,6 +73,7 @@ def fetch_streams_batch_from_strava(
     *,
     timeout: int = 30,
     sleep_seconds: float = 0.1,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Batch fetch zo Stravy – žiadna DB.
@@ -105,8 +108,7 @@ def save_streams_with_sport_to_db(
     activity_id: int,
     streams_json: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Tuple[bool, str]:
     """
     Uloží streamy cez RPC upsert_streams_with_sport.
@@ -139,8 +141,7 @@ def save_streams_with_sport_to_db(
             speed=[float(x) for x in vel] if vel else [],
             grade=[float(x) for x in grade] if grade else [],
             temp=[float(x) for x in temp] if temp else [],
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx
         )
         return True, ""
     except Exception as e:  # noqa: BLE001
@@ -151,19 +152,16 @@ def service_get_streams_one(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vráti streamy z DB pre FE/AI (bez fetchu zo Stravy).
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if not row:
@@ -202,17 +200,15 @@ def fetch_and_optionally_store_batch(
     activity_ids: List[int],
     store: bool = False,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Batch helper:
       - Strava fetch pre každé activity_id
       - ak store=True, uloží výsledok do DB
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(user_id, activity_ids)
+    fetch_res = fetch_streams_batch_from_strava(ctx=ctx, user_id=user_id, activity_ids=activity_ids)
     items_in = fetch_res.get("items") or []
 
     out: Dict[str, Any] = {
@@ -248,8 +244,7 @@ def fetch_and_optionally_store_batch(
                 user_id=user_id,
                 activity_id=int(aid),
                 streams_json=j,
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
             out_item["stored"] = stored_ok
             if not stored_ok:
@@ -266,17 +261,15 @@ def cache_streams_for_activities(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, int]:
     """
     Pôvodná enrichment funkcia:
       - Strava fetch pre každé activity_id
       - zápis do DB
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
-    fetch_res = fetch_streams_batch_from_strava(user_id, activity_ids)
+    fetch_res = fetch_streams_batch_from_strava(ctx=ctx, user_id=user_id, activity_ids=activity_ids)
     items_in = fetch_res.get("items") or []
 
     saved = 0
@@ -294,8 +287,7 @@ def cache_streams_for_activities(
             user_id=user_id,
             activity_id=int(aid),
             streams_json=j,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx
         )
         if ok_db:
             saved += 1
@@ -309,8 +301,7 @@ def service_get_streams_cached_or_fetch(
     user_id: int,
     activity_id: int,
     *,
-    fetch_if_missing: bool = False,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Cached getter pre streams:
@@ -326,21 +317,15 @@ def service_get_streams_cached_or_fetch(
       - STRAVA FETCH (keď sa spustí)
       - DB STORE ok/err
     """
-    jwt = require_jwt(user_jwt)
-
-    print(f"[streams_cached_or_fetch] user_id={user_id} activity_id={activity_id} fetch_if_missing={fetch_if_missing}")
 
     # 1) DB read
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=jwt,
-        service=False,
+        ctx=ctx
     )
 
     if row:
-        print(f"[streams_cached_or_fetch] DB HIT activity_id={activity_id}")
-
         # shape fix nech má FE všetko
         row.setdefault("time_s", row.get("time_s") or [])
         row.setdefault("heartrate_bpm", row.get("heartrate_bpm") or [])
@@ -353,48 +338,17 @@ def service_get_streams_cached_or_fetch(
         row.setdefault("temp_c", row.get("temp_c") or [])
         row.setdefault("moving", row.get("moving") or [])
 
-        # malý debug: dĺžky (nech vidíš že je to reálne)
-        print(
-            f"[streams_cached_or_fetch] DB sizes activity_id={activity_id} "
-            f"time={len(row.get('time_s') or [])} hr={len(row.get('heartrate_bpm') or [])}"
-        )
-
         return {"source": "db", "fetched": False, "streams": row}
 
-    print(f"[streams_cached_or_fetch] DB MISS activity_id={activity_id}")
-
-    # 2) ak nechceš fetch, koniec
-    if not fetch_if_missing:
-        print(f"[streams_cached_or_fetch] NO FETCH (fetch_if_missing=False) activity_id={activity_id}")
-        return {
-            "source": "none",
-            "fetched": False,
-            "streams": {
-                "time_s": [],
-                "heartrate_bpm": [],
-                "cadence_rpm": [],
-                "power_w": [],
-                "distance_m": [],
-                "altitude_m": [],
-                "speed_mps": [],
-                "grade_smooth": [],
-                "temp_c": [],
-                "moving": [],
-            },
-        }
-
     # 3) fetch zo Stravy + store
-    print(f"[streams_cached_or_fetch] STRAVA FETCH activity_id={activity_id}")
-    j = fetch_streams_from_strava(user_id=user_id, activity_id=activity_id)
+    j = fetch_streams_from_strava(ctx=ctx, user_id=user_id, activity_id=activity_id)
 
     ok, err = save_streams_with_sport_to_db(
         user_id=user_id,
         activity_id=activity_id,
         streams_json=j,
-        user_jwt=jwt,
-        service=False,
+        ctx=ctx
     )
-    print(f"[streams_cached_or_fetch] DB STORE activity_id={activity_id} ok={ok} err={err[:200] if err else ''}")
 
     if not ok:
         raise RuntimeError(f"Failed to store streams: {err}")
@@ -403,8 +357,7 @@ def service_get_streams_cached_or_fetch(
     row2 = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=jwt,
-        service=False,
+        ctx=ctx
     )
     if not row2:
         raise RuntimeError("Streams stored but not readable from DB")
@@ -419,10 +372,5 @@ def service_get_streams_cached_or_fetch(
     row2.setdefault("grade_smooth", row2.get("grade_smooth") or [])
     row2.setdefault("temp_c", row2.get("temp_c") or [])
     row2.setdefault("moving", row2.get("moving") or [])
-
-    print(
-        f"[streams_cached_or_fetch] RETURN STRAVA activity_id={activity_id} "
-        f"time={len(row2.get('time_s') or [])} hr={len(row2.get('heartrate_bpm') or [])}"
-    )
 
     return {"source": "strava", "fetched": True, "streams": row2}

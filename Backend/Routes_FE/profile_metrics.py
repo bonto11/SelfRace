@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 
 from Services.profile_metrics import (
     service_insert_metrics,
@@ -17,8 +17,7 @@ from Schemas.profile_metrics import (
     BatchMetricsPayload,
     MetricKey,
 )
-
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/profile", tags=["profile-metrics"])
 
@@ -28,18 +27,20 @@ router = APIRouter(prefix="/profile", tags=["profile-metrics"])
 
 @router.post("/metrics/{user_id}")
 def insert_metrics(
+    req: Request,
     user_id: int,
     payload: BatchMetricsPayload,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     POST /profile/metrics/:user_id
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_insert_metrics(
             user_id=user_id,
             payload=payload,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
     except HTTPException:
         raise
@@ -52,23 +53,23 @@ def insert_metrics(
 
 @router.get("/metrics/history/{user_id}")
 def get_metric_history(
+    req: Request,
     user_id: int,
     metric: MetricKey = Query(..., description="metric key, e.g. weight_kg"),
-    user_uid: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None, description="ISO date/datetime"),
     date_to: Optional[str] = Query(None, description="ISO date/datetime"),
     limit: Optional[int] = Query(None, ge=1, le=5000),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_get_metric_history(
             user_id=user_id,
             metric=metric,
-            user_uid=user_uid,
             date_from=date_from,
             date_to=date_to,
             limit=limit,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
     except HTTPException:
         raise
@@ -81,18 +82,18 @@ def get_metric_history(
 
 @router.get("/metrics/latest/{user_id}")
 def get_latest_metrics(
+    req: Request,
     user_id: int,
-    user_uid: Optional[str] = Query(None),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     GET /profile/metrics/latest/:user_id
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_get_latest_metrics(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
     except HTTPException:
         raise
@@ -105,15 +106,15 @@ def get_latest_metrics(
 
 @router.get("/vo2-history/{user_id}")
 def get_vo2_history(
+    req: Request,
     user_id: int,
-    user_uid: Optional[str] = Query(None),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_get_vo2_history(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
     except HTTPException:
         raise
@@ -123,15 +124,15 @@ def get_vo2_history(
 
 @router.get("/vo2-estimate/{user_id}")
 def get_vo2_estimate(
+    req: Request,
     user_id: int,
-    user_uid: Optional[str] = Query(None),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         return service_get_vo2_estimate(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
     except HTTPException:
         raise

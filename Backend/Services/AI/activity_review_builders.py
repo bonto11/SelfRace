@@ -10,7 +10,7 @@ from Services.user_recovery import service_build_recovery_block_for_analysis
 from Routes_DB.activities_summary import db_get_summary_for_activities
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def _to_float(x: Any) -> Optional[float]:
@@ -184,24 +184,22 @@ def _build_activity_block_from_rows(
 
 def build_input_from_db(
     user_id: int,
-    activity_id: int,
-    user_jwt: Optional[str] = None,
     *,
-    service: bool = False,
+    activity_id: int,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = None if service else require_jwt(user_jwt)
 
     input_data = build_base_input(user_id, activity_id)
 
-    recovery = service_build_recovery_block_for_analysis(user_id, user_jwt=jwt, service=service)
-    recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, user_jwt=jwt, service=service)
+    recovery = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
+    recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, ctx=ctx)
     recent_load = _minify_recent_load_to_week_horizon(recent_load_raw)
 
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = recent_load
 
-    summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
-    enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], user_jwt=jwt, service=service) or []
+    summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], ctx=ctx) or []
+    enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], ctx=ctx) or []
 
     summary_row = summary_rows[0] if summary_rows else None
     enr_row = enr_rows[0] if enr_rows and isinstance(enr_rows[0], dict) else {}

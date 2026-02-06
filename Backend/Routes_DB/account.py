@@ -4,18 +4,18 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 
 
 def db_get_account_delete_row(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta raw riadok z account_delete_requests (alebo None).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
+    sb = get_sb(ctx, caller="account.db_get_account_delete_row")
 
     resp = (
         sb.table("account_delete_requests")
@@ -33,14 +33,13 @@ def db_upsert_account_delete_request(
     user_id: int,
     delete_at_iso: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vytvorí / updatuje požiadavku na zmazanie účtu.
     - nastaví requested_at = now, delete_at = delete_at_iso, cancelled_at = NULL
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
+    sb = get_sb(ctx, caller="account.db_upsert_account_delete_request")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -66,15 +65,14 @@ def db_upsert_account_delete_request(
 def db_cancel_account_delete_request(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Zruší plánované zmazanie:
       - cancelled_at = now
       - delete_at nechávame tak (DB môže mať NOT NULL)
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="account_delete")
+    sb = get_sb(ctx, caller="account.db_cancel_account_delete_request")
     now_iso = datetime.now(timezone.utc).isoformat()
 
     resp = (
@@ -97,13 +95,13 @@ def db_cancel_account_delete_request(
     return data[0]
 
 
-def mark_strava_ever_synced_now(*, user_id: int) -> bool:
+def mark_strava_ever_synced_now(ctx: AuthCtx, *, user_id: int) -> bool:
     """
     Nastaví ever_synced_at = now() pre usera.
     Volaj iba po úspešnom importe.
     """
 
-    sb = get_sb(service=True, caller="mark_strava_ever_synced_now")
+    sb = get_sb(ctx, caller="account.mark_strava_ever_synced_now")
     now_iso = datetime.now(timezone.utc).isoformat()
     resp = (
         sb.table("strava_accounts")
@@ -139,12 +137,14 @@ def _parse_timestamptz_to_dt(v: Any) -> Optional[datetime]:
         return None
 
 
-def get_strava_ever_synced_at_service(*, user_id: int) -> Optional[datetime]:
+def get_strava_ever_synced_at_service(
+    ctx: AuthCtx, *, user_id: int
+) -> Optional[datetime]:
     """
     Service-only:
       - vráti ever_synced_at ako datetime UTC (alebo None)
     """
-    sb = get_sb(service=True, caller="get_strava_ever_synced_at_service")
+    sb = get_sb(ctx, caller="account.get_strava_ever_synced_at_service")
     resp = (
         sb.table("strava_accounts")
         .select("ever_synced_at")

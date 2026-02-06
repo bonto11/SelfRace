@@ -1,31 +1,29 @@
 # Routes_FE/user_recovery.py
 from __future__ import annotations
 
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Request
 
 from Services.user_recovery import (
     service_insert_or_update_recovery,
     service_get_recovery,
 )
 from Schemas.user_recovery import RecoveryIn
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/recovery", tags=["recovery"])
 
 
 @router.post("")
 def post_recovery(
+    req: Request,
     payload: RecoveryIn,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
-    print("[post_recovery] jwt_present =", bool(user_jwt))
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         res = service_insert_or_update_recovery(
-            payload.model_dump(),
-            user_jwt=user_jwt,
+            payload=payload.model_dump(),
+            ctx=ctx,
         )
         return {"success": True, "data": res}
     except HTTPException:
@@ -36,17 +34,17 @@ def post_recovery(
 
 @router.get("/{user_id}")
 def get_recovery(
+    req: Request,
     user_id: int,
     days: int = 14,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
-    print("[get_recovery] jwt_present =", bool(user_jwt))
-
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         data = service_get_recovery(
-            user_id,
-            days,
-            user_jwt=user_jwt,
+            user_id=user_id,
+            days=days,
+            ctx=ctx,
         )
         return {"success": True, "data": data}
     except HTTPException:

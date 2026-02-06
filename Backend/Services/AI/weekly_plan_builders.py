@@ -17,15 +17,14 @@ from Routes_DB.coach_athlete_state import (
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
     *,
-    user_jwt: Optional[str],
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Nájde vhodný coach_athlete_state pre plánovanie.
@@ -34,23 +33,20 @@ def load_athlete_state_for_plan(
       1) explicitný state_id (ak existuje),
       2) najnovší stav pre usera (version=1).
     """
-    jwt = None if service else require_jwt(user_jwt)
 
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
         row = db_get_state_by_id(
             state_id,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
     if not row:
         row = db_get_latest_state_for_user(
             user_id=user_id,
             version=1,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
     if not row:
@@ -164,9 +160,7 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 def build_weekly_context_from_db(
     user_id: int,
     *,
-    user_jwt: Optional[str],
-    service: bool,
-    overwrite: bool,
+    ctx: AuthCtx,
     state_id: Optional[int],
     weeks: Optional[int],
 ) -> Dict[str, Any]:
@@ -175,8 +169,7 @@ def build_weekly_context_from_db(
     """
     analyze_input = build_input_from_db(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     if not isinstance(analyze_input, dict):
         analyze_input = {}
@@ -189,8 +182,7 @@ def build_weekly_context_from_db(
         try:
             external_events_block = service_build_external_events_block_for_analysis(
                 user_id=user_id,
-                user_jwt=user_jwt,
-                service=service,
+                ctx=ctx,
             )
         except Exception:
             external_events_block = None
@@ -198,8 +190,7 @@ def build_weekly_context_from_db(
     state_bundle = load_athlete_state_for_plan(
         user_id=user_id,
         state_id=state_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     used_state_id = state_bundle["state_id"]
@@ -214,7 +205,7 @@ def build_weekly_context_from_db(
         "schema_version": 1,
         "user_id": user_id,
         "weeks": horizon_weeks,
-        "overwrite": overwrite,
+        "overwrite": True,
         "prefs": prefs_ai,
         "analyze_input_min": analyze_input_min,
         "athlete_state": athlete_state,

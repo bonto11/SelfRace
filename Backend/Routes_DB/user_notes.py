@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_NOTES
 
 
@@ -10,14 +11,13 @@ def fetch_recent_notes(
     user_id: int,
     days: int = 28,
     *,
-    user_jwt: str,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načíta poznámky usera za posledných N dní cez RLS (user_jwt).
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller ="user_notes")
+        sb = get_sb(ctx, caller="user_notes.fetch_recent_notes")
 
         since_dt = datetime.now(timezone.utc) - timedelta(days=days)
         res = (

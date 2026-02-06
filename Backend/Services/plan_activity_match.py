@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date, timedelta
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Routes_DB.coach_plan_daily import (
     db_get_planned_range_rows,
@@ -221,8 +221,7 @@ def _load_activities_summary(
     user_id: int,
     activity_ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načíta summary pre daného usera a zoznam activity_id cez DB vrstvu.
@@ -234,14 +233,10 @@ def _load_activities_summary(
     rows = db_get_summary_for_activities(
         user_id=user_id,
         activity_ids=activity_ids,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     data = rows or []
-    print(
-        f"[PLAN-MATCH] loaded activities_summary rows={len(data)} "
-        f"for user={user_id} service={service}"
-    )
+
     return data
 
 
@@ -254,8 +249,7 @@ def auto_map_plans_for_activities(
     days_window: int = 1,
     score_threshold: float = 0.55,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Automatické mapovanie aktivity na plánované session.
@@ -263,10 +257,6 @@ def auto_map_plans_for_activities(
     - RLS režim:  service=False, user_jwt povinný → require_jwt
     - service režim (webhook/job): service=True, user_jwt môže byť None
     """
-    if service:
-        jwt = user_jwt          # service klient, JWT nepotrebujeme
-    else:
-        jwt = require_jwt(user_jwt)
 
     if not activity_ids:
         print("[PLAN-MATCH] no activity_ids -> nothing to do")
@@ -276,8 +266,7 @@ def auto_map_plans_for_activities(
     acts = _load_activities_summary(
         user_id=user_id,
         activity_ids=activity_ids,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if not acts:
@@ -302,8 +291,7 @@ def auto_map_plans_for_activities(
         user_id=user_id,
         date_from=min_d,
         date_to=max_d,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not plan_rows:
         print("[PLAN-MATCH] no plan rows in range")
@@ -374,8 +362,7 @@ def auto_map_plans_for_activities(
                     user_id=user_id,
                     session_id=int(best_sess["id"]),
                     activity_id=int(aid),
-                    user_jwt=jwt,
-                    service=service,
+                    ctx=ctx,
                 )
                 mapped += 1
 
@@ -399,7 +386,6 @@ def auto_map_plans_for_activities(
         "candidates": int(total_candidates),
         "mapped": int(mapped),
         "skipped": int(skipped),
-        "service": service,
     }
 
     return summary

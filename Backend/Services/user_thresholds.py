@@ -7,7 +7,7 @@ from Routes_DB.user_thresholds import (
     db_get_user_threshold_latest,
     db_upsert_user_threshold,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def _num(v: Any) -> Optional[float]:
@@ -47,8 +47,7 @@ def _row_norm(row: Dict[str, Any]) -> Dict[str, Any]:
 
 def service_list_user_thresholds(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Všetky threshold riadky usera (DESC podľa updated_at), normalizované.
@@ -57,31 +56,24 @@ def service_list_user_thresholds(
       - service=False: RLS (require_jwt).
       - service=True: service klient (user_jwt forward).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     rows = db_list_user_thresholds_raw(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     return [_row_norm(r) for r in rows]
 
 
 def service_list_latest_per_combo(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Najnovší riadok pre každú kombináciu (sport, threshold_type).
     """
     rows = service_list_user_thresholds(
         user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )  # už DESC
     seen: set[Tuple[str, str]] = set()
     out: List[Dict[str, Any]] = []
@@ -99,10 +91,9 @@ def service_list_latest_per_combo(
 
 def service_load_user_thresholds(
     user_id: int,
+    ctx: AuthCtx,
     sport: str = "running",
     threshold_type: str = "LT2",
-    user_jwt: Optional[str] = None,
-    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší threshold pre daný sport+type (default running/LT2).
@@ -111,32 +102,27 @@ def service_load_user_thresholds(
       - service=False: RLS klient.
       - service=True: service klient.
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     canon = _canon_sport(sport)
     row = db_get_user_threshold_latest(
         user_id,
         canon,
         threshold_type,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
+
     return _row_norm(row) if row else None
 
 
 def service_upsert_user_threshold(
     user_id: int,
     payload: Dict[str, Any],
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Uloží / upsertne threshold a vráti najnovší stav pre daný sport+type.
     (RLS only – FE akcia.)
     """
-    user_jwt = require_jwt(user_jwt)
 
     sport = _canon_sport(payload.get("sport"))
     t_type = payload.get("threshold_type") or "LT2"
@@ -156,15 +142,14 @@ def service_upsert_user_threshold(
     db_upsert_user_threshold(
         user_id,
         clean,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
 
     return service_load_user_thresholds(
         user_id,
         sport=sport,
         threshold_type=t_type,
-        user_jwt=user_jwt,
-        service=False,
+        ctx=ctx,
     )
 
 
@@ -173,8 +158,7 @@ def service_upsert_user_threshold(
 
 def service_build_thresholds_block_for_analysis(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Blok pre CoachAnalyzeInput["thresholds"] – fokus na running LT2.
@@ -185,8 +169,7 @@ def service_build_thresholds_block_for_analysis(
     """
     rows = service_list_user_thresholds(
         user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if not rows:

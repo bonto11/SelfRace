@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, HTTPException, Depends
+from fastapi import APIRouter, Body, HTTPException, Depends, Request
 
 from Services.AI.athlete_state import (
     service_analyze_athlete,
@@ -10,37 +10,31 @@ from Services.AI.athlete_state import (
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
 from Modules.HTTP.auth_deps import require_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
     prefix="/coach/athlete",
     tags=["coach-athlete"],
 )
 
-
 @router.post("/analyze/{user_id}")
 def analyze_athlete(
+    req: Request,
     user_id: int,
     payload: AnalyzeConfig | None = Body(None),
-    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     Spustí AI analýzu formy pre daného užívateľa.
     """
     try:
-        debug = bool(payload.debug) if payload and payload.debug is not None else False
-        save_to_db = (
-            True
-            if not payload or payload.save_to_db is None
-            else bool(payload.save_to_db)
-        )
+        ctx = require_user(get_auth_ctx(req))
+        
         if payload and payload.model:
             model = payload.model
 
         result = service_analyze_athlete(
             user_id=user_id,
-            user_jwt=user_jwt,
-            debug=debug,
-            save_to_db=save_to_db,
+            ctx=ctx,
             model=model,
         )
         return {"success": True, **result}
@@ -52,18 +46,20 @@ def analyze_athlete(
 
 @router.get("/state/latest/{user_id}")
 def get_latest_athlete_state(
+    req: Request,
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     Vráti najnovší uložený AI stav atleta pre daného užívateľa.
     Ide cez RLS/JWT.
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         row = service_get_latest_athlete_state(
             user_id=user_id,
+            ctx=ctx,
             version=1,
-            user_jwt=user_jwt,
         )
         return {
             "success": True,
@@ -77,18 +73,20 @@ def get_latest_athlete_state(
 
 @router.get("/state/history/{user_id}")
 def list_athlete_states_meta(
+    req: Request,
     user_id: int,
     limit: int = 20,
-    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     História AI stavov – len meta info (bez state_json).
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         rows = service_list_athlete_states_meta(
             user_id=user_id,
             limit=limit,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {"success": True, "items": rows}
     except HTTPException:
@@ -99,17 +97,19 @@ def list_athlete_states_meta(
 
 @router.get("/state/latest-progress/{user_id}")
 def get_latest_athlete_progress(
+    req: Request,
     user_id: int,
-    user_jwt: str = Depends(require_user_jwt),
 ):
     """
     Vráti najnovší AI progress report (porovnanie posledných dvoch stavov).
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         row = service_get_latest_athlete_progress(
             user_id=user_id,
             version=1,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {
             "success": True,

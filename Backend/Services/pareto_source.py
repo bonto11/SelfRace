@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Tuple, Iterable, Optional
 from Routes_DB.activities_summary import (
     db_select_activities_window_basic,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Routes_DB.activities_enrichment import (
     db_get_enrichment_for_activities,
@@ -86,8 +86,7 @@ def _activity_ids_in_range(
     start_iso: str,
     end_iso: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Tuple[int, str]]:
     """
     Vytiahne (activity_id, date) pre usera v okne [start_iso, end_iso] vrátane.
@@ -98,8 +97,7 @@ def _activity_ids_in_range(
         user_id=user_id,
         date_from=start_iso,
         date_to=end_iso,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
         sports=None,  # všetky športy, filtruje až FE
     )
 
@@ -119,8 +117,7 @@ def _load_enrichment_for_ids(
     user_id: int,
     ids: List[int],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načíta enrichment pre daného usera a dané activity_ids cez DB helper.
@@ -131,8 +128,7 @@ def _load_enrichment_for_ids(
     return db_get_enrichment_for_activities(
         user_id=user_id,
         activity_ids=ids,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
@@ -144,8 +140,7 @@ def get_pareto_source(
     months: int = 3,
     count_no_hr_as_easy: bool = True,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Kompletný výstrel dát za posledné `months` mesiacov (SUMMARY + ENRICHMENT),
@@ -155,10 +150,6 @@ def get_pareto_source(
       - service=False → RLS (vyžaduje JWT, require_jwt)
       - service=True  → service klient (user_jwt sa len forwarduje, môže byť None)
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     months = max(1, int(months))
     start_dt = datetime.now(timezone.utc) - timedelta(days=months * 31)
@@ -170,8 +161,7 @@ def get_pareto_source(
         user_id=user_id,
         start_iso=start_iso,
         end_iso=end_iso,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not id_rows:
         return {"success": True, "data": [], "months": months}
@@ -191,8 +181,7 @@ def get_pareto_source(
     enr = _load_enrichment_for_ids(
         user_id=user_id,
         ids=ids,
-        user_jwt=jwt,
-        service=service,
+    ctx=ctx,
     )
 
     out: List[Dict[str, Any]] = []

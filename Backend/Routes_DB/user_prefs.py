@@ -5,16 +5,16 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_PREFERENCES
 
 
 def db_get_prefs_all(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+    sb = get_sb(ctx, caller="user_prefs.db_get_prefs_all")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -31,10 +31,9 @@ def db_get_pref_single(
     user_id: int,
     key: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+    sb = get_sb(ctx, caller="user_prefs.db_get_pref_single")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)
@@ -54,10 +53,9 @@ def db_upsert_pref_single(
     key: str,
     value: Any,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+    sb = get_sb(ctx, caller="user_prefs.db_upsert_pref_single")
 
     rec = {
         "user_id": user_id,
@@ -77,10 +75,9 @@ def db_upsert_many(
     user_id: int,
     kv: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+    sb = get_sb(ctx, caller="user_prefs.db_upsert_many")
 
     rows = [
         {
@@ -105,10 +102,9 @@ def db_delete_pref_single(
     user_id: int,
     key: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_prefs")
+    sb = get_sb(ctx, caller="user_prefs.db_delete_pref_single")
 
     res = (
         sb.table(TABLE_USERS_PREFERENCES)

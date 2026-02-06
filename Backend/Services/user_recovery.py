@@ -9,34 +9,25 @@ from Routes_DB.user_recovery import (
     db_update_recovery,
     db_get_recent_recovery,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def service_insert_or_update_recovery(
     payload: Dict[str, Any],
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vloží alebo updatuje recovery záznam podľa (user_id, date).
     Vracia nový/aktualizovaný riadok.
     """
-    user_jwt = require_jwt(user_jwt)
 
     user_id = payload["user_id"]
     date_iso = payload.get("date") or datetime.now().date().isoformat()
 
-    print(
-        "[service_insert_or_update_recovery]",
-        "user_id=",
-        user_id,
-        "jwt_present=",
-        bool(user_jwt),
-    )
-
     existing = db_get_recovery_record(
         user_id,
         date_iso,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
 
     row = payload.copy()
@@ -50,7 +41,7 @@ def service_insert_or_update_recovery(
             "row": db_update_recovery(
                 rec_id,
                 row,
-                user_jwt=user_jwt,
+                ctx=ctx,
             ),
         }
     else:
@@ -58,37 +49,27 @@ def service_insert_or_update_recovery(
             "updated": False,
             "row": db_insert_recovery(
                 row,
-                user_jwt=user_jwt,
+                ctx=ctx,
             ),
         }
 
 
 def service_get_recovery(
     user_id: int,
+    ctx: AuthCtx,
     days: int = 14,
-    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    user_jwt = require_jwt(user_jwt)
-
-    print(
-        "[service_get_recovery]",
-        "user_id=",
-        user_id,
-        "jwt_present=",
-        bool(user_jwt),
-    )
 
     return db_get_recent_recovery(
         user_id,
         days,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
 
 
 def service_build_recovery_block_for_analysis(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Blok pre CoachAnalyzeInput["recovery"].
@@ -97,16 +78,11 @@ def service_build_recovery_block_for_analysis(
       - service=False: RLS klient (require_jwt).
       - service=True: service klient (user_jwt forward, bez require_jwt).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     rows = db_get_recent_recovery(
         user_id,
         days=21,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not rows:
         return {

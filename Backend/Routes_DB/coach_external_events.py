@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_EXTERNAL_EVENTS
+
 
 # 1=Mon..7=Sun
 def _wk(v: Any) -> int:
@@ -17,15 +19,17 @@ def _wk(v: Any) -> int:
 def db_list_external_events_for_user(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky externé eventy pre usera.
     Triedi primárne podľa weekday_int (1..7), potom created_at.
     """
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
+        sb = get_sb(
+            ctx, caller="coach_external_events.db_list_external_events_for_user"
+        )
+
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .select("*")
@@ -36,7 +40,9 @@ def db_list_external_events_for_user(
         rows = res.data or []
 
         # stable sort: weekday_int then created_at
-        rows.sort(key=lambda r: (_wk(r.get("weekday_int")), str(r.get("created_at") or "")))
+        rows.sort(
+            key=lambda r: (_wk(r.get("weekday_int")), str(r.get("created_at") or ""))
+        )
         return rows
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] list error:", repr(e))
@@ -46,11 +52,13 @@ def db_list_external_events_for_user(
 def db_clear_external_events_for_user(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
+        sb = get_sb(
+            ctx, caller="coach_external_events.db_list_external_events_for_user"
+        )
+
         res = (
             sb.table(TABLE_COACH_EXTERNAL_EVENTS)
             .delete()
@@ -68,14 +76,16 @@ def db_clear_external_events_for_user(
 def db_insert_external_events(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     if not rows:
         return 0
 
     try:
-        sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_external_events")
+        sb = get_sb(
+            ctx, caller="coach_external_events.db_list_external_events_for_user"
+        )
+
         res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
         print("[DB-COACH-EXT] inserted rows:", len(data))

@@ -1,34 +1,32 @@
 # Routes_FE/profile_static.py
 from __future__ import annotations
 
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Request
 
 from Services.profile_static import (
     service_get_static_profile,
     service_upsert_static_profile,
 )
 from Schemas.profile_static import StaticPayload
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/profile", tags=["profile-static"])
 
 
 @router.get("/static/{user_id}")
 def get_static(
+    req: Request,
     user_id: int,
-    user_uid: Optional[str] = Query(None),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     GET /profile/static/:user_id
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         row = service_get_static_profile(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {"success": True, "data": row}
     except HTTPException:
@@ -39,18 +37,20 @@ def get_static(
 
 @router.post("/static/{user_id}")
 def upsert_static(
+    req: Request,
     user_id: int,
     payload: StaticPayload,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     POST /profile/static/:user_id
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         row = service_upsert_static_profile(
             user_id=user_id,
             payload=payload,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {"success": True, "data": row}
     except HTTPException:

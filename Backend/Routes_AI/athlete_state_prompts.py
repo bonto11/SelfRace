@@ -4,19 +4,20 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from Modules.Supabase.auth import AuthCtx
 
 
-def minify_analyze_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
+def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Minifikácia CoachAnalyzeInput pre LLM:
     - drop user.id + potenciálne PII
     - last_activities: drop name + activity_id, date -> relatívne ak je možné
     - drop heavy/raw blocks ak by sa niekde objavili (streams/laps/splits)
     """
-    if not isinstance(ctx, dict):
+    if not isinstance(context, dict):
         return {}
 
-    out: Dict[str, Any] = json.loads(json.dumps(ctx, default=str))  # deep-ish copy
+    out: Dict[str, Any] = json.loads(json.dumps(context, default=str))  # deep-ish copy
 
     # --- user: remove id/email/name if exist ---
     u = out.get("user")
@@ -101,6 +102,7 @@ def build_prompts_for_analyze(
     context_payload: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
+    ctx:AuthCtx,
 ) -> Tuple[str, str]:
     """
     Prompt builder pre ANALYZE ATHLETE STATE.
@@ -109,16 +111,16 @@ def build_prompts_for_analyze(
     lang_label, second_person_note = _lang_notes(settings)
 
     # attach safe settings
-    ctx2 = dict(context_payload) if isinstance(context_payload, dict) else {}
-    ctx2["user_settings"] = {
+    context2 = dict(context_payload) if isinstance(context_payload, dict) else {}
+    context2["user_settings"] = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
     }
 
     # ✅ MINIFY HERE
-    ctx_for_llm = minify_analyze_context_for_ai(ctx2)
+    context_for_llm = minify_analyze_context_for_ai(context2)
 
-    prefs = (ctx_for_llm.get("prefs") or {})
+    prefs = (context_for_llm.get("prefs") or {})
     # prefs môže byť {value:{...}} alebo flat
     if isinstance(prefs, dict) and isinstance(prefs.get("value"), dict):
         prefs2 = prefs["value"]
@@ -194,7 +196,7 @@ def build_prompts_for_analyze(
         f"The main sport is: {main_sport}.\n"
         f"The upcoming horizon is about {weeks} weeks.\n\n"
         "CONTEXT_JSON:\n"
-        + json.dumps(ctx_for_llm, ensure_ascii=False)
+        + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
@@ -214,11 +216,12 @@ def build_prompts_for_progress(
     current_state: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
+    ctx:AuthCtx,
 ) -> Tuple[str, str]:
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
-    ctx_for_llm = {
+    context_for_llm = {
         "previous_state": previous_state or {},
         "current_state": current_state or {},
         "user_settings": {
@@ -286,7 +289,7 @@ def build_prompts_for_progress(
     user_txt = (
         "Compare previous_state vs current_state and fill the schema.\n\n"
         "CONTEXT_JSON:\n"
-        + json.dumps(ctx_for_llm, ensure_ascii=False)
+        + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"

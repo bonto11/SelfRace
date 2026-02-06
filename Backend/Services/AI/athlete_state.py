@@ -20,7 +20,7 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_athlete_progress,
 )
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
 
@@ -58,14 +58,12 @@ def _default_ai_model() -> str:
 def service_save_state_to_db(
     user_id: int,
     analysis: Dict[str, Any],
-    user_jwt: Optional[str] = None,
-    *,
-    service: bool = False,
+      *,
+    ctx: AuthCtx,
 ) -> Optional[int]:
     """
     Uloží AI stav atleta do coach_athlete_state.
     """
-    jwt = None if service else require_jwt(user_jwt)
 
     model = str(analysis.get("model"))
     version = int(analysis.get("schema_version") or 1)
@@ -74,23 +72,19 @@ def service_save_state_to_db(
         model=model,
         state_json=analysis,
         version=version,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
 def service_get_athlete_state_by_id(
     state_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_state_by_id(
         state_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not row:
         return None
@@ -112,16 +106,13 @@ def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_latest_state_for_user(
         user_id=user_id,
         version=version,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not row:
         return None
@@ -143,16 +134,13 @@ def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    jwt = None if service else require_jwt(user_jwt)
 
     rows = db_list_states_for_user(
         user_id=user_id,
         limit=limit,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     return [
         {
@@ -172,10 +160,7 @@ def service_list_athlete_states_meta(
 def service_analyze_athlete(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
-    debug: bool = False,
-    save_to_db: bool = True,
+    ctx: AuthCtx,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -188,17 +173,15 @@ def service_analyze_athlete(
     - trace/usage sa počítajú vždy (kvôli billing).
     - do FE ich posielame len keď debug=True.
     """
-    jwt = None if service else require_jwt(user_jwt)
 
     model_to_use = (model or _default_ai_model()).strip()
 
     # 0) QUOTA CHECK – len user-trigger
-    if not service and is_user_over_token_quota(
+    if is_user_over_token_quota(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     ):
-        used = get_user_monthly_usage_tokens(user_id)
+        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
             "state_id": None,
             "model": model_to_use,
@@ -217,8 +200,7 @@ def service_analyze_athlete(
     # 1) INPUT
     input_data = build_input_from_db(
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # 1b) Kontext pre AI – deep copy + drop interných polí
@@ -247,7 +229,7 @@ def service_analyze_athlete(
     # POZOR: generator MUSÍ vracať trace vždy (aj bez debug flagov)
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
-        model=model_to_use,
+        model=model_to_use,ctx=ctx,
     )
     if not isinstance(trace, dict):
         trace = {}
@@ -268,10 +250,11 @@ def service_analyze_athlete(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.analyze_state",
-                source="service" if service else "user",
+                source="user",
                 billed_via="internal",
                 charge_wallet=False,
                 meta={},
+                ctx=ctx,
             )
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] analyze_state billing error:", repr(e))
@@ -294,7 +277,9 @@ def service_analyze_athlete(
     ai_state = analysis.setdefault("ai_state", {})
     ai_state["plan_adjustment"] = {
         "soften_next_days": {
-            "should_soften": bool((signals.get("soften_next_days") or {}).get("should_soften")),
+            "should_soften": bool(
+                (signals.get("soften_next_days") or {}).get("should_soften")
+            ),
             "days": (signals.get("soften_next_days") or {}).get("days"),
             "reason": (signals.get("soften_next_days") or {}).get("reason"),
         },
@@ -306,27 +291,23 @@ def service_analyze_athlete(
     state_id: Optional[int] = None
     compare_previous: Optional[Dict[str, Any]] = None
 
-    if save_to_db:
-        state_id = service_save_state_to_db(
-            user_id=user_id,
-            analysis=analysis,
-            user_jwt=jwt if not service else None,
-            service=service,
-        )
+    state_id = service_save_state_to_db(
+        user_id=user_id,
+        analysis=analysis,
+        ctx=ctx,
+    )
 
-        try:
-            progress_result = service_compare_latest_athlete_states(
-                user_id=user_id,
-                version=analysis.get("schema_version") or 1,
-                user_jwt=user_jwt if not service else None,
-                service=service,
-                model=model_to_use,
-                debug=debug,
-            )
-            if progress_result.get("ok") and progress_result.get("report"):
-                compare_previous = progress_result.get("report")
-        except Exception as e:  # noqa: BLE001
-            print("[service_analyze_athlete] compare_previous error:", repr(e))
+    try:
+        progress_result = service_compare_latest_athlete_states(
+            user_id=user_id,
+            version=analysis.get("schema_version") or 1,
+            model=model_to_use,
+            ctx=ctx,
+        )
+        if progress_result.get("ok") and progress_result.get("report"):
+            compare_previous = progress_result.get("report")
+    except Exception as e:  # noqa: BLE001
+        print("[service_analyze_athlete] compare_previous error:", repr(e))
 
     resp: Dict[str, Any] = {
         "state_id": state_id,
@@ -338,10 +319,8 @@ def service_analyze_athlete(
     if compare_previous is not None:
         resp["compare_previous"] = compare_previous
 
-    # do FE len keď debug (aby si to vedel neskôr minify/odstrániť)
-    if debug:
-        resp["debug_trace"] = trace
-        resp["ai_usage"] = usage
+    resp["debug_trace"] = trace
+    resp["ai_usage"] = usage
 
     return resp
 
@@ -350,10 +329,8 @@ def service_compare_latest_athlete_states(
     user_id: int,
     *,
     version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
     model: Optional[str] = None,
-    debug: bool = False,
 ) -> Dict[str, Any]:
     """
     Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
@@ -363,16 +340,14 @@ def service_compare_latest_athlete_states(
     - trace/usage sa počítajú vždy.
     - do FE ich posielame len keď debug=True.
     """
-    jwt = None if service else require_jwt(user_jwt)
 
     model_to_use = (model or _default_ai_model()).strip()
 
-    if not service and is_user_over_token_quota(
+    if is_user_over_token_quota(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     ):
-        used = get_user_monthly_usage_tokens(user_id)
+        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
             "ok": False,
             "error": "ai_quota_exceeded",
@@ -385,8 +360,7 @@ def service_compare_latest_athlete_states(
         user_id=user_id,
         limit=2,
         version=version,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if len(rows or []) < 2:
@@ -408,6 +382,7 @@ def service_compare_latest_athlete_states(
         current_state=current_state,
         model=model_to_use,
         user_id=user_id,
+        ctx=ctx,
     )
     if not isinstance(trace, dict):
         trace = {}
@@ -428,10 +403,11 @@ def service_compare_latest_athlete_states(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.progress_report",
-                source="service" if service else "user",
+                source="user",
                 billed_via="internal",
                 charge_wallet=False,
                 meta={},
+                ctx=ctx,
             )
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] progress_report billing error:", repr(e))
@@ -455,11 +431,13 @@ def service_compare_latest_athlete_states(
             db_update_state_compare_previous(
                 state_id=sid,
                 compare_previous=report,
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
     except Exception as e:  # noqa: BLE001
-        print("[service_compare_latest_athlete_states] db_update_state_compare_previous error:", repr(e))
+        print(
+            "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
+            repr(e),
+        )
 
     resp: Dict[str, Any] = {
         "ok": True,
@@ -473,9 +451,8 @@ def service_compare_latest_athlete_states(
         "source": "generated",
     }
 
-    if debug:
-        resp["debug_trace"] = trace
-        resp["ai_usage"] = usage
+    resp["debug_trace"] = trace
+    resp["ai_usage"] = usage
 
     return resp
 
@@ -484,16 +461,13 @@ def service_get_latest_athlete_progress(
     user_id: int,
     *,
     version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    jwt = None if service else require_jwt(user_jwt)
 
     row = db_get_latest_athlete_progress(
         user_id=user_id,
         version=version,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not row:
         return None

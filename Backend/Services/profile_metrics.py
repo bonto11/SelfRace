@@ -16,7 +16,7 @@ from Routes_DB.profile_static import (
     db_fetch_static_basic,
     db_get_static_sex_birth,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Services.time import iso_now
 from Schemas.profile_metrics import BatchMetricsPayload, MetricKey
@@ -25,10 +25,9 @@ from Schemas.profile_metrics import BatchMetricsPayload, MetricKey
 def service_insert_metrics(
     user_id: int,
     payload: BatchMetricsPayload,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
-
+ 
     if not payload.entries:
         raise HTTPException(status_code=400, detail="No entries provided")
 
@@ -60,7 +59,7 @@ def service_insert_metrics(
         )
 
     try:
-        data = db_insert_metric_rows(rows, user_jwt=user_jwt)
+        data = db_insert_metric_rows(ctx=ctx,rows=rows)
         return {"success": True, "inserted": len(data or []), "data": data}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
@@ -72,13 +71,12 @@ def service_insert_metrics(
 def service_get_metric_history(
     user_id: int,
     metric: MetricKey,
+    ctx: AuthCtx,
     user_uid: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     limit: Optional[int] = None,
-    user_jwt: Optional[str] = None,
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
 
     data = db_get_metric_history(
         user_id=user_id,
@@ -87,7 +85,7 @@ def service_get_metric_history(
         date_from=date_from,
         date_to=date_to,
         limit=limit,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
     return {"success": True, "metric": metric, "data": data}
 
@@ -97,10 +95,9 @@ def service_get_metric_history(
 
 def service_get_latest_metrics(
     user_id: int,
-    user_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
+
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
 
     out: Dict[str, Any] = {}
     targets: List[str] = [
@@ -115,8 +112,7 @@ def service_get_latest_metrics(
         row = db_get_latest_metric(
             user_id=user_id,
             metric=key,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         out[key] = (
             {
@@ -132,8 +128,7 @@ def service_get_latest_metrics(
     static = (
         db_fetch_static_basic(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         or {}
     )
@@ -167,22 +162,18 @@ def service_get_latest_metrics(
 
 def service_get_vo2_history(
     user_id: int,
-    user_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
 
     try:
         hist = db_get_vo2_measured_history(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         stat = (
             db_get_static_sex_birth(
                 user_id=user_id,
-                user_uid=user_uid,
-                user_jwt=user_jwt,
+                ctx=ctx,
             )
             or {}
         )
@@ -204,17 +195,14 @@ def service_get_vo2_history(
 
 def service_get_vo2_estimate(
     user_id: int,
-    user_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
 
     try:
         row = db_get_latest_metric(
             user_id=user_id,
             metric="VO2Max_estimated",
-            user_uid=user_uid,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {
             "success": True,
@@ -245,9 +233,7 @@ def _compute_age_from_birth_date(birth_date: Optional[str]) -> Optional[int]:
 
 def service_load_user_profile_for_analysis(
     user_id: int,
-    user_uid: Optional[str] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Použije STATIC + METRICS na poskladanie user bloku pre CoachAnalyzeInput.user.
@@ -264,18 +250,12 @@ def service_load_user_profile_for_analysis(
         "weight_kg": float | None,
       }
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     # STATIC: sex, birth_date, height_cm
     static = (
         db_fetch_static_basic(
             user_id=user_id,
-            user_uid=user_uid,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         or {}
     )
@@ -289,9 +269,7 @@ def service_load_user_profile_for_analysis(
     weight_row = db_get_latest_metric(
         user_id=user_id,
         metric="weight_kg",
-        user_uid=user_uid,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if weight_row and weight_row.get("value_num") is not None:
         try:

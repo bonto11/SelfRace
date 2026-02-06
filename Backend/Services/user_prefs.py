@@ -10,7 +10,7 @@ from Routes_DB.user_prefs import (
     db_upsert_many,
     db_delete_pref_single,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 # kľúč, pod ktorým si ukladáš celé coach prefs (JSON) do KV tabuľky
 COACH_PREFS_KEY = "coach.prefs"
@@ -31,22 +31,20 @@ DEFAULT_USER_SETTINGS: Dict[str, Any] = {
 
 def service_get_user_prefs_list(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """Raw zoznam riadkov z KV tabuľky (key/value/updated_at)."""
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    return db_get_prefs_all(user_id, user_jwt=jwt, service=service)
+    
+    return db_get_prefs_all(ctx=ctx,user_id=user_id )
 
 
 def service_get_user_pref(
     user_id: int,
     key: str,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Any]:
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    row = db_get_pref_single(user_id, key, user_jwt=jwt, service=service)
+    
+    row = db_get_pref_single(ctx=ctx,user_id=user_id, key=key)
     return row.get("value") if row else None
 
 
@@ -54,39 +52,35 @@ def service_save_user_pref(
     user_id: int,
     key: str,
     value: Any,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    return db_upsert_pref_single(user_id, key, value, user_jwt=jwt, service=service)
+    
+    return db_upsert_pref_single(ctx=ctx,user_id=user_id, key=key, value=value)
 
 
 def service_save_user_prefs_bulk(
     user_id: int,
     kv: Dict[str, Any],
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    return db_upsert_many(user_id, kv, user_jwt=jwt, service=service)
+    
+    return db_upsert_many(ctx=ctx, user_id=user_id, kv=kv)
 
 
 def service_delete_user_pref(
     user_id: int,
     key: str,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
-    jwt = user_jwt if service else require_jwt(user_jwt)
-    return db_delete_pref_single(user_id, key, user_jwt=jwt, service=service)
+
+    return db_delete_pref_single(ctx=ctx,user_id=user_id, key=key, )
 
 
 # ---------- COACH prefs / AI analýza ----------
 
 def service_load_coach_prefs_for_analysis(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vytiahne celé coach prefs (JSON) z KV tabuľky a vráti ako dict.
@@ -95,13 +89,11 @@ def service_load_coach_prefs_for_analysis(
       - service=False: RLS, require_jwt + RLS klient.
       - service=True:  service klient, user_jwt sa len forwarduje (typicky None).
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     row = db_get_pref_single(
         user_id,
         COACH_PREFS_KEY,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not row:
         return {}
@@ -124,21 +116,19 @@ def service_load_coach_prefs_for_analysis(
 def service_save_coach_prefs(
     user_id: int,
     prefs: Dict[str, Any],
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Uloží celé coach prefs (JSON) pod key="coach.prefs".
     - FE: service=False + JWT
     - worker: service=True (bez JWT), ak to budeš chcieť niekedy ukladať aj z workeru
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
+
     return db_upsert_pref_single(
         user_id,
         COACH_PREFS_KEY,
         prefs,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
@@ -159,8 +149,7 @@ def _parse_json_value(val: Any) -> Dict[str, Any]:
 
 def service_load_user_settings(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Načíta user nastavenia spod key="user.settings" a doplní defaulty.
@@ -168,13 +157,11 @@ def service_load_user_settings(
     - service=False → FE/RLS (JWT required)
     - service=True  → worker/webhook (JWT not required)
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     row = db_get_pref_single(
         user_id,
         USER_SETTINGS_KEY,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not row:
         return DEFAULT_USER_SETTINGS.copy()
@@ -189,13 +176,11 @@ def service_load_user_settings(
 def service_save_user_settings(
     user_id: int,
     settings: Dict[str, Any],
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Uloží user nastavenia pod key="user.settings".
     """
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(settings or {})
@@ -204,26 +189,23 @@ def service_save_user_settings(
         user_id,
         USER_SETTINGS_KEY,
         merged,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
 def service_get_user_language(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> str:
-    settings = service_load_user_settings(user_id, user_jwt=user_jwt, service=service)
+    settings = service_load_user_settings(user_id=user_id, ctx=ctx)
     lang = settings.get("language") or "sk"
     return lang.strip().lower() if isinstance(lang, str) and lang.strip() else "sk"
 
 
 def service_get_user_timezone(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> str:
-    settings = service_load_user_settings(user_id, user_jwt=user_jwt, service=service)
+    settings = service_load_user_settings(ctx=ctx,user_id=user_id)
     tz = settings.get("timezone") or "Europe/Bratislava"
     return tz.strip() if isinstance(tz, str) and tz.strip() else "Europe/Bratislava"

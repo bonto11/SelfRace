@@ -1,20 +1,21 @@
+# Workers/async_jobs.py (úplne hore, ešte pred imports)
+
 from __future__ import annotations
 
-# Workers/async_jobs.py (úplne hore, ešte pred imports)
 import os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
-    
+
 import time
 import random
-from typing import Dict, Optional
 
 from Routes_DB.async_jobs import (
     db_pick_next_queued_job_global,
     db_pick_next_queued_job_for_user,
 )
 from Services.async_jobs import service_execute_job
+from Modules.Supabase.auth import service_ctx  # ✅ service-only ctx
 
 WORKER_ID = os.getenv("ASYNC_WORKER_ID", "worker-1")
 CHAIN_LIMIT = int(os.getenv("ASYNC_CHAIN_LIMIT", "10"))
@@ -29,41 +30,44 @@ def _sleep(base: float) -> None:
     time.sleep(t)
 
 
-def _run_user_chain(user_id: int) -> int:
+def _run_user_chain(ctx, user_id: int) -> int:
     """
     Po dokončení 1 jobu: spracuj ďalšie queued joby toho istého usera (max N).
+    Worker je service => ctx=service.
     """
     ran = 0
     lim = max(1, min(int(CHAIN_LIMIT or 10), 25))
 
     for _ in range(lim):
         locked = db_pick_next_queued_job_for_user(
+            ctx=ctx,
             user_id=int(user_id),
             worker_id=WORKER_ID,
-            service=True,
-            user_jwt=None,
             max_scan=5,
         )
         if not locked:
             break
 
-        out = service_execute_job(locked)
+        out = service_execute_job(ctx=ctx, job=locked)
         if out.get("error"):
-            print(f"[ASYNC-WORKER] chained job failed id={locked.get('id')} err={out.get('error')}")
+            print(
+                f"[ASYNC-WORKER] chained job failed id={locked.get('id')} err={out.get('error')}"
+            )
         ran += 1
 
     return ran
 
 
 def main() -> None:
+    ctx = service_ctx(f"async_worker:{WORKER_ID}")  # ✅ jediný zdroj pravdy
+
     idle = IDLE_MIN
     print(f"[ASYNC-WORKER] started worker_id={WORKER_ID} chain_limit={CHAIN_LIMIT}")
 
     while True:
         locked = db_pick_next_queued_job_global(
+            ctx=ctx,
             worker_id=WORKER_ID,
-            service=True,
-            user_jwt=None,
             max_scan=10,
         )
 
@@ -79,12 +83,14 @@ def main() -> None:
         except Exception:
             user_id = 0
 
-        out = service_execute_job(locked)
+        out = service_execute_job(ctx=ctx, job=locked)
         if out.get("error"):
-            print(f"[ASYNC-WORKER] job failed id={locked.get('id')} user_id={user_id} err={out.get('error')}")
+            print(
+                f"[ASYNC-WORKER] job failed id={locked.get('id')} user_id={user_id} err={out.get('error')}"
+            )
 
         if user_id:
-            ran = _run_user_chain(user_id)
+            ran = _run_user_chain(ctx, user_id)
             if ran:
                 print(f"[ASYNC-WORKER] chained {ran} jobs for user_id={user_id}")
 

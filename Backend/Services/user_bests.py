@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
 from Routes_DB.user_bests import (
@@ -26,16 +26,16 @@ def allowed_distances(sport: str) -> List[int]:
 
 def service_fetch_user_bests(
     user_id: int,
+    ctx: AuthCtx,
     sport: str = "run",
-    user_jwt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Vysoko-úrovňový fetch:
       - zavolá DB vrstvu
       - dopočíta time_str z best_time_s
     """
-    user_jwt = require_jwt(user_jwt)
-    rows = db_fetch_user_bests(user_id, sport, user_jwt=user_jwt)
+    
+    rows = db_fetch_user_bests(user_id, sport, ctx=ctx)
     for r in rows:
         best_time_s = r.get("best_time_s") or 0
         r["time_str"] = seconds_to_hhmmss(best_time_s)
@@ -45,13 +45,11 @@ def service_fetch_user_bests(
 def service_upsert_user_best(
     user_id: int,
     payload: Dict[str, Any],
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Validácia + normalizácia payloadu a následný UPSERT do DB.
     """
-    user_jwt = require_jwt(user_jwt)
-
     sport = str(payload.get("sport") or "run").lower()
 
     # --- distance ---
@@ -108,7 +106,7 @@ def service_upsert_user_best(
     if ach != "__MISSING__":
         row["achieved_at"] = ach if (isinstance(ach, str) and ach.strip()) else None
 
-    saved = db_upsert_user_best(row, user_jwt=user_jwt)
+    saved = db_upsert_user_best(row, ctx=ctx)
 
     best_time_s = saved.get("best_time_s") or row["best_time_s"]
     saved["time_str"] = seconds_to_hhmmss(best_time_s)
@@ -120,19 +118,18 @@ def service_delete_user_best(
     user_id: int,
     sport: str,
     distance_m: int,
-    user_jwt: Optional[str] = None,
+    ctx: AuthCtx,
 ) -> int:
     """
     Tenšia obálka okolo DB delete – kvôli konzistencii service vrstvy.
     """
-    user_jwt = require_jwt(user_jwt)
-    return db_delete_user_best(user_id, sport, distance_m, user_jwt=user_jwt)
+
+    return db_delete_user_best(user_id, sport, distance_m, ctx=ctx)
 
 
 def service_build_bests_block_for_analysis(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Minimalizované PB pre AI:
@@ -142,10 +139,6 @@ def service_build_bests_block_for_analysis(
       - service=False: RLS (require_jwt + RLS klient).
       - service=True: service DB klient (user_jwt forward, bez require_jwt).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
 
@@ -153,8 +146,7 @@ def service_build_bests_block_for_analysis(
     run_rows = db_fetch_user_bests(
         user_id,
         "run",
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     for r in run_rows:
         best_time_s = r.get("best_time_s") or 0

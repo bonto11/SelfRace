@@ -11,13 +11,18 @@ from Services.user_bests import service_build_bests_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
-from Services.coach_external_events import service_build_external_events_block_for_analysis
+from Services.coach_external_events import (
+    service_build_external_events_block_for_analysis,
+)
 from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
 
-from Routes_DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for_activities
+from Routes_DB.activities_summary import (
+    db_get_recent_activity_ids,
+    db_get_summary_for_activities,
+)
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def _to_float(x: Any) -> Optional[float]:
@@ -103,7 +108,9 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(it, dict):
                 continue
             it2 = dict(it)
-            d = _days_ago(it2.get("date") or it2.get("start_date") or it2.get("performed_at"))
+            d = _days_ago(
+                it2.get("date") or it2.get("start_date") or it2.get("performed_at")
+            )
             if d is not None:
                 it2["days_ago"] = d
 
@@ -131,7 +138,9 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
     events: List[Dict[str, Any]] = []
     if isinstance(ext.get("events"), list):
         events = [e for e in ext["events"] if isinstance(e, dict)]
-    elif isinstance(ext.get("window"), dict) and isinstance(ext["window"].get("events"), list):
+    elif isinstance(ext.get("window"), dict) and isinstance(
+        ext["window"].get("events"), list
+    ):
         events = [e for e in ext["window"]["events"] if isinstance(e, dict)]
 
     cleaned_events: List[Dict[str, Any]] = []
@@ -170,8 +179,7 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 def build_last_activities_block_for_analysis(
     user_id: int,
     *,
-    user_jwt: Optional[str],
-    service: bool = False,
+    ctx: AuthCtx,
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
     """
@@ -182,8 +190,6 @@ def build_last_activities_block_for_analysis(
       - activity_id = None
       - date = relatívny label: today / today-N
     """
-    # service=True -> db layer má ísť cez service client; nepotrebujeme jwt
-    jwt = None if service else require_jwt(user_jwt)
 
     if limit <= 0:
         limit = 4
@@ -194,8 +200,7 @@ def build_last_activities_block_for_analysis(
         user_id=user_id,
         since_iso_date=since_iso,
         limit=limit,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     if not ids:
         return []
@@ -204,8 +209,7 @@ def build_last_activities_block_for_analysis(
         db_get_summary_for_activities(
             user_id=user_id,
             activity_ids=ids,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         or []
     )
@@ -216,8 +220,7 @@ def build_last_activities_block_for_analysis(
         db_get_enrichment_for_activities(
             user_id=user_id,
             activity_ids=ids,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         or []
     )
@@ -334,76 +337,63 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
 
 def build_input_from_db(
     user_id: int,
-    user_jwt: Optional[str] = None,
     *,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = None if service else require_jwt(user_jwt)
 
     input_data = build_base_input(user_id)
 
     input_data["user"] = service_load_user_profile_for_analysis(
         user_id=user_id,
-        user_uid=None,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["zones"] = service_build_zones_block_for_analysis(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["thresholds"] = service_build_thresholds_block_for_analysis(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["prefs"] = service_load_coach_prefs_for_analysis(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["bests"] = service_build_bests_block_for_analysis(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     input_data["bests"] = _bests_dates_to_days_ago(input_data.get("bests") or {})
 
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
         user_id=user_id,
         window_days=42,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["recovery"] = service_build_recovery_block_for_analysis(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     input_data["active_plan"] = service_build_active_plan_block_for_analysis(
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     ext = service_build_external_events_block_for_analysis(
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     input_data["external_events"] = _minify_external_events_for_ai(ext)
 
     input_data["last_activities"] = build_last_activities_block_for_analysis(
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
         limit=6,
     )
 

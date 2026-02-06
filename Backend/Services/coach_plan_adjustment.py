@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional, List
 from statistics import mean
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state import service_analyze_athlete
 from Services.AI.weekly_plan import service_generate_weekly_plan
 from Services.AI.daily_plan import (
@@ -82,9 +82,8 @@ def _find_current_week_index(
 def _compute_be_flags_recent_load(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
     window_days: int = 42,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     BE heuristika nad recent_load – rozhodne, či vôbec má zmysel volať AI.
@@ -99,8 +98,7 @@ def _compute_be_flags_recent_load(
     rl = service_build_recent_load_raw(
         user_id=user_id,
         window_days=window_days,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     weeks: List[Dict[str, Any]] = rl.get("weeks") or []
@@ -206,23 +204,19 @@ def _compute_be_flags_recent_load(
 def _compute_recovery_debug(
     user_id: int,
     *,
-    user_jwt: Optional[str],
+    ctx: AuthCtx,
     days: int = 21,
 ) -> Optional[Dict[str, Any]]:
     """
     Debug dáta z user_recovery – priemer HRV, posledné RHR atď.
     Volá sa len v režime s RLS (user_jwt nie je None).
     """
-    if not user_jwt:
-        return None
-
-    jwt = require_jwt(user_jwt)
 
     rows = (
         db_get_recent_recovery(
             user_id,
             days,
-            user_jwt=jwt,
+            ctx=ctx,
         )
         or []
     )
@@ -268,8 +262,7 @@ def _compute_recovery_debug(
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
@@ -283,41 +276,26 @@ def service_coach_autoadjust_after_update(
         → všetko ide cez RLS
     """
     today = date.today()
-    service_mode = service or (user_jwt is None)
 
     # --- 0) BE heuristika recent_load – vždy zo SERVICE summary ---
     be_flags = _compute_be_flags_recent_load(
         user_id=user_id,
-        user_jwt=None,
         window_days=42,
-        service=True,
-    )
-
-    print(
-        "[COACH-AUTOADJUST][BE]",
-        "user_id=",
-        user_id,
-        "flags=",
-        be_flags,
+        ctx=ctx,
     )
 
     # Recovery debug – len v RLS režime (user_jwt != None)
     recovery_debug = _compute_recovery_debug(
         user_id=user_id,
-        user_jwt=user_jwt if not service_mode else None,
+        ctx=ctx,
     )
 
     if not be_flags.get("should_trigger_ai"):
         # load je v norme → žiadne AI, žiadny re-plan
         return {
             "changed": False,
-            "mode": (
-                "no_adjustment_needed_service"
-                if service_mode
-                else "no_adjustment_needed"
-            ),
+            "mode": "no_adjustment_needed",
             "reason": be_flags.get("reason", "load_within_normal_range"),
-            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": None,
@@ -325,18 +303,10 @@ def service_coach_autoadjust_after_update(
         }
 
     # --- 1) AI analyze ---
-    if service_mode:
-        jwt_rls: Optional[str] = None
-    else:
-        jwt_rls = require_jwt(user_jwt)
-
     analyze_resp = service_analyze_athlete(
         user_id=user_id,
-        user_jwt=jwt_rls,
-        debug=False,
-        save_to_db=True,
+        ctx=ctx,
         model=None,
-        service=service_mode,
     )
     state_id = analyze_resp.get("state_id")
     analysis = analyze_resp.get("analysis") or {}
@@ -354,12 +324,10 @@ def service_coach_autoadjust_after_update(
     # --- 2) nájdeme aktívny / posledný plán (podľa režimu) ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=jwt_rls,
-        service=service_mode,
+        ctx=ctx,
     ) or db_get_latest_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=jwt_rls,
-        service=service_mode,
+        ctx=ctx,
     )
 
     if not meta or not isinstance(meta.get("plan_id"), str):
@@ -367,7 +335,6 @@ def service_coach_autoadjust_after_update(
             "changed": False,
             "mode": "no_plan",
             "reason": "no_plan_meta",
-            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
@@ -393,28 +360,24 @@ def service_coach_autoadjust_after_update(
         else:
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
-                user_jwt=jwt_rls,
                 overwrite=True,
                 state_id=state_id,
                 weeks=None,
                 model=None,
-                debug=False,
-                service=service_mode,
+                ctx=ctx,
             )
 
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
-                user_jwt=jwt_rls,
                 min_horizon_days=MIN_DAILY_HORIZON_AFTER_WEEKLY,
-                service=service_mode,
+                ctx=ctx,
             )
 
             return {
                 "changed": True,
-                "mode": "weekly_replan_service" if service_mode else "weekly_replan",
+                "mode": "weekly_replan",
                 "reason": weekly_replan_reason
                 or "weekly plan re-generated based on load & recovery",
-                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -432,8 +395,7 @@ def service_coach_autoadjust_after_update(
             db_get_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=plan_id,
-                user_jwt=jwt_rls,
-                service=service_mode,
+                ctx=ctx,
             )
             or []
         )
@@ -443,7 +405,6 @@ def service_coach_autoadjust_after_update(
                 "changed": False,
                 "mode": "no_weekly_rows",
                 "reason": "no_weekly_rows_for_plan",
-                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -460,7 +421,6 @@ def service_coach_autoadjust_after_update(
                 "changed": False,
                 "mode": "cannot_determine_current_week",
                 "reason": "cannot_determine_current_week",
-                "service_mode": service_mode,
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -471,19 +431,15 @@ def service_coach_autoadjust_after_update(
             user_id=user_id,
             week_index=current_week_index,
             plan_id=plan_id,
-            overwrite=True,
             model=None,
-            debug=False,
-            user_jwt=jwt_rls,
-            service=service_mode,
+            ctx=ctx,
         )
 
         return {
             "changed": True,
-            "mode": "daily_soften_service" if service_mode else "daily_soften",
+            "mode": "daily_soften",
             "reason": soften_reason
             or f"softening next days (week_index={current_week_index}) based on load & recovery",
-            "service_mode": service_mode,
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
@@ -500,9 +456,8 @@ def service_coach_autoadjust_after_update(
     # --- 3c) AI síce zafungovalo, ale nič nechce meniť ---
     return {
         "changed": False,
-        "mode": "no_adjustment_service" if service_mode else "no_adjustment",
+        "mode": "no_adjustment",
         "reason": "plan_adjustment does not request changes",
-        "service_mode": service_mode,
         "be_flags": be_flags,
         "recovery_debug": recovery_debug,
         "analyze_state_id": state_id,

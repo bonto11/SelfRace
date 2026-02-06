@@ -12,14 +12,16 @@ from Services.supabase_auth_admin import admin_delete_auth_users
 
 # ✅ používame generický enqueue
 from Services.async_jobs import service_enqueue_job
+from Modules.Supabase.auth import AuthCtx
 
 
-def service_cleanup_deleted_activities(cutoff_days: int = 30) -> Dict[str, Any]:
-    return db_cleanup_deleted_activities(cutoff_days=cutoff_days)
+def service_cleanup_deleted_activities(ctx: AuthCtx, cutoff_days: int = 30) -> Dict[str, Any]:
+    return db_cleanup_deleted_activities(ctx=ctx,cutoff_days=cutoff_days)
 
 
 def service_weekly_athlete_state_analysis(
-    max_users: int = 500,
+        ctx: AuthCtx,
+    max_users: int = 500, 
 ) -> Dict[str, Any]:
     """
     Cron:
@@ -29,8 +31,7 @@ def service_weekly_athlete_state_analysis(
     """
     users: List[Dict[str, Any]] = db_list_users_for_cron(
         limit=max_users,
-        user_jwt=None,
-        service=True,
+        ctx=ctx,
     )
 
     enqueued = 0
@@ -54,8 +55,7 @@ def service_weekly_athlete_state_analysis(
             },
             dedupe_key=f"ai_analyze:{int(user_id)}",
             priority=60,
-            user_jwt=None,
-            service=True,
+            ctx=ctx,
         )
 
         if resp.get("job"):
@@ -67,13 +67,14 @@ def service_weekly_athlete_state_analysis(
 def service_account_hard_delete(
     *,
     dry_run: bool = False,
+    ctx: AuthCtx,
     only_user_id: Optional[int] = None,
+    
 ) -> Dict[str, Any]:
     result = db_account_hard_delete(
         dry_run=dry_run,
         only_user_id=only_user_id,
-        user_jwt=None,
-        service=True,
+        ctx=ctx,
     )
 
     if dry_run:
@@ -91,5 +92,5 @@ def service_account_hard_delete(
     return {**result, "auth_delete": auth_report}
 
 
-def service_cleanup_expired_activity_details() -> Dict[str, Any]:
-    return db_cleanup_expired_activity_details()
+def service_cleanup_expired_activity_details(ctx: AuthCtx,) -> Dict[str, Any]:
+    return db_cleanup_expired_activity_details(ctx=ctx,)

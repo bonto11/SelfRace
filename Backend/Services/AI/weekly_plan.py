@@ -31,10 +31,12 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
-def _safe_error_payload(code: str, message: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _safe_error_payload(
+    code: str, message: str, extra: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     out: Dict[str, Any] = {"code": code, "message": message}
     if isinstance(extra, dict):
         out.update(extra)
@@ -65,8 +67,7 @@ def _normalize_weekly_error(err: Any) -> Optional[Dict[str, Any]]:
 def service_generate_weekly_plan(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
     overwrite: bool = True,
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
@@ -78,16 +79,13 @@ def service_generate_weekly_plan(
     Aktuálne: vraciame aj weekly_plan + trace + usage (na FE tuning).
     Neskôr to môžeš stripnúť pred odoslaním do FE.
     """
-    # --- auth ---
-    jwt = None if service else require_jwt(user_jwt)
 
     # --- quota (len user-trigger) ---
-    if not service and is_user_over_token_quota(
+    if is_user_over_token_quota(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     ):
-        used = get_user_monthly_usage_tokens(user_id)
+        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "plan_id": None,
             "state_id": None,
@@ -102,24 +100,23 @@ def service_generate_weekly_plan(
         }
 
     # --- build context ---
-    ctx = build_weekly_context_from_db(
+    context = build_weekly_context_from_db(
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
-        overwrite=overwrite,
+        ctx=ctx,
         state_id=state_id,
         weeks=weeks,
     )
 
-    context_payload = ctx["context_payload"]
-    state_bundle = ctx["state_bundle"]
-    horizon_weeks = ctx["horizon_weeks"]
+    context_payload = context["context_payload"]
+    state_bundle = context["state_bundle"]
+    horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
 
     # --- AI call ---
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
         model=model,  # None => provider default
+        ctx=ctx,
     )
 
     if not isinstance(weekly_plan, dict):
@@ -142,7 +139,7 @@ def service_generate_weekly_plan(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.generate_weekly_plan",
-                source="service" if service else "user",
+                source="user",
                 billed_via="internal",
                 charge_wallet=False,
                 meta={
@@ -150,6 +147,7 @@ def service_generate_weekly_plan(
                     "requested_weeks": weeks,
                     "horizon_weeks": horizon_weeks,
                 },
+                ctx=ctx,
             )
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] weekly_plan billing error:", repr(e))
@@ -163,21 +161,18 @@ def service_generate_weekly_plan(
     if overwrite:
         archived_meta = db_archive_user_plans(
             user_id,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
         latest_plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         if latest_plan_id:
             deleted_rows = db_clear_weekly_for_user_plan(
                 user_id=user_id,
                 plan_id=latest_plan_id,
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
 
     # --- store weekly rows ---
@@ -190,12 +185,13 @@ def service_generate_weekly_plan(
 
     inserted_rows = db_insert_weekly_rows(
         rows,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # --- plan_meta row (DB) ---
-    plan_meta_dict = (weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}) or {}
+    plan_meta_dict = (
+        weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}
+    ) or {}
     if not isinstance(plan_meta_dict, dict):
         plan_meta_dict = {}
 
@@ -213,7 +209,6 @@ def service_generate_weekly_plan(
 
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
-        user_jwt=jwt,
         plan_id=plan_id,
         base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
@@ -222,7 +217,7 @@ def service_generate_weekly_plan(
         main_sport=main_sport,
         goal_kind=goal_kind,
         source="ai_weekly_v1",
-        service=service,
+        ctx=ctx,
     )
 
     # --- RESPONSE ---
@@ -232,7 +227,7 @@ def service_generate_weekly_plan(
         "plan_id": plan_id,
         "state_id": used_state_id,
         "model": model_used,
-        "overwrite": overwrite,
+        "overwrite": True,
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
@@ -254,18 +249,16 @@ def service_generate_weekly_plan(
 def service_get_latest_weekly_plan(
     user_id: int,
     *,
-    user_jwt: str,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
     Čisto RLS/FE.
     """
-    jwt = require_jwt(user_jwt)
 
     meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
-        user_jwt=jwt,
-        service=False,
+        ctx=ctx,
     )
     plan_id: Optional[str] = None
     if meta and isinstance(meta.get("plan_id"), str):
@@ -274,8 +267,7 @@ def service_get_latest_weekly_plan(
     if not plan_id:
         plan_id = db_get_latest_plan_id_for_user(
             user_id=user_id,
-            user_jwt=jwt,
-            service=False,
+            ctx=ctx,
         )
         if not plan_id:
             return None
@@ -283,8 +275,7 @@ def service_get_latest_weekly_plan(
     rows = db_get_weekly_for_user_plan(
         user_id=user_id,
         plan_id=plan_id,
-        user_jwt=jwt,
-        service=False,
+        ctx=ctx,
     )
     if not rows:
         return None

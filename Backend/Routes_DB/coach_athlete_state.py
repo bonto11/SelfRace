@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_ATHLETE_STATE
 
 
@@ -12,8 +13,7 @@ def db_insert_athlete_state(
     state_json: Dict[str, Any],
     *,
     version: int = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[int]:
     """
     INSERT do coach_athlete_state.
@@ -22,7 +22,7 @@ def db_insert_athlete_state(
       - FE/AI:   user_jwt=jwt
       - worker:  service=True (ak raz spravíš batch analýzy)
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_insert_athlete_state")
 
     row = {
         "user_id": user_id,
@@ -44,8 +44,7 @@ def db_insert_athlete_state(
 def db_get_state_by_id(
     state_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Načíta konkrétny stav podľa primárneho kľúča id.
@@ -53,7 +52,7 @@ def db_get_state_by_id(
     - s user_jwt → RLS stráži, či user môže daný riadok čítať
     - so service=True → worker môže čítať hociktorého usera
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_get_state_by_id")
 
     try:
         res = (
@@ -73,15 +72,14 @@ def db_get_latest_state_for_user(
     user_id: int,
     *,
     version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Najnovší stav pre daného usera (podľa created_at DESC).
 
     Ak version je None, nefiltruje podľa verzie.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_get_latest_state_for_user")
 
     try:
         q = (
@@ -104,8 +102,7 @@ def db_get_latest_states_for_user(
     *,
     limit: int = 2,
     version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Vráti posledné N stavov (vrátane state_json), zoradené podľa created_at DESC.
@@ -113,7 +110,7 @@ def db_get_latest_states_for_user(
     Typické použitie:
       - limit=2 → posledná a predposledná analýza pre porovnanie.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_get_latest_states_for_user")
 
     try:
         q = (
@@ -134,14 +131,13 @@ def db_update_state_compare_previous(
     state_id: int,
     compare_previous: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Uloží JSON porovnania do stĺpca compare_previous pre daný state_id
     a vráti aktualizovaný riadok.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_update_state_compare_previous")
 
     try:
         res = (
@@ -160,13 +156,12 @@ def db_list_states_for_user(
     user_id: int,
     *,
     limit: int = 20,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     História stavov pre usera (bez state_json, len meta – vhodné na prehľad v UI).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_list_states_for_user")
 
     try:
         res = (
@@ -180,20 +175,20 @@ def db_list_states_for_user(
         return list(res.data or [])
     except Exception:  # noqa: BLE001
         return []
-    
+
+
 def db_get_latest_athlete_progress(
     user_id: int,
     *,
     version: Optional[int] = 1,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti najnovší záznam s compare_previous pre daného usera.
 
     Používame stĺpec compare_previous (jsonb), ktorý drží AI progress report.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_athlete_state")
+    sb = get_sb(ctx, caller="coach_athlete_state.db_get_latest_athlete_progress")
 
     try:
         q = (

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
+from Modules.Supabase.auth import AuthCtx
 
 def _safe_int(
     v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
@@ -36,7 +37,7 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
     return raw_prefs if isinstance(raw_prefs, dict) else {}
 
 
-def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
+def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     AI plans full week.
     Keep only what it needs, in a stable shape.
@@ -46,12 +47,12 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         * polarized_model/pyramidal_model (moved into preferences.intensity_model)
         * training blocks top-level flags (moved into preferences.training_blocks)
     """
-    ctx2: Dict[str, Any] = {}
+    context2: Dict[str, Any] = {}
     for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
-        if k in ctx:
-            ctx2[k] = ctx[k]
+        if k in context:
+            context2[k] = context[k]
 
-    prefs = _flatten_prefs(ctx.get("prefs") or {})
+    prefs = _flatten_prefs(context.get("prefs") or {})
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict):
         pref_obj = {}
@@ -72,7 +73,7 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
-    ctx2["prefs"] = {
+    context2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "start_date": prefs.get("start_date"),
         "end_date": prefs.get("end_date"),
@@ -89,23 +90,23 @@ def _minify_context_for_ai(ctx: Dict[str, Any]) -> Dict[str, Any]:
         "strength_settings": prefs.get("strength_settings") or {},
     }
 
-    athlete_state = ctx.get("athlete_state") or {}
+    athlete_state = context.get("athlete_state") or {}
     ai_state = athlete_state.get("ai_state") or {}
-    ctx2["athlete_state"] = {"ai_state": ai_state}
+    context2["athlete_state"] = {"ai_state": ai_state}
 
     for k in ("last_activities",):
-        if k in ctx:
-            ctx2[k] = ctx[k]
+        if k in context:
+            context2[k] = context[k]
 
     # keep only minimal user_settings if present
-    us = ctx.get("user_settings") or {}
+    us = context.get("user_settings") or {}
     if isinstance(us, dict):
-        ctx2["user_settings"] = {
+        context2["user_settings"] = {
             "language": us.get("language"),
             "timezone": us.get("timezone"),
         }
 
-    return ctx2
+    return context2
 
 
 def _build_prompts_for_daily(

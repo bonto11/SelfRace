@@ -7,14 +7,15 @@ from pydantic import BaseModel
 
 from Services.maintenance import (
     service_cleanup_deleted_activities,
-    service_weekly_athlete_state_analysis,
     service_account_hard_delete,
-    service_cleanup_expired_activity_details,  # ✅ NEW
+    service_cleanup_expired_activity_details,
 )
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
 from Services.app_subscription import service_apply_due_subscription_changes
 from Configs.config import MAINTENANCE_API_KEY
+
+from Modules.Supabase.auth import service_ctx
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
@@ -33,9 +34,13 @@ async def cleanup_deleted_activities_endpoint(
     x_api_key: str | None = Header(default=None),
 ):
     _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.cleanup_deleted_activities")
 
     try:
-        result = service_cleanup_deleted_activities(cutoff_days=cutoff_days)
+        result = service_cleanup_deleted_activities(
+            ctx=ctx,
+            cutoff_days=cutoff_days,
+        )
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -56,9 +61,10 @@ async def cleanup_expired_activity_details_endpoint(
       - OR deleted_at IS NOT NULL
     """
     _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.cleanup_expired_activity_details")
 
     try:
-        result = service_cleanup_expired_activity_details()
+        result = service_cleanup_expired_activity_details(ctx=ctx)
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -73,16 +79,15 @@ async def weekly_athlete_state_refresh_endpoint(
     Spustí AI analýzu atleta pre všetkých userov (alebo prvých max_users)
     a uloží výsledok do coach_athlete_state.
 
-    Beží v SERVICE režime (service=True), teda cez service klienta na DB.
+    Beží v SERVICE režime (service ctx), teda cez service klienta na DB.
     """
     _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.weekly_athlete_state_refresh")
 
     try:
-        # 1) zoznam userov
         users = db_list_users_for_athlete_state(
+            ctx=ctx,
             limit=max_users or 1000,
-            user_jwt=None,
-            service=True,
         )
 
         if not users:
@@ -100,31 +105,19 @@ async def weekly_athlete_state_refresh_endpoint(
 
             try:
                 resp = service_analyze_athlete(
+                    ctx=ctx,
                     user_id=int(uid),
-                    user_jwt=None,
-                    service=True,
-                    debug=False,
-                    save_to_db=True,
                     model=None,
                 )
 
                 state_id = resp.get("state_id")
                 results.append(
-                    {
-                        "user_id": uid,
-                        "state_id": state_id,
-                        "ok": bool(state_id is not None),
-                    }
+                    {"user_id": uid, "state_id": state_id, "ok": bool(state_id is not None)}
                 )
                 processed += 1
             except Exception as e:  # noqa: BLE001
                 results.append(
-                    {
-                        "user_id": uid,
-                        "state_id": None,
-                        "ok": False,
-                        "error": str(e),
-                    }
+                    {"user_id": uid, "state_id": None, "ok": False, "error": str(e)}
                 )
 
         return JSONResponse({"ok": True, "processed": processed, "results": results})
@@ -138,16 +131,13 @@ async def maintenance_apply_due_app_subscriptions(
     x_api_key: str | None = Header(default=None),
 ):
     """
-    Cron endpoint – volaný raz denne zvonka (GitHub Actions / Railway cron).
-    Vykoná všetky naplánované zmeny subscriptionov.
+    Cron endpoint – volaný raz denne zvonka.
     """
     _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.apply_due_app_subscriptions")
 
     try:
-        result = service_apply_due_subscription_changes(
-            user_jwt=None,
-            service=True,  # service klient na DB, bez RLS
-        )
+        result = service_apply_due_subscription_changes(ctx=ctx)
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -167,9 +157,11 @@ async def maintenance_account_hard_delete(
     Cron endpoint pre hard delete účtov označených na zmazanie.
     """
     _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.account_hard_delete")
 
     try:
         result = service_account_hard_delete(
+            ctx=ctx,
             dry_run=payload.dry_run,
             only_user_id=payload.only_user_id,
         )

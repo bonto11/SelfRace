@@ -115,7 +115,7 @@ SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
 SUPABASE_ANON_KEY: str = env_required("SUPABASE_ANON_KEY")
 
-
+INTERNAL_SERVICE_SECRET = "secret"
 # =============================================================================
 # STRAVA
 # =============================================================================
@@ -240,3 +240,4 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
 
 # legacy typo alias (ak niekde ešte svieti)
 COACH_PLAN_DEAFULT_WEEKS = COACH_PLAN_DEFAULT_WEEKS
+

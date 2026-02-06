@@ -8,7 +8,7 @@ from Routes_DB.coach_external_events import (
     db_clear_external_events_for_user,
     db_insert_external_events,
 )
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 # 1=Mon ... 7=Sun
 INT_TO_ABBR: Dict[int, str] = {
@@ -250,8 +250,7 @@ def service_list_external_events_window(
     *,
     from_iso: str,
     to_iso: str,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     try:
         d_from = date.fromisoformat(from_iso)
@@ -262,12 +261,9 @@ def service_list_external_events_window(
     if d_to < d_from:
         raise ValueError("to must be >= from")
 
-    jwt = None if service else require_jwt(user_jwt)
-
     base_rows = db_list_external_events_for_user(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     occurrences = _expand_events_to_window(base_rows, d_from, d_to)
@@ -281,15 +277,12 @@ def service_list_external_events_window(
 def service_list_external_events(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = None if service else require_jwt(user_jwt)
 
     rows = db_list_external_events_for_user(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     return {"success": True, "events": rows}
 
@@ -298,10 +291,8 @@ def service_save_external_events(
     user_id: int,
     *,
     events: List[Dict[str, Any]],
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = None if service else require_jwt(user_jwt)
 
     norm_rows: List[Dict[str, Any]] = []
     for raw in events:
@@ -311,14 +302,12 @@ def service_save_external_events(
 
     deleted = db_clear_external_events_for_user(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     inserted = db_insert_external_events(
         norm_rows,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     return {
@@ -334,8 +323,7 @@ def service_build_external_events_block_for_analysis(
     *,
     days_past: int = 28,
     days_future: int = 42,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     today = date.today()
     d_from = today - timedelta(days=days_past)
@@ -346,8 +334,7 @@ def service_build_external_events_block_for_analysis(
             user_id=user_id,
             from_iso=d_from.isoformat(),
             to_iso=d_to.isoformat(),
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
 
         raw = window.get("occurrences") or []

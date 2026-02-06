@@ -4,13 +4,14 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_STRENGTH_HISTORY
+
 
 def db_insert_strength_history_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Bulk INSERT do coach_strength_history.
@@ -18,7 +19,7 @@ def db_insert_strength_history_rows(
     if not rows:
         return 0
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_strength_history")
+    sb = get_sb(ctx, caller="coach_strength_history.db_insert_weekly_rows")
 
     # pre istotu normalizuj session_date na string
     normalized: List[Dict[str, Any]] = []
@@ -43,13 +44,12 @@ def db_get_strength_history_for_user(
     user_id: int,
     *,
     weeks_back: int = 8,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načíta históriu silových cvikov pre usera za posledných weeks_back týždňov.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="coach_strength_history")
+    sb = get_sb(ctx, caller="coach_strength_history.db_get_strength_history_for_user")
 
     today = date.today()
     start_date = today - timedelta(weeks=weeks_back)

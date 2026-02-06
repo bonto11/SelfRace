@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from Services.user_prefs import (
     service_get_user_prefs_list,
@@ -12,23 +12,25 @@ from Services.user_prefs import (
     service_save_user_prefs_bulk,
     service_delete_user_pref,
 )
-from Modules.HTTP.auth_deps import inject_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/prefs", tags=["prefs"])
 
 
 @router.get("/{user_id}")
 def get_user_prefs(
+    req: Request,
     user_id: int,
     prefix: Optional[str] = Query(None),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Vráti zoznam user prefs (key, value, updated_at).
     Voliteľne filtruje podľa prefixu v key (?prefix=coach. atď.).
     """
     try:
-        prefs = service_get_user_prefs_list(user_id, user_jwt=user_jwt)
+        ctx = require_user(get_auth_ctx(req))
+
+        prefs = service_get_user_prefs_list(user_id=user_id, ctx=ctx)
 
         if prefix:
             p = str(prefix)
@@ -44,15 +46,17 @@ def get_user_prefs(
 
 @router.get("/{user_id}/key/{key}")
 def get_user_pref(
+    req: Request,
     user_id: int,
     key: str,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Vráti hodnotu jedného preferenčného kľúča.
     """
     try:
-        val = service_get_user_pref(user_id, key, user_jwt=user_jwt)
+        ctx = require_user(get_auth_ctx(req))
+
+        val = service_get_user_pref(user_id=user_id, key=key, ctx=ctx)
         return {"success": True, "key": key, "value": val}
     except HTTPException:
         raise
@@ -62,20 +66,22 @@ def get_user_pref(
 
 @router.put("/{user_id}/key/{key}")
 def put_user_pref(
+    req: Request,
     user_id: int,
     key: str,
     value: Any = Body(...),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Upsert jedného key → value.
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         saved = service_save_user_pref(
             user_id,
             key,
             value,
-            user_jwt=user_jwt,
+            ctx=ctx,
         )
         return {"success": True, "saved": saved}
     except HTTPException:
@@ -86,14 +92,16 @@ def put_user_pref(
 
 @router.put("/{user_id}")
 def put_user_prefs(
+    req: Request,
     user_id: int,
     payload: Dict[str, Any] = Body(...),
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Bulk upsert: body = { "prefs": [ { "key": "...", "value": ... }, ... ] }
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+
         prefs_list: List[Dict[str, Any]] = payload.get("prefs") or []
         if not isinstance(prefs_list, list):
             raise HTTPException(
@@ -109,9 +117,9 @@ def put_user_prefs(
             kv[k] = row.get("value")
 
         n = service_save_user_prefs_bulk(
-            user_id,
-            kv,
-            user_jwt=user_jwt,
+            user_id=user_id,
+            kv=kv,
+            ctx=ctx,
         )
         return {"success": True, "count": n}
     except HTTPException:
@@ -122,18 +130,20 @@ def put_user_prefs(
 
 @router.delete("/{user_id}/key/{key}")
 def del_user_pref(
+    req: Request,
     user_id: int,
     key: str,
-    user_jwt: Optional[str] = Depends(inject_user_jwt),
 ):
     """
     Zmaže jeden kľúč.
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         n = service_delete_user_pref(
-            user_id,
-            key,
-            user_jwt=user_jwt,
+            user_id=user_id,
+            key=key,
+            ctx=ctx,
         )
         return {"success": True, "deleted": n}
     except HTTPException:

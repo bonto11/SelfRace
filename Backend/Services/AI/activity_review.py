@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 from Services.AI.billing import (
     extract_usage_from_trace,
@@ -52,17 +52,16 @@ def service_activity_review(
     user_id: int,
     activity_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
     # ✅ v service režime JWT netreba
-    jwt = user_jwt if service else require_jwt(user_jwt)
+ 
     model_to_use = (model or _default_ai_model()).strip()
 
     # quota (len user-triggered)
-    if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
-        used = get_user_monthly_usage_tokens(user_id)
+    if is_user_over_token_quota(user_id, ctx=ctx):
+        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
             "ok": False,
             "activity_id": activity_id,
@@ -83,8 +82,7 @@ def service_activity_review(
     input_data = build_review_input(
         user_id=user_id,
         activity_id=activity_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx
     )
 
     context_for_ai = _minify_context_for_ai(input_data)
@@ -118,8 +116,7 @@ def service_activity_review(
         context_payload=context_for_ai,
         model=model_to_use,
         user_id=user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     if not isinstance(trace, dict):
@@ -140,10 +137,11 @@ def service_activity_review(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.activity_review",
-                source="service" if service else "user",
+                source="user",
                 billed_via="internal",
                 charge_wallet=False,
                 meta={"activity_id": activity_id},
+                ctx=ctx,
             )
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] activity_review billing error:", repr(e))
@@ -154,8 +152,7 @@ def service_activity_review(
             user_id=user_id,
             activity_id=activity_id,
             ai_review=review,
-            user_jwt=jwt if not service else None,
-            service=service,
+            ctx=ctx
         )
     except Exception as e:  # noqa: BLE001
         print("[AR][service] db_upsert_ai_review_one error:", repr(e))

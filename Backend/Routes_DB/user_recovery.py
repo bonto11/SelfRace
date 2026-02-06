@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_RECOVERY
 
 
@@ -11,13 +12,12 @@ def db_get_recovery_record(
     user_id: int,
     date_iso: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti {"id": ...} ak existuje recovery pre daný deň, inak None.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+    sb = get_sb(ctx, caller="user_recovery.db_get_recovery_record")
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)
@@ -36,10 +36,10 @@ def db_get_recovery_record(
 def db_insert_recovery(
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+
+    sb = get_sb(ctx, caller="user_recovery.db_insert_recovery")
 
     res = sb.table(TABLE_USERS_RECOVERY).insert(row).execute()
     rows: List[Dict[str, Any]] = res.data or []
@@ -51,17 +51,11 @@ def db_update_recovery(
     rec_id: int,
     row: Dict[str, Any],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
 
-    res = (
-        sb.table(TABLE_USERS_RECOVERY)
-        .update(row)
-        .eq("id", rec_id)
-        .execute()
-    )
+    sb = get_sb(ctx, caller="user_recovery.db_update_recovery")
+    res = sb.table(TABLE_USERS_RECOVERY).update(row).eq("id", rec_id).execute()
 
     rows: List[Dict[str, Any]] = res.data or []
 
@@ -72,10 +66,9 @@ def db_get_recent_recovery(
     user_id: int,
     days: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="user_recovery")
+    sb = get_sb(ctx, caller="user_recovery.db_get_recent_recovery")
 
     res = (
         sb.table(TABLE_USERS_RECOVERY)

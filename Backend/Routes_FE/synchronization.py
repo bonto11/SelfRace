@@ -1,7 +1,7 @@
 # Routes_FE/synchronization.py
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Request
 from typing import Any, Dict
 
 from Schemas.synchronization import (
@@ -9,16 +9,15 @@ from Schemas.synchronization import (
     SyncActivitiesResponse,
 )
 from Services.synchronization_bulk import service_sync_activities
-from Modules.HTTP.auth_deps import require_user_jwt
+from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/synchronization", tags=["synchronization"])
 
 
 @router.post("/{user_id}", response_model=SyncActivitiesResponse)
 def sync_activities_endpoint(
+    req: Request,
     user_id: int,
-    payload: SyncActivitiesRequest,
-    user_jwt: str = Depends(require_user_jwt),
 ) -> Dict[str, Any]:
     """
     Spustí Strava sync pre daného usera.
@@ -30,9 +29,11 @@ def sync_activities_endpoint(
     JWT je povinné – sync je vždy user-scoped (RLS).
     """
     try:
+        ctx = require_user(get_auth_ctx(req))
+        
         stats = service_sync_activities(
             user_id=user_id,
-            user_jwt=user_jwt,
+            ctx=ctx
         )
         return {
             "success": True,

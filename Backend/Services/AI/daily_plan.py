@@ -27,7 +27,7 @@ from Services.AI.daily_plan_builders import (
     build_daily_rows_from_ai,
 )
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -133,13 +133,9 @@ def service_generate_daily_week(
     *,
     week_index: int,
     plan_id: Optional[str] = None,
-    overwrite: bool = True,
     model: Optional[str] = None,
-    debug: bool = False,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
@@ -147,8 +143,8 @@ def service_generate_daily_week(
     daily_model = model
 
     # quota only for non-service calls
-    if not service and is_user_over_token_quota(user_id, user_jwt=jwt, service=service):
-        used = get_user_monthly_usage_tokens(user_id)
+    if is_user_over_token_quota(user_id, ctx=ctx,):
+        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
             "daily_plan": None,
             "plan_id": plan_id,
@@ -157,7 +153,7 @@ def service_generate_daily_week(
             "week_end": None,
             "state_id": None,
             "model": daily_model,
-            "overwrite": overwrite,
+            "overwrite": True,
             "inserted_rows": 0,
             "deleted_rows": 0,
             "error": {
@@ -171,20 +167,18 @@ def service_generate_daily_week(
         }
 
     # 1) context z buildera
-    ctx = build_daily_context_from_db(
+    contex = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
         plan_id=plan_id,
-        overwrite=overwrite,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
-    context_payload = ctx["context_payload"]
-    plan_id_effective: Optional[str] = ctx["plan_id_effective"]
-    week_meta: Dict[str, Any] = ctx["week_meta"]
-    state_row: Optional[Dict[str, Any]] = ctx["state_row"]
-    prefs_ai: Dict[str, Any] = ctx["prefs_ai"]
+    context_payload = contex["context_payload"]
+    plan_id_effective: Optional[str] = contex["plan_id_effective"]
+    week_meta: Dict[str, Any] = contex["week_meta"]
+    state_row: Optional[Dict[str, Any]] = contex["state_row"]
+    prefs_ai: Dict[str, Any] = contex["prefs_ai"]
 
     # 2) AI -> plan
     ai_plan, trace = generate_daily_week_json(
@@ -224,10 +218,11 @@ def service_generate_daily_week(
                     user_id=user_id,
                     usage=usage,
                     job_type="coach.generate_daily_plan",
-                    source="service" if service else "user",
+                    source="user",
                     billed_via="internal",
                     charge_wallet=False,
                     meta={"week_index": week_index, "plan_id": plan_id_effective},
+                    ctx=ctx,
                 )
             except Exception as e:  # noqa: BLE001
                 print("[AI_BILLING] daily_plan billing error:", repr(e))
@@ -240,7 +235,7 @@ def service_generate_daily_week(
             "week_end": week_end,
             "state_id": (state_row or {}).get("id"),
             "model": daily_model,
-            "overwrite": overwrite,
+            "overwrite": True,
             "inserted_rows": 0,
             "deleted_rows": 0,
             "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
@@ -266,10 +261,11 @@ def service_generate_daily_week(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.generate_daily_plan",
-                source="service" if service else "user",
+                source="user",
                 billed_via="internal",
                 charge_wallet=False,
                 meta={"week_index": week_index, "plan_id": plan_id_effective},
+                ctx=ctx,
             )
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] daily_plan billing error:", repr(e))
@@ -289,8 +285,7 @@ def service_generate_daily_week(
         equipment_mode=equipment_mode if isinstance(equipment_mode, str) else None,
         today=date.today(),
         weeks_back=8,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # Ensure stable ordering for FE + DB
@@ -313,14 +308,13 @@ def service_generate_daily_week(
 
     # 6) DB write
     deleted_rows = 0
-    if overwrite and plan_id_effective and date_from and date_to:
+    if plan_id_effective and date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
             user_id=user_id,
             plan_id=plan_id_effective,
             date_from=date_from,
             date_to=date_to,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
 
     rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
@@ -329,7 +323,7 @@ def service_generate_daily_week(
         daily_plan=daily_plan,
     )
 
-    inserted_rows = db_insert_daily_rows(rows_to_insert, user_jwt=jwt, service=service) if rows_to_insert else 0
+    inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
@@ -339,18 +333,18 @@ def service_generate_daily_week(
         "week_end": daily_plan.get("week_end") or week_meta.get("week_end"),
         "state_id": (state_row or {}).get("id"),
         "model": daily_plan.get("model") or daily_model,
-        "overwrite": overwrite,
+        "overwrite": True,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
         "error": None,
     }
 
-    if debug:
-        resp["debug_trace"] = trace
-        resp["context_payload"] = context_payload
-        resp["ai_usage"] = usage
-        resp["billing"] = billing_result
-        resp["ai_plan_raw"] = ai_plan
+
+    resp["debug_trace"] = trace
+    resp["context_payload"] = context_payload
+    resp["ai_usage"] = usage
+    resp["billing"] = billing_result
+    resp["ai_plan_raw"] = ai_plan
 
     return resp
 
@@ -359,15 +353,14 @@ def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
     *,
-    user_jwt: str,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = require_jwt(user_jwt)
 
     if horizon_days <= 0:
         horizon_days = 7
 
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt) or db_get_latest_plan_meta_for_user(
-        user_id=user_id, user_jwt=jwt
+    meta = db_get_active_plan_meta_for_user(ctx=ctx,user_id=user_id) or db_get_latest_plan_meta_for_user(
+        user_id=user_id, ctx=ctx,
     )
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
 
@@ -376,7 +369,7 @@ def service_get_daily_overview(
             user_id=user_id,
             horizon_days=horizon_days,
             plan_id=plan_id,
-            user_jwt=jwt,
+            ctx=ctx,
         )
         or []
     )
@@ -423,18 +416,16 @@ def service_auto_extend_daily_plan(
     user_id: int,
     *,
     min_horizon_days: int = 4,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     if min_horizon_days <= 0:
         min_horizon_days = 6
 
     today = date.today()
 
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, user_jwt=jwt, service=service) or db_get_latest_plan_meta_for_user(
-        user_id=user_id, user_jwt=jwt, service=service
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx,) or db_get_latest_plan_meta_for_user(
+        user_id=user_id, ctx=ctx,
     )
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
     if not plan_id:
@@ -445,8 +436,7 @@ def service_auto_extend_daily_plan(
             user_id=user_id,
             horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
             plan_id=plan_id,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         or []
     )
@@ -469,8 +459,7 @@ def service_auto_extend_daily_plan(
         db_get_weekly_for_user_plan(
             user_id=user_id,
             plan_id=plan_id,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         or []
     )
@@ -527,11 +516,8 @@ def service_auto_extend_daily_plan(
             user_id=user_id,
             week_index=week_idx,
             plan_id=plan_id,
-            overwrite=True,
             model=None,
-            debug=False,
-            user_jwt=jwt,
-            service=service,
+            ctx=ctx,
         )
         generated.append(week_idx)
 
@@ -540,8 +526,7 @@ def service_auto_extend_daily_plan(
                 user_id=user_id,
                 horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
                 plan_id=plan_id,
-                user_jwt=jwt,
-                service=service,
+                ctx=ctx,
             )
             or []
         )

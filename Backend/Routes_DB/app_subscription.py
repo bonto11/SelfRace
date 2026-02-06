@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import (
     TABLE_APP_SUBSCRIPTION_TIERS,
     TABLE_APP_USER_SUBSCRIPTIONS,
@@ -16,17 +17,12 @@ from Configs.config import (
 def db_list_app_subscription_tiers(
     *,
     include_inactive: bool = False,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Zoznam app tierov (free / classic / pro ...).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_subscription_tiers.list",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_list_app_subscription_tiers")
 
     res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
@@ -44,17 +40,12 @@ def db_list_app_subscription_tiers(
 def db_get_app_subscription_tier_by_code(
     code: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Konkrétny tier podľa code (napr. 'free', 'classic', 'pro').
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_subscription_tiers.get_by_code",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_get_app_subscription_tier_by_code")
 
     res = (
         sb.table(TABLE_APP_SUBSCRIPTION_TIERS)
@@ -77,17 +68,12 @@ def db_upsert_app_subscription_tier(
     ai_monthly_tokens_limit: int,
     is_active: bool = True,
     sort_order: int = 0,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Insert / update jedného tieru (podľa code).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_subscription_tiers.upsert",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_upsert_app_subscription_tier")
 
     payload = {
         "code": code,
@@ -123,17 +109,12 @@ def db_insert_app_user_subscription(
     external_customer_id: Optional[str] = None,
     external_subscription_id: Optional[str] = None,
     meta: Optional[Dict[str, Any]] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vloží nový záznam do app_user_subscriptions (napr. po webhooku z platobnej brány).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_user_subscriptions.insert",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_insert_app_user_subscription")
 
     payload = {
         "user_id": user_id,
@@ -161,17 +142,12 @@ def db_update_app_user_subscription_status(
     current_period_end: Optional[str] = None,
     cancel_at_period_end: Optional[bool] = None,
     meta_patch: Optional[Dict[str, Any]] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Update statusu / period end atď. pre existujúci subscription.
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_user_subscriptions.update_status",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_update_app_user_subscription_status")
 
     patch: Dict[str, Any] = {"status": status}
     if current_period_start is not None:
@@ -198,17 +174,12 @@ def db_list_app_user_subscriptions(
     user_id: int,
     *,
     limit: int = 20,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     História všetkých subscriptionov usera (napr. pre admin alebo settings UI).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_user_subscriptions.list_for_user",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_list_app_user_subscriptions")
 
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
@@ -226,17 +197,12 @@ def db_list_app_user_subscriptions(
 def db_get_active_app_subscription_for_user(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Vráti posledný ACTIVE subscription pre usera (ak existuje).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_user_subscriptions.get_active_for_user",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_get_active_app_subscription_for_user")
 
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
@@ -259,17 +225,12 @@ def db_set_user_app_subscription_tier(
     user_id: int,
     tier_code: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Nastaví users.app_subscription_tier (rýchly flag pre FE / billing).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="users.set_app_subscription_tier",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_set_user_app_subscription_tier")
 
     res = (
         sb.table(TABLE_USERS)
@@ -286,17 +247,12 @@ def db_set_user_app_subscription_tier(
 def db_get_user_app_subscription_tier(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> str:
     """
     Vráti users.app_subscription_tier (alebo 'free' ak je NULL).
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="users.get_app_subscription_tier",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_get_user_app_subscription_tier")
 
     res = (
         sb.table(TABLE_USERS)
@@ -315,19 +271,14 @@ def db_get_user_app_subscription_tier(
 def db_list_due_subscription_changes(
     *,
     now_iso: str,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
     limit: int = 1000,
 ) -> List[Dict[str, Any]]:
     """
     ACTIVE subscriptions s cancel_at_period_end = true
     a current_period_end <= now_iso.
     """
-    sb = get_sb(
-        user_jwt=user_jwt,
-        service=service,
-        caller="app_user_subscriptions.list_due_changes",
-    )
+    sb = get_sb(ctx, caller="app_subscription.db_list_due_subscription_changes")
 
     res = (
         sb.table(TABLE_APP_USER_SUBSCRIPTIONS)

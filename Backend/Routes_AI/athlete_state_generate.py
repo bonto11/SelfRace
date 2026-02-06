@@ -11,6 +11,7 @@ from Routes_AI.athlete_state_prompts import (
     build_prompts_for_analyze,
     build_prompts_for_progress,
 )
+from Modules.Supabase.auth import AuthCtx
 
 from Services.AI.provider import ai_call_json_model
 
@@ -89,6 +90,7 @@ def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
 def generate_athlete_state_json(
     context_payload: dict,
     model: str,
+    ctx:AuthCtx,
 ) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-aware (OpenAI/Gemini) generate analyze JSON.
@@ -99,7 +101,7 @@ def generate_athlete_state_json(
     settings: Dict[str, Any] = {}
     if user_id:
         try:
-            settings = service_load_user_settings(user_id) or {}
+            settings = service_load_user_settings(ctx=ctx,user_id=user_id) or {}
         except Exception:
             settings = {}
 
@@ -108,6 +110,7 @@ def generate_athlete_state_json(
     system_txt, user_txt = build_prompts_for_analyze(
         context_payload,
         settings=settings,
+        ctx=ctx,
     )
 
     res = ai_call_json_model(
@@ -197,6 +200,7 @@ def generate_athlete_progress_report(
     current_state: dict,
     model: str,
     user_id: Optional[int] = None,
+    ctx:AuthCtx,
 ) -> Tuple[dict, Dict[str, Any]]:
     """
     Provider-aware progress report.
@@ -205,7 +209,7 @@ def generate_athlete_progress_report(
     settings: Dict[str, Any] = {}
     if user_id:
         try:
-            settings = service_load_user_settings(user_id) or {}
+            settings = service_load_user_settings(ctx=ctx, user_id=user_id) or {}
         except Exception:
             settings = {}
 
@@ -215,6 +219,7 @@ def generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
         settings=settings,
+        ctx=ctx,
     )
 
     context_payload = {

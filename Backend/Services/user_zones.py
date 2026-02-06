@@ -7,7 +7,7 @@ from Routes_DB.user_zones import (
     db_user_zones_insert_row,
 )
 from Schemas.user_zones import ZonesOut, Sport
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 # ------------ helpers ------------
@@ -109,9 +109,8 @@ def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def service_load_user_zones(
     user_id: int,
+    ctx: AuthCtx,
     sport: Optional[str] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
 ) -> Optional[ZonesOut]:
     """
     Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
@@ -120,38 +119,28 @@ def service_load_user_zones(
       - service=False: RLS (require_jwt).
       - service=True: service klient.
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     sport_filter = _canon_sport(sport) if sport else None
     row = db_user_zones_fetch_latest(
         user_id,
         sport_filter,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     return _normalize_out(row) if row else None
 
 
 def service_load_user_zones_all_latest(
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+        ctx: AuthCtx,
+
 ) -> Dict[str, ZonesOut]:
     """
     Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
 
     rows = db_user_zones_fetch_all(
         user_id,
-        user_jwt=jwt,
-        service=service,
+        ctx=ctx,
     )
     out: Dict[str, ZonesOut] = {}
     for r in rows:
@@ -165,24 +154,23 @@ def service_load_user_zones_all_latest(
 def service_save_user_zones(
     user_id: int,
     payload: Dict[str, Any],
-    user_jwt: Optional[str] = None,
+        ctx: AuthCtx,
+
 ) -> ZonesOut:
     """
     Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
     Vyžaduje user_jwt (RLS).
     """
-    user_jwt = require_jwt(user_jwt)
 
     row = _normalize_insert(user_id, payload or {})
     db_user_zones_insert_row(
         row,
-        user_jwt=user_jwt,
+        ctx=ctx,
     )
     return service_load_user_zones(
-        user_id,
-        row["sport"],
-        user_jwt=user_jwt,
-        service=False,
+        user_id=user_id,
+        sport = row["sport"],
+        ctx=ctx,
     ) or {
         "sport": row["sport"]
     }  # type: ignore[return-value]
@@ -190,44 +178,42 @@ def service_save_user_zones(
 
 def service_choose_best_zones(
     user_id: int,
+    ctx: AuthCtx,
     preferred_sport: Optional[str] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+
 ) -> Optional[ZonesOut]:
     """
     Heuristika: skús preferred_sport, potom running, potom hocičo.
     """
     z = service_load_user_zones(
-        user_id,
-        preferred_sport,
-        user_jwt=user_jwt,
-        service=service,
+        user_id=user_id,
+        ctx=ctx,
+        sport=preferred_sport,
     )
     if z:
         return z
 
     z = service_load_user_zones(
-        user_id,
-        "running",
-        user_jwt=user_jwt,
-        service=service,
+        user_id=user_id,
+        ctx=ctx,
+        sport="running",
+
     )
     if z:
         return z
 
     all_latest = service_load_user_zones_all_latest(
         user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     return next(iter(all_latest.values()), None)
 
 
 def service_build_zones_block_for_analysis(
     user_id: int,
+    ctx: AuthCtx,
     preferred_sport: Optional[str] = "running",
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+
 ) -> Dict[str, Any]:
     """
     Vráti blok pre CoachAnalyzeInput["zones"].
@@ -241,10 +227,9 @@ def service_build_zones_block_for_analysis(
       - service=True: service klient.
     """
     best = service_choose_best_zones(
-        user_id,
-        preferred_sport,
-        user_jwt=user_jwt,
-        service=service,
+        user_id=user_id,
+        preferred_sport=preferred_sport,
+        ctx=ctx,
     )
     if not best:
         return {

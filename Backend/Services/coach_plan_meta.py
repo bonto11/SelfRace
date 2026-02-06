@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user
-from Services.users import require_jwt
+from Modules.Supabase.auth import AuthCtx
 
 
 def service_build_active_plan_block_for_analysis(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Blok active_plan pre CoachAnalyzeInput.
@@ -28,20 +27,11 @@ def service_build_active_plan_block_for_analysis(
         "horizon_days": int | None,
       }
     """
-    if service:
-        jwt = user_jwt  # typicky None – DB vrstva si vyberie service klienta
-        row = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-            service=True,
-        )
-    else:
-        jwt = require_jwt(user_jwt)
-        row = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            user_jwt=jwt,
-            service=False,
-        )
+
+    row = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        ctx=ctx
+    )
 
     if not row:
         return {

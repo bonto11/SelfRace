@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from Modules.Supabase.auth import AuthCtx
 
 from Routes_DB.app_subscription import (
     db_list_app_subscription_tiers,
@@ -32,13 +33,11 @@ def _tier_rank(code: str) -> int:
 def service_list_app_subscription_tiers(
     *,
     include_inactive: bool = False,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     return db_list_app_subscription_tiers(
         include_inactive=include_inactive,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
@@ -48,19 +47,16 @@ def service_list_app_subscription_tiers(
 def service_get_user_app_subscription_status(
     *,
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     tiers = db_list_app_subscription_tiers(
         include_inactive=False,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     effective_tier = "free"
@@ -97,14 +93,12 @@ def service_list_user_app_subscriptions(
     *,
     user_id: int,
     limit: int = 20,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     return db_list_app_user_subscriptions(
         user_id=user_id,
         limit=limit,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
 
@@ -115,8 +109,7 @@ def service_set_user_app_subscription_tier_manual(
     *,
     user_id: int,
     tier_code: str,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Manuálne prepnutie:
@@ -137,8 +130,7 @@ def service_set_user_app_subscription_tier_manual(
     if tier_code != "free":
         tier = db_get_app_subscription_tier_by_code(
             code=tier_code,
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
         if not tier:
             raise ValueError(f"Unknown subscription tier: {tier_code!r}")
@@ -150,8 +142,7 @@ def service_set_user_app_subscription_tier_manual(
 
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     current_code = str(active.get("tier_code")) if active else "free"
@@ -167,8 +158,7 @@ def service_set_user_app_subscription_tier_manual(
                 subscription_id=int(active["id"]),
                 status="cancelled",
                 current_period_end=now_iso,
-                user_jwt=user_jwt,
-                service=service,
+                ctx=ctx,
             )
 
         start_iso = now_iso
@@ -184,8 +174,7 @@ def service_set_user_app_subscription_tier_manual(
             external_customer_id=None,
             external_subscription_id=None,
             meta={"source": "manual_dev_upgrade"},
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
 
     elif active and active.get("id"):
@@ -209,8 +198,7 @@ def service_set_user_app_subscription_tier_manual(
             current_period_end=period_end_iso,
             cancel_at_period_end=True,
             meta_patch=meta,
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
         new_active = updated
     else:
@@ -219,8 +207,7 @@ def service_set_user_app_subscription_tier_manual(
 
     status = service_get_user_app_subscription_status(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     return {
@@ -237,8 +224,7 @@ def service_set_user_app_subscription_tier_manual(
 def service_apply_due_subscription_changes(
     *,
     now: Optional[datetime] = None,
-    user_jwt: Optional[str] = None,
-    service: bool = True,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Cron – napr. raz denne.
@@ -255,8 +241,7 @@ def service_apply_due_subscription_changes(
 
     due_rows = db_list_due_subscription_changes(
         now_iso=now_iso,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     processed: List[Dict[str, Any]] = []
@@ -289,8 +274,7 @@ def service_apply_due_subscription_changes(
             current_period_end=start_iso,
             cancel_at_period_end=False,
             meta_patch=meta,
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
 
         if pending_cancel or target_tier == "free":
@@ -317,8 +301,7 @@ def service_apply_due_subscription_changes(
                 "source": "downgrade_cron",
                 "previous_subscription_id": sub_id,
             },
-            user_jwt=user_jwt,
-            service=service,
+            ctx=ctx,
         )
 
         processed.append(
@@ -336,8 +319,7 @@ def service_apply_due_subscription_changes(
 def service_cancel_scheduled_subscription_change(
     *,
     user_id: int,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Zruší pending_downgrade/pending_cancel na aktuálnom active subscriptione.
@@ -345,8 +327,7 @@ def service_cancel_scheduled_subscription_change(
     """
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     if not active:
         raise ValueError("No active subscription to update.")
@@ -370,22 +351,19 @@ def service_cancel_scheduled_subscription_change(
         status=active.get("status", "active"),
         cancel_at_period_end=False,
         meta_patch=meta,
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     # quick flag v users necháme ako je (ostáva aktuálny tier)
     user_row = db_set_user_app_subscription_tier(
         user_id=user_id,
         tier_code=str(updated.get("tier_code", active.get("tier_code"))),
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     tier = db_get_app_subscription_tier_by_code(
         code=str(updated.get("tier_code")),
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
 
     return {

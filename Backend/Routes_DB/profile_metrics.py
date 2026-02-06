@@ -3,26 +3,16 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_PROFILE_METRIC
-
-
-def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
-    """
-    Minimal clone _apply_user_filter, ale iba pre DB layer.
-    """
-    if user_uid:
-        return q.eq("user_uid", user_uid)
-    return q.eq("user_id", user_id)
-
 
 # -------- insert --------
 def db_insert_metric_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
+    sb = get_sb(ctx, caller="profile_metrics.db_insert_metric_rows")
 
     res = sb.table(TABLE_PROFILE_METRIC).insert(rows).execute()
     return res.data or rows
@@ -37,10 +27,9 @@ def db_get_metric_history(
     date_to: Optional[str] = None,
     limit: Optional[int] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
+    sb = get_sb(ctx, caller="profile_metrics.db_get_metric_history")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -48,7 +37,7 @@ def db_get_metric_history(
         .eq("metric", metric)
         .order("measured_at", desc=False)
     )
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q.eq("user_id", user_id)
     if date_from:
         q = q.gte("measured_at", date_from)
     if date_to:
@@ -64,12 +53,10 @@ def db_get_metric_history(
 def db_get_latest_metric(
     user_id: int,
     metric: str,
-    user_uid: Optional[str] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
+    sb = get_sb(ctx, caller="profile_metrics.db_get_latest_metric")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -78,7 +65,7 @@ def db_get_latest_metric(
         .order("measured_at", desc=True)
         .limit(1)
     )
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q.eq("user_id", user_id)
     res = q.execute()
     data = res.data or []
     return data[0] if data else None
@@ -87,12 +74,10 @@ def db_get_latest_metric(
 # -------- VO2 kompat endpoints --------
 def db_get_vo2_measured_history(
     user_id: int,
-    user_uid: Optional[str] = None,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
+    sb = get_sb(ctx, caller="profile_metrics.db_get_vo2_measured_history")
 
     q = (
         sb.table(TABLE_PROFILE_METRIC)
@@ -100,7 +85,7 @@ def db_get_vo2_measured_history(
         .eq("metric", "VO2Max_measured")
         .order("measured_at", desc=False)
     )
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q.eq("user_id", user_id)
     res = q.execute()
     return res.data or []
 
@@ -108,13 +93,12 @@ def db_get_vo2_measured_history(
 def fetch_user_hr_max(
     user_id: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> Optional[float]:
     """
     Helper na vytiahnutie HR_max z profile_metric.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller ="profile_metrics")
+    sb = get_sb(ctx, caller="profile_metrics.fetch_user_hr_max")
 
     try:
         rec = (

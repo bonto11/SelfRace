@@ -27,6 +27,7 @@ from Services.synchronization_utils import (
     _normalize_split,
     _decide_laps_or_splits,
 )
+from Modules.Supabase.auth import AuthCtx
 
 from Routes_DB.account import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
@@ -201,8 +202,8 @@ def _to_list_of_dicts(items: Any) -> List[Dict[str, Any]]:
 def service_sync_single_activity(
     user_id: int,
     strava_activity_id: int,
+    ctx: AuthCtx,
     fetch_details: bool = True,
-    user_jwt: Optional[str] = None,
 ) -> Dict[str, int]:
     """
     Sync JEDNEJ Strava aktivity – pre webhook (user_jwt=None → service client)
@@ -213,10 +214,6 @@ def service_sync_single_activity(
     """
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
-        print(
-            f"[SYNC:single] no valid Strava access_token for user_id={user_id}, "
-            f"activity_id={strava_activity_id}"
-        )
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
     client = StravaActivitiesClient(access_token=access_token)
@@ -227,8 +224,6 @@ def service_sync_single_activity(
     fetched = 0
 
     aid = int(strava_activity_id)
-
-    service_mode = user_jwt is None
 
     # ---------- 1) DETAIL AKTIVITY ----------
     try:
@@ -249,8 +244,7 @@ def service_sync_single_activity(
     try:
         existing_row = db_get_activity_summary_one(
             activity_id=aid,
-            user_jwt=user_jwt,
-            service=service_mode,
+            ctx=ctx,
         )
         exists = bool(existing_row)
     except Exception as e:  # noqa: BLE001
@@ -259,9 +253,8 @@ def service_sync_single_activity(
 
     try:
         db_upsert_activities_summary(
-            [row],
-            user_jwt=user_jwt,
-            service=service_mode,
+            rows=[row],
+            ctx=ctx,
         )
         if exists:
             updated += 1
@@ -291,8 +284,7 @@ def service_sync_single_activity(
             if mode == "splits":
                 db_delete_laps_for_activity(
                     aid,
-                    user_jwt=user_jwt,
-                    service=service_mode,
+                   ctx=ctx,
                 )
 
                 split_rows = [
@@ -302,15 +294,13 @@ def service_sync_single_activity(
                 for s_row in split_rows:
                     db_upsert_split(
                         s_row,
-                        user_jwt=user_jwt,
-                        service=service_mode,
+                        ctx=ctx,
                     )
 
             elif mode == "laps":
                 db_delete_splits_for_activity(
                     aid,
-                    user_jwt=user_jwt,
-                    service=service_mode,
+                    ctx=ctx,
                 )
 
                 # ✅ teraz L je Dict[str, Any], Pylance OK
@@ -318,8 +308,7 @@ def service_sync_single_activity(
                 for l_row in lap_rows:
                     db_upsert_lap(
                         l_row,
-                        user_jwt=user_jwt,
-                        service=service_mode,
+                        ctx=ctx,
                     )
             else:
                 print(f"[SYNC:single] no usable laps/splits for id={aid}")
@@ -332,8 +321,7 @@ def service_sync_single_activity(
         enrich_activities_for_ids(
             user_id=user_id,
             activity_ids=[aid],
-            user_jwt=user_jwt,
-            service=service_mode,
+            ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")
@@ -343,7 +331,7 @@ def service_sync_single_activity(
         f"updated={updated} skipped={skipped} fetched={fetched}"
     )
 
-    mark_strava_ever_synced_now(user_id=user_id)
+    mark_strava_ever_synced_now(ctx=ctx,user_id=user_id)
     return {
         "imported": int(imported),
         "updated": int(updated),

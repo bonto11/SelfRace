@@ -10,9 +10,13 @@ from Routes_DB.account import (
     db_cancel_account_delete_request,
 )
 
+from Modules.Supabase.auth import AuthCtx
+
+
 # ✅ NEW: okamžité odpojenie Stravy pri delete requeste
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Configs.config import DELETE_GRACE_DAYS
+
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
@@ -25,13 +29,11 @@ def _iso(dt: datetime) -> str:
 def service_get_account_delete_status(
     *,
     user_id: int,
-    user_jwt: Optional[str],
-    service: bool,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     row = db_get_account_delete_row(
         user_id=int(user_id),
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx
     )
 
     if not row:
@@ -76,8 +78,7 @@ def service_get_account_delete_status(
 def service_request_account_delete(
     *,
     user_id: int,
-    user_jwt: Optional[str],
-    service: bool,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     ✅ nový safe flow:
@@ -94,10 +95,7 @@ def service_request_account_delete(
     # 2) vytvor delete request
     delete_at = _now_utc() + timedelta(days=DELETE_GRACE_DAYS)
     row = db_upsert_account_delete_request(
-        user_id=int(user_id),
-        delete_at_iso=_iso(delete_at),
-        user_jwt=user_jwt,
-        service=service,
+        user_id=int(user_id), delete_at_iso=_iso(delete_at), ctx=ctx
     )
 
     return {
@@ -113,13 +111,11 @@ def service_request_account_delete(
 def service_cancel_account_delete(
     *,
     user_id: int,
-    user_jwt: Optional[str],
-    service: bool,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     row = db_cancel_account_delete_request(
         user_id=int(user_id),
-        user_jwt=user_jwt,
-        service=service,
+        ctx=ctx,
     )
     return {
         "ok": True,

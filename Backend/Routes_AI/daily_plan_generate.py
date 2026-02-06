@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
 from Services.AI.provider import ai_call_json_model
+from Modules.Supabase.auth import AuthCtx
 
 
 # -----------------------------------------------------------------------------

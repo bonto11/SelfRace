@@ -4,14 +4,14 @@ from typing import Any, Dict, List, Optional
 from datetime import date, timedelta
 
 from Modules.Supabase.client import get_sb
+from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
 
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Bulk INSERT do coach_plan_daily.
@@ -20,7 +20,7 @@ def db_insert_daily_rows(
     if not rows:
         return 0
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_insert_daily_rows")
 
     try:
         res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
@@ -38,13 +38,12 @@ def db_clear_daily_for_user_week(
     week_start: str,
     week_end: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     DELETE všetkých daily riadkov pre daný plán + týždeň (interval dátumov).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_week")
 
     try:
         res = (
@@ -81,13 +80,12 @@ def db_get_planned_range_rows(
     date_from: str,
     date_to: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
     Načíta všetky plánované sessions pre usera v danom dátumovom rozsahu.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_planned_range_rows")
 
     try:
         res = (
@@ -107,18 +105,17 @@ def db_get_planned_range_rows(
 
 
 def db_link_session_to_activity(
-    user_id: int,
+    user_id:int,
+    ctx: AuthCtx,
     session_id: int,
+        *,
     activity_id: Optional[int],
-    *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
     – zapíše activity_id.
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_link_session_to_activity")
 
     try:
         res = (
@@ -138,8 +135,7 @@ def db_list_daily_for_user_horizon(
     user_id: int,
     horizon_days: int,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
     plan_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
@@ -155,7 +151,7 @@ def db_list_daily_for_user_horizon(
     date_from = today.isoformat()
     date_to = end_date.isoformat()
 
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_list_daily_for_user_horizon")
 
     try:
         query = (
@@ -182,13 +178,12 @@ def db_clear_daily_for_user_plan(
     user_id: int,
     plan_id: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
     """
     Delete všetkých daily riadkov pre daný plán (bez ohľadu na dátum).
     """
-    sb = get_sb(user_jwt=user_jwt, service=service, caller="coach_plan_daily")
+    sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_plan")
 
     try:
         res = (
@@ -210,16 +205,16 @@ def db_clear_daily_for_user_plan(
         print("[DB-COACH-DAILY] clear_plan error:", repr(e))
         return 0
 
+
 def db_clear_daily_for_user_range(
     user_id: int,
     plan_id: str,
     date_from: str,
     date_to: str,
     *,
-    user_jwt: Optional[str] = None,
-    service: bool = False,
+    ctx: AuthCtx,
 ) -> int:
-    sb = get_sb(user_jwt=user_jwt, service=service)
+    sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_range")
 
     res = (
         sb.table(TABLE_COACH_PLAN_DAILY)
