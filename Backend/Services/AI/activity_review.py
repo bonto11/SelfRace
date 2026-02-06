@@ -41,12 +41,9 @@ def _default_ai_model() -> str:
 
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     ctx = json.loads(json.dumps(payload, default=str))
-
     u = ctx.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
-
-    # nikdy neposielame debug bloky do AI
     ctx.pop("_debug", None)
     return ctx
 
@@ -59,10 +56,8 @@ def service_activity_review(
     service: bool = False,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
-    
-    print("service_activity_review",user_jwt, service)
-    
-    jwt = None if service else require_jwt(user_jwt)
+    # ✅ v service režime JWT netreba
+    jwt = user_jwt if service else require_jwt(user_jwt)
     model_to_use = (model or _default_ai_model()).strip()
 
     # quota (len user-triggered)
@@ -85,7 +80,6 @@ def service_activity_review(
             },
         }
 
-    # build input (DB calls)
     input_data = build_review_input(
         user_id=user_id,
         activity_id=activity_id,
@@ -95,10 +89,8 @@ def service_activity_review(
 
     context_for_ai = _minify_context_for_ai(input_data)
 
-    # hard stop – ak nemáme metrics, AI sa nemá o čo oprieť
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
     metrics = act.get("metrics") if isinstance(act, dict) else None
-
     if not isinstance(metrics, dict) or not metrics:
         return {
             "ok": False,
@@ -121,11 +113,13 @@ def service_activity_review(
             },
         }
 
-    # AI call (generator má VŽDY vracať trace)
+    # ✅ tu bol tvoj bug: generate nevedelo načítať user settings, lebo nemalo jwt/service
     review, trace = generate_activity_review_json(
         context_payload=context_for_ai,
         model=model_to_use,
-        user_id=user_id,  # timezone/jazyk
+        user_id=user_id,
+        user_jwt=jwt,
+        service=service,
     )
 
     if not isinstance(trace, dict):
@@ -139,7 +133,6 @@ def service_activity_review(
     review["model"] = str(review.get("model") or trace.get("ok_model") or model_to_use)
     review.setdefault("activity_id", activity_id)
 
-    # ✅ billing (usage = z trace; model doplníme fallbackom)
     usage = extract_usage_from_trace(trace, model_fallback=review["model"])
     if usage:
         try:
@@ -155,7 +148,7 @@ def service_activity_review(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] activity_review billing error:", repr(e))
 
-    # ✅ DB (len output JSON)
+    # ✅ DB
     try:
         db_upsert_ai_review_one(
             user_id=user_id,
@@ -175,7 +168,7 @@ def service_activity_review(
         "summary": review.get("summary"),
         "highlights": review.get("highlights"),
         "recommendations": review.get("next_steps"),
-        "trace": trace,      # ✅ ALWAYS
-        "ai_usage": usage,   # ✅ best-effort
+        "trace": trace,
+        "ai_usage": usage,
         "error": None,
     }

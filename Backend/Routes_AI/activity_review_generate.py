@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from Services.user_prefs import service_load_user_settings
-from Services.users import require_jwt
 from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 
@@ -52,10 +51,6 @@ def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
 
 
 def _get_trace_from_result(res: Any) -> Dict[str, Any]:
-    """
-    ✅ vždy vráť aspoň minimálny trace
-    Preferuj res.trace (nové), fallback na res.error.trace (staré).
-    """
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
         return tr
@@ -82,29 +77,17 @@ def generate_activity_review_json(
     user_jwt: Optional[str] = None,
     service: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """
-    IMPORTANT:
-    - Keď service=True (job/worker), NESMIE vyžadovať Authorization JWT.
-    - Keď service=False (FE), JWT je povinný.
-    """
     print("[AR][generate_activity_review_json] user_id", user_id, "service", service)
-
-    # JWT routing: FE -> require_jwt, worker -> None/forward
-    jwt = user_jwt if service else require_jwt(user_jwt)
 
     settings: Dict[str, Any] = {}
     if user_id is not None:
         try:
-            # musí podporovať service=True (service client) bez JWT
-            settings = (
-                service_load_user_settings(
-                    int(user_id),
-                    user_jwt=jwt,
-                    service=service,
-                )
-                or {}
-            )
-        except Exception as e:  # noqa: BLE001
+            settings = service_load_user_settings(
+                int(user_id),
+                user_jwt=user_jwt,
+                service=service,
+            ) or {}
+        except Exception as e:
             print("[AR][generate] settings load error", repr(e))
             settings = {}
 
@@ -125,7 +108,6 @@ def generate_activity_review_json(
 
     trace = _get_trace_from_result(res)
 
-    # success
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
         parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
         parsed.setdefault("schema_version", 1)
@@ -140,7 +122,6 @@ def generate_activity_review_json(
 
         return parsed, trace
 
-    # failure
     err_msg: Optional[str] = None
     try:
         err_msg = getattr(getattr(res, "error", None), "message", None)
