@@ -11,7 +11,7 @@ from Services.AI.daily_plan import (
     service_generate_daily_week,
     service_get_daily_overview,
 )
-from Modules.HTTP.auth_deps import require_user_jwt
+
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(

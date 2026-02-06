@@ -9,7 +9,7 @@ from Services.AI.athlete_state import (
     service_get_latest_athlete_progress,
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
-from Modules.HTTP.auth_deps import require_user_jwt
+
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(

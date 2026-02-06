@@ -115,7 +115,7 @@ SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
 SUPABASE_ANON_KEY: str = env_required("SUPABASE_ANON_KEY")
 
-INTERNAL_SERVICE_SECRET = "secret"
+INTERNAL_SERVICE_SECRET: str = env_required("SUPABASE_URL")
 # =============================================================================
 # STRAVA
 # =============================================================================

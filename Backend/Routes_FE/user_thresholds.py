@@ -10,7 +10,7 @@ from Services.user_thresholds import (
     service_list_user_thresholds,
     service_list_latest_per_combo,
 )
-from Modules.HTTP.auth_deps import inject_user_jwt
+
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/users", tags=["users"])

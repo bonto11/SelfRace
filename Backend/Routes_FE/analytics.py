@@ -40,7 +40,7 @@ def weekly(
             weeks=weeks,
             ctx=ctx,
         )
-        print("weekly payload",payload)
+   
         return {
             "success": True,
             **payload,
@@ -100,7 +100,7 @@ def pareto_widget(
             sport=sport,
             ctx=ctx,
         )
-        print("pareto_widget payload",data)
+        
         return {
             "success": True,
             "data": data,

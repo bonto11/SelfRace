@@ -18,7 +18,6 @@ from Routes_DB.async_jobs import (
     db_get_recent_jobs,
     db_get_job_by_id,
 )
-from Modules.HTTP.auth_deps import require_user_jwt
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])

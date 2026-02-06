@@ -31,15 +31,22 @@ def get_user_client(user_jwt: str):
 def get_sb(ctx: AuthCtx, *, caller: str = "db"):
     """
     Jediný entrypoint pre DB.
+
     - ctx.mode == "user"     -> RLS client (ANON + JWT)
     - ctx.mode == "internal" -> service role client
     """
-    if ctx.mode == "internal":
+    mode = str(getattr(ctx, "mode", "") or "").strip()
+
+    if mode == "internal":
+        # internal nesmie niesť jwt (nech je to čisté a jednoznačné)
+        if getattr(ctx, "jwt", None):
+            raise RuntimeError(f"{caller}: ctx.mode='internal' must not include jwt (ctx.caller={ctx.caller})")
         return get_service_client()
 
-    if ctx.mode == "user":
-        if not ctx.jwt:
-            raise RuntimeError(f"{caller}: ctx.mode='user' but ctx.jwt is empty")
-        return get_user_client(ctx.jwt)
+    if mode == "user":
+        jwt = str(getattr(ctx, "jwt", "") or "").strip()
+        if not jwt:
+            raise RuntimeError(f"{caller}: ctx.mode='user' but ctx.jwt is empty (ctx.caller={ctx.caller})")
+        return get_user_client(jwt)
 
-    raise RuntimeError(f"{caller}: invalid ctx.mode={ctx.mode}")
+    raise RuntimeError(f"{caller}: invalid ctx.mode={mode!r} (ctx.caller={getattr(ctx, 'caller', None)})")

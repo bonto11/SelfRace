@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Body, HTTPException, Request
 from pydantic import BaseModel
 
-from Modules.HTTP.auth_deps import require_user_jwt
+
 from Services.app_subscription import (
     service_list_app_subscription_tiers,
     service_get_user_app_subscription_status,

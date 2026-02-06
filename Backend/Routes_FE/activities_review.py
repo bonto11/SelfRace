@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from Modules.HTTP.auth_deps import require_user_jwt
-
 from Services.activities_review import service_get_activity_review
 
 router = APIRouter()
