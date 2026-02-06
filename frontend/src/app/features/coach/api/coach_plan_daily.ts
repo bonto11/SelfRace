@@ -132,9 +132,7 @@ export async function apiGenerateDailyForWeek(
   maybeThrowAiQuotaError(result);
 
   if (!result || typeof result !== "object") {
-    throw new Error(
-      "Daily job finished but result payload is empty or invalid"
-    );
+    throw new Error("Daily job finished but result payload is empty or invalid");
   }
 
   return {
@@ -165,6 +163,13 @@ export type DailyPlanStructure = {
 };
 
 export type DailyPlanSession = {
+  /**
+   * ✅ DB PK (stabilné ID session v DB)
+   * BE by malo posielať session_id (alebo id). FE ho len forwarduje.
+   */
+  session_id?: number | string | null;
+  id?: number | string | null;
+
   sport: string;
   title: string | null;
   duration_min: number | null;
@@ -200,9 +205,7 @@ export async function apiGetDailyOverview(
 ): Promise<DailyOverview | null> {
   if (!userId) throw new Error("userId is required in apiGetDailyOverview");
 
-  const path = `/coach-plan-daily/overview/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/coach-plan-daily/overview/${encodeURIComponent(String(userId))}`;
 
   let json: DailyOverviewResponse;
   try {
@@ -219,9 +222,58 @@ export async function apiGetDailyOverview(
   }
 
   if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load daily overview"
-    );
+    throw new Error(json.detail || json.error || "Failed to load daily overview");
+  }
+
+  return json.overview ?? null;
+}
+
+/* ============ RESCHEDULE SAVE (NEW) ============ */
+
+export type DailyRescheduleMove = {
+  session_id: number | string;
+  from_date: string; // YYYY-MM-DD
+  to_date: string;   // YYYY-MM-DD
+};
+
+type DailyRescheduleResponse = {
+  success: boolean;
+  overview: DailyOverview | null;
+  detail?: string | null;
+  error?: string | null;
+};
+
+/**
+ * POST /coach-plan-daily/reschedule/{user_id}
+ * Body: { moves: DailyRescheduleMove[] }
+ * BE: zmení dátum session v DB (podľa PK) a vráti nový overview.
+ */
+export async function apiSaveDailyReschedule(
+  userId: number,
+  moves: DailyRescheduleMove[]
+): Promise<DailyOverview | null> {
+  if (!userId) throw new Error("userId is required in apiSaveDailyReschedule");
+  if (!Array.isArray(moves) || moves.length === 0) return null;
+
+  const path = `/coach-plan-daily/reschedule/${encodeURIComponent(String(userId))}`;
+
+  let json: DailyRescheduleResponse;
+  try {
+    json = await callBackend<DailyRescheduleResponse>(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ moves }),
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiSaveDailyReschedule] ERROR", err);
+    throw err instanceof Error
+      ? err
+      : new Error(`Network/BE error (daily reschedule save): ${String(err)}`);
+  }
+
+  if (!json?.success) {
+    throw new Error(json.detail || json.error || "Failed to save reschedule");
   }
 
   return json.overview ?? null;
