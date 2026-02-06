@@ -59,6 +59,9 @@ def service_activity_review(
     service: bool = False,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
+    
+    print("service_activity_review",user_jwt, service)
+    
     jwt = None if service else require_jwt(user_jwt)
     model_to_use = (model or _default_ai_model()).strip()
 
