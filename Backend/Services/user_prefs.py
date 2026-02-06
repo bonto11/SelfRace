@@ -29,33 +29,35 @@ DEFAULT_USER_SETTINGS: Dict[str, Any] = {
 
 # ---------- generické helpery nad KV prefs ----------
 
-
 def service_get_user_prefs_list(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> List[Dict[str, Any]]:
     """Raw zoznam riadkov z KV tabuľky (key/value/updated_at)."""
-    user_jwt = require_jwt(user_jwt)
-    return db_get_prefs_all(user_id, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    return db_get_prefs_all(user_id, user_jwt=jwt, service=service)
 
 
 def service_get_user_prefs_map(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """Mapovanie {key: value} pre všetky prefs daného usera."""
-    user_jwt = require_jwt(user_jwt)
-    rows = db_get_prefs_all(user_id, user_jwt=user_jwt)
-    return {str(r["key"]): r.get("value") for r in rows}
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    rows = db_get_prefs_all(user_id, user_jwt=jwt, service=service)
+    return {str(r["key"]): r.get("value") for r in (rows or [])}
 
 
 def service_get_user_pref(
     user_id: int,
     key: str,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Optional[Any]:
-    user_jwt = require_jwt(user_jwt)
-    row = db_get_pref_single(user_id, key, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    row = db_get_pref_single(user_id, key, user_jwt=jwt, service=service)
     return row.get("value") if row else None
 
 
@@ -64,31 +66,33 @@ def service_save_user_pref(
     key: str,
     value: Any,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
-    user_jwt = require_jwt(user_jwt)
-    return db_upsert_pref_single(user_id, key, value, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    return db_upsert_pref_single(user_id, key, value, user_jwt=jwt, service=service)
 
 
 def service_save_user_prefs_bulk(
     user_id: int,
     kv: Dict[str, Any],
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
-    user_jwt = require_jwt(user_jwt)
-    return db_upsert_many(user_id, kv, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    return db_upsert_many(user_id, kv, user_jwt=jwt, service=service)
 
 
 def service_delete_user_pref(
     user_id: int,
     key: str,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> int:
-    user_jwt = require_jwt(user_jwt)
-    return db_delete_pref_single(user_id, key, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    return db_delete_pref_single(user_id, key, user_jwt=jwt, service=service)
 
 
 # ---------- COACH prefs / AI analýza ----------
-
 
 def service_load_coach_prefs_for_analysis(
     user_id: int,
@@ -100,12 +104,9 @@ def service_load_coach_prefs_for_analysis(
 
     Režimy:
       - service=False: RLS, require_jwt + RLS klient.
-      - service=True: service klient, user_jwt sa len forwarduje.
+      - service=True:  service klient, user_jwt sa len forwarduje (typicky None).
     """
-    if service:
-        jwt = user_jwt
-    else:
-        jwt = require_jwt(user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
 
     row = db_get_pref_single(
         user_id,
@@ -118,7 +119,6 @@ def service_load_coach_prefs_for_analysis(
 
     val = row.get("value")
     raw: Any
-
     if isinstance(val, dict):
         raw = val
     elif isinstance(val, str):
@@ -136,16 +136,24 @@ def service_save_coach_prefs(
     user_id: int,
     prefs: Dict[str, Any],
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Uloží celé coach prefs (JSON) pod key="coach.prefs".
+    - FE: service=False + JWT
+    - worker: service=True (bez JWT), ak to budeš chcieť niekedy ukladať aj z workeru
     """
-    user_jwt = require_jwt(user_jwt)
-    return db_upsert_pref_single(user_id, COACH_PREFS_KEY, prefs, user_jwt=user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
+    return db_upsert_pref_single(
+        user_id,
+        COACH_PREFS_KEY,
+        prefs,
+        user_jwt=jwt,
+        service=service,
+    )
 
 
 # ---------- USER SETTINGS (jazyk, timezone, …) ----------
-
 
 def _parse_json_value(val: Any) -> Dict[str, Any]:
     """Rozumné rozparsovanie JSON/string/dict hodnoty."""
@@ -163,19 +171,26 @@ def _parse_json_value(val: Any) -> Dict[str, Any]:
 def service_load_user_settings(
     user_id: int,
     user_jwt: Optional[str] = None,
-    service: Optional[bool] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Načíta user nastavenia spod key="user.settings" a doplní defaulty.
-    """
-    user_jwt = require_jwt(user_jwt)
 
-    row = db_get_pref_single(user_id, USER_SETTINGS_KEY, user_jwt=user_jwt)
+    - service=False → FE/RLS (JWT required)
+    - service=True  → worker/webhook (JWT not required)
+    """
+    jwt = user_jwt if service else require_jwt(user_jwt)
+
+    row = db_get_pref_single(
+        user_id,
+        USER_SETTINGS_KEY,
+        user_jwt=jwt,
+        service=service,
+    )
     if not row:
         return DEFAULT_USER_SETTINGS.copy()
 
-    raw_val = row.get("value")
-    parsed = _parse_json_value(raw_val)
+    parsed = _parse_json_value(row.get("value"))
 
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(parsed or {})
@@ -186,45 +201,40 @@ def service_save_user_settings(
     user_id: int,
     settings: Dict[str, Any],
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> Dict[str, Any]:
     """
     Uloží user nastavenia pod key="user.settings".
     """
-    user_jwt = require_jwt(user_jwt)
+    jwt = user_jwt if service else require_jwt(user_jwt)
 
     merged = DEFAULT_USER_SETTINGS.copy()
     merged.update(settings or {})
+
     return db_upsert_pref_single(
         user_id,
         USER_SETTINGS_KEY,
         merged,
-        user_jwt=user_jwt,
+        user_jwt=jwt,
+        service=service,
     )
 
 
 def service_get_user_language(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> str:
-    """
-    Convenience helper – vráti jazyk usera (napr. 'sk' alebo 'en').
-    """
-    settings = service_load_user_settings(user_id, user_jwt=user_jwt)
+    settings = service_load_user_settings(user_id, user_jwt=user_jwt, service=service)
     lang = settings.get("language") or "sk"
-    if isinstance(lang, str):
-        return lang.strip().lower() or "sk"
-    return "sk"
+    return lang.strip().lower() if isinstance(lang, str) and lang.strip() else "sk"
 
 
 def service_get_user_timezone(
     user_id: int,
     user_jwt: Optional[str] = None,
+    service: bool = False,
 ) -> str:
-    """
-    Convenience helper – vráti timezone usera (IANA string).
-    """
-    settings = service_load_user_settings(user_id, user_jwt=user_jwt)
+    settings = service_load_user_settings(user_id, user_jwt=user_jwt, service=service)
     tz = settings.get("timezone") or "Europe/Bratislava"
-    if isinstance(tz, str):
-        return tz.strip() or "Europe/Bratislava"
-    return "Europe/Bratislava"
+    return tz.strip() if isinstance(tz, str) and tz.strip() else "Europe/Bratislava"
