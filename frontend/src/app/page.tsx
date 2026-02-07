@@ -70,7 +70,7 @@ export default function LandingPage() {
                 {t("landing.ctaSignIn")}
               </Link>
 
-              <LangSelector variant="editable" size="sm" />
+              <LangSelector variant="editable" size="md" />
             </div>
 
             <div className="mt-7 flex justify-center">
