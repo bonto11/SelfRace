@@ -11,6 +11,8 @@ import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
 import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
+import UserSettingsBootstrapper from "@/app/shared/i18n/UserSettingsBootstrapper";
+
 import ToastHost from "@/app/shared/ui/components/Toast";
 import ConfirmHost from "@/app/shared/ui/components/Confirm";
 
@@ -32,6 +34,7 @@ export default function ClientProtectedShell({
   return (
     <>
       <UserPrefsBootstrapper />
+      <UserSettingsBootstrapper />
 
       <SidebarProvider>
         <CoachDataProvider>
