@@ -1,13 +1,10 @@
-// src/app/page.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
-
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
-
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -18,7 +15,6 @@ export default function LandingPage() {
     <AppBackdrop>
       <main className="min-h-dvh flex items-center justify-center px-4 py-12">
         <div className="max-w-2xl w-full text-center">
-          {/* Glass hero card */}
           <div
             className="rounded-3xl px-6 sm:px-8 py-10 sm:py-12 backdrop-blur-xl"
             style={{
@@ -27,7 +23,6 @@ export default function LandingPage() {
               boxShadow: appColors.shadowCard,
             }}
           >
-            {/* Logo */}
             <div className="flex justify-center mb-6">
               <Image
                 src="/logo/selfrace_logo_nocolor_230.png"
@@ -40,17 +35,16 @@ export default function LandingPage() {
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight">
-              {t("landing.headline")}
+              {t("landing.h1")}
             </h1>
 
             <p
               className="text-sm sm:text-base max-w-xl mx-auto mt-4 leading-relaxed"
               style={{ color: appColors.textSecondary }}
             >
-              {t("landing.subtitle")}
+              {t("landing.p1")}
             </p>
 
-            {/* CTA buttons */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-7">
               <Link
                 href="/signup"
@@ -61,7 +55,7 @@ export default function LandingPage() {
                   border: `1px solid ${appColors.surfaceCardBorder}`,
                 }}
               >
-                {t("auth.signup")}
+                {t("landing.ctaStart")}
               </Link>
 
               <Link
@@ -73,13 +67,12 @@ export default function LandingPage() {
                   border: `1px solid ${appColors.surfaceCardBorder}`,
                 }}
               >
-                {t("auth.signin")}
+                {t("landing.ctaSignIn")}
               </Link>
 
               <LangSelector variant="editable" size="xs" />
             </div>
 
-            {/* Strava branding */}
             <div className="mt-7 flex justify-center">
               <Image
                 src={STRAVA_ASSETS.poweredBySvg_white}
@@ -91,23 +84,9 @@ export default function LandingPage() {
               />
             </div>
 
-            <p
-              className="text-[11px] mt-3"
-              style={{ color: appColors.textMuted }}
-            >
-              {t("landing.footer_note")}
+            <p className="text-[11px] mt-3" style={{ color: appColors.textMuted }}>
+              {t("landing.foot")}
             </p>
-          </div>
-
-          {/* malý “status” bar pod kartou */}
-          <div className="flex justify-center mt-4">
-            <div
-              className="h-1 w-40 rounded-full"
-              style={{
-                background: `linear-gradient(90deg, ${appColors.brandPrimary}, ${appColors.accentTeal})`,
-                opacity: 0.85,
-              }}
-            />
           </div>
         </div>
       </main>

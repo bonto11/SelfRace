@@ -1,34 +1,39 @@
-// src/app/shared/i18n/useT.ts
 "use client";
 
 import { useMemo } from "react";
-import { useSettings, type AppLang } from "./SettingsProvider";
-import { sk } from "./locales/sk";
-import { en } from "./locales/en";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { sk } from "@/app/shared/i18n/locales/sk";
+import { en } from "@/app/shared/i18n/locales/en";
 
-export type I18nKey = keyof typeof sk;
+const dict = { sk, en } as const;
 
-const CATALOG: Record<AppLang, Record<string, string>> = {
-  sk,
-  en,
-};
+type Dict = typeof dict;
+type Lang = keyof Dict;
 
-type Vars = Record<string, string | number | null | undefined>;
+// helper: "landing.h1" keys
+type Join<K, P> = K extends string ? (P extends string ? `${K}.${P}` : never) : never;
+type Leaves<T> = T extends object
+  ? { [K in keyof T]: T[K] extends object ? Join<K & string, Leaves<T[K]>> : K & string }[keyof T]
+  : never;
 
-function format(template: string, vars?: Vars) {
-  if (!vars) return template;
-  return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""));
+export type TKey = Leaves<Dict["en"]>;
+
+function getByPath(obj: any, path: string): any {
+  return path.split(".").reduce((acc, k) => (acc && typeof acc === "object" ? acc[k] : undefined), obj);
 }
 
 export function useT() {
   const { lang } = useSettings();
 
   return useMemo(() => {
-    const dict = CATALOG[lang] ?? sk;
-
-    return (key: I18nKey, vars?: Vars) => {
-      const raw = dict[key] ?? sk[key] ?? String(key);
-      return format(raw, vars);
+    const l: Lang = (lang === "sk" ? "sk" : "en");
+    return (key: TKey, fallback?: string) => {
+      const v = getByPath(dict[l], key);
+      if (typeof v === "string") return v;
+      // fallback na EN ak SK chýba
+      const v2 = getByPath(dict.en, key);
+      if (typeof v2 === "string") return v2;
+      return fallback ?? key;
     };
   }, [lang]);
 }

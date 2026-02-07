@@ -1,66 +1,55 @@
-// src/app/shared/i18n/SettingsProvider.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type AppLang = "sk" | "en";
+export type AppLang = "sk" | "en" | "fr" | "de" | "es" | "it";
 
 type SettingsCtx = {
   lang: AppLang;
-  setLang: (next: AppLang) => Promise<void> | void;
+  setLang: (next: AppLang) => void;
 };
-
-const KEY = "sr.lang";
 
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
-function isLang(x: any): x is AppLang {
-  return x === "sk" || x === "en";
+const LS_KEY = "sr.settings.language";
+
+function safeReadLS(): AppLang | null {
+  try {
+    const v = window.localStorage.getItem(LS_KEY);
+    if (v === "sk" || v === "en" || v === "fr" || v === "de" || v === "es" || v === "it") return v;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-function detectInitialLang(): AppLang {
-  // 1) localStorage
-  try {
-    const v = localStorage.getItem(KEY);
-    if (isLang(v)) return v;
-  } catch {}
-
-  // 2) browser
-  if (typeof navigator !== "undefined") {
-    const n = (navigator.language || "").toLowerCase();
-    if (n.startsWith("sk")) return "sk";
-  }
-
-  // 3) default
+function guessFromNavigator(): AppLang {
+  const raw = (typeof navigator !== "undefined" ? navigator.language : "en").toLowerCase();
+  if (raw.startsWith("sk")) return "sk";
+  if (raw.startsWith("fr")) return "fr";
+  if (raw.startsWith("de")) return "de";
+  if (raw.startsWith("es")) return "es";
+  if (raw.startsWith("it")) return "it";
   return "en";
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<AppLang>("en");
-  const [hydrated, setHydrated] = useState(false);
 
+  // init
   useEffect(() => {
-    setLangState(detectInitialLang());
-    setHydrated(true);
+    const fromLS = safeReadLS();
+    setLangState(fromLS ?? guessFromNavigator());
   }, []);
 
-  const setLang = async (next: AppLang) => {
-    if (!isLang(next)) return;
+  const setLang = (next: AppLang) => {
     setLangState(next);
-
-    // always LS (works even when not logged in)
     try {
-      localStorage.setItem(KEY, next);
+      window.localStorage.setItem(LS_KEY, next);
     } catch {}
-
-    // DB sync: rob to až keď je user prihlásený (bootstrapper / protected)
-    // Tu zámerne nič nevoláme, aby landing/login fungovali bez DB.
   };
 
   const value = useMemo(() => ({ lang, setLang }), [lang]);
-
-  // optional: počas hydrácie nech nemrkne jazyk (ak chceš)
-  if (!hydrated) return <>{children}</>;
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
