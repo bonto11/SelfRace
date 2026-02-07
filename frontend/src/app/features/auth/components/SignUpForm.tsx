@@ -161,7 +161,7 @@ export default function SignUpForm() {
             {t("signUp.confirmMedical")}
             
             <span className={CHECKBOX_HINT}>
-               {t("signUp.confirmMedical")}
+               {t("signUp.confirmMedicalHint")}
             </span>
           </span>
         </label>

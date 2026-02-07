@@ -3,9 +3,9 @@ export const en = {
     and: "and",
   },
   landing: {
-    h1: "A personal training coach that understands your data.",
-    p1: "Connect Strava, set your goal, and the app will build training blocks for you, track fatigue, and monitor your comfort zone. No random plans from the internet.",
-    ctaStart: "Start for free",
+    h1: "Your personal trainer who responds to your condition in real time.",
+    p1: "You connect Strava, set a goal, and the app will build your training blocks, performance, and monitor your recovery and fatigue levels.",
+    ctaStart: "Try for free",
     ctaSignIn: "Sign in",
     foot: "Detailed running metrics, training zones, and an AI coach available after connecting your account.",
   },
@@ -41,7 +41,7 @@ export const en = {
     termsDesc:
       "By clicking Register, you agree to our ",
     termsTitle: "Terms of Use",
-    privacyTitle: "Privacy Policy",
+    privacyTitle: " Privacy Policy",
     confirmMedical:
       "I understand that SelfRace is not a medical tool and I use training insights at my own risk.",
     confirmMedicalHint:

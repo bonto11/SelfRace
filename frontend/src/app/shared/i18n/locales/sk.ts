@@ -3,11 +3,11 @@ export const sk = {
     and : "a"
   },
   landing: {
-    h1: "Osobný tréningový coach, ktorý pozná tvoje dáta.",
-    p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, sledovať únavu a zónu komfortu. Žiadne random plány z internetu.",
-    ctaStart: "Začať zdarma",
+    h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
+    p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, výkonnosť a sledovať mieru regenerácie a únavy.",
+    ctaStart: "Vyskúšať zdarma",
     ctaSignIn: "Prihlásiť sa",
-    foot: "Detailné metriky behu, tréningové zóny a AI coach po prepojení účtu.",
+    foot: "Detailné metriky behu, tréningové zóny a AI tréner po prepojení účtu.",
   },
   signIn: {
     checkMail:
@@ -35,8 +35,8 @@ export const sk = {
     registerMail: "Zadaj mail",
     registerPassword: "Zadaj silné heslo",
     termsDesc: "Kliknutím na Registrovať súhlasíš s našími ",
-    termsTitle: "Podmienkami využívania",
-    privacyTitle: "Pravidlá ochrany súkromia",
+    termsTitle: "Podmienkami používania",
+    privacyTitle: " Pravidlami ochrany súkromia",
     confirmMedical: "Rozumiem, že SelfRace nie je lekársky nástroj a tréningové poznatky používam na vlastné riziko.",
     confirmMedicalHint: "(Potrebné na založenie účtu)",
     register: "Registrovať",
