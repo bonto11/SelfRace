@@ -3,8 +3,9 @@
 
 import { useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
@@ -43,7 +44,12 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
 
   return (
     <InputsCard
-      title="Focus & avoid"
+      title={
+        <div className="flex items-center gap-2">
+          <span>Focus &amp; avoid</span>
+          <TooltipIcon text="Vyber oblasti na posilnenie a veci, ktorým sa má plán vyhýbať. Plánovač upraví tréningy a doplnky." />
+        </div>
+      }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
           Vyber oblasti na posilnenie a veci, ktorým sa má plán vyhýbať.
@@ -52,11 +58,6 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
       preview={preview}
       open={open}
       onOpenChange={setOpen}
-      always={
-        <div className="flex items-start justify-end">
-          <InfoPopover text="Pick strength/mobility focus areas and elements to avoid; planner will adapt sessions." />
-        </div>
-      }
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
@@ -64,7 +65,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs font-medium opacity-80">Focus areas</div>
-            <InfoPopover text="Areas to emphasize in plans (strength, mobility, stability)." />
+            <TooltipIcon text="Areas to emphasize in plans (strength, mobility, stability)." />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -91,7 +92,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs font-medium opacity-80">Avoid</div>
-            <InfoPopover text="Elements to reduce/avoid (impact, downhills, hard surfaces, etc.)." />
+            <TooltipIcon text="Elements to reduce/avoid (impact, downhills, hard surfaces, back-to-back speed)." />
           </div>
 
           <div className="flex flex-wrap gap-2">
