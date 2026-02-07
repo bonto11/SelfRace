@@ -5,7 +5,8 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { cx } from "@/app/shared/ui/utils/inputs";
-import { useSettings, type AppLang } from "./SettingsProvider";
+import { useSettings } from "./SettingsProvider";
+import type { AppLang } from "./settingsTypes";
 import {
   FORM_TEXT_VARS,
   SELECT_ICON,
