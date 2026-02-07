@@ -103,6 +103,7 @@ def reschedule_daily_plan(
     try:
         ctx = require_user(get_auth_ctx(req))
 
+        print("reschedule_daily_plan payload",payload)
         overview = service_reschedule_daily_plan(
             user_id=user_id,
             moves=[m.model_dump() for m in (payload.moves or [])],

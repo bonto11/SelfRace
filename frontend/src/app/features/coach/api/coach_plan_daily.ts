@@ -164,6 +164,8 @@ export type DailyPlanStructure = {
 
 export type DailyPlanSession = {
   id?: number | string | null;
+  plan_date?: string;
+  session_index?: number;
 
   sport: string;
   title: string | null;

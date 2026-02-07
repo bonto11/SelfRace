@@ -31,7 +31,10 @@ import {
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 
-import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helpers ---------- */
 
@@ -85,7 +88,9 @@ function Card({
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
             {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
-            {subtitle ? <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div> : null}
+            {subtitle ? (
+              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
+            ) : null}
           </div>
         </header>
       )}
@@ -123,7 +128,7 @@ export default function DetailDailyPlan() {
         const r = await apiGetDailyOverview(userId);
         if (alive) {
           setOverview(r ?? null);
-          setMoves([]);       // reset dirty when reloading
+          setMoves([]); // reset dirty when reloading
           setSaveError(null);
         }
       } catch (e: any) {
@@ -157,37 +162,43 @@ export default function DetailDailyPlan() {
   const dirty = moves.length > 0;
 
   // ✅ local move by DB PK (id)
-  const moveSessionLocal = (fromDate: string, toDate: string, sessionPk: number | string) => {
+  const moveSessionLocal = (
+    fromDate: string,
+    toDate: string,
+    sessionId: number,
+  ) => {
     setOverview((prev) => {
       if (!prev) return prev;
 
       let moved: any = null;
 
-      const daysRemoved: DailyPlanDay[] = (prev.days || []).map((d) => {
-        if (d.date !== fromDate) return d;
-
-        const nextSessions = [...(d.sessions ?? [])];
-        const idx = nextSessions.findIndex((s: any) => {
-          const pk = s?.id;
-          return String(pk) === String(sessionPk);
-        });
-
-        if (idx >= 0) {
-          moved = nextSessions[idx];
-          nextSessions.splice(idx, 1);
+      const daysNext: DailyPlanDay[] = prev.days.map((d) => {
+        if (d.date === fromDate) {
+          const next = [...(d.sessions ?? [])];
+          const i = next.findIndex(
+            (x: any) => Number(x?.id) === Number(sessionId),
+          );
+          if (i >= 0) {
+            moved = next[i];
+            next.splice(i, 1);
+          }
+          return { ...d, sessions: next };
         }
-
-        return { ...d, sessions: nextSessions };
+        return d;
       });
 
       if (!moved) return prev;
 
-      const daysAdded: DailyPlanDay[] = daysRemoved.map((d) => {
-        if (d.date !== toDate) return d;
-        return { ...d, sessions: [...(d.sessions ?? []), moved] };
+      const daysNext2: DailyPlanDay[] = daysNext.map((d) => {
+        if (d.date === toDate) {
+          // dôležité: update plan_date aj lokálne (kvôli UI)
+          const moved2 = { ...moved, plan_date: toDate };
+          return { ...d, sessions: [...(d.sessions ?? []), moved2] };
+        }
+        return d;
       });
 
-      return { ...prev, days: sortDaysByDate(daysAdded) };
+      return { ...prev, days: daysNext2 };
     });
   };
 
@@ -201,7 +212,7 @@ export default function DetailDailyPlan() {
       const last = prev[prev.length - 1];
 
       // revert locally
-      moveSessionLocal(last.to_date, last.from_date, last.id);
+      moveSessionLocal(last.to_date, last.from_date, Number(last.id));
 
       return prev.slice(0, -1);
     });
@@ -270,7 +281,8 @@ export default function DetailDailyPlan() {
           </div>
         ) : (
           <div className={PANEL_PREVIEW}>
-            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na Session karte.
+            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na
+            Session karte.
           </div>
         )}
       </Card>
@@ -318,7 +330,9 @@ export default function DetailDailyPlan() {
               </div>
             </div>
 
-            {saveError ? <div className="mt-1 text-[11px] text-red-300">{saveError}</div> : null}
+            {saveError ? (
+              <div className="mt-1 text-[11px] text-red-300">{saveError}</div>
+            ) : null}
           </div>
         ) : null}
 
@@ -335,16 +349,20 @@ export default function DetailDailyPlan() {
               const wd = weekdayLabel(d.date) ?? "";
 
               return d.sessions.map((s: any, idx: number) => {
-                const pk = s?.id ?? null;
-
                 const kpis: KPI[] = [];
-                if (s.duration_min) kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
-                if (s.intensity) kpis.push({ label: "INTENSITY", value: String(s.intensity) });
-                if (s.zone_text) kpis.push({ label: "TARGET", value: String(s.zone_text) });
+                if (s.duration_min)
+                  kpis.push({
+                    label: "DURATION",
+                    value: `${s.duration_min} min`,
+                  });
+                if (s.intensity)
+                  kpis.push({ label: "INTENSITY", value: String(s.intensity) });
+                if (s.zone_text)
+                  kpis.push({ label: "TARGET", value: String(s.zone_text) });
 
                 const item: PlanSession = {
                   // ✅ DB PK (stable). Fallback je len pre UI, save bez PK nedáva zmysel.
-                  id: pk ?? `${d.date}-${idx}`,
+                  id: s.id,
 
                   kind: "plan",
                   status: "planned",
@@ -362,12 +380,13 @@ export default function DetailDailyPlan() {
 
                   planRaw: s,
                   planStructure: s.structure ?? null,
-                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
+                  planExercises:
+                    (s.structure?.strength_exercises as any[]) ?? [],
                 };
 
                 return (
                   <SessionCard
-                    key={String(item.id)}
+                    key={item.id}
                     variant="calendar"
                     item={item}
                     planReschedule={{
@@ -385,7 +404,7 @@ export default function DetailDailyPlan() {
                           to_date: toDate,
                         });
 
-                        moveSessionLocal(fromDate, toDate, sessionId);
+                        moveSessionLocal(fromDate, toDate, Number(sessionId));
                       },
                     }}
                   />
