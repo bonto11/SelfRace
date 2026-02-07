@@ -5,10 +5,9 @@ import { useMemo } from "react";
 
 import Button from "@/app/shared/ui/components/Button";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import type { Preferences } from "@/app/features/prefs/types/prefs";
-
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
 type Props = {
@@ -134,7 +133,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
   };
 
   const enabledShort = BASE_RULES.filter((r) => !!(basePref as any)[r.key]).map(
-    (r) => r.short
+    (r) => r.short,
   );
   const twoEnabled = !!basePref.two_a_day?.enabled;
   const twoMax = Number(basePref.two_a_day?.max_days_per_week) || 0;
@@ -160,7 +159,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
       title={
         <div className="flex items-center gap-2">
           <span>Rules</span>
-          <InfoPopover text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
+          <TooltipIcon text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
         </div>
       }
       subtitle="Pravidlá plánovania, intenzitný model a tréningové bloky."
@@ -223,8 +222,10 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         {/* Intensity model */}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs opacity-80">Intensity model</div>
-            <InfoPopover text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
+            <div className="flex items-center gap-2 text-xs opacity-80">
+              <span>Intensity model</span>
+              <TooltipIcon text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -252,8 +253,10 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         {/* Training blocks */}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs opacity-80">Training blocks</div>
-            <InfoPopover text="Len flagy v preferences.training_blocks.*" />
+            <div className="flex items-center gap-2 text-xs opacity-80">
+              <span>Training blocks</span>
+              <TooltipIcon text="Len flagy v preferences.training_blocks.*" />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
