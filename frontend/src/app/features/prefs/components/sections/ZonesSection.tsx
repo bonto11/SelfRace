@@ -9,12 +9,11 @@ import TextField from "@/app/shared/ui/components/TextField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import {
   SECTION,
   SECTION_STYLE,
-  FORM_GRID_TWO,
   INPUTS_CARD_BODY,
   INPUTS_CARD_LABEL_SM_1,
   PANEL_STACK,
@@ -161,7 +160,7 @@ export default function ZonesSection({
       z5_min: zones?.z5_min ?? null,
       z5_max: zones?.z5_max ?? null,
     }),
-    [zones]
+    [zones],
   );
 
   const zonesLocked = calcMode !== "manual";
@@ -195,18 +194,24 @@ export default function ZonesSection({
   // automatický prepočet pri zmene režimu/HRmax/LTHR/sport
   useEffect(() => {
     if (!zones) return;
-    onZonesChange(
-      recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm)
-    );
+    onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
+
+  const calcHelp =
+    "Režimy:\n" +
+    "• Manual = zadávaš hranice ručne\n" +
+    "• From HRmax = percentá z HRmax (jednoduché defaulty)\n" +
+    "• From % LTHR = percentá z LT2 HR (presnejšie pre beh)\n" +
+    "• Internal default = fallback\n\n" +
+    "Pozn.: %LTHR potrebuje LT2 HR z Thresholds pre tento šport.";
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
           <span>Heart-rate zones</span>
-          <InfoPopover text="Zóny podľa HRmax alebo %LTHR. Šport sa ukladá k záznamu." />
+          <TooltipIcon text={"Zóny podľa HRmax alebo %LTHR.\n\nŠport sa ukladá k záznamu."} />
         </div>
       }
       subtitle="Výpočet zón (manual / HRmax / %LTHR) + uloženie do DB."
@@ -231,7 +236,10 @@ export default function ZonesSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Zone calculation</div>
+            <div className="flex items-center gap-2">
+              <div className={INPUTS_CARD_LABEL_SM_1}>Zone calculation</div>
+              <TooltipIcon text={calcHelp} />
+            </div>
             <SelectField
               label=""
               value={calcMode}
@@ -259,15 +267,16 @@ export default function ZonesSection({
               onChange={(e) => {
                 const val = e.target.value ? Number(e.target.value) : null;
                 const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
-                onZonesChange(
-                  calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm)
-                );
+                onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
               }}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>LTHR (bpm)</div>
+            <div className="flex items-center gap-2">
+              <div className={INPUTS_CARD_LABEL_SM_1}>LTHR (bpm)</div>
+              <TooltipIcon text="Zdroj: Thresholds → LT2 HR pre zvolený šport.\n\nPole je read-only." />
+            </div>
             <TextField
               label=""
               value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""}
@@ -278,7 +287,16 @@ export default function ZonesSection({
         </div>
 
         {/* zones */}
-        <div className={INPUTS_CARD_LABEL_SM_1}>Zones (bpm)</div>
+        <div className="flex items-center gap-2">
+          <div className={INPUTS_CARD_LABEL_SM_1}>Zones (bpm)</div>
+          <TooltipIcon
+            text={
+              zonesLocked
+                ? "Zóny sú zamknuté, lebo nie si v Manual režime.\n\nPrepni na Manual, ak chceš editovať hranice."
+                : "Edituješ hranice ručne.\n\nTip: drž zóny zoradené bez prekrývania."
+            }
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {(["z1", "z2", "z3", "z4", "z5"] as const).map((key) => {
@@ -286,10 +304,7 @@ export default function ZonesSection({
             const maxKey = `${key}_max` as const;
 
             return (
-              <div
-                key={key}
-                className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}
-              >
+              <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
                 <div className="text-xs opacity-70 uppercase mb-1">
                   {key.toUpperCase()}
                 </div>
@@ -304,9 +319,7 @@ export default function ZonesSection({
                       onZonesChange({
                         ...(zones ?? {}),
                         sport: z.sport,
-                        [minKey]: e.target.value
-                          ? Number(e.target.value)
-                          : null,
+                        [minKey]: e.target.value ? Number(e.target.value) : null,
                       })
                     }
                   />
@@ -321,9 +334,7 @@ export default function ZonesSection({
                       onZonesChange({
                         ...(zones ?? {}),
                         sport: z.sport,
-                        [maxKey]: e.target.value
-                          ? Number(e.target.value)
-                          : null,
+                        [maxKey]: e.target.value ? Number(e.target.value) : null,
                       })
                     }
                   />
