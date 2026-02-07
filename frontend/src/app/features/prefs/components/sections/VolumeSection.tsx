@@ -6,7 +6,8 @@ import { useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import type { VolumePrefs } from "@/app/features/prefs/types/prefs";
 
@@ -94,7 +95,7 @@ export function VolumeSection({ volume, setPref }: Props) {
       title={
         <div className="flex items-center gap-2">
           <span>Training volume</span>
-          <InfoPopover text="Nastav orientačný týždenný objem tréningu. Zadaj buď celkové hodiny za týždeň, alebo priemerné minúty za deň. Coach sa bude snažiť držať väčšinu týždňov pod týmto limitom." />
+          <TooltipIcon text="Nastav orientačný limit objemu.\n\nZadaj buď celkové hodiny za týždeň, alebo priemerné minúty za deň.\nCoach sa bude snažiť väčšinu týždňov držať pod týmto limitom." />
         </div>
       }
       subtitle="Limit objemu pre plánovanie (hodiny/týždeň alebo minúty/deň)."
@@ -131,7 +132,10 @@ export function VolumeSection({ volume, setPref }: Props) {
         </div>
 
         {/* repeated help text when open */}
-        <div className="text-xs opacity-80 leading-relaxed">{previewText}</div>
+        <div className="flex items-start gap-2 text-xs opacity-80 leading-relaxed">
+          <div className="flex-1">{previewText}</div>
+          <TooltipIcon text="Ak necháš prázdne, coach si objem odhadne z histórie (posledné týždne) a cieľov." />
+        </div>
       </div>
     </InputsCard>
   );
