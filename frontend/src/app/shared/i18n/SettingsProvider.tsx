@@ -1,119 +1,72 @@
+// src/app/shared/i18n/SettingsProvider.tsx
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type AppLang = "sk" | "en" | "it" | "esp" | "ger" | "fra";
+export type AppLang = "sk" | "en";
 
-type SettingsValue = {
+type SettingsCtx = {
   lang: AppLang;
   setLang: (next: AppLang) => Promise<void> | void;
-  hydrated: boolean;
 };
 
-const SettingsCtx = createContext<SettingsValue | null>(null);
+const KEY = "sr.lang";
 
-const LS_KEY = "sr_lang";
-const DB_KEY = "user.settings"; // { language: "sk" | "en", ... }
+const SettingsContext = createContext<SettingsCtx | null>(null);
 
-function normalizeLang(x: any): AppLang {
-  return x === "en" ? "en" : "sk";
+function isLang(x: any): x is AppLang {
+  return x === "sk" || x === "en";
 }
 
-function readLsLang(): AppLang {
-  if (typeof window === "undefined") return "sk";
+function detectInitialLang(): AppLang {
+  // 1) localStorage
   try {
-    const v = window.localStorage.getItem(LS_KEY);
-    return normalizeLang(v);
-  } catch {
-    return "sk";
-  }
-}
-
-function writeLsLang(lang: AppLang) {
-  try {
-    window.localStorage.setItem(LS_KEY, lang);
+    const v = localStorage.getItem(KEY);
+    if (isLang(v)) return v;
   } catch {}
+
+  // 2) browser
+  if (typeof navigator !== "undefined") {
+    const n = (navigator.language || "").toLowerCase();
+    if (n.startsWith("sk")) return "sk";
+  }
+
+  // 3) default
+  return "en";
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const { userId } = useUserId();
-
-  const [lang, setLangState] = useState<AppLang>("sk");
+  const [lang, setLangState] = useState<AppLang>("en");
   const [hydrated, setHydrated] = useState(false);
 
-  // aby sme po prvom fetchi z DB neprepisovali userove kliky
-  const didBootstrapRef = useRef(false);
-
-  // 1) bootstrap z localStorage (okamžite po mount)
   useEffect(() => {
-    const ls = readLsLang();
-    setLangState(ls);
+    setLangState(detectInitialLang());
     setHydrated(true);
   }, []);
 
-  // 2) ak je user prihlásený, skús DB (ale rešpektuj localStorage ako "source of truth" pre UI)
-  useEffect(() => {
-    if (!userId || !hydrated) return;
+  const setLang = async (next: AppLang) => {
+    if (!isLang(next)) return;
+    setLangState(next);
 
-    let alive = true;
+    // always LS (works even when not logged in)
+    try {
+      localStorage.setItem(KEY, next);
+    } catch {}
 
-    (async () => {
-      try {
-        const settings = await apiFetchUserPref(userId, DB_KEY).catch(() => null);
-        const dbLang = normalizeLang(settings?.language);
+    // DB sync: rob to až keď je user prihlásený (bootstrapper / protected)
+    // Tu zámerne nič nevoláme, aby landing/login fungovali bez DB.
+  };
 
-        if (!alive) return;
+  const value = useMemo(() => ({ lang, setLang }), [lang]);
 
-        // prvý bootstrap: ak LS nemá nič "rozumné", tak vezmi DB
-        // (v praxi LS už má default "sk", ale toto je safe)
-        if (!didBootstrapRef.current) {
-          didBootstrapRef.current = true;
+  // optional: počas hydrácie nech nemrkne jazyk (ak chceš)
+  if (!hydrated) return <>{children}</>;
 
-          const ls = readLsLang();
-          // ak sa LS a DB líšia, necháme LS (užívateľ mohol prepnúť na landing page)
-          // ale môžeme DB zosúladiť na LS (voliteľné) – ja to spravím, aby boli konzistentné
-          if (ls !== dbLang) {
-            // push LS do DB
-            await apiUpsertUserPref(userId, DB_KEY, { ...(settings ?? {}), language: ls }).catch(() => {});
-          } else {
-            setLangState(ls);
-          }
-        }
-      } catch {
-        // ignore
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, hydrated]);
-
-  const setLang = useCallback(
-    async (next: AppLang) => {
-      const n = normalizeLang(next);
-      setLangState(n);
-      writeLsLang(n);
-
-      if (!userId) return;
-
-      // uložiť do DB
-      const prev = await apiFetchUserPref(userId, DB_KEY).catch(() => null);
-      const merged = { ...(prev ?? {}), language: n };
-      await apiUpsertUserPref(userId, DB_KEY, merged);
-    },
-    [userId],
-  );
-
-  const value = useMemo<SettingsValue>(() => ({ lang, setLang, hydrated }), [lang, setLang, hydrated]);
-
-  return <SettingsCtx.Provider value={value}>{children}</SettingsCtx.Provider>;
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings() {
-  const ctx = useContext(SettingsCtx);
+  const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error("useSettings must be used within <SettingsProvider>");
   return ctx;
 }

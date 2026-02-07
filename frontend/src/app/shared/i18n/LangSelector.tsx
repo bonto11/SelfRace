@@ -1,16 +1,14 @@
+// src/app/shared/i18n/LangSelector.tsx
 "use client";
 
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-
 import { cx } from "@/app/shared/ui/utils/inputs";
-import { useSettings, type AppLang } from "@/app/shared/i18n/SettingsProvider";
-
+import { useSettings, type AppLang } from "./SettingsProvider";
 import {
-  // používame tvoje existujúce select menu tokeny
   FORM_TEXT_VARS,
-
+  SELECT_ICON,
   SELECT_MENU,
   SELECT_MENU_WRAP,
   SELECT_MENU_READONLY,
@@ -21,11 +19,6 @@ import {
   SELECT_OPT_ACTIVE,
   SELECT_OPT_READONLY_STYLE,
   SELECT_OPT_EDITABLE_STYLE,
-
-  // ⬇️ nové (doplníš v tokens/inputs.ts) – ak nechceš, viem ti dať inline className
-  LANG_ICON_BTN,
-  LANG_ICON_BTN_STYLE_READONLY,
-  LANG_ICON_BTN_STYLE_EDITABLE,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
@@ -35,23 +28,18 @@ type Props = {
   size?: "xs" | "sm" | "md";
 };
 
-const LANGS: Array<{ value: AppLang; name: string; flagSrc: string; short: string }> = [
+const LANGS: Array<{
+  value: AppLang;
+  name: string;
+  flagSrc: string;
+  short: string;
+}> = [
   { value: "sk", name: "Slovenčina", flagSrc: "/flags/sk.png", short: "SK" },
   { value: "en", name: "English", flagSrc: "/flags/en.png", short: "EN" },
-  { value: "fra", name: "Français", flagSrc: "/flags/fra.png", short: "FR" },
-  { value: "it", name: "Italiano", flagSrc: "/flags/it.png", short: "IT" },
-  { value: "esp", name: "Español", flagSrc: "/flags/esp.png", short: "ES" },
-  { value: "ger", name: "Deutsch", flagSrc: "/flags/ger.png", short: "DE" },
 ];
 
-function sizePx(size: "xs" | "sm" | "md") {
-  if (size === "xs") return 32;
-  if (size === "md") return 40;
-  return 36; // sm
-}
-
 export default function LangSelector({
-  variant = "editable",
+  variant = "readonly",
   disabled,
   className,
   size = "sm",
@@ -66,9 +54,16 @@ export default function LangSelector({
   const editable = variant === "editable";
   const effectiveDisabled = !!disabled || !editable;
 
+  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuStyle = {
+    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
+    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
   const current = LANGS.find((x) => x.value === lang) ?? LANGS[0];
 
-  const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
 
   function close() {
     setOpen(false);
@@ -85,10 +80,10 @@ export default function LangSelector({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
     }
-    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("mousedown", onDocClick, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("mousedown", onDocClick, true);
       document.removeEventListener("keydown", onKey);
     };
   }, []);
@@ -100,7 +95,7 @@ export default function LangSelector({
 
     const update = () => {
       const r = el.getBoundingClientRect();
-      setPos({ left: r.left, top: r.bottom + 8 });
+      setPos({ left: r.left, top: r.bottom + 8, width: r.width });
     };
 
     update();
@@ -112,24 +107,14 @@ export default function LangSelector({
     };
   }, [open]);
 
-  const px = sizePx(size);
-
-  const btnStyle = {
-    ...(editable ? LANG_ICON_BTN_STYLE_EDITABLE : LANG_ICON_BTN_STYLE_READONLY),
-    ...FORM_TEXT_VARS,
-    width: px,
-    height: px,
-  } as React.CSSProperties;
-
-  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
-  const menuStyle = {
-    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
-    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
-    ...FORM_TEXT_VARS,
-  } as React.CSSProperties;
+  // kruh button sizing
+  const circleCls =
+    size === "xs" ? "h-8 w-8"
+    : size === "md" ? "h-10 w-10"
+    : "h-9 w-9";
 
   return (
-    <div ref={wrapRef} className={cx("inline-block", className)}>
+    <div ref={wrapRef} className={cx("relative", className)}>
       <div className={SELECT_MENU_WRAP}>
         <button
           ref={btnRef}
@@ -139,22 +124,23 @@ export default function LangSelector({
             if (effectiveDisabled) return;
             setOpen((v) => !v);
           }}
-          className={cx(LANG_ICON_BTN)}
-          style={btnStyle}
+          className={cx(
+            "inline-flex items-center justify-center rounded-full border",
+            "bg-white/5 border-white/10 hover:bg-white/10",
+            "transition-colors",
+            circleCls,
+          )}
           aria-expanded={open}
           aria-label="Language selector"
-          title={current.short}
         >
-          <span className="relative block overflow-hidden rounded-full" style={{ width: px - 10, height: px - 10 }}>
-            <Image
-              src={current.flagSrc}
-              alt=""
-              fill
-              sizes={`${px - 10}px`}
-              className="object-cover"
-              priority={false}
-            />
-          </span>
+          <Image
+            src={current.flagSrc}
+            alt=""
+            width={18}
+            height={18}
+            className="h-[18px] w-[18px] rounded-sm"
+            draggable={false}
+          />
         </button>
 
         {open && !effectiveDisabled && pos
@@ -168,7 +154,7 @@ export default function LangSelector({
                   position: "fixed",
                   left: pos.left,
                   top: pos.top,
-                  width: 240,
+                  width: 220,
                   zIndex: 999999,
                 }}
               >
@@ -178,15 +164,27 @@ export default function LangSelector({
                     <button
                       key={o.value}
                       type="button"
-                      className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE, "flex items-center gap-2")}
+                      className={cx(
+                        SELECT_OPT,
+                        active && SELECT_OPT_ACTIVE,
+                        "flex items-center gap-2",
+                      )}
                       onClick={async () => {
                         close();
                         await setLang(o.value);
                       }}
                     >
-                      <Image src={o.flagSrc} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-sm" />
+                      <Image
+                        src={o.flagSrc}
+                        alt=""
+                        width={18}
+                        height={18}
+                        className="h-[18px] w-[18px] rounded-sm"
+                        draggable={false}
+                      />
                       <span className="flex-1 text-left">{o.name}</span>
                       <span className="text-xs opacity-70">{o.short}</span>
+                      <svg viewBox="0 0 16 16" aria-hidden="true" className={cx(SELECT_ICON, "opacity-0")} />
                     </button>
                   );
                 })}

@@ -1,12 +1,11 @@
 // src/app/features/auth/components/UserMenu.tsx
+// src/app/features/auth/components/UserMenu.tsx
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import Image from "next/image";
 import { signOut } from "@/app/shared/utils/signOut";
 import {
-  AVATAR_BUTTON,
   DROPDOWN_DIVIDER,
   DROPDOWN_PANEL,
   DROPDOWN_ITEM,
@@ -18,7 +17,6 @@ import {
   USER_MENU_LABEL_ROW,
   USER_MENU_LABEL,
   USER_MENU_TIER_PILL,
-  USER_MENU_AVATAR_IMG,
   USER_MENU_PANEL_HEAD,
   USER_MENU_HEAD_ROW,
   USER_MENU_HEAD_LEFT,
@@ -55,11 +53,7 @@ export default function UserMenu() {
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const [pos, setPos] = useState<{
-    left: number;
-    top: number;
-    width: number;
-  } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -86,19 +80,54 @@ export default function UserMenu() {
     return unsubscribe;
   }, []);
 
-  const label = useMemo(
-    () => me?.displayName || me?.name || me?.email || "",
-    [me?.displayName, me?.name, me?.email],
-  );
+  const displayLabel = useMemo(() => {
+    const dn = (me?.displayName ?? "").trim();
+    if (dn) return dn;
 
+    const nm = (me?.name ?? "").trim();
+    if (nm) return nm;
+
+    // fallback: initials from email if nothing else
+    const em = (me?.email ?? "").trim();
+    if (!em) return "";
+    const local = em.split("@")[0] ?? "";
+    return local || em;
+  }, [me?.displayName, me?.name, me?.email]);
+
+  // show initials ONLY if display name is empty
   const initials = useMemo(() => {
-    const raw = (me?.name || me?.displayName || me?.email || "").trim();
+    const dn = (me?.displayName ?? "").trim();
+    if (dn) return "";
+
+    const raw = ((me?.name ?? "") || (me?.email ?? "")).trim();
     if (!raw) return "";
-    const parts = raw.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "";
+
+    const base = raw.includes("@") ? (raw.split("@")[0] ?? raw) : raw;
+    const parts = base.split(/\s+/).filter(Boolean);
+
+    if (!parts.length) return "";
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  }, [me?.name, me?.displayName, me?.email]);
+  }, [me?.displayName, me?.name, me?.email]);
+
+  const tierStyle =
+    tierCode === "pro"
+      ? {
+          background: "rgba(56,189,248,0.16)",
+          border: `1px solid ${appColors.panelBorder}`,
+          color: appColors.textPrimary,
+        }
+      : tierCode === "classic"
+        ? {
+            background: "rgba(163,230,53,0.14)",
+            border: `1px solid ${appColors.pillActiveBorder}`,
+            color: appColors.textPrimary,
+          }
+        : {
+            background: appColors.pillBg,
+            border: `1px solid ${appColors.pillBorder}`,
+            color: appColors.textSecondary,
+          };
 
   // close on outside click (portal-safe)
   useEffect(() => {
@@ -132,11 +161,9 @@ export default function UserMenu() {
     const update = () => {
       const r = el.getBoundingClientRect();
 
-      // menu width: at least trigger width, but keep nice readable max
       const w = Math.max(r.width, 260);
       const margin = 10;
 
-      // align right edge to trigger right edge
       let left = r.right - w;
       left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
 
@@ -163,25 +190,6 @@ export default function UserMenu() {
     }
   }
 
-  const tierStyle =
-    tierCode === "pro"
-      ? {
-          background: "rgba(56,189,248,0.16)",
-          border: `1px solid ${appColors.panelBorder}`,
-          color: appColors.textPrimary,
-        }
-      : tierCode === "classic"
-        ? {
-            background: "rgba(163,230,53,0.14)",
-            border: `1px solid ${appColors.pillActiveBorder}`,
-            color: appColors.textPrimary,
-          }
-        : {
-            background: appColors.pillBg,
-            border: `1px solid ${appColors.pillBorder}`,
-            color: appColors.textSecondary,
-          };
-
   const Panel =
     !open || !pos
       ? null
@@ -196,9 +204,7 @@ export default function UserMenu() {
               left: pos.left,
               top: pos.top,
               width: pos.width,
-              // MUST be above sticky header (z-30) + cards/backdrop contexts
               zIndex: 1000000,
-
               background: appColors.panelBg,
               border: `1px solid ${appColors.panelBorder}`,
               boxShadow: appColors.shadowCard,
@@ -220,7 +226,7 @@ export default function UserMenu() {
                     className={USER_MENU_HEAD_EMAIL}
                     style={{ color: appColors.textMuted }}
                   >
-                    {me?.email || me?.name || ""}
+                    {me?.email || ""}
                   </div>
                 </div>
 
@@ -237,21 +243,14 @@ export default function UserMenu() {
                 Account
               </a>
 
-              <a
-                className={DROPDOWN_ITEM}
-                href="/connectedApps"
-                role="menuitem"
-              >
+              <a className={DROPDOWN_ITEM} href="/connectedApps" role="menuitem">
                 Connected apps
               </a>
 
               <div className={DROPDOWN_DIVIDER} />
 
               <button
-                className={[
-                  DROPDOWN_ITEM_DANGER,
-                  USER_MENU_SIGNOUT_DISABLED,
-                ].join(" ")}
+                className={[DROPDOWN_ITEM_DANGER, USER_MENU_SIGNOUT_DISABLED].join(" ")}
                 onClick={handleSignOut}
                 disabled={busy === "signout"}
                 role="menuitem"
@@ -270,9 +269,7 @@ export default function UserMenu() {
         ref={btnRef}
         className={USER_MENU_TRIGGER}
         style={{
-          background: open
-            ? appColors.surfaceCardHover
-            : appColors.buttonGhostBg,
+          background: open ? appColors.surfaceCardHover : appColors.buttonGhostBg,
           border: `1px solid ${appColors.surfaceCardBorder}`,
           color: appColors.textPrimary,
         }}
@@ -282,8 +279,11 @@ export default function UserMenu() {
         type="button"
         onMouseDown={(e) => e.preventDefault()} // iOS “sticky focus”
       >
+        {/* ✅ only tier + display name (no avatar circle) */}
         <div className={USER_MENU_LABEL_ROW}>
-          <span className={USER_MENU_LABEL}>{label}</span>
+          <span className={USER_MENU_LABEL}>
+            {displayLabel || initials || "User"}
+          </span>
 
           {tierCode && (
             <span
@@ -300,27 +300,6 @@ export default function UserMenu() {
             </span>
           )}
         </div>
-
-        {me?.avatarUrl ? (
-          <Image
-            src={me.avatarUrl}
-            alt={label || "User avatar"}
-            width={28}
-            height={28}
-            className={USER_MENU_AVATAR_IMG}
-          />
-        ) : initials ? (
-          <div className={AVATAR_BUTTON}>{initials}</div>
-        ) : (
-          <div className={AVATAR_BUTTON} aria-hidden="true">
-            <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
-              <path
-                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Zm0 2c-3.33 0-6 2.02-6 4.5V20h12v-1.5C18 16.02 15.33 14 12 14Z"
-                fill="currentColor"
-              />
-            </svg>
-          </div>
-        )}
       </button>
 
       {Panel}

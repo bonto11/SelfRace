@@ -1,17 +1,15 @@
-export default {
-  common: {
-    save: "Save",
-    saving: "Saving…",
-    undo: "Undo",
-    close: "Close",
-    reschedule: "Reschedule",
-  },
-  daily: {
-    title: "Daily training schedule",
-    subtitle: "Each card is one session.",
-    dirty: "Unsaved changes: {n}",
-    saved: "Changes saved",
-    undoTitle: "Undo last change?",
-    undoMsg: "This will revert the last move in your plan.",
-  },
+// src/app/shared/i18n/locales/en.ts
+export const en = {
+  "landing.headline": "A personal training coach that knows your data.",
+  "landing.subtitle":
+    "Connect Strava, set a goal, and the app builds training blocks, tracks fatigue and your comfort zone. No random plans from the internet.",
+  "auth.signup": "Start free",
+  "auth.signin": "Sign in",
+
+  "common.save": "Save",
+  "common.undo": "Undo",
+
+  "coach.daily.title": "AI Daily plan – detail",
+  "coach.daily.subtitle":
+    "Daily training plan detail. Moving is local, saving is done via Save.",
 } as const;
