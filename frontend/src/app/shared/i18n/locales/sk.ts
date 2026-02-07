@@ -3,6 +3,8 @@ export const sk = {
   "landing.headline": "Osobný tréningový coach, ktorý pozná tvoje dáta.",
   "landing.subtitle":
     "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, sledovať únavu a zónu komfortu. Žiadne random plány z internetu.",
+    "landing.footer_note":
+  "Detailné metriky behu, tréningové zóny a AI coach po prepojení účtu.",
   "auth.signup": "Začať zdarma",
   "auth.signin": "Prihlásiť sa",
 
