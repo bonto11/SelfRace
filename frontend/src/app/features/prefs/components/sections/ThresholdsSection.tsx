@@ -8,13 +8,13 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import {
   SECTION,
   SECTION_STYLE,
   FORM_GRID_TWO,
-  FORM_GRID_SPLIT,
   PANEL_STACK,
   INPUTS_CARD_BODY,
   INPUTS_CARD_LABEL_SM_1,
@@ -102,7 +102,7 @@ export default function ThresholdsSection({
   const preview = useMemo(() => {
     const key = makeComboKey(t.sport ?? "running", t.threshold_type ?? "LT2");
     const fromLatest = latestByCombo.find(
-      (r) => makeComboKey(r.sport, r.threshold_type) === key
+      (r) => makeComboKey(r.sport, r.threshold_type) === key,
     );
     const src = { ...(fromLatest ?? {}), ...t }; // draft má stále prednosť
     return {
@@ -169,7 +169,7 @@ export default function ThresholdsSection({
       title={
         <div className="flex items-center gap-2">
           <span>Thresholds</span>
-          <InfoPopover text="Prahy zadávaj per šport × typ (LT1/LT2/FTP). HR pole je hr_bpm." />
+          <TooltipIcon text="Prahy zadávaj per šport × typ (LT1/LT2/FTP).\n\nHR pole je hr_bpm." />
         </div>
       }
       subtitle="Prahy pre zóny a intenzity (draft + uložené z DB)."
@@ -288,7 +288,10 @@ export default function ThresholdsSection({
         {/* uložené v DB */}
         {latestByCombo.length > 0 && (
           <div className="mt-1">
-            <div className={INPUTS_CARD_LABEL_SM_1}>Aktuálne uložené v DB</div>
+            <div className="flex items-center gap-2">
+              <div className={INPUTS_CARD_LABEL_SM_1}>Aktuálne uložené v DB</div>
+              <TooltipIcon text="Zobrazuje posledný uložený záznam pre každú kombináciu šport × typ prahu." />
+            </div>
 
             <ul className="mt-2 flex flex-wrap gap-2">
               {latestByCombo.map((r, i) => (
