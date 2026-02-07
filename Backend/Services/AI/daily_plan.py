@@ -1,7 +1,7 @@
 # ===== Services/AI/daily_plan.py =====
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS

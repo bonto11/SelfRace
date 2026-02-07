@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from datetime import date, timedelta,datetime, timezone
+from datetime import date, timedelta, datetime, timezone
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def db_insert_daily_rows(
     rows: List[Dict[str, Any]],
@@ -27,7 +29,7 @@ def db_insert_daily_rows(
     try:
         res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
         data = res.data or []
-  
+
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] insert error:", repr(e))
@@ -218,7 +220,7 @@ def db_clear_daily_for_user_range(
     )
 
     return len(res.data or [])
-    
+
 
 def db_get_daily_session_by_id(
     user_id: int,
@@ -354,7 +356,7 @@ def db_reschedule_daily_sessions_bulk(
 
     for m in moves:
         try:
-            sid = int(m.get("id"))
+            sid = m.get("id")
             from_date = str(m.get("from_date") or "")[:10]
             to_date = str(m.get("to_date") or "")[:10]
 
@@ -421,6 +423,11 @@ def db_reschedule_daily_sessions_bulk(
     if errors:
         # keď chceš striktne: return ok=False a nič neupdateovať → potrebuješ RPC/transaction
         # zatiaľ: best-effort, ale FE uvidí error a môže refreshnúť
-        return {"ok": False, "updated": updated, "error": "some_moves_failed", "errors": errors}
+        return {
+            "ok": False,
+            "updated": updated,
+            "error": "some_moves_failed",
+            "errors": errors,
+        }
 
     return {"ok": True, "updated": updated}

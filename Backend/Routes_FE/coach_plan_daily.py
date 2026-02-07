@@ -65,7 +65,6 @@ def get_daily_overview(
             ctx=ctx,
         )
 
-        print("get_daily_overview overview",overview)
         return {
             "success": True,
             "overview": overview,
