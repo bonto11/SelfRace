@@ -32,6 +32,7 @@ import {
   CHECKBOX_HINT,
   FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens/inputs";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
@@ -41,7 +42,7 @@ export default function SignUpForm() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [isOk, setIsOk] = useState<boolean>(false);
-
+  const t = useT();
   // ✅ explicit consent
   const [agreeRisk, setAgreeRisk] = useState(false);
 
@@ -50,7 +51,7 @@ export default function SignUpForm() {
 
     // hard gate (aj keby niekto hackol disabled)
     if (!agreeRisk) {
-      toast.error("Prosím potvrď, že rozumieš podmienkam používania.");
+      toast.error(t("signUp.confirm"));
       return;
     }
 
@@ -70,14 +71,14 @@ export default function SignUpForm() {
     setBusy(false);
 
     if (error) {
-      const m = error.message || "Registrácia zlyhala.";
+      const m = error.message || t("signUp.registerFailed");
       toast.error(m);
       setMsg(m);
       setIsOk(false);
       return;
     }
 
-    const okMsg = "Skontroluj e-mail a potvrď registráciu.";
+    const okMsg = t("signUp.registerCheckMail");
     setMsg(okMsg);
     setIsOk(true);
     toast.success(okMsg);
@@ -87,13 +88,13 @@ export default function SignUpForm() {
 
   return (
     <AuthShell
-      title="Vytvoriť účet"
-      description="Sleduj tréningy, analyzuj dáta a nechaj AI pripraviť plán na mieru."
+      title={t("signUp.registerTitle")}
+      description={t("signUp.registerDescription")}
     >
       <form onSubmit={submit} className={AUTH_FORM}>
         <div className={AUTH_FIELD}>
           <TextField
-            placeholder="Meno (voliteľné)"
+            placeholder={t("signUp.registerPlaceholder")}
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
           />
@@ -102,7 +103,7 @@ export default function SignUpForm() {
         <div className={AUTH_FIELD}>
           <TextField
             type="email"
-            placeholder="tvoje@email.com"
+            placeholder= {t("signUp.registerMail")}
             required
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
@@ -113,7 +114,7 @@ export default function SignUpForm() {
         <div className={AUTH_FIELD}>
           <TextField
             type="password"
-            placeholder="Heslo (min. 6 znakov)"
+            placeholder={t("signUp.registerPassword")}
             required
             value={pwd}
             onChange={(e) => setPwd(e.currentTarget.value)}
@@ -126,21 +127,21 @@ export default function SignUpForm() {
           className="text-[11px] leading-relaxed"
           style={{ color: appColors.textMuted }}
         >
-          By clicking Sign Up, you agree to our{" "}
+          {t("signUp.termsDesc")}
           <Link
             href="/terms"
             className={AUTH_LINK}
             style={AUTH_LINK_MUTED_STYLE}
           >
-            Terms of Service
+            {t("signUp.termsTitle")}
           </Link>{" "}
-          and{" "}
+          {t("common.and")}
           <Link
             href="/privacy"
             className={AUTH_LINK}
             style={AUTH_LINK_MUTED_STYLE}
           >
-            Privacy Policy
+            {t("signUp.privacyTitle")}
           </Link>
           .
         </div>
@@ -157,10 +158,10 @@ export default function SignUpForm() {
             onChange={(e) => setAgreeRisk(e.currentTarget.checked)}
           />
           <span className={CHECKBOX_LABEL} style={{ color: appColors.textSecondary }}>
-            I understand that SelfRace is not a medical tool and I use the
-            training insights at my own risk.
+            {t("signUp.confirmMedical")}
+            
             <span className={CHECKBOX_HINT}>
-              (Required to create an account)
+               {t("signUp.confirmMedical")}
             </span>
           </span>
         </label>
@@ -176,17 +177,17 @@ export default function SignUpForm() {
 
         {/* ✅ disabled kým nie je checkbox */}
         <Button type="submit" variant="primary" block disabled={!canSubmit}>
-          {busy ? "Vytváram…" : "Registrovať"}
+          {busy ? t("signUp.registering") : t("signUp.register")}
         </Button>
 
         <div className={["text-xs text-center", AUTH_TEXT].join(" ")}>
-          Už máš účet?{" "}
+          {t("signUp.haveAccount")}
           <Link
             className={AUTH_LINK}
             href="/signin"
             style={AUTH_LINK_MUTED_STYLE}
           >
-            Prihlás sa
+            {t("signUp.btnSignin")}
           </Link>
         </div>
 
@@ -205,7 +206,7 @@ export default function SignUpForm() {
           className="mt-2 text-[11px] text-center"
           style={{ color: appColors.textMuted }}
         >
-          Stravu prepojíš po registrácii v sekcii Connected Apps.
+          {t("signUp.footer")}
         </p>
       </form>
     </AuthShell>

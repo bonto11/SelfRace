@@ -16,7 +16,7 @@ type Leaves<T> = T extends object
   ? { [K in keyof T]: T[K] extends object ? Join<K & string, Leaves<T[K]>> : K & string }[keyof T]
   : never;
 
-export type TKey = Leaves<Dict["en"]>;
+export type TKey = Leaves<Dict["sk"]>;
 
 function getByPath(obj: any, path: string): any {
   return path.split(".").reduce((acc, k) => (acc && typeof acc === "object" ? acc[k] : undefined), obj);

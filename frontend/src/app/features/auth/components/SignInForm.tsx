@@ -26,8 +26,10 @@ import {
   AUTH_LINK_MUTED_STYLE,
   AUTH_TEXT,
 } from "@/app/shared/ui/tokens/auth";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function SignInForm() {
+  const t = useT();
   const router = useRouter();
   const sb = getSupabaseBrowser();
 
@@ -37,10 +39,7 @@ export default function SignInForm() {
   const [loading, setLoading] = useState(false);
 
   const sp = useSearchParams();
-  const info =
-    sp.get("checkEmail") === "1"
-      ? "Poslali sme ti e-mail s odkazom na zmenu hesla. Skontroluj inbox/spam."
-      : null;
+  const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,7 +54,7 @@ export default function SignInForm() {
     setLoading(false);
 
     if (error) {
-      const msg = error.message || "Prihlásenie zlyhalo.";
+      const msg = error.message || t("signIn.loginFailed");
       setErr(msg);
       toast.error(msg);
       return;
@@ -79,8 +78,8 @@ export default function SignInForm() {
 
   return (
     <AuthShell
-      title="Prihlásenie"
-      description="Vráť sa späť k svojim tréningom, plánom a AI trénerovi."
+      title={t("signIn.loginTitle")}
+      description={t("signIn.loginDescription")}
     >
       <form onSubmit={submit} className={AUTH_FORM}>
         {info ? (
@@ -92,7 +91,7 @@ export default function SignInForm() {
         <div className={AUTH_FIELD}>
           <TextField
             type="email"
-            placeholder="tvoje@email.com"
+            placeholder={t("signIn.loginPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             required
@@ -103,7 +102,7 @@ export default function SignInForm() {
         <div className={AUTH_FIELD}>
           <TextField
             type="password"
-            placeholder="Heslo"
+            placeholder={t("signIn.loginPassword")}
             value={pwd}
             onChange={(e) => setPwd(e.currentTarget.value)}
             required
@@ -118,7 +117,7 @@ export default function SignInForm() {
         ) : null}
 
         <Button type="submit" variant="primary" block disabled={loading}>
-          {loading ? "Prihlasujem…" : "Prihlásiť sa"}
+          {loading ? t("signIn.logingIn") : t("signIn.logIn")}
         </Button>
 
         <div className={AUTH_LINK_ROW}>
@@ -127,17 +126,17 @@ export default function SignInForm() {
             className={AUTH_LINK}
             style={AUTH_LINK_STYLE}
           >
-            Zabudnuté heslo?
+            {t("signIn.btnForgotPassword")}
           </Link>
 
           <span className={AUTH_TEXT}>
-            Nemáš účet?{" "}
+            {t("signIn.haveAccount")}
             <Link
               href="/signup"
               className={AUTH_LINK}
               style={AUTH_LINK_MUTED_STYLE}
             >
-              Registruj sa
+              {t("signIn.btnRegister")}
             </Link>
           </span>
         </div>
@@ -162,7 +161,7 @@ export default function SignInForm() {
           className="mt-2 text-[11px] text-center"
           style={{ color: appColors.textMuted }}
         >
-          Import aktivít a detailné metriky sú dostupné po prepojení Stravy.
+          {t("signIn.footer")}
         </p>
       </form>
     </AuthShell>
