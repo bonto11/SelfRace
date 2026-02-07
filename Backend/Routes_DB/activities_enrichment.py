@@ -104,7 +104,6 @@ def db_upsert_enrichment_rows_merge(
         # 2) upsert by composite key
         # NOTE: This will still overwrite provided columns with provided values,
         # but because we stripped None, we won't null-out existing data.
-        print("[ENRICH][upsert] chunk:", chunk)
         res = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
             .upsert(

@@ -66,7 +66,7 @@ def db_clear_external_events_for_user(
             .execute()
         )
         rows = res.data or []
-        print("[DB-COACH-EXT] clear user=%s deleted=%s", user_id, len(rows))
+
         return len(rows)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] clear error:", repr(e))
@@ -88,7 +88,7 @@ def db_insert_external_events(
 
         res = sb.table(TABLE_COACH_EXTERNAL_EVENTS).insert(rows).execute()
         data = res.data or []
-        print("[DB-COACH-EXT] inserted rows:", len(data))
+
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-EXT] insert error:", repr(e))

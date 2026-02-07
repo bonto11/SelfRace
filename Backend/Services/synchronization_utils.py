@@ -1,4 +1,4 @@
-#Services/synchronization_utils
+# Services/synchronization_utils
 from __future__ import annotations
 
 import statistics
@@ -16,7 +16,14 @@ from Routes_DB.activities_summary import (
     db_get_recent_activity_ids,
 )
 from Configs.config import (
-FIRST_SYNC_DAYS, FIRST_SYNC_MAX,RECONNECT_DAYS, RECONNECT_MAX, QUICK_DAYS, QUICK_MAX, MANUAL_DAYS, MANUAL_MAX
+    FIRST_SYNC_DAYS,
+    FIRST_SYNC_MAX,
+    RECONNECT_DAYS,
+    RECONNECT_MAX,
+    QUICK_DAYS,
+    QUICK_MAX,
+    MANUAL_DAYS,
+    MANUAL_MAX,
 )
 
 from Modules.Supabase.auth import AuthCtx
@@ -26,7 +33,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class SyncPlan:
-    kind: str            # "first" | "reconnect" | "quick"
+    kind: str  # "first" | "reconnect" | "quick"
     days_back: int
     max_activities: int
     reason: str
@@ -68,6 +75,7 @@ def decide_sync_plan(
         max_activities=QUICK_MAX,
         reason="quick",
     )
+
 
 # ---------------------------------------------------------------------
 # Pomocné konverzie
@@ -207,7 +215,7 @@ def _median_dist(laps_dt: List[Tuple[float, float]]) -> Optional[float]:
 # ---------------------------------------------------------------------
 # Normalizácia na tvoje tabuľky
 # ---------------------------------------------------------------------
-def _normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
+def normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
     """
     Mapuje Strava activity JSON → presne tvoje stĺpce v activities_summary.
     """
@@ -392,9 +400,11 @@ def _decide_laps_or_splits(
 
     return "laps"
 
+
 # -----------------------------------------------------------------------------
 # Spoločná enrichment logika (streams + zóny + plan_match)
 # -----------------------------------------------------------------------------
+
 
 def enrich_activities_for_ids(
     user_id: int,
@@ -415,21 +425,14 @@ def enrich_activities_for_ids(
         print("[SYNC] enrich: no activity ids, skipping")
         return
 
-
     try:
-        print(f"[SYNC] streams: fetching & storing for {len(activity_ids)} ids …")
-        streams_res = fetch_and_optionally_store_batch(
+        fetch_and_optionally_store_batch(
             user_id,
             activity_ids,
             store=True,
             ctx=ctx,
         )
-        print(
-            f"[SYNC] streams: stored={streams_res.get('stored')} / "
-            f"total={streams_res.get('count')}"
-        )
 
-        print("[SYNC] zones: computing minutes from cached streams …")
         prev = preview_zones_for_activities(
             user_id,
             activity_ids,
@@ -440,18 +443,17 @@ def enrich_activities_for_ids(
         to_save = [
             it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")
         ]
-        saved = upsert_enrichment_minutes(
+
+        upsert_enrichment_minutes(
             user_id,
             to_save,
             ctx=ctx,
         )
-        print(f"[SYNC] zones: enrichment upsert saved rows = {saved.get('saved', 0)}")
-
 
         try:
 
             from Services.async_jobs import service_enqueue_job, service_run_job_now
-            
+
             enqueue = service_enqueue_job(
                 user_id=user_id,
                 job_type="plan_match",
@@ -470,23 +472,11 @@ def enrich_activities_for_ids(
             if not job:
                 print("[SYNC] plan auto-mapping: enqueue_failed")
             else:
-                run = service_run_job_now(
+                service_run_job_now(
                     user_id=user_id,
                     job_id=int(job["id"]),
                     worker_id="sync_auto_map",
                     ctx=ctx,
-                )
-
-                job_row = run.get("job") or {}
-                result = job_row.get("result") or {}
-
-                print(
-                    "[SYNC] plan auto-mapping (job): "
-                    f"candidates={result.get('candidates')} "
-                    f"mapped={result.get('mapped')} "
-                    f"skipped={result.get('skipped')} "
-                    f"processed={result.get('processed')} "
-                    f"error={run.get('error')}"
                 )
 
         except Exception as e:
@@ -495,7 +485,8 @@ def enrich_activities_for_ids(
     except Exception as e:
         print(f"[SYNC] zones enrichment failed: {e}")
 
-def _enrich_activities_after_import(
+
+def enrich_activities_after_import(
     user_id: int,
     since_iso_for_scan: str,
     *,
@@ -525,6 +516,7 @@ def _enrich_activities_after_import(
     except Exception as e:
         print(f"[SYNC] enrich wrapper failed: {e}")
 
+
 def decide_use_laps_or_generate_splits(
     laps_raw: List[Dict[str, Any]],
 ) -> str:
@@ -550,6 +542,7 @@ def decide_use_laps_or_generate_splits(
         return "laps"
 
     return "splits"
+
 
 def generate_splits_from_laps(
     *,

@@ -65,7 +65,6 @@ def service_create_user(
     """
     existing = db_get_user_by_email(mail_address, ctx=ctx)
     if existing:
-        print(f"E-mail {mail_address} už existuje. Nevkladám.")
         return existing
 
     payload: Dict[str, Any] = {
@@ -78,7 +77,7 @@ def service_create_user(
         payload["auth_uid"] = auth_uid
 
     row = db_insert_user(payload=payload, ctx=ctx)
-    print("Úspešne vložené:", row)
+
     return row
 
 
@@ -128,7 +127,6 @@ def service_get_or_create_user_id(
     """
     user = db_get_user_by_email(email, ctx=ctx)
     if not user:
-        print(f"Užívateľ {email} neexistuje, vytváram ho.")
         service_create_user(
             name=name,
             age=0,

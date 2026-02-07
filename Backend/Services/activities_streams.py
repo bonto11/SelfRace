@@ -311,11 +311,6 @@ def service_get_streams_cached_or_fetch(
     2) Ak nenájde:
        - ak fetch_if_missing=False: vráti source="none" (bez Stravy)
        - ak fetch_if_missing=True: fetchne zo Stravy, uloží do DB, re-read, vráti source="strava", fetched=True
-
-    DEBUG PRINTY:
-      - DB HIT / DB MISS
-      - STRAVA FETCH (keď sa spustí)
-      - DB STORE ok/err
     """
 
     # 1) DB read

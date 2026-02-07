@@ -33,7 +33,6 @@ def db_insert_strength_history_rows(
     try:
         res = sb.table(TABLE_COACH_STRENGTH_HISTORY).insert(normalized).execute()
         data = res.data or []
-        print("[DB-COACH-STRENGTH] inserted rows:", len(data))
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-STRENGTH] insert error:", repr(e))
@@ -65,12 +64,7 @@ def db_get_strength_history_for_user(
             .execute()
         )
         data = res.data or []
-        print(
-            "[DB-COACH-STRENGTH] history user=%s weeks_back=%s rows=%s",
-            user_id,
-            weeks_back,
-            len(data),
-        )
+
         return data
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-STRENGTH] history error:", repr(e))

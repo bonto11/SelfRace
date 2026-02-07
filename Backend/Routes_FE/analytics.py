@@ -132,7 +132,7 @@ def pareto_trend(
             sport=sport,
             ctx=ctx,
         )
-        print("pareto_trend payload",rows)
+
         return {
             "success": True,
             "data": rows,

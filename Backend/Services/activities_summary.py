@@ -20,10 +20,6 @@ def service_get_activities(
 ) -> List[Dict[str, Any]]:
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
     rows = db_get_activities_recent(ctx, user_id=user_id, since_iso_date=since_date)
-    print(
-        "[SERVICE][activities_summary][get_activities]",
-        {"user_id": user_id, "days": days, "rows": len(rows)},
-    )
     return rows
 
 
@@ -43,11 +39,6 @@ def service_activities_in_range(
         user_id=user_id,
         start_ts_iso=start_ts.isoformat(),
         end_ts_iso=end_ts.isoformat(),
-    )
-
-    print(
-        "[SERVICE][activities_summary][range]",
-        {"user_id": user_id, "start": start, "end": end, "rows": len(rows)},
     )
 
     return {
@@ -94,11 +85,6 @@ def service_select_activities(
                 ),
             }
         )
-
-    print(
-        "[SERVICE][activities_summary][select_window]",
-        {"user_id": user_id, "rows": len(items), "sports": sport_list},
-    )
 
     return {"count": len(items), "items": items}
 

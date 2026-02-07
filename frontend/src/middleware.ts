@@ -25,13 +25,6 @@ export async function middleware(req: NextRequest) {
     // 3) Tichý refresh / bootstrap cookies (nič nepresmerúvame)
     const { data, error } = await supabase.auth.getSession();
 
-
-    console.log("[SB][mw]", {
-      path: pathname,
-      hasSession: !!data?.session,
-      userId: data?.session?.user?.id ?? null,
-      err: error?.message ?? null,
-    });
   } catch (e: any) {
     console.error("[SB][mw] ERROR", e?.message ?? e);
   }

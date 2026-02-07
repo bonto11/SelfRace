@@ -373,12 +373,6 @@ def auto_map_plans_for_activities(
                     f"best_score={best_score:.3f} "
                     f"DB_UPDATE_ERROR={e!r}"
                 )
-        else:
-            print(
-                f"[PLAN-MATCH][RESULT] aid={aid} best_plan_row_id={best_sess['id']} "
-                f"best_score={best_score:.3f} < threshold={score_threshold} "
-                f"detail={best_detail}"
-            )
 
     # 6) summary
     summary = {

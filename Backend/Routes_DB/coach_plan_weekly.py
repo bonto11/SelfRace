@@ -24,7 +24,7 @@ def db_insert_weekly_rows(
     try:
         res = sb.table(TABLE_COACH_PLAN_WEEKLY).insert(rows).execute()
         data = res.data or []
-        print("[DB-COACH-WEEKLY] inserted rows:", len(data))
+
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-WEEKLY] insert error:", repr(e))
@@ -51,12 +51,7 @@ def db_clear_weekly_for_user_plan(
             .execute()
         )
         data = res.data or []
-        print(
-            "[DB-COACH-WEEKLY] clear user=%s plan_id=%s deleted=%s",
-            user_id,
-            plan_id,
-            len(data),
-        )
+
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-WEEKLY] clear error:", repr(e))

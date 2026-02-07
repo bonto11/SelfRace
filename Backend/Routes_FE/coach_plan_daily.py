@@ -3,9 +3,12 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from Configs.config import COACH_PLAN_OVERVIEW_HORIZON_DAYS
+from pydantic import BaseModel, Field
+from Services.coach_plan_adjustment import service_reschedule_daily_plan
+
 from Schemas.coach_plan_daily import DailyWeekGenerateConfig
 from Services.AI.daily_plan import (
     service_generate_daily_week,
@@ -74,9 +77,6 @@ def get_daily_overview(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
-# NEW imports
-from pydantic import BaseModel, Field
-from Services.coach_plan_adjustment import service_reschedule_daily_plan
 
 
 class DailyRescheduleMove(BaseModel):
@@ -102,7 +102,6 @@ def reschedule_daily_plan(
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        print("reschedule_daily_plan payload",payload)
         overview = service_reschedule_daily_plan(
             user_id=user_id,
             moves=[m.model_dump() for m in (payload.moves or [])],

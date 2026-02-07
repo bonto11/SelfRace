@@ -38,7 +38,6 @@ def db_insert_plan_meta_generated(
         "source": source,
     }
 
-    print("[DB-COACH-META] row:", row)
     try:
         res = sb.table(TABLE_COACH_PLAN_META).insert(row).execute()
         rows = res.data or []
@@ -71,11 +70,7 @@ def db_archive_user_plans(
             .execute()
         )
         rows = res.data or []
-        print(
-            "[DB-COACH-META] archived plans user=%s count=%s",
-            user_id,
-            len(rows),
-        )
+
         return len(rows)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-META] archive_user_plans error:", repr(e))

@@ -22,7 +22,6 @@ export async function GET() {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    console.log("[SB][session] user ok:", data.user.email);
     return NextResponse.json({ user: data.user });
   } catch (e: any) {
     console.error("[SB][session] exception:", e.message ?? e);

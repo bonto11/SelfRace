@@ -13,8 +13,8 @@ from Routes_DB.activities_summary import (
 )
 
 from Services.synchronization_utils import (
-    _normalize_summary,
-    _enrich_activities_after_import,
+    normalize_summary,
+    enrich_activities_after_import,
      decide_sync_plan,
 
 )
@@ -81,7 +81,7 @@ def import_activities_bulk(
             total_fetched += 1
             fetched += 1
 
-            row = _normalize_summary(user_id, a)
+            row = normalize_summary(user_id, a)
             aid = row.get("activity_id")
 
             if not aid:
@@ -109,11 +109,8 @@ def import_activities_bulk(
 
         page += 1
 
-
-    print(f"[SYNC][BULK] fetched={fetched} imported={imported} updated={updated}")
-
     # ---------- ENRICHMENT ----------
-    _enrich_activities_after_import(
+    enrich_activities_after_import(
         user_id=user_id,
         since_iso_for_scan=since_iso,
         ctx=ctx,

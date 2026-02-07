@@ -163,7 +163,6 @@ export async function apiFetchActivityStreams(
   const js = await callBackend<any>(path, { method: "POST", cache: "no-store" });
   if (!js?.success) return null;
 
-  console.log("js", js);
   return {
     streams: js.streams ?? null,
     source: js.source ?? "unknown",
@@ -218,9 +217,9 @@ export async function apiFetchActivityExtrasCombined(
     apiFetchActivityExtras(userId, activityId, fetchIfMissing),
   ]);
 
-  console.log("stRes", stRes);
+
   const streams = (stRes?.streams ?? null) as StreamsData | null;
-  console.log("streams", streams);
+
   const laps = Array.isArray(exRes?.laps) ? exRes!.laps : [];
   const splits = Array.isArray(exRes?.splits) ? exRes!.splits : [];
 

@@ -230,7 +230,6 @@ export async function apiGetLatestAthleteProgress(
     throw new Error(msg);
   }
 
-  console.log("json.item", json.item);
   return json.item ?? null;
 }
 

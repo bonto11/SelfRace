@@ -171,8 +171,6 @@ export default function CoachPreferencies() {
         ]);
         if (!alive) return;
 
-        console.log("[PREFS] pRaw from DB:", pRaw);
-
         // Drop old prefs.external_activities from state & save payload
         const pAny = (pRaw || {}) as any;
         const { external_activities: _ext, ...p } = pAny;
@@ -191,8 +189,6 @@ export default function CoachPreferencies() {
           thresholds: draftThr ?? undefined,
           thresholds_latest: thrRows,
         };
-
-        console.log("[PREFS] next state before setLocal:", next);
 
         if (!dirtyRef.current) setLocal(next);
       } catch (e) {

@@ -22,7 +22,7 @@ from Routes_DB.activities_splits import (
 )
 
 from Services.synchronization_utils import (
-    _normalize_summary,
+    normalize_summary,
     _normalize_lap,
     _normalize_split,
     _decide_laps_or_splits,
@@ -234,7 +234,7 @@ def service_sync_single_activity(
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
 
     # ---------- 2) SUMMARY ROW ----------
-    row = _normalize_summary(user_id, detail)
+    row = normalize_summary(user_id, detail)
     if not row.get("activity_id"):
         print(f"[SYNC:single] missing activity_id for id={aid}")
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
@@ -325,11 +325,6 @@ def service_sync_single_activity(
         )
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")
-
-    print(
-        f"[SYNC:single] done id={aid}: imported={imported} "
-        f"updated={updated} skipped={skipped} fetched={fetched}"
-    )
 
     mark_strava_ever_synced_now(ctx=ctx,user_id=user_id)
     return {
