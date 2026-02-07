@@ -12,7 +12,8 @@ export default function SettingsDbBootstrapper() {
     bindUser(userId ?? null);
     if (!userId) return;
     void syncFromDb(userId);
-  }, [userId, bindUser, syncFromDb]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   return null;
 }
