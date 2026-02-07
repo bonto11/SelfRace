@@ -3,12 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import {
   apiGetDailyOverview,
+  apiSaveDailyReschedule,
   type DailyOverview,
   type DailyPlanDay,
+  type DailyRescheduleMove,
 } from "@/app/features/coach/api/coach_plan_daily";
 
 import SessionCard, {
@@ -27,10 +31,7 @@ import {
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 
-import {
-  SESSION_CARD,
-  SESSION_CARD_STYLE,
-} from "@/app/shared/ui/tokens/sessionCard";
+import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
 
 /* ---------- helpers ---------- */
 
@@ -57,6 +58,16 @@ function weekdayLabel(value: string | null | undefined): string | null {
   return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
+function sortDaysByDate(days: DailyPlanDay[]): DailyPlanDay[] {
+  const copy = [...(days || [])];
+  copy.sort((a, b) => {
+    const da = a?.date || "";
+    const db = b?.date || "";
+    return da.localeCompare(db);
+  });
+  return copy;
+}
+
 /* ---------- tiny Card wrapper (token-first) ---------- */
 
 function Card({
@@ -74,16 +85,12 @@ function Card({
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
             {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
-            {subtitle ? (
-              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
-            ) : null}
+            {subtitle ? <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div> : null}
           </div>
         </header>
       )}
 
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        {children}
-      </div>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
 
       <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
@@ -97,7 +104,12 @@ export default function DetailDailyPlan() {
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ✅ pending reschedule ops
+  const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -109,7 +121,11 @@ export default function DetailDailyPlan() {
       setError(null);
       try {
         const r = await apiGetDailyOverview(userId);
-        if (alive) setOverview(r ?? null);
+        if (alive) {
+          setOverview(r ?? null);
+          setMoves([]);       // reset dirty when reloading
+          setSaveError(null);
+        }
       } catch (e: any) {
         if (alive) setError(e?.message ?? "Chyba pri načítaní AI daily plánu.");
       } finally {
@@ -138,31 +154,76 @@ export default function DetailDailyPlan() {
     return out;
   }, [days]);
 
-  // FE-only presun (bez save)
-  const moveSession = (fromDate: string, toDate: string, sessionIndex: number) => {
+  const dirty = moves.length > 0;
+
+  // ✅ local move by DB PK (session_id)
+  const moveSessionLocal = (fromDate: string, toDate: string, sessionPk: number | string) => {
     setOverview((prev) => {
       if (!prev) return prev;
 
-      const fromDay = prev.days.find((x) => x.date === fromDate);
-      const moved = fromDay?.sessions?.[sessionIndex];
-      if (!moved) return prev;
+      let moved: any = null;
 
-      const daysNext: DailyPlanDay[] = prev.days.map((d) => {
-        if (d.date === fromDate) {
-          const nextSessions = [...(d.sessions ?? [])];
-          nextSessions.splice(sessionIndex, 1);
-          return { ...d, sessions: nextSessions };
+      const daysRemoved: DailyPlanDay[] = (prev.days || []).map((d) => {
+        if (d.date !== fromDate) return d;
+
+        const nextSessions = [...(d.sessions ?? [])];
+        const idx = nextSessions.findIndex((s: any) => {
+          const pk = s?.session_id ?? s?.id;
+          return String(pk) === String(sessionPk);
+        });
+
+        if (idx >= 0) {
+          moved = nextSessions[idx];
+          nextSessions.splice(idx, 1);
         }
 
-        if (d.date === toDate) {
-          return { ...d, sessions: [...(d.sessions ?? []), moved] };
-        }
-
-        return d;
+        return { ...d, sessions: nextSessions };
       });
 
-      return { ...prev, days: daysNext };
+      if (!moved) return prev;
+
+      const daysAdded: DailyPlanDay[] = daysRemoved.map((d) => {
+        if (d.date !== toDate) return d;
+        return { ...d, sessions: [...(d.sessions ?? []), moved] };
+      });
+
+      return { ...prev, days: sortDaysByDate(daysAdded) };
     });
+  };
+
+  const addMove = (m: DailyRescheduleMove) => {
+    setMoves((prev) => [...prev, m]);
+  };
+
+  const undoLast = () => {
+    setMoves((prev) => {
+      if (!prev.length) return prev;
+      const last = prev[prev.length - 1];
+
+      // revert locally
+      moveSessionLocal(last.to_date, last.from_date, last.session_id);
+
+      return prev.slice(0, -1);
+    });
+  };
+
+  const saveMoves = async () => {
+    if (!userId || !dirty || saving) return;
+
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const next = await apiSaveDailyReschedule(userId, moves);
+      if (next) {
+        setOverview(next);
+      }
+      setMoves([]);
+    } catch (e: any) {
+      setSaveError(e?.message ?? "Nepodarilo sa uložiť zmeny plánu.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   /* ---------- states ---------- */
@@ -201,7 +262,7 @@ export default function DetailDailyPlan() {
     <div className={PANEL_STACK}>
       <Card
         title="AI Daily plan – detail"
-        subtitle="Detail denného tréningového plánu. Presúvanie dní je lokálne (Save príde neskôr)."
+        subtitle="Detail denného tréningového plánu. Presun je lokálny, uloženie cez Save."
       >
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>
@@ -209,8 +270,7 @@ export default function DetailDailyPlan() {
           </div>
         ) : (
           <div className={PANEL_PREVIEW}>
-            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na
-            Session karte.
+            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na Session karte.
           </div>
         )}
       </Card>
@@ -219,6 +279,49 @@ export default function DetailDailyPlan() {
         title="Denný rozpis tréningov"
         subtitle="Každá karta je jeden tréning. Môžeš zmeniť deň v rámci existujúceho plánu."
       >
+        {/* ✅ Save bar */}
+        {hasPlan ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs opacity-70">
+                {dirty ? `Neuložené zmeny: ${moves.length}` : "Zmeny uložené"}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  disabled={!dirty || saving}
+                  onClick={async () => {
+                    if (!dirty) return;
+                    const ok = await confirm({
+                      title: "Vrátiť poslednú zmenu?",
+                      message: "Táto akcia vráti posledný presun v pláne.",
+                      okText: "Vrátiť",
+                      cancelText: "Zrušiť",
+                      tone: "danger",
+                    });
+                    if (ok) undoLast();
+                  }}
+                >
+                  Undo
+                </Button>
+
+                <Button
+                  size="xs"
+                  variant="primary"
+                  disabled={!dirty || saving}
+                  onClick={saveMoves}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </div>
+
+            {saveError ? <div className="mt-1 text-[11px] text-red-300">{saveError}</div> : null}
+          </div>
+        ) : null}
+
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>—</div>
         ) : (
@@ -231,14 +334,18 @@ export default function DetailDailyPlan() {
               const dateLabel = formatDate(d.date) ?? d.date;
               const wd = weekdayLabel(d.date) ?? "";
 
-              return d.sessions.map((s, idx) => {
+              return d.sessions.map((s: any, idx: number) => {
+                const pk = s?.session_id ?? s?.id ?? null;
+
                 const kpis: KPI[] = [];
                 if (s.duration_min) kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
                 if (s.intensity) kpis.push({ label: "INTENSITY", value: String(s.intensity) });
                 if (s.zone_text) kpis.push({ label: "TARGET", value: String(s.zone_text) });
 
                 const item: PlanSession = {
-                  id: `${d.date}-${idx}`,
+                  // ✅ DB PK (stable). Fallback je len pre UI, save bez PK nedáva zmysel.
+                  id: pk ?? `${d.date}-${idx}`,
+
                   kind: "plan",
                   status: "planned",
                   title: s.title || s.session_type || s.sport || "Tréning",
@@ -260,7 +367,7 @@ export default function DetailDailyPlan() {
 
                 return (
                   <SessionCard
-                    key={item.id}
+                    key={String(item.id)}
                     variant="calendar"
                     item={item}
                     planReschedule={{
@@ -268,8 +375,18 @@ export default function DetailDailyPlan() {
                       dates: planDates,
                       dayCounts,
                       maxPerDay: 2,
-                      onChangeDate: ({ fromDate, toDate }) =>
-                        moveSession(fromDate, toDate, idx),
+                      onChangeDate: ({ sessionId, fromDate, toDate }) => {
+                        // ✅ hard requirement pre SAVE: musíme mať DB PK
+                        if (sessionId == null) return;
+
+                        addMove({
+                          session_id: sessionId,
+                          from_date: fromDate,
+                          to_date: toDate,
+                        });
+
+                        moveSessionLocal(fromDate, toDate, sessionId);
+                      },
                     }}
                   />
                 );

@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import { confirm } from "@/app/shared/ui/components/Confirm";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
@@ -126,12 +125,6 @@ export type SessionCardProps = {
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
 
-  /**
-   * Optional: enable rescheduling ONLY for plan cards.
-   * - dates: ISO dates available in plan (YYYY-MM-DD)
-   * - dayCounts: map date -> number of plan sessions already on that day (for 0/2,1/2,2/2)
-   * - maxPerDay: default 2
-   */
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -204,19 +197,15 @@ export default function SessionCard({
   }, [item.defaultOpen]);
 
   useEffect(() => {
-    // keep select in sync when parent updates item.dateIso
     if (item.kind === "plan") setPendingDate(item.dateIso ?? null);
   }, [item.kind, item.dateIso]);
 
-  // if card is collapsed, hide reschedule controls so it never "shouts"
   useEffect(() => {
     if (!opened) setShowReschedule(false);
   }, [opened]);
 
   const dateLine =
-    item.hideDateLine || variant === "calendar"
-      ? ""
-      : prettySkDate(item.dateIso);
+    item.hideDateLine || variant === "calendar" ? "" : prettySkDate(item.dateIso);
 
   const secondaryLine = useMemo(() => {
     if (variant === "calendar" && item.subtitle) return item.subtitle;
@@ -226,28 +215,20 @@ export default function SessionCard({
       case "bests": {
         const act = item as ActivitySession | BestsSession;
         const distKm = parseKm(act.distanceStr);
-        if (distKm != null && distKm > 0 && act.distanceStr)
-          return `Distance ${act.distanceStr}`;
+        if (distKm != null && distKm > 0 && act.distanceStr) return `Distance ${act.distanceStr}`;
         if (act.timeStr) return `Time ${act.timeStr}`;
         return null;
       }
 
       case "plan": {
         const plan = item as PlanSession;
-        const bits = [
-          plan.planDur ?? "",
-          plan.planIntensity ?? "",
-          plan.planTarget ?? "",
-        ].filter(Boolean);
+        const bits = [plan.planDur ?? "", plan.planIntensity ?? "", plan.planTarget ?? ""].filter(Boolean);
         return bits.length ? bits.join(" · ") : null;
       }
 
       case "external": {
         const ext = item as ExternalSession;
-        const bits = [
-          ext.time ? ext.time : null,
-          ext.durationMin != null ? `${ext.durationMin} min` : null,
-        ].filter(Boolean);
+        const bits = [ext.time ? ext.time : null, ext.durationMin != null ? `${ext.durationMin} min` : null].filter(Boolean);
         return bits.length ? bits.join(" · ") : null;
       }
 
@@ -290,26 +271,11 @@ export default function SessionCard({
 
     const cnt = Number(dayCounts[toDate] ?? 0);
 
-    // hard rule: never allow 3+
-    if (cnt >= maxPerDay + 1) {
+    // ✅ invariant: max 2 sessions/day
+    if (cnt >= maxPerDay) {
+      // revert select
       setPendingDate(fromDate);
       return;
-    }
-
-    // if moving to a full day (2/2), require confirm
-    if (cnt >= maxPerDay) {
-      const ok = await confirm({
-        title: "V tento deň už máš 2 tréningy",
-        message: "Presunúť tréning aj tak? (Max je 2 tréningy za deň.)",
-        okText: "Presunúť",
-        cancelText: "Zrušiť",
-        tone: "danger",
-      });
-
-      if (!ok) {
-        setPendingDate(fromDate);
-        return;
-      }
     }
 
     setPendingDate(toDate);
@@ -320,17 +286,12 @@ export default function SessionCard({
       toDate,
     });
 
-    // subtle UX: auto-hide after successful change
     setShowReschedule(false);
   };
 
   return (
     <section
-      className={[
-        SESSION_CARD,
-        SESSION_CARD_HOVER,
-        SESSION_VARIANT_PAD[variant],
-      ].join(" ")}
+      className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(" ")}
       style={SESSION_CARD_STYLE}
     >
       {/* HEADER */}
@@ -342,9 +303,7 @@ export default function SessionCard({
             <div className="min-w-0">
               <div className={SESSION_TITLE}>{item.title}</div>
 
-              {secondaryLine && (
-                <div className={SESSION_SUBTITLE}>{secondaryLine}</div>
-              )}
+              {secondaryLine && <div className={SESSION_SUBTITLE}>{secondaryLine}</div>}
             </div>
           </div>
 
@@ -356,12 +315,7 @@ export default function SessionCard({
             )}
 
             {item.kind === "plan" && (
-              <span
-                className={SESSION_PILL}
-                style={
-                  SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]
-                }
-              >
+              <span className={SESSION_PILL} style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}>
                 {statusLabel((item as PlanSession).status)}
               </span>
             )}
@@ -373,17 +327,10 @@ export default function SessionCard({
               aria-expanded={opened}
               onClick={() => setOpened((s) => !s)}
               title={opened ? "Skryť detail" : "Otvoriť detail"}
-              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(
-                " ",
-              )}
+              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
               style={SESSION_TOGGLE_BTN_STYLE}
             >
-              <span
-                className={[
-                  SESSION_TOGGLE_ICON,
-                  opened ? "rotate-180" : "",
-                ].join(" ")}
-              >
+              <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
                 ▾
               </span>
             </button>
@@ -463,7 +410,6 @@ function DetailBody({
   if (item.kind === "plan") {
     return (
       <div className="space-y-3">
-        {/* ✅ hidden by default, only visible after clicking button */}
         {planRescheduleUI ? (
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
