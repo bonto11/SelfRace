@@ -8,6 +8,8 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
 
@@ -96,9 +98,7 @@ const emptyRace = () => ({
 type Props = {
   local: any;
   setPref: (key: any, value: any) => void;
-  upsertRunTargets: (
-    patch: Partial<NonNullable<any["targets"]>["run"]>,
-  ) => void;
+  upsertRunTargets: (patch: Partial<NonNullable<any["targets"]>["run"]>) => void;
 };
 
 /* ─────────────────────── component ─────────────────────── */
@@ -106,9 +106,7 @@ type Props = {
 export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   const [open, setOpen] = useState(false);
 
-  const overallGoal: (typeof OVERALL_GOALS)[number] | undefined =
-    local.goal_kind;
-
+  const overallGoal: (typeof OVERALL_GOALS)[number] | undefined = local.goal_kind;
   const runTargets = (local.targets?.run ?? {}) as any;
 
   const races: any[] = useMemo(
@@ -119,8 +117,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
   /* ---------- closed preview ---------- */
 
   const aRace =
-    races.find((r) => r.priority === "A") ??
-    (races.length > 0 ? races[0] : null);
+    races.find((r) => r.priority === "A") ?? (races.length > 0 ? races[0] : null);
 
   const racePreview = aRace
     ? (() => {
@@ -130,11 +127,8 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         const rg = aRace.race_goal as (typeof RACE_GOALS)[number] | null;
         const customKm = aRace.custom_distance_km as number | null;
         if (rg) {
-          if (rg === "other" && customKm) {
-            parts.push(`${customKm} km`);
-          } else {
-            parts.push(RACE_GOAL_LABEL[rg] ?? rg);
-          }
+          if (rg === "other" && customKm) parts.push(`${customKm} km`);
+          else parts.push(RACE_GOAL_LABEL[rg] ?? rg);
         }
 
         if (aRace.date) parts.push(String(aRace.date));
@@ -153,19 +147,15 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     racePreview ? `Key race: ${racePreview}` : null,
   ].filter(Boolean);
 
-  const previewText =
-    previewParts.length > 0 ? previewParts.join(" | ") : "No goal set";
+  const previewText = previewParts.length > 0 ? previewParts.join(" | ") : "No goal set";
 
   /* ---------- helpers / mutators ---------- */
 
-  const updateRunTargets = (patch: any) => {
-    upsertRunTargets(patch);
-  };
+  const updateRunTargets = (patch: any) => upsertRunTargets(patch);
 
   const syncMainRaceToTargets = (racesNext: any[]) => {
     const main =
-      racesNext.find((r) => r.priority === "A") ??
-      (racesNext.length > 0 ? racesNext[0] : null);
+      racesNext.find((r) => r.priority === "A") ?? (racesNext.length > 0 ? racesNext[0] : null);
 
     if (!main) {
       updateRunTargets({
@@ -198,9 +188,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     // max jedno "A"
     if (patch.priority === "A") {
       for (let i = 0; i < next.length; i += 1) {
-        if (i !== index && next[i].priority === "A") {
-          next[i] = { ...next[i], priority: null };
-        }
+        if (i !== index && next[i].priority === "A") next[i] = { ...next[i], priority: null };
       }
     }
 
@@ -211,30 +199,24 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     const cur = Array.isArray(races) ? races : [];
     const hasA = cur.some((r) => r.priority === "A");
     const base = emptyRace();
-    const nextRace = {
-      ...base,
-      priority: hasA ? null : "A",
-    };
+    const nextRace = { ...base, priority: hasA ? null : "A" };
     syncMainRaceToTargets([...cur, nextRace]);
   };
 
   const removeRace = (index: number) => {
     const cur = Array.isArray(races) ? races : [];
-    const next = cur.filter((_, i) => i !== index);
+    const next = cur.filter((_: any, i: number) => i !== index);
     syncMainRaceToTargets(next);
   };
 
-  const handleRaceGoalClick = (
-    index: number,
-    g: (typeof RACE_GOALS)[number],
-  ) => {
+  const handleRaceGoalClick = (index: number, g: (typeof RACE_GOALS)[number]) => {
     const race = races[index] ?? {};
     const current = race.race_goal as (typeof RACE_GOALS)[number] | null;
     const nextGoal = current === g ? null : g;
+
     const patch: any = { race_goal: nextGoal };
-    if (nextGoal !== "other" && nextGoal !== "ultra") {
-      patch.custom_distance_km = null;
-    }
+    if (nextGoal !== "other" && nextGoal !== "ultra") patch.custom_distance_km = null;
+
     updateRaceAt(index, patch);
   };
 
@@ -242,7 +224,17 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   return (
     <InputsCard
-      title="Goal"
+      title={
+        <div className="flex items-center gap-2">
+          <span>Goal</span>
+          <TooltipIcon
+            text={
+              "Key races (A/B/C) + overall training goal.\n\n" +
+              "A-race = najdôležitejší cieľ, podľa neho sa plán najviac prispôsobí."
+            }
+          />
+        </div>
+      }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
           Key races & overall training goal.
@@ -257,9 +249,11 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         {/* 1. KEY RACES */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-medium opacity-70">
-              1. Key races (A/B/C)
+            <div className="flex items-center gap-2 text-xs font-medium opacity-70">
+              <span>1. Key races (A/B/C)</span>
+              <TooltipIcon text="Pridaj preteky, ktoré chceš cieliť. A = hlavný cieľ, B/C = doplnkové." />
             </div>
+
             <Button size="xs" variant="success" onClick={addRace}>
               Add race
             </Button>
@@ -273,24 +267,12 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
           <div className="space-y-4">
             {races.map((race, index) => {
-              const raceGoal = race.race_goal as
-                | (typeof RACE_GOALS)[number]
-                | null
-                | undefined;
+              const raceGoal = race.race_goal as (typeof RACE_GOALS)[number] | null | undefined;
               const showCustom = raceGoal === "other" || raceGoal === "ultra";
 
-              const rt = race.race_type as
-                | (typeof RACE_TYPES)[number]
-                | null
-                | undefined;
-              const terr = race.terrain as
-                | (typeof TERRAIN)[number]
-                | null
-                | undefined;
-              const elev = race.elevation_profile as
-                | (typeof ELEVATION)[number]
-                | null
-                | undefined;
+              const rt = race.race_type as (typeof RACE_TYPES)[number] | null | undefined;
+              const terr = race.terrain as (typeof TERRAIN)[number] | null | undefined;
+              const elev = race.elevation_profile as (typeof ELEVATION)[number] | null | undefined;
 
               return (
                 <div
@@ -304,32 +286,21 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       placeholder="e.g. Bratislava 10k"
                       value={race.name ?? ""}
                       onChange={(e) =>
-                        updateRaceAt(index, {
-                          name: e.currentTarget.value || null,
-                        })
+                        updateRaceAt(index, { name: e.currentTarget.value || null })
                       }
                     />
 
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      onClick={() => removeRace(index)}
-                    >
+                    <Button size="xs" variant="danger" onClick={() => removeRace(index)}>
                       Remove
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    {/* ✅ DateField instead of native date input */}
                     <div>
                       <div className="text-xs opacity-70 mb-1">Race date</div>
                       <DateField
                         value={(race.date as string | null) ?? null}
-                        onChange={(v) =>
-                          updateRaceAt(index, {
-                            date: v || null,
-                          })
-                        }
+                        onChange={(v) => updateRaceAt(index, { date: v || null })}
                         variant="editable"
                       />
                     </div>
@@ -346,10 +317,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       }
                       options={[
                         { value: "", label: "—" },
-                        ...PRIORITIES.map((p) => ({
-                          value: p,
-                          label: p,
-                        })),
+                        ...PRIORITIES.map((p) => ({ value: p, label: p })),
                       ]}
                     />
 
@@ -358,39 +326,31 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       placeholder="e.g. 00:39:00"
                       value={race.target_time ?? ""}
                       onChange={(e) =>
-                        updateRaceAt(index, {
-                          target_time: e.currentTarget.value || null,
-                        })
+                        updateRaceAt(index, { target_time: e.currentTarget.value || null })
                       }
                     />
 
                     <TextField
                       label="Elevation gain (m)"
                       placeholder="e.g. 1200"
-                      value={
-                        race.elevation_gain_m != null
-                          ? String(race.elevation_gain_m)
-                          : ""
-                      }
+                      value={race.elevation_gain_m != null ? String(race.elevation_gain_m) : ""}
                       onChange={(e) => {
                         const v = e.currentTarget.value.trim();
-                        updateRaceAt(index, {
-                          elevation_gain_m: v ? Number(v) || null : null,
-                        });
+                        updateRaceAt(index, { elevation_gain_m: v ? Number(v) || null : null });
                       }}
                       inputMode="decimal"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs opacity-70">Distance & terrain</div>
+                    <div className="flex items-center gap-2 text-xs opacity-70">
+                      <span>Distance & terrain</span>
+                      <TooltipIcon text="Vyber distance + typ povrchu/terén. Pomáha to coachovi stavať špecifické tréningy." />
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                      {/* distance pills */}
                       <div className="sm:col-span-2 space-y-1">
-                        <div className="text-xs opacity-70">
-                          Target race distance
-                        </div>
+                        <div className="text-xs opacity-70">Target race distance</div>
 
                         <div className="flex flex-wrap gap-1.5">
                           {RACE_GOALS.map((rg) => (
@@ -419,9 +379,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                               onChange={(e) => {
                                 const v = e.currentTarget.value.trim();
                                 updateRaceAt(index, {
-                                  custom_distance_km: v
-                                    ? Number(v) || null
-                                    : null,
+                                  custom_distance_km: v ? Number(v) || null : null,
                                 });
                               }}
                               inputMode="decimal"
@@ -434,16 +392,11 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                         label="Race type"
                         value={rt ?? ""}
                         onChange={(e) =>
-                          updateRaceAt(index, {
-                            race_type: e.currentTarget.value || null,
-                          })
+                          updateRaceAt(index, { race_type: e.currentTarget.value || null })
                         }
                         options={[
                           { value: "", label: "—" },
-                          ...RACE_TYPES.map((t) => ({
-                            value: t,
-                            label: RACE_TYPE_LABEL[t],
-                          })),
+                          ...RACE_TYPES.map((t) => ({ value: t, label: RACE_TYPE_LABEL[t] })),
                         ]}
                       />
 
@@ -452,16 +405,11 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                           label="Terrain"
                           value={terr ?? ""}
                           onChange={(e) =>
-                            updateRaceAt(index, {
-                              terrain: e.currentTarget.value || null,
-                            })
+                            updateRaceAt(index, { terrain: e.currentTarget.value || null })
                           }
                           options={[
                             { value: "", label: "—" },
-                            ...TERRAIN.map((t) => ({
-                              value: t,
-                              label: TERRAIN_LABEL[t],
-                            })),
+                            ...TERRAIN.map((t) => ({ value: t, label: TERRAIN_LABEL[t] })),
                           ]}
                         />
 
@@ -469,16 +417,11 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                           label="Elevation profile"
                           value={elev ?? ""}
                           onChange={(e) =>
-                            updateRaceAt(index, {
-                              elevation_profile: e.currentTarget.value || null,
-                            })
+                            updateRaceAt(index, { elevation_profile: e.currentTarget.value || null })
                           }
                           options={[
                             { value: "", label: "—" },
-                            ...ELEVATION.map((t) => ({
-                              value: t,
-                              label: ELEVATION_LABEL[t],
-                            })),
+                            ...ELEVATION.map((t) => ({ value: t, label: ELEVATION_LABEL[t] })),
                           ]}
                         />
                       </div>
@@ -492,8 +435,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
         {/* 2. OVERALL GOAL */}
         <div className="space-y-3 pt-2">
-          <div className="text-xs font-medium opacity-70">
-            2. Overall training goal
+          <div className="flex items-center gap-2 text-xs font-medium opacity-70">
+            <span>2. Overall training goal</span>
+            <TooltipIcon text="Toto je všeobecný smer tréningu. Ak máš A-race, plán sa aj tak najviac prispôsobí jemu." />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -503,20 +447,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 size="sm"
                 variant="prefs"
                 active={overallGoal === g}
-                onClick={() =>
-                  setPref("goal_kind", overallGoal === g ? undefined : g)
-                }
+                onClick={() => setPref("goal_kind", overallGoal === g ? undefined : g)}
               >
                 {OVERALL_LABEL[g]}
               </Button>
             ))}
 
-            <Button
-              size="sm"
-              variant="prefs"
-              active={!overallGoal}
-              onClick={() => setPref("goal_kind", undefined)}
-            >
+            <Button size="sm" variant="prefs" active={!overallGoal} onClick={() => setPref("goal_kind", undefined)}>
               None
             </Button>
           </div>
