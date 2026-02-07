@@ -4,8 +4,9 @@
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import type { DayAbbrev } from "@/app/shared/types/day";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
@@ -41,7 +42,18 @@ export function DaysSection({
 
   return (
     <InputsCard
-      title="Days"
+      title={
+        <div className="flex items-center gap-2">
+          <span>Days</span>
+          <TooltipIcon
+            text={
+              "Days off = dni bez tréningu.\n\n" +
+              "Long run = preferované dni pre dlhý beh.\n" +
+              "Coach sa snaží trafiť, ak nie je konflikt."
+            }
+          />
+        </div>
+      }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
           Days off = dni bez tréningu. Long run = preferované dni pre dlhý beh.
@@ -50,11 +62,6 @@ export function DaysSection({
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
-      always={
-        <div className="flex items-start justify-end">
-          <InfoPopover text="Days off = dni bez tréningu. Long run = preferované dni pre dlhý beh (coach sa snaží trafiť, ak nie je konflikt)." />
-        </div>
-      }
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
