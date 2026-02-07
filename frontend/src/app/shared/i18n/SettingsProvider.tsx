@@ -128,42 +128,38 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [setSettings],
   );
 
-  const syncFromDb = useCallback(
-    async (userId: number) => {
-      // naviaž usera (aby sa ďalšie zmeny zapisovali do DB)
-      userIdRef.current = userId;
-
-      let dbVal: any = null;
-      try {
-        dbVal = await apiFetchUserPref(userId, "user.settings");
-      } catch {
-        dbVal = null;
-      }
-
-      if (!dbVal || typeof dbVal !== "object") {
-        // DB nič nemá -> vezmeme lokál a uložíme do DB
-        const local = safeReadV1() ?? settings;
-        safeWriteV1(local);
-        setSettingsState(local);
-        await apiUpsertUserPref(userId, "user.settings", local).catch(() => {});
-        return;
-      }
-
-      // DB má -> stiahni do FE + LS (DB je source-of-truth po login)
-      const merged: UserSettingsV1 = {
-        ...DEFAULT_SETTINGS,
-        ...dbVal,
-        language: dbVal.language === "sk" ? "sk" : "en",
-      };
-
-      setSettingsState(merged);
-      safeWriteV1(merged);
-
-      // OPTIONAL: ak DB mal staré/partial, normalizuj späť
-      void apiUpsertUserPref(userId, "user.settings", merged).catch(() => {});
-    },
-    [settings],
-  );
+  const syncFromDb = useCallback(async (userId: number) => {
+    userIdRef.current = userId;
+  
+    let dbVal: any = null;
+    try {
+      dbVal = await apiFetchUserPref(userId, "user.settings");
+    } catch {
+      dbVal = null;
+    }
+  
+    if (!dbVal || typeof dbVal !== "object") {
+      // ✅ DB prázdne -> beriem LS alebo default (nie React state)
+      const local = safeReadV1() ?? { ...DEFAULT_SETTINGS, language: guessLang() };
+      setSettingsState(local);
+      safeWriteV1(local);
+      await apiUpsertUserPref(userId, "user.settings", local).catch(() => {});
+      return;
+    }
+  
+    // ✅ DB má -> DB je source of truth po login
+    const merged: UserSettingsV1 = {
+      ...DEFAULT_SETTINGS,
+      ...dbVal,
+      language: dbVal.language === "sk" ? "sk" : "en",
+    };
+  
+    setSettingsState(merged);
+    safeWriteV1(merged);
+  
+    // ❌ toto radšej vyhoď (inak vie spôsobiť race)
+    // void apiUpsertUserPref(userId, "user.settings", merged).catch(() => {});
+  }, []);
 
   const value = useMemo<SettingsCtx>(
     () => ({
