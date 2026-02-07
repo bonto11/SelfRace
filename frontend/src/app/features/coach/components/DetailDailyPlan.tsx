@@ -281,16 +281,14 @@ export default function DetailDailyPlan() {
     <div className={PANEL_STACK}>
       <Card
         title="AI Daily plan – detail"
-        subtitle="Detail denného tréningového plánu. Presun je lokálny, uloženie cez Save."
       >
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>
-            Zatiaľ nemáš žiadny aktívny AI daily plán uložený v DB.
+            Zatiaľ nemáš žiadny aktívny tréningový plán pre jednotlivé dni.
           </div>
         ) : (
           <div className={PANEL_PREVIEW}>
-            Máš plán na {planDates.length} dní. Presúvanie dňa spravíš priamo na
-            Session karte.
+            Presúvanie dňa je možné priamo v karte tréningu avšak narušíš trénerov plán.
           </div>
         )}
       </Card>

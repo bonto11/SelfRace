@@ -71,14 +71,12 @@ function RowAction({
   primaryLabel,
   loading,
   disabled,
-  onDetail,
   title,
 }: {
   onPrimary: () => void;
   primaryLabel: string;
   loading: boolean;
   disabled: boolean;
-  onDetail: () => void;
   title?: string;
 }) {
   // ✅ pekný "frame" bez nových tokenov
@@ -105,20 +103,6 @@ function RowAction({
           )}
         </Button>
       </div>
-
-      {/* ✅ chevron -> tiež Button komponent */}
-      <Button
-        type="button"
-        size="xs"
-        variant="secondary"
-        disabled={disabled}
-        onClick={onDetail}
-        className={[WIDGET_ACTION_CHEVRON_BTN, WIDGET_ACTION_CHEVRON_SURFACE].join(" ")}
-        aria-label="Otvoriť detail"
-        title="Otvoriť detail"
-      >
-        →
-      </Button>
     </div>
   );
 }
@@ -467,7 +451,6 @@ export default function WidgetCoachPlan() {
           loading={loadingKind === "analyze"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
-          onDetail={() => router.push("/coach/ai/athleteState")}
         />
 
         <RowAction
@@ -476,7 +459,6 @@ export default function WidgetCoachPlan() {
           loading={loadingKind === "weekly"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
-          onDetail={() => router.push("/coach/ai/weeklyPlan")}
         />
 
         <RowAction
@@ -485,7 +467,6 @@ export default function WidgetCoachPlan() {
           loading={loadingKind === "daily"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
-          onDetail={() => router.push("/coach/ai/dailyPlan")}
         />
 
         <div className={WIDGET_CTA_ROW}>
