@@ -64,6 +64,8 @@ def get_daily_overview(
             horizon_days=COACH_PLAN_OVERVIEW_HORIZON_DAYS,
             ctx=ctx,
         )
+
+        print("get_daily_overview overview",overview)
         return {
             "success": True,
             "overview": overview,
@@ -79,7 +81,7 @@ from Services.coach_plan_adjustment import service_reschedule_daily_plan
 
 
 class DailyRescheduleMove(BaseModel):
-    session_id: int = Field(..., description="PK id z coach_plan_daily")
+    id: int = Field(..., description="PK id z coach_plan_daily")
     from_date: str = Field(..., description="YYYY-MM-DD (len pre audit/validáciu)")
     to_date: str = Field(..., description="YYYY-MM-DD")
 

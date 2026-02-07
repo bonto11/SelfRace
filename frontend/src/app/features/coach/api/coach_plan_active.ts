@@ -259,7 +259,7 @@ export async function apiActivePlanLinkActivity(
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({
-        session_id: sessionId,
+        id: sessionId,
         activity_id: activityId,
       }),
     });

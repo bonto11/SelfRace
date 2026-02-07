@@ -360,7 +360,7 @@ def auto_map_plans_for_activities(
             try:
                 db_link_session_to_activity(
                     user_id=user_id,
-                    session_id=int(best_sess["id"]),
+                    id=int(best_sess["id"]),
                     activity_id=int(aid),
                     ctx=ctx,
                 )

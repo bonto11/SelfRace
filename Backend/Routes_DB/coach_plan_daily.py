@@ -102,7 +102,7 @@ def db_get_planned_range_rows(
 def db_link_session_to_activity(
     user_id:int,
     ctx: AuthCtx,
-    session_id: int,
+    id: int,
         *,
     activity_id: Optional[int],
 ) -> Optional[Dict[str, Any]]:
@@ -116,7 +116,7 @@ def db_link_session_to_activity(
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .update({"activity_id": activity_id})
-            .eq("id", session_id)
+            .eq("id", id)
             .execute()
         )
         rows = res.data or []
@@ -226,7 +226,7 @@ def db_clear_daily_for_user_range(
 
 def db_get_daily_session_by_id(
     user_id: int,
-    session_id: int,
+    id: int,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
@@ -235,7 +235,7 @@ def db_get_daily_session_by_id(
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .select("id,user_id,plan_id,plan_date,session_index")
-            .eq("id", int(session_id))
+            .eq("id", int(id))
             .eq("user_id", int(user_id))
             .limit(1)
             .execute()
@@ -301,7 +301,7 @@ def db_get_max_session_index_on_day(
 
 def db_update_daily_session_date(
     user_id: int,
-    session_id: int,
+    id: int,
     *,
     plan_date: str,
     session_index: int,
@@ -318,7 +318,7 @@ def db_update_daily_session_date(
                     "updated_at": _now_iso(),
                 }
             )
-            .eq("id", int(session_id))
+            .eq("id", int(id))
             .eq("user_id", int(user_id))
             .execute()
         )
@@ -338,7 +338,7 @@ def db_reschedule_daily_sessions_bulk(
 ) -> Dict[str, Any]:
     """
     Bulk reschedule:
-      - každá move: {session_id, from_date, to_date}
+      - každá move: {id, from_date, to_date}
       - overí existenciu a user ownership
       - overí max_per_day na cieľový deň
       - nastaví session_index na koniec cieľového dňa
@@ -351,14 +351,14 @@ def db_reschedule_daily_sessions_bulk(
 
     for m in moves:
         try:
-            sid = int(m.get("session_id"))
+            sid = int(m.get("id"))
             from_date = str(m.get("from_date") or "")[:10]
             to_date = str(m.get("to_date") or "")[:10]
 
             if not sid or not to_date:
-                raise ValueError("missing session_id/to_date")
+                raise ValueError("missing id/to_date")
 
-            row = db_get_daily_session_by_id(user_id=user_id, session_id=sid, ctx=ctx)
+            row = db_get_daily_session_by_id(user_id=user_id, id=sid, ctx=ctx)
             if not row:
                 raise ValueError("session_not_found_or_not_owned")
 
@@ -397,7 +397,7 @@ def db_reschedule_daily_sessions_bulk(
 
             upd = db_update_daily_session_date(
                 user_id=user_id,
-                session_id=sid,
+                id=sid,
                 plan_date=to_date,
                 session_index=next_idx,
                 ctx=ctx,
@@ -410,7 +410,7 @@ def db_reschedule_daily_sessions_bulk(
         except Exception as e:  # noqa: BLE001
             errors.append(
                 {
-                    "session_id": m.get("session_id"),
+                    "id": m.get("id"),
                     "error": str(e),
                 }
             )

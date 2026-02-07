@@ -493,12 +493,12 @@ def service_reschedule_daily_plan(
     # minimálna validácia payloadu
     cleaned: List[Dict[str, Any]] = []
     for m in moves:
-        sid = m.get("session_id")
+        sid = m.get("id")
         to_date = (m.get("to_date") or "").strip()
         from_date = (m.get("from_date") or "").strip()
 
         if not isinstance(sid, int):
-            raise ValueError("moves[].session_id must be int")
+            raise ValueError("moves[].id must be int")
         if not to_date or len(to_date) < 10:
             raise ValueError("moves[].to_date is required (YYYY-MM-DD)")
         if not from_date or len(from_date) < 10:
@@ -512,7 +512,7 @@ def service_reschedule_daily_plan(
 
         cleaned.append(
             {
-                "session_id": int(sid),
+                "id": int(sid),
                 "from_date": from_date[:10],
                 "to_date": to_date[:10],
             }

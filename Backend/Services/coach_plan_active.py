@@ -208,7 +208,7 @@ def service_extend_active_plan(
 
 def service_link_activity(
     user_id: int,
-    session_id: int,
+    id: int,
     activity_id: Optional[int],
     *,
     ctx: AuthCtx,
@@ -223,7 +223,7 @@ def service_link_activity(
     try:
         db_link_session_to_activity(
             user_id=user_id,
-            session_id=session_id, activity_id=activity_id, ctx=ctx
+            id=id, activity_id=activity_id, ctx=ctx
         )
         return True
     except Exception:

@@ -156,7 +156,7 @@ export default function DetailDailyPlan() {
 
   const dirty = moves.length > 0;
 
-  // ✅ local move by DB PK (session_id)
+  // ✅ local move by DB PK (id)
   const moveSessionLocal = (fromDate: string, toDate: string, sessionPk: number | string) => {
     setOverview((prev) => {
       if (!prev) return prev;
@@ -168,7 +168,7 @@ export default function DetailDailyPlan() {
 
         const nextSessions = [...(d.sessions ?? [])];
         const idx = nextSessions.findIndex((s: any) => {
-          const pk = s?.session_id ?? s?.id;
+          const pk = s?.id;
           return String(pk) === String(sessionPk);
         });
 
@@ -201,7 +201,7 @@ export default function DetailDailyPlan() {
       const last = prev[prev.length - 1];
 
       // revert locally
-      moveSessionLocal(last.to_date, last.from_date, last.session_id);
+      moveSessionLocal(last.to_date, last.from_date, last.id);
 
       return prev.slice(0, -1);
     });
@@ -335,7 +335,7 @@ export default function DetailDailyPlan() {
               const wd = weekdayLabel(d.date) ?? "";
 
               return d.sessions.map((s: any, idx: number) => {
-                const pk = s?.session_id ?? s?.id ?? null;
+                const pk = s?.id ?? null;
 
                 const kpis: KPI[] = [];
                 if (s.duration_min) kpis.push({ label: "DURATION", value: `${s.duration_min} min` });
@@ -380,7 +380,7 @@ export default function DetailDailyPlan() {
                         if (sessionId == null) return;
 
                         addMove({
-                          session_id: sessionId,
+                          id: sessionId,
                           from_date: fromDate,
                           to_date: toDate,
                         });

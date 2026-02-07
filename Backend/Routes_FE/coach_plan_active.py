@@ -118,15 +118,15 @@ async def link_activity(
 ):
     ctx = require_user(get_auth_ctx(req))
 
-    session_id_raw = payload.get("session_id")
-    if session_id_raw is None:
-        raise HTTPException(status_code=400, detail="session_id must be provided")
+    id_raw = payload.get("id")
+    if id_raw is None:
+        raise HTTPException(status_code=400, detail="id must be provided")
 
     # safe cast
     try:
-        session_id = int(session_id_raw)
+        id = int(id_raw)
     except Exception:
-        raise HTTPException(status_code=400, detail="session_id must be int")
+        raise HTTPException(status_code=400, detail="id must be int")
 
     activity_id_raw = payload.get("activity_id", None)
     activity_id: Optional[int]
@@ -143,7 +143,7 @@ async def link_activity(
 
     ok = service_link_activity(
         user_id=user_id,
-        session_id=session_id,
+        id=id,
         activity_id=activity_id,
         ctx=ctx,
     )

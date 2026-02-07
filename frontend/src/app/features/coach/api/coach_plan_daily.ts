@@ -163,11 +163,6 @@ export type DailyPlanStructure = {
 };
 
 export type DailyPlanSession = {
-  /**
-   * ✅ DB PK (stabilné ID session v DB)
-   * BE by malo posielať session_id (alebo id). FE ho len forwarduje.
-   */
-  session_id?: number | string | null;
   id?: number | string | null;
 
   sport: string;
@@ -221,6 +216,8 @@ export async function apiGetDailyOverview(
       : new Error(`Network/BE error (daily overview): ${String(err)}`);
   }
 
+  console.log("apiGetDailyOverview json",json)
+
   if (!json?.success) {
     throw new Error(json.detail || json.error || "Failed to load daily overview");
   }
@@ -231,7 +228,7 @@ export async function apiGetDailyOverview(
 /* ============ RESCHEDULE SAVE (NEW) ============ */
 
 export type DailyRescheduleMove = {
-  session_id: number | string;
+  id: number | string;
   from_date: string; // YYYY-MM-DD
   to_date: string;   // YYYY-MM-DD
 };
