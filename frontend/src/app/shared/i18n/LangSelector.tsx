@@ -3,17 +3,14 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+
 import { cx } from "@/app/shared/ui/utils/inputs";
 import { useSettings, type AppLang } from "@/app/shared/i18n/SettingsProvider";
+
 import {
-  FIELD_READONLY_BASE,
-  FIELD_EDITABLE_BASE,
-  FIELD_READONLY_STYLE,
-  FIELD_EDITABLE_STYLE,
+  // používame tvoje existujúce select menu tokeny
   FORM_TEXT_VARS,
 
-  SELECT_BTN,
-  SELECT_ICON,
   SELECT_MENU,
   SELECT_MENU_WRAP,
   SELECT_MENU_READONLY,
@@ -24,24 +21,37 @@ import {
   SELECT_OPT_ACTIVE,
   SELECT_OPT_READONLY_STYLE,
   SELECT_OPT_EDITABLE_STYLE,
+
+  // ⬇️ nové (doplníš v tokens/inputs.ts) – ak nechceš, viem ti dať inline className
+  LANG_ICON_BTN,
+  LANG_ICON_BTN_STYLE_READONLY,
+  LANG_ICON_BTN_STYLE_EDITABLE,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
   variant?: "readonly" | "editable";
   disabled?: boolean;
   className?: string;
-
-  // ak chceš “pill” menší do topbaru
   size?: "xs" | "sm" | "md";
 };
 
 const LANGS: Array<{ value: AppLang; name: string; flagSrc: string; short: string }> = [
-  { value: "sk", name: "Slovenčina", flagSrc: "/flags/sk.svg", short: "SK" },
-  { value: "en", name: "English", flagSrc: "/flags/en.svg", short: "EN" },
+  { value: "sk", name: "Slovenčina", flagSrc: "/flags/sk.png", short: "SK" },
+  { value: "en", name: "English", flagSrc: "/flags/en.png", short: "EN" },
+  { value: "fra", name: "Français", flagSrc: "/flags/fra.png", short: "FR" },
+  { value: "it", name: "Italiano", flagSrc: "/flags/it.png", short: "IT" },
+  { value: "esp", name: "Español", flagSrc: "/flags/esp.png", short: "ES" },
+  { value: "ger", name: "Deutsch", flagSrc: "/flags/ger.png", short: "DE" },
 ];
 
+function sizePx(size: "xs" | "sm" | "md") {
+  if (size === "xs") return 32;
+  if (size === "md") return 40;
+  return 36; // sm
+}
+
 export default function LangSelector({
-  variant = "readonly",
+  variant = "editable",
   disabled,
   className,
   size = "sm",
@@ -54,24 +64,11 @@ export default function LangSelector({
   const menuRef = React.useRef<HTMLDivElement | null>(null);
 
   const editable = variant === "editable";
-  const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
   const effectiveDisabled = !!disabled || !editable;
-
-  const wrapStyle = {
-    ...(editable ? FIELD_EDITABLE_STYLE : FIELD_READONLY_STYLE),
-    ...FORM_TEXT_VARS,
-  } as React.CSSProperties;
-
-  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
-  const menuStyle = {
-    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
-    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
-    ...FORM_TEXT_VARS,
-  } as React.CSSProperties;
 
   const current = LANGS.find((x) => x.value === lang) ?? LANGS[0];
 
-  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+  const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
 
   function close() {
     setOpen(false);
@@ -103,7 +100,7 @@ export default function LangSelector({
 
     const update = () => {
       const r = el.getBoundingClientRect();
-      setPos({ left: r.left, top: r.bottom + 8, width: r.width });
+      setPos({ left: r.left, top: r.bottom + 8 });
     };
 
     update();
@@ -115,13 +112,24 @@ export default function LangSelector({
     };
   }, [open]);
 
-  const padCls =
-    size === "xs" ? "h-8 px-3 text-xs rounded-full"
-    : size === "md" ? "h-10 px-4 text-sm rounded-full"
-    : "h-9 px-3.5 text-sm rounded-full";
+  const px = sizePx(size);
+
+  const btnStyle = {
+    ...(editable ? LANG_ICON_BTN_STYLE_EDITABLE : LANG_ICON_BTN_STYLE_READONLY),
+    ...FORM_TEXT_VARS,
+    width: px,
+    height: px,
+  } as React.CSSProperties;
+
+  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuStyle = {
+    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
+    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
 
   return (
-    <div ref={wrapRef} className={cx(className)} style={wrapStyle}>
+    <div ref={wrapRef} className={cx("inline-block", className)}>
       <div className={SELECT_MENU_WRAP}>
         <button
           ref={btnRef}
@@ -131,25 +139,22 @@ export default function LangSelector({
             if (effectiveDisabled) return;
             setOpen((v) => !v);
           }}
-          className={cx(baseClass, SELECT_BTN, padCls)}
+          className={cx(LANG_ICON_BTN)}
+          style={btnStyle}
           aria-expanded={open}
           aria-label="Language selector"
+          title={current.short}
         >
-          <span className="flex items-center gap-2 min-w-0">
-            <Image src={current.flagSrc} alt="" width={16} height={16} className="h-4 w-4" />
-            <span className="truncate">{current.short}</span>
-          </span>
-
-          <svg viewBox="0 0 16 16" aria-hidden="true" className={SELECT_ICON}>
-            <path
-              d="M3 6.25L8 11l5-4.75"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <span className="relative block overflow-hidden rounded-full" style={{ width: px - 10, height: px - 10 }}>
+            <Image
+              src={current.flagSrc}
+              alt=""
+              fill
+              sizes={`${px - 10}px`}
+              className="object-cover"
+              priority={false}
             />
-          </svg>
+          </span>
         </button>
 
         {open && !effectiveDisabled && pos
@@ -163,7 +168,7 @@ export default function LangSelector({
                   position: "fixed",
                   left: pos.left,
                   top: pos.top,
-                  width: Math.max(pos.width, 220),
+                  width: 240,
                   zIndex: 999999,
                 }}
               >
@@ -179,7 +184,7 @@ export default function LangSelector({
                         await setLang(o.value);
                       }}
                     >
-                      <Image src={o.flagSrc} alt="" width={18} height={18} className="h-[18px] w-[18px]" />
+                      <Image src={o.flagSrc} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-sm" />
                       <span className="flex-1 text-left">{o.name}</span>
                       <span className="text-xs opacity-70">{o.short}</span>
                     </button>

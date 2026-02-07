@@ -22,7 +22,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
-import LangSelector from "@/app/shared/ui/components/LangSelector";
+import LangSelector from "@/app/shared/i18n/LangSelector";
 
 export default function ClientProtectedShell({
   children,

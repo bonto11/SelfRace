@@ -417,6 +417,37 @@ export const DATE_TEXT_INPUT = "";
 export const DATEFIELD_DISPLAY = "h-full flex items-center";
 
 /* =========================================================================
+   Lang icon button (circle trigger for LangSelector)
+   ========================================================================= */
+
+export const LANG_ICON_BTN = [
+  "inline-flex items-center justify-center",
+  "rounded-full",
+  "border",
+  "transition-colors duration-200",
+  "focus:outline-none focus-visible:ring-2 ring-offset-0",
+  "bg-[var(--lang-btn-bg)]",
+  "border-[var(--lang-btn-border)]",
+  "hover:bg-[var(--lang-btn-bg-hover)]",
+  "focus-visible:ring-[var(--lang-btn-ring)]",
+  "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+].join(" ");
+
+export const LANG_ICON_BTN_STYLE_READONLY: VarStyle = {
+  "--lang-btn-bg": appColors.readonlyBg,
+  "--lang-btn-bg-hover": appColors.readonlyBgHover,
+  "--lang-btn-border": appColors.readonlyBorder,
+  "--lang-btn-ring": appColors.focusRing,
+};
+
+export const LANG_ICON_BTN_STYLE_EDITABLE: VarStyle = {
+  "--lang-btn-bg": appColors.buttonGhostBg,
+  "--lang-btn-bg-hover": appColors.buttonGhostBgHover,
+  "--lang-btn-border": appColors.widgetBorder,
+  "--lang-btn-ring": appColors.focusRing,
+};
+
+/* =========================================================================
    Button tokens (single source of truth)
    - NO runtime Tailwind strings
    - Colors via CSS vars only
@@ -575,3 +606,4 @@ export function buttonVariantStyle(
   }
   return BUTTON_STYLE[variant];
 }
+

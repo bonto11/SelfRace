@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
-export type AppLang = "sk" | "en";
+export type AppLang = "sk" | "en" | "it" | "esp" | "ger" | "fra";
 
 type SettingsValue = {
   lang: AppLang;
