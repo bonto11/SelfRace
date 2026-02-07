@@ -427,14 +427,12 @@ def service_generate_daily_week(
 
     return resp
 
-
 def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-
     if horizon_days <= 0:
         horizon_days = 7
 
@@ -456,24 +454,33 @@ def service_get_daily_overview(
         or []
     )
 
+    # group rows by plan_date
     by_date: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         d = r.get("plan_date")
         if not d:
             continue
-        by_date.setdefault(str(d)[:10], []).append(r)
+        key = str(d)[:10]
+        by_date.setdefault(key, []).append(r)
+
+    # IMPORTANT: return ALL days in horizon (even empty)
+    today = date.today()
+    end_day = today + timedelta(days=horizon_days)
 
     days_out: List[Dict[str, Any]] = []
-    for date_str, sessions in sorted(by_date.items(), key=lambda kv: kv[0]):
+
+    d = today
+    while d <= end_day:
+        date_str = d.isoformat()
+        sessions = by_date.get(date_str, [])
+
         sessions_out: List[Dict[str, Any]] = []
         for s in sorted(sessions, key=lambda x: int(x.get("session_index") or 0)):
             payload = s.get("payload") or {}
             structure = s.get("structure") or payload.get("structure")
 
             if structure is None:
-                strength_ex = s.get("strength_exercises") or payload.get(
-                    "strength_exercises"
-                )
+                strength_ex = s.get("strength_exercises") or payload.get("strength_exercises")
                 if strength_ex:
                     structure = {"strength_exercises": strength_ex}
 
@@ -495,9 +502,9 @@ def service_get_daily_overview(
             )
 
         days_out.append({"date": date_str, "sessions": sessions_out})
+        d += timedelta(days=1)
 
     return {"horizon_days": horizon_days, "days": days_out}
-
 
 def service_auto_extend_daily_plan(
     user_id: int,
