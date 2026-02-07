@@ -29,6 +29,7 @@ from Services.AI.daily_plan_builders import (
 from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
 from Modules.Supabase.auth import AuthCtx
 
+
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     """
     Make session_index deterministic and clean.
@@ -89,7 +90,9 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
 
             # --- CRITICAL: don't normalize external events ---
             payload = s.get("payload") or {}
-            if isinstance(payload, dict) and isinstance(payload.get("external_event"), dict):
+            if isinstance(payload, dict) and isinstance(
+                payload.get("external_event"), dict
+            ):
                 continue
             if str(s.get("session_type") or "").strip().lower() == "external_event":
                 continue
@@ -100,17 +103,69 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             s["title"] = s.get("title") or "Silový tréning"
 
             strength_exercises = [
-                {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia / kontrola trupu."},
-                {"slot": "lower_posterior", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia zadného reťazca."},
-
-                {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "upper_push", "sets": 3, "reps": "6–10", "rest_s": 90, "notes": "Hlavná časť – doplnok."},
-                {"slot": "core", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Hlavná časť – core."},
-
-                {"slot": "upper_pull", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
-                {"slot": "lower_quad", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
+                {
+                    "slot": "core",
+                    "sets": 2,
+                    "reps": "8–12",
+                    "rest_s": 45,
+                    "notes": "Aktivácia / kontrola trupu.",
+                },
+                {
+                    "slot": "lower_posterior",
+                    "sets": 2,
+                    "reps": "8–12",
+                    "rest_s": 45,
+                    "notes": "Aktivácia zadného reťazca.",
+                },
+                {
+                    "slot": "lower_posterior",
+                    "sets": 4,
+                    "reps": "4–6",
+                    "rest_s": 120,
+                    "notes": "Hlavná časť – sila.",
+                },
+                {
+                    "slot": "lower_quad",
+                    "sets": 4,
+                    "reps": "4–6",
+                    "rest_s": 120,
+                    "notes": "Hlavná časť – sila.",
+                },
+                {
+                    "slot": "upper_pull",
+                    "sets": 4,
+                    "reps": "4–6",
+                    "rest_s": 120,
+                    "notes": "Hlavná časť – sila.",
+                },
+                {
+                    "slot": "upper_push",
+                    "sets": 3,
+                    "reps": "6–10",
+                    "rest_s": 90,
+                    "notes": "Hlavná časť – doplnok.",
+                },
+                {
+                    "slot": "core",
+                    "sets": 3,
+                    "reps": "8–12",
+                    "rest_s": 60,
+                    "notes": "Hlavná časť – core.",
+                },
+                {
+                    "slot": "upper_pull",
+                    "sets": 2,
+                    "reps": "10–15",
+                    "rest_s": 60,
+                    "notes": "Doplnok – ľahšie, technicky.",
+                },
+                {
+                    "slot": "lower_quad",
+                    "sets": 2,
+                    "reps": "10–15",
+                    "rest_s": 60,
+                    "notes": "Doplnok – ľahšie, technicky.",
+                },
             ]
 
             s["structure"] = {
@@ -143,8 +198,11 @@ def service_generate_daily_week(
     daily_model = model
 
     # quota only for non-service calls
-    if is_user_over_token_quota(user_id, ctx=ctx,):
-        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
+    if is_user_over_token_quota(
+        user_id,
+        ctx=ctx,
+    ):
+        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "daily_plan": None,
             "plan_id": plan_id,
@@ -190,7 +248,9 @@ def service_generate_daily_week(
     if not isinstance(trace, dict):
         trace = {}
 
-    week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
+    week_start = (
+        str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
+    )
     week_end = str(week_meta.get("week_end") or ai_plan.get("week_end") or "") or None
 
     # Ensure minimal meta
@@ -205,12 +265,21 @@ def service_generate_daily_week(
     daily_plan = ai_plan
 
     # --- Safety: do not overwrite DB with empty plan ---
-    days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
+    days_n = (
+        len(daily_plan.get("days") or [])
+        if isinstance(daily_plan.get("days"), list)
+        else 0
+    )
     if days_n == 0:
         # billing aj tak spravíme (ak máme usage)
         usage = extract_usage_from_trace(trace)
         if usage:
-            used_model = str(daily_plan.get("model") or getattr(usage, "model", None) or daily_model or "")
+            used_model = str(
+                daily_plan.get("model")
+                or getattr(usage, "model", None)
+                or daily_model
+                or ""
+            )
             if used_model:
                 usage["model"] = used_model
             try:
@@ -238,7 +307,10 @@ def service_generate_daily_week(
             "overwrite": True,
             "inserted_rows": 0,
             "deleted_rows": 0,
-            "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
+            "error": {
+                "code": "daily_plan_empty",
+                "message": "AI vrátil prázdny plán pre týždeň.",
+            },
             "warnings": ["daily_plan_empty"],
         }
 
@@ -253,7 +325,9 @@ def service_generate_daily_week(
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
         # prefer actual model used (from AI output or trace usage), fallback to caller model
-        used_model = str(daily_plan.get("model") or usage.get("model") or daily_model or "").strip()
+        used_model = str(
+            daily_plan.get("model") or usage.get("model") or daily_model or ""
+        ).strip()
         if used_model:
             usage["model"] = used_model
         try:
@@ -271,12 +345,16 @@ def service_generate_daily_week(
             print("[AI_BILLING] daily_plan billing error:", repr(e))
 
     # 5) strength mapper – doplní konkrétne cviky
-    strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
+    strength_settings = (
+        (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
+    )
     available_equipment = strength_settings.get("available") or []
     if not isinstance(available_equipment, list):
         available_equipment = []
 
-    equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
+    equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get(
+        "location"
+    )
 
     daily_plan = enrich_daily_plan_with_strength_exercises(
         user_id=user_id,
@@ -323,7 +401,9 @@ def service_generate_daily_week(
         daily_plan=daily_plan,
     )
 
-    inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
+    inserted_rows = (
+        db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
+    )
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
@@ -338,7 +418,6 @@ def service_generate_daily_week(
         "deleted_rows": deleted_rows,
         "error": None,
     }
-
 
     resp["debug_trace"] = trace
     resp["context_payload"] = context_payload
@@ -359,8 +438,11 @@ def service_get_daily_overview(
     if horizon_days <= 0:
         horizon_days = 7
 
-    meta = db_get_active_plan_meta_for_user(ctx=ctx,user_id=user_id) or db_get_latest_plan_meta_for_user(
-        user_id=user_id, ctx=ctx,
+    meta = db_get_active_plan_meta_for_user(
+        ctx=ctx, user_id=user_id
+    ) or db_get_latest_plan_meta_for_user(
+        user_id=user_id,
+        ctx=ctx,
     )
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
 
@@ -389,12 +471,17 @@ def service_get_daily_overview(
             structure = s.get("structure") or payload.get("structure")
 
             if structure is None:
-                strength_ex = s.get("strength_exercises") or payload.get("strength_exercises")
+                strength_ex = s.get("strength_exercises") or payload.get(
+                    "strength_exercises"
+                )
                 if strength_ex:
                     structure = {"strength_exercises": strength_ex}
 
             sessions_out.append(
                 {
+                    "id": s.get("id"),
+                    "plan_date": str(s.get("plan_date") or "")[:10],
+                    "session_index": int(s.get("session_index") or 0),
                     "sport": s.get("sport") or "other",
                     "title": s.get("title"),
                     "duration_min": s.get("duration_min"),
@@ -424,8 +511,12 @@ def service_auto_extend_daily_plan(
 
     today = date.today()
 
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx,) or db_get_latest_plan_meta_for_user(
-        user_id=user_id, ctx=ctx,
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id,
+        ctx=ctx,
+    ) or db_get_latest_plan_meta_for_user(
+        user_id=user_id,
+        ctx=ctx,
     )
     plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
     if not plan_id:
@@ -443,7 +534,9 @@ def service_auto_extend_daily_plan(
     if not daily_rows:
         return {"changed": False, "reason": "no_daily_rows"}
 
-    last_date_str = max(str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date"))
+    last_date_str = max(
+        str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
+    )
     last_date = date.fromisoformat(last_date_str)
     days_left = (last_date - today).days
 
@@ -496,7 +589,9 @@ def service_auto_extend_daily_plan(
             "last_daily_date": last_date_str,
         }
 
-    future_weeks = [w for w in weekly_sorted if int(w.get("week_index") or 0) > current_week_index]
+    future_weeks = [
+        w for w in weekly_sorted if int(w.get("week_index") or 0) > current_week_index
+    ]
     if not future_weeks:
         return {
             "changed": False,
@@ -531,7 +626,9 @@ def service_auto_extend_daily_plan(
             or []
         )
 
-        current_last_str = max(str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date"))
+        current_last_str = max(
+            str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
+        )
         current_last_date = date.fromisoformat(current_last_str)
         days_left = (current_last_date - today).days
 

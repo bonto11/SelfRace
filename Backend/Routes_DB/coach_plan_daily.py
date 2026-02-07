@@ -100,28 +100,24 @@ def db_get_planned_range_rows(
 
 
 def db_link_session_to_activity(
-    user_id:int,
+    user_id: int,
+    *,
     ctx: AuthCtx,
     id: int,
-        *,
     activity_id: Optional[int],
 ) -> Optional[Dict[str, Any]]:
-    """
-    Napojí jednu plánovanú session (coach_plan_daily.id) na konkrétnu aktivitu
-    – zapíše activity_id.
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_link_session_to_activity")
-
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
-            .update({"activity_id": activity_id})
-            .eq("id", id)
+            .update({"activity_id": activity_id, "updated_at": _now_iso()})
+            .eq("id", int(id))
+            .eq("user_id", int(user_id))
             .execute()
         )
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print("[DB-COACH-DAILY] link_session_to_activity error:", repr(e))
         return None
 
@@ -293,7 +289,14 @@ def db_get_max_session_index_on_day(
         if not rows:
             return -1
         v = rows[0].get("session_index")
-        return int(v) if isinstance(v, int) else int(v or 0)
+
+        if v is None:
+            return -1
+        try:
+            return int(v)
+        except Exception:
+            return -1
+
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] max_session_index_on_day error:", repr(e))
         return -1
