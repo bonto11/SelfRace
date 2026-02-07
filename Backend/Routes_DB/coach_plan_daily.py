@@ -25,7 +25,7 @@ def db_insert_daily_rows(
     try:
         res = sb.table(TABLE_COACH_PLAN_DAILY).insert(rows).execute()
         data = res.data or []
-        print("[DB-COACH-DAILY] inserted rows:", len(data))
+  
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] insert error:", repr(e))
@@ -56,14 +56,7 @@ def db_clear_daily_for_user_week(
             .execute()
         )
         data = res.data or []
-        print(
-            "[DB-COACH-DAILY] clear user=%s plan_id=%s week=%s..%s deleted=%s",
-            user_id,
-            plan_id,
-            week_start,
-            week_end,
-            len(data),
-        )
+
         return len(data)
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-DAILY] clear error:", repr(e))
