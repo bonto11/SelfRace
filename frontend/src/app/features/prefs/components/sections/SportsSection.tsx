@@ -1,4 +1,3 @@
-// src/features/coach/components/prefs/SportsSection.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -7,7 +6,8 @@ import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import type { SportKind } from "@/app/features/prefs/types/prefs";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
@@ -54,7 +54,13 @@ export function SportsSection({
       title={
         <div className="flex items-center gap-2">
           <span>Sports</span>
-          <InfoPopover text="Vyber hlavný šport pre plán. Doplnkové športy (add-ons) môže coach pridávať ako doplnok k hlavnému plánu. Silu rieš v sekcii Strength." />
+          <TooltipIcon
+            text={
+              "Vyber hlavný šport pre plán.\n\n" +
+              "Doplnkové športy (add-ons) môže coach pridávať ako doplnok k hlavnému plánu.\n" +
+              "Silu rieš v sekcii Strength."
+            }
+          />
         </div>
       }
       subtitle="Hlavný šport + doplnkové športy (bez strength)."
