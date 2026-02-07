@@ -147,9 +147,17 @@ export default function DetailDailyPlan() {
   const hasPlan = days.length > 0;
 
   const planDates = useMemo(() => {
-    return days.map((d) => d.date).filter(Boolean) as string[];
-  }, [days]);
-
+    const h = overview?.horizon_days ?? 7;
+    const out: string[] = [];
+    const base = new Date(); // today
+    for (let i = 0; i <= h; i++) {
+      const d = new Date(base);
+      d.setDate(d.getDate() + i);
+      out.push(d.toISOString().slice(0, 10));
+    }
+    return out;
+  }, [overview?.horizon_days]);
+  
   const dayCounts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
     for (const d of days) {
