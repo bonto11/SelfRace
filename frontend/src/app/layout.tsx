@@ -4,6 +4,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
+import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           color: appColors.textPrimary,
         }}
       >
+        <SettingsProvider>
         <div
           style={{
             minHeight: "100dvh",
@@ -54,7 +56,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
           <AppFooter />
+
         </div>
+        </SettingsProvider>
       </body>
     </html>
   );

@@ -21,7 +21,8 @@ import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/Reco
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
-import AppFooter from "@/app/shared/ui/components/AppFooter"; // ✅ NEW
+import AppFooter from "@/app/shared/ui/components/AppFooter";
+import LangSelector from "@/app/shared/ui/components/LangSelector";
 
 export default function ClientProtectedShell({
   children,
@@ -76,7 +77,10 @@ export default function ClientProtectedShell({
                       <div className="font-semibold truncate">SelfRace</div>
                     </Link>
 
-                    <UserMenu />
+                    <div className="flex items-center gap-2">
+                      <LangSelector variant="editable" size="xs" />
+                      <UserMenu />
+                    </div>
                   </header>
 
                   {/* CONTENT */}

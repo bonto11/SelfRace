@@ -6,6 +6,7 @@ import Image from "next/image";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import LangSelector from "@/app/shared/ui/components/LangSelector";
 
 export default function LandingPage() {
   return (
@@ -71,6 +72,8 @@ export default function LandingPage() {
               >
                 Prihlásiť sa
               </Link>
+
+              <LangSelector variant="editable" size="xs" />
             </div>
 
             {/* Strava branding: SVG namiesto textu */}
@@ -87,17 +90,14 @@ export default function LandingPage() {
                 }}
                 priority={false}
               />
-              {/* ak chceš radšej "compatible", prehoď na:
-                  src={STRAVA_ASSETS.compatibleWithSvg}
-                  alt="Compatible with Strava"
-              */}
             </div>
 
             <p
               className="text-[11px] mt-3"
               style={{ color: appColors.textMuted }}
             >
-              Detailné metriky behu, tréningové zóny a AI coach po prepojení účtu.
+              Detailné metriky behu, tréningové zóny a AI coach po prepojení
+              účtu.
             </p>
           </div>
 

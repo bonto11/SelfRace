@@ -1,0 +1,195 @@
+"use client";
+
+import * as React from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
+import { cx } from "@/app/shared/ui/utils/inputs";
+import { useSettings, type AppLang } from "@/app/shared/i18n/SettingsProvider";
+import {
+  FIELD_READONLY_BASE,
+  FIELD_EDITABLE_BASE,
+  FIELD_READONLY_STYLE,
+  FIELD_EDITABLE_STYLE,
+  FORM_TEXT_VARS,
+
+  SELECT_BTN,
+  SELECT_ICON,
+  SELECT_MENU,
+  SELECT_MENU_WRAP,
+  SELECT_MENU_READONLY,
+  SELECT_MENU_EDITABLE,
+  SELECT_MENU_READONLY_STYLE,
+  SELECT_MENU_EDITABLE_STYLE,
+  SELECT_OPT,
+  SELECT_OPT_ACTIVE,
+  SELECT_OPT_READONLY_STYLE,
+  SELECT_OPT_EDITABLE_STYLE,
+} from "@/app/shared/ui/tokens";
+
+type Props = {
+  variant?: "readonly" | "editable";
+  disabled?: boolean;
+  className?: string;
+
+  // ak chceš “pill” menší do topbaru
+  size?: "xs" | "sm" | "md";
+};
+
+const LANGS: Array<{ value: AppLang; name: string; flagSrc: string; short: string }> = [
+  { value: "sk", name: "Slovenčina", flagSrc: "/flags/sk.svg", short: "SK" },
+  { value: "en", name: "English", flagSrc: "/flags/en.svg", short: "EN" },
+];
+
+export default function LangSelector({
+  variant = "readonly",
+  disabled,
+  className,
+  size = "sm",
+}: Props) {
+  const { lang, setLang } = useSettings();
+
+  const [open, setOpen] = React.useState(false);
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
+  const btnRef = React.useRef<HTMLButtonElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+
+  const editable = variant === "editable";
+  const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
+  const effectiveDisabled = !!disabled || !editable;
+
+  const wrapStyle = {
+    ...(editable ? FIELD_EDITABLE_STYLE : FIELD_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
+  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuStyle = {
+    ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
+    ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
+  const current = LANGS.find((x) => x.value === lang) ?? LANGS[0];
+
+  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+
+  function close() {
+    setOpen(false);
+    setPos(null);
+  }
+
+  React.useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      close();
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const el = btnRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setPos({ left: r.left, top: r.bottom + 8, width: r.width });
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
+  const padCls =
+    size === "xs" ? "h-8 px-3 text-xs rounded-full"
+    : size === "md" ? "h-10 px-4 text-sm rounded-full"
+    : "h-9 px-3.5 text-sm rounded-full";
+
+  return (
+    <div ref={wrapRef} className={cx(className)} style={wrapStyle}>
+      <div className={SELECT_MENU_WRAP}>
+        <button
+          ref={btnRef}
+          type="button"
+          disabled={effectiveDisabled}
+          onClick={() => {
+            if (effectiveDisabled) return;
+            setOpen((v) => !v);
+          }}
+          className={cx(baseClass, SELECT_BTN, padCls)}
+          aria-expanded={open}
+          aria-label="Language selector"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <Image src={current.flagSrc} alt="" width={16} height={16} className="h-4 w-4" />
+            <span className="truncate">{current.short}</span>
+          </span>
+
+          <svg viewBox="0 0 16 16" aria-hidden="true" className={SELECT_ICON}>
+            <path
+              d="M3 6.25L8 11l5-4.75"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        {open && !effectiveDisabled && pos
+          ? createPortal(
+              <div
+                ref={menuRef}
+                className={cx(SELECT_MENU, menuVariantClass)}
+                role="listbox"
+                style={{
+                  ...menuStyle,
+                  position: "fixed",
+                  left: pos.left,
+                  top: pos.top,
+                  width: Math.max(pos.width, 220),
+                  zIndex: 999999,
+                }}
+              >
+                {LANGS.map((o) => {
+                  const active = lang === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE, "flex items-center gap-2")}
+                      onClick={async () => {
+                        close();
+                        await setLang(o.value);
+                      }}
+                    >
+                      <Image src={o.flagSrc} alt="" width={18} height={18} className="h-[18px] w-[18px]" />
+                      <span className="flex-1 text-left">{o.name}</span>
+                      <span className="text-xs opacity-70">{o.short}</span>
+                    </button>
+                  );
+                })}
+              </div>,
+              document.body,
+            )
+          : null}
+      </div>
+    </div>
+  );
+}
