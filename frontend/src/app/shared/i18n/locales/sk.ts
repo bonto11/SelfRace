@@ -46,4 +46,10 @@ export const sk = {
     btnSignin: "Prihlás sa",
     footer: "Stravu prepojíš po registrácii v sekcii Connected Apps.",
   },
+  userMenu: {
+    account: "Účet",
+    connectedApps: "Pripojené aplikácie",
+    logginOff: "Odhlasujem…",
+    logoff: "Odhlásiť sa",
+  }
 } as const;

@@ -54,4 +54,10 @@ export const en = {
     footer:
       "You can connect Strava after registration in the Connected Apps section.",
   },
+  userMenu: {
+    account: "Account",
+    connectedApps: "Connected apps",
+    logginOff: "Logging off…",
+    logoff: "Log off",
+  },
 } as const;

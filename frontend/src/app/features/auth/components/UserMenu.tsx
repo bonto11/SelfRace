@@ -1,5 +1,4 @@
 // src/app/features/auth/components/UserMenu.tsx
-// src/app/features/auth/components/UserMenu.tsx
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -31,6 +30,7 @@ import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
+import { useT } from "@/app/shared/i18n/useT";
 
 type LocalUser = {
   id: number | null;
@@ -52,6 +52,7 @@ export default function UserMenu() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const t = useT();
 
   const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
 
@@ -240,11 +241,11 @@ export default function UserMenu() {
 
             <nav className={USER_MENU_NAV}>
               <a className={DROPDOWN_ITEM} href="/account" role="menuitem">
-                Account
+                {t("userMenu.account")}
               </a>
 
               <a className={DROPDOWN_ITEM} href="/connectedApps" role="menuitem">
-                Connected apps
+                {t("userMenu.connectedApps")}
               </a>
 
               <div className={DROPDOWN_DIVIDER} />
@@ -256,7 +257,7 @@ export default function UserMenu() {
                 role="menuitem"
                 type="button"
               >
-                {busy === "signout" ? "Odhlasujem…" : "Odhlásiť sa"}
+                {busy === "signout" ? t("userMenu.logginOff") : t("userMenu.logoff")}
               </button>
             </nav>
           </div>,
