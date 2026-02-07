@@ -2,19 +2,17 @@
 
 import { useEffect } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { useSettings } from "./SettingsProvider";
 
-export default function UserSettingsBootstrapper() {
+export default function SettingsDbBootstrapper() {
   const { userId } = useUserId();
-  const { attachUser, detachUser } = useSettings();
+  const { bindUser, syncFromDb } = useSettings();
 
   useEffect(() => {
-    if (!userId) {
-      detachUser();
-      return;
-    }
-    void attachUser(userId);
-  }, [userId, attachUser, detachUser]);
+    bindUser(userId ?? null);
+    if (!userId) return;
+    void syncFromDb(userId);
+  }, [userId, bindUser, syncFromDb]);
 
   return null;
 }

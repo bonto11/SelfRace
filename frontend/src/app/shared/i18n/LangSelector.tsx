@@ -170,9 +170,9 @@ export default function LangSelector({
                         active && SELECT_OPT_ACTIVE,
                         "flex items-center gap-2",
                       )}
-                      onClick={async () => {
+                      onClick={() => {
                         close();
-                        await setLang(o.value);
+                        setLang(o.value as AppLang);
                       }}
                     >
                       <Image

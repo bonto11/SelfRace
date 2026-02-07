@@ -1,171 +1,180 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import type { AppLang, UserSettingsV1 } from "./settingsTypes";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
-import { DEFAULT_SETTINGS, type AppLang, type UserSettings } from "./settingsTypes";
 
 type SettingsCtx = {
-  settings: UserSettings;
+  settings: UserSettingsV1;
   lang: AppLang;
-  setLang: (next: AppLang) => Promise<void> | void;
 
-  // pre budúcnosť (units, week_start,...)
-  updateSettings: (patch: Partial<UserSettings>) => Promise<void> | void;
+  // patchuje settings (v1)
+  setSettings: (patch: Partial<UserSettingsV1> | ((prev: UserSettingsV1) => UserSettingsV1)) => void;
 
-  // zapne DB sync po prihlásení
-  attachUser: (userId: number) => Promise<void>;
-  detachUser: () => void;
+  // convenience
+  setLang: (next: AppLang) => void;
+
+  // DB sync (volá bootstrapper po prihlásení)
+  bindUser: (userId: number | null) => void;
+  syncFromDb: (userId: number) => Promise<void>;
 };
 
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
-const LS_KEY = "sr.user.settings.v1";
-const DB_KEY = "user.settings";
+// ✅ jediný LS key
+const LS_KEY = "sr.settings.v1";
 
-function safeReadLS(): Partial<UserSettings> | null {
+// ✅ defaulty (uprav si ak chceš)
+const DEFAULT_SETTINGS: UserSettingsV1 = {
+  units: "metric",
+  language: "en",
+  timezone: "Europe/Bratislava",
+  week_start: "Mon",
+  date_format: "yyyy-MM-dd",
+  time_format_24h: true,
+};
+
+function safeReadV1(): UserSettingsV1 | null {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") return null;
-    return obj as Partial<UserSettings>;
+    const j = JSON.parse(raw);
+
+    // jemná validácia
+    if (!j || typeof j !== "object") return null;
+    const lang = j.language;
+    if (lang !== "sk" && lang !== "en") return null;
+
+    return {
+      ...DEFAULT_SETTINGS,
+      ...j,
+      language: lang,
+    } as UserSettingsV1;
   } catch {
     return null;
   }
 }
 
-function safeWriteLS(v: UserSettings) {
+function safeWriteV1(v: UserSettingsV1) {
   try {
     window.localStorage.setItem(LS_KEY, JSON.stringify(v));
   } catch {}
 }
 
-function guessFromNavigator(): Partial<UserSettings> {
-  let language: AppLang = "en";
-  try {
-    const raw = (navigator?.language || "en").toLowerCase();
-    if (raw.startsWith("sk")) language = "sk";
-    else if (raw.startsWith("fr")) language = "fr";
-    else if (raw.startsWith("de")) language = "de";
-    else if (raw.startsWith("es")) language = "es";
-    else if (raw.startsWith("it")) language = "it";
-  } catch {}
-
-  let timezone = DEFAULT_SETTINGS.timezone;
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone;
-  } catch {}
-
-  return { language, timezone };
-}
-
-function mergeSettings(base: UserSettings, patch?: Partial<UserSettings> | null): UserSettings {
-  return {
-    ...base,
-    ...(patch || {}),
-    // hard guard
-    language: (patch?.language as AppLang) || base.language,
-    units: (patch?.units as any) || base.units,
-    week_start: (patch?.week_start as any) || base.week_start,
-    date_format: patch?.date_format || base.date_format,
-    time_format_24h:
-      typeof patch?.time_format_24h === "boolean" ? patch.time_format_24h : base.time_format_24h,
-    timezone: patch?.timezone || base.timezone,
-  };
+function guessLang(): AppLang {
+  const raw = (typeof navigator !== "undefined" ? navigator.language : "en").toLowerCase();
+  return raw.startsWith("sk") ? "sk" : "en";
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettingsState] = useState<UserSettingsV1>(DEFAULT_SETTINGS);
 
-  // user binding (DB sync)
+  // kto je prihlásený (len keď bindneš)
   const userIdRef = useRef<number | null>(null);
-  const hydratingRef = useRef(false);
 
-  // init from LS (or navigator) once
+  // init z LS (alebo navigator)
   useEffect(() => {
-    const fromLS = safeReadLS();
-    const guessed = guessFromNavigator();
-    const initial = mergeSettings(DEFAULT_SETTINGS, { ...guessed, ...(fromLS || {}) });
-    setSettings(initial);
-    safeWriteLS(initial);
+    const fromLS = safeReadV1();
+    if (fromLS) {
+      setSettingsState(fromLS);
+      return;
+    }
+    const boot = { ...DEFAULT_SETTINGS, language: guessLang() as AppLang };
+    setSettingsState(boot);
+    safeWriteV1(boot);
   }, []);
 
-  async function persistToDbIfAuthed(next: UserSettings) {
-    const uid = userIdRef.current;
-    if (!uid) return;
-    try {
-      await apiUpsertUserPref(uid, DB_KEY, next);
-    } catch (e) {
-      // DB fail nech nezabije UX; LS je stále source-of-truth v tomto momente
-      console.warn("[Settings] DB save failed", e);
-    }
-  }
-
-  const updateSettings = async (patch: Partial<UserSettings>) => {
-    setSettings((prev) => {
-      const next = mergeSettings(prev, patch);
-      safeWriteLS(next);
-      void persistToDbIfAuthed(next);
-      return next;
-    });
-  };
-
-  const setLang = async (next: AppLang) => {
-    await updateSettings({ language: next });
-  };
-
-  // po prihlásení: DB -> FE + LS, ak DB prázdne: seed DB z lokálu
-  const attachUser = async (userId: number) => {
+  const bindUser = useCallback((userId: number | null) => {
     userIdRef.current = userId;
+  }, []);
 
-    if (hydratingRef.current) return;
-    hydratingRef.current = true;
+  const setSettings = useCallback(
+    (patch: Partial<UserSettingsV1> | ((prev: UserSettingsV1) => UserSettingsV1)) => {
+      setSettingsState((prev) => {
+        const next =
+          typeof patch === "function"
+            ? (patch as (p: UserSettingsV1) => UserSettingsV1)(prev)
+            : ({ ...prev, ...(patch as Partial<UserSettingsV1>) } as UserSettingsV1);
 
-    try {
-      const dbVal = (await apiFetchUserPref(userId, DB_KEY)) as Partial<UserSettings> | null;
+        // ✅ vždy do LS
+        safeWriteV1(next);
 
-      // ak DB nemá nič -> seed z aktuálneho FE/LS
+        // ✅ ak máme userId, tak aj do DB (best-effort)
+        const uid = userIdRef.current;
+        if (uid) {
+          // neblokuj UI
+          void apiUpsertUserPref(uid, "user.settings", next).catch(() => {});
+        }
+
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setLang = useCallback(
+    (next: AppLang) => {
+      setSettings({ language: next });
+    },
+    [setSettings],
+  );
+
+  const syncFromDb = useCallback(
+    async (userId: number) => {
+      // naviaž usera (aby sa ďalšie zmeny zapisovali do DB)
+      userIdRef.current = userId;
+
+      let dbVal: any = null;
+      try {
+        dbVal = await apiFetchUserPref(userId, "user.settings");
+      } catch {
+        dbVal = null;
+      }
+
       if (!dbVal || typeof dbVal !== "object") {
-        const current = settings;
-        safeWriteLS(current);
-        await persistToDbIfAuthed(current);
+        // DB nič nemá -> vezmeme lokál a uložíme do DB
+        const local = safeReadV1() ?? settings;
+        safeWriteV1(local);
+        setSettingsState(local);
+        await apiUpsertUserPref(userId, "user.settings", local).catch(() => {});
         return;
       }
 
-      // DB má niečo -> zmergeuj s lokálom (DB má prioritu, ale nech má vždy jazyk)
-      const local = safeReadLS();
-      const merged = mergeSettings(DEFAULT_SETTINGS, {
-        ...(local || {}),
-        ...(dbVal || {}),
-      });
+      // DB má -> stiahni do FE + LS (DB je source-of-truth po login)
+      const merged: UserSettingsV1 = {
+        ...DEFAULT_SETTINGS,
+        ...dbVal,
+        language: dbVal.language === "sk" ? "sk" : "en",
+      };
 
-      setSettings(merged);
-      safeWriteLS(merged);
+      setSettingsState(merged);
+      safeWriteV1(merged);
 
-      // voliteľné: dorovnať DB ak tam chýbali kľúče
-      await persistToDbIfAuthed(merged);
-    } catch (e) {
-      console.warn("[Settings] attachUser hydrate failed", e);
-      // nič – ostávame na LS
-    } finally {
-      hydratingRef.current = false;
-    }
-  };
-
-  const detachUser = () => {
-    userIdRef.current = null;
-  };
+      // OPTIONAL: ak DB mal staré/partial, normalizuj späť
+      void apiUpsertUserPref(userId, "user.settings", merged).catch(() => {});
+    },
+    [settings],
+  );
 
   const value = useMemo<SettingsCtx>(
     () => ({
       settings,
       lang: settings.language,
+      setSettings,
       setLang,
-      updateSettings,
-      attachUser,
-      detachUser,
+      bindUser,
+      syncFromDb,
     }),
-    [settings],
+    [settings, setSettings, setLang, bindUser, syncFromDb],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
