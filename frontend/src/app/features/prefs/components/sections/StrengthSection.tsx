@@ -5,7 +5,7 @@ import { useMemo } from "react";
 
 import Button from "@/app/shared/ui/components/Button";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
@@ -71,7 +71,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   };
 
   const setMode = (
-    next: "none" | "bodyweight" | "minimal" | "full_gym" | null
+    next: "none" | "bodyweight" | "minimal" | "full_gym" | null,
   ) => {
     markDirty();
     setLocal((p: any) => ({
@@ -104,7 +104,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
       title={
         <div className="flex items-center gap-2">
           <span>Strength setup</span>
-          <InfoPopover text="Nastav koľko silových tréningov chceš týždenne a aké máš vybavenie. Detail cvikov doplní backend mapper." />
+          <TooltipIcon text="Nastav koľko silových tréningov chceš týždenne a aké máš vybavenie. Detail cvikov doplní backend mapper." />
         </div>
       }
       subtitle="Frekvencia, miesto, vybavenie a dostupné náradie."
@@ -116,7 +116,11 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Sessions per week */}
           <div>
-            <div className="text-xs opacity-80 mb-1">Sessions per week</div>
+            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+              <span>Sessions per week</span>
+              <TooltipIcon text="Odporúčanie: 1–3. Nula = nechceš silu v pláne." />
+            </div>
+
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -161,7 +165,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
 
             <div className="text-[11px] opacity-60 mt-1">
-              Odporúčanie: 1–3. Nula = nechceš silu v pláne.
+              {`Aktuálne: ${sessionsPerWeek ?? 2}`}
             </div>
           </div>
 
@@ -206,14 +210,18 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                       {m}
                     </Button>
                   );
-                }
+                },
               )}
             </div>
           </div>
 
           {/* Available gear */}
           <div className="md:col-span-3">
-            <div className="text-xs opacity-80 mb-1">Available gear</div>
+            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+              <span>Available gear</span>
+              <TooltipIcon text="Vyber čo reálne máš. Coach z toho poskladá silové tréningy." />
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {(
                 [
