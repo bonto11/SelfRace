@@ -1,4 +1,3 @@
-// src/features/activity/components/TrendWeeklyMonoStrain.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -24,10 +23,33 @@ import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+
 ensureChartJSRegistered();
 
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
+
+const TOOLTIP_TREND = [
+  "Tento trend ukazuje Monotony & Strain po týždňoch.",
+  "",
+  "Čo presne vidíš:",
+  "• Monotony = „ako podobné sú dni v týždni“ (variabilita load-u).",
+  "• Strain = kombinácia celkového load-u a monotónnosti (vyššie = náročnejší týždeň).",
+  "",
+  "Prečo sú tu 2 osi (ľavá + ľavá posunutá):",
+  "• Monotony a Strain majú úplne iné čísla / rozsahy, preto majú oddelené škály.",
+  "",
+  "Ako to čítať prakticky:",
+  "1) Monotony rastie, keď dávaš každý deň podobne veľa (málo kontrastu).",
+  "2) Strain rastie, keď máš veľa objemu/intenzity a zároveň je týždeň monotónny.",
+  "3) Dobrý plán má v čase „vlny“: 2–4 týždne rast → 1 ľahší týždeň (deload).",
+  "",
+  "Tip: prepni metriky (Km / Čas / TRIMP).",
+  "• Km: dobré pre objem behu",
+  "• Čas: lepšie, keď máš mix športov a rôzne tempa",
+  "• TRIMP: najviac „fyziologické“, ak máš spoľahlivé HR dáta",
+].join("\n");
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
@@ -48,7 +70,6 @@ export default function TrendWeeklyMonoStrain({
   const _heightCompact = OPTIONS.HeightCompact;
   const _legendPos = OPTIONS.legendPosition;
 
-  // ak niekde vyššie počúvaš na sport, je to stále "all"
   useEffect(() => {
     onSportChange?.(DEFAULT_SPORT);
   }, [onSportChange]);
@@ -206,9 +227,11 @@ export default function TrendWeeklyMonoStrain({
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
-        <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
+        <div className="flex items-center gap-2">
+          <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
+          <TooltipIcon text={TOOLTIP_TREND} />
+        </div>
 
-        {/* ✅ vždy vpravo */}
         <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
           <div className={PANEL_ACTIONS_INLINE}>
             <Button
