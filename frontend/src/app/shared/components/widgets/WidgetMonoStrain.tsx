@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetMonoStrain.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -6,6 +5,8 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
@@ -29,8 +30,6 @@ function levelColor(level: Level): string {
   else return "none";
 }
 
-// ...zvyšok bez zmeny
-
 function worstLevel(a: Level, b: Level): Level {
   const w: Record<Level, number> = { neutral: 0, good: 1, warn: 2, danger: 3 };
   return w[a] >= w[b] ? a : b;
@@ -51,6 +50,45 @@ function classifyStrain(v?: number | null): { label: string; level: Level } {
   if (v < 1800) return { label: "vyšší load", level: "warn" };
   return { label: "veľmi vysoký", level: "danger" };
 }
+
+const TOOLTIP_WIDGET = [
+  "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
+  "",
+  "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
+  "• Nízka až stredná monotónnosť znamená, že máš mix ľahších a ťažších dní (telo má šancu regenerovať).",
+  "• Vysoká monotónnosť znamená, že dni sú si veľmi podobné (napr. každý deň „tak akurát“), čo býva pre telo horšie než 2–3 tvrdé dni s oddychom medzi.",
+  "",
+  "STRAIN (strain) je zjednodušene „monotónnosť × celkový týždenný load“.",
+  "• Strain rastie, keď je veľa objemu/intenzity a zároveň je týždeň monotónny.",
+  "",
+  "Ako to používať:",
+  "1) Ak je monotónnosť vysoká → pridaj kontrast: ľahší deň / voľno / kratší easy beh.",
+  "2) Ak je strain veľmi vysoký → zvaž „deload“ týždeň alebo aspoň 1–2 dni fakt easy.",
+  "3) Keď naháňaš výkon, občas vyšší strain príde – ale nech to nie je viac týždňov v kuse.",
+].join("\n");
+
+const TOOLTIP_MONO = [
+  "Monotony (monotónnosť) hovorí, ako veľmi sa podobajú tvoje tréningové dni v rámci týždňa.",
+  "",
+  "Príklady:",
+  "• nízka monotónnosť: ťažký deň + ľahký deň + voľno (väčšie rozdiely medzi dňami)",
+  "• vysoká monotónnosť: každý deň podobný objem a podobná únava (malé rozdiely)",
+  "",
+  "Prečo to je dôležité:",
+  "Telo sa adaptuje na stres, ale potrebuje aj kolísanie záťaže. Dlhodobo monotónny týždeň zvyšuje riziko preťaženia (najmä šľachy, holene, úpony).",
+].join("\n");
+
+const TOOLTIP_STRAIN = [
+  "Strain je kombinácia: koľko load-u si dal za týždeň + či bol týždeň monotónny.",
+  "",
+  "Rastie najviac, keď:",
+  "• máš veľa objemu/intenzity a zároveň",
+  "• dni sú si podobné (málo oddychu / málo kontrastu).",
+  "",
+  "Interpretácia:",
+  "• vysoký strain 1 týždeň nemusí byť problém (peak),",
+  "• ale vysoký strain viac týždňov po sebe = typický recept na únavu a zranenia.",
+].join("\n");
 
 export default function WidgetMonoStrain({
   title = "Indexy záťaže",
@@ -80,7 +118,12 @@ export default function WidgetMonoStrain({
 
   return (
     <WidgetCard
-      title={title}
+      title={
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <TooltipIcon text={TOOLTIP_WIDGET} />
+        </div>
+      }
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
@@ -94,7 +137,11 @@ export default function WidgetMonoStrain({
         <>
           <div className={WIDGET_GRID_2}>
             <div>
-              <div className={WIDGET_METRIC_LABEL}>Monotony</div>
+              <div className="flex items-center gap-2">
+                <div className={WIDGET_METRIC_LABEL}>Monotony</div>
+                <TooltipIcon text={TOOLTIP_MONO} />
+              </div>
+
               <div className="flex items-baseline gap-2">
                 <span className={WIDGET_METRIC_VALUE}>
                   {mono == null ? "—" : mono.toFixed(2)}
@@ -104,7 +151,11 @@ export default function WidgetMonoStrain({
             </div>
 
             <div>
-              <div className={WIDGET_METRIC_LABEL}>Strain</div>
+              <div className="flex items-center gap-2">
+                <div className={WIDGET_METRIC_LABEL}>Strain</div>
+                <TooltipIcon text={TOOLTIP_STRAIN} />
+              </div>
+
               <div className="flex items-baseline gap-2">
                 <span className={WIDGET_METRIC_VALUE}>
                   {strain == null ? "—" : Math.round(strain)}
