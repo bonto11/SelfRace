@@ -33,15 +33,22 @@ import {
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
-function safeAgeYears(birthDate?: string) {
-  if (!birthDate) return 0;
-  const t = new Date(birthDate).getTime();
-  if (!Number.isFinite(t)) return 0;
-  return Math.max(
-    0,
-    Math.floor((Date.now() - t) / (365.25 * 24 * 3600 * 1000)),
-  );
-}
+const TOOLTIP_VO2MAX = [
+  "VO₂Max je odhad maximálneho množstva kyslíka, ktoré vie tvoje telo využiť pri záťaži.",
+  "",
+  "Čo hovorí:",
+  "• všeobecný ukazovateľ aeróbnej kapacity",
+  "• porovnateľný medzi ľuďmi rovnakého veku a pohlavia",
+  "",
+  "Odhad vs. meranie:",
+  "• odhad: vypočítaný z tréningových dát (tempo, HR, výkon)",
+  "• meranie: laboratórny test (plynová analýza)",
+  "",
+  "Ako to používať:",
+  "• sleduj trend v čase, nie jedno číslo",
+  "• malé výkyvy sú normálne",
+  "• výkon v pretekoch je vždy dôležitejší než samotná VO₂Max",
+].join("\n");
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
@@ -60,24 +67,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     (async () => {
       try {
         setLoading(true);
-
         const [histRes, estRes] = await Promise.all([
           apiGetVo2History(userId),
           apiGetVo2Estimate(userId),
         ]);
-
         if (!alive) return;
 
-        if (histRes) {
-          setHistory(histRes.history ?? []);
-          setSex(histRes.sex === "F" ? "F" : "M");
-          setBirthDate(histRes.birth_date || "");
-        } else {
-          setHistory([]);
-          setSex("M");
-          setBirthDate("");
-        }
-
+        setHistory(histRes?.history ?? []);
+        setSex(histRes?.sex === "F" ? "F" : "M");
+        setBirthDate(histRes?.birth_date || "");
         setEst(estRes ?? null);
       } finally {
         if (alive) setLoading(false);
@@ -92,17 +90,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const measured = history.length ? history[history.length - 1] : null;
   const mVO2 = measured?.VO2Max ?? null;
 
-  // pásma podľa veku/pohlavia
   let ranges: Range[] = [];
   try {
-    const age = safeAgeYears(birthDate);
+    const age =
+      birthDate ? Math.floor((Date.now() - +new Date(birthDate)) / 3.15e10) : 0;
     const g = (vo2Ref as Group[]).find(
       (x) => x.sex === sex && age >= x.age_min && age <= x.age_max,
     );
     ranges = g?.ranges ?? [];
-  } catch {
-    ranges = [];
-  }
+  } catch {}
 
   const pickLevel = (v?: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
@@ -111,8 +107,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
         (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max),
     );
     if (!hit) return null;
-    const label = hit.label.trim();
-    return { label, color: levelColor(label) };
+    return { label: hit.label.trim(), color: levelColor(hit.label) };
   };
 
   const estVal = Number.isFinite(est?.value as number)
@@ -128,6 +123,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="VO₂Max"
+      tooltip={TOOLTIP_VO2MAX}
       onOpen={handleOpen}
       interactive={!!handleOpen}
       accent={accent}
@@ -139,13 +135,12 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] items-start gap-6 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-6 md:gap-10">
           {/* estimated */}
-          <div className="min-w-0">
+          <div>
             <div className={WIDGET_META_LABEL}>
               odhad: {fmtDate(est?.updated_at ?? null)}
             </div>
-
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
                 {estVal != null ? estVal.toFixed(1) : "—"}
@@ -162,17 +157,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           </div>
 
           <div
-            className="hidden md:block w-px mx-auto"
+            className="hidden md:block w-px"
             style={{ background: appColors.surfaceCardBorder, opacity: 0.6 }}
-            aria-hidden="true"
           />
 
           {/* measured */}
-          <div className="min-w-0">
+          <div>
             <div className={WIDGET_META_LABEL}>
               merané: {fmtDate(measured?.updated_at ?? null)}
             </div>
-
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
                 {mVO2 != null ? mVO2.toFixed(1) : "—"}
