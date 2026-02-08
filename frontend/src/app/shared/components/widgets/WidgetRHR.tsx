@@ -20,6 +20,47 @@ import {
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 
+const TOOLTIP_RHR = [
+  "Resting HR (RHR) = pokojový tep. Je to jeden z najjednoduchších signálov, či je telo oddýchnuté alebo ide „na dlh“.",
+  "",
+  "Ako to čítať:",
+  "• RHR je veľmi individuálny. Dôležitejší než absolútne číslo je trend vs. tvoj vlastný baseline.",
+  "• Krátkodobý nárast (1–2 dni) môže byť normálny: horší spánok, stres, alkohol, teplo, dehydrát, začínajúca viróza.",
+  "• Vyšší RHR viac dní po sebe často znamená kumulovanú únavu / nedoregenerovanie.",
+  "",
+  "Čo zvyčajne RHR zvyšuje:",
+  "• vyšší tréningový load (hlavne intenzita), málo spánku, psychický stres",
+  "• choroba, zápal, alergie, teplo, zlá hydratácia",
+  "• alkohol a neskoré jedlo",
+  "",
+  "Čo zvyčajne RHR znižuje:",
+  "• dobrý spánok, deload, ľahký týždeň, stabilný režim",
+  "",
+  "Ako to hodnotíme v appke:",
+  "• porovnávame poslednú hodnotu s baseline z posledných 14 dní (rolling baseline)",
+  "• režim je lower-better (nižšie je lepšie)",
+  "• malé výkyvy neriešime – varovanie dávame až pri výraznejšej odchýlke",
+  "",
+  "Praktický tip:",
+  "• ak je RHR zvýšené + HRV klesá + cítiš sa „ťažký“ → skôr recovery/easy deň alebo voľno",
+  "• ak je RHR vyššie, ale cítiš sa dobre a ostatné metriky sú OK → nemusí to byť problém (pozri kontext)",
+].join("\n");
+
+function pickAccentFromCmp(
+  cmpAccent: unknown,
+  opts: { loading: boolean; showNA: boolean },
+) {
+  if (opts.loading || opts.showNA) return appColors.stateNeutral;
+
+  const a = String(cmpAccent ?? "").toLowerCase();
+
+  if (a.includes("red")) return appColors.stateDanger;
+  if (a.includes("amber") || a.includes("yellow")) return appColors.stateWarning;
+  if (a.includes("emerald") || a.includes("green")) return "none";
+
+  return "none";
+}
+
 export default function WidgetRHR({
   onOpenDetail,
 }: {
@@ -55,6 +96,7 @@ export default function WidgetRHR({
     "lower-better",
     0.05,
   );
+
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -66,23 +108,12 @@ export default function WidgetRHR({
 
   const note = showNA ? freshness.message : cmp.note;
 
-  const accent = (() => {
-    if (loading || showNA) return "none";
-
-    const a = String((cmp as any)?.accent ?? "").toLowerCase();
-
-    if (a.includes("red")) return appColors.stateDanger;
-    if (a.includes("amber") || a.includes("yellow"))
-      return appColors.stateWarning;
-    if (a.includes("emerald") || a.includes("green"))
-      return "none";
-
-    return "none";
-  })();
+  const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
       title="Resting HR"
+      tooltip={TOOLTIP_RHR}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
