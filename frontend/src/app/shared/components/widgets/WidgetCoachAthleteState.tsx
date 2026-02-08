@@ -36,6 +36,30 @@ type UiState = {
   summary: string | null;
 };
 
+const TOOLTIP_COACH_STATE = [
+  "Athlete state je posledná AI analýza tvojho „stavu“ – zjednodušený pohľad na únavu, riziko preťaženia a celkovú pripravenosť.",
+  "",
+  "Prečo to existuje:",
+  "• Tréningový plán je len polovica hry. Druhá polovica je: čo tvoje telo reálne toleruje práve teraz.",
+  "• Dve rovnaké tréningové jednotky môžu mať úplne iný dopad, keď si oddýchnutý vs. keď si v dlhu zo spánku/strese/objeme.",
+  "",
+  "Ako čítať 2 hlavné polia:",
+  "FATIGUE (únava):",
+  "• nízka → telo regeneruje a adaptuje (dobré okno pre kvalitu).",
+  "• stredná → stále OK, ale treba lepší kontrast (easy dni, spánok, jedlo).",
+  "• vysoká → často signál, že si prekročil toleranciu alebo sa kumuluje viac stresorov naraz.",
+  "",
+  "INJURY RISK (riziko zranenia):",
+  "• nejde o veštenie. Je to odhad rizika podľa vzorcov: skoky objemu, monotónnosť, opakované tvrdé dni, slabá regenerácia.",
+  "• vysoké riziko je prakticky najčastejšie o šľachách/úponoch (holene, achilovka, plantár, koleno), nie o „náhodnom úraze“.",
+  "",
+  "Dôležité (realita):",
+  "• Môžeš sa cítiť super, ale riziko môže byť zvýšené – hlavne keď si čerstvo zvýšil objem/intenzitu. Zranenia často prídu až s oneskorením.",
+  "",
+  "Tip:",
+  "• Keď je fatigue alebo injury risk „high“, nerieš to panikou. Rieš to kontrastom: 1–2 veľmi ľahké dni, znížiť monotónnosť, pridať spánok a jedlo.",
+].join("\n");
+
 function extractUiState(row: AthleteStateRecord | null): UiState {
   if (!row || !row.state) {
     return {
@@ -100,14 +124,15 @@ function pickAccent(ui: UiState) {
     fat.includes("vysok") ||
     inj.includes("high") ||
     inj.includes("vysok");
+
   const hasMod =
     fat.includes("moder") ||
     fat.includes("stred") ||
     inj.includes("moder") ||
     inj.includes("stred");
 
-  if (hasHigh) return appColors.statusError;
-  if (hasMod) return appColors.statusWarning;
+  if (hasHigh) return appColors.stateDanger;
+  if (hasMod) return appColors.stateWarning;
   return "none";
 }
 
@@ -146,6 +171,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Coach — Athlete state"
+      tooltip={TOOLTIP_COACH_STATE}
       note={ui.lastAnalysisAt ? "" : "Spusť AI analýzu trénovanosti."}
       accent={accent}
       onOpen={onOpenDetail}
@@ -167,8 +193,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš žiadnu uloženú AI analýzu tr0novanosti. Spusť ju v coach sekcii a
-          widget sa automaticky naplní.
+          Zatiaľ nemáš žiadnu uloženú AI analýzu trénovanosti. Spusť ju v coach
+          sekcii a widget sa automaticky naplní.
         </div>
       ) : (
         <>
