@@ -34,6 +34,25 @@ type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
 
+const TOOLTIP_BODY_FAT = [
+  "Body Fat % je percento telesného tuku z celkovej hmotnosti (nie „koľko tuku vidíš v zrkadle“).",
+  "",
+  "Prečo je to dôležité:",
+  "• Pre výkon: príliš vysoké BF zhoršuje ekonomiku behu a regeneráciu, príliš nízke môže zhoršiť hormóny, imunitu a výkonnosť.",
+  "• Pre zdravie: dáva kontext k hmotnosti – 82 kg môže byť super alebo problém, podľa toho, čo z toho je sval a čo tuk.",
+  "",
+  "Ako čítať kategórie (Essential / Athlete / Fitness / Average / Obese):",
+  "• Sú to orientačné pásma. Dve rôzne metódy merania ti môžu dať iné čísla, ale trend býva užitočný.",
+  "",
+  "Dôležitá realita merania:",
+  "• BIA/InBody (bioimpedancia) je citlivá na hydratáciu, soľ, jedlo, tréning deň predtým, alkohol a čas dňa.",
+  "• Preto neporovnávaj jeden náhodný deň. Sleduj trend – ideálne meraj za podobných podmienok (ráno, podobná hydratácia).",
+  "",
+  "Praktické tipy:",
+  "• Keď chceš znižovať BF: rieš najprv konzistenciu tréningu + spánok + jedlo. Extrémne deficity často rozbijú regeneráciu (a pri behu aj šľachy).",
+  "• Keď si veľmi nízko: sleduj výkonnosť, kvalitu spánku, libido/energiu, zranenia. Nízke číslo nie je automaticky výhra.",
+].join("\n");
+
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
 
@@ -112,6 +131,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Body Fat %"
+      tooltip={TOOLTIP_BODY_FAT}
       onOpen={handleOpen}
       interactive={!!handleOpen}
       accent={accent}
