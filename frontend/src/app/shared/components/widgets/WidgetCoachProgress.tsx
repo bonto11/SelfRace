@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -40,6 +39,26 @@ type UiState = {
   volumeLabel: string | null;
 };
 
+const TOOLTIP_COACH_PROGRESS = [
+  "Tento widget ukazuje AI porovnanie tvojho stavu medzi 2 obdobiami (typicky týždne).",
+  "",
+  "Čo je cieľ:",
+  "• nie iba „report“, ale zmysluplná zmena: kam sa posúva únava, riziko zranenia, tolerancia objemu a typ tréningového bloku.",
+  "",
+  "Ako to čítať:",
+  "• Únava: nízka → stredná → vysoká (trend ti povie, či sa kumuluje alebo uvoľňuje).",
+  "• Riziko zranenia: zjednodušený signál (kombinácia objemu, monotónnosti, spike-ov a histórie).",
+  "• Blok: čo je dominantná fáza (napr. base/build/peak/deload).",
+  "• Min. týždenný objem: konzervatívny odhad, čo by si mal zvládnuť bez prepálenia.",
+  "",
+  "Dôležité:",
+  "• Toto nie je lekárska diagnostika – je to plánovací signál.",
+  "• Ak máš akútnu bolesť alebo zhoršujúci sa problém, rozhoduje realita (telo), nie text.",
+  "",
+  "Prečo treba aspoň 2 analýzy:",
+  "• progress je porovnanie. Bez „predtým“ nemáš „zlepšenie“ ani „zhoršenie“.",
+].join("\n");
+
 function toStringArray(v: any): string[] {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
@@ -56,8 +75,7 @@ function slovakLevel(level?: string | null): string {
 }
 
 function buildUiState(row: AthleteProgressRecord | null): UiState {
-  const payload: any =
-    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+  const payload: any = (row as any)?.report ?? (row as any)?.compare_previous ?? null;
 
   if (!row || !payload) {
     return {
@@ -73,7 +91,6 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
   }
 
   const cp = payload;
-
   const headline: string | null = cp.summary?.headline || cp.headline || null;
 
   const bullets: string[] =
@@ -110,7 +127,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
     volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
   }
 
-  let comparedAt: string | null = cp.generated_at || row.created_at || null;
+  let comparedAt: string | null = cp.generated_at || (row as any).created_at || null;
   if (comparedAt) {
     try {
       const d = new Date(comparedAt);
@@ -156,8 +173,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive)
-          setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
+        if (alive) setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
       } finally {
         if (alive) setLoading(false);
       }
@@ -173,6 +189,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Coach — Weekly progress"
+      tooltip={TOOLTIP_COACH_PROGRESS}
       accent="none"
       note={
         ui.hasData
@@ -200,8 +217,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         </div>
       ) : !ui.hasData ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch
-          analyzovaných týždňoch sa tu zobrazí prehľad progresu.
+          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných
+          týždňoch sa tu zobrazí prehľad progresu.
         </div>
       ) : (
         <>
@@ -220,22 +237,16 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
           <div className={WIDGET_INFO_GRID_XS}>
             <div className={WIDGET_LABEL_MUTED_XS}>Únava</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>
-              {ui.fatigueLabel ?? "—"}
-            </div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.fatigueLabel ?? "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Riziko zranenia</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>
-              {ui.injuryLabel ?? "—"}
-            </div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.injuryLabel ?? "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Blok</div>
             <div className={WIDGET_VALUE_STRONG_XS}>{ui.blockLabel ?? "—"}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>Min. týždenný objem</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>
-              {ui.volumeLabel ?? "—"}
-            </div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{ui.volumeLabel ?? "—"}</div>
           </div>
         </>
       )}
