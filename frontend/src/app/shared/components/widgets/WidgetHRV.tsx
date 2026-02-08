@@ -21,6 +21,46 @@ import {
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 
+const TOOLTIP_HRV = [
+  "HRV (RMSSD) = variabilita srdcovej frekvencie. Zjednodušene: ako „voľne“ vie autonómny nervový systém pracovať.",
+  "",
+  "Ako to čítať:",
+  "• vyššie HRV často znamená lepšiu regeneráciu / nižší stres (parasympatikus dominuje)",
+  "• nižšie HRV často znamená stres / únavu / chorobu / zlý spánok (sympatikus dominuje)",
+  "",
+  "Pozor na typické pasce:",
+  "• HRV je veľmi citlivé na spánok, alkohol, hydratáciu, psychiku a teplotu",
+  "• jedna noc nič neznamená – dôležitý je trend a kontext (ako sa cítiš + RHR + spánok)",
+  "• keď si po extrémnom tréningu „rozbitý“, HRV môže spadnúť na 1–2 dni (bežné)",
+  "",
+  "Ako to hodnotíme v appke:",
+  "• porovnávame poslednú hodnotu s baseline z posledných 14 dní (rolling baseline)",
+  "• režim je higher-better (vyššie je lepšie)",
+  "• malé výkyvy neriešime – varovanie dávame až pri výraznejšej odchýlke",
+  "",
+  "Prakticky:",
+  "• HRV dole + RHR hore + spánok slabý → najčastejšie signál „uber, zregeneruj“",
+  "• HRV hore + RHR normál → často dobrý deň na kvalitu (ak aj subjektívne cítiš energiu)",
+  "",
+  "Tip pre meranie:",
+  "• najlepší signál je konzistentné meranie v rovnakých podmienkach (ráno po zobudení, bez rushu)",
+].join("\n");
+
+function pickAccentFromCmp(
+  cmpAccent: unknown,
+  opts: { loading: boolean; showNA: boolean },
+) {
+  if (opts.loading || opts.showNA) return appColors.stateNeutral;
+
+  const a = String(cmpAccent ?? "").toLowerCase();
+
+  if (a.includes("red")) return appColors.stateDanger;
+  if (a.includes("amber") || a.includes("yellow")) return appColors.stateWarning;
+  if (a.includes("emerald") || a.includes("green")) return "none";
+
+  return "none";
+}
+
 export default function WidgetHRV({
   onOpenDetail,
 }: {
@@ -57,6 +97,7 @@ export default function WidgetHRV({
     "higher-better",
     0.05,
   );
+
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);
   const showNA = !freshness.hasToday;
 
@@ -68,24 +109,12 @@ export default function WidgetHRV({
 
   const note = showNA ? freshness.message : cmp.note;
 
-  // ✅ žiadne statické farby, žiadne tailwind bg-*
-  // cmp.accent môže byť class (bg-...) alebo paint (#/rgb/gradient). Pre istotu sanitizujeme.
-  const accent = (() => {
-    if (loading || showNA) return "none";
-
-    const a = (cmp as any)?.accent;
-    if (!a) return appColors.accentTeal;
-
-    // ak je to tailwind class typu "bg-emerald-500" → nepoužívame
-    if (typeof a === "string" && /^bg-/.test(a)) return appColors.accentTeal;
-
-    // ak je to hex/rgb/gradient alebo nejaký token string, necháme (WidgetCard už vie paint vs class)
-    return a as string;
-  })();
+  const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
       title="HRV (RMSSD)"
+      tooltip={TOOLTIP_HRV}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
