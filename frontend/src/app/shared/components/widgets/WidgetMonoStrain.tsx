@@ -1,3 +1,4 @@
+// src/app/shared/components/widgets/WidgetMonoStrain.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -5,8 +6,6 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { fmtRange } from "@/app/shared/utils/time";
-
-import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
@@ -55,29 +54,13 @@ const TOOLTIP_WIDGET = [
   "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
   "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
   "",
-  "STRAIN = približne „monotónnosť × celkový týždenný load“.",
+  "STRAIN ≈ monotónnosť × celkový týždenný load.",
   "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
   "",
   "Prakticky:",
   "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
   "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
   "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
-].join("\n");
-
-const TOOLTIP_MONO = [
-  "Monotony (monotónnosť) hovorí, ako veľmi sa podobajú tvoje dni v rámci týždňa.",
-  "",
-  "• nízka: striedaš ťažké a ľahké dni / máš voľno",
-  "• vysoká: každý deň je podobne náročný",
-  "",
-  "Dlhodobo vysoká monotónnosť zvyšuje riziko preťaženia (šľachy, úpony, holene).",
-].join("\n");
-
-const TOOLTIP_STRAIN = [
-  "Strain je kombinácia celkového load-u a monotónnosti.",
-  "",
-  "• vysoký strain 1 týždeň = často peak (ok),",
-  "• vysoký strain opakovane = kumulovaná únava + vyššie riziko zranenia.",
 ].join("\n");
 
 export default function WidgetMonoStrain({
@@ -108,15 +91,12 @@ export default function WidgetMonoStrain({
 
   return (
     <WidgetCard
-      title={title} // ✅ string
+      title={title}
+      tooltip={TOOLTIP_WIDGET}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
-      actions={
-        // ✅ tooltip v headeri (vpravo), bez zásahu do title typu
-        <TooltipIcon text={TOOLTIP_WIDGET} />
-      }
     >
       {loading ? (
         <div className={WIDGET_LOADING_WRAP}>
@@ -126,11 +106,7 @@ export default function WidgetMonoStrain({
         <>
           <div className={WIDGET_GRID_2}>
             <div>
-              <div className="flex items-center gap-2">
-                <div className={WIDGET_METRIC_LABEL}>Monotony</div>
-                <TooltipIcon text={TOOLTIP_MONO} />
-              </div>
-
+              <div className={WIDGET_METRIC_LABEL}>Monotony</div>
               <div className="flex items-baseline gap-2">
                 <span className={WIDGET_METRIC_VALUE}>
                   {mono == null ? "—" : mono.toFixed(2)}
@@ -140,11 +116,7 @@ export default function WidgetMonoStrain({
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
-                <div className={WIDGET_METRIC_LABEL}>Strain</div>
-                <TooltipIcon text={TOOLTIP_STRAIN} />
-              </div>
-
+              <div className={WIDGET_METRIC_LABEL}>Strain</div>
               <div className="flex items-baseline gap-2">
                 <span className={WIDGET_METRIC_VALUE}>
                   {strain == null ? "—" : Math.round(strain)}
