@@ -4,14 +4,14 @@
 import Link from "next/link";
 import React from "react";
 import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+
 import {
   WIDGET_CARD,
   WIDGET_CARD_STYLE,
   WIDGET_CARD_INTERACTIVE,
   WIDGET_INNER,
   WIDGET_TITLE,
-  WIDGET_HINT,
-  WIDGET_HINT_STYLE,
   WIDGET_NOTE,
   WIDGET_NOTE_STYLE,
   WIDGET_FOOTER,
@@ -25,12 +25,19 @@ function cxLocal(...parts: (string | false | null | undefined)[]) {
 const isCssPaint = (v?: string) =>
   !!v &&
   /^(#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})|rgb(a)?\(|hsl(a)?\(|linear-gradient\(|radial-gradient\()/i.test(
-    v
+    v,
   );
 
 type Props = {
   title?: string;
   note?: string;
+
+  /**
+   * Tooltip text for the widget header (shows "i" icon on the right)
+   * - undefined/null/"" => no icon
+   */
+  tooltip?: string;
+
   /**
    * Accent line:
    * - undefined => default gradient
@@ -38,19 +45,23 @@ type Props = {
    * - any valid css paint (color/gradient) => show
    */
   accent?: string;
+
   children?: React.ReactNode;
   className?: string;
   innerClassName?: string;
   minH?: number;
+
   href?: string;
   onOpen?: () => void;
   interactive?: boolean;
+
   footer?: React.ReactNode;
 };
 
 export default function WidgetCard({
   title,
   note,
+  tooltip,
   accent,
   children,
   className,
@@ -67,7 +78,7 @@ export default function WidgetCard({
     WIDGET_CARD,
     isInteractive && WIDGET_CARD_INTERACTIVE,
     "p-0 relative overflow-hidden block",
-    className
+    className,
   );
 
   const outerStyle: React.CSSProperties = {
@@ -82,27 +93,37 @@ export default function WidgetCard({
   // - accent === "" | "none" => hide accent line completely
   // - otherwise => use provided value
   const accentValue = accent === undefined ? defaultAccent : accent;
-  const hideAccent = accentValue == null || accentValue === "" || accentValue === "none";
+  const hideAccent =
+    accentValue == null || accentValue === "" || accentValue === "none";
 
   const accentIsPaint = !hideAccent && isCssPaint(accentValue);
   const accentStyle = accentIsPaint ? { background: accentValue } : undefined;
+
+  const tooltipText = (tooltip ?? "").trim();
+  const showTooltip = tooltipText.length > 0;
 
   const content = (
     <>
       <CardBackdrop />
 
       <div
-        className={cxLocal(WIDGET_INNER, "relative flex flex-col p-3", innerClassName)}
+        className={cxLocal(
+          WIDGET_INNER,
+          "relative flex flex-col p-3",
+          innerClassName,
+        )}
         style={{ minHeight: minH }}
       >
-        {(title || isInteractive) && (
+        {(title || showTooltip) && (
           <div className="flex items-center justify-between gap-2 mb-2">
-            {title ? <h3 className={WIDGET_TITLE}>{title}</h3> : <span className="sr-only">Widget</span>}
-            {isInteractive && (
-              <span className={WIDGET_HINT} style={WIDGET_HINT_STYLE}>
-                otvoriť detail ⟶
-              </span>
+            {title ? (
+              <h3 className={WIDGET_TITLE}>{title}</h3>
+            ) : (
+              <span className="sr-only">Widget</span>
             )}
+
+            {/* ✅ single standard tooltip icon in header (replaces "otvoriť detail") */}
+            {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
           </div>
         )}
 
@@ -134,7 +155,12 @@ export default function WidgetCard({
 
   if (href) {
     return (
-      <Link href={href} className={outer} style={outerStyle} aria-label={title || "Widget"}>
+      <Link
+        href={href}
+        className={outer}
+        style={outerStyle}
+        aria-label={title || "Widget"}
+      >
         {content}
       </Link>
     );
