@@ -47,9 +47,15 @@ export function DaysSection({
           <span>Days</span>
           <TooltipIcon
             text={
-              "Days off = dni bez tréningu.\n\n" +
-              "Long run = preferované dni pre dlhý beh.\n" +
-              "Coach sa snaží trafiť, ak nie je konflikt."
+              "Toto určuje kedy má tréner plánovať tréningy. Nie „koľko“, ale v ktorých dňoch. \n" +
+              "Prečo je to dôležité:\n\n" +
+              "Plán sa dá urobiť aj s rovnakým objemom, ale úplne inou štruktúrou (napr. 4 dni vs 6 dní). \n" +
+              "Menej tréningových dní = viac regenerácie medzi jednotkami, ale často vyššia náročnosť na jeden deň. \n" +
+              "Viac tréningových dní = lepšie rozloženie záťaže, ale vyššie riziko „monotónnosti“ (ak sú dni príliš podobné). \n\n" +
+              "Praktické tipy: \n" +
+              "Ak máš sklony k preťaženiu (holene, achilovky, úpony), radšej menej dní + jasný easy/rest medzi. \n" +
+              "Ak chceš výkon na 5 km, väčšinou je výhodné mať aspoň 4–5 bežeckých dní, ale nie na úkor zdravia. \n" +
+              "Ak máš pevné klubové tréningy (napr. utorok easy run, štvrtok intervaly), nastav dni tak, aby plán s nimi rátal."
             }
           />
         </div>
