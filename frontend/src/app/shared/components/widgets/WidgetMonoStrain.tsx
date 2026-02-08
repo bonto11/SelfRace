@@ -21,13 +21,10 @@ import {
 
 type Level = "neutral" | "good" | "warn" | "danger";
 
-const C = appColors as any;
-
 function levelColor(level: Level): string {
   if (level === "danger") return appColors.stateDanger;
-  else if (level === "warn") return appColors.stateWarning;
-  else if (level === "good") return "none";
-  else return "none";
+  if (level === "warn") return appColors.stateWarning;
+  return "none";
 }
 
 function worstLevel(a: Level, b: Level): Level {
@@ -55,39 +52,32 @@ const TOOLTIP_WIDGET = [
   "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
   "",
   "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
-  "• Nízka až stredná monotónnosť znamená, že máš mix ľahších a ťažších dní (telo má šancu regenerovať).",
-  "• Vysoká monotónnosť znamená, že dni sú si veľmi podobné (napr. každý deň „tak akurát“), čo býva pre telo horšie než 2–3 tvrdé dni s oddychom medzi.",
+  "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
+  "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
   "",
-  "STRAIN (strain) je zjednodušene „monotónnosť × celkový týždenný load“.",
-  "• Strain rastie, keď je veľa objemu/intenzity a zároveň je týždeň monotónny.",
+  "STRAIN = približne „monotónnosť × celkový týždenný load“.",
+  "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
   "",
-  "Ako to používať:",
-  "1) Ak je monotónnosť vysoká → pridaj kontrast: ľahší deň / voľno / kratší easy beh.",
-  "2) Ak je strain veľmi vysoký → zvaž „deload“ týždeň alebo aspoň 1–2 dni fakt easy.",
-  "3) Keď naháňaš výkon, občas vyšší strain príde – ale nech to nie je viac týždňov v kuse.",
+  "Prakticky:",
+  "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
+  "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
+  "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
 ].join("\n");
 
 const TOOLTIP_MONO = [
-  "Monotony (monotónnosť) hovorí, ako veľmi sa podobajú tvoje tréningové dni v rámci týždňa.",
+  "Monotony (monotónnosť) hovorí, ako veľmi sa podobajú tvoje dni v rámci týždňa.",
   "",
-  "Príklady:",
-  "• nízka monotónnosť: ťažký deň + ľahký deň + voľno (väčšie rozdiely medzi dňami)",
-  "• vysoká monotónnosť: každý deň podobný objem a podobná únava (malé rozdiely)",
+  "• nízka: striedaš ťažké a ľahké dni / máš voľno",
+  "• vysoká: každý deň je podobne náročný",
   "",
-  "Prečo to je dôležité:",
-  "Telo sa adaptuje na stres, ale potrebuje aj kolísanie záťaže. Dlhodobo monotónny týždeň zvyšuje riziko preťaženia (najmä šľachy, holene, úpony).",
+  "Dlhodobo vysoká monotónnosť zvyšuje riziko preťaženia (šľachy, úpony, holene).",
 ].join("\n");
 
 const TOOLTIP_STRAIN = [
-  "Strain je kombinácia: koľko load-u si dal za týždeň + či bol týždeň monotónny.",
+  "Strain je kombinácia celkového load-u a monotónnosti.",
   "",
-  "Rastie najviac, keď:",
-  "• máš veľa objemu/intenzity a zároveň",
-  "• dni sú si podobné (málo oddychu / málo kontrastu).",
-  "",
-  "Interpretácia:",
-  "• vysoký strain 1 týždeň nemusí byť problém (peak),",
-  "• ale vysoký strain viac týždňov po sebe = typický recept na únavu a zranenia.",
+  "• vysoký strain 1 týždeň = často peak (ok),",
+  "• vysoký strain opakovane = kumulovaná únava + vyššie riziko zranenia.",
 ].join("\n");
 
 export default function WidgetMonoStrain({
@@ -118,16 +108,15 @@ export default function WidgetMonoStrain({
 
   return (
     <WidgetCard
-      title={
-        <div className="flex items-center gap-2">
-          <span>{title}</span>
-          <TooltipIcon text={TOOLTIP_WIDGET} />
-        </div>
-      }
+      title={title} // ✅ string
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
+      actions={
+        // ✅ tooltip v headeri (vpravo), bez zásahu do title typu
+        <TooltipIcon text={TOOLTIP_WIDGET} />
+      }
     >
       {loading ? (
         <div className={WIDGET_LOADING_WRAP}>
