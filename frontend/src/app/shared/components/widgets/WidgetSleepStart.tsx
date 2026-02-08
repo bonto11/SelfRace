@@ -25,6 +25,25 @@ const TOL_MIN = 30;
 // hranica, od ktorej berieme spánok ako "večer predtým"
 const EVENING_START_MIN = 18 * 60; // 18:00
 
+const TOOLTIP_SLEEP_START = [
+  "Sleep start = čas, kedy si reálne zaspal (alebo kedy zariadenie odhadlo začiatok spánku).",
+  "",
+  "Prečo je to dôležité:",
+  "• skorší (a stabilný) čas zaspávania často zlepšuje kvalitu spánku a regeneráciu",
+  "• príliš neskorý alebo rozbitý rytmus zvyšuje únavu aj keď „hodín“ vyzerá dosť",
+  "",
+  "Ako to tu hodnotíme:",
+  `• baseline je fixne nastavený na 22:30 (FIX_BASELINE_MIN)`,
+  `• tolerancia je ±${TOL_MIN} min`,
+  "",
+  "Špeciálny detail (po polnoci):",
+  "• ak zaspíš napr. 00:30, porovnávame to ako 24:30 (t.j. +24h), aby to nevyzeralo „skôr“ než 22:30",
+  "",
+  "Prakticky:",
+  "• ak je sleep start často neskoro: skús posun o 10–20 min každé 2–3 dni",
+  "• ak je chaotický (raz 22:00, raz 01:00): najväčší prínos je stabilita, nie perfektné číslo",
+].join("\n");
+
 function pickAccentFromCmp(
   cmpAccent: unknown,
   opts: { loading: boolean; showNA: boolean },
@@ -98,6 +117,7 @@ export default function WidgetSleepStart({
   return (
     <WidgetCard
       title="Sleep start"
+      tooltip={TOOLTIP_SLEEP_START}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
