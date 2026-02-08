@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -35,6 +34,24 @@ type UiState = {
   currentWeekLoad: string | null;
   lastPlanRange: string | null;
 };
+
+const TOOLTIP_WEEKLY_PLAN = [
+  "Tento widget ukazuje posledný AI „weekly plan“, ktorý máš uložený v databáze.",
+  "",
+  "Čo tu vidíš:",
+  "• Počet týždňov = koľko týždňov obsahuje posledný vygenerovaný plán.",
+  "• Aktuálny týždeň = week_index, ktorý spadá na dnešný dátum (podľa week_start/week_end).",
+  "• Focus = hlavná myšlienka týždňa (napr. speed, threshold, base, deload…).",
+  "• Fáza (load_phase) = záťažový charakter týždňa (napr. build/peak/deload).",
+  "",
+  "Dôležité:",
+  "• Tento widget nepočíta tréningy „naživo“ – iba sumarizuje uložený plán.",
+  "• Ak máš plán starý alebo chýba, treba spustiť nové generovanie weekly planu.",
+  "",
+  "Praktická interpretácia:",
+  "• Focus ti povie, čo je priorita (napr. rýchlosť vs. vytrvalosť).",
+  "• Fáza ti povie, či máš čakať viac únavy (build/peak) alebo úľavu (deload).",
+].join("\n");
 
 function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
   if (!weeks.length) return null;
@@ -71,7 +88,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   }
 
   const weeks = [...plan.weeks].sort(
-    (a, b) => (a.week_index || 0) - (b.week_index || 0),
+    (a, b) => (a.week_index || 0) - (b.week_index || 0)
   );
 
   const first = weeks[0];
@@ -79,6 +96,7 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
 
   const firstStr = formatDate(first.week_start);
   const lastStr = formatDate(last.week_end);
+
   let lastPlanRange: string | null = null;
   if (firstStr && lastStr) lastPlanRange = `${firstStr} – ${lastStr}`;
   else if (firstStr) lastPlanRange = firstStr;
@@ -131,6 +149,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Tréner — Týždenný plán"
+      tooltip={TOOLTIP_WEEKLY_PLAN}
       accent="none"
       note={
         ui.lastPlanRange
