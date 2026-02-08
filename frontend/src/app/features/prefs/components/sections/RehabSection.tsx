@@ -27,16 +27,15 @@ export function RehabSection({ local, setPref }: Props) {
       balance: !!rf.balance,
       recovery_protocol: rf.recovery_protocol ?? null,
       ...patch,
-    });
+    } as RehabFocus);
 
-  const toggle = (key: keyof RehabFocus) =>
-    key !== "recovery_protocol" &&
-    setRehab({ [key]: !Boolean((rf as any)[key]) });
+  const toggle = (key: keyof RehabFocus) => {
+    if (key === "recovery_protocol") return;
+    setRehab({ [key]: !Boolean((rf as any)[key]) } as Partial<RehabFocus>);
+  };
 
   const preview = `Focuses: ${
-    (rf.stretching ? 1 : 0) +
-    (rf.mobility ? 1 : 0) +
-    (rf.balance ? 1 : 0)
+    (rf.stretching ? 1 : 0) + (rf.mobility ? 1 : 0) + (rf.balance ? 1 : 0)
   } · Protocol: ${rf.recovery_protocol ? "set" : "—"}`;
 
   return (
@@ -92,19 +91,19 @@ export function RehabSection({ local, setPref }: Props) {
           </Button>
         </div>
 
+        {/* ✅ label row (string label only in TextField) */}
+        <div className="flex items-center gap-2 text-xs opacity-80">
+          <span>Protocol key (optional)</span>
+          <TooltipIcon text="Interný identifikátor – napr. návrat po zranení." />
+        </div>
+
         <TextField
-          label={
-            <span className="flex items-center gap-2">
-              Protocol key (optional)
-              <TooltipIcon text="Interný identifikátor – napr. návrat po zranení." />
-            </span>
-          }
+          label="" // keep TextField happy (expects string)
           placeholder="e.g. return-to-run v2"
           value={rf.recovery_protocol ?? ""}
           onChange={(e) =>
             setRehab({
-              recovery_protocol:
-                (e.target as HTMLInputElement).value || null,
+              recovery_protocol: (e.target as HTMLInputElement).value || null,
             })
           }
         />
