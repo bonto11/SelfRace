@@ -16,17 +16,25 @@ import {
   WIDGET_ACTIONS_WRAP,
   WIDGET_ACTION_ROW,
   WIDGET_ACTION_ROW_INNER,
-  WIDGET_ACTION_CHEVRON_BTN,
   WIDGET_ACTION_ROW_SURFACE,
-  WIDGET_ACTION_CHEVRON_SURFACE,
   WIDGET_CTA_ROW,
   WIDGET_ERROR_LINE_COLORED,
 } from "@/app/shared/ui/tokens";
 
-import { apiFetchUserPref, apiEnsureCoachPlanStartFuture } from "@/app/features/prefs/api/prefs";
+import {
+  apiFetchUserPref,
+  apiEnsureCoachPlanStartFuture,
+} from "@/app/features/prefs/api/prefs";
 
-import { apiAnalyzeAthleteState, apiGetLatestAthleteState } from "@/app/features/coach/api/coach_athlete_state";
-import { apiActivePlanSave, apiActivePlanCancel, apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
+import {
+  apiAnalyzeAthleteState,
+  apiGetLatestAthleteState,
+} from "@/app/features/coach/api/coach_athlete_state";
+import {
+  apiActivePlanSave,
+  apiActivePlanCancel,
+  apiActivePlanStatus,
+} from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
@@ -34,9 +42,45 @@ import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 
+/* ---------- tooltip ---------- */
+
+const TOOLTIP_COACH_PLAN = [
+  "Tento widget je „ovládací panel“ pre AI trénera – je to pipeline v 3 krokoch:",
+  "",
+  "1) Analyzuj stav trénovanosti",
+  "• AI zoberie tvoje dáta (tréningy + recovery) a vytvorí aktuálny odhad stavu (únava, riziko zranenia, tolerancia objemu…).",
+  "• Výstup sa uloží a používa sa ako vstup do generovania plánu (state_id).",
+  "",
+  "2) Generate weekly plan",
+  "• Vytvorí štruktúru týždňov (focus, fázy, load).",
+  "• Toto je „kostra“ – bez toho daily plán nemá na čom stáť.",
+  "",
+  "3) Generate daily plan",
+  "• Rozpíše konkrétny týždeň na dni (sessions).",
+  "• Typicky generujeme aspoň Week 1, aby bolo čo spustiť a ukázať v UI.",
+  "",
+  "Start plan (spustiť plán):",
+  "• Plán môžeš spustiť až keď máš: analýzu ✓ + weekly ✓ + daily ✓.",
+  "• Po spustení sa plán „zamkne“ (active plan). To je zámer: aby si omylom negeneroval nové verzie a nerozbil konzistenciu toho, čo práve bežíš.",
+  "",
+  "Cancel plan:",
+  "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť nový analyze/weekly/daily a spustiť nový plán.",
+  "",
+  "Poznámka k „✓“:",
+  "• Weekly/Daily ✓ sa momentálne drží aj cez localStorage flagy (aby UI vedelo, že si generoval).",
+  "• Ak vymažeš localStorage alebo zmeníš device, UI môže ukazovať, že weekly/daily nie sú ✓, aj keď sú dáta v DB. (Toto sa dá neskôr zlepšiť kontrolou DB.)",
+].join("\n");
+
 /* ---------- helpers ---------- */
 
-type LoadingKind = "analyze" | "weekly" | "daily" | "start" | "cancel" | "status" | null;
+type LoadingKind =
+  | "analyze"
+  | "weekly"
+  | "daily"
+  | "start"
+  | "cancel"
+  | "status"
+  | null;
 
 function readPrefsFromStorage(): CoachPrefs | null {
   if (typeof window === "undefined") return null;
@@ -79,7 +123,6 @@ function RowAction({
   disabled: boolean;
   title?: string;
 }) {
-  // ✅ pekný "frame" bez nových tokenov
   const frameStyle: React.CSSProperties = {
     background: appColors.backgroundAlt,
     borderColor: appColors.surfaceCardBorder,
@@ -87,12 +130,22 @@ function RowAction({
 
   return (
     <div
-      className={[WIDGET_ACTION_ROW, WIDGET_ACTION_ROW_SURFACE, "rounded-xl border overflow-hidden"].join(" ")}
+      className={[
+        WIDGET_ACTION_ROW,
+        WIDGET_ACTION_ROW_SURFACE,
+        "rounded-xl border overflow-hidden",
+      ].join(" ")}
       style={frameStyle}
       title={title}
     >
       <div className={WIDGET_ACTION_ROW_INNER}>
-        <Button size="xs" variant="secondary" disabled={disabled} onClick={onPrimary} title={title}>
+        <Button
+          size="xs"
+          variant="secondary"
+          disabled={disabled}
+          onClick={onPrimary}
+          title={title}
+        >
           {loading ? (
             <span className="inline-flex items-center gap-1">
               <LoadingSpinner size="button" />
@@ -112,7 +165,9 @@ function formatAiError(e: any): string {
   if (code === "ai_quota_exceeded") {
     const used = (e as any).usedTokensThisMonth;
     if (typeof used === "number") {
-      return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString("sk-SK")}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
+      return `AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: ${used.toLocaleString(
+        "sk-SK"
+      )}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
     }
     return `AI limit pre tento mesiac je vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.`;
   }
@@ -156,7 +211,9 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     (async () => {
       try {
-        const p = await apiFetchUserPref(userId, "coach.prefs").catch(() => null);
+        const p = await apiFetchUserPref(userId, "coach.prefs").catch(
+          () => null
+        );
         const eff = p ?? readPrefsFromStorage();
         setPrefs(eff as CoachPrefs | null);
       } catch {
@@ -186,15 +243,12 @@ export default function WidgetCoachPlan() {
   }, [userId]);
 
   useEffect(() => {
-    // init LS flags
     setHasWeekly(readBoolLS(LS_GEN_WEEKLY));
     setHasDaily(readBoolLS(LS_GEN_DAILY));
 
-    // legacy fallback: ak máš iba coach.generated z minulosti, nech to aspoň neblokuje úplne
     const legacy = readBoolLS(LS_GEN_ANY);
     if (legacy && (!readBoolLS(LS_GEN_WEEKLY) || !readBoolLS(LS_GEN_DAILY))) {
-      // neprepisujem explicitne weekly/daily, len UI naznačí, že niečo bolo generované
-      // (reálne gating je weekly+daily – a to je správne)
+      // iba UI fallback (gating je weekly+daily – správne)
     }
   }, []);
 
@@ -217,7 +271,10 @@ export default function WidgetCoachPlan() {
         }
       } catch (e: any) {
         if (!alive) return;
-        console.warn("[CoachPlan] active status error:", e?.message || String(e));
+        console.warn(
+          "[CoachPlan] active status error:",
+          e?.message || String(e)
+        );
       } finally {
         if (!alive) return;
         setLoadingKind(null);
@@ -306,7 +363,15 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, result, latestStateId, ensurePlanStartFuture, markWeeklyGenerated]);
+  }, [
+    userId,
+    userUuid,
+    prefs,
+    result,
+    latestStateId,
+    ensurePlanStartFuture,
+    markWeeklyGenerated,
+  ]);
 
   const handleGenerateDaily = useCallback(async () => {
     if (!userId || !userUuid) return;
@@ -432,6 +497,7 @@ export default function WidgetCoachPlan() {
   return (
     <WidgetCard
       title="Plánovanie trénera"
+      tooltip={TOOLTIP_COACH_PLAN}
       accent="none"
       note="Analyzuj stav, vygeneruj týždenný a denný plán a spusti plán."
       interactive={false}
@@ -447,7 +513,11 @@ export default function WidgetCoachPlan() {
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
-          primaryLabel={loadingKind === "analyze" ? "Analyzujem…" : "Analyzuj stav trénovanosti"}
+          primaryLabel={
+            loadingKind === "analyze"
+              ? "Analyzujem…"
+              : "Analyzuj stav trénovanosti"
+          }
           loading={loadingKind === "analyze"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
@@ -455,7 +525,9 @@ export default function WidgetCoachPlan() {
 
         <RowAction
           onPrimary={handleGenerateWeekly}
-          primaryLabel={loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"}
+          primaryLabel={
+            loadingKind === "weekly" ? "Generating…" : "Generate weekly plan"
+          }
           loading={loadingKind === "weekly"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
@@ -463,7 +535,9 @@ export default function WidgetCoachPlan() {
 
         <RowAction
           onPrimary={handleGenerateDaily}
-          primaryLabel={loadingKind === "daily" ? "Generating…" : "Generate daily plan"}
+          primaryLabel={
+            loadingKind === "daily" ? "Generating…" : "Generate daily plan"
+          }
           loading={loadingKind === "daily"}
           disabled={disabled || planLocked}
           title={planLocked ? lockReason : undefined}
@@ -516,7 +590,9 @@ export default function WidgetCoachPlan() {
           </Button>
         </div>
 
-        {planLocked && <div className="text-[11px] opacity-70">{lockReason}</div>}
+        {planLocked && (
+          <div className="text-[11px] opacity-70">{lockReason}</div>
+        )}
 
         {!planLocked && (!hasWeekly || !hasDaily) && (
           <div className="text-[11px] opacity-70">
@@ -525,9 +601,13 @@ export default function WidgetCoachPlan() {
               {latestStateId ? "analýzu ✓" : "analýzu"}
             </span>
             {" • "}
-            <span className="font-semibold">{hasWeekly ? "weekly ✓" : "weekly"}</span>
+            <span className="font-semibold">
+              {hasWeekly ? "weekly ✓" : "weekly"}
+            </span>
             {" • "}
-            <span className="font-semibold">{hasDaily ? "daily ✓" : "daily"}</span>
+            <span className="font-semibold">
+              {hasDaily ? "daily ✓" : "daily"}
+            </span>
           </div>
         )}
       </div>
