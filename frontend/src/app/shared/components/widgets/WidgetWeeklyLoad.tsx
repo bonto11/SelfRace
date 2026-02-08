@@ -8,6 +8,8 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import { minToHM, fmtRange } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_VALUE_ROW,
@@ -15,6 +17,21 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
+
+const TOOLTIP_WEEKLY_LOAD = [
+  "Toto je súčet tréningového času za posledných 7 dní (rolling window).",
+  "",
+  "Prečo 7 dní?",
+  "• Je to najjednoduchší spôsob, ako rýchlo vidieť „aktuálny load“ bez toho, aby ťa mýlil kalendárny pondelok/nedeľa.",
+  "",
+  "Ako čítať percentá vs. predošlých 7 dní:",
+  "• +20% a viac: výrazný skok objemu → často rastie únava a riziko preťaženia (najmä ak sa to deje viac týždňov po sebe).",
+  "• -20% a menej: výrazný pokles → môže byť deload/choroba/voľno; nie je to zlé, len to ovplyvní formu a „sharpness“.",
+  "• okolo 0%: stabilita → dobré pre budovanie konzistentnej vytrvalosti.",
+  "",
+  "Tip:",
+  "• Bezpečný progres je typicky skôr postupný (napr. 5–10% týždenne), nie skokovo. Skoky sa dejú, ale mali by byť zámerné a následne vyvážené ľahším týždňom.",
+].join("\n");
 
 export default function WeeklyLoadWidget({
   title = "Záťaž – posledných 7 dní",
@@ -62,11 +79,12 @@ export default function WeeklyLoadWidget({
 
   return (
     <WidgetCard
-      title={title}
+      title={title} // ✅ string only
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={160}
+      actions={<TooltipIcon text={TOOLTIP_WEEKLY_LOAD} />} // ✅ tooltip in header
     >
       {loading ? (
         <div className={WIDGET_LOADING_WRAP} aria-live="polite">
