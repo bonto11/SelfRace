@@ -1,4 +1,3 @@
-# Services/AI/activity_review_builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -45,12 +44,14 @@ def _to_int(x: Any) -> Optional[int]:
 def _canonical_sport(s: Any) -> str:
     if not s:
         return "other"
-    v = str(s).lower()
-    if v.startswith("run") or "run" in v or v in ("trail", "trail_run"):
+    v = str(s).lower().strip()
+
+    # be a bit safer than `"run" in v`
+    if v in ("run", "trail", "trail_run") or v.startswith("run"):
         return "run"
-    if v.startswith("ride") or v.startswith("cycle") or v.startswith("bike"):
+    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
         return "ride"
-    if v.startswith("str") or "strength" in v or "gym" in v or "weights" in v:
+    if v in ("strength", "gym", "weights") or v.startswith("str") or "strength" in v or "gym" in v:
         return "strength"
     if "swim" in v:
         return "swim"
@@ -99,38 +100,76 @@ def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
 # zones boundaries (bpm) – best effort
 # =========================
 
+def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
+    """
+    Normalize one zone object to {low:int|None, high:int|None}
+    Accepts:
+      - {"low": 150, "high": 164}
+      - {"min": 150, "max": 164}
+      - [150, 164]
+      - "150-164"
+    """
+    if z is None:
+        return None
+
+    if isinstance(z, dict):
+        low = _to_int(z.get("low") if "low" in z else z.get("min"))
+        high = _to_int(z.get("high") if "high" in z else z.get("max"))
+        return {"low": low, "high": high}
+
+    if isinstance(z, (list, tuple)) and len(z) >= 2:
+        return {"low": _to_int(z[0]), "high": _to_int(z[1])}
+
+    if isinstance(z, str) and "-" in z:
+        a, b = z.split("-", 1)
+        return {"low": _to_int(a.strip()), "high": _to_int(b.strip())}
+
+    return None
+
+
 def _extract_hr_zones_bpm_from_ctx(ctx: AuthCtx, sport: str) -> Optional[Dict[str, Any]]:
     """
     Cieľ: AI nemá vracať len 'Z2', ale vedieť aj BPM hranice.
     Builder to skúsi vytiahnuť z ctx (ak existuje). Keď nie → None.
 
-    Odporúčaný tvar:
+    Výstup (unifikovaný):
       {
-        "scheme": "lthr",
-        "sport": "run",
-        "z1": {"low": 150, "high": 164},
-        "z2": {"low": 165, "high": 172},
-        "z3": {"low": 173, "high": 183},
-        "z4": {"low": 184, "high": 196},
-        "z5": {"low": 197, "high": 201}
+        "scheme": "lthr" | "hrmax" | ... | None,
+        "sport": "run" | "ride" | ...,
+        "z1": {"low": int|null, "high": int|null},
+        ...
+        "z5": ...
       }
     """
     try:
-        # rôzne možné miesta – nech je to robustné
-        zones = getattr(ctx, "zones", None) or getattr(ctx, "user_zones", None)
+        zones_any = getattr(ctx, "zones", None) or getattr(ctx, "user_zones", None)
+        if not zones_any:
+            return None
 
-        # ak už je to dict pre viac športov
-        if isinstance(zones, dict):
-            # napr: zones["run"] = {...}
-            z_sport = zones.get(sport) if sport in zones else None
-            if isinstance(z_sport, dict) and any(k in z_sport for k in ("z1", "z2", "z3", "z4", "z5")):
-                return {"scheme": z_sport.get("scheme") or zones.get("scheme"), "sport": sport, **z_sport}
+        scheme = None
+        z_src = None
 
-            # alebo: zones je už priamo "current sport"
-            if any(k in zones for k in ("z1", "z2", "z3", "z4", "z5")):
-                return {"scheme": zones.get("scheme"), "sport": sport, **zones}
+        # case A: zones_any is { "run": {...}, "ride": {...}, "scheme": "lthr" }
+        if isinstance(zones_any, dict):
+            scheme = zones_any.get("scheme")
+            if sport in zones_any and isinstance(zones_any.get(sport), dict):
+                z_src = zones_any.get(sport)
+            elif any(k in zones_any for k in ("z1", "z2", "z3", "z4", "z5")):
+                # case B: zones_any is already per-sport dict
+                z_src = zones_any
 
-        return None
+        if not isinstance(z_src, dict):
+            return None
+
+        out: Dict[str, Any] = {"scheme": z_src.get("scheme") or scheme, "sport": sport}
+        ok = False
+        for zk in ("z1", "z2", "z3", "z4", "z5"):
+            bounds = _normalize_zone_bounds(z_src.get(zk))
+            if bounds:
+                out[zk] = bounds
+                ok = True
+
+        return out if ok else None
     except Exception:
         return None
 
@@ -190,7 +229,7 @@ def _build_activity_block_from_rows(
     summary_row: Dict[str, Any],
     enr_row: Dict[str, Any],
     include_zones: bool = True,
-    include_splits_laps: bool = False,  # 0–7 dní môžeme neskôr doplniť pass-through
+    include_splits_laps: bool = False,  # 0–7 dni môžeme neskôr doplniť pass-through
 ) -> Dict[str, Any]:
     dt_raw = str(summary_row.get("date") or "")
     date_str = dt_raw[:10] if dt_raw else None
@@ -245,7 +284,7 @@ def _build_activity_block_from_rows(
 
 def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
     """
-    7–14 dní: len hrubé údaje (bez zón, bez splits/laps):
+    8–14 dní: len hrubé údaje (bez zón, bez splits/laps):
     - date, sport, distance, duration, avg/max HR, elevation, pace (ak existuje)
     """
     m = item.get("metrics") or {}
@@ -265,14 +304,14 @@ def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _split_history_0_7_and_7_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Rozdelenie podľa days_ago:
       - 0..7 -> detail (ponecháme zones_min)
       - 8..14 -> coarse (orežeme)
     """
     d0_7: List[Dict[str, Any]] = []
-    d7_14_raw: List[Dict[str, Any]] = []
+    d8_14_raw: List[Dict[str, Any]] = []
 
     for it in items:
         da = it.get("days_ago")
@@ -286,15 +325,14 @@ def _split_history_0_7_and_7_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
         if 0 <= di <= 7:
             d0_7.append(it)
         elif 8 <= di <= 14:
-            d7_14_raw.append(it)
+            d8_14_raw.append(it)
 
-    # pre AI je fajn mať chronológiu (staršie -> novšie), ale days_ago je opačne
-    # takže zoradíme od 14 -> 0 (descending days_ago) = staršie prvé
+    # staršie -> novšie (lepší kontext)
     d0_7.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
-    d7_14_raw.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
+    d8_14_raw.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
 
-    d7_14 = [_coarsen_activity(x) for x in d7_14_raw]
-    return d0_7, d7_14
+    d8_14 = [_coarsen_activity(x) for x in d8_14_raw]
+    return d0_7, d8_14
 
 
 # =========================
@@ -316,12 +354,11 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
         },
         "history": {
             "days_0_7": [],
-            "days_7_14": [],
+            "days_8_14": [],  # ✅ názov sedí s logikou
         },
         "context": {
             "recovery": None,
             "recent_load": None,
-            # ✅ BPM hranice zón (ak sa podarí vytiahnuť)
             "hr_zones_bpm": None,
         },
     }
@@ -334,7 +371,7 @@ def build_input_from_db(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Pozn.: DB prácu (window fetch) budeme mať mimo a doladíme import.
+    DB prácu (window fetch) budeme mať mimo a doladíme import.
     Builder tu len skladá štruktúru a volá existujúce db_get_*.
     """
     input_data = build_base_input(user_id, activity_id)
@@ -368,7 +405,9 @@ def build_input_from_db(
     input_data["sport"] = focus.get("sport")  # ✅ root sport
 
     # BPM hranice zón – skúsiť z ctx podľa športu
-    input_data["context"]["hr_zones_bpm"] = _extract_hr_zones_bpm_from_ctx(ctx, sport=str(input_data["sport"] or "other"))
+    input_data["context"]["hr_zones_bpm"] = _extract_hr_zones_bpm_from_ctx(
+        ctx, sport=str(input_data["sport"] or "other")
+    )
 
     # ----- history window (0–14 dní) -----
     # DB fetch mimo – ale pripravíme “hook”
@@ -379,8 +418,9 @@ def build_input_from_db(
         except Exception:
             activity_ids_window = []
 
-    # aby sme mali aspoň fokus v histórii, keď window nebude hotové
-    activity_ids_all = _dedupe_keep_order([*activity_ids_window, activity_id])
+    # build full list, but DO NOT duplicate focus in history
+    activity_ids_all = _dedupe_keep_order([*activity_ids_window])
+    activity_ids_all = [x for x in activity_ids_all if x != activity_id]
 
     if activity_ids_all:
         sum_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=activity_ids_all, ctx=ctx) or []
@@ -406,7 +446,6 @@ def build_input_from_db(
             except Exception:
                 continue
 
-            # v histórii 0–7 dní necháme zóny; 7–14 sa oseká neskôr
             hist_items.append(
                 _build_activity_block_from_rows(
                     activity_id=aid_i,
@@ -417,8 +456,8 @@ def build_input_from_db(
                 )
             )
 
-        d0_7, d7_14 = _split_history_0_7_and_7_14(hist_items)
+        d0_7, d8_14 = _split_history_0_7_and_8_14(hist_items)
         input_data["history"]["days_0_7"] = d0_7
-        input_data["history"]["days_7_14"] = d7_14
+        input_data["history"]["days_8_14"] = d8_14
 
     return input_data
