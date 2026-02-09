@@ -112,7 +112,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title="Body Fat %"
+      title={t("bodyFat.widget.title")}
       tooltip={t("bodyFat.widget.tooltip")}
       onOpen={handleOpen}
       interactive={!!handleOpen}

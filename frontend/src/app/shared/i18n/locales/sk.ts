@@ -1,6 +1,16 @@
 export const sk = {
   common: {
     and: "a",
+    weeksShort: {
+      mon: "Po",
+      tue: "Ut",
+      wed: "St",
+      thu: "Št",
+      fri: "Pi",
+      sat: "So",
+      sun: "Ne",
+
+    }
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -270,8 +280,16 @@ export const sk = {
       },
     },
   },
+  widget: {
+     missingserId: "Skontroluj autentifikáciu",
+     errorLoad: "Nepodarilo sa načítať"
+  },
   calendar: {
     widget: {
+      open: "Otvoriť kalendár",
+      title: "Týždenná agenda • ",
+      errorFailedLoad: "Zlyhalo načítanie externých udalostí.",
+
       tooltip: [
         "Toto je rýchly „týždenný prehľad“ – čo sa reálne stalo, čo je naplánované a čo sú externé bloky.",
         "",
@@ -298,6 +316,7 @@ export const sk = {
   },
   bodyFat: {
     widget: {
+      title: "Telesný tuk %",
       tooltip: [
         "Body Fat % je percento telesného tuku z celkovej hmotnosti (nie „koľko tuku vidíš v zrkadle“).",
         "",
@@ -320,39 +339,49 @@ export const sk = {
   },
   coachAthleteState: {
     widget: {
+      title: "Tréner — Zhodnotenie trénovanosti",
+      errorFailedLoad: "Chyba pri načítaní analýzy trénovanosti",
+      note: "Vyhodnoť trénovanost",
       tooltip: [
-        "Athlete state je posledná AI analýza tvojho „stavu“ – zjednodušený pohľad na únavu, riziko preťaženia a celkovú pripravenosť.",
+        "Zhodnotenie trénovanosti je posledná AI analýza tvojho „stavu“ – zjednodušený pohľad na únavu, riziko preťaženia a celkovú pripravenosť.",
         "",
         "Prečo to existuje:",
         "• Tréningový plán je len polovica hry. Druhá polovica je: čo tvoje telo reálne toleruje práve teraz.",
         "• Dve rovnaké tréningové jednotky môžu mať úplne iný dopad, keď si oddýchnutý vs. keď si v dlhu zo spánku/strese/objeme.",
         "",
         "Ako čítať 2 hlavné polia:",
-        "FATIGUE (únava):",
+        "Únava:",
         "• nízka → telo regeneruje a adaptuje (dobré okno pre kvalitu).",
         "• stredná → stále OK, ale treba lepší kontrast (easy dni, spánok, jedlo).",
         "• vysoká → často signál, že si prekročil toleranciu alebo sa kumuluje viac stresorov naraz.",
         "",
-        "INJURY RISK (riziko zranenia):",
+        "Riziko zranenia:",
         "• nejde o veštenie. Je to odhad rizika podľa vzorcov: skoky objemu, monotónnosť, opakované tvrdé dni, slabá regenerácia.",
         "• vysoké riziko je prakticky najčastejšie o šľachách/úponoch (holene, achilovka, plantár, koleno), nie o „náhodnom úraze“.",
         "",
         "Dôležité (realita):",
-        "• Môžeš sa cítiť super, ale riziko môže byť zvýšené – hlavne keď si čerstvo zvýšil objem/intenzitu. Zranenia často prídu až s oneskorením.",
+        "• Môžeš sa cítiť super, ale riziko môže byť zvýšené – hlavne keď si čerstvo zvýšil objem/intenzitu. Zranenia často prídu až s oneskorením. Ver mi, viem o čom hovorím..." ,
         "",
         "Tip:",
-        "• Keď je fatigue alebo injury risk „high“, nerieš to panikou. Rieš to kontrastom: 1–2 veľmi ľahké dni, znížiť monotónnosť, pridať spánok a jedlo.",
+        "• Keď je únava alebo riziko zraneia „high“, nerieš to panikou. Rieš to kontrastom: 1–2 veľmi ľahké dni, znížiť monotónnosť, pridať spánok a jedlo.",
       ].join("\n"),
+     
+      missingData: "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
+      summary: "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
+      lastAnalysis: "Posledná analýza",
+      fatigue: "Únava",
+      injuryRisk: "Riziko zranenia",
     },
   },
   coachDaily: {
     widget: {
+      title: "Denný tréningový plán",
       tooltip: [
-        "Daily plan je konkrétny „rozpis dní“ pre najbližšie obdobie (zvyčajne 1–2 týždne dopredu).",
+        "Tréningový plán je konkrétny „rozpis dní“ pre najbližšie obdobie.",
         "",
         "Čo tu vidíš:",
-        "• Počet dní – koľko dní ti vieme z DB zobraziť (napr. 7 alebo 14).",
-        "• Počet tréningov – počet session blokov v tomto horizonte (môže byť aj viac blokov za deň).",
+        "• Počet dní – na koľko dní máš navrhnutý plán",
+        "• Počet tréningov – počet aktivít/trénivových blokov v tomto horizonte (môže byť aj viac blokov za deň).",
         "• Dnešok / najbližší deň – ak dnes nie je v pláne (napr. plán začína zajtra), zobrazí sa prvý dostupný deň.",
         "",
         "Ako to používať prakticky:",
@@ -365,6 +394,16 @@ export const sk = {
         "Tipy pre konzistenciu:",
         "• Keď zmeníš preferencie (goal, weeks, športy) alebo pribudne veľa nových aktivít, má zmysel vygenerovať nový daily plán, aby zodpovedal realite.",
       ].join("\n"),
+
+      noteOK:"Najbližších dní: ",
+      noteMissing: "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.",
+      missingData: "Zatiaľ nemáš uložený denný plán. Po vygenerovaní prvého týždňa sa tu zobrazí prehľad najbližších dní.",
+      summary: "Dnešný plán (skrátený prehľad)",
+      daysCount: "Počet dní",
+      sessionsCount: "Počet tréningov",
+      injuryRisk: "Riziko zranenia",
+      todayLabel:"Dnešok / najbližší deň",
+      todaySessions: "ďalších blokov",
     },
   },
   coachPlan: {

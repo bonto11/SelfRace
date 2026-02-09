@@ -106,12 +106,12 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const ui = useMemo(() => buildUiState(overview), [overview]);
 
   const note = ui.daysCount
-    ? `Najbližších ${ui.daysCount} dní (horizon ${ui.horizonDays} d)`
-    : "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.";
+    ? t("coachDaily.widget.noteOK") + `${ui.daysCount}`
+    : t("coachDaily.widget.noteMissing");
 
   return (
     <WidgetCard
-      title="Coach — Daily plan"
+      title={t("coachDaily.widget.title")}
       tooltip={t("coachDaily.widget.tooltip")}
       note={note}
       accent="none"
@@ -125,28 +125,27 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         </div>
       ) : error ? (
         <div className={WIDGET_ERROR_TEXT}>
-          Nepodarilo sa načítať daily plán.
+         {t("widget.errorLoad")}
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>
-          Chýba userId (useUserId). Skontroluj autentifikáciu.
+           {t("widget.missingserId")}
         </div>
       ) : !overview || !ui.daysCount ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI daily plán. Po vygenerovaní prvého týždňa sa tu
-          zobrazí prehľad najbližších dní.
+          {t("coachDaily.widget.missingData")}
         </div>
       ) : (
         <>
           <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}>Počet dní</div>
+            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.sessionsCount")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
 
-            <div className={WIDGET_KV_LABEL}>Počet tréningov</div>
+            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
 
-            <div className={WIDGET_KV_LABEL}>Dnešok / najbližší deň</div>
+            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.todayLabel")}</div>
             <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
               {ui.todayLabel ?? "—"}
             </div>
@@ -155,7 +154,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
           {ui.todaySessions && ui.todaySessions.length > 0 && (
             <div className={WIDGET_SUMMARY_WRAP}>
               <div className={WIDGET_SUMMARY_HEAD}>
-                Dnešný plán (skrátený prehľad):
+                :  {t("coachDaily.widget.summary")}
               </div>
 
               <ul className={WIDGET_LIST}>
@@ -176,7 +175,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
               {ui.todaySessions.length > 3 && (
                 <div className={WIDGET_MORE_HINT}>
-                  + {ui.todaySessions.length - 3} ďalších blokov…
+                  + {ui.todaySessions.length - 3} {t("coachDaily.widget.todaySessions")}
                 </div>
               )}
             </div>

@@ -38,7 +38,7 @@ import {
   CAL_WIDGET_MORE,
 } from "@/app/shared/ui/tokens/calendar";
 import { useT } from "@/app/shared/i18n/useT";
- 
+
 /* ---------- helpers ---------- */
 
 const SPORT_COLORS: Record<string, string> = {
@@ -118,7 +118,7 @@ export default function WidgetActivitiesCalendar({
       } catch (e: any) {
         if (!alive) return;
         setExternalRows([]);
-        setExtErr(e?.message ?? "Failed to load external events.");
+        setExtErr(e?.message ?? t("calendar.widget.errorFailedLoad"));
       }
     })();
 
@@ -236,11 +236,11 @@ export default function WidgetActivitiesCalendar({
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
-  const dow = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"] as const;
+  const dow = [t("common.weeksShort.mon"), t("common.weeksShort.tue"), t("common.weeksShort.wed"), t("common.weeksShort.thu"), t("common.weeksShort.fri"),t("common.weeksShort.sat"), t("common.weeksShort.sun")] as const;
 
   return (
     <WidgetCard
-      title={`Týždenná agenda • ${weekLabel}`}
+      title={t("common.weeksShort.mon") + `${weekLabel}`}
       tooltip={t("calendar.widget.tooltip")}
       onOpen={handleOpen}
       accent="none"
@@ -264,7 +264,7 @@ export default function WidgetActivitiesCalendar({
       <div
         className={CAL_WIDGET_GRID}
         onClick={handleOpen}
-        aria-label="otvoriť kalendár"
+        aria-label={t("calendar.widget.open")}
       >
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(monday);

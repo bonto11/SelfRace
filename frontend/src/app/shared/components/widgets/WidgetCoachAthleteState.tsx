@@ -133,7 +133,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteState(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní AI analýzy.");
+        if (alive) setError(e?.message ?? t("coachAthleteState.widget.errorFailedLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -149,9 +149,9 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title="Coach — Athlete state"
+      title={t("coachAthleteState.widget.title")}
       tooltip={t("coachAthleteState.widget.tooltip")}
-      note={ui.lastAnalysisAt ? "" : "Spusť AI analýzu trénovanosti."}
+      note={ui.lastAnalysisAt ? "" : t("coachAthleteState.widget.note")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
@@ -163,37 +163,36 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : error ? (
         <div className={WIDGET_ERROR_TEXT}>
-          Nepodarilo sa načítať AI analýzu.
+          {t("widget.errorLoad")}
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>
-          Chýba userId (useUserId). Skontroluj autentifikáciu.
+          {t("widget.missingserId")}
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš žiadnu uloženú AI analýzu trénovanosti. Spusť ju v coach
-          sekcii a widget sa automaticky naplní.
+          {t("coachAthleteState.widget.missingData")}
         </div>
       ) : (
         <>
           <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}>Posledná analýza</div>
+            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.lastAnalysis")}</div>
             <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
               {ui.lastAnalysisAt ?? "—"}
             </div>
 
-            <div className={WIDGET_KV_LABEL}>Fatigue</div>
+            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.fatigue")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.fatigueLabel ?? "—"}</div>
 
-            <div className={WIDGET_KV_LABEL}>Injury risk</div>
+            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.injuryLabel ?? "—"}</div>
           </div>
 
           <p className={WIDGET_SUMMARY_TEXT}>
             {ui.summary
               ? ui.summary
-              : "Krátke AI zhrnutie únavy, formy a rizík sa zobrazí po najbližšej analýze."}
+              : t("coachAthleteState.widget.summary")}
           </p>
         </>
       )}
