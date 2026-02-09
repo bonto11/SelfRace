@@ -30,30 +30,15 @@ import {
   apiGetVo2History,
   apiGetVo2Estimate,
 } from "@/app/features/profile/api/metrics";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
-
-const TOOLTIP_VO2MAX = [
-  "VO₂Max je odhad maximálneho množstva kyslíka, ktoré vie tvoje telo využiť pri záťaži.",
-  "",
-  "Čo hovorí:",
-  "• všeobecný ukazovateľ aeróbnej kapacity",
-  "• porovnateľný medzi ľuďmi rovnakého veku a pohlavia",
-  "",
-  "Odhad vs. meranie:",
-  "• odhad: vypočítaný z tréningových dát (tempo, HR, výkon)",
-  "• meranie: laboratórny test (plynová analýza)",
-  "",
-  "Ako to používať:",
-  "• sleduj trend v čase, nie jedno číslo",
-  "• malé výkyvy sú normálne",
-  "• výkon v pretekoch je vždy dôležitejší než samotná VO₂Max",
-].join("\n");
 
 export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const { userId } = useUserId();
-
+  const t = useT();
+  
   const [loading, setLoading] = React.useState(true);
   const [history, setHistory] = React.useState<HistoryRow[]>([]);
   const [sex, setSex] = React.useState<"M" | "F">("M");
@@ -123,7 +108,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="VO₂Max"
-      tooltip={TOOLTIP_VO2MAX}
+      tooltip={t("VO2Max.widget.tooltip")}
       onOpen={handleOpen}
       interactive={!!handleOpen}
       accent={accent}

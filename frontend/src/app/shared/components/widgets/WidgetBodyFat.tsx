@@ -29,29 +29,11 @@ import {
   WIDGET_ROW_BETWEEN,
   WIDGET_BLOCK,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
 type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
-
-const TOOLTIP_BODY_FAT = [
-  "Body Fat % je percento telesného tuku z celkovej hmotnosti (nie „koľko tuku vidíš v zrkadle“).",
-  "",
-  "Prečo je to dôležité:",
-  "• Pre výkon: príliš vysoké BF zhoršuje ekonomiku behu a regeneráciu, príliš nízke môže zhoršiť hormóny, imunitu a výkonnosť.",
-  "• Pre zdravie: dáva kontext k hmotnosti – 82 kg môže byť super alebo problém, podľa toho, čo z toho je sval a čo tuk.",
-  "",
-  "Ako čítať kategórie (Essential / Athlete / Fitness / Average / Obese):",
-  "• Sú to orientačné pásma. Dve rôzne metódy merania ti môžu dať iné čísla, ale trend býva užitočný.",
-  "",
-  "Dôležitá realita merania:",
-  "• BIA/InBody (bioimpedancia) je citlivá na hydratáciu, soľ, jedlo, tréning deň predtým, alkohol a čas dňa.",
-  "• Preto neporovnávaj jeden náhodný deň. Sleduj trend – ideálne meraj za podobných podmienok (ráno, podobná hydratácia).",
-  "",
-  "Praktické tipy:",
-  "• Keď chceš znižovať BF: rieš najprv konzistenciu tréningu + spánok + jedlo. Extrémne deficity často rozbijú regeneráciu (a pri behu aj šľachy).",
-  "• Keď si veľmi nízko: sleduj výkonnosť, kvalitu spánku, libido/energiu, zranenia. Nízke číslo nie je automaticky výhra.",
-].join("\n");
 
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
@@ -78,7 +60,7 @@ function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
 export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const { userId } = useUserId();
-
+  const t = useT();
   const [loading, setLoading] = React.useState(true);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
   const [latest, setLatest] = React.useState<MetricsRowFE | null>(null);
@@ -131,7 +113,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Body Fat %"
-      tooltip={TOOLTIP_BODY_FAT}
+      tooltip={t("bodyFat.widget.tooltip")}
       onOpen={handleOpen}
       interactive={!!handleOpen}
       accent={accent}

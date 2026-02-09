@@ -41,35 +41,7 @@ import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_dai
 import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
 import { confirm } from "@/app/shared/ui/components/Confirm";
-
-/* ---------- tooltip ---------- */
-
-const TOOLTIP_COACH_PLAN = [
-  "Tento widget je „ovládací panel“ pre AI trénera – je to pipeline v 3 krokoch:",
-  "",
-  "1) Analyzuj stav trénovanosti",
-  "• AI zoberie tvoje dáta (tréningy + recovery) a vytvorí aktuálny odhad stavu (únava, riziko zranenia, tolerancia objemu…).",
-  "• Výstup sa uloží a používa sa ako vstup do generovania plánu (state_id).",
-  "",
-  "2) Generate weekly plan",
-  "• Vytvorí štruktúru týždňov (focus, fázy, load).",
-  "• Toto je „kostra“ – bez toho daily plán nemá na čom stáť.",
-  "",
-  "3) Generate daily plan",
-  "• Rozpíše konkrétny týždeň na dni (sessions).",
-  "• Typicky generujeme aspoň Week 1, aby bolo čo spustiť a ukázať v UI.",
-  "",
-  "Start plan (spustiť plán):",
-  "• Plán môžeš spustiť až keď máš: analýzu ✓ + weekly ✓ + daily ✓.",
-  "• Po spustení sa plán „zamkne“ (active plan). To je zámer: aby si omylom negeneroval nové verzie a nerozbil konzistenciu toho, čo práve bežíš.",
-  "",
-  "Cancel plan:",
-  "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť nový analyze/weekly/daily a spustiť nový plán.",
-  "",
-  "Poznámka k „✓“:",
-  "• Weekly/Daily ✓ sa momentálne drží aj cez localStorage flagy (aby UI vedelo, že si generoval).",
-  "• Ak vymažeš localStorage alebo zmeníš device, UI môže ukazovať, že weekly/daily nie sú ✓, aj keď sú dáta v DB. (Toto sa dá neskôr zlepšiť kontrolou DB.)",
-].join("\n");
+import { useT } from "@/app/shared/i18n/useT";
 
 /* ---------- helpers ---------- */
 
@@ -206,7 +178,8 @@ export default function WidgetCoachPlan() {
 
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
-
+  const t = useT();
+  
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -497,7 +470,7 @@ export default function WidgetCoachPlan() {
   return (
     <WidgetCard
       title="Plánovanie trénera"
-      tooltip={TOOLTIP_COACH_PLAN}
+      tooltip={t("coachPlan.widget.tooltip")}
       accent="none"
       note="Analyzuj stav, vygeneruj týždenný a denný plán a spusti plán."
       interactive={false}

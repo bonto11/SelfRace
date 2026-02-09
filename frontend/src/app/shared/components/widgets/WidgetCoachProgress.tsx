@@ -23,6 +23,7 @@ import {
   apiGetLatestAthleteProgress,
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -38,26 +39,6 @@ type UiState = {
   blockLabel: string | null;
   volumeLabel: string | null;
 };
-
-const TOOLTIP_COACH_PROGRESS = [
-  "Tento widget ukazuje AI porovnanie tvojho stavu medzi 2 obdobiami (typicky týždne).",
-  "",
-  "Čo je cieľ:",
-  "• nie iba „report“, ale zmysluplná zmena: kam sa posúva únava, riziko zranenia, tolerancia objemu a typ tréningového bloku.",
-  "",
-  "Ako to čítať:",
-  "• Únava: nízka → stredná → vysoká (trend ti povie, či sa kumuluje alebo uvoľňuje).",
-  "• Riziko zranenia: zjednodušený signál (kombinácia objemu, monotónnosti, spike-ov a histórie).",
-  "• Blok: čo je dominantná fáza (napr. base/build/peak/deload).",
-  "• Min. týždenný objem: konzervatívny odhad, čo by si mal zvládnuť bez prepálenia.",
-  "",
-  "Dôležité:",
-  "• Toto nie je lekárska diagnostika – je to plánovací signál.",
-  "• Ak máš akútnu bolesť alebo zhoršujúci sa problém, rozhoduje realita (telo), nie text.",
-  "",
-  "Prečo treba aspoň 2 analýzy:",
-  "• progress je porovnanie. Bez „predtým“ nemáš „zlepšenie“ ani „zhoršenie“.",
-].join("\n");
 
 function toStringArray(v: any): string[] {
   if (!v) return [];
@@ -161,7 +142,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const t = useT();
+  
   useEffect(() => {
     if (!userId) return;
 
@@ -189,7 +171,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Coach — Weekly progress"
-      tooltip={TOOLTIP_COACH_PROGRESS}
+      tooltip={t("coachProgress.widget.tooltip")}
       accent="none"
       note={
         ui.hasData

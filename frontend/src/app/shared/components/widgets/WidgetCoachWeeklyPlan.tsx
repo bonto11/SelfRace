@@ -22,6 +22,7 @@ import {
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
 import { formatDate, toDate } from "@/app/shared/utils/time";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -34,24 +35,6 @@ type UiState = {
   currentWeekLoad: string | null;
   lastPlanRange: string | null;
 };
-
-const TOOLTIP_WEEKLY_PLAN = [
-  "Tento widget ukazuje posledný AI „weekly plan“, ktorý máš uložený v databáze.",
-  "",
-  "Čo tu vidíš:",
-  "• Počet týždňov = koľko týždňov obsahuje posledný vygenerovaný plán.",
-  "• Aktuálny týždeň = week_index, ktorý spadá na dnešný dátum (podľa week_start/week_end).",
-  "• Focus = hlavná myšlienka týždňa (napr. speed, threshold, base, deload…).",
-  "• Fáza (load_phase) = záťažový charakter týždňa (napr. build/peak/deload).",
-  "",
-  "Dôležité:",
-  "• Tento widget nepočíta tréningy „naživo“ – iba sumarizuje uložený plán.",
-  "• Ak máš plán starý alebo chýba, treba spustiť nové generovanie weekly planu.",
-  "",
-  "Praktická interpretácia:",
-  "• Focus ti povie, čo je priorita (napr. rýchlosť vs. vytrvalosť).",
-  "• Fáza ti povie, či máš čakať viac únavy (build/peak) alebo úľavu (deload).",
-].join("\n");
 
 function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
   if (!weeks.length) return null;
@@ -121,7 +104,8 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const t = useT();
+  
   useEffect(() => {
     if (!userId) return;
 
@@ -149,7 +133,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Tréner — Týždenný plán"
-      tooltip={TOOLTIP_WEEKLY_PLAN}
+      tooltip={t("coachWeekly.widget.tooltip")}
       accent="none"
       note={
         ui.lastPlanRange

@@ -20,31 +20,7 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
-
-const TOOLTIP_HRV = [
-  "HRV (RMSSD) = variabilita srdcovej frekvencie. Zjednodušene: ako „voľne“ vie autonómny nervový systém pracovať.",
-  "",
-  "Ako to čítať:",
-  "• vyššie HRV často znamená lepšiu regeneráciu / nižší stres (parasympatikus dominuje)",
-  "• nižšie HRV často znamená stres / únavu / chorobu / zlý spánok (sympatikus dominuje)",
-  "",
-  "Pozor na typické pasce:",
-  "• HRV je veľmi citlivé na spánok, alkohol, hydratáciu, psychiku a teplotu",
-  "• jedna noc nič neznamená – dôležitý je trend a kontext (ako sa cítiš + RHR + spánok)",
-  "• keď si po extrémnom tréningu „rozbitý“, HRV môže spadnúť na 1–2 dni (bežné)",
-  "",
-  "Ako to hodnotíme v appke:",
-  "• porovnávame poslednú hodnotu s baseline z posledných 14 dní (rolling baseline)",
-  "• režim je higher-better (vyššie je lepšie)",
-  "• malé výkyvy neriešime – varovanie dávame až pri výraznejšej odchýlke",
-  "",
-  "Prakticky:",
-  "• HRV dole + RHR hore + spánok slabý → najčastejšie signál „uber, zregeneruj“",
-  "• HRV hore + RHR normál → často dobrý deň na kvalitu (ak aj subjektívne cítiš energiu)",
-  "",
-  "Tip pre meranie:",
-  "• najlepší signál je konzistentné meranie v rovnakých podmienkach (ráno po zobudení, bez rushu)",
-].join("\n");
+import { useT } from "@/app/shared/i18n/useT";
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
@@ -71,7 +47,8 @@ export default function WidgetHRV({
     loading?: boolean;
   };
   const loading = !!loadingRaw;
-
+  const t = useT();
+  
   const values = useMemo<(number | null)[]>(
     () =>
       rows.map((r) => (typeof r.HRV_avg_ms === "number" ? r.HRV_avg_ms : null)),
@@ -114,7 +91,7 @@ export default function WidgetHRV({
   return (
     <WidgetCard
       title="HRV (RMSSD)"
-      tooltip={TOOLTIP_HRV}
+      tooltip={t("HRV.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

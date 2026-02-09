@@ -20,33 +20,13 @@ import {
 
 import { apiGetExternalEvents } from "@/app/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Stats = {
   total: number;
   weekly: number;
   singles_upcoming: number;
 };
-
-const TOOLTIP_EXTERNAL_EVENTS = [
-  "Externé udalosti sú aktivity alebo časové bloky mimo klasického tréningového plánu.",
-  "",
-  "Čo sem typicky patrí:",
-  "• iné športy (futbal, hokej, crossfit, turistika, lyže)",
-  "• pravidelné časové záväzky (napr. fyzio, práca, tréning iného športu)",
-  "• jednorazové udalosti (preteky, výlety, turnaje)",
-  "",
-  "Prečo sú dôležité:",
-  "• ovplyvňujú únavu a regeneráciu, aj keď nie sú „tréning“",
-  "• coach s nimi vie počítať pri plánovaní intenzity a objemu",
-  "• znižujú riziko, že plán bude nerealistický",
-  "",
-  "Ako to používať:",
-  "• weekly = pravidelné udalosti každý týždeň",
-  "• upcoming singles = jednorazové udalosti v blízkej budúcnosti",
-  "",
-  "Tip:",
-  "• ak máš viac externých záťaží, tréningový plán by mal byť konzervatívnejší",
-].join("\n");
 
 export default function WidgetExternalEvents() {
   const router = useRouter();
@@ -55,7 +35,8 @@ export default function WidgetExternalEvents() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
+  const t = useT();
+  
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -108,7 +89,7 @@ export default function WidgetExternalEvents() {
   return (
     <WidgetCard
       title="Externé udalosti"
-      tooltip={TOOLTIP_EXTERNAL_EVENTS}
+      tooltip={t("externalEvents.widget.tooltip")}
       accent="none"
       note="Externé športy a časové bloky, s ktorými plán počíta."
       interactive

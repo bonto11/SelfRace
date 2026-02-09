@@ -30,6 +30,7 @@ import {
   type DailyOverview,
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -42,25 +43,6 @@ type UiState = {
   todayLabel: string | null;
   todaySessions: DailyPlanDay["sessions"] | null;
 };
-
-const TOOLTIP_COACH_DAILY = [
-  "Daily plan je konkrétny „rozpis dní“ pre najbližšie obdobie (zvyčajne 1–2 týždne dopredu).",
-  "",
-  "Čo tu vidíš:",
-  "• Počet dní – koľko dní ti vieme z DB zobraziť (napr. 7 alebo 14).",
-  "• Počet tréningov – počet session blokov v tomto horizonte (môže byť aj viac blokov za deň).",
-  "• Dnešok / najbližší deň – ak dnes nie je v pláne (napr. plán začína zajtra), zobrazí sa prvý dostupný deň.",
-  "",
-  "Ako to používať prakticky:",
-  "• Ráno rýchlo skontroluješ „čo je dnes“ bez toho, aby si otváral detail.",
-  "• Ak vidíš viac blokov v deň, typicky ide o kombináciu: hlavný tréning + doplnok (mobilita/strength/rehab/kompenzácie).",
-  "",
-  "Čo to NIE je:",
-  "• Nie je to realtime adaptácia počas dňa. Adaptácia sa robí cez nové AI generovanie/refresh (podľa toho, ako to máš navrhnuté).",
-  "",
-  "Tipy pre konzistenciu:",
-  "• Keď zmeníš preferencie (goal, weeks, športy) alebo pribudne veľa nových aktivít, má zmysel vygenerovať nový daily plán, aby zodpovedal realite.",
-].join("\n");
 
 function buildUiState(overview: DailyOverview | null): UiState {
   if (!overview || !overview.days?.length) {
@@ -97,6 +79,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     if (!userId) return;
@@ -129,7 +112,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   return (
     <WidgetCard
       title="Coach — Daily plan"
-      tooltip={TOOLTIP_COACH_DAILY}
+      tooltip={t("coachDaily.widget.tooltip")}
       note={note}
       accent="none"
       onOpen={onOpenDetail}

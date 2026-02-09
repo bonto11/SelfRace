@@ -17,6 +17,7 @@ import {
   WIDGET_FOOTNOTE,
   WIDGET_EMPTY,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Level = "neutral" | "good" | "warn" | "danger";
 
@@ -47,22 +48,6 @@ function classifyStrain(v?: number | null): { label: string; level: Level } {
   return { label: "veľmi vysoký", level: "danger" };
 }
 
-const TOOLTIP_WIDGET = [
-  "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
-  "",
-  "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
-  "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
-  "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
-  "",
-  "STRAIN ≈ monotónnosť × celkový týždenný load.",
-  "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
-  "",
-  "Prakticky:",
-  "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
-  "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
-  "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
-].join("\n");
-
 export default function WidgetMonoStrain({
   title = "Indexy záťaže",
   onOpenDetail,
@@ -78,7 +63,8 @@ export default function WidgetMonoStrain({
     () => (r7?.last?.strain ?? null) as number | null,
     [r7],
   );
-
+  const t = useT();
+  
   const mC = classifyMonotony(mono);
   const sC = classifyStrain(strain);
 
@@ -92,7 +78,7 @@ export default function WidgetMonoStrain({
   return (
     <WidgetCard
       title={title}
-      tooltip={TOOLTIP_WIDGET}
+      tooltip={t("monoStrain.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

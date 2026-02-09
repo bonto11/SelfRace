@@ -19,26 +19,7 @@ import {
   WIDGET_VALUE_PRIMARY,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
-
-const TOOLTIP_SLEEP_DURATION = [
-  "Sleep duration = celkový čas spánku (v minútach), ktorý si zariadenie zapísalo za noc.",
-  "",
-  "Dôležité:",
-  "• dĺžka spánku nie je všetko – kvalita a konzistentnosť často rozhodujú viac",
-  "• ak máš málo spánku viac dní po sebe, výkon aj regenerácia idú dole aj keď tréning vyzerá „ok“",
-  "",
-  "Ako to tu hodnotíme:",
-  "• porovnávame „poslednú noc“ s baseline z posledných 14 dní",
-  "• baseline je robustný bod (aby ho nerozbila jedna extrémna noc)",
-  "• režim je higher-better (viac spánku = lepšie)",
-  "",
-  "Tolerancia / prah:",
-  "• až keď je odchýlka výraznejšia, ukazujeme varovanie (nepanikárime z malých výkyvov)",
-  "",
-  "Prakticky:",
-  "• ak spánok padá pod baseline: skús najprv stabilný čas zaspania + menej kofeínu poobede",
-  "• keď rastie tréningový objem/intenzita, často potrebuješ aj viac spánku (nie „rovnako ako vždy“)",
-].join("\n");
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function WidgetSleepDuration({
   onOpenDetail,
@@ -50,7 +31,8 @@ export default function WidgetSleepDuration({
     loading?: boolean;
   };
   const loading = !!loadingRaw;
-
+  const t = useT();
+  
   const values = useMemo<(number | null)[]>(
     () =>
       rows.map((r) =>
@@ -103,7 +85,7 @@ export default function WidgetSleepDuration({
   return (
     <WidgetCard
       title="Sleep duration"
-      tooltip={TOOLTIP_SLEEP_DURATION}
+      tooltip={t("sleepDuration.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

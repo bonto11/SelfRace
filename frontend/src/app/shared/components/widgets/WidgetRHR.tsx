@@ -19,32 +19,7 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
-
-const TOOLTIP_RHR = [
-  "Resting HR (RHR) = pokojový tep. Je to jeden z najjednoduchších signálov, či je telo oddýchnuté alebo ide „na dlh“.",
-  "",
-  "Ako to čítať:",
-  "• RHR je veľmi individuálny. Dôležitejší než absolútne číslo je trend vs. tvoj vlastný baseline.",
-  "• Krátkodobý nárast (1–2 dni) môže byť normálny: horší spánok, stres, alkohol, teplo, dehydrát, začínajúca viróza.",
-  "• Vyšší RHR viac dní po sebe často znamená kumulovanú únavu / nedoregenerovanie.",
-  "",
-  "Čo zvyčajne RHR zvyšuje:",
-  "• vyšší tréningový load (hlavne intenzita), málo spánku, psychický stres",
-  "• choroba, zápal, alergie, teplo, zlá hydratácia",
-  "• alkohol a neskoré jedlo",
-  "",
-  "Čo zvyčajne RHR znižuje:",
-  "• dobrý spánok, deload, ľahký týždeň, stabilný režim",
-  "",
-  "Ako to hodnotíme v appke:",
-  "• porovnávame poslednú hodnotu s baseline z posledných 14 dní (rolling baseline)",
-  "• režim je lower-better (nižšie je lepšie)",
-  "• malé výkyvy neriešime – varovanie dávame až pri výraznejšej odchýlke",
-  "",
-  "Praktický tip:",
-  "• ak je RHR zvýšené + HRV klesá + cítiš sa „ťažký“ → skôr recovery/easy deň alebo voľno",
-  "• ak je RHR vyššie, ale cítiš sa dobre a ostatné metriky sú OK → nemusí to byť problém (pozri kontext)",
-].join("\n");
+import { useT } from "@/app/shared/i18n/useT";
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
@@ -71,7 +46,8 @@ export default function WidgetRHR({
     loading?: boolean;
   };
   const loading = !!loadingRaw;
-
+  const t = useT();
+  
   const values = useMemo<(number | null)[]>(
     () => rows.map((r) => (typeof r.RHR_bpm === "number" ? r.RHR_bpm : null)),
     [rows],
@@ -113,7 +89,7 @@ export default function WidgetRHR({
   return (
     <WidgetCard
       title="Resting HR"
-      tooltip={TOOLTIP_RHR}
+      tooltip={t("RHR.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

@@ -19,23 +19,7 @@ import {
   WIDGET_FOOTNOTE,
   WIDGET_EMPTY,
 } from "@/app/shared/ui/tokens";
-
-const TOOLTIP_PB = [
-  "Tento widget zobrazuje tvoj osobný rekord (PB – Personal Best) pre vybranú / obľúbenú vzdialenosť.",
-  "",
-  "Ako to funguje:",
-  "• vyberie sa tvoja preferovaná vzdialenosť (napr. 5 km, 10 km, polmaratón)",
-  "• zobrazí sa najlepší zaznamenaný čas pre túto vzdialenosť",
-  "",
-  "Prečo je to užitočné:",
-  "• PB je referenčný bod pre dlhodobý progres – nie každé zlepšenie musí byť PB",
-  "• pomáha pri nastavovaní tempa (race pace, threshold, intervaly)",
-  "• dáva kontext: tréning nemusí smerovať k PB každý mesiac",
-  "",
-  "Tip:",
-  "• ak dlhšie PB nepadá, ale cítiš sa silnejší → často sa zlepšuje konzistencia, odolnosť a forma",
-  "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
-].join("\n");
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function WidgetPB({
   onOpenDetail,
@@ -47,7 +31,8 @@ export default function WidgetPB({
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const t = useT();
+  
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -82,7 +67,7 @@ export default function WidgetPB({
   return (
     <WidgetCard
       title="Osobné rekordy"
-      tooltip={TOOLTIP_PB}
+      tooltip={t("PB.widget.tooltip")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

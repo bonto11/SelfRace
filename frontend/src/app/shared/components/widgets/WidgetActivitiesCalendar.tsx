@@ -37,31 +37,9 @@ import {
   CAL_WIDGET_MARK,
   CAL_WIDGET_MORE,
 } from "@/app/shared/ui/tokens/calendar";
-
+import { useT } from "@/app/shared/i18n/useT";
+ 
 /* ---------- helpers ---------- */
-
-const TOOLTIP_WEEK_CALENDAR = [
-  "Toto je rýchly „týždenný prehľad“ – čo sa reálne stalo, čo je naplánované a čo sú externé bloky.",
-  "",
-  "Legend (ikonky v dni):",
-  "• Plná bodka = aktivita (importovaná/uložená) alebo externá udalosť (napr. futbal, sauna, časový blok).",
-  "• Prázdna bodka (krúžok) = plánovaný tréning (plan).",
-  "• ✓ = plán bol splnený (plán sa prepojil s aktivitou).",
-  "• ✕ = tréning bol v pláne, ale už je v minulosti a nemá zodpovedajúcu aktivitu (missed).",
-  "• +N = v dni je viac položiek, než sa zmestí do widgetu.",
-  "",
-  "Prečo je to užitočné:",
-  "• Uvidíš monotónnosť/kontrast týždňa na prvý pohľad (či máš každý deň niečo alebo sú tam oddychové okná).",
-  "• Okamžite vieš, či sa plán plní, alebo realita ide mimo plán.",
-  "",
-  "Dôležité:",
-  "• Tento widget je zjednodušený – detail (čo presne, aké trvanie, poznámky) je v kalendári.",
-  "• Prepojenie plan → done funguje len keď sa dá spojiť aktivita (activity_id) alebo logika matchovania.",
-  "",
-  "Tipy (aby to fungovalo hladko):",
-  "• Keď pridáš externé eventy (napr. futbal), plánovanie je presnejšie – AI vie, že to už je load.",
-  "• Ak často vidíš ✕ v dňoch, buď si nedal tréning, alebo sa import/napárovanie aktivít nepodarilo.",
-].join("\n");
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
@@ -106,7 +84,7 @@ export default function WidgetActivitiesCalendar({
   const router = useRouter();
   const { userId } = useUserId();
   const { selectByRange } = useActivityData();
-
+  const t = useT();
   const { plan } = useCoachData();
   const { selectPlanByRange } = plan;
 
@@ -263,7 +241,7 @@ export default function WidgetActivitiesCalendar({
   return (
     <WidgetCard
       title={`Týždenná agenda • ${weekLabel}`}
-      tooltip={TOOLTIP_WEEK_CALENDAR}
+      tooltip={t("calendar.widget.tooltip")}
       onOpen={handleOpen}
       accent="none"
       interactive

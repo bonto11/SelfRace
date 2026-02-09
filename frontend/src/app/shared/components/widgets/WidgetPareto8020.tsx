@@ -14,31 +14,13 @@ import {
   WIDGET_FOOTNOTE,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenTrend?: () => void;
   weeks?: 2 | 4 | 8 | 12;
   sport?: string | string[] | null;
 };
-
-const TOOLTIP_8020 = [
-  "80/20 (Pareto princíp) popisuje rozdelenie tréningovej intenzity:",
-  "",
-  "• cca 80 % času v nízkej intenzite (Easy, Z1–Z2)",
-  "• cca 20 % času v strednej a vysokej intenzite (Z3+)",
-  "",
-  "Prečo to funguje:",
-  "• väčšina vytrvalostných adaptácií vzniká v nízkej intenzite",
-  "• vysoká intenzita je silný stimul, ale drahá na regeneráciu",
-  "",
-  "Ako to čítať:",
-  "• mierna odchýlka od 80/20 je úplne normálna",
-  "• dôležitý je trend v čase (nie jeden týždeň)",
-  "",
-  "Pozor:",
-  "• 80/20 nie je dogma – v príprave na preteky môže byť pomer posunutý",
-  "• problém je dlhodobo veľa hard dní bez dostatočného easy objemu",
-].join("\n");
 
 export default function WidgetPareto8020({
   onOpenTrend,
@@ -55,7 +37,8 @@ export default function WidgetPareto8020({
     const list = s.split(",").map((x) => x.trim()).filter(Boolean);
     return sportsToCSV(normalizeSportList(list));
   }, [sport]);
-
+  const t = useT();
+  
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<{
     easy_min: number;
@@ -105,7 +88,7 @@ export default function WidgetPareto8020({
   return (
     <WidgetCard
       title={`Posledné ${weeks} týždne – 80/20`}
-      tooltip={TOOLTIP_8020}
+      tooltip={t("pareto8020.widget.tooltip")}
       onOpen={onOpenTrend}
       interactive={!!onOpenTrend}
       accent={accent}
