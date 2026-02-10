@@ -9,7 +9,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 
 import {
   apiGetActivityReview,
-  apiRerunActivityReview, // ✅ správny import
+  apiRerunActivityReview,
 } from "@/app/features/activities/api/activity_review";
 
 import {
@@ -160,12 +160,10 @@ function buildSectionsFromReview(review: any): ReviewSection[] {
     sections.push({ title: "Skóre", text: joinLines(scoreLines) });
 
   const well = bulletize(review?.what_went_well);
-  if (well.length)
-    sections.push({ title: "Čo bolo dobré", text: joinLines(well) });
+  if (well.length) sections.push({ title: "Čo bolo dobré", text: joinLines(well) });
 
   const improve = bulletize(review?.what_to_improve);
-  if (improve.length)
-    sections.push({ title: "Čo zlepšiť", text: joinLines(improve) });
+  if (improve.length) sections.push({ title: "Čo zlepšiť", text: joinLines(improve) });
 
   const hi = bulletize(review?.highlights);
   if (hi.length) sections.push({ title: "Highlights", text: joinLines(hi) });
@@ -180,8 +178,7 @@ function buildSectionsFromReview(review: any): ReviewSection[] {
       return ty ? `• (${ty}) ${t}` : `• ${t}`;
     })
     .filter(Boolean) as string[];
-  if (nsLines.length)
-    sections.push({ title: "Ďalšie kroky", text: joinLines(nsLines) });
+  if (nsLines.length) sections.push({ title: "Ďalšie kroky", text: joinLines(nsLines) });
 
   const risks = bulletize(review?.risks);
   if (risks.length) sections.push({ title: "Riziká", text: joinLines(risks) });
@@ -212,21 +209,29 @@ function getTierCodeFromInit(activityData: any): string {
 function maxVersionsForTier(tier: string): number {
   if (tier === "pro") return 3;
   if (tier === "classic") return 2;
-  return 1; // free
+  return 1;
+}
+
+function safeJson(v: any): string {
+  try {
+    return JSON.stringify(v ?? null, null, 2);
+  } catch {
+    return String(v);
+  }
 }
 
 /* ================= component ================= */
 
-export default function ActivityCoachReviewSection({ item, activityId }: Props) {
+export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
 
   const activityData: any = useActivityData() as any;
   const { getSummary } = activityData;
 
-  // ✅ tier: store je primár, init je fallback
+  // tier: store primary, init fallback
   const [tierCode, setTierCode] = useState<string>(() => {
-    const t = (getSubscriptionTier() || "").toLowerCase();
-    return t || getTierCodeFromInit(activityData) || "free";
+    const storeTier = (getSubscriptionTier() || "").toLowerCase();
+    return storeTier || getTierCodeFromInit(activityData) || "free";
   });
 
   useEffect(() => {
@@ -262,12 +267,15 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
 
   // meta from DB
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(1);
-  const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(
+  const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(null);
+  const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(
     null,
   );
-  const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<
-    string | null
-  >(null);
+
+  // ✅ DEBUG: store raw BE payload + last error
+  const [debugGetPayload, setDebugGetPayload] = useState<any>(null);
+  const [debugLastError, setDebugLastError] = useState<any>(null);
+  const [debugLastRerunPayload, setDebugLastRerunPayload] = useState<any>(null);
 
   // user input
   const [comment, setComment] = useState<string>("");
@@ -283,6 +291,7 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
     setBusyLoad(true);
     try {
       const out = await apiGetActivityReview(Number(userId), Number(activityId));
+      setDebugGetPayload(out);
 
       const r = out?.review ?? null;
       setReview(r);
@@ -302,8 +311,11 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
           ? formatUpdatedAt((out as any).ai_review_last_user_comment_at)
           : null,
       );
+
+      setDebugLastError(null);
     } catch (e) {
-      console.error("[ActivityCoachReviewSection] load error", e);
+      console.error("[ActivityReviewSection] load error", e);
+      setDebugLastError(e);
       setReview(null);
       setReviewUpdatedAt(null);
       setAiReviewVersion(1);
@@ -321,74 +333,70 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
 
   const sections = useMemo(() => buildSectionsFromReview(review), [review]);
   const hasReview = sections.length > 0;
-  const defaultOpen = hasReview;
+  const defaultOpen = true; // ✅ nech je debug vždy vidno
 
-  const canRerunByTier = maxVersions > 1; // classic/pro
+  const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
   const canRerun = Boolean(isEligible && canRerunByTier && canRerunByCount);
 
+  // disabled reason (presne to čo chceš vidieť)
+  const disabledReason =
+    !userId
+      ? "Missing userId"
+      : !activityId
+        ? "Missing activityId"
+        : !startDt
+          ? "Chýba dátum aktivity (summary.date)"
+          : !isEligible
+            ? "Len pre aktivity z posledných 7 dní"
+            : !canRerunByTier
+              ? `Tier '${tierCode}' nemá rerun (min classic)`
+              : !canRerunByCount
+                ? `Limit vyčerpaný: ai_review_version=${aiReviewVersion} max_versions=${maxVersions}`
+                : commentTooLong
+                  ? `Komentár je príliš dlhý: ${commentLen}/${MAX_COMMENT_CHARS}`
+                  : null;
+
+  // note
   let note: ReactNode = null;
-  if (!hasReview) {
-    if (!startDt) {
-      note = <div className="text-xs opacity-70">Chýba dátum aktivity.</div>;
-    } else if (!isEligible) {
-      note = (
-        <div className="text-xs opacity-70">
-          AI review je dostupné len pre aktivity z posledných 7 dní.
-        </div>
-      );
-    } else {
-      note = <div className="text-xs opacity-70">Zatiaľ bez AI review.</div>;
-    }
-  } else {
-    note = (
-      <div className="text-xs opacity-70">
-        Tier: <span className="opacity-90">{tierCode}</span> · Verzia:{" "}
-        <span className="opacity-90">
-          {aiReviewVersion}/{maxVersions}
-        </span>
-        {aiReviewLastSource ? (
-          <>
-            {" "}
-            · Zdroj: <span className="opacity-90">{aiReviewLastSource}</span>
-          </>
-        ) : null}
-        {aiReviewLastUserCommentAt ? (
-          <>
-            {" "}
-            · Posl. komentár:{" "}
-            <span className="opacity-90">{aiReviewLastUserCommentAt}</span>
-          </>
-        ) : null}
-      </div>
-    );
-  }
+  note = (
+    <div className="text-xs opacity-70">
+      tier=<span className="opacity-90">{tierCode}</span> · maxVersions=
+      <span className="opacity-90">{maxVersions}</span> · hasReview=
+      <span className="opacity-90">{String(hasReview)}</span> · aiReviewVersion=
+      <span className="opacity-90">{aiReviewVersion}</span> · eligible=
+      <span className="opacity-90">{String(isEligible)}</span>
+      {aiReviewLastSource ? (
+        <>
+          {" "}
+          · last_source=<span className="opacity-90">{aiReviewLastSource}</span>
+        </>
+      ) : null}
+      {aiReviewLastUserCommentAt ? (
+        <>
+          {" "}
+          · last_comment_at=
+          <span className="opacity-90">{aiReviewLastUserCommentAt}</span>
+        </>
+      ) : null}
+      {startDt ? (
+        <>
+          {" "}
+          · startDt=<span className="opacity-90">{startDt.toISOString()}</span>
+        </>
+      ) : (
+        <> · startDt=<span className="opacity-90">null</span></>
+      )}
+    </div>
+  );
 
   const onRerun = async () => {
     if (!userId || !activityId || busyGen) return;
 
     setUiError(null);
 
-    if (!isEligible) {
-      setUiError("AI review je dostupné len pre aktivity z posledných 7 dní.");
-      return;
-    }
-
-    if (!canRerun) {
-      if (!canRerunByTier) {
-        setUiError("Táto funkcia je dostupná len pre Classic/Pro.");
-        return;
-      }
-      if (!canRerunByCount) {
-        setUiError("Dosiahol si limit opätovných prepočtov pre túto aktivitu.");
-        return;
-      }
-      setUiError("Rerun nie je dostupný.");
-      return;
-    }
-
-    if (commentTooLong) {
-      setUiError(`Komentár je príliš dlhý (max ${MAX_COMMENT_CHARS} znakov).`);
+    if (disabledReason) {
+      setUiError(disabledReason);
       return;
     }
 
@@ -401,6 +409,8 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
         model: null,
       });
 
+      setDebugLastRerunPayload(out);
+
       if (!out?.ok) {
         setUiError(out?.message || "Žiadosť bola zamietnutá.");
       } else {
@@ -409,12 +419,10 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
 
       await reload();
     } catch (e: any) {
-      console.error("[ActivityCoachReviewSection] rerun error", e);
+      console.error("[ActivityReviewSection] rerun error", e);
+      setDebugLastError(e);
 
-      const msg =
-        e?.detail?.message ||
-        e?.message ||
-        "Rerun sa nepodaril.";
+      const msg = e?.detail?.message || e?.message || "Rerun sa nepodaril.";
       setUiError(String(msg));
 
       await reload();
@@ -422,21 +430,6 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
       setBusyGen(false);
     }
   };
-
-  const disabledReason =
-    !userId
-      ? "Missing userId"
-      : !startDt
-        ? "Chýba dátum aktivity"
-        : !isEligible
-          ? "Len pre aktivity z posledných 7 dní"
-          : !canRerunByTier
-            ? "Len pre Classic/Pro"
-            : !canRerunByCount
-              ? "Limit vyčerpaný"
-              : commentTooLong
-                ? "Komentár je príliš dlhý"
-                : null;
 
   const actionBtn = (
     <Button
@@ -452,17 +445,13 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
   );
 
   return (
-    <ActivitySectionShell
-      title="Coach komentár"
-      defaultOpen={defaultOpen}
-      items={[]}
-    >
+    <ActivitySectionShell title="Coach komentár" defaultOpen={defaultOpen} items={[]}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">{note}</div>
         <div className="shrink-0">{actionBtn}</div>
       </div>
 
-      {/* comment input: len keď je to aspoň classic/pro a aktivita je eligible */}
+      {/* comment input (classic/pro + eligible) */}
       {isEligible && canRerunByTier && (
         <div className="mt-3">
           <div className="text-xs font-medium opacity-80">
@@ -522,6 +511,52 @@ export default function ActivityCoachReviewSection({ item, activityId }: Props) 
             Aktualizácia: {reviewUpdatedAt}
           </div>
         )}
+      </div>
+
+      {/* ================= DEBUG (always on) ================= */}
+      <div className="mt-5 rounded border border-white/10 bg-white/5 p-3">
+        <div className="text-xs font-semibold opacity-80">DEBUG</div>
+
+        <div className="mt-2 text-[11px] opacity-70">
+          disabledReason:{" "}
+          <span className="opacity-90">{disabledReason ?? "null"}</span>
+        </div>
+
+        <div className="mt-3 text-[11px] font-medium opacity-80">Inputs</div>
+        <pre className="mt-1 max-h-48 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
+{safeJson({
+  userId,
+  activityId,
+  tier_store: getSubscriptionTier(),
+  tier_init: getTierCodeFromInit(activityData),
+  tier_effective: tierCode,
+  maxVersions,
+  summary_date: s?.date ?? null,
+  startDt_iso: startDt ? startDt.toISOString() : null,
+  eligible: isEligible,
+  commentLen,
+  commentTooLong,
+  aiReviewVersion,
+  canRerunByTier,
+  canRerunByCount,
+  canRerun,
+})}
+        </pre>
+
+        <div className="mt-3 text-[11px] font-medium opacity-80">GET /activities/review response</div>
+        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
+{safeJson(debugGetPayload)}
+        </pre>
+
+        <div className="mt-3 text-[11px] font-medium opacity-80">POST /rerun last response</div>
+        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
+{safeJson(debugLastRerunPayload)}
+        </pre>
+
+        <div className="mt-3 text-[11px] font-medium opacity-80">Last error (if any)</div>
+        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
+{safeJson(debugLastError)}
+        </pre>
       </div>
     </ActivitySectionShell>
   );
