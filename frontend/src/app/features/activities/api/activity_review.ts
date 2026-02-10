@@ -55,13 +55,6 @@ export async function apiRerunActivityReview(
 
   const comment = typeof opts.comment === "string" ? opts.comment.trim() : null;
 
-  console.log("apiRerunActivityReview, opts, opts.comment", opts, opts.comment);
-  console.log(
-    "apiRerunActivityReview, comment, comment.length",
-    comment,
-    comment.length,
-  );
-
   const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}/rerun`;
 
   const json = await callBackend<any>(path, {

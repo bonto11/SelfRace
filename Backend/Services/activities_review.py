@@ -67,9 +67,8 @@ def service_request_activity_review_rerun(
     model: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    c = _norm_comment(comment)
+    comment_from_user = _norm_comment(comment)
 
-    print("service_request_activity_review_rerun comment",comment)
     row = (
         db_get_enrichment_for_activity(
             user_id=int(user_id),
@@ -87,31 +86,10 @@ def service_request_activity_review_rerun(
     if review is None:
         v = 0
 
-    print(
-        "[AR][rerun] req",
-        {
-            "user_id": int(user_id),
-            "activity_id": int(activity_id),
-            "review": review,
-            "row_ai_review_version": v,
-            "has_comment": bool(c),
-            "comment_len": len(c) if c else 0,
-        },
-    )
-
     # tier -> limit
     app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
-    print("[AR][rerun] app_subscription", app_subscription)
     tier_code = app_subscription.get("tier_code") or ""
     max_versions = _max_ai_review_versions_for_tier(tier_code)
-
-    print(
-        "[AR][rerun] tier",
-        {
-            "tier_code": tier_code,
-            "max_versions": max_versions,
-        },
-    )
 
     # current version:
     #  - ak review NEEXISTUJE, verzia sa má správať ako 0 (aby free user nebol navždy bloknutý)
@@ -122,23 +100,16 @@ def service_request_activity_review_rerun(
         cur_version = int(row.get("ai_review_version") or 0)
 
     print(
-        "[AR][rerun] version",
+        "[AR][rerun] tier + version",
         {
             "effective_cur_version": cur_version,
+            "tier_code": tier_code,
+            "max_versions": max_versions,
         },
     )
 
     # limit check
     if cur_version >= max_versions:
-        print(
-            "[AR][rerun] BLOCK",
-            {
-                "reason": "activity_review_rerun_limit",
-                "tier_code": tier_code,
-                "cur_version": cur_version,
-                "max_versions": max_versions,
-            },
-        )
         return {
             "ok": False,
             "code": "activity_review_rerun_limit",
@@ -149,9 +120,9 @@ def service_request_activity_review_rerun(
         }
 
     # anti-spam: same comment => don't enqueue again
-    if c:
+    if comment_from_user:
         prev_hash = row.get("ai_review_last_user_comment_hash")
-        if isinstance(prev_hash, str) and prev_hash and prev_hash == _hash_comment(c):
+        if isinstance(prev_hash, str) and prev_hash and prev_hash == _hash_comment(comment_from_user):
             print("[AR][rerun] BLOCK", {"reason": "same_comment_already_used"})
             return {
                 "ok": False,
@@ -162,7 +133,7 @@ def service_request_activity_review_rerun(
             }
 
     # enqueue user job
-    dedupe_suffix = _hash_comment(c)[:12] if c else "no_comment"
+    dedupe_suffix = _hash_comment(comment_from_user)[:12] if comment_from_user else "no_comment"
     next_version = cur_version + 1
     dedupe_key = (
         f"activity_review_user:{user_id}:{activity_id}:{next_version}:{dedupe_suffix}"
@@ -175,6 +146,7 @@ def service_request_activity_review_rerun(
             "next_version": next_version,
             "model": model,
             "source": "user",
+            "comment": comment_from_user,
         },
     )
 
@@ -185,7 +157,7 @@ def service_request_activity_review_rerun(
             "activity_id": int(activity_id),
             "model": model,
             "source": "user",
-            "comment": c,
+            "comment": comment_from_user,
         },
         priority=140,
         max_attempts=1,
@@ -201,7 +173,6 @@ def service_request_activity_review_rerun(
             "message": out.get("note") or "enqueue_failed",
         }
 
-    print("[AR][rerun] OK", {"job_id": (out.get("job") or {}).get("id")})
     return {
         "ok": True,
         "job": out["job"],

@@ -228,44 +228,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                   ? `Comment too long: ${commentLen}/${MAX_COMMENT_CHARS}`
                   : null;
 
-  useEffect(() => {
-    console.log("[AR][STATE]", {
-      userId,
-      activityId,
-      tier_store: (getSubscriptionTier() || "free").toLowerCase(),
-      tier_init: getTierCodeFromInit(activityData),
-      tier_effective: tierCode,
-      maxVersions,
-      summary_date: s?.date ?? null,
-      startDt_iso: startDt ? startDt.toISOString() : null,
-      eligible: isEligible,
-      hasReview,
-      aiReviewVersion,
-      canRerunByTier,
-      canRerunByCount,
-      canRerun,
-      commentLen,
-      commentTooLong,
-      disabledReason,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    userId,
-    activityId,
-    tierCode,
-    maxVersions,
-    s?.date,
-    isEligible,
-    hasReview,
-    aiReviewVersion,
-    canRerunByTier,
-    canRerunByCount,
-    canRerun,
-    commentLen,
-    commentTooLong,
-    disabledReason,
-  ]);
-
   let note: ReactNode = null;
   if (!hasReview) {
     note = (
