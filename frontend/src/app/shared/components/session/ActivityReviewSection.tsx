@@ -1,4 +1,3 @@
-// src/app/shared/components/session/ActivityReviewSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -20,33 +19,12 @@ import {
 import type { ActivitySession } from "./SessionCard";
 import { ActivitySectionShell } from "./ActivitySessionDetail";
 
-/* ================= helpers ================= */
-
 type Props = {
   item: ActivitySession;
   activityId: number;
 };
 
-type ReviewSection = { title: string; text: string };
-
 const MAX_COMMENT_CHARS = 900;
-
-function joinLines(lines: string[]): string {
-  return lines.filter(Boolean).join("\n");
-}
-
-function bulletize(arr: any): string[] {
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .map((x) => {
-      if (x == null) return null;
-      if (typeof x === "string") return `• ${x}`;
-      if (typeof x === "object" && typeof x.text === "string")
-        return `• ${x.text}`;
-      return `• ${String(x)}`;
-    })
-    .filter(Boolean) as string[];
-}
 
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
@@ -98,98 +76,12 @@ function formatUpdatedAt(v: any): string | null {
   });
 }
 
-function buildSectionsFromReview(review: any): ReviewSection[] {
-  if (!review) return [];
-
-  if (typeof review === "string") {
-    const t = String(review).trim();
-    return t ? [{ title: "Coach komentár", text: t }] : [];
+function safeJson(v: any): string {
+  try {
+    return JSON.stringify(v ?? null, null, 2);
+  } catch {
+    return String(v);
   }
-
-  if (typeof review !== "object") {
-    return [{ title: "Coach komentár", text: String(review) }];
-  }
-
-  const sections: ReviewSection[] = [];
-
-  const headline = review?.summary?.headline;
-  const bullets = bulletize(review?.summary?.bullets);
-  const summaryText = joinLines([
-    headline ? String(headline).trim() : "",
-    bullets.length ? "" : "",
-    ...bullets,
-  ]).trim();
-  if (summaryText) sections.push({ title: "Zhrnutie", text: summaryText });
-
-  const dom = review?.intensity?.dominant_zone
-    ? String(review.intensity.dominant_zone)
-    : null;
-  const notes = review?.intensity?.notes ? String(review.intensity.notes) : null;
-  const zm = review?.intensity?.z_minutes;
-
-  const zLines =
-    zm && typeof zm === "object"
-      ? [
-          `Z1: ${Number(zm.z1 ?? 0)} min`,
-          `Z2: ${Number(zm.z2 ?? 0)} min`,
-          `Z3: ${Number(zm.z3 ?? 0)} min`,
-          `Z4: ${Number(zm.z4 ?? 0)} min`,
-          `Z5: ${Number(zm.z5 ?? 0)} min`,
-        ]
-      : [];
-
-  const intensityText = joinLines(
-    [
-      dom ? `Dominantná zóna: ${dom}` : "",
-      notes ? notes : "",
-      zLines.length ? "" : "",
-      ...(zLines.length ? zLines.map((x) => `• ${x}`) : []),
-    ].filter(Boolean),
-  ).trim();
-  if (intensityText) sections.push({ title: "Intenzita", text: intensityText });
-
-  const exec = review?.execution_score_0_to_100;
-  const effort = review?.effort_rating_1_to_10;
-  const scoreLines: string[] = [];
-  if (Number.isFinite(Number(exec)))
-    scoreLines.push(`• Execution score: ${Number(exec)}/100`);
-  if (Number.isFinite(Number(effort)))
-    scoreLines.push(`• Effort: ${Number(effort)}/10`);
-  if (scoreLines.length) sections.push({ title: "Skóre", text: joinLines(scoreLines) });
-
-  const well = bulletize(review?.what_went_well);
-  if (well.length) sections.push({ title: "Čo bolo dobré", text: joinLines(well) });
-
-  const improve = bulletize(review?.what_to_improve);
-  if (improve.length) sections.push({ title: "Čo zlepšiť", text: joinLines(improve) });
-
-  const hi = bulletize(review?.highlights);
-  if (hi.length) sections.push({ title: "Highlights", text: joinLines(hi) });
-
-  const ns = Array.isArray(review?.next_steps) ? review.next_steps : [];
-  const nsLines = ns
-    .map((x: any) => {
-      if (!x) return null;
-      const t = typeof x.text === "string" ? x.text.trim() : "";
-      const ty = typeof x.type === "string" ? x.type.trim() : "";
-      if (!t) return null;
-      return ty ? `• (${ty}) ${t}` : `• ${t}`;
-    })
-    .filter(Boolean) as string[];
-  if (nsLines.length) sections.push({ title: "Ďalšie kroky", text: joinLines(nsLines) });
-
-  const risks = bulletize(review?.risks);
-  if (risks.length) sections.push({ title: "Riziká", text: joinLines(risks) });
-
-  if (sections.length === 0) {
-    try {
-      sections.push({ title: "Detail", text: JSON.stringify(review, null, 2) });
-    } catch {
-      sections.push({ title: "Detail", text: String(review) });
-    }
-  }
-
-  return sections;
 }
 
 function getTierCodeFromInit(activityData: any): string {
@@ -210,11 +102,8 @@ function maxVersionsForTier(tier: string): number {
   return 1;
 }
 
-/* ================= component ================= */
-
 export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
-
   const activityData: any = useActivityData() as any;
   const { getSummary } = activityData;
 
@@ -227,7 +116,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     const initTier = getTierCodeFromInit(activityData);
     const storeTier = (getSubscriptionTier() || "free").toLowerCase();
 
-    // console debug (always)
     console.log("[AR][tier] init=", initTier, "store=", storeTier);
 
     if (initTier && initTier !== "free" && storeTier === "free") {
@@ -253,10 +141,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     return days <= 7;
   }, [startDt]);
 
+  // Raw payload from BE (GET /activities/review)
+  const [getPayload, setGetPayload] = useState<any | null>(null);
+
+  // extracted fields (for gating + note)
   const [review, setReview] = useState<any | null>(null);
   const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
-
-  const [aiReviewVersion, setAiReviewVersion] = useState<number>(1);
+  const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(null);
   const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(null);
 
@@ -273,15 +164,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setBusyLoad(true);
     try {
       const out = await apiGetActivityReview(Number(userId), Number(activityId));
+      setGetPayload(out);
 
       console.log("[AR][GET] out =", out);
 
-      const r = out?.review ?? null;
-      setReview(r);
+      setReview(out?.review ?? null);
       setReviewUpdatedAt(formatUpdatedAt(out?.updated_at) ?? null);
 
-      const v = Number((out as any)?.ai_review_version ?? 1);
-      setAiReviewVersion(Number.isFinite(v) && v > 0 ? v : 1);
+      const v = Number((out as any)?.ai_review_version ?? 0);
+      setAiReviewVersion(Number.isFinite(v) && v >= 0 ? v : 0);
 
       setAiReviewLastSource(
         typeof (out as any)?.ai_review_last_source === "string"
@@ -298,9 +189,10 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       setUiError(null);
     } catch (e) {
       console.error("[AR][GET] error =", e);
+      setGetPayload(null);
       setReview(null);
       setReviewUpdatedAt(null);
-      setAiReviewVersion(1);
+      setAiReviewVersion(0);
       setAiReviewLastSource(null);
       setAiReviewLastUserCommentAt(null);
     } finally {
@@ -313,11 +205,10 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, activityId]);
 
-  const sections = useMemo(() => buildSectionsFromReview(review), [review]);
-  const hasReview = sections.length > 0;
+  const hasReview = review != null;
 
   const canRerunByTier = maxVersions > 1;
-  const canRerunByCount = aiReviewVersion < maxVersions;
+  const canRerunByCount = aiReviewVersion < maxVersions; // NOTE: version sa zmení až keď worker uloží
   const canRerun = Boolean(isEligible && canRerunByTier && canRerunByCount);
 
   const disabledReason =
@@ -337,7 +228,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                   ? `Comment too long: ${commentLen}/${MAX_COMMENT_CHARS}`
                   : null;
 
-  // log precheck state whenever relevant changes
   useEffect(() => {
     console.log("[AR][STATE]", {
       userId,
@@ -378,17 +268,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   let note: ReactNode = null;
   if (!hasReview) {
-    if (!startDt) {
-      note = <div className="text-xs opacity-70">Chýba dátum aktivity.</div>;
-    } else if (!isEligible) {
-      note = (
-        <div className="text-xs opacity-70">
-          AI review je dostupné len pre aktivity z posledných 7 dní.
-        </div>
-      );
-    } else {
-      note = <div className="text-xs opacity-70">Zatiaľ bez zhodnotenia trénera.</div>;
-    }
+    note = (
+      <div className="text-xs opacity-70">
+        {startDt && isEligible
+          ? "Zatiaľ bez zhodnotenia trénera."
+          : !startDt
+            ? "Chýba dátum aktivity."
+            : "AI review je dostupné len pre aktivity z posledných 7 dní."}
+      </div>
+    );
   } else {
     note = (
       <div className="text-xs opacity-70">
@@ -425,10 +313,12 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     try {
       const c = comment.trim();
 
+      // 🔥 tu uvidíš či sa comment fakt posiela
       console.log("[AR][RERUN] request", {
         userId,
         activityId,
         commentLen: c.length,
+        comment: c || null,
       });
 
       const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
@@ -444,6 +334,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         setComment("");
       }
 
+      // nech to hneď refreshne raw payload (aj keď review príde až po workerovi)
       await reload();
     } catch (e: any) {
       console.error("[AR][RERUN] error", e);
@@ -472,12 +363,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   );
 
   return (
-    <ActivitySectionShell title="Coach komentár" defaultOpen={hasReview} items={[]}>
+    <ActivitySectionShell title="Coach komentár" defaultOpen={true} items={[]}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">{note}</div>
         <div className="shrink-0">{actionBtn}</div>
       </div>
 
+      {/* comment input (classic/pro + eligible) */}
       {isEligible && canRerunByTier && (
         <div className="mt-3">
           <div className="text-xs font-medium opacity-80">Poznámka pre AI (voliteľné)</div>
@@ -513,21 +405,24 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="mt-3">
         {busyLoad && <div className="text-xs opacity-70">Loading…</div>}
 
-        {!busyLoad && hasReview && (
-          <div className="grid gap-4">
-            {sections.map((sec) => (
-              <div key={sec.title} className="min-w-0">
-                <div className="text-sm font-semibold">{sec.title}</div>
-                <div className="mt-1 whitespace-pre-wrap text-sm leading-relaxed opacity-90">
-                  {sec.text}
-                </div>
-              </div>
-            ))}
+        {/* ✅ Raw review JSON (what you actually care about) */}
+        {!busyLoad && (
+          <div className="mt-3">
+            <div className="text-xs font-semibold opacity-80">AI review (raw)</div>
+            <pre className="mt-2 max-h-96 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
+              {safeJson(review)}
+            </pre>
           </div>
         )}
 
-        {!busyLoad && !hasReview && (
-          <div className="text-sm opacity-80">Zatiaľ bez zhodnotenia trénera.</div>
+        {/* ✅ Whole GET payload too (so you see version/fields) */}
+        {!busyLoad && (
+          <div className="mt-4">
+            <div className="text-xs font-semibold opacity-80">GET payload (raw)</div>
+            <pre className="mt-2 max-h-96 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
+              {safeJson(getPayload)}
+            </pre>
+          </div>
         )}
 
         {reviewUpdatedAt && (
