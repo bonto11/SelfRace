@@ -48,7 +48,6 @@ function bulletize(arr: any): string[] {
     .filter(Boolean) as string[];
 }
 
-// Safari-safe parser: ISO + "YYYY-MM-DD HH:MM:SS+00" + "YYYY-MM-DD" (Supabase date)
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
   const raw = String(v).trim();
@@ -156,8 +155,7 @@ function buildSectionsFromReview(review: any): ReviewSection[] {
     scoreLines.push(`• Execution score: ${Number(exec)}/100`);
   if (Number.isFinite(Number(effort)))
     scoreLines.push(`• Effort: ${Number(effort)}/10`);
-  if (scoreLines.length)
-    sections.push({ title: "Skóre", text: joinLines(scoreLines) });
+  if (scoreLines.length) sections.push({ title: "Skóre", text: joinLines(scoreLines) });
 
   const well = bulletize(review?.what_went_well);
   if (well.length) sections.push({ title: "Čo bolo dobré", text: joinLines(well) });
@@ -212,14 +210,6 @@ function maxVersionsForTier(tier: string): number {
   return 1;
 }
 
-function safeJson(v: any): string {
-  try {
-    return JSON.stringify(v ?? null, null, 2);
-  } catch {
-    return String(v);
-  }
-}
-
 /* ================= component ================= */
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
@@ -228,7 +218,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const activityData: any = useActivityData() as any;
   const { getSummary } = activityData;
 
-  // tier: store primary, init fallback
   const [tierCode, setTierCode] = useState<string>(() => {
     const storeTier = (getSubscriptionTier() || "").toLowerCase();
     return storeTier || getTierCodeFromInit(activityData) || "free";
@@ -236,15 +225,17 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   useEffect(() => {
     const initTier = getTierCodeFromInit(activityData);
-    if (
-      initTier &&
-      initTier !== "free" &&
-      (getSubscriptionTier() || "free").toLowerCase() === "free"
-    ) {
+    const storeTier = (getSubscriptionTier() || "free").toLowerCase();
+
+    // console debug (always)
+    console.log("[AR][tier] init=", initTier, "store=", storeTier);
+
+    if (initTier && initTier !== "free" && storeTier === "free") {
       setTierCode(initTier.toLowerCase());
     }
 
     return subscribeSubscriptionTier((t) => {
+      console.log("[AR][tier] store update =", t);
       setTierCode(String(t || "free").toLowerCase());
     });
   }, [activityData]);
@@ -265,19 +256,10 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [review, setReview] = useState<any | null>(null);
   const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
 
-  // meta from DB
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(1);
   const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(null);
-  const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(
-    null,
-  );
+  const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(null);
 
-  // ✅ DEBUG: store raw BE payload + last error
-  const [debugGetPayload, setDebugGetPayload] = useState<any>(null);
-  const [debugLastError, setDebugLastError] = useState<any>(null);
-  const [debugLastRerunPayload, setDebugLastRerunPayload] = useState<any>(null);
-
-  // user input
   const [comment, setComment] = useState<string>("");
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
@@ -291,7 +273,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setBusyLoad(true);
     try {
       const out = await apiGetActivityReview(Number(userId), Number(activityId));
-      setDebugGetPayload(out);
+
+      console.log("[AR][GET] out =", out);
 
       const r = out?.review ?? null;
       setReview(r);
@@ -312,10 +295,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           : null,
       );
 
-      setDebugLastError(null);
+      setUiError(null);
     } catch (e) {
-      console.error("[ActivityReviewSection] load error", e);
-      setDebugLastError(e);
+      console.error("[AR][GET] error =", e);
       setReview(null);
       setReviewUpdatedAt(null);
       setAiReviewVersion(1);
@@ -333,65 +315,104 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const sections = useMemo(() => buildSectionsFromReview(review), [review]);
   const hasReview = sections.length > 0;
-  const defaultOpen = true; // ✅ nech je debug vždy vidno
 
   const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
   const canRerun = Boolean(isEligible && canRerunByTier && canRerunByCount);
 
-  // disabled reason (presne to čo chceš vidieť)
   const disabledReason =
     !userId
       ? "Missing userId"
       : !activityId
         ? "Missing activityId"
         : !startDt
-          ? "Chýba dátum aktivity (summary.date)"
+          ? "Missing summary.date"
           : !isEligible
-            ? "Len pre aktivity z posledných 7 dní"
+            ? "Only last 7 days"
             : !canRerunByTier
-              ? `Tier '${tierCode}' nemá rerun (min classic)`
+              ? `Tier '${tierCode}' has no rerun`
               : !canRerunByCount
-                ? `Limit vyčerpaný: ai_review_version=${aiReviewVersion} max_versions=${maxVersions}`
+                ? `Limit: ai_review_version=${aiReviewVersion} max_versions=${maxVersions}`
                 : commentTooLong
-                  ? `Komentár je príliš dlhý: ${commentLen}/${MAX_COMMENT_CHARS}`
+                  ? `Comment too long: ${commentLen}/${MAX_COMMENT_CHARS}`
                   : null;
 
-  // note
+  // log precheck state whenever relevant changes
+  useEffect(() => {
+    console.log("[AR][STATE]", {
+      userId,
+      activityId,
+      tier_store: (getSubscriptionTier() || "free").toLowerCase(),
+      tier_init: getTierCodeFromInit(activityData),
+      tier_effective: tierCode,
+      maxVersions,
+      summary_date: s?.date ?? null,
+      startDt_iso: startDt ? startDt.toISOString() : null,
+      eligible: isEligible,
+      hasReview,
+      aiReviewVersion,
+      canRerunByTier,
+      canRerunByCount,
+      canRerun,
+      commentLen,
+      commentTooLong,
+      disabledReason,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    userId,
+    activityId,
+    tierCode,
+    maxVersions,
+    s?.date,
+    isEligible,
+    hasReview,
+    aiReviewVersion,
+    canRerunByTier,
+    canRerunByCount,
+    canRerun,
+    commentLen,
+    commentTooLong,
+    disabledReason,
+  ]);
+
   let note: ReactNode = null;
-  note = (
-    <div className="text-xs opacity-70">
-      tier=<span className="opacity-90">{tierCode}</span> · maxVersions=
-      <span className="opacity-90">{maxVersions}</span> · hasReview=
-      <span className="opacity-90">{String(hasReview)}</span> · aiReviewVersion=
-      <span className="opacity-90">{aiReviewVersion}</span> · eligible=
-      <span className="opacity-90">{String(isEligible)}</span>
-      {aiReviewLastSource ? (
-        <>
-          {" "}
-          · last_source=<span className="opacity-90">{aiReviewLastSource}</span>
-        </>
-      ) : null}
-      {aiReviewLastUserCommentAt ? (
-        <>
-          {" "}
-          · last_comment_at=
-          <span className="opacity-90">{aiReviewLastUserCommentAt}</span>
-        </>
-      ) : null}
-      {startDt ? (
-        <>
-          {" "}
-          · startDt=<span className="opacity-90">{startDt.toISOString()}</span>
-        </>
-      ) : (
-        <> · startDt=<span className="opacity-90">null</span></>
-      )}
-    </div>
-  );
+  if (!hasReview) {
+    if (!startDt) {
+      note = <div className="text-xs opacity-70">Chýba dátum aktivity.</div>;
+    } else if (!isEligible) {
+      note = (
+        <div className="text-xs opacity-70">
+          AI review je dostupné len pre aktivity z posledných 7 dní.
+        </div>
+      );
+    } else {
+      note = <div className="text-xs opacity-70">Zatiaľ bez zhodnotenia trénera.</div>;
+    }
+  } else {
+    note = (
+      <div className="text-xs opacity-70">
+        Verzia: <span className="opacity-90">{aiReviewVersion}/{maxVersions}</span>
+        {aiReviewLastSource ? (
+          <>
+            {" "}
+            · Zdroj: <span className="opacity-90">{aiReviewLastSource}</span>
+          </>
+        ) : null}
+        {aiReviewLastUserCommentAt ? (
+          <>
+            {" "}
+            · Posl. komentár: <span className="opacity-90">{aiReviewLastUserCommentAt}</span>
+          </>
+        ) : null}
+      </div>
+    );
+  }
 
   const onRerun = async () => {
     if (!userId || !activityId || busyGen) return;
+
+    console.log("[AR][RERUN] click", { disabledReason });
 
     setUiError(null);
 
@@ -404,12 +425,18 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     try {
       const c = comment.trim();
 
+      console.log("[AR][RERUN] request", {
+        userId,
+        activityId,
+        commentLen: c.length,
+      });
+
       const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
         comment: c.length ? c : null,
         model: null,
       });
 
-      setDebugLastRerunPayload(out);
+      console.log("[AR][RERUN] response", out);
 
       if (!out?.ok) {
         setUiError(out?.message || "Žiadosť bola zamietnutá.");
@@ -419,8 +446,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
       await reload();
     } catch (e: any) {
-      console.error("[ActivityReviewSection] rerun error", e);
-      setDebugLastError(e);
+      console.error("[AR][RERUN] error", e);
+      console.error("[AR][RERUN] error.detail", e?.detail);
 
       const msg = e?.detail?.message || e?.message || "Rerun sa nepodaril.";
       setUiError(String(msg));
@@ -445,18 +472,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   );
 
   return (
-    <ActivitySectionShell title="Coach komentár" defaultOpen={defaultOpen} items={[]}>
+    <ActivitySectionShell title="Coach komentár" defaultOpen={hasReview} items={[]}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">{note}</div>
         <div className="shrink-0">{actionBtn}</div>
       </div>
 
-      {/* comment input (classic/pro + eligible) */}
       {isEligible && canRerunByTier && (
         <div className="mt-3">
-          <div className="text-xs font-medium opacity-80">
-            Poznámka pre AI (voliteľné)
-          </div>
+          <div className="text-xs font-medium opacity-80">Poznámka pre AI (voliteľné)</div>
           <textarea
             className={[
               "mt-1 w-full rounded border bg-transparent p-2 text-sm",
@@ -511,52 +535,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             Aktualizácia: {reviewUpdatedAt}
           </div>
         )}
-      </div>
-
-      {/* ================= DEBUG (always on) ================= */}
-      <div className="mt-5 rounded border border-white/10 bg-white/5 p-3">
-        <div className="text-xs font-semibold opacity-80">DEBUG</div>
-
-        <div className="mt-2 text-[11px] opacity-70">
-          disabledReason:{" "}
-          <span className="opacity-90">{disabledReason ?? "null"}</span>
-        </div>
-
-        <div className="mt-3 text-[11px] font-medium opacity-80">Inputs</div>
-        <pre className="mt-1 max-h-48 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
-{safeJson({
-  userId,
-  activityId,
-  tier_store: getSubscriptionTier(),
-  tier_init: getTierCodeFromInit(activityData),
-  tier_effective: tierCode,
-  maxVersions,
-  summary_date: s?.date ?? null,
-  startDt_iso: startDt ? startDt.toISOString() : null,
-  eligible: isEligible,
-  commentLen,
-  commentTooLong,
-  aiReviewVersion,
-  canRerunByTier,
-  canRerunByCount,
-  canRerun,
-})}
-        </pre>
-
-        <div className="mt-3 text-[11px] font-medium opacity-80">GET /activities/review response</div>
-        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
-{safeJson(debugGetPayload)}
-        </pre>
-
-        <div className="mt-3 text-[11px] font-medium opacity-80">POST /rerun last response</div>
-        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
-{safeJson(debugLastRerunPayload)}
-        </pre>
-
-        <div className="mt-3 text-[11px] font-medium opacity-80">Last error (if any)</div>
-        <pre className="mt-1 max-h-64 overflow-auto rounded bg-black/30 p-2 text-[11px] leading-snug">
-{safeJson(debugLastError)}
-        </pre>
       </div>
     </ActivitySectionShell>
   );
