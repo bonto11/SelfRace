@@ -217,7 +217,6 @@ def service_activity_review(
             ctx=ctx,
             source=src,  # ✅ NEW
             user_comment=safe_comment,  # ✅ NEW
-            user_comment_hash=_hash_comment(safe_comment) if safe_comment else None,  # ✅ NEW
         )
     except Exception as e:  # noqa: BLE001
         print("[AR][service] db_upsert_ai_review_one error:", repr(e))

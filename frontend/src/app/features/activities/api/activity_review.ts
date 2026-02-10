@@ -83,7 +83,6 @@ export async function apiGetActivityReview(
   updated_at?: string | null;
   ai_review_version?: number | null;
   ai_review_last_user_comment?: string | null;
-  ai_review_last_user_comment_hash?: string | null;
   ai_review_last_user_comment_at?: string | null;
   ai_review_last_source?: string | null;
 }> {
@@ -109,8 +108,6 @@ export async function apiGetActivityReview(
     updated_at: json.updated_at ?? null,
     ai_review_version: json.ai_review_version ?? null,
     ai_review_last_user_comment: json.ai_review_last_user_comment ?? null,
-    ai_review_last_user_comment_hash:
-      json.ai_review_last_user_comment_hash ?? null,
     ai_review_last_user_comment_at: json.ai_review_last_user_comment_at ?? null,
     ai_review_last_source: json.ai_review_last_source ?? null,
   };

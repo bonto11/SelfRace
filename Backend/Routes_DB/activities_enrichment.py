@@ -31,7 +31,6 @@ def db_get_enrichment_for_activities(
         # ✅ NEW
         "ai_review_version,"
         "ai_review_last_user_comment,"
-        "ai_review_last_user_comment_hash,"
         "ai_review_last_user_comment_at,"
         "ai_review_last_source"
     )
@@ -140,18 +139,16 @@ def db_upsert_ai_review_one(
     # ✅ NEW meta
     source: Optional[str] = None,  # "auto" | "user" | "service" | ...
     user_comment: Optional[str] = None,
-    user_comment_hash: Optional[str] = None,
 ) -> bool:
     sb = get_sb(ctx, caller="activities_enrichment.db_upsert_ai_review_one")
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # 1) fetch current meta (for version increment + optional diff)
     prev_version: int = 0
-    prev_hash: Optional[str] = None
     try:
         prev = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-            .select("ai_review_version,ai_review_last_user_comment_hash")
+            .select("ai_review_version")
             .eq("user_id", int(user_id))
             .eq("activity_id", int(activity_id))
             .limit(1)
@@ -163,10 +160,8 @@ def db_upsert_ai_review_one(
                 prev_version = int(row0.get("ai_review_version") or 0)
             except Exception:
                 prev_version = 0
-            prev_hash = row0.get("ai_review_last_user_comment_hash")
     except Exception:
         prev_version = 0
-        prev_hash = None
 
     new_version = max(1, prev_version + 1)
 
@@ -187,14 +182,6 @@ def db_upsert_ai_review_one(
     if c:
         row["ai_review_last_user_comment"] = c
         row["ai_review_last_user_comment_at"] = now_iso
-
-        # hash: set if provided OR if previous differs (best-effort)
-        h = user_comment_hash.strip() if isinstance(user_comment_hash, str) else ""
-        if h:
-            row["ai_review_last_user_comment_hash"] = h
-        elif prev_hash is None:
-            # no hash provided; still ok to store comment without hash
-            pass
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)

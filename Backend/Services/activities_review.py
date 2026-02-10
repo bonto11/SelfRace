@@ -44,7 +44,6 @@ def service_get_activity_review(
         "updated_at": row.get("updated_at"),
         "ai_review_version": row.get("ai_review_version"),
         "ai_review_last_user_comment": row.get("ai_review_last_user_comment"),
-        "ai_review_last_user_comment_hash": row.get("ai_review_last_user_comment_hash"),
         "ai_review_last_user_comment_at": row.get("ai_review_last_user_comment_at"),
         "ai_review_last_source": row.get("ai_review_last_source"),
     }
@@ -120,17 +119,15 @@ def service_request_activity_review_rerun(
         }
 
     # anti-spam: same comment => don't enqueue again
-    if comment_from_user:
-        prev_hash = row.get("ai_review_last_user_comment_hash")
-        if isinstance(prev_hash, str) and prev_hash and prev_hash == _hash_comment(comment_from_user):
-            print("[AR][rerun] BLOCK", {"reason": "same_comment_already_used"})
-            return {
-                "ok": False,
-                "code": "same_comment_already_used",
-                "message": "Tento komentár už bol použitý na prepočet review.",
-                "ai_review_version": cur_version,
-                "max_versions": max_versions,
-            }
+    if comment_from_user == row.get("ai_review_lasprev_commentt_user_comment"):
+        print("[AR][rerun] BLOCK", {"reason": "same_comment_already_used"})
+        return {
+            "ok": False,
+            "code": "same_comment_already_used",
+            "message": "Tento komentár už bol použitý na prepočet review.",
+            "ai_review_version": cur_version,
+            "max_versions": max_versions,
+        }
 
     # enqueue user job
     dedupe_suffix = _hash_comment(comment_from_user)[:12] if comment_from_user else "no_comment"
