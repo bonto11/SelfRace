@@ -76,25 +76,21 @@ def service_request_activity_review_rerun(
     ) or {}
 
     # ---------- DEBUG (always) ----------
-    try:
-        ctx_uid = getattr(ctx, "user_id", None) or getattr(ctx, "uid", None)
-        ctx_uuid = getattr(ctx, "user_uuid", None) or getattr(ctx, "uuid", None)
-    except Exception:
-        ctx_uid = None
-        ctx_uuid = None
 
-    has_review = row.get("ai_review") is not None
-    row_version_raw = row.get("ai_review_version")
+    review = row.get("ai_review")
+    v = row.get("ai_review_version")
+
+    if review is None:
+        v = 0
+
 
     print(
         "[AR][rerun] req",
         {
             "user_id": int(user_id),
             "activity_id": int(activity_id),
-            "ctx_user_id": ctx_uid,
-            "ctx_user_uuid": ctx_uuid,
-            "has_review": has_review,
-            "row_ai_review_version": row_version_raw,
+            "review": review,
+            "row_ai_review_version": v,
             "has_comment": bool(c),
             "comment_len": len(c) if c else 0,
         },
@@ -115,19 +111,16 @@ def service_request_activity_review_rerun(
     # current version:
     #  - ak review NEEXISTUJE, verzia sa má správať ako 0 (aby free user nebol navždy bloknutý)
     #  - ak review existuje, berieme uloženú verziu (fallback 1)
-    if not has_review:
+    if not review:
         cur_version = 0
     else:
-        try:
-            cur_version = int(row.get("ai_review_version") or 1)
-        except Exception:
-            cur_version = 1
+        cur_version = int(row.get("ai_review_version") or 0)
+ 
 
     print(
         "[AR][rerun] version",
         {
             "effective_cur_version": cur_version,
-            "has_review": has_review,
         },
     )
 
@@ -140,8 +133,6 @@ def service_request_activity_review_rerun(
                 "tier_code": tier_code,
                 "cur_version": cur_version,
                 "max_versions": max_versions,
-                "has_review": has_review,
-                "row_ai_review_version": row_version_raw,
             },
         )
         return {

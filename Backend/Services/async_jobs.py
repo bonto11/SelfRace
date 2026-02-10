@@ -191,7 +191,10 @@ def service_enqueue_job(
         "updated_at": _now_iso(),
     }
 
-    created = db_insert_job(ctx=ctx, row=row)
+    try:
+        created = db_insert_job(ctx=ctx, row=row)
+    except Exception as e:
+        return {"job": None, "note": f"insert_failed: {repr(e)}"}
 
     if not created:
         return {"job": None, "note": "enqueue_failed"}

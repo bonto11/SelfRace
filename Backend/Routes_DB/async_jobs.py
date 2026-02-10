@@ -12,19 +12,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def db_insert_job(
-    row: Dict[str, Any],
-    *,
-    ctx: AuthCtx,
-) -> Optional[Dict[str, Any]]:
+def db_insert_job(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     try:
         sb = get_sb(ctx, caller="async_jobs.db_insert_job")
         res = sb.table(TABLE_ASYNC_JOBS).insert(row).execute()
         data = res.data or []
         return data[0] if data else None
     except Exception as e:  # noqa: BLE001
-        print("[DB-JOBS] insert error:", repr(e))
-        return None
+        print("[DB-JOBS] insert error type:", type(e))
+        print("[DB-JOBS] insert error repr:", repr(e))
+        # 🔥 dočasne: hoď exception ďalej, nech ho uvidíš aj v API response/logoch
+        raise
 
 
 def db_get_active_jobs(

@@ -262,9 +262,11 @@ def db_get_user_app_subscription_tier(
         .execute()
     )
 
+    print("db_get_user_app_subscription_tier res",res)
+
     rows: List[Dict[str, Any]] = res.data or []
     row = rows[0] if rows else {}
-    tier = row.get("app_subscription_tier") or "free"
+    tier = row.get("tier_code")
     return str(tier)
 
 
