@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
-from Modules.Supabase.auth import AuthCtx
+from Modules.Supabase.auth import AuthCtx, service_ctx  # ✅ pridaj service_ctx
 from Configs.config import TABLE_ASYNC_JOBS
 
 
@@ -12,16 +12,23 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _sb_service(caller: str):
+    """
+    ✅ ALWAYS service role client (bypass RLS).
+    ctx z FE tu ignorujeme zámerne.
+    """
+    return get_sb(service_ctx(caller=caller), caller=caller)
+
+
 def db_insert_job(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_insert_job")
+        sb = _sb_service("async_jobs.db_insert_job")
         res = sb.table(TABLE_ASYNC_JOBS).insert(row).execute()
         data = res.data or []
         return data[0] if data else None
     except Exception as e:  # noqa: BLE001
         print("[DB-JOBS] insert error type:", type(e))
         print("[DB-JOBS] insert error repr:", repr(e))
-        # 🔥 dočasne: hoď exception ďalej, nech ho uvidíš aj v API response/logoch
         raise
 
 
@@ -33,7 +40,7 @@ def db_get_active_jobs(
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_get_active_jobs")
+        sb = _sb_service("async_jobs.db_get_active_jobs")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -60,7 +67,7 @@ def db_get_recent_jobs(
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_get_recent_jobs")
+        sb = _sb_service("async_jobs.db_get_recent_jobs")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -85,7 +92,7 @@ def db_get_job_by_id(
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_get_job_by_id")
+        sb = _sb_service("async_jobs.db_get_job_by_id")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -112,7 +119,7 @@ def db_mark_job_running(
     queued -> running (atomic via WHERE status='queued')
     """
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_mark_job_running")
+        sb = _sb_service("async_jobs.db_mark_job_running")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .update(
@@ -158,7 +165,7 @@ def db_update_job_finished(
         fields["progress"] = int(progress)
 
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_update_job_finished")
+        sb = _sb_service("async_jobs.db_update_job_finished")
         res = sb.table(TABLE_ASYNC_JOBS).update(fields).eq("id", int(job_id)).execute()
         data = res.data or []
         return data[0] if data else None
@@ -176,7 +183,7 @@ def db_find_active_job_by_dedupe(
     if not dedupe_key:
         return None
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_find_active_job_by_dedupe")
+        sb = _sb_service("async_jobs.db_find_active_job_by_dedupe")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -194,13 +201,9 @@ def db_find_active_job_by_dedupe(
         return None
 
 
-def db_user_has_running_job(
-    user_id: int,
-    *,
-    ctx: AuthCtx,
-) -> bool:
+def db_user_has_running_job(user_id: int, *, ctx: AuthCtx) -> bool:
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_user_has_running_job")
+        sb = _sb_service("async_jobs.db_user_has_running_job")
         res = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("id")
@@ -215,9 +218,7 @@ def db_user_has_running_job(
         return False
 
 
-def _try_lock_job_row(
-    ctx: AuthCtx, row: Dict[str, Any], *, worker_id: str
-) -> Optional[Dict[str, Any]]:
+def _try_lock_job_row(ctx: AuthCtx, row: Dict[str, Any], *, worker_id: str) -> Optional[Dict[str, Any]]:
     jid = row.get("id")
     userId = row.get("user_id")
     if jid is None or userId is None:
@@ -225,12 +226,9 @@ def _try_lock_job_row(
 
     try:
         job_id = int(jid)
-        user_id = int(userId)
     except Exception:
         return None
 
-    # user-level lock (cache v pick funkciách)
-    # attempts inkrementujeme na základe row.attempts
     try:
         attempts_old = int(row.get("attempts") or 0)
     except Exception:
@@ -238,7 +236,7 @@ def _try_lock_job_row(
 
     return db_mark_job_running(
         job_id=job_id,
-        worker_id=worker_id,
+        worker_id=str(worker_id),
         attempts=attempts_old + 1,
         ctx=ctx,
     )
@@ -251,17 +249,12 @@ def db_pick_next_queued_job_for_user(
     ctx: AuthCtx,
     max_scan: int = 5,
 ) -> Optional[Dict[str, Any]]:
-    """
-    ✅ Zjednotený názov.
-    Worker-safe: vyberie queued job pre usera a pokúsi sa ho locknúť.
-    """
-    # ak user už má running -> netreba ani selectovať kandidátov
     if db_user_has_running_job(ctx=ctx, user_id=user_id):
         return None
 
     now_iso = _now_iso()
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_pick_next_queued_job_for_user")
+        sb = _sb_service("async_jobs.db_pick_next_queued_job_for_user")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -294,14 +287,9 @@ def db_pick_next_queued_job_global(
     ctx: AuthCtx,
     max_scan: int = 10,
 ) -> Optional[Dict[str, Any]]:
-    """
-    ✅ Zjednotený názov.
-    Worker-safe: vyberie queued job globálne a pokúsi sa ho locknúť.
-    Zároveň chráni user-level serializáciu (neberie job userovi, ktorý už má running).
-    """
     now_iso = _now_iso()
     try:
-        sb = get_sb(ctx, caller="async_jobs.db_pick_next_queued_job_global")
+        sb = _sb_service("async_jobs.db_pick_next_queued_job_global")
         q = (
             sb.table(TABLE_ASYNC_JOBS)
             .select("*")
@@ -317,7 +305,6 @@ def db_pick_next_queued_job_global(
         print("[DB-JOBS] pick_next_global select error:", repr(e))
         return None
 
-    # cache: aby sme nevolali user_has_running 10x pre rovnakého usera
     running_cache: Dict[int, bool] = {}
 
     for r in rows:
@@ -328,14 +315,14 @@ def db_pick_next_queued_job_global(
         if userId is None:
             continue
         try:
-            user_id = int(userId)
+            uid = int(userId)
         except Exception:
             continue
 
-        if user_id not in running_cache:
-            running_cache[user_id] = db_user_has_running_job(ctx=ctx, user_id=user_id)
+        if uid not in running_cache:
+            running_cache[uid] = db_user_has_running_job(ctx=ctx, user_id=uid)
 
-        if running_cache[user_id]:
+        if running_cache[uid]:
             continue
 
         locked = _try_lock_job_row(ctx=ctx, row=r, worker_id=str(worker_id))
