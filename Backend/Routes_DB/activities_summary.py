@@ -1,7 +1,7 @@
 # Routes_DB/activities_summary.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from Modules.Supabase.client import get_sb
@@ -223,3 +223,42 @@ def db_get_summary_for_activities(
         .execute()
     )
     return res.data or []
+
+def db_fetch_window_activity_ids(
+    *,
+    user_id: int,
+    window_days: int,
+    ctx: AuthCtx,
+    limit: int = 200,
+) -> List[int]:
+    """
+    Vráti activity_id za posledných `window_days` dní (vrátane dneška), od najnovších po najstaršie.
+    - deleted_at IS NULL
+    - date >= since_iso
+    """
+    try:
+        sb = get_sb(ctx, caller="activities_summary.db_fetch_window_activity_ids")
+
+        since = datetime.now(timezone.utc) - timedelta(days=int(window_days))
+        since_iso = since.isoformat()
+
+        res = (
+            sb.table(TABLE_ACTIVITIES_SUMMARY)
+            .select("activity_id,date")
+            .eq("user_id", int(user_id))
+            .is_("deleted_at", None)
+            .gte("date", since_iso)
+            .order("date", desc=True)
+            .limit(int(limit))
+            .execute()
+        )
+
+        ids: List[int] = []
+        for r in res.data or []:
+            try:
+                ids.append(int(r["activity_id"]))
+            except Exception:
+                pass
+        return ids
+    except Exception:
+        return []

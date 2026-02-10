@@ -15,96 +15,78 @@ type AsyncJobRow = {
   finished_at: string | null;
 };
 
-type EnqueueJobResponse = {
-  success: boolean;
-  job: AsyncJobRow | null;
-  note?: string | null;
-  detail?: string | null;
-  error?: string | null;
-};
-
-type RunJobResponse = {
-  success: boolean;
-  job: AsyncJobRow | null;
-  detail?: string | null;
-  error?: string | null;
-};
+// src/app/features/activities/api/activity_review.ts
 
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
   model?: string | null;
-  // ⚠️ FE sem service nedávaj (produkcia). Worker/cron si to rieši sám.
+  comment?: string | null; // ✅ NEW (premium user input)
 };
 
-export async function apiEnqueueActivityReview(
+// src/app/features/activities/api/activity_review.ts
+
+export type ActivityReviewRerunResponse =
+  | {
+      success: true;
+      ok: true;
+      job: AsyncJobRow;
+      note?: string | null;
+      tier?: string;
+      ai_review_version?: number;
+      max_versions?: number;
+    }
+  | {
+      success: false;
+      ok: false;
+      code: string;
+      message: string;
+      tier?: string;
+      ai_review_version?: number;
+      max_versions?: number;
+    };
+
+export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: ActivityReviewEnqueueOpts = {},
-): Promise<{ success: true; job: AsyncJobRow; result: any }> {
+  opts: { comment?: string | null; model?: string | null } = {},
+): Promise<ActivityReviewRerunResponse> {
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
-  const runNow = opts.runNow ?? true;
+  const comment = typeof opts.comment === "string" ? opts.comment.trim() : null;
 
-  const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
+  const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}/rerun`;
 
-  const enqueueBody = {
-    job_type: "activity_review",
-    payload: {
-      activity_id: activityId,
+  const json = await callBackend<any>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({
+      comment: comment && comment.length ? comment : null,
       model: opts.model ?? null,
-      // service: false implicit – BE nech si zoberie auth z cookies/JWT
-    },
-    priority: 150,
-    max_attempts: 1,
-    dedupe_key: `activity_review:${userId}:${activityId}`,
-  };
-
-  const enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(enqueueBody),
+    }),
   });
 
-  if (!enqueueJson?.success || !enqueueJson.job) {
-    throw new Error(
-      enqueueJson.detail ||
-        enqueueJson.error ||
-        enqueueJson.note ||
-        "Failed to enqueue activity_review job",
-    );
+  // BE vracia vždy {success:boolean, ...}
+  if (!json || typeof json.success !== "boolean") {
+    throw new Error("Invalid response from activity review rerun endpoint");
   }
 
-  const job = enqueueJson.job;
-
-  if (!runNow) return { success: true, job, result: job.result };
-
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(job.id))}`;
-
-  const runJson = await callBackend<RunJobResponse>(runPath, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-  });
-
-  if (!runJson?.success || !runJson.job) {
-    throw new Error(
-      runJson.detail || runJson.error || "activity_review job failed",
-    );
-  }
-
-  const result = runJson.job.result;
-  maybeThrowAiQuotaError(result);
-
-  return { success: true, job: runJson.job, result };
+  return json as ActivityReviewRerunResponse;
 }
 
-// ✅ NEW: GET review pre activity
 export async function apiGetActivityReview(
   userId: number,
   activityId: number,
-): Promise<{ review: any | null; updated_at?: string | null }> {
+): Promise<{
+  review: any | null;
+  updated_at?: string | null;
+  ai_review_version?: number | null;
+  ai_review_last_user_comment?: string | null;
+  ai_review_last_user_comment_hash?: string | null;
+  ai_review_last_user_comment_at?: string | null;
+  ai_review_last_source?: string | null;
+}> {
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
@@ -125,5 +107,11 @@ export async function apiGetActivityReview(
   return {
     review: json.review ?? null,
     updated_at: json.updated_at ?? null,
+    ai_review_version: json.ai_review_version ?? null,
+    ai_review_last_user_comment: json.ai_review_last_user_comment ?? null,
+    ai_review_last_user_comment_hash:
+      json.ai_review_last_user_comment_hash ?? null,
+    ai_review_last_user_comment_at: json.ai_review_last_user_comment_at ?? null,
+    ai_review_last_source: json.ai_review_last_source ?? null,
   };
 }

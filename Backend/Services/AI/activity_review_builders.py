@@ -7,14 +7,16 @@ from Services.analytics_RecentLoad import service_build_recent_load_block_for_an
 from Services.user_recovery import service_build_recovery_block_for_analysis
 
 from Routes_DB.activities_summary import db_get_summary_for_activities
-from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 
-# ✅ stub (DB logika mimo buildera) – dorobíme neskôr
-# očakávané: vráti list activity_id za posledných `window_days` dní (vrátane dneška)
 try:
     from Routes_DB.activities_summary import db_fetch_window_activity_ids  # type: ignore
 except Exception:  # pragma: no cover
     db_fetch_window_activity_ids = None  # type: ignore
+
+from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
+from Routes_DB.activities_splits import db_get_activity_splits
+from Routes_DB.activities_laps import db_get_activity_laps
+from Routes_DB.activities_streams import db_get_streams_one
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -41,12 +43,20 @@ def _to_int(x: Any) -> Optional[int]:
         return None
 
 
+def _get_activity_id(row: Dict[str, Any]) -> Optional[int]:
+    try:
+        v = row.get("activity_id")
+        if v is None:
+            return None
+        return int(v)
+    except Exception:
+        return None
+
+
 def _canonical_sport(s: Any) -> str:
     if not s:
         return "other"
     v = str(s).lower().strip()
-
-    # be a bit safer than `"run" in v`
     if v in ("run", "trail", "trail_run") or v.startswith("run"):
         return "run"
     if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
@@ -96,66 +106,73 @@ def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
     return out
 
 
+def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
+    if raw is None:
+        return None
+    try:
+        s = str(raw)
+    except Exception:
+        return None
+
+    s = s.strip()
+    if not s:
+        return None
+
+    MAX_CHARS = 900
+    if len(s) > MAX_CHARS:
+        s = s[:MAX_CHARS].rstrip() + "…"
+
+    return s
+
+
+def _sanitize_source(raw: Optional[str]) -> Optional[str]:
+    if raw is None:
+        return None
+    try:
+        s = str(raw).strip().lower()
+    except Exception:
+        return None
+    if not s:
+        return None
+    # allowlist-ish (keep future-proof; only normalize obvious ones)
+    if s in ("auto", "user", "service"):
+        return s
+    return s
+
+
 # =========================
 # zones boundaries (bpm) – best effort
 # =========================
 
 def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
-    """
-    Normalize one zone object to {low:int|None, high:int|None}
-    Accepts:
-      - {"low": 150, "high": 164}
-      - {"min": 150, "max": 164}
-      - [150, 164]
-      - "150-164"
-    """
     if z is None:
         return None
-
     if isinstance(z, dict):
         low = _to_int(z.get("low") if "low" in z else z.get("min"))
         high = _to_int(z.get("high") if "high" in z else z.get("max"))
         return {"low": low, "high": high}
-
     if isinstance(z, (list, tuple)) and len(z) >= 2:
         return {"low": _to_int(z[0]), "high": _to_int(z[1])}
-
     if isinstance(z, str) and "-" in z:
         a, b = z.split("-", 1)
         return {"low": _to_int(a.strip()), "high": _to_int(b.strip())}
-
     return None
 
 
 def _extract_hr_zones_bpm_from_ctx(ctx: AuthCtx, sport: str) -> Optional[Dict[str, Any]]:
-    """
-    Cieľ: AI nemá vracať len 'Z2', ale vedieť aj BPM hranice.
-    Builder to skúsi vytiahnuť z ctx (ak existuje). Keď nie → None.
-
-    Výstup (unifikovaný):
-      {
-        "scheme": "lthr" | "hrmax" | ... | None,
-        "sport": "run" | "ride" | ...,
-        "z1": {"low": int|null, "high": int|null},
-        ...
-        "z5": ...
-      }
-    """
     try:
         zones_any = getattr(ctx, "zones", None) or getattr(ctx, "user_zones", None)
         if not zones_any:
             return None
 
         scheme = None
-        z_src = None
+        z_src: Optional[Dict[str, Any]] = None
 
-        # case A: zones_any is { "run": {...}, "ride": {...}, "scheme": "lthr" }
         if isinstance(zones_any, dict):
             scheme = zones_any.get("scheme")
             if sport in zones_any and isinstance(zones_any.get(sport), dict):
                 z_src = zones_any.get(sport)
             elif any(k in zones_any for k in ("z1", "z2", "z3", "z4", "z5")):
-                # case B: zones_any is already per-sport dict
                 z_src = zones_any
 
         if not isinstance(z_src, dict):
@@ -220,6 +237,97 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
 
 
 # =========================
+# minify splits / laps / streams
+# =========================
+
+def _minify_splits(rows: List[Dict[str, Any]], *, max_items: int = 25) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for r in (rows or [])[:max_items]:
+        if not isinstance(r, dict):
+            continue
+        out.append(
+            {
+                "i": r.get("split_index"),
+                "dist_m": r.get("distance_m"),
+                "moving_s": r.get("moving_time_s"),
+                "pace_s_km": r.get("pace_seconds_per_km"),
+                "avg_hr": r.get("average_heartrate_bpm") or r.get("avg_hr_bpm"),
+                "max_hr": r.get("max_heartrate_bpm"),
+                "elev_gain_m": r.get("elevation_gain_m"),
+                "avg_cad": r.get("average_cadence_rpm") or r.get("cadence_avg"),
+            }
+        )
+    return out
+
+
+def _minify_laps(rows: List[Dict[str, Any]], *, max_items: int = 30) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for r in (rows or [])[:max_items]:
+        if not isinstance(r, dict):
+            continue
+        out.append(
+            {
+                "i": r.get("lap_index"),
+                "dist_m": r.get("distance_m"),
+                "moving_s": r.get("moving_time_s"),
+                "pace_s_km": r.get("pace_seconds_per_km"),
+                "avg_hr": r.get("average_heartrate_bpm") or r.get("avg_hr_bpm"),
+                "max_hr": r.get("max_heartrate_bpm"),
+                "elev_gain_m": r.get("elevation_gain_m"),
+                "avg_cad": r.get("average_cadence_rpm") or r.get("cadence_avg"),
+            }
+        )
+    return out
+
+
+def _minify_streams(row: Optional[Dict[str, Any]], *, max_points: int = 180) -> Optional[Dict[str, Any]]:
+    if not isinstance(row, dict):
+        return None
+
+    time_s = row.get("time_s") or []
+    if not isinstance(time_s, list) or not time_s:
+        return None
+
+    hr = row.get("heartrate_bpm") or []
+    cad = row.get("cadence_rpm") or []
+    pwr = row.get("power_w") or []
+    dist = row.get("distance_m") or []
+    alt = row.get("altitude_m") or []
+    spd = row.get("speed_mps") or []
+    grd = row.get("grade_smooth") or []
+    mov = row.get("moving") or []
+
+    n = len(time_s)
+    if n <= max_points:
+        idxs = list(range(n))
+    else:
+        step = max(1, int(n / max_points))
+        idxs = list(range(0, n, step))[:max_points]
+
+    def pick(arr: Any) -> List[Any]:
+        if not isinstance(arr, list) or not arr:
+            return []
+        out = []
+        for i in idxs:
+            if 0 <= i < len(arr):
+                out.append(arr[i])
+        return out
+
+    return {
+        "points": len(idxs),
+        "time_s": pick(time_s),
+        "heartrate_bpm": pick(hr),
+        "cadence_rpm": pick(cad),
+        "power_w": pick(pwr),
+        "distance_m": pick(dist),
+        "altitude_m": pick(alt),
+        "speed_mps": pick(spd),
+        "grade_smooth": pick(grd),
+        "moving": pick(mov),
+    }
+
+
+# =========================
 # activity block builders
 # =========================
 
@@ -229,7 +337,6 @@ def _build_activity_block_from_rows(
     summary_row: Dict[str, Any],
     enr_row: Dict[str, Any],
     include_zones: bool = True,
-    include_splits_laps: bool = False,  # 0–7 dni môžeme neskôr doplniť pass-through
 ) -> Dict[str, Any]:
     dt_raw = str(summary_row.get("date") or "")
     date_str = dt_raw[:10] if dt_raw else None
@@ -242,7 +349,11 @@ def _build_activity_block_from_rows(
     elev_gain_m = _to_float(summary_row.get("elevation_gain_m"))
     avg_hr = _to_int(summary_row.get("average_heartrate_bpm"))
     max_hr = _to_int(summary_row.get("max_heartrate_bpm"))
-    cadence_avg = _to_int(summary_row.get("average_cadence")) or _to_int(summary_row.get("cadence_avg"))
+    cadence_avg = (
+        _to_int(summary_row.get("average_cadence_rpm"))
+        or _to_int(summary_row.get("average_cadence"))
+        or _to_int(summary_row.get("cadence_avg"))
+    )
 
     dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
     dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
@@ -272,21 +383,10 @@ def _build_activity_block_from_rows(
         z5 = _to_float(enr_row.get("z5_min"))
         out["zones_min"] = {"z1": z1, "z2": z2, "z3": z3, "z4": z4, "z5": z5}
 
-    # nič nehodnotíme – len pass-through (ak neskôr chceš)
-    if include_splits_laps:
-        for k in ("splits", "laps", "splits_json", "laps_json", "splits_minified", "laps_minified"):
-            if k in enr_row and enr_row.get(k) is not None:
-                out["splits_or_laps"] = enr_row.get(k)
-                break
-
     return out
 
 
 def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    8–14 dní: len hrubé údaje (bez zón, bez splits/laps):
-    - date, sport, distance, duration, avg/max HR, elevation, pace (ak existuje)
-    """
     m = item.get("metrics") or {}
     return {
         "activity_id": item.get("activity_id"),
@@ -305,11 +405,6 @@ def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """
-    Rozdelenie podľa days_ago:
-      - 0..7 -> detail (ponecháme zones_min)
-      - 8..14 -> coarse (orežeme)
-    """
     d0_7: List[Dict[str, Any]] = []
     d8_14_raw: List[Dict[str, Any]] = []
 
@@ -327,7 +422,6 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
         elif 8 <= di <= 14:
             d8_14_raw.append(it)
 
-    # staršie -> novšie (lepší kontext)
     d0_7.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
     d8_14_raw.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
 
@@ -341,26 +435,25 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
 
 def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "user": {"id": user_id},
-        # ✅ root sport pre výber promptu (naplní sa po načítaní activity)
         "sport": None,
+        "user_input": {  # ✅ NEW
+            "source": None,   # "auto" | "user" | "service" | ...
+            "comment": None,
+        },
         "activity": {
             "activity_id": activity_id,
             "days_ago": None,
             "sport": "other",
             "metrics": {},
             "zones_min": {"z1": None, "z2": None, "z3": None, "z4": None, "z5": None},
+            "splits_minified": None,
+            "laps_minified": None,
+            "streams_minified": None,
         },
-        "history": {
-            "days_0_7": [],
-            "days_8_14": [],  # ✅ názov sedí s logikou
-        },
-        "context": {
-            "recovery": None,
-            "recent_load": None,
-            "hr_zones_bpm": None,
-        },
+        "history": {"days_0_7": [], "days_8_14": []},
+        "context": {"recovery": None, "recent_load": None, "hr_zones_bpm": None},
     }
 
 
@@ -369,95 +462,166 @@ def build_input_from_db(
     *,
     activity_id: int,
     ctx: AuthCtx,
+    source: Optional[str] = None,         # ✅ NEW
+    user_comment: Optional[str] = None,   # ✅ NEW
 ) -> Dict[str, Any]:
-    """
-    DB prácu (window fetch) budeme mať mimo a doladíme import.
-    Builder tu len skladá štruktúru a volá existujúce db_get_*.
-    """
     input_data = build_base_input(user_id, activity_id)
 
-    # ----- context -----
+    # ✅ attach source + comment early (so it's present even in early returns)
+    src = _sanitize_source(source)
+    if src:
+        input_data["user_input"]["source"] = src
+
+    safe_comment = _sanitize_user_comment(user_comment)
+    if safe_comment:
+        input_data["user_input"]["comment"] = safe_comment
+
     recovery = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
     recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, ctx=ctx)
     recent_load = _minify_recent_load_to_week_horizon(recent_load_raw)
-
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = recent_load
 
-    # ----- focus activity -----
-    summary_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=[activity_id], ctx=ctx) or []
-    enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=[activity_id], ctx=ctx) or []
-
-    summary_row = summary_rows[0] if summary_rows else None
-    enr_row = enr_rows[0] if enr_rows and isinstance(enr_rows[0], dict) else {}
-
-    if not isinstance(summary_row, dict):
-        return input_data
-
-    focus = _build_activity_block_from_rows(
-        activity_id=activity_id,
-        summary_row=summary_row,
-        enr_row=enr_row if isinstance(enr_row, dict) else {},
-        include_zones=True,
-        include_splits_laps=False,
-    )
-    input_data["activity"] = focus
-    input_data["sport"] = focus.get("sport")  # ✅ root sport
-
-    # BPM hranice zón – skúsiť z ctx podľa športu
-    input_data["context"]["hr_zones_bpm"] = _extract_hr_zones_bpm_from_ctx(
-        ctx, sport=str(input_data["sport"] or "other")
-    )
-
-    # ----- history window (0–14 dní) -----
-    # DB fetch mimo – ale pripravíme “hook”
-    activity_ids_window: List[int] = []
+    window_ids: List[int] = []
     if db_fetch_window_activity_ids is not None:
         try:
-            activity_ids_window = db_fetch_window_activity_ids(user_id=user_id, window_days=14, ctx=ctx) or []
+            window_ids = db_fetch_window_activity_ids(user_id=user_id, window_days=14, ctx=ctx) or []
         except Exception:
-            activity_ids_window = []
+            window_ids = []
 
-    # build full list, but DO NOT duplicate focus in history
-    activity_ids_all = _dedupe_keep_order([*activity_ids_window])
-    activity_ids_all = [x for x in activity_ids_all if x != activity_id]
+    all_ids = _dedupe_keep_order([int(activity_id), *window_ids])
 
-    if activity_ids_all:
-        sum_rows = db_get_summary_for_activities(user_id=user_id, activity_ids=activity_ids_all, ctx=ctx) or []
-        enr_rows2 = db_get_enrichment_for_activities(user_id=user_id, activity_ids=activity_ids_all, ctx=ctx) or []
+    sum_rows = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=all_ids) or []
+    sum_by_id: Dict[int, Dict[str, Any]] = {}
+    for r in sum_rows:
+        if not isinstance(r, dict):
+            continue
+        aid = _get_activity_id(r)
+        if aid is None:
+            continue
+        sum_by_id[aid] = r
 
-        enr_by_id: Dict[int, Dict[str, Any]] = {}
-        for r in enr_rows2:
+    focus_summary = sum_by_id.get(int(activity_id))
+    if not isinstance(focus_summary, dict):
+        return input_data
+
+    focus_sport = _canonical_sport(focus_summary.get("sport_type_fe") or focus_summary.get("sport_type"))
+    input_data["sport"] = focus_sport
+    input_data["context"]["hr_zones_bpm"] = _extract_hr_zones_bpm_from_ctx(ctx, sport=str(focus_sport or "other"))
+
+    ids_0_7: List[int] = []
+    ids_8_14: List[int] = []
+
+    for aid, sr in sum_by_id.items():
+        dt_raw = str(sr.get("date") or "")
+        date_str = dt_raw[:10] if dt_raw else None
+        da = _days_ago(date_str)
+        if da is None:
+            continue
+        try:
+            di = int(da)
+        except Exception:
+            continue
+        if 0 <= di <= 7:
+            ids_0_7.append(aid)
+        elif 8 <= di <= 14:
+            ids_8_14.append(aid)
+
+    ids_0_7 = _dedupe_keep_order(ids_0_7)
+    ids_8_14 = _dedupe_keep_order(ids_8_14)
+
+    enr_by_id: Dict[int, Dict[str, Any]] = {}
+    if ids_0_7:
+        enr_rows = db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids_0_7, ctx=ctx) or []
+        for r in enr_rows:
             if not isinstance(r, dict):
                 continue
-            aid = r.get("activity_id")
-            try:
-                enr_by_id[int(aid)] = r
-            except Exception:
+            aid = _get_activity_id(r)
+            if aid is None:
                 continue
+            enr_by_id[aid] = r
 
-        hist_items: List[Dict[str, Any]] = []
-        for sr in sum_rows:
-            if not isinstance(sr, dict):
-                continue
-            aid = sr.get("activity_id")
-            try:
-                aid_i = int(aid)
-            except Exception:
-                continue
+    focus = _build_activity_block_from_rows(
+        activity_id=int(activity_id),
+        summary_row=focus_summary,
+        enr_row=enr_by_id.get(int(activity_id), {}),
+        include_zones=True,
+    )
 
-            hist_items.append(
-                _build_activity_block_from_rows(
-                    activity_id=aid_i,
-                    summary_row=sr,
-                    enr_row=enr_by_id.get(aid_i, {}),
-                    include_zones=True,
-                    include_splits_laps=False,
-                )
-            )
+    if int(activity_id) in ids_0_7:
+        try:
+            streams = db_get_streams_one(user_id=user_id, activity_id=int(activity_id), ctx=ctx)
+        except Exception:
+            streams = None
+        focus["streams_minified"] = _minify_streams(streams)
 
-        d0_7, d8_14 = _split_history_0_7_and_8_14(hist_items)
-        input_data["history"]["days_0_7"] = d0_7
-        input_data["history"]["days_8_14"] = d8_14
+        try:
+            splits = db_get_activity_splits(user_id=user_id, activity_id=int(activity_id), ctx=ctx)
+        except Exception:
+            splits = []
+        try:
+            laps = db_get_activity_laps(user_id=user_id, activity_id=int(activity_id), ctx=ctx)
+        except Exception:
+            laps = []
+
+        focus["splits_minified"] = _minify_splits(splits)
+        focus["laps_minified"] = _minify_laps(laps)
+
+    input_data["activity"] = focus
+
+    hist_items: List[Dict[str, Any]] = []
+
+    for aid in ids_0_7:
+        if aid == int(activity_id):
+            continue
+        sr = sum_by_id.get(aid)
+        if not isinstance(sr, dict):
+            continue
+
+        item = _build_activity_block_from_rows(
+            activity_id=aid,
+            summary_row=sr,
+            enr_row=enr_by_id.get(aid, {}),
+            include_zones=True,
+        )
+
+        try:
+            streams = db_get_streams_one(user_id=user_id, activity_id=aid, ctx=ctx)
+        except Exception:
+            streams = None
+        item["streams_minified"] = _minify_streams(streams)
+
+        try:
+            splits = db_get_activity_splits(user_id=user_id, activity_id=aid, ctx=ctx)
+        except Exception:
+            splits = []
+        try:
+            laps = db_get_activity_laps(user_id=user_id, activity_id=aid, ctx=ctx)
+        except Exception:
+            laps = []
+
+        item["splits_minified"] = _minify_splits(splits)
+        item["laps_minified"] = _minify_laps(laps)
+
+        hist_items.append(item)
+
+    for aid in ids_8_14:
+        if aid == int(activity_id):
+            continue
+        sr = sum_by_id.get(aid)
+        if not isinstance(sr, dict):
+            continue
+
+        item = _build_activity_block_from_rows(
+            activity_id=aid,
+            summary_row=sr,
+            enr_row={},
+            include_zones=False,
+        )
+        hist_items.append(item)
+
+    d0_7, d8_14 = _split_history_0_7_and_8_14(hist_items)
+    input_data["history"]["days_0_7"] = d0_7
+    input_data["history"]["days_8_14"] = d8_14
 
     return input_data

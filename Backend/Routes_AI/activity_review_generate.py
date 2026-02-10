@@ -1,4 +1,5 @@
-# Routes_AI/activity_review_generate.py
+# Routes_AI/activity_review_generate.py (ONLY the edited parts / full file for clarity)
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -10,6 +11,10 @@ from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
 
+
+# ============================================================
+# helpers
+# ============================================================
 
 def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     tz_name = settings.get("timezone") or "Europe/Bratislava"
@@ -34,9 +39,9 @@ def _lang_from_settings(settings: Dict[str, Any]) -> str:
 
 def _fallback_copy(lang: str) -> Dict[str, Any]:
     if lang == "en":
-        return {"headline": "We couldn't generate the activity review.", "bullets": ["Try again later."]}
+        return {"headline": "We couldn't generate the activity review.", "bullets": ["Please try again later."]}
     if lang == "cs":
-        return {"headline": "Nepodařilo se získat hodnocení aktivity.", "bullets": ["Zkus to později."]}
+        return {"headline": "Nepodařilo se získat hodnocení aktivity.", "bullets": ["Zkuste to později."]}
     return {"headline": "Nepodarilo sa získať AI hodnotenie aktivity.", "bullets": ["Skús to znova neskôr."]}
 
 
@@ -49,6 +54,50 @@ def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
         return int(v) if v is not None else None
     except Exception:
         return None
+
+
+def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
+    try:
+        s = context_payload.get("sport")
+        if isinstance(s, str) and s.strip():
+            return s.strip()
+
+        act = context_payload.get("activity")
+        if isinstance(act, dict):
+            s2 = act.get("sport")
+            if isinstance(s2, str) and s2.strip():
+                return s2.strip()
+
+        return "other"
+    except Exception:
+        return "other"
+
+
+def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
+    try:
+        act = context_payload.get("activity")
+        if not isinstance(act, dict):
+            return False
+
+        flags = act.get("flags")
+        if isinstance(flags, dict) and flags.get("is_race") is True:
+            return True
+
+        name = None
+        m = act.get("metrics")
+        if isinstance(m, dict):
+            name = m.get("name") or m.get("title")
+        if name is None:
+            name = act.get("name")
+
+        if isinstance(name, str):
+            n = name.lower()
+            if ("race" in n) or ("závod" in n) or ("pretek" in n) or ("preteky" in n):
+                return True
+
+        return False
+    except Exception:
+        return False
 
 
 def _get_trace_from_result(res: Any) -> Dict[str, Any]:
@@ -70,33 +119,63 @@ def _get_trace_from_result(res: Any) -> Dict[str, Any]:
     }
 
 
+def _extract_user_input(context_payload: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Returns (comment, source) from context_payload.user_input.
+    We keep it lightweight; sanitization/hashing lives in service layer.
+    """
+    try:
+        ui = context_payload.get("user_input")
+        if not isinstance(ui, dict):
+            return None, None
+        c = ui.get("comment")
+        s = ui.get("source")
+        comment = str(c).strip() if isinstance(c, str) and c.strip() else None
+        source = str(s).strip().lower() if isinstance(s, str) and s.strip() else None
+        return comment, source
+    except Exception:
+        return None, None
+
+
+# ============================================================
+# main
+# ============================================================
+
 def generate_activity_review_json(
     *,
     context_payload: Dict[str, Any],
     model: str,
     user_id: Optional[int] = None,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
+    # ---- user settings ----
     settings: Dict[str, Any] = {}
     if user_id is not None:
         try:
-            settings = service_load_user_settings(
-                user_id=int(user_id),
-                ctx=ctx
-            ) or {}
+            settings = service_load_user_settings(user_id=int(user_id), ctx=ctx) or {}
         except Exception as e:
-            print("[AR][generate] settings load error", repr(e))
+            print("[AR][generate] settings load error:", repr(e))
             settings = {}
 
     tzinfo = _tzinfo_from_settings(settings)
     lang = _lang_from_settings(settings)
 
+    # ---- user input (comment/source) ----
+    user_comment, user_source = _extract_user_input(context_payload)
+
+    # ---- deterministic routing ----
+    sport = _safe_root_sport(context_payload)
+    is_race = _safe_is_race(context_payload)
+
     system_txt, user_txt = build_prompts_for_activity_review(
         context_payload=context_payload,
         settings=settings,
+        sport=sport,
+        is_race=is_race,
     )
 
+    # ---- AI call ----
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
@@ -106,20 +185,31 @@ def generate_activity_review_json(
 
     trace = _get_trace_from_result(res)
 
+    # ---- success ----
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
         parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
-        parsed.setdefault("schema_version", 1)
+
+        parsed.setdefault("schema_version", 5)
         parsed.setdefault("generated_at", _now_local_iso(tzinfo))
 
         ok_model = str(getattr(res, "model", None) or model)
         parsed["model"] = str(parsed.get("model") or ok_model)
+
         parsed.setdefault("activity_id", _safe_activity_id(context_payload))
+        parsed.setdefault("sport", sport or "other")
+
+        # ✅ meta flags for FE/debug (doesn't replace DB meta; service writes DB columns)
+        parsed.setdefault("meta", {})
+        if isinstance(parsed["meta"], dict):
+            parsed["meta"]["user_comment_present"] = bool(user_comment)
+            parsed["meta"]["source"] = user_source or None
 
         if isinstance(trace, dict) and not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]
 
         return parsed, trace
 
+    # ---- fallback ----
     err_msg: Optional[str] = None
     try:
         err_msg = getattr(getattr(res, "error", None), "message", None)
@@ -127,12 +217,18 @@ def generate_activity_review_json(
         err_msg = None
 
     fallback: Dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 5,
         "generated_at": _now_local_iso(tzinfo),
         "model": "activity-review-fallback",
-        "summary": _fallback_copy(lang),
         "activity_id": _safe_activity_id(context_payload),
+        "sport": sport or "other",
+        "summary": _fallback_copy(lang),
         "error": err_msg or "AI provider call failed",
+        # ✅ meta flags for FE/debug
+        "meta": {
+            "user_comment_present": bool(user_comment),
+            "source": user_source or None,
+        },
     }
 
     return fallback, trace

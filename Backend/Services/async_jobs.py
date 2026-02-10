@@ -106,6 +106,7 @@ def _enqueue_activity_review_best_effort(
 ) -> None:
     """
     Best-effort: review nikdy nesmie zhodiť import.
+    Auto review (sync pipeline) => source='auto'
     """
     try:
         service_enqueue_job(
@@ -113,6 +114,9 @@ def _enqueue_activity_review_best_effort(
             job_type="activity_review",
             payload={
                 "activity_id": int(activity_id),
+                "model": None,
+                "source": "auto",      # ✅ NEW
+                "comment": None,       # ✅ NEW (explicit)
                 "service": True,
                 "save_to_db": True,
             },
@@ -130,8 +134,6 @@ def _enqueue_activity_review_best_effort(
             "err=",
             repr(e),
         )
-
-
 # ============================================================
 # ENQUEUE (FAST)
 # ============================================================
@@ -310,6 +312,9 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 activity_id=int(payload["activity_id"]),
                 ctx=ctx,
                 model=payload.get("model"),
+                # ✅ NEW: meta from job payload
+                source=payload.get("source"),   # "auto" | "user"
+                comment=payload.get("comment"), # user free text
             )
 
         elif job_type == "sync":
