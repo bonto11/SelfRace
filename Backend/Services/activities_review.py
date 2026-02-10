@@ -69,6 +69,7 @@ def service_request_activity_review_rerun(
 ) -> Dict[str, Any]:
     c = _norm_comment(comment)
 
+    print("service_request_activity_review_rerun comment",comment)
     row = (
         db_get_enrichment_for_activity(
             user_id=int(user_id),
