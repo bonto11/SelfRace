@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from Modules.Supabase.auth import AuthCtx
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
-from Routes_DB.app_subscription import db_get_user_app_subscription_tier
+from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
 
 from Services.async_jobs import service_enqueue_job
 
@@ -69,11 +69,14 @@ def service_request_activity_review_rerun(
 ) -> Dict[str, Any]:
     c = _norm_comment(comment)
 
-    row = db_get_enrichment_for_activity(
-        user_id=int(user_id),
-        activity_id=int(activity_id),
-        ctx=ctx,
-    ) or {}
+    row = (
+        db_get_enrichment_for_activity(
+            user_id=int(user_id),
+            activity_id=int(activity_id),
+            ctx=ctx,
+        )
+        or {}
+    )
 
     # ---------- DEBUG (always) ----------
 
@@ -82,7 +85,6 @@ def service_request_activity_review_rerun(
 
     if review is None:
         v = 0
-
 
     print(
         "[AR][rerun] req",
@@ -97,7 +99,9 @@ def service_request_activity_review_rerun(
     )
 
     # tier -> limit
-    tier_code = db_get_user_app_subscription_tier(int(user_id), ctx=ctx)
+    app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx)
+    print("[AR][rerun] app_subscription", app_subscription)
+    tier_code = app_subscription.get("tier_code")
     max_versions = _max_ai_review_versions_for_tier(tier_code)
 
     print(
@@ -115,7 +119,6 @@ def service_request_activity_review_rerun(
         cur_version = 0
     else:
         cur_version = int(row.get("ai_review_version") or 0)
- 
 
     print(
         "[AR][rerun] version",
@@ -160,7 +163,9 @@ def service_request_activity_review_rerun(
     # enqueue user job
     dedupe_suffix = _hash_comment(c)[:12] if c else "no_comment"
     next_version = cur_version + 1
-    dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}:{dedupe_suffix}"
+    dedupe_key = (
+        f"activity_review_user:{user_id}:{activity_id}:{next_version}:{dedupe_suffix}"
+    )
 
     print(
         "[AR][rerun] enqueue",
