@@ -13,7 +13,6 @@ from Routes_DB.app_subscription import (
     db_list_app_user_subscriptions,
     db_get_active_app_subscription_for_user,
     db_list_due_subscription_changes,
-    db_set_user_app_subscription_tier,
 )
 
 TIER_ORDER: Dict[str, int] = {
@@ -354,20 +353,12 @@ def service_cancel_scheduled_subscription_change(
         ctx=ctx,
     )
 
-    # quick flag v users necháme ako je (ostáva aktuálny tier)
-    user_row = db_set_user_app_subscription_tier(
-        user_id=user_id,
-        tier_code=str(updated.get("tier_code", active.get("tier_code"))),
-        ctx=ctx,
-    )
-
     tier = db_get_app_subscription_tier_by_code(
         code=str(updated.get("tier_code")),
         ctx=ctx,
     )
 
     return {
-        "user": user_row,
         "active_subscription": updated,
         "tier": tier,
     }

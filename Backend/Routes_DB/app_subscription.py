@@ -214,60 +214,10 @@ def db_get_active_app_subscription_for_user(
         .execute()
     )
 
+    print("db_get_active_app_subscription_for_user res", res)
+
     rows: List[Dict[str, Any]] = res.data or []
     return rows[0] if rows else None
-
-
-# --------- users.app_subscription_tier helper ---------
-
-
-def db_set_user_app_subscription_tier(
-    user_id: int,
-    tier_code: str,
-    *,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
-    Nastaví users.app_subscription_tier (rýchly flag pre FE / billing).
-    """
-    sb = get_sb(ctx, caller="app_subscription.db_set_user_app_subscription_tier")
-
-    res = (
-        sb.table(TABLE_USERS)
-        .update({"app_subscription_tier": tier_code})
-        .eq("id", user_id)
-        .execute()
-    )
-
-    rows: List[Dict[str, Any]] = res.data or []
-    # typicky 1 riadok, ale fallback na to, čo sme poslali
-    return rows[0] if rows else {"id": user_id, "app_subscription_tier": tier_code}
-
-
-def db_get_user_app_subscription_tier(
-    user_id: int,
-    *,
-    ctx: AuthCtx,
-) -> str:
-    """
-    Vráti users.app_subscription_tier (alebo 'free' ak je NULL).
-    """
-    sb = get_sb(ctx, caller="app_subscription.db_get_user_app_subscription_tier")
-
-    res = (
-        sb.table(TABLE_USERS)
-        .select("app_subscription_tier")
-        .eq("id", user_id)
-        .limit(1)
-        .execute()
-    )
-
-    print("db_get_user_app_subscription_tier res",res)
-
-    rows: List[Dict[str, Any]] = res.data or []
-    row = rows[0] if rows else {}
-    tier = row.get("tier_code")
-    return str(tier)
 
 
 def db_list_due_subscription_changes(

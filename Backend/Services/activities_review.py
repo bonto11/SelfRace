@@ -99,9 +99,9 @@ def service_request_activity_review_rerun(
     )
 
     # tier -> limit
-    app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx)
+    app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
     print("[AR][rerun] app_subscription", app_subscription)
-    tier_code = app_subscription.get("tier_code")
+    tier_code = app_subscription.get("tier_code") or ""
     max_versions = _max_ai_review_versions_for_tier(tier_code)
 
     print(
