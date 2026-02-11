@@ -1,22 +1,22 @@
-# Routes_FE/activities_review.py
+# Routes_FE/activities_enrichment.py
 
 from fastapi import APIRouter, Request
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
-from Services.activities_review import (
+from backend.Services.activities_enrichment import (
     service_request_activity_review_rerun,
     service_get_activity_enrichment,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/activities/enrichment", tags=["activities/enrichment"])
 
 class ActivityReviewRerunPayload(BaseModel):
     comment: Optional[str] = None
     model: Optional[str] = None
 
-@router.post("/activities/review/run/{user_id}/{activity_id}")
+@router.post("/reviewRun/{user_id}/{activity_id}")
 def rerun_activity_review(
     user_id: int,
     activity_id: int,
@@ -45,7 +45,7 @@ def rerun_activity_review(
     return {"success": True, **out}
 
 # ✅ NEW: Endpoint pre kompletný enrichment (zóny + review)
-@router.get("/activities/enrichment/{user_id}/{activity_id}")
+@router.get("/{user_id}/{activity_id}")
 def get_activity_enrichment(
     user_id: int,
     activity_id: int,

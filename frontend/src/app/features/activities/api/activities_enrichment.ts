@@ -1,6 +1,5 @@
 // src/app/features/activities/api/activity_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
-import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
 
 export type ActivityEnrichment = {
   activity_id: number;
@@ -75,7 +74,7 @@ export async function apiRerunActivityReview(
   if (!userId) throw new Error("Missing userId");
 
   // 1. REQUEST RERUN (Enqueue)
-  const requestPath = `/activities/review/run/${userId}/${activityId}`;
+  const requestPath = `/activities/enrichment/reviewRun/${userId}/${activityId}`;
 
   let enqueueJson: any;
   try {

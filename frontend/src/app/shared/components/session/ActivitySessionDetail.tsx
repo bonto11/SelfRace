@@ -32,7 +32,7 @@ import {
   PieTrend,
   type PieTrendItem,
 } from "@/app/shared/components/trend/PieTrend"; // Uistite sa, že cesta sedí s tým, kam ste uložili PieTrend.tsx
-import { type ActivityEnrichment } from "@/app/features/activities/api/activity_review";
+import { type ActivityEnrichment } from "@/app/features/activities/api/activities_enrichment";
 
 /** ================= helpers ================= */
 // Helper pre formátovanie času (môže byť v utils)

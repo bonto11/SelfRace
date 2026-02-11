@@ -35,7 +35,7 @@ import { apiFetchRange } from "@/app/features/activities/api/activities_summary"
 import {
   apiGetActivityEnrichment,
   type ActivityEnrichment,
-} from "@/app/features/activities/api/activity_review";
+} from "@/app/features/activities/api/activities_enrichment";
 
 import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
 
@@ -52,17 +52,26 @@ function enrichmentKey(activityId: number) {
   return `ACT:ENRICH:v1:${activityId}`;
 }
 
-function saveRange(userId: number, start: string, end: string, rows: ActivityRow[]) {
+function saveRange(
+  userId: number,
+  start: string,
+  end: string,
+  rows: ActivityRow[],
+) {
   if (!hasSesssioStorage()) return;
   try {
     sessionStorage.setItem(
       rangeKey(userId, start, end),
-      JSON.stringify({ at: Date.now(), rows })
+      JSON.stringify({ at: Date.now(), rows }),
     );
   } catch {}
 }
 
-function loadRange(userId: number, start: string, end: string): ActivityRow[] | null {
+function loadRange(
+  userId: number,
+  start: string,
+  end: string,
+): ActivityRow[] | null {
   if (!hasSesssioStorage()) return null;
   try {
     const raw = sessionStorage.getItem(rangeKey(userId, start, end));
@@ -82,7 +91,7 @@ function saveEnrichment(activityId: number, data: ActivityEnrichment) {
   try {
     sessionStorage.setItem(
       enrichmentKey(activityId),
-      JSON.stringify({ at: Date.now(), data })
+      JSON.stringify({ at: Date.now(), data }),
     );
   } catch {}
 }
@@ -114,18 +123,27 @@ function normalizeStreams(raw: any): StreamsData | null {
     return null;
   }
 
-  const hr =
-    Array.isArray(raw?.hr) ? (raw.hr as (number | null)[]) :
-    Array.isArray(raw?.heartrate_bpm) ? (raw.heartrate_bpm as (number | null)[]) :
-    [];
+  const hr = Array.isArray(raw?.hr)
+    ? (raw.hr as (number | null)[])
+    : Array.isArray(raw?.heartrate_bpm)
+      ? (raw.heartrate_bpm as (number | null)[])
+      : [];
 
-  const altitude_m = Array.isArray(raw?.altitude_m) ? (raw.altitude_m as (number | null)[]) : [];
-  const distance_m = Array.isArray(raw?.distance_m) ? (raw.distance_m as (number | null)[]) : [];
-  const cadence_rpm = Array.isArray(raw?.cadence_rpm) ? (raw.cadence_rpm as (number | null)[]) : [];
-  const power_w = Array.isArray(raw?.power_w) ? (raw.power_w as (number | null)[]) : [];
+  const altitude_m = Array.isArray(raw?.altitude_m)
+    ? (raw.altitude_m as (number | null)[])
+    : [];
+  const distance_m = Array.isArray(raw?.distance_m)
+    ? (raw.distance_m as (number | null)[])
+    : [];
+  const cadence_rpm = Array.isArray(raw?.cadence_rpm)
+    ? (raw.cadence_rpm as (number | null)[])
+    : [];
+  const power_w = Array.isArray(raw?.power_w)
+    ? (raw.power_w as (number | null)[])
+    : [];
 
   const lastT = time_s.length ? Number(time_s[time_s.length - 1]) : 0;
-  const duration_s = Number.isFinite(lastT) ? (lastT || 0) : 0;
+  const duration_s = Number.isFinite(lastT) ? lastT || 0 : 0;
 
   return {
     time_s,
@@ -152,8 +170,10 @@ function saveExtras(activityId: number, data: ActivityExtrasCombined) {
         fetched: !!(data as any)?.fetched,
         streams: normStreams,
         laps: Array.isArray((data as any)?.laps) ? (data as any).laps : [],
-        splits: Array.isArray((data as any)?.splits) ? (data as any).splits : [],
-      })
+        splits: Array.isArray((data as any)?.splits)
+          ? (data as any).splits
+          : [],
+      }),
     );
   } catch {}
 }
@@ -185,7 +205,9 @@ function loadExtras(activityId: number): ActivityExtrasCombined | null {
 
 /* ------------------------------ helpers ------------------------------ */
 
-function toCsvSportParam(s: string | string[] | null | undefined): string | null {
+function toCsvSportParam(
+  s: string | string[] | null | undefined,
+): string | null {
   if (s == null) return null;
   if (Array.isArray(s)) {
     const list = s.map((x) => String(x).trim()).filter(Boolean);
@@ -193,7 +215,10 @@ function toCsvSportParam(s: string | string[] | null | undefined): string | null
   }
   const raw = String(s).trim();
   if (!raw || raw.toLowerCase() === "all") return "all";
-  const list = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  const list = raw
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
   return list.length ? list.join(",") : "all";
 }
 
@@ -224,18 +249,26 @@ type Ctx = {
   getExtras: (activityId: number, opts?: FetchOpts) => Promise<ActivityExtras>;
 
   // ✅ NEW: Enrichment API (AI, zones, detailed metrics)
-  getEnrichment: (activityId: number, opts?: FetchOpts) => Promise<ActivityEnrichment | null>;
+  getEnrichment: (
+    activityId: number,
+    opts?: FetchOpts,
+  ) => Promise<ActivityEnrichment | null>;
 
   rolling7: (metric: Metric) => Rolling7;
 
   getParetoWidget: (
     days: number,
-    sport?: string | string[] | null
-  ) => Promise<{ easy_min: number; hard_min: number; total_min: number; days: number } | null>;
+    sport?: string | string[] | null,
+  ) => Promise<{
+    easy_min: number;
+    hard_min: number;
+    total_min: number;
+    days: number;
+  } | null>;
 
   getParetoTrend: (
     weeks: number,
-    sport?: string | string[] | null
+    sport?: string | string[] | null,
   ) => Promise<
     Array<{
       label: string;
@@ -253,7 +286,10 @@ const ActivityDataContext = createContext<Ctx | null>(null);
 
 export function useActivityData() {
   const ctx = useContext(ActivityDataContext);
-  if (!ctx) throw new Error("useActivityData must be used within <ActivityDataProvider>");
+  if (!ctx)
+    throw new Error(
+      "useActivityData must be used within <ActivityDataProvider>",
+    );
   return ctx;
 }
 
@@ -294,7 +330,7 @@ export function ActivityDataProvider({
         setLoading(false);
       }
     },
-    [userId, rangeStart, rangeEnd]
+    [userId, rangeStart, rangeEnd],
   );
 
   useEffect(() => {
@@ -312,18 +348,20 @@ export function ActivityDataProvider({
       if (!rows.length) return [];
       return rows.filter((r) => r.date >= start && r.date <= end);
     },
-    [rows]
+    [rows],
   );
 
   const getSummary = useCallback(
-    (activityId: number) => rows.find((r) => r.activity_id === activityId) ?? null,
-    [rows]
+    (activityId: number) =>
+      rows.find((r) => r.activity_id === activityId) ?? null,
+    [rows],
   );
 
   // ✅ existujúce extras
   const getExtras = useCallback(
     async (activityId: number, opts?: FetchOpts): Promise<ActivityExtras> => {
-      if (userId == null || !activityId) return { streams: null, laps: [], splits: [] };
+      if (userId == null || !activityId)
+        return { streams: null, laps: [], splits: [] };
 
       const fetch = !!opts?.fetch;
 
@@ -342,7 +380,11 @@ export function ActivityDataProvider({
       }
 
       // 2) API (db alebo strava podľa fetch)
-      const res = await apiFetchActivityExtrasCombined(userId, activityId, fetch);
+      const res = await apiFetchActivityExtrasCombined(
+        userId,
+        activityId,
+        fetch,
+      );
 
       // res.streams je transport shape -> normalizujeme
       const normStreams = normalizeStreams((res as any)?.streams) ?? null;
@@ -359,12 +401,15 @@ export function ActivityDataProvider({
       if (!fetch && res) saveExtras(activityId, res);
       return out;
     },
-    [userId]
+    [userId],
   );
 
   // ✅ NEW: Enrichment Provider Method
   const getEnrichment = useCallback(
-    async (activityId: number, opts?: FetchOpts): Promise<ActivityEnrichment | null> => {
+    async (
+      activityId: number,
+      opts?: FetchOpts,
+    ): Promise<ActivityEnrichment | null> => {
       if (userId == null || !activityId) return null;
 
       const fetch = !!opts?.fetch;
@@ -388,7 +433,7 @@ export function ActivityDataProvider({
         return null;
       }
     },
-    [userId]
+    [userId],
   );
 
   const rolling7 = useCallback(
@@ -404,8 +449,10 @@ export function ActivityDataProvider({
         if (!daily.has(d)) continue;
 
         let inc = 0;
-        if (metric === "time") inc = (Number((r as any).moving_time_s) || 0) / 60;
-        else if (metric === "km") inc = (Number((r as any).distance_m) || 0) / 1000;
+        if (metric === "time")
+          inc = (Number((r as any).moving_time_s) || 0) / 60;
+        else if (metric === "km")
+          inc = (Number((r as any).distance_m) || 0) / 1000;
         else {
           const trimp =
             (r as any).trimp_total ??
@@ -460,7 +507,7 @@ export function ActivityDataProvider({
         },
       };
     },
-    [rows]
+    [rows],
   );
 
   const getParetoWidget = useCallback(
@@ -469,7 +516,7 @@ export function ActivityDataProvider({
       const sportCsv = toCsvSportParam(sportSel);
       return apiFetchParetoWidget(userId, daysParam, sportCsv);
     },
-    [userId]
+    [userId],
   );
 
   const getParetoTrend = useCallback(
@@ -478,7 +525,7 @@ export function ActivityDataProvider({
       const sportCsv = toCsvSportParam(sportSel);
       return apiFetchParetoTrend(userId, weeksParam, sportCsv);
     },
-    [userId]
+    [userId],
   );
 
   const value: Ctx = useMemo(
@@ -511,8 +558,12 @@ export function ActivityDataProvider({
       rolling7,
       getParetoWidget,
       getParetoTrend,
-    ]
+    ],
   );
 
-  return <ActivityDataContext.Provider value={value}>{children}</ActivityDataContext.Provider>;
+  return (
+    <ActivityDataContext.Provider value={value}>
+      {children}
+    </ActivityDataContext.Provider>
+  );
 }
