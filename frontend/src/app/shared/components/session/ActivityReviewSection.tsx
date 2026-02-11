@@ -46,17 +46,6 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
-function formatUpdatedAt(v: any): string | null {
-  const d = parseDateSafe(v);
-  if (!d) return null;
-  return d.toLocaleString(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function safeJson(v: any): string {
   try {
     return JSON.stringify(v ?? null, null, 2);
@@ -76,8 +65,8 @@ function getTierCodeFromInit(activityData: any): string {
 }
 
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 50;
-  if (tier === "classic") return 3;
+  if (tier === "pro") return 3;
+  if (tier === "classic") return 2;
   return 1;
 }
 
@@ -153,7 +142,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   
   // Refresh cooldown state
   const [refreshLocked, setRefreshLocked] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
 
   // Load data function
   const reload = async () => {
@@ -389,21 +377,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                     {canRerun && <p className="text-xs opacity-30 mt-1">Klikni na tlačidlo hore pre vygenerovanie.</p>}
                 </div>
             )
-        )}
-      </div>
-
-      {/* 4. Debug Section */}
-      <div className="mt-8 pt-4 border-t border-white/5">
-        <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="text-[10px] uppercase tracking-widest opacity-20 hover:opacity-50 transition-opacity"
-        >
-            {showDebug ? "Hide Debug" : "Debug Info"}
-        </button>
-        {showDebug && review && (
-            <pre className="mt-2 p-2 bg-black/50 rounded text-[10px] text-green-400 overflow-auto max-h-60">
-                {safeJson(review)}
-            </pre>
         )}
       </div>
 

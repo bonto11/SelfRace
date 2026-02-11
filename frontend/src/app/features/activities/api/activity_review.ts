@@ -59,7 +59,7 @@ export async function apiRerunActivityReview(
 
   // 1. REQUEST RERUN (Enqueue)
   // Toto volá tvoj BE service_request_activity_review_rerun -> service_enqueue_job
-  const requestPath = `/activities/${userId}/${activityId}/review/rerun`; 
+  const requestPath = `/activities/review/run/${userId}/${activityId}`; 
   // ^ UPRAV SI CESTU podľa tvojho routingu, predpokladám, že toto volá tú funkciu service_request...
 
   let enqueueJson: any;

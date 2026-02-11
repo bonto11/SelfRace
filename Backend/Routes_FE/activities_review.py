@@ -34,7 +34,7 @@ def get_activity_review(
 
     return {"success": True, **out}
 
-@router.post("/activities/review/{user_id}/{activity_id}/rerun")
+@router.post("/activities/review/run/{user_id}/{activity_id}")
 def rerun_activity_review(
     user_id: int,
     activity_id: int,
