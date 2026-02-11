@@ -3,6 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List, Iterable, Tuple
 import json
+import math
+
+# ============================================================
+# PROJECT IMPORTS (Preserved exactly as provided)
+# ============================================================
 
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
@@ -29,19 +34,19 @@ from Modules.Supabase.auth import AuthCtx
 # Streams sú najväčší žrút tokenov -> default OFF
 ENABLE_STREAMS_FOR_FOCUS = False
 
-# Ak chceš niekedy zapnúť: len focus a len run/ride a ešte tvrdo zriediť
-STREAMS_MAX_POINTS_RUN = 120
-STREAMS_MAX_POINTS_RIDE = 90
+# Limity pre smart sampling (koľko bodov/splitov max pošleme AI)
+STREAMS_MAX_POINTS_RUN = 100
+STREAMS_MAX_POINTS_RIDE = 80
 
-SPLITS_MAX_ITEMS_RUN = 20
-SPLITS_MAX_ITEMS_RIDE = 16
+SPLITS_MAX_ITEMS_RUN = 12  # Stačí vzorka: začiatok, stred, koniec
+SPLITS_MAX_ITEMS_RIDE = 10
 
-LAPS_MAX_ITEMS_RUN = 20
-LAPS_MAX_ITEMS_RIDE = 16
+LAPS_MAX_ITEMS_RUN = 12
+LAPS_MAX_ITEMS_RIDE = 10
 
 
 # =========================
-# small helpers
+# SMALL HELPERS
 # =========================
 
 def _dbg(tag: str, obj: Dict[str, Any]) -> None:
@@ -58,11 +63,13 @@ def _json_bytes(v: Any) -> int:
             return -1
 
 
-def _to_float(x: Any) -> Optional[float]:
+def _round_float(val: Any, decimals: int = 2) -> Optional[float]:
+    """Helper na bezpečné zaokrúhlenie pre šetrenie tokenov."""
     try:
-        if x is None or x == "":
+        if val is None or val == "":
             return None
-        return float(x)
+        f = float(val)
+        return round(f, decimals)
     except Exception:
         return None
 
@@ -71,7 +78,7 @@ def _to_int(x: Any) -> Optional[int]:
     try:
         if x is None or x == "":
             return None
-        return int(x)
+        return int(float(x)) # handle "10.0" strings
     except Exception:
         return None
 
@@ -119,15 +126,6 @@ def _days_ago(date_str: Any) -> Optional[int]:
     return int(d) if d >= 0 else 0
 
 
-def _to_int_safe(v: Any) -> Optional[int]:
-    if v is None:
-        return None
-    try:
-        return int(str(v))
-    except Exception:
-        return None
-
-
 def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
     out: List[int] = []
     seen = set()
@@ -169,11 +167,36 @@ def _sanitize_source(raw: Optional[str]) -> Optional[str]:
         return None
     if s in ("auto", "user", "service"):
         return s
-    return s
+    return "auto" # default fallback
 
 
 # =========================
-# zones boundaries (bpm) – best effort
+# SMART COMPRESSION HELPER
+# =========================
+
+def _pick_smart_indices(total_len: int, max_items: int) -> List[int]:
+    """
+    Vyberie indexy tak, aby sme mali začiatok, stred a koniec.
+    Napr. pre 100 položiek a max 5 vyberie: [0, 25, 50, 75, 99]
+    """
+    if total_len <= max_items:
+        return list(range(total_len))
+    
+    # Vždy chceme prvý a posledný
+    indices = {0, total_len - 1}
+    
+    if max_items > 2:
+        step = (total_len - 1) / (max_items - 1)
+        for i in range(1, max_items - 1):
+            idx = int(round(i * step))
+            if 0 <= idx < total_len:
+                indices.add(idx)
+    
+    return sorted(list(indices))
+
+
+# =========================
+# ZONES BOUNDARIES (bpm)
 # =========================
 
 def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
@@ -186,8 +209,11 @@ def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
     if isinstance(z, (list, tuple)) and len(z) >= 2:
         return {"low": _to_int(z[0]), "high": _to_int(z[1])}
     if isinstance(z, str) and "-" in z:
-        a, b = z.split("-", 1)
-        return {"low": _to_int(a.strip()), "high": _to_int(b.strip())}
+        try:
+            a, b = z.split("-", 1)
+            return {"low": _to_int(a.strip()), "high": _to_int(b.strip())}
+        except:
+            return None
     return None
 
 
@@ -224,7 +250,7 @@ def _extract_hr_zones_bpm_from_ctx(ctx: AuthCtx, sport: str) -> Optional[Dict[st
 
 
 # =========================
-# recent load minify (keep only 2 weeks)
+# MINIFY LOGIC
 # =========================
 
 def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
@@ -245,7 +271,7 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
     for w in weeks:
         if not isinstance(w, dict):
             continue
-        idx = _to_int_safe(w.get("week_index_from_now"))
+        idx = _to_int(w.get("week_index_from_now"))
         if idx is None or idx not in keep_idx:
             continue
         out_weeks.append(
@@ -253,10 +279,10 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
                 "week_index_from_now": idx,
                 "week_start_iso": w.get("week_start_iso"),
                 "week_end_iso": w.get("week_end_iso"),
-                "run_minutes": w.get("run_minutes"),
-                "total_minutes": w.get("total_minutes"),
-                "hard_sessions": w.get("hard_sessions"),
-                "strength_sessions": w.get("strength_sessions"),
+                "run_minutes": _to_int(w.get("run_minutes")),
+                "total_minutes": _to_int(w.get("total_minutes")),
+                "hard_sessions": _to_int(w.get("hard_sessions")),
+                "strength_sessions": _to_int(w.get("strength_sessions")),
             }
         )
 
@@ -267,10 +293,6 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
         "weeks": out_weeks,
     }
 
-
-# =========================
-# minify splits / laps / streams (focus only)
-# =========================
 
 def _splits_max_items(sport: str) -> int:
     return SPLITS_MAX_ITEMS_RUN if sport == "run" else SPLITS_MAX_ITEMS_RIDE
@@ -285,23 +307,30 @@ def _streams_max_points(sport: str) -> int:
 
 
 def _minify_splits(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+
+    # Použitie Smart Compression namiesto slicing
+    indices = _pick_smart_indices(len(rows), max_items)
+    
     out: List[Dict[str, Any]] = []
-    for r in (rows or [])[:max_items]:
+    for i in indices:
+        r = rows[i]
         if not isinstance(r, dict):
             continue
 
         item: Dict[str, Any] = {
             "i": r.get("split_index"),
-            "dist_m": r.get("distance_m"),
-            "moving_s": r.get("moving_time_s"),
-            "avg_hr": r.get("average_heartrate_bpm") or r.get("avg_hr_bpm"),
+            "dist_m": _to_int(r.get("distance_m")), # Integers stačia
+            "moving_s": _to_int(r.get("moving_time_s")),
+            "avg_hr": _to_int(r.get("average_heartrate_bpm") or r.get("avg_hr_bpm")),
         }
 
         if sport == "run":
-            item["pace_s_km"] = r.get("pace_seconds_per_km")
-            item["avg_cad"] = r.get("average_cadence_rpm") or r.get("cadence_avg")
+            item["pace_s_km"] = _to_int(r.get("pace_seconds_per_km"))
+            item["avg_cad"] = _to_int(r.get("average_cadence_rpm") or r.get("cadence_avg"))
         elif sport == "ride":
-            item["avg_pwr"] = r.get("average_power_w") or r.get("avg_power_w")
+            item["avg_pwr"] = _to_int(r.get("average_power_w") or r.get("avg_power_w"))
 
         out.append(item)
 
@@ -309,22 +338,29 @@ def _minify_splits(rows: List[Dict[str, Any]], *, sport: str, max_items: int) ->
 
 
 def _minify_laps(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> List[Dict[str, Any]]:
+    if not rows:
+        return []
+
+    # Smart Compression
+    indices = _pick_smart_indices(len(rows), max_items)
+    
     out: List[Dict[str, Any]] = []
-    for r in (rows or [])[:max_items]:
+    for i in indices:
+        r = rows[i]
         if not isinstance(r, dict):
             continue
 
         item: Dict[str, Any] = {
             "i": r.get("lap_index"),
-            "dist_m": r.get("distance_m"),
-            "moving_s": r.get("moving_time_s"),
-            "avg_hr": r.get("average_heartrate_bpm") or r.get("avg_hr_bpm"),
+            "dist_m": _to_int(r.get("distance_m")),
+            "moving_s": _to_int(r.get("moving_time_s")),
+            "avg_hr": _to_int(r.get("average_heartrate_bpm") or r.get("avg_hr_bpm")),
         }
 
         if sport == "run":
-            item["pace_s_km"] = r.get("pace_seconds_per_km")
+            item["pace_s_km"] = _to_int(r.get("pace_seconds_per_km"))
         elif sport == "ride":
-            item["avg_pwr"] = r.get("average_power_w") or r.get("avg_power_w")
+            item["avg_pwr"] = _to_int(r.get("average_power_w") or r.get("avg_power_w"))
 
         out.append(item)
 
@@ -333,9 +369,7 @@ def _minify_laps(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> L
 
 def _minify_streams_for_ai(row: Optional[Dict[str, Any]], *, sport: str) -> Optional[Dict[str, Any]]:
     """
-    Extrémne zoštíhlené streams:
-      - len time + hr (+ power pre ride)
-      - tvrdo downsample
+    Extrémne zoštíhlené streams s použitím Smart Downsampling.
     """
     if not isinstance(row, dict):
         return None
@@ -349,21 +383,15 @@ def _minify_streams_for_ai(row: Optional[Dict[str, Any]], *, sport: str) -> Opti
 
     n = len(time_s)
     max_points = _streams_max_points(sport)
-
-    if n <= max_points:
-        idxs = list(range(n))
-    else:
-        step = max(1, int(n / max_points))
-        idxs = list(range(0, n, step))[:max_points]
+    
+    # Výber indexov rovnomerne
+    idxs = _pick_smart_indices(n, max_points)
 
     def pick(arr: Any) -> List[Any]:
         if not isinstance(arr, list) or not arr:
             return []
-        out = []
-        for i in idxs:
-            if 0 <= i < len(arr):
-                out.append(arr[i])
-        return out
+        # Ochrana proti out of bounds
+        return [arr[i] for i in idxs if i < len(arr)]
 
     out: Dict[str, Any] = {
         "points": len(idxs),
@@ -391,7 +419,7 @@ def _should_include_splits_laps(*, sport: str, is_focus: bool) -> bool:
 
 
 # =========================
-# activity block builders
+# ACTIVITY BLOCK BUILDERS
 # =========================
 
 def _build_activity_block_from_rows(
@@ -407,9 +435,10 @@ def _build_activity_block_from_rows(
     sport_src = summary_row.get("sport_type_fe") or summary_row.get("sport_type")
     sport = _canonical_sport(sport_src)
 
-    dist_m = _to_float(summary_row.get("distance_m"))
-    moving_s = _to_float(summary_row.get("moving_time_s"))
-    elev_gain_m = _to_float(summary_row.get("elevation_gain_m"))
+    # Raw hodnoty
+    dist_m = _round_float(summary_row.get("distance_m"))
+    moving_s = _round_float(summary_row.get("moving_time_s"))
+    elev_gain_m = _round_float(summary_row.get("elevation_gain_m"))
     avg_hr = _to_int(summary_row.get("average_heartrate_bpm"))
     max_hr = _to_int(summary_row.get("max_heartrate_bpm"))
     cadence_avg = (
@@ -418,6 +447,7 @@ def _build_activity_block_from_rows(
         or _to_int(summary_row.get("cadence_avg"))
     )
 
+    # Calculated & Rounded
     dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
     dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
     pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
@@ -428,28 +458,33 @@ def _build_activity_block_from_rows(
         "sport": sport,
         "metrics": {
             "date": date_str,
-            "distance_km": dist_km,
-            "duration_min": dur_min,
+            "distance_km": _round_float(dist_km, 2), # Zaokrúhlenie
+            "duration_min": _round_float(dur_min, 1), # Zaokrúhlenie
             "pace_s_per_km": pace_s_per_km,
             "avg_hr_bpm": avg_hr,
             "max_hr_bpm": max_hr,
-            "elevation_gain_m": elev_gain_m,
+            "elevation_gain_m": _to_int(elev_gain_m), # Integer stačí
             "cadence_avg": cadence_avg,
         },
     }
 
     if include_zones:
-        z1 = _to_float(enr_row.get("z1_min"))
-        z2 = _to_float(enr_row.get("z2_min"))
-        z3 = _to_float(enr_row.get("z3_min"))
-        z4 = _to_float(enr_row.get("z4_min"))
-        z5 = _to_float(enr_row.get("z5_min"))
+        # Zóny zaokrúhlime na 1 desatinné miesto, šetrí to veľa znakov
+        z1 = _round_float(enr_row.get("z1_min"), 1)
+        z2 = _round_float(enr_row.get("z2_min"), 1)
+        z3 = _round_float(enr_row.get("z3_min"), 1)
+        z4 = _round_float(enr_row.get("z4_min"), 1)
+        z5 = _round_float(enr_row.get("z5_min"), 1)
         out["zones_min"] = {"z1": z1, "z2": z2, "z3": z3, "z4": z4, "z5": z5}
 
     return out
 
 
 def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Orezanie detailov pre starú históriu (8-14 dní).
+    Nechávame len kľúčové veci.
+    """
     m = item.get("metrics") or {}
     return {
         "activity_id": item.get("activity_id"),
@@ -457,14 +492,13 @@ def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
         "sport": item.get("sport"),
         "metrics": {
             "date": m.get("date"),
-            "distance_km": m.get("distance_km"),
+            "distance_km": m.get("distance_km"), # už je zaokrúhlené z buildera
             "duration_min": m.get("duration_min"),
-            "pace_s_per_km": m.get("pace_s_per_km"),
+            "pace_s_per_km": m.get("pace_s_per_km"), # nechávame pre kontext tempa
             "avg_hr_bpm": m.get("avg_hr_bpm"),
-            "max_hr_bpm": m.get("max_hr_bpm"),
-            "elevation_gain_m": m.get("elevation_gain_m"),
+            # Max HR, Elevation, Cadence vyhadzujeme pre staré aktivity
         },
-        "zones_min": item.get("zones_min"),
+        "zones_min": None, # Zóny pre starú históriu netreba
     }
 
 
@@ -494,7 +528,7 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
 
 
 # =========================
-# main input builder
+# MAIN INPUT BUILDER
 # =========================
 
 def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
@@ -653,6 +687,7 @@ def build_input_from_db(
             except Exception:
                 laps = []
 
+            # Použitie vylepšených minifikátorov so Smart Compression
             focus["splits_minified"] = _minify_splits(splits, sport=sport, max_items=_splits_max_items(sport))
             focus["laps_minified"] = _minify_laps(laps, sport=sport, max_items=_laps_max_items(sport))
         else:
@@ -662,8 +697,6 @@ def build_input_from_db(
     input_data["activity"] = focus
 
     # build history:
-    #  - days_0_7: ONLY summary+zones (NO streams/laps/splits)
-    #  - days_8_14: coarsened summary (no zones if not available)
     hist_items: List[Dict[str, Any]] = []
 
     for aid in ids_0_7:

@@ -5,17 +5,13 @@ from typing import Dict, Optional, Tuple, Any
 
 
 # ============================================================
-# context minify (aligned with builder payload)
+# context minify (safety net aligned with builder)
 # ============================================================
 
 def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Builder už posiela minified veci (streams_minified/splits_minified/laps_minified).
-    Takže:
-      - drop user id/email/name
-      - drop debug
-      - nechávame minified streams/laps/splits v activity/history
-      - nechávame user_input.comment (premium feature)
+    Builder už posiela dáta vyčistené a optimalizované.
+    Toto je len poistka na odstránenie citlivých údajov, ak by prešli inou cestou.
     """
     if not isinstance(context, dict):
         return {}
@@ -85,11 +81,11 @@ def _system_prompt(sport: str) -> str:
     )
 
     if sport == "run":
-        return base + " Focus on running execution, intensity distribution, and injury/fatigue signals."
+        return base + " Focus on running execution, intensity vs. terrain, and aerobic decoupling (HR drift)."
     if sport == "ride":
-        return base + " Focus on cycling load distribution, steadiness, and recovery impact."
+        return base + " Focus on power/HR consistency, endurance steadiness, and recovery impact."
     if sport == "strength":
-        return base + " Focus on strength stress, recovery needs, and injury risk. Do not evaluate cardio."
+        return base + " Focus on volume load, recovery needs, and injury risk. Do not evaluate cardio metrics."
     if sport == "swim":
         return base + " Focus on swim consistency, effort control, and recovery impact."
     return base + " Focus on general training evaluation and recovery impact."
@@ -103,62 +99,67 @@ def _sport_rules(sport_key: str) -> str:
     common = [
         "- Do NOT invent missing data.",
         "- Output must be valid JSON only (no markdown).",
-
-        # STYLE: stop the form-filling behavior
-        "- STYLE: Write like a human coach. Continuous prose. NO bullets, NO lists, NO headings.",
+        
+        # STYLE: human-like coaching
+        "- STYLE: Write like a human coach. Continuous prose. NO bullets, NO lists, NO headings inside the text fields.",
         "- Avoid repeating the same fact in multiple sentences.",
-        "- Do NOT dump metrics. Mention at most 1–2 numbers that actually change interpretation (e.g., duration + dominant zone, or peak HR if relevant).",
-        "- If you reference intensity, prefer dominant_zone + short interpretation, not a full zone breakdown.",
+        "- Do NOT dump raw metrics. Instead of saying 'Your HR was 145', say 'Your heart rate stayed in the aerobic zone'.",
+        "- Mention at most 1–2 specific numbers only if they tell a story (e.g. max HR on a hill).",
+        
+        # LOGIC & INTERPRETATION
+        "- If elevation_gain is high, interpret slower pace as natural, not as bad performance.",
+        "- Splits are provided as a sample (Start/Middle/End). Use them to identify trends (e.g. fading at the end), not for second-by-second analysis.",
+        "- If user_input.comment exists, acknowledge it ONCE and integrate it (do not copy it verbatim).",
         "- Use horizon: today + last 7 days only for ONE short comparison sentence (optional).",
-        "- If user_input.comment exists, acknowledge it ONCE and integrate it (do not copy it).",
-        "- If splits/laps/streams exist: use them for at most ONE observation (e.g., pacing fade / spiky effort).",
-        "- If something is unknown, explicitly say it is unknown (do not guess).",
     ]
 
     if sport_key == "run":
         return "\n".join(common + [
-            "- Identify the session kind (easy/tempo/intervals/etc.) based on available signals.",
-            "- Mention injury/fatigue risk only if supported (spike, high intensity, poor recovery).",
+            "- Identify the session kind (easy/tempo/intervals/etc.) based on intensity distribution.",
+            "- Check for HR Drift: If pace is stable but HR rises significantly in the last splits, mention fatigue.",
+            "- Mention injury risk only if objectively supported (e.g. sudden spike in load vs history).",
         ])
 
     if sport_key == "run_race":
         return "\n".join(common + [
             "- Treat as a RACE / KEY EVENT.",
             "- Evaluate pacing discipline and execution under fatigue.",
-            "- Always include one concrete recovery action and one timing guidance for next quality session (in free text).",
+            "- Always include one concrete recovery action and one timing guidance for next quality session.",
         ])
 
     if sport_key == "ride":
         return "\n".join(common + [
-            "- Mention steadiness/spikiness only if supported by streams/zones/laps.",
+            "- Mention steadiness/spikiness. If power data exists, prioritize it over HR.",
+            "- For long rides, evaluate if the effort was sustainable.",
         ])
 
     if sport_key == "strength":
         return "\n".join(common + [
-            "- session_kind MUST be 'strength' if sport is strength.",
-            "- Focus on strength stress, soreness risk, recovery needs, and movement quality constraints.",
-            "- Do NOT evaluate endurance/cardio performance goals.",
-            "- If lower body was intentionally reduced, interpret it as a smart constraint, not weakness.",
+            "- session_kind MUST be 'strength'.",
+            "- Focus on consistency and recovery.",
+            "- Do NOT evaluate pace or distance.",
+            "- If lower body was intentionally reduced (based on history of runs), interpret it as smart training.",
         ])
 
     if sport_key == "swim":
         return "\n".join(common + [
             "- Keep concise and practical.",
+            "- Focus on total volume and intensity zones.",
         ])
 
     return "\n".join(common)
 
 
 # ============================================================
-# PLAN + NEXT DAY RULES
+# PLAN + NEXT DAY RULES (Anti-Hallucination)
 # ============================================================
 
 def _plan_rules() -> str:
-    # Keep it short; long plan rules = bigger prompt + more "form feel"
     return "\n".join([
-        "- Plan blocks may or may not be present. Never assume.",
-        "- If plan context exists, briefly reference what is next and how to approach it in next_day_plan.",
-        "- If plan context is missing, still give a sensible next-day suggestion based on recovery/load.",
+        "- Plan blocks may or may not be present. Never assume a plan exists if the data is null.",
+        "- IF PLAN CONTEXT EXISTS: Briefly reference what is next and how to prepare for it.",
+        "- IF PLAN CONTEXT IS MISSING: Suggest ONLY general recovery or light activity based on today's load.",
+        "- **CRITICAL**: DO NOT invent specific workouts (e.g. 'run 4x1km') if they are not in the JSON. If no plan, say 'dopraj si ľahký beh' or 'oddych', not specific intervals.",
     ])
 
 
@@ -169,7 +170,6 @@ def _has_any_plan_block(ctx_for_llm: Dict[str, Any]) -> bool:
     if not isinstance(ctx_for_llm, dict):
         return False
 
-    # common candidate keys (future-proof)
     keys = (
         "plan_next", "plan_today", "plan_week", "daily_plan",
         "plan", "plans", "next_plan", "next_session",
@@ -178,26 +178,14 @@ def _has_any_plan_block(ctx_for_llm: Dict[str, Any]) -> bool:
 
     for k in keys:
         v = ctx_for_llm.get(k)
-        if v is None:
-            continue
-        # if any non-empty dict/list/str exists -> yes
-        if isinstance(v, dict) and len(v) > 0:
-            return True
-        if isinstance(v, list) and len(v) > 0:
-            return True
-        if isinstance(v, str) and v.strip():
+        if v: # check for truthiness (non-empty dict/list/str)
             return True
 
-    # maybe nested under context or activity
     nested = ctx_for_llm.get("context")
     if isinstance(nested, dict):
         for k in keys:
             v = nested.get(k)
-            if isinstance(v, dict) and len(v) > 0:
-                return True
-            if isinstance(v, list) and len(v) > 0:
-                return True
-            if isinstance(v, str) and v.strip():
+            if v:
                 return True
 
     return False
@@ -222,8 +210,8 @@ def _schema(lang: str, sport: str) -> str:
 
   "confidence_0_to_100": number | null,
 
-  "review_text": "FREE TEXT. 6–14 viet. 2. osoba. Čitateľné ako tréner. Bez odrážok.",
-  "next_day_plan": "FREE TEXT. 4–10 viet. Čo ťa čaká zajtra / ďalší deň, ako sa pripraviť, ako to odbehnúť/odcvičiť, čo sledovať.",
+  "review_text": "FREE TEXT. 6–12 sentences. {lang}. Write like a coach. Continuous prose. NO bullets.",
+  "next_day_plan": "FREE TEXT. 4–8 sentences. Advice for tomorrow. If recovery is needed, say so.",
 
   "key_numbers": {{
     "duration_min": number | null,
@@ -278,18 +266,19 @@ def build_prompts_for_activity_review(
         "timezone": settings.get("timezone"),
     }
 
+    # Minify / Safety check
     context_for_llm = minify_activity_context_for_ai(context)
 
     system_txt = _system_prompt(resolved_sport)
 
-    # include plan rules only if plan seems present (saves tokens + reduces formality)
-    plan_rules_txt = _plan_rules() if _has_any_plan_block(context_for_llm) else ""
+    # Always include plan rules to prevent hallucinations, even if plan is missing
+    plan_rules_txt = _plan_rules()
 
     user_txt = (
         "Evaluate ONE completed session using the provided JSON context.\n\n"
         "What you have:\n"
-        "- Focus activity: context.activity\n"
-        "- History: context.history.days_0_7 (detailed), context.history.days_8_14 (coarse)\n"
+        "- Focus activity: context.activity (Metrics are already rounded. Do not add decimals.)\n"
+        "- History: context.history.days_0_7 (summary), context.history.days_8_14 (coarse)\n"
         "- Recovery + recent load + HR zones: context.context\n"
         "- Optional plan blocks may be present.\n"
         "- Optional user comment may be present at context.user_input.comment.\n\n"
@@ -302,9 +291,9 @@ def build_prompts_for_activity_review(
         f"- {second_person_note}\n"
         f"- Sport route (fixed by backend): {sport_key}\n"
         + _sport_rules(sport_key)
-        + ("\n" + plan_rules_txt if plan_rules_txt else "")
+        + "\n" + plan_rules_txt
         + "\n"
-        "- key_numbers: fill from context.activity.metrics when present; otherwise nulls.\n"
+        "- key_numbers: fill from context.activity.metrics; otherwise nulls.\n"
         "- dominant_zone: derive from context.activity.zones_min (max minutes) if available; else null.\n"
         "- source: copy from context.user_input.source if present else null.\n"
         "- flags.used_user_comment=true ONLY if context.user_input.comment exists and you actually incorporated it.\n"
