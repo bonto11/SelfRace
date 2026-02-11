@@ -92,7 +92,6 @@ def service_request_activity_review_rerun(
     """
     
     # 1. Získame summary aktivity kvôli dátumu
-    # (používame bulk loader pre 1 ID, lebo je to štandard v projekte)
     summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
     if not summaries or not summaries[0]:
         return {
@@ -108,7 +107,7 @@ def service_request_activity_review_rerun(
     if days_old > 7:
         return {
             "ok": False,
-            "code": "activity_too_old", # Pre FE translation
+            "code": "activity_too_old", # Key pre FE preklad
             "message": "AI analýzu je možné vyžiadať len pre aktivity nie staršie ako 7 dní."
         }
 
@@ -123,7 +122,7 @@ def service_request_activity_review_rerun(
     )
 
     current_review = enr_row.get("ai_review")
-    # Verzia 0 znamená, že review ešte nie je, alebo sa ho nepodarilo vytvoriť
+    # Verzia 0 znamená, že review ešte nie je
     cur_version = int(enr_row.get("ai_review_version") or 0) if current_review else 0
 
     # 4. Zistenie Tieru
@@ -138,12 +137,12 @@ def service_request_activity_review_rerun(
     
     if tier_code == "pro":
         max_versions = 50
-        # Pro môže všetko
+        # Pro user check - aj Pro user by nemal posielať 2x to isté, ak už review má
         pass 
 
     elif tier_code == "classic":
         max_versions = 3
-        # Classic môže komentovať, pokiaľ neprekročil limit
+        # Classic limit check
         if cur_version >= max_versions:
              return {
                 "ok": False,
@@ -158,25 +157,26 @@ def service_request_activity_review_rerun(
         if cur_version > 0:
              return {
                 "ok": False,
-                "code": "only_one_for_free_tier", # Pre FE translation
+                "code": "only_one_for_free_tier",
                 "message": "Vo free verzii máte nárok len na jedno automatické hodnotenie.",
                 "tier": tier_code
             }
         
-        # Ak review nemá (verzia 0), pustíme ho (napr. oprava chyby),
-        # ALE ignorujeme jeho komentár, lebo to je platená feature.
+        # Ak review nemá (verzia 0), pustíme ho, ale bez komentára
         comment_from_user = None
 
-    # 6. Kontrola duplicity (Anti-spam pre Classic/Pro)
-    # Ak nejde o Free (kde je comment None), skontrolujeme či neposiela to isté
-    if tier_code != "free":
+    # 6. Kontrola duplicity (Anti-spam)
+    # Ak užívateľ posiela komentár a je identický s posledným uloženým, zablokujeme to.
+    # Platí pre Classic aj Pro (šetríme tokeny).
+    if tier_code != "free" and current_review:
         last_comment = enr_row.get("ai_review_last_user_comment")
-        # Pre Classic nepovolíme míňať pokusy na rovnaký komentár
-        if tier_code == "classic" and comment_from_user == last_comment and current_review:
+        
+        # Porovnáme normalizované stringy (None == None je True)
+        if comment_from_user == last_comment:
              return {
                 "ok": False,
-                "code": "duplicate_comment",
-                "message": "Tento komentár už bol použitý.",
+                "code": "duplicate_content", # Key pre FE preklad
+                "message": "Tento komentár ste už použili pri poslednom generovaní.",
             }
 
     # 7. Enqueue Job
@@ -214,5 +214,5 @@ def service_request_activity_review_rerun(
         "job_id": out["job"].get("id"),
         "tier": tier_code,
         "next_version": next_version,
-        "comment_used": bool(comment_from_user) # Info pre FE, či sme komentár použili alebo zahodili
+        "comment_used": bool(comment_from_user)
     }

@@ -111,6 +111,10 @@ def _sport_rules(sport_key: str) -> str:
         "- Splits are provided as a sample (Start/Middle/End). Use them to identify trends (e.g. fading at the end), not for second-by-second analysis.",
         "- If user_input.comment exists, acknowledge it ONCE and integrate it (do not copy it verbatim).",
         "- Use horizon: today + last 7 days only for ONE short comparison sentence (optional).",
+
+        # ZONES & INTENSITY (New)
+        "- INTENSITY: If specific HR zones are available in context (e.g. Z2 is 140-150), use these specific ranges when explaining intensity to the user (e.g. 'drž sa v hornej Z2, teda okolo 148 tepov').",
+        "- RPE/FEEL: If zones are missing, describe intensity by feeling (RPE) or 'talk test' (e.g. 'tempo, pri ktorom vieš plynulo rozprávať'). Be practical for a layperson.",
     ]
 
     if sport_key == "run":

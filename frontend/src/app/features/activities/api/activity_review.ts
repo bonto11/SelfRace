@@ -61,9 +61,8 @@ export async function apiRerunActivityReview(
     enqueueJson = await callBackend(requestPath, {
       method: "POST",
       cache: "no-store",
-      // ✅ Explicitne nastavíme hlavičku, rovnako ako v apiAnalyzeAthleteState
+      // ✅ Fix pre chybu 422: Explicitne nastavíme hlavičku a stringifikujeme body
       headers: { "Content-Type": "application/json" },
-      // ✅ Explicitne stringifikujeme, lebo tak to máš v apiAnalyzeAthleteState
       body: JSON.stringify(opts),
     });
   } catch (e: any) {
@@ -71,14 +70,14 @@ export async function apiRerunActivityReview(
     throw new Error(e?.message || "Nepodarilo sa vytvoriť požiadavku.");
   }
 
+  // Ak BE vráti chybu (napr. limit_reached, duplicate_content), vrátime ju do UI
   if (!enqueueJson?.ok) {
-    // Ak BE vráti chybu (napr. limit vyčerpaný), skončíme hneď
     return enqueueJson;
   }
 
   const jobId = enqueueJson.job_id;
   if (!jobId) {
-    // Fallback: ak nemáme job_id, asi to len zbehhlo bez jobu (divné), vrátime success
+    // Fallback: ak nemáme job_id, vrátime success (divný stav, ale success)
     return { ok: true, message: "Požiadavka prijatá (bez job id)." };
   }
 
@@ -95,7 +94,7 @@ export async function apiRerunActivityReview(
 
     if (!runJson?.success) {
       console.warn("[AR] Sync Run Failed/Timeout", runJson);
-      // Aj keď sync run zlyhá, job je stále v DB a worker ho spraví.
+      // Job ostane v DB a worker ho spracuje. UI dostane info, že sa pracuje.
       return { ok: true, message: "Spracovávanie na pozadí..." };
     }
 
