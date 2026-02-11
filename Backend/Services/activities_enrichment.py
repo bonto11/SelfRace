@@ -1,8 +1,8 @@
 # Services/activities_review.py
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional, List
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 from Modules.Supabase.auth import AuthCtx
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity

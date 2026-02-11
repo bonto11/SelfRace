@@ -17,7 +17,7 @@ from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 from Routes_DB.activities_splits import db_get_activity_splits
 from Routes_DB.activities_laps import db_get_activity_laps
 from Routes_DB.activities_streams import db_get_streams_one
-from Routes_DB.user_zones import db_user_zones_fetch_latest # ✅ NEW Import
+from Routes_DB.user_zones import db_user_zones_fetch_latest
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -311,7 +311,8 @@ def _minify_splits(rows: List[Dict[str, Any]], *, sport: str, max_items: int) ->
             "i": r.get("split_index"),
             "dist_m": _to_int(r.get("distance_m")),
             "moving_s": _to_int(r.get("moving_time_s")),
-            "avg_hr": _to_int(r.get("average_heartrate_bpm") or r.get("avg_hr_bpm")),
+            "elevation_diff_m": _to_int(r.get("elevation_diff_m")),
+            "avg_hr": _to_int(r.get("avg_hr_bpm")),
         }
 
         if sport == "run":
@@ -341,7 +342,8 @@ def _minify_laps(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> L
             "i": r.get("lap_index"),
             "dist_m": _to_int(r.get("distance_m")),
             "moving_s": _to_int(r.get("moving_time_s")),
-            "avg_hr": _to_int(r.get("average_heartrate_bpm") or r.get("avg_hr_bpm")),
+            "elevation_diff_m": _to_int(r.get("elevation_diff_m")),
+            "avg_hr": _to_int(r.get("avg_hr_bpm")),
         }
 
         if sport == "run":
@@ -593,20 +595,23 @@ def build_input_from_db(
     # ✅ 2. NEW: Fetch latest user zones from DB
     try:
         user_zones_row = db_user_zones_fetch_latest(user_id=user_id, sport_raw=focus_sport, ctx=ctx)
-        # Ak nenájdeš pre konkrétny šport, skús fallback (bez športu alebo "default")
+        
+        # Ak nenájdeš pre konkrétny šport, skús fallback na obecné/default zóny
         if not user_zones_row:
              user_zones_row = db_user_zones_fetch_latest(user_id=user_id, sport_raw=None, ctx=ctx)
         
-        # Očistíme dáta pre AI (z1_min, z1_max, atď)
         if user_zones_row:
+            # Mapovanie podľa tvojho DB snapshotu (zX_min_bpm, zX_max_bpm, hr_max_bpm)
             input_data["context"]["user_zones"] = {
                 "source": "db_users_zones",
                 "sport": user_zones_row.get("sport"),
-                "z1": {"min": user_zones_row.get("z1_min"), "max": user_zones_row.get("z1_max")},
-                "z2": {"min": user_zones_row.get("z2_min"), "max": user_zones_row.get("z2_max")},
-                "z3": {"min": user_zones_row.get("z3_min"), "max": user_zones_row.get("z3_max")},
-                "z4": {"min": user_zones_row.get("z4_min"), "max": user_zones_row.get("z4_max")},
-                "z5": {"min": user_zones_row.get("z5_min"), "max": user_zones_row.get("z5_max")},
+                # Z1 min v DB nemáme, dávame 0 (alebo kľudový tep ak by sme chceli byť precízni)
+                "z1": {"min": 0, "max": user_zones_row.get("z1_max_bpm")},
+                "z2": {"min": user_zones_row.get("z2_min_bpm"), "max": user_zones_row.get("z2_max_bpm")},
+                "z3": {"min": user_zones_row.get("z3_min_bpm"), "max": user_zones_row.get("z3_max_bpm")},
+                "z4": {"min": user_zones_row.get("z4_min_bpm"), "max": user_zones_row.get("z4_max_bpm")},
+                # Z5 max v DB nie je, berieme celkový HR Max
+                "z5": {"min": user_zones_row.get("z5_min_bpm"), "max": user_zones_row.get("hr_max_bpm")},
             }
     except Exception as e:
         print("[AI][builder] user_zones fetch failed", repr(e))

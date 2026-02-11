@@ -111,8 +111,7 @@ def service_activity_review(
         ctx=ctx,
     )
 
-    print("build_review_input input_data", input_data)
-
+    
     context_for_ai = _minify_context_for_ai(input_data)
 
     # ✅ attach meta for LLM (builder/prompts can reference it)
@@ -153,6 +152,8 @@ def service_activity_review(
                 "message": "Missing activity metrics (summary/enrichment not loaded)",
             },
         }
+
+    print("build_review_input context_for_ai", context_for_ai)
 
     # generate review
     review, trace = generate_activity_review_json(
