@@ -8,7 +8,6 @@ from Modules.Supabase.auth import AuthCtx
 from Configs.config import (
     TABLE_APP_SUBSCRIPTION_TIERS,
     TABLE_APP_USER_SUBSCRIPTIONS,
-    TABLE_USERS,
 )
 
 # --------- TIERS (app_subscription_tiers) ---------
@@ -213,8 +212,6 @@ def db_get_active_app_subscription_for_user(
         .limit(1)
         .execute()
     )
-
-    print("db_get_active_app_subscription_for_user res", res)
 
     rows: List[Dict[str, Any]] = res.data or []
     return rows[0] if rows else None
