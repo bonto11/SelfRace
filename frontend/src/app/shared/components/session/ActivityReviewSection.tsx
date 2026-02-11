@@ -1,3 +1,4 @@
+// src/app/shared/components/session/ActivityReviewSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -25,6 +26,8 @@ type Props = {
 };
 
 const MAX_COMMENT_CHARS = 900;
+
+/* ================= date helpers ================= */
 
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
@@ -84,6 +87,8 @@ function safeJson(v: any): string {
   }
 }
 
+/* ================= tier helpers ================= */
+
 function getTierCodeFromInit(activityData: any): string {
   const v =
     activityData?.init?.user?.app_subscription_tier ??
@@ -101,6 +106,8 @@ function maxVersionsForTier(tier: string): number {
   if (tier === "classic") return 2;
   return 1;
 }
+
+/* ================= component ================= */
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
@@ -141,12 +148,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     return days <= 7;
   }, [startDt]);
 
-  // Raw payload from BE (GET /activities/review)
+  // Whole GET payload (for debugging)
   const [getPayload, setGetPayload] = useState<any | null>(null);
 
   // extracted fields (for gating + note)
   const [review, setReview] = useState<any | null>(null);
   const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
+
+  // IMPORTANT: version should come from BE, not guessed from "has review"
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(null);
   const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(null);
@@ -208,7 +217,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const hasReview = review != null;
 
   const canRerunByTier = maxVersions > 1;
-  const canRerunByCount = aiReviewVersion < maxVersions; // NOTE: version sa zmení až keď worker uloží
+  const canRerunByCount = aiReviewVersion < maxVersions;
   const canRerun = Boolean(isEligible && canRerunByTier && canRerunByCount);
 
   const disabledReason =
@@ -227,6 +236,45 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 : commentTooLong
                   ? `Comment too long: ${commentLen}/${MAX_COMMENT_CHARS}`
                   : null;
+
+  // log state
+  useEffect(() => {
+    console.log("[AR][STATE]", {
+      userId,
+      activityId,
+      tier_store: (getSubscriptionTier() || "free").toLowerCase(),
+      tier_init: getTierCodeFromInit(activityData),
+      tier_effective: tierCode,
+      maxVersions,
+      summary_date: s?.date ?? null,
+      startDt_iso: startDt ? startDt.toISOString() : null,
+      eligible: isEligible,
+      hasReview,
+      aiReviewVersion,
+      canRerunByTier,
+      canRerunByCount,
+      canRerun,
+      commentLen,
+      commentTooLong,
+      disabledReason,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    userId,
+    activityId,
+    tierCode,
+    maxVersions,
+    s?.date,
+    isEligible,
+    hasReview,
+    aiReviewVersion,
+    canRerunByTier,
+    canRerunByCount,
+    canRerun,
+    commentLen,
+    commentTooLong,
+    disabledReason,
+  ]);
 
   let note: ReactNode = null;
   if (!hasReview) {
@@ -263,7 +311,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     if (!userId || !activityId || busyGen) return;
 
     console.log("[AR][RERUN] click", { disabledReason });
-
     setUiError(null);
 
     if (disabledReason) {
@@ -275,12 +322,12 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     try {
       const c = comment.trim();
 
-      // 🔥 tu uvidíš či sa comment fakt posiela
+      // ✅ verifies what you send to BE
       console.log("[AR][RERUN] request", {
         userId,
         activityId,
         commentLen: c.length,
-        comment: c || null,
+        comment_preview: c ? c.slice(0, 180) : null,
       });
 
       const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
@@ -296,7 +343,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         setComment("");
       }
 
-      // nech to hneď refreshne raw payload (aj keď review príde až po workerovi)
       await reload();
     } catch (e: any) {
       console.error("[AR][RERUN] error", e);
@@ -323,6 +369,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       {busyGen ? "Generating…" : "Re-run AI review"}
     </Button>
   );
+
+  const prettyReview = useMemo(() => safeJson(review), [review]);
+  const prettyGet = useMemo(() => safeJson(getPayload), [getPayload]);
 
   return (
     <ActivitySectionShell title="Coach komentár" defaultOpen={true} items={[]}>
@@ -367,22 +416,22 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="mt-3">
         {busyLoad && <div className="text-xs opacity-70">Loading…</div>}
 
-        {/* ✅ Raw review JSON (what you actually care about) */}
+        {/* ✅ RAW review JSON */}
         {!busyLoad && (
           <div className="mt-3">
-            <div className="text-xs font-semibold opacity-80">AI review (raw)</div>
-            <pre className="mt-2 max-h-96 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
-              {safeJson(review)}
+            <div className="text-xs font-semibold opacity-80">AI review (raw JSON)</div>
+            <pre className="mt-2 max-h-80 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
+              {prettyReview}
             </pre>
           </div>
         )}
 
-        {/* ✅ Whole GET payload too (so you see version/fields) */}
+        {/* ✅ Whole GET payload */}
         {!busyLoad && (
           <div className="mt-4">
-            <div className="text-xs font-semibold opacity-80">GET payload (raw)</div>
-            <pre className="mt-2 max-h-96 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
-              {safeJson(getPayload)}
+            <div className="text-xs font-semibold opacity-80">GET payload (raw JSON)</div>
+            <pre className="mt-2 max-h-80 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
+              {prettyGet}
             </pre>
           </div>
         )}
