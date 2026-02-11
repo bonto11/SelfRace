@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
-from backend.Services.activities_enrichment import (
+from Services.activities_enrichment import (
     service_request_activity_review_rerun,
     service_get_activity_enrichment,
 )

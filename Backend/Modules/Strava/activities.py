@@ -4,8 +4,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from Modules.Strava.http_client import StravaHTTPClient
-from Configs.config import STRAVA_DEBUG_STREAMS
-
 
 class StravaActivitiesClient:
     """

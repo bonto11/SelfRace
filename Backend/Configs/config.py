@@ -131,7 +131,6 @@ TOKENS_FILE = env_optional("STRAVA_TOKENS_FILE", "data/tokens.json")
 
 USE_STRAVA_CACHE = False
 CACHE_DIR = "data/strava_cache"
-STRAVA_DEBUG_STREAMS = env_bool("STRAVA_DEBUG_STREAMS", default=False)
 
 REQUEST_DELAY_SECS = 0.3
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
