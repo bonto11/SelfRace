@@ -254,10 +254,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   } else {
       statusNote = (
           <div className="flex items-center gap-2">
-              <span>Coach verzia {aiReviewVersion}</span>
-              {canRerunByTier && aiReviewVersion < maxVersions && (
-                  <span className="opacity-50 text-[10px]">({maxVersions - aiReviewVersion} ostáva)</span>
-              )}
+              <span>Review {aiReviewVersion}/{maxVersions}</span>
           </div>
       );
   }
