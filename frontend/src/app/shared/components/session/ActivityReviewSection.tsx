@@ -8,7 +8,6 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 
 import {
-  // apiGetActivityReview, // ❌ TOTO UŽ NEPOTREBUJEME, rieši to Provider
   apiRerunActivityReview,
 } from "@/app/features/activities/api/activities_enrichment";
 
@@ -48,7 +47,7 @@ function parseDateSafe(v: any): Date | null {
 
 /* ================= tier helpers ================= */
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 3;
+  if (tier === "pro") return 3; //toto je dobre takto!
   if (tier === "classic") return 2;
   return 1;
 }
