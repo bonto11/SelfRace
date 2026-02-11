@@ -26,13 +26,13 @@ type Props = {
 };
 
 const MAX_COMMENT_CHARS = 900;
+const REFRESH_COOLDOWN_MS = 10000; // 10 sekúnd
 
 /* ================= date helpers ================= */
 
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
   const raw = String(v).trim();
-  // ... (date logic same as before)
   const d0 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (d0) {
     const y = Number(d0[1]);
@@ -140,19 +140,22 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   // Data state
   const [review, setReview] = useState<any | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
-  // Last used comment from DB to prefill
   const [lastUserComment, setLastUserComment] = useState<string | null>(null);
 
   const [comment, setComment] = useState<string>("");
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
-  const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8; // Show only if near limit
+  const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8;
 
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
+  
+  // Refresh cooldown state
+  const [refreshLocked, setRefreshLocked] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
+  // Load data function
   const reload = async () => {
     if (!userId || !activityId) return;
     setBusyLoad(true);
@@ -166,7 +169,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       const dbComment = (out as any)?.ai_review_last_user_comment;
       if (typeof dbComment === "string") {
           setLastUserComment(dbComment);
-          // Prefill ONLY if current comment is empty (don't overwrite user input)
           setComment((prev) => prev || dbComment);
       }
       
@@ -183,12 +185,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, activityId]);
 
+  // Eligibility logic
   const hasReview = review != null;
-  const canRerunByTier = maxVersions > 1; // Classic or Pro
+  const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
-  // Free tier logic: Can run ONCE (version 0->1), but without comment
   const canFreeRun = tierCode === "free" && aiReviewVersion === 0;
-
   const canRerun = isEligible && ( (canRerunByTier && canRerunByCount) || canFreeRun );
 
   // Parsing review content
@@ -199,7 +200,62 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const dominantZone = typeof r?.key_numbers?.dominant_zone === "string" ? r.key_numbers.dominant_zone : null;
   const needsCaution = r?.flags?.needs_caution === true;
 
-  // Header Status Note
+  // --- Handlers ---
+
+  const onManualRefresh = async () => {
+      if (refreshLocked || busyGen || busyLoad) return;
+      
+      setRefreshLocked(true); // Lock button
+      await reload();
+      
+      // Unlock after 10 seconds
+      setTimeout(() => {
+          setRefreshLocked(false);
+      }, REFRESH_COOLDOWN_MS);
+  };
+
+  const onRerun = async () => {
+    if (!userId || !activityId || busyGen) return;
+    setUiError(null);
+
+    if (!isEligible) {
+        setUiError("Aktivita je príliš stará.");
+        return;
+    }
+    if (commentTooLong) {
+        setUiError("Komentár je príliš dlhý.");
+        return;
+    }
+
+    setBusyGen(true);
+    // Lock refresh button while generating to prevent double clicks
+    setRefreshLocked(true); 
+
+    try {
+      const c = comment.trim();
+      const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
+        comment: c.length ? c : null,
+        model: null,
+      });
+
+      if (!out?.ok) {
+        setUiError(out?.message || "Požiadavka zamietnutá.");
+      } else {
+        // Success
+      }
+      await reload();
+    } catch (e: any) {
+      setUiError(e?.message || "Chyba pri generovaní.");
+    } finally {
+      setBusyGen(false);
+      // Keep refresh locked for the cooldown duration after generation
+      setTimeout(() => {
+        setRefreshLocked(false);
+      }, REFRESH_COOLDOWN_MS);
+    }
+  };
+
+  // Status Note Component
   let statusNote: ReactNode = null;
   if (!hasReview) {
      if (!isEligible && startDt) {
@@ -218,64 +274,46 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       );
   }
 
-  const onRerun = async () => {
-    if (!userId || !activityId || busyGen) return;
-    setUiError(null);
-
-    // Basic validation
-    if (!isEligible) {
-        setUiError("Aktivita je príliš stará.");
-        return;
-    }
-    if (commentTooLong) {
-        setUiError("Komentár je príliš dlhý.");
-        return;
-    }
-
-    setBusyGen(true);
-    try {
-      const c = comment.trim();
-      const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
-        comment: c.length ? c : null,
-        model: null,
-      });
-
-      if (!out?.ok) {
-        setUiError(out?.message || "Požiadavka zamietnutá.");
-      } else {
-        // Success
-      }
-      await reload();
-    } catch (e: any) {
-      setUiError(e?.message || "Chyba pri generovaní.");
-    } finally {
-      setBusyGen(false);
-    }
-  };
-
   return (
     <ActivitySectionShell title="Coach Hodnotenie" defaultOpen={true} items={[]}>
       
-      {/* 1. Top Bar: Status + Action */}
+      {/* 1. Top Bar: Status + Actions */}
       <div className="flex items-center justify-between min-h-[32px]">
         <div className="text-xs font-medium opacity-70">{statusNote}</div>
         
-        {/* Action Button */}
-        {canRerun && (
-             <Button
+        <div className="flex items-center gap-2">
+            {/* Refresh Button */}
+            <Button
                 type="button"
-                variant="primary" // or "secondary" depending on design
+                variant="secondary" // Less prominent
                 size="sm"
-                onClick={onRerun}
-                disabled={busyGen}
-                className="opacity-90 hover:opacity-100"
+                onClick={onManualRefresh}
+                disabled={busyLoad || busyGen || refreshLocked}
+                className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}
+                title="Obnoviť dáta"
             >
-                {busyGen ? "Generujem..." : hasReview ? "Prepočítať" : "Vygenerovať Review"}
+                {/* Simple Refresh Icon or Text */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-1 ${busyLoad ? "animate-spin" : ""}`}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                {refreshLocked && !busyLoad ? "Čakajte" : "Obnoviť"}
             </Button>
-        )}
+
+            {/* Generate Button */}
+            {canRerun && (
+                 <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={onRerun}
+                    disabled={busyGen || refreshLocked} // Disable if refreshing
+                    className="opacity-90 hover:opacity-100"
+                >
+                    {busyGen ? "Generujem..." : hasReview ? "Prepočítať" : "Vygenerovať"}
+                </Button>
+            )}
+        </div>
       </div>
 
-      {/* 2. User Input (Comment) - Only for Classic/Pro & Eligible */}
+      {/* 2. User Input (Comment) */}
       {isEligible && canRerunByTier && (
         <div className="mt-4 mb-2">
             <textarea
@@ -286,15 +324,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Napíš poznámku pre AI... (napr. 'Cítil som sa unavený', 'Bežal som v kopcoch')"
+                disabled={busyGen}
             />
-            {/* Char count only if needed */}
             {showCharCount && (
                 <div className={`text-[10px] text-right mt-1 ${commentTooLong ? "text-red-400" : "opacity-40"}`}>
                     {commentLen} / {MAX_COMMENT_CHARS}
                 </div>
             )}
-            
-            {/* Quick Hints (Optional) */}
             {!hasReview && !comment && (
                 <div className="text-[11px] opacity-40 mt-1 pl-1">
                     Tip: Komentár pomôže AI lepšie pochopiť kontext tvojho tréningu.
@@ -312,10 +348,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       {/* 3. Review Content */}
       <div className="mt-6 space-y-6">
         {busyLoad ? (
-             <div className="py-4 text-center opacity-40 text-sm animate-pulse">Načítavam hodnotenie...</div>
+             <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
+                 {/* Optional bigger spinner */}
+                 <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                 <span className="text-sm">Načítavam hodnotenie...</span>
+             </div>
         ) : hasReview ? (
             <>
-                {/* Tags / Chips Row */}
+                {/* Tags */}
                 <div className="flex flex-wrap gap-2">
                     {sessionKind && <Chip label="Focus" value={sessionKind} />}
                     {dominantZone && <Chip label="Zóna" value={dominantZone} />}
@@ -328,7 +368,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
                 {/* Main Text */}
                 {reviewText && (
-                    <div>
+                    <div className="animate-in fade-in duration-500">
                         <SectionTitle>Hodnotenie Tréningu</SectionTitle>
                         <TextBlock>{reviewText}</TextBlock>
                     </div>
@@ -336,7 +376,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
                 {/* Next Day */}
                 {nextDayPlan && (
-                    <div>
+                    <div className="animate-in fade-in duration-500 delay-100">
                          <SectionTitle>Odporúčanie na zajtra</SectionTitle>
                          <TextBlock>{nextDayPlan}</TextBlock>
                     </div>
@@ -352,7 +392,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         )}
       </div>
 
-      {/* 4. Debug Section (Hidden by default) */}
+      {/* 4. Debug Section */}
       <div className="mt-8 pt-4 border-t border-white/5">
         <button
             onClick={() => setShowDebug(!showDebug)}

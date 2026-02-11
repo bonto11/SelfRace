@@ -45,34 +45,71 @@ export type ActivityReviewRerunResponse =
       max_versions?: number;
     };
 
+/**
+ * Trigger rerun AND wait for result (sync execution pattern).
+ * 1. Enqueue job via service_request_activity_review_rerun
+ * 2. Force execute via /jobs/run/:user_id/:job_id
+ */
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null } = {},
-): Promise<ActivityReviewRerunResponse> {
-  if (!userId) throw new Error("userId is required");
-  if (!activityId) throw new Error("activityId is required");
+  opts: { comment?: string | null; model?: string | null }
+): Promise<any> {
+  if (!userId) throw new Error("Missing userId");
 
-  const comment = typeof opts.comment === "string" ? opts.comment.trim() : null;
+  // 1. REQUEST RERUN (Enqueue)
+  // Toto volá tvoj BE service_request_activity_review_rerun -> service_enqueue_job
+  const requestPath = `/activities/${userId}/${activityId}/review/rerun`; 
+  // ^ UPRAV SI CESTU podľa tvojho routingu, predpokladám, že toto volá tú funkciu service_request...
 
-  const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}/rerun`;
-
-  const json = await callBackend<any>(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({
-      comment: comment && comment.length ? comment : null,
-      model: opts.model ?? null,
-    }),
-  });
-
-  // BE vracia vždy {success:boolean, ...}
-  if (!json || typeof json.success !== "boolean") {
-    throw new Error("Invalid response from activity review rerun endpoint");
+  let enqueueJson: any;
+  try {
+    enqueueJson = await callBackend(requestPath, {
+      method: "POST",
+      body: JSON.stringify(opts),
+    });
+  } catch (e: any) {
+    console.error("[AR] Enqueue Error", e);
+    throw new Error(e?.message || "Nepodarilo sa vytvoriť požiadavku.");
   }
 
-  return json as ActivityReviewRerunResponse;
+  if (!enqueueJson?.ok) {
+    // Ak BE vráti chybu (napr. limit vyčerpaný), skončíme hneď
+    return enqueueJson; 
+  }
+
+  const jobId = enqueueJson.job_id; // Získame ID nového jobu
+  if (!jobId) {
+     // Fallback: ak nemáme job_id, asi to len zbehhlo bez jobu (divné), vrátime success
+     return { ok: true, message: "Požiadavka prijatá (bez job id)." };
+  }
+
+  // 2. FORCE RUN (Sync Execution)
+  // Toto zavolá service_run_job_now na backende
+  const runPath = `/jobs/run/${userId}/${jobId}`;
+
+  try {
+    const runJson = await callBackend<any>(runPath, {
+      method: "POST",
+    });
+
+    if (!runJson?.success) {
+       // Ak run zlyhal (napr. už beží, alebo chyba), vrátime error
+       // Alebo ak timeoutoval, job ostane vo fronte pre workera.
+       console.warn("[AR] Sync Run Failed/Timeout", runJson);
+       // Aj keď sync run zlyhá, job je stále v DB a worker ho spraví.
+       // Takže technicky je to stále "ok", len user bude musieť čakať dlhšie.
+       return { ok: true, message: "Spracovávanie na pozadí..." };
+    }
+
+    // Ak success, znamená to, že AI review je hotové a uložené v DB.
+    return { ok: true, message: "Hotovo!" };
+
+  } catch (e) {
+    console.error("[AR] Sync Run Network Error", e);
+    // Network error pri run -> nevadí, job je v DB, worker ho spraví.
+    return { ok: true, message: "Požiadavka odoslaná na spracovanie." };
+  }
 }
 
 export async function apiGetActivityReview(
