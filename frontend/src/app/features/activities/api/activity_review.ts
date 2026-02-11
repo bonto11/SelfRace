@@ -15,15 +15,11 @@ type AsyncJobRow = {
   finished_at: string | null;
 };
 
-// src/app/features/activities/api/activity_review.ts
-
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
   model?: string | null;
   comment?: string | null; // ✅ NEW (premium user input)
 };
-
-// src/app/features/activities/api/activity_review.ts
 
 export type ActivityReviewRerunResponse =
   | {
@@ -58,14 +54,16 @@ export async function apiRerunActivityReview(
   if (!userId) throw new Error("Missing userId");
 
   // 1. REQUEST RERUN (Enqueue)
-  // Toto volá tvoj BE service_request_activity_review_rerun -> service_enqueue_job
-  const requestPath = `/activities/review/run/${userId}/${activityId}`; 
-  // ^ UPRAV SI CESTU podľa tvojho routingu, predpokladám, že toto volá tú funkciu service_request...
+  const requestPath = `/activities/review/run/${userId}/${activityId}`;
 
   let enqueueJson: any;
   try {
     enqueueJson = await callBackend(requestPath, {
       method: "POST",
+      cache: "no-store",
+      // ✅ Explicitne nastavíme hlavičku, rovnako ako v apiAnalyzeAthleteState
+      headers: { "Content-Type": "application/json" },
+      // ✅ Explicitne stringifikujeme, lebo tak to máš v apiAnalyzeAthleteState
       body: JSON.stringify(opts),
     });
   } catch (e: any) {
@@ -75,13 +73,13 @@ export async function apiRerunActivityReview(
 
   if (!enqueueJson?.ok) {
     // Ak BE vráti chybu (napr. limit vyčerpaný), skončíme hneď
-    return enqueueJson; 
+    return enqueueJson;
   }
 
-  const jobId = enqueueJson.job_id; // Získame ID nového jobu
+  const jobId = enqueueJson.job_id;
   if (!jobId) {
-     // Fallback: ak nemáme job_id, asi to len zbehhlo bez jobu (divné), vrátime success
-     return { ok: true, message: "Požiadavka prijatá (bez job id)." };
+    // Fallback: ak nemáme job_id, asi to len zbehhlo bez jobu (divné), vrátime success
+    return { ok: true, message: "Požiadavka prijatá (bez job id)." };
   }
 
   // 2. FORCE RUN (Sync Execution)
@@ -91,15 +89,14 @@ export async function apiRerunActivityReview(
   try {
     const runJson = await callBackend<any>(runPath, {
       method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
     });
 
     if (!runJson?.success) {
-       // Ak run zlyhal (napr. už beží, alebo chyba), vrátime error
-       // Alebo ak timeoutoval, job ostane vo fronte pre workera.
-       console.warn("[AR] Sync Run Failed/Timeout", runJson);
-       // Aj keď sync run zlyhá, job je stále v DB a worker ho spraví.
-       // Takže technicky je to stále "ok", len user bude musieť čakať dlhšie.
-       return { ok: true, message: "Spracovávanie na pozadí..." };
+      console.warn("[AR] Sync Run Failed/Timeout", runJson);
+      // Aj keď sync run zlyhá, job je stále v DB a worker ho spraví.
+      return { ok: true, message: "Spracovávanie na pozadí..." };
     }
 
     // Ak success, znamená to, že AI review je hotové a uložené v DB.
@@ -107,7 +104,6 @@ export async function apiRerunActivityReview(
 
   } catch (e) {
     console.error("[AR] Sync Run Network Error", e);
-    // Network error pri run -> nevadí, job je v DB, worker ho spraví.
     return { ok: true, message: "Požiadavka odoslaná na spracovanie." };
   }
 }
@@ -128,7 +124,6 @@ export async function apiGetActivityReview(
 
   const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
-  // očakávame napr { success:true, review:..., created_at:... } alebo {success:true, review:null}
   const json = await callBackend<any>(path, {
     method: "GET",
     cache: "no-store",

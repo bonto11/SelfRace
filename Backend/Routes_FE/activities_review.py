@@ -1,4 +1,4 @@
-# Routes_FE/activities_review
+# Routes_FE/activities_review.py
 
 from fastapi import APIRouter, Request
 from typing import Any, Dict, Optional
@@ -9,7 +9,6 @@ from Services.activities_review import (
     service_get_activity_review,
     service_request_activity_review_rerun,
 )
-from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter()
 
@@ -22,7 +21,7 @@ def get_activity_review(
     user_id: int,
     activity_id: int,
     req: Request,
-):
+) -> Dict[str, Any]:
     ctx = require_user(get_auth_ctx(req))
 
     out = service_get_activity_review(
@@ -41,6 +40,10 @@ def rerun_activity_review(
     payload: ActivityReviewRerunPayload,
     req: Request,
 ) -> Dict[str, Any]:
+    """
+    Endpoint na manuálne vyžiadanie (rerun) AI review.
+    Očakáva JSON body: { "comment": "...", "model": "..." }
+    """
     ctx = require_user(get_auth_ctx(req))
 
     out = service_request_activity_review_rerun(
@@ -51,8 +54,8 @@ def rerun_activity_review(
         ctx=ctx,
     )
 
-    # dôležité: FE chce dostať odpoveď aj pri limite
-    # => nevyhadzuj HTTPException, vráť success:false + out
+    # Ak služba vráti chybu (napr. limit), vrátime to ako success: False,
+    # aby frontend mohol zobraziť chybovú hlášku bez 500/400 HTTP erroru.
     if not out.get("ok"):
         return {"success": False, **out}
 
