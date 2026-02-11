@@ -7,7 +7,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple, List
 import requests
 
 from Modules.Supabase.client import get_service_client
-
+from Configs.config import TABLE_STRAVA_ACCOUNTS
 supabase = get_service_client()
 
 
@@ -18,7 +18,7 @@ def _now_iso() -> str:
 def _select_strava_account(user_id: int) -> Optional[Mapping[str, Any]]:
     try:
         resp = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .select("user_id, athlete_id, access_token, refresh_token, expires_at, scope, deauthorized_at")
             .eq("user_id", int(user_id))
             .limit(1)
@@ -117,7 +117,7 @@ def invalidate_strava_tokens_and_mark_deauthorized(
 
     try:
         upd = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .update(payload)
             .eq("user_id", int(user_id))
             .execute()

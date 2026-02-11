@@ -6,10 +6,6 @@ from typing import Any, Dict, List, Optional
 from Modules.Strava.http_client import StravaHTTPClient
 from Configs.config import STRAVA_DEBUG_STREAMS
 
-def _dbg_strava(*args: Any, **kwargs: Any) -> None:
-    if STRAVA_DEBUG_STREAMS:
-        print("[strava-streams]", *args, **kwargs, flush=True)
-
 
 class StravaActivitiesClient:
     """
@@ -136,10 +132,7 @@ class StravaActivitiesClient:
         if not isinstance(j, dict):
             return {}
 
-        _dbg_strava(
-            f"fetch_activity_streams({activity_id}) "
-            f"keys={sorted(list(j.keys()))}"
-        )
+
 
         for key in [
             "time",
@@ -153,6 +146,5 @@ class StravaActivitiesClient:
             "temp",
         ]:
             val = (j.get(key) or {}).get("data") or []
-            _dbg_strava(f"  {key}: len={len(val)}")
 
         return j

@@ -20,6 +20,7 @@ from Configs.config import (
     BACKEND_URL,
     FRONTEND_URL,
     STRAVA_RECONNECT_COOLDOWN_SECONDS,
+    TABLE_STRAVA_ACCOUNTS
 )
 from Modules.Supabase.auth import service_ctx
 
@@ -317,7 +318,7 @@ async def strava_webhook_handler(request: Request):
     # Find linked Strava account (active only)
     try:
         acc_resp = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .select("user_id, athlete_id")
             .eq("athlete_id", int(event.owner_id))
             .is_("deauthorized_at", None)
@@ -386,7 +387,7 @@ async def strava_oauth_start(user_id: int = Query(..., description="SelfRace use
     # ✅ PRECHECK cooldown (server-side)
     try:
         st = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .select("user_id, deauthorized_at")
             .eq("user_id", int(user_id))
             .limit(1)
@@ -485,7 +486,7 @@ async def strava_oauth_callback(
     # athlete_id už existuje u iného usera
     try:
         existing = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .select("user_id")
             .eq("athlete_id", athlete_id_int)
             .limit(1)
@@ -509,7 +510,7 @@ async def strava_oauth_callback(
     }
 
     try:
-        upsert_resp = supabase.table("strava_accounts").upsert(upsert_row, on_conflict="user_id").execute()
+        upsert_resp = supabase.table(TABLE_STRAVA_ACCOUNTS).upsert(upsert_row, on_conflict="user_id").execute()
         err = getattr(upsert_resp, "error", None)
         if err:
             return _fe_redirect("error", "upsert_failed")
@@ -533,7 +534,7 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
 
     try:
         resp = (
-            supabase.table("strava_accounts")
+            supabase.table(TABLE_STRAVA_ACCOUNTS)
             .select("athlete_id, scope, expires_at, deauthorized_at, access_token, refresh_token, ever_synced_at")
             .eq("user_id", user_id)
             .limit(1)

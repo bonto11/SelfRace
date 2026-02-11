@@ -31,7 +31,9 @@ from Modules.Supabase.auth import AuthCtx
 
 from Routes_DB.account import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
-
+from Configs.config import (
+    TABLE_STRAVA_ACCOUNTS
+)
 
 # -------------------------------------------------------------------
 # STRAVA TOKENS – helpery (čisto DB + OAuth refresh, žiadny legacy súbor)
@@ -104,7 +106,7 @@ def _refresh_strava_tokens_for_user(user_id: int, row: Mapping[str, Any]) -> Opt
         ).isoformat()
 
     try:
-        _supabase_service.table("strava_accounts").update(
+        _supabase_service.table(TABLE_STRAVA_ACCOUNTS).update(
             {
                 "access_token": access_token,
                 "refresh_token": new_refresh or refresh_token,
@@ -124,7 +126,7 @@ def _get_access_token_for_user(user_id: int) -> Optional[str]:
     """
     try:
         resp = (
-            _supabase_service.table("strava_accounts")
+            _supabase_service.table(TABLE_STRAVA_ACCOUNTS)
             .select("*")
             .eq("user_id", user_id)
             .is_("deauthorized_at", None)

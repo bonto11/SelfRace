@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
-
+from Configs.config import TABLE_STRAVA_ACCOUNTS, TABLE_ACCOUNT_DELETE_REQ
 
 def db_get_account_delete_row(
     user_id: int,
@@ -18,7 +18,7 @@ def db_get_account_delete_row(
     sb = get_sb(ctx, caller="account.db_get_account_delete_row")
 
     resp = (
-        sb.table("account_delete_requests")
+        sb.table(TABLE_ACCOUNT_DELETE_REQ)
         .select("user_id, requested_at, delete_at, cancelled_at, hard_deleted_at")
         .eq("user_id", user_id)
         .limit(1)
@@ -52,7 +52,7 @@ def db_upsert_account_delete_request(
     }
 
     resp = (
-        sb.table("account_delete_requests").upsert(row, on_conflict="user_id").execute()
+        sb.table(TABLE_ACCOUNT_DELETE_REQ).upsert(row, on_conflict="user_id").execute()
     )
 
     data = getattr(resp, "data", None) or []
@@ -76,7 +76,7 @@ def db_cancel_account_delete_request(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     resp = (
-        sb.table("account_delete_requests")
+        sb.table(TABLE_ACCOUNT_DELETE_REQ)
         .update({"cancelled_at": now_iso})
         .eq("user_id", int(user_id))
         .execute()
@@ -104,7 +104,7 @@ def mark_strava_ever_synced_now(ctx: AuthCtx, *, user_id: int) -> bool:
     sb = get_sb(ctx, caller="account.mark_strava_ever_synced_now")
     now_iso = datetime.now(timezone.utc).isoformat()
     resp = (
-        sb.table("strava_accounts")
+        sb.table(TABLE_STRAVA_ACCOUNTS)
         .update({"ever_synced_at": now_iso})
         .eq("user_id", int(user_id))
         .execute()
@@ -146,7 +146,7 @@ def get_strava_ever_synced_at_service(
     """
     sb = get_sb(ctx, caller="account.get_strava_ever_synced_at_service")
     resp = (
-        sb.table("strava_accounts")
+        sb.table(TABLE_STRAVA_ACCOUNTS)
         .select("ever_synced_at")
         .eq("user_id", int(user_id))
         .limit(1)
