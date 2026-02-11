@@ -109,7 +109,7 @@ def service_request_activity_review_rerun(
         }
 
     # anti-spam: same comment => don't enqueue again
-    if comment_from_user == row.get("ai_review_lasprev_commentt_user_comment"):
+    if comment_from_user is not None and (comment_from_user == row.get("ai_review_lasprev_commentt_user_comment")):
         print("[AR][rerun] BLOCK", {"reason": "same_comment_already_used"})
         return {
             "ok": False,
