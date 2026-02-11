@@ -107,6 +107,35 @@ function maxVersionsForTier(tier: string): number {
   return 1;
 }
 
+/* ================= UI helpers ================= */
+
+function Chip({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px]">
+      <span className="opacity-70">{label}</span>
+      <span className="font-medium opacity-95">{value}</span>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <div className="text-xs font-semibold opacity-85">{children}</div>;
+}
+
+function TextBlock({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-1 whitespace-pre-wrap text-sm leading-relaxed opacity-90">
+      {children}
+    </div>
+  );
+}
+
+function fmtNum(v: any, digits = 0): string | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return digits > 0 ? n.toFixed(digits) : String(Math.round(n));
+}
+
 /* ================= component ================= */
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
@@ -148,14 +177,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     return days <= 7;
   }, [startDt]);
 
-  // Whole GET payload (for debugging)
+  // Raw GET payload (optional debug only)
   const [getPayload, setGetPayload] = useState<any | null>(null);
 
-  // extracted fields (for gating + note)
+  // AI review object (schema v6)
   const [review, setReview] = useState<any | null>(null);
-  const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
 
-  // IMPORTANT: version should come from BE, not guessed from "has review"
+  // meta from GET row
+  const [reviewUpdatedAt, setReviewUpdatedAt] = useState<string | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [aiReviewLastSource, setAiReviewLastSource] = useState<string | null>(null);
   const [aiReviewLastUserCommentAt, setAiReviewLastUserCommentAt] = useState<string | null>(null);
@@ -167,6 +196,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
+
+  const [showDebug, setShowDebug] = useState(false);
 
   const reload = async () => {
     if (!userId || !activityId) return;
@@ -237,44 +268,29 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                   ? `Comment too long: ${commentLen}/${MAX_COMMENT_CHARS}`
                   : null;
 
-  // log state
-  useEffect(() => {
-    console.log("[AR][STATE]", {
-      userId,
-      activityId,
-      tier_store: (getSubscriptionTier() || "free").toLowerCase(),
-      tier_init: getTierCodeFromInit(activityData),
-      tier_effective: tierCode,
-      maxVersions,
-      summary_date: s?.date ?? null,
-      startDt_iso: startDt ? startDt.toISOString() : null,
-      eligible: isEligible,
-      hasReview,
-      aiReviewVersion,
-      canRerunByTier,
-      canRerunByCount,
-      canRerun,
-      commentLen,
-      commentTooLong,
-      disabledReason,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    userId,
-    activityId,
-    tierCode,
-    maxVersions,
-    s?.date,
-    isEligible,
-    hasReview,
-    aiReviewVersion,
-    canRerunByTier,
-    canRerunByCount,
-    canRerun,
-    commentLen,
-    commentTooLong,
-    disabledReason,
-  ]);
+  // ---- review fields (schema v6) ----
+  const r = review ?? {};
+  const meta = r?.meta ?? {};
+  const flags = r?.flags ?? {};
+  const key = r?.key_numbers ?? {};
+
+  const reviewText: string | null =
+    typeof r?.review_text === "string" ? r.review_text.trim() : null;
+
+  const nextDayPlan: string | null =
+    typeof r?.next_day_plan === "string" ? r.next_day_plan.trim() : null;
+
+  const confidence = fmtNum(r?.confidence_0_to_100, 0);
+
+  const generatedAt =
+    typeof r?.generated_at === "string" ? formatUpdatedAt(r.generated_at) : null;
+
+  // key numbers
+  const distanceKm = fmtNum(key?.distance_km, 2);
+  const durationMin = fmtNum(key?.duration_min, 1);
+  const avgHr = fmtNum(key?.avg_hr_bpm, 0);
+  const maxHr = fmtNum(key?.max_hr_bpm, 0);
+  const domZ = typeof key?.dominant_zone === "string" ? key.dominant_zone : null;
 
   let note: ReactNode = null;
   if (!hasReview) {
@@ -322,7 +338,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     try {
       const c = comment.trim();
 
-      // ✅ verifies what you send to BE
       console.log("[AR][RERUN] request", {
         userId,
         activityId,
@@ -370,9 +385,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     </Button>
   );
 
-  const prettyReview = useMemo(() => safeJson(review), [review]);
-  const prettyGet = useMemo(() => safeJson(getPayload), [getPayload]);
-
   return (
     <ActivitySectionShell title="Coach komentár" defaultOpen={true} items={[]}>
       <div className="flex items-start justify-between gap-3">
@@ -416,31 +428,103 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="mt-3">
         {busyLoad && <div className="text-xs opacity-70">Loading…</div>}
 
-        {/* ✅ RAW review JSON */}
-        {!busyLoad && (
-          <div className="mt-3">
-            <div className="text-xs font-semibold opacity-80">AI review (raw JSON)</div>
-            <pre className="mt-2 max-h-80 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
-              {prettyReview}
-            </pre>
+        {/* ===== Pretty review ===== */}
+        {!busyLoad && hasReview && (
+          <div className="mt-3 grid gap-4">
+            {/* Header line */}
+            <div className="flex flex-wrap items-center gap-2">
+              {typeof r?.sport === "string" && <Chip label="Šport" value={r.sport} />}
+              {typeof r?.session_kind === "string" && (
+                <Chip label="Typ" value={r.session_kind} />
+              )}
+              {generatedAt && <Chip label="Vygenerované" value={generatedAt} />}
+              {confidence && <Chip label="Confidence" value={`${confidence}/100`} />}
+              {flags?.needs_caution === true && <Chip label="Pozor" value={"⚠️"} />}
+              {flags?.used_user_comment === true && <Chip label="Komentár" value={"použitý"} />}
+            </div>
+
+            {/* Key numbers */}
+            <div>
+              <SectionTitle>Kľúčové čísla</SectionTitle>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {distanceKm && <Chip label="Vzdialenosť" value={`${distanceKm} km`} />}
+                {durationMin && <Chip label="Trvanie" value={`${durationMin} min`} />}
+                {avgHr && <Chip label="Avg HR" value={`${avgHr} bpm`} />}
+                {maxHr && <Chip label="Max HR" value={`${maxHr} bpm`} />}
+                {domZ && <Chip label="Dominantná zóna" value={domZ} />}
+              </div>
+            </div>
+
+            {/* Review text */}
+            <div>
+              <SectionTitle>Hodnotenie</SectionTitle>
+              <TextBlock>{reviewText || "—"}</TextBlock>
+            </div>
+
+            {/* Next day plan */}
+            <div>
+              <SectionTitle>Čo zajtra</SectionTitle>
+              <TextBlock>{nextDayPlan || "—"}</TextBlock>
+            </div>
+
+            {/* Meta (small) */}
+            <div className="text-[11px] opacity-70">
+              {meta?.source ? <>Zdroj: <span className="opacity-90">{String(meta.source)}</span></> : null}
+              {meta?.user_comment_present != null ? (
+                <>
+                  {" "}
+                  · Komentár:{" "}
+                  <span className="opacity-90">
+                    {meta.user_comment_used ? "použitý" : meta.user_comment_present ? "nepoužitý" : "žiadny"}
+                  </span>
+                </>
+              ) : null}
+              {meta?.user_comment_len != null ? (
+                <>
+                  {" "}
+                  · Dĺžka: <span className="opacity-90">{String(meta.user_comment_len)}</span>
+                </>
+              ) : null}
+              {typeof r?.model === "string" ? (
+                <>
+                  {" "}
+                  · Model: <span className="opacity-90">{r.model}</span>
+                </>
+              ) : null}
+              {typeof r?.schema_version === "number" ? (
+                <>
+                  {" "}
+                  · Schema: <span className="opacity-90">{r.schema_version}</span>
+                </>
+              ) : null}
+            </div>
           </div>
         )}
 
-        {/* ✅ Whole GET payload */}
-        {!busyLoad && (
-          <div className="mt-4">
-            <div className="text-xs font-semibold opacity-80">GET payload (raw JSON)</div>
-            <pre className="mt-2 max-h-80 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
-              {prettyGet}
-            </pre>
-          </div>
+        {!busyLoad && !hasReview && (
+          <div className="text-sm opacity-80">Zatiaľ bez zhodnotenia trénera.</div>
         )}
 
         {reviewUpdatedAt && (
-          <div className="mt-3 text-[11px] opacity-60">
-            Aktualizácia: {reviewUpdatedAt}
-          </div>
+          <div className="mt-3 text-[11px] opacity-60">Aktualizácia: {reviewUpdatedAt}</div>
         )}
+
+        {/* ===== Optional debug ===== */}
+        <div className="mt-4">
+          <button
+            type="button"
+            className="text-[11px] opacity-70 hover:opacity-90"
+            onClick={() => setShowDebug((x) => !x)}
+          >
+            {showDebug ? "Skryť debug" : "Zobraziť debug"}
+          </button>
+
+          {showDebug && (
+            <pre className="mt-2 max-h-80 overflow-auto rounded border border-white/10 bg-black/30 p-3 text-[11px] leading-snug">
+              {safeJson({ review, getPayload })}
+            </pre>
+          )}
+        </div>
       </div>
     </ActivitySectionShell>
   );
