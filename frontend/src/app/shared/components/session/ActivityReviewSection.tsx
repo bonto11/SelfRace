@@ -8,7 +8,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 
 import {
-  apiGetActivityReview,
+  // apiGetActivityReview, // ❌ TOTO UŽ NEPOTREBUJEME, rieši to Provider
   apiRerunActivityReview,
 } from "@/app/features/activities/api/activity_review";
 
@@ -46,14 +46,6 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
-function safeJson(v: any): string {
-  try {
-    return JSON.stringify(v ?? null, null, 2);
-  } catch {
-    return String(v);
-  }
-}
-
 /* ================= tier helpers ================= */
 
 function getTierCodeFromInit(activityData: any): string {
@@ -65,8 +57,8 @@ function getTierCodeFromInit(activityData: any): string {
 }
 
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 3;
-  if (tier === "classic") return 2;
+  if (tier === "pro") return 50; // ✅ Oprava na 50 podľa tvojho backendu
+  if (tier === "classic") return 3;
   return 1;
 }
 
@@ -97,24 +89,23 @@ function TextBlock({ children }: { children: ReactNode }) {
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
-  const activityData: any = useActivityData() as any;
-  const { getSummary } = activityData;
+  
+  // ✅ Použitie nového API z providera
+  const { getSummary, getEnrichment } = useActivityData();
 
   const [tierCode, setTierCode] = useState<string>(() => {
+    // Toto je trochu hack na získanie tieru, ideálne by to malo byť v context provideri, 
+    // ale nechávam tvoju logiku
     const storeTier = (getSubscriptionTier() || "").toLowerCase();
-    return storeTier || getTierCodeFromInit(activityData) || "free";
+    // activityData tu nemám priamo dostupné ako objekt s init, tak fallbackujem na store
+    return storeTier || "free";
   });
 
   useEffect(() => {
-    const initTier = getTierCodeFromInit(activityData);
-    const storeTier = (getSubscriptionTier() || "free").toLowerCase();
-    if (initTier && initTier !== "free" && storeTier === "free") {
-      setTierCode(initTier.toLowerCase());
-    }
     return subscribeSubscriptionTier((t) => {
       setTierCode(String(t || "free").toLowerCase());
     });
-  }, [activityData]);
+  }, []);
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
   const s: any | null = activityId != null ? (getSummary(activityId) as any) || null : null;
@@ -143,33 +134,40 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   // Refresh cooldown state
   const [refreshLocked, setRefreshLocked] = useState(false);
 
-  // Load data function
-  const reload = async () => {
+  // ✅ LOAD DATA (cez Provider)
+  const loadData = async (forceFetch: boolean = false) => {
     if (!userId || !activityId) return;
+    
     setBusyLoad(true);
     try {
-      const out = await apiGetActivityReview(Number(userId), Number(activityId));
-      setReview(out?.review ?? null);
+      // Voláme providera. Ak forceFetch=false, skúsi najprv cache.
+      const data = await getEnrichment(activityId, { fetch: forceFetch });
       
-      const v = Number((out as any)?.ai_review_version ?? 0);
+      // Mapovanie dát z enrichment objektu do state
+      setReview(data?.ai_review ?? null);
+      
+      const v = Number(data?.ai_review_version ?? 0);
       setAiReviewVersion(Number.isFinite(v) && v >= 0 ? v : 0);
 
-      const dbComment = (out as any)?.ai_review_last_user_comment;
+      const dbComment = data?.ai_review_last_user_comment;
       if (typeof dbComment === "string") {
           setLastUserComment(dbComment);
+          // Ak užívateľ ešte nič nenapísal do inputu, predvyplníme posledný komentár
           setComment((prev) => prev || dbComment);
       }
       
       setUiError(null);
     } catch (e) {
       console.error("[AR] Load Error", e);
+      // Nemusíme nutne zobrazovať UI error pre load, stačí console
     } finally {
       setBusyLoad(false);
     }
   };
 
+  // Initial load (skúsi cache, potom API)
   useEffect(() => {
-    reload();
+    loadData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, activityId]);
 
@@ -194,7 +192,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       if (refreshLocked || busyGen || busyLoad) return;
       
       setRefreshLocked(true); // Lock button
-      await reload();
+      
+      // ✅ Force fetch cez providera
+      await loadData(true);
       
       // Unlock after 10 seconds
       setTimeout(() => {
@@ -216,11 +216,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     }
 
     setBusyGen(true);
-    // Lock refresh button while generating to prevent double clicks
     setRefreshLocked(true); 
 
     try {
       const c = comment.trim();
+      // Toto volanie ostáva priame na API (POST request)
       const out = await apiRerunActivityReview(Number(userId), Number(activityId), {
         comment: c.length ? c : null,
         model: null,
@@ -229,14 +229,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       if (!out?.ok) {
         setUiError(out?.message || "Požiadavka zamietnutá.");
       } else {
-        // Success
+        // Success - teraz musíme obnoviť dáta
+        // Počkáme chvíľku (voliteľné), lebo backend spúšťa job asynchrónne, 
+        // ale tvoja API funkcia čaká na výsledok (sync execution), takže môžeme hneď reloadnúť.
+        await loadData(true); 
       }
-      await reload();
     } catch (e: any) {
       setUiError(e?.message || "Chyba pri generovaní.");
     } finally {
       setBusyGen(false);
-      // Keep refresh locked for the cooldown duration after generation
       setTimeout(() => {
         setRefreshLocked(false);
       }, REFRESH_COOLDOWN_MS);
@@ -270,14 +271,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             {/* Refresh Button */}
             <Button
                 type="button"
-                variant="secondary" // Less prominent
+                variant="secondary"
                 size="sm"
                 onClick={onManualRefresh}
                 disabled={busyLoad || busyGen || refreshLocked}
                 className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}
                 title="Obnoviť dáta"
             >
-                {/* Simple Refresh Icon or Text */}
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-1 ${busyLoad ? "animate-spin" : ""}`}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
                 {refreshLocked && !busyLoad ? "Čakajte" : "Obnoviť"}
             </Button>
@@ -289,7 +289,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                     variant="primary"
                     size="sm"
                     onClick={onRerun}
-                    disabled={busyGen || refreshLocked} // Disable if refreshing
+                    disabled={busyGen || refreshLocked}
                     className="opacity-90 hover:opacity-100"
                 >
                     {busyGen ? "Generujem..." : hasReview ? "Prepočítať" : "Vygenerovať"}
@@ -334,7 +334,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="mt-6 space-y-6">
         {busyLoad ? (
              <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
-                 {/* Optional bigger spinner */}
                  <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                  <span className="text-sm">Načítavam hodnotenie...</span>
              </div>

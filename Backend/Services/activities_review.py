@@ -42,30 +42,26 @@ def _get_activity_days_ago(date_str: Optional[str]) -> int:
 
 
 # ============================================================
-# READ SERVICE
+# READ SERVICE (ENRICHMENT)
 # ============================================================
 
-def service_get_activity_review(
+# ✅ NEW: Service pre získanie celého enrichment objektu
+def service_get_activity_enrichment(
     *,
     user_id: int,
     activity_id: int,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
+    """
+    Načíta kompletný riadok z activities_enrichment (zóny, metriky, review).
+    """
     row = db_get_enrichment_for_activity(
         user_id=user_id, activity_id=activity_id, ctx=ctx
     )
-    if not row:
-        return None
-
-    return {
-        "review": row.get("ai_review"),
-        "updated_at": row.get("updated_at"),
-        "ai_review_version": row.get("ai_review_version"),
-        "ai_review_last_user_comment": row.get("ai_review_last_user_comment"),
-        "ai_review_last_user_comment_at": row.get("ai_review_last_user_comment_at"),
-        "ai_review_last_source": row.get("ai_review_last_source"),
-    }
-
+    
+    # Tu môžeme v budúcnosti robiť transformácie, ak treba.
+    # Zatiaľ vraciame raw DB row.
+    return row
 
 # ============================================================
 # WRITE / RERUN SERVICE

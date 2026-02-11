@@ -30,6 +30,13 @@ import {
 } from "@/app/features/activities/api/analytics_activities";
 
 import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
+
+// ✅ NEW IMPORTS
+import {
+  apiGetActivityEnrichment,
+  type ActivityEnrichment,
+} from "@/app/features/activities/api/activity_review";
+
 import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
 
 /* ------------------------------ cache helpers ------------------------------ */
@@ -39,6 +46,10 @@ function rangeKey(userId: number, start: string, end: string) {
 }
 function extrasKey(activityId: number) {
   return `ACT:EXTRAS:v1:${activityId}`;
+}
+// ✅ NEW KEY
+function enrichmentKey(activityId: number) {
+  return `ACT:ENRICH:v1:${activityId}`;
 }
 
 function saveRange(userId: number, start: string, end: string, rows: ActivityRow[]) {
@@ -58,6 +69,31 @@ function loadRange(userId: number, start: string, end: string): ActivityRow[] | 
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed?.rows) ? (parsed.rows as ActivityRow[]) : [];
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------ cache helpers (Enrichment) ------------------------------ */
+
+// ✅ NEW Save/Load logic for Enrichment
+function saveEnrichment(activityId: number, data: ActivityEnrichment) {
+  if (!hasSesssioStorage()) return;
+  try {
+    sessionStorage.setItem(
+      enrichmentKey(activityId),
+      JSON.stringify({ at: Date.now(), data })
+    );
+  } catch {}
+}
+
+function loadEnrichment(activityId: number): ActivityEnrichment | null {
+  if (!hasSesssioStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(enrichmentKey(activityId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.data ?? null;
   } catch {
     return null;
   }
@@ -184,8 +220,11 @@ type Ctx = {
   selectByRange: (start: string, end: string) => ActivityRow[];
   getSummary: (activityId: number) => ActivityRow | null;
 
-  // ✅ jediné “detail” API
+  // ✅ existujúce "detail" API (streams, laps)
   getExtras: (activityId: number, opts?: FetchOpts) => Promise<ActivityExtras>;
+
+  // ✅ NEW: Enrichment API (AI, zones, detailed metrics)
+  getEnrichment: (activityId: number, opts?: FetchOpts) => Promise<ActivityEnrichment | null>;
 
   rolling7: (metric: Metric) => Rolling7;
 
@@ -281,7 +320,7 @@ export function ActivityDataProvider({
     [rows]
   );
 
-  // ✅ jediný vstup: extras
+  // ✅ existujúce extras
   const getExtras = useCallback(
     async (activityId: number, opts?: FetchOpts): Promise<ActivityExtras> => {
       if (userId == null || !activityId) return { streams: null, laps: [], splits: [] };
@@ -319,6 +358,35 @@ export function ActivityDataProvider({
       // 3) cache len pre fetch=false (DB path)
       if (!fetch && res) saveExtras(activityId, res);
       return out;
+    },
+    [userId]
+  );
+
+  // ✅ NEW: Enrichment Provider Method
+  const getEnrichment = useCallback(
+    async (activityId: number, opts?: FetchOpts): Promise<ActivityEnrichment | null> => {
+      if (userId == null || !activityId) return null;
+
+      const fetch = !!opts?.fetch;
+
+      // 1) Skúsime cache (ak nie je vynútený fetch)
+      if (!fetch) {
+        const cached = loadEnrichment(activityId);
+        if (cached) return cached;
+      }
+
+      // 2) Zavoláme API
+      try {
+        const data = await apiGetActivityEnrichment(userId, activityId);
+        if (data) {
+          // 3) Uložíme do cache
+          saveEnrichment(activityId, data);
+        }
+        return data;
+      } catch (err) {
+        console.error("[DataProvider] getEnrichment failed", err);
+        return null;
+      }
     },
     [userId]
   );
@@ -424,6 +492,7 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getExtras,
+      getEnrichment, // ✅ Exported
       rolling7,
       getParetoWidget,
       getParetoTrend,
@@ -438,6 +507,7 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getExtras,
+      getEnrichment, // ✅ Dependecy
       rolling7,
       getParetoWidget,
       getParetoTrend,

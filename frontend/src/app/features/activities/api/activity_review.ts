@@ -2,6 +2,33 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
 
+export type ActivityEnrichment = {
+  activity_id: number;
+  // Fyzické metriky
+  z1_min: number | null;
+  z2_min: number | null;
+  z3_min: number | null;
+  z4_min: number | null;
+  z5_min: number | null;
+  sport_type_fe: string | null;
+  avg_hr_bpm: number | null;
+  moving_time_s: number | null;
+  distance_m: number | null;
+  // AI Review časť
+  ai_review: any | null;
+  updated_at: string | null;
+  ai_review_version: number | null;
+  ai_review_last_user_comment: string | null;
+  ai_review_last_user_comment_at: string | null;
+  ai_review_last_source: string | null;
+};
+
+export type ActivityReviewEnqueueOpts = {
+  runNow?: boolean;
+  model?: string | null;
+  comment?: string | null;
+};
+
 type AsyncJobRow = {
   id: number;
   user_id: number;
@@ -13,12 +40,6 @@ type AsyncJobRow = {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
-};
-
-export type ActivityReviewEnqueueOpts = {
-  runNow?: boolean;
-  model?: string | null;
-  comment?: string | null; // ✅ NEW (premium user input)
 };
 
 export type ActivityReviewRerunResponse =
@@ -107,21 +128,15 @@ export async function apiRerunActivityReview(
   }
 }
 
-export async function apiGetActivityReview(
+export async function apiGetActivityEnrichment(
   userId: number,
   activityId: number,
-): Promise<{
-  review: any | null;
-  updated_at?: string | null;
-  ai_review_version?: number | null;
-  ai_review_last_user_comment?: string | null;
-  ai_review_last_user_comment_at?: string | null;
-  ai_review_last_source?: string | null;
-}> {
+): Promise<ActivityEnrichment | null> {
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
-  const path = `/activities/review/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
+  // Voláme nový endpoint
+  const path = `/activities/enrichment/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
   const json = await callBackend<any>(path, {
     method: "GET",
@@ -129,17 +144,9 @@ export async function apiGetActivityReview(
   });
 
   if (!json?.success) {
-    throw new Error(
-      json?.detail || json?.error || "Failed to load activity review",
-    );
+    // Akceptujeme aj null (ak ešte nie je enrichment vytvorený)
+    return null; 
   }
 
-  return {
-    review: json.review ?? null,
-    updated_at: json.updated_at ?? null,
-    ai_review_version: json.ai_review_version ?? null,
-    ai_review_last_user_comment: json.ai_review_last_user_comment ?? null,
-    ai_review_last_user_comment_at: json.ai_review_last_user_comment_at ?? null,
-    ai_review_last_source: json.ai_review_last_source ?? null,
-  };
+  return json.data;
 }
