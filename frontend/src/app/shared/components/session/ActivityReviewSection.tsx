@@ -47,18 +47,9 @@ function parseDateSafe(v: any): Date | null {
 }
 
 /* ================= tier helpers ================= */
-
-function getTierCodeFromInit(activityData: any): string {
-  const v =
-    activityData?.init?.user?.app_subscription_tier ??
-    activityData?.init?.app?.tier_code ??
-    "free";
-  return String(v || "free").toLowerCase();
-}
-
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 50; // ✅ Oprava na 50 podľa tvojho backendu
-  if (tier === "classic") return 3;
+  if (tier === "pro") return 3;
+  if (tier === "classic") return 2;
   return 1;
 }
 
