@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -71,21 +70,14 @@ def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
 
     return s
 
-
-def _hash_comment(s: str) -> str:
-    # stable + short enough for DB comparisons
-    return hashlib.sha256(s.encode("utf-8")).hexdigest()
-
-
 def service_activity_review(
     user_id: int,
     activity_id: int,
     *,
     ctx: AuthCtx,
     model: Optional[str] = None,
-    # ✅ NEW: comes from job payload
     source: Optional[str] = None,         # "auto" | "user" | "service" | ...
-    comment: Optional[str] = None,        # free-text from FE (premium)
+    comment: Optional[str] = None, 
 ) -> Dict[str, Any]:
     model_to_use = (model or _default_ai_model()).strip()
 
@@ -118,6 +110,8 @@ def service_activity_review(
         activity_id=activity_id,
         ctx=ctx,
     )
+
+    print("build_review_input input_data", input_data)
 
     context_for_ai = _minify_context_for_ai(input_data)
 

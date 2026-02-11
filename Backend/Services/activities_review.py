@@ -11,21 +11,11 @@ from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
 
 from Services.async_jobs import service_enqueue_job
 
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _norm_comment(comment: Optional[str]) -> Optional[str]:
     if not isinstance(comment, str):
         return None
     c = comment.strip()
     return c if c else None
-
-
-def _hash_comment(comment: str) -> str:
-    return hashlib.sha256(comment.encode("utf-8")).hexdigest()
-
 
 def service_get_activity_review(
     *,
@@ -130,10 +120,9 @@ def service_request_activity_review_rerun(
         }
 
     # enqueue user job
-    dedupe_suffix = _hash_comment(comment_from_user)[:12] if comment_from_user else "no_comment"
     next_version = cur_version + 1
     dedupe_key = (
-        f"activity_review_user:{user_id}:{activity_id}:{next_version}:{dedupe_suffix}"
+        f"activity_review_user:{user_id}:{activity_id}:{next_version}"
     )
 
     print(
