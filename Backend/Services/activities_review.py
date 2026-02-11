@@ -1,21 +1,49 @@
 # Services/activities_review.py
 from __future__ import annotations
 
-import hashlib
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, Optional, List
 
 from Modules.Supabase.auth import AuthCtx
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
+from Routes_DB.activities_summary import db_get_summary_for_activities
 from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
-
 from Services.async_jobs import service_enqueue_job
+
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 def _norm_comment(comment: Optional[str]) -> Optional[str]:
     if not isinstance(comment, str):
         return None
     c = comment.strip()
     return c if c else None
+
+
+def _get_activity_days_ago(date_str: Optional[str]) -> int:
+    """
+    Vypočíta vek aktivity v dňoch.
+    Očakáva formát 'YYYY-MM-DD...' alebo podobný ISO string.
+    """
+    if not date_str:
+        return 9999  # Safety fallback
+    
+    try:
+        # Orežeme časť za dátumom (pre istotu, ak by tam bol čas/tz)
+        clean_date = str(date_str)[:10]
+        dt = datetime.strptime(clean_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        diff = now - dt
+        return diff.days
+    except Exception:
+        return 9999
+
+
+# ============================================================
+# READ SERVICE
+# ============================================================
 
 def service_get_activity_review(
     *,
@@ -39,14 +67,9 @@ def service_get_activity_review(
     }
 
 
-def _max_ai_review_versions_for_tier(tier_code: str) -> int:
-    t = (tier_code or "free").strip().lower()
-    if t == "pro":
-        return 3
-    if t == "classic":
-        return 2
-    return 1  # free + unknown
-
+# ============================================================
+# WRITE / RERUN SERVICE
+# ============================================================
 
 def service_request_activity_review_rerun(
     *,
@@ -56,9 +79,41 @@ def service_request_activity_review_rerun(
     model: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    comment_from_user = _norm_comment(comment)
+    """
+    Volané z FE. Slúži na manuálne vyžiadanie nového AI review.
+    
+    Logika oprávnení:
+    1. Aktivita nesmie byť staršia ako 7 dní (pre všetkých).
+    2. PRO: Limit 50 verzií, môže komentovať.
+    3. CLASSIC: Limit 3 verzie, môže komentovať.
+    4. FREE: 
+       - Ak review neexistuje (verzia 0): Povolíme rerun, ale komentár zahodíme (force NULL).
+       - Ak review existuje (verzia > 0): Zamietneme.
+    """
+    
+    # 1. Získame summary aktivity kvôli dátumu
+    # (používame bulk loader pre 1 ID, lebo je to štandard v projekte)
+    summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
+    if not summaries or not summaries[0]:
+        return {
+            "ok": False,
+            "code": "activity_not_found",
+            "message": "Aktivita nebola nájdená."
+        }
+    
+    activity_date = summaries[0].get("date")
+    
+    # 2. Kontrola veku aktivity (Max 7 dní)
+    days_old = _get_activity_days_ago(activity_date)
+    if days_old > 7:
+        return {
+            "ok": False,
+            "code": "activity_too_old", # Pre FE translation
+            "message": "AI analýzu je možné vyžiadať len pre aktivity nie staršie ako 7 dní."
+        }
 
-    row = (
+    # 3. Načítanie stavu existujúceho review
+    enr_row = (
         db_get_enrichment_for_activity(
             user_id=int(user_id),
             activity_id=int(activity_id),
@@ -67,74 +122,68 @@ def service_request_activity_review_rerun(
         or {}
     )
 
-    # ---------- DEBUG (always) ----------
+    current_review = enr_row.get("ai_review")
+    # Verzia 0 znamená, že review ešte nie je, alebo sa ho nepodarilo vytvoriť
+    cur_version = int(enr_row.get("ai_review_version") or 0) if current_review else 0
 
-    review = row.get("ai_review")
-    v = row.get("ai_review_version")
-
-    if review is None:
-        v = 0
-
-    # tier -> limit
+    # 4. Zistenie Tieru
     app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
-    tier_code = app_subscription.get("tier_code") or ""
-    max_versions = _max_ai_review_versions_for_tier(tier_code)
+    tier_code = (app_subscription.get("tier_code") or "free").strip().lower()
 
-    # current version:
-    #  - ak review NEEXISTUJE, verzia sa má správať ako 0 (aby free user nebol navždy bloknutý)
-    #  - ak review existuje, berieme uloženú verziu (fallback 1)
-    if not review:
-        cur_version = 0
-    else:
-        cur_version = int(row.get("ai_review_version") or 0)
+    # Normalizácia komentára od usera
+    comment_from_user = _norm_comment(comment)
 
-    print(
-        "[AR][rerun] tier + version",
-        {
-            "effective_cur_version": cur_version,
-            "tier_code": tier_code,
-            "max_versions": max_versions,
-        },
-    )
+    # 5. Logika podľa Tierov
+    max_versions = 1
+    
+    if tier_code == "pro":
+        max_versions = 50
+        # Pro môže všetko
+        pass 
 
-    # limit check
-    if cur_version >= max_versions:
-        return {
-            "ok": False,
-            "code": "activity_review_rerun_limit",
-            "message": "Dosiahol si limit pre opätovné AI hodnotenie tejto aktivity.",
-            "tier": tier_code,
-            "ai_review_version": cur_version,
-            "max_versions": max_versions,
-        }
+    elif tier_code == "classic":
+        max_versions = 3
+        # Classic môže komentovať, pokiaľ neprekročil limit
+        if cur_version >= max_versions:
+             return {
+                "ok": False,
+                "code": "limit_reached",
+                "message": "Dosiahli ste limit pregenerovaní pre Classic účet.",
+                "tier": tier_code
+            }
 
-    # anti-spam: same comment => don't enqueue again
-    if comment_from_user is not None and (comment_from_user == row.get("ai_review_lasprev_commentt_user_comment")):
-        print("[AR][rerun] BLOCK", {"reason": "same_comment_already_used"})
-        return {
-            "ok": False,
-            "code": "same_comment_already_used",
-            "message": "Tento komentár už bol použitý na prepočet review.",
-            "ai_review_version": cur_version,
-            "max_versions": max_versions,
-        }
+    else: # FREE TIER
+        # Free má špeciálnu logiku:
+        # Ak už má review (verzia > 0), nesmie spustiť ďalšie.
+        if cur_version > 0:
+             return {
+                "ok": False,
+                "code": "only_one_for_free_tier", # Pre FE translation
+                "message": "Vo free verzii máte nárok len na jedno automatické hodnotenie.",
+                "tier": tier_code
+            }
+        
+        # Ak review nemá (verzia 0), pustíme ho (napr. oprava chyby),
+        # ALE ignorujeme jeho komentár, lebo to je platená feature.
+        comment_from_user = None
 
-    # enqueue user job
+    # 6. Kontrola duplicity (Anti-spam pre Classic/Pro)
+    # Ak nejde o Free (kde je comment None), skontrolujeme či neposiela to isté
+    if tier_code != "free":
+        last_comment = enr_row.get("ai_review_last_user_comment")
+        # Pre Classic nepovolíme míňať pokusy na rovnaký komentár
+        if tier_code == "classic" and comment_from_user == last_comment and current_review:
+             return {
+                "ok": False,
+                "code": "duplicate_comment",
+                "message": "Tento komentár už bol použitý.",
+            }
+
+    # 7. Enqueue Job
     next_version = cur_version + 1
-    dedupe_key = (
-        f"activity_review_user:{user_id}:{activity_id}:{next_version}"
-    )
+    dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}"
 
-    print(
-        "[AR][rerun] enqueue",
-        {
-            "dedupe_key": dedupe_key,
-            "next_version": next_version,
-            "model": model,
-            "source": "user",
-            "comment": comment_from_user,
-        },
-    )
+    print(f"[AR][rerun] Enqueue | User: {user_id} | Tier: {tier_code} | Ver: {next_version} | Comm: {bool(comment_from_user)}")
 
     out = service_enqueue_job(
         user_id=int(user_id),
@@ -143,7 +192,8 @@ def service_request_activity_review_rerun(
             "activity_id": int(activity_id),
             "model": model,
             "source": "user",
-            "comment": comment_from_user,
+            "comment": comment_from_user, # Pre Free tier je tu vždy None
+            "target_version": next_version
         },
         priority=140,
         max_attempts=1,
@@ -152,18 +202,17 @@ def service_request_activity_review_rerun(
     )
 
     if not out.get("job"):
-        print("[AR][rerun] enqueue_failed", {"note": out.get("note")})
+        print("[AR][rerun] Enqueue Failed:", out.get("note"))
         return {
             "ok": False,
             "code": "enqueue_failed",
-            "message": out.get("note") or "enqueue_failed",
+            "message": "Nepodarilo sa zaradiť požiadavku.",
         }
 
     return {
         "ok": True,
-        "job": out["job"],
-        "note": out.get("note"),
+        "job_id": out["job"].get("id"),
         "tier": tier_code,
-        "ai_review_version": cur_version,
-        "max_versions": max_versions,
+        "next_version": next_version,
+        "comment_used": bool(comment_from_user) # Info pre FE, či sme komentár použili alebo zahodili
     }
