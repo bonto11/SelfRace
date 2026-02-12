@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
+from fastapi import HTTPException
 
 from Routes_DB.user_recovery import (
     db_get_recovery_record,
@@ -9,7 +9,11 @@ from Routes_DB.user_recovery import (
     db_update_recovery,
     db_get_recent_recovery,
 )
+
 from Modules.Supabase.auth import AuthCtx
+
+# kľúče ktoré nikdy nesmú ísť do update patchu
+_ID_KEYS = {"id", "user_id", "date", "created_at", "updated_at"}
 
 
 def service_insert_or_update_recovery(
@@ -17,43 +21,50 @@ def service_insert_or_update_recovery(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Vloží alebo updatuje recovery záznam podľa (user_id, date).
-    Vracia nový/aktualizovaný riadok.
+    PATCH semantics:
+    - payload obsahuje len polia ktoré prišli z FE (route robí exclude_unset=True)
+    - ak je field v payload a je None -> zmaž v DB (explicitne)
+    - ak field nie je v payload -> DB sa ho nedotkne
     """
 
-    user_id = payload["user_id"]
-    date_iso = payload.get("date") or datetime.now().date().isoformat()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid payload")
 
-    existing = db_get_recovery_record(
-        user_id,
-        date_iso,
-        ctx=ctx,
-    )
+    if "user_id" not in payload:
+        raise HTTPException(status_code=422, detail="Missing user_id")
+    if "date" not in payload or not payload.get("date"):
+        # ⚠️ nerob fallback na 'dnes' – user by nevedel čo updatuje
+        raise HTTPException(status_code=422, detail="Missing date")
 
-    row = payload.copy()
-    row["date"] = date_iso
-    row["user_id"] = user_id
+    user_id = int(payload["user_id"])
+    date_iso = str(payload["date"])[:10]
+
+    # ✅ patch = iba polia ktoré chceme uložiť (bez identity)
+    patch: Dict[str, Any] = {
+        k: v for k, v in payload.items() if k not in _ID_KEYS
+    }
+
+    existing = db_get_recovery_record(user_id, date_iso, ctx=ctx)
 
     if existing:
-        rec_id = existing["id"]
+        rec_id = int(existing["id"])
+
+        # nič na update? tak len vráť že existuje
+        if not patch:
+            return {"updated": True, "row": {"id": rec_id, "user_id": user_id, "date": date_iso}}
+
         return {
             "updated": True,
-            "row": db_update_recovery(
-                rec_id,
-                row,
-                ctx=ctx,
-            ),
-        }
-    else:
-        return {
-            "updated": False,
-            "row": db_insert_recovery(
-                row,
-                ctx=ctx,
-            ),
+            "row": db_update_recovery(rec_id, patch, ctx=ctx),
         }
 
+    # insert: musí obsahovať identity + patch (aj keby bol prázdny)
+    insert_row: Dict[str, Any] = {"user_id": user_id, "date": date_iso, **patch}
 
+    return {
+        "updated": False,
+        "row": db_insert_recovery(insert_row, ctx=ctx),
+    }
 def service_get_recovery(
     user_id: int,
     ctx: AuthCtx,

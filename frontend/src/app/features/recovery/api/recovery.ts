@@ -1,6 +1,6 @@
 // src/features/recovery/api/recovery.ts
 import { isoDate } from "@/app/shared/utils/time";
-import { RecoveryRow } from "@/app/features/recovery/types/recovery";
+import { RecoveryRow, RecoveryPatch } from "@/app/features/recovery/types/recovery";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 /**
@@ -56,6 +56,24 @@ export async function apiSaveRecovery(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       ...row,
+      user_id: userId,
+    }),
+  });
+}
+
+export async function apiSaveRecoveryPatch(
+  userId: number,
+  patch: RecoveryPatch
+): Promise<void> {
+  const path = `/recovery`;
+  console.debug("[REC][api] PATCH/POST ->", path, patch);
+
+  await callBackend<any>(path, {
+    method: "POST", // môže zostať POST, dôležité je BE správanie (exclude_unset)
+    cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      ...patch,
       user_id: userId,
     }),
   });

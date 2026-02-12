@@ -82,3 +82,4 @@ def db_get_recent_recovery(
     rows: List[Dict[str, Any]] = res.data or []
 
     return rows
+
