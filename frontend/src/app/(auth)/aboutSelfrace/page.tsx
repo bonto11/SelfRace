@@ -21,7 +21,7 @@ export default function AboutPage() {
   // Názvy súborov si uprav podľa toho, ako ich reálne pomenuješ
   const pdfFileName = isSk
     ? "About_SelfRace_SK.pdf"
-    : "About_SelfRace.pdf";
+    : "About_SelfRace_EN.pdf";
   const pdfPath = `/documents/${pdfFileName}`;
 
   // 3. Texty

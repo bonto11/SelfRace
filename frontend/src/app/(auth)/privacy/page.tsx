@@ -25,7 +25,7 @@ export default function PrivacyPage() {
   const isSk = lang === "sk";
   const pdfFileName = isSk 
     ? "PrivacyPolicy_SelfRace_SK.pdf" 
-    : "PrivacyPolicy_SelfRace.pdf";
+    : "PrivacyPolicy_SelfRace_EN.pdf";
     
   const pdfPath = `/documents/${pdfFileName}`;
 

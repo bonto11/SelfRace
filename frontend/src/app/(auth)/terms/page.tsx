@@ -20,7 +20,7 @@ export default function TermsPage() {
   // 2. Dynamická cesta k PDF
   const pdfFileName = isSk
     ? "TermsOfService_SelfRace_SK.pdf"
-    : "TermsOfService_SelfRace.pdf";
+    : "TermsOfService_SelfRace_EN.pdf";
   const pdfPath = `/documents/${pdfFileName}`;
 
   // 3. Preklady textov
