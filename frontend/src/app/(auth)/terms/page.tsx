@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -7,20 +10,39 @@ import {
   PANEL_CARD_TITLE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 export default function TermsPage() {
+  // 1. Získame jazyk
+  const { lang } = useSettings();
+  const isSk = lang === "sk";
+
+  // 2. Dynamická cesta k PDF
+  const pdfFileName = isSk
+    ? "TermsOfService_SelfRace_SK.pdf"
+    : "TermsOfService_SelfRace.pdf";
+  const pdfPath = `/documents/${pdfFileName}`;
+
+  // 3. Preklady textov
+  const title = isSk ? "Obchodné podmienky" : "Terms of Service";
+  const downloadText = isSk ? "Stiahnuť PDF" : "Download PDF";
+  const fallbackText = isSk
+    ? "Váš prehliadač nedokáže zobraziť PDF."
+    : "Your browser can’t display PDFs inline.";
+
   return (
     <main className="max-w-screen-lg mx-auto px-3 py-4">
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           <div className={PANEL_CARD_HEAD}>
-            <h1 className={PANEL_CARD_TITLE}>Terms</h1>
+            <h1 className={PANEL_CARD_TITLE}>{title}</h1>
             <a
-              href="/documents/TermsOfService_SelfRace.pdf"
+              href={pdfPath}
               className="text-xs hover:underline"
               style={{ color: appColors.textSecondary }}
+              download // Pridané pre priame stiahnutie
             >
-              Download PDF
+              {downloadText}
             </a>
           </div>
 
@@ -32,7 +54,7 @@ export default function TermsPage() {
             }}
           >
             <object
-              data="/documents/TermsOfService_SelfRace.pdf"
+              data={pdfPath}
               type="application/pdf"
               width="100%"
               height="780"
@@ -41,13 +63,13 @@ export default function TermsPage() {
                 className="p-3 text-sm"
                 style={{ color: appColors.textSecondary }}
               >
-                Your browser can’t display PDFs inline.
+                {fallbackText}{" "}
                 <a
-                  href="/documents/TermsOfService_SelfRace.pdf"
+                  href={pdfPath}
                   className="ml-2 underline"
                   style={{ color: appColors.textPrimary }}
                 >
-                  Download the PDF
+                  {downloadText}
                 </a>
                 .
               </div>
