@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -7,20 +10,45 @@ import {
   PANEL_CARD_TITLE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // Importujeme hook pre settings
+// import { useT } from "@/app/shared/i18n/useT"; // Ak by ste chceli použiť preklady textov
 
 export default function PrivacyPage() {
+  // 1. Získame aktuálny jazyk
+  const { lang } = useSettings();
+  
+  // (Voliteľné) Hook pre preklady
+  // const t = useT();
+
+  // 2. Určíme cestu k PDF podľa jazyka
+  // Predpoklad: slovenská verzia je '_SK.pdf', anglická je bez suffixu alebo '_EN.pdf'
+  const isSk = lang === "sk";
+  const pdfFileName = isSk 
+    ? "PrivacyPolicy_SelfRace_SK.pdf" 
+    : "PrivacyPolicy_SelfRace.pdf";
+    
+  const pdfPath = `/documents/${pdfFileName}`;
+
+  // 3. Texty (jednoduchý prepínač, ak ešte nemáte kľúče v useT)
+  const title = isSk ? "Zásady ochrany osobných údajov" : "Privacy Policy";
+  const downloadText = isSk ? "Stiahnuť PDF" : "Download PDF";
+  const fallbackText = isSk 
+    ? "Váš prehliadač nedokáže zobraziť PDF." 
+    : "Your browser can’t display PDFs inline.";
+
   return (
     <main className="max-w-screen-lg mx-auto px-3 py-4">
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           <div className={PANEL_CARD_HEAD}>
-            <h1 className={PANEL_CARD_TITLE}>Privacy Policy</h1>
+            <h1 className={PANEL_CARD_TITLE}>{title}</h1>
             <a
-              href="/documents/PrivacyPolicy_SelfRace.pdf"
+              href={pdfPath} // Dynamická cesta
               className="text-xs hover:underline"
               style={{ color: appColors.textSecondary }}
+              download // Pridaný atribút pre priame stiahnutie
             >
-              Download PDF
+              {downloadText}
             </a>
           </div>
 
@@ -32,7 +60,7 @@ export default function PrivacyPage() {
             }}
           >
             <object
-              data="/documents/PrivacyPolicy_SelfRace.pdf"
+              data={pdfPath} // Dynamická cesta pre zobrazenie
               type="application/pdf"
               width="100%"
               height="780"
@@ -41,13 +69,13 @@ export default function PrivacyPage() {
                 className="p-3 text-sm"
                 style={{ color: appColors.textSecondary }}
               >
-                Your browser can’t display PDFs inline.
+                {fallbackText}{" "}
                 <a
-                  href="/documents/PrivacyPolicy_SelfRace.pdf"
+                  href={pdfPath} // Dynamická cesta pre fallback link
                   className="ml-2 underline"
                   style={{ color: appColors.textPrimary }}
                 >
-                  Download the PDF
+                  {downloadText}
                 </a>
                 .
               </div>
