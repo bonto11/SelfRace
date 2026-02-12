@@ -26,7 +26,7 @@ export default function AboutPage() {
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    <PageShell title={t("ourStory.title")} showBack>
+    <PageShell title={t("ourStory.title")} showBack showPoweredByStrava=false>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
