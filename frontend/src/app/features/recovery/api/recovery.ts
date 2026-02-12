@@ -1,6 +1,9 @@
 // src/features/recovery/api/recovery.ts
 import { isoDate } from "@/app/shared/utils/time";
-import { RecoveryRow, RecoveryPatch } from "@/app/features/recovery/types/recovery";
+import {
+  RecoveryRow,
+  RecoveryPatch,
+} from "@/app/features/recovery/types/recovery";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 /**
@@ -9,12 +12,11 @@ import { callBackend } from "@/app/shared/utils/callBackend";
  */
 export async function apiFetchRecovery(
   userId: string | number,
-  days: number = 90
+  days: number = 90,
 ): Promise<RecoveryRow[]> {
   if (!userId) return [];
 
   const path = `/recovery/${encodeURIComponent(String(userId))}?days=${days}`;
-  console.debug("[RECovery][api] ->", path);
 
   try {
     const json = await callBackend<any>(path, {
@@ -45,10 +47,9 @@ export async function apiFetchRecovery(
 
 export async function apiSaveRecovery(
   userId: number,
-  row: RecoveryRow
+  row: RecoveryRow,
 ): Promise<void> {
   const path = `/recovery`;
-  console.debug("[REC][api] POST ->", path, row);
 
   await callBackend<any>(path, {
     method: "POST",
@@ -63,10 +64,9 @@ export async function apiSaveRecovery(
 
 export async function apiSaveRecoveryPatch(
   userId: number,
-  patch: RecoveryPatch
+  patch: RecoveryPatch,
 ): Promise<void> {
   const path = `/recovery`;
-  console.debug("[REC][api] PATCH/POST ->", path, patch);
 
   await callBackend<any>(path, {
     method: "POST", // môže zostať POST, dôležité je BE správanie (exclude_unset)

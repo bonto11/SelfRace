@@ -21,9 +21,6 @@ def post_recovery(
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        # ✅ PATCH semantics: posielame ďalej len kľúče, ktoré prišli v requeste
-        # - ak FE pošle field=null -> má sa to v DB zmazať
-        # - ak FE field vôbec nepošle -> DB sa ho nedotkne
         patch = payload.model_dump(exclude_unset=True)
 
         res = service_insert_or_update_recovery(
