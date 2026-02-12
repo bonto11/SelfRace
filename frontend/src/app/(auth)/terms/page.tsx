@@ -27,7 +27,7 @@ export default function TermsPage() {
 
   return (
     // Použitie PageShell pre konzistentný layout a navigáciu (napr. tlačidlo späť)
-    <PageShell title={t("terms.title")} showBack showPoweredByStrava=false>
+    <PageShell title={t("terms.title")} showBack showPoweredByStrava=False>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
