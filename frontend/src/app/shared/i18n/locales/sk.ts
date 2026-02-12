@@ -9,8 +9,10 @@ export const sk = {
       fri: "Pi",
       sat: "So",
       sun: "Ne",
-
-    }
+    },
+    downloadPDF: "Stiahnuť PDF",
+    showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
+    done: "Hotovo",
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -18,6 +20,52 @@ export const sk = {
     ctaStart: "Vyskúšať zdarma",
     ctaSignIn: "Prihlásiť sa",
     foot: "Detailné metriky behu, tréningové zóny a AI tréner po prepojení účtu.",
+  },
+  appFooter: {
+    privacy: "Zásady ochrany osobných údajov",
+    terms: "Obchodné podmienky",
+    contact: "Kontakt",
+    ourStory: "Náš príbeh",
+  },
+  ourStory: {
+    title: "Náš príbeh",
+  },
+  contact: {
+    title: "Kontakt",
+    message:
+      "Ak máte otázky týkajúce sa SelfRace, ochrany osobných údajov alebo integrácie so Stravou, kontaktujte nás: ",
+  },
+  privacy: {
+    title: "Zásady ochrany osobných údajov",
+  },
+  terms: {
+    title: "Obchodné podmienky",
+  },
+  updatePassword: {
+    title: "Obchodné podmienky",
+    error: {
+      passwordsDontMatch: "Heslá sa nezhodujú.",
+      passwordWeak: "Heslo je príliš slabé.",
+      
+    },
+    changePassword: "Zmeniť heslo",
+    setNewPassword: "Nastaviť nové heslo",
+    fillNewPassword: "Zadaj nové heslo",
+    fillAgainNewPassword: "Zadaj nové heslo",
+    confirmNewPassword: "Potvrdiť nové heslo",
+    newPassword: "Zmeniť heslo", 
+    waitForLogin: "O chvíľu ťa prihlásime a zobrazíme formulár…",
+    changedLoggingIn: "Heslo je zmenené. Prihlasujeme ťa…",
+    logAfterSave: "Po uložení ťa automaticky prihlásime.",
+    showPassword: "Zobraziť heslo",
+    hidePassword: "Skryť heslo",
+    criteria: {
+      atLeast8Char: "min. 8 znakov",
+      atLeast1Small: "aspoň jedno malé písmeno",
+      atLeast1Big: "aspoň jedno veľké písmeno",
+      atLeast1Num: "aspoň jedna číslica",
+      atLeast1Special: "aspoň jeden špeciálny znak",
+    }
   },
   signIn: {
     checkMail:
@@ -281,8 +329,8 @@ export const sk = {
     },
   },
   widget: {
-     missingserId: "Skontroluj autentifikáciu",
-     errorLoad: "Nepodarilo sa načítať"
+    missingserId: "Skontroluj autentifikáciu",
+    errorLoad: "Nepodarilo sa načítať",
   },
   calendar: {
     widget: {
@@ -360,14 +408,16 @@ export const sk = {
         "• vysoké riziko je prakticky najčastejšie o šľachách/úponoch (holene, achilovka, plantár, koleno), nie o „náhodnom úraze“.",
         "",
         "Dôležité (realita):",
-        "• Môžeš sa cítiť super, ale riziko môže byť zvýšené – hlavne keď si čerstvo zvýšil objem/intenzitu. Zranenia často prídu až s oneskorením. Ver mi, viem o čom hovorím..." ,
+        "• Môžeš sa cítiť super, ale riziko môže byť zvýšené – hlavne keď si čerstvo zvýšil objem/intenzitu. Zranenia často prídu až s oneskorením. Ver mi, viem o čom hovorím...",
         "",
         "Tip:",
         "• Keď je únava alebo riziko zraneia „high“, nerieš to panikou. Rieš to kontrastom: 1–2 veľmi ľahké dni, znížiť monotónnosť, pridať spánok a jedlo.",
       ].join("\n"),
-     
-      missingData: "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
-      summary: "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
+
+      missingData:
+        "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
+      summary:
+        "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
       lastAnalysis: "Posledná analýza",
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
@@ -395,14 +445,15 @@ export const sk = {
         "• Keď zmeníš preferencie (goal, weeks, športy) alebo pribudne veľa nových aktivít, má zmysel vygenerovať nový daily plán, aby zodpovedal realite.",
       ].join("\n"),
 
-      noteOK:"Najbližších dní: ",
+      noteOK: "Najbližších dní: ",
       noteMissing: "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.",
-      missingData: "Zatiaľ nemáš uložený denný plán. Po vygenerovaní prvého týždňa sa tu zobrazí prehľad najbližších dní.",
+      missingData:
+        "Zatiaľ nemáš uložený denný plán. Po vygenerovaní prvého týždňa sa tu zobrazí prehľad najbližších dní.",
       summary: "Dnešný plán (skrátený prehľad)",
       daysCount: "Počet dní",
       sessionsCount: "Počet tréningov",
       injuryRisk: "Riziko zranenia",
-      todayLabel:"Dnešok / najbližší deň",
+      todayLabel: "Dnešok / najbližší deň",
       todaySessions: "ďalších blokov",
     },
   },
@@ -436,7 +487,6 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   coachPrefs: {
     widget: {
       tooltip: [

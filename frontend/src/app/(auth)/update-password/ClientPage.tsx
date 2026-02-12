@@ -32,6 +32,7 @@ import {
   AUTH_REQ_LIST,
   AUTH_HINT,
 } from "@/app/shared/ui/tokens/auth";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Phase = "boot" | "ready" | "saving" | "done";
 
@@ -39,6 +40,7 @@ export default function ClientPage() {
   const sb = getSupabaseBrowser();
   const router = useRouter();
   const sp = useSearchParams();
+  const t = useT();
 
   const [phase, setPhase] = useState<Phase>("boot");
   const [pwd1, setPwd1] = useState("");
@@ -132,7 +134,11 @@ export default function ClientPage() {
     setErr(null);
 
     if (!canSubmit) {
-      setErr(!match ? "Heslá sa nezhodujú." : "Heslo je príliš slabé.");
+      setErr(
+        !match
+          ? t("updatePassword.error.passwordsDontMatch")
+          : t("updatePassword.error.passwordWeak"),
+      );
       return;
     }
 
@@ -158,10 +164,10 @@ export default function ClientPage() {
             style={AUTH_CARD_STYLE}
           >
             <header className={AUTH_HEADER}>
-              <h1 className={AUTH_TITLE}>Zmeniť heslo</h1>
-              <p className={AUTH_TEXT}>
-                O chvíľu ťa prihlásime a zobrazíme formulár…
-              </p>
+              <h1 className={AUTH_TITLE}>
+                {t("updatePassword.changePassword")}
+              </h1>
+              <p className={AUTH_TEXT}>{t("updatePassword.waitForLogin")}</p>
             </header>
 
             {err && (
@@ -184,8 +190,10 @@ export default function ClientPage() {
             style={AUTH_CARD_STYLE}
           >
             <header className={AUTH_HEADER}>
-              <h1 className={AUTH_TITLE}>Hotovo</h1>
-              <p className={AUTH_TEXT}>Heslo je zmenené. Prihlasujeme ťa…</p>
+              <h1 className={AUTH_TITLE}>{t("common.done")}</h1>
+              <p className={AUTH_TEXT}>
+                {t("updatePassword.changedLoggingIn")}
+              </p>
             </header>
           </div>
         </div>
@@ -201,18 +209,20 @@ export default function ClientPage() {
           style={AUTH_CARD_STYLE}
         >
           <header className={AUTH_HEADER}>
-            <h1 className={AUTH_TITLE}>Nastaviť nové heslo</h1>
+            <h1 className={AUTH_TITLE}>{t("updatePassword.setNewPassword")}</h1>
           </header>
 
           <form onSubmit={submit} className={AUTH_FORM} noValidate>
             {/* New password */}
             <div className={AUTH_FIELD}>
-              <label className={AUTH_LABEL}>Nové heslo</label>
+              <label className={AUTH_LABEL}>
+                {t("updatePassword.newPassword")}
+              </label>
 
               <div className={AUTH_PWD_ROW}>
                 <TextField
                   type={show ? "text" : "password"}
-                  placeholder="Zadaj nové heslo"
+                  placeholder={t("updatePassword.fillNewPassword")}
                   value={pwd1}
                   onChange={(e) => setPwd1(e.currentTarget.value)}
                   autoComplete="new-password"
@@ -224,8 +234,16 @@ export default function ClientPage() {
                   onClick={() => setShow((s) => !s)}
                   className={AUTH_PWD_TOGGLE}
                   style={AUTH_PWD_TOGGLE_STYLE}
-                  aria-label={show ? "Skryť heslo" : "Zobraziť heslo"}
-                  title={show ? "Skryť heslo" : "Zobraziť heslo"}
+                  aria-label={
+                    show
+                      ? t("updatePassword.showPassword")
+                      : t("updatePassword.hidePassword")
+                  }
+                  title={
+                    show
+                      ? t("updatePassword.showPassword")
+                      : t("updatePassword.hidePassword")
+                  }
                 >
                   {show ? "🙈" : "👁️"}
                 </button>
@@ -236,11 +254,13 @@ export default function ClientPage() {
 
             {/* Confirm password */}
             <div className={AUTH_FIELD}>
-              <label className={AUTH_LABEL}>Potvrdiť nové heslo</label>
+              <label className={AUTH_LABEL}>
+                {t("updatePassword.confirmNewPassword")}
+              </label>
 
               <TextField
                 type="password"
-                placeholder="Zadaj znovu heslo"
+                placeholder={t("updatePassword.fillAgainNewPassword")}
                 value={pwd2}
                 onChange={(e) => setPwd2(e.currentTarget.value)}
                 autoComplete="new-password"
@@ -252,7 +272,7 @@ export default function ClientPage() {
 
             {!match && pwd2.length > 0 && (
               <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_ERROR_STYLE}>
-                Heslá sa nezhodujú.
+                {t("updatePassword.error.passwordsDontMatch")}
               </div>
             )}
 
@@ -272,7 +292,7 @@ export default function ClientPage() {
               {phase === "saving" ? "Ukladám…" : "Uložiť"}
             </Button>
 
-            <p className={AUTH_HINT}>Po uložení ťa automaticky prihlásime.</p>
+            <p className={AUTH_HINT}>{t("updatePassword.logAfterSave")}</p>
           </form>
         </div>
       </div>
@@ -333,12 +353,16 @@ function PasswordStrengthMeter({
 }
 
 function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
+  const t = useT();
   const reqs = [
-    { ok: pwd.length >= 8, text: "min. 8 znakov" },
-    { ok: /[a-z]/.test(pwd), text: "aspoň jedno malé písmeno" },
-    { ok: /[A-Z]/.test(pwd), text: "aspoň jedno veľké písmeno" },
-    { ok: /[0-9]/.test(pwd), text: "aspoň jedna číslica" },
-    { ok: /[^A-Za-z0-9]/.test(pwd), text: "aspoň jeden špeciálny znak" },
+    { ok: pwd.length >= 8, text: t("updatePassword.criteria.atLeast8Char") },
+    { ok: /[a-z]/.test(pwd), text: t("updatePassword.criteria.atLeast1Small") },
+    { ok: /[A-Z]/.test(pwd), text: t("updatePassword.criteria.atLeast1Big") },
+    { ok: /[0-9]/.test(pwd), text: t("updatePassword.criteria.atLeast1Num") },
+    {
+      ok: /[^A-Za-z0-9]/.test(pwd),
+      text: t("updatePassword.criteria.atLeast1Special"),
+    },
     {
       ok: email
         ? !pwd.toLowerCase().includes(email.split("@")[0]!.toLowerCase())

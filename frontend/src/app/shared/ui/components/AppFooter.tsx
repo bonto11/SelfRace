@@ -4,8 +4,10 @@
 import Link from "next/link";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_PAD } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function AppFooter() {
+  const t = useT(); 
   return (
     <footer
       style={{
@@ -30,28 +32,28 @@ export default function AppFooter() {
             className="hover:underline"
             style={{ color: appColors.textSecondary }}
           >
-            Privacy Policy
+            {t("appFooter.privacy")}
           </Link>
           <Link
             href="/terms"
             className="hover:underline"
             style={{ color: appColors.textSecondary }}
           >
-            Terms
+            {t("appFooter.terms")}
           </Link>
           <Link
             href="/contact"
             className="hover:underline"
             style={{ color: appColors.textSecondary }}
           >
-            Contact
+            {t("appFooter.contact")}
           </Link>
           <Link
-            href="/aboutSelfrace"
+            href="/ourStory"
             className="hover:underline"
             style={{ color: appColors.textSecondary }}
           >
-            About SelfRace
+            {t("appFooter.ourStory")}
           </Link>
         </nav>
       </div>
