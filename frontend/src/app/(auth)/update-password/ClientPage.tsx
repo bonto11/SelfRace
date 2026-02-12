@@ -355,7 +355,7 @@ function PasswordStrengthMeter({
 function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
   const t = useT();
   const reqs = [
-    { ok: pwd.length >= 8, text: t("updatePassword.criteria.atLeast8Char") },
+    { ok: pwd.length >= 8, text: t("updatePassword.criteria.atLeastChar") },
     { ok: /[a-z]/.test(pwd), text: t("updatePassword.criteria.atLeast1Small") },
     { ok: /[A-Z]/.test(pwd), text: t("updatePassword.criteria.atLeast1Big") },
     { ok: /[0-9]/.test(pwd), text: t("updatePassword.criteria.atLeast1Num") },
@@ -384,6 +384,7 @@ function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
 
 function scorePassword(pwd: string, email?: string) {
   const len = pwd.length;
+  const t = useT();
   let score = 0;
   if (len >= 8) score++;
   if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
@@ -399,18 +400,25 @@ function scorePassword(pwd: string, email?: string) {
 
   score = Math.max(0, Math.min(4, score));
 
-  const label = ["veľmi slabé", "slabé", "stredné", "silné", "veľmi silné"][
-    score
-  ];
+  const label = [
+    t("updatePassword.score.veryWeak"),
+    t("updatePassword.score.weak"),
+    t("updatePassword.score.average"),
+    t("updatePassword.score.strong"),
+    t("updatePassword.score.veryStrong"),
+  ][score];
   let hint = "";
 
   if (score < 3) {
     const tips: string[] = [];
-    if (len < 12) tips.push("predĺž heslo (12+)");
-    if (!/[A-Z]/.test(pwd)) tips.push("pridaj veľké písmeno");
-    if (!/[0-9]/.test(pwd)) tips.push("pridaj číslo");
-    if (!/[^A-Za-z0-9]/.test(pwd)) tips.push("pridaj špeciálny znak");
-    if (local && lowers.includes(local)) tips.push("nepoužívaj e-mail/meno");
+    if (len < 12) tips.push(t("updatePassword.tips.atLeastChar"));
+    if (!/[A-Z]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Small"));
+    if (!/[a-z]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Big"));
+    if (!/[0-9]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Num"));
+    if (!/[^A-Za-z0-9]/.test(pwd))
+      tips.push(t("updatePassword.tips.atLeast1Special"));
+    if (local && lowers.includes(local))
+      tips.push(t("updatePassword.tips.noMainName"));
     hint = tips.join(", ");
   }
 

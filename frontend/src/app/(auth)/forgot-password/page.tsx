@@ -24,6 +24,7 @@ import {
   AUTH_NOTICE_ERROR_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 import { FRONTEND_URL } from "@/app/shared/config";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function ForgotPasswordPage() {
   const sb = getSupabaseBrowser();
@@ -31,14 +32,16 @@ export default function ForgotPasswordPage() {
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const t = useT();
 
   async function submit(e: React.FormEvent) {
+
     e.preventDefault();
     setMsg(null);
     setErr(null);
 
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setErr("Zadaj platný e-mail.");
+      setErr(t("forgotPassword.fillValidMail"));
       return;
     }
 
@@ -53,10 +56,10 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       setMsg(
-        "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla."
+        t("forgotPassword.sentMail")
       );
     } catch (e: any) {
-      setErr(e?.message || "Nepodarilo sa odoslať e-mail.");
+      setErr(e?.message || t("forgotPassword.errorSent"));
     } finally {
       setSending(false);
     }
@@ -67,18 +70,17 @@ export default function ForgotPasswordPage() {
       <div className={AUTH_SHELL}>
         <form onSubmit={submit} className={AUTH_CARD} style={AUTH_CARD_STYLE}>
           <header className={AUTH_HEADER}>
-            <h1 className={AUTH_TITLE}>Zabudnuté heslo</h1>
+            <h1 className={AUTH_TITLE}>{t("forgotPassword.forgotPassword")}</h1>
             <p className={AUTH_TEXT}>
-              Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového
-              hesla.
+              {t("forgotPassword.fillYourMail")}
             </p>
           </header>
 
           <div className={AUTH_FIELD}>
-            <label className={AUTH_LABEL}>E-mail</label>
+            <label className={AUTH_LABEL}>{t("forgotPassword.mail")}</label>
             <TextField
               type="email"
-              placeholder="tvoj@email.sk"
+              placeholder={t("forgotPassword.yourMail")}
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
               autoComplete="email"
@@ -99,7 +101,7 @@ export default function ForgotPasswordPage() {
           )}
 
           <Button type="submit" variant="primary" block disabled={sending}>
-            {sending ? "Posielam…" : "Poslať reset e-mail"}
+            {sending ? t("forgotPassword.sending") : t("forgotPassword.sentResetMail")}
           </Button>
         </form>
       </div>

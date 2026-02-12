@@ -10,6 +10,7 @@ import {
   AUTH_CARD_STYLE,
   AUTH_TEXT,
 } from "@/app/shared/ui/tokens/auth";
+import { useT } from "@/app/shared/i18n/useT";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,9 @@ function AuthFallback({ text }: { text: string }) {
 }
 
 export default function Page() {
+  const t = useT();
   return (
-    <Suspense fallback={<AuthFallback text="Načítavam…" />}>
+    <Suspense fallback={<AuthFallback text={t("common.loading")} />}>
       <SignUpForm />
     </Suspense>
   );

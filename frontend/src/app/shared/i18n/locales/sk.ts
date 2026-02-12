@@ -13,6 +13,7 @@ export const sk = {
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
+    loading: "Načítavam…",
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -60,12 +61,40 @@ export const sk = {
     showPassword: "Zobraziť heslo",
     hidePassword: "Skryť heslo",
     criteria: {
-      atLeast8Char: "min. 8 znakov",
+      atLeastChar: "min. 8 znakov",
       atLeast1Small: "aspoň jedno malé písmeno",
       atLeast1Big: "aspoň jedno veľké písmeno",
       atLeast1Num: "aspoň jedna číslica",
       atLeast1Special: "aspoň jeden špeciálny znak",
-    }
+    },
+    tips: {
+      atLeastChar: "predĺž heslo (8+)",
+      atLeast1Small: "pridaj malé písmeno",
+      atLeast1Big: "pridaj veľké písmeno",
+      atLeast1Num: "pridaj číslo",
+      atLeast1Special: "pridaj špeciálny znak",
+      noMainName: "nepoužívaj e-mail/meno",
+    },
+    score: {
+      veryWeak: "veľmi slabé",
+      weak: "slabé",
+      average: "stredné",
+      strong: "silné",
+      veryStrong: "veľmi silné",
+    },
+
+  },
+  forgotPassword: {
+    tittle: "",
+    fillValidMail: "Zadaj platný e-mail.",
+    sentMail: "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.",
+    errorSent: "Nepodarilo sa odoslať e-mail.",
+    forgotPassword: "Zabudnuté heslo",
+    fillYourMail: "Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.",
+    mail: "E-mail",
+    yourMail: "tvoj@email.sk",
+    sending: "Posielam…",
+    sentResetMail: "Poslať reset e-mail",
   },
   signIn: {
     checkMail:
