@@ -46,6 +46,13 @@ export default function AppFooter() {
           >
             Contact
           </Link>
+          <Link
+            href="/aboutSelfrace"
+            className="hover:underline"
+            style={{ color: appColors.textSecondary }}
+          >
+            About SelfRace
+          </Link>
         </nav>
       </div>
     </footer>
