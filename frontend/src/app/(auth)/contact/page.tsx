@@ -1,26 +1,25 @@
-// src/app/contact/page.tsx
 "use client";
+
+import React from "react";
+import PageShell from "@/app/shared/ui/components/PageShell";
 
 import {
   SURFACE_CARD,
   PANEL_PAD,
   PANEL_INNER_STACK,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function ContactPage() {
   const t = useT();
+
   return (
-    <main className="max-w-screen-lg mx-auto px-3 py-4">
+    <PageShell title={t("contact.title")} showBack>
       <section className={SURFACE_CARD}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-          <div className={PANEL_CARD_HEAD}>
-            <h1 className={PANEL_CARD_TITLE}>{t("contact.title")}</h1>
-          </div>
-
+          
+          {/* Obsah kontaktu */}
           <div
             className="text-sm leading-6 space-y-3"
             style={{ color: appColors.textSecondary }}
@@ -32,6 +31,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }
