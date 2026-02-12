@@ -1,4 +1,6 @@
 // src/app/contact/page.tsx
+"use client";
+
 import {
   SURFACE_CARD,
   PANEL_PAD,
@@ -19,10 +21,11 @@ export default function ContactPage() {
             <h1 className={PANEL_CARD_TITLE}>{t("contact.title")}</h1>
           </div>
 
-          <div className="text-sm leading-6 space-y-3" style={{ color: appColors.textSecondary }}>
-            <p>
-              {t("contact.message")}
-            </p>
+          <div
+            className="text-sm leading-6 space-y-3"
+            style={{ color: appColors.textSecondary }}
+          >
+            <p>{t("contact.message")}</p>
             <p className="font-medium" style={{ color: appColors.textPrimary }}>
               support@selfrace.com
             </p>
