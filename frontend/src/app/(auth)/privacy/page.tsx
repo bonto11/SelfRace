@@ -27,7 +27,7 @@ export default function PrivacyPage() {
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    <PageShell title={t("privacy.title")} showBack>
+    <PageShell title={t("privacy.title")} showBack showPoweredByStrava=false>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
