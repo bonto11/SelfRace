@@ -15,7 +15,7 @@ export default function ContactPage() {
   const t = useT();
 
   return (
-    <PageShell title={t("contact.title")} showBack>
+    <PageShell title={t("contact.title")} showBack showPoweredByStrava=false>
       <section className={SURFACE_CARD}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
