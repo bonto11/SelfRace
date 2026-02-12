@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
+import PageShell from "@/app/shared/ui/components/PageShell";
+
 import {
   CARD,
   SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_INNER_STACK,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
@@ -19,18 +20,18 @@ export default function AboutPage() {
   const t = useT();
 
   // 2. Dynamická cesta k PDF
-  // Názvy súborov si uprav podľa toho, ako ich reálne pomenuješ
   const pdfFileName = isSk
     ? "About_SelfRace_SK.pdf"
     : "About_SelfRace_EN.pdf";
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    <main className="max-w-screen-lg mx-auto px-3 py-4">
+    <PageShell title={t("ourStory.title")} showBack>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-          <div className={PANEL_CARD_HEAD}>
-            <h1 className={PANEL_CARD_TITLE}>{t("ourStory.title")}</h1>
+          
+          {/* Odkaz na stiahnutie - zarovnaný doprava */}
+          <div className="flex justify-end w-full">
             <a
               href={pdfPath}
               className="text-xs hover:underline"
@@ -72,6 +73,6 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }
