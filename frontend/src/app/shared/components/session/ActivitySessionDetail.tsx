@@ -382,13 +382,13 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
             <div className="min-w-[600px] pb-2 space-y-6">
               {hasAltStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("charts.metrics.elevation")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.elevation")}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" />
                 </div>
               )}
               {hasCadStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("charts.metrics.cadence")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.cadence")}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
                 </div>
               )}
@@ -399,18 +399,18 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
 
       {/* --- SEKCIA: TEMPO & VÝKON --- */}
       {(hasMeaningfulValue(paceItems) || hasPaceStream || hasPowerStream) && (
-        <ActivitySectionShell title={t("charts.metrics.pace")} defaultOpen={false} items={paceItems}>
+        <ActivitySectionShell title={t("sessions.charts.metrics.pace")} defaultOpen={false} items={paceItems}>
           <div className="mt-4 space-y-6 overflow-x-auto">
             <div className="min-w-[600px] pb-2 space-y-6">
               {hasPaceStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("charts.metrics.pace")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.pace")}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="pace" />
                 </div>
               )}
               {hasPowerStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("charts.metrics.power")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.power")}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" />
                 </div>
               )}
