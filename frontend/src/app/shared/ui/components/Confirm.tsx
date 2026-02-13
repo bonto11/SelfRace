@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Button from "./Button";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   SURFACE_CARD,
   SURFACE_CARD_STYLE,
@@ -98,18 +99,21 @@ function Sheet({
   item: Item;
   onClose: (v: boolean) => void;
 }) {
+  const t = useT();
+
+  // Predvolené texty z katalógu, ak chýbajú v opts
   const {
-    title = "Potvrdiť",
+    title = t("common.confirm.title"),
     message = "",
-    okText = "OK",
-    cancelText = "Zrušiť",
+    okText = t("common.confirm.ok"),
+    cancelText = t("common.confirm.cancel"),
     tone = "default",
   } = item.opts;
 
   const [show, setShow] = React.useState(false);
   React.useEffect(() => {
-    const t = setTimeout(() => setShow(true), 10);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShow(true), 10);
+    return () => clearTimeout(timer);
   }, []);
 
   return (

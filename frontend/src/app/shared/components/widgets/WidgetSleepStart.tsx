@@ -23,7 +23,6 @@ import { useT } from "@/app/shared/i18n/useT";
 const FIX_BASELINE_MIN = 22 * 60 + 30; // 22:30
 const TOL_MIN = 30;
 
-// hranica, od ktorej berieme spánok ako "večer predtým"
 const EVENING_START_MIN = 18 * 60; // 18:00
 
 function pickAccentFromCmp(
@@ -34,7 +33,6 @@ function pickAccentFromCmp(
     return appColors.stateNeutral;
   }
 
-  // cmp.accent často býva "bg-..." alebo text s farbou → mapujeme
   const a = String(cmpAccent ?? "").toLowerCase();
 
   if (a.includes("red")) return appColors.stateDanger;
@@ -71,7 +69,6 @@ export default function WidgetSleepStart({
     return typeof v === "number" ? v : null;
   }, [values]);
 
-  // časy po polnoci porovnávame ako +24h
   const latestForCompare = useMemo<number | null>(() => {
     if (latest == null) return null;
     if (latest < EVENING_START_MIN) return latest + 24 * 60;
@@ -93,13 +90,13 @@ export default function WidgetSleepStart({
       ? minutesToHHMM(latest as number)
       : "—";
 
-  const note = showNA ? freshness.message : cmp.note;
+  const note = showNA ? t("sleepStart.widget.noData") : cmp.note;
 
   const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
-      title="Sleep start"
+      title={t("sleepStart.widget.title")}
       tooltip={t("sleepStart.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}

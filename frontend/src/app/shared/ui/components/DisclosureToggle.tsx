@@ -3,6 +3,7 @@
 
 import Button from "@/app/shared/ui/components/Button";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   DISCLOSURE_ICON_BASE,
   DISCLOSURE_ICON_OPEN,
@@ -21,10 +22,15 @@ export default function DisclosureToggle({
   open,
   onToggle,
   className,
-  labelWhenOpen = "Collapse section",
-  labelWhenClosed = "Expand section",
+  labelWhenOpen,
+  labelWhenClosed,
 }: Props) {
-  const ariaLabel = open ? labelWhenOpen : labelWhenClosed;
+  const t = useT();
+
+  // Ak nie sú dodané vlastné labely, použijeme tie z katalógu
+  const ariaLabel = open 
+    ? (labelWhenOpen || t("common.disclosure.collapse")) 
+    : (labelWhenClosed || t("common.disclosure.expand"));
 
   return (
     <Button

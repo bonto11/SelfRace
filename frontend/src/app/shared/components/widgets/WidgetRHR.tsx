@@ -11,6 +11,7 @@ import {
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   WIDGET_LOADING_WRAP,
@@ -19,7 +20,6 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT";
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
@@ -82,13 +82,14 @@ export default function WidgetRHR({
       ? String(Math.round(latest as number))
       : "—";
 
-  const note = showNA ? freshness.message : cmp.note;
+  // Použitie lokalizovanej správy pre chýbajúce dáta
+  const note = showNA ? t("RHR.widget.noData") : cmp.note;
 
   const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
-      title="Resting HR"
+      title={t("RHR.widget.title")}
       tooltip={t("RHR.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
@@ -103,7 +104,7 @@ export default function WidgetRHR({
         <>
           <div className={WIDGET_VALUE_ROW}>
             <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
-            <span className={WIDGET_VALUE_UNIT}>bpm</span>
+            <span className={WIDGET_VALUE_UNIT}>{t("common.units.hr")}</span>
           </div>
           {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>

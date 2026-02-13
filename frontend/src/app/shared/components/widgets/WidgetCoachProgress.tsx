@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -23,7 +24,6 @@ import {
   apiGetLatestAthleteProgress,
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
-import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -34,25 +34,16 @@ type UiState = {
   comparedAt: string | null;
   headline: string | null;
   bullets: string[];
-  fatigueLabel: string | null;
-  injuryLabel: string | null;
+  fatigueData: { previous: string | null; current: string | null };
+  injuryData: { previous: string | null; current: string | null };
   blockLabel: string | null;
-  volumeLabel: string | null;
+  volumeData: { from: number; to: number } | null;
 };
 
 function toStringArray(v: any): string[] {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
   return [];
-}
-
-function slovakLevel(level?: string | null): string {
-  const l = (level || "").toLowerCase();
-  if (!l) return "—";
-  if (l === "low") return "nízka";
-  if (l === "moderate") return "stredná";
-  if (l === "high") return "vysoká";
-  return l;
 }
 
 function buildUiState(row: AthleteProgressRecord | null): UiState {
@@ -64,64 +55,40 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
       comparedAt: null,
       headline: null,
       bullets: [],
-      fatigueLabel: null,
-      injuryLabel: null,
+      fatigueData: { previous: null, current: null },
+      injuryData: { previous: null, current: null },
       blockLabel: null,
-      volumeLabel: null,
+      volumeData: null,
     };
   }
 
   const cp = payload;
   const headline: string | null = cp.summary?.headline || cp.headline || null;
-
-  const bullets: string[] =
-    toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
+  const bullets: string[] = toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
 
   const comp = cp.comparisons || {};
-  const fatigue = comp.fatigue_level || {};
-  const injury = comp.injury_risk || {};
-  const block = comp.block_kind || {};
   const vol = comp.volume_tolerance || {};
 
-  const fatigueLabel =
-    fatigue.previous || fatigue.current
-      ? `${slovakLevel(fatigue.previous)} → ${slovakLevel(fatigue.current)}`
-      : null;
-
-  const injuryLabel =
-    injury.previous || injury.current
-      ? `${slovakLevel(injury.previous)} → ${slovakLevel(injury.current)}`
-      : null;
-
-  const blockLabel =
-    block.previous || block.current
-      ? `${block.previous || "—"} → ${block.current || "—"}`
-      : null;
-
-  let volumeLabel: string | null = null;
-  if (
-    typeof vol.previous_weekly_minutes_min === "number" &&
-    typeof vol.current_weekly_minutes_min === "number"
-  ) {
-    const fromH = Math.round(vol.previous_weekly_minutes_min / 60);
-    const toH = Math.round(vol.current_weekly_minutes_min / 60);
-    volumeLabel = `${fromH} h → ${toH} h / týždeň (min)`;
+  let volumeData = null;
+  if (typeof vol.previous_weekly_minutes_min === "number" && typeof vol.current_weekly_minutes_min === "number") {
+    volumeData = {
+      from: Math.round(vol.previous_weekly_minutes_min / 60),
+      to: Math.round(vol.current_weekly_minutes_min / 60),
+    };
   }
 
   let comparedAt: string | null = cp.generated_at || (row as any).created_at || null;
   if (comparedAt) {
     try {
       const d = new Date(comparedAt);
-      comparedAt = d.toLocaleString(undefined, {
+      comparedAt = d.toLocaleString("sk-SK", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
       });
-    } catch {
-      // keep raw
-    }
+    } catch { /* keep raw */ }
   }
 
   return {
@@ -129,24 +96,25 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
     comparedAt,
     headline,
     bullets,
-    fatigueLabel,
-    injuryLabel,
-    blockLabel,
-    volumeLabel,
+    fatigueData: { previous: comp.fatigue_level?.previous, current: comp.fatigue_level?.current },
+    injuryData: { previous: comp.injury_risk?.previous, current: comp.injury_risk?.current },
+    blockLabel: comp.block_kind?.previous || comp.block_kind?.current 
+      ? `${comp.block_kind.previous || "—"} → ${comp.block_kind.current || "—"}` 
+      : null,
+    volumeData,
   };
 }
 
 export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   const { userId } = useUserId();
+  const t = useT();
 
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const t = useT();
-  
+
   useEffect(() => {
     if (!userId) return;
-
     let alive = true;
     (async () => {
       setLoading(true);
@@ -155,31 +123,50 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
+        if (alive) setError(e?.message ?? t("coachProgress.widget.errorFetch"));
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+    return () => { alive = false; };
+  }, [userId, t]);
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
+  // Pomocná funkcia na preklad úrovní (low/high...)
+  const getLvl = (lvl?: string | null) => {
+    if (!lvl) return "—";
+    const key = `common.levels.${lvl.toLowerCase()}`;
+    const translated = (t as any)(key);
+    return translated === key ? lvl : translated;
+  };
+
+  const fatigueLabel = ui.fatigueData.previous || ui.fatigueData.current
+    ? `${getLvl(ui.fatigueData.previous)} → ${getLvl(ui.fatigueData.current)}`
+    : "—";
+
+  const injuryLabel = ui.injuryData.previous || ui.injuryData.current
+    ? `${getLvl(ui.injuryData.previous)} → ${getLvl(ui.injuryData.current)}`
+    : "—";
+
+  const volumeLabel = ui.volumeData
+    ? t("coachProgress.labels.volumeValue")
+        .replace("{{from}}", String(ui.volumeData.from))
+        .replace("{{to}}", String(ui.volumeData.to))
+    : "—";
+
+  const note = useMemo(() => {
+    if (!ui.hasData) return t("coachProgress.widget.noteMissing");
+    if (!ui.comparedAt) return t("coachProgress.widget.noteLastCompareGeneric");
+    return t("coachProgress.widget.noteLastCompare").replace("{{date}}", ui.comparedAt);
+  }, [ui, t]);
+
   return (
     <WidgetCard
-      title="Coach — Weekly progress"
+      title={t("coachProgress.widget.title")}
       tooltip={t("coachProgress.widget.tooltip")}
       accent="none"
-      note={
-        ui.hasData
-          ? ui.comparedAt
-            ? `Posledné porovnanie: ${ui.comparedAt}`
-            : "Posledné porovnanie AI stavov atleta."
-          : "Potrebujeme aspoň dve AI analýzy stavu – potom sa tu zobrazí progress."
-      }
+      note={note}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -190,17 +177,16 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
         </div>
       ) : error ? (
         <div className={WIDGET_ERROR_BLOCK}>
-          Nepodarilo sa načítať progress report.
+          {t("coachProgress.widget.errorTitle")}
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Chýba userId (useUserId). Skontroluj autentifikáciu.
+          {t("widget.missingUserId")}
         </div>
       ) : !ui.hasData ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných
-          týždňoch sa tu zobrazí prehľad progresu.
+          {t("coachProgress.widget.empty")}
         </div>
       ) : (
         <>
@@ -218,17 +204,17 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
           )}
 
           <div className={WIDGET_INFO_GRID_XS}>
-            <div className={WIDGET_LABEL_MUTED_XS}>Únava</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.fatigueLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachAthleteState.lastAnalysis.fatigue")}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{fatigueLabel}</div>
 
-            <div className={WIDGET_LABEL_MUTED_XS}>Riziko zranenia</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.injuryLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachAthleteState.lastAnalysis.injuryRisk")}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{injuryLabel}</div>
 
-            <div className={WIDGET_LABEL_MUTED_XS}>Blok</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>{t("coach.weekly.phase")}</div>
             <div className={WIDGET_VALUE_STRONG_XS}>{ui.blockLabel ?? "—"}</div>
 
-            <div className={WIDGET_LABEL_MUTED_XS}>Min. týždenný objem</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.volumeLabel ?? "—"}</div>
+            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachProgress.labels.volume")}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{volumeLabel}</div>
           </div>
         </>
       )}

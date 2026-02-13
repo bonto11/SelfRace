@@ -67,7 +67,8 @@ export default function WidgetSleepDuration({
       ? minutesToHHMM(latest as number)
       : "—";
 
-  const note = showNA ? freshness.message : cmp.note;
+  // Lokalizovaná správa pre chýbajúce dáta alebo poznámka z porovnania
+  const note = showNA ? t("sleepDuration.widget.noData") : cmp.note;
 
   const accent = (() => {
     if (loading || showNA) return appColors.stateNeutral;
@@ -84,7 +85,7 @@ export default function WidgetSleepDuration({
 
   return (
     <WidgetCard
-      title="Sleep duration"
+      title={t("sleepDuration.widget.title")}
       tooltip={t("sleepDuration.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}

@@ -9,6 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { fmtDate } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   NO_X_OVERFLOW,
@@ -30,7 +31,6 @@ import {
   apiGetVo2History,
   apiGetVo2Estimate,
 } from "@/app/features/profile/api/metrics";
-import { useT } from "@/app/shared/i18n/useT";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -38,7 +38,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const { userId } = useUserId();
   const t = useT();
-  
+
   const [loading, setLoading] = React.useState(true);
   const [history, setHistory] = React.useState<HistoryRow[]>([]);
   const [sex, setSex] = React.useState<"M" | "F">("M");
@@ -92,7 +92,15 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
         (rr.min == null || v >= rr.min) && (rr.max == null || v <= rr.max),
     );
     if (!hit) return null;
-    return { label: hit.label.trim(), color: levelColor(hit.label) };
+
+    // Skúsime preložiť label úrovne (napr. "Superior"), ak ho máme v katalógu
+    const lvlKey = hit.label.trim().toLowerCase();
+    const localizedLabel = (t as any)(`common.levels.${lvlKey}`);
+
+    return { 
+      label: localizedLabel === `common.levels.${lvlKey}` ? hit.label.trim() : localizedLabel, 
+      color: levelColor(hit.label) 
+    };
   };
 
   const estVal = Number.isFinite(est?.value as number)
@@ -107,7 +115,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title="VO₂Max"
+      title={t("VO2Max.widget.title")}
       tooltip={t("VO2Max.widget.tooltip")}
       onOpen={handleOpen}
       interactive={!!handleOpen}
@@ -124,7 +132,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           {/* estimated */}
           <div>
             <div className={WIDGET_META_LABEL}>
-              odhad: {fmtDate(est?.updated_at ?? null)}
+              {t("VO2Max.chart.estimated")}: {fmtDate(est?.updated_at ?? null)}
             </div>
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
@@ -149,7 +157,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           {/* measured */}
           <div>
             <div className={WIDGET_META_LABEL}>
-              merané: {fmtDate(measured?.updated_at ?? null)}
+              {t("VO2Max.chart.measured")}: {fmtDate(measured?.updated_at ?? null)}
             </div>
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>

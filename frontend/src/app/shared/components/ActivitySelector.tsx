@@ -13,6 +13,7 @@ import {
   FIELD_HELP,
 } from "@/app/shared/ui/tokens";
 import { fmtShortDate } from "@/app/shared/utils/time";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   userId: number | null;
@@ -37,6 +38,7 @@ export default function ActivitySelector({
   className = "",
   variant = "default",
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<MiniActivity[]>([]);
@@ -90,7 +92,7 @@ export default function ActivitySelector({
           } else {
             const phantom: MiniActivity = {
               id: Number(value),
-              name: "(Unknown activity)",
+              name: t("activitySelector.unknownActivity"),
               sport: (sports?.[0] ?? "run") as SportFE,
               start_date: `${dateIso}T00:00:00Z`,
               distance_km: null,
@@ -102,7 +104,7 @@ export default function ActivitySelector({
         if (onPicked) {
           const phantom: MiniActivity = {
             id: Number(value),
-            name: "(Unknown activity)",
+            name: t("activitySelector.unknownActivity"),
             sport: (sports?.[0] ?? "run") as SportFE,
             start_date: `${dateIso}T00:00:00Z`,
             distance_km: null,
@@ -117,6 +119,8 @@ export default function ActivitySelector({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, dateIso, value]);
+
+  const sportsStr = sports?.join(", ") ?? "run, mixed";
 
   return (
     <div className={className}>
@@ -140,10 +144,10 @@ export default function ActivitySelector({
       >
         <option value="">
           {disabled
-            ? "pick date first"
+            ? t("activitySelector.pickDateFirst")
             : loading
-            ? "Loading…"
-            : "— žiadna aktivita —"}
+            ? t("common.loading")
+            : t("activitySelector.noActivity")}
         </option>
 
         {!loading &&
@@ -163,8 +167,9 @@ export default function ActivitySelector({
 
       {!disabled && variant === "default" && (
         <div className={FIELD_HELP}>
-          Načítané podľa dátumu (±{deltaDays} dňa) a športu{" "}
-          {sports?.join(", ") ?? "run,mixed"}.
+          {t("activitySelector.helpText")
+            .replace("{{days}}", String(deltaDays))
+            .replace("{{sports}}", sportsStr)}
         </div>
       )}
     </div>

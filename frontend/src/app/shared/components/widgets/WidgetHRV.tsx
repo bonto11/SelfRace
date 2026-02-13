@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   compareLatestToBaseline,
@@ -20,7 +21,6 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT";
 
 function pickAccentFromCmp(
   cmpAccent: unknown,
@@ -84,13 +84,14 @@ export default function WidgetHRV({
       ? String(Math.round(yesterday as number))
       : "—";
 
-  const note = showNA ? freshness.message : cmp.note;
+  // Vylepšená logika poznámky pre "User Feeling"
+  const note = showNA ? t("HRV.widget.noData") : cmp.note;
 
   const accent = pickAccentFromCmp((cmp as any)?.accent, { loading, showNA });
 
   return (
     <WidgetCard
-      title="HRV (RMSSD)"
+      title={t("HRV.widget.title")}
       tooltip={t("HRV.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}
@@ -105,7 +106,7 @@ export default function WidgetHRV({
         <>
           <div className={WIDGET_VALUE_ROW}>
             <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
-            <span className={WIDGET_VALUE_UNIT}>ms</span>
+            <span className={WIDGET_VALUE_UNIT}>{t("common.units.ms")}</span>
           </div>
           {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>

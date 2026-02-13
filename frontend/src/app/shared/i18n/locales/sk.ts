@@ -28,6 +28,26 @@ export const sk = {
     enabled: "Zapnuté",
     disabled: "Vypnuté",
     more: "ďalšie",
+    noData: "Žiadne dáta",
+    last7Days: "Posledných 7 dní",
+    together: "spolu",
+    confirm: {
+      title: "Potvrdiť",
+      ok: "OK",
+      cancel: "Zrušiť",
+    },
+    disclosure: {
+      collapse: "Skryť sekciu",
+      expand: "Zobraziť sekciu",
+    },
+    levels: {
+      superior: "vynikajúca",
+      excellent: "výborná",
+      good: "dobrá",
+      fair: "priemerná",
+      poor: "slabá",
+      very_poor: "veľmi slabá",
+    },
     sports: {
       run: "Beh",
       bike: "Bicykel",
@@ -38,6 +58,7 @@ export const sk = {
       football: "Futbal",
       other: "Iné",
       swim: "Plávanie",
+      walk: "Chôdza",
     },
     units: {
       trimp: "trimp",
@@ -54,7 +75,7 @@ export const sk = {
       hr: "úde./min",
       pace: "s/km",
       kadenceRun: "krok/min",
-      kadenceBike: "ot/min"
+      kadenceBike: "ot/min",
     },
     metrics: {
       trimp: "trimp",
@@ -91,10 +112,10 @@ export const sk = {
     shell: "SelfRace • Priestor pre tvoj osobný rast",
   },
   nav: {
-      mobileAria: "Hlavná mobilná navigácia",
-      primaryAria: "Hlavná navigácia",
-      closeMenu: "Zatvoriť menu",
-    },
+    mobileAria: "Hlavná mobilná navigácia",
+    primaryAria: "Hlavná navigácia",
+    closeMenu: "Zatvoriť menu",
+  },
   ourStory: {
     title: "Náš príbeh",
   },
@@ -758,7 +779,8 @@ export const sk = {
   },
   widget: {
     missingserId: "Skontroluj autentifikáciu",
-    errorLoad: "Nepodarilo sa načítať",
+    errorLoad: "Nepodarilo sa načítať dáta",
+    missingUserId: "Chýbajúce ID používateľa",
   },
   PB: {
     title: "Osobné rekordy",
@@ -789,6 +811,9 @@ export const sk = {
         "• ak dlhšie PB nepadá, ale cítiš sa silnejší → často sa zlepšuje konzistencia, odolnosť a forma",
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
+      distanceLabel: "Vzdialenosť",
+      empty:
+        "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
     },
     run: {
       title: "Osobné rekordy pre beh",
@@ -879,10 +904,16 @@ export const sk = {
       injuryRisk: "Riziko zranenia",
       todayLabel: "Dnešok / najbližší deň",
       todaySessions: "ďalších blokov",
+      errorFetch: "Chyba pri načítaní daily plánu.",
+      labelDays: "Naplánované dni",
+      labelSessions: "Tréningové jednotky",
+      moreSessions: "ďalšie tréningy",
     },
   },
+
   coachPlan: {
     widget: {
+      title: "Plánovanie trénera",
       tooltip: [
         "Tento widget je „ovládací panel“ pre AI trénera – je to pipeline v 3 krokoch:",
         "",
@@ -909,10 +940,65 @@ export const sk = {
         "• Weekly/Daily ✓ sa momentálne drží aj cez localStorage flagy (aby UI vedelo, že si generoval).",
         "• Ak vymažeš localStorage alebo zmeníš device, UI môže ukazovať, že weekly/daily nie sú ✓, aj keď sú dáta v DB. (Toto sa dá neskôr zlepšiť kontrolou DB.)",
       ].join("\n"),
+      note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
+    },
+    status: {
+      active: "Aktívny plán ✓",
+      both: "Weekly+Daily ✓",
+      weeklyOnly: "Weekly ✓",
+      dailyOnly: "Daily ✓",
+      none: "Žiadny plán",
+    },
+    prefs: {
+      empty: "Nastavenia: —",
+      goal: "Cieľ",
+      weeks: "Týždne",
+      main: "Šport",
+    },
+    lockReason:
+      "Plán je aktívny – generovanie a analýza sú uzamknuté. Ak chceš prepočítať parametre, najprv ukonči aktuálny plán.",
+    actions: {
+      analyze: "Analyzuj stav trénovanosti",
+      analyzing: "Analyzujem…",
+      generateWeekly: "Vygeneruj týždenný plán",
+      generatingWeekly: "Generujem…",
+      generateDaily: "Vygeneruj denný plán",
+      generatingDaily: "Generujem…",
+      startPlan: "Spusti plán",
+      startingPlan: "Spúšťam…",
+      activePlan: "Plán je aktívny ✓",
+      openPlan: "Otvoriť plán",
+      cancelPlan: "Ukončiť plán",
+      cancellingPlan: "Ruším…",
+    },
+    confirmCancel: {
+      title: "Ukončiť tréningový plán?",
+      message:
+        "Táto akcia je nezvratná. Týždenný aj denný rozpis budú zrušené a plán sa archivuje medzi ukončené.",
+      ok: "Ukončiť plán",
+      cancel: "Zrušiť",
+    },
+    requirements: {
+      title: "Pre spustenie plánu potrebuješ",
+      analyze: "analýzu",
+      weekly: "weekly",
+      daily: "daily",
+    },
+    errors: {
+      missingUserId: "Chýba identifikátor používateľa.",
+      alreadyActive: "Plán je už aktívny.",
+      needAnalyze: "Najprv spusti analýzu trénovanosti.",
+      needBoth: "Najprv vygeneruj týždenný aj denný rozpis.",
+      needWeekly: "Najprv vygeneruj týždenný rozpis.",
+      needDaily: "Najprv vygeneruj denný rozpis.",
+      genericStart: "Nie je možné spustiť plán.",
+      aiQuota:
+        "AI limit pre tento mesiac je vyčerpaný. Minuté tokeny: {{tokens}}. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
     },
   },
   coachPrefs: {
     widget: {
+      title: "Preferencie trénera",
       tooltip: [
         "Toto sú tréningové preferencie, z ktorých AI tréner vychádza pri tvorbe plánu.",
         "",
@@ -929,6 +1015,12 @@ export const sk = {
         "Tip:",
         "• Keď meníš preferencie, ideálne potom sprav nový weekly/daily plan, aby to bolo konzistentné.",
       ].join("\n"),
+      note: "Kliknutím upravíš nastavenia",
+    },
+    labels: {
+      goal: "Hlavný cieľ",
+      weeks: "Horizont",
+      sports: "Športy",
     },
   },
   coachProgress: {
@@ -954,6 +1046,17 @@ export const sk = {
         "Prečo treba aspoň 2 analýzy:",
         "• progress je porovnanie. Bez „predtým“ nemáš „zlepšenie“ ani „zhoršenie“.",
       ].join("\n"),
+      noteLastCompare: "Posledné porovnanie: {{date}}",
+      noteLastCompareGeneric: "Posledné porovnanie AI stavov.",
+      noteMissing: "Pre zobrazenie progresu potrebujeme aspoň dve AI analýzy.",
+      errorTitle: "Nepodarilo sa načítať progress report.",
+      errorFetch: "Chyba pri načítaní AI progress reportu.",
+      empty:
+        "Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných týždňoch sa tu zobrazí prehľad progresu.",
+    },
+    labels: {
+      volume: "Min. týždenný objem",
+      volumeValue: "{{from}} h → {{to}} h / týždeň (min)",
     },
   },
   coachWeekly: {
@@ -977,6 +1080,17 @@ export const sk = {
         "• Focus ti povie, čo je priorita (napr. rýchlosť vs. vytrvalosť).",
         "• Fáza ti povie, či máš čakať viac únavy (build/peak) alebo úľavu (deload).",
       ].join("\n"),
+      noteRange: "Rozsah plánu:",
+      noteMissing: "Vygeneruj týždenný plán cez AI.",
+      errorTitle: "Nepodarilo sa načítať týždenný plán.",
+      errorFetch: "Chyba pri načítaní weekly plánu.",
+      emptyText:
+        "Zatiaľ nemáš uložený AI týždenný plán. Spusť generovanie plánu a widget sa naplní.",
+      labelWeeksCount: "Počet týždňov",
+      labelCurrentWeek: "Aktuálny týždeň",
+      labelFocus: "Zameranie",
+      labelPhase: "Fáza",
+      thisWeekSummary: "Tento týždeň",
     },
   },
   externalEvents: {
@@ -1011,7 +1125,14 @@ export const sk = {
         "Tip:",
         "• ak máš viac externých záťaží, tréningový plán by mal byť konzervatívnejší",
       ].join("\n"),
+      note: "Započítané tréningy a časové obmedzenia mimo hlavného plánu.",
+      statusSaved: "{{count}} uložených",
+      empty: "Žiadne externé udalosti",
+      summary: "{{weekly}} týždenných · {{singles}} nadchádzajúcich",
+      loadingFromDb: "Načítavam z databázy...",
+      emptyHint: "Klikni pre pridanie prvej externej udalosti.",
     },
+
     form: {
       type: "Typ",
       categorySport: "Športová aktivita",
@@ -1089,7 +1210,25 @@ export const sk = {
         "2) Veľmi vysoké úsilie → zváž znížený objem v týždeň alebo aspoň 1–2 dni fakt ľahko.",
         "3) Vrchol (Peak) týždeň je ok, ale nie viac týždňov v kuse.",
       ].join("\n"),
+      empty: "Dáta pre posledných 7 dní nie sú k dispozícii.",
     },
+    strain: "Úsilie",
+    monotony: "Monotónnosť",
+    levels: {
+      mono: {
+        low: "nízka variabilita (OK)",
+        ok: "vyvážené (OK)",
+        warn: "vyššia monotónnosť",
+        danger: "riziko preťaženia",
+      },
+      strain: {
+        low: "ľahší týždeň",
+        ok: "stredný load",
+        warn: "vyšší load",
+        danger: "veľmi vysoký",
+      },
+    },
+
     trend: {
       title: "Týždňová monotónnosť a úsilie",
       tooltip: [
@@ -1138,6 +1277,9 @@ export const sk = {
         "• 80/20 nie je dogma – v príprave na preteky môže byť pomer posunutý",
         "• problém je dlhodobo veľa hard dní bez dostatočného easy objemu",
       ].join("\n"),
+      noteMissing: "Chýba ti {{min}} min Easy do 80/20.",
+      noteExtra: "Máš +{{min}} min Easy oproti 80/20.",
+      notePerfect: "Si presne na 80/20 ✔",
     },
     trend: {
       title: "Pomer 80/20 času v zónach",
@@ -1169,6 +1311,11 @@ export const sk = {
         "• Skoky sa dejú, ale mali by byť zámerné a následne vyvážené ľahším týždňom.",
       ].join("\n"),
     },
+    status: {
+      muchMore: "↑ oproti predošlým 7 dňom výrazne viac",
+      muchLess: "↓ výrazne menej než predchádzajúcich 7 dní",
+      similar: "≈ podobne ako predchádzajúcich 7 dní",
+    },
   },
   HRV: {
     title: "HRV (Variabilita srdového tepu)",
@@ -1198,6 +1345,7 @@ export const sk = {
         "Tip pre meranie:",
         "• najlepší signál je konzistentné meranie v rovnakých podmienkach (ráno po zobudení, bez rushu)",
       ].join("\n"),
+      noData: "Dnešné dáta zatiaľ chýbajú",
     },
   },
   RHR: {
@@ -1229,6 +1377,7 @@ export const sk = {
         "• ak je RHR zvýšené + HRV klesá + cítiš sa „ťažký“ → skôr recovery/easy deň alebo voľno",
         "• ak je RHR vyššie, ale cítiš sa dobre a ostatné metriky sú OK → nemusí to byť problém (pozri kontext)",
       ].join("\n"),
+      noData: "Dnešné dáta zatiaľ chýbajú",
     },
   },
   sleepDuration: {
@@ -1254,6 +1403,7 @@ export const sk = {
         "• ak spánok padá pod baseline: skús najprv stabilný čas zaspania + menej kofeínu poobede",
         "• keď rastie tréningový objem/intenzita, často potrebuješ aj viac spánku (nie „rovnako ako vždy“)",
       ].join("\n"),
+      noData: "Dáta o dĺžke spánku chýbajú",
     },
   },
   sleepStart: {
@@ -1278,6 +1428,7 @@ export const sk = {
         "• ak je sleep start často neskoro: skús posun o 10–20 min každé 2–3 dni",
         "• ak je chaotický (raz 22:00, raz 01:00): najväčší prínos je stabilita, nie perfektné číslo",
       ].join("\n"),
+      noData: "Čas zaspania nie je zaznamenaný",
     },
   },
   VO2Max: {
@@ -1752,7 +1903,8 @@ export const sk = {
   sessions: {
     review: {
       title: "Analýza trénera",
-      errorTooOld: "Aktivita je staršia ako 7 dní a už ju nie je možné analyzovať.",
+      errorTooOld:
+        "Aktivita je staršia ako 7 dní a už ju nie je možné analyzovať.",
       errorCommentLong: "Komentár je príliš dlhý (max 900 znakov).",
       errorRerunRejected: "Požiadavka na prepočet bola zamietnutá.",
       errorGeneric: "Chyba pri spracovaní analýzy.",
@@ -1763,15 +1915,18 @@ export const sk = {
       btnRerun: "Prepočítať",
       btnGenerate: "Analyzovať",
       btnGenerating: "Analyzujem...",
-      commentPlaceholder: "Napíš poznámku pre AI... (napr. pocity, terén, únava)",
-      commentTip: "Tip: Komentár pomôže AI lepšie pochopiť kontext tvojho tréningu.",
+      commentPlaceholder:
+        "Napíš poznámku pre AI... (napr. pocity, terén, únava)",
+      commentTip:
+        "Tip: Komentár pomôže AI lepšie pochopiť kontext tvojho tréningu.",
       loading: "Načítavam analýzu...",
       tagFocus: "Zameranie",
       tagZone: "Zóna",
       tagCaution: "Vyžaduje pozornosť",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
-      noReviewPlaceholder: "Zatiaľ žiadne hodnotenie. Klikni na tlačidlo hore pre spustenie analýzy.",
+      noReviewPlaceholder:
+        "Zatiaľ žiadne hodnotenie. Klikni na tlačidlo hore pre spustenie analýzy.",
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
@@ -1810,7 +1965,7 @@ export const sk = {
         cooldown: "VYCHLADNUTIE",
         recovery: "rec",
         target: "cieľ",
-      }
+      },
     },
     splits: {
       noData: "Žiadne dáta o úsekoch.",
@@ -1838,29 +1993,34 @@ export const sk = {
         close: "Zavrieť",
         action: "Presunúť",
         current: "Aktuálne:",
-      }
+      },
     },
     charts: {
-    stream: {
-      title: "Podrobné grafy",
-      subtitle: "Analýza tepu, výšky, tempa, výkonu a kadencie",
-      show: "Zobraziť podrobné grafy",
-      hide: "Skryť podrobné grafy",
-      unavailable: "Podrobné dáta nie sú pre túto aktivitu k dispozícii.",
-      noHr: "Dáta o srdcovom tepe chýbajú.",
-      noAlt: "Výškový profil nie je k dispozícii.",
-      noPace: "Dáta o tempe chýbajú.",
-      noPower: "Dáta o výkone chýbajú.",
-      noCadence: "Kadencia nebola zaznamenaná.",
-    },
-    metrics: {
-      hrFull: "Analýza srdcového tepu",
-      elevation: "Výškový profil",
-      pace: "Tempo (instantné)",
-      power: "Výkon",
-      cadence: "Kadencia",
+      stream: {
+        title: "Podrobné grafy",
+        subtitle: "Analýza tepu, výšky, tempa, výkonu a kadencie",
+        show: "Zobraziť podrobné grafy",
+        hide: "Skryť podrobné grafy",
+        unavailable: "Podrobné dáta nie sú pre túto aktivitu k dispozícii.",
+        noHr: "Dáta o srdcovom tepe chýbajú.",
+        noAlt: "Výškový profil nie je k dispozícii.",
+        noPace: "Dáta o tempe chýbajú.",
+        noPower: "Dáta o výkone chýbajú.",
+        noCadence: "Kadencia nebola zaznamenaná.",
+      },
+      metrics: {
+        hrFull: "Analýza srdcového tepu",
+        elevation: "Výškový profil",
+        pace: "Tempo (instantné)",
+        power: "Výkon",
+        cadence: "Kadencia",
+      },
     },
   },
-   
+  activitySelector: {
+    unknownActivity: "(Neznáma aktivita)",
+    pickDateFirst: "Najprv vyberte dátum",
+    noActivity: "— žiadna aktivita —",
+    helpText: "Načítané podľa dátumu (±{{days}} dňa) a športu: {{sports}}.",
   },
 } as const;

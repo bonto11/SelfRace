@@ -28,6 +28,7 @@ export default function WidgetPareto8020({
   sport = null,
 }: Props) {
   const { getParetoWidget } = useActivityData();
+  const t = useT();
 
   const sportParam = useMemo(() => {
     if (sport == null) return null;
@@ -37,8 +38,7 @@ export default function WidgetPareto8020({
     const list = s.split(",").map((x) => x.trim()).filter(Boolean);
     return sportsToCSV(normalizeSportList(list));
   }, [sport]);
-  const t = useT();
-  
+
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<{
     easy_min: number;
@@ -59,9 +59,7 @@ export default function WidgetPareto8020({
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [getParetoWidget, weeks, sportParam]);
 
   const E = Math.max(0, Number(data?.easy_min ?? 0));
@@ -76,18 +74,23 @@ export default function WidgetPareto8020({
 
   const accent = T === 0 ? "none" : appColors.stateWarning;
 
-  const note =
-    T === 0
-      ? ""
-      : deltaEasy > 0
-        ? `Chýba ti ${deltaEasy} min Easy do 80/20.`
-        : deltaEasy < 0
-          ? `Máš +${Math.abs(deltaEasy)} min Easy oproti 80/20.`
-          : "Si presne na 80/20 ✔";
+  const note = useMemo(() => {
+    if (T === 0) return "";
+    if (deltaEasy > 0) {
+      return t("pareto8020.widget.noteMissing").replace("{{min}}", String(deltaEasy));
+    }
+    if (deltaEasy < 0) {
+      return t("pareto8020.widget.noteExtra").replace("{{min}}", String(Math.abs(deltaEasy)));
+    }
+    return t("pareto8020.widget.notePerfect");
+  }, [T, deltaEasy, t]);
+
+  const widgetTitle = t("pareto8020.widget.title")
+    .replace("{{weeks}}", String(weeks));
 
   return (
     <WidgetCard
-      title={`Posledné ${weeks} týždne – 80/20`}
+      title={widgetTitle}
       tooltip={t("pareto8020.widget.tooltip")}
       onOpen={onOpenTrend}
       interactive={!!onOpenTrend}
@@ -101,13 +104,12 @@ export default function WidgetPareto8020({
       ) : (
         <>
           <div className={WIDGET_CENTER}>
-            {/* SVG prstenec ostáva nezmenený */}
-            {/* … */}
+            {/* SVG prstenec ostáva nezmenený... */}
           </div>
 
           <div className={WIDGET_FOOTNOTE}>
-            Easy: {fmtMinutes(E)} ({easyPct}%) · Hard: {fmtMinutes(H)} ({hardPct}
-            %){T ? <> · {fmtMinutes(T)} spolu</> : null}
+            Easy: {fmtMinutes(E)} ({easyPct}%) · Hard: {fmtMinutes(H)} ({hardPct}%)
+            {T ? <> · {fmtMinutes(T)} {t("common.together")}</> : null}
           </div>
 
           {note && <div className={WIDGET_NOTE}>{note}</div>}

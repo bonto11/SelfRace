@@ -28,11 +28,11 @@ export default function WidgetPB({
 }) {
   const { userId } = useUserId();
   const { favM } = useFavoritePBRun();
+  const t = useT();
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [loading, setLoading] = useState(false);
-  const t = useT();
-  
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -57,16 +57,16 @@ export default function WidgetPB({
     [rows, favM],
   );
 
-  const main =
+  const mainValue =
     fav?.best_time_s != null
       ? secToHHMMSS(fav.best_time_s)
       : fav?.time_str ?? "—";
 
-  const sub = `Distance: ${favM ? distanceLabel(favM, "run") : "—"}`;
+  const subLabel = `${t("PB.widget.distanceLabel")}: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
   return (
     <WidgetCard
-      title="Osobné rekordy"
+      title={t("PB.widget.title")}
       tooltip={t("PB.widget.tooltip")}
       accent="none"
       onOpen={onOpenDetail}
@@ -80,15 +80,13 @@ export default function WidgetPB({
       ) : fav ? (
         <>
           <div className="flex items-baseline gap-2">
-            <span className={WIDGET_METRIC_VALUE}>{main}</span>
+            <span className={WIDGET_METRIC_VALUE}>{mainValue}</span>
           </div>
-          <div className={WIDGET_FOOTNOTE}>{sub}</div>
+          <div className={WIDGET_FOOTNOTE}>{subLabel}</div>
         </>
       ) : (
         <div className={WIDGET_EMPTY}>
-          Zatiaľ nemáš PB pre obľúbenú vzdialenosť.
-          <br />
-          Otvor detail a pridaj svoj rekord.
+          {t("PB.widget.empty")}
         </div>
       )}
     </WidgetCard>

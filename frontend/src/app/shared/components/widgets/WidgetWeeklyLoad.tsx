@@ -18,7 +18,7 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function WeeklyLoadWidget({
-  title = "Záťaž – posledných 7 dní",
+  title,
   onOpenDetail,
 }: {
   title?: string;
@@ -26,7 +26,7 @@ export default function WeeklyLoadWidget({
 }) {
   const { rolling7, loading } = useActivityData();
   const t = useT();
-  
+
   const r7 = rolling7?.("time");
   const totalLast = Number(r7?.last?.sum ?? 0);
   const totalPrev = Number(r7?.prev?.sum ?? 0);
@@ -38,24 +38,21 @@ export default function WeeklyLoadWidget({
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  let note = "—";
-  let accent: string = appColors.stateNeutral;
-
-  if (!loading) {
-    if (diffPct == null) {
-      note = "—";
-      accent = "none";
-    } else if (diffPct > 20) {
-      note = "↑ oproti predošlým 7 dňom výrazne viac";
-      accent = appColors.stateWarning;
-    } else if (diffPct < -20) {
-      note = "↓ výrazne menej než predchádzajúcich 7 dní";
-      accent = appColors.stateWarning;
-    } else {
-      note = "≈ podobne ako predchádzajúcich 7 dní";
-      accent = "none";
-    }
-  }
+  const { note, accent } = useMemo(() => {
+    if (loading || diffPct == null) return { note: "—", accent: "none" };
+    if (diffPct > 20) return {
+      note: t("weeklyLoad.status.muchMore"),
+      accent: appColors.stateWarning
+    };
+    if (diffPct < -20) return {
+      note: t("weeklyLoad.status.muchLess"),
+      accent: appColors.stateWarning
+    };
+    return {
+      note: t("weeklyLoad.status.similar"),
+      accent: "none"
+    };
+  }, [loading, diffPct, t]);
 
   const rangeTxt =
     r7?.last?.range?.start && r7?.last?.range?.end
@@ -64,7 +61,7 @@ export default function WeeklyLoadWidget({
 
   return (
     <WidgetCard
-      title={title}
+      title={title ?? t("weeklyLoad.widget.title")}
       tooltip={t("weeklyLoad.widget.tooltip")}
       accent={accent}
       onOpen={onOpenDetail}

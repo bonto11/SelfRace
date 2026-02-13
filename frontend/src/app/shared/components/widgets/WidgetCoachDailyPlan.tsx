@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetCoachDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +5,7 @@ import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -30,7 +30,6 @@ import {
   type DailyOverview,
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
-import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -75,11 +74,11 @@ function buildUiState(overview: DailyOverview | null): UiState {
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
+  const t = useT();
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const t = useT();
 
   useEffect(() => {
     if (!userId) return;
@@ -92,7 +91,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         const r = await apiGetDailyOverview(userId);
         if (alive) setOverview(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní daily plánu.");
+        if (alive) setError(e?.message ?? t("coachDaily.widget.errorFetch"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -101,12 +100,12 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const ui = useMemo(() => buildUiState(overview), [overview]);
 
   const note = ui.daysCount
-    ? t("coachDaily.widget.noteOK") + `${ui.daysCount}`
+    ? `${t("coachDaily.widget.noteOK")} ${ui.daysCount}`
     : t("coachDaily.widget.noteMissing");
 
   return (
@@ -125,12 +124,12 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         </div>
       ) : error ? (
         <div className={WIDGET_ERROR_TEXT}>
-         {t("widget.errorLoad")}
+          {t("widget.errorLoad")}
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>
-           {t("widget.missingserId")}
+          {t("widget.missingUserId")}
         </div>
       ) : !overview || !ui.daysCount ? (
         <div className={WIDGET_EMPTY_TEXT}>
@@ -139,10 +138,10 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       ) : (
         <>
           <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.sessionsCount")}</div>
+            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelDays")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
 
-            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.injuryRisk")}</div>
+            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelSessions")}</div>
             <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
 
             <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.todayLabel")}</div>
@@ -154,7 +153,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
           {ui.todaySessions && ui.todaySessions.length > 0 && (
             <div className={WIDGET_SUMMARY_WRAP}>
               <div className={WIDGET_SUMMARY_HEAD}>
-                :  {t("coachDaily.widget.summary")}
+                {t("coachDaily.widget.summary")}
               </div>
 
               <ul className={WIDGET_LIST}>
@@ -166,7 +165,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
                     />
                     <span className={WIDGET_TRUNCATE}>
                       {s.title || s.session_type || s.sport}
-                      {s.duration_min ? ` · ${s.duration_min} min` : ""}
+                      {s.duration_min ? ` · ${s.duration_min} ${t("common.units.min")}` : ""}
                       {s.intensity ? ` · ${s.intensity}` : ""}
                     </span>
                   </li>
@@ -175,7 +174,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
               {ui.todaySessions.length > 3 && (
                 <div className={WIDGET_MORE_HINT}>
-                  + {ui.todaySessions.length - 3} {t("coachDaily.widget.todaySessions")}
+                  + {ui.todaySessions.length - 3} {t("coachDaily.widget.moreSessions")}
                 </div>
               )}
             </div>

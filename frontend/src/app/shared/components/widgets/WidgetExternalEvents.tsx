@@ -1,7 +1,7 @@
 // src/shared/components/widgets/WidgetExternalEvents.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -31,12 +31,12 @@ type Stats = {
 export default function WidgetExternalEvents() {
   const router = useRouter();
   const { userId } = useUserId();
+  const t = useT();
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const t = useT();
-  
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -69,7 +69,7 @@ export default function WidgetExternalEvents() {
         });
       } catch (e: any) {
         if (!alive) return;
-        setErr(e?.message ?? "Failed to load external events.");
+        setErr(e?.message ?? t("externalEvents.errors.loadFailed"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -78,45 +78,52 @@ export default function WidgetExternalEvents() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
-  const label = (() => {
-    if (!stats) return "No data";
-    if (stats.total === 0) return "No external events";
-    return `${stats.weekly} weekly · ${stats.singles_upcoming} upcoming singles`;
-  })();
+  const summaryLabel = useMemo(() => {
+    if (!stats) return t("common.noData");
+    if (stats.total === 0) return t("externalEvents.widget.empty");
+    
+    return t("externalEvents.widget.summary")
+      .replace("{{weekly}}", String(stats.weekly))
+      .replace("{{singles}}", String(stats.singles_upcoming));
+  }, [stats, t]);
+
+  const pillLabel = useMemo(() => {
+    if (loading) return t("common.loading");
+    if (!stats) return t("common.noData");
+    return t("externalEvents.widget.statusSaved").replace("{{count}}", String(stats.total));
+  }, [loading, stats, t]);
 
   return (
     <WidgetCard
-      title="Externé udalosti"
+      title={t("externalEvents.widget.title")}
       tooltip={t("externalEvents.widget.tooltip")}
       accent="none"
-      note="Externé športy a časové bloky, s ktorými plán počíta."
+      note={t("externalEvents.widget.note")}
       interactive
       minH={120}
       onOpen={() => router.push("/coach/external")}
     >
       <div className={WIDGET_ROW_TOP_XS}>
         <Pill
-          label={
-            loading ? "Loading…" : stats ? `${stats.total} saved` : "No data"
-          }
+          label={pillLabel}
           color={appColors.textMuted}
         />
-        <span className={WIDGET_META_TEXT}>{label}</span>
+        <span className={WIDGET_META_TEXT}>{summaryLabel}</span>
       </div>
 
       {err && <div className={WIDGET_ERROR_LINE_COLORED}>{err}</div>}
 
       {loading && (
         <div className={WIDGET_LOADING_LINE}>
-          <LoadingSpinner size="button" /> Loading from DB…
+          <LoadingSpinner size="button" /> {t("externalEvents.widget.loadingFromDb")}
         </div>
       )}
 
       {!loading && !err && (!stats || stats.total === 0) && (
         <div className={WIDGET_EMPTY_HINT}>
-          Tap to add your first external event.
+          {t("externalEvents.widget.emptyHint")}
         </div>
       )}
     </WidgetCard>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   WIDGET_CENTER_SPINNER,
   WIDGET_ERROR_BLOCK,
@@ -22,7 +23,6 @@ import {
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
 import { formatDate, toDate } from "@/app/shared/utils/time";
-import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -59,7 +59,7 @@ function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
   return idx1 ?? weeks[0];
 }
 
-function buildUiState(plan: WeeklyPlanLatest | null): UiState {
+function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
   if (!plan || !plan.weeks?.length) {
     return {
       weeksCount: 0,
@@ -85,7 +85,9 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   else if (firstStr) lastPlanRange = firstStr;
 
   const current = findCurrentWeek(weeks);
-  const currentWeekLabel = current ? `Week ${current.week_index}` : null;
+  const currentWeekLabel = current 
+    ? `${t("common.week")} ${current.week_index}` 
+    : null;
   const currentWeekFocus = current?.focus ?? current?.goal ?? null;
   const currentWeekLoad = current?.load_phase ?? null;
 
@@ -100,12 +102,12 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
 
 export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
+  const t = useT();
 
   const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const t = useT();
-  
+
   useEffect(() => {
     if (!userId) return;
 
@@ -117,7 +119,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         const r = await apiGetLatestWeeklyPlan(userId);
         if (alive) setPlan(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní weekly plánu.");
+        if (alive) setError(e?.message ?? t("coachWeekly.widget.errorFetch"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -126,20 +128,20 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
-  const ui = useMemo(() => buildUiState(plan), [plan]);
+  const ui = useMemo(() => buildUiState(plan, t), [plan, t]);
+
+  const note = ui.lastPlanRange
+    ? `${t("coachWeekly.widget.noteRange")} ${ui.lastPlanRange}`
+    : t("coachWeekly.widget.noteMissing");
 
   return (
     <WidgetCard
-      title="Tréner — Týždenný plán"
+      title={t("coachWeekly.widget.title")}
       tooltip={t("coachWeekly.widget.tooltip")}
       accent="none"
-      note={
-        ui.lastPlanRange
-          ? `Rozsah plánu: ${ui.lastPlanRange}`
-          : "Vygeneruj weekly plán cez AI."
-      }
+      note={note}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}
@@ -150,35 +152,34 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         </div>
       ) : error ? (
         <div className={WIDGET_ERROR_BLOCK}>
-          Nepodarilo sa načítať weekly plán.
+          {t("coachWeekly.widget.errorTitle")}
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Chýba userId (useUserId). Skontroluj autentifikáciu.
+          {t("widget.missingUserId")}
         </div>
       ) : !plan ? (
         <div className={WIDGET_EMPTY_TEXT}>
-          Zatiaľ nemáš uložený AI weekly plán. Spusť generovanie plánu a widget
-          sa naplní.
+          {t("coachWeekly.widget.emptyText")}
         </div>
       ) : (
         <>
           <div className={WIDGET_INFO_GRID_SM}>
-            <div className={WIDGET_LABEL_MUTED_SM}>Počet týždňov</div>
+            <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelWeeksCount")}</div>
             <div className={WIDGET_VALUE_STRONG_SM}>{ui.weeksCount || "—"}</div>
 
-            <div className={WIDGET_LABEL_MUTED_SM}>Aktuálny týždeň</div>
+            <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelCurrentWeek")}</div>
             <div className={WIDGET_VALUE_STRONG_SM}>
               {ui.currentWeekLabel ?? "—"}
             </div>
 
-            <div className={WIDGET_LABEL_MUTED_SM}>Focus</div>
+            <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelFocus")}</div>
             <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
               {ui.currentWeekFocus ?? "—"}
             </div>
 
-            <div className={WIDGET_LABEL_MUTED_SM}>Fáza</div>
+            <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelPhase")}</div>
             <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
               {ui.currentWeekLoad ?? "—"}
             </div>
@@ -186,7 +187,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
           {ui.currentWeekFocus && (
             <p className={WIDGET_NOTE_P_SM}>
-              Tento týždeň: {ui.currentWeekFocus}
+              {t("coachWeekly.widget.thisWeekSummary")}: {ui.currentWeekFocus}
               {ui.currentWeekLoad ? ` (${ui.currentWeekLoad})` : ""}
             </p>
           )}
