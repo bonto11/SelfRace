@@ -92,12 +92,12 @@ export default function WidgetPareto8020({
     return [
       {
         value: E,
-        label: t("pareto8020.zone.easy"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Easy")
+        label: t("pareto8020.trend.labelEasy"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Easy")
         color: "#22c55e", // Zelená (môžete nahradiť za appColors...)
       },
       {
         value: H,
-        label: t("pareto8020.zone.hard"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Hard")
+        label: t("pareto8020.trend.labelHard"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Hard")
         color: "#ef4444", // Červená (môžete nahradiť za appColors...)
       },
     ];
