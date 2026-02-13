@@ -66,7 +66,7 @@ export function PieTrend({
   }
 
   return (
-    <div className={`flex flex-row items-center gap-6 py-4 justify-center ${className}`}>
+    <div className={`flex flex-row items-center gap-5 py-4 px-2 justify-center w-full ${className}`}>
       {/* 1. CHART (SVG Donut) */}
       <div className="relative w-24 h-24 flex-shrink-0">
         <svg viewBox="0 0 42 42" className="w-full h-full transform -rotate-90">
@@ -95,7 +95,7 @@ export function PieTrend({
         </svg>
 
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-[10px] font-bold opacity-80">
+          <span className="text-[10px] font-bold opacity-80 text-center leading-tight">
             {renderCenter
               ? renderCenter(data.total)
               : valueFormatter(data.total)}
@@ -103,29 +103,32 @@ export function PieTrend({
         </div>
       </div>
 
-      {/* 2. LEGEND (Upravený layout pre lepšie čítanie percent) */}
-      <div className="flex flex-col gap-3 min-w-[140px] w-full max-w-[180px]">
+      {/* 2. LEGEND (Zarovnaný layout s fixnými šírkami) */}
+      <div className="flex flex-col gap-3 flex-1 max-w-[200px]">
         {data.segments.map((s: any) => (
           <div key={s.label} className="flex items-center w-full">
             
-            {/* Ľavá strana: Bodka + 93% + Ľahké */}
-            <div className="flex items-center gap-2">
-              <span
-                className="w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0"
-                style={{ backgroundColor: s.color }}
-              />
-              <span className="font-bold text-base leading-none">
-                {Math.round(s.pct * 100)}%
-              </span>
-              <span className="opacity-90 text-sm font-medium leading-none">
-                {s.label}
-              </span>
-            </div>
+            {/* Bodka */}
+            <span
+              className="w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0 mr-2.5"
+              style={{ backgroundColor: s.color }}
+            />
 
-            {/* Pravá strana: Čas posunutý doprava */}
-            <div className="ml-auto flex items-center gap-3 opacity-60 text-xs font-mono pt-0.5">
-              <span>{valueFormatter(s.val)}</span>
-            </div>
+            {/* Percentá: pevná šírka (w-9), zarovnané doprava, aby % boli pekne pod sebou */}
+            <span className="font-bold text-[15px] leading-none w-9 text-right shrink-0">
+              {Math.round(s.pct * 100)}%
+            </span>
+
+            {/* Názov zóny: fixné odsadenie zľava (ml-3), zaberie len toľko miesta, koľko potrebuje */}
+            <span className="opacity-90 text-[13px] font-medium leading-none ml-3">
+              {s.label}
+            </span>
+
+            {/* Čas: 'ml-auto' ho odtlačí úplne vpravo a 'min-w' zaistí pravé zarovnanie stĺpca */}
+            <span className="ml-auto opacity-60 text-xs font-mono text-right shrink-0 pl-2 pt-0.5 min-w-[50px]">
+              {valueFormatter(s.val)}
+            </span>
+            
           </div>
         ))}
       </div>
