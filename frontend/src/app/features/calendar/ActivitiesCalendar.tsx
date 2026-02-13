@@ -153,10 +153,12 @@ export default function ActivitiesCalendar({
     setSelectedIso(null);
   };
 
-  const label = new Date(year, month0, 1).toLocaleDateString("sk-SK", {
-    month: "long",
-    year: "numeric",
-  });
+  const [label, setLabel] = React.useState("");
+
+  React.useEffect(() => {
+    const d = new Date(year, month0, 1);
+    setLabel(d.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }));
+  }, [year, month0]);
 
   const selectedLabel = React.useMemo(() => {
     if (!selectedIso) return "";
