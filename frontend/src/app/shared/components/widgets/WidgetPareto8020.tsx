@@ -11,10 +11,12 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_CENTER,
-  WIDGET_FOOTNOTE,
   WIDGET_NOTE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+
+// Importujeme náš PieTrend komponent
+import { PieTrend, type PieTrendItem } from "@/app/shared/components/charts/PieTrend";
 
 type Props = {
   onOpenTrend?: () => void;
@@ -66,9 +68,6 @@ export default function WidgetPareto8020({
   const H = Math.max(0, Number(data?.hard_min ?? 0));
   const T = Math.max(0, E + H);
 
-  const easyPct = T ? Math.round((E / T) * 100) : 0;
-  const hardPct = T ? 100 - easyPct : 0;
-
   const targetEasy = 0.8 * T;
   const deltaEasy = Math.round(targetEasy - E);
 
@@ -88,6 +87,22 @@ export default function WidgetPareto8020({
   const widgetTitle = t("pareto8020.widget.title")
     .replace("{{weeks}}", String(weeks));
 
+  // Príprava dát pre PieTrend graf
+  const pieItems: PieTrendItem[] = useMemo(() => {
+    return [
+      {
+        value: E,
+        label: t("pareto8020.zone.easy"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Easy")
+        color: "#22c55e", // Zelená (môžete nahradiť za appColors...)
+      },
+      {
+        value: H,
+        label: t("pareto8020.zone.hard"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Hard")
+        color: "#ef4444", // Červená (môžete nahradiť za appColors...)
+      },
+    ];
+  }, [E, H, t]);
+
   return (
     <WidgetCard
       title={widgetTitle}
@@ -104,13 +119,20 @@ export default function WidgetPareto8020({
       ) : (
         <>
           <div className={WIDGET_CENTER}>
-            {/* SVG prstenec ostáva nezmenený... */}
+            <PieTrend
+              items={pieItems}
+              valueFormatter={fmtMinutes}
+              // Vykreslíme celkový čas pekne do stredu prstenca
+              renderCenter={(total) => (
+                <div className="flex flex-col items-center justify-center leading-none">
+                  <span className="text-xs opacity-60 mb-0.5">{t("common.together")}</span>
+                  <span className="font-bold text-[11px]">{fmtMinutes(total)}</span>
+                </div>
+              )}
+            />
           </div>
 
-          <div className={WIDGET_FOOTNOTE}>
-            Easy: {fmtMinutes(E)} ({easyPct}%) · Hard: {fmtMinutes(H)} ({hardPct}%)
-            {T ? <> · {fmtMinutes(T)} {t("common.together")}</> : null}
-          </div>
+          {/* WIDGET_FOOTNOTE som odstránil, pretože PieTrend si tvorí vlastnú legendu */}
 
           {note && <div className={WIDGET_NOTE}>{note}</div>}
         </>
