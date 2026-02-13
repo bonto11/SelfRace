@@ -12,24 +12,45 @@ import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   selectedIso: string;
-  selectedLabel: string;
-
+  // selectedLabel sme odstránili z Props
   actRows: any[];
   planRowsForDay: any[];
   externalRows: ExternalEvent[];
-
   safeSportKey: (v: any) => string;
   actMap?: Map<number, any>;
 };
 
 export default function DayDetail({
   selectedIso,
-  selectedLabel,
   actRows,
   planRowsForDay,
   externalRows,
   safeSportKey,
 }: Props) {
+  const t = useT();
+  
+  // 1. Ochrana proti Hydration Error: Uistíme sa, že renderujeme až na klientovi
+  const [isMounted, setIsMounted] = React.useState(false);
+  const [localLabel, setLocalLabel] = React.useState("");
+
+  React.useEffect(() => {
+    setIsMounted(true);
+    
+    // Tu si DayDetail sám a bezpečne vygeneruje formátovaný dátum
+    if (selectedIso) {
+      const d = new Date(selectedIso);
+      setLocalLabel(
+        d.toLocaleDateString("sk-SK", {
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      );
+    }
+  }, [selectedIso]);
+
+  // buildDayBuckets necháme tak, ale vyrenderuje sa bezpečne až na klientovi
   const { past, planned } = React.useMemo(
     () =>
       buildDayBuckets({
@@ -41,9 +62,7 @@ export default function DayDetail({
       }),
     [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey],
   );
-  const t = useT();
 
-  // vizuálne: rovnaká sekčná hlavička (bez raw farieb)
   const sectionStyle: React.CSSProperties = {
     color: appColors.textMuted,
   };
@@ -51,6 +70,12 @@ export default function DayDetail({
   const dividerStyle: React.CSSProperties = {
     borderTop: `1px solid ${appColors.surfaceCardBorder}`,
   };
+
+  // 2. Ak komponent ešte nie je "mounted" na klientovi, nezobrazujeme nič (alebo len prázdny obal),
+  // čím zabránime nesúladu medzi serverom a prehliadačom
+  if (!isMounted) {
+    return null; // alebo <div className="mt-3 ml-1 h-20" /> ako placeholder
+  }
 
   return (
     <div className="mt-3 ml-1 space-y-4">
@@ -60,7 +85,7 @@ export default function DayDetail({
           className="text-[11px] uppercase tracking-wide"
           style={sectionStyle}
         >
-           {t("calendar.past")} — {selectedLabel}
+           {t("calendar.past")} — {localLabel}
         </div>
 
         {past.length === 0 ? (
@@ -86,7 +111,7 @@ export default function DayDetail({
           className="text-[11px] uppercase tracking-wide"
           style={sectionStyle}
         >
-           {t("calendar.planPlaned")} — {selectedLabel}
+           {t("calendar.planPlaned")} — {localLabel}
         </div>
 
         {planned.length === 0 ? (

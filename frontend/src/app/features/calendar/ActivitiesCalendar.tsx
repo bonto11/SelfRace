@@ -160,24 +160,6 @@ export default function ActivitiesCalendar({
     setLabel(d.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }));
   }, [year, month0]);
 
-  const [selectedLabel, setSelectedLabel] = React.useState("");
-
-  React.useEffect(() => {
-    if (!selectedIso) {
-      setSelectedLabel("");
-      return;
-    }
-    const d = new Date(selectedIso);
-    setSelectedLabel(
-      d.toLocaleDateString("sk-SK", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    );
-  }, [selectedIso]);
-
   const selectedPlanRows = React.useMemo(() => {
     if (!selectedIso) return [];
     return (planRows as any[]).filter((p: any) => {
@@ -307,7 +289,6 @@ export default function ActivitiesCalendar({
       {selectedIso && (
         <DayDetail
           selectedIso={selectedIso}
-          selectedLabel={selectedLabel}
           actRows={actRows}
           planRowsForDay={selectedPlanRows}
           externalRows={selectedExternalRows}
