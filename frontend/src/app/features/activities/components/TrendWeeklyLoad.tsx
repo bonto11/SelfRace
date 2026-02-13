@@ -24,6 +24,7 @@ import {
   PANEL_TITLE,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
@@ -52,6 +53,7 @@ export default function TrendWeeklyLoad({
   const [lookback, setLookback] = useState<number>(2);
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const t = useT();
 
   const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
   const _height = OPTIONS.Height;
@@ -113,30 +115,97 @@ export default function TrendWeeklyLoad({
     };
 
     if (metric === "km") {
-      pushBar("run", "Km (Beh)", W.map((w) => w.km_run));
-      pushBar("ride", "Km (Bicykel)", W.map((w) => w.km_ride));
-      pushBar("mixed", "Km (Zmiešané)", W.map((w) => w.km_mixed));
-      pushBar("skate", "Km (Korčule)", W.map((w) => w.km_skate));
+      pushBar(
+        "run",
+        t("common.sports.run"),
+        W.map((w) => w.km_run),
+      );
+      pushBar(
+        "ride",
+        t("common.sports.bike"),
+        W.map((w) => w.km_ride),
+      );
+      pushBar(
+        "mixed",
+        t("common.sports.mixed"),
+        W.map((w) => w.km_mixed),
+      );
+      pushBar(
+        "skate",
+        t("common.sports.skate"),
+        W.map((w) => w.km_skate),
+      );
     } else if (metric === "time") {
-      pushBar("run", "Beh", W.map((w) => w.time_run_min));
-      pushBar("ride", "Bicykel", W.map((w) => w.time_ride_min));
-      pushBar("strength", "Strength", W.map((w) => w.time_strength_min));
-      pushBar("mixed", "Zmiešané", W.map((w) => w.time_mixed_min));
-      pushBar("skate", "Korčule", W.map((w) => w.time_skate_min));
-      pushBar("other", "Iné", W.map((w) => w.time_other_min));
+      pushBar(
+        "run",
+        t("common.sports.run"),
+        W.map((w) => w.time_run_min),
+      );
+      pushBar(
+        "ride",
+        t("common.sports.bike"),
+        W.map((w) => w.time_ride_min),
+      );
+      pushBar(
+        "strength",
+        t("common.sports.strength"),
+        W.map((w) => w.time_strength_min),
+      );
+      pushBar(
+        "mixed",
+        t("common.sports.mixed"),
+        W.map((w) => w.time_mixed_min),
+      );
+      pushBar(
+        "skate",
+        t("common.sports.skate"),
+        W.map((w) => w.time_skate_min),
+      );
+      pushBar(
+        "other",
+        t("common.sports.other"),
+        W.map((w) => w.time_other_min),
+      );
     } else {
-      pushBar("run", "TRIMP (Beh)", W.map((w) => w.trimp_run));
-      pushBar("ride", "TRIMP (Bicykel)", W.map((w) => w.trimp_ride));
-      pushBar("strength", "TRIMP (strength)", W.map((w) => w.trimp_strength));
-      pushBar("mixed", "TRIMP (Zmiešané)", W.map((w) => w.trimp_mixed));
-      pushBar("skate", "TRIMP (Korčule)", W.map((w) => w.trimp_skate));
-      pushBar("other", "TRIMP (Iné)", W.map((w) => w.trimp_other));
+      pushBar(
+        "run",
+        t("common.sports.run"),
+        W.map((w) => w.trimp_run),
+      );
+      pushBar(
+        "ride",
+        t("common.sports.bike"),
+        W.map((w) => w.trimp_ride),
+      );
+      pushBar(
+        "strength",
+        t("common.sports.strength"),
+        W.map((w) => w.trimp_strength),
+      );
+      pushBar(
+        "mixed",
+        t("common.sports.mixed"),
+        W.map((w) => w.trimp_mixed),
+      );
+      pushBar(
+        "skate",
+        t("common.sports.skate"),
+        W.map((w) => w.trimp_skate),
+      );
+      pushBar(
+        "other",
+        t("common.sports.other"),
+        W.map((w) => w.trimp_other),
+      );
     }
 
     return ds;
   }, [weeks, metric]);
 
-  const data: ChartData<"bar" | "line", number[], string> = { labels, datasets };
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels,
+    datasets,
+  };
 
   const options: ChartOptions<"bar" | "line"> = useMemo(
     () => ({
@@ -183,7 +252,12 @@ export default function TrendWeeklyLoad({
           grid: { color: appColors.chartAxis },
           title: {
             display: true,
-            text: metric === "km" ? "km" : metric === "time" ? "min" : "TRIMP",
+            text:
+              metric === "km"
+                ? t("common.units.km")
+                : metric === "time"
+                  ? t("common.units.min")
+                  : t("common.units.trimp"),
           },
         },
         x: {
@@ -214,7 +288,7 @@ export default function TrendWeeklyLoad({
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
-        <h2 className={PANEL_TITLE}>Týždňová záťaž</h2>
+        <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
 
         <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
           <div className={PANEL_ACTIONS_INLINE}>
@@ -223,21 +297,21 @@ export default function TrendWeeklyLoad({
               variant={metric === "km" ? "active" : "editable"}
               onClick={() => setMetric("km")}
             >
-              Km
+              {t("common.metrics.distance")}
             </Button>
             <Button
               size="xs"
               variant={metric === "time" ? "active" : "editable"}
               onClick={() => setMetric("time")}
             >
-              Čas
+              {t("common.metrics.time")}
             </Button>
             <Button
               size="xs"
               variant={metric === "trimp" ? "active" : "editable"}
               onClick={() => setMetric("trimp")}
             >
-              TRIMP
+              {t("common.metrics.trimp")}
             </Button>
           </div>
 

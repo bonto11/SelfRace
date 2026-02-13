@@ -33,10 +33,14 @@ import {
   PANEL_INNER_STACK,
 } from "@/app/shared/ui/tokens";
 
-import type { ParetoWeekPick, ParetoRow } from "@/app/features/activities/types/pareto";
+import type {
+  ParetoWeekPick,
+  ParetoRow,
+} from "@/app/features/activities/types/pareto";
 import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_activities";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
@@ -50,6 +54,7 @@ export default function TrendPareto8020({
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<Lookback>(2);
   const [loading, setLoading] = useState(false);
+  const t = useT();
 
   const [selectedSports, setSelectedSports] = useState<string[]>(
     Array.from(PARETO_DEFAULT_SET),
@@ -102,7 +107,7 @@ export default function TrendPareto8020({
       datasets: [
         {
           type: "line",
-          label: "Easy %",
+          label: t("pareto8020.trend.labelEasy") + " %",
           data: rows.map((r) => (Number.isFinite(r.easy_pct) ? r.easy_pct : 0)),
           borderColor: appColors.chartLine1,
           backgroundColor: appColors.chartLine1,
@@ -112,7 +117,7 @@ export default function TrendPareto8020({
         },
         {
           type: "line",
-          label: "Hard %",
+          label: t("pareto8020.trend.labelHard") + " %",
           data: rows.map((r) => (Number.isFinite(r.hard_pct) ? r.hard_pct : 0)),
           borderColor: appColors.chartLine2,
           backgroundColor: appColors.chartLine2,
@@ -123,7 +128,7 @@ export default function TrendPareto8020({
         },
         {
           type: "line",
-          label: "80% ref",
+          label: t("pareto8020.trend.labelEasyRef"),
           data: ref80,
           borderColor: appColors.chartLine1,
           backgroundColor: appColors.chartLine1,
@@ -135,7 +140,7 @@ export default function TrendPareto8020({
         },
         {
           type: "line",
-          label: "20% ref",
+          label: t("pareto8020.trend.labelHardRef"),
           data: ref20,
           borderColor: appColors.chartLine2,
           backgroundColor: appColors.chartLine2,
@@ -176,7 +181,7 @@ export default function TrendPareto8020({
               const i = items?.[0]?.dataIndex ?? 0;
               const r = rows[i];
               if (!r) return "";
-              return `Easy ${fmtSecondsHMS(r.easy_min || 0)} • Hard ${fmtSecondsHMS(
+              return `${t("pareto8020.trend.labelEasy")} ${fmtSecondsHMS(r.easy_min || 0)} • ${t("pareto8020.trend.labelHard")} ${fmtSecondsHMS(
                 r.hard_min || 0,
               )}`;
             },
@@ -236,7 +241,7 @@ export default function TrendPareto8020({
       {/* HEADER */}
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
-          <h2 className={PANEL_TITLE}>Trend 80/20</h2>
+          <h2 className={PANEL_TITLE}>{t("pareto8020.trend.title")}</h2>
 
           {/* ✅ doprava */}
           <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
@@ -265,7 +270,7 @@ export default function TrendPareto8020({
                 size="xs"
                 variant={active ? "active" : "editable"}
                 onClick={() => toggleSport(opt.value)}
-                title={isDefault ? "V default 80/20" : "Mimo default 80/20"}
+                title={isDefault ? t("pareto8020.trend.inRange") : t("pareto8020.trend.outRange")}
               >
                 {opt.label}
                 {isDefault ? "" : " *"}

@@ -24,32 +24,12 @@ import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_
 import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
-
-const TOOLTIP_TREND = [
-  "Tento trend ukazuje Monotony & Strain po týždňoch.",
-  "",
-  "Čo presne vidíš:",
-  "• Monotony = „ako podobné sú dni v týždni“ (variabilita load-u).",
-  "• Strain = kombinácia celkového load-u a monotónnosti (vyššie = náročnejší týždeň).",
-  "",
-  "Prečo sú tu 2 osi (ľavá + ľavá posunutá):",
-  "• Monotony a Strain majú úplne iné čísla / rozsahy, preto majú oddelené škály.",
-  "",
-  "Ako to čítať prakticky:",
-  "1) Monotony rastie, keď dávaš každý deň podobne veľa (málo kontrastu).",
-  "2) Strain rastie, keď máš veľa objemu/intenzity a zároveň je týždeň monotónny.",
-  "3) Dobrý plán má v čase „vlny“: 2–4 týždne rast → 1 ľahší týždeň (deload).",
-  "",
-  "Tip: prepni metriky (Km / Čas / TRIMP).",
-  "• Km: dobré pre objem behu",
-  "• Čas: lepšie, keď máš mix športov a rôzne tempa",
-  "• TRIMP: najviac „fyziologické“, ak máš spoľahlivé HR dáta",
-].join("\n");
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
@@ -65,6 +45,7 @@ export default function TrendWeeklyMonoStrain({
   const [lookback, setLookback] = useState<number>(2);
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const t = useT();
 
   const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
   const _heightCompact = OPTIONS.HeightCompact;
@@ -127,7 +108,7 @@ export default function TrendWeeklyMonoStrain({
       datasets: [
         {
           type: "line",
-          label: "Monotónnosť",
+          label: t("monoStrain.trend.mono"),
           data: mono,
           yAxisID: "y1",
           borderColor: C.monotony,
@@ -140,7 +121,7 @@ export default function TrendWeeklyMonoStrain({
         },
         {
           type: "line",
-          label: "Úsilie",
+          label: t("monoStrain.trend.strain"),
           data: strn,
           yAxisID: "y2",
           borderColor: C.strain,
@@ -195,7 +176,7 @@ export default function TrendWeeklyMonoStrain({
           max: monoMax,
           grid: { color: appColors.chartAxis, drawOnChartArea: true },
           ticks: { color: C.monotony, padding: 8 },
-          title: { display: true, text: "Monotónnosť", color: C.monotony },
+          title: { display: true, text: t("monoStrain.trend.mono"), color: C.monotony },
         },
         y2: {
           position: "left",
@@ -204,7 +185,7 @@ export default function TrendWeeklyMonoStrain({
           max: strainMax,
           grid: { drawOnChartArea: false },
           ticks: { color: C.strain, padding: 36 },
-          title: { display: true, text: "Úsilie", color: C.strain },
+          title: { display: true, text: t("monoStrain.trend.strain"), color: C.strain },
         },
         x: {
           grid: { color: appColors.chartAxis },
@@ -228,8 +209,8 @@ export default function TrendWeeklyMonoStrain({
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
         <div className="flex items-center gap-2">
-          <h2 className={PANEL_TITLE}>Monotónnosť & Strain</h2>
-          <TooltipIcon text={TOOLTIP_TREND} />
+          <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
+          <TooltipIcon text={t("monoStrain.trend.tooltip")} />
         </div>
 
         <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>

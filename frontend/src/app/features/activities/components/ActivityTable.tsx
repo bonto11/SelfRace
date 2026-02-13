@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  // CARD,  <-- preč
   NO_X_OVERFLOW,
   PANEL_PAD,
   PANEL_INNER_STACK,
@@ -24,6 +23,7 @@ import {
   toEffSport,
 } from "@/app/features/activities/utils/activity";
 import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
+import { useT } from "@/app/shared/i18n/useT";
 
 import SessionCard from "@/app/shared/components/session/SessionCard";
 
@@ -53,18 +53,19 @@ export default function ActivityTable({
   const [loading, setLoading] = useState(false);
 
   const singleDay = !!start && !!end && start === end;
+  const t = useT();
 
   const headerTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
 
     if (start && end) {
-      const t = singleDay
-        ? `Aktivity — ${prettySkDate(start)}`
-        : `Týždeň ${start} → ${end}`;
-      return t;
+      const sd = singleDay
+        ? `${t("activityTable.activities")} — ${prettySkDate(start)}`
+        : `${t("activityTable.week")} ${start} → ${end}`;
+      return sd;
     }
 
-    return "História (vyber rozsah)";
+    return t("activityTable.history");
   }, [start, end, titleOverride, singleDay]);
 
   const sportList = useMemo(() => normSportsList(sport), [sport]);
@@ -93,18 +94,18 @@ export default function ActivityTable({
   }, [start, end, sportList, allowedSports, selectByRange, allRows.length]);
 
   return (
-  <div
-    className={[PANEL_SURFACE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
-    style={PANEL_SURFACE_STYLE}
-  >
+    <div
+      className={[PANEL_SURFACE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
+      style={PANEL_SURFACE_STYLE}
+    >
       <div className={PANEL_HEADER}>
         <h2 className={PANEL_TITLE}>{headerTitle}</h2>
       </div>
 
-      {loading && <div className={PANEL_PREVIEW}>Načítavam…</div>}
+      {loading && <div className={PANEL_PREVIEW}>{t("common.loading")}</div>}
 
       {!loading && rows.length === 0 && (
-        <div className={PANEL_PREVIEW}>Žiadne aktivity v zadanom období.</div>
+        <div className={PANEL_PREVIEW}>{t("activityTable.noActivities")}</div>
       )}
 
       {!loading && rows.length > 0 && (
@@ -136,7 +137,7 @@ export default function ActivityTable({
                   item={{
                     id: r.activity_id,
                     kind: "activity",
-                    title: r.name || "Activity",
+                    title: r.name || t("activityTable.activities"),
                     dateIso: iso,
                     sport: eff,
                     activityId: Number(r.activity_id),

@@ -108,15 +108,9 @@ export async function POST(req: NextRequest) {
         httpOnly: false
       });
 
-      //const appUuid: string | null = dbUser.user_uid ?? null;
-
       if (appId != null) {
         res.cookies.set(SR_ID, String(appId), cookieOpts);
       }
-
-      //if (appUuid) {
-      //  res.cookies.set(SR_UUID, appUuid, cookieOpts);
-     // }
 
       return res;
     }

@@ -15,6 +15,28 @@ export const sk = {
     done: "Hotovo",
     loading: "Načítavam…",
     refreshTitle: "Obnov dáta",
+    sports: {
+      run: "Beh",
+      bike: "Bicykel",
+      ride: "Bicykel",
+      strength: "Sila",
+      mixed: "Zmiešané",
+      skate: "Korčule",
+      football: "Futbal",
+      other: "Iné",
+      swim: "Plávanie",
+    },
+    units: {
+      trimp: "trimp",
+      min: "min",
+      km: "km",
+    },
+    metrics: {
+      trimp: "trimp",
+      time: "čas", 
+      distance: "Vzdialenosť",
+    },
+
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -596,20 +618,45 @@ export const sk = {
     widget: {
       title: "Týždňová monotónnosť a úsilie",
       tooltip: [
-        "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
+        "Monotónnosť a úsilie sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
         "",
-        "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
+        "Monotónnosť ≈ priemerná denná tréningová záťaž v pomere s jej variabilitou.",
         "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
         "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
         "",
-        "STRAIN ≈ monotónnosť × celkový týždenný load.",
+        "Úsilie ≈ monotónnosť × celkové týždenné zaťaženie.",
         "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
         "",
         "Prakticky:",
-        "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
-        "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
-        "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
+        "1) Vysoká monotónnosť → pridaj kontrast (ľahký deň / voľno).",
+        "2) Veľmi vysoké úsilie → zváž znížený objem v týždeň alebo aspoň 1–2 dni fakt ľahko.",
+        "3) Vrchol (Peak) týždeň je ok, ale nie viac týždňov v kuse.",
       ].join("\n"),
+    },
+    trend: {
+      title: "Týždňová monotónnosť a úsilie",
+      tooltip: [
+        "Tento trend ukazuje monotónnosť a úsilie po týždňoch.",
+        "",
+        "Čo presne vidíš:",
+        "• Monotónnosť = ako podobné sú dni v týždni (variabilita zaťaženia).",
+        "• Úsilie = kombinácia celkového zaťaženia a monotónnosti (vyššie = náročnejší týždeň).",
+        "",
+        "Prečo sú tu 2 osi?",
+        "• Monotónnosť a úsilie majú úplne iné čísla / rozsahy, preto majú oddelené škály.",
+        "",
+        "Ako to čítať prakticky_",
+        "• Monotónnosť rastie, keď dávaš každý deň podobne veľa (málo kontrastu).",
+        "• Úsilie rastie, keď máš veľa objemu/intenzity a zároveň je týždeň monotónny.",
+        "• Dobrý plán má v čase „vlny“: 2–4 týždne rast → 1 ľahší týždeň (deload).",
+        "",
+        "Tip: Prepínaj si metriky (Vzdialenosť / Čas / TRIMP).",
+        "• Vzdialenosť: dobré pre objem behu",
+        "• Čas: lepšie, keď máš mix športov a rôzne tempá",
+        "• Trimp (Tréningový impulz): najviac „fyziologické“, ak máš spoľahlivé HR dáta",
+      ].join("\n"),
+      mono: "Monotónnosť",
+      strain: "Úsilie",
     },
   },
   pareto8020: {
@@ -635,20 +682,29 @@ export const sk = {
         "• problém je dlhodobo veľa hard dní bez dostatočného easy objemu",
       ].join("\n"),
     },
+    trend: {
+      title: "Pomer 80/20 času v zónach",
+      labelEasy: "Ľahké",
+      labelHard: "Ťažké",
+      labelEasyRef: "80% ref",
+      labelHardRef: "20% ref",
+      inRange: "V rozsahu 80/20",
+      outRange: "Mimo rozsahu 80/20",
+    },
   },
   weeklyLoad: {
     title: "Týždňová záťaž",
     widget: {
       title: "Týždňová záťaž",
       tooltip: [
-        "Toto je súčet tréningového času za posledných 7 dní (rolling window).",
+        "Toto je súčet tréningovej záťaže za posledných 7 dní.",
         "",
         "Prečo 7 dní?",
-        "• Je to najjednoduchší spôsob, ako rýchlo vidieť „aktuálny load“ bez toho, aby ťa mýlil kalendárny pondelok/nedeľa.",
+        "• Je to najjednoduchší spôsob, ako rýchlo vidieť „aktuálne zaťaženie“ bez toho, aby ťa mýlil kalendárny deň",
         "",
-        "Ako čítať porovnanie vs. predošlých 7 dní:",
+        "Ako čítať porovnanie vs. predošlých 7 dní?",
         "• +20% a viac: výrazný skok objemu → často rastie únava a riziko preťaženia (najmä ak sa to deje viac týždňov po sebe).",
-        "• -20% a menej: výrazný pokles → môže byť deload/choroba/voľno; nie je to zlé, len to ovplyvní formu a „sharpness“.",
+        "• -20% a menej: výrazný pokles → môže byť zníženie objemu (deload)/choroba/voľno; nie je to zlé, len to ovplyvní formu.",
         "• okolo 0%: stabilita → dobré pre budovanie konzistentnej vytrvalosti.",
         "",
         "Tip:",
@@ -819,6 +875,9 @@ export const sk = {
   connectedApps: {
     title: "Pripojenené aplikácie",
   },
+  account: {
+    title: "Účet",
+  },
 
   dashboard: {
     title: "Dashboard",
@@ -866,5 +925,12 @@ export const sk = {
   activities: {
     title: "Aktivity",
     goTo: "Otvor aktivity",
+  },
+
+  activityTable: {
+    activities: "Aktivity",
+    week: "Týždeň",
+    history: "História (vyber rozsah)",
+    noActivities: "Žiadne aktivity v zadanom období.",
   },
 } as const;
