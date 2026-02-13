@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
-import { OPTIONS, LOOKBACK_OPTIONS ,ensureChartJSRegistered} from "@/app/shared/charts/chart_builders";
+import { OPTIONS, LOOKBACK_OPTIONS, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -47,8 +47,10 @@ type Lookback = 2 | 4 | 8 | 12;
 
 export default function TrendPareto8020({
   onPickWeek,
+  availableSports, // <-- NOVÉ: Zoznam športov, ktoré používateľ reálne robí (napr. ["Run", "Ride"])
 }: {
   onPickWeek?: (w: ParetoWeekPick) => void;
+  availableSports?: string[];
 }) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<Lookback>(2);
@@ -151,7 +153,7 @@ export default function TrendPareto8020({
         },
       ],
     }),
-    [rows, labels, ref80, ref20],
+    [rows, labels, ref80, ref20, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -213,7 +215,7 @@ export default function TrendPareto8020({
         });
       },
     }),
-    [_legendPos, rows, selectedSports, onPickWeek],
+    [_legendPos, rows, selectedSports, onPickWeek, t],
   );
 
   const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
@@ -234,6 +236,19 @@ export default function TrendPareto8020({
       setSelectedSports(Array.from(PARETO_DEFAULT_SET));
     }
   }, [selectedSports.length]);
+
+  // NOVÉ: Vyfiltrujeme tlačidlá, ktoré sa reálne zobrazia
+  const visibleSportsOptions = useMemo(() => {
+    // Ak parent nepošle žiadne dáta o dostupných športoch, ukážeme pre istotu všetky
+    if (!availableSports || availableSports.length === 0) {
+      return SPORT_OPTIONS;
+    }
+    // Inak ukážeme len tie, ktoré sa zhodujú s availableSports
+    return SPORT_OPTIONS.filter((opt) => {
+      const norm = normalizeSport(opt.value);
+      return norm && availableSports.includes(norm);
+    });
+  }, [availableSports]);
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -258,7 +273,8 @@ export default function TrendPareto8020({
         </div>
 
         <div className={PANEL_ACTIONS_INLINE}>
-          {SPORT_OPTIONS.map((opt) => {
+          {/* Použijeme náš vyfiltrovaný zoznam visibleSportsOptions */}
+          {visibleSportsOptions.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
             const isDefault = isInParetoDefault(norm);
