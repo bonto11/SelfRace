@@ -12,11 +12,8 @@ export type PieTrendItem = {
 
 type Props = {
   items: PieTrendItem[];
-  /** Funkcia na formátovanie hodnoty v legende (napr. minúty na "1h 20m") */
   valueFormatter?: (val: number) => ReactNode;
-  /** Funkcia alebo string pre stred grafu (ak neuvedené, zobrazí súčet) */
   renderCenter?: (total: number) => ReactNode;
-  /** Voliteľná trieda pre wrapper */
   className?: string;
 };
 
@@ -106,24 +103,28 @@ export function PieTrend({
         </div>
       </div>
 
-      {/* 2. LEGEND */}
-      <div className="flex flex-col gap-1 min-w-[120px]">
+      {/* 2. LEGEND (Upravený layout pre lepšie čítanie percent) */}
+      <div className="flex flex-col gap-3 min-w-[140px] w-full max-w-[180px]">
         {data.segments.map((s: any) => (
-          <div key={s.label} className="flex items-center justify-between text-xs">
+          <div key={s.label} className="flex items-center w-full">
+            
+            {/* Ľavá strana: Bodka + 93% + Ľahké */}
             <div className="flex items-center gap-2">
               <span
-                className="w-2 h-2 rounded-full shadow-sm"
+                className="w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0"
                 style={{ backgroundColor: s.color }}
               />
-              <span className="opacity-70 font-medium">{s.label}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-mono opacity-90">
-                {valueFormatter(s.val)}
-              </span>
-              <span className="font-mono text-[10px] opacity-50 w-8 text-right">
+              <span className="font-bold text-base leading-none">
                 {Math.round(s.pct * 100)}%
               </span>
+              <span className="opacity-90 text-sm font-medium leading-none">
+                {s.label}
+              </span>
+            </div>
+
+            {/* Pravá strana: Čas posunutý doprava */}
+            <div className="ml-auto flex items-center gap-3 opacity-60 text-xs font-mono pt-0.5">
+              <span>{valueFormatter(s.val)}</span>
             </div>
           </div>
         ))}
