@@ -11,12 +11,15 @@ import ProfileStaticInputs from "@/app/features/profile/components/ProfileStatic
 
 import WidgetBodyFat from "@/app/shared/components/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/app/shared/components/widgets/WidgetVO2Max";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function Page() {
+    const t = useT();
+
   const router = useRouter();
 
   return (
-    <PageShell title="Profil" showBack={false} showPoweredByStrava={false}>
+    <PageShell title={t("profile.title")} showBack={false} showPoweredByStrava={false}>
       <div className={PAGE_GRID_2}>
         <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
         <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />

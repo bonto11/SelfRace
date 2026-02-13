@@ -25,12 +25,14 @@ import { SHELL_GRID } from "@/app/shared/ui/tokens";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
 import LangSelector from "@/app/shared/i18n/LangSelector";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function ClientProtectedShell({
   children,
 }: {
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <>
       <UserPrefsBootstrapper />
@@ -64,10 +66,10 @@ export default function ClientProtectedShell({
                     }}
                   >
                     <Link
-                      href="/dashboard"
+                      href="/activity"
                       className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
                       style={{ color: appColors.textPrimary }}
-                      aria-label="Go to dashboard"
+                      aria-label={t("activities.goTo")}
                     >
                       <Image
                         src="/logo/selfrace_logo_nocolor_230.png"

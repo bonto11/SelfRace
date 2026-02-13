@@ -16,6 +16,7 @@ import {
   AUTH_FOOTER_ROW,
   AUTH_FOOTER_TEXT,
 } from "@/app/shared/ui/tokens/auth";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   title: string;
@@ -30,6 +31,7 @@ export default function AuthShell({
   children,
   footer = true,
 }: Props) {
+  const t = useT();
   return (
     <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
       <div className={AUTH_SHELL}>
@@ -48,7 +50,7 @@ export default function AuthShell({
           {footer ? (
             <div className={AUTH_FOOTER_ROW}>
               <span className={AUTH_FOOTER_TEXT}>
-                SelfRace • Priestor pre tvoj osobný rast
+                {t("appFooter.shell")}
               </span>
             </div>
           ) : null}

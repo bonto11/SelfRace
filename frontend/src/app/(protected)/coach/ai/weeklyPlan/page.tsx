@@ -3,10 +3,12 @@
 
 import PageShell from "@/app/shared/ui/components/PageShell";
 import DetailWeeklyPlan from "@/app/features/coach/components/DetailWeeklyPlan";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function Page() {
+  const t = useT();
   return (
-    <PageShell title="Weekly plan" showBack showPoweredByStrava={false}>
+    <PageShell title={t("coachWeekly.title")} showBack showPoweredByStrava={false}>
       <DetailWeeklyPlan />
     </PageShell>
   );

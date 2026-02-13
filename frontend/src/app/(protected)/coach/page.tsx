@@ -19,17 +19,19 @@ import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachPr
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
+import { useT } from "@/app/shared/i18n/useT";
 
 function RefreshIconBtn() {
   const { refresh, loading } = useCoachData();
+  const t = useT();
 
   return (
     <Button
       circle
       size="sm"
       variant="ghost"
-      aria-label="Refresh data"
-      title="Refresh data"
+      aria-label={t("common.refreshTitle")}
+      title={t("common.refreshTitle")}
       onClick={() => refresh(true)}
       disabled={loading}
     >
@@ -40,10 +42,10 @@ function RefreshIconBtn() {
 
 function ClientPage() {
   const router = useRouter();
-
+  const t = useT();
   return (
     <PageShell
-      title="Coach"
+      title={t("coach.title")}
       showBack={false}
       showPoweredByStrava={false}
       rightSlot={<RefreshIconBtn />}

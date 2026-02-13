@@ -1,12 +1,19 @@
-import { Suspense } from "react";
-import ClientPage from "./ClientPage";
+// src/app/(protected)/dashboard/page.tsx
+"use client";
 
-export const dynamic = "force-dynamic"; // vypne prerender tejto stránky
+import PageShell from "@/app/shared/ui/components/PageShell";
+import { useT } from "@/app/shared/i18n/useT";
 
-export default function Page() {
+export default function ActivitiesPage() {
+  const t = useT();
+
   return (
-    <Suspense fallback={<div className="p-6">Načítavam…</div>}>
-      <ClientPage />
-    </Suspense>
+    <PageShell
+      title={t("dashboard.title")}
+      showBack={false}
+      showPoweredByStrava
+    >
+      <div className="p-6">{t("dashboard.title")}</div>
+    </PageShell>
   );
 }

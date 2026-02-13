@@ -3,6 +3,7 @@
 
 import dynamic from "next/dynamic";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import { useT } from "@/app/shared/i18n/useT";
 
 const SleepStartDetailClient = dynamic(
   () => import("@/app/features/recovery/components/TrendSleepStart"),
@@ -10,8 +11,9 @@ const SleepStartDetailClient = dynamic(
 );
 
 export default function Page() {
+  const t = useT();
   return (
-    <PageShell title="Detail — Sleep Start" showBack showPoweredByStrava={false}>
+    <PageShell title={t("sleepStart.title")} showBack showPoweredByStrava={false}>
       <SleepStartDetailClient />
     </PageShell>
   );

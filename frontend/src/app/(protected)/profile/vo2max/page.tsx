@@ -3,10 +3,13 @@
 
 import PageShell from "@/app/shared/ui/components/PageShell";
 import TrendVO2Max from "@/app/features/profile/components/TrendVO2Max";
+import { useT } from "@/app/shared/i18n/useT";
 
 export default function Page() {
-  return (
-    <PageShell title="VO₂Max" showBack showPoweredByStrava={false}>
+   const t = useT();
+
+   return (
+    <PageShell title={t("VO2Max.title")} showBack showPoweredByStrava={false}>
       <TrendVO2Max />
     </PageShell>
   );

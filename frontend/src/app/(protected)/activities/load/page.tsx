@@ -6,6 +6,7 @@ import PageShell from "@/app/shared/ui/components/PageShell";
 
 import TrendWeeklyLoad from "@/app/features/activities/components/TrendWeeklyLoad";
 import ActivityTable from "@/app/features/activities/components/ActivityTable";
+import { useT } from "@/app/shared/i18n/useT";
 
 import type {
   WeekPick,
@@ -15,6 +16,7 @@ import type {
 export default function Page() {
   const [range, setRange] = useState<Range>({});
   const [sport, setSport] = useState<string>("all");
+  const t = useT();
 
   const handlePick = useCallback((w: WeekPick) => {
     setRange({ start: w.start, end: w.end });
@@ -22,7 +24,7 @@ export default function Page() {
   }, []);
 
   return (
-    <PageShell title="Týždňová záťaž" showBack showPoweredByStrava>
+    <PageShell title={t("weeklyLoad.title")} showBack showPoweredByStrava>
       <TrendWeeklyLoad
         onPickWeek={handlePick}
         onSportChange={(s) => setSport(s)}

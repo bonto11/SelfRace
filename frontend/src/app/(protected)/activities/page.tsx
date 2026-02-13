@@ -14,17 +14,18 @@ import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActi
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
+import { useT } from "@/app/shared/i18n/useT";
 
 function RefreshIconBtn() {
   const { refresh, loading } = useActivityData();
-
+  const t = useT();
   return (
     <Button
       circle
       size="sm"
       variant="ghost"
-      aria-label="Refresh data"
-      title="Refresh data"
+      aria-label={t("common.refreshTitle")}
+      title={t("common.refreshTitle")}
       onClick={() => refresh(true)}
       disabled={loading}
     >
@@ -35,6 +36,7 @@ function RefreshIconBtn() {
 
 export default function ActivitiesPage() {
   const router = useRouter();
+  const t = useT();
 
   const openDetailLoad = () => router.push("/activities/load");
   const openDetailMono = () => router.push("/activities/mono");
@@ -42,7 +44,7 @@ export default function ActivitiesPage() {
 
   return (
     <PageShell
-      title="Aktivity"
+      title={t("activities.title")}
       showBack={false}
       showPoweredByStrava
       rightSlot={<RefreshIconBtn />}

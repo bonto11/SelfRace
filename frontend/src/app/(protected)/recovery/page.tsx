@@ -15,16 +15,18 @@ import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
+import { useT } from "@/app/shared/i18n/useT";
 
 function RefreshIconBtn() {
+  const t = useT();
   const { refresh, loading } = useRecoveryData();
   return (
     <Button
       circle
       size="sm"
       variant="ghost"
-      aria-label="Refresh data"
-      title="Refresh data"
+      aria-label={t("common.refreshTitle")}
+      title={t("common.refreshTitle")}
       onClick={() => refresh(true)}
       disabled={loading}
     >
@@ -34,10 +36,11 @@ function RefreshIconBtn() {
 }
 
 export default function RecoveryPage() {
+  const t = useT();
   const router = useRouter();
 
   return (
-    <PageShell title="Recovery" showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
+    <PageShell title={t("recovery.title")} showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
       <RecoveryInputs />
 
       <div className={PAGE_GRID_2}>

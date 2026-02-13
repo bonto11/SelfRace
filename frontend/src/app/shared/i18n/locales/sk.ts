@@ -14,6 +14,7 @@ export const sk = {
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
     loading: "Načítavam…",
+    refreshTitle: "Obnov dáta",
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -27,6 +28,7 @@ export const sk = {
     terms: "Obchodné podmienky",
     contact: "Kontakt",
     ourStory: "Náš príbeh",
+    shell: "SelfRace • Priestor pre tvoj osobný rast",
   },
   ourStory: {
     title: "Náš príbeh",
@@ -47,14 +49,13 @@ export const sk = {
     error: {
       passwordsDontMatch: "Heslá sa nezhodujú.",
       passwordWeak: "Heslo je príliš slabé.",
-      
     },
     changePassword: "Zmeniť heslo",
     setNewPassword: "Nastaviť nové heslo",
     fillNewPassword: "Zadaj nové heslo",
     fillAgainNewPassword: "Zadaj nové heslo",
     confirmNewPassword: "Potvrdiť nové heslo",
-    newPassword: "Zmeniť heslo", 
+    newPassword: "Zmeniť heslo",
     waitForLogin: "O chvíľu ťa prihlásime a zobrazíme formulár…",
     changedLoggingIn: "Heslo je zmenené. Prihlasujeme ťa…",
     logAfterSave: "Po uložení ťa automaticky prihlásime.",
@@ -82,15 +83,16 @@ export const sk = {
       strong: "silné",
       veryStrong: "veľmi silné",
     },
-
   },
   forgotPassword: {
     tittle: "",
     fillValidMail: "Zadaj platný e-mail.",
-    sentMail: "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.",
+    sentMail:
+      "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.",
     errorSent: "Nepodarilo sa odoslať e-mail.",
     forgotPassword: "Zabudnuté heslo",
-    fillYourMail: "Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.",
+    fillYourMail:
+      "Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.",
     mail: "E-mail",
     yourMail: "tvoj@email.sk",
     sending: "Posielam…",
@@ -141,7 +143,12 @@ export const sk = {
     logginOff: "Odhlasujem…",
     logoff: "Odhlásiť sa",
   },
+
   prefs: {
+    title: "Tréningové preferencie",
+    widget: {
+      title: "Tréningové preferencie",
+    },
     sections: {
       daysSection: {
         widget: {
@@ -361,62 +368,34 @@ export const sk = {
     missingserId: "Skontroluj autentifikáciu",
     errorLoad: "Nepodarilo sa načítať",
   },
-  calendar: {
-    widget: {
-      open: "Otvoriť kalendár",
-      title: "Týždenná agenda • ",
-      errorFailedLoad: "Zlyhalo načítanie externých udalostí.",
 
+  PB: {
+    title: "Osobné rekordy",
+    widget: {
+      title: "Osobné rekordy",
       tooltip: [
-        "Toto je rýchly „týždenný prehľad“ – čo sa reálne stalo, čo je naplánované a čo sú externé bloky.",
+        "Tento widget zobrazuje tvoj osobný rekord (PB – Personal Best) pre vybranú / obľúbenú vzdialenosť.",
         "",
-        "Legend (ikonky v dni):",
-        "• Plná bodka = aktivita (importovaná/uložená) alebo externá udalosť (napr. futbal, sauna, časový blok).",
-        "• Prázdna bodka (krúžok) = plánovaný tréning (plan).",
-        "• ✓ = plán bol splnený (plán sa prepojil s aktivitou).",
-        "• ✕ = tréning bol v pláne, ale už je v minulosti a nemá zodpovedajúcu aktivitu (missed).",
-        "• +N = v dni je viac položiek, než sa zmestí do widgetu.",
+        "Ako to funguje:",
+        "• vyberie sa tvoja preferovaná vzdialenosť (napr. 5 km, 10 km, polmaratón)",
+        "• zobrazí sa najlepší zaznamenaný čas pre túto vzdialenosť",
         "",
         "Prečo je to užitočné:",
-        "• Uvidíš monotónnosť/kontrast týždňa na prvý pohľad (či máš každý deň niečo alebo sú tam oddychové okná).",
-        "• Okamžite vieš, či sa plán plní, alebo realita ide mimo plán.",
+        "• PB je referenčný bod pre dlhodobý progres – nie každé zlepšenie musí byť PB",
+        "• pomáha pri nastavovaní tempa (race pace, threshold, intervaly)",
+        "• dáva kontext: tréning nemusí smerovať k PB každý mesiac",
         "",
-        "Dôležité:",
-        "• Tento widget je zjednodušený – detail (čo presne, aké trvanie, poznámky) je v kalendári.",
-        "• Prepojenie plan → done funguje len keď sa dá spojiť aktivita (activity_id) alebo logika matchovania.",
-        "",
-        "Tipy (aby to fungovalo hladko):",
-        "• Keď pridáš externé eventy (napr. futbal), plánovanie je presnejšie – AI vie, že to už je load.",
-        "• Ak často vidíš ✕ v dňoch, buď si nedal tréning, alebo sa import/napárovanie aktivít nepodarilo.",
+        "Tip:",
+        "• ak dlhšie PB nepadá, ale cítiš sa silnejší → často sa zlepšuje konzistencia, odolnosť a forma",
+        "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
     },
   },
-  bodyFat: {
-    widget: {
-      title: "Telesný tuk %",
-      tooltip: [
-        "Body Fat % je percento telesného tuku z celkovej hmotnosti (nie „koľko tuku vidíš v zrkadle“).",
-        "",
-        "Prečo je to dôležité:",
-        "• Pre výkon: príliš vysoké BF zhoršuje ekonomiku behu a regeneráciu, príliš nízke môže zhoršiť hormóny, imunitu a výkonnosť.",
-        "• Pre zdravie: dáva kontext k hmotnosti – 82 kg môže byť super alebo problém, podľa toho, čo z toho je sval a čo tuk.",
-        "",
-        "Ako čítať kategórie (Essential / Athlete / Fitness / Average / Obese):",
-        "• Sú to orientačné pásma. Dve rôzne metódy merania ti môžu dať iné čísla, ale trend býva užitočný.",
-        "",
-        "Dôležitá realita merania:",
-        "• BIA/InBody (bioimpedancia) je citlivá na hydratáciu, soľ, jedlo, tréning deň predtým, alkohol a čas dňa.",
-        "• Preto neporovnávaj jeden náhodný deň. Sleduj trend – ideálne meraj za podobných podmienok (ráno, podobná hydratácia).",
-        "",
-        "Praktické tipy:",
-        "• Keď chceš znižovať BF: rieš najprv konzistenciu tréningu + spánok + jedlo. Extrémne deficity často rozbijú regeneráciu (a pri behu aj šľachy).",
-        "• Keď si veľmi nízko: sleduj výkonnosť, kvalitu spánku, libido/energiu, zranenia. Nízke číslo nie je automaticky výhra.",
-      ].join("\n"),
-    },
-  },
+
   coachAthleteState: {
+    title: "Zhodnotenie trénovanosti",
     widget: {
-      title: "Tréner — Zhodnotenie trénovanosti",
+      title: "Zhodnotenie trénovanosti",
       errorFailedLoad: "Chyba pri načítaní analýzy trénovanosti",
       note: "Vyhodnoť trénovanost",
       tooltip: [
@@ -453,6 +432,7 @@ export const sk = {
     },
   },
   coachDaily: {
+    title: "Denný tréningový plán",
     widget: {
       title: "Denný tréningový plán",
       tooltip: [
@@ -537,7 +517,9 @@ export const sk = {
     },
   },
   coachProgress: {
+    title: "Týždenné zlepšenie",
     widget: {
+      title: "Týždenné zlepšenie",
       tooltip: [
         "Tento widget ukazuje AI porovnanie tvojho stavu medzi 2 obdobiami (typicky týždne).",
         "",
@@ -560,7 +542,9 @@ export const sk = {
     },
   },
   coachWeekly: {
+    title: "Týždenný tréningový plán",
     widget: {
+      title: "Týždenný tréningový plán",
       tooltip: [
         "Tento widget ukazuje posledný AI „weekly plan“, ktorý máš uložený v databáze.",
         "",
@@ -581,7 +565,9 @@ export const sk = {
     },
   },
   externalEvents: {
+    title: "Iné aktivity a udalosti",
     widget: {
+      title: "Iné aktivity a udalosti",
       tooltip: [
         "Externé udalosti sú aktivity alebo časové bloky mimo klasického tréningového plánu.",
         "",
@@ -604,8 +590,78 @@ export const sk = {
       ].join("\n"),
     },
   },
-  HRV: {
+
+  monoStrain: {
+    title: "Týždňová monotónnosť a úsilie",
     widget: {
+      title: "Týždňová monotónnosť a úsilie",
+      tooltip: [
+        "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
+        "",
+        "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
+        "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
+        "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
+        "",
+        "STRAIN ≈ monotónnosť × celkový týždenný load.",
+        "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
+        "",
+        "Prakticky:",
+        "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
+        "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
+        "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
+      ].join("\n"),
+    },
+  },
+  pareto8020: {
+    title: "Pomer 80/20 času v zónach",
+    widget: {
+      title: "Pomer 80/20 času v zónach",
+      tooltip: [
+        "80/20 (Pareto princíp) popisuje rozdelenie tréningovej intenzity:",
+        "",
+        "• cca 80 % času v nízkej intenzite (Easy, Z1–Z2)",
+        "• cca 20 % času v strednej a vysokej intenzite (Z3+)",
+        "",
+        "Prečo to funguje:",
+        "• väčšina vytrvalostných adaptácií vzniká v nízkej intenzite",
+        "• vysoká intenzita je silný stimul, ale drahá na regeneráciu",
+        "",
+        "Ako to čítať:",
+        "• mierna odchýlka od 80/20 je úplne normálna",
+        "• dôležitý je trend v čase (nie jeden týždeň)",
+        "",
+        "Pozor:",
+        "• 80/20 nie je dogma – v príprave na preteky môže byť pomer posunutý",
+        "• problém je dlhodobo veľa hard dní bez dostatočného easy objemu",
+      ].join("\n"),
+    },
+  },
+  weeklyLoad: {
+    title: "Týždňová záťaž",
+    widget: {
+      title: "Týždňová záťaž",
+      tooltip: [
+        "Toto je súčet tréningového času za posledných 7 dní (rolling window).",
+        "",
+        "Prečo 7 dní?",
+        "• Je to najjednoduchší spôsob, ako rýchlo vidieť „aktuálny load“ bez toho, aby ťa mýlil kalendárny pondelok/nedeľa.",
+        "",
+        "Ako čítať porovnanie vs. predošlých 7 dní:",
+        "• +20% a viac: výrazný skok objemu → často rastie únava a riziko preťaženia (najmä ak sa to deje viac týždňov po sebe).",
+        "• -20% a menej: výrazný pokles → môže byť deload/choroba/voľno; nie je to zlé, len to ovplyvní formu a „sharpness“.",
+        "• okolo 0%: stabilita → dobré pre budovanie konzistentnej vytrvalosti.",
+        "",
+        "Tip:",
+        "• Bezpečný progres je typicky skôr postupný (napr. 5–10% týždenne), nie skokovo.",
+        "• Skoky sa dejú, ale mali by byť zámerné a následne vyvážené ľahším týždňom.",
+      ].join("\n"),
+    },
+  },
+
+  HRV: {
+    title: "HRV (Variabilita srdového tepu)",
+    widget: {
+      title: "HRV (Variabilita srdového tepu)",
       tooltip: [
         "HRV (RMSSD) = variabilita srdcovej frekvencie. Zjednodušene: ako „voľne“ vie autonómny nervový systém pracovať.",
         "",
@@ -632,69 +688,10 @@ export const sk = {
       ].join("\n"),
     },
   },
-  monoStrain: {
-    widget: {
-      tooltip: [
-        "Monotony & Strain sú 2 jednoduché indexy, ktoré ti rýchlo povedia, či sa tvoj týždeň skladá z rozumnej kombinácie ľahkých a ťažkých dní.",
-        "",
-        "MONOTONY (monotónnosť) ≈ priemerný denný tréningový load / jeho variabilita.",
-        "• Nízka až stredná monotónnosť: máš mix ľahších a ťažších dní (telo stíha regenerovať).",
-        "• Vysoká monotónnosť: dni sú si veľmi podobné (často horšie než pár tvrdých dní s oddychom medzi).",
-        "",
-        "STRAIN ≈ monotónnosť × celkový týždenný load.",
-        "• Rastie hlavne vtedy, keď je veľa objemu/intenzity a zároveň málo kontrastu medzi dňami.",
-        "",
-        "Prakticky:",
-        "1) Vysoká monotónnosť → pridaj kontrast (easy deň / voľno / kratší easy).",
-        "2) Veľmi vysoký strain → zváž deload týždeň alebo aspoň 1–2 dni fakt ľahko.",
-        "3) Peak týždeň je ok, ale nie viac týždňov v kuse.",
-      ].join("\n"),
-    },
-  },
-  pareto8020: {
-    widget: {
-      tooltip: [
-        "80/20 (Pareto princíp) popisuje rozdelenie tréningovej intenzity:",
-        "",
-        "• cca 80 % času v nízkej intenzite (Easy, Z1–Z2)",
-        "• cca 20 % času v strednej a vysokej intenzite (Z3+)",
-        "",
-        "Prečo to funguje:",
-        "• väčšina vytrvalostných adaptácií vzniká v nízkej intenzite",
-        "• vysoká intenzita je silný stimul, ale drahá na regeneráciu",
-        "",
-        "Ako to čítať:",
-        "• mierna odchýlka od 80/20 je úplne normálna",
-        "• dôležitý je trend v čase (nie jeden týždeň)",
-        "",
-        "Pozor:",
-        "• 80/20 nie je dogma – v príprave na preteky môže byť pomer posunutý",
-        "• problém je dlhodobo veľa hard dní bez dostatočného easy objemu",
-      ].join("\n"),
-    },
-  },
-  PB: {
-    widget: {
-      tooltip: [
-        "Tento widget zobrazuje tvoj osobný rekord (PB – Personal Best) pre vybranú / obľúbenú vzdialenosť.",
-        "",
-        "Ako to funguje:",
-        "• vyberie sa tvoja preferovaná vzdialenosť (napr. 5 km, 10 km, polmaratón)",
-        "• zobrazí sa najlepší zaznamenaný čas pre túto vzdialenosť",
-        "",
-        "Prečo je to užitočné:",
-        "• PB je referenčný bod pre dlhodobý progres – nie každé zlepšenie musí byť PB",
-        "• pomáha pri nastavovaní tempa (race pace, threshold, intervaly)",
-        "• dáva kontext: tréning nemusí smerovať k PB každý mesiac",
-        "",
-        "Tip:",
-        "• ak dlhšie PB nepadá, ale cítiš sa silnejší → často sa zlepšuje konzistencia, odolnosť a forma",
-        "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
-      ].join("\n"),
-    },
-  },
   RHR: {
+    title: "RHR (Pokojový srdový tep)",
     widget: {
+      title: "RHR (Pokojový srdový tep)",
       tooltip: [
         "Resting HR (RHR) = pokojový tep. Je to jeden z najjednoduchších signálov, či je telo oddýchnuté alebo ide „na dlh“.",
         "",
@@ -723,7 +720,9 @@ export const sk = {
     },
   },
   sleepDuration: {
+    title: "Trvanie spánku",
     widget: {
+      title: "Trvanie spánku",
       tooltip: [
         "Sleep duration = celkový čas spánku (v minútach), ktorý si zariadenie zapísalo za noc.",
         "",
@@ -747,7 +746,9 @@ export const sk = {
   },
 
   sleepStart: {
+    title: "Začiatok spánku",
     widget: {
+      title: "Začiatok spánku",
       tooltip: [
         "Sleep start = čas, kedy si reálne zaspal (alebo kedy zariadenie odhadlo začiatok spánku).",
         "",
@@ -768,9 +769,10 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   VO2Max: {
+    title: "VO₂Max",
     widget: {
+      title: "VO₂Max",
       tooltip: [
         "VO₂Max je odhad maximálneho množstva kyslíka, ktoré vie tvoje telo využiť pri záťaži.",
         "",
@@ -789,24 +791,80 @@ export const sk = {
       ].join("\n"),
     },
   },
-
-  weeklyLoad: {
+  bodyFat: {
+    title: "Telesný tuk %",
     widget: {
+      title: "Telesný tuk %",
       tooltip: [
-        "Toto je súčet tréningového času za posledných 7 dní (rolling window).",
+        "Body Fat % je percento telesného tuku z celkovej hmotnosti (nie „koľko tuku vidíš v zrkadle“).",
         "",
-        "Prečo 7 dní?",
-        "• Je to najjednoduchší spôsob, ako rýchlo vidieť „aktuálny load“ bez toho, aby ťa mýlil kalendárny pondelok/nedeľa.",
+        "Prečo je to dôležité:",
+        "• Pre výkon: príliš vysoké BF zhoršuje ekonomiku behu a regeneráciu, príliš nízke môže zhoršiť hormóny, imunitu a výkonnosť.",
+        "• Pre zdravie: dáva kontext k hmotnosti – 82 kg môže byť super alebo problém, podľa toho, čo z toho je sval a čo tuk.",
         "",
-        "Ako čítať porovnanie vs. predošlých 7 dní:",
-        "• +20% a viac: výrazný skok objemu → často rastie únava a riziko preťaženia (najmä ak sa to deje viac týždňov po sebe).",
-        "• -20% a menej: výrazný pokles → môže byť deload/choroba/voľno; nie je to zlé, len to ovplyvní formu a „sharpness“.",
-        "• okolo 0%: stabilita → dobré pre budovanie konzistentnej vytrvalosti.",
+        "Ako čítať kategórie (Essential / Athlete / Fitness / Average / Obese):",
+        "• Sú to orientačné pásma. Dve rôzne metódy merania ti môžu dať iné čísla, ale trend býva užitočný.",
         "",
-        "Tip:",
-        "• Bezpečný progres je typicky skôr postupný (napr. 5–10% týždenne), nie skokovo.",
-        "• Skoky sa dejú, ale mali by byť zámerné a následne vyvážené ľahším týždňom.",
+        "Dôležitá realita merania:",
+        "• BIA/InBody (bioimpedancia) je citlivá na hydratáciu, soľ, jedlo, tréning deň predtým, alkohol a čas dňa.",
+        "• Preto neporovnávaj jeden náhodný deň. Sleduj trend – ideálne meraj za podobných podmienok (ráno, podobná hydratácia).",
+        "",
+        "Praktické tipy:",
+        "• Keď chceš znižovať BF: rieš najprv konzistenciu tréningu + spánok + jedlo. Extrémne deficity často rozbijú regeneráciu (a pri behu aj šľachy).",
+        "• Keď si veľmi nízko: sleduj výkonnosť, kvalitu spánku, libido/energiu, zranenia. Nízke číslo nie je automaticky výhra.",
       ].join("\n"),
     },
+  },
+
+  connectedApps: {
+    title: "Pripojenené aplikácie",
+  },
+
+  dashboard: {
+    title: "Dashboard",
+  },
+  profile: {
+    title: "Profil",
+  },
+  recovery: {
+    title: "Regenerácia",
+  },
+  calendar: {
+    title: "Kalendár",
+    widget: {
+      open: "Otvoriť kalendár",
+      title: "Týždenná agenda • ",
+      errorFailedLoad: "Zlyhalo načítanie externých udalostí.",
+
+      tooltip: [
+        "Toto je rýchly „týždenný prehľad“ – čo sa reálne stalo, čo je naplánované a čo sú externé bloky.",
+        "",
+        "Legend (ikonky v dni):",
+        "• Plná bodka = aktivita (importovaná/uložená) alebo externá udalosť (napr. futbal, sauna, časový blok).",
+        "• Prázdna bodka (krúžok) = plánovaný tréning (plan).",
+        "• ✓ = plán bol splnený (plán sa prepojil s aktivitou).",
+        "• ✕ = tréning bol v pláne, ale už je v minulosti a nemá zodpovedajúcu aktivitu (missed).",
+        "• +N = v dni je viac položiek, než sa zmestí do widgetu.",
+        "",
+        "Prečo je to užitočné:",
+        "• Uvidíš monotónnosť/kontrast týždňa na prvý pohľad (či máš každý deň niečo alebo sú tam oddychové okná).",
+        "• Okamžite vieš, či sa plán plní, alebo realita ide mimo plán.",
+        "",
+        "Dôležité:",
+        "• Tento widget je zjednodušený – detail (čo presne, aké trvanie, poznámky) je v kalendári.",
+        "• Prepojenie plan → done funguje len keď sa dá spojiť aktivita (activity_id) alebo logika matchovania.",
+        "",
+        "Tipy (aby to fungovalo hladko):",
+        "• Keď pridáš externé eventy (napr. futbal), plánovanie je presnejšie – AI vie, že to už je load.",
+        "• Ak často vidíš ✕ v dňoch, buď si nedal tréning, alebo sa import/napárovanie aktivít nepodarilo.",
+      ].join("\n"),
+    },
+  },
+  coach: {
+    title: "Tréner",
+  },
+  activities: {
+    title: "Aktivity",
+    goTo: "Otvor aktivity",
   },
 } as const;

@@ -3,6 +3,7 @@
 
 import dynamic from "next/dynamic";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import { useT } from "@/app/shared/i18n/useT";
 
 const RHRDetailClient = dynamic(
   () => import("@/app/features/recovery/components/TrendRHR"),
@@ -10,8 +11,9 @@ const RHRDetailClient = dynamic(
 );
 
 export default function Page() {
+  const t = useT();
   return (
-    <PageShell title="Detail — Resting Heart Rate (RHR)" showBack showPoweredByStrava={false}>
+    <PageShell title={t("RHR.title")} showBack showPoweredByStrava={false}>
       <RHRDetailClient />
     </PageShell>
   );
