@@ -1,4 +1,3 @@
-// src/features/billing/components/BillingPanel.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -31,6 +30,7 @@ import BillingHistory from "./BillingHistory";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // Import hooku
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
 
@@ -42,6 +42,7 @@ type PlannedChange = {
 
 export default function BillingPanel() {
   const { userId } = useUserId();
+  const t = useT(); // Inicializácia t
 
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
   const [history, setHistory] = useState<AppUserSubscription[]>([]);
@@ -52,7 +53,6 @@ export default function BillingPanel() {
     () => getSubscriptionTier() || "free"
   );
 
-  // InputsCard default: closed
   const [open, setOpen] = useState(false);
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
@@ -61,7 +61,6 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
-  // --- load status ---
   useEffect(() => {
     if (!userId) {
       setStatus(null);
@@ -85,12 +84,11 @@ export default function BillingPanel() {
           setActiveTierCode(code);
           setSubscriptionTier(code);
         } else {
-          // fallback
           setStatus(null);
         }
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.message || "Nepodarilo sa načítať stav predplatného.");
+        setError(e?.message || t("billing.errors.loadStatus"));
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -100,9 +98,8 @@ export default function BillingPanel() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
-  // --- load history ---
   useEffect(() => {
     if (!userId) {
       setHistory([]);
@@ -112,7 +109,6 @@ export default function BillingPanel() {
     let alive = true;
 
     (async () => {
-      // nech neprepisuje "status" loading ak beží
       setLoading((prev) => prev || "history");
       try {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
@@ -133,7 +129,7 @@ export default function BillingPanel() {
 
   async function handleSetTier(tierCode: string) {
     if (!userId) {
-      toast.error("Chýba používateľ – prihlás sa znova.");
+      toast.error(t("common.errors.missingUserAuth"));
       return;
     }
     if (!tierCode) return;
@@ -142,7 +138,7 @@ export default function BillingPanel() {
     setError(null);
     try {
       await apiSetAppSubscriptionTierManual(userId, tierCode);
-      toast.success("Program bol zmenený.");
+      toast.success(t("billing.toasts.tierChanged"));
 
       const st = await apiGetAppSubscriptionStatus(userId);
       const code = st?.tier_code || tierCode;
@@ -154,7 +150,7 @@ export default function BillingPanel() {
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
     } catch (e: any) {
-      const msg = e?.message || "Nepodarilo sa zmeniť program.";
+      const msg = e?.message || t("billing.errors.tierChangeFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -169,7 +165,7 @@ export default function BillingPanel() {
     setError(null);
     try {
       await apiCancelPlannedSubscriptionChange(userId);
-      toast.success("Plánovaná zmena bola zrušená.");
+      toast.success(t("billing.toasts.plannedChangeCancelled"));
 
       const st = await apiGetAppSubscriptionStatus(userId);
       const code = st?.tier_code || "free";
@@ -181,7 +177,7 @@ export default function BillingPanel() {
       const h = await apiGetAppSubscriptionHistory(userId, 20);
       setHistory(h);
     } catch (e: any) {
-      const msg = e?.message || "Nepodarilo sa zrušiť plánovanú zmenu.";
+      const msg = e?.message || t("billing.errors.cancelPlannedFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -190,61 +186,34 @@ export default function BillingPanel() {
   }
 
   const previewText = useMemo(() => {
-    if (!userId) return "Neprihlásený.";
+    if (!userId) return t("billing.status.notLoggedIn");
 
-    // keď je zatvorené, toto je dosť podstatné aby to neklamalo
-    if (loading === "status" && !status) return "Načítavam stav predplatného…";
+    if (loading === "status" && !status) return t("billing.status.loading");
 
     const tier = status?.tier_code || activeTierCode || "free";
-    const parts: string[] = [`Program: ${tier.toUpperCase()}`];
+    const parts: string[] = [`${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`];
 
     if (plannedChange?.kind) {
-      const kindLabel =
-        plannedChange.kind === "upgrade"
-          ? "zvýšenie"
-          : plannedChange.kind === "downgrade"
-            ? "zníženie"
-            : "zrušenie";
+      const kindLabel = t(`billing.planned.kinds.${plannedChange.kind}`);
+      const toTier = plannedChange.to_tier_code ? plannedChange.to_tier_code.toUpperCase() : "FREE";
+      const when = plannedChange.effective_from ? plannedChange.effective_from.slice(0, 10) : null;
 
-      const toTier = plannedChange.to_tier_code
-        ? plannedChange.to_tier_code.toUpperCase()
-        : "FREE";
-
-      const when = plannedChange.effective_from
-        ? plannedChange.effective_from.slice(0, 10)
-        : null;
-
-      parts.push(`Plán: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
+      parts.push(`${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
     }
 
-    const quota = (status as any)?.ai_quota as
-      | {
-          monthly_limit_tokens?: number | null;
-          used_tokens_this_month?: number | null;
-        }
-      | undefined;
-
-    if (
-      quota &&
-      typeof quota.monthly_limit_tokens === "number" &&
-      quota.monthly_limit_tokens > 0 &&
-      typeof quota.used_tokens_this_month === "number"
-    ) {
-      const pct = Math.round(
-        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100
-      );
+    const quota = (status as any)?.ai_quota as any;
+    if (quota?.monthly_limit_tokens > 0) {
+      const pct = Math.round((quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100);
       parts.push(`AI: ~${pct}%`);
     }
 
     return parts.join(" • ");
-  }, [userId, loading, status, activeTierCode, plannedChange]);
-
-  const disabledNoUser = !userId;
+  }, [userId, loading, status, activeTierCode, plannedChange, t]);
 
   return (
     <InputsCard
-      title="Predplatné"
-      subtitle="Programy, AI limity a história."
+      title={t("billing.title")}
+      subtitle={t("billing.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
@@ -252,9 +221,9 @@ export default function BillingPanel() {
       actions={null}
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {disabledNoUser ? (
+        {!userId ? (
           <div className="text-sm opacity-80">
-            Musíš byť prihlásený, aby si videl nastavenia účtu.
+            {t("billing.notLoggedInDesc")}
           </div>
         ) : (
           <>
@@ -270,10 +239,9 @@ export default function BillingPanel() {
 
             <div className={PANEL_STACK}>
               <section>
-                <div className="text-sm font-semibold">Programy</div>
+                <div className="text-sm font-semibold">{t("billing.sections.tiers")}</div>
                 <div className="mt-1 text-xs opacity-75">
-                  DEV režim: zvýšenie hneď, zníženie alebo prechod na free od
-                  ďalšieho obdobia.
+                  {t("billing.devModeNote")}
                 </div>
 
                 <div className="mt-2">
@@ -288,7 +256,7 @@ export default function BillingPanel() {
               </section>
 
               <section>
-                <div className="text-sm font-semibold">História</div>
+                <div className="text-sm font-semibold">{t("billing.sections.history")}</div>
                 <div className="mt-2">
                   <BillingHistory history={history} />
                 </div>

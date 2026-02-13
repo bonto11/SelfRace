@@ -1,4 +1,3 @@
-// src/app/features/profile/components/ProfileStaticInputs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +27,7 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 const EMPTY: StaticProfile = {
   sex: null,
@@ -37,6 +37,7 @@ const EMPTY: StaticProfile = {
 
 export default function ProfileStaticInputs() {
   const { userId } = useUserId() as { userId: number | null };
+  const t = useT(); // 2. Inicializácia t
 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -66,25 +67,25 @@ export default function ProfileStaticInputs() {
 
   const previewText = useMemo(() => {
     return [
-      `Pohlavie: ${String(summary.sex ?? "—")}`,
-      `Narodenie: ${String(summary.bd ?? "—")}`,
-      `Výška: ${String(summary.h ?? "—")}`,
+      `${t("profile.static.sex")}: ${String(summary.sex ?? "—")}`,
+      `${t("profile.static.birthDate")}: ${String(summary.bd ?? "—")}`,
+      `${t("profile.static.height")}: ${String(summary.h ?? "—")}`,
     ].join(" • ");
-  }, [summary]);
+  }, [summary, t]);
 
   async function handleSave() {
     if (!userId) {
-      toast.error("Chýba používateľ.");
+      toast.error(t("common.errors.missingUser"));
       return;
     }
     try {
       setLoading(true);
       const saved = await apiSaveStaticProfile(userId, data);
       setData(saved);
-      toast.success("Profil uložený.");
+      toast.success(t("profile.static.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
-      toast.error("Chyba: " + (e?.message ?? e));
+      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
     } finally {
       setLoading(false);
     }
@@ -92,8 +93,8 @@ export default function ProfileStaticInputs() {
 
   return (
     <InputsCard
-      title="Základné údaje"
-      subtitle="Pohlavie, dátum narodenia a výška."
+      title={t("profile.static.title")}
+      subtitle={t("profile.static.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
@@ -106,7 +107,7 @@ export default function ProfileStaticInputs() {
           disabled={loading || !userId}
           className={INPUTS_CARD_SAVE_BTN}
         >
-          {loading ? "Ukladám…" : "Uložiť"}
+          {loading ? t("common.saving") : t("common.save")}
         </Button>
       }
     >
@@ -117,7 +118,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Pohlavie
+              {t("profile.static.sex")}
             </div>
 
             <SelectField
@@ -132,8 +133,8 @@ export default function ProfileStaticInputs() {
               }}
               options={[
                 { value: "", label: "—" },
-                { value: "M", label: "Muž" },
-                { value: "F", label: "Žena" },
+                { value: "M", label: t("profile.static.sexMale") },
+                { value: "F", label: t("profile.static.sexFemale") },
               ]}
             />
           </section>
@@ -143,7 +144,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Dátum narodenia
+              {t("profile.static.birthDate")}
             </div>
 
             <DateField
@@ -163,7 +164,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Výška
+              {t("profile.static.height")}
             </div>
 
             <TextField
@@ -186,7 +187,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Zhrnutie
+              {t("profile.static.summary")}
             </div>
             <TextField value={previewText} disabled />
           </section>

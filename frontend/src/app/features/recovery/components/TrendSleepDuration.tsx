@@ -1,4 +1,3 @@
-// src/features/recovery/components/DetailSleepDuration.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +24,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // Import hooku
 
 ensureChartJSRegistered();
 
@@ -41,15 +41,15 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
-// ✅ duration sanity: 0..18h in minutes, inak missing
 function sanitizeSleepDurationMin(v: unknown): number {
   if (typeof v !== "number" || !Number.isFinite(v)) return NaN;
   if (v < 0) return NaN;
-  if (v > 18 * 60) return NaN; // 18h je brutálny strop, 26:40 už neprejde
+  if (v > 18 * 60) return NaN;
   return v;
 }
 
 export default function DetailSleepDuration() {
+  const t = useT(); // Inicializácia t
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -148,7 +148,7 @@ export default function DetailSleepDuration() {
       datasets: [
         {
           type: "line" as const,
-          label: "7–9h (spodná)",
+          label: t("recovery.trends.sleepDuration.bandLower"),
           data: lowerBand,
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -159,7 +159,7 @@ export default function DetailSleepDuration() {
         },
         {
           type: "line" as const,
-          label: "7–9h (horná)",
+          label: t("recovery.trends.sleepDuration.bandUpper"),
           data: upperBand,
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -171,7 +171,7 @@ export default function DetailSleepDuration() {
         },
         {
           type: "line" as const,
-          label: "Sleep duration",
+          label: t("recovery.trends.sleepDuration.label"),
           data: sleepMin,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
@@ -183,7 +183,7 @@ export default function DetailSleepDuration() {
         },
         {
           type: "line" as const,
-          label: "Missing",
+          label: t("recovery.trends.common.missingLabel"),
           data: missingY.map((y, i) =>
             missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
@@ -209,6 +209,7 @@ export default function DetailSleepDuration() {
       COLOR.bandFill,
       COLOR.main,
       COLOR.missing,
+      t
     ],
   );
 
@@ -217,7 +218,7 @@ export default function DetailSleepDuration() {
       id: "draw-missing-on-top-sleepduration",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing",
+          (d) => d.label === t("recovery.trends.common.missingLabel"),
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -237,14 +238,14 @@ export default function DetailSleepDuration() {
         ctx.restore();
       },
     }),
-    [COLOR.missing],
+    [COLOR.missing, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
-        yTitle: "min",
+        yTitle: t("common.units.min"),
         yTickFormatter: (v: number) => minutesToHHMM(v),
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
@@ -253,29 +254,29 @@ export default function DetailSleepDuration() {
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
-          if (label === "Sleep duration") {
+          if (label === t("recovery.trends.sleepDuration.label")) {
             const v = sleepMin[idx];
             const out: string[] = [];
             if (Number.isFinite(v))
-              out.push(`Spánok: ${minutesToHHMM(v as number)}`);
+              out.push(`${t("recovery.trends.sleepDuration.tooltipLabel")}: ${minutesToHHMM(v as number)}`);
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
-            return out.length ? out : "Spánok: –";
+            return out.length ? out : `${t("recovery.trends.sleepDuration.tooltipLabel")}: –`;
           }
-          if (label === "Missing") return "Bez záznamu";
+          if (label === t("recovery.trends.common.missingLabel")) return t("recovery.trends.common.noRecord");
           return "";
         },
         tooltipFilter: (item) => {
           const l = item.dataset.label ?? "";
-          return l === "Sleep duration" || l === "Missing";
+          return l === t("recovery.trends.sleepDuration.label") || l === t("recovery.trends.common.missingLabel");
         },
       }),
-    [labelsISO, sleepMin, comments],
+    [labelsISO, sleepMin, comments, t],
   );
 
   useEffect(() => {
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
   }, [labelsISO.join("|")]);
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
@@ -288,13 +289,13 @@ export default function DetailSleepDuration() {
             className={PANEL_SECTION_TITLE}
             style={{ color: appColors.textPrimary }}
           >
-            Sleep duration
+            {t("recovery.trends.sleepDuration.title")}
           </div>
           <div
             className={PANEL_SECTION_SUBTITLE}
             style={{ color: appColors.textMuted }}
           >
-            Spánok v čase + odporúčané pásmo 7–9h.
+            {t("recovery.trends.sleepDuration.subtitle")}
           </div>
         </div>
 

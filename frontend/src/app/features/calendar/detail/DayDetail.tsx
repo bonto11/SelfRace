@@ -117,7 +117,7 @@ export default function DayDetail({
 
         {planned.length === 0 ? (
           <div className="text-sm opacity-70">
-             {t("calendar.noPlanned")}
+             {t("calendar.noActivity")}
           </div>
         ) : (
           <ul className="space-y-2">

@@ -10,6 +10,7 @@ import {
   PANEL_BAR_FILL,
   PANEL_BAR_FOOT,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 function pickColor(pct: number) {
   if (pct >= 90) return appColors.statusError;
@@ -22,6 +23,7 @@ export default function BillingUsageBar({
   usedTokens,
   resetAt,
 }: BillingUsageBarProps) {
+  const t = useT();
   const limit = Math.max(0, limitTokens ?? 0);
   const used = Math.max(0, usedTokens ?? 0);
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
@@ -36,12 +38,12 @@ export default function BillingUsageBar({
       }}
     >
       <div className={PANEL_BAR_HEAD}>
-        <span className="font-semibold">Použitie AI tento mesiac</span>
+        <span className="font-semibold">{t("billing.usage.title")}</span>
 
         {limit > 0 ? (
           <span className="font-mono" style={{ color: appColors.textMuted }}>
             {used.toLocaleString("sk-SK")} / {limit.toLocaleString("sk-SK")}{" "}
-            tokenov
+            {t("billing.usage.tokensUnit")}
           </span>
         ) : null}
       </div>
@@ -65,13 +67,13 @@ export default function BillingUsageBar({
             className={PANEL_BAR_FOOT}
             style={{ color: appColors.textMuted }}
           >
-            <span>Využité ~{pct}% mesačného limitu.</span>
-            <span>{resetAt ? `Reset: ${resetAt.slice(0, 10)}` : ""}</span>
+            <span>{t("billing.usage.summary").replace("{{pct}}", String(pct))}</span>
+            <span>{resetAt ? `${t("billing.usage.reset")}: ${resetAt.slice(0, 10)}` : ""}</span>
           </div>
         </>
       ) : (
         <div className="text-[11px]" style={{ color: appColors.textMuted }}>
-          Pre tento program nemám definovaný AI limit.
+          {t("billing.usage.noLimitDefined")}
         </div>
       )}
     </div>

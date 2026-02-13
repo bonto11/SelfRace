@@ -1,4 +1,3 @@
-// src/app/features/profile/components/ProfileMetricInputs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -37,17 +36,19 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
   weight_kg: "kg",
   body_fat_pct: "%",
   HR_max: "bpm",
-  VO2Max_measured: "mL/kg/min",
-  VO2Max_estimated: "mL/kg/min",
+  VO2Max_measured: "ml/kg/min",
+  VO2Max_estimated: "ml/kg/min",
 };
 
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
+  const t = useT(); // 2. Inicializácia t
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,7 +90,7 @@ export default function ProfileMetricInputs() {
     };
   }, [userId]);
 
-  const ph = useMemo(() => buildMetricPlaceholders(latest), [latest]);
+  const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
 
   function onChangeNumber<K extends EditableMetricKey>(key: K, raw: string) {
@@ -99,7 +100,7 @@ export default function ProfileMetricInputs() {
 
   async function handleSave() {
     if (!userId) {
-      toast.error("Chýba používateľ.");
+      toast.error(t("common.errors.missingUser"));
       return;
     }
 
@@ -115,14 +116,15 @@ export default function ProfileMetricInputs() {
       }));
 
     if (!entries.length) {
-      toast.error("Zadaj aspoň jednu novú hodnotu.");
+      toast.error(t("profile.metrics.errorNoValues"));
       return;
     }
 
     try {
       setLoading(true);
       const res = await apiSaveMetrics(userId, entries);
-      toast.success(`Uložené${res.inserted ? ` (${res.inserted})` : ""}`);
+      // UX: Preložený úspech s počtom uložených hodnôt
+      toast.success(`${t("profile.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`);
 
       const data = await apiGetLatestMetrics(userId);
       setLatest(data);
@@ -144,7 +146,7 @@ export default function ProfileMetricInputs() {
 
       setOpen(false);
     } catch (e: any) {
-      toast.error("Chyba: " + (e?.message ?? e));
+      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
     } finally {
       setLoading(false);
     }
@@ -169,13 +171,15 @@ export default function ProfileMetricInputs() {
     const vo2 = Number.isFinite(latest?.VO2Max_estimated?.value as number)
       ? `${latest?.VO2Max_estimated?.value}`
       : "—";
-    return `Hmotnosť: ${w} • Tuk: ${bf} • HR max: ${hr} • VO₂Max: ${vo2}`;
-  }, [latest]);
+    
+    // Použitie preložených labelov v náhľade
+    return `${t("profile.metrics.previewWeight")}: ${w} • ${t("profile.metrics.previewFat")}: ${bf} • ${t("profile.metrics.previewHrMax")}: ${hr} • VO₂Max: ${vo2}`;
+  }, [latest, t]);
 
   return (
     <InputsCard
-      title="Metriky"
-      subtitle="Hmotnosť, tuk, HR max a VO₂Max."
+      title={t("profile.metrics.title")}
+      subtitle={t("profile.metrics.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
@@ -188,7 +192,7 @@ export default function ProfileMetricInputs() {
           disabled={loading || !userId}
           className={INPUTS_CARD_SAVE_BTN}
         >
-          {loading ? "Ukladám…" : "Uložiť"}
+          {loading ? t("common.saving") : t("common.save")}
         </Button>
       }
     >
@@ -199,7 +203,7 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Hmotnosť
+              {t("profile.metrics.weightLabel")}
             </div>
             <TextField
               type="number"
@@ -216,7 +220,7 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Telesný tuk
+              {t("profile.metrics.fatLabel")}
             </div>
             <TextField
               type="number"
@@ -233,7 +237,7 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              HR max
+              {t("profile.metrics.hrMaxLabel")}
             </div>
             <TextField
               type="number"
@@ -250,14 +254,14 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              VO₂Max
+              {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
               <TextField
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_estimated ?? ""}
-                placeholder={ph.VO2Max_estimated || "odhad"}
+                placeholder={ph.VO2Max_estimated || t("profile.metrics.estimatedPlaceholder")}
                 onChange={(e) =>
                   onChangeNumber("VO2Max_estimated", e.target.value)
                 }
@@ -267,7 +271,7 @@ export default function ProfileMetricInputs() {
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
-                placeholder={ph.VO2Max_measured || "merané"}
+                placeholder={ph.VO2Max_measured || t("profile.metrics.measuredPlaceholder")}
                 onChange={(e) =>
                   onChangeNumber("VO2Max_measured", e.target.value)
                 }
@@ -281,7 +285,7 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              BMI (výpočet)
+              {t("profile.metrics.bmiLabel")}
             </div>
             <TextField value={bmiText || "—"} disabled />
           </section>
@@ -291,10 +295,10 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              Tip
+              {t("common.soon") /* Použité z common */}
             </div>
             <TextField
-              value="Zadaj len to, čo chceš uložiť – ostatné nechaj prázdne."
+              value={t("profile.metrics.saveTip")}
               disabled
             />
           </section>

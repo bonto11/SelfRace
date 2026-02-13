@@ -4,16 +4,19 @@
 import type { AppUserSubscription } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_LIST, PANEL_LIST_ITEM } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 type BillingHistoryProps = {
   history: AppUserSubscription[];
 };
 
 export default function BillingHistory({ history }: BillingHistoryProps) {
+  const t = useT();
+
   if (history.length === 0) {
     return (
       <p style={{ color: appColors.textMuted }} className="text-xs">
-        Zatiaľ žiadne záznamy o predplatnom.
+        {t("billing.history.noRecords")}
       </p>
     );
   }

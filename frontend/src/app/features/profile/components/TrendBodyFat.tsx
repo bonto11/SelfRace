@@ -1,4 +1,3 @@
-// src/features/profile/components/TrendBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -35,11 +34,13 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 ensureChartJSRegistered();
 
 export default function TrendBodyFat() {
   const { userId } = useUserId() as { userId: number | null };
+  const t = useT(); // 2. Inicializácia t
 
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
@@ -90,7 +91,7 @@ export default function TrendBodyFat() {
     return (
       <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, "text-sm"].join(" ")}>
-          Žiadne dáta Body Fat %.
+          {t("bodyFat.noData")}
         </div>
       </div>
     );
@@ -135,7 +136,7 @@ export default function TrendBodyFat() {
     }),
     {
       type: "line" as const,
-      label: "Body Fat %",
+      label: t("bodyFat.title"), // Použité existujúce "Telesný tuk %"
       data: values,
       borderColor: appColors.chartLine1,
       backgroundColor: appColors.chartLine1,
@@ -159,13 +160,13 @@ export default function TrendBodyFat() {
     tooltipLabelForItem: (ctx) => {
       const idx = ctx.dataIndex ?? 0;
       const label = ctx.dataset?.label ?? "";
-      if (label === "Body Fat %") {
+      if (label === t("bodyFat.title")) {
         const v = values[idx];
-        return Number.isFinite(v) ? `Body Fat: ${Number(v).toFixed(1)}%` : "—";
+        return Number.isFinite(v) ? `${t("bodyFat.chartLabel")}: ${Number(v).toFixed(1)}%` : "—";
       }
       return "";
     },
-    tooltipFilter: (item) => (item.dataset?.label ?? "") === "Body Fat %",
+    tooltipFilter: (item) => (item.dataset?.label ?? "") === t("bodyFat.title"),
     yMin: 0,
     yMax: suggestedTop,
   });
@@ -176,7 +177,7 @@ export default function TrendBodyFat() {
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
-          <h2 className={PANEL_CARD_TITLE}>Detail – Body Fat %</h2>
+          <h2 className={PANEL_CARD_TITLE}>{t("bodyFat.detailTitle")}</h2>
           <div className={PANEL_ACTIONS_INLINE}>
             <SelectField
               value={String(weeks)}

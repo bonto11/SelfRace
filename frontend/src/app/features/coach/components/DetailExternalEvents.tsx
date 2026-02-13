@@ -12,8 +12,7 @@ import TimeField24 from "@/app/shared/ui/components/TimeField24";
 
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-
-import { InfoPopover } from "@/app/features/coach/components/InfoPopover";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   apiGetExternalEvents,
@@ -65,7 +64,6 @@ const SPORT_OPTIONS: ExternalSport[] = [
   "other",
 ];
 
-// event options
 const EVENT_OPTIONS: any[] = [
   "wedding",
   "travel",
@@ -77,7 +75,7 @@ const EVENT_OPTIONS: any[] = [
 
 const EXT_INTENS: ExternalIntensity[] = ["low", "moderate", "high"];
 
-/* ---------- helpers ---------- */
+/* ---------- prekladové helpery (prijímajú t) ---------- */
 
 function detectCategory(sport: ExternalSport | null): ExternalCategory {
   if (!sport) return "sport";
@@ -85,58 +83,17 @@ function detectCategory(sport: ExternalSport | null): ExternalCategory {
   return "sport";
 }
 
-function niceLabelForSport(s: any): string {
-  switch (s) {
-    case "run":
-      return "Beh";
-    case "ride":
-      return "Bicykel";
-    case "strength":
-      return "Silový tréning";
-    case "swim":
-      return "Plávanie";
-    case "football":
-      return "Futbal";
-    case "badminton":
-      return "Bedminton";
-    case "floorbal":
-      return "Florbal";
-    case "padel":
-      return "Padel";
-    case "tennis":
-      return "Tenis";
-    case "other":
-      return "Iný šport";
-
-    case "wedding":
-      return "Svadba";
-    case "travel":
-      return "Cestovanie";
-    case "party":
-      return "Oslava / party";
-    case "work":
-      return "Pracovná udalosť";
-    case "family":
-      return "Rodinná udalosť";
-    case "other_event":
-      return "Iná udalosť";
-
-    default:
-      return String(s);
+function getSportLabel(s: any, t: any): string {
+  // Ak je to v zozname eventov, hľadáme v kategórii events
+  if ((EVENT_OPTIONS as string[]).includes(String(s))) {
+    return t(`externalEvents.events.${s}`);
   }
+  // Inak v kategórii sports
+  return t(`externalEvents.sports.${s}`);
 }
 
-function niceLabelForIntensity(i: ExternalIntensity): string {
-  switch (i) {
-    case "low":
-      return "Nízka";
-    case "moderate":
-      return "Stredná";
-    case "high":
-      return "Vysoká";
-    default:
-      return String(i);
-  }
+function getIntensityLabel(i: ExternalIntensity, t: any): string {
+  return t(`externalEvents.intensities.${i}`);
 }
 
 /* ---------- mapovanie DB ↔️ FE ---------- */
@@ -145,47 +102,33 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
   return (events ?? [])
     .map<ExternalActivity | null>((ev) => {
       const mode = (ev.recurrence_kind as "weekly" | "single") ?? "weekly";
-
       let day: DayAbbrev = "Mon";
 
       if (mode === "weekly") {
-        // ✅ robust: accept weekday_int, weekday, weekday_text, localized garbage -> normalize
-        const weekdayRaw =
-          (ev as any).weekday_int ??
-          (ev as any).weekday ??
-          (ev as any).weekday_text ??
-          null;
-
+        const weekdayRaw = (ev as any).weekday_int ?? (ev as any).weekday ?? (ev as any).weekday_text ?? null;
         const weekdayNum = normalizeWeekdayToInt(weekdayRaw);
         day = weekdayNum ? INT_TO_DAY[weekdayNum] : "Mon";
       } else {
         const iso = (ev as any).single_date as string | null;
         if (!iso) return null;
         const dObj = new Date(iso);
-        const js = dObj.getDay();
-        day = JS_TO_DAY[js] ?? "Mon";
+        day = JS_TO_DAY[dObj.getDay()] ?? "Mon";
       }
 
       const sport = (ev.sport as any) ?? "other";
-
       let intensity: ExternalIntensity = "moderate";
       if (ev.priority === "fixed") intensity = "high";
       if (ev.priority === "optional") intensity = "low";
 
-      const note = ev.notes ?? ev.title ?? undefined;
-      const time = ev.start_time_local ?? null;
-      const singleDate = (ev.single_date as string | null) ?? null;
-      const category = detectCategory(sport);
-
       return {
-        category,
+        category: detectCategory(sport),
         day,
         sport,
         intensity,
-        note,
+        note: ev.notes ?? ev.title ?? undefined,
         mode,
-        date_single: singleDate,
-        time,
+        date_single: (ev.single_date as string | null) ?? null,
+        time: ev.start_time_local ?? null,
       };
     })
     .filter(Boolean) as ExternalActivity[];
@@ -194,15 +137,15 @@ function mapEventsToActivities(events: ExternalEvent[]): ExternalActivity[] {
 function mapActivitiesToEvents(
   userId: number,
   activities: ExternalActivity[],
+  t: any
 ): ExternalEvent[] {
   return activities.map<ExternalEvent>((a) => {
     const mode = a.mode ?? "weekly";
     const weekday_int = mode === "weekly" ? (DAY_TO_INT[a.day] ?? 1) : null;
-
     let priority: "fixed" | "optional" = "optional";
     if (a.intensity === "high") priority = "fixed";
 
-    const baseTitle = niceLabelForSport(a.sport as any);
+    const baseTitle = getSportLabel(a.sport as any, t);
     const title = a.note ? `${baseTitle} – ${a.note}` : baseTitle;
 
     return {
@@ -210,23 +153,12 @@ function mapActivitiesToEvents(
       user_id: userId,
       title,
       sport: a.sport as any,
-
-      // ✅ source of truth:
       weekday_int,
-
-      // (optional backward-compat – ak BE ešte má starý stĺpec weekday)
-      // weekday: weekday_int,
-
       recurrence_kind: mode,
       single_date: mode === "single" ? (a.date_single ?? null) : null,
       start_time_local: a.time ?? null,
-      duration_min: null,
       priority,
       notes: a.note ?? null,
-      start_date: null,
-      end_date: null,
-      created_at: null,
-      occurrence_date: undefined,
     } as any;
   });
 }
@@ -234,8 +166,8 @@ function mapActivitiesToEvents(
 /* ---------- komponent ---------- */
 
 export function DetailExternalEvents({ userId }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(true);
-
   const [list, setList] = useState<ExternalActivity[]>([]);
 
   const [draft, setDraft] = useState<ExternalActivity>({
@@ -268,17 +200,14 @@ export function DetailExternalEvents({ userId }: Props) {
         setList(mapEventsToActivities(events ?? []));
       } catch (e: any) {
         if (!alive) return;
-        setDbError(e?.message ?? "Nepodarilo sa načítať externé aktivity z DB.");
+        setDbError(e?.message ?? t("externalEvents.errors.loadFailed"));
       } finally {
-        if (!alive) return;
-        setLoadingDB(false);
+        if (alive) setLoadingDB(false);
       }
     })();
 
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+    return () => { alive = false; };
+  }, [userId, t]);
 
   const previewSorted = useMemo(() => {
     const order = Object.fromEntries(ALL_DAYS.map((d, i) => [d, i]));
@@ -292,33 +221,28 @@ export function DetailExternalEvents({ userId }: Props) {
   }, [list]);
 
   const previewText = useMemo(() => {
-    if (!userId) return "Najprv sa prihlás, aby sme vedeli načítať a uložiť externé udalosti.";
-    if (loadingDB) return "Načítavam externé aktivity z DB…";
-    if (!previewSorted.length) return "Zatiaľ nemáš uložené žiadne externé aktivity.";
+    if (!userId) return t("externalEvents.preview.noUser");
+    if (loadingDB) return t("externalEvents.preview.loading");
+    if (!previewSorted.length) return t("externalEvents.preview.empty");
 
     const top = previewSorted.slice(0, 3).map((a) => {
-      const when =
-        (a.mode ?? "weekly") === "weekly"
-          ? niceLabelForDay(a.day)
-          : (a.date_single ?? niceLabelForDay(a.day));
-      return `${when} · ${niceLabelForSport(a.sport as any)} · ${niceLabelForIntensity(a.intensity)}`;
+      const when = (a.mode ?? "weekly") === "weekly" ? niceLabelForDay(a.day) : (a.date_single ?? niceLabelForDay(a.day));
+      return `${when} · ${getSportLabel(a.sport as any, t)} · ${getIntensityLabel(a.intensity, t)}`;
     });
 
     return top.join(" • ") + (previewSorted.length > 3 ? ` • +${previewSorted.length - 3}` : "");
-  }, [userId, loadingDB, previewSorted]);
+  }, [userId, loadingDB, previewSorted, t]);
 
   const handleAdd = () => {
     const next: ExternalActivity = { ...draft, note: draft.note?.trim() || undefined };
-
     if ((next.mode ?? "weekly") === "single" && !next.date_single) {
-      toast.error("Pri jednorazovej udalosti zadaj dátum.");
+      toast.error(t("externalEvents.errors.missingDate"));
       return;
     }
     setList((cur) => [...cur, next]);
   };
 
-  const handleRemove = (idx: number) =>
-    setList((cur) => cur.filter((_, i) => i !== idx));
+  const handleRemove = (idx: number) => setList((cur) => cur.filter((_, i) => i !== idx));
 
   const handleSaveToDB = async () => {
     if (!userId) return;
@@ -327,13 +251,17 @@ export function DetailExternalEvents({ userId }: Props) {
     setDbInfo(null);
     try {
       const cleaned = list.filter((a) => String(a.sport || "").trim().length);
-      const events = mapActivitiesToEvents(userId, cleaned);
+      const events = mapActivitiesToEvents(userId, cleaned, t);
       const resp = await apiSaveExternalEvents(userId, events);
 
-      setDbInfo(`Uložené (${resp.count} eventov, zmazaných ${resp.deleted}, vložených ${resp.inserted}).`);
+      setDbInfo(t("externalEvents.info.saved")
+        .replace("{{count}}", String(resp.count))
+        .replace("{{deleted}}", String(resp.deleted))
+        .replace("{{inserted}}", String(resp.inserted))
+      );
       setOpen(false);
     } catch (e: any) {
-      setDbError(e?.message ?? "Chyba pri ukladaní do DB.");
+      setDbError(e?.message ?? t("externalEvents.errors.saveFailed"));
     } finally {
       setSavingDB(false);
     }
@@ -345,11 +273,11 @@ export function DetailExternalEvents({ userId }: Props) {
     setDbError(null);
     setDbInfo(null);
     try {
-      const resp = await apiSaveExternalEvents(userId, []);
+      await apiSaveExternalEvents(userId, []);
       setList([]);
-      setDbInfo(`Zmazané (deleted=${resp.deleted}).`);
+      setDbInfo(t("externalEvents.info.deleted"));
     } catch (e: any) {
-      setDbError(e?.message ?? "Chyba pri mazaní v DB.");
+      setDbError(e?.message ?? t("externalEvents.errors.deleteFailed"));
     } finally {
       setSavingDB(false);
     }
@@ -364,13 +292,8 @@ export function DetailExternalEvents({ userId }: Props) {
 
   return (
     <InputsCard
-      title={
-        <div className="flex items-center gap-2">
-          <span>Externé aktivity</span>
-          <InfoPopover text="Externé športy aj nešportové udalosti, ktoré ovplyvňujú regeneráciu a plánovanie tréningu." />
-        </div>
-      }
-      subtitle="Športy a udalosti (svadba, cestovanie…), s ktorými plán počíta pri generovaní tréningu."
+      title={t("externalEvents.title")}
+      subtitle={t("externalEvents.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
@@ -383,7 +306,7 @@ export function DetailExternalEvents({ userId }: Props) {
           disabled={savingDB || !userId}
           className={INPUTS_CARD_SAVE_BTN}
         >
-          {savingDB ? "Ukladám…" : "Uložiť do DB"}
+          {savingDB ? t("externalEvents.form.saving") : t("externalEvents.form.saveBtn")}
         </Button>
       }
     >
@@ -391,202 +314,120 @@ export function DetailExternalEvents({ userId }: Props) {
         <div className={FORM_GRID_TWO}>
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Typ
+              {t("externalEvents.form.type")}
             </div>
-
             <SelectField
               disabled={disabled}
               value={String(category)}
               onChange={(e) => {
                 const nextCat = (e.target.value as ExternalCategory) || "sport";
-                const defaultSport = nextCat === "sport" ? SPORT_OPTIONS[0] : (EVENT_OPTIONS[0] as any);
-
-                setDraft((d) => ({
-                  ...d,
-                  category: nextCat,
-                  sport: defaultSport as any,
-                }));
+                setDraft((d) => ({ ...d, category: nextCat, sport: nextCat === "sport" ? SPORT_OPTIONS[0] : (EVENT_OPTIONS[0] as any) }));
               }}
               options={[
-                { value: "sport", label: "Šport" },
-                { value: "event", label: "Udalosť" },
+                { value: "sport", label: t("externalEvents.form.categorySport") },
+                { value: "event", label: t("externalEvents.form.categoryEvent") },
               ]}
             />
           </section>
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Opakovanie
+              {t("externalEvents.form.recurrence")}
             </div>
-
             <SelectField
               disabled={disabled}
               value={String(mode)}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  mode: (e.target.value as "weekly" | "single") || "weekly",
-                }))
-              }
+              onChange={(e) => setDraft((d) => ({ ...d, mode: (e.target.value as "weekly" | "single") || "weekly" }))}
               options={[
-                { value: "weekly", label: "Týždenne" },
-                { value: "single", label: "Jednorazovo" },
+                { value: "weekly", label: t("externalEvents.form.weekly") },
+                { value: "single", label: t("externalEvents.form.single") },
               ]}
             />
           </section>
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {isWeekly ? "Deň" : "Dátum"}
+              {isWeekly ? t("externalEvents.form.day") : t("externalEvents.form.date")}
             </div>
-
             {isWeekly ? (
               <SelectField
                 disabled={disabled}
                 value={String(draft.day)}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    day: (e.target.value as DayAbbrev) || "Mon",
-                  }))
-                }
-                options={ALL_DAYS.map((d) => ({
-                  value: d,
-                  label: niceLabelForDay(d),
-                }))}
+                onChange={(e) => setDraft((d) => ({ ...d, day: (e.target.value as DayAbbrev) || "Mon" }))}
+                options={ALL_DAYS.map((d) => ({ value: d, label: niceLabelForDay(d) }))}
               />
             ) : (
-              <DateField
-                disabled={disabled}
-                value={draft.date_single}
-                onChange={(v) =>
-                  setDraft((d) => ({
-                    ...d,
-                    date_single: v || null,
-                  }))
-                }
-              />
+              <DateField disabled={disabled} value={draft.date_single} onChange={(v) => setDraft((d) => ({ ...d, date_single: v || null }))} />
             )}
           </section>
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {category === "sport" ? "Šport" : "Udalosť"}
+              {category === "sport" ? t("externalEvents.form.categorySport") : t("externalEvents.form.categoryEvent")}
             </div>
-
             <SelectField
               disabled={disabled}
               value={String(draft.sport)}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  sport: (e.target.value as any) || "other",
-                }))
-              }
-              options={sportOptions.map((s) => ({
-                value: String(s),
-                label: niceLabelForSport(s),
-              }))}
+              onChange={(e) => setDraft((d) => ({ ...d, sport: (e.target.value as any) || "other" }))}
+              options={sportOptions.map((s) => ({ value: String(s), label: getSportLabel(s, t) }))}
             />
           </section>
 
           <section>
-            <TimeField24
-              label="Čas"
-              value={draft.time ?? ""}
-              onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))}
-            />
+            <TimeField24 label={t("externalEvents.form.time")} value={draft.time ?? ""} onChange={(v) => setDraft((d) => ({ ...d, time: v || null }))} />
           </section>
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Intenzita / záťaž
+              {t("externalEvents.form.intensity")}
             </div>
-
             <SelectField
               disabled={disabled}
               value={String(draft.intensity)}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  intensity: (e.target.value as ExternalIntensity) || "moderate",
-                }))
-              }
-              options={EXT_INTENS.map((i) => ({
-                value: i,
-                label: niceLabelForIntensity(i),
-              }))}
+              onChange={(e) => setDraft((d) => ({ ...d, intensity: (e.target.value as ExternalIntensity) || "moderate" }))}
+              options={EXT_INTENS.map((i) => ({ value: i, label: getIntensityLabel(i, t) }))}
             />
           </section>
 
           <section>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Poznámka
+              {t("externalEvents.form.note")}
             </div>
-
-            <TextField
-              placeholder="voliteľné"
-              value={draft.note ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-              disabled={disabled}
-            />
+            <TextField placeholder={t("externalEvents.form.notePlaceholder")} value={draft.note ?? ""} onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))} disabled={disabled} />
           </section>
 
           <section>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleAdd} size="sm" variant="success" disabled={disabled}>
-                Pridať
-              </Button>
-
-              <Button size="sm" variant="danger" onClick={handleClearDB} disabled={disabled}>
-                Vymazať všetko
-              </Button>
+              <Button onClick={handleAdd} size="sm" variant="success" disabled={disabled}>{t("externalEvents.form.btnAdd")}</Button>
+              <Button size="sm" variant="danger" onClick={handleClearDB} disabled={disabled}>{t("externalEvents.form.btnClear")}</Button>
             </div>
-
-            {dbError ? <div className="mt-2 text-[11px] text-red-300">{dbError}</div> : null}
-            {dbInfo && !dbError ? <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div> : null}
+            {dbError && <div className="mt-2 text-[11px] text-red-300">{dbError}</div>}
+            {dbInfo && !dbError && <div className="mt-2 text-[11px] text-emerald-300">{dbInfo}</div>}
           </section>
         </div>
 
-        {list.length > 0 ? (
+        {list.length > 0 && (
           <div className="mt-2">
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Zoznam
-            </div>
-
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>{t("externalEvents.form.listHeader")}</div>
             <ul className="mt-2 space-y-2">
               {list.map((a, idx) => {
-                const when =
-                  (a.mode ?? "weekly") === "weekly"
-                    ? niceLabelForDay(a.day)
-                    : a.date_single || niceLabelForDay(a.day);
-
+                const when = (a.mode ?? "weekly") === "weekly" ? niceLabelForDay(a.day) : a.date_single || niceLabelForDay(a.day);
                 return (
-                  <li
-                    key={`${a.day}-${String(a.sport)}-${idx}`}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex items-center justify-between gap-3"
-                  >
+                  <li key={`${a.day}-${String(a.sport)}-${idx}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex items-center justify-between gap-3">
                     <span className="text-sm">
-                      {when} · {niceLabelForSport(a.sport as any)} · {niceLabelForIntensity(a.intensity)}
+                      {when} · {getSportLabel(a.sport as any, t)} · {getIntensityLabel(a.intensity, t)}
                       {a.time ? ` · ${a.time}` : ""}
                       {a.note ? ` — ${a.note}` : ""}
                     </span>
-
-                    <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>
-                      odstrániť
-                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => handleRemove(idx)} disabled={savingDB}>{t("externalEvents.form.removeBtn")}</Button>
                   </li>
                 );
               })}
             </ul>
           </div>
-        ) : null}
+        )}
 
-        {!userId ? (
-          <div className="text-xs mt-2" style={{ color: appColors.textMuted }}>
-            Najprv sa prihlás, aby sa dali externé aktivity ukladať.
-          </div>
-        ) : null}
+        {!userId && <div className="text-xs mt-2" style={{ color: appColors.textMuted }}>{t("externalEvents.errors.notLoggedIn")}</div>}
       </div>
     </InputsCard>
   );

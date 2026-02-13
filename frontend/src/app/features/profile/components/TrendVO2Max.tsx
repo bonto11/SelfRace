@@ -1,4 +1,3 @@
-// src/features/profile/components/TrendVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -36,11 +35,13 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 ensureChartJSRegistered();
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
+  const t = useT(); // 2. Inicializácia t
 
   const [loading, setLoading] = React.useState(false);
   const [weeks, setWeeks] = React.useState<number>(4);
@@ -105,7 +106,7 @@ export default function TrendVO2Max() {
     return (
       <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, "text-sm"].join(" ")}>
-          Žiadne dáta VO₂Max.
+          {t("VO2Max.noData")}
         </div>
       </div>
     );
@@ -195,7 +196,7 @@ export default function TrendVO2Max() {
       ? [
           {
             type: "line" as const,
-            label: "VO₂Max (estimated) – level",
+            label: t("VO2Max.chart.estLevel"), // Preložené
             data: labels.map(() => oneEst as number),
             borderColor: appColors.chartLine1,
             backgroundColor: appColors.chartLine1,
@@ -209,7 +210,7 @@ export default function TrendVO2Max() {
       : []),
     {
       type: "line" as const,
-      label: "VO₂Max (estimated)",
+      label: t("VO2Max.chart.estLabel"), // Preložené
       data: seriesEst,
       borderColor: appColors.chartLine1,
       backgroundColor: appColors.chartLine1,
@@ -224,7 +225,7 @@ export default function TrendVO2Max() {
       ? [
           {
             type: "line" as const,
-            label: "VO₂Max (measured) – level",
+            label: t("VO2Max.chart.measLevel"), // Preložené
             data: labels.map(() => oneMeas as number),
             borderColor: appColors.chartLine2,
             backgroundColor: appColors.chartLine2,
@@ -239,7 +240,7 @@ export default function TrendVO2Max() {
       : []),
     {
       type: "line" as const,
-      label: "VO₂Max (measured)",
+      label: t("VO2Max.chart.measLabel"),
       data: seriesMeas,
       borderColor: appColors.chartLine2,
       backgroundColor: appColors.chartLine2,
@@ -257,25 +258,25 @@ export default function TrendVO2Max() {
 
   const options: ChartOptions<"line"> = buildRecoveryLineOptions({
     labelsISO,
-    yTitle: "ml/kg/min",
+    yTitle: t("common.units.vo2max"),
     tooltipTitleForIndex: (i) =>
       new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
     tooltipLabelForItem: (ctx) => {
       const idx = ctx.dataIndex ?? 0;
       const label = ctx.dataset?.label ?? "";
-      if (label === "VO₂Max (estimated)") {
+      if (label === t("VO2Max.chart.estLabel")) {
         const v = seriesEst[idx];
-        return Number.isFinite(v) ? `Estimated: ${Number(v).toFixed(1)}` : "—";
+        return Number.isFinite(v) ? `${t("VO2Max.chart.estimated")}: ${Number(v).toFixed(1)}` : "—";
       }
-      if (label === "VO₂Max (measured)") {
+      if (label === t("VO2Max.chart.measLabel")) {
         const v = seriesMeas[idx];
-        return Number.isFinite(v) ? `Measured: ${Number(v).toFixed(1)}` : "—";
+        return Number.isFinite(v) ? `${t("VO2Max.chart.measured")}: ${Number(v).toFixed(1)}` : "—";
       }
       return "";
     },
     tooltipFilter: (item) => {
       const l = item.dataset?.label ?? "";
-      return l === "VO₂Max (estimated)" || l === "VO₂Max (measured)";
+      return l === t("VO2Max.chart.estLabel") || l === t("VO2Max.chart.measLabel");
     },
     yMin: 0,
     yMax: suggestedTop,
@@ -287,7 +288,7 @@ export default function TrendVO2Max() {
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
-          <h2 className={PANEL_CARD_TITLE}>Detail – VO₂Max</h2>
+          <h2 className={PANEL_CARD_TITLE}>{t("VO2Max.detailTitle")}</h2>
           <div className={PANEL_ACTIONS_INLINE}>
             <SelectField
               value={String(weeks)}

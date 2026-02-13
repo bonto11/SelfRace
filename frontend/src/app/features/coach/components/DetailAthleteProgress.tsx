@@ -7,6 +7,7 @@ import {
   apiGetLatestAthleteProgress,
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   PANEL_STACK,
@@ -27,53 +28,42 @@ import {
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
 
-/* ---------- helper typy ---------- */
+/* ---------- helpers ---------- */
 
 type Parsed = {
   model: string | null;
   schemaVersion: number | null;
-
   headline: string | null;
   generatedAt: string | null;
   summaryBullets: string[];
-
   fatiguePrev: string | null;
   fatigueCurr: string | null;
   fatigueComment: string | null;
-
   injuryPrev: string | null;
   injuryCurr: string | null;
   injuryComment: string | null;
-
   blockPrev: string | null;
   blockCurr: string | null;
   blockComment: string | null;
-
   fitnessRunPrev: number | null;
   fitnessRunCurr: number | null;
   fitnessRunComment: string | null;
-
   fitnessRidePrev: number | null;
   fitnessRideCurr: number | null;
   fitnessRideComment: string | null;
-
   fitnessStrengthPrev: number | null;
   fitnessStrengthCurr: number | null;
   fitnessStrengthComment: string | null;
-
   volPrevMin: number | null;
   volPrevMax: number | null;
   volCurrMin: number | null;
   volCurrMax: number | null;
   volComment: string | null;
-
   planSoften: string | null;
   planWeekly: string | null;
-
   celebrations: string[];
   risksToWatch: string[];
   focusNextWeeks: string[];
-
   raw: any | null;
 };
 
@@ -83,117 +73,71 @@ function toStringArray(v: any): string[] {
   return [];
 }
 
-function slovakLevel(level?: string | null): string {
+function slovakLevel(level: string | null, t: any): string {
   const l = (level || "").toLowerCase();
   if (!l) return "—";
-  if (l === "low") return "nízka";
-  if (l === "moderate") return "stredná";
-  if (l === "high") return "vysoká";
+  if (l === "low") return t("coach.levels.low");
+  if (l === "moderate") return t("coach.levels.moderate");
+  if (l === "high") return t("coach.levels.high");
   return l;
 }
 
-function formatMinutesRange(min?: number | null, max?: number | null): string {
+function formatMinutesRange(min: number | null | undefined, max: number | null | undefined, t: any): string {
   if (!min && !max) return "—";
   const toHours = (v: number | null | undefined) =>
     typeof v === "number" ? Math.round(v / 60) : null;
-  const hMin = toHours(min ?? null);
-  const hMax = toHours(max ?? null);
-  if (hMin != null && hMax != null) return `${hMin}–${hMax} h / týždeň`;
-  if (hMin != null) return `${hMin} h / týždeň (min)`;
-  if (hMax != null) return `${hMax} h / týždeň (max)`;
+  const hMin = toHours(min);
+  const hMax = toHours(max);
+  const unit = t("common.units.hPerWeek");
+  if (hMin != null && hMax != null) return `${hMin}–${hMax} ${unit}`;
+  if (hMin != null) return `${hMin} ${unit} (min)`;
+  if (hMax != null) return `${hMax} ${unit} (max)`;
   return "—";
 }
 
 function parseProgress(row: AthleteProgressRecord | null): Parsed {
-  const payload: any =
-    (row as any)?.report ?? (row as any)?.compare_previous ?? null;
+  const payload: any = (row as any)?.report ?? (row as any)?.compare_previous ?? null;
 
   if (!row || !payload) {
     return {
-      model: null,
-      schemaVersion: null,
-      headline: null,
-      generatedAt: null,
-      summaryBullets: [],
-      fatiguePrev: null,
-      fatigueCurr: null,
-      fatigueComment: null,
-      injuryPrev: null,
-      injuryCurr: null,
-      injuryComment: null,
-      blockPrev: null,
-      blockCurr: null,
-      blockComment: null,
-      fitnessRunPrev: null,
-      fitnessRunCurr: null,
-      fitnessRunComment: null,
-      fitnessRidePrev: null,
-      fitnessRideCurr: null,
-      fitnessRideComment: null,
-      fitnessStrengthPrev: null,
-      fitnessStrengthCurr: null,
-      fitnessStrengthComment: null,
-      volPrevMin: null,
-      volPrevMax: null,
-      volCurrMin: null,
-      volCurrMax: null,
-      volComment: null,
-      planSoften: null,
-      planWeekly: null,
-      celebrations: [],
-      risksToWatch: [],
-      focusNextWeeks: [],
+      model: null, schemaVersion: null, headline: null, generatedAt: null, summaryBullets: [],
+      fatiguePrev: null, fatigueCurr: null, fatigueComment: null,
+      injuryPrev: null, injuryCurr: null, injuryComment: null,
+      blockPrev: null, blockCurr: null, blockComment: null,
+      fitnessRunPrev: null, fitnessRunCurr: null, fitnessRunComment: null,
+      fitnessRidePrev: null, fitnessRideCurr: null, fitnessRideComment: null,
+      fitnessStrengthPrev: null, fitnessStrengthCurr: null, fitnessStrengthComment: null,
+      volPrevMin: null, volPrevMax: null, volCurrMin: null, volCurrMax: null, volComment: null,
+      planSoften: null, planWeekly: null, celebrations: [], risksToWatch: [], focusNextWeeks: [],
       raw: payload,
     };
   }
 
   const cp = payload;
-
-  const model: string | null = cp.model || null;
-  const schemaVersion: number | null =
-    typeof cp.schema_version === "number" ? cp.schema_version : null;
-
-  const headline: string | null = cp.summary?.headline || cp.headline || null;
-
-  const summaryBullets: string[] =
-    toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
-
   const comp = cp.comparisons || {};
-
   const fatigue = comp.fatigue_level || {};
   const injury = comp.injury_risk || {};
   const block = comp.block_kind || {};
   const planAdj = comp.plan_adjustment || {};
   const vol = comp.volume_tolerance || {};
   const fit = comp.fitness_level || {};
-  const fitRun = fit.run || {};
-  const fitRide = fit.ride || {};
-  const fitStrength = fit.strength || {};
 
   let generatedAt: string | null = cp.generated_at || row.created_at || null;
   if (generatedAt) {
     try {
       const d = new Date(generatedAt);
-      generatedAt = d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
+      generatedAt = d.toLocaleString("sk-SK", {
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
       });
-    } catch {}
+    } catch { /* fallback */ }
   }
 
-  const celebrations = toStringArray(cp.recommendations?.celebrations);
-  const risksToWatch = toStringArray(cp.recommendations?.risks_to_watch);
-  const focusNextWeeks = toStringArray(cp.recommendations?.focus_next_weeks);
-
   return {
-    model,
-    schemaVersion,
-    headline,
+    model: cp.model || null,
+    schemaVersion: typeof cp.schema_version === "number" ? cp.schema_version : null,
+    headline: cp.summary?.headline || cp.headline || null,
     generatedAt,
-    summaryBullets,
+    summaryBullets: toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets),
     fatiguePrev: fatigue.previous || null,
     fatigueCurr: fatigue.current || null,
     fatigueComment: fatigue.comment || null,
@@ -203,112 +147,69 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     blockPrev: block.previous || null,
     blockCurr: block.current || null,
     blockComment: block.comment || null,
-    fitnessRunPrev:
-      typeof fitRun.previous === "number" ? fitRun.previous : null,
-    fitnessRunCurr: typeof fitRun.current === "number" ? fitRun.current : null,
-    fitnessRunComment: fitRun.comment || null,
-    fitnessRidePrev:
-      typeof fitRide?.previous === "number" ? fitRide.previous : null,
-    fitnessRideCurr:
-      typeof fitRide?.current === "number" ? fitRide.current : null,
-    fitnessRideComment: fitRide?.comment || null,
-    fitnessStrengthPrev:
-      typeof fitStrength.previous === "number" ? fitStrength.previous : null,
-    fitnessStrengthCurr:
-      typeof fitStrength.current === "number" ? fitStrength.current : null,
-    fitnessStrengthComment: fitStrength.comment || null,
-    volPrevMin:
-      typeof vol.previous_weekly_minutes_min === "number"
-        ? vol.previous_weekly_minutes_min
-        : null,
-    volPrevMax:
-      typeof vol.previous_weekly_minutes_max === "number"
-        ? vol.previous_weekly_minutes_max
-        : null,
-    volCurrMin:
-      typeof vol.current_weekly_minutes_min === "number"
-        ? vol.current_weekly_minutes_min
-        : null,
-    volCurrMax:
-      typeof vol.current_weekly_minutes_max === "number"
-        ? vol.current_weekly_minutes_max
-        : null,
+    fitnessRunPrev: typeof fit.run?.previous === "number" ? fit.run.previous : null,
+    fitnessRunCurr: typeof fit.run?.current === "number" ? fit.run.current : null,
+    fitnessRunComment: fit.run?.comment || null,
+    fitnessRidePrev: typeof fit.ride?.previous === "number" ? fit.ride.previous : null,
+    fitnessRideCurr: typeof fit.ride?.current === "number" ? fit.ride.current : null,
+    fitnessRideComment: fit.ride?.comment || null,
+    fitnessStrengthPrev: typeof fit.strength?.previous === "number" ? fit.strength.previous : null,
+    fitnessStrengthCurr: typeof fit.strength?.current === "number" ? fit.strength.current : null,
+    fitnessStrengthComment: fit.strength?.comment || null,
+    volPrevMin: vol.previous_weekly_minutes_min,
+    volPrevMax: vol.previous_weekly_minutes_max,
+    volCurrMin: vol.current_weekly_minutes_min,
+    volCurrMax: vol.current_weekly_minutes_max,
     volComment: vol.comment || null,
     planSoften: planAdj.soften_change || null,
     planWeekly: planAdj.weekly_replan_change || null,
-    celebrations,
-    risksToWatch,
-    focusNextWeeks,
+    celebrations: toStringArray(cp.recommendations?.celebrations),
+    risksToWatch: toStringArray(cp.recommendations?.risks_to_watch),
+    focusNextWeeks: toStringArray(cp.recommendations?.focus_next_weeks),
     raw: cp,
   };
 }
 
-/* ---------- tiny building blocks (token-first) ---------- */
+/* ---------- building blocks ---------- */
 
-function Card({
-  title,
-  subtitle,
-  children,
-  footer = true,
-}: {
-  title?: React.ReactNode;
-  subtitle?: React.ReactNode;
-  children: React.ReactNode;
-  footer?: boolean;
-}) {
+function Card({ title, subtitle, children, footer = true }: { title?: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; footer?: boolean; }) {
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
-            {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
-            {subtitle ? (
-              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
-            ) : null}
+            {title && <div className={PANEL_SECTION_TITLE}>{title}</div>}
+            {subtitle && <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>}
           </div>
         </header>
       )}
-
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        {children}
-      </div>
-
-      {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+      {footer && <div className={ACCORDION_FOOTER_BAR_MUTED} />}
     </section>
   );
 }
 
-function Subcard({
-  title,
-  value,
-  text,
-}: {
-  title: string;
-  value: React.ReactNode;
-  text?: React.ReactNode;
-}) {
+function Subcard({ title, value, text }: { title: string; value: React.ReactNode; text?: React.ReactNode; }) {
   return (
     <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
         <div className={PANEL_SECTION_TITLE}>{value}</div>
-        {text ? <div className={PANEL_SECTION_SUBTITLE}>{text}</div> : null}
+        {text && <div className={PANEL_SECTION_SUBTITLE}>{text}</div>}
       </div>
     </div>
   );
 }
 
-/* ---------- component ---------- */
-
 export default function DetailAthleteProgress() {
   const { userId } = useUserId();
+  const t = useT();
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
-
     let alive = true;
     (async () => {
       setLoading(true);
@@ -317,24 +218,20 @@ export default function DetailAthleteProgress() {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive)
-          setError(e?.message ?? "Chyba pri načítaní AI progress reportu.");
+        if (alive) setError(e?.message ?? t("coach.progress.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+    return () => { alive = false; };
+  }, [userId, t]);
 
   const p = useMemo(() => parseProgress(row), [row]);
 
   if (!userId) {
     return (
-      <Card title="Weekly progress" subtitle="Chýba userId (useUserId).">
-        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
+      <Card title={t("coach.progress.title")} subtitle={t("common.errors.missingUser")}>
+        <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );
   }
@@ -350,24 +247,10 @@ export default function DetailAthleteProgress() {
     );
   }
 
-  if (error) {
+  if (error || !row || !(row as any).report) {
     return (
-      <Card title="Weekly progress" subtitle="Nepodarilo sa načítať report.">
-        <div className={PANEL_PREVIEW}>{error}</div>
-      </Card>
-    );
-  }
-
-  if (!row || !(row as any).report) {
-    return (
-      <Card
-        title="Weekly progress"
-        subtitle="Zatiaľ nemáš uložené porovnanie analýz."
-      >
-        <div className={PANEL_PREVIEW}>
-          Potrebujeme aspoň dve AI analýzy stavu (cron weekly refresh), potom sa
-          tu zobrazí detail.
-        </div>
+      <Card title={t("coach.progress.title")} subtitle={t("coach.progress.noDataTitle")}>
+        <div className={PANEL_PREVIEW}>{error ?? t("coach.progress.noDataDesc")}</div>
       </Card>
     );
   }
@@ -375,181 +258,110 @@ export default function DetailAthleteProgress() {
   return (
     <div className={PANEL_STACK}>
       <Card
-        title="Weekly progress – porovnanie posledných AI stavov"
+        title={t("coach.progress.summaryTitle")}
         subtitle={[
-          p.generatedAt ? `Porovnanie vytvorené: ${p.generatedAt}` : null,
-          p.model || p.schemaVersion
-            ? `Model: ${p.model ?? "—"}, schema v${p.schemaVersion ?? "?"}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        footer
+          p.generatedAt ? `${t("coach.progress.createdAt")}: ${p.generatedAt}` : null,
+          p.model ? `AI: ${p.model}` : null,
+        ].filter(Boolean).join(" · ")}
       >
-        {p.headline ? <div className={PANEL_PREVIEW}>{p.headline}</div> : null}
-
-        {p.summaryBullets.length > 0 ? (
+        {p.headline && <div className={PANEL_PREVIEW}>{p.headline}</div>}
+        {p.summaryBullets.length > 0 && (
           <ul className="list-disc list-inside text-sm space-y-1">
-            {p.summaryBullets.map((b, i) => (
-              <li key={i}>{b}</li>
-            ))}
+            {p.summaryBullets.map((b, i) => <li key={i}>{b}</li>)}
           </ul>
-        ) : null}
+        )}
       </Card>
 
-      <Card title="Únava, riziko zranenia a tréningový blok" footer>
+      <Card title={t("coach.progress.indicatorsTitle")}>
         <div className={PANEL_GRID_3}>
           <Subcard
-            title="Únava"
-            value={
-              p.fatiguePrev || p.fatigueCurr
-                ? `${slovakLevel(p.fatiguePrev)} → ${slovakLevel(p.fatigueCurr)}`
-                : "—"
-            }
+            title={t("coachAthleteState.lastAnalysis.fatigue")}
+            value={`${slovakLevel(p.fatiguePrev, t)} → ${slovakLevel(p.fatigueCurr, t)}`}
             text={p.fatigueComment || undefined}
           />
           <Subcard
-            title="Riziko zranenia"
-            value={
-              p.injuryPrev || p.injuryCurr
-                ? `${slovakLevel(p.injuryPrev)} → ${slovakLevel(p.injuryCurr)}`
-                : "—"
-            }
+            title={t("coachAthleteState.lastAnalysis.injuryRisk")}
+            value={`${slovakLevel(p.injuryPrev, t)} → ${slovakLevel(p.injuryCurr, t)}`}
             text={p.injuryComment || undefined}
           />
           <Subcard
-            title="Odporúčaný blok"
-            value={
-              p.blockPrev || p.blockCurr
-                ? `${p.blockPrev || "—"} → ${p.blockCurr || "—"}`
-                : "—"
-            }
+            title={t("coach.progress.blockTitle")}
+            value={`${p.blockPrev || "—"} → ${p.blockCurr || "—"}`}
             text={p.blockComment || undefined}
           />
         </div>
       </Card>
 
-      <Card title="Fitness úroveň (1–10): predchádzajúca vs. aktuálna" footer>
+      <Card title={t("coach.progress.fitnessTitle")}>
         <div className={PANEL_GRID_3}>
           {[
-            {
-              label: "Beh",
-              prev: p.fitnessRunPrev,
-              curr: p.fitnessRunCurr,
-              comment: p.fitnessRunComment,
-            },
-            {
-              label: "Bicykel",
-              prev: p.fitnessRidePrev,
-              curr: p.fitnessRideCurr,
-              comment: p.fitnessRideComment,
-            },
-            {
-              label: "Sila",
-              prev: p.fitnessStrengthPrev,
-              curr: p.fitnessStrengthCurr,
-              comment: p.fitnessStrengthComment,
-            },
+            { label: t("common.sports.run"), prev: p.fitnessRunPrev, curr: p.fitnessRunCurr, comment: p.fitnessRunComment },
+            { label: t("common.sports.bike"), prev: p.fitnessRidePrev, curr: p.fitnessRideCurr, comment: p.fitnessRideComment },
+            { label: t("common.sports.strength"), prev: p.fitnessStrengthPrev, curr: p.fitnessStrengthCurr, comment: p.fitnessStrengthComment },
           ].map((r) => (
             <Subcard
               key={r.label}
               title={r.label}
-              value={
-                r.prev != null || r.curr != null
-                  ? `${r.prev ?? "—"}/10 → ${r.curr ?? "—"}/10`
-                  : "—"
-              }
+              value={r.prev != null || r.curr != null ? `${r.prev ?? "—"} → ${r.curr ?? "—"}` : "—"}
               text={r.comment || undefined}
             />
           ))}
         </div>
       </Card>
 
-      <Card title="Tréningový objem a úpravy plánu" footer>
+      <Card title={t("coach.progress.volumeTitle")}>
         <div className="grid gap-3 md:grid-cols-2">
           <Subcard
-            title="Týždenný objem"
-            value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax)} → ${formatMinutesRange(
-              p.volCurrMin,
-              p.volCurrMax,
-            )}`}
+            title={t("coach.state.weeklyVolume")}
+            value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax, t)} → ${formatMinutesRange(p.volCurrMin, p.volCurrMax, t)}`}
             text={p.volComment || undefined}
           />
-
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_SUBTITLE}>Zmeny v pláne</div>
-
-              {p.planSoften ? (
-                <div className={PANEL_PREVIEW}>{p.planSoften}</div>
-              ) : null}
-
-              {p.planWeekly ? (
-                <div className={PANEL_PREVIEW}>{p.planWeekly}</div>
-              ) : null}
-
-              {!p.planSoften && !p.planWeekly ? (
-                <div className={PANEL_PREVIEW}>
-                  AI neodporúča meniť štruktúru plánu.
+              <div className={PANEL_SECTION_SUBTITLE}>{t("coach.progress.planChanges")}</div>
+              {p.planSoften || p.planWeekly ? (
+                <div className="space-y-2">
+                   {p.planSoften && <div className={PANEL_PREVIEW}>{p.planSoften}</div>}
+                   {p.planWeekly && <div className={PANEL_PREVIEW}>{p.planWeekly}</div>}
                 </div>
-              ) : null}
+              ) : (
+                <div className={PANEL_PREVIEW}>{t("coach.progress.noPlanChanges")}</div>
+              )}
             </div>
           </div>
         </div>
       </Card>
 
-      <Card title="Odporúčania z posledného porovnania" footer>
+      <Card title={t("coach.progress.recsTitle")}>
         <div className={PANEL_GRID_3}>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Čo osláviť</div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.celebrate")}</div>
               {p.celebrations.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.celebrations.map((c, i) => (
-                    <li key={i}>{c}</li>
-                  ))}
+                  {p.celebrations.map((c, i) => <li key={i}>{c}</li>)}
                 </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>
-                  Zatiaľ žiadne špecifické oslavy.
-                </div>
-              )}
+              ) : <div className={PANEL_PREVIEW}>{t("coach.progress.noCelebrate")}</div>}
             </div>
           </div>
-
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Riziká, ktoré sledovať</div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.risks")}</div>
               {p.risksToWatch.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.risksToWatch.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
+                  {p.risksToWatch.map((r, i) => <li key={i}>{r}</li>)}
                 </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>
-                  Momentálne bez konkrétnych varovaní.
-                </div>
-              )}
+              ) : <div className={PANEL_PREVIEW}>{t("coach.progress.noRisks")}</div>}
             </div>
           </div>
-
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                Fokus na najbližšie týždne
-              </div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.focus")}</div>
               {p.focusNextWeeks.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.focusNextWeeks.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
+                  {p.focusNextWeeks.map((f, i) => <li key={i}>{f}</li>)}
                 </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>
-                  Po ďalších porovnaniach sem pribudnú konkrétne priority.
-                </div>
-              )}
+              ) : <div className={PANEL_PREVIEW}>{t("coach.progress.noFocus")}</div>}
             </div>
           </div>
         </div>
@@ -558,9 +370,7 @@ export default function DetailAthleteProgress() {
       <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={PANEL_PAD}>
           <details className="text-xs">
-            <summary className="cursor-pointer">
-              Debug – raw JSON progress report
-            </summary>
+            <summary className="cursor-pointer">{t("coach.progress.debugRaw")}</summary>
             <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] opacity-85">
               {JSON.stringify(p.raw, null, 2)}
             </pre>

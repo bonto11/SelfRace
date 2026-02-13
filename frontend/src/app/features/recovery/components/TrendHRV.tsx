@@ -1,4 +1,3 @@
-// src/features/recovery/components/TrendHRV.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +27,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 ensureChartJSRegistered();
 
@@ -46,6 +46,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 }
 
 export default function TrendHRV() {
+  const t = useT(); // 2. Inicializácia t
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -155,7 +156,7 @@ export default function TrendHRV() {
       datasets: [
         {
           type: "line" as const,
-          label: "Baseline −5%",
+          label: t("recovery.trends.hrv.baselineMinus"), // Preložené
           data: toNum(lower),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -166,7 +167,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: "Baseline +5%",
+          label: t("recovery.trends.hrv.baselinePlus"), // Preložené
           data: toNum(upper),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -178,7 +179,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: "HRV (RMSSD)",
+          label: t("recovery.trends.hrv.hrvLabel"), // Preložené
           data: hrv,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
@@ -190,7 +191,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: "Missing",
+          label: t("recovery.trends.hrv.missingLabel"), // Preložené
           data: missingY.map((y, i) =>
             missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
@@ -216,6 +217,7 @@ export default function TrendHRV() {
     COLOR.bandFill,
     COLOR.main,
     COLOR.missing,
+    t
   ]);
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
@@ -223,7 +225,7 @@ export default function TrendHRV() {
       id: "draw-missing-on-top",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing",
+          (d) => d.label === t("recovery.trends.hrv.missingLabel"), // Použitý preložený label
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -243,7 +245,7 @@ export default function TrendHRV() {
         ctx.restore();
       },
     }),
-    [COLOR.missing],
+    [COLOR.missing, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -258,7 +260,7 @@ export default function TrendHRV() {
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
-          if (label === "HRV (RMSSD)") {
+          if (label === t("recovery.trends.hrv.hrvLabel")) {
             const v = hrv[idx];
             const out: string[] = [];
             if (Number.isFinite(v))
@@ -267,20 +269,20 @@ export default function TrendHRV() {
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "HRV: –";
           }
-          if (label === "Missing") return "Bez záznamu";
+          if (label === t("recovery.trends.hrv.missingLabel")) return t("recovery.trends.hrv.noRecord");
           return "";
         },
         tooltipFilter: (item) => {
           const l = item.dataset.label ?? "";
-          return l === "HRV (RMSSD)" || l === "Missing";
+          return l === t("recovery.trends.hrv.hrvLabel") || l === t("recovery.trends.hrv.missingLabel");
         },
       }),
-    [labelsISO, hrv, comments],
+    [labelsISO, hrv, comments, t],
   );
 
   useEffect(() => {
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
   }, [labelsISO.join("|")]);
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
@@ -293,13 +295,13 @@ export default function TrendHRV() {
             className={PANEL_SECTION_TITLE}
             style={{ color: appColors.textPrimary }}
           >
-            HRV trend
+            {t("recovery.trends.hrv.title")}
           </div>
           <div
             className={PANEL_SECTION_SUBTITLE}
             style={{ color: appColors.textMuted }}
           >
-            RMSSD + baseline pásmo, chýbajúce dni zvýraznené.
+            {t("recovery.trends.hrv.subtitle")}
           </div>
         </div>
 

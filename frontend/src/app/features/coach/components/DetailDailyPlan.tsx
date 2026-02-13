@@ -6,6 +6,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   apiGetDailyOverview,
@@ -48,7 +49,7 @@ function toDate(value: string | null | undefined): Date | null {
 function formatDate(value: string | null | undefined): string | null {
   const d = toDate(value);
   if (!d) return null;
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString("sk-SK", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -58,20 +59,10 @@ function formatDate(value: string | null | undefined): string | null {
 function weekdayLabel(value: string | null | undefined): string | null {
   const d = toDate(value);
   if (!d) return null;
-  return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString("sk-SK", { weekday: "short" });
 }
 
-function sortDaysByDate(days: DailyPlanDay[]): DailyPlanDay[] {
-  const copy = [...(days || [])];
-  copy.sort((a, b) => {
-    const da = a?.date || "";
-    const db = b?.date || "";
-    return da.localeCompare(db);
-  });
-  return copy;
-}
-
-/* ---------- tiny Card wrapper (token-first) ---------- */
+/* ---------- tiny Card wrapper ---------- */
 
 function Card({
   title,
@@ -106,6 +97,7 @@ function Card({
 
 export default function DetailDailyPlan() {
   const { userId } = useUserId();
+  const t = useT();
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -113,7 +105,6 @@ export default function DetailDailyPlan() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ✅ pending reschedule ops
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
   useEffect(() => {
@@ -128,11 +119,11 @@ export default function DetailDailyPlan() {
         const r = await apiGetDailyOverview(userId);
         if (alive) {
           setOverview(r ?? null);
-          setMoves([]); // reset dirty when reloading
+          setMoves([]); 
           setSaveError(null);
         }
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní AI daily plánu.");
+        if (alive) setError(e?.message ?? t("coach.daily.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -141,7 +132,7 @@ export default function DetailDailyPlan() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const days = overview?.days ?? [];
   const hasPlan = days.length > 0;
@@ -149,7 +140,7 @@ export default function DetailDailyPlan() {
   const planDates = useMemo(() => {
     const h = overview?.horizon_days ?? 7;
     const out: string[] = [];
-    const base = new Date(); // today
+    const base = new Date(); 
     for (let i = 0; i <= h; i++) {
       const d = new Date(base);
       d.setDate(d.getDate() + i);
@@ -169,7 +160,6 @@ export default function DetailDailyPlan() {
 
   const dirty = moves.length > 0;
 
-  // ✅ local move by DB PK (id)
   const moveSessionLocal = (
     fromDate: string,
     toDate: string,
@@ -199,7 +189,6 @@ export default function DetailDailyPlan() {
 
       const daysNext2: DailyPlanDay[] = daysNext.map((d) => {
         if (d.date === toDate) {
-          // dôležité: update plan_date aj lokálne (kvôli UI)
           const moved2 = { ...moved, plan_date: toDate };
           return { ...d, sessions: [...(d.sessions ?? []), moved2] };
         }
@@ -218,10 +207,7 @@ export default function DetailDailyPlan() {
     setMoves((prev) => {
       if (!prev.length) return prev;
       const last = prev[prev.length - 1];
-
-      // revert locally
       moveSessionLocal(last.to_date, last.from_date, Number(last.id));
-
       return prev.slice(0, -1);
     });
   };
@@ -239,18 +225,16 @@ export default function DetailDailyPlan() {
       }
       setMoves([]);
     } catch (e: any) {
-      setSaveError(e?.message ?? "Nepodarilo sa uložiť zmeny plánu.");
+      setSaveError(e?.message ?? t("coach.daily.errorSave"));
     } finally {
       setSaving(false);
     }
   };
 
-  /* ---------- states ---------- */
-
   if (!userId) {
     return (
-      <Card title="AI Daily plan" subtitle="Chýba userId (useUserId).">
-        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
+      <Card title={t("coach.daily.title")} subtitle={t("common.errors.missingUser")}>
+        <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );
   }
@@ -260,7 +244,7 @@ export default function DetailDailyPlan() {
       <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "flex items-center gap-2"].join(" ")}>
           <LoadingSpinner size="button" />
-          <div className={PANEL_PREVIEW}>Načítavam tvoj AI daily plán…</div>
+          <div className={PANEL_PREVIEW}>{t("coach.daily.loading")}</div>
         </div>
         <div className={ACCORDION_FOOTER_BAR_MUTED} />
       </section>
@@ -269,40 +253,39 @@ export default function DetailDailyPlan() {
 
   if (error) {
     return (
-      <Card title="AI Daily plan" subtitle="Nepodarilo sa načítať plán.">
+      <Card title={t("coach.daily.title")} subtitle={t("coach.daily.errorLoadTitle")}>
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
   }
 
-  /* ---------- UI ---------- */
-
   return (
     <div className={PANEL_STACK}>
       <Card
-        title="AI Daily plan – detail"
+        title={t("coach.daily.detailTitle")}
       >
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>
-            Zatiaľ nemáš žiadny aktívny tréningový plán pre jednotlivé dni.
+            {t("coach.daily.noPlan")}
           </div>
         ) : (
           <div className={PANEL_PREVIEW}>
-            Presúvanie dňa je možné priamo v karte tréningu avšak narušíš trénerov plán.
+            {t("coach.daily.rescheduleNotice")}
           </div>
         )}
       </Card>
 
       <Card
-        title="Denný rozpis tréningov"
-        subtitle="Každá karta je jeden tréning. Môžeš zmeniť deň v rámci existujúceho plánu."
+        title={t("coach.daily.scheduleTitle")}
+        subtitle={t("coach.daily.scheduleSubtitle")}
       >
-        {/* ✅ Save bar */}
         {hasPlan ? (
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs opacity-70">
-                {dirty ? `Neuložené zmeny: ${moves.length}` : "Zmeny uložené"}
+                {dirty 
+                  ? t("coach.daily.unsavedChanges").replace("{{count}}", String(moves.length)) 
+                  : t("coach.daily.allSaved")}
               </div>
 
               <div className="flex items-center gap-2">
@@ -313,16 +296,16 @@ export default function DetailDailyPlan() {
                   onClick={async () => {
                     if (!dirty) return;
                     const ok = await confirm({
-                      title: "Vrátiť poslednú zmenu?",
-                      message: "Táto akcia vráti posledný presun v pláne.",
-                      okText: "Vrátiť",
-                      cancelText: "Zrušiť",
+                      title: t("coach.daily.undoConfirmTitle"),
+                      message: t("coach.daily.undoConfirmMessage"),
+                      okText: t("common.undo"),
+                      cancelText: t("common.cancel"),
                       tone: "danger",
                     });
                     if (ok) undoLast();
                   }}
                 >
-                  Undo
+                  {t("common.undo")}
                 </Button>
 
                 <Button
@@ -331,7 +314,7 @@ export default function DetailDailyPlan() {
                   disabled={!dirty || saving}
                   onClick={saveMoves}
                 >
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? t("common.saving") : t("common.save")}
                 </Button>
               </div>
             </div>
@@ -354,40 +337,43 @@ export default function DetailDailyPlan() {
               const dateLabel = formatDate(d.date) ?? d.date;
               const wd = weekdayLabel(d.date) ?? "";
 
-              return d.sessions.map((s: any, idx: number) => {
+              return d.sessions.map((s: any) => {
                 const kpis: KPI[] = [];
                 if (s.duration_min)
                   kpis.push({
-                    label: "DURATION",
-                    value: `${s.duration_min} min`,
+                    label: t("common.metrics.duration").toUpperCase(),
+                    value: `${s.duration_min} ${t("common.units.min")}`,
                   });
                 if (s.intensity)
-                  kpis.push({ label: "INTENSITY", value: String(s.intensity) });
+                  kpis.push({ 
+                    label: t("common.metrics.intensity").toUpperCase(), 
+                    value: String(s.intensity) 
+                  });
                 if (s.zone_text)
-                  kpis.push({ label: "TARGET", value: String(s.zone_text) });
+                  kpis.push({ 
+                    label: t("common.metrics.target").toUpperCase(), 
+                    value: String(s.zone_text) 
+                  });
 
                 const item: PlanSession = {
-                  // ✅ DB PK (stable). Fallback je len pre UI, save bez PK nedáva zmysel.
                   id: s.id,
-
                   kind: "plan",
                   status: "planned",
-                  title: s.title || s.session_type || s.sport || "Tréning",
+                  title: s.title || s.session_type || s.sport || t("coach.daily.sessionFallback"),
                   dateIso,
                   sport: s.sport || "other",
                   subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
                   kpis,
                   notes: s.notes ?? null,
 
-                  planDur: s.duration_min ? `${s.duration_min} min` : null,
+                  planDur: s.duration_min ? `${s.duration_min} ${t("common.units.min")}` : null,
                   planIntensity: s.intensity ?? null,
                   planTarget: s.zone_text ?? null,
                   planNotes: s.notes ?? null,
 
                   planRaw: s,
                   planStructure: s.structure ?? null,
-                  planExercises:
-                    (s.structure?.strength_exercises as any[]) ?? [],
+                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
                 };
 
                 return (
@@ -401,15 +387,12 @@ export default function DetailDailyPlan() {
                       dayCounts,
                       maxPerDay: 2,
                       onChangeDate: ({ sessionId, fromDate, toDate }) => {
-                        // ✅ hard requirement pre SAVE: musíme mať DB PK
                         if (sessionId == null) return;
-
                         addMove({
                           id: sessionId,
                           from_date: fromDate,
                           to_date: toDate,
                         });
-
                         moveSessionLocal(fromDate, toDate, Number(sessionId));
                       },
                     }}

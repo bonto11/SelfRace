@@ -1,4 +1,3 @@
-// src/features/recovery/components/DetailRHR.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -28,6 +27,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 ensureChartJSRegistered();
 
@@ -45,6 +45,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 }
 
 export default function DetailRHR() {
+  const t = useT(); // 2. Inicializácia t
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -152,7 +153,7 @@ export default function DetailRHR() {
       datasets: [
         {
           type: "line" as const,
-          label: "Baseline −5%",
+          label: t("recovery.trends.rhr.baselineMinus"),
           data: toNum(lower),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -163,7 +164,7 @@ export default function DetailRHR() {
         },
         {
           type: "line" as const,
-          label: "Baseline +5%",
+          label: t("recovery.trends.rhr.baselinePlus"),
           data: toNum(upper),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -175,7 +176,7 @@ export default function DetailRHR() {
         },
         {
           type: "line" as const,
-          label: "Resting HR",
+          label: t("recovery.trends.rhr.rhrLabel"),
           data: rhr,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
@@ -187,7 +188,7 @@ export default function DetailRHR() {
         },
         {
           type: "line" as const,
-          label: "Missing",
+          label: t("recovery.trends.rhr.missingLabel"),
           data: missingY.map((y, i) =>
             missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
@@ -213,6 +214,7 @@ export default function DetailRHR() {
     COLOR.bandFill,
     COLOR.main,
     COLOR.missing,
+    t
   ]);
 
   const drawMissingOnTop: Plugin<"line"> = useMemo(
@@ -220,7 +222,7 @@ export default function DetailRHR() {
       id: "draw-missing-on-top-rhr",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing",
+          (d) => d.label === t("recovery.trends.rhr.missingLabel"),
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -240,7 +242,7 @@ export default function DetailRHR() {
         ctx.restore();
       },
     }),
-    [COLOR.missing],
+    [COLOR.missing, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -255,7 +257,7 @@ export default function DetailRHR() {
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
-          if (label === "Resting HR") {
+          if (label === t("recovery.trends.rhr.rhrLabel")) {
             const v = rhr[idx];
             const out: string[] = [];
             if (Number.isFinite(v))
@@ -264,20 +266,20 @@ export default function DetailRHR() {
             if (c) out.push(...wrapToLines(c, 44));
             return out.length ? out : "RHR: –";
           }
-          if (label === "Missing") return "Bez záznamu";
+          if (label === t("recovery.trends.rhr.missingLabel")) return t("recovery.trends.rhr.noRecord");
           return "";
         },
         tooltipFilter: (item) => {
           const l = item.dataset.label ?? "";
-          return l === "Resting HR" || l === "Missing";
+          return l === t("recovery.trends.rhr.rhrLabel") || l === t("recovery.trends.rhr.missingLabel");
         },
       }),
-    [labelsISO, rhr, comments],
+    [labelsISO, rhr, comments, t],
   );
 
   useEffect(() => {
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
   }, [labelsISO.join("|")]);
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
@@ -290,13 +292,13 @@ export default function DetailRHR() {
             className={PANEL_SECTION_TITLE}
             style={{ color: appColors.textPrimary }}
           >
-            Resting HR
+            {t("recovery.trends.rhr.title")}
           </div>
           <div
             className={PANEL_SECTION_SUBTITLE}
             style={{ color: appColors.textMuted }}
           >
-            Trend RHR + baseline pásmo, chýbajúce dni zvýraznené.
+            {t("recovery.trends.rhr.subtitle")}
           </div>
         </div>
 

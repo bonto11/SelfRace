@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
-
+import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
-  // PANELS (layout + panel surface style)
   PANEL_SURFACE,
   PANEL_SURFACE_STYLE,
   PANEL_STACK,
@@ -27,13 +25,11 @@ import {
   PANEL_BAR_TRACK,
   PANEL_BAR_FILL,
   ACCORDION_FOOTER_BAR_MUTED,
-
-  // SESSION (subcard surface + style)
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
 
-/* ---------- helper typy ---------- */
+/* ---------- helper types ---------- */
 
 type AiState = {
   fitness_level?: {
@@ -73,98 +69,44 @@ type UserSummary = {
   suggestions_short?: string[] | null;
 };
 
-/* ---------- malé UI helpery ---------- */
+/* ---------- UI helpers ---------- */
 
-function formatLevelLabel(level?: string | null): string {
+function formatLevelLabel(level: string | null, t: any): string {
   const l = (level || "").toLowerCase();
   if (!l) return "—";
-  if (l === "low") return "nízka";
-  if (l === "moderate" || l === "medium") return "stredná";
-  if (l === "high") return "vysoká";
+  if (l === "low") return t("coach.levels.low");
+  if (l === "moderate" || l === "medium") return t("coach.levels.moderate");
+  if (l === "high") return t("coach.levels.high");
   return l;
 }
 
 function normalizeLevel(level?: number | null): number {
   const n = typeof level === "number" ? level : 0;
-  if (n < 0) return 0;
-  if (n > 10) return 10;
-  return n;
+  return Math.max(0, Math.min(10, n));
 }
 
-function formatMinutesRange(min?: number | null, max?: number | null): string {
+function formatMinutesRange(min: number | null | undefined, max: number | null | undefined, t: any): string {
   if (!min && !max) return "—";
-  if (min && max)
-    return `${Math.round(min / 60)}–${Math.round(max / 60)} h / týždeň`;
-  if (max) return `do ${Math.round(max / 60)} h / týždeň`;
-  return `${Math.round((min || 0) / 60)} h / týždeň`;
+  const unit = t("common.units.hPerWeek");
+  if (min && max) return `${Math.round(min / 60)}–${Math.round(max / 60)} ${unit}`;
+  if (max) return `${t("coach.state.upTo")} ${Math.round(max / 60)} ${unit}`;
+  return `${Math.round((min || 0) / 60)} ${unit}`;
 }
 
-/* ---------- styles (NO tailwind colors) ---------- */
-
-type PillStyle = CSSProperties;
-
-function statusPillStyle(level?: string | null): PillStyle {
+function statusPillStyle(level?: string | null): CSSProperties {
   const l = (level || "").toLowerCase();
-
-  // neutral / unknown
-  if (!l) {
-    return {
-      background: "rgba(0,0,0,0)",
-      borderColor: appColors.surfaceCardBorder,
-      color: appColors.textMuted,
-    };
-  }
-
-  // use appColors.* (NOT tailwind classes)
-  if (l === "low") {
-    return {
-      background: "rgba(16,185,129,0.10)",
-      borderColor: appColors.statusSuccess,
-      color: appColors.statusSuccess,
-    };
-  }
-  if (l === "moderate" || l === "medium") {
-    return {
-      background: "rgba(245,158,11,0.10)",
-      borderColor: appColors.statusWarning,
-      color: appColors.statusWarning,
-    };
-  }
-  if (l === "high") {
-    return {
-      background: "rgba(239,68,68,0.10)",
-      borderColor: appColors.statusError,
-      color: appColors.statusError,
-    };
-  }
-
-  return {
-    background: "rgba(0,0,0,0)",
-    borderColor: appColors.surfaceCardBorder,
-    color: appColors.textMuted,
-  };
+  if (!l) return { background: "rgba(0,0,0,0)", borderColor: appColors.surfaceCardBorder, color: appColors.textMuted };
+  if (l === "low") return { background: "rgba(16,185,129,0.10)", borderColor: appColors.statusSuccess, color: appColors.statusSuccess };
+  if (l === "moderate" || l === "medium") return { background: "rgba(245,158,11,0.10)", borderColor: appColors.statusWarning, color: appColors.statusWarning };
+  if (l === "high") return { background: "rgba(239,68,68,0.10)", borderColor: appColors.statusError, color: appColors.statusError };
+  return { background: "rgba(0,0,0,0)", borderColor: appColors.surfaceCardBorder, color: appColors.textMuted };
 }
 
-function blockPillStyle(): PillStyle {
-  return {
-    background: "rgba(59,130,246,0.10)",
-    borderColor: appColors.statusInfo,
-    color: appColors.statusInfo,
-  };
+function blockPillStyle(): CSSProperties {
+  return { background: "rgba(59,130,246,0.10)", borderColor: appColors.statusInfo, color: appColors.statusInfo };
 }
 
-const BAR_TRACK_STYLE: CSSProperties = {
-  background: appColors.backgroundAlt,
-};
-
-function barFillStyle(kind: "success" | "info" | "warning" | "danger"): CSSProperties {
-  if (kind === "success") return { background: appColors.statusSuccess };
-  if (kind === "info") return { background: appColors.statusInfo };
-  if (kind === "warning") return { background: appColors.statusWarning };
-  return { background: appColors.statusError };
-}
-
-/* ---------- tiny building blocks (token-first) ---------- */
+/* ---------- building blocks ---------- */
 
 function Card({
   title,
@@ -184,20 +126,14 @@ function Card({
       {(title || subtitle || topRight) && (
         <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
           <div className="min-w-0">
-            {title ? <div className={PANEL_SECTION_TITLE}>{title}</div> : null}
-            {subtitle ? (
-              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
-            ) : null}
+            {title && <div className={PANEL_SECTION_TITLE}>{title}</div>}
+            {subtitle && <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>}
           </div>
-          {topRight ? <div className={PANEL_STATUS_COL}>{topRight}</div> : null}
+          {topRight && <div className={PANEL_STATUS_COL}>{topRight}</div>}
         </header>
       )}
-
-      {children ? (
-        <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
-      ) : null}
-
-      {footer ? <div className={ACCORDION_FOOTER_BAR_MUTED} /> : null}
+      {children && <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>}
+      {footer && <div className={ACCORDION_FOOTER_BAR_MUTED} />}
     </section>
   );
 }
@@ -215,15 +151,15 @@ function Subcard({
     <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
-        {value != null ? <div className={PANEL_SECTION_TITLE}>{value}</div> : null}
-        {children ? <div className={PANEL_INNER_STACK}>{children}</div> : null}
+        {value != null && <div className={PANEL_SECTION_TITLE}>{value}</div>}
+        {children && <div className={PANEL_INNER_STACK}>{children}</div>}
       </div>
     </div>
   );
 }
 
 function Bar({
-  value01, // 0..1
+  value01,
   labelLeft,
   labelRight,
   fillKind,
@@ -234,6 +170,12 @@ function Bar({
   fillKind: "success" | "info" | "warning" | "danger";
 }) {
   const pct = Math.max(0, Math.min(1, value01)) * 100;
+  const fillStyle = {
+    success: { background: appColors.statusSuccess },
+    info: { background: appColors.statusInfo },
+    warning: { background: appColors.statusWarning },
+    danger: { background: appColors.statusError },
+  }[fillKind];
 
   return (
     <div className={PANEL_INNER_STACK}>
@@ -243,12 +185,8 @@ function Bar({
           <div className="shrink-0">{labelRight}</div>
         </div>
       )}
-
-      <div className={PANEL_BAR_TRACK} style={BAR_TRACK_STYLE}>
-        <div
-          className={PANEL_BAR_FILL}
-          style={{ width: `${pct}%`, ...barFillStyle(fillKind) }}
-        />
+      <div className={PANEL_BAR_TRACK} style={{ background: appColors.backgroundAlt }}>
+        <div className={PANEL_BAR_FILL} style={{ width: `${pct}%`, ...fillStyle }} />
       </div>
     </div>
   );
@@ -258,6 +196,7 @@ function Bar({
 
 export default function DetailAthleteState() {
   const { userId } = useUserId();
+  const t = useT();
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,7 +204,6 @@ export default function DetailAthleteState() {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-
     (async () => {
       setLoading(true);
       setError(null);
@@ -273,102 +211,44 @@ export default function DetailAthleteState() {
         const r = await apiGetLatestAthleteState(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Chyba pri načítaní AI analýzy.");
+        if (alive) setError(e?.message ?? t("coach.state.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
+    return () => { alive = false; };
+  }, [userId, t]);
 
   const parsed = useMemo(() => {
-    if (!row || !row.state) {
-      return {
-        userSummary: {} as UserSummary,
-        aiState: {} as AiState,
-        generatedAt: null as string | null,
-      };
-    }
-
+    if (!row || !row.state) return { userSummary: {} as UserSummary, aiState: {} as AiState, generatedAt: null };
     const s: any = row.state;
-    const userSummary: UserSummary = s.user_summary || {};
-    const aiState: AiState = s.ai_state || {};
-    const generatedAtIso: string | undefined = s.generated_at || row.created_at;
-
-    let generatedAt: string | null = null;
-    if (generatedAtIso) {
-      try {
-        const d = new Date(generatedAtIso);
-        generatedAt = d.toLocaleString(undefined, {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      } catch {
-        generatedAt = generatedAtIso;
-      }
-    }
-
-    return { userSummary, aiState, generatedAt };
+    const genAt = s.generated_at || row.created_at;
+    let formattedDate = genAt;
+    try {
+      if (genAt) formattedDate = new Date(genAt).toLocaleString("sk-SK", {
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+      });
+    } catch { /* fallback */ }
+    return { userSummary: s.user_summary || {}, aiState: s.ai_state || {}, generatedAt: formattedDate };
   }, [row]);
 
   const { userSummary, aiState, generatedAt } = parsed;
-
   const runLevel = normalizeLevel(aiState.fitness_level?.run?.level_1_to_10);
-  const strengthLevel = normalizeLevel(
-    aiState.fitness_level?.strength?.level_1_to_10
-  );
-
-  const volumeRangeLabel = formatMinutesRange(
-    aiState.volume_tolerance?.weekly_minutes_min ?? null,
-    aiState.volume_tolerance?.weekly_minutes_max ?? null
-  );
-
+  const strengthLevel = normalizeLevel(aiState.fitness_level?.strength?.level_1_to_10);
+  const volumeRangeLabel = formatMinutesRange(aiState.volume_tolerance?.weekly_minutes_min, aiState.volume_tolerance?.weekly_minutes_max, t);
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
 
   /* ---------- states ---------- */
 
   if (!userId) {
-    return (
-      <Card title="Athlete state" subtitle="Chýba userId (useUserId).">
-        <div className={PANEL_PREVIEW}>Skontroluj prihlásenie používateľa.</div>
-      </Card>
-    );
+    return <Card title={t("coachAthleteState.title")} subtitle={t("common.errors.missingUser")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
   }
-
   if (loading) {
-    return (
-      <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}>
-        <div className={[PANEL_PAD, "grid place-items-center"].join(" ")}>
-          <LoadingSpinner size="widget" />
-        </div>
-      </section>
-    );
+    return <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
   }
-
-  if (error) {
-    return (
-      <Card title="Athlete state" subtitle="Nepodarilo sa načítať AI analýzu.">
-        <div className={PANEL_PREVIEW}>{error}</div>
-      </Card>
-    );
-  }
-
-  if (!row || !row.state) {
-    return (
-      <Card title="Athlete state" subtitle="Zatiaľ nemáš uloženú AI analýzu.">
-        <div className={PANEL_PREVIEW}>
-          Spusť <strong>Analyze Athlete state</strong> vo widgete{" "}
-          <strong>Coach — Plan</strong> a po uložení sa tu zobrazí detail.
-        </div>
-      </Card>
-    );
+  if (error || !row || !row.state) {
+    return <Card title={t("coachAthleteState.title")} subtitle={t("coach.state.noDataTitle")}><div className={PANEL_PREVIEW}>{error ?? t("coach.state.noDataDesc")}</div></Card>;
   }
 
   /* ---------- UI ---------- */
@@ -376,187 +256,104 @@ export default function DetailAthleteState() {
   const statusPills = (
     <>
       <div className={PANEL_STATUS_PILL} style={statusPillStyle(aiState.fatigue_level)}>
-        Fatigue: {formatLevelLabel(aiState.fatigue_level)}
+        {t("coachAthleteState.lastAnalysis.fatigue")}: {formatLevelLabel(aiState.fatigue_level, t)}
       </div>
-
       <div className={PANEL_STATUS_PILL} style={statusPillStyle(aiState.injury_risk)}>
-        Injury: {formatLevelLabel(aiState.injury_risk)}
+        {t("coachAthleteState.lastAnalysis.injuryRisk")}: {formatLevelLabel(aiState.injury_risk, t)}
       </div>
-
-      {aiState.suggested_block_kind ? (
+      {aiState.suggested_block_kind && (
         <div className={PANEL_STATUS_PILL} style={blockPillStyle()}>
-          Blok: {aiState.suggested_block_kind}
+          {t("coach.weekly.phase")}: {aiState.suggested_block_kind}
         </div>
-      ) : null}
+      )}
     </>
   );
 
   return (
     <div className={PANEL_STACK}>
       <Card
-        title="Stav atleta – detailná AI analýza"
+        title={t("coach.state.mainTitle")}
         subtitle={[
-          generatedAt ? `Posledná AI analýza: ${generatedAt}` : null,
-          userSummary.headline ? userSummary.headline : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
+          generatedAt ? `${t("coach.state.lastAnalysis")}: ${generatedAt}` : null,
+          userSummary.headline,
+        ].filter(Boolean).join(" · ")}
         topRight={statusPills}
         footer
       />
 
-      <Card
-        title="Fitness úroveň (1–10)"
-        subtitle="Jednoduchá stupnica: 5 = priemer, 8+ = veľmi dobrá úroveň."
-        footer
-      >
+      <Card title={t("coach.state.fitnessTitle")} subtitle={t("coach.state.fitnessSubtitle")}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard title="Beh" value={runLevel ? `${runLevel}/10` : "—"}>
-            <Bar
-              value01={runLevel / 10}
-              fillKind="success"
-              labelLeft={aiState.fitness_level?.run?.comment ?? null}
-            />
+          <Subcard title={t("common.sports.run")} value={`${runLevel}/10`}>
+            <Bar value01={runLevel / 10} fillKind="success" labelLeft={aiState.fitness_level?.run?.comment} />
           </Subcard>
-
-          <Subcard title="Sila" value={strengthLevel ? `${strengthLevel}/10` : "—"}>
-            <Bar
-              value01={strengthLevel / 10}
-              fillKind="info"
-              labelLeft={aiState.fitness_level?.strength?.comment ?? null}
-            />
+          <Subcard title={t("common.sports.strength")} value={`${strengthLevel}/10`}>
+            <Bar value01={strengthLevel / 10} fillKind="info" labelLeft={aiState.fitness_level?.strength?.comment} />
           </Subcard>
         </div>
       </Card>
 
-      <Card
-        title="Koľko tréningu zvládneš"
-        subtitle="Bezpečné rozpätie objemu a odporúčaný počet ťažkých tréningov."
-        footer
-      >
+      <Card title={t("coach.state.toleranceTitle")} subtitle={t("coach.state.toleranceSubtitle")}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard title="Týždenný objem" value={volumeRangeLabel}>
-            <Bar
-              value01={0.7}
-              fillKind="info"
-              labelLeft={aiState.volume_tolerance?.note ?? null}
-            />
+          <Subcard title={t("coach.state.weeklyVolume")} value={volumeRangeLabel}>
+            <Bar value01={0.7} fillKind="info" labelLeft={aiState.volume_tolerance?.note} />
           </Subcard>
-
           <Subcard
-            title="Ťažké tréningy / týždeň"
-            value={
-              aiState.intensity_tolerance?.hard_sessions_per_week_max != null
-                ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}`
-                : "—"
-            }
+            title={t("coach.state.hardSessions")}
+            value={aiState.intensity_tolerance?.hard_sessions_per_week_max != null ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}` : "—"}
           >
-            <Bar
-              value01={0.5}
-              fillKind="warning"
-              labelLeft={aiState.intensity_tolerance?.comment ?? null}
-            />
+            <Bar value01={0.5} fillKind="warning" labelLeft={aiState.intensity_tolerance?.comment} />
           </Subcard>
         </div>
 
-        {acute != null || chronic != null ? (
+        {(acute != null || chronic != null) && (
           <div className={[SESSION_SUBCARD, "mt-3 min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Tréningová záťaž</div>
-
+              <div className={PANEL_SECTION_TITLE}>{t("coach.state.loadTitle")}</div>
               <div className="grid gap-3 md:grid-cols-2 min-w-0">
-                <Bar
-                  value01={Math.min(1, (chronic ?? 0) / 400)}
-                  fillKind="success"
-                  labelLeft="Chronic load"
-                  labelRight={chronic != null ? chronic : "—"}
-                />
-                <Bar
-                  value01={Math.min(1, (acute ?? 0) / 400)}
-                  fillKind="danger"
-                  labelLeft="Acute load"
-                  labelRight={acute != null ? acute : "—"}
-                />
+                <Bar value01={Math.min(1, (chronic ?? 0) / 400)} fillKind="success" labelLeft={t("coach.state.chronicLoad")} labelRight={chronic ?? "—"} />
+                <Bar value01={Math.min(1, (acute ?? 0) / 400)} fillKind="danger" labelLeft={t("coach.state.acuteLoad")} labelRight={acute ?? "—"} />
               </div>
-
-              <div className={PANEL_PREVIEW}>
-                Chronic = dlhodobejší priemer záťaže, Acute = posledné obdobie.
-                Ak je A výrazne nad C, rastie riziko únavy a zranení.
-              </div>
+              <div className={PANEL_PREVIEW}>{t("coach.state.loadDesc")}</div>
             </div>
           </div>
-        ) : null}
+        )}
       </Card>
 
-      <Card title="Silné stránky a limitácie" footer>
+      <Card title={t("coach.state.strengthsRisksTitle")}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Silné stránky</div>
-              {aiState.key_strengths?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {aiState.key_strengths.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>Zatiaľ bez záznamu.</div>
-              )}
-            </div>
-          </div>
-
-          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Limitácie / riziká</div>
-              {aiState.key_limitations?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {aiState.key_limitations.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>Zatiaľ bez záznamu.</div>
-              )}
-            </div>
-          </div>
+          <Subcard title={t("coach.state.strengths")}>
+            {aiState.key_strengths?.length ? (
+              <ul className="list-disc list-inside text-sm space-y-1">
+                {aiState.key_strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+            ) : <div className={PANEL_PREVIEW}>{t("coach.state.noDataShort")}</div>}
+          </Subcard>
+          <Subcard title={t("coach.state.limitations")}>
+            {aiState.key_limitations?.length ? (
+              <ul className="list-disc list-inside text-sm space-y-1">
+                {aiState.key_limitations.map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+            ) : <div className={PANEL_PREVIEW}>{t("coach.state.noDataShort")}</div>}
+          </Subcard>
         </div>
       </Card>
 
-      <Card title="Odporúčania pre tréning" footer>
+      <Card title={t("coach.state.recsTitle")}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Hlavné riziká</div>
-              {userSummary.risks?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {userSummary.risks.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>
-                  AI pri poslednej analýze nezvýraznila konkrétne riziká.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>Rýchle tipy na ďalšie týždne</div>
-              {userSummary.suggestions_short?.length ? (
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {userSummary.suggestions_short.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className={PANEL_PREVIEW}>
-                  Po ďalšej analýze sa tu zobrazia konkrétne odporúčania.
-                </div>
-              )}
-            </div>
-          </div>
+          <Subcard title={t("coach.state.mainRisks")}>
+            {userSummary.risks?.length ? (
+              <ul className="list-disc list-inside text-sm space-y-1">
+                {userSummary.risks.map((r: string, i: number) => <li key={i}>{r}</li>)}
+              </ul>
+            ) : <div className={PANEL_PREVIEW}>{t("coach.state.noRisksDesc")}</div>}
+          </Subcard>
+          <Subcard title={t("coach.state.quickTips")}>
+            {userSummary.suggestions_short?.length ? (
+              <ul className="list-disc list-inside text-sm space-y-1">
+                {userSummary.suggestions_short.map((s: string, i: number) => <li key={i}>{s}</li>)}
+              </ul>
+            ) : <div className={PANEL_PREVIEW}>{t("coach.state.noTipsDesc")}</div>}
+          </Subcard>
         </div>
       </Card>
     </div>

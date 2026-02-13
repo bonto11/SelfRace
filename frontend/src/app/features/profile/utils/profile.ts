@@ -37,12 +37,12 @@ export function formatBmiFromLatest(latest: LatestMetricsMap | null): string {
 }
 
 /** Placeholder texty pre inputs. */
-export function buildMetricPlaceholders(latest: LatestMetricsMap | null) {
+export function buildMetricPlaceholders(t: any, latest: LatestMetricsMap | null) {
   return {
     weight_kg:
       (latest?.weight_kg?.value != null
         ? String(latest.weight_kg.value)
-        : "80") + " kg",
+        : "80") + t("common.units.kg"),
     body_fat_pct:
       (latest?.body_fat_pct?.value != null
         ? String(latest.body_fat_pct.value)
@@ -53,11 +53,11 @@ export function buildMetricPlaceholders(latest: LatestMetricsMap | null) {
     VO2Max_measured:
       (latest?.VO2Max_measured?.value != null
         ? String(latest.VO2Max_measured.value)
-        : "46") + " mL/kg/min",
+        : "46") + t("common.units.vo2max"),
     VO2Max_estimated:
       (latest?.VO2Max_estimated?.value != null
         ? String(latest.VO2Max_estimated.value)
-        : "48") + " mL/kg/min",
+        : "48") + t("common.units.vo2max"),
   };
 }
 

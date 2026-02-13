@@ -1,4 +1,3 @@
-// src/features/recovery/components/DetailSleepStart.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -33,36 +32,32 @@ import {
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
 import SelectField from "@/app/shared/ui/components/SelectField";
+import { useT } from "@/app/shared/i18n/useT"; // Import hooku
 
 ensureChartJSRegistered();
 
-/* ---------------- helpers (fix 26:40) ---------------- */
-
 const DAY_MIN = 24 * 60;
 
-// vždy zobrazuj “hodiny v dni” 00:00–23:59 (aj keď je hodnota 1500 min)
 function minutesToClockLabel(v: number): string {
   if (!Number.isFinite(v)) return "—";
   const m = ((Math.round(v) % DAY_MIN) + DAY_MIN) % DAY_MIN;
   return minutesToHHMM(m);
 }
 
-// parse z DB tolerantne: ak príde "26:40", normalizuj na 02:40
 function parseHHMMToDayMinutesSafe(hhmm: string): number {
-  const raw = HHMMToMinutes(hhmm); // number | null
+  const raw = HHMMToMinutes(hhmm);
   if (raw === null || !Number.isFinite(raw)) return NaN;
   return ((raw % DAY_MIN) + DAY_MIN) % DAY_MIN;
 }
 
-// kvôli kontinuite: časy po polnoci posuň na “ďalší deň” (napr. 01:10 -> 25:10)
 function shiftAfterMidnightForChart(dayMin: number): number {
   if (!Number.isFinite(dayMin)) return NaN;
   const cutoff = 12 * 60;
   return dayMin < cutoff ? dayMin + DAY_MIN : dayMin;
 }
-/* ----------------------------------------------------- */
 
 export default function DetailSleepStart() {
+  const t = useT(); // Inicializácia t
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -103,11 +98,7 @@ export default function DetailSleepStart() {
       labelsISO.map((d) => {
         const rec = byDate.get(d);
         if (!rec?.sleep_start_time) return NaN;
-
-        // 1) normalizuj “26:40” -> 02:40
         const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
-
-        // 2) posuň po polnoci na +24h kvôli kontinuite (ale zobrazovanie bude modulo 24h)
         const chartMin = shiftAfterMidnightForChart(dayMin);
         return Number.isFinite(chartMin) ? chartMin : NaN;
       }),
@@ -168,7 +159,7 @@ export default function DetailSleepStart() {
       datasets: [
         {
           type: "line" as const,
-          label: "22:00–23:00 (spodná)",
+          label: t("recovery.trends.sleepStart.bandLower"),
           data: lowerBand,
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -179,7 +170,7 @@ export default function DetailSleepStart() {
         },
         {
           type: "line" as const,
-          label: "22:00–23:00 (horná)",
+          label: t("recovery.trends.sleepStart.bandUpper"),
           data: upperBand,
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -191,7 +182,7 @@ export default function DetailSleepStart() {
         },
         {
           type: "line" as const,
-          label: "Sleep start",
+          label: t("recovery.trends.sleepStart.label"),
           data: startMin,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
@@ -203,7 +194,7 @@ export default function DetailSleepStart() {
         },
         {
           type: "line" as const,
-          label: "Missing",
+          label: t("recovery.trends.common.missingLabel"),
           data: missingY.map((y, i) =>
             missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
@@ -229,6 +220,7 @@ export default function DetailSleepStart() {
       COLOR.bandFill,
       COLOR.main,
       COLOR.missing,
+      t,
     ],
   );
 
@@ -237,7 +229,7 @@ export default function DetailSleepStart() {
       id: "draw-missing-on-top-sleepstart",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === "Missing",
+          (d) => d.label === t("recovery.trends.common.missingLabel"),
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -257,17 +249,15 @@ export default function DetailSleepStart() {
         ctx.restore();
       },
     }),
-    [COLOR.missing],
+    [COLOR.missing, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
         labelsISO,
-        yTitle: "čas",
-        // ✅ FIX: nikdy nevypisuj 26:40
+        yTitle: t("common.metrics.time"),
         yTickFormatter: (v: number) => minutesToClockLabel(v),
-
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
             "sk-SK",
@@ -275,29 +265,37 @@ export default function DetailSleepStart() {
         tooltipLabelForItem: (ctx): string | string[] => {
           const idx = ctx.dataIndex ?? 0;
           const label = ctx.dataset?.label ?? "";
-          if (label === "Sleep start") {
+          if (label === t("recovery.trends.sleepStart.label")) {
             const v = startMin[idx];
             const out: string[] = [];
             if (Number.isFinite(v))
-              out.push(`Zaspal: ${minutesToClockLabel(v as number)}`); // ✅ modulo 24h
+              out.push(
+                `${t("recovery.trends.sleepStart.tooltipLabel")}: ${minutesToClockLabel(v as number)}`,
+              );
             const c = comments.get(labelsISO[idx] ?? "");
             if (c) out.push(...wrapToLines(c, 44));
-            return out.length ? out : "Zaspal: –";
+            return out.length
+              ? out
+              : `${t("recovery.trends.sleepStart.tooltipLabel")}: –`;
           }
-          if (label === "Missing") return "Bez záznamu";
+          if (label === t("recovery.trends.common.missingLabel"))
+            return t("recovery.trends.common.noRecord");
           return "";
         },
         tooltipFilter: (item) => {
           const l = item.dataset.label ?? "";
-          return l === "Sleep start" || l === "Missing";
+          return (
+            l === t("recovery.trends.sleepStart.label") ||
+            l === t("recovery.trends.common.missingLabel")
+          );
         },
       }),
-    [labelsISO, startMin, comments],
+    [labelsISO, startMin, comments, t],
   );
 
   useEffect(() => {
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
   }, [labelsISO.join("|")]);
 
   const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
@@ -310,13 +308,13 @@ export default function DetailSleepStart() {
             className={PANEL_SECTION_TITLE}
             style={{ color: appColors.textPrimary }}
           >
-            Sleep start
+            {t("recovery.trends.sleepStart.title")}
           </div>
           <div
             className={PANEL_SECTION_SUBTITLE}
             style={{ color: appColors.textMuted }}
           >
-            Čas zaspania + odporúčané pásmo 22:00–23:00.
+            {t("recovery.trends.sleepStart.subtitle")}
           </div>
         </div>
 

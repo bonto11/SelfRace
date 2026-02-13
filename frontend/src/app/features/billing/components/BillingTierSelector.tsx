@@ -6,6 +6,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import type { BillingTierSelectorProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 const TIER_ORDER: Record<string, number> = { free: 0, classic: 1, pro: 2 };
 
@@ -25,12 +26,13 @@ export default function BillingTierSelector({
   isBusy,
   onSetTier,
 }: BillingTierSelectorProps) {
+  const t = useT();
   const activeRank = tierRank(activeTierCode);
 
   if (tiers.length === 0) {
     return (
       <p className="text-sm" style={{ color: appColors.textMuted }}>
-        Zatiaľ nemáš nakonfigurované žiadne programy.
+        {t("billing.tiers.noTiersConfigured")}
       </p>
     );
   }
@@ -53,19 +55,19 @@ export default function BillingTierSelector({
         const isPlannedCancel =
           tier.code === "free" && plannedChange?.kind === "cancel";
 
-        let buttonLabel = "Zvoliť program";
-        if (isCurrent) buttonLabel = "Aktuálny program";
+        let buttonLabel = t("billing.tiers.btnSelect");
+        if (isCurrent) buttonLabel = t("billing.tiers.btnCurrent");
         else if (isPlannedCancel)
           buttonLabel = plannedChange?.effective_from
-            ? `Zruší sa ${d10(plannedChange.effective_from)}`
-            : "Zrušenie je naplánované";
+            ? `${t("billing.tiers.btnWillCancel")} ${d10(plannedChange.effective_from)}`
+            : t("billing.tiers.btnCancelPlanned");
         else if (isPlannedTarget)
           buttonLabel = plannedChange?.effective_from
-            ? `Zníži sa ${d10(plannedChange.effective_from)}`
-            : "Zníženie je naplánované";
-        else if (tier.code === "free") buttonLabel = "Naplánovať zrušenie";
-        else if (isDowngrade) buttonLabel = "Naplánovať zníženie";
-        else if (isUpgrade) buttonLabel = "Zvýšiť teraz";
+            ? `${t("billing.tiers.btnWillDowngrade")} ${d10(plannedChange.effective_from)}`
+            : t("billing.tiers.btnDowngradePlanned");
+        else if (tier.code === "free") buttonLabel = t("billing.tiers.btnPlanCancel");
+        else if (isDowngrade) buttonLabel = t("billing.tiers.btnPlanDowngrade");
+        else if (isUpgrade) buttonLabel = t("billing.tiers.btnUpgradeNow");
 
         const disabled =
           isBusy || isCurrent || isPlannedTarget || isPlannedCancel;
@@ -77,9 +79,9 @@ export default function BillingTierSelector({
             : appColors.surfaceCardBorder;
 
         const badge = isCurrent
-          ? "aktuálny"
+          ? t("billing.tiers.badgeCurrent")
           : isPlannedTarget || isPlannedCancel
-            ? "naplánované"
+            ? t("billing.tiers.badgePlanned")
             : null;
 
         return (
@@ -122,17 +124,16 @@ export default function BillingTierSelector({
               className="text-sm font-semibold"
               style={{ color: appColors.textPrimary }}
             >
-              {priceEur === 0 ? "Zdarma" : `${priceEur.toFixed(2)} € / mesiac`}
+              {priceEur === 0 ? t("billing.tiers.free") : `${priceEur.toFixed(2)} ${t("billing.tiers.currencySuffix")}`}
             </div>
 
             <div className="text-[11px]" style={{ color: appColors.textMuted }}>
-              AI limit:{" "}
+              {t("billing.tiers.aiLimitLabel")}:{" "}
               <span
                 className="font-semibold"
                 style={{ color: appColors.textPrimary }}
               >
-                {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} tokenov /
-                mesiac
+                {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} {t("billing.tiers.tokensPerMonth")}
               </span>
             </div>
 
@@ -154,7 +155,7 @@ export default function BillingTierSelector({
               {isBusy && !isCurrent ? (
                 <span className="inline-flex items-center gap-1">
                   <LoadingSpinner size="button" />
-                  Ukladám…
+                  {t("common.saving")}
                 </span>
               ) : (
                 buttonLabel

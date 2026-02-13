@@ -1,4 +1,3 @@
-// src/app/features/recovery/components/RecoveryInputs.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -30,6 +29,7 @@ import {
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
 
 type DirtyKey =
   | "RHR_bpm"
@@ -60,6 +60,8 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
 
 export default function RecoveryInputs() {
   const { userId } = useUserId();
+  const t = useT(); // 2. Inicializácia t
+
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -92,55 +94,50 @@ export default function RecoveryInputs() {
 
   async function handleSave() {
     if (!userId) {
-      toast.error("Chýba používateľ.");
+      toast.error(t("common.errors.missingUser"));
       return;
     }
 
-    // ✅ build PATCH payload: include ONLY dirty keys
     const patch: any = { date, user_id: userId };
 
-    // main indicators
     if (dirty.RHR_bpm) patch.RHR_bpm = toNumberOrNull(rhr);
     if (dirty.HRV_avg_ms) patch.HRV_avg_ms = toNumberOrNull(hrvAvg);
     if (dirty.sleep_duration_min) patch.sleep_duration_min = sleepHHMMToMinutesOrNull(sleepDuration);
 
-    // influence factors
     if (dirty.food_2h_before) patch.food_2h_before = Boolean(lateFood);
     if (dirty.caffeine_8h) patch.caffeine_8h = Boolean(lateCaffeine);
     if (dirty.alcohol_volume_ml) patch.alcohol_volume_ml = toNumberOrNull(alcoholVolume);
     if (dirty.alcohol_type_pct) patch.alcohol_type_pct = toNumberOrNull(alcoholType);
     if (dirty.comments) patch.comments = comments.trim() ? comments.trim() : null;
 
-    // add-ons
     if (dirty.HRV_max_ms) patch.HRV_max_ms = toNumberOrNull(hrvMax);
     if (dirty.sleep_start_time) patch.sleep_start_time = sleepStart ? sleepStart : null;
 
-    // nothing to save?
     const keys = Object.keys(patch).filter((k) => k !== "date" && k !== "user_id");
     if (keys.length === 0) {
-      toast.error("Nič si nezmenil – nemám čo uložiť.");
+      toast.error(t("recovery.inputs.errorNoChanges"));
       return;
     }
 
     try {
       setSaving(true);
       await apiSaveRecoveryPatch(userId, patch);
-      toast.success("Regenerácia uložená.");
+      toast.success(t("recovery.inputs.saveSuccess"));
       setOpen(false);
-      setDirty({}); // reset dirty after success
+      setDirty({});
     } catch (e: any) {
-      toast.error("Chyba: " + (e?.message ?? e));
+      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
     } finally {
       setSaving(false);
     }
   }
 
-  const previewText = `Dátum: ${date}${userId ? "" : " • neprihlásený"}`;
+  const previewText = `${t("recovery.inputs.dateLabel")}: ${date}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
   return (
     <InputsCard
-      title="Regenerácia"
-      subtitle="Zadaj hlavné ukazovatele (HRV avg, RHR, spánok) + faktory, ktoré ich ovplyvňujú."
+      title={t("recovery.title")}
+      subtitle={t("recovery.inputs.subtitle")}
       open={open}
       onOpenChange={setOpen}
       preview={previewText}
@@ -173,18 +170,16 @@ export default function RecoveryInputs() {
           disabled={saving || !userId}
           className={INPUTS_CARD_SAVE_BTN}
         >
-          {saving ? "Ukladám…" : "Uložiť"}
+          {saving ? t("common.saving") : t("common.save")}
         </Button>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
-          {/* =========================
-              HLAVNÉ UKAZOVATELE
-             ========================= */}
+          {/* HLAVNÉ UKAZOVATELE */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              HRV (avg / RMSSD)
+              {t("recovery.inputs.hrvAvgLabel")}
             </div>
             <TextField
               type="number"
@@ -200,7 +195,7 @@ export default function RecoveryInputs() {
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              RHR
+              {t("recovery.inputs.rhrLabel")}
             </div>
             <TextField
               type="number"
@@ -216,7 +211,7 @@ export default function RecoveryInputs() {
 
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Spánok (trvanie)
+              {t("recovery.inputs.sleepDurationLabel")}
             </div>
             <TextField
               type="text"
@@ -231,12 +226,10 @@ export default function RecoveryInputs() {
             />
           </section>
 
-          {/* =========================
-              OVPLYVŇUJÚ HLAVNÉ UKAZOVATELE
-             ========================= */}
+          {/* OVPLYVŇUJÚCE FAKTORY */}
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_2} style={{ color: appColors.textMuted }}>
-              Ovplyvňujú hlavné ukazovatele
+              {t("recovery.inputs.factorsSection")}
             </div>
 
             <div className="mt-2 grid gap-2 md:grid-cols-2">
@@ -248,7 +241,7 @@ export default function RecoveryInputs() {
                   markDirty("food_2h_before");
                 }}
                 disabled={saving}
-                label="Jedlo ≤ 2 h pred spaním"
+                label={t("recovery.inputs.lateFoodLabel")}
               />
 
               <Checkbox
@@ -259,13 +252,13 @@ export default function RecoveryInputs() {
                   markDirty("caffeine_8h");
                 }}
                 disabled={saving}
-                label="Kofeín ≤ 8 h pred spaním"
+                label={t("recovery.inputs.lateCaffeineLabel")}
               />
             </div>
 
             <div className="mt-3">
               <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                Alkohol
+                {t("recovery.inputs.alcoholLabel")}
               </div>
               <div className={FORM_GRID_SPLIT}>
                 <TextField
@@ -293,7 +286,7 @@ export default function RecoveryInputs() {
 
             <div className="mt-3">
               <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                Poznámka
+                {t("recovery.inputs.noteLabel")}
               </div>
               <TextField
                 value={comments}
@@ -301,18 +294,16 @@ export default function RecoveryInputs() {
                   setComments(e.target.value);
                   markDirty("comments");
                 }}
-                placeholder="Jedlo, stres, svadba, jet lag, preťaženie…"
+                placeholder={t("recovery.inputs.notePlaceholder")}
                 disabled={saving}
               />
             </div>
           </section>
 
-          {/* =========================
-              DOPLNKY (na koniec)
-             ========================= */}
+          {/* DOPLNKY */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              HRV (max)
+              {t("recovery.inputs.hrvMaxLabel")}
             </div>
             <TextField
               type="number"
@@ -328,7 +319,7 @@ export default function RecoveryInputs() {
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              Spánok (začiatok)
+              {t("recovery.inputs.sleepStartLabel")}
             </div>
             <TextField
               type="text"
