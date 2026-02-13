@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-
 import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -94,14 +93,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   });
 
   useEffect(() => {
-    return subscribeSubscriptionTier((t) => {
-      setTierCode(String(t || "free").toLowerCase());
+    return subscribeSubscriptionTier((tier) => {
+      setTierCode(String(tier || "free").toLowerCase());
     });
   }, []);
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
-  const s: any | null =
-    activityId != null ? (getSummary(activityId) as any) || null : null;
+  const s: any | null = activityId != null ? (getSummary(activityId) as any) || null : null;
   const startDt = parseDateSafe(s?.date) || null;
 
   const isEligible = useMemo(() => {
@@ -112,7 +110,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const [review, setReview] = useState<any | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
-  const [lastUserComment, setLastUserComment] = useState<string | null>(null);
 
   const [comment, setComment] = useState<string>("");
   const commentLen = comment.length;
@@ -122,6 +119,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
+  const [apiNote, setApiNote] = useState<string | null>(null);
 
   const [refreshLocked, setRefreshLocked] = useState(false);
 
@@ -137,7 +135,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
       const dbComment = data?.ai_review_last_user_comment;
       if (typeof dbComment === "string") {
-        setLastUserComment(dbComment);
         setComment((prev) => prev || dbComment);
       }
       setUiError(null);
@@ -156,34 +153,26 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
   const canFreeRun = tierCode === "free" && aiReviewVersion === 0;
-  const canRerun =
-    isEligible && ((canRerunByTier && canRerunByCount) || canFreeRun);
+  const canRerun = isEligible && ((canRerunByTier && canRerunByCount) || canFreeRun);
 
   const r = review ?? {};
-  const reviewText =
-    typeof r?.review_text === "string" ? r.review_text.trim() : null;
-  const nextDayPlan =
-    typeof r?.next_day_plan === "string" ? r.next_day_plan.trim() : null;
-  const sessionKind =
-    typeof r?.session_kind === "string" ? r.session_kind : null;
-  const dominantZone =
-    typeof r?.key_numbers?.dominant_zone === "string"
-      ? r.key_numbers.dominant_zone
-      : null;
+  const reviewText = typeof r?.review_text === "string" ? r.review_text.trim() : null;
+  const nextDayPlan = typeof r?.next_day_plan === "string" ? r.next_day_plan.trim() : null;
+  const sessionKind = typeof r?.session_kind === "string" ? r.session_kind : null;
+  const dominantZone = typeof r?.key_numbers?.dominant_zone === "string" ? r.key_numbers.dominant_zone : null;
   const needsCaution = r?.flags?.needs_caution === true;
 
   const onManualRefresh = async () => {
     if (refreshLocked || busyGen || busyLoad) return;
     setRefreshLocked(true);
     await loadData(true);
-    setTimeout(() => {
-      setRefreshLocked(false);
-    }, REFRESH_COOLDOWN_MS);
+    setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
   };
 
   const onRerun = async () => {
     if (!userId || !activityId || busyGen) return;
     setUiError(null);
+    setApiNote(null);
 
     if (!isEligible) {
       setUiError(t("sessions.review.errorTooOld"));
@@ -209,40 +198,47 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       );
 
       if (!out?.ok) {
-        setUiError(out?.message || t("sessions.review.errorRerunRejected"));
+        // Spracovanie chýb z API (limit_reached a pod)
+        if (out?.code === "limit_reached") {
+          setUiError(t("sessions.review.api.limitReached"));
+        } else {
+          setUiError(out?.message || t("sessions.review.errorRerunRejected"));
+        }
       } else {
+        // Spracovanie úspešných stavov cez t()
+        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
+        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
+        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
+
         await loadData(true);
       }
     } catch (e: any) {
-      setUiError(e?.message || t("sessions.review.errorGeneric"));
+      // Ak API vyhodilo ERROR_ENQUEUE
+      if (e?.message === "ERROR_ENQUEUE") {
+        setUiError(t("sessions.review.api.errorEnqueue"));
+      } else {
+        setUiError(e?.message || t("sessions.review.errorGeneric"));
+      }
     } finally {
       setBusyGen(false);
-      setTimeout(() => {
-        setRefreshLocked(false);
-      }, REFRESH_COOLDOWN_MS);
+      setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
     }
   };
 
   let statusNote: ReactNode = null;
   if (!hasReview) {
     if (!isEligible && startDt) {
-      statusNote = (
-        <span className="text-yellow-500/80">
-          {t("sessions.review.statusTooOld")}
-        </span>
-      );
+      statusNote = <span className="text-yellow-500/80">{t("sessions.review.statusTooOld")}</span>;
     } else {
       statusNote = <span>{t("sessions.review.statusNoReview")}</span>;
     }
   } else {
     statusNote = (
-      <div className="flex items-center gap-2">
-        <span>
-          {t("sessions.review.statusReviewCount")
-            .replace("{{version}}", String(aiReviewVersion))
-            .replace("{{max}}", String(maxVersions))}
-        </span>
-      </div>
+      <span>
+        {t("sessions.review.statusReviewCount")
+          .replace("{{version}}", String(aiReviewVersion))
+          .replace("{{max}}", String(maxVersions))}
+      </span>
     );
   }
 
@@ -317,9 +313,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             disabled={busyGen}
           />
           {showCharCount && (
-            <div
-              className={`text-[10px] text-right mt-1 ${commentTooLong ? "text-red-400" : "opacity-40"}`}
-            >
+            <div className={`text-[10px] text-right mt-1 ${commentTooLong ? "text-red-400" : "opacity-40"}`}>
               {commentLen} / {MAX_COMMENT_CHARS}
             </div>
           )}
@@ -332,33 +326,23 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       )}
 
       {uiError && (
-        <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200">
+        <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200 animate-in slide-in-from-top-1 duration-200">
           {uiError}
+        </div>
+      )}
+
+      {apiNote && !uiError && (
+        <div className="mt-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 animate-in slide-in-from-top-1 duration-200">
+          {apiNote}
         </div>
       )}
 
       <div className="mt-6 space-y-6">
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
-            <svg
-              className="animate-spin h-6 w-6 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
+            <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <span className="text-sm">{t("sessions.review.loading")}</span>
           </div>

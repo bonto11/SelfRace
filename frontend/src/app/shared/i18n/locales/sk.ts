@@ -1494,7 +1494,7 @@ export const sk = {
     title: "Pripojenené aplikácie",
   },
   account: {
-    title: "Účet",
+    title: "Môj účet",
   },
   dashboard: {
     title: "Dashboard",
@@ -1927,6 +1927,13 @@ export const sk = {
       sectionNextDay: "Odporúčanie na zajtra",
       noReviewPlaceholder:
         "Zatiaľ žiadne hodnotenie. Klikni na tlačidlo hore pre spustenie analýzy.",
+      api: {
+        success: "Analýza tréningu je hotová.",
+        processing: "Analýza prebieha, o malú chvíľu sa zobrazí...",
+        queued: "Požiadavka bola odoslaná na spracovanie.",
+        errorEnqueue: "Nepodarilo sa vytvoriť požiadavku na analýzu.",
+        limitReached: "Dosiahli ste limit prepočtov pre túto aktivitu.",
+      },
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",

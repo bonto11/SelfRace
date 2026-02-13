@@ -45,7 +45,8 @@ export type ActivityReviewRerunResponse =
   | {
       success: true;
       ok: true;
-      job: AsyncJobRow;
+      status: "SUCCESS" | "PROCESSING" | "QUEUED";
+      job?: AsyncJobRow;
       note?: string | null;
       tier?: string;
       ai_review_version?: number;
@@ -70,7 +71,7 @@ export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
   opts: { comment?: string | null; model?: string | null }
-): Promise<any> {
+): Promise<ActivityReviewRerunResponse | any> {
   if (!userId) throw new Error("Missing userId");
 
   // 1. REQUEST RERUN (Enqueue)
@@ -81,13 +82,12 @@ export async function apiRerunActivityReview(
     enqueueJson = await callBackend(requestPath, {
       method: "POST",
       cache: "no-store",
-      // ✅ Fix pre chybu 422: Explicitne nastavíme hlavičku a stringifikujeme body
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(opts),
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
-    throw new Error(e?.message || "Nepodarilo sa vytvoriť požiadavku.");
+    throw new Error("ERROR_ENQUEUE");
   }
 
   // Ak BE vráti chybu (napr. limit_reached, duplicate_content), vrátime ju do UI
@@ -97,8 +97,8 @@ export async function apiRerunActivityReview(
 
   const jobId = enqueueJson.job_id;
   if (!jobId) {
-    // Fallback: ak nemáme job_id, vrátime success (divný stav, ale success)
-    return { ok: true, message: "Požiadavka prijatá (bez job id)." };
+    // Fallback: ak nemáme job_id, vrátime QUEUED
+    return { success: true, ok: true, status: "QUEUED" };
   }
 
   // 2. FORCE RUN (Sync Execution)
@@ -115,15 +115,16 @@ export async function apiRerunActivityReview(
     if (!runJson?.success) {
       console.warn("[AR] Sync Run Failed/Timeout", runJson);
       // Job ostane v DB a worker ho spracuje. UI dostane info, že sa pracuje.
-      return { ok: true, message: "Spracovávanie na pozadí..." };
+      return { success: true, ok: true, status: "PROCESSING" };
     }
 
     // Ak success, znamená to, že AI review je hotové a uložené v DB.
-    return { ok: true, message: "Hotovo!" };
+    return { success: true, ok: true, status: "SUCCESS" };
 
   } catch (e) {
     console.error("[AR] Sync Run Network Error", e);
-    return { ok: true, message: "Požiadavka odoslaná na spracovanie." };
+    // V prípade sieťovej chyby pri pokuse o sync run vrátime QUEUED (job je v DB)
+    return { success: true, ok: true, status: "QUEUED" };
   }
 }
 
@@ -134,7 +135,6 @@ export async function apiGetActivityEnrichment(
   if (!userId) throw new Error("userId is required");
   if (!activityId) throw new Error("activityId is required");
 
-  // Voláme nový endpoint
   const path = `/activities/enrichment/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
   const json = await callBackend<any>(path, {

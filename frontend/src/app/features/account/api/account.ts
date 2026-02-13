@@ -1,4 +1,4 @@
-// src/app/features/account/api/accountDelete.ts
+// src/app/features/account/api/account.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { AccountDeleteStatus } from "@/app/features/account/types/account";
 
