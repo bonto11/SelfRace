@@ -129,20 +129,49 @@ export async function apiFetchParetoWidget(
   return js?.data ?? null;
 }
 
+export type ParetoTrendResponse = {
+  trend: Array<{
+    label: string;
+    easy_min: number;
+    hard_min: number;
+    easy_pct: number;
+    hard_pct: number;
+    start?: string;
+    end?: string;
+  }>;
+  availableSports: string[];
+};
+
 export async function apiFetchParetoTrend(
   userId: number,
   weeks: number,
   sportCsv: string | null
-): Promise<Array<{ label: string; easy_min: number; hard_min: number; easy_pct: number; hard_pct: number; start?: string; end?: string }>> {
-  if (!userId) return [];
+): Promise<ParetoTrendResponse> {
+  if (!userId) return { trend: [], availableSports: [] };
 
   const q = new URLSearchParams({ weeks: String(weeks) });
   if (sportCsv) q.set("sport", sportCsv);
 
   const path = `/analytics/pareto8020/${encodeURIComponent(String(userId))}?${q.toString()}`;
   const js = await callBackend<any>(path, { method: "GET", cache: "no-store" });
-  return Array.isArray(js?.data) ? js.data : [];
+  
+  const rawData = js?.data;
+  
+  // Ošetrenie nového tvaru dát (objekt s trend a available_sports)
+  if (rawData && typeof rawData === 'object' && !Array.isArray(rawData) && rawData.trend) {
+    return {
+      trend: Array.isArray(rawData.trend) ? rawData.trend : [],
+      availableSports: Array.isArray(rawData.available_sports) ? rawData.available_sports : []
+    };
+  }
+  
+  // Fallback pre istotu (ak by backend ešte bežal na starej verzii a vrátil len pole)
+  return {
+    trend: Array.isArray(rawData) ? rawData : [],
+    availableSports: [] 
+  };
 }
+
 
 /* ========================= NEW: streams + extras ========================= */
 
