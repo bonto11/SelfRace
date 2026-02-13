@@ -175,15 +175,14 @@ def service_pareto_trend(
     sport: str = "all",
     *,
     ctx: AuthCtx,
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
-    Trend po týždňoch (posledných `weeks` týždňov) s doplnením prázdnych týždňov nulami.
-    Podporuje multi-sport query (?sport=run,ride).
-    Vracia zoznam radkov (bez success wrappera).
+    Trend po týždňoch s doplnením prázdnych týždňov nulami.
+    Vracia objekt: { "trend": [...], "available_sports": [...] }
     """
 
     weeks = max(1, int(weeks))
-    sports = _parse_sport_query(sport)  # None => default set
+    sports_query = _parse_sport_query(sport)  # None => default set
 
     since = datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)
     since_iso = _iso(since)
@@ -197,17 +196,27 @@ def service_pareto_trend(
 
     rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
 
-    # filter podľa športu
-    if sports is None:
+    # Zozbierame všetky REÁLNE športy, ktoré používateľ v tomto období robil (pred filtrom)
+    real_sports_in_period = set()
+    for r in rows:
+        norm_s = _norm_db(r.get("sport_type_fe"))
+        if norm_s:
+            real_sports_in_period.add(norm_s)
+
+    # filter podľa športu pre vykreslenie trendu
+    if sports_query is None:
         allowed = PARETO_DEFAULT_SET
         rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in allowed]
         sports_used = allowed
     else:
-        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in sports]
-        sports_used = sports
+        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in sports_query]
+        sports_used = sports_query
 
     if not rows:
-        return []
+        return {
+            "trend": [],
+            "available_sports": list(real_sports_in_period)
+        }
 
     # map na týždne
     aid_by_week: Dict[str, List[int]] = {}
@@ -294,4 +303,7 @@ def service_pareto_trend(
             }
         )
 
-    return out
+    return {
+        "trend": out,
+        "available_sports": list(real_sports_in_period)
+    }
