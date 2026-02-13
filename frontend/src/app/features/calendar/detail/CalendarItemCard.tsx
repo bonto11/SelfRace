@@ -45,8 +45,7 @@ function prettySkDate(iso: string) {
   return `${wk} · ${day}`;
 }
 
-function statusLabel(status: CalendarPlanStatus) {
-  const t = useT();
+function statusLabel(status: CalendarPlanStatus, t: any) {
   if (status === "done") return t("calendar.planDone");
   if (status === "missed") return t("calendar.planMissed");
   return t("calendar.planPlaned");
@@ -131,7 +130,7 @@ export default function CalendarItemCard({
                 className="inline-flex items-center justify-center rounded-full text-[10px] px-2 py-0.5 border"
                 style={statusStyle(status)}
               >
-                {statusLabel(status)}
+                {statusLabel(status,t)}
               </span>
             )}
           </div>

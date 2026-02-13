@@ -1,3 +1,4 @@
+// src/features/calendar/types/calendarTypes.ts
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 export type PlanStatus = "planned" | "done" | "missed";

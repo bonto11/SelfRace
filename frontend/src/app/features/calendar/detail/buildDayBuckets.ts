@@ -9,14 +9,12 @@ import { useT } from "@/app/shared/i18n/useT";
 
 /* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
 
-function fmtMinutes(min?: number | null): string | null {
-  const t = useT();
+function fmtMinutes(min: number | null | undefined, t: any): string | null {
   if (typeof min !== "number" || !Number.isFinite(min) || min <= 0) return null;
   return `${Math.round(min)} ${t("common.units.min")}`;
 }
 
-function fmtDistanceKm(m?: number | null): string | null {
-  const t = useT();
+function fmtDistanceKm(m: number | null | undefined, t: any): string | null {
   if (typeof m !== "number" || !Number.isFinite(m) || m <= 0) return null;
   return `${(m / 1000).toFixed(2)} ${t("common.units.km")}`;
 }
@@ -31,6 +29,7 @@ type Args = {
   planRowsForDay: any[];
   externalRows: ExternalEvent[];
   safeSportKey: (v: any) => string;
+  t: any; // <--- PRIDANÉ
 };
 
 function toPlanStatus(v: any): PlanStatus {
@@ -48,9 +47,10 @@ export function buildDayBuckets({
   planRowsForDay,
   externalRows,
   safeSportKey,
+  t,
+  
 }: Args): { past: SessionCardItem[]; planned: SessionCardItem[] } {
   const tIso = todayIso();
-  const t = useT();
 
   // --- activities for day ---
   // ✅ FIX: activityId musí byť number (nie null). Nevalidné ID rovno vyhodíme.
@@ -63,9 +63,8 @@ export function buildDayBuckets({
         (r as any).sport || (r as any).sport_type_fe || "other"
       );
 
-      const dist = fmtDistanceKm(r.distance_m ?? null);
-      const dur = fmtMinutes((r.moving_time_s ?? 0) / 60);
-
+    const dist = fmtDistanceKm(r.distance_m ?? null, t);
+  const dur = fmtMinutes((r.moving_time_s ?? 0) / 60, t);
       const kpis = asKpis([
         dur ? { label: t("common.metrics.time"), value: dur } : null,
         dist ? { label: t("common.metrics.distance"), value: dist } : null,
@@ -192,7 +191,7 @@ export function buildDayBuckets({
         ? String((ev as any).start_time_local)
         : null;
       const durMin = (ev as any).duration_min ?? null;
-      const durTxt = fmtMinutes(durMin);
+      const durTxt = fmtMinutes(durMin, t);
 
       const title = String((ev as any).title || t("calendar.external"));
       const subtitle = [ti, durTxt].filter(Boolean).join(" · ") || t("calendar.external");

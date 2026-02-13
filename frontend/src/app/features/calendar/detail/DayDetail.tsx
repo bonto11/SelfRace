@@ -59,8 +59,9 @@ export default function DayDetail({
         planRowsForDay,
         externalRows,
         safeSportKey,
+        t,
       }),
-    [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey],
+    [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey, t],
   );
 
   const sectionStyle: React.CSSProperties = {
