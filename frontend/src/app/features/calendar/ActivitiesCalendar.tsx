@@ -37,6 +37,7 @@ import { useCalendarExternals } from "@/app/features/calendar/hooks/useCalendarE
 import { useCalendarMap } from "@/app/features/calendar/hooks/useCalendarMap";
 import { gridRange42 } from "@/app/features/calendar/utils/calendarDates";
 import { isRestSession } from "@/app/features/calendar/utils/calendarFormat";
+import { useT } from "@/app/shared/i18n/useT";
 
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
@@ -63,6 +64,7 @@ export default function ActivitiesCalendar({
   month?: number;
 }) {
   const { userId } = useUserId();
+  const t = useT();
 
   const today = new Date();
   const [year, setYear] = React.useState(yy ?? today.getFullYear());
@@ -203,14 +205,14 @@ export default function ActivitiesCalendar({
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
         <div className={CALENDAR_TITLE_ROW}>
-          <h2 className={CALENDAR_TITLE}>Kalendár aktivít</h2>
+          <h2 className={CALENDAR_TITLE}>{t("calendar.title")}</h2>
 
           <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
             <Button
               variant="ghost"
               size="sm"
               circle
-              aria-label="Predchádzajúci mesiac"
+              aria-label={t("calendar.pastMonth")}
               onClick={() => jump(-1)}
             >
               ‹
@@ -222,7 +224,7 @@ export default function ActivitiesCalendar({
               variant="ghost"
               size="sm"
               circle
-              aria-label="Nasledujúci mesiac"
+              aria-label={t("calendar.nextMonth")}
               onClick={() => jump(1)}
             >
               ›
@@ -237,7 +239,7 @@ export default function ActivitiesCalendar({
               className={CALENDAR_LEGEND_DOT}
               style={{ backgroundColor: colExternal }}
             />
-            <span>external</span>
+            <span>{t("calendar.external")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
@@ -245,7 +247,7 @@ export default function ActivitiesCalendar({
               className={CALENDAR_LEGEND_DOT}
               style={{ backgroundColor: colActivity }}
             />
-            <span>aktivita</span>
+            <span>{t("calendar.activity")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
@@ -253,7 +255,7 @@ export default function ActivitiesCalendar({
               className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
               style={{ borderColor: colPlan, backgroundColor: "transparent" }}
             />
-            <span>plán</span>
+            <span>{t("calendar.plan")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
@@ -263,7 +265,7 @@ export default function ActivitiesCalendar({
             >
               ✓
             </span>
-            <span>splnený plán</span>
+            <span>`${t("calendar.planDone")} ${t("calendar.plan")}`</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
@@ -273,7 +275,7 @@ export default function ActivitiesCalendar({
             >
               ×
             </span>
-            <span>missed plán</span>
+            <span>`${t("calendar.planMissed")} ${t("calendar.plan")}`</span>
           </div>
         </div>
 

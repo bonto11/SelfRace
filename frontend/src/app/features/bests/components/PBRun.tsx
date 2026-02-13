@@ -13,7 +13,10 @@ import {
   distanceLabel,
 } from "@/app/features/bests/utils/bests";
 
-import type { UserBest, PBRunFormState } from "@/app/features/bests/types/bests";
+import type {
+  UserBest,
+  PBRunFormState,
+} from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, maskHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
@@ -28,6 +31,7 @@ import DateField from "@/app/shared/ui/components/DateField";
 
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   PANEL_STACK,
@@ -64,6 +68,7 @@ export default function PBRun() {
   const { favM, setFavM } = useFavoritePBRun();
   const favoriteM = favM ?? 5000;
   const isTouch = useIsTouch();
+  const t = useT();
 
   const [rows, setRows] = useState<UserBest[]>([]);
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
@@ -93,7 +98,7 @@ export default function PBRun() {
 
   const distanceSelectOptions = useMemo(() => {
     return [
-      { value: "", label: "— choose distance —" },
+      { value: "", label: `— ${t("PB.chooseDist")}  —` },
       ...distanceOptions("run").map((o) => ({
         value: String(o.m),
         label: o.label,
@@ -115,12 +120,15 @@ export default function PBRun() {
           : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await apiSaveBest(userId, payload);
-      toast.success("Personal best saved");
+      toast.success(t("PB.saved"));
       setForm(EMPTY);
       await refresh();
     } catch (e: any) {
@@ -132,17 +140,17 @@ export default function PBRun() {
 
   const handleDelete = async (m: number) => {
     const ok = await confirm({
-      title: "Vymazať rekord?",
-      message: `Túto akciu nemožno vrátiť.\n(${distanceLabel(m, "run")})`,
-      okText: "Vymazať",
-      cancelText: "Zrušiť",
+      title: t("PB.removeTitle"),
+      message: `${t("PB.removeMessage")}\n(${distanceLabel(m, "run")})`,
+      okText: t("PB.removeConfirm"),
+      cancelText: t("PB.removeCancel"),
       tone: "danger",
     });
     if (!ok || !userId) return;
 
     try {
       await apiDeleteBest(userId, m, "run");
-      toast.success("Record deleted");
+      toast.success(t("PB.deleted"));
       await refresh();
     } catch (e: any) {
       toast.error(String(e?.message ?? e));
@@ -152,14 +160,17 @@ export default function PBRun() {
   return (
     <div className={PANEL_STACK}>
       <div className={PANEL_SECTION}>
-        <div className={PANEL_SECTION_LABEL}>Favorite distance</div>
+        <div className={PANEL_SECTION_LABEL}>{t("PB.favorite")}</div>
         <div className={PANEL_SECTION_TEXT}>
           <strong>{distanceLabel(favoriteM, "run")}</strong>
         </div>
       </div>
 
       {/* FORM */}
-      <div className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")} style={SESSION_INLINE_STYLE}>
+      <div
+        className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
+        style={SESSION_INLINE_STYLE}
+      >
         <div className="grid gap-3 sm:grid-cols-12 items-start">
           <div className="sm:col-span-3">
             <SelectField
@@ -213,16 +224,30 @@ export default function PBRun() {
           </div>
 
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
-            <Button onClick={handleSave} disabled={!canSave} variant="success" size="xs">
-              {saving ? "Ukladám…" : "Uložiť"}
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              variant="success"
+              size="xs"
+            >
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
 
-            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">
+            <Button
+              variant="secondary"
+              onClick={() => setForm(EMPTY)}
+              size="xs"
+            >
               Clear
             </Button>
 
-            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">
-              {loading ? "Načítavam…" : "Refresh"}
+            <Button
+              variant="ghost"
+              onClick={refresh}
+              disabled={loading}
+              size="xs"
+            >
+              {loading ? t("common.loading") : t("common.refresh")}
             </Button>
           </div>
         </div>
@@ -236,14 +261,18 @@ export default function PBRun() {
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
             const timeDB =
-              b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—");
+              b.best_time_s != null
+                ? secToHHMMSS(b.best_time_s)
+                : (b.time_str ?? "—");
             const dist = distanceLabel(b.distance_m, "run");
             const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
-                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                time_str:
+                  b.time_str ??
+                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
@@ -255,7 +284,7 @@ export default function PBRun() {
             const toggleFav = async () => {
               try {
                 await setFavM(b.distance_m);
-                toast.success(`★ Favorite: ${dist}`);
+                toast.success(`★ ${t("PB.favorite")}: ${dist}`);
               } catch (e: any) {
                 toast.error(String(e?.message ?? e));
               }
@@ -299,7 +328,7 @@ export default function PBRun() {
           })}
 
         {rows.length === 0 && !loading && (
-          <li className={PANEL_PREVIEW}>No records yet.</li>
+          <li className={PANEL_PREVIEW}>{t("PB.noRecords")}</li>
         )}
       </ul>
     </div>
@@ -317,6 +346,7 @@ function SwipeRow({
   onDelete: () => void;
   enableSwipe?: boolean;
 }) {
+  const t = useT();
   const [tx, setTx] = useState(0);
   const startX = useRef<number | null>(null);
   const startTx = useRef<number>(0);
@@ -327,7 +357,8 @@ function SwipeRow({
   const THRESHOLD = 8;
 
   const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
-  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (v: number) =>
+    setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   function onTouchStart(e: React.TouchEvent) {
     if (!enableSwipe) return;
@@ -367,15 +398,18 @@ function SwipeRow({
             onEdit();
           }}
         >
-          Edit
+          {t("common.edit")}
         </Button>
         <Button size="xs" variant="danger" onClick={onDelete}>
-          Delete
+          {t("common.delete")}
         </Button>
       </div>
 
       <div
-        className={[SWIPE_CONTENT, "transition-transform duration-150 ease-out"].join(" ")}
+        className={[
+          SWIPE_CONTENT,
+          "transition-transform duration-150 ease-out",
+        ].join(" ")}
         style={{ transform: `translateX(${tx}px)` }}
       >
         {children}

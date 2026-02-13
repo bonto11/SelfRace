@@ -46,7 +46,6 @@ export default function CalendarDayCell({
 
   const inMonth = !!cell.inMonth;
 
-  // ✅ 1x vypočítaj borderColor (žiadne duplicitné key v objekte)
   const borderColor = isSelected
     ? appColors.brandPrimary
     : isToday
@@ -75,12 +74,10 @@ export default function CalendarDayCell({
       onFocus={() => setHover(true)}
       onBlur={() => setHover(false)}
       onMouseDown={(e) => {
-        // ✅ zabije “sticky focus” hlavne na mobile
         e.preventDefault();
       }}
       onClick={(e) => {
         onSelect(cell.iso);
-        // ✅ po kliku nechať bez focusu
         (e.currentTarget as HTMLButtonElement).blur();
       }}
     >

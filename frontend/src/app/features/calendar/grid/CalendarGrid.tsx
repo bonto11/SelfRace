@@ -19,6 +19,7 @@ export default function CalendarGrid({
   setSelectedIso,
   sportColors,
 }: Props) {
+
   return (
     <>
       <div

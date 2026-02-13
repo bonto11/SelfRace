@@ -11,6 +11,7 @@ import type {
   CalendarItemKind,
   CalendarPlanStatus,
 } from "@/app/features/calendar/types/calendarTypes";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   kind: CalendarItemKind;
@@ -45,9 +46,10 @@ function prettySkDate(iso: string) {
 }
 
 function statusLabel(status: CalendarPlanStatus) {
-  if (status === "done") return "hotovo";
-  if (status === "missed") return "missed";
-  return "planned";
+  const t = useT();
+  if (status === "done") return t("calendar.planDone");
+  if (status === "missed") return t("calendar.planMissed");
+  return t("calendar.planPlaned");
 }
 
 function statusStyle(status: CalendarPlanStatus): React.CSSProperties {
@@ -89,6 +91,7 @@ export default function CalendarItemCard({
   onOpenActivity,
 }: Props) {
   const [open, setOpen] = React.useState(false);
+  const t = useT();
 
   const hasBody =
     !!(kpis && kpis.length) ||
@@ -100,8 +103,8 @@ export default function CalendarItemCard({
   const activitySummary =
     kind === "activity"
       ? [
-          distanceKm != null ? `${distanceKm.toFixed(2)} km` : null,
-          durationMin != null ? `${durationMin} min` : null,
+          distanceKm != null ? `${distanceKm.toFixed(2)} ${t("common.units.km")}` : null,
+          durationMin != null ? `${durationMin} ${t("common.units.min")}` : null,
         ]
           .filter(Boolean)
           .join(" · ")
@@ -173,7 +176,7 @@ export default function CalendarItemCard({
 
           {realSummary && (
             <div className="text-xs sm:text-sm">
-              <span className="opacity-60 mr-1">Real:</span>
+              <span className="opacity-60 mr-1">MBP Real:</span>
               <span>{realSummary}</span>
             </div>
           )}
@@ -193,7 +196,7 @@ export default function CalendarItemCard({
                   color: appColors.textPrimary,
                 }}
               >
-                Otvoriť aktivitu
+                {t("calendar.openActivity")}
               </button>
             </div>
           )}

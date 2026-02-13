@@ -4,11 +4,13 @@ import * as React from "react";
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import type { CalendarExternalState, CalendarGridRange } from "@/app/features/calendar//types/calendarTypes";
+import { useT } from "@/app/shared/i18n/useT";
 
 export function useCalendarExternals(
   userId: number | null | undefined,
   range: CalendarGridRange
 ): CalendarExternalState {
+  const t = useT();
   const [rows, setRows] = React.useState<ExternalEvent[]>([]);
   const [err, setErr] = React.useState<string | null>(null);
 
@@ -25,7 +27,7 @@ export function useCalendarExternals(
       } catch (e: any) {
         if (!alive) return;
         setRows([]);
-        setErr(e?.message ?? "Failed to load external events.");
+        setErr(e?.message ?? t("calendar.failedLoadExternal"));
       }
     })();
 

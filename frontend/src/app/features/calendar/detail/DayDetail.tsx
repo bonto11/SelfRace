@@ -8,6 +8,7 @@ import SessionCard from "@/app/shared/components/session/SessionCard";
 
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   selectedIso: string;
@@ -40,6 +41,7 @@ export default function DayDetail({
       }),
     [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey],
   );
+  const t = useT();
 
   // vizuálne: rovnaká sekčná hlavička (bez raw farieb)
   const sectionStyle: React.CSSProperties = {
@@ -58,12 +60,12 @@ export default function DayDetail({
           className="text-[11px] uppercase tracking-wide"
           style={sectionStyle}
         >
-          Past — {selectedLabel}
+           {t("calendar.past")} — {selectedLabel}
         </div>
 
         {past.length === 0 ? (
           <div className="text-sm opacity-70">
-            Žiadne položky v minulosti pre tento deň.
+            {t("calendar.noActivity")}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -84,12 +86,12 @@ export default function DayDetail({
           className="text-[11px] uppercase tracking-wide"
           style={sectionStyle}
         >
-          Planned — {selectedLabel}
+           {t("calendar.planPlaned")} — {selectedLabel}
         </div>
 
         {planned.length === 0 ? (
           <div className="text-sm opacity-70">
-            Žiadne plánované položky pre tento deň.
+             {t("calendar.noPlanned")}
           </div>
         ) : (
           <ul className="space-y-2">

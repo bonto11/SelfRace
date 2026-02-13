@@ -1,20 +1,24 @@
 import { detectSport } from "@/app/features/coach/utils/plan";
 import type{ PlanStatus } from "@/app/features/calendar/types/calendarTypes";
+import { useT } from "@/app/shared/i18n/useT";
 
 type AnyObj = Record<string, any>;
 
 function hrToText(hr?: any): string | null {
+  const t = useT();
   if (!hr) return null;
   if (Array.isArray(hr) && hr.length === 2 && hr.every((x) => Number.isFinite(x))) {
-    return `HR ${hr[0]}–${hr[1]}`;
+    return `${t("common.metrics.hr")} ${hr[0]}–${hr[1]}`;
   }
   return null;
 }
 function paceToText(p?: any): string | null {
-  return typeof p === "string" && p.trim() ? `pace ${p}` : null;
+  const t = useT();
+  return typeof p === "string" && p.trim() ? `${t("common.metrics.pace")} ${p}` : null;
 }
 function powerToText(w?: any): string | null {
-  return Number.isFinite(w) ? `power ${w}W` : null;
+  const t = useT();
+  return Number.isFinite(w) ? `${t("common.metrics.power")} ${w} ${t("common.units.power")}` : null;
 }
 
 export function normTarget(it: AnyObj): string | null {
@@ -64,25 +68,28 @@ function intervalsToText(main: any): string | null {
 }
 
 export function normTitle(it: AnyObj) {
-  return it?.title ?? it?.name ?? "Session";
+    const t = useT();
+  return it?.title ?? it?.name ?? t("calendar.session");
 }
 export function normDuration(it: AnyObj) {
+   const t = useT();
   const minutes =
     (typeof it?.duration_min === "number" && it.duration_min) ??
     (typeof it?.dur === "number" && it.dur) ??
     null;
-  return minutes != null ? `${minutes} min` : null;
+  return minutes != null ? `${minutes} ${t("common.units.min")}` : null;
 }
 export function normIntensity(it: AnyObj) {
   return it?.intensity ?? null;
 }
 
 export function normNotes(it: AnyObj) {
+  const t = useT();
   if (it?.notes) return it.notes;
 
   const wu = it?.structure?.warmup
     ? [
-        it.structure.warmup?.notes ? `WU: ${it.structure.warmup.notes}` : null,
+        it.structure.warmup?.notes ? `${t("coach.wu")}: ${it.structure.warmup.notes}` : null,
         hrToText(it.structure.warmup?.target?.hr),
         paceToText(it.structure.warmup?.target?.pace),
         powerToText(it.structure.warmup?.target?.power),
@@ -95,7 +102,7 @@ export function normNotes(it: AnyObj) {
 
   const cd = it?.structure?.cooldown
     ? [
-        it.structure.cooldown?.notes ? `CD: ${it.structure.cooldown.notes}` : null,
+        it.structure.cooldown?.notes ? `${t("coach.wu")}: ${it.structure.cooldown.notes}` : null,
         hrToText(it.structure.cooldown?.target?.hr),
         paceToText(it.structure.cooldown?.target?.pace),
         powerToText(it.structure.cooldown?.target?.power),
@@ -106,7 +113,7 @@ export function normNotes(it: AnyObj) {
 
   const ex =
     Array.isArray(it?.exercises) && it.exercises.length
-      ? "Exercises: " +
+      ? `${t("coach.exercises")} : ` +
         it.exercises
           .map((e: any) => {
             const parts = [e?.name, e?.sets ? `${e.sets}x` : ""];
@@ -122,9 +129,10 @@ export function normNotes(it: AnyObj) {
 }
 
 export function fmtRealDurationMin(seconds?: number | null): string | null {
+  const t = useT();
   if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return null;
   const mins = Math.round(seconds / 60);
-  return `${mins} min`;
+  return `${mins} ${t("common.units.min")}`;
 }
 
 export function isRestSession(row: any, sess: AnyObj): boolean {

@@ -14,7 +14,13 @@ export const sk = {
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
     loading: "Načítavam…",
+    saving: "Ukladám…",
+    save: "Ukložiť",
+    soon: "Čoskoro...",
+    refresh: "Obnoviť",
     refreshTitle: "Obnov dáta",
+    edit: "Upraviť",
+    delete: "Vymazať",
     sports: {
       run: "Beh",
       bike: "Bicykel",
@@ -30,13 +36,21 @@ export const sk = {
       trimp: "trimp",
       min: "min",
       km: "km",
+      power: "W",
     },
     metrics: {
       trimp: "trimp",
-      time: "čas", 
+      time: "čas",
+      duration: "Trvanie",
+      intensity: "Intenzita",
+      target: "Cieľ",
       distance: "Vzdialenosť",
+      hr: "ST",
+      hr_avg: "Priem. ST",
+      hr_max: "Max. ST",
+      pace: "Tempo",
+      power: "Výkon",
     },
-
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
@@ -393,6 +407,15 @@ export const sk = {
 
   PB: {
     title: "Osobné rekordy",
+    chooseDist: "vyber vzdialenosť",
+    saved: "Rekord uložený",
+    deleted: "Rekord vymazaný",
+    removeTitle: "Vymazať rekord?",
+    removeMessage: "Túto akciu nemožno vrátiť.",
+    removeConfirm: "Vymazať",
+    removeCancel: "Zrušiť",
+    favorite: "Obľúbený rekord",
+    noRecords: "Zatiaľ žiadne rekordy",
     widget: {
       title: "Osobné rekordy",
       tooltip: [
@@ -411,6 +434,18 @@ export const sk = {
         "• ak dlhšie PB nepadá, ale cítiš sa silnejší → často sa zlepšuje konzistencia, odolnosť a forma",
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
+    },
+    run: {
+      title: "Osobné rekordy pre beh",
+    },
+    bike: {
+      title: "Osobné rekordy pre bicykel",
+    },
+    swim: {
+      title: "Osobné rekordy pre plávanie",
+    },
+    strength: {
+      title: "Osobné rekordy pre silový tréning",
     },
   },
 
@@ -918,10 +953,28 @@ export const sk = {
         "• Ak často vidíš ✕ v dňoch, buď si nedal tréning, alebo sa import/napárovanie aktivít nepodarilo.",
       ].join("\n"),
     },
+    external: "Externý",
+    activity: "Aktivita",
+    plan: "Plán",
+    planDone: "Splnený",
+    planMissed: "Vynechaný",
+    planPlaned: "Naplánované",
+    openActivity: "Otvoriť aktivitu",
+    noActivity: "Žiadne aktivity pre tento deň.",
+    noPlanned: " Žiadne plánované položky pre tento deň.",
+    past: "Minulosť",
+    failedLoadExternal: "Nepodarilo sa načítať externé udalosti.",
+    session : "Tréningová jednotka",
+    pastMonth: "Predchádzajúci mesiac",
+    nextMonth: "Nasledujúci mesiac",
   },
   coach: {
     title: "Tréner",
-  },
+    plan: "Plán",
+    wu: "Roz.",
+    cd: "Vych.",
+    exercises: "Cvičenia",
+    },
   activities: {
     title: "Aktivity",
     goTo: "Otvor aktivity",

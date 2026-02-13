@@ -5,17 +5,20 @@ import type {
   KPI,
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
+import { useT } from "@/app/shared/i18n/useT";
 
 /* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
 
 function fmtMinutes(min?: number | null): string | null {
+  const t = useT();
   if (typeof min !== "number" || !Number.isFinite(min) || min <= 0) return null;
-  return `${Math.round(min)} min`;
+  return `${Math.round(min)} ${t("common.units.min")}`;
 }
 
 function fmtDistanceKm(m?: number | null): string | null {
+  const t = useT();
   if (typeof m !== "number" || !Number.isFinite(m) || m <= 0) return null;
-  return `${(m / 1000).toFixed(2)} km`;
+  return `${(m / 1000).toFixed(2)} ${t("common.units.km")}`;
 }
 
 function todayIso() {
@@ -47,6 +50,7 @@ export function buildDayBuckets({
   safeSportKey,
 }: Args): { past: SessionCardItem[]; planned: SessionCardItem[] } {
   const tIso = todayIso();
+  const t = useT();
 
   // --- activities for day ---
   // ✅ FIX: activityId musí byť number (nie null). Nevalidné ID rovno vyhodíme.
@@ -63,18 +67,18 @@ export function buildDayBuckets({
       const dur = fmtMinutes((r.moving_time_s ?? 0) / 60);
 
       const kpis = asKpis([
-        dur ? { label: "TIME", value: dur } : null,
-        dist ? { label: "DIST", value: dist } : null,
+        dur ? { label: t("common.metrics.time"), value: dur } : null,
+        dist ? { label: t("common.metrics.distance"), value: dist } : null,
         r.average_heartrate_bpm != null
-          ? { label: "AVG HR", value: String(Math.round(r.average_heartrate_bpm)) }
+          ? { label: t("common.metrics.hr_avg"), value: String(Math.round(r.average_heartrate_bpm)) }
           : null,
         r.max_heartrate_bpm != null
-          ? { label: "MAX HR", value: String(Math.round(r.max_heartrate_bpm)) }
+          ? { label: t("common.metrics.hr_max"), value: String(Math.round(r.max_heartrate_bpm)) }
           : null,
       ]);
 
-      const title = String(r.name || "Activity");
-      const subtitle = dist ? `Distance ${dist}` : dur ? `Time ${dur}` : null;
+      const title = String(r.name || t("activities.title"));
+      const subtitle = dist ? `${t("common.metrics.distance")} ${dist}` : dur ? `${t("common.metrics.time")} ${dur}` : null;
 
       return {
         kind: "activity",
@@ -112,14 +116,14 @@ export function buildDayBuckets({
       const status: PlanStatus = hasAct ? "done" : dIso < tIso ? "missed" : "planned";
 
       const title = String(
-        sess?.title || sess?.name || sess?.session_type || p.title || "Plán"
+        sess?.title || sess?.name || sess?.session_type || p.title || t("coach.plan")
       );
 
       const durStr =
         typeof sess?.duration_min === "number"
-          ? `${sess.duration_min} min`
+          ? `${sess.duration_min} ${t("common.units.min")}`
           : typeof p.duration_min === "number"
-          ? `${p.duration_min} min`
+          ? `${p.duration_min} ${t("common.units.min")}`
           : null;
 
       const intensity = sess?.intensity ?? p.intensity ?? null;
@@ -134,21 +138,21 @@ export function buildDayBuckets({
         typeof target === "string"
           ? target
           : Array.isArray(target) && target.length === 2
-          ? `HR ${target[0]}–${target[1]}`
+          ? `${t("common.metrics.hr")} ${target[0]}–${target[1]}`
           : target?.hr
-          ? `HR ${target.hr[0]}–${target.hr[1]}`
+          ? `${t("common.metrics.hr")} ${target.hr[0]}–${target.hr[1]}`
           : target?.pace
-          ? `pace ${target.pace}`
+          ? `${t("common.metrics.pace")} ${target.pace}`
           : target?.power
-          ? `power ${target.power}W`
+          ? `${t("common.metrics.power")} ${target.power}${t("common.units.power")}`
           : null;
 
       const notes = sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
 
       const kpis = asKpis([
-        durStr ? { label: "DURATION", value: durStr } : null,
-        intensity ? { label: "INTENSITY", value: String(intensity) } : null,
-        planTarget ? { label: "TARGET", value: String(planTarget) } : null,
+        durStr ? { label: t("common.metrics.duration"), value: durStr } : null,
+        intensity ? { label: t("common.metrics.intensity"), value: String(intensity) } : null,
+        planTarget ? { label: t("common.metrics.target"), value: String(planTarget) } : null,
       ]);
 
       return {
@@ -157,7 +161,7 @@ export function buildDayBuckets({
         dateIso: dIso,
         sport,
         title,
-        subtitle: durStr ? `Plán · ${durStr}` : "Plán",
+        subtitle: durStr ? `${t("coach.plan")} · ${durStr}` : t("coach.plan"),
         kpis,
         notes: notes ? String(notes) : null,
 
@@ -184,18 +188,18 @@ export function buildDayBuckets({
     })
     .map((ev, idx) => {
       const sport = safeSportKey((ev as any).sport);
-      const t = (ev as any).start_time_local
+      const ti = (ev as any).start_time_local
         ? String((ev as any).start_time_local)
         : null;
       const durMin = (ev as any).duration_min ?? null;
       const durTxt = fmtMinutes(durMin);
 
-      const title = String((ev as any).title || "External");
-      const subtitle = [t, durTxt].filter(Boolean).join(" · ") || "External";
+      const title = String((ev as any).title || t("calendar.external"));
+      const subtitle = [ti, durTxt].filter(Boolean).join(" · ") || t("calendar.external");
 
       const kpis = asKpis([
-        durTxt ? { label: "DURATION", value: durTxt } : null,
-        t ? { label: "TIME", value: t } : null,
+        durTxt ? { label: t("common.metrics.duration"), value: durTxt } : null,
+        ti ? { label: t("common.metrics.duration"), value: ti } : null,
       ]);
 
       return {
@@ -208,7 +212,7 @@ export function buildDayBuckets({
         kpis,
         notes: (ev as any).notes ? String((ev as any).notes) : null,
 
-        time: t,
+        time: ti,
         durationMin: typeof durMin === "number" ? durMin : null,
       };
     });

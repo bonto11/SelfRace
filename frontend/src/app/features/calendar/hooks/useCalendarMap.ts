@@ -26,6 +26,7 @@ import {
   type CalendarItemBase,
   type CalendarItemKind,
 } from "@/app/features/calendar/utils/calendarSlots";
+import { useT } from "@/app/shared/i18n/useT";
 
 type AnyObj = Record<string, any>;
 
@@ -57,6 +58,7 @@ export function useCalendarMap({
     byIso: {},
     cells: [],
   });
+  const t = useT();
 
   React.useEffect(() => {
     const totalCells = 42;
@@ -115,7 +117,7 @@ export function useCalendarMap({
       cell.externals.push({
         id: Number(ev.id ?? 0) || Math.floor(Math.random() * 1e9),
         sport: safeSportKey((ev as any).sport ?? (ev as any).sport_type),
-        title: String(ev.title || "External"),
+        title: String(ev.title || t("calendar.external")),
         time: (ev as any).start_time_local ?? null,
         notes: (ev as any).notes ?? null,
       });
