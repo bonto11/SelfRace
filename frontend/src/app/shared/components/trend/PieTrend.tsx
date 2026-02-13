@@ -1,4 +1,4 @@
-// src/app/shared/components/charts/PieTrend.tsx
+// src/app/shared/components/trend/PieTrend.tsx
 "use client";
 
 import { useMemo, type ReactNode } from "react";
