@@ -1,4 +1,6 @@
 // src/app/(auth)/signin/page.tsx
+"use client";
+
 import { Suspense } from "react";
 import SignInForm from "@/app/features/auth/components/SignInForm";
 

@@ -1,4 +1,6 @@
 // src/app/(auth)/signup/page.tsx
+"use client";
+
 import { Suspense } from "react";
 import SignUpForm from "@/app/features/auth/components/SignUpForm";
 
