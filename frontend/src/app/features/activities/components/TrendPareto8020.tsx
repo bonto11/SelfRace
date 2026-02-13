@@ -47,10 +47,8 @@ type Lookback = 2 | 4 | 8 | 12;
 
 export default function TrendPareto8020({
   onPickWeek,
-  availableSports, // <-- NOVÉ: Zoznam športov, ktoré používateľ reálne robí (napr. ["Run", "Ride"])
 }: {
   onPickWeek?: (w: ParetoWeekPick) => void;
-  availableSports?: string[];
 }) {
   const { userId } = useUserId();
   const [lookback, setLookback] = useState<Lookback>(2);
@@ -67,6 +65,8 @@ export default function TrendPareto8020({
   }, [selectedSports]);
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
+  // NOVÉ: State pre uloženie reálnych športov z backendu
+  const [fetchedAvailableSports, setFetchedAvailableSports] = useState<string[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
   const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
@@ -80,9 +80,18 @@ export default function TrendPareto8020({
     (async () => {
       setLoading(true);
       try {
-        const data = await apiFetchParetoTrend(userId, lookback, sportCsv);
+        const response = await apiFetchParetoTrend(userId, lookback, sportCsv);
         if (!alive) return;
-        setRows(Array.isArray(data) ? (data as ParetoRow[]) : []);
+        
+        // ZMENA: Nastavujeme aj trend aj dostupné športy
+        setRows(response.trend as ParetoRow[]);
+        
+        // Ak API vracia zoznam, uložíme ho. Ak sa vráti prázdny a už máme vybraté športy,
+        // neresetujeme to (aby pri vyklikaní všetkého nezmizli tlačidlá).
+        if (response.availableSports && response.availableSports.length > 0) {
+          setFetchedAvailableSports(response.availableSports);
+        }
+        
         setPickedIdx(null);
       } catch (e) {
         console.error("Pareto trend fetch failed:", e);
@@ -97,6 +106,17 @@ export default function TrendPareto8020({
       alive = false;
     };
   }, [userId, lookback, sportCsv]);
+
+  // Výpočet zobrazených tlačidiel na základe fetchedAvailableSports
+  const visibleSportsOptions = useMemo(() => {
+    if (fetchedAvailableSports.length === 0) {
+      return SPORT_OPTIONS; // Fallback pre istotu
+    }
+    return SPORT_OPTIONS.filter((opt) => {
+      const norm = normalizeSport(opt.value);
+      return norm && fetchedAvailableSports.includes(norm);
+    });
+  }, [fetchedAvailableSports]);
 
   const labels = useMemo(() => rows.map((r) => r.label), [rows]);
   const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
@@ -237,27 +257,12 @@ export default function TrendPareto8020({
     }
   }, [selectedSports.length]);
 
-  // NOVÉ: Vyfiltrujeme tlačidlá, ktoré sa reálne zobrazia
-  const visibleSportsOptions = useMemo(() => {
-    // Ak parent nepošle žiadne dáta o dostupných športoch, ukážeme pre istotu všetky
-    if (!availableSports || availableSports.length === 0) {
-      return SPORT_OPTIONS;
-    }
-    // Inak ukážeme len tie, ktoré sa zhodujú s availableSports
-    return SPORT_OPTIONS.filter((opt) => {
-      const norm = normalizeSport(opt.value);
-      return norm && availableSports.includes(norm);
-    });
-  }, [availableSports]);
-
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      {/* HEADER */}
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={PANEL_CARD_HEAD}>
           <h2 className={PANEL_TITLE}>{t("pareto8020.trend.title")}</h2>
 
-          {/* ✅ doprava */}
           <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
             <SelectField
               value={String(lookback)}
@@ -273,7 +278,6 @@ export default function TrendPareto8020({
         </div>
 
         <div className={PANEL_ACTIONS_INLINE}>
-          {/* Použijeme náš vyfiltrovaný zoznam visibleSportsOptions */}
           {visibleSportsOptions.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
@@ -295,7 +299,6 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* BODY */}
       <div
         className={`${SCROLL_X} min-w-0`}
         style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
