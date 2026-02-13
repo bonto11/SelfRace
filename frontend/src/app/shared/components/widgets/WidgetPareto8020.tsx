@@ -16,7 +16,7 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 // Importujeme náš PieTrend komponent
-import { PieTrend, type PieTrendItem } from "@/app/shared/components/charts/PieTrend";
+import { PieTrend, type PieTrendItem } from "@/app/shared/components/trend/PieTrend";
 
 type Props = {
   onOpenTrend?: () => void;
