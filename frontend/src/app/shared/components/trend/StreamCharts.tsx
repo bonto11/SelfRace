@@ -509,7 +509,7 @@ export function ActivityStreamCharts({
                       ys={hr}
                       height={height}
                       compact={compact}
-                      yLabel="bpm"
+                      yLabel={t("common.units.hr")}
                       mode="hr"
                     />
                   </div>
@@ -523,7 +523,7 @@ export function ActivityStreamCharts({
                       ys={altitude_m ?? []}
                       height={height}
                       compact={compact}
-                      yLabel="m"
+                      yLabel={t("common.units.m")}
                       mode="plain"
                       strokeColor={CHART_HR.colors.z2}
                     />
@@ -538,7 +538,7 @@ export function ActivityStreamCharts({
                       ys={pace_s_per_km}
                       height={height}
                       compact={compact}
-                      yLabel="s/km"
+                      yLabel={t("common.units.pace")}
                       formatY={formatPace}
                       mode="plain"
                       strokeColor={CHART_HR.colors.z3}
@@ -554,7 +554,7 @@ export function ActivityStreamCharts({
                       ys={power_w ?? []}
                       height={height}
                       compact={compact}
-                      yLabel="W"
+                      yLabel={t("common.units.power")}
                       mode="plain"
                       strokeColor={CHART_HR.colors.z4}
                     />
@@ -569,7 +569,7 @@ export function ActivityStreamCharts({
                       ys={cadenceSeries}
                       height={height}
                       compact={compact}
-                      yLabel={isRunSport ? "steps/min" : "rpm"}
+                      yLabel={isRunSport ? t("common.units.kadenceRun") : t("common.units.kadenceBike")}
                       mode="plain"
                       strokeColor={CHART_HR.colors.z5}
                     />

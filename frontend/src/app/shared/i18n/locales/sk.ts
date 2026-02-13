@@ -42,6 +42,7 @@ export const sk = {
     units: {
       trimp: "trimp",
       min: "min",
+      m: "m",
       km: "km",
       power: "W",
       vo2max: "ml/kg/min",
@@ -50,7 +51,10 @@ export const sk = {
       hPerWeek: "h / týždeň",
       weeksAbbrev: "t", // t = týždne v náhľade
       ms: "ms",
-      hr: "ú/min"
+      hr: "úde./min",
+      pace: "s/km",
+      kadenceRun: "krok/min",
+      kadenceBike: "ot/min"
     },
     metrics: {
       trimp: "trimp",
