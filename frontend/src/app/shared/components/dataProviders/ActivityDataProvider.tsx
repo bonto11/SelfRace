@@ -27,6 +27,7 @@ import {
   apiFetchParetoTrend,
   apiFetchActivityExtrasCombined,
   type ActivityExtrasCombined,
+  type ParetoTrendResponse, // ✅ Importujeme nový typ z API klienta
 } from "@/app/features/activities/api/analytics_activities";
 
 import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
@@ -266,20 +267,11 @@ type Ctx = {
     days: number;
   } | null>;
 
+  // ✅ ZMENA: Návratový typ je teraz aktualizovaný ParetoTrendResponse objekt
   getParetoTrend: (
     weeks: number,
     sport?: string | string[] | null,
-  ) => Promise<
-    Array<{
-      label: string;
-      easy_min: number;
-      hard_min: number;
-      easy_pct: number;
-      hard_pct: number;
-      start?: string;
-      end?: string;
-    }>
-  >;
+  ) => Promise<ParetoTrendResponse>;
 };
 
 const ActivityDataContext = createContext<Ctx | null>(null);
@@ -519,9 +511,13 @@ export function ActivityDataProvider({
     [userId],
   );
 
+  // ✅ ZMENA: Ak nie je userId, vráti objekt, nie pole
   const getParetoTrend = useCallback(
-    async (weeksParam: number, sportSel: string | string[] | null = null) => {
-      if (userId == null) return [];
+    async (
+      weeksParam: number,
+      sportSel: string | string[] | null = null,
+    ): Promise<ParetoTrendResponse> => {
+      if (userId == null) return { trend: [], availableSports: [] };
       const sportCsv = toCsvSportParam(sportSel);
       return apiFetchParetoTrend(userId, weeksParam, sportCsv);
     },
