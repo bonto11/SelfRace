@@ -1,7 +1,7 @@
 // src/app/shared/components/session/ActivitySessionDetail.tsx
 "use client";
 
-import { useState, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
 import {
   SURFACE_INLINE,
   SURFACE_INLINE_STYLE,
@@ -212,7 +212,6 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
   const maxHrTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
   const cadenceLabel = formatCadenceSummary(s, t);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps, t);
-  const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
   const stravaActivityId = (s && (s.activity_id ?? s.id)) ?? act.activityId ?? null;
 
   const stravaUrl =
@@ -250,6 +249,39 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
     setLaps(Array.isArray(ex?.laps) ? ex.laps : []);
     setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
   };
+
+  // 1. ZMENA: Načítanie dát pri zobrazení detailu aktivity
+  useEffect(() => {
+    if (!act.activityId) return;
+
+    let alive = true;
+    const fetchDetailedData = async () => {
+      setBusyFetch(true);
+      try {
+        // Načítaj grafy, kolá a medzičasy (streams, laps, splits)
+        const extras = await getExtras(act.activityId);
+        if (alive && extras) {
+          applyExtrasToState(extras);
+        }
+
+        // Načítaj zóny pre koláčový graf (enrichment)
+        const enr = await getEnrichment(act.activityId);
+        if (alive && enr) {
+          setEnrichment(enr);
+        }
+      } catch (err) {
+        console.error("Failed to load activity details", err);
+      } finally {
+        if (alive) setBusyFetch(false);
+      }
+    };
+
+    fetchDetailedData();
+
+    return () => {
+      alive = false;
+    };
+  }, [act.activityId, getExtras, getEnrichment]);
 
   const overviewItems: InfoItem[] = [
     { label: t("common.metrics.time").toUpperCase(), value: timeTxt },
@@ -307,10 +339,17 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
+      {/* 2. ZMENA: Vykreslenie ActivityStreamCharts, ak máme načítané dáta v streams */}
+      {streams.time_s && streams.time_s.length > 0 && (
+        <div className="mt-4 px-1">
+          <ActivityStreamCharts streams={streams} compact={compactChart} />
+        </div>
+      )}
+
       {hasMeaningfulValue(hrItems) && (
         <ActivitySectionShell title={t("sessions.detail.sectionHR")} items={hrItems}>
           {enrichment && (
-            <div className="mb-6 border-b border-white/5 pb-6">
+            <div className="mb-6 border-b border-white/5 pb-6 mt-4">
               <div className="text-[10px] uppercase font-bold opacity-50 mb-4 text-center sm:text-left">
                 {t("sessions.detail.zonesDistribution")}
               </div>
