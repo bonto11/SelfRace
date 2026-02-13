@@ -205,7 +205,7 @@ export default function ActivitiesCalendar({
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
         <div className={CALENDAR_TITLE_ROW}>
-          <h2 className={CALENDAR_TITLE}>{t("calendar.title")}</h2>
+          <h2 className={CALENDAR_TITLE}> </h2>
 
           <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
             <Button
@@ -265,7 +265,9 @@ export default function ActivitiesCalendar({
             >
               ✓
             </span>
-            <span>`${t("calendar.planDone")} ${t("calendar.plan")}`</span>
+            <span>
+              {t("calendar.planDone")}
+            </span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
@@ -275,7 +277,9 @@ export default function ActivitiesCalendar({
             >
               ×
             </span>
-            <span>`${t("calendar.planMissed")} ${t("calendar.plan")}`</span>
+            <span>
+              {t("calendar.planMissed")}
+            </span>
           </div>
         </div>
 
