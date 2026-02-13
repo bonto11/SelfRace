@@ -962,7 +962,7 @@ export const sk = {
     openActivity: "Otvoriť aktivitu",
     noActivity: "Žiadne aktivity pre tento deň.",
     noPlanned: " Žiadne plánované položky pre tento deň.",
-    past: "Minulosť",
+    past: "V minulosťi",
     failedLoadExternal: "Nepodarilo sa načítať externé udalosti.",
     session : "Tréningová jednotka",
     pastMonth: "Predchádzajúci mesiac",
