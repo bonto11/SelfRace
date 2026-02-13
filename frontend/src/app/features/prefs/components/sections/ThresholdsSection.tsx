@@ -8,6 +8,7 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
+import { useT } from "@/app/shared/i18n/useT";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
@@ -49,30 +50,22 @@ function secToPace(n: any): string {
 
 /* ---------- types ---------- */
 type Props = {
-  thresholds: any | undefined; // aktuálny draft
-  latestList?: any[]; // uložené riadky z DB na preview
+  thresholds: any | undefined; 
+  latestList?: any[]; 
   onChange: (t: any) => void;
   onSaveToDB?: (t: any) => Promise<void>;
 };
 
 const normalizeSportKey = (s: any): string => {
   const v = String(s || "").toLowerCase();
-  if (v === "run") return "running"; // zjednotíme názov
+  if (v === "run") return "running";
   return v;
 };
 
 const makeComboKey = (sport: any, thrType: any): string =>
   `${normalizeSportKey(sport)}|${String(thrType || "").toLowerCase()}`;
 
-/* odporúčané športy */
-const THR_SPORTS = [
-  { value: "running", label: "Running" },
-  { value: "ride", label: "Ride" },
-  { value: "swimming", label: "Swimming" },
-  { value: "rowing", label: "Rowing" },
-  { value: "strength", label: "Strength" },
-  { value: "other", label: "Other" },
-] as const;
+const THR_SPORTS_VALUES = ["running", "ride", "swimming", "rowing", "strength", "other"] as const;
 
 export default function ThresholdsSection({
   thresholds,
@@ -80,15 +73,15 @@ export default function ThresholdsSection({
   onChange,
   onSaveToDB,
 }: Props) {
-  const t = thresholds ?? {};
+  const t = useT();
+  const thr = thresholds ?? {};
   const [open, setOpen] = useState(false);
 
-  const [paceStr, setPaceStr] = useState<string>(secToPace(t.pace_sec_km));
+  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km));
   useEffect(() => {
-    setPaceStr(secToPace(t.pace_sec_km));
-  }, [t.pace_sec_km]);
+    setPaceStr(secToPace(thr.pace_sec_km));
+  }, [thr.pace_sec_km]);
 
-  // latestByCombo
   const latestByCombo = useMemo(() => {
     const map = new Map<string, any>();
     for (const r of Array.isArray(latestList) ? latestList : []) {
@@ -98,13 +91,12 @@ export default function ThresholdsSection({
     return Array.from(map.values());
   }, [latestList]);
 
-  // preview
   const preview = useMemo(() => {
-    const key = makeComboKey(t.sport ?? "running", t.threshold_type ?? "LT2");
+    const key = makeComboKey(thr.sport ?? "running", thr.threshold_type ?? "LT2");
     const fromLatest = latestByCombo.find(
       (r) => makeComboKey(r.sport, r.threshold_type) === key,
     );
-    const src = { ...(fromLatest ?? {}), ...t }; // draft má stále prednosť
+    const src = { ...(fromLatest ?? {}), ...thr }; 
     return {
       sport: src.sport ?? "running",
       type: src.threshold_type ?? "LT2",
@@ -112,16 +104,18 @@ export default function ThresholdsSection({
       pace: secToPace(src.pace_sec_km),
       pow: src.power_watt,
     };
-  }, [t, latestByCombo]);
+  }, [thr, latestByCombo]);
+
+  const getSportLabel = (s: string) => (t as any)(`common.sports.${s === "running" ? "run" : s === "ride" ? "bike" : s}`);
 
   const previewNode = (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap gap-4 text-xs">
       <div>
-        <span className="opacity-70 mr-1">Sport:</span>
-        <span className="font-semibold">{preview.sport}</span>
+        <span className="opacity-70 mr-1">{t("prefs.sections.thresholdsSection.sportLabel")}:</span>
+        <span className="font-semibold">{getSportLabel(preview.sport)}</span>
       </div>
       <div>
-        <span className="opacity-70 mr-1">Type:</span>
+        <span className="opacity-70 mr-1">{t("prefs.sections.thresholdsSection.typeLabel")}:</span>
         <span className="font-semibold">{preview.type}</span>
       </div>
       {preview.hr != null && (
@@ -132,13 +126,13 @@ export default function ThresholdsSection({
       )}
       {preview.pace && (
         <div>
-          <span className="opacity-70 mr-1">Pace:</span>
+          <span className="opacity-70 mr-1">{t("common.metrics.pace")}:</span>
           <span className="font-semibold">{preview.pace} /km</span>
         </div>
       )}
       {preview.pow != null && (
         <div>
-          <span className="opacity-70 mr-1">Power:</span>
+          <span className="opacity-70 mr-1">{t("common.metrics.power")}:</span>
           <span className="font-semibold">{Math.round(preview.pow)} W</span>
         </div>
       )}
@@ -148,31 +142,27 @@ export default function ThresholdsSection({
   const handleSaveToDB = async () => {
     if (!onSaveToDB) return;
 
-    const hrOk = t.hr_bpm == null || Number.isFinite(Number(t.hr_bpm));
-    const paceOk =
-      t.pace_sec_km == null ||
-      (Number.isFinite(Number(t.pace_sec_km)) && Number(t.pace_sec_km) > 0);
-    const powOk =
-      t.power_watt == null ||
-      (Number.isFinite(Number(t.power_watt)) && Number(t.power_watt) > 0);
+    const hrOk = thr.hr_bpm == null || Number.isFinite(Number(thr.hr_bpm));
+    const paceOk = thr.pace_sec_km == null || (Number.isFinite(Number(thr.pace_sec_km)) && Number(thr.pace_sec_km) > 0);
+    const powOk = thr.power_watt == null || (Number.isFinite(Number(thr.power_watt)) && Number(thr.power_watt) > 0);
 
     if (!hrOk || !paceOk || !powOk) {
-      toast.error("Invalid threshold values");
+      toast.error(t("prefs.sections.thresholdsSection.errors.invalidValues"));
       return;
     }
 
-    await onSaveToDB(t);
+    await onSaveToDB(thr);
   };
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Thresholds</span>
-          <TooltipIcon text="Prahy zadávaj per šport × typ (LT1/LT2/FTP).\n\nHR pole je hr_bpm." />
+          <span>{t("prefs.sections.thresholdsSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.thresholdsSection.widget.tooltip")} />
         </div>
       }
-      subtitle="Prahy pre zóny a intenzity (draft + uložené z DB)."
+      subtitle={t("prefs.sections.thresholdsSection.subtitle")}
       preview={previewNode}
       open={open}
       onOpenChange={setOpen}
@@ -184,50 +174,48 @@ export default function ThresholdsSection({
             variant="secondary"
             onClick={handleSaveToDB}
           >
-            Save threshold to DB
+            {t("prefs.sections.thresholdsSection.saveBtn")}
           </Button>
         ) : null
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* sport + type */}
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Sport</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.sportLabel")}</div>
             <SelectField
-              value={t.sport ?? "running"}
-              onChange={(e) => onChange({ ...t, sport: e.target.value })}
-              options={THR_SPORTS as any}
+              value={thr.sport ?? "running"}
+              onChange={(e) => onChange({ ...thr, sport: e.target.value })}
+              options={THR_SPORTS_VALUES.map(v => ({ value: v, label: getSportLabel(v) }))}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold type</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.typeLabel")}</div>
             <SelectField
-              value={t.threshold_type ?? "LT2"}
+              value={thr.threshold_type ?? "LT2"}
               onChange={(e) =>
-                onChange({ ...t, threshold_type: e.target.value })
+                onChange({ ...thr, threshold_type: e.target.value })
               }
               options={[
                 { value: "LT1", label: "LT1 (aerobic)" },
-                { value: "LT2", label: "LT2 (anaerobic)" },
+                { value: "LT2", label: "LT2 (anaerobic / LTHR)" },
                 { value: "FTP", label: "FTP (cycling)" },
               ]}
             />
           </section>
         </div>
 
-        {/* HR / Pace / Power */}
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold HR</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.hrLabel")}</div>
             <TextField
               type="number"
               inputMode="numeric"
-              value={t.hr_bpm ?? ""}
+              value={thr.hr_bpm ?? ""}
               onChange={(e) =>
                 onChange({
-                  ...t,
+                  ...thr,
                   hr_bpm: e.target.value === "" ? null : Number(e.target.value),
                 })
               }
@@ -236,7 +224,7 @@ export default function ThresholdsSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold pace</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.paceLabel")}</div>
             <TextField
               value={paceStr}
               placeholder="04:55"
@@ -244,20 +232,20 @@ export default function ThresholdsSection({
               onChange={(e) => {
                 const v = normalizePaceInput(e.target.value);
                 setPaceStr(v);
-                onChange({ ...t, pace_sec_km: paceToSec(v) });
+                onChange({ ...thr, pace_sec_km: paceToSec(v) });
               }}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Threshold power</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.powerLabel")}</div>
             <TextField
               type="number"
               inputMode="numeric"
-              value={t.power_watt ?? ""}
+              value={thr.power_watt ?? ""}
               onChange={(e) =>
                 onChange({
-                  ...t,
+                  ...thr,
                   power_watt:
                     e.target.value === "" ? null : Number(e.target.value),
                 })
@@ -267,41 +255,40 @@ export default function ThresholdsSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Measurement type</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.measurementLabel")}</div>
             <SelectField
-              value={t.measurement_type ?? "estimate garmin"}
+              value={thr.measurement_type ?? "estimate garmin"}
               onChange={(e) =>
-                onChange({ ...t, measurement_type: e.target.value })
+                onChange({ ...thr, measurement_type: e.target.value })
               }
               options={[
-                { value: "lab test", label: "Lab test" },
-                { value: "field test", label: "Field test" },
+                { value: "lab test", label: t("prefs.sections.thresholdsSection.enums.measure.lab") },
+                { value: "field test", label: t("prefs.sections.thresholdsSection.enums.measure.field") },
                 { value: "estimate garmin", label: "Estimate – Garmin" },
                 { value: "estimate strava", label: "Estimate – Strava" },
-                { value: "coach estimate", label: "Coach estimate" },
-                { value: "other", label: "Other" },
+                { value: "coach estimate", label: t("prefs.sections.thresholdsSection.enums.measure.coach") },
+                { value: "other", label: t("common.sports.other") },
               ]}
             />
           </section>
         </div>
 
-        {/* uložené v DB */}
         {latestByCombo.length > 0 && (
           <div className="mt-1">
             <div className="flex items-center gap-2">
-              <div className={INPUTS_CARD_LABEL_SM_1}>Aktuálne uložené v DB</div>
-              <TooltipIcon text="Zobrazuje posledný uložený záznam pre každú kombináciu šport × typ prahu." />
+              <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.dbTitle")}</div>
+              <TooltipIcon text={t("prefs.sections.thresholdsSection.dbTooltip")} />
             </div>
 
             <ul className="mt-2 flex flex-wrap gap-2">
               {latestByCombo.map((r, i) => (
                 <li
                   key={`${r.sport}-${r.threshold_type}-${i}`}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs"
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px]"
                 >
-                  <span className="font-medium">{r.sport}</span>
-                  <span> · {r.threshold_type}</span>
-                  {r.hr_bpm ? <span> · HR {Math.round(r.hr_bpm)}</span> : null}
+                  <span className="font-medium">{getSportLabel(r.sport)}</span>
+                  <span className="opacity-80"> · {r.threshold_type}</span>
+                  {r.hr_bpm ? <span> · {Math.round(r.hr_bpm)} bpm</span> : null}
                   {r.pace_sec_km ? (
                     <span> · {secToPace(r.pace_sec_km)} /km</span>
                   ) : null}

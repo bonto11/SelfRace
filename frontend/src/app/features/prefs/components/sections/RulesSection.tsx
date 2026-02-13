@@ -9,60 +9,40 @@ import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import type { Preferences } from "@/app/features/prefs/types/prefs";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
-  pref: any; // prefDefaults(local) (recommended) or local.preferences
+  pref: any;
   setLocal: (fn: (prev: any) => any) => void;
   markDirty: () => void;
 };
 
 type RuleKey = "avoid_back_to_back_hard" | "use_zones";
 
-const BASE_RULES: Array<{ key: RuleKey; label: string; short: string }> = [
-  {
-    key: "avoid_back_to_back_hard",
-    label: "Avoid two hard days in a row",
-    short: "No back-to-back hard",
-  },
-  { key: "use_zones", label: "Use zones", short: "Use zones" },
-];
+const BASE_RULES_KEYS: RuleKey[] = ["avoid_back_to_back_hard", "use_zones"];
 
 function normalizePrefs(p: any): Preferences {
   const incoming = p && typeof p === "object" ? p : {};
-
   const two = incoming.two_a_day;
   const enabled = !!(two && typeof two === "object" ? two.enabled : false);
-  const maxRaw =
-    two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
+  const maxRaw = two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
   const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
-
-  const intensity_model =
-    incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
-
-  const b = incoming.training_blocks;
-  const training_blocks =
-    b && typeof b === "object"
-      ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
-      : { vo2max: false, ftp: false, threshold: false };
 
   return {
     days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
-    long_run_days: Array.isArray(incoming.long_run_days)
-      ? incoming.long_run_days
-      : [],
-    avoid_back_to_back_hard:
-      typeof incoming.avoid_back_to_back_hard === "boolean"
-        ? incoming.avoid_back_to_back_hard
-        : true,
-    use_zones:
-      typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
+    long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
+    avoid_back_to_back_hard: typeof incoming.avoid_back_to_back_hard === "boolean" ? incoming.avoid_back_to_back_hard : true,
+    use_zones: typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
     two_a_day: { enabled, max_days_per_week: max },
-    intensity_model,
-    training_blocks,
+    intensity_model: incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized",
+    training_blocks: incoming.training_blocks && typeof incoming.training_blocks === "object"
+      ? { vo2max: !!incoming.training_blocks.vo2max, ftp: !!incoming.training_blocks.ftp, threshold: !!incoming.training_blocks.threshold }
+      : { vo2max: false, ftp: false, threshold: false },
   } as Preferences;
 }
 
 export function RulesSection({ pref, setLocal, markDirty }: Props) {
+  const t = useT();
   const basePref = useMemo(() => normalizePrefs(pref), [pref]);
 
   const toggleRule = (key: RuleKey) => {
@@ -78,16 +58,13 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
     setLocal((prev) => {
       const cur = normalizePrefs(prev?.preferences);
       const nextEnabled = !cur.two_a_day.enabled;
-
       return {
         ...prev,
         preferences: {
           ...cur,
           two_a_day: {
             enabled: nextEnabled,
-            max_days_per_week: nextEnabled
-              ? Math.max(1, Math.min(2, cur.two_a_day.max_days_per_week || 2))
-              : 0,
+            max_days_per_week: nextEnabled ? Math.max(1, Math.min(2, cur.two_a_day.max_days_per_week || 2)) : 0,
           },
         },
       };
@@ -103,10 +80,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
         ...prev,
         preferences: {
           ...cur,
-          two_a_day: {
-            enabled: cur.two_a_day.enabled,
-            max_days_per_week: clamped,
-          },
+          two_a_day: { enabled: cur.two_a_day.enabled, max_days_per_week: clamped },
         },
       };
     });
@@ -124,71 +98,63 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
     markDirty();
     setLocal((prev) => {
       const cur = normalizePrefs(prev?.preferences);
-      const nextBlocks = {
-        ...(cur.training_blocks ?? {}),
-        [key]: !(cur.training_blocks as any)?.[key],
-      };
+      const nextBlocks = { ...(cur.training_blocks ?? {}), [key]: !(cur.training_blocks as any)?.[key] };
       return { ...prev, preferences: { ...cur, training_blocks: nextBlocks } };
     });
   };
 
-  const enabledShort = BASE_RULES.filter((r) => !!(basePref as any)[r.key]).map(
-    (r) => r.short,
+  const enabledShort = BASE_RULES_KEYS.filter((k) => !!(basePref as any)[k]).map(
+    (k) => t(`prefs.sections.rulesSection.rules.${k}.short`),
   );
   const twoEnabled = !!basePref.two_a_day?.enabled;
   const twoMax = Number(basePref.two_a_day?.max_days_per_week) || 0;
-
   const model = basePref.intensity_model ?? "polarized";
   const blocks = basePref.training_blocks ?? {};
 
   const previewText = [
-    enabledShort.length ? enabledShort.join(", ") : "none",
-    `model: ${model}`,
-    twoEnabled ? `two-a-day: ${twoMax}/wk` : "two-a-day: off",
+    enabledShort.length ? enabledShort.join(", ") : t("common.none"),
+    `${t("prefs.sections.rulesSection.previewModel")}: ${model}`,
+    twoEnabled ? `${t("prefs.sections.rulesSection.previewTwoADay")}: ${twoMax}/${t("common.units.weeksAbbrev")}` : `${t("prefs.sections.rulesSection.previewTwoADay")}: ${t("common.disabled")}`,
     [
       blocks.vo2max ? "VO₂" : null,
       blocks.ftp ? "FTP" : null,
       blocks.threshold ? "THR" : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || "blocks: —",
+    ].filter(Boolean).join(" · ") || `${t("prefs.sections.rulesSection.previewBlocks")}: —`,
   ].join(" | ");
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Rules</span>
-          <TooltipIcon text="Rules + intensity + blocks. Všetko je v preferences.* (ukladá sa do coach.prefs)." />
+          <span>{t("prefs.sections.rulesSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.rulesSection.widget.tooltip")} />
         </div>
       }
-      subtitle="Pravidlá plánovania, intenzitný model a tréningové bloky."
+      subtitle={t("prefs.sections.rulesSection.subtitle")}
       preview={previewText}
       defaultOpen={false}
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* Base rules */}
         <div className="flex flex-wrap gap-2">
-          {BASE_RULES.map(({ key, label, short }) => (
+          {BASE_RULES_KEYS.map((key) => (
             <Button
               key={key}
               type="button"
               size="sm"
               variant="prefs"
               active={!!(basePref as any)[key]}
-              title={label}
+              title={t(`prefs.sections.rulesSection.rules.${key}.label`)}
               onClick={() => toggleRule(key)}
             >
-              {short}
+              {t(`prefs.sections.rulesSection.rules.${key}.short`)}
             </Button>
           ))}
         </div>
 
-        {/* Two-a-day */}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between">
-            <div className="text-xs opacity-80">Two-a-day</div>
+            <div className="text-xs opacity-80">{t("prefs.sections.rulesSection.twoADayLabel")}</div>
             <Button
               type="button"
               size="sm"
@@ -196,13 +162,13 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={twoEnabled}
               onClick={toggleTwoADay}
             >
-              {twoEnabled ? "Enabled" : "Disabled"}
+              {twoEnabled ? t("common.enabled") : t("common.disabled")}
             </Button>
           </div>
 
           {twoEnabled && (
             <div className="mt-2 flex items-center gap-2">
-              <div className="text-[11px] opacity-70">Max days/week:</div>
+              <div className="text-[11px] opacity-70">{t("prefs.sections.rulesSection.maxDaysLabel")}</div>
               {[0, 1, 2].map((n) => (
                 <Button
                   key={n}
@@ -219,12 +185,11 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
           )}
         </div>
 
-        {/* Intensity model */}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-xs opacity-80">
-              <span>Intensity model</span>
-              <TooltipIcon text="Vyber len 1. Default: Polarized (80/20). Pyramidal = viac času v Z2–Z3." />
+              <span>{t("prefs.sections.rulesSection.intensityLabel")}</span>
+              <TooltipIcon text={t("prefs.sections.rulesSection.intensityTooltip")} />
             </div>
           </div>
 
@@ -236,7 +201,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={model === "polarized"}
               onClick={() => setIntensityModel("polarized")}
             >
-              Polarized (80/20)
+              {t("prefs.sections.rulesSection.enums.polarized")}
             </Button>
             <Button
               type="button"
@@ -245,17 +210,16 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={model === "pyramidal"}
               onClick={() => setIntensityModel("pyramidal")}
             >
-              Pyramidal
+              {t("prefs.sections.rulesSection.enums.pyramidal")}
             </Button>
           </div>
         </div>
 
-        {/* Training blocks */}
         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-xs opacity-80">
-              <span>Training blocks</span>
-              <TooltipIcon text="Len flagy v preferences.training_blocks.*" />
+              <span>{t("prefs.sections.rulesSection.blocksLabel")}</span>
+              <TooltipIcon text={t("prefs.sections.rulesSection.blocksTooltip")} />
             </div>
           </div>
 
@@ -267,9 +231,8 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={!!blocks.vo2max}
               onClick={() => toggleBlock("vo2max")}
             >
-              VO₂max (run)
+              {t("prefs.sections.rulesSection.enums.vo2max")}
             </Button>
-
             <Button
               type="button"
               size="xs"
@@ -277,9 +240,8 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={!!blocks.ftp}
               onClick={() => toggleBlock("ftp")}
             >
-              FTP (ride)
+              {t("prefs.sections.rulesSection.enums.ftp")}
             </Button>
-
             <Button
               type="button"
               size="xs"
@@ -287,7 +249,7 @@ export function RulesSection({ pref, setLocal, markDirty }: Props) {
               active={!!blocks.threshold}
               onClick={() => toggleBlock("threshold")}
             >
-              Threshold focus
+              {t("prefs.sections.rulesSection.enums.threshold")}
             </Button>
           </div>
         </div>

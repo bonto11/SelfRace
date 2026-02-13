@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useT } from "@/app/shared/i18n/useT";
 
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import Button from "@/app/shared/ui/components/Button";
@@ -19,28 +20,21 @@ import {
   SESSION_CARD_STYLE,
   SESSION_CARD_HOVER,
   SESSION_VARIANT_PAD,
-
   SESSION_HEAD,
   SESSION_BODY,
-
   SESSION_HEAD_ROW,
   SESSION_HEAD_LEFT,
   SESSION_HEAD_RIGHT,
-
   SESSION_DATE,
   SESSION_TITLE,
   SESSION_SUBTITLE,
-
   SESSION_FAVORITE_STAR,
-
   SESSION_PILL,
   SESSION_PLAN_STATUS_STYLE,
-
   SESSION_TOGGLE_BTN,
   SESSION_TOGGLE_BTN_STYLE,
   SESSION_TOGGLE_BTN_HOVER,
   SESSION_TOGGLE_ICON,
-
   SESSION_FLUSH_DETAIL,
   SESSION_FLUSH_DETAIL_STYLE,
 } from "@/app/shared/ui/tokens";
@@ -58,10 +52,8 @@ type Base = {
   title: string;
   dateIso?: string | null;
   sport: string;
-
   defaultOpen?: boolean;
   hideDateLine?: boolean;
-
   subtitle?: string | null;
   kpis?: KPI[];
   notes?: string | null;
@@ -70,12 +62,10 @@ type Base = {
 export type ActivitySession = Base & {
   kind: "activity";
   activityId: number;
-
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
   maxHr?: number | null;
-
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onEdit?: () => void;
@@ -85,7 +75,6 @@ export type ActivitySession = Base & {
 export type BestsSession = Base & {
   kind: "bests";
   activityId: number;
-
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
@@ -95,12 +84,10 @@ export type BestsSession = Base & {
 export type PlanSession = Base & {
   kind: "plan";
   status: PlanStatus;
-
   planDur?: string | null;
   planIntensity?: string | null;
   planTarget?: string | null;
   planNotes?: string | null;
-
   planRaw?: any;
   planStructure?: any;
   planExercises?: any[];
@@ -124,7 +111,6 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
-
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -164,12 +150,6 @@ function shortSkDay(iso?: string | null) {
   return d.toLocaleDateString("sk-SK", { weekday: "short" });
 }
 
-function statusLabel(status: PlanStatus): string {
-  if (status === "done") return "hotovo";
-  if (status === "missed") return "missed";
-  return "planned";
-}
-
 function parseKm(s?: string | null): number | null {
   if (!s) return null;
   const m = s.match(/(-?\d+(?:[.,]\d+)?)\s*km/i);
@@ -186,9 +166,8 @@ export default function SessionCard({
   showPlanDebug = false,
   planReschedule,
 }: SessionCardProps) {
+  const t = useT();
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
-
-  // ✅ Plan-only UI state (hidden by default)
   const [showReschedule, setShowReschedule] = useState(false);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
 
@@ -215,8 +194,10 @@ export default function SessionCard({
       case "bests": {
         const act = item as ActivitySession | BestsSession;
         const distKm = parseKm(act.distanceStr);
-        if (distKm != null && distKm > 0 && act.distanceStr) return `Distance ${act.distanceStr}`;
-        if (act.timeStr) return `Time ${act.timeStr}`;
+        if (distKm != null && distKm > 0 && act.distanceStr) {
+          return `${t("sessions.card.distance")} ${act.distanceStr}`;
+        }
+        if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
         return null;
       }
 
@@ -228,14 +209,17 @@ export default function SessionCard({
 
       case "external": {
         const ext = item as ExternalSession;
-        const bits = [ext.time ? ext.time : null, ext.durationMin != null ? `${ext.durationMin} min` : null].filter(Boolean);
+        const bits = [
+          ext.time ? ext.time : null, 
+          ext.durationMin != null ? `${ext.durationMin} min` : null
+        ].filter(Boolean);
         return bits.length ? bits.join(" · ") : null;
       }
 
       default:
         return null;
     }
-  }, [item, variant]);
+  }, [item, variant, t]);
 
   const canReschedulePlan =
     item.kind === "plan" &&
@@ -270,10 +254,7 @@ export default function SessionCard({
     }
 
     const cnt = Number(dayCounts[toDate] ?? 0);
-
-    // ✅ invariant: max 2 sessions/day
     if (cnt >= maxPerDay) {
-      // revert select
       setPendingDate(fromDate);
       return;
     }
@@ -302,21 +283,23 @@ export default function SessionCard({
 
             <div className="min-w-0">
               <div className={SESSION_TITLE}>{item.title}</div>
-
               {secondaryLine && <div className={SESSION_SUBTITLE}>{secondaryLine}</div>}
             </div>
           </div>
 
           <div className={SESSION_HEAD_RIGHT}>
             {item.kind === "activity" && (item as ActivitySession).isFavorite && (
-              <span className={SESSION_FAVORITE_STAR} title="Favorite">
+              <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
                 ★
               </span>
             )}
 
             {item.kind === "plan" && (
-              <span className={SESSION_PILL} style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}>
-                {statusLabel((item as PlanSession).status)}
+              <span 
+                className={SESSION_PILL} 
+                style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+              >
+                {t(`sessions.status.${(item as PlanSession).status}` as any)}
               </span>
             )}
 
@@ -326,7 +309,7 @@ export default function SessionCard({
               type="button"
               aria-expanded={opened}
               onClick={() => setOpened((s) => !s)}
-              title={opened ? "Skryť detail" : "Otvoriť detail"}
+              title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
               className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
               style={SESSION_TOGGLE_BTN_STYLE}
             >
@@ -392,6 +375,7 @@ function DetailBody({
     onSelect: (toDate: string) => void | Promise<void>;
   };
 }) {
+  const t = useT();
   const compactChart = variant !== "activity";
 
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
@@ -413,14 +397,18 @@ function DetailBody({
         {planRescheduleUI ? (
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs opacity-70">Presunúť tréning na iný deň</div>
+              <div className="text-xs opacity-70">
+                {t("sessions.card.reschedule.title")}
+              </div>
 
               <Button
                 size="xs"
                 variant="secondary"
                 onClick={() => planRescheduleUI.setShow((s) => !s)}
               >
-                {planRescheduleUI.show ? "Zavrieť" : "Reschedule"}
+                {planRescheduleUI.show 
+                  ? t("sessions.card.reschedule.close") 
+                  : t("sessions.card.reschedule.action")}
               </Button>
             </div>
 
@@ -434,7 +422,7 @@ function DetailBody({
                 />
 
                 <div className="mt-1 text-[11px] opacity-60">
-                  Aktuálne: {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
+                  {t("sessions.card.reschedule.current")} {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
                   {shortSkDay(planRescheduleUI.currentDate)}
                 </div>
               </div>

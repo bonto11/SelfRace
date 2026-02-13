@@ -4,10 +4,14 @@ import * as React from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsProfile";
+import {
+  OPTIONS,
+  WEEK_OPTIONS,
+  buildRecoveryLineOptions,
+  ensureChartJSRegistered,
+} from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
@@ -23,7 +27,6 @@ import {
   hexWithAlpha,
 } from "@/app/features/profile/utils/profile";
 
-import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -257,6 +260,7 @@ export default function TrendVO2Max() {
   const data: ChartData<"line", number[], string> = { labels, datasets };
 
   const options: ChartOptions<"line"> = buildRecoveryLineOptions({
+    t,
     labelsISO,
     yTitle: t("common.units.vo2max"),
     tooltipTitleForIndex: (i) =>
@@ -266,17 +270,23 @@ export default function TrendVO2Max() {
       const label = ctx.dataset?.label ?? "";
       if (label === t("VO2Max.chart.estLabel")) {
         const v = seriesEst[idx];
-        return Number.isFinite(v) ? `${t("VO2Max.chart.estimated")}: ${Number(v).toFixed(1)}` : "—";
+        return Number.isFinite(v)
+          ? `${t("VO2Max.chart.estimated")}: ${Number(v).toFixed(1)}`
+          : "—";
       }
       if (label === t("VO2Max.chart.measLabel")) {
         const v = seriesMeas[idx];
-        return Number.isFinite(v) ? `${t("VO2Max.chart.measured")}: ${Number(v).toFixed(1)}` : "—";
+        return Number.isFinite(v)
+          ? `${t("VO2Max.chart.measured")}: ${Number(v).toFixed(1)}`
+          : "—";
       }
       return "";
     },
     tooltipFilter: (item) => {
       const l = item.dataset?.label ?? "";
-      return l === t("VO2Max.chart.estLabel") || l === t("VO2Max.chart.measLabel");
+      return (
+        l === t("VO2Max.chart.estLabel") || l === t("VO2Max.chart.measLabel")
+      );
     },
     yMin: 0,
     yMax: suggestedTop,
@@ -293,7 +303,7 @@ export default function TrendVO2Max() {
             <SelectField
               value={String(weeks)}
               onChange={(e) => setWeeks(Number(e.target.value))}
-              options={WEEK_OPTIONS}
+              options={WEEK_OPTIONS(t)}
               containerClassName="w-[132px]"
               variant="editable"
               placeholder="—"

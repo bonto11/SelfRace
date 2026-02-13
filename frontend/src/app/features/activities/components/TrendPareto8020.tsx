@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Chart as LineChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { OPTIONS, LOOKBACK_OPTIONS } from "@/app/shared/charts/optionsActivity";
+import { OPTIONS, LOOKBACK_OPTIONS ,ensureChartJSRegistered} from "@/app/shared/charts/chart_builders";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -250,7 +249,7 @@ export default function TrendPareto8020({
               onValueChange={(value: string) =>
                 setLookback(Number(value) as Lookback)
               }
-              options={LOOKBACK_OPTIONS}
+              options={LOOKBACK_OPTIONS(t)}
               placeholder="—"
               containerClassName="w-[130px]"
               variant="editable"

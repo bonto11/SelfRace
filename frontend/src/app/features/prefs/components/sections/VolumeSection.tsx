@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
+import { useT } from "@/app/shared/i18n/useT";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
@@ -28,93 +29,77 @@ type Props = {
 };
 
 export function VolumeSection({ volume, setPref }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
-  const mode: VolumeInputMode =
-    (volume?.mode as VolumeInputMode | undefined) ?? "weekly_hours";
+  const mode: VolumeInputMode = (volume?.mode as VolumeInputMode | undefined) ?? "weekly_hours";
 
   const rawValue = volume?.value != null ? Number(volume.value) : NaN;
   const safeVal = Number.isFinite(rawValue) && rawValue > 0 ? rawValue : NaN;
 
   const { weeklyHours, dailyMinutes } = useMemo(() => {
     if (!Number.isFinite(safeVal) || safeVal <= 0) {
-      return {
-        weeklyHours: null as number | null,
-        dailyMinutes: null as number | null,
-      };
+      return { weeklyHours: null, dailyMinutes: null };
     }
-
     if (mode === "weekly_hours") {
-      const wh = safeVal;
-      const dm = (wh * 60) / 7;
-      return { weeklyHours: wh, dailyMinutes: dm };
+      return { weeklyHours: safeVal, dailyMinutes: (safeVal * 60) / 7 };
     }
-
-    const dm = safeVal;
-    const wh = (dm * 7) / 60;
-    return { weeklyHours: wh, dailyMinutes: dm };
+    return { weeklyHours: (safeVal * 7) / 60, dailyMinutes: safeVal };
   }, [safeVal, mode]);
 
   const previewText = useMemo(() => {
     if (!weeklyHours || !dailyMinutes) {
-      return "No volume limit set – coach odhaduje objem podľa cieľov a histórie.";
+      return t("prefs.sections.volumeSection.previewEmpty");
     }
     const wh = weeklyHours.toFixed(1);
     const dm = Math.round(dailyMinutes);
-    return `≈ ${wh} h / týždeň · ≈ ${dm} min / deň. Coach sa väčšinou snaží zostať pod týmto objemom (okrem krátkeho peaku pred hlavnými pretekmi).`;
-  }, [weeklyHours, dailyMinutes]);
+    return t("prefs.sections.volumeSection.previewText")
+      .replace("{{hours}}", wh)
+      .replace("{{minutes}}", String(dm));
+  }, [weeklyHours, dailyMinutes, t]);
 
   const handleModeChange = (nextMode: VolumeInputMode) => {
-    const next: VolumePrefs = {
-      mode: nextMode,
-      value: volume?.value ?? null,
-    };
-    setPref("volume", next);
+    setPref("volume", { mode: nextMode, value: volume?.value ?? null });
   };
 
   const handleValueChange = (v: string) => {
     const raw = (v ?? "").trim();
     if (!raw) {
-      setPref("volume", { mode, value: null } as VolumePrefs);
+      setPref("volume", { mode, value: null });
       return;
     }
-
     const num = Number(raw.replace(",", "."));
     if (Number.isNaN(num) || num < 0) return;
-
-    setPref("volume", { mode, value: num } as VolumePrefs);
+    setPref("volume", { mode, value: num });
   };
 
-  const valueLabel =
-    mode === "weekly_hours" ? "Value [h / týždeň]" : "Value [min / deň]";
-
-  const previewNode = <span>{previewText}</span>;
+  const valueLabel = mode === "weekly_hours" 
+    ? t("prefs.sections.volumeSection.valueWeekly") 
+    : t("prefs.sections.volumeSection.valueDaily");
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Training volume</span>
-          <TooltipIcon text="Nastav orientačný limit objemu.\n\nZadaj buď celkové hodiny za týždeň, alebo priemerné minúty za deň.\nCoach sa bude snažiť väčšinu týždňov držať pod týmto limitom." />
+          <span>{t("prefs.sections.volumeSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.volumeSection.widget.tooltip")} />
         </div>
       }
-      subtitle="Limit objemu pre plánovanie (hodiny/týždeň alebo minúty/deň)."
-      preview={previewNode}
+      subtitle={t("prefs.sections.volumeSection.subtitle")}
+      preview={previewText}
       open={open}
       onOpenChange={setOpen}
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Input mode</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.volumeSection.modeLabel")}</div>
             <SelectField
               value={mode}
-              onChange={(e) =>
-                handleModeChange(e.target.value as VolumeInputMode)
-              }
+              onChange={(e) => handleModeChange(e.target.value as VolumeInputMode)}
               options={[
-                { value: "weekly_hours", label: "Total weekly [h]" },
-                { value: "daily_minutes", label: "Average daily [min]" },
+                { value: "weekly_hours", label: t("prefs.sections.volumeSection.enums.weekly") },
+                { value: "daily_minutes", label: t("prefs.sections.volumeSection.enums.daily") },
               ]}
             />
           </section>
@@ -131,10 +116,9 @@ export function VolumeSection({ volume, setPref }: Props) {
           </section>
         </div>
 
-        {/* repeated help text when open */}
-        <div className="flex items-start gap-2 text-xs opacity-80 leading-relaxed">
+        <div className="flex items-start gap-2 text-xs opacity-80 leading-relaxed italic">
           <div className="flex-1">{previewText}</div>
-          <TooltipIcon text="Ak necháš prázdne, coach si objem odhadne z histórie (posledné týždne) a cieľov." />
+          <TooltipIcon text={t("prefs.sections.volumeSection.hintTooltip")} />
         </div>
       </div>
     </InputsCard>

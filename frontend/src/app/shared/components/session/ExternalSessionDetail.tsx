@@ -4,6 +4,7 @@
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import { safeText } from "@/app/shared/components/session/sessionUtils";
 import type { ExternalSession } from "@/app/shared/components/session/SessionCard";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -14,26 +15,16 @@ import {
   SESSION_MINITILE_VALUE,
 } from "@/app/shared/ui/tokens";
 
-type MiniMetric = {
-  label: string;
-  value: string | number | null;
-};
-
-type MiniMetricGridProps = {
-  metrics: MiniMetric[];
-  cols?: 2 | 3;
-};
+type MiniMetric = { label: string; value: string | number | null; };
 
 function valOrDash(v: string | number | null): string {
   if (v === null || v === undefined || v === "") return "—";
   return String(v);
 }
 
-function MiniMetricGrid({ metrics, cols = 2 }: MiniMetricGridProps) {
-  if (!metrics || metrics.length === 0) return null;
-
+function MiniMetricGrid({ metrics, cols = 2 }: { metrics: MiniMetric[], cols?: 2 | 3 }) {
+  if (!metrics?.length) return null;
   const colClass = cols === 2 ? SESSION_MINIGRID_2COL : SESSION_MINIGRID_3COL;
-
   return (
     <div className={[SESSION_MINIGRID_BASE, colClass].join(" ")}>
       {metrics.map((m) => (
@@ -46,12 +37,8 @@ function MiniMetricGrid({ metrics, cols = 2 }: MiniMetricGridProps) {
   );
 }
 
-type Props = {
-  variant: ComponentVariant;
-  item: ExternalSession;
-};
-
-export default function ExternalSessionDetail({ item }: Props) {
+export default function ExternalSessionDetail({ item }: { variant: ComponentVariant; item: ExternalSession; }) {
+  const t = useT();
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
 
   const metricsFromKpis: MiniMetric[] = kpis.map((k) => ({
@@ -60,22 +47,15 @@ export default function ExternalSessionDetail({ item }: Props) {
   }));
 
   const fallbackMetrics: MiniMetric[] = [
-    item.time ? { label: "Time", value: item.time } : null,
+    item.time ? { label: t("common.metrics.time"), value: item.time } : null,
     item.durationMin != null
-      ? { label: "Duration", value: `${item.durationMin} min` }
+      ? { label: t("sessions.detail.unitMin"), value: `${item.durationMin} min` }
       : null,
   ].filter(Boolean) as MiniMetric[];
 
   return (
     <div>
-      {metricsFromKpis.length > 0 && (
-        <MiniMetricGrid metrics={metricsFromKpis} cols={2} />
-      )}
-
-      {metricsFromKpis.length === 0 && fallbackMetrics.length > 0 && (
-        <MiniMetricGrid metrics={fallbackMetrics} cols={2} />
-      )}
-
+      <MiniMetricGrid metrics={metricsFromKpis.length > 0 ? metricsFromKpis : fallbackMetrics} cols={2} />
       {item.notes && (
         <div className="mt-3 text-sm opacity-90">{safeText(item.notes)}</div>
       )}

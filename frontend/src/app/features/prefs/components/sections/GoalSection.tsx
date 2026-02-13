@@ -9,9 +9,9 @@ import DateField from "@/app/shared/ui/components/DateField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
-
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 /* ─────────────────────── constants ─────────────────────── */
 
@@ -22,49 +22,11 @@ const OVERALL_GOALS = [
   "maintain",
 ] as const;
 
-const OVERALL_LABEL: Record<(typeof OVERALL_GOALS)[number], string> = {
-  improve_speed: "Improve speed",
-  improve_endurance: "Improve endurance",
-  improve_overall: "Improve overall",
-  maintain: "Maintain",
-};
-
 const RACE_GOALS = ["5k", "10k", "half", "marathon", "ultra", "other"] as const;
-const RACE_GOAL_LABEL: Record<(typeof RACE_GOALS)[number], string> = {
-  "5k": "5 km",
-  "10k": "10 km",
-  half: "Half marathon",
-  marathon: "Marathon",
-  ultra: "Ultra",
-  other: "Other / custom",
-};
-
 const PRIORITIES = ["A", "B", "C"] as const;
-
 const RACE_TYPES = ["road", "trail", "track", "cross", "ocr", "other"] as const;
-const RACE_TYPE_LABEL: Record<(typeof RACE_TYPES)[number], string> = {
-  road: "Road",
-  trail: "Trail",
-  track: "Track",
-  cross: "XC / cross",
-  ocr: "OCR",
-  other: "Other",
-};
-
 const TERRAIN = ["flat", "rolling", "hilly", "mountain"] as const;
-const TERRAIN_LABEL: Record<(typeof TERRAIN)[number], string> = {
-  flat: "Flat",
-  rolling: "Rolling",
-  hilly: "Hilly",
-  mountain: "Mountain",
-};
-
 const ELEVATION = ["low", "moderate", "high"] as const;
-const ELEVATION_LABEL: Record<(typeof ELEVATION)[number], string> = {
-  low: "Low gain",
-  moderate: "Moderate",
-  high: "High gain",
-};
 
 /* ─────────────────────── helpers ─────────────────────── */
 
@@ -98,15 +60,19 @@ const emptyRace = () => ({
 type Props = {
   local: any;
   setPref: (key: any, value: any) => void;
-  upsertRunTargets: (patch: Partial<NonNullable<any["targets"]>["run"]>) => void;
+  upsertRunTargets: (
+    patch: Partial<NonNullable<any["targets"]>["run"]>,
+  ) => void;
 };
 
 /* ─────────────────────── component ─────────────────────── */
 
 export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
-  const overallGoal: (typeof OVERALL_GOALS)[number] | undefined = local.goal_kind;
+  const overallGoal: (typeof OVERALL_GOALS)[number] | undefined =
+    local.goal_kind;
   const runTargets = (local.targets?.run ?? {}) as any;
 
   const races: any[] = useMemo(
@@ -114,40 +80,64 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     [runTargets.races],
   );
 
+  /* ---------- labels mapping ---------- */
+
+  const getOverallLabel = (g: string) =>
+    (t as any)(`prefs.sections.goalSection.enums.overall.${g}`);
+  const getRaceGoalLabel = (rg: string) =>
+    (t as any)(`prefs.sections.goalSection.enums.race.${rg}`);
+  const getRaceTypeLabel = (rt: string) =>
+    (t as any)(`prefs.sections.goalSection.enums.type.${rt}`);
+  const getTerrainLabel = (terr: string) =>
+    (t as any)(`prefs.sections.goalSection.enums.terrain.${terr}`);
+  const getElevationLabel = (elev: string) =>
+    (t as any)(`prefs.sections.goalSection.enums.elevation.${elev}`);
+
   /* ---------- closed preview ---------- */
 
   const aRace =
-    races.find((r) => r.priority === "A") ?? (races.length > 0 ? races[0] : null);
+    races.find((r) => r.priority === "A") ??
+    (races.length > 0 ? races[0] : null);
 
   const racePreview = aRace
     ? (() => {
         const parts: string[] = [];
-        if (aRace.priority) parts.push(`Priority ${aRace.priority}`);
+        if (aRace.priority)
+          parts.push(
+            `${t("prefs.sections.goalSection.previewPriority")} ${aRace.priority}`,
+          );
 
         const rg = aRace.race_goal as (typeof RACE_GOALS)[number] | null;
         const customKm = aRace.custom_distance_km as number | null;
         if (rg) {
           if (rg === "other" && customKm) parts.push(`${customKm} km`);
-          else parts.push(RACE_GOAL_LABEL[rg] ?? rg);
+          else parts.push(getRaceGoalLabel(rg));
         }
 
         if (aRace.date) parts.push(String(aRace.date));
 
         const rt = aRace.race_type as (typeof RACE_TYPES)[number] | null;
-        if (rt) parts.push(RACE_TYPE_LABEL[rt]);
+        if (rt) parts.push(getRaceTypeLabel(rt));
 
         return parts.join(" · ");
       })()
     : null;
 
-  const overallLabel = overallGoal ? OVERALL_LABEL[overallGoal] : "None";
+  const overallLabel = overallGoal
+    ? getOverallLabel(overallGoal)
+    : t("prefs.sections.goalSection.none");
 
   const previewParts = [
-    `Goal: ${overallLabel}`,
-    racePreview ? `Key race: ${racePreview}` : null,
+    `${t("prefs.sections.goalSection.previewGoal")}: ${overallLabel}`,
+    racePreview
+      ? `${t("prefs.sections.goalSection.previewKeyRace")}: ${racePreview}`
+      : null,
   ].filter(Boolean);
 
-  const previewText = previewParts.length > 0 ? previewParts.join(" | ") : "No goal set";
+  const previewText =
+    previewParts.length > 0
+      ? previewParts.join(" | ")
+      : t("prefs.sections.goalSection.previewNoGoal");
 
   /* ---------- helpers / mutators ---------- */
 
@@ -155,7 +145,8 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   const syncMainRaceToTargets = (racesNext: any[]) => {
     const main =
-      racesNext.find((r) => r.priority === "A") ?? (racesNext.length > 0 ? racesNext[0] : null);
+      racesNext.find((r) => r.priority === "A") ??
+      (racesNext.length > 0 ? racesNext[0] : null);
 
     if (!main) {
       updateRunTargets({
@@ -185,10 +176,10 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     const cur = Array.isArray(races) ? races : [];
     const next = cur.map((r, i) => (i === index ? { ...r, ...patch } : r));
 
-    // max jedno "A"
     if (patch.priority === "A") {
       for (let i = 0; i < next.length; i += 1) {
-        if (i !== index && next[i].priority === "A") next[i] = { ...next[i], priority: null };
+        if (i !== index && next[i].priority === "A")
+          next[i] = { ...next[i], priority: null };
       }
     }
 
@@ -209,13 +200,17 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     syncMainRaceToTargets(next);
   };
 
-  const handleRaceGoalClick = (index: number, g: (typeof RACE_GOALS)[number]) => {
+  const handleRaceGoalClick = (
+    index: number,
+    g: (typeof RACE_GOALS)[number],
+  ) => {
     const race = races[index] ?? {};
     const current = race.race_goal as (typeof RACE_GOALS)[number] | null;
     const nextGoal = current === g ? null : g;
 
     const patch: any = { race_goal: nextGoal };
-    if (nextGoal !== "other" && nextGoal !== "ultra") patch.custom_distance_km = null;
+    if (nextGoal !== "other" && nextGoal !== "ultra")
+      patch.custom_distance_km = null;
 
     updateRaceAt(index, patch);
   };
@@ -226,18 +221,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Goal</span>
-          <TooltipIcon
-            text={
-              "Key races (A/B/C) + overall training goal.\n\n" +
-              "A-race = najdôležitejší cieľ, podľa neho sa plán najviac prispôsobí."
-            }
-          />
+          <span>{t("prefs.sections.goalSection.title")}</span>
+          <TooltipIcon text={t("prefs.sections.goalSection.widget.tooltip")} />
         </div>
       }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
-          Key races & overall training goal.
+          {t("prefs.sections.goalSection.subtitle")}
         </span>
       }
       preview={previewText}
@@ -250,29 +240,43 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-medium opacity-70">
-              <span>1. Key races (A/B/C)</span>
-              <TooltipIcon text="Pridaj preteky, ktoré chceš cieliť. A = hlavný cieľ, B/C = doplnkové." />
+              <span>{t("prefs.sections.goalSection.racesTitle")}</span>
+              <TooltipIcon
+                text={t("prefs.sections.goalSection.racesTooltip")}
+              />
             </div>
 
             <Button size="xs" variant="success" onClick={addRace}>
-              Add race
+              {t("prefs.sections.goalSection.addBtn")}
             </Button>
           </div>
 
           {races.length === 0 && (
             <div className="text-xs opacity-60">
-              No races yet. Add at least one A-race if máš konkrétny cieľ.
+              {t("prefs.sections.goalSection.noRaces")}
             </div>
           )}
 
           <div className="space-y-4">
             {races.map((race, index) => {
-              const raceGoal = race.race_goal as (typeof RACE_GOALS)[number] | null | undefined;
+              const raceGoal = race.race_goal as
+                | (typeof RACE_GOALS)[number]
+                | null
+                | undefined;
               const showCustom = raceGoal === "other" || raceGoal === "ultra";
 
-              const rt = race.race_type as (typeof RACE_TYPES)[number] | null | undefined;
-              const terr = race.terrain as (typeof TERRAIN)[number] | null | undefined;
-              const elev = race.elevation_profile as (typeof ELEVATION)[number] | null | undefined;
+              const rt = race.race_type as
+                | (typeof RACE_TYPES)[number]
+                | null
+                | undefined;
+              const terr = race.terrain as
+                | (typeof TERRAIN)[number]
+                | null
+                | undefined;
+              const elev = race.elevation_profile as
+                | (typeof ELEVATION)[number]
+                | null
+                | undefined;
 
               return (
                 <div
@@ -282,31 +286,45 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <TextField
                       containerClassName="flex-1"
-                      label={`Race ${index + 1} name (optional)`}
-                      placeholder="e.g. Bratislava 10k"
+                      label={t(
+                        "prefs.sections.goalSection.raceNameLabel",
+                      ).replace("{{index}}", String(index + 1))}
+                      placeholder={t(
+                        "prefs.sections.goalSection.raceNamePlaceholder",
+                      )}
                       value={race.name ?? ""}
                       onChange={(e) =>
-                        updateRaceAt(index, { name: e.currentTarget.value || null })
+                        updateRaceAt(index, {
+                          name: e.currentTarget.value || null,
+                        })
                       }
                     />
 
-                    <Button size="xs" variant="danger" onClick={() => removeRace(index)}>
-                      Remove
+                    <Button
+                      size="xs"
+                      variant="danger"
+                      onClick={() => removeRace(index)}
+                    >
+                      {t("prefs.sections.goalSection.removeBtn")}
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div>
-                      <div className="text-xs opacity-70 mb-1">Race date</div>
+                      <div className="text-xs opacity-70 mb-1">
+                        {t("prefs.sections.goalSection.dateLabel")}
+                      </div>
                       <DateField
                         value={(race.date as string | null) ?? null}
-                        onChange={(v) => updateRaceAt(index, { date: v || null })}
+                        onChange={(v) =>
+                          updateRaceAt(index, { date: v || null })
+                        }
                         variant="editable"
                       />
                     </div>
 
                     <SelectField
-                      label="Race priority"
+                      label={t("prefs.sections.goalSection.priorityLabel")}
                       value={race.priority ?? ""}
                       onChange={(e) =>
                         updateRaceAt(index, {
@@ -322,21 +340,31 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                     />
 
                     <TextField
-                      label="Target time (hh:mm:ss)"
-                      placeholder="e.g. 00:39:00"
+                      label={t("prefs.sections.goalSection.targetTimeLabel")}
+                      placeholder={t(
+                        "prefs.sections.goalSection.targetTimePlaceholder",
+                      )}
                       value={race.target_time ?? ""}
                       onChange={(e) =>
-                        updateRaceAt(index, { target_time: e.currentTarget.value || null })
+                        updateRaceAt(index, {
+                          target_time: e.currentTarget.value || null,
+                        })
                       }
                     />
 
                     <TextField
-                      label="Elevation gain (m)"
+                      label={t("prefs.sections.goalSection.elevationGainLabel")}
                       placeholder="e.g. 1200"
-                      value={race.elevation_gain_m != null ? String(race.elevation_gain_m) : ""}
+                      value={
+                        race.elevation_gain_m != null
+                          ? String(race.elevation_gain_m)
+                          : ""
+                      }
                       onChange={(e) => {
                         const v = e.currentTarget.value.trim();
-                        updateRaceAt(index, { elevation_gain_m: v ? Number(v) || null : null });
+                        updateRaceAt(index, {
+                          elevation_gain_m: v ? Number(v) || null : null,
+                        });
                       }}
                       inputMode="decimal"
                     />
@@ -344,13 +372,21 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-xs opacity-70">
-                      <span>Distance & terrain</span>
-                      <TooltipIcon text="Vyber distance + typ povrchu/terén. Pomáha to coachovi stavať špecifické tréningy." />
+                      <span>
+                        {t("prefs.sections.goalSection.distTerrainTitle")}
+                      </span>
+                      <TooltipIcon
+                        text={t(
+                          "prefs.sections.goalSection.distTerrainTooltip",
+                        )}
+                      />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                       <div className="sm:col-span-2 space-y-1">
-                        <div className="text-xs opacity-70">Target race distance</div>
+                        <div className="text-xs opacity-70">
+                          {t("prefs.sections.goalSection.targetDistLabel")}
+                        </div>
 
                         <div className="flex flex-wrap gap-1.5">
                           {RACE_GOALS.map((rg) => (
@@ -361,7 +397,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                               active={raceGoal === rg}
                               onClick={() => handleRaceGoalClick(index, rg)}
                             >
-                              {RACE_GOAL_LABEL[rg]}
+                              {getRaceGoalLabel(rg)}
                             </Button>
                           ))}
                         </div>
@@ -369,7 +405,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                         {showCustom && (
                           <div className="mt-2">
                             <TextField
-                              label="Custom distance (km)"
+                              label={t(
+                                "prefs.sections.goalSection.customDistLabel",
+                              )}
                               placeholder="e.g. 7, 25, 50"
                               value={
                                 race.custom_distance_km != null
@@ -379,7 +417,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                               onChange={(e) => {
                                 const v = e.currentTarget.value.trim();
                                 updateRaceAt(index, {
-                                  custom_distance_km: v ? Number(v) || null : null,
+                                  custom_distance_km: v
+                                    ? Number(v) || null
+                                    : null,
                                 });
                               }}
                               inputMode="decimal"
@@ -389,39 +429,56 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       </div>
 
                       <SelectField
-                        label="Race type"
+                        label={t("prefs.sections.goalSection.raceTypeLabel")}
                         value={rt ?? ""}
                         onChange={(e) =>
-                          updateRaceAt(index, { race_type: e.currentTarget.value || null })
+                          updateRaceAt(index, {
+                            race_type: e.currentTarget.value || null,
+                          })
                         }
                         options={[
                           { value: "", label: "—" },
-                          ...RACE_TYPES.map((t) => ({ value: t, label: RACE_TYPE_LABEL[t] })),
+                          ...RACE_TYPES.map((t) => ({
+                            value: t,
+                            label: getRaceTypeLabel(t),
+                          })),
                         ]}
                       />
 
                       <div className="space-y-2">
                         <SelectField
-                          label="Terrain"
+                          label={t("prefs.sections.goalSection.terrainLabel")}
                           value={terr ?? ""}
                           onChange={(e) =>
-                            updateRaceAt(index, { terrain: e.currentTarget.value || null })
+                            updateRaceAt(index, {
+                              terrain: e.currentTarget.value || null,
+                            })
                           }
                           options={[
                             { value: "", label: "—" },
-                            ...TERRAIN.map((t) => ({ value: t, label: TERRAIN_LABEL[t] })),
+                            ...TERRAIN.map((t) => ({
+                              value: t,
+                              label: getTerrainLabel(t),
+                            })),
                           ]}
                         />
 
                         <SelectField
-                          label="Elevation profile"
+                          label={t(
+                            "prefs.sections.goalSection.elevationProfileLabel",
+                          )}
                           value={elev ?? ""}
                           onChange={(e) =>
-                            updateRaceAt(index, { elevation_profile: e.currentTarget.value || null })
+                            updateRaceAt(index, {
+                              elevation_profile: e.currentTarget.value || null,
+                            })
                           }
                           options={[
                             { value: "", label: "—" },
-                            ...ELEVATION.map((t) => ({ value: t, label: ELEVATION_LABEL[t] })),
+                            ...ELEVATION.map((t) => ({
+                              value: t,
+                              label: getElevationLabel(t),
+                            })),
                           ]}
                         />
                       </div>
@@ -436,8 +493,10 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
         {/* 2. OVERALL GOAL */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2 text-xs font-medium opacity-70">
-            <span>2. Overall training goal</span>
-            <TooltipIcon text="Toto je všeobecný smer tréningu. Ak máš A-race, plán sa aj tak najviac prispôsobí jemu." />
+            <span>{t("prefs.sections.goalSection.overallTitle")}</span>
+            <TooltipIcon
+              text={t("prefs.sections.goalSection.overallTooltip")}
+            />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -447,14 +506,21 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                 size="sm"
                 variant="prefs"
                 active={overallGoal === g}
-                onClick={() => setPref("goal_kind", overallGoal === g ? undefined : g)}
+                onClick={() =>
+                  setPref("goal_kind", overallGoal === g ? undefined : g)
+                }
               >
-                {OVERALL_LABEL[g]}
+                {getOverallLabel(g)}
               </Button>
             ))}
 
-            <Button size="sm" variant="prefs" active={!overallGoal} onClick={() => setPref("goal_kind", undefined)}>
-              None
+            <Button
+              size="sm"
+              variant="prefs"
+              active={!overallGoal}
+              onClick={() => setPref("goal_kind", undefined)}
+            >
+              {t("prefs.sections.goalSection.none")}
             </Button>
           </div>
         </div>

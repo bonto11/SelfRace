@@ -4,14 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsRecovery";
 import {
   rollingMean,
   bandsAround,
   wrapToLines,
 } from "@/app/shared/utils/recovery";
-import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
+import { OPTIONS, WEEK_OPTIONS, buildRecoveryLineOptions, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -248,8 +246,9 @@ export default function DetailRHR() {
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
+        t,
         labelsISO,
-        yTitle: "bpm",
+        yTitle: t("common.units.hr"),
         tooltipTitleForIndex: (i) =>
           new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
             "sk-SK",
@@ -305,7 +304,7 @@ export default function DetailRHR() {
         <SelectField
           value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          options={WEEK_OPTIONS}
+          options={WEEK_OPTIONS(t)}
           variant="editable"
           containerClassName="w-[152px]"
         />

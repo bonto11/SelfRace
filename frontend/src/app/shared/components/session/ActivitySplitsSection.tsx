@@ -2,6 +2,7 @@
 "use client";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   SESSION_SPLITS_WRAP,
   SESSION_SPLITS_TOTAL,
@@ -27,7 +28,7 @@ import {
 } from "@/app/shared/ui/tokens";
 
 type Props = {
-  kind: any[]; // splits alebo laps
+  kind: any[];
 };
 
 type SplitRow = {
@@ -45,31 +46,11 @@ function toNumber(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// 1 km ± 10 m -> 1.0, inak km s 1 desatinným miestom
-function formatSplitDistanceFull(distance_m: number | null): string {
-  if (distance_m == null) return "—";
-  const km = distance_m / 1000;
-
-  if (Math.abs(distance_m - 1000) <= 10) {
-    return "1.0";
-  }
-
-  return km.toFixed(1);
-}
-
-// krátka verzia na mobil – rovnako 1 desatinné miesto
 function formatSplitDistanceShort(distance_m: number | null): string {
   if (distance_m == null) return "—";
-  const km = distance_m / 1000;
-
-  if (Math.abs(distance_m - 1000) <= 10) {
-    return "1.0";
-  }
-
-  return km.toFixed(1);
+  return (distance_m / 1000).toFixed(1);
 }
 
-// čas do tabuľky – mm:ss alebo h:mm:ss, bez sufixov
 function formatTimeShort(seconds: number | null): string {
   if (seconds == null || seconds <= 0) return "—";
   const total = Math.round(seconds);
@@ -82,7 +63,6 @@ function formatTimeShort(seconds: number | null): string {
   return `${mm}:${ss}`;
 }
 
-// tempo: mm:ss
 function formatPace(pace_s_per_km: number | null): string {
   if (pace_s_per_km == null || pace_s_per_km <= 0) return "—";
   const total = Math.round(pace_s_per_km);
@@ -105,29 +85,15 @@ function formatElev(elev: number | null): string {
 function buildRows(data: any[]): SplitRow[] {
   return data.map((sp, i) => {
     const distance_m = toNumber(sp.distance_m) ?? toNumber(sp.distance) ?? null;
-
     const time_s =
       toNumber(sp.moving_time_s) ?? toNumber(sp.elapsed_time_s) ?? null;
-
     const pace_s_per_km =
       toNumber(sp.pace_s_per_km) ??
-      (() => {
-        if (!distance_m || !time_s || distance_m <= 0) return null;
-        return time_s / (distance_m / 1000);
-      })();
-
+      (distance_m && time_s ? time_s / (distance_m / 1000) : null);
     const avg_hr_bpm =
-      toNumber(sp.avg_hr_bpm) ??
-      toNumber(sp.average_heartrate_bpm) ??
-      toNumber(sp.avg_hr) ??
-      null;
-
+      toNumber(sp.avg_hr_bpm) ?? toNumber(sp.average_heartrate_bpm) ?? null;
     const elev_delta_m =
-      toNumber(sp.elev_delta_m) ??
-      toNumber(sp.elev_diff_m) ??
-      toNumber(sp.elevation_diff_m) ??
-      toNumber(sp.elevation_gain_m) ??
-      null;
+      toNumber(sp.elev_delta_m) ?? toNumber(sp.elevation_gain_m) ?? null;
 
     return {
       index: i + 1,
@@ -140,61 +106,30 @@ function buildRows(data: any[]): SplitRow[] {
   });
 }
 
-function makeHeightScaler(
-  values: (number | null)[],
-  minPx = 1,
-  maxPx = 100
-): (v: number | null) => number {
-  const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
-  if (!nums.length) {
-    return () => (minPx + maxPx) / 2;
-  }
-
-  let min = nums[0];
-  let max = nums[0];
-  let sum = 0;
-  for (const v of nums) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-    sum += v;
-  }
-
-  if (min === max) {
-    return () => (minPx + maxPx) / 2;
-  }
-
+function makeHeightScaler(values: (number | null)[], minPx = 1, maxPx = 100) {
+  const nums = values.filter(
+    (v) => v != null && Number.isFinite(v),
+  ) as number[];
+  if (!nums.length) return () => (minPx + maxPx) / 2;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return () => (minPx + maxPx) / 2;
   return (v: number | null) => {
-    if (v == null || !Number.isFinite(v)) return minPx;
-    const t = (v - min) / (max - min);
-    return minPx + t * (maxPx - minPx);
+    if (v == null) return minPx;
+    return minPx + ((v - min) / (max - min)) * (maxPx - minPx);
   };
 }
 
-function computeStats(values: (number | null)[]): {
-  min: number;
-  max: number;
-  avg: number;
-} | null {
-  const nums = values.filter((v) => v != null && Number.isFinite(v)) as number[];
-  if (!nums.length) return null;
-  let min = nums[0];
-  let max = nums[0];
-  let sum = 0;
-  for (const v of nums) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-    sum += v;
-  }
-  return { min, max, avg: sum / nums.length };
-}
-
 export function ActivitySplitsSection({ kind }: Props) {
+  const t = useT();
   const rows = buildRows(Array.isArray(kind) ? kind : []).filter(
-    (r) => r.time_s != null
+    (r) => r.time_s != null,
   );
 
   if (!rows.length) {
-    return <div className={SESSION_SPLITS_EMPTY}>Žiadne dáta.</div>;
+    return (
+      <div className={SESSION_SPLITS_EMPTY}>{t("sessions.splits.noData")}</div>
+    );
   }
 
   const totalTime = rows.reduce((acc, r) => acc + (r.time_s ?? 0), 0) || 0;
@@ -202,50 +137,24 @@ export function ActivitySplitsSection({ kind }: Props) {
   return (
     <div className={SESSION_SPLITS_WRAP}>
       <div className={SESSION_SPLITS_TOTAL}>
-        Total time: {fmtSecondsHMS(totalTime)}
+        {t("sessions.splits.totalTime")}: {fmtSecondsHMS(totalTime)}
       </div>
 
       <div className={SESSION_SPLITS_BARS_STACK}>
         <MetricBarRow
-          label="Heart rate"
+          label={t("common.metrics.hr")}
           rows={rows}
           metric="hr"
-          getValue={(r) => r.avg_hr_bpm}
-          getStatValue={(r) => r.avg_hr_bpm}
-          formatStat={(v) => formatHr(v)}
-          statMode="hr"
+          getValue={(r: SplitRow) => r.avg_hr_bpm}
+          formatStat={formatHr}
         />
 
         <MetricBarRow
-          label="Pace"
+          label={t("common.metrics.pace")}
           rows={rows}
           metric="pace"
-          getValue={(r) => r.pace_s_per_km}
-          getStatValue={(r) => r.pace_s_per_km}
-          formatStat={(v) => formatPace(v)}
-          statMode="pace"
-        />
-
-        <MetricBarRow
-          label="Elevation"
-          rows={rows}
-          metric="elev"
-          getValue={(r) =>
-            r.elev_delta_m != null ? Math.abs(r.elev_delta_m) : null
-          }
-          getStatValue={(r) => r.elev_delta_m}
-          formatStat={(v) => formatElev(v)}
-          statMode="elev"
-        />
-
-        <MetricBarRow
-          label="Time"
-          rows={rows}
-          metric="time"
-          getValue={(r) => r.time_s}
-          getStatValue={(r) => r.time_s}
-          formatStat={(v) => formatTimeShort(v)}
-          statMode="time"
+          getValue={(r: SplitRow) => r.pace_s_per_km}
+          formatStat={formatPace}
         />
       </div>
 
@@ -257,14 +166,23 @@ export function ActivitySplitsSection({ kind }: Props) {
           >
             <tr className={SESSION_SPLITS_THEAD_ROW}>
               <th className={SESSION_SPLITS_TH}>#</th>
-              <th className={SESSION_SPLITS_TH}>Dist. (km)</th>
-              <th className={SESSION_SPLITS_TH}>Avg HR (bpm)</th>
-              <th className={SESSION_SPLITS_TH}>Pace (min/km)</th>
-              <th className={SESSION_SPLITS_TD_RIGHT}>Elev. Δm</th>
-              <th className={SESSION_SPLITS_TH}>Time (h:mm:ss)</th>
+              <th className={SESSION_SPLITS_TH}>
+                {t("sessions.splits.colDist")}
+              </th>
+              <th className={SESSION_SPLITS_TH}>
+                {t("sessions.splits.colHR")}
+              </th>
+              <th className={SESSION_SPLITS_TH}>
+                {t("sessions.splits.colPace")}
+              </th>
+              <th className={SESSION_SPLITS_TD_RIGHT}>
+                {t("sessions.splits.colElev")}
+              </th>
+              <th className={SESSION_SPLITS_TH}>
+                {t("sessions.splits.colTime")}
+              </th>
             </tr>
           </thead>
-
           <tbody>
             {rows.map((r) => (
               <tr
@@ -273,26 +191,16 @@ export function ActivitySplitsSection({ kind }: Props) {
                 style={SESSION_SPLITS_TR_STYLE}
               >
                 <td className={SESSION_SPLITS_TD}>{r.index}</td>
-
                 <td className={SESSION_SPLITS_TD}>
-                  <span className="sm:hidden">
-                    {formatSplitDistanceShort(r.distance_m)}
-                  </span>
-                  <span className="hidden sm:inline">
-                    {formatSplitDistanceFull(r.distance_m)}
-                  </span>
+                  {formatSplitDistanceShort(r.distance_m)}
                 </td>
-
                 <td className={SESSION_SPLITS_TD}>{formatHr(r.avg_hr_bpm)}</td>
-
                 <td className={SESSION_SPLITS_TD}>
                   {formatPace(r.pace_s_per_km)}
                 </td>
-
                 <td className={SESSION_SPLITS_TD_RIGHT}>
                   {formatElev(r.elev_delta_m)}
                 </td>
-
                 <td className={SESSION_SPLITS_TD}>
                   {formatTimeShort(r.time_s)}
                 </td>
@@ -305,79 +213,27 @@ export function ActivitySplitsSection({ kind }: Props) {
   );
 }
 
-type MetricBarRowProps = {
-  label: string;
-  rows: SplitRow[];
-  metric: "hr" | "pace" | "elev" | "time";
-  getValue: (r: SplitRow) => number | null;
-  getStatValue?: (r: SplitRow) => number | null;
-  formatStat: (v: number | null) => string;
-  statMode: "time" | "hr" | "pace" | "elev";
-};
-
-function MetricBarRow({
-  label,
-  rows,
-  metric,
-  getValue,
-  getStatValue,
-  formatStat,
-  statMode,
-}: MetricBarRowProps) {
-  const values = rows.map((r) => getValue(r));
-  const statValues = rows.map((r) =>
-    getStatValue ? getStatValue(r) : getValue(r)
-  );
-  const heightFor = makeHeightScaler(values, 30, 90);
-  const stats = computeStats(statValues);
-
-  let topVal: number | null = null;
-  let midVal: number | null = null;
-  let bottomVal: number | null = null;
-
-  if (statMode === "time" || statMode === "hr") {
-    topVal = stats?.max ?? null;
-    midVal = stats?.avg ?? null;
-    bottomVal = stats?.min ?? null;
-  } else if (statMode === "pace") {
-    topVal = stats?.min ?? null;
-    midVal = stats?.avg ?? null;
-    bottomVal = stats?.max ?? null;
-  } else if (statMode === "elev") {
-    topVal = stats?.max ?? null;
-    midVal = 0;
-    bottomVal = stats?.min ?? null;
-  }
-
-  const topLabel = formatStat(topVal);
-  const midLabel = formatStat(midVal);
-  const bottomLabel = formatStat(bottomVal);
-
+function MetricBarRow({ label, rows, metric, getValue, formatStat }: any) {
+  const values = rows.map((r: any) => getValue(r));
+  const scaler = makeHeightScaler(values, 30, 90);
   return (
     <div className={SESSION_METRIC_ROW}>
       <div className={SESSION_METRIC_LABEL}>
         <span className={SESSION_METRIC_LABEL_TEXT}>{label}</span>
       </div>
-
-      <div className="flex items-stretch">
-        <div className={SESSION_METRIC_AXIS}>
-          <span>{topLabel}</span>
-          <span>{midLabel}</span>
-          <span>{bottomLabel}</span>
-        </div>
-
-        <div className={SESSION_METRIC_BARS}>
-          {rows.map((r) => {
-            const hPx = heightFor(getValue(r));
-            return (
-              <div
-                key={`${label}-${r.index}`}
-                className={SESSION_METRIC_BAR}
-                style={{ ...SESSION_METRIC_BAR_STYLE[metric], height: `${hPx}px` }}
-              />
-            );
-          })}
-        </div>
+      <div className={SESSION_METRIC_BARS}>
+        {rows.map((r: any) => (
+          <div
+            key={r.index}
+            className={SESSION_METRIC_BAR}
+            style={{
+              ...SESSION_METRIC_BAR_STYLE[
+                metric as keyof typeof SESSION_METRIC_BAR_STYLE
+              ],
+              height: `${scaler(getValue(r))}px`,
+            }}
+          />
+        ))}
       </div>
     </div>
   );

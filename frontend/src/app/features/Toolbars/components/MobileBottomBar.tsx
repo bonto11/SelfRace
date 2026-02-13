@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   NavIcon,
   type NavId,
@@ -12,20 +13,22 @@ import {
 type ItemDef = {
   id: NavId;
   href: string;
-  label: string;
+  translationKey: string; // Zmena z label na kľúč
 };
 
 const ITEMS: ItemDef[] = [
-  { id: "activities", href: "/activities", label: "Aktivity" },
-  { id: "coach", href: "/coach", label: "Coach" },
-  { id: "profile", href: "/profile", label: "Profil" },
-  { id: "recovery", href: "/recovery", label: "Recovery" },
-  { id: "calendar", href: "/calendar", label: "Kalendár" },
+  { id: "activities", href: "/activities", translationKey: "activities.title" },
+  { id: "coach", href: "/coach", translationKey: "coach.title" },
+  { id: "profile", href: "/profile", translationKey: "profile.title" },
+  { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
+  { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
 ];
 
-function BottomNavItem({ id, href, label }: ItemDef) {
+function BottomNavItem({ id, href, translationKey }: ItemDef) {
+  const t = useT();
   const pathname = usePathname();
   const isActive = pathname === href || pathname.startsWith(href + "/");
+  const label = t(translationKey as any);
 
   return (
     <Link
@@ -56,6 +59,8 @@ function BottomNavItem({ id, href, label }: ItemDef) {
 }
 
 export default function MobileBottomBar() {
+  const t = useT();
+  
   return (
     <nav
       className={[
@@ -64,7 +69,7 @@ export default function MobileBottomBar() {
         "pb-[calc(12px+env(safe-area-inset-bottom))] pt-2",
         "flex justify-center",
       ].join(" ")}
-      aria-label="Hlavná mobilná navigácia"
+      aria-label={t("common.nav.mobileAria" as any)}
     >
       <div className="max-w-screen-sm w-full px-3 flex justify-center">
         <div

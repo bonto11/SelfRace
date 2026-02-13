@@ -4,9 +4,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chart as MixedChart } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
+import { OPTIONS, LOOKBACK_OPTIONS ,ensureChartJSRegistered} from "@/app/shared/charts/chart_builders";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { OPTIONS, LOOKBACK_OPTIONS } from "@/app/shared/charts/optionsActivity";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -319,7 +318,7 @@ export default function TrendWeeklyLoad({
             <SelectField
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
-              options={LOOKBACK_OPTIONS}
+              options={LOOKBACK_OPTIONS(t)}
               containerClassName="w-[130px]"
               variant="editable"
               placeholder="—"

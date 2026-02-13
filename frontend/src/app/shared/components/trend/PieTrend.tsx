@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
+import { useT } from "@/app/shared/i18n/useT";
 
 export type PieTrendItem = {
   value: number;
@@ -11,7 +12,7 @@ export type PieTrendItem = {
 
 type Props = {
   items: PieTrendItem[];
-  /** Funkcia na formátovanie hodnoty v legende (napr. minúty na "1h 20m" alebo číslo na "500 W") */
+  /** Funkcia na formátovanie hodnoty v legende (napr. minúty na "1h 20m") */
   valueFormatter?: (val: number) => ReactNode;
   /** Funkcia alebo string pre stred grafu (ak neuvedené, zobrazí súčet) */
   renderCenter?: (total: number) => ReactNode;
@@ -19,7 +20,6 @@ type Props = {
   className?: string;
 };
 
-// Default formatter ak žiadny nie je poskytnutý
 const defaultFormatter = (val: number) => val.toString();
 
 export function PieTrend({
@@ -28,26 +28,21 @@ export function PieTrend({
   renderCenter,
   className = "",
 }: Props) {
+  const t = useT();
+  
   const data = useMemo(() => {
-    // 1. Spočítame total zo všetkých, aj nulových (kvôli konzistencii, hoci nulové nevykreslíme)
     const total = items.reduce((acc, item) => acc + (item.value || 0), 0);
-
     if (total === 0) return null;
 
     let accumulatedPct = 0;
 
-    // 2. Mapovanie segmentov pre SVG
     const segments = items
       .map((item) => {
         const val = item.value || 0;
-        // Ak je hodnota 0, preskočíme výpočty pre SVG, ale vrátime objekt pre filtráciu
         if (val <= 0) return null;
 
         const pct = val / total;
-
-        // SVG Circle logic (r ~ 15.9155 => obvod 100)
         const dashArray = `${pct * 100} ${100 - pct * 100}`;
-        // Offset posúvame o toľko, koľko sme už vykreslili
         const offset = 25 - accumulatedPct * 100;
 
         accumulatedPct += pct;
@@ -60,24 +55,24 @@ export function PieTrend({
           offset,
         };
       })
-      .filter((s): s is NonNullable<typeof s> => s !== null); // Zahodíme nulové segmenty
+      .filter((s): s is NonNullable<typeof s> => s !== null);
 
     return { total, segments };
   }, [items]);
 
   if (!data) {
-    // Fallback pre prázdne dáta (môžeš vrátiť null alebo placeholder)
-    return null;
+    return (
+      <div className="py-4 text-center text-xs opacity-50 italic">
+        {t("charts.pie.noData" as any)}
+      </div>
+    );
   }
 
   return (
-    <div
-      className={`flex flex-row items-center gap-6 py-4 justify-center ${className}`}
-    >
+    <div className={`flex flex-row items-center gap-6 py-4 justify-center ${className}`}>
       {/* 1. CHART (SVG Donut) */}
       <div className="relative w-24 h-24 flex-shrink-0">
         <svg viewBox="0 0 42 42" className="w-full h-full transform -rotate-90">
-          {/* Background track */}
           <circle
             cx="21"
             cy="21"
@@ -86,9 +81,7 @@ export function PieTrend({
             stroke="rgba(255,255,255,0.05)"
             strokeWidth="5"
           />
-
-          {/* Segments */}
-          {data.segments.map((s) => (
+          {data.segments.map((s: any) => (
             <circle
               key={s.label}
               cx="21"
@@ -104,7 +97,6 @@ export function PieTrend({
           ))}
         </svg>
 
-        {/* Center Content */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-[10px] font-bold opacity-80">
             {renderCenter
@@ -116,11 +108,8 @@ export function PieTrend({
 
       {/* 2. LEGEND */}
       <div className="flex flex-col gap-1 min-w-[120px]">
-        {data.segments.map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center justify-between text-xs"
-          >
+        {data.segments.map((s: any) => (
+          <div key={s.label} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span
                 className="w-2 h-2 rounded-full shadow-sm"

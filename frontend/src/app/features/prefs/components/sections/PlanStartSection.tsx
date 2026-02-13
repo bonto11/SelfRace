@@ -8,6 +8,7 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import { toast } from "@/app/shared/ui/components/Toast";
+import { useT } from "@/app/shared/i18n/useT";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
@@ -75,6 +76,7 @@ type Props = {
 };
 
 export function PlanStartSection({ local, setLocal, markDirty }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(true);
 
   const minStart = MIN_PLAN_START();
@@ -137,13 +139,13 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
 
   const previewText = useMemo(
     () =>
-      `${start || "—"} · ${end || "—"} · ${weeksVal ? `${weeksVal}w` : "—"}`,
-    [start, end, weeksVal],
+      `${start || "—"} · ${end || "—"} · ${weeksVal ? `${weeksVal}${t("common.units.weeksAbbrev")}` : "—"}`,
+    [start, end, weeksVal, t],
   );
 
   const guardStart = (iso: string | null) => {
     if (iso && iso < minStart) {
-      toast.error(`Start date must be ≥ ${minStart}`);
+      toast.error(t("prefs.sections.planStartSection.errors.minStart").replace("{{date}}", minStart));
       applyStart(minStart);
       return;
     }
@@ -154,35 +156,30 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Plan duration</span>
-          <TooltipIcon
-            text={
-              "Nastav začiatok a dĺžku tréningového plánu.\n\n" +
-              "Coach plánuje bloky dopredu podľa tohto horizontu."
-            }
-          />
+          <span>{t("prefs.sections.planStartSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.planStartSection.widget.tooltip")} />
         </div>
       }
-      subtitle="Start, end a plánovací horizont (weeks)."
+      subtitle={t("prefs.sections.planStartSection.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
       always={
         <div className="text-xs" style={{ color: appColors.textMuted }}>
-          Min start: {minStart}
+          {t("prefs.sections.planStartSection.minStartLabel")}: {minStart}
         </div>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Start</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.startLabel")}</div>
             <DateField value={start || null} onChange={guardStart} />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>End</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.endLabel")}</div>
             <DateField
               value={end || null}
               onChange={(v) => applyEnd(v || "")}
@@ -193,7 +190,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>
-              Planning horizon (weeks)
+              {t("prefs.sections.planStartSection.horizonLabel")}
             </div>
             <TextField
               type="number"
@@ -202,12 +199,12 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
               inputMode="numeric"
               value={weeksVal}
               onChange={(e) => applyWeeks(e.target.value)}
-              placeholder="e.g. 12"
+              placeholder={t("prefs.sections.planStartSection.horizonPlaceholder")}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Quick actions</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.quickActionsLabel")}</div>
             <div className={FORM_GRID_SPLIT}>
               <Button
                 size="sm"
@@ -221,7 +218,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
                 variant="secondary"
                 onClick={() => applyStart(MIN_PLAN_START())}
               >
-                Tomorrow
+                {t("prefs.sections.planStartSection.tomorrow")}
               </Button>
             </div>
           </section>

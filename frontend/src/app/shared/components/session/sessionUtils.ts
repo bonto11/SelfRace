@@ -33,23 +33,14 @@ export function valOrDash(v: any): string {
 }
 
 // kadencia – run → steps/min, bike → rpm
-export function formatCadenceSummary(s: ActivityRow | null): string | null {
+export function formatCadenceSummary(s: ActivityRow | null, t: any): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
-  const sport = (
-    s.sport_type_ovrd ??
-    s.sport_type_fe ??
-    s.sport_type ??
-    ""
-  )
-    .toString()
-    .toLowerCase();
-
+  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "").toString().toLowerCase();
   const rpm = s.average_cadence_rpm;
 
   if (sport.includes("run")) {
     const spm = Math.round(rpm * 2);
-    return `${spm} steps/min`;
+    return `${spm} ${t("sessions.detail.unitStepsPerMin")}`;
   }
-
   return `${rpm} rpm`;
 }

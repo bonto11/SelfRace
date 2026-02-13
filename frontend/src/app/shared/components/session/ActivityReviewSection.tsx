@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+import { useT } from "@/app/shared/i18n/useT";
 
 import {
   apiRerunActivityReview,
@@ -25,7 +26,7 @@ type Props = {
 };
 
 const MAX_COMMENT_CHARS = 900;
-const REFRESH_COOLDOWN_MS = 10000; // 10 sekúnd
+const REFRESH_COOLDOWN_MS = 10000;
 
 /* ================= date helpers ================= */
 
@@ -47,7 +48,7 @@ function parseDateSafe(v: any): Date | null {
 
 /* ================= tier helpers ================= */
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 3; //toto je dobre takto!
+  if (tier === "pro") return 3;
   if (tier === "classic") return 2;
   return 1;
 }
@@ -83,15 +84,12 @@ function TextBlock({ children }: { children: ReactNode }) {
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
+  const t = useT();
 
-  // ✅ Použitie nového API z providera
   const { getSummary, getEnrichment } = useActivityData();
 
   const [tierCode, setTierCode] = useState<string>(() => {
-    // Toto je trochu hack na získanie tieru, ideálne by to malo byť v context provideri,
-    // ale nechávam tvoju logiku
     const storeTier = (getSubscriptionTier() || "").toLowerCase();
-    // activityData tu nemám priamo dostupné ako objekt s init, tak fallbackujem na store
     return storeTier || "free";
   });
 
@@ -112,7 +110,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     return days <= 7;
   }, [startDt]);
 
-  // Data state
   const [review, setReview] = useState<any | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [lastUserComment, setLastUserComment] = useState<string | null>(null);
@@ -126,47 +123,35 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
 
-  // Refresh cooldown state
   const [refreshLocked, setRefreshLocked] = useState(false);
 
-  // ✅ LOAD DATA (cez Provider)
   const loadData = async (forceFetch: boolean = false) => {
     if (!userId || !activityId) return;
 
     setBusyLoad(true);
     try {
-      // Voláme providera. Ak forceFetch=false, skúsi najprv cache.
       const data = await getEnrichment(activityId, { fetch: forceFetch });
-
-      // Mapovanie dát z enrichment objektu do state
       setReview(data?.ai_review ?? null);
-
       const v = Number(data?.ai_review_version ?? 0);
       setAiReviewVersion(Number.isFinite(v) && v >= 0 ? v : 0);
 
       const dbComment = data?.ai_review_last_user_comment;
       if (typeof dbComment === "string") {
         setLastUserComment(dbComment);
-        // Ak užívateľ ešte nič nenapísal do inputu, predvyplníme posledný komentár
         setComment((prev) => prev || dbComment);
       }
-
       setUiError(null);
     } catch (e) {
       console.error("[AR] Load Error", e);
-      // Nemusíme nutne zobrazovať UI error pre load, stačí console
     } finally {
       setBusyLoad(false);
     }
   };
 
-  // Initial load (skúsi cache, potom API)
   useEffect(() => {
     loadData(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, activityId]);
 
-  // Eligibility logic
   const hasReview = review != null;
   const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
@@ -174,7 +159,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const canRerun =
     isEligible && ((canRerunByTier && canRerunByCount) || canFreeRun);
 
-  // Parsing review content
   const r = review ?? {};
   const reviewText =
     typeof r?.review_text === "string" ? r.review_text.trim() : null;
@@ -188,17 +172,10 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       : null;
   const needsCaution = r?.flags?.needs_caution === true;
 
-  // --- Handlers ---
-
   const onManualRefresh = async () => {
     if (refreshLocked || busyGen || busyLoad) return;
-
-    setRefreshLocked(true); // Lock button
-
-    // ✅ Force fetch cez providera
+    setRefreshLocked(true);
     await loadData(true);
-
-    // Unlock after 10 seconds
     setTimeout(() => {
       setRefreshLocked(false);
     }, REFRESH_COOLDOWN_MS);
@@ -209,11 +186,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setUiError(null);
 
     if (!isEligible) {
-      setUiError("Aktivita je príliš stará.");
+      setUiError(t("sessions.review.errorTooOld"));
       return;
     }
     if (commentTooLong) {
-      setUiError("Komentár je príliš dlhý.");
+      setUiError(t("sessions.review.errorCommentLong"));
       return;
     }
 
@@ -222,7 +199,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
     try {
       const c = comment.trim();
-      // Toto volanie ostáva priame na API (POST request)
       const out = await apiRerunActivityReview(
         Number(userId),
         Number(activityId),
@@ -233,15 +209,12 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       );
 
       if (!out?.ok) {
-        setUiError(out?.message || "Požiadavka zamietnutá.");
+        setUiError(out?.message || t("sessions.review.errorRerunRejected"));
       } else {
-        // Success - teraz musíme obnoviť dáta
-        // Počkáme chvíľku (voliteľné), lebo backend spúšťa job asynchrónne,
-        // ale tvoja API funkcia čaká na výsledok (sync execution), takže môžeme hneď reloadnúť.
         await loadData(true);
       }
     } catch (e: any) {
-      setUiError(e?.message || "Chyba pri generovaní.");
+      setUiError(e?.message || t("sessions.review.errorGeneric"));
     } finally {
       setBusyGen(false);
       setTimeout(() => {
@@ -250,23 +223,24 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     }
   };
 
-  // Status Note Component
   let statusNote: ReactNode = null;
   if (!hasReview) {
     if (!isEligible && startDt) {
       statusNote = (
         <span className="text-yellow-500/80">
-          Aktivita je staršia ako 7 dní.
+          {t("sessions.review.statusTooOld")}
         </span>
       );
     } else {
-      statusNote = <span>Zatiaľ bez hodnotenia.</span>;
+      statusNote = <span>{t("sessions.review.statusNoReview")}</span>;
     }
   } else {
     statusNote = (
       <div className="flex items-center gap-2">
         <span>
-          Review {aiReviewVersion}/{maxVersions}
+          {t("sessions.review.statusReviewCount")
+            .replace("{{version}}", String(aiReviewVersion))
+            .replace("{{max}}", String(maxVersions))}
         </span>
       </div>
     );
@@ -274,16 +248,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   return (
     <ActivitySectionShell
-      title="Coach Hodnotenie"
+      title={t("sessions.review.title")}
       defaultOpen={true}
       items={[]}
     >
-      {/* 1. Top Bar: Status + Actions */}
       <div className="flex items-center justify-between min-h-[32px]">
         <div className="text-xs font-medium opacity-70">{statusNote}</div>
 
         <div className="flex items-center gap-2">
-          {/* Refresh Button */}
           <Button
             type="button"
             variant="secondary"
@@ -291,7 +263,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             onClick={onManualRefresh}
             disabled={busyLoad || busyGen || refreshLocked}
             className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}
-            title="Obnoviť dáta"
+            title={t("common.refreshTitle")}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -310,10 +282,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
               <path d="M3 21v-5h5" />
             </svg>
-            {refreshLocked && !busyLoad ? "Čakajte" : "Obnoviť"}
+            {refreshLocked && !busyLoad ? t("sessions.review.btnWait") : t("common.refresh")}
           </Button>
 
-          {/* Generate Button */}
           {canRerun && (
             <Button
               type="button"
@@ -324,16 +295,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               className="opacity-90 hover:opacity-100"
             >
               {busyGen
-                ? "Generujem..."
+                ? t("sessions.review.btnGenerating")
                 : hasReview
-                  ? "Prepočítať"
-                  : "Vygenerovať"}
+                  ? t("sessions.review.btnRerun")
+                  : t("sessions.review.btnGenerate")}
             </Button>
           )}
         </div>
       </div>
 
-      {/* 2. User Input (Comment) */}
       {isEligible && canRerunByTier && (
         <div className="mt-4 mb-2">
           <textarea
@@ -343,7 +313,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Napíš poznámku pre AI... (napr. 'Cítil som sa unavený', 'Bežal som v kopcoch')"
+            placeholder={t("sessions.review.commentPlaceholder")}
             disabled={busyGen}
           />
           {showCharCount && (
@@ -355,7 +325,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           )}
           {!hasReview && !comment && (
             <div className="text-[11px] opacity-40 mt-1 pl-1">
-              Tip: Komentár pomôže AI lepšie pochopiť kontext tvojho tréningu.
+              {t("sessions.review.commentTip")}
             </div>
           )}
         </div>
@@ -367,7 +337,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         </div>
       )}
 
-      {/* 3. Review Content */}
       <div className="mt-6 space-y-6">
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
@@ -391,33 +360,30 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <span className="text-sm">Načítavam hodnotenie...</span>
+            <span className="text-sm">{t("sessions.review.loading")}</span>
           </div>
         ) : hasReview ? (
           <>
-            {/* Tags */}
             <div className="flex flex-wrap gap-2">
-              {sessionKind && <Chip label="Focus" value={sessionKind} />}
-              {dominantZone && <Chip label="Zóna" value={dominantZone} />}
+              {sessionKind && <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />}
+              {dominantZone && <Chip label={t("sessions.review.tagZone")} value={dominantZone} />}
               {needsCaution && (
                 <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
-                  ⚠️ Vyžaduje pozornosť
+                  ⚠️ {t("sessions.review.tagCaution")}
                 </div>
               )}
             </div>
 
-            {/* Main Text */}
             {reviewText && (
               <div className="animate-in fade-in duration-500">
-                <SectionTitle>Hodnotenie Tréningu</SectionTitle>
+                <SectionTitle>{t("sessions.review.sectionReview")}</SectionTitle>
                 <TextBlock>{reviewText}</TextBlock>
               </div>
             )}
 
-            {/* Next Day */}
             {nextDayPlan && (
               <div className="animate-in fade-in duration-500 delay-100">
-                <SectionTitle>Odporúčanie na zajtra</SectionTitle>
+                <SectionTitle>{t("sessions.review.sectionNextDay")}</SectionTitle>
                 <TextBlock>{nextDayPlan}</TextBlock>
               </div>
             )}
@@ -425,12 +391,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         ) : (
           !busyGen && (
             <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
-              <p className="text-sm opacity-50">Zatiaľ žiadne hodnotenie.</p>
-              {canRerun && (
-                <p className="text-xs opacity-30 mt-1">
-                  Klikni na tlačidlo hore pre vygenerovanie.
-                </p>
-              )}
+              <p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder")}</p>
             </div>
           )
         )}

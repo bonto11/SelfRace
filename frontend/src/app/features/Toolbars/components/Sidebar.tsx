@@ -9,19 +9,20 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
 import { useBodyScrollLock } from "@/app/features/Toolbars/hooks/useBodyScrollLock";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 import {
   NavIcon,
   type NavId,
 } from "@/app/features/Toolbars/components/navIcons";
 
-type Item = { id: NavId; href: string; label: string };
+type Item = { id: NavId; href: string; translationKey: string };
 
 const ITEMS: Item[] = [
-  { id: "activities", href: "/activities", label: "Aktivity" },
-  { id: "coach", href: "/coach", label: "Coach" },
-  { id: "profile", href: "/profile", label: "Profil" },
-  { id: "recovery", href: "/recovery", label: "Recovery" },
-  { id: "calendar", href: "/calendar", label: "Kalendár" },
+  { id: "activities", href: "/activities", translationKey: "activities.title" },
+  { id: "coach", href: "/coach", translationKey: "coach.title" },
+  { id: "profile", href: "/profile", translationKey: "profile.title" },
+  { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
+  { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
 ];
 
 function PillItem({
@@ -33,9 +34,11 @@ function PillItem({
   expanded: boolean;
   closeMobile: () => void;
 }) {
+  const t = useT();
   const pathname = usePathname();
   const isActive =
     pathname === item.href || pathname.startsWith(item.href + "/");
+  const label = t(item.translationKey as any);
 
   return (
     <Link
@@ -61,7 +64,6 @@ function PillItem({
         {NavIcon({ id: item.id })}
       </span>
 
-      {/* label – len keď expanded (hover) */}
       <span
         className="text-sm font-semibold whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-200"
         style={{
@@ -69,23 +71,21 @@ function PillItem({
           opacity: expanded ? 1 : 0,
         }}
       >
-        {item.label}
+        {label}
       </span>
     </Link>
   );
 }
 
 export default function Sidebar() {
+  const t = useT();
   const { open, setOpen } = useSidebar();
   useBodyScrollLock(open);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
-
-  // desktop hover expand
   const [hovered, setHovered] = useState(false);
-  const expanded = hovered; // môžeš neskôr pridať “pin” toggle
+  const expanded = hovered;
 
-  // ESC to close (mobile overlay)
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -103,10 +103,9 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Overlay mobile */}
       {open && (
         <button
-          aria-label="Close menu overlay"
+          aria-label={t("common.nav.closeMenu" as any)}
           onClick={closeMobile}
           className="fixed inset-0 z-[50] lg:hidden"
           style={{ background: appColors.overlay }}
@@ -116,7 +115,7 @@ export default function Sidebar() {
       <nav
         ref={panelRef}
         tabIndex={-1}
-        aria-label="Primary"
+        aria-label={t("common.nav.primaryAria" as any)}
         className={[
           "fixed inset-y-0 left-0 z-[55] lg:static lg:z-auto",
           "transform transition-transform duration-200 will-change-transform",
@@ -125,11 +124,10 @@ export default function Sidebar() {
           "lg:sticky lg:top-0 lg:h-dvh",
         ].join(" ")}
         style={{
-          width: open ? 280 : 280, // mobile panel šírka (klasika)
+          width: 280,
           background: "transparent",
         }}
       >
-        {/* Desktop pill shell */}
         <div
           className="hidden lg:flex h-dvh items-center"
           onMouseEnter={() => setHovered(true)}
@@ -146,7 +144,6 @@ export default function Sidebar() {
               padding: 10,
             }}
           >
-            {/* Items */}
             <div className="flex flex-col gap-2">
               {ITEMS.map((item) => (
                 <PillItem
@@ -160,7 +157,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Mobile panel (ponecháme tvoj starý look, len farby) */}
         <div
           className="lg:hidden h-dvh"
           style={{
@@ -183,7 +179,7 @@ export default function Sidebar() {
             <button
               type="button"
               className="inline-flex items-center justify-center w-9 h-9 rounded-xl"
-              aria-label="Close menu"
+              aria-label={t("common.nav.closeMenu" as any)}
               onClick={closeMobile}
               style={{
                 border: `1px solid ${appColors.surfaceCardBorder}`,
@@ -210,7 +206,7 @@ export default function Sidebar() {
                 >
                   {NavIcon({ id: it.id })}
                 </span>
-                <span className="font-semibold">{it.label}</span>
+                <span className="font-semibold">{t(it.translationKey as any)}</span>
               </Link>
             ))}
           </div>

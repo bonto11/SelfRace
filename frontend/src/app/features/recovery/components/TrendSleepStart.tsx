@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions, Plugin } from "chart.js";
 
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
-import { OPTIONS } from "@/app/shared/charts/optionsRecovery";
+import { OPTIONS, WEEK_OPTIONS, buildRecoveryLineOptions, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
 import { wrapToLines } from "@/app/shared/utils/recovery";
 import {
   minutesToHHMM,
@@ -13,10 +12,7 @@ import {
   dateSeq,
   iso,
 } from "@/app/shared/utils/time";
-import {
-  buildRecoveryLineOptions,
-  WEEK_OPTIONS,
-} from "@/app/shared/charts/optionsRecovery";
+
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
@@ -255,6 +251,7 @@ export default function DetailSleepStart() {
   const options: ChartOptions<"line"> = useMemo(
     () =>
       buildRecoveryLineOptions({
+        t,
         labelsISO,
         yTitle: t("common.metrics.time"),
         yTickFormatter: (v: number) => minutesToClockLabel(v),
@@ -321,7 +318,7 @@ export default function DetailSleepStart() {
         <SelectField
           value={String(weeks)}
           onChange={(e) => setWeeks(Number(e.target.value))}
-          options={WEEK_OPTIONS}
+          options={WEEK_OPTIONS(t)}
           variant="editable"
           containerClassName="w-[152px]"
         />

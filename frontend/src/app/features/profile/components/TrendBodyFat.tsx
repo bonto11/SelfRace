@@ -4,10 +4,10 @@ import * as React from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
-import { ensureChartJSRegistered } from "@/app/shared/charts/register";
+
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
-import { OPTIONS, WEEK_OPTIONS } from "@/app/shared/charts/optionsProfile";
+import { OPTIONS, WEEK_OPTIONS ,ensureChartJSRegistered, buildRecoveryLineOptions} from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
@@ -22,7 +22,6 @@ import {
   hexWithAlpha,
 } from "@/app/features/profile/utils/profile";
 
-import { buildRecoveryLineOptions } from "@/app/shared/charts/optionsRecovery";
 import {
   CARD,
   SURFACE_CARD_STYLE,
@@ -153,6 +152,7 @@ export default function TrendBodyFat() {
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
 
   const options: ChartOptions<"line"> = buildRecoveryLineOptions({
+    t,
     labelsISO,
     yTitle: "%",
     tooltipTitleForIndex: (i) =>
@@ -182,7 +182,7 @@ export default function TrendBodyFat() {
             <SelectField
               value={String(weeks)}
               onChange={(e) => setWeeks(Number(e.target.value))}
-              options={WEEK_OPTIONS}
+              options={WEEK_OPTIONS(t)}
               containerClassName="w-[132px]"
               variant="editable"
               placeholder="—"

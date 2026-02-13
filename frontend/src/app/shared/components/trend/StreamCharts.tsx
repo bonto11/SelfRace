@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
+import { useT } from "@/app/shared/i18n/useT";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/tokens";
@@ -53,12 +54,14 @@ function BaseStreamChart({
   mode = "plain",
   strokeColor,
 }: BaseChartProps) {
+  const t = useT();
+
   const Svg = useMemo(() => {
     const n = Math.min(xs.length, ys.length);
     if (!n) {
       return () => (
         <div className={CHART_HR.emptyTextClass}>
-          Stream nie je k dispozícii.
+          {t("charts.stream.unavailable" as any)}
         </div>
       );
     }
@@ -74,7 +77,7 @@ function BaseStreamChart({
     if (!points.length) {
       return () => (
         <div className={CHART_HR.emptyTextClass}>
-          Stream nie je k dispozícii.
+          {t("charts.stream.unavailable" as any)}
         </div>
       );
     }
@@ -99,7 +102,6 @@ function BaseStreamChart({
     }
 
     if (mode === "hr") {
-      // HR špecifiká – nech to sedí so zónami
       minY = Math.min(120, minY);
       maxY = Math.max(CHART_HR.maxBpm, maxY);
     } else {
@@ -109,13 +111,13 @@ function BaseStreamChart({
       }
     }
 
-    const sx = (t: number) =>
-      padL + ((t - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
+    const sx = (val: number) =>
+      padL + ((val - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
 
-    const sy = (v: number) => {
+    const sy = (val: number) => {
       const h = H - padT - padB;
-      const t = (v - minY) / Math.max(1, maxY - minY);
-      return H - padB - t * h;
+      const pct = (val - minY) / Math.max(1, maxY - minY);
+      return H - padB - pct * h;
     };
 
     // ticks
@@ -211,24 +213,24 @@ function BaseStreamChart({
           </g>
         ))}
 
-        {xVals.map((t, i) => (
+        {xVals.map((tVal, i) => (
           <g key={`gx-${i}`}>
             <line
-              x1={sx(t)}
-              x2={sx(t)}
+              x1={sx(tVal)}
+              x2={sx(tVal)}
               y1={padT}
               y2={H - padB}
               stroke={CHART_HR.grid}
               strokeDasharray="4 4"
             />
             <text
-              x={sx(t)}
+              x={sx(tVal)}
               y={H - padB + 14}
               textAnchor="middle"
               fontSize={10}
               fill={CHART_HR.tickText}
             >
-              {fmtSecondsHMS(Math.round(t))}
+              {fmtSecondsHMS(Math.round(tVal))}
             </text>
           </g>
         ))}
@@ -263,11 +265,11 @@ function BaseStreamChart({
                   ["Z3", z3],
                   ["Z4", z4],
                   ["Z5", z5],
-                ].map(([t, c], i) => (
-                  <g key={t} transform={`translate(${i * 36},0)`}>
+                ].map(([label, c], i) => (
+                  <g key={label} transform={`translate(${i * 36},0)`}>
                     <circle cx={0} cy={0} r={4} fill={c as string} />
                     <text x={8} y={2} fontSize={10} fill={CHART_HR.tickText}>
-                      {t}
+                      {label}
                     </text>
                   </g>
                 ))}
@@ -294,7 +296,7 @@ function BaseStreamChart({
         <Legend />
       </svg>
     );
-  }, [xs, ys, height, compact, yLabel, formatY, mode, strokeColor]);
+  }, [xs, ys, height, compact, yLabel, formatY, mode, strokeColor, t]);
 
   return <Svg />;
 }
@@ -310,6 +312,7 @@ export function ActivityStreamCharts({
   metric,
   sportHint,
 }: ActivityStreamChartsProps) {
+  const t = useT();
   const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
 
   const hasTime = Array.isArray(time_s) && time_s.length > 0;
@@ -345,11 +348,11 @@ export function ActivityStreamCharts({
         out.push(null);
         continue;
       }
-      const pace = dt / (dd / 1000); // s/km
-      if (!Number.isFinite(pace) || pace <= 0) {
+      const paceVal = dt / (dd / 1000); // s/km
+      if (!Number.isFinite(paceVal) || paceVal <= 0) {
         out.push(null);
       } else {
-        out.push(pace);
+        out.push(paceVal);
       }
     }
     if (out.length < time_s.length) out.unshift(null);
@@ -368,7 +371,7 @@ export function ActivityStreamCharts({
   if (!hasTime) {
     return (
       <div className="opacity-70 text-sm">
-        Stream dáta nie sú k dispozícii pre túto aktivitu.
+        {t("charts.stream.unavailable" as any)}
       </div>
     );
   }
@@ -384,7 +387,7 @@ export function ActivityStreamCharts({
       if (!hasHr) {
         return (
           <div className="opacity-70 text-sm">
-            HR stream nie je k dispozícii.
+            {t("charts.stream.noHr" as any)}
           </div>
         );
       }
@@ -395,7 +398,7 @@ export function ActivityStreamCharts({
       if (!hasAlt) {
         return (
           <div className="opacity-70 text-sm">
-            Elevation stream nie je k dispozícii.
+             {t("charts.stream.noAlt" as any)}
           </div>
         );
       }
@@ -414,7 +417,7 @@ export function ActivityStreamCharts({
       if (!hasDist) {
         return (
           <div className="opacity-70 text-sm">
-            Pace stream nie je k dispozícii.
+            {t("charts.stream.noPace" as any)}
           </div>
         );
       }
@@ -434,7 +437,7 @@ export function ActivityStreamCharts({
       if (!hasPow) {
         return (
           <div className="opacity-70 text-sm">
-            Power stream nie je k dispozícii.
+             {t("charts.stream.noPower" as any)}
           </div>
         );
       }
@@ -453,7 +456,7 @@ export function ActivityStreamCharts({
       if (!hasCad) {
         return (
           <div className="opacity-70 text-sm">
-            Cadence stream nie je k dispozícii.
+            {t("charts.stream.noCadence" as any)}
           </div>
         );
       }
@@ -481,16 +484,16 @@ export function ActivityStreamCharts({
         {/* Header s názvom + toggle */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Podrobné grafy</span>
+            <span className="text-sm font-semibold">{t("charts.stream.title" as any)}</span>
             <span className="text-[11px] opacity-70">
-              HR, prevýšenie, tempo, výkon a kadencia
+              {t("charts.stream.subtitle" as any)}
             </span>
           </div>
           <DisclosureToggle
             open={isOpen}
             onToggle={() => setIsOpen((v) => !v)}
-            labelWhenOpen="Skryť podrobné grafy"
-            labelWhenClosed="Zobraziť podrobné grafy"
+            labelWhenOpen={t("charts.stream.hide" as any)}
+            labelWhenClosed={t("charts.stream.show" as any)}
           />
         </div>
 
@@ -500,9 +503,7 @@ export function ActivityStreamCharts({
               <div className="space-y-4 py-1 min-w-[720px]">
                 {hasHr && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="font-bold text-sm">HR priebeh</h4>
-                    </div>
+                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.hrFull" as any)}</h4>
                     <BaseStreamChart
                       xs={time_s}
                       ys={hr}
@@ -516,9 +517,7 @@ export function ActivityStreamCharts({
 
                 {hasAlt && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="font-bold text-sm">Prevýšenie</h4>
-                    </div>
+                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.elevation" as any)}</h4>
                     <BaseStreamChart
                       xs={time_s}
                       ys={altitude_m ?? []}
@@ -533,9 +532,7 @@ export function ActivityStreamCharts({
 
                 {hasDist && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="font-bold text-sm">Tempo (instantné)</h4>
-                    </div>
+                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.pace" as any)}</h4>
                     <BaseStreamChart
                       xs={time_s}
                       ys={pace_s_per_km}
@@ -551,9 +548,7 @@ export function ActivityStreamCharts({
 
                 {hasPow && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="font-bold text-sm">Power</h4>
-                    </div>
+                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.power" as any)}</h4>
                     <BaseStreamChart
                       xs={time_s}
                       ys={power_w ?? []}
@@ -568,9 +563,7 @@ export function ActivityStreamCharts({
 
                 {hasCad && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <h4 className="font-bold text-sm">Cadence</h4>
-                    </div>
+                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.cadence" as any)}</h4>
                     <BaseStreamChart
                       xs={time_s}
                       ys={cadenceSeries}

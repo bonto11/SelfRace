@@ -1,15 +1,13 @@
-// src/features/coach/components/DaysSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
-
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -29,40 +27,41 @@ export function DaysSection({
   toggleInArray,
   setPrefNested,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const selectedOff = (daysOff ?? []) as DayAbbrev[];
   const selectedLong = (longRunDays ?? []) as DayAbbrev[];
 
+  // Pomocná funkcia na získanie skratky dňa z katalógu
+  const getDayLabel = (d: DayAbbrev) => {
+    const key = d.toLowerCase() as keyof typeof t; // mon, tue...
+    return t(`common.weeksShort.${key}`);
+  };
+
   const previewText = useMemo(() => {
-    const offTxt = selectedOff.length ? selectedOff.join(" · ") : "none";
-    const longTxt = selectedLong.length ? selectedLong.join(" · ") : "none";
-    return `Days off: ${offTxt} | Long run: ${longTxt}`;
-  }, [selectedOff, selectedLong]);
+    const noneTxt = t("common.none") || "žiadne";
+    const offTxt = selectedOff.length 
+      ? selectedOff.map(getDayLabel).join(" · ") 
+      : noneTxt;
+    const longTxt = selectedLong.length 
+      ? selectedLong.map(getDayLabel).join(" · ") 
+      : noneTxt;
+      
+    return `${t("prefs.sections.daysSection.previewDaysOff")}: ${offTxt} | ${t("prefs.sections.daysSection.previewLongRun")}: ${longTxt}`;
+  }, [selectedOff, selectedLong, t]);
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Days</span>
-          <TooltipIcon
-            text={
-              "Toto určuje kedy má tréner plánovať tréningy. Nie „koľko“, ale v ktorých dňoch. \n" +
-              "Prečo je to dôležité:\n\n" +
-              "Plán sa dá urobiť aj s rovnakým objemom, ale úplne inou štruktúrou (napr. 4 dni vs 6 dní). \n" +
-              "Menej tréningových dní = viac regenerácie medzi jednotkami, ale často vyššia náročnosť na jeden deň. \n" +
-              "Viac tréningových dní = lepšie rozloženie záťaže, ale vyššie riziko „monotónnosti“ (ak sú dni príliš podobné). \n\n" +
-              "Praktické tipy: \n" +
-              "Ak máš sklony k preťaženiu (holene, achilovky, úpony), radšej menej dní + jasný easy/rest medzi. \n" +
-              "Ak chceš výkon na 5 km, väčšinou je výhodné mať aspoň 4–5 bežeckých dní, ale nie na úkor zdravia. \n" +
-              "Ak máš pevné klubové tréningy (napr. utorok easy run, štvrtok intervaly), nastav dni tak, aby plán s nimi rátal."
-            }
-          />
+          <span>{t("prefs.sections.daysSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.daysSection.widget.tooltip")} />
         </div>
       }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
-          Days off = dni bez tréningu. Long run = preferované dni pre dlhý beh.
+          {t("prefs.sections.daysSection.subtitle")}
         </span>
       }
       preview={previewText}
@@ -74,9 +73,13 @@ export function DaysSection({
         {/* Days off */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium opacity-80">Days off</div>
+            <div className="text-xs font-medium opacity-80">
+              {t("prefs.sections.daysSection.daysOffLabel")}
+            </div>
             <div className="text-[11px] opacity-60">
-              {selectedOff.length ? selectedOff.join(" · ") : "none"}
+              {selectedOff.length 
+                ? selectedOff.map(getDayLabel).join(" · ") 
+                : t("common.none")}
             </div>
           </div>
 
@@ -93,23 +96,27 @@ export function DaysSection({
                   active={active}
                   onClick={() => setPrefNested("preferences.days_off", next)}
                 >
-                  {d}
+                  {getDayLabel(d)}
                 </Button>
               );
             })}
           </div>
 
           <div className="text-[11px] opacity-60 mt-2">
-            Môže byť aj prázdne (žiadne dni off).
+            {t("prefs.sections.daysSection.daysOffHint")}
           </div>
         </div>
 
         {/* Long run days */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium opacity-80">Long-run days</div>
+            <div className="text-xs font-medium opacity-80">
+              {t("prefs.sections.daysSection.longRunLabel")}
+            </div>
             <div className="text-[11px] opacity-60">
-              {selectedLong.length ? selectedLong.join(" · ") : "none"}
+              {selectedLong.length 
+                ? selectedLong.map(getDayLabel).join(" · ") 
+                : t("common.none")}
             </div>
           </div>
 
@@ -128,14 +135,14 @@ export function DaysSection({
                     setPrefNested("preferences.long_run_days", next)
                   }
                 >
-                  {d}
+                  {getDayLabel(d)}
                 </Button>
               );
             })}
           </div>
 
           <div className="text-[11px] opacity-60 mt-2">
-            Môže byť aj prázdne (coach si vyberie iný vhodný deň).
+            {t("prefs.sections.daysSection.longRunHint")}
           </div>
         </div>
       </div>

@@ -23,6 +23,11 @@ export const sk = {
     refreshTitle: "Obnov dáta",
     edit: "Upraviť",
     delete: "Vymazať",
+    none: "žiadne",
+    set: "nastavený",
+    enabled: "Zapnuté",
+    disabled: "Vypnuté",
+    more: "ďalšie",
     sports: {
       run: "Beh",
       bike: "Bicykel",
@@ -43,6 +48,9 @@ export const sk = {
       kg: "kg",
       days: "dní",
       hPerWeek: "h / týždeň",
+      weeksAbbrev: "t", // t = týždne v náhľade
+      ms: "ms",
+      hr: "ú/min"
     },
     metrics: {
       trimp: "trimp",
@@ -78,6 +86,11 @@ export const sk = {
     ourStory: "Náš príbeh",
     shell: "SelfRace • Priestor pre tvoj osobný rast",
   },
+  nav: {
+      mobileAria: "Hlavná mobilná navigácia",
+      primaryAria: "Hlavná navigácia",
+      closeMenu: "Zatvoriť menu",
+    },
   ourStory: {
     title: "Náš príbeh",
   },
@@ -191,14 +204,35 @@ export const sk = {
     logginOff: "Odhlasujem…",
     logoff: "Odhlásiť sa",
   },
-
   prefs: {
     title: "Tréningové preferencie",
+    actions: {
+      showAdvanced: "Zobraziť rozšírené nastavenia",
+      hideAdvanced: "Skryť rozšírené nastavenia",
+    },
+    info: {
+      saveSuccess: "Tvoj tréningový profil bol úspešne aktualizovaný.",
+      refreshSuccess: "Nastavenia boli obnovené z databázy.",
+      zonesSaved: "Tréningové zóny boli uložené.",
+      thresholdSaved: "Prahové hodnoty boli úspešne zaznamenané.",
+    },
+    errors: {
+      zonesSaveFailed: "Ukladanie zón zlyhalo. Skontroluj pripojenie.",
+      thresholdSaveFailed: "Nepodarilo sa uložiť prahové hodnoty.",
+    },
     widget: {
       title: "Tréningové preferencie",
     },
     sections: {
       daysSection: {
+        subtitle: "Dni bez tréningu (Days off) a preferované dni pre dlhý beh.",
+        previewDaysOff: "Voľno",
+        previewLongRun: "Dlhý beh",
+        daysOffLabel: "Dni voľna",
+        daysOffHint: "Môže byť aj prázdne (žiadne dni off).",
+        longRunLabel: "Dni pre dlhý beh",
+        longRunHint:
+          "Môže byť aj prázdne (tréner vyberie vhodný deň podľa únavy).",
         widget: {
           title: "Dni tréningu",
           tooltip: [
@@ -217,6 +251,32 @@ export const sk = {
       },
 
       focusAvoidSection: {
+        subtitle:
+          "Vyber oblasti na posilnenie a prvky, ktorým sa má tréner vyhýbať.",
+        previewFocus: "Zameranie",
+        previewAvoid: "Obmedzenie",
+        areasLabel: "Oblasti zamerania",
+        areasTooltip:
+          "Oblasti, na ktoré sa má plán viac sústrediť (sila, mobilita).",
+        avoidLabel: "Vyhnúť sa",
+        avoidTooltip:
+          "Prvky, ktoré chceš v pláne minimalizovať (napr. dopady, behy z kopca).",
+        areas: {
+          ankle_strength: "Sila členkov",
+          foot_intrinsics: "Svaly chodidla",
+          calf_strength: "Sila lýtok",
+          hamstrings: "Hamstringy",
+          glutes: "Sedacie svaly",
+          core_stability: "Stabilita jadra",
+          thoracic_mobility: "Hrudná mobilita",
+          shoulder_stability: "Stabilita ramien",
+        },
+        avoids: {
+          impact_high: "Vysoký dopad",
+          downhill_runs: "Behy z kopca",
+          hard_surfaces: "Tvrdé povrchy",
+          back_to_back_speed: "Rýchlosť dni po sebe",
+        },
         widget: {
           title: "Zameranie a obmedzenia",
           tooltip: [
@@ -239,6 +299,73 @@ export const sk = {
       },
 
       goalSection: {
+        title: "Cieľ",
+        subtitle: "Hlavné preteky a všeobecný tréningový smer.",
+        overallTitle: "2. Všeobecný tréningový cieľ",
+        overallTooltip:
+          "Toto určuje celkové zameranie plánu. Ak máš pridaný prioritný pretek (A), tréner automaticky prispôsobí štruktúru fáz tomuto dátumu.",
+        racesTitle: "1. Hlavné preteky (A/B/C)",
+        racesTooltip:
+          "Pridaj preteky, ktoré plánuješ. Priorita A je tvoj hlavný cieľ, B a C sú kontrolné alebo tréningové preteky.",
+        noRaces:
+          "Zatiaľ žiadne preteky. Pridaj aspoň jeden pretek priority A, ak máš konkrétny bežecký cieľ.",
+        previewNoGoal: "Cieľ nie je nastavený",
+        previewGoal: "Cieľ",
+        previewKeyRace: "Hlavný pretek",
+        previewPriority: "Priorita",
+        raceNameLabel: "Názov pretekov {{index}} (voliteľné)",
+        raceNamePlaceholder: "napr. Bratislavský mestský beh",
+        dateLabel: "Dátum pretekov",
+        priorityLabel: "Priorita pretekov",
+        targetTimeLabel: "Cieľový čas (hh:mm:ss)",
+        targetTimePlaceholder: "napr. 00:45:00",
+        elevationGainLabel: "Prevýšenie (m)",
+        distTerrainTitle: "Vzdialenosť a terén",
+        distTerrainTooltip:
+          "Tieto detaily pomáhajú trénerovi vybrať správne typy tréningov, aby si bol pripravený na špecifiká tvojich pretekov.",
+        targetDistLabel: "Cieľová vzdialenosť",
+        customDistLabel: "Vlastná vzdialenosť (km)",
+        raceTypeLabel: "Typ pretekov",
+        terrainLabel: "Terén",
+        elevationProfileLabel: "Profil prevýšenia",
+        addBtn: "Pridať pretek",
+        removeBtn: "Odstrániť",
+        none: "Žiadny",
+        enums: {
+          overall: {
+            improve_speed: "Zlepšiť rýchlosť",
+            improve_endurance: "Zlepšiť vytrvalosť",
+            improve_overall: "Celkový rozvoj",
+            maintain: "Udržiavať formu",
+          },
+          race: {
+            "5k": "5 km",
+            "10k": "10 km",
+            half: "Polmaratón",
+            marathon: "Maratón",
+            ultra: "Ultra",
+            other: "Iné / vlastné",
+          },
+          type: {
+            road: "Cesta",
+            trail: "Trail",
+            track: "Dráha",
+            cross: "Kros",
+            ocr: "OCR",
+            other: "Iné",
+          },
+          terrain: {
+            flat: "Rovina",
+            rolling: "Zvlnený",
+            hilly: "Kopcovitý",
+            mountain: "Horský",
+          },
+          elevation: {
+            low: "Malé stúpanie",
+            moderate: "Stredné stúpanie",
+            high: "Veľké stúpanie",
+          },
+        },
         widget: {
           title: "Cieľ",
           tooltip: [
@@ -256,6 +383,39 @@ export const sk = {
       },
 
       injuriesSection: {
+        subtitle: "Tréner zníži rizikové prvky a doplní kompenzačné cvičenia.",
+        noInjuries: "Žiadne záznamy o zraneniach",
+        areaLabel: "Oblasť",
+        areaTooltip: "Vyber časť tela, kde pociťuješ problém.",
+        typeLabel: "Typ",
+        typeTooltip: "Typ problému pre lepšie filtrovanie cvikov.",
+        noteLabel: "Poznámka",
+        noteTooltip: "Krátky kontext: kedy to bolí, čo pomáha...",
+        notePlaceholder: "napr. bolesť chodidla po dlhom behu",
+        addBtn: "Pridať zranenie",
+        removeBtn: "odstrániť",
+        areas: {
+          foot: "Chodidlo",
+          ankle: "Členok",
+          shin: "Holeň",
+          knee: "Koleno",
+          hip: "Bedro",
+          hamstring: "Hamstring",
+          calf: "Lýtko",
+          back: "Chrbát",
+          shoulder: "Rameno",
+          other: "Iné",
+        },
+        types: {
+          overuse: "Preťaženie",
+          acute: "Akútne zranenie",
+          tendon: "Problém so šľachou",
+          stress: "Únavová zlomenina",
+          shin_splints: "Zápal okostice",
+          plantar: "Plantárna fascia",
+          itb: "ITB syndróm",
+          other: "Iné",
+        },
         widget: {
           title: "Zranenia a riziká",
           tooltip: [
@@ -274,6 +434,17 @@ export const sk = {
       },
 
       planStartSection: {
+        subtitle: "Dátum začiatku, konca a plánovací horizont v týždňoch.",
+        minStartLabel: "Minimálny štart",
+        startLabel: "Začiatok",
+        endLabel: "Koniec",
+        horizonLabel: "Plánovací horizont (týždne)",
+        horizonPlaceholder: "napr. 12",
+        quickActionsLabel: "Rýchle voľby",
+        tomorrow: "Zajtra",
+        errors: {
+          minStart: "Začiatok plánu musí byť aspoň {{date}}.",
+        },
         widget: {
           title: "Začiatok plánu",
           tooltip: [
@@ -290,6 +461,22 @@ export const sk = {
       },
 
       rehabSection: {
+        subtitle:
+          "Výber rehabilitačných priorít a špecifických regeneračných protokolov.",
+        previewFocus: "Zameranie",
+        previewProtocol: "Protokol",
+        focusLabel: "Priorita regenerácie",
+        focusTooltip:
+          "Vyber oblasti, ktorým má tréner prispôsobiť kompenzačné cvičenia.",
+        protocolLabel: "Kód protokolu (voliteľné)",
+        protocolTooltip:
+          "Identifikátor pre špeciálne šablóny, napr. po-zraneni-v1.",
+        protocolPlaceholder: "napr. navrat-k-behu-v2",
+        enums: {
+          stretching: "Strečing",
+          mobility: "Mobilita",
+          balance: "Stabilita a rovnováha",
+        },
         widget: {
           title: "Rehab / Prehab",
           tooltip: [
@@ -307,6 +494,36 @@ export const sk = {
       },
 
       rulesSection: {
+        subtitle:
+          "Nastavenie tréningovej logiky, intenzitného modelu a špecifických blokov.",
+        previewModel: "model",
+        previewTwoADay: "dvojfázovo",
+        previewBlocks: "bloky",
+        twoADayLabel: "Dvojfázové tréningy",
+        maxDaysLabel: "Max. dní v týždni:",
+        intensityLabel: "Model intenzity",
+        intensityTooltip:
+          "Určuje rozdelenie tréningového času. Default je Polarizovaný (80/20).",
+        blocksLabel: "Zameranie tréningových blokov",
+        blocksTooltip:
+          "Určuje, aké fyziologické parametre má AI tréner prioritne rozvíjať.",
+        rules: {
+          avoid_back_to_back_hard: {
+            label: "Vyhnúť sa dvom náročným dňom po sebe",
+            short: "Žiadne tvrdé dni po sebe",
+          },
+          use_zones: {
+            label: "Používať tréningové zóny",
+            short: "Používať zóny",
+          },
+        },
+        enums: {
+          polarized: "Polarizovaný (80/20)",
+          pyramidal: "Pyramidálny",
+          vo2max: "VO₂max (beh)",
+          ftp: "FTP (bicykel)",
+          threshold: "Anaeróbny prah",
+        },
         widget: {
           title: "Pravidlá generovania",
           tooltip: [
@@ -326,6 +543,18 @@ export const sk = {
       },
 
       sportsSection: {
+        subtitle: "Hlavný šport a doplnkové aktivity pre vyvážený rozvoj.",
+        previewMain: "Hlavný",
+        previewAddons: "Doplnky",
+        mainSportLabel: "Hlavný šport",
+        mainSportHint:
+          "Ak riešiš hlavne beh, nastav run. Doplnky (add-ons) použi, keď chceš, aby tréner občas pridal bicykel alebo plávanie (napr. na regeneráciu).",
+        addonsLabel: "Doplnkové športy",
+        addonsNote: "(bez sily; tá je samostatne)",
+        noAddons:
+          "Žiadne doplnky. Plán bude zameraný výhradne na hlavný šport.",
+        disabledTitle: "Toto je tvoj hlavný šport",
+        toggleTitle: "Prepnúť doplnok",
         widget: {
           title: "Športy",
           tooltip: [
@@ -342,6 +571,47 @@ export const sk = {
       },
 
       strengthSection: {
+        subtitle: "Frekvencia, miesto cvičenia a dostupné vybavenie.",
+        previewSessions: "Tréningy/týždeň",
+        previewLocation: "Miesto",
+        previewMode: "Režim",
+        previewGear: "Náradie",
+        sessionsLabel: "Počet tréningov týždenne",
+        sessionsTooltip:
+          "Odporúčame 1–3 jednotky. Nula silu z plánu úplne odstráni.",
+        btnDecrease: "Znížiť",
+        btnIncrease: "Zvýšiť",
+        btnUnset: "Zrušiť",
+        currentLabel: "Aktuálne",
+        locationLabel: "Kde cvičíš",
+        modeLabel: "Vybavenie",
+        gearLabel: "Dostupné náradie",
+        gearTooltip:
+          "Označ všetko, čo máš reálne k dispozícii. Tréner podľa toho vyberie vhodné cviky.",
+        locations: {
+          gym: "Fitko",
+          home: "Doma",
+          outdoor: "Vonku",
+        },
+        modes: {
+          none: "Žiadne",
+          bodyweight: "Vlastná váha",
+          minimal: "Základné",
+          full_gym: "Plné fitko",
+        },
+        gear: {
+          dumbbells: "Jednoručky",
+          barbell: "Veľká činka",
+          kettlebell: "Kettlebell",
+          trx: "TRX / kruhy",
+          pullup_bar: "Hrazda",
+          resistance_bands: "Expandery",
+          bench: "Lavička",
+          medicine_ball: "Medicimbal",
+          sandbag: "Sandbag",
+          box: "Bedňa",
+          abwheel: "Koliesko na brucho",
+        },
         widget: {
           title: "Silový tréning",
           tooltip: [
@@ -360,8 +630,31 @@ export const sk = {
       },
 
       thresholdsSection: {
+        subtitle:
+          "Prahy pre zóny a intenzity (aktuálny draft a história z databázy).",
+        sportLabel: "Šport",
+        typeLabel: "Typ prahu",
+        hrLabel: "Prahový tep (HR)",
+        paceLabel: "Prahové tempo",
+        powerLabel: "Prahový výkon",
+        measurementLabel: "Metóda merania",
+        saveBtn: "Uložiť prah do DB",
+        dbTitle: "Aktuálne uložené v databáze",
+        dbTooltip:
+          "Zobrazuje posledný platný záznam pre každú kombináciu športu a typu prahu.",
+        enums: {
+          measure: {
+            lab: "Laboratórny test",
+            field: "Terénny test",
+            coach: "Odhad trénera",
+          },
+        },
+        errors: {
+          invalidValues:
+            "Neplatné hodnoty prahov. Skontroluj, či sú čísla kladné.",
+        },
         widget: {
-          title: "Prahy a testy",
+          title: "Prahové hodnoty",
           tooltip: [
             "Prahy sú základ pre správne intenzity a zóny. Keď je prah nastavený zle, celé tréningy sú posunuté – easy môže byť zbytočne tvrdé a tvrdé tréningy môžu byť mimo cieľ.",
             "",
@@ -377,12 +670,27 @@ export const sk = {
       },
 
       volumeSection: {
+        subtitle:
+          "Maximálny týždenný alebo denný limit objemu, ktorý má tréner rešpektovať.",
+        previewEmpty:
+          "Limit nie je nastavený – coach odhaduje objem podľa cieľov.",
+        previewText:
+          "≈ {{hours}} h / týždeň · ≈ {{minutes}} min / deň. Tréner sa snaží neprekročiť tento limit (okrem peak fázy).",
+        modeLabel: "Spôsob zadania",
+        valueWeekly: "Hodnota [h / týždeň]",
+        valueDaily: "Hodnota [min / deň]",
+        hintTooltip:
+          "Ak zostane prázdne, tréner objem navrhne automaticky podľa tvojej histórie a cieľa.",
+        enums: {
+          weekly: "Týždenné hodiny [h]",
+          daily: "Priemerné denné minúty [min]",
+        },
         widget: {
-          title: "Objem",
+          title: "Tréningový objem",
           tooltip: [
             "Objem je najväčší driver progresu aj zranení. Najčastejší problém nie je „málo intervalov“, ale príliš rýchly skok objemu alebo zlá kombinácia objemu a intenzity.",
             "",
-            "Čo to ovplyvní:",
+            "Čo to ovplyvní?",
             "• koľko tréningového času/objemu bude v týždni",
             "• ako rýchlo sa má týždeň po týždni zvyšovať záťaž",
             "• či plán zaradí deload (ľahší) týždeň v správny moment",
@@ -395,6 +703,38 @@ export const sk = {
       },
 
       zonesSection: {
+        subtitle:
+          "Individuálne zóny srdcového tepu pre presné riadenie intenzity.",
+        previewAerobic: "Aeróbna (Z2)",
+        previewAnaerobic: "Anaeróbna (Z4)",
+        calcLabel: "Výpočet zón",
+        calcTooltip:
+          "Režimy:\n• Manuálny = zadávaš hranice ručne\n• Z HRmax = jednoduchý percentuálny odhad\n• Z %LTHR = presnejšie pre vytrvalostné športy\n\nPozn.: %LTHR vyžaduje nastavený LT2 tep v sekcii Thresholds.",
+        lthrTooltip:
+          "Zdrojom je posledný uložený LT2 prah v sekcii Prahové hodnoty.",
+        lthrSourceHint: "Zdroj: LT2 prah pre daný šport",
+        lthrMissingHint: "Najprv zadaj LT2 HR v sekcii Prahové hodnoty.",
+        zonesLabel: "Zóny srdcového tepu (bpm)",
+        lockedTooltip:
+          "Zóny sú automaticky počítané. Pre ručnú úpravu prepni výpočet na Manuálny.",
+        manualTooltip:
+          "Hranice zón upravuješ ručne. Dbaj na logické poradie bez prekrývania.",
+        saveBtn: "Uložiť zóny do DB",
+        enums: {
+          mode: {
+            manual: "Manuálne zadanie",
+            hrmax: "Percentá z HRmax",
+            lthr: "Percentá z % LTHR (odporúčané)",
+            default: "Predvolené nastavenie",
+          },
+        },
+        errors: {
+          empty: "Dáta zón sú prázdne.",
+          mustBeNumber: "musí byť platné číslo.",
+          minMax: "Chyba: Každá zóna musí mať minimum menšie ako maximum.",
+          order: "Zóny musia byť zoradené vzostupne a nesmú sa prekrývať.",
+          maxHr: "Zóna 5 nesmie prekročiť tvoj HRmax ({{hr}}).",
+        },
         widget: {
           title: "Zóny",
           tooltip: [
@@ -416,7 +756,6 @@ export const sk = {
     missingserId: "Skontroluj autentifikáciu",
     errorLoad: "Nepodarilo sa načítať",
   },
-
   PB: {
     title: "Osobné rekordy",
     chooseDist: "vyber vzdialenosť",
@@ -636,12 +975,13 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   externalEvents: {
     title: "Externé aktivity",
-    subtitle: "Športy a iné udalosti (svadba, práca, dovolenka), s ktorými tréner počíta pri generovaní tvojho plánu.",
+    subtitle:
+      "Športy a iné udalosti (svadba, práca, dovolenka), s ktorými tréner počíta pri generovaní tvojho plánu.",
     preview: {
-      noUser: "Najprv sa prihlás, aby sme mohli načítať tvoje externé udalosti.",
+      noUser:
+        "Najprv sa prihlás, aby sme mohli načítať tvoje externé udalosti.",
       loading: "Načítavam tvoje externé aktivity z databázy...",
       empty: "Zatiaľ nemáš uložené žiadne externé záťaže.",
     },
@@ -714,7 +1054,8 @@ export const sk = {
       high: "Vysoká (náročný deň)",
     },
     errors: {
-      loadFailed: "Nepodarilo sa načítať externé aktivity. Skús to prosím neskôr.",
+      loadFailed:
+        "Nepodarilo sa načítať externé aktivity. Skús to prosím neskôr.",
       saveFailed: "Chyba pri ukladaní. Skontroluj pripojenie.",
       deleteFailed: "Chyba pri mazaní dát.",
       missingDate: "Pri jednorazovej udalosti prosím vyber dátum v kalendári.",
@@ -723,9 +1064,8 @@ export const sk = {
     info: {
       saved: "Dáta boli úspešne uložené ({{count}} udalostí).",
       deleted: "Všetky externé záznamy boli zmazané.",
-    }
+    },
   },
-
   monoStrain: {
     title: "Týždňová monotónnosť a úsilie",
     widget: {
@@ -826,7 +1166,6 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   HRV: {
     title: "HRV (Variabilita srdového tepu)",
     widget: {
@@ -913,7 +1252,6 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   sleepStart: {
     title: "Začiatok spánku",
     widget: {
@@ -997,14 +1335,12 @@ export const sk = {
       ].join("\n"),
     },
   },
-
   connectedApps: {
     title: "Pripojenené aplikácie",
   },
   account: {
     title: "Účet",
   },
-
   dashboard: {
     title: "Dashboard",
   },
@@ -1083,7 +1419,7 @@ export const sk = {
         missingLabel: "Chýbajúci záznam",
         noRecord: "Bez záznamu",
       },
-      
+
       sleepDuration: {
         title: "Dĺžka spánku",
         subtitle: "Dĺžka spánku v čase s odporúčaným pásmom 7 – 9 h.",
@@ -1161,7 +1497,8 @@ export const sk = {
       title: "Týždenný progres",
       errorLoad: "Chyba pri načítaní porovnania progresu.",
       noDataTitle: "Zatiaľ chýba porovnanie",
-      noDataDesc: "Potrebujeme aspoň dve analýzy stavu, aby sme ti vedeli ukázať zmeny v tvojej výkonnosti.",
+      noDataDesc:
+        "Potrebujeme aspoň dve analýzy stavu, aby sme ti vedeli ukázať zmeny v tvojej výkonnosti.",
       summaryTitle: "Analýza zmien – porovnanie AI stavov",
       createdAt: "Vytvorené",
       indicatorsTitle: "Únava, riziko zranenia a zameranie",
@@ -1169,7 +1506,8 @@ export const sk = {
       fitnessTitle: "Zmena fitness úrovne (1–10)",
       volumeTitle: "Tolerancia záťaže a úpravy",
       planChanges: "Navrhované zmeny v pláne",
-      noPlanChanges: "Tréner nateraz neodporúča meniť tvoju štruktúru tréningu.",
+      noPlanChanges:
+        "Tréner nateraz neodporúča meniť tvoju štruktúru tréningu.",
       recsTitle: "Osobné odporúčania",
       celebrate: "Čo sa podarilo",
       noCelebrate: "Pokračuj v tréningu, oslavy prídu čoskoro!",
@@ -1182,20 +1520,23 @@ export const sk = {
     state: {
       errorLoad: "Chyba pri načítaní AI analýzy.",
       noDataTitle: "Analýza stavu nie je k dispozícii",
-      noDataDesc: "Spusti 'Analyze Athlete state' v sekcii Plán. AI prepočíta tvoju aktuálnu únavu a pripravenosť.",
+      noDataDesc:
+        "Spusti 'Analyze Athlete state' v sekcii Plán. AI prepočíta tvoju aktuálnu únavu a pripravenosť.",
       mainTitle: "Stav trénovanosti – AI analýza",
       lastAnalysis: "Posledný výpočet",
       fitnessTitle: "Silné stránky podľa disciplín",
       fitnessSubtitle: "Tvoje aktuálne skóre na stupnici 1–10.",
       toleranceTitle: "Tréningová kapacita",
-      toleranceSubtitle: "Koľko záťaže tvoje telo momentálne bezpečne toleruje.",
+      toleranceSubtitle:
+        "Koľko záťaže tvoje telo momentálne bezpečne toleruje.",
       weeklyVolume: "Týždenný objem",
       upTo: "do",
       hardSessions: "Max. intenzívne tréningy",
       loadTitle: "Tréningová záťaž",
       chronicLoad: "Chronic load (dlhodobý)",
       acuteLoad: "Acute load (krátkodobý)",
-      loadDesc: "Chronic = priemer záťaže za 42 dní, Acute = priemer za 7 dní. Ak je Acute výrazne nad Chronic, rastie únava.",
+      loadDesc:
+        "Chronic = priemer záťaže za 42 dní, Acute = priemer za 7 dní. Ak je Acute výrazne nad Chronic, rastie únava.",
       strengthsRisksTitle: "Silné stránky a limitácie",
       strengths: "Silné stránky",
       limitations: "Limitácie / riziká",
@@ -1210,14 +1551,16 @@ export const sk = {
       phase: "Fáza",
       errorLoad: "Chyba pri načítaní týždenného plánu.",
       noPlanTitle: "Plán nie je vygenerovaný",
-      noPlanDesc: "Tvoj strategický plán tu bude po tom, čo ho vygeneruješ v sekcii Plán.",
+      noPlanDesc:
+        "Tvoj strategický plán tu bude po tom, čo ho vygeneruješ v sekcii Plán.",
       overviewTitle: "Prehľad tréningových blokov",
       overviewSubtitle: "Pozri sa, ako AI rozvrhla tvoju cestu k cieľu.",
       range: "Obdobie",
       totalVolume: "Celkový objem",
       plannedVolume: "Plánovaný objem",
       weeksTitle: "Rozpis na jednotlivé týždne",
-      weeksSubtitle: "Detailné ciele a zameranie pre každý blok. Pruh znázorňuje pomer objemu (km).",
+      weeksSubtitle:
+        "Detailné ciele a zameranie pre každý blok. Pruh znázorňuje pomer objemu (km).",
       noGoalShort: "Bez konkrétneho cieľa",
       phases: {
         base: "Základ (Base)",
@@ -1225,7 +1568,7 @@ export const sk = {
         peak: "Vrchol (Peak)",
         recovery: "Regenerácia",
         other: "Iné",
-      }
+      },
     },
     daily: {
       title: "Denný plán",
@@ -1234,29 +1577,31 @@ export const sk = {
       errorLoad: "Nepodarilo sa načítať denný plán.",
       errorLoadTitle: "Chyba pri načítaní",
       errorSave: "Nepodarilo sa uložiť zmeny v pláne.",
-      noPlan: "Zatiaľ nemáš vygenerovaný žiadny aktívny tréningový plán pre jednotlivé dni.",
-      rescheduleNotice: "Tréningy môžeš presúvať medzi dňami priamo na kartách, ale mysli na to, že tým meníš pôvodnú stratégiu trénera.",
+      noPlan:
+        "Zatiaľ nemáš vygenerovaný žiadny aktívny tréningový plán pre jednotlivé dni.",
+      rescheduleNotice:
+        "Tréningy môžeš presúvať medzi dňami priamo na kartách, ale mysli na to, že tým meníš pôvodnú stratégiu trénera.",
       scheduleTitle: "Rozpis tréningov",
-      scheduleSubtitle: "Každá karta predstavuje jeden tréning. Presunom zmeníš termín v rámci aktuálneho cyklu.",
+      scheduleSubtitle:
+        "Každá karta predstavuje jeden tréning. Presunom zmeníš termín v rámci aktuálneho cyklu.",
       unsavedChanges: "Neuložené zmeny: {{count}}",
       allSaved: "Všetky zmeny sú uložené",
       undoConfirmTitle: "Vrátiť poslednú zmenu?",
-      undoConfirmMessage: "Táto akcia vráti posledný presun tréningu na pôvodný dátum.",
+      undoConfirmMessage:
+        "Táto akcia vráti posledný presun tréningu na pôvodný dátum.",
       sessionFallback: "Tréning",
-    }
+    },
   },
   activities: {
     title: "Aktivity",
     goTo: "Otvor aktivity",
   },
-
   activityTable: {
     activities: "Aktivity",
     week: "Týždeň",
     history: "História (vyber rozsah)",
     noActivities: "Žiadne aktivity v zadanom období.",
   },
-
   strava: {
     title: "Strava",
     subtitle: "Prepojenie účtu a manuálny import aktivít.",
@@ -1296,18 +1641,22 @@ export const sk = {
       title: "Odpojenie Stravy",
       warning: "Toto je nevratná akcia.",
       consequencesTitle: "Odpojením Stravy:",
-      consequence1: "vymažeme všetky dáta importované zo Stravy (aktivity, streamy, medzičasy)",
+      consequence1:
+        "vymažeme všetky dáta importované zo Stravy (aktivity, streamy, medzičasy)",
       consequence2: "zrušíme autorizáciu prepojenia",
       consequence3: "znovu pripojenie bude možné najskôr o 24 hodín",
-      consentLabel: "Rozumiem dôsledkom a súhlasím s vymazaním dát importovaných zo Stravy v tejto aplikácii.",
+      consentLabel:
+        "Rozumiem dôsledkom a súhlasím s vymazaním dát importovaných zo Stravy v tejto aplikácii.",
       consentHint: "Bez tohto súhlasu odpojenie nepovolíme.",
       btnDisabledTitle: "Zaškrtni súhlas, aby sa odpojenie povolilo.",
       btnAction: "Odpojiť Stravu",
     },
     toasts: {
       connectSuccess: "Strava účet bol úspešne prepojený.",
-      errorAlreadyLinked: "Tento Strava účet je už pripojený k inému používateľovi.",
-      errorLimit: "Strava limit: aplikácia je zatiaľ v testovacom režime (limit pripojených účtov).",
+      errorAlreadyLinked:
+        "Tento Strava účet je už pripojený k inému používateľovi.",
+      errorLimit:
+        "Strava limit: aplikácia je zatiaľ v testovacom režime (limit pripojených účtov).",
       reconnectAfter: "Znovu pripojenie je možné najskôr po:",
       reconnectCooldownDefault: "Znovu pripojenie je možné až po 24 hodinách.",
       errorDenied: "Pripojenie bolo zrušené na strane Stravy.",
@@ -1315,15 +1664,18 @@ export const sk = {
       importNotAllowed: "Manuálny import nie je momentálne povolený.",
       importOk: "Import zo Stravy prebehol úspešne",
       importFailed: "Import zo Stravy zlyhalo.",
-      disconnectSuccess: "Strava účet bol odpojený. Dáta zo Stravy boli vymazané.",
+      disconnectSuccess:
+        "Strava účet bol odpojený. Dáta zo Stravy boli vymazané.",
       disconnectFailed: "Odpojenie Stravy zlyhalo.",
-    }
+    },
   },
   billing: {
     title: "Predplatné",
     subtitle: "Správa vášho programu, AI limity a história.",
-    notLoggedInDesc: "Musíš byť prihlásený, aby si videl nastavenia predplatného.",
-    devModeNote: "DEV režim: zvýšenie hneď, zníženie alebo prechod na FREE od ďalšieho obdobia.",
+    notLoggedInDesc:
+      "Musíš byť prihlásený, aby si videl nastavenia predplatného.",
+    devModeNote:
+      "DEV režim: zvýšenie hneď, zníženie alebo prechod na FREE od ďalšieho obdobia.",
     sections: {
       tiers: "Dostupné programy",
       history: "História predplatného",
@@ -1347,7 +1699,8 @@ export const sk = {
       label: "Stav",
       cancelAtEnd: "zruší sa na konci obdobia",
       billingPeriod: "Fakturačné obdobie",
-      noActiveMember: "Nemáš aktívne platené členstvo. Používaš bezplatnú verziu.",
+      noActiveMember:
+        "Nemáš aktívne platené členstvo. Používaš bezplatnú verziu.",
     },
     planned: {
       previewLabel: "Plán",
@@ -1361,7 +1714,7 @@ export const sk = {
         upgrade: "zvýšenie",
         downgrade: "zníženie",
         cancel: "zrušenie",
-      }
+      },
     },
     tiers: {
       noTiersConfigured: "Zatiaľ nie sú nakonfigurované žiadne programy.",
@@ -1390,6 +1743,120 @@ export const sk = {
       summary: "Využitých ~{{pct}}% mesačného limitu.",
       reset: "Reset",
       noLimitDefined: "Pre tento program nie je definovaný AI limit.",
-    }
-  }
+    },
+  },
+  sessions: {
+    review: {
+      title: "Analýza trénera",
+      errorTooOld: "Aktivita je staršia ako 7 dní a už ju nie je možné analyzovať.",
+      errorCommentLong: "Komentár je príliš dlhý (max 900 znakov).",
+      errorRerunRejected: "Požiadavka na prepočet bola zamietnutá.",
+      errorGeneric: "Chyba pri spracovaní analýzy.",
+      statusTooOld: "Aktivita je staršia ako 7 dní.",
+      statusNoReview: "Zatiaľ bez analýzy.",
+      statusReviewCount: "Verzia {{version}} / {{max}}",
+      btnWait: "Čakajte",
+      btnRerun: "Prepočítať",
+      btnGenerate: "Analyzovať",
+      btnGenerating: "Analyzujem...",
+      commentPlaceholder: "Napíš poznámku pre AI... (napr. pocity, terén, únava)",
+      commentTip: "Tip: Komentár pomôže AI lepšie pochopiť kontext tvojho tréningu.",
+      loading: "Načítavam analýzu...",
+      tagFocus: "Zameranie",
+      tagZone: "Zóna",
+      tagCaution: "Vyžaduje pozornosť",
+      sectionReview: "Hodnotenie tréningu",
+      sectionNextDay: "Odporúčanie na zajtra",
+      noReviewPlaceholder: "Zatiaľ žiadne hodnotenie. Klikni na tlačidlo hore pre spustenie analýzy.",
+    },
+    detail: {
+      btnFavoriteSet: "Pridať k obľúbeným",
+      btnFavoriteUnset: "V obľúbených",
+      btnStrava: "Zobraziť na Strave",
+      btnMoreData: "Načítať podrobné dáta",
+      sectionOverview: "Prehľad",
+      sectionHR: "Srdcový tep",
+      sectionElevation: "Prevýšenie & kadencia",
+      sectionSpeed: "Rýchlosť & výkon",
+      sectionEnv: "Prostredie & štatistiky",
+      sectionSplits: "Úseky",
+      sectionLaps: "Okruhy",
+      zonesDistribution: "Rozdelenie zón",
+      unitStepsPerMin: "krokov/min",
+      sectionStructure: "Štruktúra tréningu",
+      sectionExercises: "Cvičenia",
+      sectionDebug: "Debug plánu",
+      btnEdit: "Upraviť",
+      btnDelete: "Vymazať",
+      btnOpenActivity: "Otvoriť aktivitu",
+      btnReschedule: "Presunúť",
+      btnWait: "Čakajte",
+      hideDetail: "Skryť detail",
+      showDetail: "Otvoriť detail",
+      rescheduleTitle: "Presunúť tréning na iný deň",
+      currentLabel: "Aktuálne",
+      unitMin: "min",
+      unitSec: "s",
+      unitReps: "opak.",
+      unitSets: "série",
+      unitRest: "oddych",
+      plan: {
+        warmup: "ZAHRIATIE",
+        main: "HLAVNÁ ČASŤ",
+        cooldown: "VYCHLADNUTIE",
+        recovery: "rec",
+        target: "cieľ",
+      }
+    },
+    splits: {
+      noData: "Žiadne dáta o úsekoch.",
+      totalTime: "Celkový čas",
+      colDist: "Dist. (km)",
+      colHR: "Avg HR (bpm)",
+      colPace: "Tempo (min/km)",
+      colElev: "Elev. Δm",
+      colTime: "Čas",
+      colCadence: "Kadencia",
+    },
+    status: {
+      planned: "plánované",
+      done: "hotovo",
+      missed: "zmeškané",
+    },
+    card: {
+      distance: "Vzdialenosť",
+      time: "Čas",
+      favorite: "Obľúbené",
+      hideDetail: "Skryť detail",
+      showDetail: "Zobraziť detail",
+      reschedule: {
+        title: "Presunúť tréning na iný deň",
+        close: "Zavrieť",
+        action: "Presunúť",
+        current: "Aktuálne:",
+      }
+    },
+    charts: {
+    stream: {
+      title: "Podrobné grafy",
+      subtitle: "Analýza tepu, výšky, tempa, výkonu a kadencie",
+      show: "Zobraziť podrobné grafy",
+      hide: "Skryť podrobné grafy",
+      unavailable: "Podrobné dáta nie sú pre túto aktivitu k dispozícii.",
+      noHr: "Dáta o srdcovom tepe chýbajú.",
+      noAlt: "Výškový profil nie je k dispozícii.",
+      noPace: "Dáta o tempe chýbajú.",
+      noPower: "Dáta o výkone chýbajú.",
+      noCadence: "Kadencia nebola zaznamenaná.",
+    },
+    metrics: {
+      hrFull: "Analýza srdcového tepu",
+      elevation: "Výškový profil",
+      pace: "Tempo (instantné)",
+      power: "Výkon",
+      cadence: "Kadencia",
+    },
+  },
+   
+  },
 } as const;

@@ -4,11 +4,10 @@
 import { useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
-
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 const FOCUS_CHOICES = [
   "ankle_strength",
@@ -35,24 +34,25 @@ type Props = {
 };
 
 export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const focusArr = (local.focus_areas as string[] | undefined) ?? [];
   const avoidArr = (local.avoid_zones as string[] | undefined) ?? [];
 
-  const preview = `Focus: ${focusArr.length || 0} · Avoid: ${avoidArr.length || 0}`;
+  const preview = `${t("prefs.sections.focusAvoidSection.previewFocus")}: ${focusArr.length || 0} · ${t("prefs.sections.focusAvoidSection.previewAvoid")}: ${avoidArr.length || 0}`;
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Focus &amp; avoid</span>
-          <TooltipIcon text="Vyber oblasti na posilnenie a veci, ktorým sa má plán vyhýbať. Plánovač upraví tréningy a doplnky." />
+          <span>{t("prefs.sections.focusAvoidSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.focusAvoidSection.widget.tooltip")} />
         </div>
       }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
-          Vyber oblasti na posilnenie a veci, ktorým sa má plán vyhýbať.
+          {t("prefs.sections.focusAvoidSection.subtitle")}
         </span>
       }
       preview={preview}
@@ -64,8 +64,8 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
         {/* Focus */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs font-medium opacity-80">Focus areas</div>
-            <TooltipIcon text="Areas to emphasize in plans (strength, mobility, stability)." />
+            <div className="text-xs font-medium opacity-80">{t("prefs.sections.focusAvoidSection.areasLabel")}</div>
+            <TooltipIcon text={t("prefs.sections.focusAvoidSection.areasTooltip")} />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -81,7 +81,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
                   active={active}
                   onClick={() => setPref("focus_areas", next)}
                 >
-                  {k}
+                  {t(`prefs.sections.focusAvoidSection.areas.${k}`)}
                 </Button>
               );
             })}
@@ -91,8 +91,8 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
         {/* Avoid */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs font-medium opacity-80">Avoid</div>
-            <TooltipIcon text="Elements to reduce/avoid (impact, downhills, hard surfaces, back-to-back speed)." />
+            <div className="text-xs font-medium opacity-80">{t("prefs.sections.focusAvoidSection.avoidLabel")}</div>
+            <TooltipIcon text={t("prefs.sections.focusAvoidSection.avoidTooltip")} />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -108,7 +108,7 @@ export function FocusAvoidSection({ local, setPref, toggleInArray }: Props) {
                   active={active}
                   onClick={() => setPref("avoid_zones", next)}
                 >
-                  {k}
+                  {t(`prefs.sections.focusAvoidSection.avoids.${k}`)}
                 </Button>
               );
             })}

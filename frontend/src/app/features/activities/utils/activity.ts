@@ -1,7 +1,7 @@
 // src/features/activities/utils/activity.ts
 "use client";
 
-import { OPTIONS } from "@/app/shared/charts/optionsActivity";
+import { OPTIONS } from "@/app/shared/charts/chart_builders";
 import { isoDate, isoWeekInfo } from "@/app/shared/utils/time";
 import {
   ActivityRow,

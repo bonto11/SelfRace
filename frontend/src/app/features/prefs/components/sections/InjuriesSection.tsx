@@ -5,12 +5,10 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
-
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
-
+import { useT } from "@/app/shared/i18n/useT";
 import type { Injury, InjuryArea, InjuryType } from "@/app/features/prefs/types/prefs";
 
 const INJ_AREAS: InjuryArea[] = [
@@ -43,6 +41,7 @@ type Props = {
 };
 
 export function InjuriesSection({ local, setLocal }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const [injDraft, setInjDraft] = useState<Injury>({
@@ -53,17 +52,19 @@ export function InjuriesSection({ local, setLocal }: Props) {
 
   const list = (local.injuries ?? []) as Injury[];
 
-  const preview = useMemo(() => list.map((i) => `${i.area} — ${i.type}`), [list]);
+  const previewLabels = useMemo(() => 
+    list.map((i) => `${t(`prefs.sections.injuriesSection.areas.${i.area}`)} — ${t(`prefs.sections.injuriesSection.types.${i.type}`)}`), 
+  [list, t]);
 
   const previewNode =
-    preview.length === 0 ? (
-      <span className="opacity-70">No injuries recorded</span>
+    previewLabels.length === 0 ? (
+      <span className="opacity-70">{t("prefs.sections.injuriesSection.noInjuries")}</span>
     ) : (
       <div className="flex flex-wrap gap-1.5">
-        {preview.map((txt, idx) => (
+        {previewLabels.map((txt: string, idx: number) => (
           <span
             key={`${txt}-${idx}`}
-            className="px-1.5 py-0.5 rounded border border-white/15/50 bg-white/5 text-[10px] tracking-wide"
+            className="px-1.5 py-0.5 rounded border border-white/15 bg-white/5 text-[10px] tracking-wide"
           >
             {txt}
           </span>
@@ -75,13 +76,13 @@ export function InjuriesSection({ local, setLocal }: Props) {
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Injuries / limitations</span>
-          <TooltipIcon text="Planner zníži rizikové prvky a doplní kompenzácie. Zadaj zranenia/limity, aby AI neprepalila objem alebo typ tréningu." />
+          <span>{t("prefs.sections.injuriesSection.widget.title")}</span>
+          <TooltipIcon text={t("prefs.sections.injuriesSection.widget.tooltip")} />
         </div>
       }
       subtitle={
         <span style={{ color: appColors.textMuted }}>
-          Planner zníži rizikové prvky a doplní kompenzácie.
+          {t("prefs.sections.injuriesSection.subtitle")}
         </span>
       }
       preview={previewNode}
@@ -90,13 +91,12 @@ export function InjuriesSection({ local, setLocal }: Props) {
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* Draft row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           {/* AREA */}
           <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium opacity-80">Area</div>
-              <TooltipIcon text="Vyber časť tela. Používa sa na úpravu tréningov a kompenzačných cvičení." />
+              <div className="text-xs font-medium opacity-80">{t("prefs.sections.injuriesSection.areaLabel")}</div>
+              <TooltipIcon text={t("prefs.sections.injuriesSection.areaTooltip")} />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -112,7 +112,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
                     onClick={() => setInjDraft((d) => ({ ...d, area: a }))}
                     className="text-xs"
                   >
-                    {a}
+                    {t(`prefs.sections.injuriesSection.areas.${a}`)}
                   </Button>
                 );
               })}
@@ -122,24 +122,24 @@ export function InjuriesSection({ local, setLocal }: Props) {
           {/* TYPE */}
           <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-medium opacity-80">Type</div>
-              <TooltipIcon text="Typ problému (overuse/tendon/shin splints...). Pomáha lepšie filtrovať rizikové prvky." />
+              <div className="text-xs font-medium opacity-80">{t("prefs.sections.injuriesSection.typeLabel")}</div>
+              <TooltipIcon text={t("prefs.sections.injuriesSection.typeTooltip")} />
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {INJ_TYPES.map((t) => {
-                const active = injDraft.type === t;
+              {INJ_TYPES.map((ty) => {
+                const active = injDraft.type === ty;
                 return (
                   <Button
-                    key={t}
+                    key={ty}
                     type="button"
                     size="xs"
                     variant="prefs"
                     active={active}
-                    onClick={() => setInjDraft((d) => ({ ...d, type: t }))}
+                    onClick={() => setInjDraft((d) => ({ ...d, type: ty }))}
                     className="text-xs"
                   >
-                    {t}
+                    {t(`prefs.sections.injuriesSection.types.${ty}`)}
                   </Button>
                 );
               })}
@@ -149,13 +149,13 @@ export function InjuriesSection({ local, setLocal }: Props) {
           {/* NOTE */}
           <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-medium opacity-80">Note</div>
-              <TooltipIcon text="Krátky kontext: kedy to bolí, po čom sa zhorší, čo pomáha." />
+              <div className="text-xs font-medium opacity-80">{t("prefs.sections.injuriesSection.noteLabel")}</div>
+              <TooltipIcon text={t("prefs.sections.injuriesSection.noteTooltip")} />
             </div>
 
             <TextField
               label=""
-              placeholder="e.g., foot pain after long runs"
+              placeholder={t("prefs.sections.injuriesSection.notePlaceholder")}
               value={injDraft.note ?? ""}
               onChange={(e) =>
                 setInjDraft((d) => ({
@@ -167,7 +167,6 @@ export function InjuriesSection({ local, setLocal }: Props) {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-1">
           <Button
             size="sm"
@@ -182,20 +181,19 @@ export function InjuriesSection({ local, setLocal }: Props) {
               }))
             }
           >
-            Add injury
+            {t("prefs.sections.injuriesSection.addBtn")}
           </Button>
         </div>
 
-        {/* List */}
         {list.length > 0 && (
           <ul className="mt-2 space-y-2">
-            {list.map((it, idx) => (
+            {list.map((it: Injury, idx: number) => (
               <li
                 key={`${it.area}-${it.type}-${idx}`}
                 className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 flex items-center justify-between gap-3"
               >
                 <span className="text-sm">
-                  {it.area} · {it.type}
+                  {t(`prefs.sections.injuriesSection.areas.${it.area}`)} · {t(`prefs.sections.injuriesSection.types.${it.type}`)}
                   {it.note ? ` — ${it.note}` : ""}
                 </span>
 
@@ -209,7 +207,7 @@ export function InjuriesSection({ local, setLocal }: Props) {
                     }))
                   }
                 >
-                  remove
+                  {t("prefs.sections.injuriesSection.removeBtn")}
                 </Button>
               </li>
             ))}

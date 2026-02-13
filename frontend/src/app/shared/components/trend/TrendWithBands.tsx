@@ -13,8 +13,8 @@ import {
 } from "chart.js";
 import annotationPlugin from "chartjs-plugin-annotation";
 import { useMemo } from "react";
-import { SURFACE_SUBCARD } from "@/app/shared/ui/tokens";
-import { CHART_TREND } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
+import { SURFACE_SUBCARD, CHART_TREND } from "@/app/shared/ui/tokens";
 
 ChartJS.register(
   CategoryScale,
@@ -32,7 +32,7 @@ export type Band = {
   label: string;
   min: number | null;
   max: number | null;
-  color: string; // hex / rgba / hsl
+  color: string;
 };
 
 interface Props {
@@ -43,7 +43,6 @@ interface Props {
   lineColor?: string;
   ySuggestedMin?: number;
   ySuggestedMax?: number;
-  /** vlastný formatter Y-osi (napr. s → HH:MM) */
   yTickFormatter?: (v: number) => string;
 }
 
@@ -57,17 +56,17 @@ export default function TrendWithBands({
   ySuggestedMax,
   yTickFormatter,
 }: Props) {
+  const t = useT();
+
   const labels = useMemo(
-    () => points.map((p) => new Date(p.date).toLocaleDateString("sk-SK")),
+    () => points.map((p: Point) => new Date(p.date).toLocaleDateString("sk-SK")),
     [points]
   );
-  const dataVals = useMemo(() => points.map((p) => p.value), [points]);
+  const dataVals = useMemo(() => points.map((p: Point) => p.value), [points]);
 
   const annotations = useMemo(() => {
-    return bands.reduce((acc: any, b, idx) => {
-      // priesvitnosť pásma – pridáme alpha, ak je to hex bez alpha
-      const bg =
-        b.color.startsWith("#") && b.color.length === 7
+    return bands.reduce((acc: any, b: Band, idx: number) => {
+      const bg = b.color.startsWith("#") && b.color.length === 7
           ? b.color + CHART_TREND.bandAlphaHex
           : b.color;
       acc["band" + idx] = {
@@ -80,24 +79,6 @@ export default function TrendWithBands({
       return acc;
     }, {});
   }, [bands]);
-
-  const data = useMemo(
-    () => ({
-      labels,
-      datasets: [
-        {
-          label: title,
-          data: dataVals,
-          borderColor: lineColor ?? CHART_TREND.lineColor,
-          backgroundColor: lineColor ?? CHART_TREND.lineColor,
-          tension: 0.2,
-          pointRadius: 0,
-          borderWidth: 2,
-        },
-      ],
-    }),
-    [labels, dataVals, lineColor, title]
-  );
 
   const options: any = useMemo(
     () => ({
@@ -117,10 +98,7 @@ export default function TrendWithBands({
         },
       },
       scales: {
-        x: {
-          ticks: { maxRotation: 0 },
-          grid: { display: false },
-        },
+        x: { ticks: { maxRotation: 0 }, grid: { display: false } },
         y: {
           beginAtZero: false,
           suggestedMin: ySuggestedMin,
@@ -142,7 +120,18 @@ export default function TrendWithBands({
   return (
     <div className={`${SURFACE_SUBCARD} p-4 ${CHART_TREND.containerClass}`}>
       <h2 className="text-lg font-bold mb-2">{title}</h2>
-      <Line data={data} options={options} />
+      <Line data={{
+        labels,
+        datasets: [{
+          label: title,
+          data: dataVals,
+          borderColor: lineColor ?? CHART_TREND.lineColor,
+          backgroundColor: lineColor ?? CHART_TREND.lineColor,
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+        }]
+      }} options={options} />
     </div>
   );
 }
