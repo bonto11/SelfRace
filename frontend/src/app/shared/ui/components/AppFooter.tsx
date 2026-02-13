@@ -19,14 +19,21 @@ export default function AppFooter() {
         className={[
           PANEL_PAD,
           "max-w-screen-lg mx-auto",
-          "flex flex-wrap items-center justify-between gap-3",
+          // Na mobile flex-col (pod sebou), na väčších flex-row (vedľa seba)
+          "flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-3",
         ].join(" ")}
       >
-        <div className="text-xs" style={{ color: appColors.textMuted }}>
+        <div 
+          className="text-xs text-center sm:text-left" 
+          style={{ color: appColors.textMuted }}
+        >
           © {new Date().getFullYear()} SelfRace
         </div>
 
-        <nav className="flex items-center gap-3 text-xs">
+        <nav 
+          // Na mobile sa linky vycentrujú a ak sa nezmestia, zalamujú sa pekne do ďalšieho riadku
+          className="flex flex-wrap items-center justify-center sm:justify-end gap-x-4 gap-y-3 text-xs"
+        >
           <Link
             href="/privacy"
             className="hover:underline"
