@@ -1,15 +1,16 @@
 "use client";
 
+import React from "react";
+import PageShell from "@/app/shared/ui/components/PageShell";
+
 import {
   CARD,
   SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_INNER_STACK,
-  PANEL_CARD_HEAD,
-  PANEL_CARD_TITLE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // Importujeme hook pre settings
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function PrivacyPage() {
@@ -18,7 +19,6 @@ export default function PrivacyPage() {
   const t = useT();
 
   // 2. Určíme cestu k PDF podľa jazyka
-  // Predpoklad: slovenská verzia je '_SK.pdf', anglická je bez suffixu alebo '_EN.pdf'
   const isSk = lang === "sk";
   const pdfFileName = isSk
     ? "PrivacyPolicy_SelfRace_SK.pdf"
@@ -27,16 +27,17 @@ export default function PrivacyPage() {
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    <main className="max-w-screen-lg mx-auto px-3 py-4">
+    <PageShell title={t("privacy.title")} showBack showPoweredByStrava={false}>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-          <div className={PANEL_CARD_HEAD}>
-            <h1 className={PANEL_CARD_TITLE}>{t("privacy.title")}</h1>
+          
+          {/* Odkaz na stiahnutie - zarovnaný doprava */}
+          <div className="flex justify-end w-full">
             <a
-              href={pdfPath} // Dynamická cesta
+              href={pdfPath}
               className="text-xs hover:underline"
               style={{ color: appColors.textSecondary }}
-              download // Pridaný atribút pre priame stiahnutie
+              download
             >
               {t("common.downloadPDF")}
             </a>
@@ -50,7 +51,7 @@ export default function PrivacyPage() {
             }}
           >
             <object
-              data={pdfPath} // Dynamická cesta pre zobrazenie
+              data={pdfPath}
               type="application/pdf"
               width="100%"
               height="780"
@@ -61,7 +62,7 @@ export default function PrivacyPage() {
               >
                 {t("common.showPDFError")}
                 <a
-                  href={pdfPath} // Dynamická cesta pre fallback link
+                  href={pdfPath}
                   className="ml-2 underline"
                   style={{ color: appColors.textPrimary }}
                 >
@@ -73,6 +74,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }
