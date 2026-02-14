@@ -1,9 +1,10 @@
 // src/app/features/activities/api/activity_review.ts
+
+// src/app/features/activities/api/activity_review.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type ActivityEnrichment = {
   activity_id: number;
-  // Fyzické metriky
   z1_min: number | null;
   z2_min: number | null;
   z3_min: number | null;
@@ -13,7 +14,6 @@ export type ActivityEnrichment = {
   avg_hr_bpm: number | null;
   moving_time_s: number | null;
   distance_m: number | null;
-  // AI Review časť
   ai_review: any | null;
   updated_at: string | null;
   ai_review_version: number | null;
@@ -26,6 +26,7 @@ export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
   model?: string | null;
   comment?: string | null;
+  injury?: any | null; // ✅ Nové pole pre objekt zranenia
 };
 
 type AsyncJobRow = {
@@ -62,19 +63,13 @@ export type ActivityReviewRerunResponse =
       max_versions?: number;
     };
 
-/**
- * Trigger rerun AND wait for result (sync execution pattern).
- * 1. Enqueue job via service_request_activity_review_rerun
- * 2. Force execute via /jobs/run/:user_id/:job_id
- */
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null }
+  opts: { comment?: string | null; model?: string | null; injury?: any | null }
 ): Promise<ActivityReviewRerunResponse | any> {
   if (!userId) throw new Error("Missing userId");
 
-  // 1. REQUEST RERUN (Enqueue)
   const requestPath = `/activities/enrichment/reviewRun/${userId}/${activityId}`;
 
   let enqueueJson: any;
@@ -83,26 +78,22 @@ export async function apiRerunActivityReview(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opts),
+      body: JSON.stringify(opts), // ✅ Tu sa automaticky pošle aj injury
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
     throw new Error("ERROR_ENQUEUE");
   }
 
-  // Ak BE vráti chybu (napr. limit_reached, duplicate_content), vrátime ju do UI
   if (!enqueueJson?.ok) {
     return enqueueJson;
   }
 
   const jobId = enqueueJson.job_id;
   if (!jobId) {
-    // Fallback: ak nemáme job_id, vrátime QUEUED
     return { success: true, ok: true, status: "QUEUED" };
   }
 
-  // 2. FORCE RUN (Sync Execution)
-  // Toto zavolá service_run_job_now na backende
   const runPath = `/jobs/run/${userId}/${jobId}`;
 
   try {
@@ -114,16 +105,13 @@ export async function apiRerunActivityReview(
 
     if (!runJson?.success) {
       console.warn("[AR] Sync Run Failed/Timeout", runJson);
-      // Job ostane v DB a worker ho spracuje. UI dostane info, že sa pracuje.
       return { success: true, ok: true, status: "PROCESSING" };
     }
 
-    // Ak success, znamená to, že AI review je hotové a uložené v DB.
     return { success: true, ok: true, status: "SUCCESS" };
 
   } catch (e) {
     console.error("[AR] Sync Run Network Error", e);
-    // V prípade sieťovej chyby pri pokuse o sync run vrátime QUEUED (job je v DB)
     return { success: true, ok: true, status: "QUEUED" };
   }
 }
@@ -143,7 +131,6 @@ export async function apiGetActivityEnrichment(
   });
 
   if (!json?.success) {
-    // Akceptujeme aj null (ak ešte nie je enrichment vytvorený)
     return null; 
   }
 
