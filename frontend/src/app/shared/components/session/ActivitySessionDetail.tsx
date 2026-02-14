@@ -206,6 +206,9 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
 
   const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
+  console.log(`[DEBUG] ActivitySessionDetail - Render started for Activity ID: ${act.activityId}`);
+  console.log(`[DEBUG] ActivitySessionDetail - Summary data from context:`, s);
+
   const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
   const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
@@ -236,6 +239,7 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
   const [busyFetch, setBusyFetch] = useState(false);
 
   const applyExtrasToState = (ex: any) => {
+    console.log(`[DEBUG] ActivitySessionDetail - Applying extras to state:`, ex);
     const rawStreams: any = ex?.streams ?? null;
     if (rawStreams && Array.isArray(rawStreams.time_s)) {
       setStreams({
@@ -247,37 +251,49 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
         distance_m: Array.isArray(rawStreams.distance_m) ? rawStreams.distance_m : [],
         altitude_m: Array.isArray(rawStreams.altitude_m) ? rawStreams.altitude_m : [],
       });
+    } else {
+       console.log(`[DEBUG] ActivitySessionDetail - Warning: No valid time_s in streams data.`);
     }
     setLaps(Array.isArray(ex?.laps) ? ex.laps : []);
     setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
   };
 
   useEffect(() => {
-    if (!act.activityId) return;
+    if (!act.activityId) {
+        console.log(`[DEBUG] ActivitySessionDetail - No activityId provided, skipping fetch.`);
+        return;
+    }
 
     let alive = true;
     const fetchDetailedData = async () => {
+      console.log(`[DEBUG] ActivitySessionDetail - Starting fetch for extras & enrichment...`);
       setBusyFetch(true);
       try {
         const extras = await getExtras(act.activityId);
+        console.log(`[DEBUG] ActivitySessionDetail - Fetched extras:`, extras);
         if (alive && extras) {
           applyExtrasToState(extras);
         }
 
         const enr = await getEnrichment(act.activityId);
+        console.log(`[DEBUG] ActivitySessionDetail - Fetched enrichment:`, enr);
         if (alive && enr) {
           setEnrichment(enr);
         }
       } catch (err) {
-        console.error("Failed to load activity details", err);
+        console.error("[DEBUG] ActivitySessionDetail - Failed to load activity details", err);
       } finally {
-        if (alive) setBusyFetch(false);
+        if (alive) {
+            setBusyFetch(false);
+            console.log(`[DEBUG] ActivitySessionDetail - Fetch completed. Busy state false.`);
+        }
       }
     };
 
     fetchDetailedData();
 
     return () => {
+      console.log(`[DEBUG] ActivitySessionDetail - Unmounting or activityId changed. Cleaning up.`);
       alive = false;
     };
   }, [act.activityId, getExtras, getEnrichment]);
@@ -288,6 +304,8 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
   const hasCadStream = streams.cadence_rpm && streams.cadence_rpm.some(v => v != null);
   const hasPaceStream = streams.distance_m && streams.distance_m.some(v => v != null) && streams.time_s && streams.time_s.length > 0;
   const hasPowerStream = streams.power_w && streams.power_w.some(v => v != null);
+
+  console.log(`[DEBUG] ActivitySessionDetail - Stream Flags: HR:${hasHrStream} Alt:${hasAltStream} Cad:${hasCadStream} Pace:${hasPaceStream} Pow:${hasPowerStream}`);
 
   // --- Príprava InfoItem polí ---
   const overviewItems: InfoItem[] = [
@@ -382,13 +400,13 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
             <div className="min-w-[600px] pb-2 space-y-6">
               {hasAltStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.elevation")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.elevation" as any)}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" />
                 </div>
               )}
               {hasCadStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.cadence")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.cadence" as any)}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
                 </div>
               )}
@@ -399,18 +417,18 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
 
       {/* --- SEKCIA: TEMPO & VÝKON --- */}
       {(hasMeaningfulValue(paceItems) || hasPaceStream || hasPowerStream) && (
-        <ActivitySectionShell title={t("sessions.charts.metrics.pace")} defaultOpen={false} items={paceItems}>
+        <ActivitySectionShell title={t("sessions.charts.metrics.pace" as any)} defaultOpen={false} items={paceItems}>
           <div className="mt-4 space-y-6 overflow-x-auto">
             <div className="min-w-[600px] pb-2 space-y-6">
               {hasPaceStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.pace")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.pace" as any)}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="pace" />
                 </div>
               )}
               {hasPowerStream && (
                 <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.power")}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.power" as any)}</div>
                   <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" />
                 </div>
               )}
