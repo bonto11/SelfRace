@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
   Brush,
   Line,
+  LineChart, // <-- TOTO TU CHÝBALO
 } from "recharts";
 
 export type StreamMetric = "hr" | "elevation" | "power" | "pace" | "cadence";
@@ -134,7 +135,6 @@ const CustomTooltip = ({ active, payload, label, formatY, showTooltip }: any) =>
   if (!showTooltip) return null; 
   if (active && payload && payload.length) {
     return (
-      // pointer-events-none je KRITICKÉ, aby tooltip neukradol focus myši a nerozbil synchronizáciu
       <div className="pointer-events-none bg-[#121418]/95 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-xl text-xs z-50 min-w-[120px]">
         <p className="font-bold opacity-90 mb-2 pb-1.5 border-b border-white/10">
           {formatCompactTime(label)}
@@ -242,7 +242,6 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
       <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-6">{t("sessions.charts.metrics.hrFull" as any)}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          {/* Pridané syncMethod="value" pre 100% zhodu kurzoru */}
           <ComposedChart data={visibleData} syncId={syncId} syncMethod="value" margin={mainMargins}>
             <defs>
               <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
@@ -251,7 +250,6 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-            {/* Pridané type="number" a scale="time" */}
             <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} dy={5} />
             <YAxis domain={getDynamicDomain("hr", 5, 5, true)} tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickCount={4} axisLine={false} tickLine={false} width={40} />
             <Tooltip content={<CustomTooltip showTooltip={showTooltip} formatY={(v: number) => `${Math.round(v)} ${t("common.units.hr")}`} />} cursor={tooltipCursor} isAnimationActive={false} />
