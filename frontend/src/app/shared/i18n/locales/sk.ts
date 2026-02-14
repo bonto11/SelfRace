@@ -1971,7 +1971,7 @@ export const sk = {
       noData: "Žiadne dáta o úsekoch.",
       totalTime: "Celkový čas",
       colDist: "Dist. (km)",
-      colHR: "Avg HR (bpm)",
+      colHR: "Avg HR (ú/min)",
       colPace: "Tempo (min/km)",
       colElev: "Elev. Δm",
       colTime: "Čas",
