@@ -1,6 +1,4 @@
-// src/app/features/activities/api/activities_enrichment.ts
-
-// src/app/features/activities/api/activity_review.ts
+// src/app/features/activities/api/activities_enrichment
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type ActivityEnrichment = {
