@@ -9,12 +9,12 @@ import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors"; // Tvoje farby
 
 import {
   apiRerunActivityReview,
-} from "@/app/features/activities/api/activities_enrichment";
+} from "@/app/features/activities/api/activity_review";
 
-// ✅ Nové importy pre prácu s Prefs
 import {
   apiFetchUserPref,
   apiUpsertUserPref,
@@ -39,6 +39,7 @@ const REFRESH_COOLDOWN_MS = 10000;
 
 const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
 const INJ_TYPES: InjuryType[] = ["overuse", "acute", "tendon", "stress", "shin_splints", "plantar", "itb", "other"];
+const INJ_SEVERITY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 1 = mierne, 10 = neznesiteľné
 
 /* ================= date & tier helpers ================= */
 function parseDateSafe(v: any): Date | null {
@@ -89,103 +90,233 @@ function TextBlock({ children }: { children: ReactNode }) {
   );
 }
 
-/* ================= MODAL PRE ZRANENIE ================= */
+/* ================= VYLEPŠENÝ MODAL PRE ZRANENIE ================= */
 function InjuryReportModal({ 
+  userId,
   open, 
   onClose, 
-  onSave, 
-  initialData,
-  isSaving
+  onSaveSuccess 
 }: { 
+  userId: number;
   open: boolean; 
   onClose: () => void; 
-  onSave: (data: Injury) => void;
-  initialData?: Injury | null;
-  isSaving: boolean;
+  onSaveSuccess: (hasInjuries: boolean) => void;
 }) {
   const t = useT();
   const [mounted, setMounted] = useState(false);
-  const [draft, setDraft] = useState<Injury>(initialData || { area: "foot", type: "overuse", note: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Zoznam všetkých zranení (z DB + novo pridané)
+  const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+  
+  // Rozpracované zranenie (Draft)
+  const [draft, setDraft] = useState<Injury>({ area: "foot", type: "overuse", severity: 3, note: "" });
 
   useEffect(() => setMounted(true), []);
+
+  // Pri otvorení modalu stiahneme aktuálne zranenia z Prefs
   useEffect(() => {
-    if (initialData) setDraft(initialData);
-  }, [initialData, open]);
+    if (open && userId) {
+      const fetchInjuries = async () => {
+        setIsLoading(true);
+        try {
+          const prefs = await apiFetchUserPref(userId, "coach.prefs");
+          if (prefs && Array.isArray(prefs.injuries)) {
+            setActiveInjuries(prefs.injuries);
+          } else {
+            setActiveInjuries([]);
+          }
+        } catch (e) {
+          console.error("Failed to load injuries", e);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchInjuries();
+    }
+  }, [open, userId]);
+
+  const handleAddDraftToList = () => {
+    setActiveInjuries([...activeInjuries, { ...draft, note: draft.note?.trim() || undefined }]);
+    // Reset draftu po pridaní
+    setDraft({ area: "foot", type: "overuse", severity: 3, note: "" });
+  };
+
+  const handleRemoveFromList = (index: number) => {
+    setActiveInjuries(activeInjuries.filter((_, i) => i !== index));
+  };
+
+  const handleSaveChanges = async () => {
+    if (!userId) return;
+    setIsSaving(true);
+    try {
+      const currentPrefs = await apiFetchUserPref(userId, "coach.prefs") || {};
+      const updatedPrefs = { ...currentPrefs, injuries: activeInjuries };
+      await apiUpsertUserPref(userId, "coach.prefs", updatedPrefs);
+      onSaveSuccess(activeInjuries.length > 0);
+    } catch (e) {
+      console.error("Failed to save injuries", e);
+      alert("Nepodarilo sa uložiť zmeny.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!mounted || !open) return null;
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[2000000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[2000000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={!isSaving ? onClose : undefined}
     >
       <div 
-        className="w-full max-w-lg rounded-2xl bg-[#121418] border border-white/10 p-5 shadow-2xl overflow-y-auto max-h-[90vh]" 
+        className="w-full max-w-xl rounded-2xl bg-[#121418] border border-white/10 p-5 shadow-2xl flex flex-col max-h-[90vh]" 
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
-          <h3 className="text-sm font-bold uppercase tracking-wider opacity-80">
-            {t("prefs.sections.injuriesSection.widget.title")}
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5 shrink-0">
+          <h3 className="text-sm font-bold uppercase tracking-wider opacity-90 text-white">
+            Správa Zranení a Bolestí
           </h3>
+          <button onClick={onClose} className="opacity-50 hover:opacity-100 p-1">✕</button>
         </div>
 
-        <div className="space-y-4">
-          {/* AREA */}
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.areaLabel")}</div>
-            <div className="flex flex-wrap gap-2">
-              {INJ_AREAS.map((a) => (
-                <Button
-                  key={a}
-                  type="button"
-                  size="xs"
-                  variant="prefs"
-                  active={draft.area === a}
-                  onClick={() => setDraft((d) => ({ ...d, area: a }))}
-                  className="text-[11px]"
-                  disabled={isSaving}
-                >
-                  {t(`prefs.sections.injuriesSection.areas.${a}`)}
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center py-10 opacity-50">
+            Načítavam aktuálny stav...
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+            
+            {/* --- FORMULÁR PRE NOVÉ ZRANENIE --- */}
+            <div className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/5">
+              <h4 className="text-xs font-bold uppercase text-white/60 mb-2">Pridať nové zranenie</h4>
+              
+              {/* AREA */}
+              <div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.areaLabel")}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {INJ_AREAS.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setDraft((d) => ({ ...d, area: a }))}
+                      className={`px-3 py-1.5 text-[11px] rounded-full border transition-colors ${
+                        draft.area === a ? "bg-yellow-500 text-black border-yellow-500 font-bold" : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {t(`prefs.sections.injuriesSection.areas.${a}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* TYPE */}
+              <div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.typeLabel")}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {INJ_TYPES.map((ty) => (
+                    <button
+                      key={ty}
+                      type="button"
+                      onClick={() => setDraft((d) => ({ ...d, type: ty }))}
+                      className={`px-3 py-1.5 text-[11px] rounded-full border transition-colors ${
+                        draft.type === ty ? "bg-yellow-500 text-black border-yellow-500 font-bold" : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {t(`prefs.sections.injuriesSection.types.${ty}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SEVERITY (Vážnosť 1-10) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] uppercase font-bold opacity-50">Vážnosť bolesti (1-10)</div>
+                  <div className="text-[10px] opacity-40">1 = mierna, 10 = neznesiteľná</div>
+                </div>
+                <div className="flex gap-1">
+                  {INJ_SEVERITY.map((num) => {
+                    // Farba podľa vážnosti
+                    let colorClass = "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
+                    if (draft.severity === num) {
+                      if (num <= 3) colorClass = "bg-emerald-500 border-emerald-500 text-black font-bold";
+                      else if (num <= 6) colorClass = "bg-yellow-500 border-yellow-500 text-black font-bold";
+                      else colorClass = "bg-red-500 border-red-500 text-white font-bold";
+                    }
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setDraft((d) => ({ ...d, severity: num }))}
+                        className={`flex-1 py-1.5 text-xs rounded border transition-colors ${colorClass}`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* NOTE */}
+              <div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.noteLabel")}</div>
+                <TextField
+                  label=""
+                  placeholder="Napr. ostrá bolesť pri došlape..."
+                  value={draft.note ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button type="button" variant="secondary" size="sm" onClick={handleAddDraftToList}>
+                  + Pridať do zoznamu
                 </Button>
-              ))}
+              </div>
+            </div>
+
+            {/* --- ZOZNAM AKTÍVNYCH ZRANENÍ --- */}
+            <div>
+              <h4 className="text-xs font-bold uppercase text-white/60 mb-3 border-b border-white/5 pb-2">
+                Aktuálny stav ({activeInjuries.length})
+              </h4>
+              {activeInjuries.length === 0 ? (
+                <div className="text-xs opacity-50 italic">Žiadne aktívne zranenia. Ste fit!</div>
+              ) : (
+                <ul className="space-y-2">
+                  {activeInjuries.map((inj, idx) => (
+                    <li key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
+                      <div>
+                        <div className="text-sm font-semibold text-white/90">
+                          {t(`prefs.sections.injuriesSection.areas.${inj.area}`)} · {t(`prefs.sections.injuriesSection.types.${inj.type}`)}
+                        </div>
+                        <div className="text-xs mt-1 flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            (inj.severity || 0) <= 3 ? "bg-emerald-500/20 text-emerald-300" :
+                            (inj.severity || 0) <= 6 ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300"
+                          }`}>
+                            Vážnosť: {inj.severity || "?"}/10
+                          </span>
+                          <span className="opacity-60">{inj.note}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleRemoveFromList(idx)}
+                        className="text-xs px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded border border-red-500/20"
+                      >
+                        Zmazať
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
+        )}
 
-          {/* TYPE */}
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.typeLabel")}</div>
-            <div className="flex flex-wrap gap-2">
-              {INJ_TYPES.map((ty) => (
-                <Button
-                  key={ty}
-                  type="button"
-                  size="xs"
-                  variant="prefs"
-                  active={draft.type === ty}
-                  onClick={() => setDraft((d) => ({ ...d, type: ty }))}
-                  className="text-[11px]"
-                  disabled={isSaving}
-                >
-                  {t(`prefs.sections.injuriesSection.types.${ty}`)}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* NOTE */}
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.noteLabel")}</div>
-            <TextField
-              label=""
-              placeholder={t("prefs.sections.injuriesSection.notePlaceholder")}
-              value={draft.note ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
-              disabled={isSaving}
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 pt-4 border-t border-white/5 flex justify-end gap-3 shrink-0">
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isSaving}>
             Zrušiť
           </Button>
@@ -193,10 +324,10 @@ function InjuryReportModal({
             type="button" 
             variant="primary" 
             size="sm" 
-            onClick={() => onSave({ ...draft, note: draft.note?.trim() || undefined })}
-            disabled={isSaving}
+            onClick={handleSaveChanges}
+            disabled={isSaving || isLoading}
           >
-            {isSaving ? "Ukladám..." : "Uložiť zranenie"}
+            {isSaving ? "Ukladám..." : "Uložiť zmeny"}
           </Button>
         </div>
       </div>
@@ -205,12 +336,11 @@ function InjuryReportModal({
   );
 }
 
-/* ================= component ================= */
+/* ================= HLAVNÝ KOMPONENT ================= */
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
   const { userId } = useUserId();
   const t = useT();
-
   const { getSummary, getEnrichment } = useActivityData();
 
   const [tierCode, setTierCode] = useState<string>(() => {
@@ -236,16 +366,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const [review, setReview] = useState<any | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
-
   const [comment, setComment] = useState<string>("");
+
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
   const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8;
 
-  // --- Stavy pre zranenie ---
-  const [injuryPayload, setInjuryPayload] = useState<Injury | null>(null);
+  // Stav pre zranenia
   const [showInjuryModal, setShowInjuryModal] = useState(false);
-  const [isSavingInjury, setIsSavingInjury] = useState(false);
+  const [hasActiveInjuries, setHasActiveInjuries] = useState(false); // Reflektuje stav v DB po uložení
 
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
@@ -255,7 +384,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const loadData = async (forceFetch: boolean = false) => {
     if (!userId || !activityId) return;
-
     setBusyLoad(true);
     try {
       const data = await getEnrichment(activityId, { fetch: forceFetch });
@@ -264,9 +392,12 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       setAiReviewVersion(Number.isFinite(v) && v >= 0 ? v : 0);
 
       const dbComment = data?.ai_review_last_user_comment;
-      if (typeof dbComment === "string") {
-        setComment((prev) => prev || dbComment);
-      }
+      if (typeof dbComment === "string") setComment((prev) => prev || dbComment);
+      
+      // Zistenie, či má športovec aktuálne nejaké zranenia v DB
+      const prefs = await apiFetchUserPref(Number(userId), "coach.prefs");
+      setHasActiveInjuries(Array.isArray(prefs?.injuries) && prefs.injuries.length > 0);
+
       setUiError(null);
     } catch (e) {
       console.error("[AR] Load Error", e);
@@ -299,49 +430,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
   };
 
-  // ✅ Logika na uloženie zranenia priamo do DB (do Prefs)
-  const handleSaveInjury = async (newInjury: Injury) => {
-    if (!userId) return;
-    setIsSavingInjury(true);
-    setUiError(null);
-    try {
-      // 1. Stiahnutie aktuálnych prefs
-      const currentPrefs = await apiFetchUserPref(Number(userId), "coach.prefs") || {};
-      
-      // 2. Pridanie nového zranenia do existujúceho poľa
-      const existingInjuries = Array.isArray(currentPrefs.injuries) ? currentPrefs.injuries : [];
-      const updatedPrefs = {
-        ...currentPrefs,
-        injuries: [...existingInjuries, newInjury]
-      };
-      
-      // 3. Uloženie späť do DB
-      await apiUpsertUserPref(Number(userId), "coach.prefs", updatedPrefs);
-      
-      // 4. Update lokálneho stavu pre zaškrtnutý checkbox
-      setInjuryPayload(newInjury);
-      setShowInjuryModal(false);
-    } catch (error) {
-      console.error("[AR] Failed to save injury to prefs", error);
-      setUiError(t("prefs.sections.injuriesSection.errorSave" as any) || "Nepodarilo sa uložiť zranenie. Skúste to znova.");
-    } finally {
-      setIsSavingInjury(false);
-    }
-  };
-
   const onRerun = async () => {
     if (!userId || !activityId || busyGen) return;
     setUiError(null);
     setApiNote(null);
 
-    if (!isEligible) {
-      setUiError(t("sessions.review.errorTooOld"));
-      return;
-    }
-    if (commentTooLong) {
-      setUiError(t("sessions.review.errorCommentLong"));
-      return;
-    }
+    if (!isEligible) { setUiError(t("sessions.review.errorTooOld")); return; }
+    if (commentTooLong) { setUiError(t("sessions.review.errorCommentLong")); return; }
 
     setBusyGen(true);
     setRefreshLocked(true);
@@ -354,107 +449,48 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          injury: injuryPayload, // ✅ Odošle sa spolu s požiadavkou na nové AI Review
+          // Už neposielame `injury` v payloade. Backend a AI si to vytiahne z `coach.prefs` !
         },
       );
 
       if (!out?.ok) {
-        if (out?.code === "limit_reached") {
-          setUiError(t("sessions.review.api.limitReached"));
-        } else {
-          setUiError(out?.message || t("sessions.review.errorRerunRejected"));
-        }
+        if (out?.code === "limit_reached") setUiError(t("sessions.review.api.limitReached"));
+        else setUiError(out?.message || t("sessions.review.errorRerunRejected"));
       } else {
         if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
         if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
         if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
 
         await loadData(true);
-        // Vyčistíme lokálny stav checkboxu, aby neposielal zranenie stále dookola
-        setInjuryPayload(null); 
       }
     } catch (e: any) {
-      if (e?.message === "ERROR_ENQUEUE") {
-        setUiError(t("sessions.review.api.errorEnqueue"));
-      } else {
-        setUiError(e?.message || t("sessions.review.errorGeneric"));
-      }
+      if (e?.message === "ERROR_ENQUEUE") setUiError(t("sessions.review.api.errorEnqueue"));
+      else setUiError(e?.message || t("sessions.review.errorGeneric"));
     } finally {
       setBusyGen(false);
       setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
     }
   };
 
-  let statusNote: ReactNode = null;
-  if (!hasReview) {
-    if (!isEligible && startDt) {
-      statusNote = <span className="text-yellow-500/80">{t("sessions.review.statusTooOld")}</span>;
-    } else {
-      statusNote = <span>{t("sessions.review.statusNoReview")}</span>;
-    }
-  } else {
-    statusNote = (
-      <span>
-        {t("sessions.review.statusReviewCount")
-          .replace("{{version}}", String(aiReviewVersion))
-          .replace("{{max}}", String(maxVersions))}
-      </span>
-    );
-  }
-
   return (
-    <ActivitySectionShell
-      title={t("sessions.review.title")}
-      defaultOpen={true}
-      items={[]}
-    >
+    <ActivitySectionShell title={t("sessions.review.title")} defaultOpen={true} items={[]}>
       <div className="flex items-center justify-between min-h-[32px]">
-        <div className="text-xs font-medium opacity-70">{statusNote}</div>
+        <div className="text-xs font-medium opacity-70">
+          {!hasReview ? (
+             (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld")}</span> : <span>{t("sessions.review.statusNoReview")}</span>
+          ) : (
+            <span>{t("sessions.review.statusReviewCount").replace("{{version}}", String(aiReviewVersion)).replace("{{max}}", String(maxVersions))}</span>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onManualRefresh}
-            disabled={busyLoad || busyGen || refreshLocked}
-            className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}
-            title={t("common.refreshTitle")}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`mr-1 ${busyLoad ? "animate-spin" : ""}`}
-            >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M3 21v-5h5" />
-            </svg>
-            {refreshLocked && !busyLoad ? t("sessions.review.btnWait") : t("common.refresh")}
+          <Button type="button" variant="secondary" size="sm" onClick={onManualRefresh} disabled={busyLoad || busyGen || refreshLocked} className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}>
+             {refreshLocked && !busyLoad ? t("sessions.review.btnWait") : t("common.refresh")}
           </Button>
 
           {canRerun && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={onRerun}
-              disabled={busyGen || refreshLocked}
-              className="opacity-90 hover:opacity-100"
-            >
-              {busyGen
-                ? t("sessions.review.btnGenerating")
-                : hasReview
-                  ? t("sessions.review.btnRerun")
-                  : t("sessions.review.btnGenerate")}
+            <Button type="button" variant="primary" size="sm" onClick={onRerun} disabled={busyGen || refreshLocked}>
+              {busyGen ? t("sessions.review.btnGenerating") : hasReview ? t("sessions.review.btnRerun") : t("sessions.review.btnGenerate")}
             </Button>
           )}
         </div>
@@ -463,9 +499,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       {isEligible && canRerunByTier && (
         <div className="mt-4 mb-2">
           <textarea
-            className={`w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none transition-colors placeholder:text-white/20
-                    ${commentTooLong ? "border-red-500/50 focus:border-red-500" : ""}
-                `}
+            className={`w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none transition-colors placeholder:text-white/20 ${commentTooLong ? "border-red-500/50 focus:border-red-500" : ""}`}
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -478,78 +512,56 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             </div>
           )}
 
-          {/* CHECKBOX NA ZRANENIE (Tlačidlo na Toggle) */}
+          {/* OVLÁDANIE ZRANENIA */}
           <div className="flex items-center gap-3 mt-3">
             <button
-              onClick={() => {
-                if (injuryPayload) {
-                  setInjuryPayload(null);
-                } else {
-                  setShowInjuryModal(true);
-                }
-              }}
+              onClick={() => setShowInjuryModal(true)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                injuryPayload 
+                hasActiveInjuries 
                   ? "bg-red-500/20 text-red-200 border-red-500/30 hover:bg-red-500/30" 
                   : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
               }`}
             >
-              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${injuryPayload ? "bg-red-500 border-red-500" : "border-white/30"}`}>
-                {injuryPayload && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${hasActiveInjuries ? "bg-red-500 border-red-500" : "border-white/30"}`}>
+                {hasActiveInjuries && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 )}
               </div>
-              Hlásim bolesť / zranenie
+              {hasActiveInjuries ? "Aktívne zranenie nahlásené" : "Hlásim bolesť / zranenie"}
             </button>
             
-            {injuryPayload && (
+            {hasActiveInjuries && (
                <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
-                 <TooltipIcon 
-                    text="⚠️ Zranenie bolo uložené do tvojho profilu. Pre jeho zrušenie (keď sa vyliečiš) prejdi do sekcie Tréner > Profil > Zranenia." 
-                    size={20} 
-                  />
-                 <span className="hidden sm:inline">Uložené do profilu.</span>
+                 <TooltipIcon text="⚠️ Zranenie je uložené v profile. Pri generovaní nového Review o ňom bude AI vedieť. Pre zrušenie kliknite na tlačidlo a zmažte ho zo zoznamu." size={20} />
                </div>
             )}
           </div>
 
-          <InjuryReportModal 
-            open={showInjuryModal}
-            initialData={injuryPayload}
-            onClose={() => setShowInjuryModal(false)}
-            onSave={handleSaveInjury}
-            isSaving={isSavingInjury}
-          />
-
-          {!hasReview && !comment && (
-            <div className="text-[11px] opacity-40 mt-3 pl-1">
-              {t("sessions.review.commentTip")}
-            </div>
+          {/* MODAL */}
+          {userId && (
+            <InjuryReportModal 
+              userId={Number(userId)}
+              open={showInjuryModal}
+              onClose={() => setShowInjuryModal(false)}
+              onSaveSuccess={(hasInj) => {
+                setHasActiveInjuries(hasInj);
+                setShowInjuryModal(false);
+              }}
+            />
           )}
+
+          {!hasReview && !comment && <div className="text-[11px] opacity-40 mt-3 pl-1">{t("sessions.review.commentTip")}</div>}
         </div>
       )}
 
-      {uiError && (
-        <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200 animate-in slide-in-from-top-1 duration-200">
-          {uiError}
-        </div>
-      )}
-
-      {apiNote && !uiError && (
-        <div className="mt-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200 animate-in slide-in-from-top-1 duration-200">
-          {apiNote}
-        </div>
-      )}
+      {uiError && <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200">{uiError}</div>}
+      {apiNote && !uiError && <div className="mt-2 p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200">{apiNote}</div>}
 
       <div className="mt-6 space-y-6">
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
-            <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
             <span className="text-sm">{t("sessions.review.loading")}</span>
           </div>
         ) : hasReview ? (
@@ -563,14 +575,12 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 </div>
               )}
             </div>
-
             {reviewText && (
               <div className="animate-in fade-in duration-500">
                 <SectionTitle>{t("sessions.review.sectionReview")}</SectionTitle>
                 <TextBlock>{reviewText}</TextBlock>
               </div>
             )}
-
             {nextDayPlan && (
               <div className="animate-in fade-in duration-500 delay-100">
                 <SectionTitle>{t("sessions.review.sectionNextDay")}</SectionTitle>
@@ -578,13 +588,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               </div>
             )}
           </>
-        ) : (
-          !busyGen && (
-            <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
-              <p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder")}</p>
-            </div>
-          )
-        )}
+        ) : (!busyGen && <div className="py-8 text-center border border-dashed border-white/10 rounded-lg"><p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder")}</p></div>)}
       </div>
     </ActivitySectionShell>
   );
