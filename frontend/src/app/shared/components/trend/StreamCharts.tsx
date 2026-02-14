@@ -1,328 +1,86 @@
+// src/app/shared/components/trend/StreamCharts.tsx
 "use client";
 
 import { useMemo, useState } from "react";
-import type { JSX } from "react";
 import { useT } from "@/app/shared/i18n/useT";
-
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { CHART_HR, FLUSH_DETAIL_PB, SCROLL_X } from "@/app/shared/ui/tokens";
+import { CHART_HR, FLUSH_DETAIL_PB } from "@/app/shared/ui/tokens";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Brush,
+  LineChart,
+  Line,
+} from "recharts";
 
 export type StreamMetric = "hr" | "elevation" | "power" | "pace" | "cadence";
 
 type ActivityStreamChartsProps = {
   streams: StreamsData;
   compact?: boolean;
-  metric?: StreamMetric;
-  /** hint na šport – použijeme na rozhodnutie, či kadenciu zdvojnásobiť (run → steps/min) */
   sportHint?: string | null;
 };
 
-type BaseChartProps = {
-  xs: number[];
-  ys: (number | null | undefined)[];
-  height?: number;
-  compact?: boolean;
-  yLabel?: string;
-  formatY?: (v: number) => string;
-  mode?: "hr" | "plain";
-  strokeColor?: string;
+// --- Transformácia dát pre Recharts ---
+function formatDataForRecharts(streams: StreamsData, isRunSport: boolean) {
+  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
+  if (!time_s || time_s.length === 0) return [];
+
+  const paceData = time_s.map((t, i) => {
+    if (i === 0 || !distance_m || distance_m[i] == null || distance_m[i - 1] == null) return null;
+    const dt = t - time_s[i - 1];
+    const dd = distance_m[i]! - distance_m[i - 1]!;
+    if (dt <= 0 || dd <= 0.5) return null;
+    const p = dt / (dd / 1000); // s/km
+    return Number.isFinite(p) && p > 0 ? p : null;
+  });
+
+  return time_s.map((t, i) => ({
+    time: t,
+    hr: hr?.[i] ?? null,
+    altitude: altitude_m?.[i] ?? null,
+    pace: paceData[i],
+    power: power_w?.[i] ?? null,
+    cadence: cadence_rpm?.[i] != null ? (isRunSport ? cadence_rpm[i]! * 2 : cadence_rpm[i]) : null,
+  }));
+}
+
+// --- Vlastný Tooltip pre profesionálny look ---
+const CustomTooltip = ({ active, payload, label, formatY }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#1e2329]/95 backdrop-blur-sm border border-white/10 p-3 rounded-md shadow-2xl text-xs z-50">
+        <p className="font-bold text-white/90 mb-1.5 pb-1.5 border-b border-white/10">
+          {fmtSecondsHMS(label)}
+        </p>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center justify-between gap-4">
+            <span className="opacity-70" style={{ color: entry.color }}>{entry.name}:</span>
+            <span className="font-mono font-semibold text-white">
+              {formatY ? formatY(entry.value) : Math.round(entry.value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
-/** HR zónová farba */
-function zoneColor(hr: number) {
-  const [c1, c2, c3, c4] = CHART_HR.zoneCuts;
-  const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
-  if (hr <= c1) return z1;
-  if (hr <= c2) return z2;
-  if (hr <= c3) return z3;
-  if (hr <= c4) return z4;
-  return z5;
-}
-
-/**
- * Jednotný základ pre všetky stream grafy.
- */
-function BaseStreamChart({
-  xs,
-  ys,
-  height = 120,
-  compact = false,
-  yLabel,
-  formatY,
-  mode = "plain",
-  strokeColor,
-}: BaseChartProps) {
-  const t = useT();
-
-  const Svg = useMemo(() => {
-    const n = Math.min(xs.length, ys.length);
-    if (!n) {
-      return () => (
-        <div className={CHART_HR.emptyTextClass}>
-          {t("charts.stream.unavailable" as any)}
-        </div>
-      );
-    }
-
-    // očistené body
-    const points: { x: number; y: number }[] = [];
-    for (let i = 0; i < n; i++) {
-      const v = ys[i];
-      if (v == null) continue;
-      points.push({ x: xs[i], y: Number(v) });
-    }
-
-    if (!points.length) {
-      return () => (
-        <div className={CHART_HR.emptyTextClass}>
-          {t("charts.stream.unavailable" as any)}
-        </div>
-      );
-    }
-
-    // paddingy
-    const padL = compact ? 28 : 40;
-    const padR = compact ? 8 : 16;
-    const padT = compact ? 10 : 20;
-    const padB = compact ? 20 : 26;
-
-    const W = 980;
-    const H = Math.max(100, height);
-
-    const minX = points[0].x;
-    const maxX = points[points.length - 1].x;
-
-    let minY = points[0].y;
-    let maxY = points[0].y;
-    for (const p of points) {
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-
-    if (mode === "hr") {
-      minY = Math.min(120, minY);
-      maxY = Math.max(CHART_HR.maxBpm, maxY);
-    } else {
-      if (minY === maxY) {
-        minY -= 1;
-        maxY += 1;
-      }
-    }
-
-    const sx = (val: number) =>
-      padL + ((val - minX) / Math.max(1, maxX - minX)) * (W - padL - padR);
-
-    const sy = (val: number) => {
-      const h = H - padT - padB;
-      const pct = (val - minY) / Math.max(1, maxY - minY);
-      return H - padB - pct * h;
-    };
-
-    // ticks
-    const xTicks = 5;
-    const xVals = Array.from(
-      { length: xTicks + 1 },
-      (_, i) => minX + (i * (maxX - minX)) / xTicks
-    );
-
-    const yTicks = 4;
-    const yVals = Array.from(
-      { length: yTicks + 1 },
-      (_, i) => minY + (i * (maxY - minY)) / yTicks
-    );
-
-    // zónové pásy len pre HR
-    const bands: JSX.Element[] = [];
-    if (mode === "hr") {
-      const levels = [minY, ...CHART_HR.zoneCuts, maxY];
-      const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
-      const colors = [z1, z2, z3, z4, z5];
-      for (let i = 0; i < 5; i++) {
-        const yTop = sy(levels[i + 1]);
-        const yBot = sy(levels[i]);
-        bands.push(
-          <rect
-            key={`band-${i}`}
-            x={padL}
-            width={W - padL - padR}
-            y={yTop}
-            height={Math.max(0, yBot - yTop)}
-            fill={colors[i]}
-            opacity={CHART_HR.bandOpacity}
-          />
-        );
-      }
-    }
-
-    // polyline – segmenty
-    const segs: JSX.Element[] = [];
-    for (let i = 1; i < points.length; i++) {
-      const p1 = points[i - 1];
-      const p2 = points[i];
-
-      const x1 = sx(p1.x);
-      const y1 = sy(p1.y);
-      const x2 = sx(p2.x);
-      const y2 = sy(p2.y);
-
-      const col =
-        mode === "hr"
-          ? zoneColor((p1.y + p2.y) / 2)
-          : strokeColor || CHART_HR.axisText;
-
-      segs.push(
-        <line
-          key={`seg-${i}`}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={col}
-          strokeWidth={
-            compact ? CHART_HR.lineWidth.compact : CHART_HR.lineWidth.normal
-          }
-          strokeLinecap="round"
-        />
-      );
-    }
-
-    const Axis = () => (
-      <>
-        {yVals.map((v, i) => (
-          <g key={`gy-${i}`}>
-            <line
-              x1={padL}
-              x2={W - padR}
-              y1={sy(v)}
-              y2={sy(v)}
-              stroke={CHART_HR.grid}
-              strokeDasharray="4 4"
-            />
-            <text
-              x={padL - 6}
-              y={sy(v)}
-              textAnchor="end"
-              dominantBaseline="central"
-              fontSize={10}
-              fill={CHART_HR.tickText}
-            >
-              {formatY ? formatY(v) : Math.round(v)}
-            </text>
-          </g>
-        ))}
-
-        {xVals.map((tVal, i) => (
-          <g key={`gx-${i}`}>
-            <line
-              x1={sx(tVal)}
-              x2={sx(tVal)}
-              y1={padT}
-              y2={H - padB}
-              stroke={CHART_HR.grid}
-              strokeDasharray="4 4"
-            />
-            <text
-              x={sx(tVal)}
-              y={H - padB + 14}
-              textAnchor="middle"
-              fontSize={10}
-              fill={CHART_HR.tickText}
-            >
-              {fmtSecondsHMS(Math.round(tVal))}
-            </text>
-          </g>
-        ))}
-
-        {yLabel && (
-          <text
-            x={padL + 4}
-            y={(padT + (H - padB)) / 2}
-            transform={`rotate(-90 ${padL + 4} ${(padT + (H - padB)) / 2})`}
-            textAnchor="middle"
-            fontSize={10}
-            fill={CHART_HR.axisText}
-          >
-            {yLabel}
-          </text>
-        )}
-      </>
-    );
-
-    const Legend =
-      mode === "hr"
-        ? () => {
-            const LEG_W = 5 * 36;
-            const LEG_X = (W - LEG_W) / 2;
-            const LEG_Y = padT - 4;
-            const { z1, z2, z3, z4, z5 } = CHART_HR.colors;
-            return (
-              <g transform={`translate(${LEG_X},${LEG_Y})`}>
-                {[
-                  ["Z1", z1],
-                  ["Z2", z2],
-                  ["Z3", z3],
-                  ["Z4", z4],
-                  ["Z5", z5],
-                ].map(([label, c], i) => (
-                  <g key={label} transform={`translate(${i * 36},0)`}>
-                    <circle cx={0} cy={0} r={4} fill={c as string} />
-                    <text x={8} y={2} fontSize={10} fill={CHART_HR.tickText}>
-                      {label}
-                    </text>
-                  </g>
-                ))}
-              </g>
-            );
-          }
-        : () => null;
-
-    return () => (
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img">
-        {bands}
-        <Axis />
-        <defs>
-          <clipPath id="streamClip">
-            <rect
-              x={padL}
-              y={padT}
-              width={W - padL - padR}
-              height={H - padT - padB}
-            />
-          </clipPath>
-        </defs>
-        <g clipPath="url(#streamClip)">{segs}</g>
-        <Legend />
-      </svg>
-    );
-  }, [xs, ys, height, compact, yLabel, formatY, mode, strokeColor, t]);
-
-  return <Svg />;
-}
-
-/**
- * Wrapper pre stream grafy.
- * - ak `metric` NIE je zadaný → všetky grafy + header + toggle
- * - ak `metric` JE zadaný → len daný graf, bez headera (na použitie v sekciách).
- */
 export function ActivityStreamCharts({
   streams,
   compact = false,
-  metric,
   sportHint,
 }: ActivityStreamChartsProps) {
   const t = useT();
-  const { time_s, hr, altitude_m, distance_m, cadence_rpm, power_w } = streams;
-
-  const hasTime = Array.isArray(time_s) && time_s.length > 0;
-  const hasHr = Array.isArray(hr) && hr.length > 0;
-  const hasAlt = Array.isArray(altitude_m) && altitude_m.some((v) => v != null);
-  const hasDist =
-    Array.isArray(distance_m) && distance_m.some((v) => v != null);
-  const hasCad =
-    Array.isArray(cadence_rpm) && cadence_rpm.some((v) => v != null);
-  const hasPow = Array.isArray(power_w) && power_w.some((v) => v != null);
+  const [isOpen, setIsOpen] = useState(true); // defaultne otvorené
 
   const isRunSport = useMemo(() => {
     if (!sportHint) return false;
@@ -330,164 +88,150 @@ export function ActivityStreamCharts({
     return s.includes("run") || s.includes("trail");
   }, [sportHint]);
 
-  // pace (s/km)
-  const pace_s_per_km: (number | null)[] = useMemo(() => {
-    if (!hasDist || !hasTime) return [];
-
-    const out: (number | null)[] = [];
-    for (let i = 1; i < time_s.length; i++) {
-      const dt = time_s[i] - time_s[i - 1];
-      const d1 = distance_m?.[i - 1] ?? null;
-      const d2 = distance_m?.[i] ?? null;
-      if (dt <= 0 || d1 == null || d2 == null) {
-        out.push(null);
-        continue;
-      }
-      const dd = d2 - d1;
-      if (dd <= 0.5) {
-        out.push(null);
-        continue;
-      }
-      const paceVal = dt / (dd / 1000); // s/km
-      if (!Number.isFinite(paceVal) || paceVal <= 0) {
-        out.push(null);
-      } else {
-        out.push(paceVal);
-      }
-    }
-    if (out.length < time_s.length) out.unshift(null);
-    return out;
-  }, [hasDist, hasTime, time_s, distance_m]);
-
-  // kadencia – ak run → steps/min = rpm*2
-  const cadenceSeries: (number | null)[] = useMemo(() => {
-    if (!hasCad) return [];
-    if (!isRunSport) return cadence_rpm as (number | null)[];
-    return (cadence_rpm as (number | null)[]).map((v) =>
-      v == null ? null : v * 2
-    );
-  }, [hasCad, cadence_rpm, isRunSport]);
+  const chartData = useMemo(() => formatDataForRecharts(streams, isRunSport), [streams, isRunSport]);
+  
+  const hasTime = chartData.length > 0;
+  const hasHr = chartData.some((d) => d.hr != null);
+  const hasAlt = chartData.some((d) => d.altitude != null);
+  const hasPace = chartData.some((d) => d.pace != null);
+  const hasPow = chartData.some((d) => d.power != null);
+  const hasCad = chartData.some((d) => d.cadence != null);
 
   if (!hasTime) {
-    return (
-      <div className="opacity-70 text-sm">
-        {t("charts.stream.unavailable" as any)}
-      </div>
-    );
+    return <div className="opacity-70 text-sm px-4">{t("charts.stream.unavailable" as any)}</div>;
   }
 
   const formatPace = (v: number) => fmtSecondsHMS(Math.round(v));
-  const height = compact ? 148 : 220;
+  const syncId = "streamSyncId"; 
+  const chartHeight = compact ? 120 : 180;
 
-  /** ====== režim: konkrétny metric (sekcie v ActivitySessionDetail) ====== */
-  if (metric) {
-    const common = { xs: time_s, height, compact };
+  // --- Vykreslovače jednotlivých grafov ---
 
-    if (metric === "hr") {
-      if (!hasHr) {
-        return (
-          <div className="opacity-70 text-sm">
-            {t("charts.stream.noHr" as any)}
-          </div>
-        );
-      }
-      return <BaseStreamChart {...common} ys={hr} yLabel="bpm" mode="hr" />;
-    }
+  const renderHrChart = (includeBrush = false) => (
+    <div className="mb-6">
+      <h4 className="font-bold text-xs uppercase tracking-wider opacity-60 mb-2">{t("charts.metrics.hrFull" as any)}</h4>
+      <div style={{ height: includeBrush ? chartHeight + 40 : chartHeight, width: "100%" }}>
+        <ResponsiveContainer>
+          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 0, left: -20, bottom: includeBrush ? 0 : 5 }}>
+            <defs>
+              <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_HR.colors.z4} stopOpacity={0.6} />
+                <stop offset="95%" stopColor={CHART_HR.colors.z2} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
+            <XAxis dataKey="time" hide={!includeBrush} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} />
+            <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} bpm`} />} cursor={{ stroke: "rgba(255,255,255,0.3)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Area type="monotone" dataKey="hr" name={t("common.units.hr")} stroke={CHART_HR.colors.z4} fill="url(#colorHr)" isAnimationActive={false} />
+            {includeBrush && <Brush dataKey="time" height={30} stroke={CHART_HR.axisText} fill="rgba(255,255,255,0.05)" tickFormatter={fmtSecondsHMS} />}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 
-    if (metric === "elevation") {
-      if (!hasAlt) {
-        return (
-          <div className="opacity-70 text-sm">
-             {t("charts.stream.noAlt" as any)}
-          </div>
-        );
-      }
-      return (
-        <BaseStreamChart
-          {...common}
-          ys={altitude_m ?? []}
-          yLabel="m"
-          mode="plain"
-          strokeColor={CHART_HR.colors.z2}
-        />
-      );
-    }
+  const renderElevationChart = (includeBrush = false) => (
+    <div className="mb-6">
+      <h4 className="font-bold text-xs uppercase tracking-wider opacity-60 mb-2">{t("charts.metrics.elevation" as any)}</h4>
+      <div style={{ height: includeBrush ? chartHeight + 40 : chartHeight, width: "100%" }}>
+        <ResponsiveContainer>
+          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 0, left: -20, bottom: includeBrush ? 0 : 5 }}>
+            <defs>
+              <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_HR.colors.z2} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={CHART_HR.colors.z2} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
+            <XAxis dataKey="time" hide={!includeBrush} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} />
+            <YAxis domain={["dataMin", "dataMax + 20"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} m`} />} cursor={{ stroke: "rgba(255,255,255,0.3)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Area type="monotone" dataKey="altitude" name={t("common.units.m")} stroke={CHART_HR.colors.z2} fill="url(#colorAlt)" isAnimationActive={false} />
+            {includeBrush && <Brush dataKey="time" height={30} stroke={CHART_HR.axisText} fill="rgba(255,255,255,0.05)" tickFormatter={fmtSecondsHMS} />}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 
-    if (metric === "pace") {
-      if (!hasDist) {
-        return (
-          <div className="opacity-70 text-sm">
-            {t("charts.stream.noPace" as any)}
-          </div>
-        );
-      }
-      return (
-        <BaseStreamChart
-          {...common}
-          ys={pace_s_per_km}
-          yLabel="s/km"
-          formatY={formatPace}
-          mode="plain"
-          strokeColor={CHART_HR.colors.z3}
-        />
-      );
-    }
+  const renderPaceChart = (includeBrush = false) => (
+    <div className="mb-6">
+      <h4 className="font-bold text-xs uppercase tracking-wider opacity-60 mb-2">{t("charts.metrics.pace" as any)}</h4>
+      <div style={{ height: includeBrush ? chartHeight + 40 : chartHeight, width: "100%" }}>
+        <ResponsiveContainer>
+          <LineChart data={chartData} syncId={syncId} margin={{ top: 5, right: 0, left: -20, bottom: includeBrush ? 0 : 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
+            <XAxis dataKey="time" hide={!includeBrush} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} />
+            {/* Pace je obrátený: nižší čas = lepšie/vyššie na grafe */}
+            <YAxis reversed domain={["dataMin", "dataMax"]} tickFormatter={formatPace} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={formatPace} />} cursor={{ stroke: "rgba(255,255,255,0.3)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Line type="monotone" dataKey="pace" name={t("common.units.pace")} stroke={CHART_HR.colors.z1} dot={false} strokeWidth={2} isAnimationActive={false} />
+            {includeBrush && <Brush dataKey="time" height={30} stroke={CHART_HR.axisText} fill="rgba(255,255,255,0.05)" tickFormatter={fmtSecondsHMS} />}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 
-    if (metric === "power") {
-      if (!hasPow) {
-        return (
-          <div className="opacity-70 text-sm">
-             {t("charts.stream.noPower" as any)}
-          </div>
-        );
-      }
-      return (
-        <BaseStreamChart
-          {...common}
-          ys={power_w ?? []}
-          yLabel="W"
-          mode="plain"
-          strokeColor={CHART_HR.colors.z4}
-        />
-      );
-    }
+  const renderPowerChart = (includeBrush = false) => (
+    <div className="mb-6">
+      <h4 className="font-bold text-xs uppercase tracking-wider opacity-60 mb-2">{t("charts.metrics.power" as any)}</h4>
+      <div style={{ height: includeBrush ? chartHeight + 40 : chartHeight, width: "100%" }}>
+        <ResponsiveContainer>
+          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 0, left: -20, bottom: includeBrush ? 0 : 5 }}>
+            <defs>
+              <linearGradient id="colorPow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_HR.colors.z3} stopOpacity={0.6} />
+                <stop offset="95%" stopColor={CHART_HR.colors.z3} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
+            <XAxis dataKey="time" hide={!includeBrush} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} />
+            <YAxis domain={["dataMin", "dataMax + 20"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} W`} />} cursor={{ stroke: "rgba(255,255,255,0.3)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Area type="monotone" dataKey="power" name={t("common.units.power")} stroke={CHART_HR.colors.z3} fill="url(#colorPow)" isAnimationActive={false} />
+            {includeBrush && <Brush dataKey="time" height={30} stroke={CHART_HR.axisText} fill="rgba(255,255,255,0.05)" tickFormatter={fmtSecondsHMS} />}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 
-    if (metric === "cadence") {
-      if (!hasCad) {
-        return (
-          <div className="opacity-70 text-sm">
-            {t("charts.stream.noCadence" as any)}
-          </div>
-        );
-      }
-      return (
-        <BaseStreamChart
-          {...common}
-          ys={cadenceSeries}
-          yLabel={isRunSport ? "steps/min" : "rpm"}
-          mode="plain"
-          strokeColor={CHART_HR.colors.z5}
-        />
-      );
-    }
+  const renderCadenceChart = (includeBrush = false) => (
+    <div className="mb-6">
+      <h4 className="font-bold text-xs uppercase tracking-wider opacity-60 mb-2">{t("charts.metrics.cadence" as any)}</h4>
+      <div style={{ height: includeBrush ? chartHeight + 40 : chartHeight, width: "100%" }}>
+        <ResponsiveContainer>
+          <LineChart data={chartData} syncId={syncId} margin={{ top: 5, right: 0, left: -20, bottom: includeBrush ? 0 : 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
+            <XAxis dataKey="time" hide={!includeBrush} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} />
+            <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={3} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => Math.round(v)} />} cursor={{ stroke: "rgba(255,255,255,0.3)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <Line type="step" dataKey="cadence" name={isRunSport ? t("common.units.kadenceRun") : t("common.units.kadenceBike")} stroke={CHART_HR.colors.z5} dot={false} strokeWidth={1.5} isAnimationActive={false} />
+            {includeBrush && <Brush dataKey="time" height={30} stroke={CHART_HR.axisText} fill="rgba(255,255,255,0.05)" tickFormatter={fmtSecondsHMS} />}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 
-    return null;
-  }
-
-  /** ====== režim: všetky grafy + header (coach / calendar detail) ====== */
-
-  const [isOpen, setIsOpen] = useState(false);
+  // Zistíme, ktorý graf je posledný, aby dostal `<Brush>` (Slider)
+  const activeCharts = [
+    { key: "hr", active: hasHr, render: renderHrChart },
+    { key: "pace", active: hasPace, render: renderPaceChart },
+    { key: "power", active: hasPow, render: renderPowerChart },
+    { key: "elevation", active: hasAlt, render: renderElevationChart },
+    { key: "cadence", active: hasCad, render: renderCadenceChart },
+  ].filter(c => c.active);
 
   return (
-    <div className="mt-3">
+    <div className="mt-4 border border-white/5 rounded-2xl bg-black/20 overflow-hidden">
       <div className={FLUSH_DETAIL_PB}>
-        {/* Header s názvom + toggle */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">{t("charts.stream.title" as any)}</span>
-            <span className="text-[11px] opacity-70">
-              {t("charts.stream.subtitle" as any)}
-            </span>
+            <span className="text-base font-semibold">{t("sessions.charts.stream.title" as any)}</span>
+            <span className="text-xs opacity-60">Pohybom myši prepojíte grafy. Výrezom v spodnom grafe priblížite úsek.</span>
           </div>
           <DisclosureToggle
             open={isOpen}
@@ -498,85 +242,11 @@ export function ActivityStreamCharts({
         </div>
 
         {isOpen && (
-          <div className="mt-3">
-            <div className={SCROLL_X}>
-              <div className="space-y-4 py-1 min-w-[720px]">
-                {hasHr && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.hrFull" as any)}</h4>
-                    <BaseStreamChart
-                      xs={time_s}
-                      ys={hr}
-                      height={height}
-                      compact={compact}
-                      yLabel={t("common.units.hr")}
-                      mode="hr"
-                    />
-                  </div>
-                )}
-
-                {hasAlt && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.elevation" as any)}</h4>
-                    <BaseStreamChart
-                      xs={time_s}
-                      ys={altitude_m ?? []}
-                      height={height}
-                      compact={compact}
-                      yLabel={t("common.units.m")}
-                      mode="plain"
-                      strokeColor={CHART_HR.colors.z2}
-                    />
-                  </div>
-                )}
-
-                {hasDist && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.pace" as any)}</h4>
-                    <BaseStreamChart
-                      xs={time_s}
-                      ys={pace_s_per_km}
-                      height={height}
-                      compact={compact}
-                      yLabel={t("common.units.pace")}
-                      formatY={formatPace}
-                      mode="plain"
-                      strokeColor={CHART_HR.colors.z3}
-                    />
-                  </div>
-                )}
-
-                {hasPow && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.power" as any)}</h4>
-                    <BaseStreamChart
-                      xs={time_s}
-                      ys={power_w ?? []}
-                      height={height}
-                      compact={compact}
-                      yLabel={t("common.units.power")}
-                      mode="plain"
-                      strokeColor={CHART_HR.colors.z4}
-                    />
-                  </div>
-                )}
-
-                {hasCad && (
-                  <div>
-                    <h4 className="font-bold text-sm mb-1.5">{t("charts.metrics.cadence" as any)}</h4>
-                    <BaseStreamChart
-                      xs={time_s}
-                      ys={cadenceSeries}
-                      height={height}
-                      compact={compact}
-                      yLabel={isRunSport ? t("common.units.kadenceRun") : t("common.units.kadenceBike")}
-                      mode="plain"
-                      strokeColor={CHART_HR.colors.z5}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="p-4 w-full">
+            {activeCharts.map((chart, idx) => {
+              const isLast = idx === activeCharts.length - 1;
+              return <div key={chart.key}>{chart.render(isLast)}</div>;
+            })}
           </div>
         )}
       </div>
