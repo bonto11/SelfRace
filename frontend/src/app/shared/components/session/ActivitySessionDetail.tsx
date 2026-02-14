@@ -93,7 +93,7 @@ function zoneColor(zoneNum: number) {
 type SectionProps = { title: string; defaultOpen?: boolean; items?: InfoItem[]; children?: ReactNode };
 
 const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ");
-const INFO_TILE_CLASS = "rounded-xl border px-3 py-2 flex flex-col justify-center shadow-sm";
+const INFO_TILE_CLASS = "rounded-lg border px-2.5 py-1.5 flex flex-col justify-center shadow-sm";
 const INFO_TILE_STYLE: CSSProperties = { background: appColors.backgroundAlt, borderColor: appColors.surfaceCardBorder };
 
 export function ActivitySectionShell({ title, defaultOpen, items, children }: SectionProps) {
@@ -102,20 +102,20 @@ export function ActivitySectionShell({ title, defaultOpen, items, children }: Se
   if (!hasItems && !children) return null;
 
   return (
-    <section className="mt-4">
+    <section className="mt-3">
       <div className={INLINE_WRAP_CLASS} style={SURFACE_INLINE_STYLE}>
-        <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold tracking-tight hover:bg-white/5 transition-colors">
+        <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold tracking-tight hover:opacity-80 transition-opacity">
           <span className="min-w-0">{title}</span>
           <span className={`text-base opacity-50 leading-none transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
         </button>
         {open && (
-          <div className={[SESSION_DIVIDER, "px-4 py-4 text-sm"].join(" ")} style={SESSION_DIVIDER_STYLE}>
+          <div className={[SESSION_DIVIDER, "px-3 py-3 text-sm"].join(" ")} style={SESSION_DIVIDER_STYLE}>
             {hasItems && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 {items!.map(t => (
                   <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
                     <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-0.5">{t.label}</div>
-                    <div className="text-[15px] font-semibold tabular-nums text-white/90">{valOrDash(t.value)}</div>
+                    <div className="text-sm font-semibold tabular-nums text-white/90">{valOrDash(t.value)}</div>
                   </div>
                 ))}
               </div>
@@ -163,7 +163,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     return () => { alive = false; };
   }, [act.activityId, getExtras, getEnrichment]);
 
-  // Všetky KPIs spojené do jedného moderného bloku
   const allKpis: InfoItem[] = [
     { label: t("common.metrics.time"), value: timeTxt },
     { label: t("common.metrics.distance"), value: distTxt },
@@ -185,8 +184,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
 
   return (
     <div className="pb-4">
-      {/* Hlavné Akcie */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {act.onToggleFavorite && (
           <button type="button" onClick={act.onToggleFavorite} className={SESSION_PILL} style={act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE}>
             {act.isFavorite ? `★ ${t("sessions.detail.btnFavoriteUnset")}` : `☆ ${t("sessions.detail.btnFavoriteSet")}`}
@@ -198,38 +196,32 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         {stravaUrl && <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>{t("sessions.detail.btnStrava")}</Button>}
       </div>
 
-      {/* Prehľad (KPIs + Koláč Zón) */}
       <ActivitySectionShell title={t("sessions.detail.sectionOverview")} defaultOpen={true} items={allKpis}>
         {enrichment && (
-          <div className="mt-6 pt-6 border-t border-white/5">
-            <div className="text-xs uppercase font-bold opacity-60 mb-6 px-1">{t("sessions.detail.zonesDistribution")}</div>
-            <div className="bg-black/10 rounded-xl p-4 border border-white/5">
-                <PieTrend items={zoneItems} valueFormatter={fmtTime} />
-            </div>
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <div className="text-[10px] uppercase font-bold opacity-50 mb-3 px-1">{t("sessions.detail.zonesDistribution")}</div>
+            <PieTrend items={zoneItems} valueFormatter={fmtTime} />
           </div>
         )}
       </ActivitySectionShell>
       
-      {/* Review Trénera */}
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {/* ZJEDNOTENÉ GRAFY CEZ RECHARTS */}
+      {/* GRAFY V BEŽNOM SHELL-e AKO MEDZIČASY */}
       {streams.time_s && streams.time_s.length > 0 && (
-         <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
+        <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
+           <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
+        </ActivitySectionShell>
       )}
 
-      {/* Medzičasy */}
       {Array.isArray(splits) && splits.length > 1 && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
           <ActivitySplitsSection kind={splits} />
         </ActivitySectionShell>
       )}
 
-      {/* Poznámky */}
       {act.notes && (
-        <div className="mt-4 p-4 rounded-xl bg-black/20 border border-white/5 text-sm text-white/80 leading-relaxed">
-          {safeText(act.notes)}
-        </div>
+        <div className="mt-3 text-sm opacity-90">{safeText(act.notes)}</div>
       )}
     </div>
   );
