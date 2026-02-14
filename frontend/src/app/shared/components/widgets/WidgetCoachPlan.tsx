@@ -435,7 +435,7 @@ export default function WidgetCoachPlan() {
         <div className={WIDGET_CTA_ROW}>
           <Button
             size="xs"
-            variant={planLocked ? "success" : "primary"}
+            variant={"success"}
             disabled={disabled || !canStartPlan}
             onClick={handleStartPlan}
             title={!canStartPlan ? (startDisabledReason ?? undefined) : t("coachPlan.actions.startPlan")}
@@ -454,7 +454,7 @@ export default function WidgetCoachPlan() {
 
           <Button
             size="xs"
-            variant="secondary"
+            variant="success"
             disabled={disabled}
             onClick={() => router.push("/coach/ai/dailyPlan")}
             title={t("coachPlan.actions.openPlan")}
@@ -464,7 +464,7 @@ export default function WidgetCoachPlan() {
 
           <Button
             size="xs"
-            variant="secondary"
+            variant="danger"
             disabled={!planLocked || loadingKind === "cancel"}
             onClick={handleCancelPlan}
           >
