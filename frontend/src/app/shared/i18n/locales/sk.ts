@@ -1273,7 +1273,8 @@ export const sk = {
         "• 80/20 nie je dogma – v príprave na preteky môže byť pomer posunutý",
         "• problém je dlhodobo veľa vysoko intenzívnych dní bez dostatočného lahšieho objemu",
       ].join("\n"),
-      noteMissing: "Chýba ti {{min}} min nízkej intenzity do optimálneho pomeru.",
+      noteMissing:
+        "Chýba ti {{min}} min nízkej intenzity do optimálneho pomeru.",
       noteExtra: "Máš +{{min}} min nízkej intenzity oproti ideálnemu pomeru.",
       notePerfect: "Máš presne optimálny pomer ✔",
     },
@@ -1958,11 +1959,12 @@ export const sk = {
       unitSets: "série",
       unitRest: "oddych",
       plan: {
-        warmup: "ZAHRIATIE",
-        main: "HLAVNÁ ČASŤ",
-        cooldown: "VYCHLADNUTIE",
-        recovery: "rec",
         target: "cieľ",
+        work: "Záťaž",
+        recovery: "Pauza",
+        main: "Hlavná časť",
+        warmup: "Rozcvička",
+        cooldown: "Výklus",
       },
     },
     splits: {
