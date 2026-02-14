@@ -108,7 +108,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     return context2
 
-
 def _build_prompts_for_daily(
     context_payload: dict,
     *,
@@ -242,6 +241,7 @@ def _build_prompts_for_daily(
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
+    # --- ZMENA: Obohatená schéma o detailnú bežeckú štruktúru ---
     schema_text = """
 {
   "schema_version": 3,
@@ -262,7 +262,21 @@ def _build_prompts_for_daily(
           "session_type": string | null,
           "zone_text": string | null,
           "notes": string | null,
-          "structure": object | null,
+          "structure": {
+            "warmup": { "duration_min": number, "target": string, "instruction": string },
+            "main_part": [
+              {
+                "kind": "steady" | "interval_block",
+                "repeats": number | null,
+                "work": { "duration_min": number, "target": string, "instruction": string } | null,
+                "rest": { "duration_min": number, "target": string, "instruction": string } | null,
+                "duration_min": number | null,
+                "target": string | null,
+                "instruction": string | null
+              }
+            ],
+            "cooldown": { "duration_min": number, "target": string, "instruction": string }
+          } | null,
           "payload"?: object | null
         }
       ]
@@ -279,7 +293,6 @@ def _build_prompts_for_daily(
         "\n"
     )
 
-    # External events rules: enforce exact keys & no duplicates
     external_rules = (
         "- EXTERNAL EVENTS (HARD):\n"
         "  CONTEXT_JSON.external_events.occurrences contains date-based external events from DB.\n"
@@ -292,18 +305,8 @@ def _build_prompts_for_daily(
         "    - duration_min = occurrence.duration_min (if missing, choose a reasonable default AND say you guessed it in notes)\n"
         "    - intensity = occurrence.intensity if present (easy|medium|hard), otherwise null\n"
         "    - structure = null\n"
-        "    - zone_text = null (unless the external event explicitly contains zone info, which it usually does NOT)\n"
-        "    - payload.external_event (HARD REQUIRED for external_event sessions) with EXACTLY these keys:\n"
-        "        date, title, sport_raw, start_time_local, duration_min, priority, intensity\n"
-        "      where:\n"
-        "        date = occurrence.date\n"
-        "        title = occurrence.title\n"
-        "        sport_raw = occurrence.sport_raw\n"
-        "        start_time_local = occurrence.start_time_local\n"
-        "        duration_min = occurrence.duration_min\n"
-        "        priority = occurrence.priority\n"
-        "        intensity = occurrence.intensity\n"
-        "  Notes: say what it is and whether you add other training the same day.\n"
+        "    - zone_text = null\n"
+        "    - payload.external_event (HARD REQUIRED) with exact keys: date, title, sport_raw, start_time_local, duration_min, priority, intensity\n"
         "\n"
     )
 
@@ -320,10 +323,8 @@ def _build_prompts_for_daily(
         "- LONG RUN RULE (HARD WHEN POSSIBLE):\n"
         "  If main_sport is run, schedule exactly 1 long run in the week.\n"
         f"  Preferred weekdays: {long_run_days_str}.\n"
-        "  If there is NO hard conflict on preferred weekdays (e.g. external_event that cannot be combined),\n"
-        "  you MUST place the long run on ONE of the preferred weekdays.\n"
+        "  If there is NO hard conflict on preferred weekdays, you MUST place the long run on ONE of the preferred weekdays.\n"
         "  Mark it explicitly: session_type='long_run'.\n"
-        "  If you cannot place it on preferred weekdays, explain why in notes and add warnings: ['long_run_not_on_preferred_day'].\n"
         "\n"
     )
 
@@ -337,39 +338,44 @@ def _build_prompts_for_daily(
         "\n"
     )
 
+    # --- ZMENA: Úplne nové pravidlo pre detailnú štruktúru behu ---
+    endurance_structure_rule = (
+        "- ENDURANCE STRUCTURE (run, ride, swim):\n"
+        "  For endurance workouts, you MUST provide a detailed `structure` object.\n"
+        "  Write instructions for absolute beginners. Explain exactly what they should do and feel.\n"
+        "  - `warmup`: Explain pace and feeling (e.g. 'Pomalý poklus na zahriatie, môžeš dýchať nosom').\n"
+        "  - `main_part`: Provide an array of blocks. \n"
+        "     If it is a steady run, use kind='steady' with `duration_min`, `target` (e.g. 'Z2 140-150 bpm') and `instruction`.\n"
+        "     If it is an interval session, use kind='interval_block' with `repeats`, `work` (duration, target, instruction) and `rest` (duration, target, instruction).\n"
+        "  - `cooldown`: Explain how to cool down (e.g. 'Voľná chôdza na upokojenie tepu').\n"
+        "  Use concrete numbers for targets (Pace or HR bpm) based on athlete's zones from context.\n"
+        "\n"
+    )
+
     intensity_model_rule = (
         "- INTENSITY MODEL (GUIDANCE):\n"
         f"  preferences.intensity_model = '{intensity_model}'.\n"
         "  If 'polarized': keep most volume easy/recovery, with a small number of hard sessions.\n"
-        "  If 'pyramidal': still mostly easy, but allow more moderate work; keep very hard work limited.\n"
-        "  This is guidance; still respect recovery and avoid back-to-back hard rules.\n"
+        "  If 'pyramidal': still mostly easy, but allow more moderate work.\n"
         "\n"
     )
 
     blocks_rule = (
         "- TRAINING BLOCKS (GUIDANCE):\n"
         f"  preferences.training_blocks enabled: {blocks_str}.\n"
-        "  If a block is enabled, include at most ONE session aligned with it in this week (unless external events force otherwise).\n"
-        "  Examples:\n"
-        "    - vo2max: short interval/VO2-style run session.\n"
-        "    - threshold: threshold/tempo-style run session.\n"
-        "    - ftp: steady ride tempo/sweet-spot style session.\n"
-        "  If none enabled, ignore this section.\n"
+        "  If a block is enabled, include at most ONE session aligned with it in this week.\n"
         "\n"
     )
 
     explanation_rule = (
         "- NOTES (HARD):\n"
         "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n"
-        "  Structure:\n"
-        "    1) Why this session is today (context in the week).\n"
-        "    2) What to focus on / what to avoid (1 key cue).\n"
-        "    3) (Optional) How it supports the goal or recovery.\n"
-        "  No fluff, no emojis, no meta talk.\n"
+        "  1) Why this session is today.\n"
+        "  2) What to focus on (e.g. cadence, posture).\n"
+        "  No fluff, no emojis.\n"
         "\n"
     )
 
-    # Week range fallback
     fallback_block = ""
     if not week_start or not week_end:
         fallback_block = (
@@ -380,7 +386,6 @@ def _build_prompts_for_daily(
 
     context_for_ai = _minify_context_for_ai(context_payload)
 
-    # attach settings safely (minify)
     safe_settings = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
@@ -399,6 +404,7 @@ def _build_prompts_for_daily(
         + two_a_day_rule
         + long_run_rule
         + strength_rule
+        + endurance_structure_rule # <--- APLIKOVANÉ PRAVIDLO
         + intensity_model_rule
         + blocks_rule
         + weekly_volume_line
@@ -414,7 +420,6 @@ def _build_prompts_for_daily(
         + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
         + "- Do NOT invent extreme workloads.\n"
         + "- Do NOT omit any external event occurrence.\n"
-        + "- For EVERY session_type='external_event', payload.external_event is REQUIRED and must match the exact keys/rules above.\n"
     )
 
     return system_txt, user_txt, [], strength_target_int
