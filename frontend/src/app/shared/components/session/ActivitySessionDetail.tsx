@@ -19,7 +19,6 @@ import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
-// Import the updated, unified chart component
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
@@ -70,14 +69,7 @@ function formatCadenceSummary(s: any | null, t: any): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
   const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "").toString().toLowerCase();
   const rpm = s.average_cadence_rpm;
-<<<<<<< HEAD
-  if (sport.includes("run")) {
-    const spm = Math.round(rpm * 2);
-    return `${spm} ${t("common.units.kadenceRun")}`;
-  }
-=======
   if (sport.includes("run")) return `${Math.round(rpm * 2)} ${t("common.units.kadenceRun")}`;
->>>>>>> 844cc6d264f6bafec638022b872b6814c27373d0
   return `${rpm} ${t("common.units.kadenceBike")}`;
 }
 
@@ -139,18 +131,9 @@ export function ActivitySectionShell({ title, defaultOpen, items, children }: Se
 export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: any) {
   const act = item;
   const t = useT();
-<<<<<<< HEAD
-  const { userId } = useUserId();
-  const activityData: any = useActivityData() as any;
-  const { getSummary, getExtras, getEnrichment } = activityData;
-
-  const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
-
-=======
   const { getSummary, getExtras, getEnrichment } = useActivityData() as any;
 
   const s = act.activityId != null ? getSummary(act.activityId) : null;
->>>>>>> 844cc6d264f6bafec638022b872b6814c27373d0
   const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
   const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
@@ -164,67 +147,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const [streams, setStreams] = useState<StreamsData>({ time_s: [], hr: [], duration_s: 0, cadence_rpm: [], power_w: [], distance_m: [], altitude_m: [] });
   const [splits, setSplits] = useState<any[]>([]);
   const [enrichment, setEnrichment] = useState<ActivityEnrichment | null>(null);
-<<<<<<< HEAD
-  const [busyFetch, setBusyFetch] = useState(false);
-
-  const applyExtrasToState = (ex: any) => {
-    const rawStreams: any = ex?.streams ?? null;
-    if (rawStreams && Array.isArray(rawStreams.time_s)) {
-      setStreams({
-        time_s: rawStreams.time_s,
-        hr: Array.isArray(rawStreams.hr) ? rawStreams.hr : [],
-        duration_s: Number(rawStreams.duration_s) || 0,
-        cadence_rpm: Array.isArray(rawStreams.cadence_rpm) ? rawStreams.cadence_rpm : [],
-        power_w: Array.isArray(rawStreams.power_w) ? rawStreams.power_w : [],
-        distance_m: Array.isArray(rawStreams.distance_m) ? rawStreams.distance_m : [],
-        altitude_m: Array.isArray(rawStreams.altitude_m) ? rawStreams.altitude_m : [],
-      });
-    }
-    setLaps(Array.isArray(ex?.laps) ? ex.laps : []);
-    setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
-  };
-
-  useEffect(() => {
-    if (!act.activityId) return;
-
-    let alive = true;
-    const fetchDetailedData = async () => {
-      setBusyFetch(true);
-      try {
-        const extras = await getExtras(act.activityId);
-        if (alive && extras) {
-          applyExtrasToState(extras);
-        }
-
-        const enr = await getEnrichment(act.activityId);
-        if (alive && enr) {
-          setEnrichment(enr);
-        }
-      } catch (err) {
-        console.error("[DEBUG] Failed to load activity details", err);
-      } finally {
-        if (alive) {
-            setBusyFetch(false);
-        }
-      }
-    };
-
-    fetchDetailedData();
-    return () => { alive = false; };
-  }, [act.activityId, getExtras, getEnrichment]);
-
-
-  // --- Príprava InfoItem polí ---
-  const overviewItems: InfoItem[] = [
-    { label: t("common.metrics.time").toUpperCase(), value: timeTxt },
-    { label: t("common.metrics.distance").toUpperCase(), value: distTxt },
-    isMeaningfulNumber(avgHrTxt) ? { label: t("common.metrics.hr_avg").toUpperCase(), value: avgHrTxt } : null,
-    isMeaningfulNumber(maxHrTxt) ? { label: t("common.metrics.hr_max").toUpperCase(), value: maxHrTxt } : null,
-    paceLabel ? { label: t("common.metrics.pace").toUpperCase(), value: paceLabel } : null,
-    powerTxt ? { label: t("common.metrics.power").toUpperCase(), value: powerTxt } : null,
-    cadenceLabel ? { label: t("sessions.splits.colCadence").toUpperCase(), value: cadenceLabel } : null,
-    valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` }) ? { label: t("sessions.splits.colElev").toUpperCase(), value: valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` }) } : null,
-=======
 
   useEffect(() => {
     if (!act.activityId) return;
@@ -251,9 +173,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     powerTxt ? { label: t("common.metrics.power"), value: powerTxt } : null,
     cadenceLabel ? { label: t("sessions.splits.colCadence"), value: cadenceLabel } : null,
     s?.elevation_gain_m ? { label: t("sessions.splits.colElev"), value: `${s.elevation_gain_m} m` } : null,
->>>>>>> 844cc6d264f6bafec638022b872b6814c27373d0
   ].filter(Boolean) as InfoItem[];
-
 
   const zoneItems: PieTrendItem[] = [
     { label: "Z1", value: enrichment?.z1_min || 0, color: zoneColor(1) },
@@ -293,32 +213,12 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       {/* Review Trénera */}
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-<<<<<<< HEAD
-      {/* --- SEKCIA: ZÓNY (ak máme enrichment) --- */}
-      {enrichment && hasMeaningfulValue(overviewItems) && (
-        <ActivitySectionShell title={t("sessions.detail.zonesDistribution")} defaultOpen={false}>
-          <div className="flex justify-center sm:justify-start">
-            <PieTrend items={zoneItems} valueFormatter={fmtTime} />
-          </div>
-        </ActivitySectionShell>
-      )}
-
-      {/* --- SEKCIA: UNIFIED GRAFY (Recharts) --- */}
-      {streams.time_s && streams.time_s.length > 0 && (
-         <div className="mt-4 border border-white/5 rounded-lg bg-black/20 pb-4">
-             <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
-         </div>
-      )}
-
-      {/* --- SEKCIA: SPLITS (MEZIČASY) --- */}
-=======
       {/* ZJEDNOTENÉ GRAFY CEZ RECHARTS */}
       {streams.time_s && streams.time_s.length > 0 && (
          <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
       )}
 
       {/* Medzičasy */}
->>>>>>> 844cc6d264f6bafec638022b872b6814c27373d0
       {Array.isArray(splits) && splits.length > 1 && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
           <ActivitySplitsSection kind={splits} />
