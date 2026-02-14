@@ -12,7 +12,7 @@ import { useT } from "@/app/shared/i18n/useT";
 
 import {
   apiRerunActivityReview,
-} from "@/app/features/activities/api/activities_enrichment.ts";
+} from "@/app/features/activities/api/activities_enrichment";
 
 // ✅ Nové importy pre prácu s Prefs
 import {
