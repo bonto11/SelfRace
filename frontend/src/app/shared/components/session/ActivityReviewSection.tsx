@@ -2,14 +2,17 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
 import {
   apiRerunActivityReview,
-} from "@/app/features/activities/api/activities_enrichment";
+} from "@/app/features/activities/api/activity_review";
 
 import {
   getSubscriptionTier,
@@ -18,6 +21,7 @@ import {
 
 import type { ActivitySession } from "./SessionCard";
 import { ActivitySectionShell } from "./ActivitySessionDetail";
+import type { Injury, InjuryArea, InjuryType } from "@/app/features/prefs/types/prefs";
 
 type Props = {
   item: ActivitySession;
@@ -27,7 +31,11 @@ type Props = {
 const MAX_COMMENT_CHARS = 900;
 const REFRESH_COOLDOWN_MS = 10000;
 
-/* ================= date helpers ================= */
+// --- Konštanty pre zranenia ---
+const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
+const INJ_TYPES: InjuryType[] = ["overuse", "acute", "tendon", "stress", "shin_splints", "plantar", "itb", "other"];
+
+/* ================= date & tier helpers ================= */
 
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
@@ -45,7 +53,6 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
-/* ================= tier helpers ================= */
 function maxVersionsForTier(tier: string): number {
   if (tier === "pro") return 3;
   if (tier === "classic") return 2;
@@ -76,6 +83,117 @@ function TextBlock({ children }: { children: ReactNode }) {
     <div className="whitespace-pre-wrap text-sm leading-7 text-white/80">
       {children}
     </div>
+  );
+}
+
+/* ================= MODAL PRE ZRANENIE ================= */
+
+function InjuryReportModal({ 
+  open, 
+  onClose, 
+  onSave, 
+  initialData 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  onSave: (data: Injury) => void;
+  initialData?: Injury | null;
+}) {
+  const t = useT();
+  const [mounted, setMounted] = useState(false);
+  const [draft, setDraft] = useState<Injury>(initialData || { area: "foot", type: "overuse", note: "" });
+
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (initialData) setDraft(initialData);
+  }, [initialData, open]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[2000000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-lg rounded-2xl bg-[#121418] border border-white/10 p-5 shadow-2xl overflow-y-auto max-h-[90vh]" 
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+          <h3 className="text-sm font-bold uppercase tracking-wider opacity-80">
+            {t("prefs.sections.injuriesSection.widget.title")}
+          </h3>
+        </div>
+
+        <div className="space-y-4">
+          {/* AREA */}
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.areaLabel")}</div>
+            <div className="flex flex-wrap gap-2">
+              {INJ_AREAS.map((a) => (
+                <Button
+                  key={a}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={draft.area === a}
+                  onClick={() => setDraft((d) => ({ ...d, area: a }))}
+                  className="text-[11px]"
+                >
+                  {t(`prefs.sections.injuriesSection.areas.${a}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* TYPE */}
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.typeLabel")}</div>
+            <div className="flex flex-wrap gap-2">
+              {INJ_TYPES.map((ty) => (
+                <Button
+                  key={ty}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={draft.type === ty}
+                  onClick={() => setDraft((d) => ({ ...d, type: ty }))}
+                  className="text-[11px]"
+                >
+                  {t(`prefs.sections.injuriesSection.types.${ty}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* NOTE */}
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="text-xs font-medium opacity-60 mb-3">{t("prefs.sections.injuriesSection.noteLabel")}</div>
+            <TextField
+              label=""
+              placeholder={t("prefs.sections.injuriesSection.notePlaceholder")}
+              value={draft.note ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            Zrušiť
+          </Button>
+          <Button 
+            type="button" 
+            variant="primary" 
+            size="sm" 
+            onClick={() => onSave({ ...draft, note: draft.note?.trim() || undefined })}
+          >
+            Uložiť zranenie
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -116,11 +234,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
   const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8;
 
+  // --- Stavy pre zranenie ---
+  const [injuryPayload, setInjuryPayload] = useState<Injury | null>(null);
+  const [showInjuryModal, setShowInjuryModal] = useState(false);
+
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [apiNote, setApiNote] = useState<string | null>(null);
-
   const [refreshLocked, setRefreshLocked] = useState(false);
 
   const loadData = async (forceFetch: boolean = false) => {
@@ -194,26 +315,26 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
+          injury: injuryPayload, // ✅ Pridanie zranenia do requestu
         },
       );
 
       if (!out?.ok) {
-        // Spracovanie chýb z API (limit_reached a pod)
         if (out?.code === "limit_reached") {
           setUiError(t("sessions.review.api.limitReached"));
         } else {
           setUiError(out?.message || t("sessions.review.errorRerunRejected"));
         }
       } else {
-        // Spracovanie úspešných stavov cez t()
         if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
         if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
         if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
 
         await loadData(true);
+        // Vyčistíme lokálny stav zranenia (už je uložený v DB a odoslaný)
+        setInjuryPayload(null); 
       }
     } catch (e: any) {
-      // Ak API vyhodilo ERROR_ENQUEUE
       if (e?.message === "ERROR_ENQUEUE") {
         setUiError(t("sessions.review.api.errorEnqueue"));
       } else {
@@ -317,8 +438,57 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               {commentLen} / {MAX_COMMENT_CHARS}
             </div>
           )}
+
+          {/* CHECKBOX NA ZRANENIE (Tlačidlo na Toggle) */}
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={() => {
+                if (injuryPayload) {
+                  setInjuryPayload(null); // Zruší zranenie ak už je zapnuté
+                } else {
+                  setShowInjuryModal(true); // Otvorí modal na pridanie
+                }
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                injuryPayload 
+                  ? "bg-red-500/20 text-red-200 border-red-500/30 hover:bg-red-500/30" 
+                  : "bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+              }`}
+            >
+              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${injuryPayload ? "bg-red-500 border-red-500" : "border-white/30"}`}>
+                {injuryPayload && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                )}
+              </div>
+              Hlásim bolesť / zranenie
+            </button>
+            
+            {injuryPayload && (
+               <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
+                 <TooltipIcon 
+                    text="⚠️ Zranenie sa uloží do tvojho profilu a ovplyvní ďalšie plány trénera. Pre jeho neskoršie zrušenie (keď sa vyliečiš) prejdi do sekcie Tréner > Profil > Zranenia." 
+                    size={20} 
+                  />
+                 <span className="hidden sm:inline">Uloží sa do profilu pre úpravu tréningov.</span>
+               </div>
+            )}
+          </div>
+
+          {/* Vyskakovací Modal pre vyplnenie zranenia */}
+          <InjuryReportModal 
+            open={showInjuryModal}
+            initialData={injuryPayload}
+            onClose={() => setShowInjuryModal(false)}
+            onSave={(data) => {
+              setInjuryPayload(data);
+              setShowInjuryModal(false);
+            }}
+          />
+
           {!hasReview && !comment && (
-            <div className="text-[11px] opacity-40 mt-1 pl-1">
+            <div className="text-[11px] opacity-40 mt-3 pl-1">
               {t("sessions.review.commentTip")}
             </div>
           )}
