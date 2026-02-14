@@ -1,9 +1,8 @@
 // src/app/shared/components/trend/StreamCharts.tsx
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
-import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { CHART_HR } from "@/app/shared/ui/tokens";
 import type { StreamsData } from "@/app/features/activities/types/activities";
 import {
@@ -26,6 +25,21 @@ type ActivityStreamChartsProps = {
   compact?: boolean;
   sportHint?: string | null;
 };
+
+// --- Kompaktný formát času (napr. 7:34 namiesto 7m 34s) ---
+function formatCompactTime(totalSeconds: number | null | undefined) {
+  if (totalSeconds == null) return "0:00";
+  const total = Math.round(totalSeconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const ss = String(s).padStart(2, "0");
+  if (h > 0) {
+    const mm = String(m).padStart(2, "0");
+    return `${h}:${mm}:${ss}`;
+  }
+  return `${m}:${ss}`;
+}
 
 // --- Transformácia dát pre Recharts ---
 function formatDataForRecharts(streams: StreamsData, isRunSport: boolean) {
@@ -57,7 +71,7 @@ const CustomTooltip = ({ active, payload, label, formatY }: any) => {
     return (
       <div className="bg-black/90 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-xl text-xs z-50 min-w-[120px]">
         <p className="font-bold opacity-90 mb-2 pb-1.5 border-b border-white/10">
-          {fmtSecondsHMS(label)}
+          {formatCompactTime(label)}
         </p>
         {payload.map((entry: any, index: number) => (
           <div key={`item-${index}`} className="flex items-center justify-between gap-4 py-0.5">
@@ -73,11 +87,7 @@ const CustomTooltip = ({ active, payload, label, formatY }: any) => {
   return null;
 };
 
-export function ActivityStreamCharts({
-  streams,
-  compact = false,
-  sportHint,
-}: ActivityStreamChartsProps) {
+export function ActivityStreamCharts({ streams, compact = false, sportHint }: ActivityStreamChartsProps) {
   const t = useT();
 
   const isRunSport = useMemo(() => {
@@ -95,11 +105,29 @@ export function ActivityStreamCharts({
   const hasPow = chartData.some((d) => d.power != null);
   const hasCad = chartData.some((d) => d.cadence != null);
 
+  // --- Zdieľaný stav pre prepojenie sliderov (Brush) ---
+  const [brushIdx, setBrushIdx] = useState({ start: 0, end: hasTime ? chartData.length - 1 : 0 });
+
+  const handleBrushChange = (e: any) => {
+    if (e && e.startIndex !== undefined && e.endIndex !== undefined) {
+      setBrushIdx({ start: e.startIndex, end: e.endIndex });
+    }
+  };
+
+  // --- Dynamický prepočet Y osí podľa vy-zoomovanej oblasti ---
+  const getDynamicDomain = (key: string, padBot: number, padTop: number) => {
+    if (!chartData || chartData.length === 0) return ["auto", "auto"];
+    const visibleData = chartData.slice(brushIdx.start, brushIdx.end + 1);
+    const vals = visibleData.map(d => d[key as keyof typeof d]).filter(v => v != null) as number[];
+    if (!vals.length) return ["auto", "auto"];
+    return [Math.floor(Math.min(...vals)) - padBot, Math.ceil(Math.max(...vals)) + padTop];
+  };
+
   if (!hasTime) {
-    return <div className="opacity-70 text-sm">{t("charts.stream.unavailable" as any)}</div>;
+    return <div className="opacity-70 text-sm">{t("sessions.charts.stream.unavailable")}</div>;
   }
 
-  const formatPace = (v: number) => fmtSecondsHMS(Math.round(v));
+  const formatPace = (v: number) => formatCompactTime(Math.round(v));
   const syncId = "globalStreamSync"; 
   const chartHeight = compact ? 120 : 160;
 
@@ -107,18 +135,21 @@ export function ActivityStreamCharts({
   const renderMiniMapZoom = (key: string) => (
     <div key={key} className="my-2">
       <div className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-50 pl-4">
-        Zoom (Výrez)
+        Zoom / Výrez
       </div>
       <div style={{ height: 40, width: "100%" }}>
         <ResponsiveContainer>
-          <LineChart data={chartData} syncId={syncId} margin={{ top: 0, right: 5, left: -20, bottom: 0 }}>
-            <Line type="monotone" dataKey={hasHr ? "hr" : "altitude"} stroke={CHART_HR.grid} dot={false} strokeWidth={1} isAnimationActive={false} />
+          <LineChart data={chartData} syncId={syncId} margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
+            <Line type="monotone" dataKey={hasHr ? "hr" : "altitude"} stroke="rgba(255,255,255,0.15)" dot={false} strokeWidth={1} isAnimationActive={false} />
             <Brush 
               dataKey="time" 
               height={30} 
               stroke={CHART_HR.axisText} 
               fill="transparent" 
-              tickFormatter={fmtSecondsHMS} 
+              tickFormatter={formatCompactTime} 
+              startIndex={brushIdx.start}
+              endIndex={brushIdx.end}
+              onChange={handleBrushChange}
               travellerWidth={12} 
             />
           </LineChart>
@@ -127,13 +158,16 @@ export function ActivityStreamCharts({
     </div>
   );
 
+  // Spoločné okraje pre hlavné grafy, aby Y-os nebola orezaná
+  const mainMargins = { top: 5, right: 10, left: -10, bottom: 5 };
+
   // --- Jednotlivé grafy ---
   const renderHrChart = () => (
     <div className="mb-6">
-      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("charts.metrics.hrFull" as any)}</h4>
+      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("sessions.charts.metrics.hrFull")}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <AreaChart data={chartData} syncId={syncId} margin={mainMargins}>
             <defs>
               <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={CHART_HR.colors.z4} stopOpacity={0.5} />
@@ -141,9 +175,9 @@ export function ActivityStreamCharts({
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
-            <XAxis dataKey="time" hide={false} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
-            <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} bpm`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <XAxis dataKey="time" hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
+            <YAxis domain={getDynamicDomain("hr", 5, 5)} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} ${t("common.units.hr")}`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Area type="monotone" dataKey="hr" name={t("common.units.hr")} stroke={CHART_HR.colors.z4} fill="url(#colorHr)" isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
@@ -153,10 +187,10 @@ export function ActivityStreamCharts({
 
   const renderElevationChart = () => (
     <div className="mb-6">
-      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("charts.metrics.elevation" as any)}</h4>
+      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("sessions.charts.metrics.elevation")}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <AreaChart data={chartData} syncId={syncId} margin={mainMargins}>
             <defs>
               <linearGradient id="colorAlt" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={CHART_HR.colors.z2} stopOpacity={0.3} />
@@ -164,9 +198,9 @@ export function ActivityStreamCharts({
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
-            <XAxis dataKey="time" hide={false} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
-            <YAxis domain={["dataMin", "dataMax + 20"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} m`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <XAxis dataKey="time" hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
+            <YAxis domain={getDynamicDomain("altitude", 5, 10)} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} ${t("common.units.m")}`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Area type="monotone" dataKey="altitude" name={t("common.units.m")} stroke={CHART_HR.colors.z2} fill="url(#colorAlt)" isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
@@ -176,15 +210,16 @@ export function ActivityStreamCharts({
 
   const renderPaceChart = () => (
     <div className="mb-6">
-      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("charts.metrics.pace" as any)}</h4>
+      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("sessions.charts.metrics.pace")}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          <LineChart data={chartData} syncId={syncId} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <LineChart data={chartData} syncId={syncId} margin={mainMargins}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
-            <XAxis dataKey="time" hide={false} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
-            <YAxis reversed domain={["dataMin", "dataMax"]} tickFormatter={formatPace} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <XAxis dataKey="time" hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
+            {/* Zvrátená os - rýchlejšie tempo hore. Doména sa tiež dynamicky prispôsobí */}
+            <YAxis reversed domain={getDynamicDomain("pace", 0, 0)} tickFormatter={formatPace} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip formatY={formatPace} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
-            <Line type="monotone" dataKey="pace" name={t("common.units.pace")} stroke={CHART_HR.colors.z1} dot={false} strokeWidth={2} isAnimationActive={false} />
+            <Line type="monotone" dataKey="pace" name={t("common.units.pace")} stroke={CHART_HR.colors.z1} dot={false} strokeWidth={1.5} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -193,10 +228,10 @@ export function ActivityStreamCharts({
 
   const renderPowerChart = () => (
     <div className="mb-6">
-      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("charts.metrics.power" as any)}</h4>
+      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("sessions.charts.metrics.power")}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          <AreaChart data={chartData} syncId={syncId} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <AreaChart data={chartData} syncId={syncId} margin={mainMargins}>
             <defs>
               <linearGradient id="colorPow" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={CHART_HR.colors.z3} stopOpacity={0.4} />
@@ -204,9 +239,9 @@ export function ActivityStreamCharts({
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
-            <XAxis dataKey="time" hide={false} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
-            <YAxis domain={["dataMin", "dataMax + 20"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} W`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
+            <XAxis dataKey="time" hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
+            <YAxis domain={getDynamicDomain("power", 10, 10)} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={4} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip formatY={(v: number) => `${Math.round(v)} ${t("common.units.power")}`} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Area type="monotone" dataKey="power" name={t("common.units.power")} stroke={CHART_HR.colors.z3} fill="url(#colorPow)" isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
@@ -216,13 +251,13 @@ export function ActivityStreamCharts({
 
   const renderCadenceChart = () => (
     <div className="mb-6">
-      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("charts.metrics.cadence" as any)}</h4>
+      <h4 className="font-bold text-[11px] uppercase tracking-wider opacity-50 mb-2 pl-4">{t("sessions.charts.metrics.cadence")}</h4>
       <div style={{ height: chartHeight, width: "100%" }}>
         <ResponsiveContainer>
-          <LineChart data={chartData} syncId={syncId} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <LineChart data={chartData} syncId={syncId} margin={mainMargins}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_HR.grid} vertical={false} />
-            <XAxis dataKey="time" hide={false} tickFormatter={fmtSecondsHMS} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
-            <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={3} axisLine={false} tickLine={false} />
+            <XAxis dataKey="time" hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: CHART_HR.tickText }} axisLine={false} tickLine={false} dy={5} />
+            <YAxis domain={getDynamicDomain("cadence", 5, 5)} tick={{ fontSize: 10, fill: CHART_HR.tickText }} tickCount={3} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip formatY={(v: number) => Math.round(v)} />} cursor={{ stroke: CHART_HR.grid, strokeWidth: 1, strokeDasharray: "4 4" }} />
             <Line type="step" dataKey="cadence" name={isRunSport ? t("common.units.kadenceRun") : t("common.units.kadenceBike")} stroke={CHART_HR.colors.z5} dot={false} strokeWidth={1.5} isAnimationActive={false} />
           </LineChart>
@@ -239,11 +274,12 @@ export function ActivityStreamCharts({
     { key: "cadence", active: hasCad, render: renderCadenceChart },
   ].filter(c => c.active);
 
+  // Komponent vráti čistý zoznam grafov bez vlastných kontajnerov - dizajn zabezpečuje rodič.
   return (
     <div className="w-full">
       {activeCharts.length > 1 && renderMiniMapZoom("top-brush")}
       
-      <div className="mt-6">
+      <div className="mt-4">
         {activeCharts.map(chart => <div key={chart.key}>{chart.render()}</div>)}
       </div>
 
