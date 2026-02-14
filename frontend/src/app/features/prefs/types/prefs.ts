@@ -161,7 +161,9 @@ export type Injury = {
   area: InjuryArea;
   type: InjuryType;
   note?: string;
+  severity?: number; // 1-10
 };
+
 
 export type RehabFocus = {
   stretching: boolean;
