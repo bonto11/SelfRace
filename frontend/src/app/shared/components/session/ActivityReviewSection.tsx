@@ -13,7 +13,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors"; // Tvoje farby
 
 import {
   apiRerunActivityReview,
-} from "@/app/features/activities/api/activity_review";
+} from "@/app/features/activities/api/activities_enrichment";
 
 import {
   apiFetchUserPref,
