@@ -36,6 +36,9 @@ import {
 } from "@/app/shared/components/trend/PieTrend";
 import { type ActivityEnrichment } from "@/app/features/activities/api/activities_enrichment";
 
+// --- Pridaný import pre nové API ---
+import { apiFetchActivityExtrasCombined } from "@/app/features/activities/api/analytics_activities";
+
 function fmtTime(min: number) {
   if (min < 1) return "<1m";
   const h = Math.floor(min / 60);
@@ -131,6 +134,7 @@ export function ActivitySectionShell({ title, defaultOpen, items, children }: Se
 export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: any) {
   const act = item;
   const t = useT();
+  const { userId } = useUserId();
   const { getSummary, getExtras, getEnrichment } = useActivityData() as any;
 
   const s = act.activityId != null ? getSummary(act.activityId) : null;
@@ -142,26 +146,58 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps, t);
   const powerTxt = s?.average_watts ? `${Math.round(s.average_watts)} W` : null;
   const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
-  const stravaUrl = s?.activity_id ? getStravaActivityUrl(s.activity_id) : null;
+  const stravaActivityId = s?.activity_id ?? s?.id ?? null; // ID priamo zo Stravy
+  const stravaUrl = stravaActivityId ? getStravaActivityUrl(stravaActivityId) : null;
 
   const [streams, setStreams] = useState<StreamsData>({ time_s: [], hr: [], duration_s: 0, cadence_rpm: [], power_w: [], distance_m: [], altitude_m: [] });
   const [splits, setSplits] = useState<any[]>([]);
   const [enrichment, setEnrichment] = useState<ActivityEnrichment | null>(null);
+  
+  // --- Nové stavy pre načítavanie dát ---
+  const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const hasStreams = streams.time_s && streams.time_s.length > 0;
 
   useEffect(() => {
     if (!act.activityId) return;
     let alive = true;
-    (async () => {
+    
+    const loadInitialData = async () => {
       try {
         const [extras, enr] = await Promise.all([getExtras(act.activityId), getEnrichment(act.activityId)]);
         if (!alive) return;
         if (extras?.streams) setStreams(extras.streams);
         if (extras?.splits) setSplits(extras.splits);
         if (enr) setEnrichment(enr);
-      } catch (e) {}
-    })();
+      } catch (e) {
+        console.error("Failed to load initial extras", e);
+      } finally {
+        if (alive) setInitialLoadDone(true);
+      }
+    };
+    
+    loadInitialData();
     return () => { alive = false; };
   }, [act.activityId, getExtras, getEnrichment]);
+
+  // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
+  const handleFetchDetailedData = async () => {
+    if (!userId || !act.activityId || isFetchingDetailed) return;
+    
+    setIsFetchingDetailed(true);
+    try {
+      const result = await apiFetchActivityExtrasCombined(Number(userId), act.activityId, true);
+      if (result) {
+        if (result.streams) setStreams(result.streams);
+        if (result.splits) setSplits(result.splits);
+        // Poznámka: Pre Enrichment by sme mohli zavolať refresh, ak by sme chceli prepočítať aj zóny
+      }
+    } catch (e) {
+      console.error("Failed to fetch detailed data from Strava", e);
+    } finally {
+      setIsFetchingDetailed(false);
+    }
+  };
 
   const allKpis: InfoItem[] = [
     { label: t("common.metrics.time"), value: timeTxt },
@@ -209,10 +245,29 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {streams.time_s && streams.time_s.length > 0 && (
+      {/* Zobrazenie grafov ALEBO tlačidla na ich stiahnutie */}
+      {hasStreams ? (
         <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
            <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
         </ActivitySectionShell>
+      ) : (
+        initialLoadDone && stravaActivityId && (
+          <div className="mt-4 p-5 rounded-2xl border border-white/5 bg-[#121418] flex flex-col items-center justify-center text-center space-y-3">
+            <div className="text-white/50 text-sm">
+              {t("sessions.detail.btnMoreData" as any) /* "Načítať podrobné dáta" alebo pod. */}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleFetchDetailedData}
+              disabled={isFetchingDetailed}
+              className="min-w-[140px]"
+            >
+              {isFetchingDetailed ? t("common.loading") : "Načítať zo Stravy"}
+            </Button>
+          </div>
+        )
       )}
 
       {Array.isArray(splits) && splits.length > 1 && (
