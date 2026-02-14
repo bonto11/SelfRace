@@ -19,6 +19,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
+// Import the updated, unified chart component
 import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts";
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
@@ -108,9 +109,9 @@ function formatCadenceSummary(s: any | null, t: any): string | null {
   const rpm = s.average_cadence_rpm;
   if (sport.includes("run")) {
     const spm = Math.round(rpm * 2);
-    return `${spm} ${t("sessions.detail.unitStepsPerMin")}`;
+    return `${spm} ${t("common.units.kadenceRun")}`;
   }
-  return `${rpm} rpm`;
+  return `${rpm} ${t("common.units.kadenceBike")}`;
 }
 
 function formatPaceFromSpeedMps(speed: number | null | undefined, t: any): string | null {
@@ -206,9 +207,6 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
 
   const s: any | null = act.activityId != null ? (getSummary(act.activityId) as any) || null : null;
 
-  console.log(`[DEBUG] ActivitySessionDetail - Render started for Activity ID: ${act.activityId}`);
-  console.log(`[DEBUG] ActivitySessionDetail - Summary data from context:`, s);
-
   const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
   const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
   const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
@@ -239,7 +237,6 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
   const [busyFetch, setBusyFetch] = useState(false);
 
   const applyExtrasToState = (ex: any) => {
-    console.log(`[DEBUG] ActivitySessionDetail - Applying extras to state:`, ex);
     const rawStreams: any = ex?.streams ?? null;
     if (rawStreams && Array.isArray(rawStreams.time_s)) {
       setStreams({
@@ -251,85 +248,53 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
         distance_m: Array.isArray(rawStreams.distance_m) ? rawStreams.distance_m : [],
         altitude_m: Array.isArray(rawStreams.altitude_m) ? rawStreams.altitude_m : [],
       });
-    } else {
-       console.log(`[DEBUG] ActivitySessionDetail - Warning: No valid time_s in streams data.`);
     }
     setLaps(Array.isArray(ex?.laps) ? ex.laps : []);
     setSplits(Array.isArray(ex?.splits) ? ex.splits : []);
   };
 
   useEffect(() => {
-    if (!act.activityId) {
-        console.log(`[DEBUG] ActivitySessionDetail - No activityId provided, skipping fetch.`);
-        return;
-    }
+    if (!act.activityId) return;
 
     let alive = true;
     const fetchDetailedData = async () => {
-      console.log(`[DEBUG] ActivitySessionDetail - Starting fetch for extras & enrichment...`);
       setBusyFetch(true);
       try {
         const extras = await getExtras(act.activityId);
-        console.log(`[DEBUG] ActivitySessionDetail - Fetched extras:`, extras);
         if (alive && extras) {
           applyExtrasToState(extras);
         }
 
         const enr = await getEnrichment(act.activityId);
-        console.log(`[DEBUG] ActivitySessionDetail - Fetched enrichment:`, enr);
         if (alive && enr) {
           setEnrichment(enr);
         }
       } catch (err) {
-        console.error("[DEBUG] ActivitySessionDetail - Failed to load activity details", err);
+        console.error("[DEBUG] Failed to load activity details", err);
       } finally {
         if (alive) {
             setBusyFetch(false);
-            console.log(`[DEBUG] ActivitySessionDetail - Fetch completed. Busy state false.`);
         }
       }
     };
 
     fetchDetailedData();
-
-    return () => {
-      console.log(`[DEBUG] ActivitySessionDetail - Unmounting or activityId changed. Cleaning up.`);
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [act.activityId, getExtras, getEnrichment]);
 
-  // Pomocné boolean flagy na zistenie, či máme konkrétne streamy
-  const hasHrStream = streams.hr && streams.hr.length > 0;
-  const hasAltStream = streams.altitude_m && streams.altitude_m.some(v => v != null);
-  const hasCadStream = streams.cadence_rpm && streams.cadence_rpm.some(v => v != null);
-  const hasPaceStream = streams.distance_m && streams.distance_m.some(v => v != null) && streams.time_s && streams.time_s.length > 0;
-  const hasPowerStream = streams.power_w && streams.power_w.some(v => v != null);
-
-  console.log(`[DEBUG] ActivitySessionDetail - Stream Flags: HR:${hasHrStream} Alt:${hasAltStream} Cad:${hasCadStream} Pace:${hasPaceStream} Pow:${hasPowerStream}`);
 
   // --- Príprava InfoItem polí ---
   const overviewItems: InfoItem[] = [
     { label: t("common.metrics.time").toUpperCase(), value: timeTxt },
     { label: t("common.metrics.distance").toUpperCase(), value: distTxt },
-  ].filter(Boolean) as InfoItem[];
-
-  const hrItems: InfoItem[] = [
     isMeaningfulNumber(avgHrTxt) ? { label: t("common.metrics.hr_avg").toUpperCase(), value: avgHrTxt } : null,
     isMeaningfulNumber(maxHrTxt) ? { label: t("common.metrics.hr_max").toUpperCase(), value: maxHrTxt } : null,
-  ].filter(Boolean) as InfoItem[];
-
-  const elevGain = valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` });
-  const cadence = cadenceLabel ? { label: t("sessions.splits.colCadence").toUpperCase(), value: cadenceLabel } : null;
-
-  const elevItems: InfoItem[] = [
-    elevGain ? { label: t("sessions.splits.colElev").toUpperCase(), value: elevGain } : null,
-    cadence,
-  ].filter(Boolean) as InfoItem[];
-
-  const paceItems: InfoItem[] = [
     paceLabel ? { label: t("common.metrics.pace").toUpperCase(), value: paceLabel } : null,
     powerTxt ? { label: t("common.metrics.power").toUpperCase(), value: powerTxt } : null,
+    cadenceLabel ? { label: t("sessions.splits.colCadence").toUpperCase(), value: cadenceLabel } : null,
+    valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` }) ? { label: t("sessions.splits.colElev").toUpperCase(), value: valOrNullNumber(s?.elevation_gain_m, { fmt: (x) => `${x} m` }) } : null,
   ].filter(Boolean) as InfoItem[];
+
 
   const zoneItems: PieTrendItem[] = [
     { label: "Z1", value: enrichment?.z1_min || 0, color: zoneColor(1) },
@@ -370,71 +335,20 @@ export function ActivitySessionDetail({ item, kpiBlock, hasKpis, compactChart, o
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {/* --- SEKCIA: HR --- */}
-      {(hasMeaningfulValue(hrItems) || hasHrStream) && (
-        <ActivitySectionShell title={t("sessions.detail.sectionHR")} defaultOpen={false} items={hrItems}>
-          {enrichment && (
-            <div className="mb-6 border-b border-white/5 pb-6 mt-4">
-              <div className="text-[10px] uppercase font-bold opacity-50 mb-4 text-center sm:text-left">
-                {t("sessions.detail.zonesDistribution")}
-              </div>
-              <div className="flex justify-center sm:justify-start">
-                <PieTrend items={zoneItems} valueFormatter={fmtTime} />
-              </div>
-            </div>
-          )}
-          {hasHrStream && (
-            <div className="mt-4 overflow-x-auto">
-              <div className="min-w-[600px] pb-2">
-                <ActivityStreamCharts streams={streams} compact={compactChart} metric="hr" />
-              </div>
-            </div>
-          )}
-        </ActivitySectionShell>
-      )}
-
-      {/* --- SEKCIA: ELEVÁCIA & KADENCIA --- */}
-      {(hasMeaningfulValue(elevItems) || hasAltStream || hasCadStream) && (
-        <ActivitySectionShell title={t("sessions.detail.sectionElevation")} defaultOpen={false} items={elevItems}>
-          <div className="mt-4 space-y-6 overflow-x-auto">
-            <div className="min-w-[600px] pb-2 space-y-6">
-              {hasAltStream && (
-                <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.elevation" as any)}</div>
-                  <ActivityStreamCharts streams={streams} compact={compactChart} metric="elevation" />
-                </div>
-              )}
-              {hasCadStream && (
-                <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.cadence" as any)}</div>
-                  <ActivityStreamCharts streams={streams} compact={compactChart} metric="cadence" sportHint={sportHint} />
-                </div>
-              )}
-            </div>
+      {/* --- SEKCIA: ZÓNY (ak máme enrichment) --- */}
+      {enrichment && hasMeaningfulValue(overviewItems) && (
+        <ActivitySectionShell title={t("sessions.detail.zonesDistribution")} defaultOpen={false}>
+          <div className="flex justify-center sm:justify-start">
+            <PieTrend items={zoneItems} valueFormatter={fmtTime} />
           </div>
         </ActivitySectionShell>
       )}
 
-      {/* --- SEKCIA: TEMPO & VÝKON --- */}
-      {(hasMeaningfulValue(paceItems) || hasPaceStream || hasPowerStream) && (
-        <ActivitySectionShell title={t("sessions.charts.metrics.pace" as any)} defaultOpen={false} items={paceItems}>
-          <div className="mt-4 space-y-6 overflow-x-auto">
-            <div className="min-w-[600px] pb-2 space-y-6">
-              {hasPaceStream && (
-                <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.pace" as any)}</div>
-                  <ActivityStreamCharts streams={streams} compact={compactChart} metric="pace" />
-                </div>
-              )}
-              {hasPowerStream && (
-                <div>
-                  <div className="text-[10px] uppercase font-bold opacity-50 mb-2 pl-2">{t("sessions.charts.metrics.power" as any)}</div>
-                  <ActivityStreamCharts streams={streams} compact={compactChart} metric="power" />
-                </div>
-              )}
-            </div>
-          </div>
-        </ActivitySectionShell>
+      {/* --- SEKCIA: UNIFIED GRAFY (Recharts) --- */}
+      {streams.time_s && streams.time_s.length > 0 && (
+         <div className="mt-4 border border-white/5 rounded-lg bg-black/20 pb-4">
+             <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
+         </div>
       )}
 
       {/* --- SEKCIA: SPLITS (MEZIČASY) --- */}
