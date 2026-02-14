@@ -14,6 +14,12 @@ import {
   apiRerunActivityReview,
 } from "@/app/features/activities/api/activity_review";
 
+// ✅ Nové importy pre prácu s Prefs
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
+
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
@@ -31,12 +37,10 @@ type Props = {
 const MAX_COMMENT_CHARS = 900;
 const REFRESH_COOLDOWN_MS = 10000;
 
-// --- Konštanty pre zranenia ---
 const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
 const INJ_TYPES: InjuryType[] = ["overuse", "acute", "tendon", "stress", "shin_splints", "plantar", "itb", "other"];
 
 /* ================= date & tier helpers ================= */
-
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
   const raw = String(v).trim();
@@ -60,7 +64,6 @@ function maxVersionsForTier(tier: string): number {
 }
 
 /* ================= UI helpers ================= */
-
 function Chip({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-md border border-white/5 bg-white/5 px-3 py-1.5 text-xs">
@@ -87,17 +90,18 @@ function TextBlock({ children }: { children: ReactNode }) {
 }
 
 /* ================= MODAL PRE ZRANENIE ================= */
-
 function InjuryReportModal({ 
   open, 
   onClose, 
   onSave, 
-  initialData 
+  initialData,
+  isSaving
 }: { 
   open: boolean; 
   onClose: () => void; 
   onSave: (data: Injury) => void;
   initialData?: Injury | null;
+  isSaving: boolean;
 }) {
   const t = useT();
   const [mounted, setMounted] = useState(false);
@@ -113,7 +117,7 @@ function InjuryReportModal({
   return createPortal(
     <div 
       className="fixed inset-0 z-[2000000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={!isSaving ? onClose : undefined}
     >
       <div 
         className="w-full max-w-lg rounded-2xl bg-[#121418] border border-white/10 p-5 shadow-2xl overflow-y-auto max-h-[90vh]" 
@@ -139,6 +143,7 @@ function InjuryReportModal({
                   active={draft.area === a}
                   onClick={() => setDraft((d) => ({ ...d, area: a }))}
                   className="text-[11px]"
+                  disabled={isSaving}
                 >
                   {t(`prefs.sections.injuriesSection.areas.${a}`)}
                 </Button>
@@ -159,6 +164,7 @@ function InjuryReportModal({
                   active={draft.type === ty}
                   onClick={() => setDraft((d) => ({ ...d, type: ty }))}
                   className="text-[11px]"
+                  disabled={isSaving}
                 >
                   {t(`prefs.sections.injuriesSection.types.${ty}`)}
                 </Button>
@@ -174,12 +180,13 @@ function InjuryReportModal({
               placeholder={t("prefs.sections.injuriesSection.notePlaceholder")}
               value={draft.note ?? ""}
               onChange={(e) => setDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
+              disabled={isSaving}
             />
           </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isSaving}>
             Zrušiť
           </Button>
           <Button 
@@ -187,8 +194,9 @@ function InjuryReportModal({
             variant="primary" 
             size="sm" 
             onClick={() => onSave({ ...draft, note: draft.note?.trim() || undefined })}
+            disabled={isSaving}
           >
-            Uložiť zranenie
+            {isSaving ? "Ukladám..." : "Uložiť zranenie"}
           </Button>
         </div>
       </div>
@@ -237,6 +245,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   // --- Stavy pre zranenie ---
   const [injuryPayload, setInjuryPayload] = useState<Injury | null>(null);
   const [showInjuryModal, setShowInjuryModal] = useState(false);
+  const [isSavingInjury, setIsSavingInjury] = useState(false);
 
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
@@ -290,6 +299,36 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
   };
 
+  // ✅ Logika na uloženie zranenia priamo do DB (do Prefs)
+  const handleSaveInjury = async (newInjury: Injury) => {
+    if (!userId) return;
+    setIsSavingInjury(true);
+    setUiError(null);
+    try {
+      // 1. Stiahnutie aktuálnych prefs
+      const currentPrefs = await apiFetchUserPref(Number(userId), "coach.prefs") || {};
+      
+      // 2. Pridanie nového zranenia do existujúceho poľa
+      const existingInjuries = Array.isArray(currentPrefs.injuries) ? currentPrefs.injuries : [];
+      const updatedPrefs = {
+        ...currentPrefs,
+        injuries: [...existingInjuries, newInjury]
+      };
+      
+      // 3. Uloženie späť do DB
+      await apiUpsertUserPref(Number(userId), "coach.prefs", updatedPrefs);
+      
+      // 4. Update lokálneho stavu pre zaškrtnutý checkbox
+      setInjuryPayload(newInjury);
+      setShowInjuryModal(false);
+    } catch (error) {
+      console.error("[AR] Failed to save injury to prefs", error);
+      setUiError(t("prefs.sections.injuriesSection.errorSave" as any) || "Nepodarilo sa uložiť zranenie. Skúste to znova.");
+    } finally {
+      setIsSavingInjury(false);
+    }
+  };
+
   const onRerun = async () => {
     if (!userId || !activityId || busyGen) return;
     setUiError(null);
@@ -315,7 +354,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          injury: injuryPayload, // ✅ Pridanie zranenia do requestu
+          injury: injuryPayload, // ✅ Odošle sa spolu s požiadavkou na nové AI Review
         },
       );
 
@@ -331,7 +370,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
 
         await loadData(true);
-        // Vyčistíme lokálny stav zranenia (už je uložený v DB a odoslaný)
+        // Vyčistíme lokálny stav checkboxu, aby neposielal zranenie stále dookola
         setInjuryPayload(null); 
       }
     } catch (e: any) {
@@ -444,9 +483,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             <button
               onClick={() => {
                 if (injuryPayload) {
-                  setInjuryPayload(null); // Zruší zranenie ak už je zapnuté
+                  setInjuryPayload(null);
                 } else {
-                  setShowInjuryModal(true); // Otvorí modal na pridanie
+                  setShowInjuryModal(true);
                 }
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
@@ -457,7 +496,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             >
               <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${injuryPayload ? "bg-red-500 border-red-500" : "border-white/30"}`}>
                 {injuryPayload && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 )}
@@ -468,23 +507,20 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             {injuryPayload && (
                <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
                  <TooltipIcon 
-                    text="⚠️ Zranenie sa uloží do tvojho profilu a ovplyvní ďalšie plány trénera. Pre jeho neskoršie zrušenie (keď sa vyliečiš) prejdi do sekcie Tréner > Profil > Zranenia." 
+                    text="⚠️ Zranenie bolo uložené do tvojho profilu. Pre jeho zrušenie (keď sa vyliečiš) prejdi do sekcie Tréner > Profil > Zranenia." 
                     size={20} 
                   />
-                 <span className="hidden sm:inline">Uloží sa do profilu pre úpravu tréningov.</span>
+                 <span className="hidden sm:inline">Uložené do profilu.</span>
                </div>
             )}
           </div>
 
-          {/* Vyskakovací Modal pre vyplnenie zranenia */}
           <InjuryReportModal 
             open={showInjuryModal}
             initialData={injuryPayload}
             onClose={() => setShowInjuryModal(false)}
-            onSave={(data) => {
-              setInjuryPayload(data);
-              setShowInjuryModal(false);
-            }}
+            onSave={handleSaveInjury}
+            isSaving={isSavingInjury}
           />
 
           {!hasReview && !comment && (
