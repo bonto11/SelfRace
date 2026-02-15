@@ -247,12 +247,11 @@ def _compute_recovery_debug(
 
 
 # Services/coach_plan_adjustment.py
-
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
-    force_reason: Optional[str] = None, # ✅ NOVÝ PARAMETER
+    force_reason: Optional[str] = None, 
 ) -> Dict[str, Any]:
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
@@ -272,8 +271,6 @@ def service_coach_autoadjust_after_update(
     )
 
     # ✅ ZDRAVOTNÁ VÝNIMKA (IBA AK BOLA EXPLICITNE VYŽIADANÁ)
-    # Už nečítame DB prefs pri každom behu! 
-    # Ak sem Job poslal force_reason="new_injury", natvrdo voláme AI.
     if force_reason == "new_injury":
         be_flags["should_trigger_ai"] = True
         be_flags["action"] = "injury_replan"
@@ -281,7 +278,6 @@ def service_coach_autoadjust_after_update(
 
 
     if not be_flags.get("should_trigger_ai"):
-        # load je v norme a neprišiel "force_reason" → žiadne AI, žiadny re-plan
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
@@ -292,27 +288,7 @@ def service_coach_autoadjust_after_update(
             "plan_adjustment": None,
         }
 
-    # --- 1) AI analyze ---
-    # Táto funkcia už vidí "coach.prefs", takže si uvedomí, že je zranený, a vydá príkaz na soften/replan
-    analyze_resp = service_analyze_athlete(
-        user_id=user_id,
-        ctx=ctx,
-        model=None,
-    )
-    state_id = analyze_resp.get("state_id")
-    analysis = analyze_resp.get("analysis") or {}
-    ai_state = analysis.get("ai_state") or {}
-    plan_adjustment = ai_state.get("plan_adjustment") or {}
-
-    soften_block = plan_adjustment.get("soften_next_days") or {}
-    soften_should = bool(soften_block.get("should_soften"))
-    soften_days = soften_block.get("days") or 0
-    soften_reason = soften_block.get("reason")
-
-    weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
-    weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
-
-    # --- 2) nájdeme aktívny / posledný plán ---
+    # --- 2) nájdeme aktívny / posledný plán (potrebujeme ho pre obe cesty) ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,
@@ -328,26 +304,60 @@ def service_coach_autoadjust_after_update(
             "reason": "no_plan_meta",
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
-            "analyze_state_id": state_id,
-            "plan_adjustment": plan_adjustment,
+            "analyze_state_id": None,
+            "plan_adjustment": None,
         }
 
     plan_id = meta["plan_id"]
-
-    # koľko dní je weekly plán starý
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days: Optional[int] = None
     if meta_created:
         weekly_age_days = (today - meta_created).days
 
+    # --- 1) ROZHODNUTIE O PREPLÁNOVANÍ ---
+    # Ak je to zranenie, preskočíme drahú AI analýzu a vynútime HARD REPLAN celého týždňa
+    if force_reason == "new_injury":
+        weekly_replan_should = True
+        weekly_replan_reason = "Hard replan triggered by user injury report."
+        soften_should = False
+        soften_days = 0
+        soften_reason = None
+        state_id = None
+        plan_adjustment = {"reason": "forced_injury_override"}
+        
+    else:
+        # Ak to nie je zranenie, ale len bežný load spike, necháme rozhodnúť AI (service_analyze_athlete)
+        analyze_resp = service_analyze_athlete(
+            user_id=user_id,
+            ctx=ctx,
+            model=None,
+        )
+        state_id = analyze_resp.get("state_id")
+        analysis = analyze_resp.get("analysis") or {}
+        ai_state = analysis.get("ai_state") or {}
+        plan_adjustment = ai_state.get("plan_adjustment") or {}
+
+        soften_block = plan_adjustment.get("soften_next_days") or {}
+        soften_should = bool(soften_block.get("should_soften"))
+        soften_days = soften_block.get("days") or 0
+        soften_reason = soften_block.get("reason")
+
+        weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
+        weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
+
+
     # --- 3a) WEEKLY REPLAN ---
     if weekly_replan_should:
+        # Pre zranenie budeme ignorovať COOLDOWN. Ak sa zraníš, nedá sa čakať týždeň.
         if (
-            weekly_age_days is not None
+            force_reason != "new_injury"
+            and weekly_age_days is not None
             and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
         ):
-            # príliš čerstvý weekly → padáme do daily softening logiky
-            pass
+            # príliš čerstvý weekly -> AI analyze síce chcel replan, ale padáme do soften logiky
+            soften_should = True
+            soften_days = 3
+            soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
@@ -367,8 +377,7 @@ def service_coach_autoadjust_after_update(
             return {
                 "changed": True,
                 "mode": "weekly_replan",
-                "reason": weekly_replan_reason
-                or "weekly plan re-generated based on load & recovery",
+                "reason": weekly_replan_reason or "weekly plan re-generated based on load & recovery",
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -429,8 +438,7 @@ def service_coach_autoadjust_after_update(
         return {
             "changed": True,
             "mode": "daily_soften",
-            "reason": soften_reason
-            or f"softening next days (week_index={current_week_index}) based on load & recovery",
+            "reason": soften_reason or f"softening next days (week_index={current_week_index}) based on load & recovery",
             "be_flags": be_flags,
             "recovery_debug": recovery_debug,
             "analyze_state_id": state_id,
@@ -454,8 +462,6 @@ def service_coach_autoadjust_after_update(
         "analyze_state_id": state_id,
         "plan_adjustment": plan_adjustment,
     }
-    
-    
 
 def service_reschedule_daily_plan(
     user_id: int,
