@@ -87,6 +87,8 @@ def service_request_activity_review_rerun(
        - Ak review existuje (verzia > 0): Zamietneme.
     """
     
+    print("service_request_activity_review_rerun",user_id,activity_id, comment)
+    
     # 1. Získame summary aktivity kvôli dátumu
     summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
     if not summaries or not summaries[0]:

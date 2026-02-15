@@ -29,6 +29,8 @@ def rerun_activity_review(
     """
     ctx = require_user(get_auth_ctx(req))
 
+    print("rerun_activity_review",user_id,activity_id,payload)
+    
     out = service_request_activity_review_rerun(
         user_id=int(user_id),
         activity_id=int(activity_id),
