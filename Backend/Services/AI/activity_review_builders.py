@@ -1,6 +1,7 @@
+# Services/AI/activity_review_builders.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, List, Iterable, Tuple
 import json
 import math
@@ -19,8 +20,18 @@ from Routes_DB.activities_laps import db_get_activity_laps
 from Routes_DB.activities_streams import db_get_streams_one
 from Routes_DB.user_zones import db_user_zones_fetch_latest
 
-from Modules.Supabase.auth import AuthCtx
+# --- PLACEHOLDER FUNKCIE NA NAČÍTANIE PLÁNU A ZRANENÍ (Doplň neskôr vlastné) ---
+# Tieto funkcie zamedzia padnutiu buildu. Neskôr ich nahraď reálnymi DB volaniami.
+def _placeholder_db_get_plan_for_date(user_id: int, target_date: str, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    # TODO: Nahraď reálnym volaním DB (napr. db_list_daily_for_user_horizon(horizon_days=1))
+    return None
 
+def _placeholder_db_get_user_injury_state(user_id: int, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    # TODO: Nahraď reálnym volaním DB, ktoré vytiahne z prefs objekt s aktuálnym zranením
+    return None
+# -------------------------------------------------------------------------------
+
+from Modules.Supabase.auth import AuthCtx
 
 # ============================================================
 # CONFIG (token control knobs)
@@ -38,13 +49,9 @@ LAPS_MAX_ITEMS_RUN = 12
 LAPS_MAX_ITEMS_RIDE = 10
 
 
-# =========================
-# SMALL HELPERS
-# =========================
-
+# ... (VŠETKY TVOJE POMOCNÉ FUNKCIE AKO _dbg, _json_bytes, _round_float, atď. ZOSTÁVAJÚ ROVNAKÉ) ...
 def _dbg(tag: str, obj: Dict[str, Any]) -> None:
     print(tag, obj)
-
 
 def _json_bytes(v: Any) -> int:
     try:
@@ -55,7 +62,6 @@ def _json_bytes(v: Any) -> int:
         except Exception:
             return -1
 
-
 def _round_float(val: Any, decimals: int = 2) -> Optional[float]:
     try:
         if val is None or val == "":
@@ -65,7 +71,6 @@ def _round_float(val: Any, decimals: int = 2) -> Optional[float]:
     except Exception:
         return None
 
-
 def _to_int(x: Any) -> Optional[int]:
     try:
         if x is None or x == "":
@@ -73,7 +78,6 @@ def _to_int(x: Any) -> Optional[int]:
         return int(float(x)) 
     except Exception:
         return None
-
 
 def _get_activity_id(row: Dict[str, Any]) -> Optional[int]:
     try:
@@ -83,7 +87,6 @@ def _get_activity_id(row: Dict[str, Any]) -> Optional[int]:
         return int(v)
     except Exception:
         return None
-
 
 def _canonical_sport(s: Any) -> str:
     if not s:
@@ -99,7 +102,6 @@ def _canonical_sport(s: Any) -> str:
         return "swim"
     return "other"
 
-
 def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
     try:
         if not s:
@@ -108,7 +110,6 @@ def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
     except Exception:
         return None
 
-
 def _days_ago(date_str: Any) -> Optional[int]:
     dt = _parse_yyyy_mm_dd(date_str)
     if not dt:
@@ -116,7 +117,6 @@ def _days_ago(date_str: Any) -> Optional[int]:
     today = datetime.now(timezone.utc).date()
     d = (today - dt.date()).days
     return int(d) if d >= 0 else 0
-
 
 def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
     out: List[int] = []
@@ -128,7 +128,6 @@ def _dedupe_keep_order(xs: Iterable[int]) -> List[int]:
         out.append(x)
     return out
 
-
 def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
     if raw is None:
         return None
@@ -136,17 +135,13 @@ def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
         s = str(raw)
     except Exception:
         return None
-
     s = s.strip()
     if not s:
         return None
-
     MAX_CHARS = 900
     if len(s) > MAX_CHARS:
         s = s[:MAX_CHARS].rstrip() + "…"
-
     return s
-
 
 def _sanitize_source(raw: Optional[str]) -> Optional[str]:
     if raw is None:
@@ -161,30 +156,17 @@ def _sanitize_source(raw: Optional[str]) -> Optional[str]:
         return s
     return "auto"
 
-
-# =========================
-# SMART COMPRESSION HELPER
-# =========================
-
 def _pick_smart_indices(total_len: int, max_items: int) -> List[int]:
     if total_len <= max_items:
         return list(range(total_len))
-    
     indices = {0, total_len - 1}
-    
     if max_items > 2:
         step = (total_len - 1) / (max_items - 1)
         for i in range(1, max_items - 1):
             idx = int(round(i * step))
             if 0 <= idx < total_len:
                 indices.add(idx)
-    
     return sorted(list(indices))
-
-
-# =========================
-# ZONES BOUNDARIES (bpm)
-# =========================
 
 def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
     if z is None:
@@ -203,28 +185,21 @@ def _normalize_zone_bounds(z: Any) -> Optional[Dict[str, Optional[int]]]:
             return None
     return None
 
-
 def _extract_hr_zones_bpm_from_ctx(ctx: AuthCtx, sport: str) -> Optional[Dict[str, Any]]:
-    # Legacy method from AuthCtx (if zones are there)
-    # We prefer DB fetch now, but keep as fallback or merge logic
     try:
         zones_any = getattr(ctx, "zones", None) or getattr(ctx, "user_zones", None)
         if not zones_any:
             return None
-
         scheme = None
         z_src: Optional[Dict[str, Any]] = None
-
         if isinstance(zones_any, dict):
             scheme = zones_any.get("scheme")
             if sport in zones_any and isinstance(zones_any.get(sport), dict):
                 z_src = zones_any.get(sport)
             elif any(k in zones_any for k in ("z1", "z2", "z3", "z4", "z5")):
                 z_src = zones_any
-
         if not isinstance(z_src, dict):
             return None
-
         out: Dict[str, Any] = {"scheme": z_src.get("scheme") or scheme, "sport": sport}
         ok = False
         for zk in ("z1", "z2", "z3", "z4", "z5"):
@@ -232,20 +207,13 @@ def _extract_hr_zones_bpm_from_ctx(ctx: AuthCtx, sport: str) -> Optional[Dict[st
             if bounds:
                 out[zk] = bounds
                 ok = True
-
         return out if ok else None
     except Exception:
         return None
 
-
-# =========================
-# MINIFY LOGIC
-# =========================
-
 def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
     if not isinstance(recent_load, dict):
         return recent_load
-
     weeks = recent_load.get("weeks")
     if not isinstance(weeks, list):
         return {
@@ -253,10 +221,8 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
             "window_days": recent_load.get("window_days"),
             "weeks": [],
         }
-
     keep_idx = {-1, 0}
     out_weeks: List[Dict[str, Any]] = []
-
     for w in weeks:
         if not isinstance(w, dict):
             continue
@@ -274,7 +240,6 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
                 "strength_sessions": _to_int(w.get("strength_sessions")),
             }
         )
-
     out_weeks.sort(key=lambda x: int(x.get("week_index_from_now", 0)))
     return {
         "schema_version": recent_load.get("schema_version"),
@@ -282,31 +247,24 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
         "weeks": out_weeks,
     }
 
-
 def _splits_max_items(sport: str) -> int:
     return SPLITS_MAX_ITEMS_RUN if sport == "run" else SPLITS_MAX_ITEMS_RIDE
-
 
 def _laps_max_items(sport: str) -> int:
     return LAPS_MAX_ITEMS_RUN if sport == "run" else LAPS_MAX_ITEMS_RIDE
 
-
 def _streams_max_points(sport: str) -> int:
     return STREAMS_MAX_POINTS_RUN if sport == "run" else STREAMS_MAX_POINTS_RIDE
-
 
 def _minify_splits(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> List[Dict[str, Any]]:
     if not rows:
         return []
-
     indices = _pick_smart_indices(len(rows), max_items)
-    
     out: List[Dict[str, Any]] = []
     for i in indices:
         r = rows[i]
         if not isinstance(r, dict):
             continue
-
         item: Dict[str, Any] = {
             "i": r.get("split_index"),
             "dist_m": _to_int(r.get("distance_m")),
@@ -314,30 +272,23 @@ def _minify_splits(rows: List[Dict[str, Any]], *, sport: str, max_items: int) ->
             "elevation_diff_m": _to_int(r.get("elevation_diff_m")),
             "avg_hr": _to_int(r.get("avg_hr_bpm")),
         }
-
         if sport == "run":
             item["pace_s_km"] = _to_int(r.get("pace_seconds_per_km"))
             item["avg_cad"] = _to_int(r.get("average_cadence_rpm") or r.get("cadence_avg"))
         elif sport == "ride":
             item["avg_pwr"] = _to_int(r.get("average_power_w") or r.get("avg_power_w"))
-
         out.append(item)
-
     return out
-
 
 def _minify_laps(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> List[Dict[str, Any]]:
     if not rows:
         return []
-
     indices = _pick_smart_indices(len(rows), max_items)
-    
     out: List[Dict[str, Any]] = []
     for i in indices:
         r = rows[i]
         if not isinstance(r, dict):
             continue
-
         item: Dict[str, Any] = {
             "i": r.get("lap_index"),
             "dist_m": _to_int(r.get("distance_m")),
@@ -345,38 +296,28 @@ def _minify_laps(rows: List[Dict[str, Any]], *, sport: str, max_items: int) -> L
             "elevation_diff_m": _to_int(r.get("elevation_diff_m")),
             "avg_hr": _to_int(r.get("avg_hr_bpm")),
         }
-
         if sport == "run":
             item["pace_s_km"] = _to_int(r.get("pace_seconds_per_km"))
         elif sport == "ride":
             item["avg_pwr"] = _to_int(r.get("average_power_w") or r.get("avg_power_w"))
-
         out.append(item)
-
     return out
-
 
 def _minify_streams_for_ai(row: Optional[Dict[str, Any]], *, sport: str) -> Optional[Dict[str, Any]]:
     if not isinstance(row, dict):
         return None
-
     time_s = row.get("time_s") or []
     if not isinstance(time_s, list) or not time_s:
         return None
-
     hr = row.get("heartrate_bpm") or []
     pwr = row.get("power_w") or []
-
     n = len(time_s)
     max_points = _streams_max_points(sport)
-    
     idxs = _pick_smart_indices(n, max_points)
-
     def pick(arr: Any) -> List[Any]:
         if not isinstance(arr, list) or not arr:
             return []
         return [arr[i] for i in idxs if i < len(arr)]
-
     out: Dict[str, Any] = {
         "points": len(idxs),
         "time_s": pick(time_s),
@@ -384,9 +325,7 @@ def _minify_streams_for_ai(row: Optional[Dict[str, Any]], *, sport: str) -> Opti
     }
     if sport == "ride":
         out["power_w"] = pick(pwr)
-
     return out
-
 
 def _should_include_streams(*, sport: str, is_focus: bool) -> bool:
     if not is_focus:
@@ -395,16 +334,10 @@ def _should_include_streams(*, sport: str, is_focus: bool) -> bool:
         return False
     return sport in ("run", "ride")
 
-
 def _should_include_splits_laps(*, sport: str, is_focus: bool) -> bool:
     if not is_focus:
         return False
     return sport in ("run", "ride")
-
-
-# =========================
-# ACTIVITY BLOCK BUILDERS
-# =========================
 
 def _build_activity_block_from_rows(
     *,
@@ -415,10 +348,8 @@ def _build_activity_block_from_rows(
 ) -> Dict[str, Any]:
     dt_raw = str(summary_row.get("date") or "")
     date_str = dt_raw[:10] if dt_raw else None
-
     sport_src = summary_row.get("sport_type_fe") or summary_row.get("sport_type")
     sport = _canonical_sport(sport_src)
-
     dist_m = _round_float(summary_row.get("distance_m"))
     moving_s = _round_float(summary_row.get("moving_time_s"))
     elev_gain_m = _round_float(summary_row.get("elevation_gain_m"))
@@ -429,7 +360,6 @@ def _build_activity_block_from_rows(
         or _to_int(summary_row.get("average_cadence"))
         or _to_int(summary_row.get("cadence_avg"))
     )
-
     dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
     dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
     pace_s_per_km = _to_int(summary_row.get("pace_seconds_per_km"))
@@ -457,9 +387,7 @@ def _build_activity_block_from_rows(
         z4 = _round_float(enr_row.get("z4_min"), 1)
         z5 = _round_float(enr_row.get("z5_min"), 1)
         out["zones_min"] = {"z1": z1, "z2": z2, "z3": z3, "z4": z4, "z5": z5}
-
     return out
-
 
 def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
     m = item.get("metrics") or {}
@@ -477,11 +405,9 @@ def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
         "zones_min": None,
     }
 
-
 def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     d0_7: List[Dict[str, Any]] = []
     d8_14_raw: List[Dict[str, Any]] = []
-
     for it in items:
         da = it.get("days_ago")
         if da is None:
@@ -490,15 +416,12 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
             di = int(da)
         except Exception:
             continue
-
         if 0 <= di <= 7:
             d0_7.append(it)
         elif 8 <= di <= 14:
             d8_14_raw.append(it)
-
     d0_7.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
     d8_14_raw.sort(key=lambda x: int(x.get("days_ago") or 0), reverse=True)
-
     d8_14 = [_coarsen_activity(x) for x in d8_14_raw]
     return d0_7, d8_14
 
@@ -509,12 +432,13 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
 
 def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
     return {
-        "schema_version": 3,
+        "schema_version": 4, # Zmenené na 4 kvôli pridaným poliam (plan, injury)
         "user": {"id": user_id},
         "sport": None,
         "user_input": {
             "source": None,
             "comment": None,
+            "injury": None, # ✅ Nové pole pre explicitne nahlásené zranenie z tohto review
         },
         "activity": {
             "activity_id": activity_id,
@@ -531,10 +455,12 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             "recovery": None, 
             "recent_load": None, 
             "hr_zones_bpm": None,
-            "user_zones": None, # ✅ NEW: Placeholder pre zóny z DB
+            "user_zones": None,
+            "injury_state": None, # ✅ Nové pole: Globálny stav zranenia z profilu (z DB)
+            "plan_today": None,   # ✅ Nové pole: Plánovaný tréning na deň aktivity
+            "plan_tomorrow": None # ✅ Nové pole: Plánovaný tréning na ďalší deň
         },
     }
-
 
 def build_input_from_db(
     user_id: int,
@@ -543,7 +469,9 @@ def build_input_from_db(
     ctx: AuthCtx,
     source: Optional[str] = None,
     user_comment: Optional[str] = None,
+    user_injury: Optional[Dict[str, Any]] = None, # ✅ Pridaný argument z formulára
 ) -> Dict[str, Any]:
+    
     input_data = build_base_input(user_id, activity_id)
 
     src = _sanitize_source(source)
@@ -553,6 +481,10 @@ def build_input_from_db(
     safe_comment = _sanitize_user_comment(user_comment)
     if safe_comment:
         input_data["user_input"]["comment"] = safe_comment
+        
+    # Ak športovec zaškrtol zranenie v review formulári, predáme to ďalej
+    if user_injury and isinstance(user_injury, dict):
+        input_data["user_input"]["injury"] = user_injury
 
     recovery = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
     recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, ctx=ctx)
@@ -560,6 +492,12 @@ def build_input_from_db(
 
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = recent_load
+
+    # ✅ Načítanie aktívneho zranenia (globálny stav športovca)
+    # Ak má aktívne zranenie v profile (preds), pripojíme to sem.
+    injury_state = _placeholder_db_get_user_injury_state(user_id, ctx)
+    if injury_state:
+        input_data["context"]["injury_state"] = injury_state
 
     window_ids: List[int] = []
     if db_fetch_window_activity_ids is not None:
@@ -588,41 +526,58 @@ def build_input_from_db(
     focus_sport = _canonical_sport(focus_summary.get("sport_type_fe") or focus_summary.get("sport_type"))
     input_data["sport"] = focus_sport
     
-    # ✅ 1. Legacy z kontextu (fallback)
+    # --- PRÁCA S DÁTUMAMI PRE PLÁN ---
+    dt_raw = str(focus_summary.get("date") or "")
+    date_str_today = dt_raw[:10] if dt_raw else None
+    
+    if date_str_today:
+        try:
+            # Vypočítame zajtrajší dátum na základe dňa aktivity
+            dt_today = datetime.strptime(date_str_today, "%Y-%m-%d")
+            date_str_tomorrow = (dt_today + timedelta(days=1)).strftime("%Y-%m-%d")
+            
+            # ✅ Načítame plán na dnes (porovnanie realita vs plán)
+            plan_today = _placeholder_db_get_plan_for_date(user_id, date_str_today, ctx)
+            if plan_today:
+                input_data["context"]["plan_today"] = plan_today
+                
+            # ✅ Načítame plán na zajtra (odporúčanie pre ďalší deň)
+            plan_tomorrow = _placeholder_db_get_plan_for_date(user_id, date_str_tomorrow, ctx)
+            if plan_tomorrow:
+                input_data["context"]["plan_tomorrow"] = plan_tomorrow
+        except Exception as e:
+            print("[AI][builder] Failed to fetch plans for today/tomorrow", repr(e))
+
+    # --- ZÓNY ---
     legacy_zones = _extract_hr_zones_bpm_from_ctx(ctx, sport=str(focus_sport or "other"))
     input_data["context"]["hr_zones_bpm"] = legacy_zones
 
-    # ✅ 2. NEW: Fetch latest user zones from DB
     try:
         user_zones_row = db_user_zones_fetch_latest(user_id=user_id, sport_raw=focus_sport, ctx=ctx)
-        
-        # Ak nenájdeš pre konkrétny šport, skús fallback na obecné/default zóny
         if not user_zones_row:
              user_zones_row = db_user_zones_fetch_latest(user_id=user_id, sport_raw=None, ctx=ctx)
         
         if user_zones_row:
-            # Mapovanie podľa tvojho DB snapshotu (zX_min_bpm, zX_max_bpm, hr_max_bpm)
             input_data["context"]["user_zones"] = {
                 "source": "db_users_zones",
                 "sport": user_zones_row.get("sport"),
-                # Z1 min v DB nemáme, dávame 0 (alebo kľudový tep ak by sme chceli byť precízni)
                 "z1": {"min": 0, "max": user_zones_row.get("z1_max_bpm")},
                 "z2": {"min": user_zones_row.get("z2_min_bpm"), "max": user_zones_row.get("z2_max_bpm")},
                 "z3": {"min": user_zones_row.get("z3_min_bpm"), "max": user_zones_row.get("z3_max_bpm")},
                 "z4": {"min": user_zones_row.get("z4_min_bpm"), "max": user_zones_row.get("z4_max_bpm")},
-                # Z5 max v DB nie je, berieme celkový HR Max
                 "z5": {"min": user_zones_row.get("z5_min_bpm"), "max": user_zones_row.get("hr_max_bpm")},
             }
     except Exception as e:
         print("[AI][builder] user_zones fetch failed", repr(e))
 
+    # --- HISTORY ---
     ids_0_7: List[int] = []
     ids_8_14: List[int] = []
 
     for aid, sr in sum_by_id.items():
-        dt_raw = str(sr.get("date") or "")
-        date_str = dt_raw[:10] if dt_raw else None
-        da = _days_ago(date_str)
+        hist_dt_raw = str(sr.get("date") or "")
+        hist_date_str = hist_dt_raw[:10] if hist_dt_raw else None
+        da = _days_ago(hist_date_str)
         if da is None:
             continue
         try:
@@ -643,10 +598,10 @@ def build_input_from_db(
         for r in enr_rows:
             if not isinstance(r, dict):
                 continue
-            aid = _get_activity_id(r)
-            if aid is None:
+            enr_aid = _get_activity_id(r)
+            if enr_aid is None:
                 continue
-            enr_by_id[aid] = r
+            enr_by_id[enr_aid] = r
 
     focus = _build_activity_block_from_rows(
         activity_id=int(activity_id),
@@ -660,14 +615,6 @@ def build_input_from_db(
 
     include_streams = _should_include_streams(sport=sport, is_focus=is_focus)
     include_sl = _should_include_splits_laps(sport=sport, is_focus=is_focus)
-
-    _dbg("[AI][focus][policy]", {
-        "activity_id": int(activity_id),
-        "sport": sport,
-        "include_streams": include_streams,
-        "include_splits_laps": include_sl,
-        "enable_streams_for_focus": ENABLE_STREAMS_FOR_FOCUS,
-    })
 
     if int(activity_id) in ids_0_7:
         if include_streams:
@@ -716,7 +663,6 @@ def build_input_from_db(
         item["streams_minified"] = None
         item["splits_minified"] = None
         item["laps_minified"] = None
-
         hist_items.append(item)
 
     for aid in ids_8_14:
@@ -736,39 +682,10 @@ def build_input_from_db(
         item["streams_minified"] = None
         item["splits_minified"] = None
         item["laps_minified"] = None
-
         hist_items.append(item)
 
     d0_7, d8_14 = _split_history_0_7_and_8_14(hist_items)
     input_data["history"]["days_0_7"] = d0_7
     input_data["history"]["days_8_14"] = d8_14
-
-    try:
-        focus_act = input_data.get("activity") or {}
-        hist0 = (input_data.get("history") or {}).get("days_0_7") or []
-        hist1 = (input_data.get("history") or {}).get("days_8_14") or []
-
-        _dbg("[AI][input][stats]", {
-            "user_id": int(user_id),
-            "activity_id": int(activity_id),
-            "sport": input_data.get("sport"),
-            "history_0_7_count": len(hist0),
-            "history_8_14_count": len(hist1),
-            "focus_has_streams": bool(focus_act.get("streams_minified")),
-            "focus_stream_points": (focus_act.get("streams_minified") or {}).get("points")
-            if isinstance(focus_act.get("streams_minified"), dict)
-            else None,
-            "focus_splits_count": len(focus_act.get("splits_minified") or [])
-            if isinstance(focus_act.get("splits_minified"), list)
-            else 0,
-            "focus_laps_count": len(focus_act.get("laps_minified") or [])
-            if isinstance(focus_act.get("laps_minified"), list)
-            else 0,
-            "payload_bytes": _json_bytes(input_data),
-            "user_comment_len": len((input_data.get("user_input") or {}).get("comment") or ""),
-            "user_source": (input_data.get("user_input") or {}).get("source"),
-        })
-    except Exception as e:
-        print("[AI][input][stats] error", repr(e))
 
     return input_data
