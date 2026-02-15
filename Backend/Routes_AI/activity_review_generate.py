@@ -145,6 +145,8 @@ def generate_activity_review_json(
         is_race=is_race,
     )
 
+    print("generate_activity_review_json context_payload",context_payload )
+
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
