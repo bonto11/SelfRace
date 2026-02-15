@@ -390,8 +390,12 @@ export default function WidgetCoachPlan() {
   }, [userId, activePlanId, t]);
 
   const loading = loadingKind !== null && loadingKind !== "status";
+  
+  // ✅ Pôvodná premenná `disabled`, ktorá chýbala
+  const disabled = !userId || loading;
+  
   // ✅ Celkové blokovanie generátorov ak je aktívny plán ALEBO kritické zranenie
-  const generatorsDisabled = !userId || loading || planLocked || isCriticallyInjured;
+  const generatorsDisabled = disabled || planLocked || isCriticallyInjured;
 
   const statusLabel = useMemo(() => {
     if (planLocked) return t("coachPlan.status.active");
