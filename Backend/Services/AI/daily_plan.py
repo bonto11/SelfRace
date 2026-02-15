@@ -31,10 +31,6 @@ from Modules.Supabase.auth import AuthCtx
 
 
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Make session_index deterministic and clean.
-    Prevents AI from returning weird/duplicate indices that break FE sorting.
-    """
     if not isinstance(daily_plan, dict):
         return daily_plan
     days = daily_plan.get("days")
@@ -55,18 +51,7 @@ def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     return daily_plan
 
 
-# -----------------------------------------------------------------------------
-# Strength quality normalizer (KEEP)
-# -----------------------------------------------------------------------------
 def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Zjednotí VŠETKY strength sessions na konzistentnú šablónu (cca 75 min, 2+5+2).
-    Konkrétne cviky doplní mapper neskôr (exercise_id, exercise_name).
-
-    IMPORTANT:
-    - Do NOT touch external events (payload.external_event) even if sport=strength.
-      External events are DB truth.
-    """
     if not isinstance(daily_plan, dict):
         return daily_plan
 
@@ -88,7 +73,6 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             if str(s.get("sport")) != "strength":
                 continue
 
-            # --- CRITICAL: don't normalize external events ---
             payload = s.get("payload") or {}
             if isinstance(payload, dict) and isinstance(
                 payload.get("external_event"), dict
@@ -103,69 +87,15 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
             s["title"] = s.get("title") or "Silový tréning"
 
             strength_exercises = [
-                {
-                    "slot": "core",
-                    "sets": 2,
-                    "reps": "8–12",
-                    "rest_s": 45,
-                    "notes": "Aktivácia / kontrola trupu.",
-                },
-                {
-                    "slot": "lower_posterior",
-                    "sets": 2,
-                    "reps": "8–12",
-                    "rest_s": 45,
-                    "notes": "Aktivácia zadného reťazca.",
-                },
-                {
-                    "slot": "lower_posterior",
-                    "sets": 4,
-                    "reps": "4–6",
-                    "rest_s": 120,
-                    "notes": "Hlavná časť – sila.",
-                },
-                {
-                    "slot": "lower_quad",
-                    "sets": 4,
-                    "reps": "4–6",
-                    "rest_s": 120,
-                    "notes": "Hlavná časť – sila.",
-                },
-                {
-                    "slot": "upper_pull",
-                    "sets": 4,
-                    "reps": "4–6",
-                    "rest_s": 120,
-                    "notes": "Hlavná časť – sila.",
-                },
-                {
-                    "slot": "upper_push",
-                    "sets": 3,
-                    "reps": "6–10",
-                    "rest_s": 90,
-                    "notes": "Hlavná časť – doplnok.",
-                },
-                {
-                    "slot": "core",
-                    "sets": 3,
-                    "reps": "8–12",
-                    "rest_s": 60,
-                    "notes": "Hlavná časť – core.",
-                },
-                {
-                    "slot": "upper_pull",
-                    "sets": 2,
-                    "reps": "10–15",
-                    "rest_s": 60,
-                    "notes": "Doplnok – ľahšie, technicky.",
-                },
-                {
-                    "slot": "lower_quad",
-                    "sets": 2,
-                    "reps": "10–15",
-                    "rest_s": 60,
-                    "notes": "Doplnok – ľahšie, technicky.",
-                },
+                {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia / kontrola trupu."},
+                {"slot": "lower_posterior", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia zadného reťazca."},
+                {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
+                {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
+                {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
+                {"slot": "upper_push", "sets": 3, "reps": "6–10", "rest_s": 90, "notes": "Hlavná časť – doplnok."},
+                {"slot": "core", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Hlavná časť – core."},
+                {"slot": "upper_pull", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
+                {"slot": "lower_quad", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
             ]
 
             s["structure"] = {
@@ -173,22 +103,18 @@ def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str,
                 "strength_exercises": strength_exercises,
                 "cooldown": {"minutes": 15, "notes": "Mobilita + uvoľnenie (15 min)."},
             }
-
-            # optional redundancy for FE compatibility if you rely on it
             s["strength_exercises"] = strength_exercises
 
     return daily_plan
 
 
-# -----------------------------------------------------------------------------
-# Public services
-# -----------------------------------------------------------------------------
 def service_generate_daily_week(
     user_id: int,
     *,
     week_index: int,
     plan_id: Optional[str] = None,
     model: Optional[str] = None,
+    drop_past_days: bool = False,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
@@ -197,7 +123,6 @@ def service_generate_daily_week(
 
     daily_model = model
 
-    # quota only for non-service calls
     if is_user_over_token_quota(
         user_id,
         ctx=ctx,
@@ -216,15 +141,11 @@ def service_generate_daily_week(
             "deleted_rows": 0,
             "error": {
                 "code": "ai_quota_exceeded",
-                "message": (
-                    "Mesačný limit AI plánov bol vyčerpaný. "
-                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
-                ),
+                "message": "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
                 "used_tokens_this_month": used,
             },
         }
 
-    # 1) context z buildera
     contex = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
@@ -238,7 +159,6 @@ def service_generate_daily_week(
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
     prefs_ai: Dict[str, Any] = contex["prefs_ai"]
 
-    # 2) AI -> plan
     ai_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
@@ -248,12 +168,9 @@ def service_generate_daily_week(
     if not isinstance(trace, dict):
         trace = {}
 
-    week_start = (
-        str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
-    )
+    week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
     week_end = str(week_meta.get("week_end") or ai_plan.get("week_end") or "") or None
 
-    # Ensure minimal meta
     ai_plan.setdefault("week_index", week_index)
     if week_start:
         ai_plan.setdefault("week_start", week_start)
@@ -264,146 +181,90 @@ def service_generate_daily_week(
 
     daily_plan = ai_plan
 
-    # --- Safety: do not overwrite DB with empty plan ---
-    days_n = (
-        len(daily_plan.get("days") or [])
-        if isinstance(daily_plan.get("days"), list)
-        else 0
-    )
+    days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
     if days_n == 0:
-        # billing aj tak spravíme (ak máme usage)
         usage = extract_usage_from_trace(trace)
         if usage:
-            used_model = str(
-                daily_plan.get("model")
-                or getattr(usage, "model", None)
-                or daily_model
-                or ""
-            )
-            if used_model:
-                usage["model"] = used_model
+            used_model = str(daily_plan.get("model") or getattr(usage, "model", None) or daily_model or "")
+            if used_model: usage["model"] = used_model
             try:
                 log_ai_usage_for_user(
-                    user_id=user_id,
-                    usage=usage,
-                    job_type="coach.generate_daily_plan",
-                    source="user",
-                    billed_via="internal",
-                    charge_wallet=False,
-                    meta={"week_index": week_index, "plan_id": plan_id_effective},
-                    ctx=ctx,
+                    user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
+                    source="user", billed_via="internal", charge_wallet=False,
+                    meta={"week_index": week_index, "plan_id": plan_id_effective}, ctx=ctx,
                 )
-            except Exception as e:  # noqa: BLE001
-                print("[AI_BILLING] daily_plan billing error:", repr(e))
+            except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
 
         return {
-            "daily_plan": daily_plan,
-            "plan_id": plan_id_effective,
-            "week_index": week_index,
-            "week_start": week_start,
-            "week_end": week_end,
-            "state_id": (state_row or {}).get("id"),
-            "model": daily_model,
-            "overwrite": True,
-            "inserted_rows": 0,
-            "deleted_rows": 0,
-            "error": {
-                "code": "daily_plan_empty",
-                "message": "AI vrátil prázdny plán pre týždeň.",
-            },
+            "daily_plan": daily_plan, "plan_id": plan_id_effective, "week_index": week_index,
+            "week_start": week_start, "week_end": week_end, "state_id": (state_row or {}).get("id"),
+            "model": daily_model, "overwrite": True, "inserted_rows": 0, "deleted_rows": 0,
+            "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
             "warnings": ["daily_plan_empty"],
         }
 
-    # 3) normalize strength sessions
     try:
         daily_plan = normalize_strength_sessions_quality(daily_plan)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print("normalize_strength_sessions_quality error:", repr(e))
 
-    # 4) billing (always attempt)
     usage = extract_usage_from_trace(trace)
     billing_result: Optional[Dict[str, Any]] = None
     if usage:
-        # prefer actual model used (from AI output or trace usage), fallback to caller model
-        used_model = str(
-            daily_plan.get("model") or usage.get("model") or daily_model or ""
-        ).strip()
-        if used_model:
-            usage["model"] = used_model
+        used_model = str(daily_plan.get("model") or usage.get("model") or daily_model or "").strip()
+        if used_model: usage["model"] = used_model
         try:
             billing_result = log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.generate_daily_plan",
-                source="user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={"week_index": week_index, "plan_id": plan_id_effective},
-                ctx=ctx,
+                user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
+                source="user", billed_via="internal", charge_wallet=False,
+                meta={"week_index": week_index, "plan_id": plan_id_effective}, ctx=ctx,
             )
-        except Exception as e:  # noqa: BLE001
-            print("[AI_BILLING] daily_plan billing error:", repr(e))
+        except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
 
-    # 5) strength mapper – doplní konkrétne cviky
-    strength_settings = (
-        (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
-    )
+    strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
     available_equipment = strength_settings.get("available") or []
-    if not isinstance(available_equipment, list):
-        available_equipment = []
-
-    equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get(
-        "location"
-    )
+    if not isinstance(available_equipment, list): available_equipment = []
+    equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
 
     daily_plan = enrich_daily_plan_with_strength_exercises(
-        user_id=user_id,
-        daily_plan=daily_plan,
-        available_equipment=available_equipment,
+        user_id=user_id, daily_plan=daily_plan, available_equipment=available_equipment,
         equipment_mode=equipment_mode if isinstance(equipment_mode, str) else None,
-        today=date.today(),
-        weeks_back=8,
-        ctx=ctx,
+        today=date.today(), weeks_back=8, ctx=ctx,
     )
 
-    # Ensure stable ordering for FE + DB
     daily_plan = _reindex_sessions_per_day(daily_plan)
 
     days = daily_plan.get("days")
-    if not isinstance(days, list):
-        days = []
+    if not isinstance(days, list): days = []
 
     dates: List[str] = []
     for d in days:
-        if not isinstance(d, dict):
-            continue
+        if not isinstance(d, dict): continue
         v = d.get("date")
-        if isinstance(v, str) and v:
-            dates.append(v)
+        if isinstance(v, str) and v: dates.append(v)
 
     date_from = min(dates) if dates else None
     date_to = max(dates) if dates else None
 
-    # 6) DB write
+    today_iso = date.today().isoformat()
+    if drop_past_days and date_from and date_from < today_iso:
+        date_from = today_iso 
+
     deleted_rows = 0
     if plan_id_effective and date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
-            user_id=user_id,
-            plan_id=plan_id_effective,
-            date_from=date_from,
-            date_to=date_to,
-            ctx=ctx,
+            user_id=user_id, plan_id=plan_id_effective,
+            date_from=date_from, date_to=date_to, ctx=ctx,
         )
 
     rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
-        user_id=user_id,
-        plan_id=plan_id_effective,
-        daily_plan=daily_plan,
+        user_id=user_id, plan_id=plan_id_effective, daily_plan=daily_plan,
     )
 
-    inserted_rows = (
-        db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
-    )
+    if drop_past_days:
+        rows_to_insert = [r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso]
+
+    inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
@@ -454,7 +315,6 @@ def service_get_daily_overview(
         or []
     )
 
-    # group rows by plan_date
     by_date: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         d = r.get("plan_date")
@@ -463,7 +323,6 @@ def service_get_daily_overview(
         key = str(d)[:10]
         by_date.setdefault(key, []).append(r)
 
-    # IMPORTANT: return ALL days in horizon (even empty)
     today = date.today()
     end_day = today + timedelta(days=horizon_days)
 

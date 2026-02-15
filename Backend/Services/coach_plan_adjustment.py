@@ -5,7 +5,10 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional, List
 from statistics import mean
 
-from Routes_DB.coach_plan_daily import db_reschedule_daily_sessions_bulk
+from Routes_DB.coach_plan_daily import (
+    db_reschedule_daily_sessions_bulk,
+    db_clear_daily_for_user_range
+)
 from Modules.Supabase.auth import AuthCtx
 
 from Services.AI.athlete_state import service_analyze_athlete
@@ -113,7 +116,6 @@ def service_coach_autoadjust_after_update(
     be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
     recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
 
-    # 1) Načítanie zranenia a určenie severity (závažnosti)
     is_critical_injury = False
     has_any_injury = False
     new_plan_start_date = None
@@ -134,7 +136,6 @@ def service_coach_autoadjust_after_update(
                     has_any_injury = True
                     max_sev = max((_safe_int(i.get("severity")) for i in injuries if isinstance(i, dict)), default=0)
                     
-                    # Ak je zranenie 7 alebo vyššie -> Hard Replan a od zajtrajška!
                     if max_sev >= 7:
                         is_critical_injury = True
                         new_plan_start_date = (today + timedelta(days=1)).isoformat()
@@ -156,7 +157,6 @@ def service_coach_autoadjust_after_update(
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days = (today - meta_created).days if meta_created else None
 
-    # --- ROZHODNUTIE O PREPLÁNOVANÍ ---
     state_id = None
     plan_adjustment = {}
     weekly_replan_should = False
@@ -164,16 +164,15 @@ def service_coach_autoadjust_after_update(
 
     if force_reason == "new_injury":
         if is_critical_injury:
-            weekly_replan_should = True # Kritické zranenie (7-10)
+            weekly_replan_should = True 
             weekly_replan_reason = "Critical injury reported - forcing hard replan."
             plan_adjustment = {"reason": "forced_critical_injury_override"}
         else:
-            soften_should = True # Mierne zranenie (1-6)
+            soften_should = True 
             soften_days = 7
             soften_reason = "Mild/Moderate injury reported - softening current week."
             plan_adjustment = {"reason": "mild_injury_soften"}
     else:
-        # Bežný AI Analyzátor (únava atď.)
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
         ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
@@ -186,14 +185,20 @@ def service_coach_autoadjust_after_update(
         weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
         weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-    # --- A) WEEKLY REPLAN (Hard Replan) ---
     if weekly_replan_should:
         if force_reason != "new_injury" and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
-            # Generujeme nový plán (Ak je to kritické zranenie, podstrčíme nový dátum)
+            db_clear_daily_for_user_range(
+                user_id=user_id,
+                plan_id=plan_id,
+                date_from=today.isoformat(),
+                date_to=(today + timedelta(days=100)).isoformat(), 
+                ctx=ctx,
+            )
+
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
                 overwrite=True,
@@ -205,9 +210,6 @@ def service_coach_autoadjust_after_update(
             )
             
             new_plan_id = weekly_resp.get("plan_id")
-            
-            # ✅ OPRAVA FATÁLNEJ CHYBY: Úplne nový plán začína VŽDY prvým týždňom!
-            # Nepotrebujeme parsovať žiadne premenné, jednoducho dáme index 1.
             cur_idx = 1
             
             service_generate_daily_week(
@@ -233,7 +235,6 @@ def service_coach_autoadjust_after_update(
                 "daily_extend": daily_extend,
             }
 
-    # --- B) SOFTEN DAILY (Soft Plan) ---
     if soften_should:
         weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id, ctx=ctx) or []
         if not isinstance(weekly_rows, list):
@@ -244,7 +245,14 @@ def service_coach_autoadjust_after_update(
         cur_idx = _find_current_week_index(weekly_rows, today=today)
         if cur_idx is None: return {"changed": False, "mode": "cannot_determine_current_week"}
 
-        daily_resp = service_generate_daily_week(user_id=user_id, week_index=cur_idx, plan_id=plan_id, model=None, ctx=ctx)
+        daily_resp = service_generate_daily_week(
+            user_id=user_id, 
+            week_index=cur_idx, 
+            plan_id=plan_id, 
+            model=None, 
+            drop_past_days=True, 
+            ctx=ctx
+        )
         
         return {
             "changed": True,
@@ -263,20 +271,13 @@ def service_reschedule_daily_plan(
     horizon_days: int,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Reschedule daily sessions podľa PK (coach_plan_daily.id).
-    Zmení plan_date (+ session_index na koniec cieľového dňa).
-    Následne vráti nový overview.
-    """
     if not moves:
-        # nič nemeníme, len vráť aktuálny overview
         return service_get_daily_overview(
             user_id=user_id,
             horizon_days=horizon_days,
             ctx=ctx,
         )
 
-    # minimálna validácia payloadu
     cleaned: List[Dict[str, Any]] = []
     for m in moves:
         sid = m.get("id")
@@ -290,7 +291,6 @@ def service_reschedule_daily_plan(
         if not from_date or len(from_date) < 10:
             raise ValueError("moves[].from_date is required (YYYY-MM-DD)")
 
-        # basic ISO date shape check (neimportujem dateutil)
         if to_date[4] != "-" or to_date[7] != "-":
             raise ValueError(f"Invalid to_date: {to_date}")
         if from_date[4] != "-" or from_date[7] != "-":
@@ -304,7 +304,6 @@ def service_reschedule_daily_plan(
             }
         )
 
-    # DB update (RLS – iba userove sessions)
     out = db_reschedule_daily_sessions_bulk(
         user_id=user_id,
         moves=cleaned,
@@ -315,7 +314,6 @@ def service_reschedule_daily_plan(
     if not out.get("ok"):
         raise ValueError(out.get("error") or "reschedule_failed")
 
-    # fresh overview (už bude zoradený podľa plan_date/session_index z DB)
     return service_get_daily_overview(
         user_id=user_id,
         horizon_days=horizon_days,
