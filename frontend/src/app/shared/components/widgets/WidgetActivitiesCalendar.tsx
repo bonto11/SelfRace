@@ -145,7 +145,7 @@ export default function WidgetActivitiesCalendar({
       } catch (e: any) {
         if (!alive) return;
         setExternalRows([]);
-        setExtErr(e?.message ?? t("calendar.widget.errorFailedLoad"));
+        setExtErr(e?.message ?? t("calendar.widget.errorFailedLoad" as any));
       }
     })();
 
@@ -263,12 +263,12 @@ export default function WidgetActivitiesCalendar({
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
-  const dow = [t("common.weeksShort.mon"), t("common.weeksShort.tue"), t("common.weeksShort.wed"), t("common.weeksShort.thu"), t("common.weeksShort.fri"),t("common.weeksShort.sat"), t("common.weeksShort.sun")] as const;
+  const dow = [t("common.weeksShort.mon" as any), t("common.weeksShort.tue" as any), t("common.weeksShort.wed" as any), t("common.weeksShort.thu" as any), t("common.weeksShort.fri" as any),t("common.weeksShort.sat" as any), t("common.weeksShort.sun" as any)] as const;
 
   return (
     <WidgetCard
-      title={t("calendar.widget.title", { fallback: "Kalendár" }) + ` • ${weekLabel}`}
-      tooltip={t("calendar.widget.tooltip")}
+      title={(t("calendar.widget.title" as any) || "Kalendár") + ` • ${weekLabel}`}
+      tooltip={t("calendar.widget.tooltip" as any)}
       onOpen={handleOpen}
       accent="none"
       interactive
@@ -310,7 +310,7 @@ export default function WidgetActivitiesCalendar({
       <div
         className={CAL_WIDGET_GRID}
         onClick={handleOpen}
-        aria-label={t("calendar.widget.open")}
+        aria-label={t("calendar.widget.open" as any)}
       >
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(monday);
