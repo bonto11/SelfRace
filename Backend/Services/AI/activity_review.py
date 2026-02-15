@@ -107,9 +107,9 @@ def service_request_activity_review_rerun(
 
     # --- 2. LOGIKA TIERU + ZDRAVOTNÁ VÝNIMKA ---
     if tier_code == "pro":
-        max_versions = 50
-    elif tier_code == "classic":
         max_versions = 3
+    elif tier_code == "classic":
+        max_versions = 2
         if cur_version >= max_versions and not has_new_injury:
              return {"ok": False, "code": "limit_reached", "message": "Dosiahli ste limit pregenerovaní pre Classic účet.", "tier": tier_code}
     else: 
