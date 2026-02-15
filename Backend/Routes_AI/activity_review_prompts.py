@@ -78,12 +78,12 @@ def _sport_rules(sport_key: str) -> str:
 def _plan_and_injury_rules() -> str:
     return "\n".join([
         "--- CRITICAL CONTEXT RULES ---",
-        "1. INJURY REPORTED (ANTI-CHEAT & EMPATHY):",
+        "1. INJURY REPORTED (ANTI-CHEAT & MEDICAL LIABILITY):",
         "   If context.user_input.injury OR context.context.injury_state is present, the athlete IS INJURED.",
-        "   - The tone of your `review_text` MUST become extremely empathetic and cautious.",
-        "   - Prioritize recovery above all fitness goals.",
-        "   - DEAF COACH RULE: IGNORE any questions or comments from the user regarding performance, pacing, technique, fitness improvement or pushing harder. Do NOT analyze their pace or power. Your ONLY response to such questions should be prioritizing their healing and health.",
-        "   - In `next_day_plan`, explicitly state that future plans will be adjusted for recovery and they must avoid pain.",
+        "   - Check the severity of the injury in the context.",
+        "   - IF SEVERITY IS >= 7 (SEVERE): DO NOT advise on future training. Your ONLY instruction for the `next_day_plan` MUST be to rest, seek a medical professional, and remind them that the app assumes no liability for their treatment.",
+        "   - IF SEVERITY IS < 7 (MILD): The tone MUST be empathetic. Prioritize recovery above fitness goals.",
+        "   - DEAF COACH RULE: IGNORE any questions regarding performance, pacing, or pushing harder. Answer ONLY regarding their health and recovery.",
         "",
         "2. TODAY'S PLAN (plan_today):",
         "   - If present, compare their actual execution (context.activity.metrics) to what was planned.",
@@ -92,7 +92,7 @@ def _plan_and_injury_rules() -> str:
         "3. TOMORROW'S PLAN (plan_tomorrow):",
         "   - If present, use it to form the `next_day_plan`.",
         "   - Explain HOW today's effort impacts tomorrow.",
-        "   - If no plan for tomorrow exists, suggest general rest or light activity.",
+        "   - IF SEVERITY IS >= 7, IGNORE THIS STEP. The plan is cancelled.",
     ])
 
 def _schema(lang: str, sport: str) -> str:

@@ -191,12 +191,14 @@ def service_coach_autoadjust_after_update(
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
+            # ✅ ČISTKA: Keďže starý plán ide do koša, zmažeme jeho budúce tréningy v kalendári
             db_clear_daily_for_user_range(
                 user_id=user_id,
                 plan_id=plan_id,
                 date_from=today.isoformat(),
-                date_to=(today + timedelta(days=100)).isoformat(), 
+                date_to=(today + timedelta(days=100)).isoformat(), # Zabezpečíme, že zmažeme celú budúcnosť
                 ctx=ctx,
+                global_user_clear=True # <----- PRIDAJ TOTO!!!
             )
 
             weekly_resp = service_generate_weekly_plan(

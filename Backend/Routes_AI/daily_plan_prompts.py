@@ -1,47 +1,33 @@
-# ===== Routes_AI/daily_plan_prompts.py =====
+# Routes_AI/daily_plan_prompts.py
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Dict, List, Optional, Tuple
-from Modules.Supabase.auth import AuthCtx
 
 def _safe_int(
-    v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
+    v: Any, default: int = 0, *, min_v: Optional[int] = None, max_v: Optional[int] = None
 ) -> int:
     try:
-        if v is None:
-            out = default
-        elif isinstance(v, bool):
-            out = int(v)
-        elif isinstance(v, (int, float)):
-            out = int(v)
+        if v is None: out = default
+        elif isinstance(v, bool): out = int(v)
+        elif isinstance(v, (int, float)): out = int(v)
         elif isinstance(v, str):
             s = v.strip()
             out = int(float(s)) if s else default
-        else:
-            out = int(v)
+        else: out = int(v)
     except Exception:
         out = default
 
-    if min_v is not None and out < min_v:
-        out = min_v
-    if max_v is not None and out > max_v:
-        out = max_v
+    if min_v is not None and out < min_v: out = min_v
+    if max_v is not None and out > max_v: out = max_v
     return out
-
 
 def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
     if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
         return raw_prefs["value"]
     return raw_prefs if isinstance(raw_prefs, dict) else {}
 
-
 def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    AI plans full week.
-    Keep only what it needs, in a stable shape.
-    """
     context2: Dict[str, Any] = {}
     for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
         if k in context:
@@ -52,15 +38,10 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(pref_obj, dict):
         pref_obj = {}
 
-    intensity_model = (
-        "pyramidal"
-        if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal"
-        else "polarized"
-    )
+    intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
     tb = pref_obj.get("training_blocks") or {}
-    if not isinstance(tb, dict):
-        tb = {}
+    if not isinstance(tb, dict): tb = {}
     training_blocks = {
         "vo2max": bool(tb.get("vo2max")),
         "ftp": bool(tb.get("ftp")),
@@ -82,7 +63,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "training_blocks": training_blocks,
         },
         "strength_settings": prefs.get("strength_settings") or {},
-        # ✅ ZMENA: AI musí vidieť pole zranení, inak by preplánovalo na slepo!
         "injuries": prefs.get("injuries") or [], 
     }
 
@@ -91,8 +71,7 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context2["athlete_state"] = {"ai_state": ai_state}
 
     for k in ("last_activities",):
-        if k in context:
-            context2[k] = context[k]
+        if k in context: context2[k] = context[k]
 
     us = context.get("user_settings") or {}
     if isinstance(us, dict):
@@ -135,67 +114,47 @@ def _build_prompts_for_daily(
     main_sport = prefs.get("main_sport") or "run"
 
     pref_obj = prefs.get("preferences") or {}
-    if not isinstance(pref_obj, dict):
-        pref_obj = {}
+    if not isinstance(pref_obj, dict): pref_obj = {}
 
-    # ---------------- two-a-day ----------------
     two = pref_obj.get("two_a_day") or {}
-    if not isinstance(two, dict):
-        two = {}
+    if not isinstance(two, dict): two = {}
     two_enabled = bool(two.get("enabled"))
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
 
-    # ---------------- long run days ----------------
     long_run_days = pref_obj.get("long_run_days") or []
-    if not isinstance(long_run_days, list):
-        long_run_days = []
+    if not isinstance(long_run_days, list): long_run_days = []
     long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
 
-    # ---------------- avoid back-to-back hard ----------------
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
 
-    # ---------------- intensity model + blocks ----------------
-    intensity_model = (
-        "pyramidal"
-        if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal"
-        else "polarized"
-    )
+    intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
     tb = pref_obj.get("training_blocks") or {}
-    if not isinstance(tb, dict):
-        tb = {}
+    if not isinstance(tb, dict): tb = {}
     blocks = {
         "vo2max": bool(tb.get("vo2max")),
         "ftp": bool(tb.get("ftp")),
         "threshold": bool(tb.get("threshold")),
     }
 
-    # ---------------- strength settings ----------------
     strength_settings = prefs.get("strength_settings")
-    if not isinstance(strength_settings, dict):
-        strength_settings = {}
+    if not isinstance(strength_settings, dict): strength_settings = {}
 
     strength_target_int: Optional[int] = None
     ss_raw = strength_settings.get("sessions_per_week")
     if isinstance(ss_raw, (int, float, str)):
-        try:
-            strength_target_int = int(ss_raw)
-        except Exception:
-            strength_target_int = None
+        try: strength_target_int = int(ss_raw)
+        except Exception: strength_target_int = None
     else:
         legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
         if isinstance(legacy, (int, float, str)):
-            try:
-                strength_target_int = int(legacy)
-            except Exception:
-                strength_target_int = None
+            try: strength_target_int = int(legacy)
+            except Exception: strength_target_int = None
 
-    # ---------------- external events ----------------
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
     ext_count = len(ext_occ) if isinstance(ext_occ, list) else 0
 
-    # ---------------- volume guidance (soft) ----------------
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
@@ -217,21 +176,39 @@ def _build_prompts_for_daily(
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
 
-    # ✅ ZMENA: Dynamické záchranné pravidlo pre zranenia!
+    # ✅ MEDICAL LIABILITY: Rozlíšenie medzi ľahkými a ťažkými zraneniami
     active_injuries = prefs.get("injuries") or []
     injury_rule = ""
     if isinstance(active_injuries, list) and len(active_injuries) > 0:
-        # Prekódujeme zranenia do pekne čitateľného textu pre AI
         inj_details = []
+        max_severity = 0
+        
         for inj in active_injuries:
             if isinstance(inj, dict):
                 area = inj.get("area", "unknown area")
                 typ = inj.get("type", "unknown type")
-                sev = inj.get("severity", "?")
+                sev = _safe_int(inj.get("severity"), 0)
+                if sev > max_severity:
+                    max_severity = sev
                 inj_details.append(f"{area} ({typ}, severity: {sev}/10)")
         
-        if inj_details:
-            inj_str = ", ".join(inj_details)
+        inj_str = ", ".join(inj_details)
+
+        # 🚨 SEVERITY 7-10: TVRDÁ STOPKA
+        if max_severity >= 7:
+            injury_rule = (
+                "- CRITICAL MEDICAL RULE (HARD):\n"
+                f"  The athlete reported a SEVERE injury: {inj_str}.\n"
+                "  DO NOT SCHEDULE ANY PHYSICAL TRAINING. ZERO. NONE.\n"
+                "  - Every single day in the plan MUST be set to session_type='rest' and sport='other'.\n"
+                "  - Title should be 'Lekárske voľno' or 'Regenerácia'.\n"
+                "  - In the `notes` for the very first day, you MUST include this exact medical disclaimer: "
+                "    'Zaznamenali sme vysoký stupeň bolesti. Aplikácia nenahrádza lekársku starostlivosť. "
+                "Bezodkladne vyhľadaj lekára alebo fyzioterapeuta. Tréningový plán je pozastavený, kým zranenie "
+                "nevyliečiš a nezmažeš ho z profilu.'\n\n"
+            )
+        # ⚠️ SEVERITY 1-6: ZVOĽNENIE
+        else:
             injury_rule = (
                 "- ACTIVE INJURY (CRITICAL/HARD):\n"
                 f"  The athlete has reported active injuries: {inj_str}.\n"
@@ -396,7 +373,7 @@ def _build_prompts_for_daily(
         f"External events occurrences in this week: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
-        + injury_rule          # ✅ APLIKOVANÉ PRAVIDLO PRE ZRANENIA!
+        + injury_rule 
         + two_a_day_rule
         + long_run_rule
         + strength_rule
