@@ -72,6 +72,7 @@ def service_generate_weekly_plan(
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
     model: Optional[str] = None,
+    override_start_date: Optional[str] = None, # ✅ Pridaný argument pre Zranenia
 ) -> Dict[str, Any]:
     """
     Hlavná service pre weekly plán.
@@ -100,6 +101,7 @@ def service_generate_weekly_plan(
         }
 
     # --- build context ---
+    # --- build context ---
     context = build_weekly_context_from_db(
         user_id=user_id,
         ctx=ctx,
@@ -112,10 +114,17 @@ def service_generate_weekly_plan(
     horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
 
+    # ✅ ZÁSAH: Ak bol vyžiadaný nový dátum začiatku, povieme to AI
+    if override_start_date:
+        if isinstance(context_payload.get("prefs"), dict):
+            context_payload["prefs"]["plan_start_date"] = override_start_date
+            # Pridáme jasný signál (pre prompt)
+            context_payload["replan_trigger"] = "critical_injury_override"
+
     # --- AI call ---
     weekly_plan, trace = generate_weekly_plan_json(
         context_payload=context_payload,
-        model=model,  # None => provider default
+        model=model,  
         ctx=ctx,
     )
 

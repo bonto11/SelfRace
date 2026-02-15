@@ -1,7 +1,7 @@
 # Services/coach_plan_adjustment.py
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional, List
 from statistics import mean
 
@@ -22,223 +22,86 @@ from Routes_DB.coach_plan_meta import (
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Routes_DB.user_recovery import db_get_recent_recovery
+from Routes_DB.user_prefs import db_get_pref_single  # ✅ Zmenené pre čítanie prefs
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 
-
 def _to_date(val: Any) -> Optional[date]:
-    """
-    Bezpečne spraví date z rôznych typov (datetime / str / date).
-    """
-    if isinstance(val, date) and not isinstance(val, datetime):
-        return val
-    if isinstance(val, datetime):
-        return val.date()
+    if isinstance(val, date) and not isinstance(val, datetime): return val
+    if isinstance(val, datetime): return val.date()
     if isinstance(val, str):
-        try:
-            return datetime.fromisoformat(val).date()
-        except Exception:
-            return None
+        try: return datetime.fromisoformat(val[:10]).date()
+        except Exception: return None
     return None
 
+def _safe_int(v: Any, default: int = 0) -> int:
+    try: return int(v) if v is not None else default
+    except Exception: return default
 
-def _find_current_week_index(
-    weekly_rows: List[Dict[str, Any]],
-    *,
-    today: date,
-) -> Optional[int]:
-    """
-    Nájde week_index, do ktorého patrí dnešok.
-    """
-    if not weekly_rows:
-        return None
-
-    weekly_sorted = sorted(
-        weekly_rows,
-        key=lambda w: int(w.get("week_index") or 0),
-    )
-
-    # 1) priame trafiť medzi start/end
+def _find_current_week_index(weekly_rows: List[Dict[str, Any]], *, today: date) -> Optional[int]:
+    if not weekly_rows: return None
+    weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
     for w in weekly_sorted:
         ws = _to_date(w.get("week_start"))
         we = _to_date(w.get("week_end") or w.get("week_start"))
-        if not ws or not we:
-            continue
-        if ws <= today <= we:
-            return int(w.get("week_index") or 0)
-
-    # 2) fallback – posledný týždeň, ktorý už začal
+        if not ws or not we: continue
+        if ws <= today <= we: return int(w.get("week_index") or 0)
     candidate: Optional[int] = None
     for w in weekly_sorted:
         ws = _to_date(w.get("week_start"))
-        if not ws:
-            continue
-        if ws <= today:
-            candidate = int(w.get("week_index") or 0)
-
+        if not ws: continue
+        if ws <= today: candidate = int(w.get("week_index") or 0)
     return candidate
 
-
-def _compute_be_flags_recent_load(
-    user_id: int,
-    *,
-    window_days: int = 42,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
-    BE heuristika nad recent_load – rozhodne, či vôbec má zmysel volať AI.
-    """
-    rl = service_build_recent_load_raw(
-        user_id=user_id,
-        window_days=window_days,
-        ctx=ctx,
-    )
-
+def _compute_be_flags_recent_load(user_id: int, *, window_days: int = 42, ctx: AuthCtx) -> Dict[str, Any]:
+    rl = service_build_recent_load_raw(user_id=user_id, window_days=window_days, ctx=ctx)
     weeks: List[Dict[str, Any]] = rl.get("weeks") or []
-
     if not weeks:
-        return {
-            "has_data": False,
-            "should_trigger_ai": False,
-            "action": None,
-            "reason": "no_recent_load_data",
-            "current_week_minutes": None,
-            "baseline_minutes": None,
-            "ratio": None,
-        }
-
-    # nájdi current week (week_index_from_now == 0), fallback na posledný
-    current = None
-    for w in weeks:
-        if w.get("week_index_from_now") == 0:
-            current = w
-            break
-    if current is None:
-        current = weeks[-1]
-
+        return {"has_data": False, "should_trigger_ai": False, "action": None, "reason": "no_recent_load_data"}
+    
+    current = next((w for w in weeks if w.get("week_index_from_now") == 0), weeks[-1])
     curr_min = float(current.get("total_minutes") or 0.0)
-
-    # baseline = priemer posledných 2–3 týždňov pred current
-    prev_weeks = [
-        w
-        for w in weeks
-        if isinstance(w.get("week_index_from_now"), int)
-        and w["week_index_from_now"] < 0
-    ]
-    prev_weeks_sorted = sorted(
-        prev_weeks,
-        key=lambda w: int(w.get("week_index_from_now") or 0),
-    )
-
-    recent_baseline_weeks = (
-        prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
-    )
-    if recent_baseline_weeks:
-        baseline = sum(
-            float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks
-        ) / len(recent_baseline_weeks)
-    else:
-        baseline = curr_min  # fallback – bez histórie ber current ako baseline
-
+    
+    prev_weeks = [w for w in weeks if isinstance(w.get("week_index_from_now"), int) and w["week_index_from_now"] < 0]
+    prev_weeks_sorted = sorted(prev_weeks, key=lambda w: int(w.get("week_index_from_now") or 0))
+    recent_baseline_weeks = prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
+    
+    baseline = sum(float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks) / len(recent_baseline_weeks) if recent_baseline_weeks else curr_min
     ratio = curr_min / baseline if baseline > 0 else 1.0
     hard_current = int(current.get("hard_sessions") or 0)
 
-    if baseline <= 0 and curr_min <= 0:
-        return {
-            "has_data": True,
-            "should_trigger_ai": False,
-            "action": None,
-            "reason": "no_meaningful_training_load",
-            "current_week_minutes": curr_min,
-            "baseline_minutes": baseline,
-            "ratio": ratio,
-            "hard_sessions": hard_current,
-        }
-
-    # veľký spike → weekly replan kandidát
     if ratio > 1.4 or (curr_min > baseline + 150):
-        return {
-            "has_data": True,
-            "should_trigger_ai": True,
-            "action": "weekly_replan",
-            "reason": "large_weekly_load_spike",
-            "current_week_minutes": curr_min,
-            "baseline_minutes": baseline,
-            "ratio": ratio,
-            "hard_sessions": hard_current,
-        }
-
-    # stredný spike / veľa hard sessions → skôr soften daily
+        return {"has_data": True, "should_trigger_ai": True, "action": "weekly_replan", "reason": "large_weekly_load_spike", "ratio": ratio}
     if ratio > 1.2 or hard_current >= 3:
-        return {
-            "has_data": True,
-            "should_trigger_ai": True,
-            "action": "daily_soften",
-            "reason": "moderate_spike_or_many_hard_sessions",
-            "current_week_minutes": curr_min,
-            "baseline_minutes": baseline,
-            "ratio": ratio,
-            "hard_sessions": hard_current,
-        }
+        return {"has_data": True, "should_trigger_ai": True, "action": "daily_soften", "reason": "moderate_spike_or_many_hard_sessions", "ratio": ratio}
+    return {"has_data": True, "should_trigger_ai": False, "action": None, "reason": "load_within_normal_range", "ratio": ratio}
 
-    return {
-        "has_data": True,
-        "should_trigger_ai": False,
-        "action": None,
-        "reason": "load_within_normal_range",
-        "current_week_minutes": curr_min,
-        "baseline_minutes": baseline,
-        "ratio": ratio,
-        "hard_sessions": hard_current,
-    }
-
-
-def _compute_recovery_debug(
-    user_id: int,
-    *,
-    ctx: AuthCtx,
-    days: int = 21,
-) -> Optional[Dict[str, Any]]:
-    """
-    Debug dáta z user_recovery – priemer HRV, posledné RHR atď.
-    """
+def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Optional[Dict[str, Any]]:
     rows = db_get_recent_recovery(user_id, days, ctx=ctx) or []
-
-    if not rows:
-        return {
-            "latest_date": None,
-            "latest_RHR_bpm": None,
-            "latest_HRV_ms": None,
-            "sleep_min": None,
-            "hrv_7d_avg": None,
-            "hrv_prev_7_21d_avg": None,
-        }
-
+    if not rows: 
+        return {"latest_date": None, "latest_RHR_bpm": None, "latest_HRV_ms": None}
+    
     latest = rows[0]
-
-    def _hrv_vals(slice_rows: List[Dict[str, Any]]) -> List[float]:
-        vals: List[float] = []
-        for r in slice_rows:
-            v = r.get("HRV_avg_ms")
-            if isinstance(v, (int, float)) and v > 0:
-                vals.append(float(v))
-        return vals
-
-    recent_vals = _hrv_vals(rows[:7])
-    prev_vals = _hrv_vals(rows[7:21])
-
-    hrv_recent_avg = mean(recent_vals) if recent_vals else None
-    hrv_prev_avg = mean(prev_vals) if prev_vals else None
-
-    sleep_min = latest.get("sleep_duration_min")
+    
+    # ✅ Bezpečné rozbalenie pre Pylance
+    recent_vals: List[float] = []
+    for r in rows[:7]:
+        v = r.get("HRV_avg_ms")
+        if isinstance(v, (int, float)) and v > 0:
+            recent_vals.append(float(v))
+            
+    prev_vals: List[float] = []
+    for r in rows[7:21]:
+        v = r.get("HRV_avg_ms")
+        if isinstance(v, (int, float)) and v > 0:
+            prev_vals.append(float(v))
 
     return {
         "latest_date": latest.get("date"),
         "latest_RHR_bpm": latest.get("RHR_bpm"),
         "latest_HRV_ms": latest.get("HRV_avg_ms"),
-        "sleep_min": sleep_min,
-        "hrv_7d_avg": hrv_recent_avg,
-        "hrv_prev_7_21d_avg": hrv_prev_avg,
+        "hrv_7d_avg": mean(recent_vals) if recent_vals else None,
+        "hrv_prev_7_21d_avg": mean(prev_vals) if prev_vals else None,
     }
 
 
@@ -246,121 +109,108 @@ def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
-    force_reason: Optional[str] = None, # ✅ Prijíma force_reason z Async Workera
+    force_reason: Optional[str] = None, 
 ) -> Dict[str, Any]:
-    """
-    Hlavný orchestratór po nových dátach (activity sync / recovery update).
-    """
     today = date.today()
 
-    # --- 0) BE heuristika recent_load ---
-    be_flags = _compute_be_flags_recent_load(
-        user_id=user_id,
-        window_days=42,
-        ctx=ctx,
-    )
+    be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
+    recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
 
-    recovery_debug = _compute_recovery_debug(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    # 1) Načítanie zranenia a určenie severity (závažnosti)
+    is_critical_injury = False
+    new_plan_start_date = None
 
-    # ✅ ZDRAVOTNÁ VÝNIMKA (IBA AK BOLA EXPLICITNE VYŽIADANÁ CEZ REVIEW)
     if force_reason == "new_injury":
         be_flags["should_trigger_ai"] = True
         be_flags["action"] = "injury_replan"
         be_flags["reason"] = "active_injury_reported_forcing_replan"
+        
+        try:
+            prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
+            if isinstance(prefs_row, dict):
+                val = prefs_row.get("value")
+                data = val if isinstance(val, dict) else prefs_row
+                injuries = data.get("injuries", [])
+                max_sev = max((_safe_int(i.get("severity")) for i in injuries if isinstance(i, dict)), default=0)
+                
+                # Ak je zranenie 7 alebo vyššie -> Hard Replan a od zajtrajška!
+                if max_sev >= 7:
+                    is_critical_injury = True
+                    new_plan_start_date = (today + timedelta(days=1)).isoformat()
+        except Exception as e:
+            print("[COACH_AUTOADJUST] Error fetching injury severity", repr(e))
 
     if not be_flags.get("should_trigger_ai"):
-        # Load je v norme a neprišiel "force_reason" → žiadne AI, žiadny re-plan (UŠETRENÉ TOKENY)
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
             "reason": be_flags.get("reason", "load_within_normal_range"),
-            "be_flags": be_flags,
-            "recovery_debug": recovery_debug,
-            "analyze_state_id": None,
-            "plan_adjustment": None,
         }
 
-    # --- 1) NÁJDEME AKTÍVNY PLÁN ---
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    ) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta or not isinstance(meta.get("plan_id"), str):
-        return {
-            "changed": False,
-            "mode": "no_plan",
-            "reason": "no_plan_meta",
-            "be_flags": be_flags,
-            "recovery_debug": recovery_debug,
-            "analyze_state_id": None,
-            "plan_adjustment": None,
-        }
+        return {"changed": False, "mode": "no_plan"}
 
     plan_id = meta["plan_id"]
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
-    weekly_age_days: Optional[int] = None
-    if meta_created:
-        weekly_age_days = (today - meta_created).days
+    weekly_age_days = (today - meta_created).days if meta_created else None
 
+    # --- ROZHODNUTIE O PREPLÁNOVANÍ ---
+    state_id = None
+    plan_adjustment = {}
 
-    # --- 2) ROZHODNUTIE O PREPLÁNOVANÍ (AI vs FORCE) ---
     if force_reason == "new_injury":
-        # 🚨 ZRANENIE: Preskakujeme AI analýzu a priamo kážeme preplánovať! (UŠETRENÉ TOKENY)
+        # Ak je to kritické (>=7), VŽDY replan. Ak <7, môžeme to hodiť na soften, 
+        # ale my preferujeme tvrdé liečenie, takže dáme REPLAN VŽDY pri zranení.
         weekly_replan_should = True
         weekly_replan_reason = "Hard replan triggered by user injury report."
         soften_should = False
         soften_days = 0
         soften_reason = None
-        state_id = None
-        plan_adjustment = {"reason": "forced_injury_override"}
-        
+        plan_adjustment = {"reason": "forced_injury_override", "is_critical": is_critical_injury}
     else:
-        # 🏃 BEŽNÝ VÝKYV ZÁŤAŽE: Tu použijeme AI na posúdenie stavu
-        analyze_resp = service_analyze_athlete(
-            user_id=user_id,
-            ctx=ctx,
-            model=None,
-        )
+        # Bežný AI Analyzátor (únava atď.)
+        analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
-        analysis = analyze_resp.get("analysis") or {}
-        ai_state = analysis.get("ai_state") or {}
+        ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
         plan_adjustment = ai_state.get("plan_adjustment") or {}
 
         soften_block = plan_adjustment.get("soften_next_days") or {}
         soften_should = bool(soften_block.get("should_soften"))
         soften_days = soften_block.get("days") or 0
         soften_reason = soften_block.get("reason")
-
         weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
         weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-
-    # --- 3a) WEEKLY REPLAN ---
+    # --- A) WEEKLY REPLAN ---
     if weekly_replan_should:
-        # Pre zranenie budeme ignorovať COOLDOWN (aby to bez ohľadu na vek plánu preplánovalo)
-        if (
-            force_reason != "new_injury" 
-            and weekly_age_days is not None
-            and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
-        ):
-            # Príliš čerstvý weekly plán -> padáme do daily softening logiky
+        if force_reason != "new_injury" and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
-            # ✅ REÁLNE PREPLÁNOVANIE TÝŽDŇA (AI tu už uvidí zranenie z prefs vďaka našim úpravám v daily_plan_prompts)
+            # 🚨 GENERUJEME NOVÝ TÝŽDENNÝ PLÁN (S potlačením starého dátumu pri kritickom zranení)
+            
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
                 overwrite=True,
                 state_id=state_id,
                 weeks=None,
+                model=None,
+                # ✅ Povieme generátoru týždňa, že meníme start_date
+                override_start_date=new_plan_start_date if is_critical_injury else None,
+                ctx=ctx,
+            )
+            
+            new_plan_id = weekly_resp.get("plan_id")
+            new_weekly_rows = weekly_resp.get("weeks") or []
+            current_week_index = _find_current_week_index(new_weekly_rows, today=today) or 1
+            
+            # ✅ MANUÁLNE VYGENEROVANIE PRVÉHO TÝŽDŇA, ABY EXTEND NEZLYHAL!
+            service_generate_daily_week(
+                user_id=user_id,
+                week_index=current_week_index,
+                plan_id=new_plan_id,
                 model=None,
                 ctx=ctx,
             )
@@ -374,91 +224,31 @@ def service_coach_autoadjust_after_update(
             return {
                 "changed": True,
                 "mode": "weekly_replan",
-                "reason": weekly_replan_reason or "weekly plan re-generated based on load, recovery, or injury",
-                "be_flags": be_flags,
-                "recovery_debug": recovery_debug,
-                "analyze_state_id": state_id,
+                "reason": weekly_replan_reason or "weekly plan re-generated",
                 "plan_adjustment": plan_adjustment,
-                "weekly_plan_meta": {
-                    "plan_id": weekly_resp.get("plan_id"),
-                    "weeks": weekly_resp.get("weeks"),
-                },
+                "weekly_plan_meta": {"plan_id": new_plan_id, "weeks": new_weekly_rows},
                 "daily_extend": daily_extend,
             }
 
-    # --- 3b) SOFTEN DAILY ---
+    # --- B) SOFTEN DAILY ---
     if soften_should and soften_days > 0:
-        weekly_rows = (
-            db_get_weekly_for_user_plan(
-                user_id=user_id,
-                plan_id=plan_id,
-                ctx=ctx,
-            )
-            or []
-        )
+        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id, ctx=ctx) or []
+        if not weekly_rows: return {"changed": False, "mode": "no_weekly_rows"}
+        
+        current_week_index = _find_current_week_index(weekly_rows, today=today)
+        if current_week_index is None: return {"changed": False, "mode": "cannot_determine_current_week"}
 
-        if not weekly_rows:
-            return {
-                "changed": False,
-                "mode": "no_weekly_rows",
-                "reason": "no_weekly_rows_for_plan",
-                "be_flags": be_flags,
-                "recovery_debug": recovery_debug,
-                "analyze_state_id": state_id,
-                "plan_adjustment": plan_adjustment,
-            }
-
-        current_week_index = _find_current_week_index(
-            weekly_rows,
-            today=today,
-        )
-
-        if current_week_index is None:
-            return {
-                "changed": False,
-                "mode": "cannot_determine_current_week",
-                "reason": "cannot_determine_current_week",
-                "be_flags": be_flags,
-                "recovery_debug": recovery_debug,
-                "analyze_state_id": state_id,
-                "plan_adjustment": plan_adjustment,
-            }
-
-        daily_resp = service_generate_daily_week(
-            user_id=user_id,
-            week_index=current_week_index,
-            plan_id=plan_id,
-            model=None,
-            ctx=ctx,
-        )
-
+        daily_resp = service_generate_daily_week(user_id=user_id, week_index=current_week_index, plan_id=plan_id, model=None, ctx=ctx)
+        
         return {
             "changed": True,
             "mode": "daily_soften",
-            "reason": soften_reason or f"softening next days (week_index={current_week_index}) based on load & recovery",
-            "be_flags": be_flags,
-            "recovery_debug": recovery_debug,
-            "analyze_state_id": state_id,
-            "plan_adjustment": plan_adjustment,
+            "reason": soften_reason,
             "affected_week_index": current_week_index,
-            "daily_result": {
-                "plan_id": daily_resp.get("plan_id"),
-                "week_index": daily_resp.get("week_index"),
-                "week_start": daily_resp.get("week_start"),
-                "week_end": daily_resp.get("week_end"),
-            },
+            "daily_result": {"plan_id": daily_resp.get("plan_id"), "week_index": daily_resp.get("week_index")}
         }
 
-    # --- 3c) AI síce zafungovalo, ale nič nechce meniť ---
-    return {
-        "changed": False,
-        "mode": "no_adjustment",
-        "reason": "plan_adjustment does not request changes",
-        "be_flags": be_flags,
-        "recovery_debug": recovery_debug,
-        "analyze_state_id": state_id,
-        "plan_adjustment": plan_adjustment,
-    }
+    return {"changed": False, "mode": "no_adjustment", "reason": "No changes requested"}
 
 
 def service_reschedule_daily_plan(

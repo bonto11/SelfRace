@@ -441,6 +441,11 @@ export const sk = {
           itb: "ITB syndróm",
           other: "Iné",
         },
+        severityLevels: {
+          "mild": "Mierne pobolievanie. Cítiš to, ale neobmedzuje ťa to. Tréner mierne upraví záťaž.",
+          "moderate": "Bolesť ťa núti meniť techniku alebo skracovať tréning. Tréner naordinuje aktívnu regeneráciu.",
+          "critical": "Ostrá bolesť, nemôžeš trénovať. Tréner zruší športový plán a odporučí lekára."
+        },
         widget: {
           title: "Zranenia a riziká",
           tooltip: [

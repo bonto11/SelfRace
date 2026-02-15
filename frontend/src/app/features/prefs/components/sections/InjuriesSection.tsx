@@ -49,13 +49,19 @@ export function InjuriesSection({ local, setLocal }: Props) {
   const [injDraft, setInjDraft] = useState<Injury>({
     area: "foot",
     type: "overuse",
-    severity: 3, // Predvolená vážnosť
+    severity: 3, 
     note: "",
   });
 
   const list = (local.injuries ?? []) as Injury[];
 
-  // V náhľade zobrazíme oblasť a vážnosť, napr. "Chodidlo (4/10)"
+  // Pomocník pre dynamickú vysvetlivku z katalógu
+  const getSeverityNote = (val: number) => {
+    if (val <= 3) return t("prefs.sections.injuriesSection.severityLevels.mild" as any);
+    if (val <= 6) return t("prefs.sections.injuriesSection.severityLevels.moderate" as any);
+    return t("prefs.sections.injuriesSection.severityLevels.critical" as any);
+  };
+
   const previewLabels = useMemo(() => 
     list.map((i) => `${t(`prefs.sections.injuriesSection.areas.${i.area}` as any)} (${i.severity || "?"}/10)`), 
   [list, t]);
@@ -95,7 +101,6 @@ export function InjuriesSection({ local, setLocal }: Props) {
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* Zmenené na md:grid-cols-2 pre lepšie rozloženie 4 prvkov */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {/* AREA */}
           <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
@@ -155,14 +160,13 @@ export function InjuriesSection({ local, setLocal }: Props) {
           <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-medium opacity-80">
-                {t("prefs.sections.injuriesSection.severityLabel" as any) || "Vážnosť bolesti (1-10)"}
+                {t("prefs.sections.injuriesSection.severityLabel" as any)}
               </div>
               <div className="text-[10px] opacity-40">1 = mierna, 10 = extrémna</div>
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1 mb-2">
               {INJ_SEVERITY.map((num) => {
-                // Farebné odlíšenie podľa vážnosti
                 let colorClass = "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
                 if (injDraft.severity === num) {
                   if (num <= 3) colorClass = "bg-emerald-500 border-emerald-500 text-black font-bold";
@@ -180,6 +184,10 @@ export function InjuriesSection({ local, setLocal }: Props) {
                   </button>
                 )
               })}
+            </div>
+            {/* Vysvetlivka */}
+            <div className="text-[10px] leading-snug p-2 rounded bg-white/5 text-white/50 italic border border-white/5">
+              {getSeverityNote(injDraft.severity ?? 0)}
             </div>
           </div>
 
@@ -216,7 +224,6 @@ export function InjuriesSection({ local, setLocal }: Props) {
                   { ...injDraft, note: injDraft.note?.trim() || undefined },
                 ],
               }));
-              // Reset draftu po pridaní
               setInjDraft({ area: "foot", type: "overuse", severity: 3, note: "" });
             }}
           >

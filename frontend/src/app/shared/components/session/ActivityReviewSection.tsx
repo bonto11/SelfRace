@@ -139,6 +139,13 @@ function InjuryReportModal({
     }
   }, [open, userId]);
 
+  // Pomocník pre text vážnosti z katalógu
+  const getSeverityNote = (val: number) => {
+    if (val <= 3) return t("prefs.sections.injuriesSection.severityLevels.mild" as any);
+    if (val <= 6) return t("prefs.sections.injuriesSection.severityLevels.moderate" as any);
+    return t("prefs.sections.injuriesSection.severityLevels.critical" as any);
+  };
+
   const handleAddDraftToList = () => {
     setActiveInjuries([...activeInjuries, { ...draft, note: draft.note?.trim() || undefined }]);
     setAddedNewInSession(true); // Evidujeme, že pridal nové
@@ -237,9 +244,9 @@ function InjuryReportModal({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] uppercase font-bold opacity-50">Vážnosť bolesti (1-10)</div>
-                  <div className="text-[10px] opacity-40">1 = mierna, 10 = neznesiteľná</div>
+                  <div className="text-[10px] opacity-40">1 = mierna, 10 = extrémna</div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 mb-2">
                   {INJ_SEVERITY.map((num) => {
                     let colorClass = "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
                     if (draft.severity === num) {
@@ -258,6 +265,10 @@ function InjuryReportModal({
                       </button>
                     )
                   })}
+                </div>
+                {/* Dynamická vysvetlivka */}
+                <div className="text-[11px] leading-relaxed p-2 rounded bg-white/5 border border-white/5 text-white/60 italic">
+                  {getSeverityNote(draft.severity ?? 0)}
                 </div>
               </div>
 
@@ -376,8 +387,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   // Stavy pre zranenia
   const [showInjuryModal, setShowInjuryModal] = useState(false);
-  const [hasActiveInjuries, setHasActiveInjuries] = useState(false);
-  // Tento flag si pamätá, či sme práve teraz pridali zranenie, aby sme to oznámili backendu
+  const [hasActiveInjuries, setHasActiveInjuries] = useState(false); 
   const [justAddedNewInjury, setJustAddedNewInjury] = useState(false);
 
   const [busyLoad, setBusyLoad] = useState(false);
@@ -398,7 +408,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       const dbComment = data?.ai_review_last_user_comment;
       if (typeof dbComment === "string") setComment((prev) => prev || dbComment);
       
-      // Zistenie, či má športovec aktuálne nejaké zranenia v DB
       const prefs = await apiFetchUserPref(Number(userId), "coach.prefs");
       setHasActiveInjuries(Array.isArray(prefs?.injuries) && prefs.injuries.length > 0);
 
@@ -453,7 +462,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          has_new_injury: justAddedNewInjury, // ✅ Prekypíme to na backend
+          has_new_injury: justAddedNewInjury,
         },
       );
 
@@ -466,7 +475,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued" as any));
 
         await loadData(true);
-        // Po úspešnom odoslaní vlajku resetujeme (aby sa ďalšie generovanie hneď neprepočítavalo ako "nové zranenie")
         setJustAddedNewInjury(false);
       }
     } catch (e: any) {
@@ -518,7 +526,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             </div>
           )}
 
-          {/* OVLÁDANIE ZRANENIA */}
           <div className="flex items-center gap-3 mt-3">
             <button
               onClick={() => setShowInjuryModal(true)}
@@ -545,7 +552,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             )}
           </div>
 
-          {/* MODAL */}
           {userId && (
             <InjuryReportModal 
               userId={Number(userId)}
@@ -553,7 +559,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               onClose={() => setShowInjuryModal(false)}
               onSaveSuccess={(hasInj, isNew) => {
                 setHasActiveInjuries(hasInj);
-                if (isNew) setJustAddedNewInjury(true); // Zapamätáme si pre Rerun
+                if (isNew) setJustAddedNewInjury(true); 
                 setShowInjuryModal(false);
               }}
             />
