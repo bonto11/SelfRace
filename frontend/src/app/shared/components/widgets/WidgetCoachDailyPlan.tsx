@@ -1,3 +1,4 @@
+// src/app/features/coach/components/WidgetCoachDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,10 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+
+import {
+  apiFetchUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -77,6 +82,9 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const t = useT();
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
+  // ✅ Pridaný stav pre zranenia
+  const [activeInjury, setActiveInjury] = useState<{ severity: number; text: string } | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,8 +96,32 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const r = await apiGetDailyOverview(userId);
-        if (alive) setOverview(r ?? null);
+        // ✅ Paralelné stiahnutie denných plánov a užívateľských preferencií (zranení)
+        const [planRes, prefsRes] = await Promise.all([
+          apiGetDailyOverview(userId).catch(() => null),
+          apiFetchUserPref(userId, "coach.prefs").catch(() => null)
+        ]);
+        
+        if (alive) {
+          if (planRes) setOverview(planRes);
+          
+          // Vyhodnotenie zranenia z prefs
+          if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
+            // Nájdeme zranenie s najvyššou vážnosťou
+            const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
+              return (current.severity || 0) > (prev.severity || 0) ? current : prev;
+            }, { severity: 0 });
+
+            if (maxInjury && maxInjury.severity > 0) {
+              setActiveInjury({
+                severity: maxInjury.severity,
+                text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
+              });
+            }
+          } else {
+             setActiveInjury(null);
+          }
+        }
       } catch (e: any) {
         if (alive) setError(e?.message ?? t("coachDaily.widget.errorFetch"));
       } finally {
@@ -131,53 +163,76 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         <div className={WIDGET_INFO_TEXT}>
           {t("widget.missingUserId")}
         </div>
-      ) : !overview || !ui.daysCount ? (
-        <div className={WIDGET_EMPTY_TEXT}>
-          {t("coachDaily.widget.missingData")}
-        </div>
       ) : (
         <>
-          <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelDays")}</div>
-            <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
-
-            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelSessions")}</div>
-            <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
-
-            <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.todayLabel")}</div>
-            <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
-              {ui.todayLabel ?? "—"}
+          {/* ✅ NOVÉ: Zobrazenie zranenia priamo nad detailmi plánu */}
+          {activeInjury && (
+            <div className={`mb-4 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+                activeInjury.severity >= 7 
+                  ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                  : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+              }`}>
+              <div className="flex-shrink-0">
+                ⚠️
+              </div>
+              <div className="leading-tight">
+                <strong>Zranenie nahlásené:</strong> {activeInjury.text}
+                <div className="opacity-80 text-[10px] mt-0.5">
+                  {activeInjury.severity >= 7 ? "Plán je v režime lekárskeho voľna." : "Plán je upravený pre zotavenie."}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {ui.todaySessions && ui.todaySessions.length > 0 && (
-            <div className={WIDGET_SUMMARY_WRAP}>
-              <div className={WIDGET_SUMMARY_HEAD}>
-                {t("coachDaily.widget.summary")}
+          {!overview || !ui.daysCount ? (
+            <div className={WIDGET_EMPTY_TEXT}>
+              {t("coachDaily.widget.missingData")}
+            </div>
+          ) : (
+            <>
+              <div className={WIDGET_KV_GRID}>
+                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelDays")}</div>
+                <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
+
+                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelSessions")}</div>
+                <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
+
+                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.todayLabel")}</div>
+                <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
+                  {ui.todayLabel ?? "—"}
+                </div>
               </div>
 
-              <ul className={WIDGET_LIST}>
-                {ui.todaySessions.slice(0, 3).map((s, i) => (
-                  <li key={i} className={WIDGET_LIST_ITEM}>
-                    <span
-                      className={WIDGET_BULLET}
-                      style={{ background: appColors.brandPrimary }}
-                    />
-                    <span className={WIDGET_TRUNCATE}>
-                      {s.title || s.session_type || s.sport}
-                      {s.duration_min ? ` · ${s.duration_min} ${t("common.units.min")}` : ""}
-                      {s.intensity ? ` · ${s.intensity}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {ui.todaySessions && ui.todaySessions.length > 0 && (
+                <div className={WIDGET_SUMMARY_WRAP}>
+                  <div className={WIDGET_SUMMARY_HEAD}>
+                    {t("coachDaily.widget.summary")}
+                  </div>
 
-              {ui.todaySessions.length > 3 && (
-                <div className={WIDGET_MORE_HINT}>
-                  + {ui.todaySessions.length - 3} {t("coachDaily.widget.moreSessions")}
+                  <ul className={WIDGET_LIST}>
+                    {ui.todaySessions.slice(0, 3).map((s, i) => (
+                      <li key={i} className={WIDGET_LIST_ITEM}>
+                        <span
+                          className={WIDGET_BULLET}
+                          style={{ background: appColors.brandPrimary }}
+                        />
+                        <span className={WIDGET_TRUNCATE}>
+                          {s.title || s.session_type || s.sport}
+                          {s.duration_min ? ` · ${s.duration_min} ${t("common.units.min")}` : ""}
+                          {s.intensity ? ` · ${s.intensity}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {ui.todaySessions.length > 3 && (
+                    <div className={WIDGET_MORE_HINT}>
+                      + {ui.todaySessions.length - 3} {t("coachDaily.widget.moreSessions")}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </>
       )}
