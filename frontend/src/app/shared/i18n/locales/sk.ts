@@ -913,6 +913,9 @@ export const sk = {
       labelDays: "Naplánované dni",
       labelSessions: "Tréningové jednotky",
       moreSessions: "ďalšie tréningy",
+      medicalTitle: "Plán pozastavený",
+      medicalText: "Zaznamenali sme vážne zranenie ({{severity}}/10). Tvoj tréningový plán je nateraz deaktivovaný.",
+      medicalAction: "Po schválení lekárom zmaž zranenie v nastaveniach pre obnovu plánu.",
     },
   },
 
@@ -942,6 +945,17 @@ export const sk = {
         "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť nový analyze/weekly/daily a spustiť nový plán.",
       ].join("\n"),
       note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
+      status: {
+      medicalSuspend: "PLÁN POZASTAVENÝ (ZRANENIE)"
+    },
+    errors: {
+      medicalBlocked: "Generovanie je zablokované kvôli vážnemu zraneniu. Najprv sa vylieč."
+    },
+    medicalSuspendBanner: {
+      title: "Tréningový stop-stav",
+      text: "Tvoj plán bol pozastavený kvôli nahlásenej bolesti ({{severity}}/10).",
+      action: "Zmaž zranenie v profile až po súhlase lekára."
+    }
     },
     status: {
       active: "Aktívny plán ✓",

@@ -12,6 +12,7 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import {
@@ -22,7 +23,6 @@ import {
 } from "@/app/features/calendar/utils/calendarSlots";
 import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
-// ✅ importuj priamo
 import { WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
 import {
@@ -88,6 +88,8 @@ export default function WidgetActivitiesCalendar({
   const { plan } = useCoachData();
   const { selectPlanByRange } = plan;
 
+  const [isMedicalSuspend, setIsMedicalSuspend] = React.useState(false);
+
   const monday = startOfWeek();
   const sunday = React.useMemo(() => {
     const d = new Date(monday);
@@ -104,6 +106,21 @@ export default function WidgetActivitiesCalendar({
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      try {
+        const prefs = await apiFetchUserPref(userId, "coach.prefs");
+        if (prefs && Array.isArray(prefs.injuries)) {
+          const maxSev = Math.max(...prefs.injuries.map((i: any) => i.severity || 0), 0);
+          setIsMedicalSuspend(maxSev >= 7);
+        }
+      } catch (err) {
+        console.warn("[CalendarWidget] Failed to check injury state", err);
+      }
+    })();
+  }, [userId]);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -125,7 +142,7 @@ export default function WidgetActivitiesCalendar({
     return () => {
       alive = false;
     };
-  }, [userId, startIso, endIso]);
+  }, [userId, startIso, endIso, t]);
 
   const byDay = React.useMemo(() => {
     const map = new Map<string, DayItem[]>();
@@ -236,14 +253,25 @@ export default function WidgetActivitiesCalendar({
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
-  const dow = [t("common.weeksShort.mon"), t("common.weeksShort.tue"), t("common.weeksShort.wed"), t("common.weeksShort.thu"), t("common.weeksShort.fri"),t("common.weeksShort.sat"), t("common.weeksShort.sun")] as const;
+  const dow = [
+    t("common.weeksShort.mon"),
+    t("common.weeksShort.tue"),
+    t("common.weeksShort.wed"),
+    t("common.weeksShort.thu"),
+    t("common.weeksShort.fri"),
+    t("common.weeksShort.sat"),
+    t("common.weeksShort.sun"),
+  ] as const;
+
+  // ✅ OPRAVA: Vytvoríme textový reťazec namiesto JSX elementu
+  const widgetTitle = isMedicalSuspend ? `🚑 ${weekLabel}` : weekLabel;
 
   return (
     <WidgetCard
-      title={t("common.weeksShort.mon") + `${weekLabel}`}
+      title={widgetTitle}
       tooltip={t("calendar.widget.tooltip")}
       onOpen={handleOpen}
-      accent="none"
+      accent={isMedicalSuspend ? "danger" : "none"}
       interactive
       minH={160}
       innerClassName={NO_X_OVERFLOW}

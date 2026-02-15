@@ -133,6 +133,9 @@ function RowAction({
   );
 }
 
+const LS_GEN_WEEKLY = "coach.generated.weekly";
+const LS_GEN_DAILY = "coach.generated.daily";
+
 /* ---------- main widget ---------- */
 
 export default function WidgetCoachPlan() {
@@ -143,16 +146,20 @@ export default function WidgetCoachPlan() {
   const [prefs, setPrefs] = useState<CoachPrefs | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [latestStateId, setLatestStateId] = useState<number | null>(null);
-
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
-
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
 
-  // Zjednotený formát AI chýb
+  // ✅ Detekcia kritického zranenia
+  const maxInjurySeverity = useMemo(() => {
+    if (!prefs?.injuries || !Array.isArray(prefs.injuries)) return 0;
+    return Math.max(...prefs.injuries.map((i: any) => i.severity || 0), 0);
+  }, [prefs]);
+
+  const isMedicalSuspend = maxInjurySeverity >= 7;
+
   const formatAiError = useCallback((e: any): string => {
     const code = e?.code ?? (e && (e as any).code);
     if (code === "ai_quota_exceeded") {
@@ -193,8 +200,9 @@ export default function WidgetCoachPlan() {
   }, [userId]);
 
   useEffect(() => {
-    setHasWeekly(readBoolLS(LS_GEN_WEEKLY));
-    setHasDaily(readBoolLS(LS_GEN_DAILY));
+    if (typeof window === "undefined") return;
+    setHasWeekly(!!localStorage.getItem(LS_GEN_WEEKLY));
+    setHasDaily(!!localStorage.getItem(LS_GEN_DAILY));
   }, []);
 
   useEffect(() => {
@@ -234,24 +242,18 @@ export default function WidgetCoachPlan() {
 
   const markWeeklyGenerated = useCallback(() => {
     if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(LS_GEN_WEEKLY, "1");
-      localStorage.setItem(LS_GEN_ANY, "1");
-      setHasWeekly(true);
-    } catch {}
+    localStorage.setItem(LS_GEN_WEEKLY, "1");
+    setHasWeekly(true);
   }, []);
 
   const markDailyGenerated = useCallback(() => {
     if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(LS_GEN_DAILY, "1");
-      localStorage.setItem(LS_GEN_ANY, "1");
-      setHasDaily(true);
-    } catch {}
+    localStorage.setItem(LS_GEN_DAILY, "1");
+    setHasDaily(true);
   }, []);
 
   const handleAnalyze = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("analyze");
     try {
@@ -271,10 +273,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, formatAiError]);
+  }, [userId, userUuid, formatAiError, isMedicalSuspend]);
 
   const handleGenerateWeekly = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("weekly");
     try {
@@ -292,10 +294,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, result, latestStateId, ensurePlanStartFuture, markWeeklyGenerated, formatAiError]);
+  }, [userId, userUuid, prefs, result, latestStateId, ensurePlanStartFuture, markWeeklyGenerated, formatAiError, isMedicalSuspend]);
 
   const handleGenerateDaily = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("daily");
     try {
@@ -311,27 +313,28 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, ensurePlanStartFuture, markDailyGenerated, formatAiError]);
+  }, [userId, userUuid, ensurePlanStartFuture, markDailyGenerated, formatAiError, isMedicalSuspend]);
 
   const planLocked = !!activePlanId;
 
   const canStartPlan = useMemo(() => {
-    if (!userId || planLocked || !latestStateId || !hasWeekly || !hasDaily) return false;
+    if (!userId || planLocked || !latestStateId || !hasWeekly || !hasDaily || isMedicalSuspend) return false;
     return true;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily]);
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, isMedicalSuspend]);
 
   const startDisabledReason = useMemo(() => {
     if (!userId) return t("coachPlan.errors.missingUserId");
+    if (isMedicalSuspend) return t("coachPlan.widget.errors.medicalBlocked");
     if (planLocked) return t("coachPlan.errors.alreadyActive");
     if (!latestStateId) return t("coachPlan.errors.needAnalyze");
     if (!hasWeekly && !hasDaily) return t("coachPlan.errors.needBoth");
     if (!hasWeekly) return t("coachPlan.errors.needWeekly");
     if (!hasDaily) return t("coachPlan.errors.needDaily");
     return null;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, t]);
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
   const handleStartPlan = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || isMedicalSuspend) return;
     setError(null);
     if (!canStartPlan) {
       setError(startDisabledReason || t("coachPlan.errors.genericStart"));
@@ -348,7 +351,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, canStartPlan, startDisabledReason, t]);
+  }, [userId, canStartPlan, startDisabledReason, t, isMedicalSuspend]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
@@ -381,21 +384,22 @@ export default function WidgetCoachPlan() {
   const disabled = !userId || loading;
 
   const statusLabel = useMemo(() => {
+    if (isMedicalSuspend) return t("coachPlan.widget.status.medicalSuspend");
     if (planLocked) return t("coachPlan.status.active");
     if (hasWeekly && hasDaily) return t("coachPlan.status.both");
     if (hasWeekly) return t("coachPlan.status.weeklyOnly");
     if (hasDaily) return t("coachPlan.status.dailyOnly");
     return t("coachPlan.status.none");
-  }, [planLocked, hasWeekly, hasDaily, t]);
+  }, [planLocked, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
-  const statusColor = planLocked ? appColors.brandPrimary : appColors.textMuted;
-  const lockReason = planLocked ? t("coachPlan.lockReason") : undefined;
+  const statusColor = isMedicalSuspend ? appColors.stateDanger : (planLocked ? appColors.brandPrimary : appColors.textMuted);
+  const lockReason = isMedicalSuspend ? t("coachPlan.widget.errors.medicalBlocked") : (planLocked ? t("coachPlan.lockReason") : undefined);
 
   return (
     <WidgetCard
       title={t("coachPlan.widget.title")}
       tooltip={t("coachPlan.widget.tooltip")}
-      accent="none"
+      accent={isMedicalSuspend ? "danger" : "none"}
       note={t("coachPlan.widget.note")}
       interactive={false}
       minH={210}
@@ -407,36 +411,49 @@ export default function WidgetCoachPlan() {
 
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
+      {/* ✅ BANNER PRI ZRANIENÍ */}
+      {isMedicalSuspend && (
+        <div className="mt-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+          <div className="text-xs font-bold text-red-400 mb-1">🚑 {t("coachPlan.widget.medicalSuspendBanner.title")}</div>
+          <div className="text-[11px] opacity-70 mb-2">
+            {t("coachPlan.widget.medicalSuspendBanner.text").replace("{{severity}}", String(maxInjurySeverity))}
+          </div>
+          <div className="text-[10px] italic opacity-50 border-t border-white/5 pt-2">
+            {t("coachPlan.widget.medicalSuspendBanner.action")}
+          </div>
+        </div>
+      )}
+
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing") : t("coachPlan.actions.analyze")}
           loading={loadingKind === "analyze"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={disabled || planLocked || isMedicalSuspend}
+          title={lockReason}
         />
 
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly") : t("coachPlan.actions.generateWeekly")}
           loading={loadingKind === "weekly"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={disabled || planLocked || isMedicalSuspend}
+          title={lockReason}
         />
 
         <RowAction
           onPrimary={handleGenerateDaily}
           primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily") : t("coachPlan.actions.generateDaily")}
           loading={loadingKind === "daily"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={disabled || planLocked || isMedicalSuspend}
+          title={lockReason}
         />
 
         <div className={WIDGET_CTA_ROW}>
           <Button
             size="xs"
             variant={"success"}
-            disabled={disabled || !canStartPlan}
+            disabled={disabled || !canStartPlan || isMedicalSuspend}
             onClick={handleStartPlan}
             title={!canStartPlan ? (startDisabledReason ?? undefined) : t("coachPlan.actions.startPlan")}
           >
@@ -478,38 +495,7 @@ export default function WidgetCoachPlan() {
             )}
           </Button>
         </div>
-
-        {planLocked && (
-          <div className="text-[11px] opacity-70">{lockReason}</div>
-        )}
-
-        {!planLocked && (!hasWeekly || !hasDaily) && (
-          <div className="text-[11px] opacity-70">
-            {t("coachPlan.requirements.title")}:{" "}
-            <span className="font-semibold">
-              {latestStateId ? `${t("coachPlan.requirements.analyze")} ✓` : t("coachPlan.requirements.analyze")}
-            </span>
-            {" • "}
-            <span className="font-semibold">
-              {hasWeekly ? `${t("coachPlan.requirements.weekly")} ✓` : t("coachPlan.requirements.weekly")}
-            </span>
-            {" • "}
-            <span className="font-semibold">
-              {hasDaily ? `${t("coachPlan.requirements.daily")} ✓` : t("coachPlan.requirements.daily")}
-            </span>
-          </div>
-        )}
       </div>
     </WidgetCard>
   );
-}
-
-/* ---------- localStorage flags ---------- */
-const LS_GEN_WEEKLY = "coach.generated.weekly";
-const LS_GEN_DAILY = "coach.generated.daily";
-const LS_GEN_ANY = "coach.generated";
-
-function readBoolLS(key: string): boolean {
-  if (typeof window === "undefined") return false;
-  try { return !!localStorage.getItem(key); } catch { return false; }
 }

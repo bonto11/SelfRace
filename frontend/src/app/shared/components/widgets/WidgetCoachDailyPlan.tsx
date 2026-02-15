@@ -31,6 +31,8 @@ import {
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
 
+import { apiFetchUserPref } from "@/app/features/prefs/api/prefs"; // ✅ Potrebujeme na kontrolu zranení
+
 type Props = {
   onOpenDetail?: () => void;
 };
@@ -41,17 +43,24 @@ type UiState = {
   sessionsCount: number;
   todayLabel: string | null;
   todaySessions: DailyPlanDay["sessions"] | null;
+  // ✅ Nové stavy pre zranenie
+  isMedicalSuspend: boolean;
+  maxInjurySeverity: number;
 };
 
-function buildUiState(overview: DailyOverview | null): UiState {
+function buildUiState(overview: DailyOverview | null, injurySeverity: number): UiState {
+  const base = {
+    horizonDays: 0,
+    daysCount: 0,
+    sessionsCount: 0,
+    todayLabel: null,
+    todaySessions: null,
+    isMedicalSuspend: injurySeverity >= 7,
+    maxInjurySeverity: injurySeverity,
+  };
+
   if (!overview || !overview.days?.length) {
-    return {
-      horizonDays: 0,
-      daysCount: 0,
-      sessionsCount: 0,
-      todayLabel: null,
-      todaySessions: null,
-    };
+    return base;
   }
 
   const days = overview.days;
@@ -64,6 +73,7 @@ function buildUiState(overview: DailyOverview | null): UiState {
   const todayDay = days.find((d) => d.date === todayStr) ?? days[0];
 
   return {
+    ...base,
     horizonDays: overview.horizon_days ?? daysCount,
     daysCount,
     sessionsCount,
@@ -77,6 +87,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const t = useT();
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
+  const [injurySeverity, setInjurySeverity] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,8 +99,20 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       setLoading(true);
       setError(null);
       try {
+        // 1. Stiahneme prehľad plánu
         const r = await apiGetDailyOverview(userId);
-        if (alive) setOverview(r ?? null);
+        
+        // 2. Skontrolujeme zranenia v prefs
+        const prefs = await apiFetchUserPref(userId, "coach.prefs");
+        let maxSev = 0;
+        if (prefs && Array.isArray(prefs.injuries)) {
+          maxSev = Math.max(...prefs.injuries.map((i: any) => i.severity || 0), 0);
+        }
+
+        if (alive) {
+          setOverview(r ?? null);
+          setInjurySeverity(maxSev);
+        }
       } catch (e: any) {
         if (alive) setError(e?.message ?? t("coachDaily.widget.errorFetch"));
       } finally {
@@ -102,18 +125,20 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     };
   }, [userId, t]);
 
-  const ui = useMemo(() => buildUiState(overview), [overview]);
+  const ui = useMemo(() => buildUiState(overview, injurySeverity), [overview, injurySeverity]);
 
-  const note = ui.daysCount
-    ? `${t("coachDaily.widget.noteOK")} ${ui.daysCount}`
-    : t("coachDaily.widget.noteMissing");
+  const note = ui.isMedicalSuspend 
+    ? t("coachDaily.widget.medicalTitle")
+    : ui.daysCount
+      ? `${t("coachDaily.widget.noteOK")} ${ui.daysCount}`
+      : t("coachDaily.widget.noteMissing");
 
   return (
     <WidgetCard
       title={t("coachDaily.widget.title")}
       tooltip={t("coachDaily.widget.tooltip")}
       note={note}
-      accent="none"
+      accent={ui.isMedicalSuspend ? "danger" : "none"} // ✅ Červený akcent pri zranení
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -131,11 +156,26 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         <div className={WIDGET_INFO_TEXT}>
           {t("widget.missingUserId")}
         </div>
+      ) : ui.isMedicalSuspend ? (
+        /* ✅ MEDICAL SUSPEND UI */
+        <div className="flex flex-col items-center justify-center text-center px-2 py-4 h-full">
+          <div className="text-2xl mb-2">🚑</div>
+          <div className="text-sm font-bold text-red-400 mb-1">
+            {t("coachDaily.widget.medicalTitle")}
+          </div>
+          <div className="text-[11px] opacity-70 leading-relaxed mb-3">
+            {t("coachDaily.widget.medicalText").replace("{{severity}}", String(ui.maxInjurySeverity))}
+          </div>
+          <div className="text-[10px] italic opacity-50 border-t border-white/5 pt-2">
+            {t("coachDaily.widget.medicalAction")}
+          </div>
+        </div>
       ) : !overview || !ui.daysCount ? (
         <div className={WIDGET_EMPTY_TEXT}>
           {t("coachDaily.widget.missingData")}
         </div>
       ) : (
+        /* ŠTANDARDNÉ UI PLÁNU */
         <>
           <div className={WIDGET_KV_GRID}>
             <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelDays")}</div>

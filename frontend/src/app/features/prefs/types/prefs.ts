@@ -250,6 +250,7 @@ export type CoachPrefs = {
 
   zones?: Zones;
   thresholds?: Thresholds;
+  injuries?: Injury;
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
