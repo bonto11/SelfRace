@@ -1,3 +1,4 @@
+# Services/async_jobs.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
@@ -42,8 +43,7 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "plan_match",
     "activity_review",
     "sync",  # bulk sync/import
-    # ---- Strava webhook pipeline (minimal webhook => 1 enqueue) ----
-    "strava_sync_activity",  # sync single + enqueue followups (review/autoadjust/optional match)
+    "strava_sync_activity",  # sync single + enqueue followups (review only)
     "mark_activity_deleted",  # only marks deleted_at
     "coach_autoadjust",  # debounced per user
 }
@@ -58,14 +58,11 @@ SENSITIVE_KEYS: Set[str] = {
     "openai_api_key",
 }
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 def _as_dict(x: Any) -> Dict[str, Any]:
     return x if isinstance(x, dict) else {}
-
 
 def _scrub_dict(x: Any) -> Any:
     if isinstance(x, dict):
@@ -79,28 +76,31 @@ def _scrub_dict(x: Any) -> Any:
         return [_scrub_dict(v) for v in x]
     return x
 
-
 def _enqueue_autoadjust_debounced(
-    ctx: AuthCtx, *, user_id: int, delay_sec: int = 120
+    ctx: AuthCtx, *, user_id: int, delay_sec: int = 120, force_reason: Optional[str] = None
 ) -> None:
     """
-    Debounce per user: pri burst webhookoch nespúšťaj autoadjust 20x.
-    Spraví sa jediný job s dedupe_key, ktorý sa vykoná po run_after.
+    Debounce per user: pri burst webhookoch / viacerých review naraz 
+    nespúšťaj autoadjust zbytočne viackrát.
     """
     run_after = (
         datetime.now(timezone.utc) + timedelta(seconds=int(delay_sec))
     ).isoformat()
+    
+    payload = {}
+    if force_reason:
+        payload["force_reason"] = force_reason # ✅ Pribalíme dôvod do payloadu
+
     service_enqueue_job(
         user_id=int(user_id),
         job_type="coach_autoadjust",
-        payload={},
+        payload=payload,
         priority=180,
         dedupe_key=f"coach_autoadjust:{user_id}",
         run_after=run_after,
         ctx=ctx,
     )
-
-
+    
 def _enqueue_activity_review_best_effort(
     ctx: AuthCtx, *, user_id: int, activity_id: int
 ) -> None:
@@ -115,8 +115,8 @@ def _enqueue_activity_review_best_effort(
             payload={
                 "activity_id": int(activity_id),
                 "model": None,
-                "source": "auto",      # ✅ NEW
-                "comment": None,       # ✅ NEW (explicit)
+                "source": "auto",      # Automatické review zo Stravy
+                "comment": None,       
                 "service": True,
                 "save_to_db": True,
             },
@@ -127,17 +127,14 @@ def _enqueue_activity_review_best_effort(
     except Exception as e:  # noqa: BLE001
         print(
             "[ACTIVITY-REVIEW][enqueue] failed",
-            "user_id=",
-            user_id,
-            "activity_id=",
-            activity_id,
-            "err=",
-            repr(e),
+            "user_id=", user_id,
+            "activity_id=", activity_id,
+            "err=", repr(e),
         )
+
 # ============================================================
 # ENQUEUE (FAST)
 # ============================================================
-
 
 def service_enqueue_job(
     user_id: int,
@@ -150,10 +147,6 @@ def service_enqueue_job(
     max_attempts: int = 3,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    🔹 Robí len INSERT (a voliteľne dedupe lookup).
-    🔹 Okamžite vracia FE.
-    """
 
     if job_type not in ALLOWED_JOB_TYPES:
         raise ValueError(f"Unsupported job_type: {job_type}")
@@ -241,12 +234,7 @@ def service_list_active_jobs(
 # EXECUTE (WORKER)
 # ============================================================
 
-
 def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    ⚠️ Volá IBA background worker.
-    Predpoklad: job je už 'running' (locknutý).
-    """
     job_id = int(job["id"])
     user_id = int(job["user_id"])
     job_type = str(job["job_type"])
@@ -287,8 +275,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 score_threshold=float(payload.get("score_threshold", 0.55)),
                 ctx=ctx,
             )
-
-            # follow-up: extend daily plan (deduped)
+            # follow-up: extend daily plan
             service_enqueue_job(
                 user_id=user_id,
                 job_type="daily_extend",
@@ -303,9 +290,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 min_horizon_days=int(
-                    payload.get(
-                        "min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
-                    )
+                    payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)
                 ),
             )
 
@@ -315,14 +300,28 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 activity_id=int(payload["activity_id"]),
                 ctx=ctx,
                 model=payload.get("model"),
-                # ✅ NEW: meta from job payload
-                source=payload.get("source"),   # "auto" | "user"
-                comment=payload.get("comment"), # user free text
+                source=payload.get("source"),
+                comment=payload.get("comment"),
             )
+
+            source = payload.get("source")
+            has_injury = payload.get("has_new_injury")
+
+            if source == "user" or has_injury:
+                print(f"[WORKER] Manual review or Injury detected for user {user_id}. Enqueuing autoadjust.")
+                
+                # ✅ AK JE ZRANENIE, POŠLEME FORCE REASON ĎALEJ
+                reason = "new_injury" if has_injury else "manual_review"
+                
+                _enqueue_autoadjust_debounced(
+                    ctx=ctx,
+                    user_id=user_id,
+                    delay_sec=5,
+                    force_reason=reason # ✅ Odkaz pre ďalší job
+                )
 
         elif job_type == "sync":
             from Services.synchronization_bulk import import_activities_bulk
-
             result = import_activities_bulk(
                 user_id=user_id,
                 ctx=ctx,
@@ -330,16 +329,9 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             )
 
         # -------------------------------
-        # STRAVA PIPELINE (webhook => one enqueue)
+        # STRAVA PIPELINE
         # -------------------------------
-
         elif job_type == "strava_sync_activity":
-            """
-            Worker-only:
-              - sync single activity (Strava -> DB)
-              - then enqueue: activity_review (dedupe) + coach_autoadjust (debounced)
-              - optional: plan_match / daily_extend later, but keep default minimal
-            """
             activity_id = int(payload.get("activity_id") or 0)
             if not activity_id:
                 raise ValueError("missing activity_id")
@@ -354,14 +346,9 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 ctx=ctx,
             )
 
-            # 2) FOLLOWUPS (async jobs, deduped)
+            # 2) FOLLOWUPS (Len Review, vyhodili sme Autoadjust)
             _enqueue_activity_review_best_effort(
                 ctx=ctx, user_id=int(user_id), activity_id=int(activity_id)
-            )
-            _enqueue_autoadjust_debounced(
-                ctx=ctx,
-                user_id=int(user_id),
-                delay_sec=int(payload.get("autoadjust_delay_sec", 120)),
             )
 
             # 3) OPTIONAL hooks (default OFF)
@@ -373,43 +360,25 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                         job_type="plan_match",
                         payload={
                             "activity_ids": [int(activity_id)],
-                            "days_window": int(
-                                payload.get("plan_match_days_window", 2)
-                            ),
-                            "score_threshold": float(
-                                payload.get("plan_match_score_threshold", 0.55)
-                            ),
+                            "days_window": int(payload.get("plan_match_days_window", 2)),
+                            "score_threshold": float(payload.get("plan_match_score_threshold", 0.55)),
                         },
                         priority=120,
                         dedupe_key=f"plan_match:{user_id}:{activity_id}",
                     )
                 except Exception as e:  # noqa: BLE001
-                    print(
-                        "[PLAN-MATCH][enqueue] failed",
-                        "user_id=",
-                        user_id,
-                        "activity_id=",
-                        activity_id,
-                        "err=",
-                        repr(e),
-                    )
+                    print("[PLAN-MATCH][enqueue] failed", repr(e))
 
         elif job_type == "coach_autoadjust":
-            """
-            Worker-only:
-              - best-effort plan autoadjust (debounced by dedupe_key + run_after)
-            """
+            # ✅ Vyberieme force_reason z payloadu a pošleme ho do service
+            force_reason = payload.get("force_reason")
             result = service_coach_autoadjust_after_update(
                 user_id=int(user_id),
                 ctx=ctx,
+                force_reason=force_reason 
             )
 
         elif job_type == "mark_activity_deleted":
-            """
-            Worker-only:
-              - marks activity in activities_summary as deleted_at
-              - prefer deleted_at from payload (webhook event_time), fallback to now
-            """
             activity_id = int(payload.get("activity_id") or 0)
             if not activity_id:
                 raise ValueError("missing activity_id")
@@ -453,9 +422,6 @@ def service_run_job_now(
     worker_id: str = "api_run",
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Debug/manual endpoint: zamkne job a vykoná ho inline (bude blokovať request).
-    """
 
     job = db_get_job_by_id(ctx=ctx, user_id=int(user_id), job_id=int(job_id))
     if not job:
@@ -470,7 +436,6 @@ def service_run_job_now(
     except Exception:
         attempts_old = 0
 
-    # lock len keď je queued
     if status == "queued":
         locked = db_mark_job_running(
             job_id=int(job_id),
@@ -479,14 +444,10 @@ def service_run_job_now(
             ctx=ctx,
         )
         if not locked:
-            latest = db_get_job_by_id(
-                user_id=int(user_id), job_id=int(job_id), ctx=ctx,
-            )
+            latest = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), ctx=ctx)
             return {"job": latest, "error": "job_not_queued_or_already_running"}
         job = locked
 
     out = service_execute_job(ctx=ctx,job=job)
-    latest = db_get_job_by_id(
-        user_id=int(user_id), job_id=int(job_id), ctx=ctx,
-    )
+    latest = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), ctx=ctx)
     return {"job": latest, "error": out.get("error")}

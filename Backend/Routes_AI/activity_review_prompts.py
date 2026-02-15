@@ -4,42 +4,31 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional, Tuple, Any
 
-# ... (Funkcie _minify_activity_context_for_ai, _lang_notes, _canonical_sport, _system_prompt ZOSTÁVAJÚ ROVNAKÉ) ...
 def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(context, dict):
-        return {}
+    if not isinstance(context, dict): return {}
     out = json.loads(json.dumps(context, default=str))
     u = out.get("user")
     if isinstance(u, dict):
-        for k in ("id", "email", "name"):
-            u.pop(k, None)
+        for k in ("id", "email", "name"): u.pop(k, None)
     out.pop("_debug", None)
     act = out.get("activity")
     if isinstance(act, dict):
-        for k in ("name", "external_id"):
-            act.pop(k, None)
+        for k in ("name", "external_id"): act.pop(k, None)
     return out
 
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     lang = (settings.get("language") or "sk").lower()
-    if lang.startswith("en"):
-        return "English", "Use second person ('you')."
-    if lang.startswith("cs"):
-        return "Czech", "Používej 2. osobu a mluv přímo k atletovi."
+    if lang.startswith("en"): return "English", "Use second person ('you')."
+    if lang.startswith("cs"): return "Czech", "Používej 2. osobu a mluv přímo k atletovi."
     return "Slovak", "Používaj 2. osobu a hovor priamo k atlétovi."
 
 def _canonical_sport(s: Any) -> str:
-    if not s:
-        return "other"
+    if not s: return "other"
     v = str(s).lower().strip()
-    if v in ("run", "trail", "trail_run") or v.startswith("run"):
-        return "run"
-    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
-        return "ride"
-    if v in ("strength", "gym", "weights") or v.startswith("str") or "strength" in v or "gym" in v:
-        return "strength"
-    if "swim" in v:
-        return "swim"
+    if v in ("run", "trail", "trail_run") or v.startswith("run"): return "run"
+    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")): return "ride"
+    if v in ("strength", "gym", "weights") or v.startswith("str") or "strength" in v or "gym" in v: return "strength"
+    if "swim" in v: return "swim"
     return "other"
 
 def _system_prompt(sport: str) -> str:
@@ -48,19 +37,11 @@ def _system_prompt(sport: str) -> str:
         "You receive structured JSON context containing the activity, history, and potentially the planned training for today and tomorrow. "
         "Return ONE valid JSON object only. No markdown. No extra text."
     )
-    if sport == "run":
-        return base + " Focus on running execution, intensity vs. plan, and aerobic decoupling."
-    if sport == "ride":
-        return base + " Focus on power/HR consistency, endurance steadiness, and execution vs. plan."
-    if sport == "strength":
-        return base + " Focus on volume load and recovery needs. Do not evaluate cardio metrics."
-    if sport == "swim":
-        return base + " Focus on swim consistency, effort control, and execution vs. plan."
+    if sport == "run": return base + " Focus on running execution, intensity vs. plan, and aerobic decoupling."
+    if sport == "ride": return base + " Focus on power/HR consistency, endurance steadiness, and execution vs. plan."
+    if sport == "strength": return base + " Focus on volume load and recovery needs. Do not evaluate cardio metrics."
+    if sport == "swim": return base + " Focus on swim consistency, effort control, and execution vs. plan."
     return base + " Focus on general training evaluation vs. plan and recovery impact."
-
-# ============================================================
-# SPORT-SPECIFIC & INJURY & PLAN RULES
-# ============================================================
 
 def _sport_rules(sport_key: str) -> str:
     common = [
@@ -74,7 +55,6 @@ def _sport_rules(sport_key: str) -> str:
         "- INTENSITY: Use specific HR zones if available (e.g. 'drž sa v Z2 okolo 145 tepov').",
         "- RPE/FEEL: If zones are missing, describe intensity by feeling (RPE).",
     ]
-
     if sport_key == "run":
         return "\n".join(common + [
             "- Identify the session kind based on intensity.",
@@ -95,15 +75,15 @@ def _sport_rules(sport_key: str) -> str:
         ])
     return "\n".join(common)
 
-
 def _plan_and_injury_rules() -> str:
     return "\n".join([
         "--- CRITICAL CONTEXT RULES ---",
-        "1. INJURY REPORTED:",
+        "1. INJURY REPORTED (ANTI-CHEAT & EMPATHY):",
         "   If context.user_input.injury OR context.context.injury_state is present, the athlete IS INJURED.",
         "   - The tone of your `review_text` MUST become extremely empathetic and cautious.",
         "   - Prioritize recovery above all fitness goals.",
-        "   - In `next_day_plan`, explicitly state that future plans have been or will be adjusted for recovery, and they should avoid pushing through pain.",
+        "   - DEAF COACH RULE: IGNORE any questions or comments from the user regarding performance, pacing, technique, fitness improvement or pushing harder. Do NOT analyze their pace or power. Your ONLY response to such questions should be prioritizing their healing and health.",
+        "   - In `next_day_plan`, explicitly state that future plans will be adjusted for recovery and they must avoid pain.",
         "",
         "2. TODAY'S PLAN (plan_today):",
         "   - If present, compare their actual execution (context.activity.metrics) to what was planned.",
@@ -111,10 +91,9 @@ def _plan_and_injury_rules() -> str:
         "",
         "3. TOMORROW'S PLAN (plan_tomorrow):",
         "   - If present, use it to form the `next_day_plan`.",
-        "   - Explain HOW today's effort impacts tomorrow (e.g. 'Dnes si išiel ťažké intervaly, zajtrajší ľahký klus padne vhod').",
+        "   - Explain HOW today's effort impacts tomorrow.",
         "   - If no plan for tomorrow exists, suggest general rest or light activity.",
     ])
-
 
 def _schema(lang: str, sport: str) -> str:
     return f"""
@@ -131,7 +110,7 @@ def _schema(lang: str, sport: str) -> str:
 
   "confidence_0_to_100": number | null,
 
-  "review_text": "FREE TEXT. 6–12 sentences. {lang}. Address the athlete directly. Compare execution to today's plan if available. Address injuries explicitly if reported.",
+  "review_text": "FREE TEXT. 6–12 sentences. {lang}. Address the athlete directly. Compare execution to today's plan if available. Apply Deaf Coach Rule if injured.",
   "next_day_plan": "FREE TEXT. 4–8 sentences. Advice for tomorrow based on plan_tomorrow (if available) and today's fatigue/injuries.",
 
   "key_numbers": {{
@@ -148,7 +127,6 @@ def _schema(lang: str, sport: str) -> str:
   }}
 }}
 """.strip()
-
 
 def build_prompts_for_activity_review(
     context_payload: Dict[str, Any],
@@ -185,7 +163,7 @@ def build_prompts_for_activity_review(
         "What you have:\n"
         "- Focus activity: context.activity\n"
         "- History: context.history.days_0_7\n"
-        "- Plans & Injuries: context.context.plan_today, context.context.plan_tomorrow, context.user_input.injury\n"
+        "- Plans & Injuries: context.context.plan_today, context.context.plan_tomorrow, context.context.injury_state\n"
         "- Optional user comment: context.user_input.comment.\n\n"
         "CONTEXT_JSON:\n"
         + json.dumps(context_for_llm, ensure_ascii=False)
@@ -203,4 +181,3 @@ def build_prompts_for_activity_review(
     )
 
     return system_txt, user_txt
-

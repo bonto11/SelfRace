@@ -41,11 +41,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     AI plans full week.
     Keep only what it needs, in a stable shape.
-    - Remove fields we no longer use:
-        * weekly_template (not used)
-        * include_strides (not used)
-        * polarized_model/pyramidal_model (moved into preferences.intensity_model)
-        * training blocks top-level flags (moved into preferences.training_blocks)
     """
     context2: Dict[str, Any] = {}
     for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
@@ -57,7 +52,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(pref_obj, dict):
         pref_obj = {}
 
-    # normalize nested fields so AI always sees stable values
     intensity_model = (
         "pyramidal"
         if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal"
@@ -88,6 +82,8 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "training_blocks": training_blocks,
         },
         "strength_settings": prefs.get("strength_settings") or {},
+        # ✅ ZMENA: AI musí vidieť pole zranení, inak by preplánovalo na slepo!
+        "injuries": prefs.get("injuries") or [], 
     }
 
     athlete_state = context.get("athlete_state") or {}
@@ -98,7 +94,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         if k in context:
             context2[k] = context[k]
 
-    # keep only minimal user_settings if present
     us = context.get("user_settings") or {}
     if isinstance(us, dict):
         context2["user_settings"] = {
@@ -113,20 +108,7 @@ def _build_prompts_for_daily(
     *,
     settings: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
-    """
-    CONTRACT:
-      - AI plans full week days+sessions within [week_start..week_end].
-      - External events from DB are HARD: must appear exactly once on the same date.
-      - Pref constraints (hard/soft):
-          * two_a_day cap (0..2)  [HARD]
-          * long_run_days preference  [HARD when possible]
-          * avoid_back_to_back_hard  [HARD if enabled]
-          * preferences.intensity_model  [GUIDANCE: distribution]
-          * preferences.training_blocks  [GUIDANCE: emphasis if enabled]
-          * strength_settings.sessions_per_week target  [SOFT target]
-      - Notes mandatory, short, concrete.
-      - Strength: keep simple; do NOT output detailed structure.
-    """
+    
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
 
@@ -235,13 +217,36 @@ def _build_prompts_for_daily(
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
 
+    # ✅ ZMENA: Dynamické záchranné pravidlo pre zranenia!
+    active_injuries = prefs.get("injuries") or []
+    injury_rule = ""
+    if isinstance(active_injuries, list) and len(active_injuries) > 0:
+        # Prekódujeme zranenia do pekne čitateľného textu pre AI
+        inj_details = []
+        for inj in active_injuries:
+            if isinstance(inj, dict):
+                area = inj.get("area", "unknown area")
+                typ = inj.get("type", "unknown type")
+                sev = inj.get("severity", "?")
+                inj_details.append(f"{area} ({typ}, severity: {sev}/10)")
+        
+        if inj_details:
+            inj_str = ", ".join(inj_details)
+            injury_rule = (
+                "- ACTIVE INJURY (CRITICAL/HARD):\n"
+                f"  The athlete has reported active injuries: {inj_str}.\n"
+                "  You MUST adjust the plan for recovery. \n"
+                "  - Replace high-intensity/hard sessions with REST, recovery walks, or very light cross-training.\n"
+                "  - Explicitly mention the injury adaptation in the session `notes`.\n"
+                "  - Do NOT schedule workouts that would worsen the reported injury.\n\n"
+            )
+
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON for ONE training week. "
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
-    # --- ZMENA: Obohatená schéma o detailnú bežeckú štruktúru ---
     schema_text = """
 {
   "schema_version": 3,
@@ -289,8 +294,7 @@ def _build_prompts_for_daily(
     date_integrity_rule = (
         "- DATE INTEGRITY (HARD):\n"
         "  Only use dates inside the given Week range (week_start..week_end inclusive).\n"
-        "  Do NOT invent dates outside this range.\n"
-        "\n"
+        "  Do NOT invent dates outside this range.\n\n"
     )
 
     external_rules = (
@@ -306,8 +310,7 @@ def _build_prompts_for_daily(
         "    - intensity = occurrence.intensity if present (easy|medium|hard), otherwise null\n"
         "    - structure = null\n"
         "    - zone_text = null\n"
-        "    - payload.external_event (HARD REQUIRED) with exact keys: date, title, sport_raw, start_time_local, duration_min, priority, intensity\n"
-        "\n"
+        "    - payload.external_event (HARD REQUIRED) with exact keys: date, title, sport_raw, start_time_local, duration_min, priority, intensity\n\n"
     )
 
     two_a_day_rule = (
@@ -315,8 +318,7 @@ def _build_prompts_for_daily(
         "  Prefer 1 session/day.\n"
         f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
         "  If cap is 0, never schedule 2 sessions in a day.\n"
-        "  If you schedule a 2-a-day, explain why in notes.\n"
-        "\n"
+        "  If you schedule a 2-a-day, explain why in notes.\n\n"
     )
 
     long_run_rule = (
@@ -324,8 +326,7 @@ def _build_prompts_for_daily(
         "  If main_sport is run, schedule exactly 1 long run in the week.\n"
         f"  Preferred weekdays: {long_run_days_str}.\n"
         "  If there is NO hard conflict on preferred weekdays, you MUST place the long run on ONE of the preferred weekdays.\n"
-        "  Mark it explicitly: session_type='long_run'.\n"
-        "\n"
+        "  Mark it explicitly: session_type='long_run'.\n\n"
     )
 
     strength_rule = (
@@ -334,11 +335,9 @@ def _build_prompts_for_daily(
         "  Keep strength SIMPLE:\n"
         "    - set structure=null\n"
         "    - do NOT list exercises (mapper will do it)\n"
-        "  Use sport='strength'.\n"
-        "\n"
+        "  Use sport='strength'.\n\n"
     )
 
-    # --- ZMENA: Úplne nové pravidlo pre detailnú štruktúru behu ---
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (run, ride, swim):\n"
         "  For endurance workouts, you MUST provide a detailed `structure` object.\n"
@@ -348,23 +347,20 @@ def _build_prompts_for_daily(
         "     If it is a steady run, use kind='steady' with `duration_min`, `target` (e.g. 'Z2 140-150 bpm') and `instruction`.\n"
         "     If it is an interval session, use kind='interval_block' with `repeats`, `work` (duration, target, instruction) and `rest` (duration, target, instruction).\n"
         "  - `cooldown`: Explain how to cool down (e.g. 'Voľná chôdza na upokojenie tepu').\n"
-        "  Use concrete numbers for targets (Pace or HR bpm) based on athlete's zones from context.\n"
-        "\n"
+        "  Use concrete numbers for targets (Pace or HR bpm) based on athlete's zones from context.\n\n"
     )
 
     intensity_model_rule = (
         "- INTENSITY MODEL (GUIDANCE):\n"
         f"  preferences.intensity_model = '{intensity_model}'.\n"
         "  If 'polarized': keep most volume easy/recovery, with a small number of hard sessions.\n"
-        "  If 'pyramidal': still mostly easy, but allow more moderate work.\n"
-        "\n"
+        "  If 'pyramidal': still mostly easy, but allow more moderate work.\n\n"
     )
 
     blocks_rule = (
         "- TRAINING BLOCKS (GUIDANCE):\n"
         f"  preferences.training_blocks enabled: {blocks_str}.\n"
-        "  If a block is enabled, include at most ONE session aligned with it in this week.\n"
-        "\n"
+        "  If a block is enabled, include at most ONE session aligned with it in this week.\n\n"
     )
 
     explanation_rule = (
@@ -372,8 +368,7 @@ def _build_prompts_for_daily(
         "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n"
         "  1) Why this session is today.\n"
         "  2) What to focus on (e.g. cadence, posture).\n"
-        "  No fluff, no emojis.\n"
-        "\n"
+        "  No fluff, no emojis.\n\n"
     )
 
     fallback_block = ""
@@ -401,10 +396,11 @@ def _build_prompts_for_daily(
         f"External events occurrences in this week: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
+        + injury_rule          # ✅ APLIKOVANÉ PRAVIDLO PRE ZRANENIA!
         + two_a_day_rule
         + long_run_rule
         + strength_rule
-        + endurance_structure_rule # <--- APLIKOVANÉ PRAVIDLO
+        + endurance_structure_rule 
         + intensity_model_rule
         + blocks_rule
         + weekly_volume_line

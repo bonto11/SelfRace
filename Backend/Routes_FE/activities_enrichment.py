@@ -15,7 +15,7 @@ router = APIRouter(prefix="/activities/enrichment", tags=["activities/enrichment
 class ActivityReviewRerunPayload(BaseModel):
     comment: Optional[str] = None
     model: Optional[str] = None
-    injury: Optional[Dict[str, Any]] = None  # ✅ PRIDANÉ: Prijatie objektu zranenia
+    has_new_injury: Optional[bool] = False  # ✅ OPRAVENÉ: Namiesto Dict iba Boolean
 
 @router.post("/reviewRun/{user_id}/{activity_id}")
 def rerun_activity_review(
@@ -24,20 +24,14 @@ def rerun_activity_review(
     payload: ActivityReviewRerunPayload,
     req: Request,
 ) -> Dict[str, Any]:
-    """
-    Endpoint na manuálne vyžiadanie (rerun) AI review.
-    Očakáva JSON body: { "comment": "...", "model": "...", "injury": {...} }
-    """
     ctx = require_user(get_auth_ctx(req))
 
-    print("rerun_activity_review",user_id,activity_id,payload)
-    
     out = service_request_activity_review_rerun(
         user_id=int(user_id),
         activity_id=int(activity_id),
         comment=payload.comment,
         model=payload.model,
-        injury=payload.injury, # ✅ PRIDANÉ: Poslanie do service vrstvy
+        has_new_injury=payload.has_new_injury, # ✅ Posielame flag ďalej
         ctx=ctx,
     )
 

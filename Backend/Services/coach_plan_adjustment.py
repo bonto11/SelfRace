@@ -1,13 +1,13 @@
-#Services.coach_plan_adjustment
+# Services/coach_plan_adjustment.py
 from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Dict, Optional, List
 from statistics import mean
+
 from Routes_DB.coach_plan_daily import db_reschedule_daily_sessions_bulk
-
-
 from Modules.Supabase.auth import AuthCtx
+
 from Services.AI.athlete_state import service_analyze_athlete
 from Services.AI.weekly_plan import service_generate_weekly_plan
 from Services.AI.daily_plan import (
@@ -22,6 +22,7 @@ from Routes_DB.coach_plan_meta import (
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Routes_DB.user_recovery import db_get_recent_recovery
+from Routes_DB.user_prefs import db_get_pref_single  # ✅ NEW: Import na prečítanie zranení
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 
@@ -49,7 +50,6 @@ def _find_current_week_index(
 ) -> Optional[int]:
     """
     Nájde week_index, do ktorého patrí dnešok.
-
     Logika:
       1) najprv week_start <= today <= week_end
       2) fallback: posledný týždeň s week_start <= today
@@ -91,13 +91,6 @@ def _compute_be_flags_recent_load(
 ) -> Dict[str, Any]:
     """
     BE heuristika nad recent_load – rozhodne, či vôbec má zmysel volať AI.
-
-    Používame weekly agregáty:
-      - total_minutes
-      - week_index_from_now (0 = aktuálny týždeň, -1 = minulý, ...)
-
-    - service=True → recent_load sa berie zo service summary
-    - service=False → recent_load cez RLS (ak user_jwt)
     """
     rl = service_build_recent_load_raw(
         user_id=user_id,
@@ -152,7 +145,6 @@ def _compute_be_flags_recent_load(
         baseline = curr_min  # fallback – bez histórie ber current ako baseline
 
     ratio = curr_min / baseline if baseline > 0 else 1.0
-
     hard_current = int(current.get("hard_sessions") or 0)
 
     if baseline <= 0 and curr_min <= 0:
@@ -213,17 +205,8 @@ def _compute_recovery_debug(
 ) -> Optional[Dict[str, Any]]:
     """
     Debug dáta z user_recovery – priemer HRV, posledné RHR atď.
-    Volá sa len v režime s RLS (user_jwt nie je None).
     """
-
-    rows = (
-        db_get_recent_recovery(
-            user_id,
-            days,
-            ctx=ctx,
-        )
-        or []
-    )
+    rows = db_get_recent_recovery(user_id, days, ctx=ctx) or []
 
     if not rows:
         return {
@@ -263,39 +246,42 @@ def _compute_recovery_debug(
     }
 
 
+# Services/coach_plan_adjustment.py
+
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
+    force_reason: Optional[str] = None, # ✅ NOVÝ PARAMETER
 ) -> Dict[str, Any]:
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
-
-    - service režim (cron/webhook):
-        service=True, user_jwt=None
-        → recent_load & plán idú cez service klienta, AI tiež cez service
-
-    - RLS režim (FE):
-        service=False, user_jwt=JWT
-        → všetko ide cez RLS
     """
     today = date.today()
 
-    # --- 0) BE heuristika recent_load – vždy zo SERVICE summary ---
+    # --- 0) BE heuristika recent_load ---
     be_flags = _compute_be_flags_recent_load(
         user_id=user_id,
         window_days=42,
         ctx=ctx,
     )
 
-    # Recovery debug – len v RLS režime (user_jwt != None)
     recovery_debug = _compute_recovery_debug(
         user_id=user_id,
         ctx=ctx,
     )
 
+    # ✅ ZDRAVOTNÁ VÝNIMKA (IBA AK BOLA EXPLICITNE VYŽIADANÁ)
+    # Už nečítame DB prefs pri každom behu! 
+    # Ak sem Job poslal force_reason="new_injury", natvrdo voláme AI.
+    if force_reason == "new_injury":
+        be_flags["should_trigger_ai"] = True
+        be_flags["action"] = "injury_replan"
+        be_flags["reason"] = "active_injury_reported_forcing_replan"
+
+
     if not be_flags.get("should_trigger_ai"):
-        # load je v norme → žiadne AI, žiadny re-plan
+        # load je v norme a neprišiel "force_reason" → žiadne AI, žiadny re-plan
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
@@ -307,6 +293,7 @@ def service_coach_autoadjust_after_update(
         }
 
     # --- 1) AI analyze ---
+    # Táto funkcia už vidí "coach.prefs", takže si uvedomí, že je zranený, a vydá príkaz na soften/replan
     analyze_resp = service_analyze_athlete(
         user_id=user_id,
         ctx=ctx,
@@ -325,7 +312,7 @@ def service_coach_autoadjust_after_update(
     weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
     weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-    # --- 2) nájdeme aktívny / posledný plán (podľa režimu) ---
+    # --- 2) nájdeme aktívny / posledný plán ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,

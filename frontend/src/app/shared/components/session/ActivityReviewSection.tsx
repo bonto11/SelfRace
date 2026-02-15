@@ -9,7 +9,6 @@ import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
-import { appColors } from "@/app/shared/ui/theme/app_colors"; // Tvoje farby
 
 import {
   apiRerunActivityReview,
@@ -100,7 +99,7 @@ function InjuryReportModal({
   userId: number;
   open: boolean; 
   onClose: () => void; 
-  onSaveSuccess: (hasInjuries: boolean) => void;
+  onSaveSuccess: (hasInjuries: boolean, isNew: boolean) => void;
 }) {
   const t = useT();
   const [mounted, setMounted] = useState(false);
@@ -109,6 +108,8 @@ function InjuryReportModal({
 
   // Zoznam všetkých zranení (z DB + novo pridané)
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
+  // Pomocný flag, či používateľ práve nejaké zranenie počas tejto session pridal
+  const [addedNewInSession, setAddedNewInSession] = useState(false);
   
   // Rozpracované zranenie (Draft)
   const [draft, setDraft] = useState<Injury>({ area: "foot", type: "overuse", severity: 3, note: "" });
@@ -134,12 +135,13 @@ function InjuryReportModal({
         }
       };
       fetchInjuries();
+      setAddedNewInSession(false); // Resetujeme pri otvorení
     }
   }, [open, userId]);
 
   const handleAddDraftToList = () => {
     setActiveInjuries([...activeInjuries, { ...draft, note: draft.note?.trim() || undefined }]);
-    // Reset draftu po pridaní
+    setAddedNewInSession(true); // Evidujeme, že pridal nové
     setDraft({ area: "foot", type: "overuse", severity: 3, note: "" });
   };
 
@@ -154,7 +156,8 @@ function InjuryReportModal({
       const currentPrefs = await apiFetchUserPref(userId, "coach.prefs") || {};
       const updatedPrefs = { ...currentPrefs, injuries: activeInjuries };
       await apiUpsertUserPref(userId, "coach.prefs", updatedPrefs);
-      onSaveSuccess(activeInjuries.length > 0);
+      // Vrátime stav + či reálne pridal nové zranenie
+      onSaveSuccess(activeInjuries.length > 0, addedNewInSession);
     } catch (e) {
       console.error("Failed to save injuries", e);
       alert("Nepodarilo sa uložiť zmeny.");
@@ -194,7 +197,7 @@ function InjuryReportModal({
               
               {/* AREA */}
               <div>
-                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.areaLabel")}</div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.areaLabel" as any)}</div>
                 <div className="flex flex-wrap gap-1.5">
                   {INJ_AREAS.map((a) => (
                     <button
@@ -205,7 +208,7 @@ function InjuryReportModal({
                         draft.area === a ? "bg-yellow-500 text-black border-yellow-500 font-bold" : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
                       }`}
                     >
-                      {t(`prefs.sections.injuriesSection.areas.${a}`)}
+                      {t(`prefs.sections.injuriesSection.areas.${a}` as any)}
                     </button>
                   ))}
                 </div>
@@ -213,7 +216,7 @@ function InjuryReportModal({
 
               {/* TYPE */}
               <div>
-                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.typeLabel")}</div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.typeLabel" as any)}</div>
                 <div className="flex flex-wrap gap-1.5">
                   {INJ_TYPES.map((ty) => (
                     <button
@@ -224,7 +227,7 @@ function InjuryReportModal({
                         draft.type === ty ? "bg-yellow-500 text-black border-yellow-500 font-bold" : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
                       }`}
                     >
-                      {t(`prefs.sections.injuriesSection.types.${ty}`)}
+                      {t(`prefs.sections.injuriesSection.types.${ty}` as any)}
                     </button>
                   ))}
                 </div>
@@ -238,7 +241,6 @@ function InjuryReportModal({
                 </div>
                 <div className="flex gap-1">
                   {INJ_SEVERITY.map((num) => {
-                    // Farba podľa vážnosti
                     let colorClass = "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
                     if (draft.severity === num) {
                       if (num <= 3) colorClass = "bg-emerald-500 border-emerald-500 text-black font-bold";
@@ -261,7 +263,7 @@ function InjuryReportModal({
 
               {/* NOTE */}
               <div>
-                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.noteLabel")}</div>
+                <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.noteLabel" as any)}</div>
                 <TextField
                   label=""
                   placeholder="Napr. ostrá bolesť pri došlape..."
@@ -290,7 +292,7 @@ function InjuryReportModal({
                     <li key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
                       <div>
                         <div className="text-sm font-semibold text-white/90">
-                          {t(`prefs.sections.injuriesSection.areas.${inj.area}`)} · {t(`prefs.sections.injuriesSection.types.${inj.type}`)}
+                          {t(`prefs.sections.injuriesSection.areas.${inj.area}` as any)} · {t(`prefs.sections.injuriesSection.types.${inj.type}` as any)}
                         </div>
                         <div className="text-xs mt-1 flex items-center gap-2">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -372,9 +374,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
   const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8;
 
-  // Stav pre zranenia
+  // Stavy pre zranenia
   const [showInjuryModal, setShowInjuryModal] = useState(false);
-  const [hasActiveInjuries, setHasActiveInjuries] = useState(false); // Reflektuje stav v DB po uložení
+  const [hasActiveInjuries, setHasActiveInjuries] = useState(false);
+  // Tento flag si pamätá, či sme práve teraz pridali zranenie, aby sme to oznámili backendu
+  const [justAddedNewInjury, setJustAddedNewInjury] = useState(false);
 
   const [busyLoad, setBusyLoad] = useState(false);
   const [busyGen, setBusyGen] = useState(false);
@@ -435,8 +439,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setUiError(null);
     setApiNote(null);
 
-    if (!isEligible) { setUiError(t("sessions.review.errorTooOld")); return; }
-    if (commentTooLong) { setUiError(t("sessions.review.errorCommentLong")); return; }
+    if (!isEligible) { setUiError(t("sessions.review.errorTooOld" as any)); return; }
+    if (commentTooLong) { setUiError(t("sessions.review.errorCommentLong" as any)); return; }
 
     setBusyGen(true);
     setRefreshLocked(true);
@@ -449,23 +453,25 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          // Už neposielame `injury` v payloade. Backend a AI si to vytiahne z `coach.prefs` !
+          has_new_injury: justAddedNewInjury, // ✅ Prekypíme to na backend
         },
       );
 
       if (!out?.ok) {
-        if (out?.code === "limit_reached") setUiError(t("sessions.review.api.limitReached"));
-        else setUiError(out?.message || t("sessions.review.errorRerunRejected"));
+        if (out?.code === "limit_reached") setUiError(t("sessions.review.api.limitReached" as any));
+        else setUiError(out?.message || t("sessions.review.errorRerunRejected" as any));
       } else {
-        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
-        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
-        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
+        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success" as any));
+        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing" as any));
+        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued" as any));
 
         await loadData(true);
+        // Po úspešnom odoslaní vlajku resetujeme (aby sa ďalšie generovanie hneď neprepočítavalo ako "nové zranenie")
+        setJustAddedNewInjury(false);
       }
     } catch (e: any) {
-      if (e?.message === "ERROR_ENQUEUE") setUiError(t("sessions.review.api.errorEnqueue"));
-      else setUiError(e?.message || t("sessions.review.errorGeneric"));
+      if (e?.message === "ERROR_ENQUEUE") setUiError(t("sessions.review.api.errorEnqueue" as any));
+      else setUiError(e?.message || t("sessions.review.errorGeneric" as any));
     } finally {
       setBusyGen(false);
       setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
@@ -473,24 +479,24 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   };
 
   return (
-    <ActivitySectionShell title={t("sessions.review.title")} defaultOpen={true} items={[]}>
+    <ActivitySectionShell title={t("sessions.review.title" as any)} defaultOpen={true} items={[]}>
       <div className="flex items-center justify-between min-h-[32px]">
         <div className="text-xs font-medium opacity-70">
           {!hasReview ? (
-             (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld")}</span> : <span>{t("sessions.review.statusNoReview")}</span>
+             (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld" as any)}</span> : <span>{t("sessions.review.statusNoReview" as any)}</span>
           ) : (
-            <span>{t("sessions.review.statusReviewCount").replace("{{version}}", String(aiReviewVersion)).replace("{{max}}", String(maxVersions))}</span>
+            <span>{t("sessions.review.statusReviewCount" as any)?.replace("{{version}}", String(aiReviewVersion)).replace("{{max}}", String(maxVersions))}</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onManualRefresh} disabled={busyLoad || busyGen || refreshLocked} className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}>
-             {refreshLocked && !busyLoad ? t("sessions.review.btnWait") : t("common.refresh")}
+             {refreshLocked && !busyLoad ? t("sessions.review.btnWait" as any) : t("common.refresh" as any)}
           </Button>
 
           {canRerun && (
             <Button type="button" variant="primary" size="sm" onClick={onRerun} disabled={busyGen || refreshLocked}>
-              {busyGen ? t("sessions.review.btnGenerating") : hasReview ? t("sessions.review.btnRerun") : t("sessions.review.btnGenerate")}
+              {busyGen ? t("sessions.review.btnGenerating" as any) : hasReview ? t("sessions.review.btnRerun" as any) : t("sessions.review.btnGenerate" as any)}
             </Button>
           )}
         </div>
@@ -503,7 +509,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={t("sessions.review.commentPlaceholder")}
+            placeholder={t("sessions.review.commentPlaceholder" as any)}
             disabled={busyGen}
           />
           {showCharCount && (
@@ -524,7 +530,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             >
               <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${hasActiveInjuries ? "bg-red-500 border-red-500" : "border-white/30"}`}>
                 {hasActiveInjuries && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 )}
@@ -545,14 +551,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               userId={Number(userId)}
               open={showInjuryModal}
               onClose={() => setShowInjuryModal(false)}
-              onSaveSuccess={(hasInj) => {
+              onSaveSuccess={(hasInj, isNew) => {
                 setHasActiveInjuries(hasInj);
+                if (isNew) setJustAddedNewInjury(true); // Zapamätáme si pre Rerun
                 setShowInjuryModal(false);
               }}
             />
           )}
 
-          {!hasReview && !comment && <div className="text-[11px] opacity-40 mt-3 pl-1">{t("sessions.review.commentTip")}</div>}
+          {!hasReview && !comment && <div className="text-[11px] opacity-40 mt-3 pl-1">{t("sessions.review.commentTip" as any)}</div>}
         </div>
       )}
 
@@ -562,33 +569,33 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="mt-6 space-y-6">
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
-            <span className="text-sm">{t("sessions.review.loading")}</span>
+            <span className="text-sm">{t("sessions.review.loading" as any)}</span>
           </div>
         ) : hasReview ? (
           <>
             <div className="flex flex-wrap gap-2">
-              {sessionKind && <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />}
-              {dominantZone && <Chip label={t("sessions.review.tagZone")} value={dominantZone} />}
+              {sessionKind && <Chip label={t("sessions.review.tagFocus" as any)} value={sessionKind} />}
+              {dominantZone && <Chip label={t("sessions.review.tagZone" as any)} value={dominantZone} />}
               {needsCaution && (
                 <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
-                  ⚠️ {t("sessions.review.tagCaution")}
+                  ⚠️ {t("sessions.review.tagCaution" as any)}
                 </div>
               )}
             </div>
             {reviewText && (
               <div className="animate-in fade-in duration-500">
-                <SectionTitle>{t("sessions.review.sectionReview")}</SectionTitle>
+                <SectionTitle>{t("sessions.review.sectionReview" as any)}</SectionTitle>
                 <TextBlock>{reviewText}</TextBlock>
               </div>
             )}
             {nextDayPlan && (
               <div className="animate-in fade-in duration-500 delay-100">
-                <SectionTitle>{t("sessions.review.sectionNextDay")}</SectionTitle>
+                <SectionTitle>{t("sessions.review.sectionNextDay" as any)}</SectionTitle>
                 <TextBlock>{nextDayPlan}</TextBlock>
               </div>
             )}
           </>
-        ) : (!busyGen && <div className="py-8 text-center border border-dashed border-white/10 rounded-lg"><p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder")}</p></div>)}
+        ) : (!busyGen && <div className="py-8 text-center border border-dashed border-white/10 rounded-lg"><p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder" as any)}</p></div>)}
       </div>
     </ActivitySectionShell>
   );

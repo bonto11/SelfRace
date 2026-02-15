@@ -22,19 +22,11 @@ from Configs.config import (
 
 from Services.AI.activity_review_builders import build_input_from_db as build_review_input
 from Routes_AI.activity_review_generate import generate_activity_review_json
-
 from Routes_DB.activities_enrichment import db_upsert_ai_review_one
-
-# --- PLACEHOLDER FUNKCIE NA UPDATE DB A PREGENEROVANIE PLÁNU ---
-def _placeholder_db_update_user_injury(user_id: int, injury_data: Dict[str, Any], ctx: AuthCtx):
-    # TODO: Uloží objekt injury do tabuľky prefs športovca.
-    pass
-
-def _placeholder_trigger_daily_plan_rebuild(user_id: int, ctx: AuthCtx):
-    # TODO: Zavolá sa service_auto_extend_daily_plan alebo funkcia na pregenerovanie od zajtrajška
-    pass
-# ---------------------------------------------------------------
-
+from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
+from Routes_DB.activities_summary import db_get_summary_for_activities
+from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
+from Services.async_jobs import service_enqueue_job
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -53,174 +45,153 @@ def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     ctx.pop("_debug", None)
     return ctx
 
-def _sanitize_user_comment(raw: Optional[str]) -> Optional[str]:
-    if raw is None:
-        return None
-    try:
-        s = str(raw)
-    except Exception:
-        return None
-    s = s.strip()
-    if not s:
-        return None
-    MAX_CHARS = 900
-    if len(s) > MAX_CHARS:
-        s = s[:MAX_CHARS].rstrip() + "…"
-    return s
+def _norm_comment(comment: Optional[str]) -> Optional[str]:
+    if not isinstance(comment, str): return None
+    c = comment.strip()
+    return c if c else None
 
-def service_activity_review(
+def _get_activity_days_ago(date_str: Optional[str]) -> int:
+    if not date_str: return 9999  
+    try:
+        clean_date = str(date_str)[:10]
+        dt = datetime.strptime(clean_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        return (now - dt).days
+    except Exception:
+        return 9999
+
+# ============================================================
+# READ SERVICE (ENRICHMENT)
+# ============================================================
+def service_get_activity_enrichment(
+    *,
     user_id: int,
     activity_id: int,
-    *,
     ctx: AuthCtx,
+) -> Optional[Dict[str, Any]]:
+    return db_get_enrichment_for_activity(user_id=user_id, activity_id=activity_id, ctx=ctx)
+
+# ============================================================
+# WRITE / RERUN SERVICE
+# ============================================================
+def service_request_activity_review_rerun(
+    *,
+    user_id: int,
+    activity_id: int,
+    comment: Optional[str],
     model: Optional[str] = None,
-    source: Optional[str] = None,         
-    comment: Optional[str] = None, 
-    injury: Optional[Dict[str, Any]] = None, # ✅ Nový vstup: objekt so zranením (oblasť, typ, poznámka)
+    has_new_injury: Optional[bool] = False, 
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
+    
+    print(f"[AR][rerun] user={user_id} | act={activity_id} | comment={bool(comment)} | injury={has_new_injury}")
+
+    summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
+    if not summaries or not summaries[0]:
+        return {"ok": False, "code": "activity_not_found", "message": "Aktivita nebola nájdená."}
+    
+    days_old = _get_activity_days_ago(summaries[0].get("date"))
+    if days_old > 7:
+        return {"ok": False, "code": "activity_too_old", "message": "Analýzu je možné vyžiadať len pre aktivity do 7 dní."}
+
+    enr_row = db_get_enrichment_for_activity(user_id=int(user_id), activity_id=int(activity_id), ctx=ctx) or {}
+    current_review = enr_row.get("ai_review")
+    cur_version = int(enr_row.get("ai_review_version") or 0) if current_review else 0
+
+    app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
+    tier_code = (app_subscription.get("tier_code") or "free").strip().lower()
+    comment_from_user = _norm_comment(comment)
+
+    # --- 1. ANTI-CHEAT: Záchranná brzda API (Zabráni nekonečným zraneniam) ---
+    if cur_version >= 10:
+        return {"ok": False, "code": "hard_limit_reached", "message": "Bol dosiahnutý absolútny systémový limit pregenerovaní."}
+
+    # --- 2. LOGIKA TIERU + ZDRAVOTNÁ VÝNIMKA ---
+    if tier_code == "pro":
+        max_versions = 50
+    elif tier_code == "classic":
+        max_versions = 3
+        if cur_version >= max_versions and not has_new_injury:
+             return {"ok": False, "code": "limit_reached", "message": "Dosiahli ste limit pregenerovaní pre Classic účet.", "tier": tier_code}
+    else: 
+        if cur_version > 0 and not has_new_injury:
+             return {"ok": False, "code": "only_one_for_free_tier", "message": "Vo free verzii máte nárok len na jedno hodnotenie.", "tier": tier_code}
+        if not has_new_injury:
+            comment_from_user = None
+
+    # --- 3. ANTI-SPAM DUPLICITY ---
+    # Ignorujeme filter na duplicitu, len ak používateľ pridáva nové zranenie
+    if tier_code != "free" and current_review and not has_new_injury:
+        last_comment = enr_row.get("ai_review_last_user_comment")
+        if comment_from_user == last_comment:
+             return {"ok": False, "code": "duplicate_content", "message": "Tento komentár ste už použili pri poslednom generovaní."}
+
+    next_version = cur_version + 1
+    dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}"
+
+    out = service_enqueue_job(
+        user_id=int(user_id),
+        job_type="activity_review",
+        payload={
+            "activity_id": int(activity_id),
+            "model": model,
+            "source": "user",
+            "comment": comment_from_user,
+            "has_new_injury": has_new_injury, 
+            "target_version": next_version
+        },
+        priority=140,
+        max_attempts=1,
+        dedupe_key=dedupe_key,
+        ctx=ctx,
+    )
+
+    if not out.get("job"):
+        return {"ok": False, "code": "enqueue_failed", "message": "Nepodarilo sa zaradiť požiadavku."}
+
+    return {"ok": True, "job_id": out["job"].get("id"), "tier": tier_code, "next_version": next_version, "comment_used": bool(comment_from_user)}
+
+# (service_activity_review ostáva z generátora pod tým - zjednotil som to už minule, aby Worker volal review engine)
+def service_activity_review(
+    user_id: int, activity_id: int, *, ctx: AuthCtx, model: Optional[str] = None, source: Optional[str] = None, comment: Optional[str] = None
+) -> Dict[str, Any]:
+    # ... Worker execution volá build_review_input -> generate_activity_review_json ...
     model_to_use = (model or _default_ai_model()).strip()
-
     src = (source or "").strip().lower() or "auto" 
-    safe_comment = _sanitize_user_comment(comment)
-
-    # ✅ Ak prišlo zranenie z frontendu, zaznamenáme ho do DB a spustíme preplánovanie
-    if injury and isinstance(injury, dict):
-        try:
-            # 1. Zapísať do profilu športovca
-            _placeholder_db_update_user_injury(user_id, injury, ctx)
-            # 2. Odpáliť pregenerovanie plánov (ideálne ako async job alebo volanie service)
-            _placeholder_trigger_daily_plan_rebuild(user_id, ctx)
-        except Exception as e:
-            print("[AR][service] Failed to handle user injury update", repr(e))
+    safe_comment = _norm_comment(comment)
 
     if src == "user" and is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
-        return {
-            "ok": False,
-            "activity_id": activity_id,
-            "model": model_to_use,
-            "review": None,
-            "summary": None,
-            "highlights": None,
-            "recommendations": None,
-            "trace": None,
-            "ai_usage": None,
-            "error": {
-                "code": "ai_quota_exceeded",
-                "message": "Mesačný limit AI bol vyčerpaný.",
-                "used_tokens_this_month": used,
-            },
-        }
+        return {"ok": False, "error": {"code": "ai_quota_exceeded", "used_tokens_this_month": used}}
 
-    # ✅ Podávame zranenie do buildera
-    input_data = build_review_input(
-        user_id=user_id,
-        activity_id=activity_id,
-        ctx=ctx,
-        source=src,
-        user_comment=safe_comment,
-        user_injury=injury
-    )
-    
+    input_data = build_review_input(user_id=user_id, activity_id=activity_id, ctx=ctx, source=src, user_comment=safe_comment)
     context_for_ai = _minify_context_for_ai(input_data)
-
-    context_for_ai.setdefault("meta", {})
-    if isinstance(context_for_ai["meta"], dict):
-        context_for_ai["meta"]["review_source"] = src
-        context_for_ai["meta"]["review_requested_at"] = _now_iso()
 
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
     metrics = act.get("metrics") if isinstance(act, dict) else None
     if not isinstance(metrics, dict) or not metrics:
-        return {
-            "ok": False,
-            "activity_id": activity_id,
-            "model": model_to_use,
-            "review": None,
-            "summary": None,
-            "highlights": None,
-            "recommendations": None,
-            "trace": {
-                "models_tried": [model_to_use],
-                "attempts": [],
-                "usage": None,
-                "ok_model": None,
-            },
-            "ai_usage": None,
-            "error": {
-                "code": "missing_activity_data",
-                "message": "Missing activity metrics (summary/enrichment not loaded)",
-            },
-        }
+        return {"ok": False, "error": {"code": "missing_activity_data"}}
 
-    review, trace = generate_activity_review_json(
-        context_payload=context_for_ai,
-        model=model_to_use,
-        user_id=user_id,
-        ctx=ctx,
-    )
+    review, trace = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
 
-    if not isinstance(trace, dict):
-        trace = {"models_tried": [model_to_use], "attempts": [], "usage": None, "ok_model": None}
-    if not isinstance(review, dict):
-        review = {}
-
-    review.setdefault("schema_version", 5)
+    if not isinstance(review, dict): review = {}
+    review.setdefault("schema_version", 6)
     review.setdefault("generated_at", _now_iso())
     review["model"] = str(review.get("model") or trace.get("ok_model") or model_to_use)
     review.setdefault("activity_id", activity_id)
-
-    review.setdefault("meta", {})
-    if isinstance(review["meta"], dict):
-        review["meta"]["source"] = src
-        review["meta"]["user_comment_used"] = bool(safe_comment)
-        review["meta"]["user_injury_used"] = bool(injury)
 
     usage = extract_usage_from_trace(trace, model_fallback=review["model"])
     if usage:
         try:
             log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.activity_review",
-                source=src,  
-                billed_via="internal",
-                charge_wallet=False,
-                meta={
-                    "activity_id": activity_id,
-                    "source": src,
-                    "has_user_comment": bool(safe_comment),
-                    "has_injury_reported": bool(injury),
-                },
-                ctx=ctx,
+                user_id=user_id, usage=usage, job_type="coach.activity_review",
+                source=src, billed_via="internal", charge_wallet=False,
+                meta={"activity_id": activity_id, "source": src}, ctx=ctx,
             )
-        except Exception as e:  
-            print("[AI_BILLING] activity_review billing error:", repr(e))
+        except Exception as e: print("[AI_BILLING] error:", repr(e))
 
     try:
-        db_upsert_ai_review_one(
-            user_id=user_id,
-            activity_id=activity_id,
-            ai_review=review,
-            ctx=ctx,
-            source=src,  
-            user_comment=safe_comment,  
-        )
-    except Exception as e:  
-        print("[AR][service] db_upsert_ai_review_one error:", repr(e))
+        db_upsert_ai_review_one(user_id=user_id, activity_id=activity_id, ai_review=review, ctx=ctx, source=src, user_comment=safe_comment)
+    except Exception as e: print("[AR] db_upsert_ai_review_one error:", repr(e))
 
-    return {
-        "ok": True,
-        "activity_id": activity_id,
-        "model": review.get("model"),
-        "review": review,
-        "summary": review.get("summary"),
-        "highlights": review.get("highlights"),
-        "recommendations": review.get("next_steps"),
-        "trace": trace,
-        "ai_usage": usage,
-        "error": None,
-        "source": src,  
-        "user_comment_used": bool(safe_comment),
-        "user_injury_used": bool(injury),
-    }
+    return {"ok": True, "review": review}

@@ -1,4 +1,4 @@
-// src/app/features/activities/api/activities_enrichment
+// src/app/features/activities/api/activities_enrichment.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type ActivityEnrichment = {
@@ -24,7 +24,7 @@ export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
   model?: string | null;
   comment?: string | null;
-  injury?: any | null; // ✅ Nové pole pre objekt zranenia
+  has_new_injury?: boolean; // ✅ ZMENA NA BOOLEAN
 };
 
 type AsyncJobRow = {
@@ -64,7 +64,7 @@ export type ActivityReviewRerunResponse =
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; injury?: any | null }
+  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean }
 ): Promise<ActivityReviewRerunResponse | any> {
   if (!userId) throw new Error("Missing userId");
 
@@ -76,7 +76,7 @@ export async function apiRerunActivityReview(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opts), // ✅ Tu sa automaticky pošle aj injury
+      body: JSON.stringify(opts), // ✅ Tu sa automaticky pošle has_new_injury (ak existuje)
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
