@@ -26,7 +26,6 @@ from Routes_DB.activities_enrichment import db_upsert_ai_review_one
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
 from Routes_DB.activities_summary import db_get_summary_for_activities
 from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
-from Services.async_jobs import service_enqueue_job
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -128,6 +127,8 @@ def service_request_activity_review_rerun(
 
     next_version = cur_version + 1
     dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}"
+
+    from Services.async_jobs import service_enqueue_job
 
     out = service_enqueue_job(
         user_id=int(user_id),
