@@ -12,6 +12,9 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+// ✅ Import na načítanie zranení
+import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import {
@@ -22,7 +25,6 @@ import {
 } from "@/app/features/calendar/utils/calendarSlots";
 import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
-// ✅ importuj priamo
 import { WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
 import {
@@ -104,6 +106,9 @@ export default function WidgetActivitiesCalendar({
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
+  
+  // ✅ Pridaný stav pre zranenie do kalendára
+  const [activeInjury, setActiveInjury] = React.useState<{ severity: number; text: string } | null>(null);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -112,9 +117,31 @@ export default function WidgetActivitiesCalendar({
     (async () => {
       setExtErr(null);
       try {
-        const rows = await apiGetExternalEventsWindow(userId, startIso, endIso);
+        // ✅ Paralelné volanie udalostí aj zranení pre rýchlejší render
+        const [rows, prefsRes] = await Promise.all([
+          apiGetExternalEventsWindow(userId, startIso, endIso).catch((e) => { throw e; }),
+          apiFetchUserPref(userId, "coach.prefs").catch(() => null)
+        ]);
+
         if (!alive) return;
         setExternalRows(Array.isArray(rows) ? rows : []);
+
+        // Vyhodnotenie zranenia
+        if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
+          const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
+            return (current.severity || 0) > (prev.severity || 0) ? current : prev;
+          }, { severity: 0 });
+
+          if (maxInjury && maxInjury.severity > 0) {
+            setActiveInjury({
+              severity: maxInjury.severity,
+              text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
+            });
+          }
+        } else {
+           setActiveInjury(null);
+        }
+
       } catch (e: any) {
         if (!alive) return;
         setExternalRows([]);
@@ -125,7 +152,7 @@ export default function WidgetActivitiesCalendar({
     return () => {
       alive = false;
     };
-  }, [userId, startIso, endIso]);
+  }, [userId, startIso, endIso, t]);
 
   const byDay = React.useMemo(() => {
     const map = new Map<string, DayItem[]>();
@@ -240,7 +267,7 @@ export default function WidgetActivitiesCalendar({
 
   return (
     <WidgetCard
-      title={t("common.weeksShort.mon") + `${weekLabel}`}
+      title={t("calendar.widget.title", { fallback: "Kalendár" }) + ` • ${weekLabel}`}
       tooltip={t("calendar.widget.tooltip")}
       onOpen={handleOpen}
       accent="none"
@@ -249,6 +276,25 @@ export default function WidgetActivitiesCalendar({
       innerClassName={NO_X_OVERFLOW}
     >
       {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
+
+      {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
+      {activeInjury && (
+        <div className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+            activeInjury.severity >= 7 
+              ? "bg-red-500/10 border-red-500/20 text-red-400" 
+              : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+          }`}>
+          <div className="flex-shrink-0">
+            ⚠️
+          </div>
+          <div className="leading-tight">
+            <strong>Zranenie nahlásené:</strong> {activeInjury.text}
+            <div className="opacity-80 text-[10px] mt-0.5">
+              {activeInjury.severity >= 7 ? "Kalendár zablokovaný (Lekárske voľno)." : "Tréningy upravené pre zotavenie."}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={CAL_WIDGET_DOW_ROW}
