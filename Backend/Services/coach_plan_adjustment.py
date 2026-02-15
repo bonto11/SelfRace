@@ -116,30 +116,38 @@ def service_coach_autoadjust_after_update(
     be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
     recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
 
-    # 1) Načítanie zranenia a určenie severity (závažnosti)
+    # --- 1) ANALÝZA ZRANENIA ---
     is_critical_injury = False
+    has_any_injury = False
     new_plan_start_date = None
-
+    
     if force_reason == "new_injury":
         be_flags["should_trigger_ai"] = True
-        be_flags["action"] = "injury_replan"
-        be_flags["reason"] = "active_injury_reported_forcing_replan"
-        
         try:
             prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
             if isinstance(prefs_row, dict):
                 val = prefs_row.get("value")
                 data = val if isinstance(val, dict) else prefs_row
-                injuries = data.get("injuries", [])
-                max_sev = max((_safe_int(i.get("severity")) for i in injuries if isinstance(i, dict)), default=0)
+                injuries = data.get("injuries")
                 
-                # Ak je zranenie 7 alebo vyššie -> Hard Replan a od zajtrajška!
-                if max_sev >= 7:
-                    is_critical_injury = True
-                    new_plan_start_date = (today + timedelta(days=1)).isoformat()
+                # ✅ OPRAVENÁ LOGIKA (Bezpečný cyklus miesto max generátora)
+                if isinstance(injuries, list) and len(injuries) > 0:
+                    has_any_injury = True
+                    max_sev = 0
+                    for inj in injuries:
+                        if isinstance(inj, dict):
+                            sev = _safe_int(inj.get("severity"))
+                            if sev > max_sev:
+                                max_sev = sev
+                    
+                    # Ak je zranenie 7 alebo vyššie -> Hard Replan a od zajtrajška!
+                    if max_sev >= 7:
+                        is_critical_injury = True
+                        new_plan_start_date = (today + timedelta(days=1)).isoformat()
         except Exception as e:
             print("[COACH_AUTOADJUST] Error fetching injury severity", repr(e))
 
+    # ... Zvyšok funkcie ostáva bez zmien
     if not be_flags.get("should_trigger_ai"):
         return {
             "changed": False,
