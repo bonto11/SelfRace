@@ -22,7 +22,6 @@ from Routes_DB.coach_plan_meta import (
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Routes_DB.user_recovery import db_get_recent_recovery
-from Routes_DB.user_prefs import db_get_pref_single  # ✅ NEW: Import na prečítanie zranení
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 
@@ -50,9 +49,6 @@ def _find_current_week_index(
 ) -> Optional[int]:
     """
     Nájde week_index, do ktorého patrí dnešok.
-    Logika:
-      1) najprv week_start <= today <= week_end
-      2) fallback: posledný týždeň s week_start <= today
     """
     if not weekly_rows:
         return None
@@ -246,12 +242,11 @@ def _compute_recovery_debug(
     }
 
 
-# Services/coach_plan_adjustment.py
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
-    force_reason: Optional[str] = None, 
+    force_reason: Optional[str] = None, # ✅ Prijíma force_reason z Async Workera
 ) -> Dict[str, Any]:
     """
     Hlavný orchestratór po nových dátach (activity sync / recovery update).
@@ -270,14 +265,14 @@ def service_coach_autoadjust_after_update(
         ctx=ctx,
     )
 
-    # ✅ ZDRAVOTNÁ VÝNIMKA (IBA AK BOLA EXPLICITNE VYŽIADANÁ)
+    # ✅ ZDRAVOTNÁ VÝNIMKA (IBA AK BOLA EXPLICITNE VYŽIADANÁ CEZ REVIEW)
     if force_reason == "new_injury":
         be_flags["should_trigger_ai"] = True
         be_flags["action"] = "injury_replan"
         be_flags["reason"] = "active_injury_reported_forcing_replan"
 
-
     if not be_flags.get("should_trigger_ai"):
+        # Load je v norme a neprišiel "force_reason" → žiadne AI, žiadny re-plan (UŠETRENÉ TOKENY)
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
@@ -288,7 +283,7 @@ def service_coach_autoadjust_after_update(
             "plan_adjustment": None,
         }
 
-    # --- 2) nájdeme aktívny / posledný plán (potrebujeme ho pre obe cesty) ---
+    # --- 1) NÁJDEME AKTÍVNY PLÁN ---
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,
@@ -314,9 +309,10 @@ def service_coach_autoadjust_after_update(
     if meta_created:
         weekly_age_days = (today - meta_created).days
 
-    # --- 1) ROZHODNUTIE O PREPLÁNOVANÍ ---
-    # Ak je to zranenie, preskočíme drahú AI analýzu a vynútime HARD REPLAN celého týždňa
+
+    # --- 2) ROZHODNUTIE O PREPLÁNOVANÍ (AI vs FORCE) ---
     if force_reason == "new_injury":
+        # 🚨 ZRANENIE: Preskakujeme AI analýzu a priamo kážeme preplánovať! (UŠETRENÉ TOKENY)
         weekly_replan_should = True
         weekly_replan_reason = "Hard replan triggered by user injury report."
         soften_should = False
@@ -326,7 +322,7 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": "forced_injury_override"}
         
     else:
-        # Ak to nie je zranenie, ale len bežný load spike, necháme rozhodnúť AI (service_analyze_athlete)
+        # 🏃 BEŽNÝ VÝKYV ZÁŤAŽE: Tu použijeme AI na posúdenie stavu
         analyze_resp = service_analyze_athlete(
             user_id=user_id,
             ctx=ctx,
@@ -348,17 +344,18 @@ def service_coach_autoadjust_after_update(
 
     # --- 3a) WEEKLY REPLAN ---
     if weekly_replan_should:
-        # Pre zranenie budeme ignorovať COOLDOWN. Ak sa zraníš, nedá sa čakať týždeň.
+        # Pre zranenie budeme ignorovať COOLDOWN (aby to bez ohľadu na vek plánu preplánovalo)
         if (
-            force_reason != "new_injury"
+            force_reason != "new_injury" 
             and weekly_age_days is not None
             and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
         ):
-            # príliš čerstvý weekly -> AI analyze síce chcel replan, ale padáme do soften logiky
+            # Príliš čerstvý weekly plán -> padáme do daily softening logiky
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
+            # ✅ REÁLNE PREPLÁNOVANIE TÝŽDŇA (AI tu už uvidí zranenie z prefs vďaka našim úpravám v daily_plan_prompts)
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
                 overwrite=True,
@@ -377,7 +374,7 @@ def service_coach_autoadjust_after_update(
             return {
                 "changed": True,
                 "mode": "weekly_replan",
-                "reason": weekly_replan_reason or "weekly plan re-generated based on load & recovery",
+                "reason": weekly_replan_reason or "weekly plan re-generated based on load, recovery, or injury",
                 "be_flags": be_flags,
                 "recovery_debug": recovery_debug,
                 "analyze_state_id": state_id,
@@ -462,6 +459,7 @@ def service_coach_autoadjust_after_update(
         "analyze_state_id": state_id,
         "plan_adjustment": plan_adjustment,
     }
+
 
 def service_reschedule_daily_plan(
     user_id: int,
