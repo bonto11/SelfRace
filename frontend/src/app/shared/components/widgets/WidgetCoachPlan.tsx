@@ -38,7 +38,7 @@ import {
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
-import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
+import type { CoachPrefs, Injury } from "@/app/features/prefs/types/prefs";
 import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useT } from "@/app/shared/i18n/useT";
@@ -315,20 +315,32 @@ export default function WidgetCoachPlan() {
 
   const planLocked = !!activePlanId;
 
+  // ✅ Detekcia kritického zranenia (7+) priamo z prefs
+  const isCriticallyInjured = useMemo(() => {
+    if (!prefs || !Array.isArray((prefs as any).injuries)) return false;
+    const injuries = (prefs as any).injuries as Injury[];
+    return injuries.some(inj => (inj.severity ?? 0) >= 7);
+  }, [prefs]);
+
+  const injuryLockReason = isCriticallyInjured 
+    ? "Generovanie zablokované: Máš nahlásené kritické zranenie. Zmaž ho z profilu." 
+    : undefined;
+
   const canStartPlan = useMemo(() => {
-    if (!userId || planLocked || !latestStateId || !hasWeekly || !hasDaily) return false;
+    if (!userId || planLocked || !latestStateId || !hasWeekly || !hasDaily || isCriticallyInjured) return false;
     return true;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily]);
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, isCriticallyInjured]);
 
   const startDisabledReason = useMemo(() => {
     if (!userId) return t("coachPlan.errors.missingUserId");
+    if (isCriticallyInjured) return injuryLockReason;
     if (planLocked) return t("coachPlan.errors.alreadyActive");
     if (!latestStateId) return t("coachPlan.errors.needAnalyze");
     if (!hasWeekly && !hasDaily) return t("coachPlan.errors.needBoth");
     if (!hasWeekly) return t("coachPlan.errors.needWeekly");
     if (!hasDaily) return t("coachPlan.errors.needDaily");
     return null;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, t]);
+  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, t, isCriticallyInjured, injuryLockReason]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId) return;
@@ -378,7 +390,8 @@ export default function WidgetCoachPlan() {
   }, [userId, activePlanId, t]);
 
   const loading = loadingKind !== null && loadingKind !== "status";
-  const disabled = !userId || loading;
+  // ✅ Celkové blokovanie generátorov ak je aktívny plán ALEBO kritické zranenie
+  const generatorsDisabled = !userId || loading || planLocked || isCriticallyInjured;
 
   const statusLabel = useMemo(() => {
     if (planLocked) return t("coachPlan.status.active");
@@ -389,7 +402,7 @@ export default function WidgetCoachPlan() {
   }, [planLocked, hasWeekly, hasDaily, t]);
 
   const statusColor = planLocked ? appColors.brandPrimary : appColors.textMuted;
-  const lockReason = planLocked ? t("coachPlan.lockReason") : undefined;
+  const lockReason = planLocked ? t("coachPlan.lockReason") : injuryLockReason;
 
   return (
     <WidgetCard
@@ -407,29 +420,36 @@ export default function WidgetCoachPlan() {
 
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
+      {/* ✅ Jasné varovanie pre používateľa, ak má 7+ bolesť */}
+      {isCriticallyInjured && (
+        <div className="mb-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-xs text-red-400 font-medium text-center">
+          ⚠️ {injuryLockReason}
+        </div>
+      )}
+
       <div className={WIDGET_ACTIONS_WRAP}>
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing") : t("coachPlan.actions.analyze")}
           loading={loadingKind === "analyze"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={generatorsDisabled}
+          title={lockReason}
         />
 
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly") : t("coachPlan.actions.generateWeekly")}
           loading={loadingKind === "weekly"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={generatorsDisabled}
+          title={lockReason}
         />
 
         <RowAction
           onPrimary={handleGenerateDaily}
           primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily") : t("coachPlan.actions.generateDaily")}
           loading={loadingKind === "daily"}
-          disabled={disabled || planLocked}
-          title={planLocked ? lockReason : undefined}
+          disabled={generatorsDisabled}
+          title={lockReason}
         />
 
         <div className={WIDGET_CTA_ROW}>
@@ -479,7 +499,7 @@ export default function WidgetCoachPlan() {
           </Button>
         </div>
 
-        {planLocked && (
+        {planLocked && !isCriticallyInjured && (
           <div className="text-[11px] opacity-70">{lockReason}</div>
         )}
 
