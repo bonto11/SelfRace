@@ -234,16 +234,12 @@ def generate_athlete_progress_report(
         "settings": settings,
     }
 
-    print("generate_athlete_progress_report context_payload",context_payload)
-
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
-
-    print("generate_athlete_progress_report res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 
