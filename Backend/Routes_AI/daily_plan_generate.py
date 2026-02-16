@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple, List
 from zoneinfo import ZoneInfo
 
 from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
-from Routes_AI.daily_plan_prompts import _build_prompts_for_daily
+from Routes_AI.daily_plan_prompts import build_prompts_for_daily
 from Services.AI.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 
@@ -285,7 +285,7 @@ def generate_daily_week_json(
     raw_settings = ctx.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
 
-    system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = _build_prompts_for_daily(
+    system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = build_prompts_for_daily(
         ctx,
         settings=settings,
     )

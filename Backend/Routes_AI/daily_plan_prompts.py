@@ -27,9 +27,23 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
         return raw_prefs["value"]
     return raw_prefs if isinstance(raw_prefs, dict) else {}
 
+# 👇 Pridaj tento čistič tesne nad _minify_context_for_ai
+def _remove_empty(d: Any) -> Any:
+    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
+    if isinstance(d, dict):
+        cleaned = {k: _remove_empty(v) for k, v in d.items()}
+        return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
+    elif isinstance(d, list):
+        cleaned = [_remove_empty(v) for v in d]
+        return [v for v in cleaned if v is not None and v != [] and v != {}]
+    return d
+
+# 👇 Tu je nová, plne optimalizovaná minifikácia pre Daily
 def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context2: Dict[str, Any] = {}
-    for k in ("week", "zones", "thresholds", "recent_load", "external_events"):
+    
+    # Pridáme len kľúčové veci
+    for k in ("week", "zones", "thresholds", "external_events"):
         if k in context:
             context2[k] = context[k]
 
@@ -48,15 +62,12 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
+    # Z prefs vyberieme fakt len to nutné (žiadne target races do detailu atď)
     context2["prefs"] = {
         "weeks": prefs.get("weeks"),
-        "start_date": prefs.get("start_date"),
-        "end_date": prefs.get("end_date"),
         "main_sport": prefs.get("main_sport"),
-        "add_on_sports": prefs.get("add_on_sports"),
         "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
-        "targets": prefs.get("targets"),
         "preferences": {
             **pref_obj,
             "intensity_model": intensity_model,
@@ -66,13 +77,15 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "injuries": prefs.get("injuries") or [], 
     }
 
+    # Zoberieme AI State (ale bez metrics, lebo vo2max nepotrebujeme na denný rozpis)
     athlete_state = context.get("athlete_state") or {}
     ai_state = athlete_state.get("ai_state") or {}
-    context2["athlete_state"] = {"ai_state": ai_state}
+    if isinstance(ai_state, dict):
+        ai_state_clean = dict(ai_state)
+        ai_state_clean.pop("metrics", None)
+        context2["athlete_state"] = {"ai_state": ai_state_clean}
 
-    for k in ("last_activities",):
-        if k in context: context2[k] = context[k]
-
+    # Z user settings len základ pre jazyk
     us = context.get("user_settings") or {}
     if isinstance(us, dict):
         context2["user_settings"] = {
@@ -80,9 +93,14 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "timezone": us.get("timezone"),
         }
 
-    return context2
+    # ✅ VYHADZUJEME: recent_load a last_activities!
+    # Tieto dáta generujú obrovský payload, ale AI má inštrukcie držať sa parametrov 
+    # aktuálneho `week` (kde je už zadefinovaný cieľový objem a zameranie) 
+    # a `ai_state` (kde je napísaná únava). Ostatné je zbytočný šum.
 
-def _build_prompts_for_daily(
+    return _remove_empty(context2)
+
+def build_prompts_for_daily(
     context_payload: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
@@ -220,7 +238,9 @@ def _build_prompts_for_daily(
 
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON for ONE training week. "
+        "You receive structured JSON for ONE training week containing the week's goal, "
+        "athlete's zones, current fitness/fatigue state, and fixed external events. "
+        "Your task is to design a detailed daily workout schedule for this specific week. "
         "Return ONE valid JSON object only. No prose, no code fences."
     )
 
