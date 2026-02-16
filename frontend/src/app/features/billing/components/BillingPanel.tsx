@@ -8,8 +8,8 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetAppSubscriptionStatus,
   apiGetAppSubscriptionHistory,
-  apiCreateStripeCheckout, // ✅ Pridané Stripe pre kúpu
-  apiCreateStripePortal,   // ✅ Pridané Stripe pre správu
+  apiCreateStripeCheckout,
+  apiCreateStripePortal,
 } from "@/app/features/billing/api/billing";
 
 import type {
@@ -19,7 +19,8 @@ import type {
 } from "@/app/features/billing/types/billing";
 
 import {
-  setSubscriptionTier, // getSubscriptionTier už pri štarte nepotrebujeme
+  getSubscriptionTier,
+  setSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 
 import BillingStatusCard from "./BillingStatusCard";
@@ -47,8 +48,7 @@ export default function BillingPanel() {
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ NEPRIESTRELNÝ FIX: Na začiatku dáme natvrdo "free". 
-  // Žiadny LocalStorage na serveri nevytvára konflikty. Databáza to o milisekundu prepíše.
+  // ✅ FIX: Renderujeme "free" pre Server aj úvodného klienta. Žiadna Hydration chyba.
   const [activeTierCode, setActiveTierCode] = useState<string>("free");
 
   const [open, setOpen] = useState(false);
@@ -59,7 +59,12 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
-  // NAČÍTANIE Z DATABÁZY (Toto je tvoj Single Source of Truth)
+  // ✅ Krok 1: Hneď po hydratácii si môžeme zobraziť to, čo máme v cache (LS), aby UI neblikalo
+  useEffect(() => {
+    setActiveTierCode(getSubscriptionTier());
+  }, []);
+
+  // ✅ Krok 2: Natiahnutie pravdy z databázy
   useEffect(() => {
     if (!userId) {
       setStatus(null);
@@ -80,9 +85,9 @@ export default function BillingPanel() {
         if (st) {
           const code = st.tier_code || "free";
           setStatus(st);
-          // ✅ TU PRICHÁDZA PRAVDA Z DB:
-          setActiveTierCode(code); 
-          setSubscriptionTier(code); // Týmto prepíšeme LocalStorage na správnu hodnotu
+          // Obe miesta (React stav aj náš Store) sa prepíšu aktuálnou pravdou z DB
+          setActiveTierCode(code);
+          setSubscriptionTier(code);
         } else {
           setStatus(null);
         }
@@ -115,7 +120,6 @@ export default function BillingPanel() {
     return () => { alive = false; };
   }, [userId]);
 
-  // ✅ NAPOJENIE NA STRIPE CHECKOUT/PORTAL
   async function handleSetTier(tierCode: string) {
     if (!userId) {
       toast.error(t("common.errors.missingUserAuth"));
@@ -126,14 +130,11 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      // Ak má používateľ platený plán a prepína na FREE, pošleme ho do Stripe Customer Portálu
       if (tierCode === "free" && activeTierCode !== "free") {
         const url = await apiCreateStripePortal();
         window.location.href = url;
         return;
       }
-      
-      // Ak kupuje platený plán, pošleme ho na platobnú bránu
       const url = await apiCreateStripeCheckout(tierCode);
       window.location.href = url;
     } catch (e: any) {
@@ -145,14 +146,12 @@ export default function BillingPanel() {
     }
   }
 
-  // ✅ SPRÁVA PREDPLATNÉHO CEZ STRIPE PORTAL
   async function handleCancelPlannedChange() {
     if (!userId) return;
 
     setLoading("set-tier");
     setError(null);
     try {
-      // Namiesto tvojej DB zmeny ho Stripe Portal obslúži sám
       const url = await apiCreateStripePortal();
       window.location.href = url;
     } catch (e: any) {
@@ -221,7 +220,7 @@ export default function BillingPanel() {
                     activeTierCode={activeTierCode}
                     plannedChange={plannedChange}
                     isBusy={isAnyActionLoading}
-                    onSetTier={handleSetTier} // Preklik na Stripe
+                    onSetTier={handleSetTier}
                   />
                 </div>
               </section>
