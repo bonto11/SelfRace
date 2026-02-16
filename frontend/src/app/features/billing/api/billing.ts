@@ -13,14 +13,23 @@ import type {
 } from "@/app/features/billing/types/billing";
 
 /* ---------- STRIPE API helpers ---------- */
-
-export async function apiCreateStripeCheckout(tier: string): Promise<string> {
+// ✅ Doplnený parameter userId
+export async function apiCreateStripeCheckout(
+  userId: number,
+  tier: string,
+): Promise<string> {
+  if (!userId) throw new Error("common.errors.missingUserAuth");
   if (!tier) throw new Error("billing.errors.missingTier");
 
-  const path = `/billingStripe/create-checkout-session`;
+  // Vkladáme userId do URL!
+  const path = `/billingStripe/create-checkout-session/${encodeURIComponent(String(userId))}`;
 
   try {
-    const json = await callBackend<{ ok: boolean; checkout_url: string; detail?: string }>(path, {
+    const json = await callBackend<{
+      ok: boolean;
+      checkout_url: string;
+      detail?: string;
+    }>(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json" },
@@ -38,11 +47,19 @@ export async function apiCreateStripeCheckout(tier: string): Promise<string> {
   }
 }
 
-export async function apiCreateStripePortal(): Promise<string> {
-  const path = `/billingStripe/create-portal-session`;
+// ✅ Doplnený parameter userId
+export async function apiCreateStripePortal(userId: number): Promise<string> {
+  if (!userId) throw new Error("common.errors.missingUserAuth");
+
+  // Vkladáme userId do URL!
+  const path = `/billingStripe/create-portal-session/${encodeURIComponent(String(userId))}`;
 
   try {
-    const json = await callBackend<{ ok: boolean; portal_url: string; detail?: string }>(path, {
+    const json = await callBackend<{
+      ok: boolean;
+      portal_url: string;
+      detail?: string;
+    }>(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json" },
@@ -58,10 +75,11 @@ export async function apiCreateStripePortal(): Promise<string> {
     throw new Error("billing.errors.portalSessionFailed");
   }
 }
-
 /* ---------- APP BILLING API helpers ---------- */
 
-export async function apiListAppSubscriptionTiers(): Promise<AppSubscriptionTier[]> {
+export async function apiListAppSubscriptionTiers(): Promise<
+  AppSubscriptionTier[]
+> {
   const path = `/app/subscription/tiers`;
 
   try {
@@ -83,7 +101,7 @@ export async function apiListAppSubscriptionTiers(): Promise<AppSubscriptionTier
 }
 
 export async function apiGetAppSubscriptionStatus(
-  userId: number
+  userId: number,
 ): Promise<AppSubscriptionStatus | null> {
   if (!userId) throw new Error("common.errors.missingUser");
 
@@ -109,7 +127,7 @@ export async function apiGetAppSubscriptionStatus(
 
 export async function apiGetAppSubscriptionHistory(
   userId: number,
-  limit = 20
+  limit = 20,
 ): Promise<AppUserSubscription[]> {
   if (!userId) throw new Error("common.errors.missingUser");
 
@@ -139,7 +157,7 @@ export async function apiGetAppSubscriptionHistory(
  */
 export async function apiSetAppSubscriptionTierManual(
   userId: number,
-  tierCode: string
+  tierCode: string,
 ): Promise<SetTierResponse> {
   if (!userId) throw new Error("common.errors.missingUser");
   if (!tierCode) throw new Error("billing.errors.missingTier");
@@ -166,11 +184,11 @@ export async function apiSetAppSubscriptionTierManual(
 }
 
 /**
- * DEV helper - zrušenie zmeny. 
+ * DEV helper - zrušenie zmeny.
  * V produkcii sa bude riešiť cez Stripe Portal.
  */
 export async function apiCancelPlannedSubscriptionChange(
-  userId: number
+  userId: number,
 ): Promise<CancelPlannedResponse> {
   if (!userId) throw new Error("common.errors.missingUser");
 

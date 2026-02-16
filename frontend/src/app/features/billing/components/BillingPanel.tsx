@@ -96,11 +96,16 @@ export default function BillingPanel() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, t, isMounted]);
 
   useEffect(() => {
-    if (!userId || !isMounted) { setHistory([]); return; }
+    if (!userId || !isMounted) {
+      setHistory([]);
+      return;
+    }
     let alive = true;
     (async () => {
       setLoading((prev) => prev || "history");
@@ -108,12 +113,15 @@ export default function BillingPanel() {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
         if (!alive) return;
         setHistory(h);
-      } catch { } finally {
+      } catch {
+      } finally {
         if (!alive) return;
         setLoading(null);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, isMounted]);
 
   async function handleSetTier(tierCode: string) {
@@ -127,12 +135,14 @@ export default function BillingPanel() {
     setError(null);
     try {
       if (tierCode === "free" && activeTierCode !== "free") {
-        const url = await apiCreateStripePortal();
+        // ✅ Pridané userId
+        const url = await apiCreateStripePortal(userId);
         window.location.href = url;
         return;
       }
-      
-      const url = await apiCreateStripeCheckout(tierCode);
+
+      // ✅ Pridané userId
+      const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
       const msg = e?.message || t("billing.errors.tierChangeFailed");
@@ -149,7 +159,8 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      const url = await apiCreateStripePortal();
+      // ✅ Pridané userId
+      const url = await apiCreateStripePortal(userId);
       window.location.href = url;
     } catch (e: any) {
       const msg = e?.message || t("billing.errors.cancelPlannedFailed");
@@ -163,20 +174,30 @@ export default function BillingPanel() {
   const previewText = useMemo(() => {
     if (!userId) return t("billing.status.notLoggedIn");
     if (loading === "status" && !status) return t("billing.status.loading");
-    
+
     const tier = status?.tier_code || activeTierCode || "free";
-    const parts: string[] = [`${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`];
-    
+    const parts: string[] = [
+      `${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`,
+    ];
+
     if (plannedChange?.kind) {
       const kindLabel = t(`billing.planned.kinds.${plannedChange.kind}`);
-      const toTier = plannedChange.to_tier_code ? plannedChange.to_tier_code.toUpperCase() : "FREE";
-      const when = plannedChange.effective_from ? plannedChange.effective_from.slice(0, 10) : null;
-      parts.push(`${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
+      const toTier = plannedChange.to_tier_code
+        ? plannedChange.to_tier_code.toUpperCase()
+        : "FREE";
+      const when = plannedChange.effective_from
+        ? plannedChange.effective_from.slice(0, 10)
+        : null;
+      parts.push(
+        `${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`,
+      );
     }
-    
+
     const quota = (status as any)?.ai_quota as any;
     if (quota?.monthly_limit_tokens > 0) {
-      const pct = Math.round((quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100);
+      const pct = Math.round(
+        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100,
+      );
       parts.push(`AI: ~${pct}%`);
     }
     return parts.join(" • ");
@@ -211,7 +232,9 @@ export default function BillingPanel() {
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         {!userId ? (
-          <div className="text-sm opacity-80">{t("billing.notLoggedInDesc")}</div>
+          <div className="text-sm opacity-80">
+            {t("billing.notLoggedInDesc")}
+          </div>
         ) : (
           <>
             <BillingStatusCard
@@ -226,8 +249,12 @@ export default function BillingPanel() {
 
             <div className={PANEL_STACK}>
               <section>
-                <div className="text-sm font-semibold">{t("billing.sections.tiers")}</div>
-                <div className="mt-1 text-xs opacity-75">{t("billing.devModeNote")}</div>
+                <div className="text-sm font-semibold">
+                  {t("billing.sections.tiers")}
+                </div>
+                <div className="mt-1 text-xs opacity-75">
+                  {t("billing.devModeNote")}
+                </div>
                 <div className="mt-2">
                   <BillingTierSelector
                     tiers={tiers}
@@ -240,7 +267,9 @@ export default function BillingPanel() {
               </section>
 
               <section>
-                <div className="text-sm font-semibold">{t("billing.sections.history")}</div>
+                <div className="text-sm font-semibold">
+                  {t("billing.sections.history")}
+                </div>
                 <div className="mt-2">
                   <BillingHistory history={history} />
                 </div>

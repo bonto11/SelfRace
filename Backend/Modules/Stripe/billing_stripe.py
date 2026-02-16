@@ -1,4 +1,3 @@
-# Modules/Stripe/billing_stripe.py
 import stripe
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -15,35 +14,17 @@ class CheckoutRequest(BaseModel):
 
 router = APIRouter(prefix="/billingStripe", tags=["Stripe Billing"])
 
-def _extract_user_id(ctx: Any) -> int | None:
-    """Univerzálny extraktor pre user_id z auth kontextu"""
-    if ctx is None:
-        return None
-    # 1. Ak je to dictionary
-    if isinstance(ctx, dict):
-        uid = ctx.get("user_id") or ctx.get("id") or ctx.get("sub")
-        return int(uid) if uid else None
-    # 2. Ak je to class/pydantic model
-    uid = getattr(ctx, "user_id", None) or getattr(ctx, "id", None) or getattr(ctx, "sub", None)
-    return int(uid) if uid else None
-
-@router.post("/create-checkout-session")
+@router.post("/create-checkout-session/{user_id}")
 def create_checkout_session(
+    user_id: int, 
     payload: CheckoutRequest, 
     req: Request
 ) -> Dict[str, Any]:
     
+    # Len overíme, že požiadavka má platný token (či je to reálny prihlásený človek)
     ctx = require_user(get_auth_ctx(req))
     
-    # ✅ Použijeme robustný extraktor
-    user_id = _extract_user_id(ctx)
-    
-    if not user_id:
-        print(f"[STRIPE DEBUG] Nepodarilo sa nájsť user_id! Obsah ctx: {ctx}")
-        raise HTTPException(status_code=401, detail="Nenájdené user_id v tokene")
-    
     price_id: str = "" 
-    
     if payload.tier == "classic":
         price_id = str(STRIPE_PRICE_CLASSIC or "")
     elif payload.tier == "pro":
@@ -54,8 +35,6 @@ def create_checkout_session(
     if not price_id:
         raise HTTPException(status_code=500, detail="Chýba konfigurácia pre Stripe Price ID")
     
-    base_url = str(FRONTEND_URL or "http://localhost:3000").rstrip("/")
-
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -64,29 +43,26 @@ def create_checkout_session(
                 "quantity": 1,
             }],
             mode="subscription",
-            success_url=f"{base_url}/settings/billing?status=success",
-            cancel_url=f"{base_url}/settings/billing?status=canceled",
+            success_url=f"{FRONTEND_URL}/settings/billing?status=success",
+            cancel_url=f"{FRONTEND_URL}/settings/billing?status=canceled",
             client_reference_id=str(user_id),
             metadata={
                 "user_id": str(user_id),
                 "tier": payload.tier
             }
         )
-        
         return {"ok": True, "checkout_url": session.url}
 
     except Exception as e:
         print("[STRIPE] Chyba pri vytváraní checkoutu:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/create-portal-session")
-def create_portal_session(req: Request) -> Dict[str, Any]:
-    ctx = require_user(get_auth_ctx(req))
+# ✅ Pridané {user_id} priamo do URL cesty
+@router.post("/create-portal-session/{user_id}")
+def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     
-    user_id = _extract_user_id(ctx)
-    if not user_id:
-        print(f"[STRIPE DEBUG] Nepodarilo sa nájsť user_id! Obsah ctx: {ctx}")
-        raise HTTPException(status_code=401, detail="Nenájdené user_id v tokene")
+    # Znova len skontrolujeme, že prišiel token
+    ctx = require_user(get_auth_ctx(req))
 
     sb = get_sb(ctx, caller="create_portal_session")
     
@@ -99,12 +75,10 @@ def create_portal_session(req: Request) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail="Chyba pri čítaní z DB: " + str(e))
 
-    base_url = str(FRONTEND_URL or "http://localhost:3000").rstrip("/")
-
     try:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
-            return_url=f"{base_url}/settings/billing",
+            return_url=f"{FRONTEND_URL}/settings/billing",
         )
         return {"ok": True, "portal_url": session.url}
     except Exception as e:
