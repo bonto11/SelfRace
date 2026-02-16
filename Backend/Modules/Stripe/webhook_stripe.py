@@ -24,11 +24,10 @@ async def stripe_webhook(request: Request):
     except ValueError as e:
         print("[STRIPE WEBHOOK] Invalid payload:", e)
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.SignatureVerificationError as e:  # TU JE TÁ ÚPRAVA
+    except stripe.SignatureVerificationError as e:
         print("[STRIPE WEBHOOK] Invalid signature:", e)
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # ✅ Použijeme tvoj service klient, ktorý obíde RLS
     sb = get_sb(service_ctx(caller="stripe_webhook"), caller="stripe_webhook")
 
     # --- 1. ZÁKAZNÍK ZAPLATIL ---
@@ -41,17 +40,28 @@ async def stripe_webhook(request: Request):
         stripe_customer_id = session.get('customer')
         stripe_subscription_id = session.get('subscription')
 
-        if user_id_str:
-            print(f"[STRIPE] Úspešná platba pre usera: {user_id_str}, Tier: {tier}")
+        if user_id_str and stripe_subscription_id:
             try:
+                # ✅ Vypýtame si od Stripeu presné údaje o platnosti tohto predplatného
+                stripe_sub = stripe.Subscription.retrieve(stripe_subscription_id)
+                
+                # Stripe vracia timestamp, my ho premeníme na databázový formát
+                period_start = datetime.fromtimestamp(stripe_sub["current_period_start"], tz=timezone.utc).isoformat()
+                period_end = datetime.fromtimestamp(stripe_sub["current_period_end"], tz=timezone.utc).isoformat()
+
                 sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
                     "tier_code": tier,
                     "status": "active",
                     "external_customer_id": stripe_customer_id,
                     "external_subscription_id": stripe_subscription_id,
+                    "current_period_start": period_start,
+                    "current_period_end": period_end,
                     "cancel_at_period_end": False,
+                    "meta": {"source": "stripe_checkout"},
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }).eq("user_id", int(user_id_str)).execute()
+                
+                print(f"[STRIPE] Úspešná platba pre usera: {user_id_str}, Tier: {tier}, Platí do: {period_end}")
             except Exception as e:
                 print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť usera {user_id_str}:", repr(e))
 
@@ -65,6 +75,7 @@ async def stripe_webhook(request: Request):
             sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
                 "tier_code": "free",
                 "status": "canceled",
+                "meta": {"source": "stripe_canceled"},
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("external_subscription_id", stripe_subscription_id).execute()
         except Exception as e:

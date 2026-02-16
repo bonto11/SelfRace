@@ -21,7 +21,6 @@ def create_checkout_session(
     req: Request
 ) -> Dict[str, Any]:
     
-    # Len overíme, že požiadavka má platný token (či je to reálny prihlásený človek)
     ctx = require_user(get_auth_ctx(req))
     
     price_id: str = "" 
@@ -43,8 +42,9 @@ def create_checkout_session(
                 "quantity": 1,
             }],
             mode="subscription",
-            success_url=f"{FRONTEND_URL}/settings/billing?status=success",
-            cancel_url=f"{FRONTEND_URL}/settings/billing?status=canceled",
+            # ✅ OPRAVENÁ NÁVRATOVÁ URL
+            success_url=f"{FRONTEND_URL}/account?status=success",
+            cancel_url=f"{FRONTEND_URL}/account?status=canceled",
             client_reference_id=str(user_id),
             metadata={
                 "user_id": str(user_id),
@@ -57,13 +57,11 @@ def create_checkout_session(
         print("[STRIPE] Chyba pri vytváraní checkoutu:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ Pridané {user_id} priamo do URL cesty
+
 @router.post("/create-portal-session/{user_id}")
 def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     
-    # Znova len skontrolujeme, že prišiel token
     ctx = require_user(get_auth_ctx(req))
-
     sb = get_sb(ctx, caller="create_portal_session")
     
     try:
@@ -78,7 +76,8 @@ def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     try:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
-            return_url=f"{FRONTEND_URL}/settings/billing",
+            # ✅ OPRAVENÁ NÁVRATOVÁ URL
+            return_url=f"{FRONTEND_URL}/account",
         )
         return {"ok": True, "portal_url": session.url}
     except Exception as e:

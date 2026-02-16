@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+// ✅ PRIDANÝ IMPORT PRE NÁVRAT ZO STRIPE
+import { useSearchParams, useRouter, usePathname } from "next/navigation"; 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
 
@@ -39,8 +41,12 @@ type PlannedChange = {
 export default function BillingPanel() {
   const { userId } = useUserId();
   const t = useT();
+  
+  // ✅ Nové hooky pre sledovanie URL parametrov po platbe
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  // ✅ BEZPEČNOSTNÝ ŠTÍT PRE SSR (Zabráni pádu servera)
   const [isMounted, setIsMounted] = useState(false);
 
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
@@ -57,10 +63,23 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
-  // Tento useEffect sa spustí LEN v prehliadači.
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // ✅ SPRACOVANIE NÁVRATU ZO STRIPE (TOASTY)
+  useEffect(() => {
+    if (!isMounted) return;
+    const paymentStatus = searchParams.get("status");
+    if (paymentStatus === "success") {
+      toast.success(t("billing.toasts.paymentSuccess") || "Platba prebehla úspešne! Vitaj v novom programe.");
+      // Vyčistenie URL (bez reloadu stránky)
+      router.replace(pathname, { scroll: false });
+    } else if (paymentStatus === "canceled") {
+      toast.error(t("billing.toasts.paymentCanceled") || "Proces platby bol zrušený.");
+      router.replace(pathname, { scroll: false });
+    }
+  }, [isMounted, searchParams, pathname, router, t]);
 
   useEffect(() => {
     if (!userId || !isMounted) {
@@ -96,16 +115,11 @@ export default function BillingPanel() {
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, t, isMounted]);
 
   useEffect(() => {
-    if (!userId || !isMounted) {
-      setHistory([]);
-      return;
-    }
+    if (!userId || !isMounted) { setHistory([]); return; }
     let alive = true;
     (async () => {
       setLoading((prev) => prev || "history");
@@ -113,15 +127,12 @@ export default function BillingPanel() {
         const h = await apiGetAppSubscriptionHistory(userId, 20);
         if (!alive) return;
         setHistory(h);
-      } catch {
-      } finally {
+      } catch { } finally {
         if (!alive) return;
         setLoading(null);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, isMounted]);
 
   async function handleSetTier(tierCode: string) {
@@ -135,13 +146,11 @@ export default function BillingPanel() {
     setError(null);
     try {
       if (tierCode === "free" && activeTierCode !== "free") {
-        // ✅ Pridané userId
         const url = await apiCreateStripePortal(userId);
         window.location.href = url;
         return;
       }
-
-      // ✅ Pridané userId
+      
       const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
@@ -159,7 +168,6 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      // ✅ Pridané userId
       const url = await apiCreateStripePortal(userId);
       window.location.href = url;
     } catch (e: any) {
@@ -174,36 +182,25 @@ export default function BillingPanel() {
   const previewText = useMemo(() => {
     if (!userId) return t("billing.status.notLoggedIn");
     if (loading === "status" && !status) return t("billing.status.loading");
-
+    
     const tier = status?.tier_code || activeTierCode || "free";
-    const parts: string[] = [
-      `${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`,
-    ];
-
+    const parts: string[] = [`${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`];
+    
     if (plannedChange?.kind) {
       const kindLabel = t(`billing.planned.kinds.${plannedChange.kind}`);
-      const toTier = plannedChange.to_tier_code
-        ? plannedChange.to_tier_code.toUpperCase()
-        : "FREE";
-      const when = plannedChange.effective_from
-        ? plannedChange.effective_from.slice(0, 10)
-        : null;
-      parts.push(
-        `${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`,
-      );
+      const toTier = plannedChange.to_tier_code ? plannedChange.to_tier_code.toUpperCase() : "FREE";
+      const when = plannedChange.effective_from ? plannedChange.effective_from.slice(0, 10) : null;
+      parts.push(`${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
     }
-
+    
     const quota = (status as any)?.ai_quota as any;
     if (quota?.monthly_limit_tokens > 0) {
-      const pct = Math.round(
-        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100,
-      );
+      const pct = Math.round((quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100);
       parts.push(`AI: ~${pct}%`);
     }
     return parts.join(" • ");
   }, [userId, loading, status, activeTierCode, plannedChange, t]);
 
-  // ✅ AK EŠTE NIE SME V PREHLIADAČI (SSR) vrátime len bezpečnú škrupinu
   if (!isMounted) {
     return (
       <InputsCard
@@ -232,9 +229,7 @@ export default function BillingPanel() {
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         {!userId ? (
-          <div className="text-sm opacity-80">
-            {t("billing.notLoggedInDesc")}
-          </div>
+          <div className="text-sm opacity-80">{t("billing.notLoggedInDesc")}</div>
         ) : (
           <>
             <BillingStatusCard
@@ -249,12 +244,8 @@ export default function BillingPanel() {
 
             <div className={PANEL_STACK}>
               <section>
-                <div className="text-sm font-semibold">
-                  {t("billing.sections.tiers")}
-                </div>
-                <div className="mt-1 text-xs opacity-75">
-                  {t("billing.devModeNote")}
-                </div>
+                <div className="text-sm font-semibold">{t("billing.sections.tiers")}</div>
+                <div className="mt-1 text-xs opacity-75">{t("billing.devModeNote")}</div>
                 <div className="mt-2">
                   <BillingTierSelector
                     tiers={tiers}
@@ -267,9 +258,7 @@ export default function BillingPanel() {
               </section>
 
               <section>
-                <div className="text-sm font-semibold">
-                  {t("billing.sections.history")}
-                </div>
+                <div className="text-sm font-semibold">{t("billing.sections.history")}</div>
                 <div className="mt-2">
                   <BillingHistory history={history} />
                 </div>

@@ -442,9 +442,11 @@ export const sk = {
           other: "Iné",
         },
         severityLevels: {
-          "mild": "Mierne pobolievanie. Cítiš to, ale neobmedzuje ťa to. Tréner mierne upraví záťaž.",
-          "moderate": "Bolesť ťa núti meniť techniku alebo skracovať tréning. Tréner naordinuje aktívnu regeneráciu.",
-          "critical": "Ostrá bolesť, nemôžeš trénovať. Tréner zruší športový plán a odporučí lekára."
+          mild: "Mierne pobolievanie. Cítiš to, ale neobmedzuje ťa to. Tréner mierne upraví záťaž.",
+          moderate:
+            "Bolesť ťa núti meniť techniku alebo skracovať tréning. Tréner naordinuje aktívnu regeneráciu.",
+          critical:
+            "Ostrá bolesť, nemôžeš trénovať. Tréner zruší športový plán a odporučí lekára.",
         },
         widget: {
           title: "Zranenia a riziká",
@@ -914,8 +916,10 @@ export const sk = {
       labelSessions: "Tréningové jednotky",
       moreSessions: "ďalšie tréningy",
       medicalTitle: "Plán pozastavený",
-      medicalText: "Zaznamenali sme vážne zranenie ({{severity}}/10). Tvoj tréningový plán je nateraz deaktivovaný.",
-      medicalAction: "Po schválení lekárom zmaž zranenie v nastaveniach pre obnovu plánu.",
+      medicalText:
+        "Zaznamenali sme vážne zranenie ({{severity}}/10). Tvoj tréningový plán je nateraz deaktivovaný.",
+      medicalAction:
+        "Po schválení lekárom zmaž zranenie v nastaveniach pre obnovu plánu.",
     },
   },
 
@@ -946,16 +950,17 @@ export const sk = {
       ].join("\n"),
       note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
       status: {
-      medicalSuspend: "PLÁN POZASTAVENÝ (ZRANENIE)"
-    },
-    errors: {
-      medicalBlocked: "Generovanie je zablokované kvôli vážnemu zraneniu. Najprv sa vylieč."
-    },
-    medicalSuspendBanner: {
-      title: "Tréningový stop-stav",
-      text: "Tvoj plán bol pozastavený kvôli nahlásenej bolesti ({{severity}}/10).",
-      action: "Zmaž zranenie v profile až po súhlase lekára."
-    }
+        medicalSuspend: "PLÁN POZASTAVENÝ (ZRANENIE)",
+      },
+      errors: {
+        medicalBlocked:
+          "Generovanie je zablokované kvôli vážnemu zraneniu. Najprv sa vylieč.",
+      },
+      medicalSuspendBanner: {
+        title: "Tréningový stop-stav",
+        text: "Tvoj plán bol pozastavený kvôli nahlásenej bolesti ({{severity}}/10).",
+        action: "Zmaž zranenie v profile až po súhlase lekára.",
+      },
     },
     status: {
       active: "Aktívny plán ✓",
@@ -1849,17 +1854,21 @@ export const sk = {
     errors: {
       loadStatus: "Nepodarilo sa načítať stav predplatného.",
       missingTier: "Nebola vybraná žiadna úroveň predplatného.",
-      checkoutSessionFailed: "Nepodarilo sa vytvoriť platobnú bránu Stripe. Skúste to prosím neskôr.",
-      portalSessionFailed: "Nepodarilo sa otvoriť zákaznícky portál Stripe. Skúste to prosím neskôr.",
+      checkoutSessionFailed:
+        "Nepodarilo sa vytvoriť platobnú bránu Stripe. Skúste to prosím neskôr.",
+      portalSessionFailed:
+        "Nepodarilo sa otvoriť zákaznícky portál Stripe. Skúste to prosím neskôr.",
       fetchTiersFailed: "Nepodarilo sa načítať ponuku predplatného.",
       loadStatusFailed: "Nepodarilo sa načítať aktuálny stav predplatného.",
       loadHistoryFailed: "Nepodarilo sa načítať históriu platieb.",
       tierChangeFailed: "Nepodarilo sa zmeniť úroveň predplatného.",
-      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného."
+      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného.",
     },
     toasts: {
       tierChanged: "Program bol úspešne zmenený.",
       plannedChangeCancelled: "Plánovaná zmena bola zrušená.",
+      paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
+      paymentCanceled: "Proces platby bol zrušený."
     },
     status: {
       notLoggedIn: "Neprihlásený.",
