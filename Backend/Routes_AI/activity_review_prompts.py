@@ -4,17 +4,51 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional, Tuple, Any
 
+# 👇 Naše známe čistítko
+def _remove_empty(d: Any) -> Any:
+    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
+    if isinstance(d, dict):
+        cleaned = {k: _remove_empty(v) for k, v in d.items()}
+        return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
+    elif isinstance(d, list):
+        cleaned = [_remove_empty(v) for v in d]
+        return [v for v in cleaned if v is not None and v != [] and v != {}]
+    return d
+
+
+# 👇 Upravený minifikátor pre Activity Review
 def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict): return {}
     out = json.loads(json.dumps(context, default=str))
+    
+    # 1. Čistenie používateľa
     u = out.get("user")
     if isinstance(u, dict):
         for k in ("id", "email", "name"): u.pop(k, None)
     out.pop("_debug", None)
+    
+    # 2. Čistenie hlavnej aktivity
     act = out.get("activity")
     if isinstance(act, dict):
-        for k in ("name", "external_id"): act.pop(k, None)
-    return out
+        for k in ("name", "external_id", "activity_id"): act.pop(k, None)
+    
+    # 3. MASÍVNE ŠETRENIE: Odstránime history staršiu ako 7 dní (nepotrebuje ju)
+    history = out.get("history", {})
+    if isinstance(history, dict):
+        history.pop("days_8_14", None)
+        # Z dní 0-7 vyhodíme prázdne štruktúry a id-čka
+        days_0_7 = history.get("days_0_7", [])
+        for day in days_0_7:
+            day.pop("activity_id", None)
+    
+    # 4. MASÍVNE ŠETRENIE 2: Vyhodíme recent_load (je to duplicitné s history a zbytočne dlhé)
+    ctx_block = out.get("context", {})
+    if isinstance(ctx_block, dict):
+        ctx_block.pop("recent_load", None)
+        ctx_block.pop("hr_zones_bpm", None) # Používame user_zones, toto je duplikát
+    
+    # ✅ Všetko prebehneme odstraňovačom null hodnôt
+    return _remove_empty(out)
 
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     lang = (settings.get("language") or "sk").lower()

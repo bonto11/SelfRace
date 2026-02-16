@@ -270,12 +270,20 @@ def _build_activity_block_from_rows(
             "elevation_gain_m": _to_int(elev_gain_m), "cadence_avg": cadence_avg,
         },
     }
+    
+    # ✅ ŠETRENIE TOKENOV: Prevedieme minúty v Z1-Z5 na jedno slovo
     if include_zones:
-        out["zones_min"] = {
-            "z1": _round_float(enr_row.get("z1_min"), 1), "z2": _round_float(enr_row.get("z2_min"), 1),
-            "z3": _round_float(enr_row.get("z3_min"), 1), "z4": _round_float(enr_row.get("z4_min"), 1),
-            "z5": _round_float(enr_row.get("z5_min"), 1)
-        }
+        z45 = (_round_float(enr_row.get("z4_min")) or 0) + (_round_float(enr_row.get("z5_min")) or 0)
+        z12 = (_round_float(enr_row.get("z1_min")) or 0) + (_round_float(enr_row.get("z2_min")) or 0)
+        
+        intensity = "easy"
+        if z45 > 5:
+            intensity = "hard"
+        elif z45 > 0 or (dur_min and z12 < (dur_min * 0.8)):
+            intensity = "moderate"
+            
+        out["intensity"] = intensity # Namiesto celého dict zón pošleme len toto
+
     return out
 
 def _coarsen_activity(item: Dict[str, Any]) -> Dict[str, Any]:
