@@ -7,6 +7,18 @@ from typing import Any, Dict, List, Optional, Tuple
 from Modules.Supabase.auth import AuthCtx
 
 
+# 👇 Pridaj túto pomocnú funkciu tesne nad `minify_analyze_context_for_ai`
+def _remove_empty(d: Any) -> Any:
+    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
+    if isinstance(d, dict):
+        cleaned = {k: _remove_empty(v) for k, v in d.items()}
+        return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
+    elif isinstance(d, list):
+        cleaned = [_remove_empty(v) for v in d]
+        return [v for v in cleaned if v is not None and v != [] and v != {}]
+    return d
+
+# 👇 Tu je upravená funkcia minify_analyze_context_for_ai
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Minifikácia CoachAnalyzeInput pre LLM:
@@ -69,8 +81,8 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(it, dict):
                 continue
             it2 = dict(it)
-            it2["activity_id"] = None
-            it2["name"] = None
+            it2.pop("activity_id", None)
+            it2.pop("name", None)
             if "date" in it2:
                 it2["date"] = _rel_day_label(it2.get("date"))
             cleaned.append(it2)
@@ -86,7 +98,112 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "timezone": us.get("timezone"),
         }
 
-    return out
+    # ✅ APLIKOVANIE ČISTIČA: Vyhodí všetky null a prázdne listy
+    return _remove_empty(out)
+
+
+# 👇 Pridaj tento pomocník tesne nad `build_prompts_for_progress`
+def _minify_state_for_progress(state: dict) -> dict:
+    """Ponechá len podstatné dáta pre porovnanie (zahodí trace, timestampy, schema_version atď.)"""
+    if not isinstance(state, dict):
+        return {}
+    minified = {
+        "ai_state": state.get("ai_state"),
+        "user_summary": state.get("user_summary")
+    }
+    return _remove_empty(minified)
+
+
+# 👇 Upravená funkcia build_prompts_for_progress
+def build_prompts_for_progress(
+    previous_state: dict,
+    current_state: dict,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+    ctx:AuthCtx,
+) -> Tuple[str, str]:
+    settings = settings or {}
+    lang_label, second_person_note = _lang_notes(settings)
+
+    # ✅ OSEKANÝ PAYLOAD: AI už nedostane zbytočný balast, iba to, čo sa reálne zmenilo
+    context_for_llm = {
+        "previous_state": _minify_state_for_progress(previous_state),
+        "current_state": _minify_state_for_progress(current_state),
+        "user_settings": {
+            "language": settings.get("language"),
+            "timezone": settings.get("timezone"),
+        },
+    }
+
+    system_txt = (
+        "You are an endurance coaching assistant that compares two athlete state JSON objects. "
+        "Return a SINGLE valid JSON object describing meaningful changes. "
+        "Do NOT output prose or code fences, only JSON."
+    )
+
+    schema_text = f"""
+{{
+  "schema_version": 1,
+  "generated_at": "ISO-8601 timestamp with timezone offset",
+  "model": "string (your model name)",
+  "summary": {{
+    "headline": "1 sentence in {lang_label}, 2nd person",
+    "bullets": string[]
+  }},
+  "comparisons": {{
+    "fatigue_level": {{
+      "previous": "low" | "moderate" | "high" | null,
+      "current": "low" | "moderate" | "high" | null,
+      "comment": string | null
+    }},
+    "injury_risk": {{
+      "previous": "low" | "moderate" | "high" | null,
+      "current": "low" | "moderate" | "high" | null,
+      "comment": string | null
+    }},
+    "block_kind": {{
+      "previous": string | null,
+      "current": string | null,
+      "comment": string | null
+    }},
+    "fitness_level": {{
+      "run": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
+      "ride": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
+      "strength": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null
+    }},
+    "volume_tolerance": {{
+      "previous_weekly_minutes_min": number | null,
+      "previous_weekly_minutes_max": number | null,
+      "current_weekly_minutes_min": number | null,
+      "current_weekly_minutes_max": number | null,
+      "comment": string | null
+    }},
+    "plan_adjustment": {{
+      "soften_change": string | null,
+      "weekly_replan_change": string | null
+    }}
+  }},
+  "recommendations": {{
+    "celebrations": string[],
+    "risks_to_watch": string[],
+    "focus_next_weeks": string[]
+  }}
+}}
+""".strip()
+
+    user_txt = (
+        "Compare previous_state vs current_state and fill the schema.\n\n"
+        "CONTEXT_JSON:\n"
+        + json.dumps(context_for_llm, ensure_ascii=False)
+        + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
+        + schema_text
+        + "\n\nHard requirements:\n"
+        "- Always return exactly one JSON object matching the schema.\n"
+        f"- All free text MUST be written in {lang_label}.\n"
+        f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
+    )
+
+    return system_txt, user_txt
 
 
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
@@ -206,96 +323,6 @@ def build_prompts_for_analyze(
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- If prefs.volume is defined, set weekly_minutes_min/max around it (roughly 70–120%) adjusted by recovery.\n"
         "- Keep numbers realistic.\n"
-    )
-
-    return system_txt, user_txt
-
-
-def build_prompts_for_progress(
-    previous_state: dict,
-    current_state: dict,
-    *,
-    settings: Optional[Dict[str, Any]] = None,
-    ctx:AuthCtx,
-) -> Tuple[str, str]:
-    settings = settings or {}
-    lang_label, second_person_note = _lang_notes(settings)
-
-    context_for_llm = {
-        "previous_state": previous_state or {},
-        "current_state": current_state or {},
-        "user_settings": {
-            "language": settings.get("language"),
-            "timezone": settings.get("timezone"),
-        },
-    }
-
-    system_txt = (
-        "You are an endurance coaching assistant that compares two athlete state JSON objects. "
-        "Return a SINGLE valid JSON object describing meaningful changes. "
-        "Do NOT output prose or code fences, only JSON."
-    )
-
-    schema_text = f"""
-{{
-  "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name)",
-  "summary": {{
-    "headline": "1 sentence in {lang_label}, 2nd person",
-    "bullets": string[]
-  }},
-  "comparisons": {{
-    "fatigue_level": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "injury_risk": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "block_kind": {{
-      "previous": string | null,
-      "current": string | null,
-      "comment": string | null
-    }},
-    "fitness_level": {{
-      "run": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
-      "ride": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
-      "strength": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null
-    }},
-    "volume_tolerance": {{
-      "previous_weekly_minutes_min": number | null,
-      "previous_weekly_minutes_max": number | null,
-      "current_weekly_minutes_min": number | null,
-      "current_weekly_minutes_max": number | null,
-      "comment": string | null
-    }},
-    "plan_adjustment": {{
-      "soften_change": string | null,
-      "weekly_replan_change": string | null
-    }}
-  }},
-  "recommendations": {{
-    "celebrations": string[],
-    "risks_to_watch": string[],
-    "focus_next_weeks": string[]
-  }}
-}}
-""".strip()
-
-    user_txt = (
-        "Compare previous_state vs current_state and fill the schema.\n\n"
-        "CONTEXT_JSON:\n"
-        + json.dumps(context_for_llm, ensure_ascii=False)
-        + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
-        + schema_text
-        + "\n\nHard requirements:\n"
-        "- Always return exactly one JSON object matching the schema.\n"
-        f"- All free text MUST be written in {lang_label}.\n"
-        f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
     )
 
     return system_txt, user_txt

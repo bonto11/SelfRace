@@ -175,7 +175,6 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
     return out
 
-
 def build_last_activities_block_for_analysis(
     user_id: int,
     *,
@@ -264,25 +263,29 @@ def build_last_activities_block_for_analysis(
 
         enr = enr_by_id.get(aid, {})
 
+        # ✅ OPTIMALIZÁCIA PRE AI: Namiesto 5 rôznych float hodnôt (Z1-Z5), 
+        # pošleme len jeden string s intenzitou, čo radikálne šetrí tokeny.
+        z45 = (_to_float(enr.get("z4_min")) or 0.0) + (_to_float(enr.get("z5_min")) or 0.0)
+        z12 = (_to_float(enr.get("z1_min")) or 0.0) + (_to_float(enr.get("z2_min")) or 0.0)
+        
+        intensity = "easy"
+        if z45 > 5:  # ak bol vo vysokej tepovke viac ako 5 min
+            intensity = "hard"
+        elif z45 > 0 or (dur_min and z12 < (dur_min * 0.8)):
+            intensity = "moderate"
+
         out.append(
             {
-                "activity_id": None,
                 "date": _rel_day_label(date_str),
                 "sport": sport,
-                "name": None,
-                "duration_min": dur_min,
-                "distance_km": dist_km,
+                "duration_min": round(dur_min) if dur_min else None,
+                "distance_km": round(dist_km, 2) if dist_km else None,
                 "avg_hr": avg_hr,
-                "z1_min": _to_float(enr.get("z1_min")),
-                "z2_min": _to_float(enr.get("z2_min")),
-                "z3_min": _to_float(enr.get("z3_min")),
-                "z4_min": _to_float(enr.get("z4_min")),
-                "z5_min": _to_float(enr.get("z5_min")),
+                "intensity": intensity, # 👈 Tu je ten hlavný rozdiel
             }
         )
 
     return out
-
 
 def build_base_input(user_id: int) -> Dict[str, Any]:
     return {
