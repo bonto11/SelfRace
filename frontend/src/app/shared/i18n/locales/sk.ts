@@ -1841,90 +1841,31 @@ export const sk = {
     },
   },
   billing: {
-    title: "Predplatné",
-    subtitle: "Správa vášho programu, AI limity a história.",
-    notLoggedInDesc:
-      "Musíš byť prihlásený, aby si videl nastavenia predplatného.",
-    devModeNote:
-      "DEV režim: zvýšenie hneď, zníženie alebo prechod na FREE od ďalšieho obdobia.",
+    title: "Predplatné a platby",
+    subtitle: "Správa tvojho plánu",
+    devModeNote: "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
+    notLoggedInDesc: "Pre správu predplatného sa najskôr prihlás.",
     sections: {
-      tiers: "Dostupné programy",
-      history: "História predplatného",
-    },
-    errors: {
-      loadStatus: "Nepodarilo sa načítať stav predplatného.",
-      missingTier: "Nebola vybraná žiadna úroveň predplatného.",
-      checkoutSessionFailed:
-        "Nepodarilo sa vytvoriť platobnú bránu Stripe. Skúste to prosím neskôr.",
-      portalSessionFailed:
-        "Nepodarilo sa otvoriť zákaznícky portál Stripe. Skúste to prosím neskôr.",
-      fetchTiersFailed: "Nepodarilo sa načítať ponuku predplatného.",
-      loadStatusFailed: "Nepodarilo sa načítať aktuálny stav predplatného.",
-      loadHistoryFailed: "Nepodarilo sa načítať históriu platieb.",
-      tierChangeFailed: "Nepodarilo sa zmeniť úroveň predplatného.",
-      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného.",
-    },
-    toasts: {
-      tierChanged: "Program bol úspešne zmenený.",
-      plannedChangeCancelled: "Plánovaná zmena bola zrušená.",
-      paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
-      paymentCanceled: "Proces platby bol zrušený."
+      tiers: "Dostupné plány",
+      history: "História platieb"
     },
     status: {
-      notLoggedIn: "Neprihlásený.",
-      loading: "Načítavam stav predplatného…",
-      tierPrefix: "Program",
-      cardTitle: "Stav predplatného",
-      cardSubtitle: "Aktuálny mód aplikácie a AI limity.",
-      currentTierLabel: "Aktuálny program",
-      label: "Stav",
-      cancelAtEnd: "zruší sa na konci obdobia",
-      billingPeriod: "Fakturačné obdobie",
-      noActiveMember:
-        "Nemáš aktívne platené členstvo. Používaš bezplatnú verziu.",
+      notLoggedIn: "Neprihlásený",
+      loading: "Načítavam...",
+      tierPrefix: "Aktuálny plán"
     },
     planned: {
-      previewLabel: "Plán",
-      cancelTitle: "Naplánované zrušenie",
-      downgradeTitle: "Naplánované zníženie",
-      toTier: "na",
-      fromDate: "od",
-      keepingCurrent: "Ponechávam…",
-      keepCurrentBtn: "Ponechať aktuálny program",
+      previewLabel: "Plánovaná zmena",
       kinds: {
-        upgrade: "zvýšenie",
-        downgrade: "zníženie",
-        cancel: "zrušenie",
-      },
+        cancel: "Zrušenie",
+        downgrade: "Zníženie",
+        upgrade: "Zvýšenie"
+      }
     },
-    tiers: {
-      noTiersConfigured: "Zatiaľ nie sú nakonfigurované žiadne programy.",
-      free: "Zdarma",
-      currencySuffix: "€ / mesiac",
-      aiLimitLabel: "AI limit",
-      tokensPerMonth: "tokenov / mesiac",
-      badgeCurrent: "aktuálny",
-      badgePlanned: "naplánované",
-      btnSelect: "Zvoliť program",
-      btnCurrent: "Aktuálny program",
-      btnWillCancel: "Zruší sa",
-      btnCancelPlanned: "Zrušenie je naplánované",
-      btnWillDowngrade: "Zníži sa",
-      btnDowngradePlanned: "Zníženie je naplánované",
-      btnPlanCancel: "Naplánovať zrušenie",
-      btnPlanDowngrade: "Naplánovať zníženie",
-      btnUpgradeNow: "Zvýšiť teraz",
-    },
-    history: {
-      noRecords: "Zatiaľ žiadne záznamy o predplatnom.",
-    },
-    usage: {
-      title: "Použitie AI tento mesiac",
-      tokensUnit: "tokenov",
-      summary: "Využitých ~{{pct}}% mesačného limitu.",
-      reset: "Reset",
-      noLimitDefined: "Pre tento program nie je definovaný AI limit.",
-    },
+    toasts: {
+      paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
+      paymentCanceled: "Proces platby bol zrušený."
+    }
   },
   sessions: {
     review: {
@@ -2056,5 +1997,23 @@ export const sk = {
     pickDateFirst: "Najprv vyberte dátum",
     noActivity: "— žiadna aktivita —",
     helpText: "Načítané podľa dátumu (±{{days}} dňa) a športu: {{sports}}.",
+  },
+  api: {
+    common: {
+      missingUserAuth: "Pre túto akciu musíš byť prihlásený.",
+      fetchFailed: "Nepodarilo sa načítať dáta zo servera.",
+      unknownError: "Vyskytla sa neznáma chyba.",
+    },
+    billing: {
+      missingTier: "Nebol zvolený žiadny plán.",
+      checkoutSessionFailed: "Nepodarilo sa vytvoriť platobnú reláciu. Skús to znova.",
+      portalSessionFailed: "Nepodarilo sa otvoriť správu predplatného.",
+      tierChangeFailed: "Zmena predplatného zlyhala.",
+      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného.",
+      loadStatusFailed: "Nepodarilo sa zistiť stav tvojho predplatného.",
+      loadHistoryFailed: "Nepodarilo sa načítať históriu platieb."
+    }
+    // Tu si potom neskôr pridáš:
+    // activities: { syncFailed: "...", ... }
   },
 } as const;

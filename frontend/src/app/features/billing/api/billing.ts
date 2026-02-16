@@ -13,15 +13,14 @@ import type {
 } from "@/app/features/billing/types/billing";
 
 /* ---------- STRIPE API helpers ---------- */
-// ✅ Doplnený parameter userId
+
 export async function apiCreateStripeCheckout(
   userId: number,
   tier: string,
 ): Promise<string> {
-  if (!userId) throw new Error("common.errors.missingUserAuth");
-  if (!tier) throw new Error("billing.errors.missingTier");
+  if (!userId) throw new Error("api.common.missingUserAuth");
+  if (!tier) throw new Error("api.billing.missingTier");
 
-  // Vkladáme userId do URL!
   const path = `/billingStripe/create-checkout-session/${encodeURIComponent(String(userId))}`;
 
   try {
@@ -37,21 +36,19 @@ export async function apiCreateStripeCheckout(
     });
 
     if (!json?.ok || !json?.checkout_url) {
-      throw new Error("billing.errors.checkoutSessionFailed");
+      throw new Error("api.billing.checkoutSessionFailed");
     }
 
     return json.checkout_url;
   } catch (err: any) {
     console.error("[Billing][apiCreateStripeCheckout] ERROR", err);
-    throw new Error("billing.errors.checkoutSessionFailed");
+    throw new Error("api.billing.checkoutSessionFailed");
   }
 }
 
-// ✅ Doplnený parameter userId
 export async function apiCreateStripePortal(userId: number): Promise<string> {
-  if (!userId) throw new Error("common.errors.missingUserAuth");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  // Vkladáme userId do URL!
   const path = `/billingStripe/create-portal-session/${encodeURIComponent(String(userId))}`;
 
   try {
@@ -66,20 +63,19 @@ export async function apiCreateStripePortal(userId: number): Promise<string> {
     });
 
     if (!json?.ok || !json?.portal_url) {
-      throw new Error("billing.errors.portalSessionFailed");
+      throw new Error("api.billing.portalSessionFailed");
     }
 
     return json.portal_url;
   } catch (err: any) {
     console.error("[Billing][apiCreateStripePortal] ERROR", err);
-    throw new Error("billing.errors.portalSessionFailed");
+    throw new Error("api.billing.portalSessionFailed");
   }
 }
+
 /* ---------- APP BILLING API helpers ---------- */
 
-export async function apiListAppSubscriptionTiers(): Promise<
-  AppSubscriptionTier[]
-> {
+export async function apiListAppSubscriptionTiers(): Promise<AppSubscriptionTier[]> {
   const path = `/app/subscription/tiers`;
 
   try {
@@ -90,20 +86,20 @@ export async function apiListAppSubscriptionTiers(): Promise<
     });
 
     if (!json?.success) {
-      throw new Error("billing.errors.fetchTiersFailed");
+      throw new Error("api.common.fetchFailed");
     }
 
     return json.items ?? [];
   } catch (err: any) {
     console.error("[Billing][apiListAppSubscriptionTiers] ERROR", err);
-    throw new Error("billing.errors.fetchTiersFailed");
+    throw new Error("api.common.fetchFailed");
   }
 }
 
 export async function apiGetAppSubscriptionStatus(
   userId: number,
 ): Promise<AppSubscriptionStatus | null> {
-  if (!userId) throw new Error("common.errors.missingUser");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/app/subscription/status/${encodeURIComponent(String(userId))}`;
 
@@ -115,13 +111,13 @@ export async function apiGetAppSubscriptionStatus(
     });
 
     if (!json?.success) {
-      throw new Error("billing.errors.loadStatusFailed");
+      throw new Error("api.common.fetchFailed");
     }
 
     return json.status ?? null;
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
-    throw new Error("billing.errors.loadStatusFailed");
+    throw new Error("api.common.fetchFailed");
   }
 }
 
@@ -129,7 +125,7 @@ export async function apiGetAppSubscriptionHistory(
   userId: number,
   limit = 20,
 ): Promise<AppUserSubscription[]> {
-  if (!userId) throw new Error("common.errors.missingUser");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/app/subscription/history/${encodeURIComponent(String(userId))}?limit=${encodeURIComponent(String(limit))}`;
 
@@ -141,26 +137,25 @@ export async function apiGetAppSubscriptionHistory(
     });
 
     if (!json?.success) {
-      throw new Error("billing.errors.loadHistoryFailed");
+      throw new Error("api.common.fetchFailed");
     }
 
     return json.items ?? [];
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionHistory] ERROR", err);
-    throw new Error("billing.errors.loadHistoryFailed");
+    throw new Error("api.common.fetchFailed");
   }
 }
 
 /**
- * DEV helper – manuálne prepnutie tieru (bez reálnej platby).
- * Už sa v produkcii pravdepodobne nahradí Stripe Checkoutom.
+ * DEV helper – manuálne prepnutie tieru
  */
 export async function apiSetAppSubscriptionTierManual(
   userId: number,
   tierCode: string,
 ): Promise<SetTierResponse> {
-  if (!userId) throw new Error("common.errors.missingUser");
-  if (!tierCode) throw new Error("billing.errors.missingTier");
+  if (!userId) throw new Error("api.common.missingUserAuth");
+  if (!tierCode) throw new Error("api.billing.missingTier");
 
   const path = `/app/subscription/set-tier/${encodeURIComponent(String(userId))}`;
 
@@ -173,24 +168,23 @@ export async function apiSetAppSubscriptionTierManual(
     });
 
     if (!json?.success) {
-      throw new Error("billing.errors.tierChangeFailed");
+      throw new Error("api.billing.tierChangeFailed");
     }
 
     return json;
   } catch (err: any) {
     console.error("[Billing][apiSetAppSubscriptionTierManual] ERROR", err);
-    throw new Error("billing.errors.tierChangeFailed");
+    throw new Error("api.billing.tierChangeFailed");
   }
 }
 
 /**
  * DEV helper - zrušenie zmeny.
- * V produkcii sa bude riešiť cez Stripe Portal.
  */
 export async function apiCancelPlannedSubscriptionChange(
   userId: number,
 ): Promise<CancelPlannedResponse> {
-  if (!userId) throw new Error("common.errors.missingUser");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/app/subscription/cancel-scheduled/${encodeURIComponent(String(userId))}`;
 
@@ -202,12 +196,12 @@ export async function apiCancelPlannedSubscriptionChange(
     });
 
     if (!json?.success) {
-      throw new Error("billing.errors.cancelPlannedFailed");
+      throw new Error("api.billing.cancelPlannedFailed");
     }
 
     return json;
   } catch (err: any) {
     console.error("[Billing][apiCancelPlannedSubscriptionChange] ERROR", err);
-    throw new Error("billing.errors.cancelPlannedFailed");
+    throw new Error("api.billing.cancelPlannedFailed");
   }
 }

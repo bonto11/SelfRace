@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-// ✅ PRIDANÝ IMPORT PRE NÁVRAT ZO STRIPE
 import { useSearchParams, useRouter, usePathname } from "next/navigation"; 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -42,7 +41,6 @@ export default function BillingPanel() {
   const { userId } = useUserId();
   const t = useT();
   
-  // ✅ Nové hooky pre sledovanie URL parametrov po platbe
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -67,16 +65,15 @@ export default function BillingPanel() {
     setIsMounted(true);
   }, []);
 
-  // ✅ SPRACOVANIE NÁVRATU ZO STRIPE (TOASTY)
+  // SPRACOVANIE NÁVRATU ZO STRIPE (TOASTY)
   useEffect(() => {
     if (!isMounted) return;
     const paymentStatus = searchParams.get("status");
     if (paymentStatus === "success") {
-      toast.success(t("billing.toasts.paymentSuccess") || "Platba prebehla úspešne! Vitaj v novom programe.");
-      // Vyčistenie URL (bez reloadu stránky)
+      toast.success(t("billing.toasts.paymentSuccess"));
       router.replace(pathname, { scroll: false });
     } else if (paymentStatus === "canceled") {
-      toast.error(t("billing.toasts.paymentCanceled") || "Proces platby bol zrušený.");
+      toast.error(t("billing.toasts.paymentCanceled"));
       router.replace(pathname, { scroll: false });
     }
   }, [isMounted, searchParams, pathname, router, t]);
@@ -108,7 +105,7 @@ export default function BillingPanel() {
         }
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.message || t("billing.errors.loadStatus"));
+        setError(t(e?.message) || t("api.common.fetchFailed"));
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -137,7 +134,7 @@ export default function BillingPanel() {
 
   async function handleSetTier(tierCode: string) {
     if (!userId) {
-      toast.error(t("common.errors.missingUserAuth"));
+      toast.error(t("api.common.missingUserAuth"));
       return;
     }
     if (!tierCode) return;
@@ -154,7 +151,7 @@ export default function BillingPanel() {
       const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
-      const msg = e?.message || t("billing.errors.tierChangeFailed");
+      const msg = t(e?.message) || t("api.billing.tierChangeFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -171,7 +168,7 @@ export default function BillingPanel() {
       const url = await apiCreateStripePortal(userId);
       window.location.href = url;
     } catch (e: any) {
-      const msg = e?.message || t("billing.errors.cancelPlannedFailed");
+      const msg = t(e?.message) || t("api.billing.cancelPlannedFailed");
       setError(msg);
       toast.error(msg);
     } finally {
