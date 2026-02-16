@@ -50,9 +50,12 @@ export default function BillingPanel() {
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTierCode, setActiveTierCode] = useState<string>(
-    () => getSubscriptionTier() || "free"
-  );
+  const [activeTierCode, setActiveTierCode] = useState<string>(() => {
+    // Bezpečný SSR check - ak sme na serveri, vrátime "free"
+    if (typeof window === "undefined") return "free";
+    // Ak sme v prehliadači, prečítame to zo store/localStorage
+    return getSubscriptionTier() || "free";
+  });
 
   const [open, setOpen] = useState(false);
 
@@ -192,19 +195,29 @@ export default function BillingPanel() {
     if (loading === "status" && !status) return t("billing.status.loading");
 
     const tier = status?.tier_code || activeTierCode || "free";
-    const parts: string[] = [`${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`];
+    const parts: string[] = [
+      `${t("billing.status.tierPrefix")}: ${tier.toUpperCase()}`,
+    ];
 
     if (plannedChange?.kind) {
       const kindLabel = t(`billing.planned.kinds.${plannedChange.kind}`);
-      const toTier = plannedChange.to_tier_code ? plannedChange.to_tier_code.toUpperCase() : "FREE";
-      const when = plannedChange.effective_from ? plannedChange.effective_from.slice(0, 10) : null;
+      const toTier = plannedChange.to_tier_code
+        ? plannedChange.to_tier_code.toUpperCase()
+        : "FREE";
+      const when = plannedChange.effective_from
+        ? plannedChange.effective_from.slice(0, 10)
+        : null;
 
-      parts.push(`${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`);
+      parts.push(
+        `${t("billing.planned.previewLabel")}: ${kindLabel} → ${toTier}${when ? ` (${when})` : ""}`,
+      );
     }
 
     const quota = (status as any)?.ai_quota as any;
     if (quota?.monthly_limit_tokens > 0) {
-      const pct = Math.round((quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100);
+      const pct = Math.round(
+        (quota.used_tokens_this_month / quota.monthly_limit_tokens) * 100,
+      );
       parts.push(`AI: ~${pct}%`);
     }
 
@@ -240,7 +253,9 @@ export default function BillingPanel() {
 
             <div className={PANEL_STACK}>
               <section>
-                <div className="text-sm font-semibold">{t("billing.sections.tiers")}</div>
+                <div className="text-sm font-semibold">
+                  {t("billing.sections.tiers")}
+                </div>
                 <div className="mt-1 text-xs opacity-75">
                   {t("billing.devModeNote")}
                 </div>
@@ -257,7 +272,9 @@ export default function BillingPanel() {
               </section>
 
               <section>
-                <div className="text-sm font-semibold">{t("billing.sections.history")}</div>
+                <div className="text-sm font-semibold">
+                  {t("billing.sections.history")}
+                </div>
                 <div className="mt-2">
                   <BillingHistory history={history} />
                 </div>
