@@ -1,4 +1,3 @@
-# Modules/Stripe/webhook_stripe.py
 import stripe
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
@@ -42,12 +41,16 @@ async def stripe_webhook(request: Request):
 
         if user_id_str and stripe_subscription_id:
             try:
-                # ✅ Vypýtame si od Stripeu presné údaje o platnosti tohto predplatného
+                # ✅ Vypýtame si od Stripeu presné údaje o platnosti
                 stripe_sub = stripe.Subscription.retrieve(stripe_subscription_id)
                 
-                # Stripe vracia timestamp, my ho premeníme na databázový formát
-                period_start = datetime.fromtimestamp(stripe_sub["current_period_start"], tz=timezone.utc).isoformat()
-                period_end = datetime.fromtimestamp(stripe_sub["current_period_end"], tz=timezone.utc).isoformat()
+                # ✅ BEZPEČNÉ ČÍTANIE POMOCOU .get() - žiadne hranaté zátvorky!
+                start_ts = stripe_sub.get("current_period_start")
+                end_ts = stripe_sub.get("current_period_end")
+                
+                # Prevedieme timestampy iba vtedy, ak reálne existujú
+                period_start = datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat() if start_ts else None
+                period_end = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat() if end_ts else None
 
                 sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
                     "tier_code": tier,
@@ -65,29 +68,34 @@ async def stripe_webhook(request: Request):
             except Exception as e:
                 print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť usera {user_id_str}:", repr(e))
 
-    # --- 1.5 PREDPLATNÉ BOLO UPRAVENÉ (napr. zrušené ku koncu obdobia) ---
     # --- 1.5 PREDPLATNÉ BOLO UPRAVENÉ (Zrušené, obnovené, zmenené) ---
     elif event['type'] == 'customer.subscription.updated':
         subscription = event['data']['object']
         stripe_subscription_id = subscription.get('id')
         
-        # Tu je to kúzlo: Stripe nám pošle, či to používateľ chce zrušiť, alebo to práve obnovil
         cancel_at_period_end = subscription.get('cancel_at_period_end', False)
-        stripe_status = subscription.get('status') # napr. 'active', 'past_due'
+        stripe_status = subscription.get('status')
         
-        # Pre istotu zoberieme aj čerstvé dátumy zo Stripeu
-        period_start = datetime.fromtimestamp(subscription["current_period_start"], tz=timezone.utc).isoformat()
-        period_end = datetime.fromtimestamp(subscription["current_period_end"], tz=timezone.utc).isoformat()
+        # ✅ BEZPEČNÉ ČÍTANIE DÁTUMOV CEZ .get() aj tu
+        start_ts = subscription.get("current_period_start")
+        end_ts = subscription.get("current_period_end")
+        
+        # Pripravíme si základné dáta, ktoré ideme na 100% updatovať
+        update_data = {
+            "status": stripe_status,
+            "cancel_at_period_end": cancel_at_period_end,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Ak nám Stripe poslal aj dátumy, prihodíme ich do updatu
+        if start_ts:
+            update_data["current_period_start"] = datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat()
+        if end_ts:
+            update_data["current_period_end"] = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat()
 
         try:
-            # Urobíme presné zrkadlo Stripe stavu do našej DB
-            sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
-                "status": stripe_status,
-                "cancel_at_period_end": cancel_at_period_end,
-                "current_period_start": period_start,
-                "current_period_end": period_end,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }).eq("external_subscription_id", stripe_subscription_id).execute()
+            # ✅ Zapíšeme aktualizáciu do DB
+            sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(update_data).eq("external_subscription_id", stripe_subscription_id).execute()
             
             print(f"[STRIPE] Update predplatného {stripe_subscription_id}. Zrušiť na konci: {cancel_at_period_end}")
         except Exception as e:
