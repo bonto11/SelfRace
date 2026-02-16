@@ -66,19 +66,30 @@ async def stripe_webhook(request: Request):
                 print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť usera {user_id_str}:", repr(e))
 
     # --- 1.5 PREDPLATNÉ BOLO UPRAVENÉ (napr. zrušené ku koncu obdobia) ---
+    # --- 1.5 PREDPLATNÉ BOLO UPRAVENÉ (Zrušené, obnovené, zmenené) ---
     elif event['type'] == 'customer.subscription.updated':
         subscription = event['data']['object']
         stripe_subscription_id = subscription.get('id')
         
-        # Stripe nám povie, či si používateľ klikol na "Zrušiť"
+        # Tu je to kúzlo: Stripe nám pošle, či to používateľ chce zrušiť, alebo to práve obnovil
         cancel_at_period_end = subscription.get('cancel_at_period_end', False)
+        stripe_status = subscription.get('status') # napr. 'active', 'past_due'
+        
+        # Pre istotu zoberieme aj čerstvé dátumy zo Stripeu
+        period_start = datetime.fromtimestamp(subscription["current_period_start"], tz=timezone.utc).isoformat()
+        period_end = datetime.fromtimestamp(subscription["current_period_end"], tz=timezone.utc).isoformat()
 
         try:
+            # Urobíme presné zrkadlo Stripe stavu do našej DB
             sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
+                "status": stripe_status,
                 "cancel_at_period_end": cancel_at_period_end,
+                "current_period_start": period_start,
+                "current_period_end": period_end,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("external_subscription_id", stripe_subscription_id).execute()
-            print(f"[STRIPE] Update predplatného {stripe_subscription_id}. Bude zrušené na konci: {cancel_at_period_end}")
+            
+            print(f"[STRIPE] Update predplatného {stripe_subscription_id}. Zrušiť na konci: {cancel_at_period_end}")
         except Exception as e:
             print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť sub {stripe_subscription_id}:", repr(e))
 
