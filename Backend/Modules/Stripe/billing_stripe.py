@@ -13,7 +13,19 @@ stripe.api_key = STRIPE_API_KEY
 class CheckoutRequest(BaseModel):
     tier: str 
 
-router = APIRouter(prefix="/billingStripe", tags=["billingStripe"])
+router = APIRouter(prefix="/billingStripe", tags=["Stripe Billing"])
+
+def _extract_user_id(ctx: Any) -> int | None:
+    """Univerzálny extraktor pre user_id z auth kontextu"""
+    if ctx is None:
+        return None
+    # 1. Ak je to dictionary
+    if isinstance(ctx, dict):
+        userid = ctx.get("user_id") or ctx.get("id") or ctx.get("sub")
+        return int(userid) if userid else None
+    # 2. Ak je to class/pydantic model (naša doterajšia chyba)
+    userid = getattr(ctx, "user_id", None) or getattr(ctx, "id", None) or getattr(ctx, "sub", None)
+    return int(userid) if userid else None
 
 @router.post("/create-checkout-session")
 def create_checkout_session(
@@ -23,8 +35,11 @@ def create_checkout_session(
     
     ctx = require_user(get_auth_ctx(req))
     
-    user_id = getattr(ctx, "user_id", None)
+    # ✅ Použijeme robustný extraktor
+    user_id = _extract_user_id(ctx)
+    
     if not user_id:
+        print(f"[STRIPE DEBUG] Nepodarilo sa nájsť user_id! Obsah ctx: {ctx}")
         raise HTTPException(status_code=401, detail="Nenájdené user_id v tokene")
     
     price_id: str = "" 
@@ -62,20 +77,22 @@ def create_checkout_session(
         print("[STRIPE] Chyba pri vytváraní checkoutu:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ NOVÝ ENDPOINT: Vytvorenie linku do Customer Portalu pre správu (zrušenie) predplatného
+
 @router.post("/create-portal-session")
 def create_portal_session(req: Request) -> Dict[str, Any]:
     ctx = require_user(get_auth_ctx(req))
-    user_id = getattr(ctx, "user_id", None)
+    
+    # ✅ Znovu použijeme náš robustný extraktor
+    user_id = _extract_user_id(ctx)
     if not user_id:
+        print(f"[STRIPE DEBUG] Nepodarilo sa nájsť user_id! Obsah ctx: {ctx}")
         raise HTTPException(status_code=401, detail="Nenájdené user_id v tokene")
 
     sb = get_sb(ctx, caller="create_portal_session")
     
-    # Najprv musíme zistiť, aké je jeho stripe_customer_id z databázy
-    # Uisti sa, že názov tabuľky sedí s tvojou DB!
     try:
-        res = sb.table("ai_wallet_transactions").select("external_customer_id").eq("user_id", int(user_id)).limit(1).execute()
+        # Použijeme správnu tabuľku: TABLE_APP_USER_SUBSCRIPTIONS (ako si mi nedávno poslal vo Webhooku)
+        res = sb.table("TABLE_APP_USER_SUBSCRIPTIONS").select("external_customer_id").eq("user_id", user_id).limit(1).execute()
         rows = res.data or []
         if not rows or not rows[0].get("external_customer_id"):
              raise HTTPException(status_code=404, detail="Nenájdený Stripe Customer ID pre tohto usera.")
@@ -84,7 +101,6 @@ def create_portal_session(req: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Chyba pri čítaní z DB: " + str(e))
 
     try:
-        # Vytvoríme jednorázový link do spravovacieho portálu
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=f"{FRONTEND_URL}/settings/billing",
