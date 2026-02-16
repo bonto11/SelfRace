@@ -331,6 +331,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
         # -------------------------------
         # STRAVA PIPELINE
         # -------------------------------
+
         elif job_type == "strava_sync_activity":
             activity_id = int(payload.get("activity_id") or 0)
             if not activity_id:
@@ -338,7 +339,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
             fetch_details = bool(payload.get("fetch_details", True))
 
-            # 1) DATA IMPORT (pure)
+            # 1) DATA IMPORT (pure) - toto nechávame, aby sa dáta uložili do DB
             result = service_sync_single_activity(
                 user_id=int(user_id),
                 strava_activity_id=int(activity_id),
@@ -346,10 +347,11 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 ctx=ctx,
             )
 
-            # 2) FOLLOWUPS (Len Review, vyhodili sme Autoadjust)
-            _enqueue_activity_review_best_effort(
-                ctx=ctx, user_id=int(user_id), activity_id=int(activity_id)
-            )
+            # 2) FOLLOWUPS 
+            # ✅ VYPNUTÉ: Zrušili sme automatické generovanie AI Review po synce
+            # _enqueue_activity_review_best_effort(
+            #     ctx=ctx, user_id=int(user_id), activity_id=int(activity_id)
+            # )
 
             # 3) OPTIONAL hooks (default OFF)
             if bool(payload.get("enqueue_plan_match", False)):

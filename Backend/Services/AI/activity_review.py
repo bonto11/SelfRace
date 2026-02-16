@@ -83,8 +83,6 @@ def service_request_activity_review_rerun(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     
-    print(f"[AR][rerun] user={user_id} | act={activity_id} | comment={bool(comment)} | injury={has_new_injury}")
-
     summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
     if not summaries or not summaries[0]:
         return {"ok": False, "code": "activity_not_found", "message": "Aktivita nebola nájdená."}
