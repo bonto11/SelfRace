@@ -1,3 +1,4 @@
+// src/features/billing/components/BillingPanel.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

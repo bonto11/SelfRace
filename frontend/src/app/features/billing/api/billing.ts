@@ -1,3 +1,5 @@
+// src/app/features/billing/api/billing.ts
+
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   CancelPlannedResponse,
@@ -10,171 +12,184 @@ import type {
   SetTierResponse,
 } from "@/app/features/billing/types/billing";
 
-/* ---------- API helpers ---------- */
+/* ---------- STRIPE API helpers ---------- */
 
-export async function apiListAppSubscriptionTiers(): Promise<
-  AppSubscriptionTier[]
-> {
+export async function apiCreateStripeCheckout(tier: string): Promise<string> {
+  if (!tier) throw new Error("billing.errors.missingTier");
+
+  const path = `/billingStripe/create-checkout-session`;
+
+  try {
+    const json = await callBackend<{ ok: boolean; checkout_url: string; detail?: string }>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tier }),
+    });
+
+    if (!json?.ok || !json?.checkout_url) {
+      throw new Error("billing.errors.checkoutSessionFailed");
+    }
+
+    return json.checkout_url;
+  } catch (err: any) {
+    console.error("[Billing][apiCreateStripeCheckout] ERROR", err);
+    throw new Error("billing.errors.checkoutSessionFailed");
+  }
+}
+
+export async function apiCreateStripePortal(): Promise<string> {
+  const path = `/billingStripe/create-portal-session`;
+
+  try {
+    const json = await callBackend<{ ok: boolean; portal_url: string; detail?: string }>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+    });
+
+    if (!json?.ok || !json?.portal_url) {
+      throw new Error("billing.errors.portalSessionFailed");
+    }
+
+    return json.portal_url;
+  } catch (err: any) {
+    console.error("[Billing][apiCreateStripePortal] ERROR", err);
+    throw new Error("billing.errors.portalSessionFailed");
+  }
+}
+
+/* ---------- APP BILLING API helpers ---------- */
+
+export async function apiListAppSubscriptionTiers(): Promise<AppSubscriptionTier[]> {
   const path = `/app/subscription/tiers`;
 
-  let json: ListTiersResponse;
   try {
-    json = await callBackend<ListTiersResponse>(path, {
+    const json = await callBackend<ListTiersResponse>(path, {
       method: "GET",
       cache: "no-store",
       headers: { "content-type": "application/json" },
     });
+
+    if (!json?.success) {
+      throw new Error("billing.errors.fetchTiersFailed");
+    }
+
+    return json.items ?? [];
   } catch (err: any) {
     console.error("[Billing][apiListAppSubscriptionTiers] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (tiers): ${String(err)}`);
+    throw new Error("billing.errors.fetchTiersFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load subscription tiers"
-    );
-  }
-
-  return json.items ?? [];
 }
 
 export async function apiGetAppSubscriptionStatus(
   userId: number
 ): Promise<AppSubscriptionStatus | null> {
-  if (!userId) throw new Error("Missing userId in apiGetAppSubscriptionStatus");
+  if (!userId) throw new Error("common.errors.missingUser");
 
   const path = `/app/subscription/status/${encodeURIComponent(String(userId))}`;
 
-  let json: StatusResponse;
   try {
-    json = await callBackend<StatusResponse>(path, {
+    const json = await callBackend<StatusResponse>(path, {
       method: "GET",
       cache: "no-store",
       headers: { "content-type": "application/json" },
     });
+
+    if (!json?.success) {
+      throw new Error("billing.errors.loadStatusFailed");
+    }
+
+    return json.status ?? null;
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (status): ${String(err)}`);
+    throw new Error("billing.errors.loadStatusFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load subscription status"
-    );
-  }
-
-  return json.status ?? null;
 }
 
 export async function apiGetAppSubscriptionHistory(
   userId: number,
   limit = 20
 ): Promise<AppUserSubscription[]> {
-  if (!userId)
-    throw new Error("Missing userId in apiGetAppSubscriptionHistory");
+  if (!userId) throw new Error("common.errors.missingUser");
 
-  const path = `/app/subscription/history/${encodeURIComponent(
-    String(userId)
-  )}?limit=${encodeURIComponent(String(limit))}`;
+  const path = `/app/subscription/history/${encodeURIComponent(String(userId))}?limit=${encodeURIComponent(String(limit))}`;
 
-  let json: HistoryResponse;
   try {
-    json = await callBackend<HistoryResponse>(path, {
+    const json = await callBackend<HistoryResponse>(path, {
       method: "GET",
       cache: "no-store",
       headers: { "content-type": "application/json" },
     });
+
+    if (!json?.success) {
+      throw new Error("billing.errors.loadHistoryFailed");
+    }
+
+    return json.items ?? [];
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionHistory] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (history): ${String(err)}`);
+    throw new Error("billing.errors.loadHistoryFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load subscription history"
-    );
-  }
-
-  return json.items ?? [];
 }
 
 /**
  * DEV helper – manuálne prepnutie tieru (bez reálnej platby).
- * - upgrade = hneď
- * - downgrade/free = plán od ďalšieho obdobia
+ * Už sa v produkcii pravdepodobne nahradí Stripe Checkoutom.
  */
 export async function apiSetAppSubscriptionTierManual(
   userId: number,
   tierCode: string
 ): Promise<SetTierResponse> {
-  if (!userId) throw new Error("Missing userId in apiSetAppSubscriptionTier");
-  if (!tierCode)
-    throw new Error("Missing tierCode in apiSetAppSubscriptionTier");
+  if (!userId) throw new Error("common.errors.missingUser");
+  if (!tierCode) throw new Error("billing.errors.missingTier");
 
-  const path = `/app/subscription/set-tier/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/app/subscription/set-tier/${encodeURIComponent(String(userId))}`;
 
-  let json: SetTierResponse;
   try {
-    json = await callBackend<SetTierResponse>(path, {
+    const json = await callBackend<SetTierResponse>(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ tier_code: tierCode }),
     });
+
+    if (!json?.success) {
+      throw new Error("billing.errors.tierChangeFailed");
+    }
+
+    return json;
   } catch (err: any) {
     console.error("[Billing][apiSetAppSubscriptionTierManual] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (set-tier): ${String(err)}`);
+    throw new Error("billing.errors.tierChangeFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to set subscription tier"
-    );
-  }
-
-  return json;
 }
 
+/**
+ * DEV helper - zrušenie zmeny. 
+ * V produkcii sa bude riešiť cez Stripe Portal.
+ */
 export async function apiCancelPlannedSubscriptionChange(
   userId: number
 ): Promise<CancelPlannedResponse> {
-  if (!userId) {
-    throw new Error("Missing userId in apiCancelPlannedSubscriptionChange");
-  }
+  if (!userId) throw new Error("common.errors.missingUser");
 
-  const path = `/app/subscription/cancel-scheduled/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/app/subscription/cancel-scheduled/${encodeURIComponent(String(userId))}`;
 
-  let json: CancelPlannedResponse;
   try {
-    json = await callBackend<CancelPlannedResponse>(path, {
+    const json = await callBackend<CancelPlannedResponse>(path, {
       method: "POST",
       cache: "no-store",
       headers: { "content-type": "application/json" },
     });
+
+    if (!json?.success) {
+      throw new Error("billing.errors.cancelPlannedFailed");
+    }
+
+    return json;
   } catch (err: any) {
     console.error("[Billing][apiCancelPlannedSubscriptionChange] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (cancel-scheduled): ${String(err)}`);
+    throw new Error("billing.errors.cancelPlannedFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to cancel scheduled change"
-    );
-  }
-
-  return json;
 }

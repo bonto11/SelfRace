@@ -1848,8 +1848,14 @@ export const sk = {
     },
     errors: {
       loadStatus: "Nepodarilo sa načítať stav predplatného.",
-      tierChangeFailed: "Nepodarilo sa zmeniť program.",
-      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu.",
+      missingTier: "Nebola vybraná žiadna úroveň predplatného.",
+      checkoutSessionFailed: "Nepodarilo sa vytvoriť platobnú bránu Stripe. Skúste to prosím neskôr.",
+      portalSessionFailed: "Nepodarilo sa otvoriť zákaznícky portál Stripe. Skúste to prosím neskôr.",
+      fetchTiersFailed: "Nepodarilo sa načítať ponuku predplatného.",
+      loadStatusFailed: "Nepodarilo sa načítať aktuálny stav predplatného.",
+      loadHistoryFailed: "Nepodarilo sa načítať históriu platieb.",
+      tierChangeFailed: "Nepodarilo sa zmeniť úroveň predplatného.",
+      cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného."
     },
     toasts: {
       tierChanged: "Program bol úspešne zmenený.",

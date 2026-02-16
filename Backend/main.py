@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from Modules.Strava import webhook_strava
+from Modules.Stripe import webhook_stripe, billing_stripe
 from Routes_FE import (
     users,
     activities_summary,
@@ -66,7 +67,6 @@ app.include_router(activities_enrichment.router)
 app.include_router(analytics.router)
 app.include_router(synchronization.router)
 
-
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)
 app.include_router(coach_athlete_state.router)
@@ -77,5 +77,7 @@ app.include_router(maintenance.router)
 app.include_router(app_subscription.router)
 app.include_router(account.router)
 
-
 app.include_router(webhook_strava.router)
+
+app.include_router(webhook_stripe.router)
+app.include_router(billing_stripe.router)
