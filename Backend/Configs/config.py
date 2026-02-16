@@ -239,6 +239,12 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
     6: "Sun",
 }
 
+
+STRIPE_API_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PRICE_CLASSIC = os.getenv("STRIPE_PRICE_CLASSIC")
+STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO")
+
 # legacy typo alias (ak niekde ešte svieti)
 COACH_PLAN_DEAFULT_WEEKS = COACH_PLAN_DEFAULT_WEEKS
+
 
