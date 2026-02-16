@@ -1,4 +1,5 @@
 // src/app/(auth)/layout.tsx
+"use client";
 import type { ReactNode } from "react";
 import ToastHost from "@/app/shared/ui/components/Toast";
 import ConfirmHost from "@/app/shared/ui/components/Confirm";

@@ -1,4 +1,5 @@
 // src/app/(protected)/account/page.tsx
+"use client";
 import PageShell from "@/app/shared/ui/components/PageShell";
 
 import SettingsInputs from "@/app/features/account/components/SettingsInputs";

@@ -1,4 +1,5 @@
 // src/app/(protected)/connectedApps/page.tsx
+"use client";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import StravaPanel from "@/app/features/strava/components/StravaPanel";
 import { useT } from "@/app/shared/i18n/useT";

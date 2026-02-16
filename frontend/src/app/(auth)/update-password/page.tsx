@@ -1,4 +1,5 @@
 // src/app/update-password/page.tsx
+"use client";
 import { Suspense } from "react";
 import ClientPage from "./ClientPage";
 import {
