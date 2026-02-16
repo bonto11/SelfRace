@@ -80,19 +80,26 @@ def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
+# 👇 Pomocná funkcia pre čistenie
+def _remove_empty(d: Any) -> Any:
+    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
+    if isinstance(d, dict):
+        cleaned = {k: _remove_empty(v) for k, v in d.items()}
+        return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
+    elif isinstance(d, list):
+        cleaned = [_remove_empty(v) for v in d]
+        return [v for v in cleaned if v is not None and v != [] and v != {}]
+    return d
+
+# 👇 Upravená minifikácia pre Weekly Plan
 def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Orezaný context pre WEEKLY LLM:
-    - drop user_id / internal ids
-    - keep only what weekly meta plan needs
-    - recent_load/zones/thresholds/recovery berieme z TOP-LEVEL alebo z analyze_input_min/analyze_input
-    - external_events podporuje oba tvary: date string aj days_from_today (z buildera)
+    - AI potrebuje vedieť len Ciele (Prefs), Aktuálny stav (Athlete State), a Udalosti (Events).
+    - VŠETKO OSTATNÉ (Zóny, aktivity, denné HR limity) vyhadzujeme, rieši sa to až v Daily Plane.
     """
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
-
-    # Source of "big blocks"
-    analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
 
     # --- prefs (flatten + trim) ---
     raw_prefs = _extract_prefs_source(context)
@@ -171,24 +178,18 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
-    # --- athlete_state (len ai_state) ---
+    # --- athlete_state (len to najnutnejšie) ---
     athlete_state = _as_dict(context.get("athlete_state"))
     if athlete_state:
         ai_state = _as_dict(athlete_state.get("ai_state"))
+        # Z ai_state vyhodíme metrics, tie ho nezaujímajú
+        ai_state.pop("metrics", None)
         ctx2["athlete_state"] = {"ai_state": ai_state}
 
-    # --- recent_load / zones / thresholds / recovery ---
-    for key in ("recent_load", "zones", "thresholds", "recovery"):
-        v = context.get(key)
-        if not isinstance(v, dict):
-            v = analyze_src.get(key)
-        if isinstance(v, dict):
-            ctx2[key] = v
-
+    # ✅ POZNÁMKA: Zámerne tu NEPRIDÁVAME recent_load, zones, thresholds ani last_activities!
+    # Tie veci týždenný meta-plán nepotrebuje a žerú tisíce tokenov.
+    
     # --- external_events ---
-    # Podporujeme:
-    #  A) ext["events"] alebo ext["window"]["events"]
-    #  B) event date buď ako occurrence_date/date/start_date..., alebo ako days_from_today (int)
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
@@ -202,7 +203,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
         cleaned_events: List[Dict[str, Any]] = []
         for e in events:
-            # prefer explicit date
             dt = (
                 e.get("occurrence_date")
                 or e.get("date")
@@ -212,33 +212,27 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             )
             dt_ymd = _safe_date_yyyy_mm_dd(dt)
 
-            # or relative
             dft = e.get("days_from_today")
             if dt_ymd is None and isinstance(dft, (int, float)):
-                # keep relative when no date string exists
-                cleaned_events.append(
-                    {
+                cleaned_events.append({
                         "days_from_today": int(dft),
                         "sport": e.get("sport"),
                         "duration_min": e.get("duration_min"),
                         "priority": e.get("priority"),
                         "title": e.get("title"),
-                    }
-                )
+                    })
                 continue
 
             if not dt_ymd:
                 continue
 
-            cleaned_events.append(
-                {
+            cleaned_events.append({
                     "occurrence_date": dt_ymd,
                     "sport": e.get("sport"),
                     "duration_min": e.get("duration_min"),
                     "priority": e.get("priority"),
                     "title": e.get("title"),
-                }
-            )
+                })
 
         win2 = _as_dict(ext.get("window"))
         if win2:
@@ -265,9 +259,11 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         ctx2["weeks"] = context.get("weeks")
     if "overwrite" in context:
         ctx2["overwrite"] = bool(context.get("overwrite"))
+    if "replan_trigger" in context:
+        ctx2["replan_trigger"] = context.get("replan_trigger")
 
-    return ctx2
-
+    # ✅ Všetko pekne prečistíme od null a prázdnych objektov
+    return _remove_empty(ctx2)
 
 def build_prompts_for_weekly(
     context_payload: dict,
@@ -326,7 +322,7 @@ def build_prompts_for_weekly(
     system_txt = (
         "You are an endurance coaching assistant. "
         "You receive structured JSON with athlete preferences (including volume preferences), "
-        "AI analysis state, recent load, thresholds, zones, recovery and external events. "
+        "AI analysis state and external events. "
         "External events are fixed activities like football matches, club runs or other regular trainings, "
         "which already create load and must be counted into total weekly volume or at least reduce the room for training. "
         "The AI analysis (athlete_state.ai_state) also includes a plan_adjustment block that can suggest "
