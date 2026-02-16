@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 from Modules.Supabase.auth import require_user, get_auth_ctx
 from Modules.Supabase.client import get_sb
-from Configs.config import STRIPE_PRICE_CLASSIC, STRIPE_PRICE_PRO, STRIPE_API_KEY, FRONTEND_URL
+from Configs.config import STRIPE_PRICE_CLASSIC, STRIPE_PRICE_PRO, STRIPE_API_KEY, FRONTEND_URL, TABLE_APP_USER_SUBSCRIPTIONS
 
 stripe.api_key = STRIPE_API_KEY
 
@@ -65,7 +65,7 @@ def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     sb = get_sb(ctx, caller="create_portal_session")
     
     try:
-        res = sb.table("TABLE_APP_USER_SUBSCRIPTIONS").select("external_customer_id").eq("user_id", user_id).limit(1).execute()
+        res = sb.table(TABLE_APP_USER_SUBSCRIPTIONS).select("external_customer_id").eq("user_id", user_id).limit(1).execute()
         rows = res.data or []
         if not rows or not rows[0].get("external_customer_id"):
              raise HTTPException(status_code=404, detail="Nenájdený Stripe Customer ID pre tohto usera.")
