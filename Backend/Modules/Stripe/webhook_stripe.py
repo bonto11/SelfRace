@@ -2,7 +2,6 @@
 import stripe
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
-from stripe.error import SignatureVerificationError  # type: ignore
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import service_ctx
@@ -25,7 +24,7 @@ async def stripe_webhook(request: Request):
     except ValueError as e:
         print("[STRIPE WEBHOOK] Invalid payload:", e)
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except SignatureVerificationError as e:
+    except stripe.SignatureVerificationError as e:  # TU JE TÁ ÚPRAVA
         print("[STRIPE WEBHOOK] Invalid signature:", e)
         raise HTTPException(status_code=400, detail="Invalid signature")
 
