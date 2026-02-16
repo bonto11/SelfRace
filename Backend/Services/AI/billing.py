@@ -264,7 +264,7 @@ def get_user_monthly_usage_tokens(
 def get_user_ai_quota_status_for_current_tier(
     user_id: int,
     *,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     status: Dict[str, Any] = service_get_user_app_subscription_status(
         user_id=user_id,
@@ -275,9 +275,10 @@ def get_user_ai_quota_status_for_current_tier(
     tiers = (status or {}).get("tiers") or []
     active_sub = (status or {}).get("active_subscription") or None
 
+    # Získanie základného limitu pre daný tier
     limit_tokens: Optional[int] = None
     for t in tiers:
-        if str(t.get("code")) == str(tier_code):
+        if str(t.get("code")).lower() == str(tier_code).lower():
             try:
                 limit_tokens = int(t.get("ai_monthly_tokens_limit") or 0)
             except Exception:
@@ -290,8 +291,18 @@ def get_user_ai_quota_status_for_current_tier(
         except Exception:
             limit_tokens = 0
 
+    # ✅ SUPER USER / FAMILY BYPASS
+    # Ak má používateľ tier "family" alebo "admin", dáme mu astronomický limit (napr. 50 miliónov),
+    # takže de facto nikdy nenarazí na strop, ale tokeny sa stále budú logovať.
+    # Ak máš iné VIP maily, môžeš si to tu ošetriť (napríklad dotazom na tabuľku users).
+    is_vip = str(tier_code).lower() in ["family", "admin", "super_user"]
+    if is_vip:
+        limit_tokens = 50_000_000  # 50 miliónov tokenov
+
     used_tokens = get_user_monthly_usage_tokens(user_id=user_id, ctx=ctx)
     remaining_tokens = max(limit_tokens - used_tokens, 0) if limit_tokens > 0 else 0
+    
+    # VIP user nie je "over quota", pokiaľ neprekročí tých astronomických 50M.
     is_over = used_tokens >= limit_tokens if limit_tokens > 0 else False
 
     reset_at: Optional[str] = None
@@ -306,12 +317,13 @@ def get_user_ai_quota_status_for_current_tier(
         "remaining_tokens": remaining_tokens,
         "is_over": is_over,
         "reset_at": reset_at,
+        "is_vip": is_vip, # Pridáme flag pre debug / frontend
     }
 
 
 def is_user_over_token_quota(
     user_id: int,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
     limit_tokens: Optional[int] = None,
 ) -> bool:
     if limit_tokens is None:

@@ -83,3 +83,41 @@ def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     except Exception as e:
         print("[STRIPE] Error create portalu:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
+    
+def disconnect_stripe_subscription(*, user_id: int, ctx: Any) -> Dict[str, Any]:
+    """
+    Pomocná funkcia pre bezpečné zrušenie predplatného (Cancel at Period End).
+    Volá sa napríklad pri vymazaní účtu.
+    """
+    sb = get_sb(ctx, caller="stripe_disconnect")
+    
+    try:
+        sub_res = sb.table(TABLE_APP_USER_SUBSCRIPTIONS)\
+                    .select("external_subscription_id, status")\
+                    .eq("user_id", user_id)\
+                    .limit(1)\
+                    .execute()
+
+        if not sub_res.data:
+            return {"ok": True, "note": "no_subscription_record"}
+
+        sub_data = sub_res.data[0]
+        stripe_sub_id = sub_data.get("external_subscription_id")
+        
+        if not stripe_sub_id:
+            return {"ok": True, "note": "no_stripe_id"}
+
+        # Ak má aktívne predplatné v Stripe, zrušíme ho kľudne na konci mesiaca
+        if sub_data.get("status") in ["active", "trialing", "past_due"]:
+            stripe.Subscription.modify(
+                stripe_sub_id, 
+                cancel_at_period_end=True
+            )
+            print(f"[STRIPE DISCONNECT] Predplatné {stripe_sub_id} pre usera {user_id} naplánované na zrušenie.")
+            return {"ok": True, "stripe_sub_id": stripe_sub_id, "canceled_at_period_end": True}
+        
+        return {"ok": True, "note": f"status_is_{sub_data.get('status')}"}
+        
+    except Exception as e:
+        print(f"[STRIPE DISCONNECT] Chyba pri rušení predplatného pre usera {user_id}: {repr(e)}")
+        return {"ok": False, "error": str(e)}

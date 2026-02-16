@@ -12,8 +12,7 @@ from Routes_DB.account import (
 
 from Modules.Supabase.auth import AuthCtx
 
-
-# ✅ NEW: okamžité odpojenie Stravy pri delete requeste
+from Modules.Stripe.billing_stripe import disconnect_stripe_subscription
 from Modules.Strava.strava_disconnect_helpers import disconnect_strava_account
 from Configs.config import DELETE_GRACE_DAYS
 
@@ -83,13 +82,20 @@ def service_request_account_delete(
     """
     ✅ nový safe flow:
     - okamžite odpoj Stravu + vymaž Strava data (best effort)
-    - až potom vytvor delete request (grace 7 dní)
+    - okamžite zruš Stripe predplatné (cancel at period end)
+    - vytvor delete request (grace 7 dní)
     """
     # 1) Strava disconnect (best effort, bez checkboxu – je to interný flow)
     strava_res = disconnect_strava_account(
         user_id=int(user_id),
         reason="account_delete_request",
         purge_data=True,
+    )
+
+    # 1.5) Stripe disconnect (best effort)
+    stripe_res = disconnect_stripe_subscription(
+        user_id=int(user_id),
+        ctx=ctx
     )
 
     # 2) vytvor delete request
@@ -105,6 +111,7 @@ def service_request_account_delete(
         "requested_at": row.get("requested_at"),
         "grace_days": DELETE_GRACE_DAYS,
         "strava_disconnect": strava_res,
+        "stripe_disconnect": stripe_res, # ✅ Pridáme do výstupu pre debugging
     }
 
 
