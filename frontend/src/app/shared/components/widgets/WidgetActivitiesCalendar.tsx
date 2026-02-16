@@ -12,7 +12,10 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
+
+// ✅ Import na načítanie zranení
 import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 import {
@@ -106,6 +109,9 @@ export default function WidgetActivitiesCalendar({
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
+  
+  // ✅ Pridaný stav pre zranenie do kalendára
+  const [activeInjury, setActiveInjury] = React.useState<{ severity: number; text: string } | null>(null);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -129,13 +135,35 @@ export default function WidgetActivitiesCalendar({
     (async () => {
       setExtErr(null);
       try {
-        const rows = await apiGetExternalEventsWindow(userId, startIso, endIso);
+        // ✅ Paralelné volanie udalostí aj zranení pre rýchlejší render
+        const [rows, prefsRes] = await Promise.all([
+          apiGetExternalEventsWindow(userId, startIso, endIso).catch((e) => { throw e; }),
+          apiFetchUserPref(userId, "coach.prefs").catch(() => null)
+        ]);
+
         if (!alive) return;
         setExternalRows(Array.isArray(rows) ? rows : []);
+
+        // Vyhodnotenie zranenia
+        if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
+          const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
+            return (current.severity || 0) > (prev.severity || 0) ? current : prev;
+          }, { severity: 0 });
+
+          if (maxInjury && maxInjury.severity > 0) {
+            setActiveInjury({
+              severity: maxInjury.severity,
+              text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
+            });
+          }
+        } else {
+           setActiveInjury(null);
+        }
+
       } catch (e: any) {
         if (!alive) return;
         setExternalRows([]);
-        setExtErr(e?.message ?? t("calendar.widget.errorFailedLoad"));
+        setExtErr(e?.message ?? t("calendar.widget.errorFailedLoad" as any));
       }
     })();
 
@@ -253,23 +281,12 @@ export default function WidgetActivitiesCalendar({
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
-  const dow = [
-    t("common.weeksShort.mon"),
-    t("common.weeksShort.tue"),
-    t("common.weeksShort.wed"),
-    t("common.weeksShort.thu"),
-    t("common.weeksShort.fri"),
-    t("common.weeksShort.sat"),
-    t("common.weeksShort.sun"),
-  ] as const;
-
-  // ✅ OPRAVA: Vytvoríme textový reťazec namiesto JSX elementu
-  const widgetTitle = isMedicalSuspend ? `🚑 ${weekLabel}` : weekLabel;
+  const dow = [t("common.weeksShort.mon" as any), t("common.weeksShort.tue" as any), t("common.weeksShort.wed" as any), t("common.weeksShort.thu" as any), t("common.weeksShort.fri" as any),t("common.weeksShort.sat" as any), t("common.weeksShort.sun" as any)] as const;
 
   return (
     <WidgetCard
-      title={widgetTitle}
-      tooltip={t("calendar.widget.tooltip")}
+      title={(t("calendar.widget.title" as any) || "Kalendár") + ` • ${weekLabel}`}
+      tooltip={t("calendar.widget.tooltip" as any)}
       onOpen={handleOpen}
       accent={isMedicalSuspend ? "danger" : "none"}
       interactive
@@ -277,6 +294,25 @@ export default function WidgetActivitiesCalendar({
       innerClassName={NO_X_OVERFLOW}
     >
       {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
+
+      {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
+      {activeInjury && (
+        <div className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+            activeInjury.severity >= 7 
+              ? "bg-red-500/10 border-red-500/20 text-red-400" 
+              : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+          }`}>
+          <div className="flex-shrink-0">
+            ⚠️
+          </div>
+          <div className="leading-tight">
+            <strong>Zranenie nahlásené:</strong> {activeInjury.text}
+            <div className="opacity-80 text-[10px] mt-0.5">
+              {activeInjury.severity >= 7 ? "Kalendár zablokovaný (Lekárske voľno)." : "Tréningy upravené pre zotavenie."}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={CAL_WIDGET_DOW_ROW}
@@ -292,7 +328,7 @@ export default function WidgetActivitiesCalendar({
       <div
         className={CAL_WIDGET_GRID}
         onClick={handleOpen}
-        aria-label={t("calendar.widget.open")}
+        aria-label={t("calendar.widget.open" as any)}
       >
         {Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(monday);
