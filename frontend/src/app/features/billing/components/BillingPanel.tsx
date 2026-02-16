@@ -18,10 +18,7 @@ import type {
   AppUserSubscription,
 } from "@/app/features/billing/types/billing";
 
-import {
-  getSubscriptionTier,
-  setSubscriptionTier,
-} from "@/app/shared/state/subscriptionTierStore";
+import { setSubscriptionTier } from "@/app/shared/state/subscriptionTierStore";
 
 import BillingStatusCard from "./BillingStatusCard";
 import BillingTierSelector from "./BillingTierSelector";
@@ -43,14 +40,15 @@ export default function BillingPanel() {
   const { userId } = useUserId();
   const t = useT();
 
+  // ✅ BEZPEČNOSTNÝ ŠTÍT PRE SSR (Zabráni pádu servera)
+  const [isMounted, setIsMounted] = useState(false);
+
   const [status, setStatus] = useState<AppSubscriptionStatus | null>(null);
   const [history, setHistory] = useState<AppUserSubscription[]>([]);
   const [loading, setLoading] = useState<LoadingKind>("status");
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIX: Renderujeme "free" pre Server aj úvodného klienta. Žiadna Hydration chyba.
   const [activeTierCode, setActiveTierCode] = useState<string>("free");
-
   const [open, setOpen] = useState(false);
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
@@ -59,14 +57,13 @@ export default function BillingPanel() {
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
 
-  // ✅ Krok 1: Hneď po hydratácii si môžeme zobraziť to, čo máme v cache (LS), aby UI neblikalo
+  // Tento useEffect sa spustí LEN v prehliadači.
   useEffect(() => {
-    setActiveTierCode(getSubscriptionTier());
+    setIsMounted(true);
   }, []);
 
-  // ✅ Krok 2: Natiahnutie pravdy z databázy
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !isMounted) {
       setStatus(null);
       setError(null);
       setLoading(null);
@@ -85,7 +82,6 @@ export default function BillingPanel() {
         if (st) {
           const code = st.tier_code || "free";
           setStatus(st);
-          // Obe miesta (React stav aj náš Store) sa prepíšu aktuálnou pravdou z DB
           setActiveTierCode(code);
           setSubscriptionTier(code);
         } else {
@@ -101,10 +97,10 @@ export default function BillingPanel() {
     })();
 
     return () => { alive = false; };
-  }, [userId, t]);
+  }, [userId, t, isMounted]);
 
   useEffect(() => {
-    if (!userId) { setHistory([]); return; }
+    if (!userId || !isMounted) { setHistory([]); return; }
     let alive = true;
     (async () => {
       setLoading((prev) => prev || "history");
@@ -118,7 +114,7 @@ export default function BillingPanel() {
       }
     })();
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, isMounted]);
 
   async function handleSetTier(tierCode: string) {
     if (!userId) {
@@ -135,6 +131,7 @@ export default function BillingPanel() {
         window.location.href = url;
         return;
       }
+      
       const url = await apiCreateStripeCheckout(tierCode);
       window.location.href = url;
     } catch (e: any) {
@@ -184,6 +181,23 @@ export default function BillingPanel() {
     }
     return parts.join(" • ");
   }, [userId, loading, status, activeTierCode, plannedChange, t]);
+
+  // ✅ AK EŠTE NIE SME V PREHLIADAČI (SSR) vrátime len bezpečnú škrupinu
+  if (!isMounted) {
+    return (
+      <InputsCard
+        title={t("billing.title")}
+        subtitle={t("billing.subtitle")}
+        preview={t("billing.status.loading")}
+        open={false}
+        onOpenChange={() => {}}
+        backdropVariant="default"
+        actions={null}
+      >
+        <div className="p-4 text-center opacity-50 text-sm">...</div>
+      </InputsCard>
+    );
+  }
 
   return (
     <InputsCard
