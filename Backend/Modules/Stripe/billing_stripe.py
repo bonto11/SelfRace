@@ -21,11 +21,11 @@ def _extract_user_id(ctx: Any) -> int | None:
         return None
     # 1. Ak je to dictionary
     if isinstance(ctx, dict):
-        userid = ctx.get("user_id") or ctx.get("id") or ctx.get("sub")
-        return int(userid) if userid else None
-    # 2. Ak je to class/pydantic model (naša doterajšia chyba)
-    userid = getattr(ctx, "user_id", None) or getattr(ctx, "id", None) or getattr(ctx, "sub", None)
-    return int(userid) if userid else None
+        uid = ctx.get("user_id") or ctx.get("id") or ctx.get("sub")
+        return int(uid) if uid else None
+    # 2. Ak je to class/pydantic model
+    uid = getattr(ctx, "user_id", None) or getattr(ctx, "id", None) or getattr(ctx, "sub", None)
+    return int(uid) if uid else None
 
 @router.post("/create-checkout-session")
 def create_checkout_session(
@@ -54,6 +54,8 @@ def create_checkout_session(
     if not price_id:
         raise HTTPException(status_code=500, detail="Chýba konfigurácia pre Stripe Price ID")
     
+    base_url = str(FRONTEND_URL or "http://localhost:3000").rstrip("/")
+
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -62,8 +64,8 @@ def create_checkout_session(
                 "quantity": 1,
             }],
             mode="subscription",
-            success_url=f"{FRONTEND_URL}/settings/billing?status=success",
-            cancel_url=f"{FRONTEND_URL}/settings/billing?status=canceled",
+            success_url=f"{base_url}/settings/billing?status=success",
+            cancel_url=f"{base_url}/settings/billing?status=canceled",
             client_reference_id=str(user_id),
             metadata={
                 "user_id": str(user_id),
@@ -77,12 +79,10 @@ def create_checkout_session(
         print("[STRIPE] Chyba pri vytváraní checkoutu:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/create-portal-session")
 def create_portal_session(req: Request) -> Dict[str, Any]:
     ctx = require_user(get_auth_ctx(req))
     
-    # ✅ Znovu použijeme náš robustný extraktor
     user_id = _extract_user_id(ctx)
     if not user_id:
         print(f"[STRIPE DEBUG] Nepodarilo sa nájsť user_id! Obsah ctx: {ctx}")
@@ -91,7 +91,6 @@ def create_portal_session(req: Request) -> Dict[str, Any]:
     sb = get_sb(ctx, caller="create_portal_session")
     
     try:
-        # Použijeme správnu tabuľku: TABLE_APP_USER_SUBSCRIPTIONS (ako si mi nedávno poslal vo Webhooku)
         res = sb.table("TABLE_APP_USER_SUBSCRIPTIONS").select("external_customer_id").eq("user_id", user_id).limit(1).execute()
         rows = res.data or []
         if not rows or not rows[0].get("external_customer_id"):
@@ -100,10 +99,12 @@ def create_portal_session(req: Request) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail="Chyba pri čítaní z DB: " + str(e))
 
+    base_url = str(FRONTEND_URL or "http://localhost:3000").rstrip("/")
+
     try:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
-            return_url=f"{FRONTEND_URL}/settings/billing",
+            return_url=f"{base_url}/settings/billing",
         )
         return {"ok": True, "portal_url": session.url}
     except Exception as e:
