@@ -113,12 +113,16 @@ def generate_athlete_state_json(
         ctx=ctx,
     )
 
+    print("generate_athlete_state_json context_payload",context_payload)
+
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
+
+    print("generate_athlete_state_json res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 
@@ -215,6 +219,7 @@ def generate_athlete_progress_report(
 
     tzinfo = _tzinfo_from_settings(settings)
 
+
     system_txt, user_txt = build_prompts_for_progress(
         previous_state=previous_state,
         current_state=current_state,
@@ -229,12 +234,16 @@ def generate_athlete_progress_report(
         "settings": settings,
     }
 
+    print("generate_athlete_progress_report context_payload",context_payload)
+
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
+
+    print("generate_athlete_progress_report res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 

@@ -10,6 +10,7 @@ from Services.AI.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
 
+
 def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
@@ -17,8 +18,10 @@ def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     except Exception:
         return timezone.utc
 
+
 def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
     return datetime.now(tzinfo).isoformat()
+
 
 def _lang_from_settings(settings: Dict[str, Any]) -> str:
     v = (settings.get("language") or "sk").strip().lower()
@@ -28,12 +31,23 @@ def _lang_from_settings(settings: Dict[str, Any]) -> str:
         return "cs"
     return "sk"
 
+
 def _fallback_copy(lang: str) -> Dict[str, Any]:
     if lang == "en":
-        return {"headline": "We couldn't generate the activity review.", "bullets": ["Please try again later."]}
+        return {
+            "headline": "We couldn't generate the activity review.",
+            "bullets": ["Please try again later."],
+        }
     if lang == "cs":
-        return {"headline": "Nepodařilo se získat hodnocení aktivity.", "bullets": ["Zkuste to později."]}
-    return {"headline": "Nepodarilo sa získať AI hodnotenie aktivity.", "bullets": ["Skús to znova neskôr."]}
+        return {
+            "headline": "Nepodařilo se získat hodnocení aktivity.",
+            "bullets": ["Zkuste to později."],
+        }
+    return {
+        "headline": "Nepodarilo sa získať AI hodnotenie aktivity.",
+        "bullets": ["Skús to znova neskôr."],
+    }
+
 
 def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
     try:
@@ -44,6 +58,7 @@ def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
         return int(v) if v is not None else None
     except Exception:
         return None
+
 
 def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
     try:
@@ -58,6 +73,7 @@ def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
         return "other"
     except Exception:
         return "other"
+
 
 def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
     try:
@@ -81,6 +97,7 @@ def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
     except Exception:
         return False
 
+
 def _get_trace_from_result(res: Any) -> Dict[str, Any]:
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
@@ -97,7 +114,10 @@ def _get_trace_from_result(res: Any) -> Dict[str, Any]:
         "ok_model": str(getattr(res, "model", None) or "") or None,
     }
 
-def _extract_user_input(context_payload: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+
+def _extract_user_input(
+    context_payload: Dict[str, Any],
+) -> Tuple[Optional[str], Optional[str]]:
     try:
         ui = context_payload.get("user_input")
         if not isinstance(ui, dict):
@@ -109,6 +129,7 @@ def _extract_user_input(context_payload: Dict[str, Any]) -> Tuple[Optional[str],
         return comment, source
     except Exception:
         return None, None
+
 
 def generate_activity_review_json(
     *,
@@ -145,7 +166,7 @@ def generate_activity_review_json(
         is_race=is_race,
     )
 
-    print("generate_activity_review_json context_payload",context_payload )
+    print("generate_activity_review_json context_payload", context_payload)
 
     res = ai_call_json_model(
         context_payload=context_payload,
@@ -153,6 +174,8 @@ def generate_activity_review_json(
         user_instructions=user_txt,
         model=str(model),
     )
+
+    print("generate_activity_review_json res", res)
 
     trace = _get_trace_from_result(res)
 

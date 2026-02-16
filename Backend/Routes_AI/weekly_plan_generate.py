@@ -98,6 +98,8 @@ def generate_weekly_plan_json(
 
     requested_model = model.strip() if isinstance(model, str) and model.strip() else None
 
+    print("generate_weekly_plan_json context",context)
+    
     res = ai_call_json_model(
         context_payload=context,
         system_prompt=system_txt,
@@ -106,6 +108,8 @@ def generate_weekly_plan_json(
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )
+
+    print("generate_weekly_plan_json res",res)
 
     # trace: always
     trace: Dict[str, Any] = _get_trace_from_result(res, requested_model=requested_model)

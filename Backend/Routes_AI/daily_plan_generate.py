@@ -327,6 +327,8 @@ def generate_daily_week_json(
     last_err_msg: Optional[str] = None
     usage_sum: Optional[Dict[str, Any]] = None
 
+    print("generate_daily_week_json context_payload",context_payload)
+
     for attempt in range(1, attempts + 1):
         res = ai_call_json_model(
             context_payload=ctx,
@@ -336,6 +338,8 @@ def generate_daily_week_json(
             max_tokens=resolved_max_tokens,
             temperature=resolved_temperature,
         )
+
+        print("generate_daily_week_json res",res)
 
         # --- safe error fields ---
         err = getattr(res, "error", None)
