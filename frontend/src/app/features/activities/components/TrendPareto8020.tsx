@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { LOOKBACK_OPTIONS } from "@/app/shared/charts/chart_builders";
+import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 
 import {
@@ -189,7 +189,7 @@ export default function TrendPareto8020({
             <SelectField
               value={String(lookback)}
               onValueChange={(value: string) => setLookback(Number(value) as Lookback)}
-              options={LOOKBACK_OPTIONS(t)}
+              options={WEEK_OPTIONS(t)}
               placeholder="—"
               containerClassName="w-[120px]"
               variant="editable"

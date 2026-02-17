@@ -13,7 +13,7 @@ import {
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { LOOKBACK_OPTIONS } from "@/app/shared/charts/chart_builders";
+import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -145,7 +145,7 @@ export default function TrendWeeklyMonoStrain({
             <SelectField
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
-              options={LOOKBACK_OPTIONS(t)}
+              options={WEEK_OPTIONS(t)}
               containerClassName="w-[120px]"
               variant="editable"
             />

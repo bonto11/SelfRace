@@ -1,7 +1,7 @@
 // src/features/activities/utils/activity.ts
 "use client";
 
-import { OPTIONS } from "@/app/shared/charts/chart_builders";
+import { SPORT_SELECT_OPTIONS } from "@/app/shared/charts/chart_builders";
 import { isoDate, isoWeekInfo } from "@/app/shared/utils/time";
 import {
   ActivityRow,
@@ -418,9 +418,4 @@ export function toEffSport(row: {
   if (s.includes("hike")) return "hike";
   if (s.includes("swim")) return "swim";
   return s;
-}
-
-export function sportUiLabel(s: string): string {
-  const L = OPTIONS.sportLabels;
-  return L[s] || s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
