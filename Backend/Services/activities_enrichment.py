@@ -9,7 +9,7 @@ from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
 from Routes_DB.activities_summary import db_get_summary_for_activities
 from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
 from Services.async_jobs import service_enqueue_job
-
+from Configs.config import MAX_VERSIONS_FREE, MAX_VERSIONS_CLASSIC ,MAX_VERSIONS_PRO, MAX_VERSIONS_FAMILY
 # ============================================================
 # HELPERS
 # ============================================================
@@ -62,8 +62,6 @@ def service_request_activity_review_rerun(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     
-    print(f"service_request_activity_review_rerun | user_id={user_id} | activity_id={activity_id} | comment={comment} | injury={has_new_injury}")
-
     # 1. Získame summary aktivity kvôli dátumu
     summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
     if not summaries or not summaries[0]:
@@ -104,12 +102,14 @@ def service_request_activity_review_rerun(
     comment_from_user = _norm_comment(comment)
 
     # 5. Logika podľa Tierov
-    max_versions = 1
-    
-    if tier_code == "pro":
-        max_versions = 50
+    max_versions = MAX_VERSIONS_FREE
+
+    if tier_code == "family":
+        max_versions = MAX_VERSIONS_FAMILY
+    elif tier_code == "pro":
+        max_versions = MAX_VERSIONS_PRO
     elif tier_code == "classic":
-        max_versions = 3
+        max_versions = MAX_VERSIONS_CLASSIC
         if cur_version >= max_versions:
              return {
                 "ok": False,
@@ -142,8 +142,6 @@ def service_request_activity_review_rerun(
     next_version = cur_version + 1
     dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}"
 
-    print(f"[AR][rerun] Enqueue | User: {user_id} | Tier: {tier_code} | Ver: {next_version} | Comm: {bool(comment_from_user)} | Injury: {has_new_injury}")
-
     # Tu posielame flag "has_new_injury" do job payloadu. Worker (Service vrstva) ho prečíta
     out = service_enqueue_job(
         user_id=int(user_id),
@@ -153,7 +151,7 @@ def service_request_activity_review_rerun(
             "model": model,
             "source": "user",
             "comment": comment_from_user,
-            "has_new_injury": has_new_injury, # ✅ Pridanie informácie pre workera!
+            "has_new_injury": has_new_injury,
             "target_version": next_version
         },
         priority=140,

@@ -14,6 +14,7 @@ from Configs.config_ai_pricing import (
     get_ai_pricing_for_model,
     AI_MONTHLY_FREE_TOKENS,
 )
+from Configs.config import MAX_VERSIONS_FREE,MAX_VERSIONS_FREE, MAX_VERSIONS_CLASSIC ,MAX_VERSIONS_PRO
 from Services.app_subscription import (
     service_get_user_app_subscription_status,
 )
