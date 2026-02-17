@@ -22,7 +22,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 ensureChartJSRegistered();
 
@@ -47,7 +47,7 @@ function sanitizeSleepDurationMin(v: unknown): number {
 }
 
 export default function DetailSleepDuration() {
-  const t = useT(); // Inicializácia t
+  const t = useT(); 
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);

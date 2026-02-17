@@ -1843,39 +1843,40 @@ export const sk = {
   billing: {
     title: "Predplatné a platby",
     subtitle: "Správa tvojho plánu",
-    devModeNote: "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
+    devModeNote:
+      "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
     notLoggedInDesc: "Pre správu predplatného sa najskôr prihlás.",
     sections: {
       tiers: "Dostupné plány",
-      history: "História platieb"
+      history: "História platieb",
     },
     status: {
       notLoggedIn: "Neprihlásený",
       loading: "Načítavam...",
-      tierPrefix: "Aktuálny plán"
+      tierPrefix: "Aktuálny plán",
     },
     usage: {
       title: "Využitie AI",
       tokensUnit: "tokenov",
       summary: "Aktuálna spotreba v tomto mesiaci",
       reset: "Limit sa obnoví",
-      noLimitDefined: "Bez obmedzenia"
+      noLimitDefined: "Bez obmedzenia",
     },
     history: {
-      noRecords: "Zatiaľ neboli zaznamenané žiadne platby."
+      noRecords: "Zatiaľ neboli zaznamenané žiadne platby.",
     },
     planned: {
       previewLabel: "Plánovaná zmena",
       kinds: {
         cancel: "Zrušenie",
         downgrade: "Zníženie",
-        upgrade: "Zvýšenie"
-      }
+        upgrade: "Zvýšenie",
+      },
     },
     toasts: {
       paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
-      paymentCanceled: "Proces platby bol zrušený."
-    }
+      paymentCanceled: "Proces platby bol zrušený.",
+    },
   },
   sessions: {
     review: {
@@ -2018,7 +2019,8 @@ export const sk = {
     },
     billing: {
       missingTier: "Nebol zvolený žiadny plán.",
-      checkoutSessionFailed: "Nepodarilo sa vytvoriť platobnú reláciu. Skús to znova.",
+      checkoutSessionFailed:
+        "Nepodarilo sa vytvoriť platobnú reláciu. Skús to znova.",
       portalSessionFailed: "Nepodarilo sa otvoriť správu predplatného.",
       tierChangeFailed: "Zmena predplatného zlyhala.",
       cancelPlannedFailed: "Nepodarilo sa zrušiť plánovanú zmenu predplatného.",
@@ -2028,70 +2030,111 @@ export const sk = {
     account: {
       statusFailed: "Nepodarilo sa načítať stav zmazania účtu.",
       requestFailed: "Nepodarilo sa požiadať o zmazanie účtu.",
-      cancelFailed: "Nepodarilo sa zrušiť požiadavku na zmazanie účtu."
+      cancelFailed: "Nepodarilo sa zrušiť požiadavku na zmazanie účtu.",
     },
     activities: {
       missingUserId: "Chýba identifikátor používateľa.",
       missingActivityId: "Chýba identifikátor aktivity.",
-      enqueueFailed: "Nepodarilo sa vytvoriť požiadavku na analýzu. Skús to znova neskôr.",
+      enqueueFailed:
+        "Nepodarilo sa vytvoriť požiadavku na analýzu. Skús to znova neskôr.",
       enrichmentFetchFailed: "Nepodarilo sa načítať detaily tréningu.",
       limitReached: "Dosiahli ste limit prepočtov pre túto aktivitu.",
-      activityTooOld: "Aktivita je staršia ako 7 dní a už ju nie je možné analyzovať.",
+      activityTooOld:
+        "Aktivita je staršia ako 7 dní a už ju nie je možné analyzovať.",
       onlyOneForFreeTier: "Vo free verzii máte nárok len na jedno hodnotenie.",
-      duplicateContent: "Tento komentár ste už použili pri poslednom generovaní.",
+      duplicateContent:
+        "Tento komentár ste už použili pri poslednom generovaní.",
       activityNotFound: "Aktivita nebola nájdená.",
-      streamsFetchFailed: "Nepodarilo sa stiahnuť podrobné grafy a dáta zo Stravy.",
-    extrasFetchFailed: "Nepodarilo sa stiahnuť medzičasy a okruhy zo Stravy.",
-    paretoFetchFailed: "Nepodarilo sa načítať dáta pre 80/20 graf.",
-    weeklyLoadFetchFailed: "Nepodarilo sa načítať dáta pre graf týždňovej záťaže.",
-    monoStrainFetchFailed: "Nepodarilo sa načítať dáta pre monotónnosť a úsilie."
+      streamsFetchFailed:
+        "Nepodarilo sa stiahnuť podrobné grafy a dáta zo Stravy.",
+      extrasFetchFailed: "Nepodarilo sa stiahnuť medzičasy a okruhy zo Stravy.",
+      paretoFetchFailed: "Nepodarilo sa načítať dáta pre 80/20 graf.",
+      weeklyLoadFetchFailed:
+        "Nepodarilo sa načítať dáta pre graf týždňovej záťaže.",
+      monoStrainFetchFailed:
+        "Nepodarilo sa načítať dáta pre monotónnosť a úsilie.",
     },
     strava: {
-    statusLoadFailed: "Nepodarilo sa načítať stav Strava prepojenia.",
-    disconnectConsentRequired: "Pre odpojenie Stravy je nutný súhlas používateľa.",
-    disconnectFailed: "Nepodarilo sa odpojiť Strava účet. Skús to neskôr."
-  }
+      statusLoadFailed: "Nepodarilo sa načítať stav Strava prepojenia.",
+      disconnectConsentRequired:
+        "Pre odpojenie Stravy je nutný súhlas používateľa.",
+      disconnectFailed: "Nepodarilo sa odpojiť Strava účet. Skús to neskôr.",
+    },
+    bests: {
+      loadFailed: "Nepodarilo sa načítať tvoje osobné rekordy.",
+      saveFailed: "Nepodarilo sa uložiť osobný rekord.",
+      deleteFailed: "Nepodarilo sa vymazať osobný rekord.",
+    },
+    coach: {
+      planFetchFailed: "Nepodarilo sa načítať tréningový plán.",
+    },
+    recovery: {
+      fetchFailed: "Nepodarilo sa načítať dáta o regenerácii.",
+      saveFailed: "Nepodarilo sa uložiť dáta o regenerácii.",
+    },
+    profile: {
+      staticLoadFailed: "Nepodarilo sa načítať základné údaje profilu.",
+      staticSaveFailed: "Nepodarilo sa uložiť základné údaje profilu.",
+      metricsLoadFailed: "Nepodarilo sa načítať tvoje metriky.",
+      vo2LoadFailed: "Nepodarilo sa načítať hodnoty VO₂Max.",
+      metricsSaveFailed: "Nepodarilo sa uložiť nové metriky.",
+    },
+    prefs: {
+      loadFailed: "Nepodarilo sa načítať tvoje tréningové preferencie.",
+      saveFailed: "Nepodarilo sa uložiť preferencie.",
+      zonesLoadFailed: "Nepodarilo sa načítať tvoje tréningové zóny.",
+      zonesSaveFailed: "Nepodarilo sa uložiť tvoje tréningové zóny.",
+      thresholdsLoadFailed: "Nepodarilo sa načítať tvoje prahové hodnoty.",
+      thresholdsSaveFailed: "Nepodarilo sa uložiť tvoje prahové hodnoty.",
+    },
   },
   accountDelete: {
     title: "Zrušenie účtu (nezvratné)",
     checkingStatus: "Kontrolujem stav zmazania účtu…",
     status: {
       pendingLabel: "označený na zmazanie",
-      pendingDesc: "Ak nič neurobíš, všetky tvoje dáta v aplikácii sa po uplynutí lehoty trvalo vymažú.",
+      pendingDesc:
+        "Ak nič neurobíš, všetky tvoje dáta v aplikácii sa po uplynutí lehoty trvalo vymažú.",
       estimatedDate: "Odhadovaný dátum zmazania:",
-      stravaNote: "Poznámka: Nevymaže sa tvoj Strava účet – odstránia sa len importované dáta a prepojenie v tejto aplikácii.",
+      stravaNote:
+        "Poznámka: Nevymaže sa tvoj Strava účet – odstránia sa len importované dáta a prepojenie v tejto aplikácii.",
       cancelledLabel: "zrušené",
       cancelledDesc: "Účet je aktívny a tvoje dáta v aplikácii sa nevymažú.",
       defaultLabel: "nezvratné",
-      defaultDesc: "Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa odstránia všetky dáta v aplikácii."
+      defaultDesc:
+        "Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa odstránia všetky dáta v aplikácii.",
     },
     buttons: {
       cancelDelete: "Zrušiť plánované zmazanie",
       requestDelete: "Označiť účet na zmazanie",
-      refreshState: "Obnoviť stav"
+      refreshState: "Obnoviť stav",
     },
     modal: {
       titleRequest: "Zrušenie účtu",
       titleCancel: "Zrušiť plánované zmazanie",
       subtitleRequest: "Toto je vážna akcia.",
       subtitleCancel: "Týmto ponecháš účet aktívny.",
-      infoRequest: "Najprv sa účet označí na zmazanie. Strava sa ale odpojí okamžite a vymažú sa importované dáta zo Stravy v tejto aplikácii. Počas lehoty to môžeš ešte odvolať, ak nie tak potom sa odstránia všetky dáta v aplikácii.",
-      infoCancel: "Zrušením plánovaného zmazania zostane účet aktívny a tvoje dáta v aplikácii sa nevymažú. Strava sa ale bude musieť opäť pripojiť a budeš mať možnosť skráteného reimportu.",
+      infoRequest:
+        "Najprv sa účet označí na zmazanie. Strava sa ale odpojí okamžite a vymažú sa importované dáta zo Stravy v tejto aplikácii. Počas lehoty to môžeš ešte odvolať, ak nie tak potom sa odstránia všetky dáta v aplikácii.",
+      infoCancel:
+        "Zrušením plánovaného zmazania zostane účet aktívny a tvoje dáta v aplikácii sa nevymažú. Strava sa ale bude musieť opäť pripojiť a budeš mať možnosť skráteného reimportu.",
       bullets: {
         b1: "trvalo sa vymažú tréningy, plány a nastavenia uložené v tejto aplikácii",
         b2: "odpojí sa Strava a vymažú sa importované dáta zo Stravy v tejto aplikácii",
-        b3: "tvoj Strava účet sa nevymaže"
+        b3: "tvoj Strava účet sa nevymaže",
       },
-      consentRequest: "Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty sa moje dáta v aplikácii trvalo vymažú a že Strava dáta v SelfRace aplikácii budú zmazané okamžite.",
+      consentRequest:
+        "Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty sa moje dáta v aplikácii trvalo vymažú a že Strava dáta v SelfRace aplikácii budú zmazané okamžite.",
       consentCancel: "Rozumiem a chcem zrušiť plánované zmazanie účtu.",
       consentHint: "Bez tohto súhlasu akciu nepovolíme.",
       errorCheckbox: "Najprv potvrď súhlas (checkbox).",
       btnProcessing: "Spracúvam…",
-      btnCancel: "Zrušiť"
+      btnCancel: "Zrušiť",
     },
     toasts: {
-      requestSuccess: "Účet je označený na zmazanie. Do lehoty to môžeš ešte zrušiť.",
-      cancelSuccess: "Plánované zmazanie účtu bolo zrušené."
-    }
-  }
+      requestSuccess:
+        "Účet je označený na zmazanie. Do lehoty to môžeš ešte zrušiť.",
+      cancelSuccess: "Plánované zmazanie účtu bolo zrušené.",
+    },
+  },
 } as const;

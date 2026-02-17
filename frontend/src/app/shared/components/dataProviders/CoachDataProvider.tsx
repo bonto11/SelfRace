@@ -1,5 +1,4 @@
 // src/features/coach/data/CoachDataProvider.tsx
-// src/features/coach/data/CoachDataProvider.tsx
 "use client";
 
 import React, {
@@ -21,6 +20,7 @@ import {
 import { apiGetBests } from "@/app/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/app/shared/utils/time";
 import { fetchPlanRangeApi } from "@/app/features/coach/api/planApi";
+import { useT } from "@/app/shared/i18n/useT"; // ✅ Import prekladov
 
 /* ----------------- PB mapovanie ----------------- */
 
@@ -104,6 +104,7 @@ export function CoachDataProvider({
   futureDays?: number;
 }) {
   const { userId } = useUserId();
+  const t = useT(); // ✅ Inicializácia prekladača
 
   // -------- prefs + PB --------
   const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
@@ -117,17 +118,23 @@ export function CoachDataProvider({
     try {
       // prefs
       const p =
-        (await apiFetchUserPref(userId, "coach.prefs").catch(() => null)) ??
+        (await apiFetchUserPref(userId, "coach.prefs").catch((e) => {
+            console.warn("[CoachProvider] prefs load failed", t(e?.message as any));
+            return null;
+        })) ??
         DEFAULT_PREFS;
       setPrefs(p);
 
       // PB – RUN
-      const runBests: UserBest[] = await apiGetBests(userId, "run").catch(() => []);
+      const runBests: UserBest[] = await apiGetBests(userId, "run").catch((e) => {
+          console.warn("[CoachProvider] PB load failed", t(e?.message as any));
+          return [];
+      });
       setPbRun(runBests.map(mapRunBest));
     } finally {
       setCoachLoading(false);
     }
-  }, [userId]);
+  }, [userId, t]);
 
   const savePrefs = useCallback(
     async (next: CoachPrefs) => {
@@ -158,14 +165,15 @@ export function CoachDataProvider({
       try {
         const norm = await fetchPlanRangeApi(userId, rangeStart, rangeEnd);
         setPlanRows(norm as PlanRow[]);
-      } catch (e) {
-        console.error("[PLAN][provider] fetchRange ERROR", e);
+      } catch (e: any) {
+        // ✅ Tiché zalogovanie s prekladom
+        console.error("[PLAN][provider] fetchRange ERROR", t(e?.message as any) || t("api.coach.planFetchFailed"));
         setPlanRows([]);
       } finally {
         setPlanLoading(false);
       }
     },
-    [userId, rangeStart, rangeEnd]
+    [userId, rangeStart, rangeEnd, t]
   );
 
   const selectPlanByRange = useCallback(

@@ -31,9 +31,7 @@ export async function apiFetchUserPrefs(
     return out;
   } catch (e: any) {
     console.error("[UserPrefs][apiFetchUserPrefs] ERROR", e);
-    const msg =
-      e instanceof Error ? e.message : "prefs load failed (apiFetchUserPrefs)";
-    throw new Error(msg);
+    throw new Error("api.prefs.loadFailed");
   }
 }
 
@@ -59,15 +57,12 @@ export async function apiFetchUserPref(
       cache: "no-store",
     });
 
-    // podpora starého aj nového tvaru odpovede
     if (json?.pref && "value" in json.pref) return json.pref.value;
     if (typeof json?.value !== "undefined") return json.value;
     return null;
   } catch (e: any) {
     console.error("[UserPrefs][apiFetchUserPref] ERROR", e);
-    const msg =
-      e instanceof Error ? e.message : "pref load failed (apiFetchUserPref)";
-    throw new Error(msg);
+    throw new Error("api.prefs.loadFailed");
   }
 }
 
@@ -77,7 +72,7 @@ export async function apiUpsertUserPref(
   value: any
 ): Promise<void> {
   if (!userId || !key) {
-    throw new Error("Missing userId or key in apiUpsertUserPref");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/prefs/${encodeURIComponent(
@@ -94,9 +89,7 @@ export async function apiUpsertUserPref(
     });
   } catch (e: any) {
     console.error("[UserPrefs][apiUpsertUserPref] ERROR", e);
-    const msg =
-      e instanceof Error ? e.message : "pref save failed (apiUpsertUserPref)";
-    throw new Error(msg);
+    throw new Error("api.prefs.saveFailed");
   }
 }
 
@@ -105,7 +98,7 @@ export async function apiUpsertUserPrefs(
   rows: UserPrefRow[]
 ): Promise<void> {
   if (!userId) {
-    throw new Error("Missing userId in apiUpsertUserPrefs");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/prefs/${encodeURIComponent(String(userId))}`;
@@ -120,9 +113,7 @@ export async function apiUpsertUserPrefs(
     });
   } catch (e: any) {
     console.error("[UserPrefs][apiUpsertUserPrefs] ERROR", e);
-    const msg =
-      e instanceof Error ? e.message : "prefs save failed (apiUpsertUserPrefs)";
-    throw new Error(msg);
+    throw new Error("api.prefs.saveFailed");
   }
 }
 
@@ -147,11 +138,6 @@ function isoTodayPlus(days: number): string {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Ak má coach.prefs.start_date dátum v minulosti, nastaví ho na zajtra
- * (rovnaký princíp ako MIN_PLAN_START v PlanStartSection) a uloží do DB.
- * Vráti aktuálne prefs (pôvodné alebo upravené).
- */
 export async function apiEnsureCoachPlanStartFuture(
   userId: number
 ): Promise<CoachPrefs | null> {
@@ -176,7 +162,6 @@ export async function apiEnsureCoachPlanStartFuture(
 
   const today = isoToday();
 
-  // už je dnes alebo v budúcnosti -> nič nerobíme
   if (current >= today) return prefs;
 
   const nextStart = isoTodayPlus(1);
@@ -186,7 +171,6 @@ export async function apiEnsureCoachPlanStartFuture(
     await apiUpsertUserPref(userId, "coach.prefs", updated);
   } catch (e) {
     console.error("[CoachPrefs][ensurePlanStartFuture] upsert error", e);
-    // aj keď save zlyhá, vraciame lokálne updated, nech FE vie, čo sme chceli
   }
 
   return updated;

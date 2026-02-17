@@ -21,7 +21,7 @@ import type {
 export async function apiGetLatestMetrics(
   userId: number
 ): Promise<LatestMetricsMap | null> {
-  if (!userId) return null;
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/metrics/latest/${encodeURIComponent(String(userId))}`;
   console.debug("[METRICS][apiGetLatestMetrics] ->", path);
@@ -39,7 +39,7 @@ export async function apiGetLatestMetrics(
     return (json as LatestMetricsResponse).data ?? null;
   } catch (e) {
     console.error("[METRICS][apiGetLatestMetrics] ERROR", e);
-    return null;
+    throw new Error("api.profile.metricsLoadFailed");
   }
 }
 
@@ -51,7 +51,7 @@ export async function apiGetLatestMetrics(
 export async function apiGetVo2History(
   userId: number
 ): Promise<Vo2HistoryApiOk | null> {
-  if (!userId) return null;
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/vo2-history/${encodeURIComponent(String(userId))}`;
   console.debug("[METRICS][apiGetVo2History] ->", path);
@@ -83,7 +83,7 @@ export async function apiGetVo2History(
     };
   } catch (e) {
     console.error("[METRICS][apiGetVo2History] ERROR", e);
-    return null;
+    throw new Error("api.profile.vo2LoadFailed");
   }
 }
 
@@ -93,7 +93,7 @@ export async function apiGetVo2History(
 export async function apiGetVo2Estimate(
   userId: number
 ): Promise<EstRow | null> {
-  if (!userId) return null;
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/vo2-estimate/${encodeURIComponent(String(userId))}`;
   console.debug("[METRICS][apiGetVo2Estimate] ->", path);
@@ -118,7 +118,7 @@ export async function apiGetVo2Estimate(
     } as EstRow;
   } catch (e) {
     console.error("[METRICS][apiGetVo2Estimate] ERROR", e);
-    return null;
+    throw new Error("api.profile.vo2LoadFailed");
   }
 }
 
@@ -132,7 +132,7 @@ export async function apiSaveMetrics(
   entries: MetricEntryInput[]
 ): Promise<SaveMetricsSuccess> {
   if (!userId) {
-    throw new Error("Missing userId in apiSaveMetrics");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/profile/metrics/${encodeURIComponent(String(userId))}`;
@@ -151,15 +151,13 @@ export async function apiSaveMetrics(
     });
 
     if (!json || (json as MetricsApiFail).success === false) {
-      const msg =
-        (json as MetricsApiFail)?.detail || "[METRICS] apiSaveMetrics failed";
-      throw new Error(msg);
+      throw new Error("api.profile.metricsSaveFailed");
     }
 
     return json as SaveMetricsSuccess;
   } catch (e) {
     console.error("[METRICS][apiSaveMetrics] ERROR", e);
-    throw e;
+    throw new Error("api.profile.metricsSaveFailed");
   }
 }
 
@@ -172,7 +170,7 @@ export async function apiGetMetricHistory(
   userId: number,
   metric: string
 ): Promise<MetricHistoryRow[] | null> {
-  if (!userId || !metric) return null;
+  if (!userId || !metric) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/metrics/history/${encodeURIComponent(
     String(userId)
@@ -193,6 +191,6 @@ export async function apiGetMetricHistory(
     return json.data as MetricHistoryRow[];
   } catch (e) {
     console.error("[METRICS][apiGetMetricHistory] ERROR", e);
-    return null;
+    throw new Error("api.profile.metricsLoadFailed");
   }
 }

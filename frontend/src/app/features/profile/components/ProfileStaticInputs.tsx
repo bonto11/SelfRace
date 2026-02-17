@@ -27,7 +27,7 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 const EMPTY: StaticProfile = {
   sex: null,
@@ -37,7 +37,7 @@ const EMPTY: StaticProfile = {
 
 export default function ProfileStaticInputs() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -53,6 +53,8 @@ export default function ProfileStaticInputs() {
         const d = await apiGetStaticProfile(userId);
         if (!alive) return;
         if (d) setData(d);
+      } catch (e: any) {
+        console.warn("[ProfileStaticInputs] load failed", t(e?.message as any));
       } finally {
         if (alive) setLoading(false);
       }
@@ -61,7 +63,7 @@ export default function ProfileStaticInputs() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const summary = useMemo(() => summarizeStaticProfile(data), [data]);
 
@@ -75,7 +77,7 @@ export default function ProfileStaticInputs() {
 
   async function handleSave() {
     if (!userId) {
-      toast.error(t("common.errors.missingUser"));
+      toast.error(t("api.common.missingUserAuth"));
       return;
     }
     try {
@@ -85,7 +87,7 @@ export default function ProfileStaticInputs() {
       toast.success(t("profile.static.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
-      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
+      toast.error(t(e?.message as any) || t("api.profile.staticSaveFailed"));
     } finally {
       setLoading(false);
     }

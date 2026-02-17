@@ -14,7 +14,7 @@ import type {
 export async function apiGetStaticProfile(
   userId: number
 ): Promise<StaticProfile | null> {
-  if (!userId) return null;
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/static/${encodeURIComponent(String(userId))}`;
   console.debug("[PROFILE][apiGetStaticProfile] ->", path);
@@ -35,7 +35,7 @@ export async function apiGetStaticProfile(
     return (json as StaticProfileSuccess).data ?? null;
   } catch (e) {
     console.error("[PROFILE][apiGetStaticProfile] ERROR", e);
-    return null;
+    throw new Error("api.profile.staticLoadFailed");
   }
 }
 
@@ -49,7 +49,7 @@ export async function apiSaveStaticProfile(
   data: StaticProfile
 ): Promise<StaticProfile> {
   if (!userId) {
-    throw new Error("Missing userId in apiSaveStaticProfile");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/profile/static/${encodeURIComponent(String(userId))}`;
@@ -67,15 +67,12 @@ export async function apiSaveStaticProfile(
     );
 
     if (!json || (json as StaticApiFail).success === false) {
-      const msg =
-        (json as StaticApiFail)?.detail ||
-        "[PROFILE] apiSaveStaticProfile failed";
-      throw new Error(msg);
+      throw new Error("api.profile.staticSaveFailed");
     }
 
     return (json as StaticProfileSuccess).data;
   } catch (e) {
     console.error("[PROFILE][apiSaveStaticProfile] ERROR", e);
-    throw e;
+    throw new Error("api.profile.staticSaveFailed");
   }
 }

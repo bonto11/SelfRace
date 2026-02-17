@@ -28,7 +28,7 @@ import {
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import { useT } from "@/app/shared/i18n/useT"; // Import hooku
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
@@ -53,7 +53,7 @@ function shiftAfterMidnightForChart(dayMin: number): number {
 }
 
 export default function DetailSleepStart() {
-  const t = useT(); // Inicializácia t
+  const t = useT(); 
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);

@@ -25,7 +25,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
@@ -43,7 +43,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 }
 
 export default function DetailRHR() {
-  const t = useT(); // 2. Inicializácia t
+  const t = useT();
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);

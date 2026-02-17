@@ -35,8 +35,7 @@ export async function apiGetBests(
       : arr;
   } catch (e: any) {
     console.error("[bests][GET] error", e);
-    // necháme error padnúť do UI, podobne ako pôvodne pri !r.ok
-    throw new Error(e?.message ?? "bests load failed");
+    throw new Error("api.bests.loadFailed");
   }
 }
 
@@ -46,7 +45,7 @@ export async function apiSaveBest(
   best: UserBest
 ): Promise<void> {
   if (!userId) {
-    throw new Error("Missing userId for apiSaveBest");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const sport = best.sport ?? "run";
@@ -84,7 +83,7 @@ export async function apiSaveBest(
     });
   } catch (e: any) {
     console.error("[bests][PUT] error", e);
-    throw new Error(e?.message ?? "save best failed");
+    throw new Error("api.bests.saveFailed");
   }
 }
 
@@ -95,7 +94,7 @@ export async function apiDeleteBest(
   sport: Sport = "run"
 ): Promise<void> {
   if (!userId) {
-    throw new Error("Missing userId for apiDeleteBest");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/users/${encodeURIComponent(
@@ -112,6 +111,6 @@ export async function apiDeleteBest(
     });
   } catch (e: any) {
     console.error("[bests][DELETE] error", e);
-    throw new Error(e?.message ?? "delete best failed");
+    throw new Error("api.bests.deleteFailed");
   }
 }

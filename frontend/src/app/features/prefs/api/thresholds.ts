@@ -1,4 +1,4 @@
-// src/features/coach/api/thresholds.ts
+// src/features/prefs/api/thresholds.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { UserThresholdRow } from "@/app/features/coach/types/thresholdsTypes";
 
@@ -32,7 +32,7 @@ export async function apiFetchUserThreshold(
     return (json as ApiRow).thresholds ?? null;
   } catch (e) {
     console.error("[thresholds][GET one] error", e);
-    return null;
+    return null; // Tichý fail, formulár sa s tým vysporiada
   }
 }
 
@@ -80,8 +80,6 @@ export async function apiFetchUserThresholdsLatest(
       cache: "no-store",
     })) as ApiRows | ApiFail | null;
 
-    console.debug("[thresholds][GET latest] json =", json);
-
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiRows).rows ?? [];
   } catch (e) {
@@ -97,7 +95,7 @@ export async function apiSaveUserThresholds(
   userId: number,
   t: Partial<UserThresholdRow>
 ): Promise<UserThresholdRow | null> {
-  if (!userId) throw new Error("Missing userId for apiSaveUserThresholds");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/users/${encodeURIComponent(String(userId))}/thresholds`;
 
@@ -112,22 +110,21 @@ export async function apiSaveUserThresholds(
 
   console.debug("[thresholds][PUT] ->", path, "body", body);
 
-  const json = (await callBackend<ApiRow | ApiFail>(path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(body),
-  }).catch((e) => {
+  try {
+    const json = (await callBackend<ApiRow | ApiFail>(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(body),
+    })) as ApiRow | ApiFail | null;
+
+    if (!json || (json as ApiFail).success === false) {
+      throw new Error("api.prefs.thresholdsSaveFailed");
+    }
+
+    return (json as ApiRow).thresholds ?? null;
+  } catch (e) {
     console.error("[thresholds][PUT] error", e);
-    throw e;
-  })) as ApiRow | ApiFail | null;
-
-  console.debug("[thresholds][PUT] response =", json);
-
-  if (!json || (json as ApiFail).success === false) {
-    const msg = (json as ApiFail)?.detail || "Threshold save failed";
-    throw new Error(msg);
+    throw new Error("api.prefs.thresholdsSaveFailed");
   }
-
-  return (json as ApiRow).thresholds ?? null;
 }

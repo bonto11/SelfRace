@@ -142,6 +142,7 @@ export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPref
 }
 
 export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
+  // Chyba prebublá hore, kde si ju CoachPreferencies.tsx odchytí a vypíše preklad.
   await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs);

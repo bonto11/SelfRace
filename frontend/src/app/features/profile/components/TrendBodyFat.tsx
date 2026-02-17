@@ -4,7 +4,6 @@ import * as React from "react";
 import { Line } from "react-chartjs-2";
 import type { ChartData, ChartOptions } from "chart.js";
 
-
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { OPTIONS, WEEK_OPTIONS ,ensureChartJSRegistered, buildRecoveryLineOptions} from "@/app/shared/charts/chart_builders";
@@ -33,13 +32,13 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 ensureChartJSRegistered();
 
 export default function TrendBodyFat() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
 
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
@@ -56,8 +55,8 @@ export default function TrendBodyFat() {
       setLoading(true);
       try {
         const [s, m] = await Promise.all([
-          apiGetStaticProfile(userId),
-          apiGetMetricHistory(userId, "body_fat_pct"),
+          apiGetStaticProfile(userId).catch(() => null),
+          apiGetMetricHistory(userId, "body_fat_pct").catch(() => null),
         ]);
         if (!alive) return;
         if (s) setStat(s);
@@ -135,7 +134,7 @@ export default function TrendBodyFat() {
     }),
     {
       type: "line" as const,
-      label: t("bodyFat.title"), // Použité existujúce "Telesný tuk %"
+      label: t("bodyFat.title"),
       data: values,
       borderColor: appColors.chartLine1,
       backgroundColor: appColors.chartLine1,

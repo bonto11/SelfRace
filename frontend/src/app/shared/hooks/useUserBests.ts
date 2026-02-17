@@ -36,7 +36,7 @@ export function useBests(userId: number) {
       });
       setBests(normalized);
     } catch (e: any) {
-      setError(e?.message ?? "Failed to load bests");
+      setError(e?.message ?? "api.bests.loadFailed");
     } finally {
       setLoading(false);
     }

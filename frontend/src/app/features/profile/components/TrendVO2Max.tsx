@@ -38,13 +38,13 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 ensureChartJSRegistered();
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
 
   const [loading, setLoading] = React.useState(false);
   const [weeks, setWeeks] = React.useState<number>(4);
@@ -64,9 +64,9 @@ export default function TrendVO2Max() {
       setLoading(true);
       try {
         const [s, est, meas] = await Promise.all([
-          apiGetStaticProfile(userId),
-          apiGetMetricHistory(userId, "VO2Max_estimated"),
-          apiGetMetricHistory(userId, "VO2Max_measured"),
+          apiGetStaticProfile(userId).catch(() => null),
+          apiGetMetricHistory(userId, "VO2Max_estimated").catch(() => null),
+          apiGetMetricHistory(userId, "VO2Max_measured").catch(() => null),
         ]);
         if (!alive) return;
         if (s) setStat(s);
@@ -199,7 +199,7 @@ export default function TrendVO2Max() {
       ? [
           {
             type: "line" as const,
-            label: t("VO2Max.chart.estLevel"), // Preložené
+            label: t("VO2Max.chart.estLevel"), 
             data: labels.map(() => oneEst as number),
             borderColor: appColors.chartLine1,
             backgroundColor: appColors.chartLine1,
@@ -213,7 +213,7 @@ export default function TrendVO2Max() {
       : []),
     {
       type: "line" as const,
-      label: t("VO2Max.chart.estLabel"), // Preložené
+      label: t("VO2Max.chart.estLabel"), 
       data: seriesEst,
       borderColor: appColors.chartLine1,
       backgroundColor: appColors.chartLine1,
@@ -228,7 +228,7 @@ export default function TrendVO2Max() {
       ? [
           {
             type: "line" as const,
-            label: t("VO2Max.chart.measLevel"), // Preložené
+            label: t("VO2Max.chart.measLevel"), 
             data: labels.map(() => oneMeas as number),
             borderColor: appColors.chartLine2,
             backgroundColor: appColors.chartLine2,

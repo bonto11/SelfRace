@@ -42,6 +42,10 @@ export default function WidgetPB({
       try {
         const r = await apiGetBests(userId, "run");
         if (alive) setRows(Array.isArray(r) ? r : []);
+      } catch (e: any) {
+         // ✅ Tiché zalogovanie s prekladovým kľúčom, UI sa s tým popasuje a ukáže "empty" stav
+         console.error("[WidgetPB] load failed:", t(e?.message as any));
+         if (alive) setRows([]);
       } finally {
         if (alive) setLoading(false);
       }
@@ -50,7 +54,7 @@ export default function WidgetPB({
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const fav = useMemo(
     () => (favM ? rows.find((r) => r.distance_m === favM) ?? null : null),

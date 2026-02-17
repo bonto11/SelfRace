@@ -81,7 +81,7 @@ export default function PBRun() {
     try {
       setRows(await apiGetBests(userId, "run"));
     } catch (e: any) {
-      toast.error(String(e?.message ?? e));
+      toast.error(t(e?.message as any) || t("api.bests.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ export default function PBRun() {
         label: o.label,
       })),
     ];
-  }, []);
+  }, [t]);
 
   const handleSave = async () => {
     if (!userId || !canSave) return;
@@ -132,7 +132,7 @@ export default function PBRun() {
       setForm(EMPTY);
       await refresh();
     } catch (e: any) {
-      toast.error(String(e?.message ?? e));
+      toast.error(t(e?.message as any) || t("api.bests.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -153,7 +153,7 @@ export default function PBRun() {
       toast.success(t("PB.deleted"));
       await refresh();
     } catch (e: any) {
-      toast.error(String(e?.message ?? e));
+      toast.error(t(e?.message as any) || t("api.bests.deleteFailed"));
     }
   };
 
@@ -238,7 +238,7 @@ export default function PBRun() {
               onClick={() => setForm(EMPTY)}
               size="xs"
             >
-              Clear
+              {t("common.undo") || "Clear"}
             </Button>
 
             <Button

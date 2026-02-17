@@ -14,7 +14,7 @@ export async function apiFetchRecovery(
   userId: string | number,
   days: number = 90,
 ): Promise<RecoveryRow[]> {
-  if (!userId) return [];
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/recovery/${encodeURIComponent(String(userId))}?days=${days}`;
 
@@ -41,7 +41,7 @@ export async function apiFetchRecovery(
     return normalized;
   } catch (e) {
     console.error("[REC][api] fetch ERROR", e);
-    return [];
+    throw new Error("api.recovery.fetchFailed");
   }
 }
 
@@ -51,15 +51,20 @@ export async function apiSaveRecovery(
 ): Promise<void> {
   const path = `/recovery`;
 
-  await callBackend<any>(path, {
-    method: "POST",
-    cache: "no-store",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ...row,
-      user_id: userId,
-    }),
-  });
+  try {
+    await callBackend<any>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...row,
+        user_id: userId,
+      }),
+    });
+  } catch (e) {
+    console.error("[REC][api] save ERROR", e);
+    throw new Error("api.recovery.saveFailed");
+  }
 }
 
 export async function apiSaveRecoveryPatch(
@@ -68,13 +73,18 @@ export async function apiSaveRecoveryPatch(
 ): Promise<void> {
   const path = `/recovery`;
 
-  await callBackend<any>(path, {
-    method: "POST", // môže zostať POST, dôležité je BE správanie (exclude_unset)
-    cache: "no-store",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      ...patch,
-      user_id: userId,
-    }),
-  });
+  try {
+    await callBackend<any>(path, {
+      method: "POST", // môže zostať POST, dôležité je BE správanie (exclude_unset)
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...patch,
+        user_id: userId,
+      }),
+    });
+  } catch (e) {
+    console.error("[REC][api] save patch ERROR", e);
+    throw new Error("api.recovery.saveFailed");
+  }
 }

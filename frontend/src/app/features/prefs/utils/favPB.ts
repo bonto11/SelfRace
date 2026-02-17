@@ -31,7 +31,8 @@ export async function setFavPBRunDB(
   if (!userId) return;
   try {
     await apiUpsertUserPref(userId, KEY, m);
-  } catch {
-    /* ticho */
+  } catch (err: any) {
+    // Tichý pád, pre bublanie do UI nie je nutné rušiť používateľa, ak je to len obľúbená vzdialenosť
+    console.warn("[setFavPBRunDB] Failed to save favorite PB run to DB:", err?.message);
   }
 }

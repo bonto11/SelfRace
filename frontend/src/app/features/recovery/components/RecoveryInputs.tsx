@@ -29,7 +29,7 @@ import {
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT";
 
 type DirtyKey =
   | "RHR_bpm"
@@ -60,7 +60,7 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
 
 export default function RecoveryInputs() {
   const { userId } = useUserId();
-  const t = useT(); // 2. Inicializácia t
+  const t = useT();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
@@ -94,7 +94,7 @@ export default function RecoveryInputs() {
 
   async function handleSave() {
     if (!userId) {
-      toast.error(t("common.errors.missingUser"));
+      toast.error(t("api.common.missingUserAuth"));
       return;
     }
 
@@ -126,7 +126,8 @@ export default function RecoveryInputs() {
       setOpen(false);
       setDirty({});
     } catch (e: any) {
-      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
+      // ✅ ZMENA: Preložíme api error message
+      toast.error(t(e?.message as any) || t("api.recovery.saveFailed"));
     } finally {
       setSaving(false);
     }

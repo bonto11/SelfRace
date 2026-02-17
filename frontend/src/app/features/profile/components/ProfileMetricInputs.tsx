@@ -36,7 +36,7 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
   weight_kg: "kg",
@@ -48,7 +48,7 @@ const UNIT_MAP: Record<EditableMetricKey, string> = {
 
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -80,6 +80,8 @@ export default function ProfileMetricInputs() {
         const data = await apiGetLatestMetrics(userId);
         if (!alive) return;
         setLatest(data);
+      } catch (e: any) {
+        console.warn("[ProfileMetricInputs] load failed", t(e?.message as any));
       } finally {
         if (alive) setLoading(false);
       }
@@ -88,9 +90,9 @@ export default function ProfileMetricInputs() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
-  const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest]);
+  const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
 
   function onChangeNumber<K extends EditableMetricKey>(key: K, raw: string) {
@@ -100,7 +102,7 @@ export default function ProfileMetricInputs() {
 
   async function handleSave() {
     if (!userId) {
-      toast.error(t("common.errors.missingUser"));
+      toast.error(t("api.common.missingUserAuth"));
       return;
     }
 
@@ -146,7 +148,7 @@ export default function ProfileMetricInputs() {
 
       setOpen(false);
     } catch (e: any) {
-      toast.error(`${t("common.errors.errorPrefix")}${e?.message ?? e}`);
+      toast.error(t(e?.message as any) || t("api.profile.metricsSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -295,7 +297,7 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("common.soon") /* Použité z common */}
+              {t("common.soon")}
             </div>
             <TextField
               value={t("profile.metrics.saveTip")}

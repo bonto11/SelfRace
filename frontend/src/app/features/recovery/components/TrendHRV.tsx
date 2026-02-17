@@ -25,7 +25,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
@@ -44,7 +44,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 }
 
 export default function TrendHRV() {
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -154,7 +154,7 @@ export default function TrendHRV() {
       datasets: [
         {
           type: "line" as const,
-          label: t("recovery.trends.hrv.baselineMinus"), // Preložené
+          label: t("recovery.trends.hrv.baselineMinus"),
           data: toNum(lower),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -165,7 +165,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: t("recovery.trends.hrv.baselinePlus"), // Preložené
+          label: t("recovery.trends.hrv.baselinePlus"),
           data: toNum(upper),
           borderColor: "rgba(0,0,0,0)",
           backgroundColor: COLOR.bandFill,
@@ -177,7 +177,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: t("recovery.trends.hrv.hrvLabel"), // Preložené
+          label: t("recovery.trends.hrv.hrvLabel"), 
           data: hrv,
           borderColor: COLOR.main,
           backgroundColor: COLOR.main,
@@ -189,7 +189,7 @@ export default function TrendHRV() {
         },
         {
           type: "line" as const,
-          label: t("recovery.trends.hrv.missingLabel"), // Preložené
+          label: t("recovery.trends.hrv.missingLabel"), 
           data: missingY.map((y, i) =>
             missingIdx[i] && typeof y === "number" ? y : NaN,
           ),
@@ -223,7 +223,7 @@ export default function TrendHRV() {
       id: "draw-missing-on-top",
       afterDatasetsDraw(chart) {
         const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === t("recovery.trends.hrv.missingLabel"), // Použitý preložený label
+          (d) => d.label === t("recovery.trends.hrv.missingLabel"), 
         );
         if (dsIndex < 0) return;
         const meta = chart.getDatasetMeta(dsIndex);

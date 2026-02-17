@@ -24,11 +24,11 @@ import { NO_X } from "@/app/shared/ui/tokens";
 import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
-} from "@/app/features/coach/api/zones";
+} from "@/app/features/prefs/api/zones";
 import {
   apiFetchUserThresholdsLatest,
   apiSaveUserThresholds,
-} from "@/app/features/coach/api/thresholds";
+} from "@/app/features/prefs/api/thresholds";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
 import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
@@ -106,13 +106,14 @@ export default function CoachPreferencies() {
         };
 
         if (!dirtyRef.current) setLocal(next);
-      } catch (e) {
-        console.error("[CoachPrefs]init error", e);
+      } catch (e: any) {
+        // Tiché logovanie prekladu
+        console.error("[CoachPrefs]init error", t(e?.message as any));
       }
     })();
 
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, t]);
 
   useEffect(() => {
     setLocal((prev) => {
@@ -217,7 +218,7 @@ export default function CoachPreferencies() {
       toast.success(t("prefs.info.saveSuccess"));
       dirtyRef.current = false;
     } catch (e: any) {
-      toast.error(t("common.errors.errorPrefix") + String(e?.message ?? e));
+      toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
     }
   };
 
@@ -242,7 +243,7 @@ export default function CoachPreferencies() {
       if (!dirtyRef.current) setLocal(next);
       toast.success(t("prefs.info.refreshSuccess"));
     } catch (e: any) {
-      toast.error(t("common.errors.errorPrefix") + String(e?.message ?? e));
+      toast.error(t(e?.message as any) || t("api.common.fetchFailed"));
     }
   };
 
@@ -265,8 +266,8 @@ export default function CoachPreferencies() {
       const saved = await apiSaveUserZones(userId, z ?? {});
       setLocal((prev) => ({ ...prev, zones: saved ?? z }));
       toast.success(t("prefs.info.zonesSaved"));
-    } catch (e) {
-      toast.error(t("prefs.errors.zonesSaveFailed"));
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));
     }
   };
 
@@ -287,8 +288,8 @@ export default function CoachPreferencies() {
         return { ...prev, thresholds: mergedRow, thresholds_latest: [mergedRow, ...filtered] };
       });
       toast.success(t("prefs.info.thresholdSaved"));
-    } catch (e) {
-      toast.error(t("prefs.errors.thresholdSaveFailed"));
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.thresholdsSaveFailed"));
     }
   };
 

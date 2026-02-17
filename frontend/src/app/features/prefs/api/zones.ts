@@ -1,4 +1,4 @@
-// src/features/coach/api/zones.ts
+// src/features/prefs/api/zones.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { ZoneSport, ZonesOut } from "@/app/features/coach/types/zonesTypes";
 
@@ -73,27 +73,28 @@ export async function apiSaveUserZones(
   body: SaveUserZonesBody
 ): Promise<ZonesOut> {
   if (!userId) {
-    throw new Error("Missing userId for apiSaveUserZones");
+    throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/users/${encodeURIComponent(String(userId))}/zones`;
 
   console.debug("[zones][PUT] ->", path, "body", body);
 
-  const json = (await callBackend<ApiOkZones | ApiFail>(path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify(body),
-  }).catch((e) => {
+  try {
+    const json = (await callBackend<ApiOkZones | ApiFail>(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(body),
+    })) as ApiOkZones | ApiFail | null;
+
+    if (!json || (json as ApiFail)?.success === false) {
+      throw new Error("api.prefs.zonesSaveFailed");
+    }
+
+    return (json as ApiOkZones).zones as ZonesOut;
+  } catch (e) {
     console.error("[zones][PUT] error", e);
-    throw e;
-  })) as ApiOkZones | ApiFail | null;
-
-  if (!json || (json as ApiFail)?.success === false) {
-    const msg = (json as ApiFail)?.detail || "Zones save failed";
-    throw new Error(msg);
+    throw new Error("api.prefs.zonesSaveFailed");
   }
-
-  return (json as ApiOkZones).zones as ZonesOut;
 }

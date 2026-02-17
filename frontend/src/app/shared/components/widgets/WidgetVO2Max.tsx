@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -53,8 +52,8 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       try {
         setLoading(true);
         const [histRes, estRes] = await Promise.all([
-          apiGetVo2History(userId),
-          apiGetVo2Estimate(userId),
+          apiGetVo2History(userId).catch(() => null),
+          apiGetVo2Estimate(userId).catch(() => null),
         ]);
         if (!alive) return;
 

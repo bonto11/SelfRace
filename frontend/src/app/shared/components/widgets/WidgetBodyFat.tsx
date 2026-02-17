@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -74,8 +73,8 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         setLoading(true);
 
         const [staticProfile, history] = await Promise.all([
-          apiGetStaticProfile(userId),
-          apiGetMetricHistory(userId, "body_fat_pct"),
+          apiGetStaticProfile(userId).catch(() => null),
+          apiGetMetricHistory(userId, "body_fat_pct").catch(() => null),
         ]);
 
         if (!alive) return;
