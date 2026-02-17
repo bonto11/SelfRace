@@ -35,10 +35,8 @@ export default function LoadingSpinner({
   const px = Number(base.px ?? FALLBACK_CFG[size].px);
   const accent = base.accent ?? FALLBACK_CFG[size].accent;
   const track = base.track ?? FALLBACK_CFG[size].track;
-  const dotClr = base.dot ?? FALLBACK_CFG[size].dot ?? undefined;
 
   const border = Math.max(2, Math.round(px / 8));
-  const dotSize = Math.max(2, Math.round(px / 6));
 
   const ringStyle: React.CSSProperties = {
     width: px,
@@ -57,16 +55,6 @@ export default function LoadingSpinner({
         role="status"
         aria-label={ariaLabel ?? "Loading"}
       />
-      {dotClr && (
-        <span
-          className="absolute rounded-full"
-          style={{
-            width: dotSize,
-            height: dotSize,
-            backgroundColor: dotClr as string,
-          }}
-        />
-      )}
     </span>
   );
 }
