@@ -50,6 +50,7 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
         style={{
           backgroundColor: "rgba(9, 24, 18, 0.92)",
           borderColor: appColors.panelBorder,
+          outline: "none"
         }}
       >
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>
@@ -136,8 +137,9 @@ export default function TrendWeeklyMonoStrain({
     if (!onPickWeek || !state || !state.activePayload) return;
     const w = state.activePayload[0].payload.rawWeek;
     if (w) {
+      // ✅ OPRAVA: Pre tabuľku posielame surové w.week ak existuje, inak start
       onPickWeek({
-        week: w.week || w.label || w.start || "",
+        week: w.week || w.start || "",
         start: w.start,
         end: w.end,
         sport: DEFAULT_SPORT,
@@ -145,7 +147,6 @@ export default function TrendWeeklyMonoStrain({
     }
   };
 
-  // ✅ OPRAVA: Pridaný parameter index: number a zabezpečené vracanie stringu
   const yAxisTickFormatter = (val: any, index: number): string => {
     if (metric === "time") {
       const num = Number(val);
@@ -166,7 +167,7 @@ export default function TrendWeeklyMonoStrain({
     metric === "km"
       ? `[${t("common.units.km")}]`
       : metric === "time"
-        ? `[${t("common.units.hour")}]`
+        ? `[${t("common.units.hour") || "h"}]`
         : `[${t("common.units.trimp")}]`;
 
   return (
@@ -179,13 +180,25 @@ export default function TrendWeeklyMonoStrain({
 
         <div className="flex flex-wrap items-center gap-3 ml-auto">
           <div className="flex items-center gap-1 p-1 rounded-lg">
-            <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
+            <Button
+              size="xs"
+              variant={metric === "km" ? "active" : "editable"}
+              onClick={() => setMetric("km")}
+            >
               {t("common.metrics.distance")}
             </Button>
-            <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
+            <Button
+              size="xs"
+              variant={metric === "time" ? "active" : "editable"}
+              onClick={() => setMetric("time")}
+            >
               {t("common.metrics.time")}
             </Button>
-            <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
+            <Button
+              size="xs"
+              variant={metric === "trimp" ? "active" : "editable"}
+              onClick={() => setMetric("trimp")}
+            >
               {t("common.metrics.trimp")}
             </Button>
           </div>
@@ -209,12 +222,13 @@ export default function TrendWeeklyMonoStrain({
           </div>
         )}
 
-        {/* ✅ OPRAVA: Pridaný minHeight=1 proti žltým errorom */}
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+          {/* ✅ OPRAVA: Pridaný style={{ outline: 'none' }} na hlavný chart */}
           <LineChart
             data={chartData}
             onClick={handleChartClick}
             margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
+            style={{ outline: "none" }}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
 
@@ -245,7 +259,6 @@ export default function TrendWeeklyMonoStrain({
             />
             <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
 
-            {/* ✅ OPRAVA: Zmazaný outline z dot={} a presunutý do style={} */}
             <Line
               yAxisId="left"
               type="monotone"
@@ -255,7 +268,6 @@ export default function TrendWeeklyMonoStrain({
               strokeWidth={3}
               dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
-              style={{ outline: "none" }}
               connectNulls
             />
             <Line
@@ -268,7 +280,6 @@ export default function TrendWeeklyMonoStrain({
               strokeDasharray="5 5"
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
-              style={{ outline: "none" }}
               connectNulls
             />
           </LineChart>
