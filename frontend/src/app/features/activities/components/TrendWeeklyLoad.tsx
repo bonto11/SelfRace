@@ -126,6 +126,7 @@ export default function TrendWeeklyLoad({
     const hd = { run: false, ride: false, strength: false, mixed: false, skate: false, other: false };
 
     for (const w of weeks) {
+      // ✅ Uložíme celý surový riadok do chart dát pod klúčom "rawWeek"
       const base = { label: w.label || w.week, rawWeek: w };
       let row: any = { ...base };
 
@@ -158,16 +159,23 @@ export default function TrendWeeklyLoad({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    if (!onPickWeek || !state || !state.activePayload) return;
-    const w = state.activePayload[0].payload.rawWeek;
-    if (w) {
-      // ✅ Odosielame všetky dáta potrebné pre načítanie histórie z DB
+    // Recharts pošle state.activePayload, kde je pole objektov (pre každý Bar jedna hodnota). 
+    // Keďže všetky pochádzajú z rovnakého dátového bodu (rovnaký týždeň), stačí zobrať prvý [0]
+    if (!onPickWeek || !state || !state.activePayload || !state.activePayload.length) return;
+    
+    // Tu vytiahneme náš rawWeek objekt, ktorý sme do chartData podstrčili
+    const w = state.activePayload[0].payload.rawWeek as WeekRow;
+    
+    if (w && w.start && w.end) {
+      console.log("🔥 CLICK: Posielam do ActivityTable: start=", w.start, " end=", w.end);
       onPickWeek({
-        week: w.week || w.start || "",
+        week: w.week || w.start,
         start: w.start,
         end: w.end,
         sport: DEFAULT_SPORT,
       });
+    } else {
+      console.error("❌ CLICK ZLYHAL: rawWeek neobsahuje start alebo end. Obj:", w);
     }
   };
 
@@ -187,7 +195,7 @@ export default function TrendWeeklyLoad({
     return String(val); 
   };
 
-  // ✅ Odstránenie outline z Bar prvkov
+  // Zabitie bieleho outline-u pre Bar chart kliknutia
   const noOutlineBar = { style: { outline: "none", stroke: "none" } };
 
   return (
@@ -242,7 +250,8 @@ export default function TrendWeeklyLoad({
               label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
-            <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} wrapperStyle={{ outline: 'none' }} />
+            {/* fill="transparent" odstraňuje podfarbenie pri hoveri na bar */}
+            <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
             {hasData.run && <Bar activeBar={noOutlineBar} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
