@@ -15,8 +15,8 @@ export const SPORT_SELECT_OPTIONS = (t: any) => [
 
 
 export const WEEK_OPTIONS = (t: any) => [
-  { value: "2", label: `2 ${t("common.weeksShort.count2to4")}` },
-  { value: "4", label: `4 ${t("common.weeksShort.count2to4")}` },
-  { value: "8", label: `8 ${t("common.weeksShort.count5plus")}` },
-  { value: "12", label: `12 ${t("common.weeksShort.count5plus")}` },
+  { value: "2", label: `2 ${t("common.weeksSelect.count2to4")}` },
+  { value: "4", label: `4 ${t("common.weeksSelect.count2to4")}` },
+  { value: "8", label: `8 ${t("common.weeksSelect.count5plus")}` },
+  { value: "12", label: `12 ${t("common.weeksSelect.count5plus")}` },
 ];

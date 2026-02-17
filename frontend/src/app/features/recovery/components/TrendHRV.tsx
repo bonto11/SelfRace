@@ -50,7 +50,6 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
-// Náš prémiový tooltip
 const RecoveryTooltip = ({ active, payload, label, t }: any) => {
   if (active && payload && payload.length) {
     const mainData = payload.find((p: any) => p.dataKey === "val");
@@ -130,7 +129,6 @@ export default function TrendHRV() {
   const baselineArr = useMemo(() => rollingMean(hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14), [hrv]);
   const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  // Doplnenie chýbajúcich bodov kvôli kresleniu červenej bodky
   const missingY = useMemo(() => {
     const n = hrv.length;
     const out = new Array<number | null>(n).fill(null);
@@ -174,10 +172,12 @@ export default function TrendHRV() {
     });
   }, [labelsISO, hrv, lower, upper, missingY, byDate]);
 
-  const minValue = Math.min(...hrv.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null));
-  const maxValue = Math.max(...hrv.filter(Number.isFinite), ...upper.filter((v): v is number => v !== null));
-  const yMin = Math.max(0, Math.floor((minValue - 5) / 5) * 5);
-  const yMax = Math.ceil((maxValue + 5) / 5) * 5;
+  // Dynamický výpočet pre HRV (napr. 20-100)
+  const validValues = [...hrv.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null), ...upper.filter((v): v is number => v !== null)];
+  const minValue = validValues.length ? Math.min(...validValues) : 0;
+  const maxValue = validValues.length ? Math.max(...validValues) : 100;
+  const yMin = Math.max(0, Math.floor((minValue - 10) / 10) * 10);
+  const yMax = Math.ceil((maxValue + 10) / 10) * 10;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -211,7 +211,6 @@ export default function TrendHRV() {
           )}
           
           <ResponsiveContainer width="100%" height="100%">
-            {/* ComposedChart dovolí miešať Line, Area a Scatter */}
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               
@@ -234,42 +233,11 @@ export default function TrendHRV() {
               <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              {/* Area pre Baseline tunel */}
-              <Area 
-                type="monotone" 
-                dataKey="bandUpper" 
-                stroke="none" 
-                fill={COLOR.bandFill} 
-                fillOpacity={1} 
-                legendType="none" // Schová z legendy, lebo robíme tunel z dvoch čiar
-              />
-              <Area 
-                type="monotone" 
-                dataKey="bandLower" 
-                stroke="none" 
-                fill={appColors.backgroundMain} // "Vymaže" farbu pod spodnou hranicou tunela
-                fillOpacity={1} 
-                legendType="none"
-              />
+              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
+              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
 
-              <Line 
-                type="monotone" 
-                dataKey="val" 
-                name={t("recovery.trends.hrv.hrvLabel") as string} 
-                stroke={COLOR.main} 
-                strokeWidth={3}
-                dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
-                activeDot={{ r: 6, strokeWidth: 0 }}
-                connectNulls
-              />
-              
-              {/* Scatter pre chýbajúce dni - vykreslí červenú bodku na mieste missingY */}
-              <Scatter 
-                dataKey="missingY" 
-                name={t("recovery.trends.hrv.missingLabel") as string} 
-                fill={COLOR.missing} 
-                r={4}
-              />
+              <Line type="monotone" dataKey="val" name={t("recovery.trends.hrv.hrvLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
+              <Scatter dataKey="missingY" name={t("recovery.trends.hrv.missingLabel") as string} fill={COLOR.missing} r={4} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

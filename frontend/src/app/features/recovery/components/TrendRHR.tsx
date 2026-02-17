@@ -172,9 +172,12 @@ export default function TrendRHR() {
     });
   }, [labelsISO, rhr, lower, upper, missingY, byDate]);
 
-  const minValue = Math.min(...rhr.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null));
-  const maxValue = Math.max(...rhr.filter(Number.isFinite), ...upper.filter((v): v is number => v !== null));
-  const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5); // Tlkot srdca zriedka ide pod 30
+  const validValues = [...rhr.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null), ...upper.filter((v): v is number => v !== null)];
+  const minValue = validValues.length ? Math.min(...validValues) : 40;
+  const maxValue = validValues.length ? Math.max(...validValues) : 80;
+  
+  // Dynamická škála (žiadne začínanie od nuly)
+  const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5); 
   const yMax = Math.ceil((maxValue + 5) / 5) * 5;
 
   return (
@@ -200,7 +203,7 @@ export default function TrendRHR() {
         </div>
       </div>
 
-      <div className={CARD_BODY_INSET}>
+      <div className="CARD_BODY_INSET">
         <div className="w-full relative" style={{ height: 320 }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
@@ -211,8 +214,22 @@ export default function TrendRHR() {
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-              <XAxis dataKey="date" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})} />
-              <YAxis domain={[yMin, yMax]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+              
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false} 
+                dy={10}
+                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+              />
+              
+              <YAxis 
+                domain={[yMin, yMax]}
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false}
+              />
               
               <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />

@@ -169,6 +169,14 @@ export default function TrendSleepDuration() {
     });
   }, [labelsISO, sleepMin, missingY, byDate]);
 
+  // Dynamická os pre spánok, aby nezačínala od 0
+  const validValues = sleepMin.filter(Number.isFinite);
+  const minValue = validValues.length ? Math.min(...validValues) : 360; // default 6h
+  const maxValue = validValues.length ? Math.max(...validValues) : 600; // default 10h
+  // Zaokrúhlime na celé hodiny
+  const yMin = Math.max(0, Math.floor((minValue - 60) / 60) * 60); 
+  const yMax = Math.ceil((maxValue + 60) / 60) * 60;
+
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
@@ -214,7 +222,7 @@ export default function TrendSleepDuration() {
               />
               
               <YAxis 
-                domain={[0, 'dataMax + 60']} 
+                domain={[yMin, yMax]} 
                 tick={{ fill: appColors.textMuted, fontSize: 10 }} 
                 axisLine={false} 
                 tickLine={false}
