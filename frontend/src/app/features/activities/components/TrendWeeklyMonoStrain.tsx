@@ -50,10 +50,12 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
         style={{
           backgroundColor: "rgba(9, 24, 18, 0.92)",
           borderColor: appColors.panelBorder,
-          outline: "none"
         }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>
+        <p
+          className="mb-2 text-xs font-semibold"
+          style={{ color: appColors.textMuted }}
+        >
           {label}
         </p>
 
@@ -65,8 +67,15 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
           }
 
           return (
-            <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+            <div
+              key={index}
+              className="flex items-center gap-2 text-sm"
+              style={{ color: entry.color }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              ></span>
               <span className="opacity-90">{entry.name}:</span>
               <span className="font-bold">{formattedValue}</span>
             </div>
@@ -129,21 +138,25 @@ export default function TrendWeeklyMonoStrain({
       label: w.label || w.week,
       mono: w.monotony?.[metric] ?? null,
       strain: w.strain?.[metric] ?? null,
-      rawWeek: w,
+      rawWeek: w, // Ukladame data pre event kliku
     }));
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    if (!onPickWeek || !state || !state.activePayload) return;
-    const w = state.activePayload[0].payload.rawWeek;
-    if (w) {
-      // ✅ OPRAVA: Pre tabuľku posielame surové w.week ak existuje, inak start
+    if (!onPickWeek || !state || !state.activePayload || !state.activePayload.length) return;
+    
+    // Extrahovanie dat
+    const w = state.activePayload[0].payload.rawWeek as WeekRow;
+    if (w && w.start && w.end) {
+      console.log("🔥 CLICK MonoStrain: Posielam do ActivityTable: start=", w.start, " end=", w.end);
       onPickWeek({
-        week: w.week || w.start || "",
+        week: w.week || w.start,
         start: w.start,
         end: w.end,
         sport: DEFAULT_SPORT,
       });
+    } else {
+      console.error("❌ CLICK ZLYHAL v MonoStrain: rawWeek chýba start/end. Obj:", w);
     }
   };
 
@@ -172,7 +185,9 @@ export default function TrendWeeklyMonoStrain({
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
+      <div
+        className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}
+      >
         <div className="flex items-center gap-2">
           <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
           <TooltipIcon text={t("monoStrain.trend.tooltip")} />
@@ -215,7 +230,10 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
-      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 320 }}>
+      <div
+        className="w-full relative px-2 sm:px-4 pb-4"
+        style={{ height: 320 }}
+      >
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
@@ -223,23 +241,39 @@ export default function TrendWeeklyMonoStrain({
         )}
 
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          {/* ✅ OPRAVA: Pridaný style={{ outline: 'none' }} na hlavný chart */}
           <LineChart
             data={chartData}
             onClick={handleChartClick}
             margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
             style={{ outline: "none" }}
           >
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke={appColors.chartGrid}
+            />
 
-            <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              dy={10}
+            />
 
             <YAxis
               yAxisId="left"
               tick={{ fill: C.monotony, fontSize: 10 }}
               axisLine={false}
               tickLine={false}
-              label={{ value: "[-]", angle: -90, position: "insideLeft", fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{
+                value: "[-]",
+                angle: -90,
+                position: "insideLeft",
+                fill: appColors.textMuted,
+                fontSize: 10,
+                dy: 30,
+              }}
             />
 
             <YAxis
@@ -249,15 +283,27 @@ export default function TrendWeeklyMonoStrain({
               axisLine={false}
               tickLine={false}
               tickFormatter={yAxisTickFormatter}
-              label={{ value: rightAxisUnit, angle: 90, position: "insideRight", fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{
+                value: rightAxisUnit,
+                angle: 90,
+                position: "insideRight",
+                fill: appColors.textMuted,
+                fontSize: 10,
+                dy: 30,
+              }}
             />
 
             <Tooltip
               content={<CustomTooltip metric={metric} t={t} />}
-              cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }}
+              cursor={{
+                stroke: "transparent", // Zabitie vertical highlight čiary za tooltipom (často robí bordel)
+              }}
               wrapperStyle={{ outline: "none" }}
             />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+            />
 
             <Line
               yAxisId="left"
@@ -266,6 +312,7 @@ export default function TrendWeeklyMonoStrain({
               name={t("monoStrain.trend.mono") as string}
               stroke={C.monotony}
               strokeWidth={3}
+              // ✅ Týmto sa zbavíme bielych outline štvorcov pri LineCharts bodkách
               dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               connectNulls
@@ -278,6 +325,7 @@ export default function TrendWeeklyMonoStrain({
               stroke={C.strain}
               strokeWidth={3}
               strokeDasharray="5 5"
+              // ✅ Rovnako aj tu
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               connectNulls
