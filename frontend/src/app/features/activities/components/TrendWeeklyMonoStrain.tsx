@@ -28,6 +28,7 @@ import { useT } from "@/app/shared/i18n/useT";
 
 ensureChartJSRegistered();
 
+// Použijeme farby z appColors
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
 
@@ -69,7 +70,6 @@ export default function TrendWeeklyMonoStrain({
         if (!alive) return;
         setWeeks(rows);
       } catch (e: any) {
-        // Tiché zalogovanie kľúča
         console.error("Weekly mono/strain load failed:", e?.message);
         if (alive) setWeeks([]); 
       } finally {
@@ -115,8 +115,9 @@ export default function TrendWeeklyMonoStrain({
           yAxisID: "y1",
           borderColor: C.monotony,
           backgroundColor: C.monotony,
-          tension: 0.3,
+          tension: 0.4, // Moderné plynulé krivky
           pointRadius: 2,
+          pointHoverRadius: 6,
           borderWidth: 2,
           spanGaps: true,
           order: 2,
@@ -128,16 +129,17 @@ export default function TrendWeeklyMonoStrain({
           yAxisID: "y2",
           borderColor: C.strain,
           backgroundColor: C.strain,
-          tension: 0.3,
+          tension: 0.4, // Moderné plynulé krivky
           pointRadius: 2,
+          pointHoverRadius: 6,
           borderWidth: 2,
-          borderDash: [4, 4],
+          borderDash: [5, 5],
           spanGaps: true,
-          order: 2,
+          order: 1,
         },
       ],
     }),
-    [labels, mono, strn],
+    [labels, mono, strn, t],
   );
 
   const options: ChartOptions<"line"> = useMemo(
@@ -145,7 +147,7 @@ export default function TrendWeeklyMonoStrain({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      layout: { padding: { bottom: 12 } },
+      layout: { padding: { bottom: 12, left: 4, right: 4 } }, // Zmenšený padding
       plugins: {
         legend: {
           position: _legendPos,
@@ -155,8 +157,17 @@ export default function TrendWeeklyMonoStrain({
             boxWidth: 6,
             boxHeight: 6,
             padding: 10,
+            font: { size: 11 },
           },
         },
+        tooltip: {
+          padding: 10,
+          backgroundColor: appColors.panelBg,
+          titleColor: appColors.textPrimary,
+          bodyColor: appColors.textSecondary,
+          borderColor: appColors.panelBorder,
+          borderWidth: 1,
+        }
       },
       onClick: (_evt, els) => {
         const idx = els?.[0]?.index;
@@ -172,36 +183,35 @@ export default function TrendWeeklyMonoStrain({
       },
       scales: {
         y1: {
-          position: "left",
-          weight: 2,
-          min: 0,
+          position: "left", // Monotónnosť vľavo
+          beginAtZero: true,
           max: monoMax,
           grid: { color: appColors.chartAxis, drawOnChartArea: true },
-          ticks: { color: C.monotony, padding: 8 },
-          title: { display: true, text: t("monoStrain.trend.mono"), color: C.monotony },
+          ticks: { color: C.monotony, padding: 6, font: { size: 10 } },
+          title: { display: true, text: t("monoStrain.trend.mono"), color: C.monotony, font: { size: 10 } },
         },
         y2: {
-          position: "left",
-          weight: 1,
-          min: 0,
+          position: "right", // Úsilie presunuté napravo!
+          beginAtZero: true,
           max: strainMax,
-          grid: { drawOnChartArea: false },
-          ticks: { color: C.strain, padding: 36 },
-          title: { display: true, text: t("monoStrain.trend.strain"), color: C.strain },
+          grid: { drawOnChartArea: false }, // Vypnuté vnútorné čiary, nech nie je chaos
+          ticks: { color: C.strain, padding: 6, font: { size: 10 } },
+          title: { display: true, text: t("monoStrain.trend.strain"), color: C.strain, font: { size: 10 } },
         },
         x: {
-          grid: { color: appColors.chartAxis },
+          grid: { color: appColors.chartAxis, drawOnChartArea: false },
           ticks: {
             autoSkip: true,
-            minRotation: 55,
-            maxRotation: 55,
+            maxTicksLimit: 12,
+            minRotation: 45,
+            maxRotation: 45,
             padding: 6,
             font: { size: 10 },
           },
         },
       },
     }),
-    [monoMax, strainMax, weeks, onPickWeek, _legendPos],
+    [monoMax, strainMax, weeks, onPickWeek, _legendPos, t],
   );
 
   const height = Math.round(_heightCompact * 2);
@@ -245,7 +255,7 @@ export default function TrendWeeklyMonoStrain({
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
               options={LOOKBACK_OPTIONS(t)}
-              containerClassName="w-[130px]"
+              containerClassName="w-[130px] hidden sm:block" // Na mobiloch schováme alebo upravíme, zaberá miesto
               variant="editable"
               placeholder="—"
             />
