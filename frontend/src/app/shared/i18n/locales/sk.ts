@@ -1519,6 +1519,73 @@ export const sk = {
   },
   account: {
     title: "Môj účet",
+    btnChangeMail: "Zmeniť e-mail / profil",
+    btnChangePassword: "Zmeniť heslo (e-mailom)",
+    quickActions:
+      "Rýchle akcie pre zmenu hesla a profilu (otvoria samostatnú stránku).",
+    actions: "Akcie účtu",
+    dateFormat: "Formát dátumu",
+    settings: {
+      title: "Osobné nastavenia",
+      subtitle:
+        "Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie.",
+      labels: {
+        language: "Jazyk rozhrania",
+        units: "Jednotky",
+        timezone: "Časové pásmo",
+        timezoneHint: "Vyber časové pásmo podľa mesta / offsetu.",
+        weekStart: "Začiatok týždňa",
+        timeFormat: "Formát času",
+      },
+    },
+    languageOptions: {
+      sk: "Slovenčina",
+      en: "Angličtina",
+    },
+    unitOptions: {
+      metric: "Metrické (km, kg)",
+      imperial: "Imperiálne (mi, lb)",
+    },
+    weekStartOptions: {
+      Mon: "Pondelok",
+      Sun: "Nedeľa",
+    },
+    timeFormatOptions: {
+      "24": "24 h (13:37)",
+      "12": "12 h (1:37 PM)",
+    },
+    timezones: {
+      UTC: "(UTC±00:00) Londýn, Reykjavík",
+      "Atlantic/Canary": "(UTC±00:00) Kanárske ostrovy",
+      "Europe/Bratislava": "(UTC+01:00) Bratislava, Praha, Berlín",
+      "Europe/Vienna": "(UTC+01:00) Viedeň, Budapešť, Varšava",
+      "Europe/Paris": "(UTC+01:00) Paríž, Madrid, Rím",
+      "Europe/Athens": "(UTC+02:00) Atény, Bukurešť",
+      "Europe/Helsinki": "(UTC+02:00) Helsinki, Riga",
+      "Africa/Cairo": "(UTC+02:00) Káhira",
+      "Europe/Moscow": "(UTC+03:00) Moskva",
+      "Asia/Riyadh": "(UTC+03:00) Rijád",
+      "America/Sao_Paulo": "(UTC−03:00) São Paulo",
+      "America/Halifax": "(UTC−04:00) Halifax",
+      "America/New_York": "(UTC−05:00) New York",
+      "America/Chicago": "(UTC−06:00) Chicago",
+      "America/Denver": "(UTC−07:00) Denver",
+      "America/Los_Angeles": "(UTC−08:00) Los Angeles",
+      "Asia/Dubai": "(UTC+04:00) Dubaj",
+      "Asia/Karachi": "(UTC+05:00) Karáčí",
+      "Asia/Kolkata": "(UTC+05:30) India (Kolkata)",
+      "Asia/Bangkok": "(UTC+07:00) Bangkok",
+      "Asia/Shanghai": "(UTC+08:00) Šanghaj, Hong Kong",
+      "Asia/Tokyo": "(UTC+09:00) Tokio, Soul",
+      "Australia/Sydney": "(UTC+10:00) Sydney",
+    },
+    preview: {
+      week: "týždeň",
+      deletePending: "mazanie",
+      deleteCancelled: "mazanie zrušené",
+      deleteNone: "mazanie: —",
+      deleteLoading: "mazanie: …",
+    },
   },
   subscription: {
     title: "Predplatné a platby",
@@ -2145,6 +2212,9 @@ export const sk = {
     title: "Zrušenie účtu (nezvratné)",
     checkingStatus: "Kontrolujem stav zmazania účtu…",
     status: {
+      accountIs: "Účet je",
+    plannedDeletionWas: "Plánované zmazanie účtu bolo",
+    deletionIs: "Zmazanie účtu je",
       pendingLabel: "označený na zmazanie",
       pendingDesc:
         "Ak nič neurobíš, všetky tvoje dáta v aplikácii sa po uplynutí lehoty trvalo vymažú.",
@@ -2189,5 +2259,6 @@ export const sk = {
         "Účet je označený na zmazanie. Do lehoty to môžeš ešte zrušiť.",
       cancelSuccess: "Plánované zmazanie účtu bolo zrušené.",
     },
+    
   },
 } as const;

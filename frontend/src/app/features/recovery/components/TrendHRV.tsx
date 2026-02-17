@@ -161,11 +161,12 @@ export default function TrendHRV() {
     return labelsISO.map((d, i) => {
       const v = hrv[i];
       const isMissing = !Number.isFinite(v);
+      const hasBand = lower[i] != null && upper[i] != null;
+      
       return {
         date: d,
         val: isMissing ? null : v,
-        bandLower: lower[i],
-        bandUpper: upper[i],
+        bandRange: hasBand ? [lower[i], upper[i]] : null, // ✅ POUŽITIE ROZSAHU
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
@@ -212,9 +213,6 @@ export default function TrendHRV() {
           
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-
-              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
-              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
               
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               
@@ -237,7 +235,16 @@ export default function TrendHRV() {
               <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              
+              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
+              <Area 
+                type="monotone" 
+                dataKey="bandRange" 
+                stroke="none" 
+                fill={COLOR.bandFill} 
+                fillOpacity={1} 
+                legendType="none" 
+                connectNulls 
+              />
 
               <Line type="monotone" dataKey="val" name={t("recovery.trends.hrv.hrvLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
               <Scatter dataKey="missingY" name={t("recovery.trends.hrv.missingLabel") as string} fill={COLOR.missing} r={4} />

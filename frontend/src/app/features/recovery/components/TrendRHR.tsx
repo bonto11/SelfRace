@@ -197,11 +197,12 @@ export default function TrendRHR() {
     return labelsISO.map((d, i) => {
       const v = rhr[i];
       const isMissing = !Number.isFinite(v);
+      const hasBand = lower[i] != null && upper[i] != null;
+      
       return {
         date: d,
         val: isMissing ? null : v,
-        bandLower: lower[i],
-        bandUpper: upper[i],
+        bandRange: hasBand ? [lower[i], upper[i]] : null, // ✅ POUŽITIE ROZSAHU
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
@@ -264,23 +265,7 @@ export default function TrendRHR() {
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
             >
-              <Area
-                type="monotone"
-                dataKey="bandUpper"
-                stroke="none"
-                fill={COLOR.bandFill}
-                fillOpacity={1}
-                legendType="none"
-              />
-              <Area
-                type="monotone"
-                dataKey="bandLower"
-                stroke="none"
-                fill={appColors.backgroundMain}
-                fillOpacity={1}
-                legendType="none"
-              />
-
+              
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -319,6 +304,17 @@ export default function TrendRHR() {
               <Legend
                 iconType="circle"
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+              />
+
+              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
+              <Area
+                type="monotone"
+                dataKey="bandRange"
+                stroke="none"
+                fill={COLOR.bandFill}
+                fillOpacity={1}
+                legendType="none"
+                connectNulls
               />
 
               <Line

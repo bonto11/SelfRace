@@ -189,7 +189,7 @@ export default function ProfileMetricInputs() {
       actions={
         <Button
           size="sm"
-          variant="secondary"
+          variant="primary"
           onClick={handleSave}
           disabled={loading || !userId}
           className={INPUTS_CARD_SAVE_BTN}

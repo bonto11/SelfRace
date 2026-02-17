@@ -1,4 +1,3 @@
-// src/app/features/account/components/SettingsInputs.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -42,68 +41,27 @@ const DEFAULT_SETTINGS: UserSettings = {
   time_format_24h: true,
 };
 
-const LANGUAGE_OPTIONS = [
-  { value: "sk", label: "Slovenčina" },
-  { value: "en", label: "Angličtina" },
-];
+const LANGUAGES = ["sk", "en"];
+const UNITS = ["metric", "imperial"];
+const WEEK_STARTS = ["Mon", "Sun"];
+const TIME_FORMATS = ["24", "12"];
 
-const UNIT_OPTIONS = [
-  { value: "metric", label: "Metrické (km, kg)" },
-  { value: "imperial", label: "Imperiálne (mi, lb)" },
-];
-
-const WEEK_START_OPTIONS = [
-  { value: "Mon", label: "Pondelok" },
-  { value: "Sun", label: "Nedeľa" },
-];
-
-const TIME_FORMAT_OPTIONS = [
-  { value: "24", label: "24 h (13:37)" },
-  { value: "12", label: "12 h (1:37 PM)" },
-];
-
-// kurátorovaný zoznam – IANA názvy, v labeloch offset + mestá
-const TIMEZONE_OPTIONS = [
-  { value: "UTC", label: "(UTC±00:00) Londýn, Reykjavík" },
-  { value: "Atlantic/Canary", label: "(UTC±00:00) Kanárske ostrovy" },
-
-  { value: "Europe/Bratislava", label: "(UTC+01:00) Bratislava, Praha, Berlín" },
-  { value: "Europe/Vienna", label: "(UTC+01:00) Viedeň, Budapešť, Varšava" },
-  { value: "Europe/Paris", label: "(UTC+01:00) Paríž, Madrid, Rím" },
-
-  { value: "Europe/Athens", label: "(UTC+02:00) Atény, Bukurešť" },
-  { value: "Europe/Helsinki", label: "(UTC+02:00) Helsinki, Riga" },
-  { value: "Africa/Cairo", label: "(UTC+02:00) Káhira" },
-
-  { value: "Europe/Moscow", label: "(UTC+03:00) Moskva" },
-  { value: "Asia/Riyadh", label: "(UTC+03:00) Rijád" },
-
-  { value: "America/Sao_Paulo", label: "(UTC−03:00) São Paulo" },
-  { value: "America/Halifax", label: "(UTC−04:00) Halifax" },
-  { value: "America/New_York", label: "(UTC−05:00) New York" },
-  { value: "America/Chicago", label: "(UTC−06:00) Chicago" },
-  { value: "America/Denver", label: "(UTC−07:00) Denver" },
-  { value: "America/Los_Angeles", label: "(UTC−08:00) Los Angeles" },
-
-  { value: "Asia/Dubai", label: "(UTC+04:00) Dubaj" },
-  { value: "Asia/Karachi", label: "(UTC+05:00) Karáčí" },
-  { value: "Asia/Kolkata", label: "(UTC+05:30) India (Kolkata)" },
-  { value: "Asia/Bangkok", label: "(UTC+07:00) Bangkok" },
-  { value: "Asia/Shanghai", label: "(UTC+08:00) Šanghaj, Hong Kong" },
-  { value: "Asia/Tokyo", label: "(UTC+09:00) Tokio, Soul" },
-  { value: "Australia/Sydney", label: "(UTC+10:00) Sydney" },
+const TIMEZONES = [
+  "UTC", "Atlantic/Canary", "Europe/Bratislava", "Europe/Vienna", "Europe/Paris",
+  "Europe/Athens", "Europe/Helsinki", "Africa/Cairo", "Europe/Moscow", "Asia/Riyadh",
+  "America/Sao_Paulo", "America/Halifax", "America/New_York", "America/Chicago",
+  "America/Denver", "America/Los_Angeles", "Asia/Dubai", "Asia/Karachi",
+  "Asia/Kolkata", "Asia/Bangkok", "Asia/Shanghai", "Asia/Tokyo", "Australia/Sydney"
 ];
 
 type DeleteModalKind = "request" | "cancel" | null;
 
-// robust fallback (kým BE všade nevracia status)
 type DeleteState = "none" | "pending" | "cancelled" | "deleted";
 function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
   const anySt = st as any;
   const status = (anySt?.status as DeleteState | undefined) ?? undefined;
   if (status) return status;
 
-  // fallback
   if (anySt?.hard_deleted_at) return "deleted";
   if (anySt?.cancelled_at) return "cancelled";
   if (anySt?.pending || anySt?.delete_at) return "pending";
@@ -113,7 +71,7 @@ function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
 export default function SettingsInputs() {
   const router = useRouter();
   const { userId } = useUserId();
-  const t = useT(); // ✅ Inicializácia prekladača
+  const t = useT();
 
   const [open, setOpen] = useState(true);
 
@@ -125,20 +83,22 @@ export default function SettingsInputs() {
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
 
-  // modal state (Strava-like)
   const [deleteModal, setDeleteModal] = useState<DeleteModalKind>(null);
   const [deleteConsentChecked, setDeleteConsentChecked] = useState(false);
 
-  // load user.settings
+// Preložené možnosti pre selecty s potlačením TS varovania (as any)
+  const LANGUAGE_OPTIONS = useMemo(() => LANGUAGES.map(v => ({ value: v, label: t(`account.languageOptions.${v}` as any) })), [t]);
+  const UNIT_OPTIONS = useMemo(() => UNITS.map(v => ({ value: v, label: t(`account.unitOptions.${v}` as any) })), [t]);
+  const WEEK_START_OPTIONS = useMemo(() => WEEK_STARTS.map(v => ({ value: v, label: t(`account.weekStartOptions.${v}` as any) })), [t]);
+  const TIME_FORMAT_OPTIONS = useMemo(() => TIME_FORMATS.map(v => ({ value: v, label: t(`account.timeFormatOptions.${v}` as any) })), [t]);
+  const TIMEZONE_OPTIONS = useMemo(() => TIMEZONES.map(tz => ({ value: tz, label: t(`account.timezones.${tz}` as any) })), [t]);
   useEffect(() => {
     if (!userId) return;
-
     let alive = true;
 
     (async () => {
       try {
         const raw = await apiFetchUserPref(userId, "user.settings").catch(() => null);
-
         if (!alive) return;
 
         if (raw && typeof raw === "object") {
@@ -154,12 +114,9 @@ export default function SettingsInputs() {
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
-  // load delete status
   useEffect(() => {
     if (!userId) {
       setDeleteStatus(null);
@@ -179,9 +136,7 @@ export default function SettingsInputs() {
         if (alive) setLoadingDelete(false);
       });
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
   async function handleSave() {
@@ -287,30 +242,23 @@ export default function SettingsInputs() {
     const tz = settings.timezone || "—";
 
     const del = loadingDelete
-      ? "delete: …"
+      ? t("account.preview.deleteLoading")
       : deleteState === "pending"
-        ? `delete: ${deleteAtLabel ?? "pending"}`
+        ? `${t("account.preview.deletePending")}: ${deleteAtLabel ?? "pending"}`
         : deleteState === "cancelled"
-          ? "delete: cancelled"
-          : "delete: —";
+          ? t("account.preview.deleteCancelled")
+          : t("account.preview.deleteNone");
 
-    return `${lang} • ${units} • ${tz} • week ${wk} • ${tf} • ${del}`;
+    return `${lang} • ${units} • ${tz} • ${t("account.preview.week")} ${wk} • ${tf} • ${del}`;
   }, [
-    settings.language,
-    settings.units,
-    settings.timezone,
-    settings.week_start,
-    settings.time_format_24h,
-    loadingDelete,
-    deleteState,
-    deleteAtLabel,
+    settings, loadingDelete, deleteState, deleteAtLabel, t
   ]);
 
   return (
     <>
       <InputsCard
-        title="Osobné nastavenia"
-        subtitle="Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie."
+        title={t("account.settings.title")}
+        subtitle={t("account.settings.subtitle")}
         preview={previewText}
         open={open}
         onOpenChange={setOpen}
@@ -318,7 +266,7 @@ export default function SettingsInputs() {
         actions={
           <Button
             size="sm"
-            variant="secondary"
+            variant="primary"
             disabled={disabled}
             onClick={handleSave}
             className={INPUTS_CARD_SAVE_BTN}
@@ -328,10 +276,9 @@ export default function SettingsInputs() {
         }
       >
         <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-          {/* Preferencie */}
           <div className={FORM_GRID_TWO}>
             <SelectField
-              label="Jazyk rozhrania"
+              label={t("account.settings.labels.language")}
               value={settings.language}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -343,7 +290,7 @@ export default function SettingsInputs() {
             />
 
             <SelectField
-              label="Jednotky"
+              label={t("account.settings.labels.units")}
               value={settings.units}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -355,8 +302,8 @@ export default function SettingsInputs() {
             />
 
             <SelectField
-              label="Časové pásmo"
-              hint="Vyber časové pásmo podľa mesta / offsetu."
+              label={t("account.settings.labels.timezone")}
+              hint={t("account.settings.labels.timezoneHint")}
               value={settings.timezone}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -368,7 +315,7 @@ export default function SettingsInputs() {
             />
 
             <SelectField
-              label="Začiatok týždňa"
+              label={t("account.settings.labels.weekStart")}
               value={settings.week_start}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -381,7 +328,7 @@ export default function SettingsInputs() {
 
             <div>
               <div className="text-xs font-medium" style={{ color: appColors.textMuted }}>
-                Formát dátumu
+                 {t("account.dateFormat")}
               </div>
               <div className="mt-1">
                 <TextField
@@ -395,7 +342,7 @@ export default function SettingsInputs() {
             </div>
 
             <SelectField
-              label="Formát času"
+              label={t("account.settings.labels.timeFormat")}
               value={settings.time_format_24h ? "24" : "12"}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -407,48 +354,44 @@ export default function SettingsInputs() {
             />
           </div>
 
-          {/* Účet – akcie */}
           <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
             <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
-              Akcie účtu
+              {t("account.actions")}
             </div>
             <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
-              Rýchle akcie pre zmenu hesla a profilu (otvoria samostatnú stránku).
+              {t("account.quickActions")}
             </p>
 
             <div className={["mt-2", FORM_GRID_SPLIT].join(" ")}>
               <Button
                 size="xs"
-                variant="secondary"
+                variant="primary"
                 onClick={() => router.push("/forgot-password")}
                 disabled={!userId}
               >
-                Zmeniť heslo (e-mailom)
+                {t("account.btnChangePassword")}
               </Button>
 
               <Button
                 size="xs"
-                variant="secondary"
+                variant="primary"
                 onClick={() => router.push("/profile")}
                 disabled={!userId}
               >
-                Zmeniť e-mail / profil
+                {t("account.btnChangeMail")}
               </Button>
             </div>
           </div>
 
-          {/* Zrušenie účtu */}
           <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
             <div className="text-sm font-semibold" style={{ color: appColors.statusError }}>
               {t("accountDelete.title")}
             </div>
 
-            {/* Status box: pending = red, cancelled = neutral, none = red info */}
             <div
               className="mt-2 rounded-lg border px-3 py-2 text-xs"
               style={{
-                borderColor:
-                  deleteCancelled ? "rgba(148,163,184,0.35)" : "rgba(239,68,68,0.55)",
+                borderColor: deleteCancelled ? "rgba(148,163,184,0.35)" : "rgba(239,68,68,0.55)",
                 background: deleteCancelled ? "rgba(30,41,59,0.35)" : "rgba(127,29,29,0.35)",
                 color: appColors.textPrimary,
               }}
@@ -458,7 +401,7 @@ export default function SettingsInputs() {
               ) : deletePending ? (
                 <>
                   <p>
-                    Účet je <span className="font-semibold">{t("accountDelete.status.pendingLabel")}</span>.
+                    {t("accountDelete.status.accountIs")} <span className="font-semibold">{t("accountDelete.status.pendingLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.pendingDesc")}
@@ -482,7 +425,7 @@ export default function SettingsInputs() {
               ) : deleteCancelled ? (
                 <>
                   <p>
-                    Plánované zmazanie účtu bolo <span className="font-semibold">{t("accountDelete.status.cancelledLabel")}</span>.
+                    {t("accountDelete.status.plannedDeletionWas")} <span className="font-semibold">{t("accountDelete.status.cancelledLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.cancelledDesc")}
@@ -491,7 +434,7 @@ export default function SettingsInputs() {
               ) : (
                 <>
                   <p>
-                    Zmazanie účtu je <span className="font-semibold">{t("accountDelete.status.defaultLabel")}</span>.
+                    {t("accountDelete.status.deletionIs")} <span className="font-semibold">{t("accountDelete.status.defaultLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.defaultDesc")}
@@ -524,7 +467,6 @@ export default function SettingsInputs() {
                 </Button>
               )}
 
-              {/* keď je cancelled, nech má user jasný návrat do normálu */}
               {deleteCancelled && (
                 <Button
                   size="xs"
@@ -546,7 +488,6 @@ export default function SettingsInputs() {
         </div>
       </InputsCard>
 
-      {/* ===== Delete / Cancel modal (Strava-like) ===== */}
       {deleteModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3"

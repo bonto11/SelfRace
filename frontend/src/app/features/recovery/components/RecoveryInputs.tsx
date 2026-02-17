@@ -166,7 +166,7 @@ export default function RecoveryInputs() {
       actions={
         <Button
           size="sm"
-          variant="secondary"
+          variant="primary"
           onClick={handleSave}
           disabled={saving || !userId}
           className={INPUTS_CARD_SAVE_BTN}

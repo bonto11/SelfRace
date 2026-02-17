@@ -212,8 +212,7 @@ export default function TrendSleepStart() {
       return {
         date: d,
         val: isMissing ? null : v,
-        bandLower: 22 * 60, // 22:00
-        bandUpper: 23 * 60, // 23:00
+        bandRange: [22 * 60, 23 * 60], // ✅ POUŽITIE ROZSAHU PRE SPÁNOK (22:00 - 23:00)
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
@@ -269,23 +268,7 @@ export default function TrendSleepStart() {
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
             >
-              <Area
-                type="monotone"
-                dataKey="bandUpper"
-                stroke="none"
-                fill={COLOR.bandFill}
-                fillOpacity={1}
-                legendType="none"
-              />
-              <Area
-                type="monotone"
-                dataKey="bandLower"
-                stroke="none"
-                fill={appColors.backgroundMain}
-                fillOpacity={1}
-                legendType="none"
-              />
-
+              
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -325,6 +308,17 @@ export default function TrendSleepStart() {
               <Legend
                 iconType="circle"
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+              />
+
+              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
+              <Area
+                type="monotone"
+                dataKey="bandRange"
+                stroke="none"
+                fill={COLOR.bandFill}
+                fillOpacity={1}
+                legendType="none"
+                connectNulls
               />
 
               <Line
