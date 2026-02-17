@@ -10,6 +10,11 @@ export const sk = {
       sat: "So",
       sun: "Ne",
     },
+    weeksSelect: {
+      count1: "týždeň",
+      count2to4: "týždne",
+      count5plus: "týždňov",
+    },
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
@@ -1882,7 +1887,7 @@ export const sk = {
       canceling: "Ruší sa",
       periodEnds: "Obdobie končí:",
       changeEffective: "Zmena nastane:",
-      cancelChangeBtn: "Zrušiť zmenu"
+      cancelChangeBtn: "Zrušiť zmenu",
     },
     tierSelector: {
       btnChoose: "Zvoliť plán",
@@ -1894,8 +1899,9 @@ export const sk = {
       btnActivate: "Aktivovať {{plan}}",
       kTokensPerMonth: "k tokenov/mes.",
       basicLimit: "Základný limit",
-      defaultDesc: "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
-      activeBadge: "aktívny"
+      defaultDesc:
+        "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
+      activeBadge: "aktívny",
     },
   },
   sessions: {

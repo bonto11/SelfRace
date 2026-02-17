@@ -1,23 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { OPTIONS, LOOKBACK_OPTIONS, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
+import { LOOKBACK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
-  SCROLL_X,
   SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_CARD_HEAD,
   PANEL_TITLE,
-  PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyMonoStrain } from "@/app/features/activities/api/analytics_activities";
@@ -26,11 +32,30 @@ import { WeekRow } from "@/app/features/activities/types/MonoStrain";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useT } from "@/app/shared/i18n/useT";
 
-ensureChartJSRegistered();
-
-// Použijeme farby z appColors
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
+
+// Náš prémiový tooltip prispôsobený tvojej natur téme
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+            <span className="opacity-90">{entry.name}:</span>
+            <span className="font-bold">{Number(entry.value).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function TrendWeeklyMonoStrain({
   onPickWeek,
@@ -47,10 +72,6 @@ export default function TrendWeeklyMonoStrain({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
   const t = useT();
-
-  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
-  const _heightCompact = OPTIONS.HeightCompact;
-  const _legendPos = OPTIONS.legendPosition;
 
   useEffect(() => {
     onSportChange?.(DEFAULT_SPORT);
@@ -77,177 +98,47 @@ export default function TrendWeeklyMonoStrain({
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, lookback]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
-  const mono = useMemo(
-    () => weeks.map((w) => w.monotony?.[metric] ?? null),
-    [weeks, metric],
-  );
-  const strn = useMemo(
-    () => weeks.map((w) => w.strain?.[metric] ?? null),
-    [weeks, metric],
-  );
+  // Dáta preformátované pre Recharts
+  const chartData = useMemo(() => {
+    return weeks.map((w) => ({
+      label: w.label || w.week,
+      mono: w.monotony?.[metric] ?? null,
+      strain: w.strain?.[metric] ?? null,
+      rawWeek: w // schováme si celý objekt pre onClick
+    }));
+  }, [weeks, metric]);
 
-  const monoMax = useMemo(() => {
-    const vals = mono.filter((v): v is number => Number.isFinite(v as number));
-    const m = vals.length ? Math.max(...vals) : 1.5;
-    return Math.max(3, Math.ceil(m + 0.3));
-  }, [mono]);
-
-  const strainMax = useMemo(() => {
-    const vals = strn.filter((v): v is number => Number.isFinite(v as number));
-    const m = vals.length ? Math.max(...vals) : 80;
-    return Math.ceil(m * 1.1);
-  }, [strn]);
-
-  const data: ChartData<"line", (number | null)[], string> = useMemo(
-    () => ({
-      labels,
-      datasets: [
-        {
-          type: "line",
-          label: t("monoStrain.trend.mono"),
-          data: mono,
-          yAxisID: "y1",
-          borderColor: C.monotony,
-          backgroundColor: C.monotony,
-          tension: 0.4, // Moderné plynulé krivky
-          pointRadius: 2,
-          pointHoverRadius: 6,
-          borderWidth: 2,
-          spanGaps: true,
-          order: 2,
-        },
-        {
-          type: "line",
-          label: t("monoStrain.trend.strain"),
-          data: strn,
-          yAxisID: "y2",
-          borderColor: C.strain,
-          backgroundColor: C.strain,
-          tension: 0.4, // Moderné plynulé krivky
-          pointRadius: 2,
-          pointHoverRadius: 6,
-          borderWidth: 2,
-          borderDash: [5, 5],
-          spanGaps: true,
-          order: 1,
-        },
-      ],
-    }),
-    [labels, mono, strn, t],
-  );
-
-  const options: ChartOptions<"line"> = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      layout: { padding: { bottom: 12, left: 4, right: 4 } }, // Zmenšený padding
-      plugins: {
-        legend: {
-          position: _legendPos,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            boxWidth: 6,
-            boxHeight: 6,
-            padding: 10,
-            font: { size: 11 },
-          },
-        },
-        tooltip: {
-          padding: 10,
-          backgroundColor: appColors.panelBg,
-          titleColor: appColors.textPrimary,
-          bodyColor: appColors.textSecondary,
-          borderColor: appColors.panelBorder,
-          borderWidth: 1,
-        }
-      },
-      onClick: (_evt, els) => {
-        const idx = els?.[0]?.index;
-        if (idx == null) return;
-        const w = weeks[idx];
-        if (!w) return;
-        onPickWeek?.({
-          week: w.week || w.label || w.start || "",
-          start: w.start,
-          end: w.end,
-          sport: DEFAULT_SPORT,
-        });
-      },
-      scales: {
-        y1: {
-          position: "left", // Monotónnosť vľavo
-          beginAtZero: true,
-          max: monoMax,
-          grid: { color: appColors.chartAxis, drawOnChartArea: true },
-          ticks: { color: C.monotony, padding: 6, font: { size: 10 } },
-          title: { display: true, text: t("monoStrain.trend.mono"), color: C.monotony, font: { size: 10 } },
-        },
-        y2: {
-          position: "right", // Úsilie presunuté napravo!
-          beginAtZero: true,
-          max: strainMax,
-          grid: { drawOnChartArea: false }, // Vypnuté vnútorné čiary, nech nie je chaos
-          ticks: { color: C.strain, padding: 6, font: { size: 10 } },
-          title: { display: true, text: t("monoStrain.trend.strain"), color: C.strain, font: { size: 10 } },
-        },
-        x: {
-          grid: { color: appColors.chartAxis, drawOnChartArea: false },
-          ticks: {
-            autoSkip: true,
-            maxTicksLimit: 12,
-            minRotation: 45,
-            maxRotation: 45,
-            padding: 6,
-            font: { size: 10 },
-          },
-        },
-      },
-    }),
-    [monoMax, strainMax, weeks, onPickWeek, _legendPos, t],
-  );
-
-  const height = Math.round(_heightCompact * 2);
-  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
+  const handleChartClick = (state: any) => {
+    if (!onPickWeek || !state || !state.activePayload) return;
+    const w = state.activePayload[0].payload.rawWeek;
+    if (w) {
+      onPickWeek({
+        week: w.week || w.label || w.start || "",
+        start: w.start,
+        end: w.end,
+        sport: DEFAULT_SPORT,
+      });
+    }
+  };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
+      
+      {/* Vylepšená hlavička, ktorá sa na mobiloch zalomí a neschová prepínač */}
+      <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
         <div className="flex items-center gap-2">
           <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
           <TooltipIcon text={t("monoStrain.trend.tooltip")} />
         </div>
 
-        <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
-          <div className={PANEL_ACTIONS_INLINE}>
-            <Button
-              size="xs"
-              variant={metric === "km" ? "active" : "editable"}
-              onClick={() => setMetric("km")}
-            >
-              Km
-            </Button>
-            <Button
-              size="xs"
-              variant={metric === "time" ? "active" : "editable"}
-              onClick={() => setMetric("time")}
-            >
-              Čas
-            </Button>
-            <Button
-              size="xs"
-              variant={metric === "trimp" ? "active" : "editable"}
-              onClick={() => setMetric("trimp")}
-            >
-              TRIMP
-            </Button>
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
+            <Button size="xs" variant={metric === "km" ? "active" : "ghost"} onClick={() => setMetric("km")}>Km</Button>
+            <Button size="xs" variant={metric === "time" ? "active" : "ghost"} onClick={() => setMetric("time")}>Čas</Button>
+            <Button size="xs" variant={metric === "trimp" ? "active" : "ghost"} onClick={() => setMetric("trimp")}>TRIMP</Button>
           </div>
 
           {showLookback && (
@@ -255,28 +146,84 @@ export default function TrendWeeklyMonoStrain({
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
               options={LOOKBACK_OPTIONS(t)}
-              containerClassName="w-[130px] hidden sm:block" // Na mobiloch schováme alebo upravíme, zaberá miesto
+              containerClassName="w-[120px]"
               variant="editable"
-              placeholder="—"
             />
           )}
         </div>
       </div>
 
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
-        <div className="relative" style={{ height }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
-            </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} />
+      {/* Recharts kontajner */}
+      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 320 }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
+            <LoadingSpinner size="trend" />
           </div>
-        </div>
+        )}
+        
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            {/* Jemná horizontálna mriežka */}
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+            
+            {/* X Os (Dátumy) */}
+            <XAxis 
+              dataKey="label" 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+              dy={10}
+            />
+            
+            {/* Y Os 1 (Monotónnosť - Vľavo) */}
+            <YAxis 
+              yAxisId="left" 
+              tick={{ fill: C.monotony, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+            />
+            
+            {/* Y Os 2 (Úsilie - Vpravo) */}
+            <YAxis 
+              yAxisId="right" 
+              orientation="right" 
+              tick={{ fill: C.strain, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+            />
+            
+            {/* Tooltip */}
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
+            
+            {/* Legenda */}
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+            
+            {/* Samotné čiary */}
+            <Line 
+              yAxisId="left" 
+              type="monotone" // Monotone vytvorí moderné oblé krivky
+              dataKey="mono" 
+              name={t("monoStrain.trend.mono") as string} 
+              stroke={C.monotony} 
+              strokeWidth={3}
+              dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+              connectNulls
+            />
+            <Line 
+              yAxisId="right" 
+              type="monotone" 
+              dataKey="strain" 
+              name={t("monoStrain.trend.strain") as string} 
+              stroke={C.strain} 
+              strokeWidth={3}
+              strokeDasharray="5 5" // Čiarkovaná čiara
+              dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
