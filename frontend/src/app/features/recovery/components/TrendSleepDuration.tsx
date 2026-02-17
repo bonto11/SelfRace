@@ -31,7 +31,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; 
+import { useT } from "@/app/shared/i18n/useT";
 
 function iso(d: Date) {
   const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -60,28 +60,49 @@ const SleepDurationTooltip = ({ active, payload, label, t }: any) => {
     const comments = payload[0].payload.comments;
 
     return (
-      <div 
+      <div
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        style={{
+          backgroundColor: "rgba(9, 24, 18, 0.92)",
+          borderColor: appColors.panelBorder,
+        }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{new Date(label).toLocaleDateString("sk-SK")}</p>
-        
+        <p
+          className="mb-2 text-xs font-semibold"
+          style={{ color: appColors.textMuted }}
+        >
+          {new Date(label).toLocaleDateString("sk-SK")}
+        </p>
+
         {mainData && mainData.value != null ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
-            <span className="opacity-90">{t("recovery.trends.sleepDuration.tooltipLabel")}:</span>
+          <div
+            className="flex items-center gap-2 text-sm"
+            style={{ color: mainData.color }}
+          >
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: mainData.color }}
+            ></span>
+            <span className="opacity-90">
+              {t("recovery.trends.sleepDuration.tooltipLabel")}:
+            </span>
             <span className="font-bold">{minutesToHHMM(mainData.value)}</span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
-             <span className="w-2 h-2 rounded-full bg-red-400"></span>
-             <span className="opacity-90">{t("recovery.trends.common.noRecord")}</span>
+            <span className="w-2 h-2 rounded-full bg-red-400"></span>
+            <span className="opacity-90">
+              {t("recovery.trends.common.noRecord")}
+            </span>
           </div>
         ) : null}
 
         {comments && (
-          <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
-             {wrapToLines(comments, 44).join("\n")}
+          <div
+            className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap"
+            style={{ borderColor: appColors.divider }}
+          >
+            {wrapToLines(comments, 44).join("\n")}
           </div>
         )}
       </div>
@@ -91,7 +112,7 @@ const SleepDurationTooltip = ({ active, payload, label, t }: any) => {
 };
 
 export default function TrendSleepDuration() {
-  const t = useT(); 
+  const t = useT();
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -122,9 +143,18 @@ export default function TrendSleepDuration() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO],
+  );
 
-  const sleepMin = useMemo(() => labelsISO.map((d) => sanitizeSleepDurationMin(byDate.get(d)?.sleep_duration_min)), [labelsISO, byDate]);
+  const sleepMin = useMemo(
+    () =>
+      labelsISO.map((d) =>
+        sanitizeSleepDurationMin(byDate.get(d)?.sleep_duration_min),
+      ),
+    [labelsISO, byDate],
+  );
 
   const missingY = useMemo(() => {
     const n = sleepMin.length;
@@ -174,17 +204,25 @@ export default function TrendSleepDuration() {
   const minValue = validValues.length ? Math.min(...validValues) : 360; // default 6h
   const maxValue = validValues.length ? Math.max(...validValues) : 600; // default 10h
   // Zaokrúhlime na celé hodiny
-  const yMin = Math.max(0, Math.floor((minValue - 60) / 60) * 60); 
+  const yMin = Math.max(0, Math.floor((minValue - 60) / 60) * 60);
   const yMax = Math.ceil((maxValue + 60) / 60) * 60;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
+      <div
+        className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}
+      >
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             {t("recovery.trends.sleepDuration.title")}
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             {t("recovery.trends.sleepDuration.subtitle")}
           </div>
         </div>
@@ -207,36 +245,86 @@ export default function TrendSleepDuration() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          
+
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-              
-              <XAxis 
-                dataKey="date" 
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
-                tickLine={false} 
-                dy={10}
-                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <Area
+                type="monotone"
+                dataKey="bandUpper"
+                stroke="none"
+                fill={COLOR.bandFill}
+                fillOpacity={1}
+                legendType="none"
               />
-              
-              <YAxis 
-                domain={[yMin, yMax]} 
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
+              <Area
+                type="monotone"
+                dataKey="bandLower"
+                stroke="none"
+                fill={appColors.backgroundMain}
+                fillOpacity={1}
+                legendType="none"
+              />
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={appColors.chartGrid}
+              />
+
+              <XAxis
+                dataKey="date"
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
                 tickLine={false}
-                tickFormatter={(val) => `${Math.floor(val/60)}h`}
+                dy={10}
+                tickFormatter={(val) =>
+                  new Date(val).toLocaleDateString("sk-SK", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })
+                }
               />
-              
-              <Tooltip content={<SleepDurationTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
-              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
+              <YAxis
+                domain={[yMin, yMax]}
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(val) => `${Math.floor(val / 60)}h`}
+              />
 
-              <Line type="monotone" dataKey="val" name={t("recovery.trends.sleepDuration.label") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-              <Scatter dataKey="missingY" name={t("recovery.trends.common.missingLabel") as string} fill={COLOR.missing} r={4} />
+              <Tooltip
+                content={<SleepDurationTooltip t={t} />}
+                cursor={{
+                  stroke: appColors.textMuted,
+                  strokeWidth: 1,
+                  strokeDasharray: "5 5",
+                }}
+              />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+              />
+
+              <Line
+                type="monotone"
+                dataKey="val"
+                name={t("recovery.trends.sleepDuration.label") as string}
+                stroke={COLOR.main}
+                strokeWidth={3}
+                dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+                connectNulls
+              />
+              <Scatter
+                dataKey="missingY"
+                name={t("recovery.trends.common.missingLabel") as string}
+                fill={COLOR.missing}
+                r={4}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

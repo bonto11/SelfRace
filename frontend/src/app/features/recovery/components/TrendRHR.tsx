@@ -57,28 +57,47 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
     const comments = payload[0].payload.comments;
 
     return (
-      <div 
+      <div
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        style={{
+          backgroundColor: "rgba(9, 24, 18, 0.92)",
+          borderColor: appColors.panelBorder,
+        }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{new Date(label).toLocaleDateString("sk-SK")}</p>
-        
+        <p
+          className="mb-2 text-xs font-semibold"
+          style={{ color: appColors.textMuted }}
+        >
+          {new Date(label).toLocaleDateString("sk-SK")}
+        </p>
+
         {mainData && mainData.value != null ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
+          <div
+            className="flex items-center gap-2 text-sm"
+            style={{ color: mainData.color }}
+          >
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: mainData.color }}
+            ></span>
             <span className="opacity-90">RHR:</span>
             <span className="font-bold">{Math.round(mainData.value)} bpm</span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
-             <span className="w-2 h-2 rounded-full bg-red-400"></span>
-             <span className="opacity-90">{t("recovery.trends.rhr.noRecord")}</span>
+            <span className="w-2 h-2 rounded-full bg-red-400"></span>
+            <span className="opacity-90">
+              {t("recovery.trends.rhr.noRecord")}
+            </span>
           </div>
         ) : null}
 
         {comments && (
-          <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
-             {wrapToLines(comments, 44).join("\n")}
+          <div
+            className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap"
+            style={{ borderColor: appColors.divider }}
+          >
+            {wrapToLines(comments, 44).join("\n")}
           </div>
         )}
       </div>
@@ -119,15 +138,32 @@ export default function TrendRHR() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO],
+  );
 
-  const rhr = useMemo(() => labelsISO.map((d) => {
-    const rec = byDate.get(d);
-    return typeof rec?.RHR_bpm === "number" ? rec.RHR_bpm : NaN;
-  }), [labelsISO, byDate]);
+  const rhr = useMemo(
+    () =>
+      labelsISO.map((d) => {
+        const rec = byDate.get(d);
+        return typeof rec?.RHR_bpm === "number" ? rec.RHR_bpm : NaN;
+      }),
+    [labelsISO, byDate],
+  );
 
-  const baselineArr = useMemo(() => rollingMean(rhr.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14), [rhr]);
-  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+  const baselineArr = useMemo(
+    () =>
+      rollingMean(
+        rhr.map((v) => (Number.isFinite(v) ? (v as number) : null)),
+        14,
+      ),
+    [rhr],
+  );
+  const { lower, upper } = useMemo(
+    () => bandsAround(baselineArr, 0.05),
+    [baselineArr],
+  );
 
   const missingY = useMemo(() => {
     const n = rhr.length;
@@ -172,22 +208,34 @@ export default function TrendRHR() {
     });
   }, [labelsISO, rhr, lower, upper, missingY, byDate]);
 
-  const validValues = [...rhr.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null), ...upper.filter((v): v is number => v !== null)];
+  const validValues = [
+    ...rhr.filter(Number.isFinite),
+    ...lower.filter((v): v is number => v !== null),
+    ...upper.filter((v): v is number => v !== null),
+  ];
   const minValue = validValues.length ? Math.min(...validValues) : 40;
   const maxValue = validValues.length ? Math.max(...validValues) : 80;
-  
+
   // Dynamická škála (žiadne začínanie od nuly)
-  const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5); 
+  const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5);
   const yMax = Math.ceil((maxValue + 5) / 5) * 5;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
+      <div
+        className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}
+      >
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             {t("recovery.trends.rhr.title")}
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             {t("recovery.trends.rhr.subtitle")}
           </div>
         </div>
@@ -210,35 +258,85 @@ export default function TrendRHR() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          
+
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-              
-              <XAxis 
-                dataKey="date" 
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
-                tickLine={false} 
-                dy={10}
-                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <Area
+                type="monotone"
+                dataKey="bandUpper"
+                stroke="none"
+                fill={COLOR.bandFill}
+                fillOpacity={1}
+                legendType="none"
               />
-              
-              <YAxis 
+              <Area
+                type="monotone"
+                dataKey="bandLower"
+                stroke="none"
+                fill={appColors.backgroundMain}
+                fillOpacity={1}
+                legendType="none"
+              />
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={appColors.chartGrid}
+              />
+
+              <XAxis
+                dataKey="date"
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                dy={10}
+                tickFormatter={(val) =>
+                  new Date(val).toLocaleDateString("sk-SK", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })
+                }
+              />
+
+              <YAxis
                 domain={[yMin, yMax]}
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
                 tickLine={false}
               />
-              
-              <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
-              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
+              <Tooltip
+                content={<RecoveryTooltip t={t} />}
+                cursor={{
+                  stroke: appColors.textMuted,
+                  strokeWidth: 1,
+                  strokeDasharray: "5 5",
+                }}
+              />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+              />
 
-              <Line type="monotone" dataKey="val" name={t("recovery.trends.rhr.rhrLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-              <Scatter dataKey="missingY" name={t("recovery.trends.rhr.missingLabel") as string} fill={COLOR.missing} r={4} />
+              <Line
+                type="monotone"
+                dataKey="val"
+                name={t("recovery.trends.rhr.rhrLabel") as string}
+                stroke={COLOR.main}
+                strokeWidth={3}
+                dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+                connectNulls
+              />
+              <Scatter
+                dataKey="missingY"
+                name={t("recovery.trends.rhr.missingLabel") as string}
+                fill={COLOR.missing}
+                r={4}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

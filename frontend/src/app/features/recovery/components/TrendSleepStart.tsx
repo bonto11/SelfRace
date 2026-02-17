@@ -16,10 +16,7 @@ import {
 
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import { wrapToLines } from "@/app/shared/utils/recovery";
-import {
-  minutesToHHMM,
-  HHMMToMinutes,
-} from "@/app/shared/utils/time";
+import { minutesToHHMM, HHMMToMinutes } from "@/app/shared/utils/time";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
@@ -78,28 +75,51 @@ const SleepStartTooltip = ({ active, payload, label, t }: any) => {
     const comments = payload[0].payload.comments;
 
     return (
-      <div 
+      <div
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        style={{
+          backgroundColor: "rgba(9, 24, 18, 0.92)",
+          borderColor: appColors.panelBorder,
+        }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{new Date(label).toLocaleDateString("sk-SK")}</p>
-        
+        <p
+          className="mb-2 text-xs font-semibold"
+          style={{ color: appColors.textMuted }}
+        >
+          {new Date(label).toLocaleDateString("sk-SK")}
+        </p>
+
         {mainData && mainData.value != null ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
-            <span className="opacity-90">{t("recovery.trends.sleepStart.tooltipLabel")}:</span>
-            <span className="font-bold">{minutesToClockLabel(mainData.value)}</span>
+          <div
+            className="flex items-center gap-2 text-sm"
+            style={{ color: mainData.color }}
+          >
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: mainData.color }}
+            ></span>
+            <span className="opacity-90">
+              {t("recovery.trends.sleepStart.tooltipLabel")}:
+            </span>
+            <span className="font-bold">
+              {minutesToClockLabel(mainData.value)}
+            </span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
-             <span className="w-2 h-2 rounded-full bg-red-400"></span>
-             <span className="opacity-90">{t("recovery.trends.common.noRecord")}</span>
+            <span className="w-2 h-2 rounded-full bg-red-400"></span>
+            <span className="opacity-90">
+              {t("recovery.trends.common.noRecord")}
+            </span>
           </div>
         ) : null}
 
         {comments && (
-          <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
-             {wrapToLines(comments, 44).join("\n")}
+          <div
+            className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap"
+            style={{ borderColor: appColors.divider }}
+          >
+            {wrapToLines(comments, 44).join("\n")}
           </div>
         )}
       </div>
@@ -109,7 +129,7 @@ const SleepStartTooltip = ({ active, payload, label, t }: any) => {
 };
 
 export default function TrendSleepStart() {
-  const t = useT(); 
+  const t = useT();
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -140,15 +160,22 @@ export default function TrendSleepStart() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+  const labelsISO = useMemo(
+    () => dateSeq(startISO, endISO),
+    [startISO, endISO],
+  );
 
-  const startMin = useMemo(() => labelsISO.map((d) => {
-    const rec = byDate.get(d);
-    if (!rec?.sleep_start_time) return NaN;
-    const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
-    const chartMin = shiftAfterMidnightForChart(dayMin);
-    return Number.isFinite(chartMin) ? chartMin : NaN;
-  }), [labelsISO, byDate]);
+  const startMin = useMemo(
+    () =>
+      labelsISO.map((d) => {
+        const rec = byDate.get(d);
+        if (!rec?.sleep_start_time) return NaN;
+        const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
+        const chartMin = shiftAfterMidnightForChart(dayMin);
+        return Number.isFinite(chartMin) ? chartMin : NaN;
+      }),
+    [labelsISO, byDate],
+  );
 
   const missingY = useMemo(() => {
     const n = startMin.length;
@@ -194,18 +221,26 @@ export default function TrendSleepStart() {
   }, [labelsISO, startMin, missingY, byDate]);
 
   // Vypočítame dynamické yMin / yMax aby graf mal logické odrezky pre hodiny (napr. 21:00 až 02:00)
-  const allY = [...startMin.filter(Number.isFinite), 22*60, 23*60];
+  const allY = [...startMin.filter(Number.isFinite), 22 * 60, 23 * 60];
   const minY = Math.floor(Math.min(...allY) / 60) * 60 - 60; // 1 hodina pod
   const maxY = Math.ceil(Math.max(...allY) / 60) * 60 + 60; // 1 hodina nad
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
+      <div
+        className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}
+      >
         <div className="min-w-0">
-          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+          <div
+            className={PANEL_SECTION_TITLE}
+            style={{ color: appColors.textPrimary }}
+          >
             {t("recovery.trends.sleepStart.title")}
           </div>
-          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+          <div
+            className={PANEL_SECTION_SUBTITLE}
+            style={{ color: appColors.textMuted }}
+          >
             {t("recovery.trends.sleepStart.subtitle")}
           </div>
         </div>
@@ -228,36 +263,86 @@ export default function TrendSleepStart() {
               <LoadingSpinner size="trend" />
             </div>
           )}
-          
+
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-              
-              <XAxis 
-                dataKey="date" 
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
-                tickLine={false} 
-                dy={10}
-                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <Area
+                type="monotone"
+                dataKey="bandUpper"
+                stroke="none"
+                fill={COLOR.bandFill}
+                fillOpacity={1}
+                legendType="none"
               />
-              
-              <YAxis 
+              <Area
+                type="monotone"
+                dataKey="bandLower"
+                stroke="none"
+                fill={appColors.backgroundMain}
+                fillOpacity={1}
+                legendType="none"
+              />
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={appColors.chartGrid}
+              />
+
+              <XAxis
+                dataKey="date"
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                dy={10}
+                tickFormatter={(val) =>
+                  new Date(val).toLocaleDateString("sk-SK", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })
+                }
+              />
+
+              <YAxis
                 domain={[minY, maxY]}
-                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-                axisLine={false} 
+                tick={{ fill: appColors.textMuted, fontSize: 10 }}
+                axisLine={false}
                 tickLine={false}
                 tickFormatter={(val) => minutesToClockLabel(val)} // preloží minúty na 22:00 atď.
               />
-              
-              <Tooltip content={<SleepStartTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
-              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
+              <Tooltip
+                content={<SleepStartTooltip t={t} />}
+                cursor={{
+                  stroke: appColors.textMuted,
+                  strokeWidth: 1,
+                  strokeDasharray: "5 5",
+                }}
+              />
+              <Legend
+                iconType="circle"
+                wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+              />
 
-              <Line type="monotone" dataKey="val" name={t("recovery.trends.sleepStart.label") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-              <Scatter dataKey="missingY" name={t("recovery.trends.common.missingLabel") as string} fill={COLOR.missing} r={4} />
+              <Line
+                type="monotone"
+                dataKey="val"
+                name={t("recovery.trends.sleepStart.label") as string}
+                stroke={COLOR.main}
+                strokeWidth={3}
+                dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+                connectNulls
+              />
+              <Scatter
+                dataKey="missingY"
+                name={t("recovery.trends.common.missingLabel") as string}
+                fill={COLOR.missing}
+                r={4}
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
