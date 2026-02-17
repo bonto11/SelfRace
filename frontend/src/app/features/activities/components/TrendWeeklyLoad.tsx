@@ -1,11 +1,19 @@
-// src/features/activity/components/TrendWeeklyLoad.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Chart as MixedChart } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
-import { OPTIONS, LOOKBACK_OPTIONS ,ensureChartJSRegistered} from "@/app/shared/charts/chart_builders";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { LOOKBACK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -16,7 +24,6 @@ import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
-  SCROLL_X,
   SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_CARD_HEAD,
@@ -25,18 +32,45 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-ensureChartJSRegistered();
-
-const C = {
-  run: appColors.chartRun,
-  ride: appColors.chartBike,
-  strength: appColors.chartStrength,
-  mixed: appColors.chartMixed,
-  skate: appColors.chartSkate,
-  other: appColors.chartOther,
-};
-
 const DEFAULT_SPORT = "all" as const;
+
+// Náš prémiový Tooltip
+const StackedTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    // Spočítame total za celý stĺpec
+    const total = payload.reduce((sum: number, entry: any) => sum + (Number(entry.value) || 0), 0);
+    
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px]"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        
+        <div className="space-y-1 mb-2">
+          {payload.map((entry: any, index: number) => {
+            if (!entry.value) return null; // Ak je hodnota 0, schováme to z tooltipu nech nezavadzia
+            return (
+              <div key={index} className="flex items-center justify-between gap-4 text-sm" style={{ color: entry.color }}>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
+                  <span className="opacity-90">{entry.name}</span>
+                </div>
+                <span className="font-bold">{Number(entry.value).toFixed(1)}</span>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold" style={{ borderColor: appColors.divider }}>
+          <span>Total:</span>
+          <span>{total.toFixed(1)}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function TrendWeeklyLoad({
   onPickWeek,
@@ -53,13 +87,6 @@ export default function TrendWeeklyLoad({
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [loading, setLoading] = useState(false);
   const t = useT();
-
-  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
-  const _height = OPTIONS.Height;
-  const _legendPos = OPTIONS.legendPosition;
-  const _maxBarThickness = OPTIONS.bar.maxThickness;
-  const _categoryPercentage = OPTIONS.bar.categoryPct;
-  const _barPercentage = OPTIONS.bar.barPct;
 
   useEffect(() => {
     onSportChange?.(DEFAULT_SPORT);
@@ -79,7 +106,6 @@ export default function TrendWeeklyLoad({
         if (!alive) return;
         setWeeks(rows);
       } catch (e: any) {
-        // Tiché logovanie
         console.error("Weekly load fetch failed:", t(e?.message as any));
         if (alive) setWeeks([]);
       } finally {
@@ -87,234 +113,50 @@ export default function TrendWeeklyLoad({
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, lookback, t]);
 
-  const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
+  // Formátovanie dát pre Stacked Bar Chart v Recharts
+  const chartData = useMemo(() => {
+    return weeks.map((w) => {
+      const base = { label: w.label || w.week, rawWeek: w };
+      
+      if (metric === "km") {
+        return { ...base, run: w.km_run, ride: w.km_ride, mixed: w.km_mixed, skate: w.km_skate };
+      } else if (metric === "time") {
+        return { ...base, run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min, mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min };
+      } else {
+        return { ...base, run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength, mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other };
+      }
+    });
+  }, [weeks, metric]);
 
-  const datasets = useMemo(() => {
-    const W = weeks;
-    const ds: any[] = [];
-
-    const pushBar = (
-      key: "run" | "ride" | "strength" | "mixed" | "skate" | "other",
-      label: string,
-      data: number[],
-    ) => {
-      const color = (C as any)[key];
-      ds.push({
-        type: "bar" as const,
-        label,
-        data,
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1,
-        yAxisID: "y",
+  const handleChartClick = (state: any) => {
+    if (!onPickWeek || !state || !state.activePayload) return;
+    const w = state.activePayload[0].payload.rawWeek;
+    if (w) {
+      onPickWeek({
+        week: w.week || w.label || w.start || "",
+        start: w.start,
+        end: w.end,
+        sport: DEFAULT_SPORT,
       });
-    };
-
-    if (metric === "km") {
-      pushBar(
-        "run",
-        t("common.sports.run"),
-        W.map((w) => w.km_run),
-      );
-      pushBar(
-        "ride",
-        t("common.sports.bike"),
-        W.map((w) => w.km_ride),
-      );
-      pushBar(
-        "mixed",
-        t("common.sports.mixed"),
-        W.map((w) => w.km_mixed),
-      );
-      pushBar(
-        "skate",
-        t("common.sports.skate"),
-        W.map((w) => w.km_skate),
-      );
-    } else if (metric === "time") {
-      pushBar(
-        "run",
-        t("common.sports.run"),
-        W.map((w) => w.time_run_min),
-      );
-      pushBar(
-        "ride",
-        t("common.sports.bike"),
-        W.map((w) => w.time_ride_min),
-      );
-      pushBar(
-        "strength",
-        t("common.sports.strength"),
-        W.map((w) => w.time_strength_min),
-      );
-      pushBar(
-        "mixed",
-        t("common.sports.mixed"),
-        W.map((w) => w.time_mixed_min),
-      );
-      pushBar(
-        "skate",
-        t("common.sports.skate"),
-        W.map((w) => w.time_skate_min),
-      );
-      pushBar(
-        "other",
-        t("common.sports.other"),
-        W.map((w) => w.time_other_min),
-      );
-    } else {
-      pushBar(
-        "run",
-        t("common.sports.run"),
-        W.map((w) => w.trimp_run),
-      );
-      pushBar(
-        "ride",
-        t("common.sports.bike"),
-        W.map((w) => w.trimp_ride),
-      );
-      pushBar(
-        "strength",
-        t("common.sports.strength"),
-        W.map((w) => w.trimp_strength),
-      );
-      pushBar(
-        "mixed",
-        t("common.sports.mixed"),
-        W.map((w) => w.trimp_mixed),
-      );
-      pushBar(
-        "skate",
-        t("common.sports.skate"),
-        W.map((w) => w.trimp_skate),
-      );
-      pushBar(
-        "other",
-        t("common.sports.other"),
-        W.map((w) => w.trimp_other),
-      );
     }
-
-    return ds;
-  }, [weeks, metric, t]);
-
-  const data: ChartData<"bar" | "line", number[], string> = {
-    labels,
-    datasets,
   };
 
-  const options: ChartOptions<"bar" | "line"> = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      elements: { point: { radius: 2, hitRadius: 8 } },
-      datasets: {
-        bar: {
-          maxBarThickness: _maxBarThickness,
-          categoryPercentage: _categoryPercentage,
-          barPercentage: _barPercentage,
-        },
-      },
-      layout: { padding: { bottom: 12 } },
-      plugins: {
-        legend: {
-          position: _legendPos,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            boxWidth: 6,
-            boxHeight: 6,
-            padding: 10,
-          },
-        },
-      },
-      onClick: (_evt, els) => {
-        const idx = els?.[0]?.index;
-        if (idx == null) return;
-        const w = weeks[idx];
-        if (!w) return;
-        onPickWeek?.({
-          week: w.week || w.label || w.start || "",
-          start: w.start,
-          end: w.end,
-          sport: DEFAULT_SPORT,
-        });
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          position: "left",
-          grid: { color: appColors.chartAxis },
-          title: {
-            display: true,
-            text:
-              metric === "km"
-                ? t("common.units.km")
-                : metric === "time"
-                  ? t("common.units.min")
-                  : t("common.units.trimp"),
-          },
-        },
-        x: {
-          grid: { color: appColors.chartAxis },
-          ticks: {
-            autoSkip: true,
-            minRotation: 55,
-            maxRotation: 55,
-            padding: 6,
-            font: { size: 10 },
-          },
-        },
-      },
-    }),
-    [
-      metric,
-      weeks,
-      onPickWeek,
-      _legendPos,
-      _maxBarThickness,
-      _categoryPercentage,
-      _barPercentage,
-      t
-    ],
-  );
-
-  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
+  const yAxisLabel = metric === "km" ? t("common.units.km") : metric === "time" ? t("common.units.min") : t("common.units.trimp");
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      <div className={[PANEL_PAD, PANEL_CARD_HEAD].join(" ")}>
+      
+      <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
         <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
 
-        <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
-          <div className={PANEL_ACTIONS_INLINE}>
-            <Button
-              size="xs"
-              variant={metric === "km" ? "active" : "editable"}
-              onClick={() => setMetric("km")}
-            >
-              {t("common.metrics.distance")}
-            </Button>
-            <Button
-              size="xs"
-              variant={metric === "time" ? "active" : "editable"}
-              onClick={() => setMetric("time")}
-            >
-              {t("common.metrics.time")}
-            </Button>
-            <Button
-              size="xs"
-              variant={metric === "trimp" ? "active" : "editable"}
-              onClick={() => setMetric("trimp")}
-            >
-              {t("common.metrics.trimp")}
-            </Button>
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
+            <Button size="xs" variant={metric === "km" ? "active" : "ghost"} onClick={() => setMetric("km")}>{t("common.metrics.distance")}</Button>
+            <Button size="xs" variant={metric === "time" ? "active" : "ghost"} onClick={() => setMetric("time")}>{t("common.metrics.time")}</Button>
+            <Button size="xs" variant={metric === "trimp" ? "active" : "ghost"} onClick={() => setMetric("trimp")}>{t("common.metrics.trimp")}</Button>
           </div>
 
           {showLookback && (
@@ -322,28 +164,53 @@ export default function TrendWeeklyLoad({
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
               options={LOOKBACK_OPTIONS(t)}
-              containerClassName="w-[130px]"
+              containerClassName="w-[120px]"
               variant="editable"
-              placeholder="—"
             />
           )}
         </div>
       </div>
 
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
-        <div className="relative" style={{ height: _height }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
-            </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <MixedChart type="bar" data={data} options={options} />
+      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
+            <LoadingSpinner size="trend" />
           </div>
-        </div>
+        )}
+        
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+            
+            <XAxis 
+              dataKey="label" 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+              dy={10}
+            />
+            
+            <YAxis 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+              label={{ value: yAxisLabel as string, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+            />
+            
+            <Tooltip content={<StackedTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+            
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+            
+            {/* Jednotlivé športy ako Stacked Bars (stackId="a" ich ukladá na seba) */}
+            <Bar dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />
+            {(metric === "time" || metric === "trimp") && <Bar dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            <Bar dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />
+            <Bar dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />
+            {(metric === "time" || metric === "trimp") && <Bar dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+            {/* (Posledný bar dostal radius [4, 4, 0, 0] pre mierne zaoblený vrch) */}
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

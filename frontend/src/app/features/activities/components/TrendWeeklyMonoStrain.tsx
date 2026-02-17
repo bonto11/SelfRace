@@ -136,9 +136,9 @@ export default function TrendWeeklyMonoStrain({
 
         <div className="flex flex-wrap items-center gap-3 ml-auto">
           <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-            <Button size="xs" variant={metric === "km" ? "active" : "ghost"} onClick={() => setMetric("km")}>Km</Button>
-            <Button size="xs" variant={metric === "time" ? "active" : "ghost"} onClick={() => setMetric("time")}>Čas</Button>
-            <Button size="xs" variant={metric === "trimp" ? "active" : "ghost"} onClick={() => setMetric("trimp")}>TRIMP</Button>
+            <Button size="xs" variant={metric === "km" ? "active" : "ghost"} onClick={() => setMetric("km")}>{t("common.metrics.distance")}</Button>
+            <Button size="xs" variant={metric === "time" ? "active" : "ghost"} onClick={() => setMetric("time")}>{t("common.metrics.time")}</Button>
+            <Button size="xs" variant={metric === "trimp" ? "active" : "ghost"} onClick={() => setMetric("trimp")}>{t("common.metrics.trimp")}</Button>
           </div>
 
           {showLookback && (

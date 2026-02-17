@@ -1,17 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceArea,
+} from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
-import {
-  OPTIONS,
-  WEEK_OPTIONS,
-  buildRecoveryLineOptions,
-  ensureChartJSRegistered,
-} from "@/app/shared/charts/chart_builders";
+import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
 
@@ -30,7 +34,6 @@ import {
 import {
   CARD,
   SURFACE_CARD_STYLE,
-  SCROLL_X,
   PANEL_PAD,
   PANEL_INNER_STACK,
   PANEL_CARD_HEAD,
@@ -40,7 +43,30 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT"; 
 
-ensureChartJSRegistered();
+// Náš prémiový tooltip
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        {payload.map((entry: any, index: number) => {
+          if (!entry.value) return null;
+          return (
+            <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+              <span className="opacity-90">{entry.name}:</span>
+              <span className="font-bold">{Number(entry.value).toFixed(1)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function TrendVO2Max() {
   const { userId } = useUserId() as { userId: number | null };
@@ -52,8 +78,6 @@ export default function TrendVO2Max() {
   const [estHist, setEstHist] = React.useState<MetricHistoryRow[]>([]);
   const [measHist, setMeasHist] = React.useState<MetricHistoryRow[]>([]);
 
-  const _height = OPTIONS.Height;
-  const _pxPerLabel = OPTIONS.pxPerLabel;
   const DAY = 24 * 3600 * 1000;
 
   React.useEffect(() => {
@@ -77,20 +101,16 @@ export default function TrendVO2Max() {
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId]);
 
   const lookbackDays = weeks * 7;
 
   const estDays = new Set<string>();
-  for (const r of estHist)
-    if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
+  for (const r of estHist) if (r?.measured_at) estDays.add(r.measured_at.slice(0, 10));
 
   const measDays = new Set<string>();
-  for (const r of measHist)
-    if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
+  for (const r of measHist) if (r?.measured_at) measDays.add(r.measured_at.slice(0, 10));
 
   let allDays = Array.from(new Set<string>([...estDays, ...measDays])).sort();
 
@@ -125,181 +145,44 @@ export default function TrendVO2Max() {
     if (typeof r?.value_num === "number" && r?.measured_at)
       measMap.set(r.measured_at.slice(0, 10), r.value_num);
 
-  if (estMap.size === 1 && allDays.length > 1) {
-    const onlyVal = Array.from(estMap.values())[0];
-    estMap.clear();
-    for (const d of allDays) estMap.set(d, onlyVal);
-  }
-  if (measMap.size === 1 && allDays.length > 1) {
-    const onlyVal = Array.from(measMap.values())[0];
-    measMap.clear();
-    for (const d of allDays) measMap.set(d, onlyVal);
-  }
-
-  const labelsISO = allDays;
-  const labels = labelsISO.map((d) => new Date(d).toLocaleDateString("sk-SK"));
-
-  const seriesEst = labelsISO.map((d) =>
-    estMap.has(d) ? Number(estMap.get(d)) : NaN,
-  );
-  const seriesMeas = labelsISO.map((d) =>
-    measMap.has(d) ? Number(measMap.get(d)) : NaN,
-  );
+  // Formátovanie dát pre Recharts
+  const chartData = allDays.map((dISO) => ({
+    label: new Date(dISO).toLocaleDateString("sk-SK"),
+    dISO: dISO,
+    est: estMap.has(dISO) ? estMap.get(dISO) : null,
+    meas: measMap.has(dISO) ? measMap.get(dISO) : null,
+  }));
 
   const sex = stat?.sex === "F" ? "F" : "M";
   const birthDate = stat?.birth_date || "";
-  const age = birthDate
-    ? Math.floor(
-        (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000),
-      )
-    : 0;
+  const age = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86400 * 1000)) : 0;
 
   const group = (vo2Ref as Group[]).find(
     (g) => g.sex === sex && age >= g.age_min && age <= g.age_max,
   );
 
-  const ranges =
-    group?.ranges?.map((r) => ({
-      ...r,
-      color: colorForVo2RangeLabel(r.label),
-    })) ?? [];
+  const ranges = group?.ranges?.map((r) => ({
+    ...r,
+    color: colorForVo2RangeLabel(r.label),
+  })) ?? [];
 
-  const finiteVals = [...seriesEst, ...seriesMeas].filter(
-    Number.isFinite,
-  ) as number[];
-  const rangeMaxes = ranges.map((r) => (typeof r.max === "number" ? r.max : 0));
-
-  const suggestedTop = Math.max(
-    60,
-    Math.ceil(
-      Math.max(0, ...(finiteVals.length ? finiteVals : [0]), ...rangeMaxes) + 1,
-    ),
-  );
-
-  const finiteEst = seriesEst.filter(Number.isFinite) as number[];
-  const finiteMeas = seriesMeas.filter(Number.isFinite) as number[];
-  const oneEst = finiteEst.length === 1 ? finiteEst[0] : null;
-  const oneMeas = finiteMeas.length === 1 ? finiteMeas[0] : null;
-
-  const datasets: ChartData<"line", number[], string>["datasets"] = [
-    ...ranges.map((r, i) => ({
-      type: "line" as const,
-      label: r.label,
-      data: labels.map(() =>
-        typeof r.max === "number" ? r.max : suggestedTop,
-      ),
-      borderColor: hexWithAlpha(r.color, 0),
-      backgroundColor: hexWithAlpha(r.color, 0.18),
-      pointRadius: 0,
-      borderWidth: 0,
-      fill: i === 0 ? ("origin" as const) : ("-1" as const),
-      order: 1,
-    })),
-    ...(oneEst != null
-      ? [
-          {
-            type: "line" as const,
-            label: t("VO2Max.chart.estLevel"), 
-            data: labels.map(() => oneEst as number),
-            borderColor: appColors.chartLine1,
-            backgroundColor: appColors.chartLine1,
-            pointRadius: 0,
-            borderWidth: 2,
-            tension: 0,
-            spanGaps: true,
-            order: 2,
-          },
-        ]
-      : []),
-    {
-      type: "line" as const,
-      label: t("VO2Max.chart.estLabel"), 
-      data: seriesEst,
-      borderColor: appColors.chartLine1,
-      backgroundColor: appColors.chartLine1,
-      pointRadius: 2,
-      borderWidth: oneEst != null ? 0 : 2,
-      showLine: oneEst == null,
-      tension: 0.25,
-      spanGaps: true,
-      order: 3,
-    },
-    ...(oneMeas != null
-      ? [
-          {
-            type: "line" as const,
-            label: t("VO2Max.chart.measLevel"), 
-            data: labels.map(() => oneMeas as number),
-            borderColor: appColors.chartLine2,
-            backgroundColor: appColors.chartLine2,
-            pointRadius: 0,
-            borderWidth: 2,
-            borderDash: [6, 4],
-            tension: 0,
-            spanGaps: true,
-            order: 3,
-          },
-        ]
-      : []),
-    {
-      type: "line" as const,
-      label: t("VO2Max.chart.measLabel"),
-      data: seriesMeas,
-      borderColor: appColors.chartLine2,
-      backgroundColor: appColors.chartLine2,
-      pointRadius: 2,
-      borderDash: [6, 4],
-      borderWidth: oneMeas != null ? 0 : 2,
-      showLine: oneMeas == null,
-      tension: 0.25,
-      spanGaps: true,
-      order: 4,
-    },
-  ];
-
-  const data: ChartData<"line", number[], string> = { labels, datasets };
-
-  const options: ChartOptions<"line"> = buildRecoveryLineOptions({
-    t,
-    labelsISO,
-    yTitle: t("common.units.vo2max"),
-    tooltipTitleForIndex: (i) =>
-      new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString("sk-SK"),
-    tooltipLabelForItem: (ctx) => {
-      const idx = ctx.dataIndex ?? 0;
-      const label = ctx.dataset?.label ?? "";
-      if (label === t("VO2Max.chart.estLabel")) {
-        const v = seriesEst[idx];
-        return Number.isFinite(v)
-          ? `${t("VO2Max.chart.estimated")}: ${Number(v).toFixed(1)}`
-          : "—";
-      }
-      if (label === t("VO2Max.chart.measLabel")) {
-        const v = seriesMeas[idx];
-        return Number.isFinite(v)
-          ? `${t("VO2Max.chart.measured")}: ${Number(v).toFixed(1)}`
-          : "—";
-      }
-      return "";
-    },
-    tooltipFilter: (item) => {
-      const l = item.dataset?.label ?? "";
-      return (
-        l === t("VO2Max.chart.estLabel") || l === t("VO2Max.chart.measLabel")
-      );
-    },
-    yMin: 0,
-    yMax: suggestedTop,
-  });
-
-  const minWidth = Math.max(360, Math.round(labels.length * _pxPerLabel));
+  // Vypočítame dynamické yMin a yMax aby graf nerezal zbytočne prázdno (Napr. VO2Max pod 20 je zriedkavé)
+  const allValues = [...Array.from(estMap.values()), ...Array.from(measMap.values())];
+  const minValue = allValues.length ? Math.min(...allValues) : 30;
+  const maxValue = allValues.length ? Math.max(...allValues) : 60;
+  
+  // yMin nastavíme o niečo nižšie než je najmenšia hodnota (ale min. na 10), aby linka nebola úplne nalepená dole
+  const yMin = Math.max(10, Math.floor((minValue - 5) / 5) * 5); 
+  const yMax = Math.max(60, Math.ceil((maxValue + 5) / 5) * 5);
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className={PANEL_CARD_HEAD}>
+        
+        {/* Hlavička responzívna */}
+        <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_CARD_TITLE}>{t("VO2Max.detailTitle")}</h2>
-          <div className={PANEL_ACTIONS_INLINE}>
+          <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
             <SelectField
               value={String(weeks)}
               onChange={(e) => setWeeks(Number(e.target.value))}
@@ -310,22 +193,88 @@ export default function TrendVO2Max() {
             />
           </div>
         </div>
+
       </div>
 
-      <div
-        className={[SCROLL_X, "min-w-0"].join(" ")}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
-        <div className="relative" style={{ height: _height }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
-            </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <Line data={data} options={options} />
+      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
+            <LoadingSpinner size="trend" />
           </div>
-        </div>
+        )}
+        
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            {/* Vykreslenie pásov (Bands) na pozadie */}
+            {/* Vykreslenie pásov (Bands) na pozadie */}
+            {ranges.map((r, i) => {
+              // Zabezpečíme, že to budú vždy čísla
+              const prevMax = i === 0 ? yMin : (ranges[i-1].max ?? yMin);
+              const currentMax = r.max ?? yMax;
+
+              const y1 = Math.max(yMin, prevMax);
+              const y2 = Math.min(yMax, currentMax);
+              
+              // Ak je pásmo mimo grafu (pod yMin), nekreslíme ho
+              if (y2 < yMin) return null;
+              
+              return (
+                <ReferenceArea 
+                  key={r.label} 
+                  y1={y1} 
+                  y2={y2} 
+                  fill={hexWithAlpha(r.color, 0.12)} 
+                  fillOpacity={1} 
+                  strokeOpacity={0} 
+                />
+              );
+            })}
+
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+            
+            <XAxis 
+              dataKey="label" 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+              dy={10}
+              minTickGap={20}
+            />
+            
+            <YAxis 
+              domain={[yMin, yMax]}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false}
+            />
+            
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
+            
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+            
+            <Line 
+              type="monotone" 
+              dataKey="est" 
+              name={t("VO2Max.chart.estLabel") as string} 
+              stroke={appColors.chartLine1} 
+              strokeWidth={3}
+              dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+              connectNulls
+            />
+            <Line 
+              type="monotone" 
+              dataKey="meas" 
+              name={t("VO2Max.chart.measLabel") as string} 
+              stroke={appColors.chartLine2} 
+              strokeWidth={3}
+              strokeDasharray="5 5"
+              dot={{ r: 3, fill: appColors.chartLine2, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

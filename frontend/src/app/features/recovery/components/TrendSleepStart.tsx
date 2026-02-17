@@ -1,36 +1,55 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions, Plugin } from "chart.js";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Line,
+  Area,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
-import { OPTIONS, WEEK_OPTIONS, buildRecoveryLineOptions, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
+import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import { wrapToLines } from "@/app/shared/utils/recovery";
 import {
   minutesToHHMM,
   HHMMToMinutes,
-  dateSeq,
-  iso,
 } from "@/app/shared/utils/time";
 
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_CARD_STYLE,
-  SCROLL_X,
   PANEL_SECTION_HEAD,
   CARD_HEAD_INSET,
   CARD_BODY_INSET,
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
-import SelectField from "@/app/shared/ui/components/SelectField";
 import { useT } from "@/app/shared/i18n/useT";
 
-ensureChartJSRegistered();
+function iso(d: Date) {
+  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  return z.toISOString().slice(0, 10);
+}
+
+function dateSeq(startISO: string, endISO: string): string[] {
+  const out: string[] = [];
+  const start = new Date(startISO + "T00:00:00");
+  const end = new Date(endISO + "T00:00:00");
+  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    out.push(iso(d));
+  return out;
+}
 
 const DAY_MIN = 24 * 60;
 
@@ -48,18 +67,52 @@ function parseHHMMToDayMinutesSafe(hhmm: string): number {
 
 function shiftAfterMidnightForChart(dayMin: number): number {
   if (!Number.isFinite(dayMin)) return NaN;
-  const cutoff = 12 * 60;
+  const cutoff = 12 * 60; // posúvame všetko pred 12:00 na ďalší "fiktívny" deň aby 01:00 bolo vyššie na grafe ako 23:00
   return dayMin < cutoff ? dayMin + DAY_MIN : dayMin;
 }
 
-export default function DetailSleepStart() {
+const SleepStartTooltip = ({ active, payload, label, t }: any) => {
+  if (active && payload && payload.length) {
+    const mainData = payload.find((p: any) => p.dataKey === "val");
+    const missingData = payload.find((p: any) => p.dataKey === "missingY");
+    const comments = payload[0].payload.comments;
+
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{new Date(label).toLocaleDateString("sk-SK")}</p>
+        
+        {mainData && mainData.value != null ? (
+          <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
+            <span className="opacity-90">{t("recovery.trends.sleepStart.tooltipLabel")}:</span>
+            <span className="font-bold">{minutesToClockLabel(mainData.value)}</span>
+          </div>
+        ) : missingData ? (
+          <div className="flex items-center gap-2 text-sm text-red-400">
+             <span className="w-2 h-2 rounded-full bg-red-400"></span>
+             <span className="opacity-90">{t("recovery.trends.common.noRecord")}</span>
+          </div>
+        ) : null}
+
+        {comments && (
+          <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
+             {wrapToLines(comments, 44).join("\n")}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
+export default function TrendSleepStart() {
   const t = useT(); 
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
-
-  const _pxPerLabel = OPTIONS.pxPerLabel;
-  const _height = OPTIONS.Height;
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -67,10 +120,13 @@ export default function DetailSleepStart() {
     missing: appColors.stateBad,
   };
 
-  useEffect(() => setLoading(true), [weeks]);
+  useEffect(() => {
+    setLoading(true);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
+  }, [weeks, all]);
 
   const days = weeks * 7;
-
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -84,51 +140,25 @@ export default function DetailSleepStart() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(
-    () => dateSeq(startISO, endISO),
-    [startISO, endISO],
-  );
+  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
-  const startMin = useMemo(
-    () =>
-      labelsISO.map((d) => {
-        const rec = byDate.get(d);
-        if (!rec?.sleep_start_time) return NaN;
-        const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
-        const chartMin = shiftAfterMidnightForChart(dayMin);
-        return Number.isFinite(chartMin) ? chartMin : NaN;
-      }),
-    [labelsISO, byDate],
-  );
-
-  const lowerBand = useMemo(() => labelsISO.map(() => 22 * 60), [labelsISO]); // 22:00
-  const upperBand = useMemo(() => labelsISO.map(() => 23 * 60), [labelsISO]); // 23:00
-
-  const comments = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const d of labelsISO) {
-      const c = byDate.get(d)?.comments;
-      if (c) m.set(d, c);
-    }
-    return m;
-  }, [labelsISO, byDate]);
-
-  const missingIdx = useMemo(
-    () => startMin.map((v) => !Number.isFinite(v)),
-    [startMin],
-  );
+  const startMin = useMemo(() => labelsISO.map((d) => {
+    const rec = byDate.get(d);
+    if (!rec?.sleep_start_time) return NaN;
+    const dayMin = parseHHMMToDayMinutesSafe(rec.sleep_start_time);
+    const chartMin = shiftAfterMidnightForChart(dayMin);
+    return Number.isFinite(chartMin) ? chartMin : NaN;
+  }), [labelsISO, byDate]);
 
   const missingY = useMemo(() => {
     const n = startMin.length;
     const out = new Array<number | null>(n).fill(null);
-
     const nextKnown: number[] = new Array(n).fill(-1);
     let last = -1;
     for (let i = n - 1; i >= 0; i--) {
       if (Number.isFinite(startMin[i])) last = i;
       nextKnown[i] = last;
     }
-
     let prev = -1;
     for (let i = 0; i < n; i++) {
       if (Number.isFinite(startMin[i])) {
@@ -140,8 +170,7 @@ export default function DetailSleepStart() {
       if (prev !== -1 && nxt !== -1) {
         const vp = startMin[prev] as number;
         const vn = startMin[nxt] as number;
-        const t = (i - prev) / (nxt - prev);
-        y = vp + (vn - vp) * t;
+        y = vp + (vn - vp) * ((i - prev) / (nxt - prev));
       } else if (prev !== -1) y = startMin[prev] as number;
       else if (nxt !== -1) y = startMin[nxt] as number;
       out[i] = y;
@@ -149,200 +178,88 @@ export default function DetailSleepStart() {
     return out;
   }, [startMin]);
 
-  const data: ChartData<"line", number[], string> = useMemo(
-    () => ({
-      labels: labelsISO,
-      datasets: [
-        {
-          type: "line" as const,
-          label: t("recovery.trends.sleepStart.bandLower"),
-          data: lowerBand,
-          borderColor: "rgba(0,0,0,0)",
-          backgroundColor: COLOR.bandFill,
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          order: 1,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.sleepStart.bandUpper"),
-          data: upperBand,
-          borderColor: "rgba(0,0,0,0)",
-          backgroundColor: COLOR.bandFill,
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          fill: "-1" as const,
-          order: 1,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.sleepStart.label"),
-          data: startMin,
-          borderColor: COLOR.main,
-          backgroundColor: COLOR.main,
-          pointRadius: 3,
-          borderWidth: 2,
-          tension: 0,
-          spanGaps: true,
-          order: 2,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.common.missingLabel"),
-          data: missingY.map((y, i) =>
-            missingIdx[i] && typeof y === "number" ? y : NaN,
-          ),
-          showLine: false,
-          pointRadius: 0,
-          pointHitRadius: 12,
-          pointBackgroundColor: COLOR.missing,
-          pointBorderColor: COLOR.missing,
-          pointBorderWidth: 2,
-          borderWidth: 0,
-          order: 999,
-          clip: false as any,
-        },
-      ],
-    }),
-    [
-      labelsISO,
-      lowerBand,
-      upperBand,
-      startMin,
-      missingY,
-      missingIdx,
-      COLOR.bandFill,
-      COLOR.main,
-      COLOR.missing,
-      t,
-    ],
-  );
+  const chartData = useMemo(() => {
+    return labelsISO.map((d, i) => {
+      const v = startMin[i];
+      const isMissing = !Number.isFinite(v);
+      return {
+        date: d,
+        val: isMissing ? null : v,
+        bandLower: 22 * 60, // 22:00
+        bandUpper: 23 * 60, // 23:00
+        missingY: isMissing ? missingY[i] : null,
+        comments: byDate.get(d)?.comments,
+      };
+    });
+  }, [labelsISO, startMin, missingY, byDate]);
 
-  const drawMissingOnTop: Plugin<"line"> = useMemo(
-    () => ({
-      id: "draw-missing-on-top-sleepstart",
-      afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === t("recovery.trends.common.missingLabel"),
-        );
-        if (dsIndex < 0) return;
-        const meta = chart.getDatasetMeta(dsIndex);
-        const ctx = chart.ctx;
-        ctx.save();
-        ctx.fillStyle = COLOR.missing;
-        ctx.strokeStyle = COLOR.missing;
-        ctx.lineWidth = 2;
-        for (const el of meta.data as any[]) {
-          if (!el || el.skip) continue;
-          const { x, y } = el.tooltipPosition(true);
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-        }
-        ctx.restore();
-      },
-    }),
-    [COLOR.missing, t],
-  );
-
-  const options: ChartOptions<"line"> = useMemo(
-    () =>
-      buildRecoveryLineOptions({
-        t,
-        labelsISO,
-        yTitle: t("common.metrics.time"),
-        yTickFormatter: (v: number) => minutesToClockLabel(v),
-        tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-            "sk-SK",
-          ),
-        tooltipLabelForItem: (ctx): string | string[] => {
-          const idx = ctx.dataIndex ?? 0;
-          const label = ctx.dataset?.label ?? "";
-          if (label === t("recovery.trends.sleepStart.label")) {
-            const v = startMin[idx];
-            const out: string[] = [];
-            if (Number.isFinite(v))
-              out.push(
-                `${t("recovery.trends.sleepStart.tooltipLabel")}: ${minutesToClockLabel(v as number)}`,
-              );
-            const c = comments.get(labelsISO[idx] ?? "");
-            if (c) out.push(...wrapToLines(c, 44));
-            return out.length
-              ? out
-              : `${t("recovery.trends.sleepStart.tooltipLabel")}: –`;
-          }
-          if (label === t("recovery.trends.common.missingLabel"))
-            return t("recovery.trends.common.noRecord");
-          return "";
-        },
-        tooltipFilter: (item) => {
-          const l = item.dataset.label ?? "";
-          return (
-            l === t("recovery.trends.sleepStart.label") ||
-            l === t("recovery.trends.common.missingLabel")
-          );
-        },
-      }),
-    [labelsISO, startMin, comments, t],
-  );
-
-  useEffect(() => {
-    const tt = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(tt);
-  }, [labelsISO.join("|")]);
-
-  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
+  // Vypočítame dynamické yMin / yMax aby graf mal logické odrezky pre hodiny (napr. 21:00 až 02:00)
+  const allY = [...startMin.filter(Number.isFinite), 22*60, 23*60];
+  const minY = Math.floor(Math.min(...allY) / 60) * 60 - 60; // 1 hodina pod
+  const maxY = Math.ceil(Math.max(...allY) / 60) * 60 + 60; // 1 hodina nad
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
         <div className="min-w-0">
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
             {t("recovery.trends.sleepStart.title")}
           </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
             {t("recovery.trends.sleepStart.subtitle")}
           </div>
         </div>
 
-        <SelectField
-          value={String(weeks)}
-          onChange={(e) => setWeeks(Number(e.target.value))}
-          options={WEEK_OPTIONS(t)}
-          variant="editable"
-          containerClassName="w-[152px]"
-        />
+        <div className="ml-auto">
+          <SelectField
+            value={String(weeks)}
+            onChange={(e) => setWeeks(Number(e.target.value))}
+            options={WEEK_OPTIONS(t)}
+            variant="editable"
+            containerClassName="w-[120px]"
+          />
+        </div>
       </div>
 
       <div className={CARD_BODY_INSET}>
-        <div
-          className={`${SCROLL_X} min-w-0`}
-          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-        >
-          <div className="relative" style={{ height: _height }}>
-            {loading && (
-              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-                <LoadingSpinner size="trend" />
-              </div>
-            )}
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <Line
-                data={data}
-                options={options}
-                plugins={[drawMissingOnTop]}
-              />
+        <div className="w-full relative" style={{ height: 320 }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
             </div>
-          </div>
+          )}
+          
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+              
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false} 
+                dy={10}
+                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+              />
+              
+              <YAxis 
+                domain={[minY, maxY]}
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false}
+                tickFormatter={(val) => minutesToClockLabel(val)} // preloží minúty na 22:00 atď.
+              />
+              
+              <Tooltip content={<SleepStartTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+
+              <Area type="monotone" dataKey="bandUpper" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" />
+              <Area type="monotone" dataKey="bandLower" stroke="none" fill={appColors.backgroundMain} fillOpacity={1} legendType="none" />
+
+              <Line type="monotone" dataKey="val" name={t("recovery.trends.sleepStart.label") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
+              <Scatter dataKey="missingY" name={t("recovery.trends.common.missingLabel") as string} fill={COLOR.missing} r={4} />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </section>

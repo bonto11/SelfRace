@@ -1,13 +1,21 @@
-// src/features/pareto/components/TrendPareto8020.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Chart as LineChart } from "react-chartjs-2";
-import type { ChartData, ChartOptions } from "chart.js";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+} from "recharts";
 
-import { OPTIONS, LOOKBACK_OPTIONS, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
-import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { LOOKBACK_OPTIONS } from "@/app/shared/charts/chart_builders";
+import { fmtSecondsHMS } from "@/app/shared/utils/time";
 
 import {
   SPORT_OPTIONS,
@@ -20,11 +28,9 @@ import {
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import { toast } from "@/app/shared/ui/components/Toast"; // ✅ Pridaný toast
 
 import {
   CARD,
-  SCROLL_X,
   SURFACE_CARD_STYLE,
   PANEL_PAD,
   PANEL_CARD_HEAD,
@@ -42,9 +48,40 @@ import { apiFetchParetoTrend } from "@/app/features/activities/api/analytics_act
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
-ensureChartJSRegistered();
-
 type Lookback = 2 | 4 | 8 | 12;
+
+// Prémiový Recharts Tooltip
+const ParetoTooltip = ({ active, payload, label, t, rows }: any) => {
+  if (active && payload && payload.length) {
+    // Nájdeme surový riadok, aby sme mohli vypísať formátovaný čas v pätičke
+    const r = rows.find((row: any) => row.label === label);
+
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+            <span className="opacity-90">{entry.name}:</span>
+            <span className="font-bold">{Number(entry.value).toFixed(1)}%</span>
+          </div>
+        ))}
+
+        {r && (
+          <div className="mt-3 pt-2 border-t text-[10px] opacity-70" style={{ borderColor: appColors.divider }}>
+            {t("pareto8020.trend.labelEasy")} {fmtSecondsHMS(r.easy_min || 0)} <br/>
+            {t("pareto8020.trend.labelHard")} {fmtSecondsHMS(r.hard_min || 0)}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function TrendPareto8020({
   onPickWeek,
@@ -67,11 +104,6 @@ export default function TrendPareto8020({
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
   const [fetchedAvailableSports, setFetchedAvailableSports] = useState<string[]>([]);
-  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
-
-  const _pxPerLabel = OPTIONS.weeklyPxPerLabel;
-  const _height = OPTIONS.Height;
-  const _legendPos = OPTIONS.legendPosition;
 
   useEffect(() => {
     if (!userId) return;
@@ -88,10 +120,7 @@ export default function TrendPareto8020({
         if (response.availableSports && response.availableSports.length > 0) {
           setFetchedAvailableSports(response.availableSports);
         }
-        
-        setPickedIdx(null);
       } catch (e: any) {
-        // Tichšie logovanie s prekladom
         console.error("Pareto trend fetch failed:", t(e?.message as any));
         if (!alive) return;
         setRows([]);
@@ -100,147 +129,30 @@ export default function TrendPareto8020({
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, lookback, sportCsv, t]);
 
   const visibleSportsOptions = useMemo(() => {
-    if (fetchedAvailableSports.length === 0) {
-      return SPORT_OPTIONS; // Fallback pre istotu
-    }
+    if (fetchedAvailableSports.length === 0) return SPORT_OPTIONS;
     return SPORT_OPTIONS.filter((opt) => {
       const norm = normalizeSport(opt.value);
       return norm && fetchedAvailableSports.includes(norm);
     });
   }, [fetchedAvailableSports]);
 
-  const labels = useMemo(() => rows.map((r) => r.label), [rows]);
-  const ref80 = useMemo(() => Array(labels.length).fill(80), [labels.length]);
-  const ref20 = useMemo(() => Array(labels.length).fill(20), [labels.length]);
-
-  const data: ChartData<"line", number[], string> = useMemo(
-    () => ({
-      labels,
-      datasets: [
-        {
-          type: "line",
-          label: t("pareto8020.trend.labelEasy") + " %",
-          data: rows.map((r) => (Number.isFinite(r.easy_pct) ? r.easy_pct : 0)),
-          borderColor: appColors.chartLine1,
-          backgroundColor: appColors.chartLine1,
-          tension: 0.25,
-          pointRadius: 2,
-          order: 2,
-        },
-        {
-          type: "line",
-          label: t("pareto8020.trend.labelHard") + " %",
-          data: rows.map((r) => (Number.isFinite(r.hard_pct) ? r.hard_pct : 0)),
-          borderColor: appColors.chartLine2,
-          backgroundColor: appColors.chartLine2,
-          tension: 0.25,
-          pointRadius: 2,
-          borderDash: [4, 4],
-          order: 2,
-        },
-        {
-          type: "line",
-          label: t("pareto8020.trend.labelEasyRef"),
-          data: ref80,
-          borderColor: appColors.chartLine1,
-          backgroundColor: appColors.chartLine1,
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [6, 6],
-          yAxisID: "y",
-          order: 1,
-        },
-        {
-          type: "line",
-          label: t("pareto8020.trend.labelHardRef"),
-          data: ref20,
-          borderColor: appColors.chartLine2,
-          backgroundColor: appColors.chartLine2,
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [6, 6],
-          yAxisID: "y",
-          order: 1,
-        },
-      ],
-    }),
-    [rows, labels, ref80, ref20, t],
-  );
-
-  const options: ChartOptions<"line"> = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      layout: { padding: { top: 6, right: 8, bottom: 10, left: 10 } },
-      plugins: {
-        legend: {
-          position: _legendPos,
-          labels: {
-            usePointStyle: true,
-            pointStyle: "circle",
-            padding: 10,
-            boxWidth: 6,
-            boxHeight: 6,
-          },
-        },
-        tooltip: {
-          padding: 8,
-          callbacks: {
-            label: (ctx) =>
-              `${ctx.dataset.label}: ${Number(ctx.parsed.y ?? 0).toFixed(1)}%`,
-            footer: (items) => {
-              const i = items?.[0]?.dataIndex ?? 0;
-              const r = rows[i];
-              if (!r) return "";
-              return `${t("pareto8020.trend.labelEasy")} ${fmtSecondsHMS(r.easy_min || 0)} • ${t("pareto8020.trend.labelHard")} ${fmtSecondsHMS(
-                r.hard_min || 0,
-              )}`;
-            },
-          },
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          title: { display: true, text: "%" },
-          grid: { color: appColors.chartAxis, drawBorder: false },
-          ticks: { padding: 6 },
-        },
-        x: {
-          ticks: { maxRotation: 0, padding: 6 },
-          grid: { color: appColors.chartAxis, drawBorder: false },
-        },
-      },
-      onClick: (_evt, elements) => {
-        const idx = elements?.[0]?.index;
-        if (idx == null) return;
-        setPickedIdx(idx);
-        const r = rows[idx];
-        if (!r) return;
-        onPickWeek?.({
-          start: r.start,
-          end: r.end,
-          sport: sportsToCSV(selectedSports),
-        });
-      },
-    }),
-    [_legendPos, rows, selectedSports, onPickWeek, t],
-  );
-
-  const minWidth = Math.max(320, Math.round(labels.length * _pxPerLabel));
+  // Formátovanie dát pre Recharts
+  const chartData = useMemo(() => {
+    return rows.map((r) => ({
+      label: r.label,
+      easy_pct: Number.isFinite(r.easy_pct) ? r.easy_pct : 0,
+      hard_pct: Number.isFinite(r.hard_pct) ? r.hard_pct : 0,
+      rawRow: r,
+    }));
+  }, [rows]);
 
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
-    setPickedIdx(null);
     setSelectedSports((prev) => {
       const set = new Set(prev.map(normalizeSport).filter(Boolean) as string[]);
       set.has(n) ? set.delete(n) : set.add(n);
@@ -254,27 +166,39 @@ export default function TrendPareto8020({
     }
   }, [selectedSports.length]);
 
+  const handleChartClick = (state: any) => {
+    if (!onPickWeek || !state || !state.activePayload) return;
+    const r = state.activePayload[0].payload.rawRow;
+    if (r) {
+      onPickWeek({
+        start: r.start,
+        end: r.end,
+        sport: sportsToCSV(selectedSports),
+      });
+    }
+  };
+
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className={PANEL_CARD_HEAD}>
+        
+        {/* Hlavička responzívna */}
+        <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_TITLE}>{t("pareto8020.trend.title")}</h2>
-
-          <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
+          <div className="ml-auto">
             <SelectField
               value={String(lookback)}
-              onValueChange={(value: string) =>
-                setLookback(Number(value) as Lookback)
-              }
+              onValueChange={(value: string) => setLookback(Number(value) as Lookback)}
               options={LOOKBACK_OPTIONS(t)}
               placeholder="—"
-              containerClassName="w-[130px]"
+              containerClassName="w-[120px]"
               variant="editable"
             />
           </div>
         </div>
 
-        <div className={PANEL_ACTIONS_INLINE}>
+        {/* Tlačidlá športov */}
+        <div className="flex flex-wrap gap-2">
           {visibleSportsOptions.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
             const active = selectedSports.map(normalizeSport).includes(norm);
@@ -296,20 +220,63 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      <div
-        className={`${SCROLL_X} min-w-0`}
-        style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-      >
-        <div className="relative" style={{ height: _height }}>
-          {loading && (
-            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-              <LoadingSpinner size="trend" />
-            </div>
-          )}
-          <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-            <LineChart type="line" data={data} options={options} />
+      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
+            <LoadingSpinner size="trend" />
           </div>
-        </div>
+        )}
+        
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+            
+            <XAxis 
+              dataKey="label" 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false} 
+              dy={10}
+            />
+            
+            <YAxis 
+              domain={[0, 100]}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+              axisLine={false} 
+              tickLine={false}
+              tickFormatter={(val) => `${val}%`}
+            />
+            
+            <Tooltip content={<ParetoTooltip t={t} rows={rows} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+            
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+            
+            {/* Referenčné čiary 80 a 20 z Recharts */}
+            <ReferenceLine y={80} stroke={appColors.chartLine1} strokeDasharray="3 3" opacity={0.5} label={{ position: 'top', value: '80%', fill: appColors.chartLine1, fontSize: 10 }} />
+            <ReferenceLine y={20} stroke={appColors.chartLine2} strokeDasharray="3 3" opacity={0.5} label={{ position: 'top', value: '20%', fill: appColors.chartLine2, fontSize: 10 }} />
+
+            <Line 
+              type="monotone" 
+              dataKey="easy_pct" 
+              name={t("pareto8020.trend.labelEasy") as string} 
+              stroke={appColors.chartLine1} 
+              strokeWidth={3}
+              dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+            />
+            
+            <Line 
+              type="monotone" 
+              dataKey="hard_pct" 
+              name={t("pareto8020.trend.labelHard") as string} 
+              stroke={appColors.chartLine2} 
+              strokeWidth={3}
+              strokeDasharray="5 5"
+              dot={{ r: 3, fill: appColors.chartLine2, strokeWidth: 0 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

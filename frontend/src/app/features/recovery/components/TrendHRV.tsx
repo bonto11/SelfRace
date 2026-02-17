@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Line } from "react-chartjs-2";
-import type { ChartData, ChartOptions, Plugin } from "chart.js";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Line,
+  Area,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
-import { OPTIONS, WEEK_OPTIONS, buildRecoveryLineOptions, ensureChartJSRegistered } from "@/app/shared/charts/chart_builders";
+import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import {
   rollingMean,
   bandsAround,
@@ -18,7 +28,6 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   CARD,
   SURFACE_CARD_STYLE,
-  SCROLL_X,
   PANEL_SECTION_HEAD,
   CARD_HEAD_INSET,
   CARD_BODY_INSET,
@@ -26,8 +35,6 @@ import {
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-
-ensureChartJSRegistered();
 
 function iso(d: Date) {
   const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -43,14 +50,49 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
+// Náš prémiový tooltip
+const RecoveryTooltip = ({ active, payload, label, t }: any) => {
+  if (active && payload && payload.length) {
+    const mainData = payload.find((p: any) => p.dataKey === "val");
+    const missingData = payload.find((p: any) => p.dataKey === "missingY");
+    const comments = payload[0].payload.comments;
+
+    return (
+      <div 
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+      >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{new Date(label).toLocaleDateString("sk-SK")}</p>
+        
+        {mainData && mainData.value != null ? (
+          <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
+            <span className="opacity-90">HRV:</span>
+            <span className="font-bold">{Math.round(mainData.value)} ms</span>
+          </div>
+        ) : missingData ? (
+          <div className="flex items-center gap-2 text-sm text-red-400">
+             <span className="w-2 h-2 rounded-full bg-red-400"></span>
+             <span className="opacity-90">{t("recovery.trends.hrv.noRecord")}</span>
+          </div>
+        ) : null}
+
+        {comments && (
+          <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
+             {wrapToLines(comments, 44).join("\n")}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function TrendHRV() {
   const t = useT(); 
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
-
-  const _pxPerLabel = OPTIONS.pxPerLabel;
-  const _height = OPTIONS.Height;
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -60,10 +102,11 @@ export default function TrendHRV() {
 
   useEffect(() => {
     setLoading(true);
-  }, [weeks]);
+    const tt = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(tt);
+  }, [weeks, all]);
 
   const days = weeks * 7;
-
   const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
@@ -77,55 +120,26 @@ export default function TrendHRV() {
     return m;
   }, [all]);
 
-  const labelsISO = useMemo(
-    () => dateSeq(startISO, endISO),
-    [startISO, endISO],
-  );
+  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
-  const hrv = useMemo(
-    () =>
-      labelsISO.map((d) => {
-        const rec = byDate.get(d);
-        return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
-      }),
-    [labelsISO, byDate],
-  );
+  const hrv = useMemo(() => labelsISO.map((d) => {
+    const rec = byDate.get(d);
+    return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
+  }), [labelsISO, byDate]);
 
-  const comments = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const d of labelsISO) {
-      const c = byDate.get(d)?.comments;
-      if (c) m.set(d, c);
-    }
-    return m;
-  }, [labelsISO, byDate]);
+  const baselineArr = useMemo(() => rollingMean(hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14), [hrv]);
+  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
 
-  const baselineArr = useMemo(
-    () =>
-      rollingMean(
-        hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)),
-        14,
-      ),
-    [hrv],
-  );
-
-  const { lower, upper } = useMemo(
-    () => bandsAround(baselineArr, 0.05),
-    [baselineArr],
-  );
-  const missingIdx = useMemo(() => hrv.map((v) => !Number.isFinite(v)), [hrv]);
-
+  // Doplnenie chýbajúcich bodov kvôli kresleniu červenej bodky
   const missingY = useMemo(() => {
     const n = hrv.length;
     const out = new Array<number | null>(n).fill(null);
-
     const nextKnown: number[] = new Array(n).fill(-1);
     let last = -1;
     for (let i = n - 1; i >= 0; i--) {
       if (Number.isFinite(hrv[i])) last = i;
       nextKnown[i] = last;
     }
-
     let prev = -1;
     for (let i = 0; i < n; i++) {
       if (Number.isFinite(hrv[i])) {
@@ -137,8 +151,7 @@ export default function TrendHRV() {
       if (prev !== -1 && nxt !== -1) {
         const vp = hrv[prev] as number;
         const vn = hrv[nxt] as number;
-        const t = (i - prev) / (nxt - prev);
-        y = vp + (vn - vp) * t;
+        y = vp + (vn - vp) * ((i - prev) / (nxt - prev));
       } else if (prev !== -1) y = hrv[prev] as number;
       else if (nxt !== -1) y = hrv[nxt] as number;
       out[i] = y;
@@ -146,192 +159,119 @@ export default function TrendHRV() {
     return out;
   }, [hrv]);
 
-  const data: ChartData<"line", number[], string> = useMemo(() => {
-    const toNum = (xs: (number | null)[]) =>
-      xs.map((v) => (typeof v === "number" ? v : NaN));
-    return {
-      labels: labelsISO,
-      datasets: [
-        {
-          type: "line" as const,
-          label: t("recovery.trends.hrv.baselineMinus"),
-          data: toNum(lower),
-          borderColor: "rgba(0,0,0,0)",
-          backgroundColor: COLOR.bandFill,
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          order: 1,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.hrv.baselinePlus"),
-          data: toNum(upper),
-          borderColor: "rgba(0,0,0,0)",
-          backgroundColor: COLOR.bandFill,
-          pointRadius: 0,
-          borderWidth: 0,
-          tension: 0.2,
-          fill: "-1" as const,
-          order: 1,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.hrv.hrvLabel"), 
-          data: hrv,
-          borderColor: COLOR.main,
-          backgroundColor: COLOR.main,
-          pointRadius: 3,
-          borderWidth: 2,
-          tension: 0,
-          spanGaps: true,
-          order: 2,
-        },
-        {
-          type: "line" as const,
-          label: t("recovery.trends.hrv.missingLabel"), 
-          data: missingY.map((y, i) =>
-            missingIdx[i] && typeof y === "number" ? y : NaN,
-          ),
-          showLine: false,
-          pointRadius: 0,
-          pointHitRadius: 12,
-          pointBackgroundColor: COLOR.missing,
-          pointBorderColor: COLOR.missing,
-          pointBorderWidth: 2,
-          borderWidth: 0,
-          order: 999,
-          clip: false as any,
-        },
-      ],
-    };
-  }, [
-    labelsISO,
-    lower,
-    upper,
-    hrv,
-    missingY,
-    missingIdx,
-    COLOR.bandFill,
-    COLOR.main,
-    COLOR.missing,
-    t
-  ]);
+  const chartData = useMemo(() => {
+    return labelsISO.map((d, i) => {
+      const v = hrv[i];
+      const isMissing = !Number.isFinite(v);
+      return {
+        date: d,
+        val: isMissing ? null : v,
+        bandLower: lower[i],
+        bandUpper: upper[i],
+        missingY: isMissing ? missingY[i] : null,
+        comments: byDate.get(d)?.comments,
+      };
+    });
+  }, [labelsISO, hrv, lower, upper, missingY, byDate]);
 
-  const drawMissingOnTop: Plugin<"line"> = useMemo(
-    () => ({
-      id: "draw-missing-on-top",
-      afterDatasetsDraw(chart) {
-        const dsIndex = chart.data.datasets.findIndex(
-          (d) => d.label === t("recovery.trends.hrv.missingLabel"), 
-        );
-        if (dsIndex < 0) return;
-        const meta = chart.getDatasetMeta(dsIndex);
-        const ctx = chart.ctx;
-        ctx.save();
-        ctx.fillStyle = COLOR.missing;
-        ctx.strokeStyle = COLOR.missing;
-        ctx.lineWidth = 2;
-        for (const el of meta.data as any[]) {
-          if (!el || el.skip) continue;
-          const { x, y } = el.tooltipPosition(true);
-          ctx.beginPath();
-          ctx.arc(x, y, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-        }
-        ctx.restore();
-      },
-    }),
-    [COLOR.missing, t],
-  );
-
-  const options: ChartOptions<"line"> = useMemo(
-    () =>
-      buildRecoveryLineOptions({
-        t,
-        labelsISO,
-        yTitle: t("common.units.ms"),
-        tooltipTitleForIndex: (i) =>
-          new Date((labelsISO[i] ?? "") + "T00:00:00").toLocaleDateString(
-            "sk-SK",
-          ),
-        tooltipLabelForItem: (ctx): string | string[] => {
-          const idx = ctx.dataIndex ?? 0;
-          const label = ctx.dataset?.label ?? "";
-          if (label === t("recovery.trends.hrv.hrvLabel")) {
-            const v = hrv[idx];
-            const out: string[] = [];
-            if (Number.isFinite(v))
-              out.push(`HRV: ${Math.round(v as number)} ms`);
-            const c = comments.get(labelsISO[idx] ?? "");
-            if (c) out.push(...wrapToLines(c, 44));
-            return out.length ? out : "HRV: –";
-          }
-          if (label === t("recovery.trends.hrv.missingLabel")) return t("recovery.trends.hrv.noRecord");
-          return "";
-        },
-        tooltipFilter: (item) => {
-          const l = item.dataset.label ?? "";
-          return l === t("recovery.trends.hrv.hrvLabel") || l === t("recovery.trends.hrv.missingLabel");
-        },
-      }),
-    [labelsISO, hrv, comments, t],
-  );
-
-  useEffect(() => {
-    const tt = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(tt);
-  }, [labelsISO.join("|")]);
-
-  const minWidth = Math.max(360, Math.round(labelsISO.length * _pxPerLabel));
+  const minValue = Math.min(...hrv.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null));
+  const maxValue = Math.max(...hrv.filter(Number.isFinite), ...upper.filter((v): v is number => v !== null));
+  const yMin = Math.max(0, Math.floor((minValue - 5) / 5) * 5);
+  const yMax = Math.ceil((maxValue + 5) / 5) * 5;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
-      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET}`}>
+      <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
         <div className="min-w-0">
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
             {t("recovery.trends.hrv.title")}
           </div>
-          <div
-            className={PANEL_SECTION_SUBTITLE}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
             {t("recovery.trends.hrv.subtitle")}
           </div>
         </div>
 
-        <SelectField
-          value={String(weeks)}
-          onChange={(e) => setWeeks(Number(e.target.value))}
-          options={WEEK_OPTIONS(t)}
-          variant="editable"
-          containerClassName="w-[152px]"
-        />
+        <div className="ml-auto">
+          <SelectField
+            value={String(weeks)}
+            onChange={(e) => setWeeks(Number(e.target.value))}
+            options={WEEK_OPTIONS(t)}
+            variant="editable"
+            containerClassName="w-[120px]"
+          />
+        </div>
       </div>
 
       <div className={CARD_BODY_INSET}>
-        <div
-          className={`${SCROLL_X} min-w-0`}
-          style={{ WebkitOverflowScrolling: "touch", contain: "inline-size" }}
-        >
-          <div className="relative" style={{ height: _height }}>
-            {loading && (
-              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-                <LoadingSpinner size="trend" />
-              </div>
-            )}
-            <div style={{ minWidth, height: "100%", maxWidth: "none" }}>
-              <Line
-                data={data}
-                options={options}
-                plugins={[drawMissingOnTop]}
-              />
+        <div className="w-full relative" style={{ height: 320 }}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
             </div>
-          </div>
+          )}
+          
+          <ResponsiveContainer width="100%" height="100%">
+            {/* ComposedChart dovolí miešať Line, Area a Scatter */}
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+              
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false} 
+                dy={10}
+                tickFormatter={(val) => new Date(val).toLocaleDateString("sk-SK", {day: "2-digit", month: "2-digit"})}
+              />
+              
+              <YAxis 
+                domain={[yMin, yMax]}
+                tick={{ fill: appColors.textMuted, fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false}
+              />
+              
+              <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+
+              {/* Area pre Baseline tunel */}
+              <Area 
+                type="monotone" 
+                dataKey="bandUpper" 
+                stroke="none" 
+                fill={COLOR.bandFill} 
+                fillOpacity={1} 
+                legendType="none" // Schová z legendy, lebo robíme tunel z dvoch čiar
+              />
+              <Area 
+                type="monotone" 
+                dataKey="bandLower" 
+                stroke="none" 
+                fill={appColors.backgroundMain} // "Vymaže" farbu pod spodnou hranicou tunela
+                fillOpacity={1} 
+                legendType="none"
+              />
+
+              <Line 
+                type="monotone" 
+                dataKey="val" 
+                name={t("recovery.trends.hrv.hrvLabel") as string} 
+                stroke={COLOR.main} 
+                strokeWidth={3}
+                dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+                connectNulls
+              />
+              
+              {/* Scatter pre chýbajúce dni - vykreslí červenú bodku na mieste missingY */}
+              <Scatter 
+                dataKey="missingY" 
+                name={t("recovery.trends.hrv.missingLabel") as string} 
+                fill={COLOR.missing} 
+                r={4}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </section>
