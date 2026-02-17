@@ -123,7 +123,7 @@ export default function DetailDailyPlan() {
           setSaveError(null);
         }
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coach.daily.errorLoad"));
+        if (alive) setError(t(e?.message as any) || t("coach.daily.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -225,7 +225,7 @@ export default function DetailDailyPlan() {
       }
       setMoves([]);
     } catch (e: any) {
-      setSaveError(e?.message ?? t("coach.daily.errorSave"));
+      setSaveError(t(e?.message as any) || t("coach.daily.errorSave"));
     } finally {
       setSaving(false);
     }
@@ -233,7 +233,7 @@ export default function DetailDailyPlan() {
 
   if (!userId) {
     return (
-      <Card title={t("coach.daily.title")} subtitle={t("common.errors.missingUser")}>
+      <Card title={t("coach.daily.title")} subtitle={t("common.errors.missingUserAuth")}>
         <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );

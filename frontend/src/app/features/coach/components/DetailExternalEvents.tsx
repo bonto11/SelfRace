@@ -1,4 +1,3 @@
-// src/features/coach/components/DetailExternalEvents.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -84,11 +83,9 @@ function detectCategory(sport: ExternalSport | null): ExternalCategory {
 }
 
 function getSportLabel(s: any, t: any): string {
-  // Ak je to v zozname eventov, hľadáme v kategórii events
   if ((EVENT_OPTIONS as string[]).includes(String(s))) {
     return t(`externalEvents.events.${s}`);
   }
-  // Inak v kategórii sports
   return t(`externalEvents.sports.${s}`);
 }
 
@@ -200,7 +197,7 @@ export function DetailExternalEvents({ userId }: Props) {
         setList(mapEventsToActivities(events ?? []));
       } catch (e: any) {
         if (!alive) return;
-        setDbError(e?.message ?? t("externalEvents.errors.loadFailed"));
+        setDbError(t(e?.message as any) || t("externalEvents.errors.loadFailed"));
       } finally {
         if (alive) setLoadingDB(false);
       }
@@ -261,7 +258,7 @@ export function DetailExternalEvents({ userId }: Props) {
       );
       setOpen(false);
     } catch (e: any) {
-      setDbError(e?.message ?? t("externalEvents.errors.saveFailed"));
+      setDbError(t(e?.message as any) || t("externalEvents.errors.saveFailed"));
     } finally {
       setSavingDB(false);
     }
@@ -277,7 +274,7 @@ export function DetailExternalEvents({ userId }: Props) {
       setList([]);
       setDbInfo(t("externalEvents.info.deleted"));
     } catch (e: any) {
-      setDbError(e?.message ?? t("externalEvents.errors.deleteFailed"));
+      setDbError(t(e?.message as any) || t("externalEvents.errors.deleteFailed"));
     } finally {
       setSavingDB(false);
     }

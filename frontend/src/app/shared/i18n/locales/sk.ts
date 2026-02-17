@@ -2065,9 +2065,6 @@ export const sk = {
       saveFailed: "Nepodarilo sa uložiť osobný rekord.",
       deleteFailed: "Nepodarilo sa vymazať osobný rekord.",
     },
-    coach: {
-      planFetchFailed: "Nepodarilo sa načítať tréningový plán.",
-    },
     recovery: {
       fetchFailed: "Nepodarilo sa načítať dáta o regenerácii.",
       saveFailed: "Nepodarilo sa uložiť dáta o regenerácii.",
@@ -2086,6 +2083,35 @@ export const sk = {
       zonesSaveFailed: "Nepodarilo sa uložiť tvoje tréningové zóny.",
       thresholdsLoadFailed: "Nepodarilo sa načítať tvoje prahové hodnoty.",
       thresholdsSaveFailed: "Nepodarilo sa uložiť tvoje prahové hodnoty.",
+    },
+    coach: {
+      planFetchFailed: "Nepodarilo sa načítať tréningový plán.",
+      enqueueFailed:
+        "Nepodarilo sa vytvoriť požiadavku na AI analýzu. Skús to neskôr.",
+      runFailed: "Zlyhalo spracovanie úlohy na pozadí.",
+      invalidResult:
+        "AI analýza vrátila neplatné dáta. Skús to vygenerovať znovu.",
+      stateLoadFailed: "Nepodarilo sa načítať aktuálny stav trénovanosti.",
+      progressLoadFailed: "Nepodarilo sa načítať tvoj progres.",
+      aiQuotaExceeded:
+        "Mesačný limit AI bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
+
+      eventsLoadFailed: "Nepodarilo sa načítať tvoje externé udalosti.",
+      eventsSaveFailed: "Nepodarilo sa uložiť externé udalosti.",
+
+      planSaveFailed: "Uloženie aktívneho plánu zlyhalo.",
+      planCancelFailed: "Zrušenie aktívneho plánu zlyhalo.",
+      planContinueFailed: "Nepodarilo sa predĺžiť tvoj aktívny plán.",
+      planReorderFailed: "Nepodarilo sa uložiť nové poradie tréningov.",
+      planLinkFailed: "Nepodarilo sa prepojiť aktivitu s plánom.",
+      planStatusFailed: "Nepodarilo sa načítať stav tvojho plánu.",
+
+      dailyGenerateFailed: "Generovanie denného plánu zlyhalo.",
+      dailyLoadFailed: "Nepodarilo sa načítať denný prehľad plánu.",
+      dailyRescheduleFailed: "Presun tréningu zlyhal.",
+
+      weeklyGenerateFailed: "Generovanie týždenného plánu zlyhalo.",
+      weeklyLoadFailed: "Nepodarilo sa načítať týždenný plán.",
     },
   },
   accountDelete: {

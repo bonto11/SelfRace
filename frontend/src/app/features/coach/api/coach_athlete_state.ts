@@ -1,3 +1,4 @@
+// src/features/coach/api/coach_athlete_state.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   AnalyzeOptions,
@@ -10,7 +11,7 @@ export type AthleteProgressRecord = {
   model: string | null;
   version: number;
   created_at: string;
-  report: any | null; // obsah compare_previous z DB
+  report: any | null; 
 };
 
 type LatestAthleteProgressResponse = {
@@ -47,16 +48,13 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/**
- * Typ pre jeden záznam v coach_athlete_state
- */
 export type AthleteStateRecord = {
   id: number;
   user_id: number;
   model: string | null;
   version: number;
   created_at: string;
-  state: any; // čistý JSON z AI
+  state: any; 
 };
 
 type LatestAthleteStateResponse = {
@@ -71,10 +69,9 @@ export async function apiAnalyzeAthleteState(
   userUuid: string,
   opts: AnalyzeOptions = {}
 ): Promise<AnalyzeAthleteStateResponse> {
-  if (!userId) throw new Error("Missing userId in apiAnalyzeAthleteState");
-  if (!userUuid) throw new Error("Missing userUuid in apiAnalyzeAthleteState");
+  if (!userId) throw new Error("api.common.missingUserAuth");
+  if (!userUuid) throw new Error("api.common.missingUserAuth");
 
-  // 1) ENQUEUE JOB
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
@@ -99,26 +96,16 @@ export async function apiAnalyzeAthleteState(
     });
   } catch (e: any) {
     console.error("[Coach][apiAnalyzeAthleteState] enqueue ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (enqueue): ${String(e)}`);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   if (!enqueueJson?.success || !enqueueJson.job) {
-    const msg =
-      enqueueJson.detail ||
-      enqueueJson.error ||
-      enqueueJson.note ||
-      "Failed to enqueue ai_analyze job";
-    throw new Error(msg);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   const jobId = enqueueJson.job.id;
 
-  // 2) RUN JOB TERAZ (sync worker endpoint)
-  const runPath = `/jobs/run/${encodeURIComponent(
-    String(userId)
-  )}/${encodeURIComponent(String(jobId))}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
 
   let runJson: RunJobResponse;
   try {
@@ -129,26 +116,21 @@ export async function apiAnalyzeAthleteState(
     });
   } catch (e: any) {
     console.error("[Coach][apiAnalyzeAthleteState] run ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (run): ${String(e)}`);
+    throw new Error("api.coach.runFailed");
   }
 
   if (!runJson?.success || !runJson.job) {
-    const msg = runJson?.error || "Job run failed";
-    throw new Error(msg);
+    throw new Error("api.coach.runFailed");
   }
 
   const result = runJson.job.result;
 
-  // 👇 AI kvóta pre analyze
   maybeThrowAiQuotaError(result);
 
   if (!result || typeof result !== "object") {
-    throw new Error("Job finished but result payload is empty or invalid");
+    throw new Error("api.coach.invalidResult");
   }
 
-  // 3) Výstup presne v tvare, ktorý UI čaká
   const out: AnalyzeAthleteStateResponse = {
     success: true,
     ...(result as any),
@@ -157,80 +139,52 @@ export async function apiAnalyzeAthleteState(
   return out;
 }
 
-/**
- * GET /coach/athlete/state/latest/:user_id
- */
 export async function apiGetLatestAthleteState(
   userId: number
 ): Promise<AthleteStateRecord | null> {
-  if (!userId) throw new Error("Missing userId in apiGetLatestAthleteState");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach/athlete/state/latest/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/coach/athlete/state/latest/${encodeURIComponent(String(userId))}`;
 
-  let json: LatestAthleteStateResponse;
   try {
-    json = await callBackend<LatestAthleteStateResponse>(path, {
+    const json = await callBackend<LatestAthleteStateResponse>(path, {
       method: "GET",
       cache: "no-store",
     });
+
+    if (!json?.success) {
+      throw new Error("api.coach.stateLoadFailed");
+    }
+
+    return json.state ?? null;
   } catch (e: any) {
     console.error("[Coach][apiGetLatestAthleteState] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (latest state): ${String(e)}`);
+    throw new Error("api.coach.stateLoadFailed");
   }
-
-  if (!json?.success) {
-    const msg =
-      json.detail || json.error || "Failed to load latest athlete state";
-    throw new Error(msg);
-  }
-
-  return json.state ?? null;
 }
-
-/**
- * GET /coach/athlete/state/latest-progress/:user_id
- * – pre Weekly Coach Progress widget
- */
-
-/**
- * GET /coach/athlete/state/compare/latest/:user_id
- * – vráti posledný riadok s compare_previous (ak existuje).
- */
 
 export async function apiGetLatestAthleteProgress(
   userId: number
 ): Promise<AthleteProgressRecord | null> {
-  if (!userId)
-    throw new Error("Missing userId in apiGetLatestAthleteProgress");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(
-    String(userId)
-  )}`;
+  const path = `/coach/athlete/state/latest-progress/${encodeURIComponent(String(userId))}`;
 
-  let json: LatestAthleteProgressResponse;
   try {
-    json = await callBackend<LatestAthleteProgressResponse>(path, {
+    const json = await callBackend<LatestAthleteProgressResponse>(path, {
       method: "GET",
       cache: "no-store",
     });
+
+    if (!json?.success) {
+      throw new Error("api.coach.progressLoadFailed");
+    }
+
+    return json.item ?? null;
   } catch (e: any) {
     console.error("[Coach][apiGetLatestAthleteProgress] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (latest progress): ${String(e)}`);
+    throw new Error("api.coach.progressLoadFailed");
   }
-
-  if (!json?.success) {
-    const msg =
-      json.detail || json.error || "Failed to load latest athlete progress";
-    throw new Error(msg);
-  }
-
-  return json.item ?? null;
 }
 
 // ---- AI error helpers (quota) ----
@@ -247,11 +201,7 @@ export function maybeThrowAiQuotaError(result: any) {
   const err: AiBackendError | undefined = (result as any).error;
   if (!err || err.code !== "ai_quota_exceeded") return;
 
-  const e = new Error(
-    err.message ??
-      "Mesačný limit AI bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
-  );
-
+  const e = new Error("api.coach.aiQuotaExceeded");
   (e as any).code = err.code;
   (e as any).usedTokensThisMonth = err.used_tokens_this_month ?? null;
 

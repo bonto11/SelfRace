@@ -218,7 +218,7 @@ export default function DetailAthleteProgress() {
         const r = await apiGetLatestAthleteProgress(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coach.progress.errorLoad"));
+        if (alive) setError(t(e?.message as any) || t("coach.progress.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -230,7 +230,7 @@ export default function DetailAthleteProgress() {
 
   if (!userId) {
     return (
-      <Card title={t("coach.progress.title")} subtitle={t("common.errors.missingUser")}>
+      <Card title={t("coach.progress.title")} subtitle={t("common.errors.missingUserAuth")}>
         <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );

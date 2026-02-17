@@ -49,6 +49,7 @@ export async function fetchPlanRangeApi(
     return norm;
   } catch (e) {
     console.error("[PLAN][api] fetch ERROR", e);
-    return [];
+    // Tento je často na pozadí, preto len hádžeme kľúč a nechávame ho bublať
+    throw new Error("api.coach.planFetchFailed");
   }
 }

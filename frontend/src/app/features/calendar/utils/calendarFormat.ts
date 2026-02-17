@@ -1,7 +1,6 @@
 // src/features/calendar/utils/calendarFormat.ts
-import { detectSport } from "@/app/features/coach/utils/plan";
+import { detectSport } from "@/app/shared/utils/sports";
 import type{ PlanStatus } from "@/app/features/calendar/types/calendarTypes";
-import { useT } from "@/app/shared/i18n/useT";
 
 type AnyObj = Record<string, any>;
 

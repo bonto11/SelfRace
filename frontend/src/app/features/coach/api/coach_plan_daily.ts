@@ -1,7 +1,6 @@
+// src/features/coach/api/coach_plan_daily.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
-
-/* ============ spoločné typy pre async_jobs (rovnaké ako inde) ============ */
 
 type AsyncJobRow = {
   id: number;
@@ -31,29 +30,18 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/* ============ typy ============ */
-
 export type DailyWeekGenerateOptions = {
-  week_index: number; // 1-based index v weekly pláne
-  plan_id?: string | null; // ak null → posledný aktívny plán
+  week_index: number;
+  plan_id?: string | null;
   overwrite?: boolean;
 };
 
-/* ============ GENERATE WEEK (coach-plan-daily) ============ */
-
-/**
- * POST /jobs/enqueue/{user_id} (daily_generate)
- * POST /jobs/run/{user_id}/{job_id}
- */
 export async function apiGenerateDailyForWeek(
   userId: number,
   userUuid: string,
   opts: DailyWeekGenerateOptions
 ): Promise<any> {
-  if (!userId) throw new Error("userId is required in apiGenerateDailyForWeek");
-  if (!opts || typeof opts.week_index !== "number") {
-    throw new Error("week_index is required for apiGenerateDailyForWeek");
-  }
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const payload = {
     week_index: opts.week_index,
@@ -62,7 +50,6 @@ export async function apiGenerateDailyForWeek(
     debug: true,
   };
 
-  // 1) ENQUEUE JOB
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
@@ -83,26 +70,16 @@ export async function apiGenerateDailyForWeek(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateDailyForWeek][enqueue] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (enqueue daily): ${String(err)}`);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   if (!enqueueJson?.success || !enqueueJson.job) {
-    const msg =
-      enqueueJson.detail ||
-      enqueueJson.error ||
-      enqueueJson.note ||
-      "Failed to enqueue daily_generate job";
-    throw new Error(msg);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   const jobId = enqueueJson.job.id;
 
-  // 2) RUN JOB TERAZ
-  const runPath = `/jobs/run/${encodeURIComponent(
-    String(userId)
-  )}/${encodeURIComponent(String(jobId))}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
 
   let runJson: RunJobResponse;
   try {
@@ -113,26 +90,18 @@ export async function apiGenerateDailyForWeek(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateDailyForWeek][run] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (run daily): ${String(err)}`);
+    throw new Error("api.coach.runFailed");
   }
 
   if (!runJson?.success || !runJson.job) {
-    const msg =
-      runJson.detail ||
-      runJson.error ||
-      "Daily_generate job failed or has no job payload";
-    throw new Error(msg);
+    throw new Error("api.coach.runFailed");
   }
 
   const result = runJson.job.result;
-
-  // 👇 AI kvóta – ak BE vráti { error: { code: "ai_quota_exceeded", ... } }
   maybeThrowAiQuotaError(result);
 
   if (!result || typeof result !== "object") {
-    throw new Error("Daily job finished but result payload is empty or invalid");
+    throw new Error("api.coach.invalidResult");
   }
 
   return {
@@ -141,24 +110,10 @@ export async function apiGenerateDailyForWeek(
   };
 }
 
-/* ============ DAILY OVERVIEW (coach-plan-daily) ============ */
-
 export type DailyPlanStructure = {
-  warmup?:
-    | {
-        minutes?: number | null;
-        notes?: string | null;
-      }
-    | null;
-  // MAIN je pole blokov (intervaly)
+  warmup?: { minutes?: number | null; notes?: string | null } | null;
   main?: any[] | null;
-  cooldown?:
-    | {
-        minutes?: number | null;
-        notes?: string | null;
-      }
-    | null;
-  // pre silovku – už po enrichmente z BE
+  cooldown?: { minutes?: number | null; notes?: string | null } | null;
   strength_exercises?: any[] | null;
 };
 
@@ -166,7 +121,6 @@ export type DailyPlanSession = {
   id?: number | string | null;
   plan_date?: string;
   session_index?: number;
-
   sport: string;
   title: string | null;
   duration_min: number | null;
@@ -178,7 +132,7 @@ export type DailyPlanSession = {
 };
 
 export type DailyPlanDay = {
-  date: string; // "YYYY-MM-DD"
+  date: string;
   sessions: DailyPlanSession[];
 };
 
@@ -194,43 +148,35 @@ type DailyOverviewResponse = {
   error?: string | null;
 };
 
-/**
- * GET /coach-plan-daily/overview/{user_id}
- */
 export async function apiGetDailyOverview(
   userId: number
 ): Promise<DailyOverview | null> {
-  if (!userId) throw new Error("userId is required in apiGetDailyOverview");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-daily/overview/${encodeURIComponent(String(userId))}`;
 
-  let json: DailyOverviewResponse;
   try {
-    json = await callBackend<DailyOverviewResponse>(path, {
+    const json = await callBackend<DailyOverviewResponse>(path, {
       method: "GET",
       headers: { "content-type": "application/json" },
       cache: "no-store",
     });
+
+    if (!json?.success) {
+      throw new Error("api.coach.dailyLoadFailed");
+    }
+
+    return json.overview ?? null;
   } catch (err: any) {
     console.error("[Coach][apiGetDailyOverview] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (daily overview): ${String(err)}`);
+    throw new Error("api.coach.dailyLoadFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(json.detail || json.error || "Failed to load daily overview");
-  }
-
-  return json.overview ?? null;
 }
-
-/* ============ RESCHEDULE SAVE (NEW) ============ */
 
 export type DailyRescheduleMove = {
   id: number | string;
-  from_date: string; // YYYY-MM-DD
-  to_date: string;   // YYYY-MM-DD
+  from_date: string;
+  to_date: string;
 };
 
 type DailyRescheduleResponse = {
@@ -240,38 +186,27 @@ type DailyRescheduleResponse = {
   error?: string | null;
 };
 
-/**
- * POST /coach-plan-daily/reschedule/{user_id}
- * Body: { moves: DailyRescheduleMove[] }
- * BE: zmení dátum session v DB (podľa PK) a vráti nový overview.
- */
 export async function apiSaveDailyReschedule(
   userId: number,
   moves: DailyRescheduleMove[]
 ): Promise<DailyOverview | null> {
-  if (!userId) throw new Error("userId is required in apiSaveDailyReschedule");
+  if (!userId) throw new Error("api.common.missingUserAuth");
   if (!Array.isArray(moves) || moves.length === 0) return null;
 
   const path = `/coach-plan-daily/reschedule/${encodeURIComponent(String(userId))}`;
 
-  let json: DailyRescheduleResponse;
   try {
-    json = await callBackend<DailyRescheduleResponse>(path, {
+    const json = await callBackend<DailyRescheduleResponse>(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({ moves }),
     });
+
+    if (!json?.success) throw new Error("api.coach.dailyRescheduleFailed");
+    return json.overview ?? null;
   } catch (err: any) {
     console.error("[Coach][apiSaveDailyReschedule] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (daily reschedule save): ${String(err)}`);
+    throw new Error("api.coach.dailyRescheduleFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(json.detail || json.error || "Failed to save reschedule");
-  }
-
-  return json.overview ?? null;
 }

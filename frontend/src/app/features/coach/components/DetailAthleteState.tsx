@@ -211,7 +211,7 @@ export default function DetailAthleteState() {
         const r = await apiGetLatestAthleteState(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coach.state.errorLoad"));
+        if (alive) setError(t(e?.message as any) || t("coach.state.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -242,7 +242,7 @@ export default function DetailAthleteState() {
   /* ---------- states ---------- */
 
   if (!userId) {
-    return <Card title={t("coachAthleteState.title")} subtitle={t("common.errors.missingUser")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
+    return <Card title={t("coachAthleteState.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
   }
   if (loading) {
     return <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;

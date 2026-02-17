@@ -1,7 +1,6 @@
+// src/features/coach/api/coach_plan_weekly.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
-
-/* ---------- spoločné typy pre async_jobs (rovnaké ako pri analyze/daily) ---------- */
 
 type AsyncJobRow = {
   id: number;
@@ -31,24 +30,18 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/* ---------- options pre generate ---------- */
-
 export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
-  state_id?: number | null; // id z coach_athlete_state
-  weeks?: number | null; // koľko týždňov
+  state_id?: number | null; 
+  weeks?: number | null; 
 };
 
-/**
- * POST /jobs/enqueue/{user_id} (weekly_generate)
- * POST /jobs/run/{user_id}/{job_id}
- */
 export async function apiGenerateWeeklyPlan(
   userId: number,
   userUuid: string,
   opts: WeeklyPlanGenerateOptions = {}
 ): Promise<any> {
-  if (!userId) throw new Error("userId is required in apiGenerateWeeklyPlan");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const payload = {
     overwrite: opts.overwrite ?? true,
@@ -56,7 +49,6 @@ export async function apiGenerateWeeklyPlan(
     weeks: opts.weeks ?? null,
   };
 
-  // 1) ENQUEUE JOB
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
 
   const enqueueBody = {
@@ -77,26 +69,16 @@ export async function apiGenerateWeeklyPlan(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateWeeklyPlan][enqueue] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (enqueue weekly): ${String(err)}`);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   if (!enqueueJson?.success || !enqueueJson.job) {
-    const msg =
-      enqueueJson.detail ||
-      enqueueJson.error ||
-      enqueueJson.note ||
-      "Failed to enqueue weekly_generate job";
-    throw new Error(msg);
+    throw new Error("api.coach.enqueueFailed");
   }
 
   const jobId = enqueueJson.job.id;
 
-  // 2) RUN JOB TERAZ (sync worker endpoint)
-  const runPath = `/jobs/run/${encodeURIComponent(
-    String(userId)
-  )}/${encodeURIComponent(String(jobId))}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
 
   let runJson: RunJobResponse;
   try {
@@ -107,28 +89,18 @@ export async function apiGenerateWeeklyPlan(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateWeeklyPlan][run] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (run weekly): ${String(err)}`);
+    throw new Error("api.coach.runFailed");
   }
 
   if (!runJson?.success || !runJson.job) {
-    const msg =
-      runJson.detail ||
-      runJson.error ||
-      "Weekly_generate job failed or has no job payload";
-    throw new Error(msg);
+    throw new Error("api.coach.runFailed");
   }
 
   const result = runJson.job.result;
-
-  // 👇 AI kvóta pre weekly plán
   maybeThrowAiQuotaError(result);
 
   if (!result || typeof result !== "object") {
-    throw new Error(
-      "Weekly job finished but result payload is empty or invalid"
-    );
+    throw new Error("api.coach.invalidResult");
   }
 
   return {
@@ -136,8 +108,6 @@ export async function apiGenerateWeeklyPlan(
     ...(result as any),
   };
 }
-
-/* ---------- typy + GET latest ---------- */
 
 export type WeeklyPlanWeek = {
   week_index: number;
@@ -166,35 +136,27 @@ type WeeklyPlanLatestResponse = {
   error?: string | null;
 };
 
-/**
- * GET /coach-plan-weekly/latest/{user_id}
- */
 export async function apiGetLatestWeeklyPlan(
   userId: number
 ): Promise<WeeklyPlanLatest | null> {
-  if (!userId) throw new Error("userId is required in apiGetLatestWeeklyPlan");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-weekly/latest/${encodeURIComponent(String(userId))}`;
 
-  let json: WeeklyPlanLatestResponse;
   try {
-    json = await callBackend<WeeklyPlanLatestResponse>(path, {
+    const json = await callBackend<WeeklyPlanLatestResponse>(path, {
       method: "GET",
       headers: { "content-type": "application/json" },
       cache: "no-store",
     });
+
+    if (!json?.success) {
+      throw new Error("api.coach.weeklyLoadFailed");
+    }
+
+    return json.plan ?? null;
   } catch (err: any) {
     console.error("[Coach][apiGetLatestWeeklyPlan] ERROR", err);
-    throw err instanceof Error
-      ? err
-      : new Error(`Network/BE error (weekly latest): ${String(err)}`);
+    throw new Error("api.coach.weeklyLoadFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load latest weekly plan"
-    );
-  }
-
-  return json.plan ?? null;
 }

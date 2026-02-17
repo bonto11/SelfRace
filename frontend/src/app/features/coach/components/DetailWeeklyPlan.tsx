@@ -92,7 +92,7 @@ export default function DetailWeeklyPlan() {
         const r = await apiGetLatestWeeklyPlan(userId);
         if (alive) setPlan(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coach.weekly.errorLoad"));
+        if (alive) setError(t(e?.message as any) || t("coach.weekly.errorLoad"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -118,7 +118,7 @@ export default function DetailWeeklyPlan() {
     return { weeksSorted, rangeLabel: firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr, totalKm, totalMin, phaseCounts, maxKm };
   }, [plan]);
 
-  if (!userId) return <Card title={t("coachWeekly.title")} subtitle={t("common.errors.missingUser")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
+  if (!userId) return <Card title={t("coachWeekly.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
   if (loading) return <section className={SESSION_CARD} style={SESSION_CARD_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
   if (error || !plan || !view.weeksSorted.length) return <Card title={t("coachWeekly.title")} subtitle={t("coach.weekly.noPlanTitle")}><div className={PANEL_PREVIEW}>{error ?? t("coach.weekly.noPlanDesc")}</div></Card>;
 

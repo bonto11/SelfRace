@@ -54,207 +54,142 @@ type SimpleSuccess = {
 };
 
 /* ========================= SAVE ACTIVE PLAN ========================= */
-/**
- * POST /coach-plan-active/{user_id}/save
- */
 export async function apiActivePlanSave(
   userId: number,
   payload: any
 ): Promise<SaveActivePlanResult> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanSave");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/save`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/save`;
 
-  let json: SaveActivePlanResult;
   try {
-    json = await callBackend<SaveActivePlanResult>(path, {
+    const json = await callBackend<SaveActivePlanResult>(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify(payload),
     });
+
+    if (!json?.success) throw new Error("api.coach.planSaveFailed");
+    return json;
   } catch (e: any) {
     console.error("[Coach][apiActivePlanSave] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan save): ${String(e)}`);
+    throw new Error("api.coach.planSaveFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to save active plan"
-    );
-  }
-
-  return json;
 }
 
 /* ========================= CANCEL ACTIVE PLAN ========================= */
-/**
- * POST /coach-plan-active/{user_id}/cancel
- */
 export async function apiActivePlanCancel(
   userId: number,
   planId?: string | null
 ): Promise<CancelActivePlanResult> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanCancel");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/cancel`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/cancel`;
 
-  let json: CancelActivePlanResult;
   try {
-    json = await callBackend<CancelActivePlanResult>(path, {
+    const json = await callBackend<CancelActivePlanResult>(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({ plan_id: planId ?? null }),
     });
+
+    if (!json?.success) throw new Error("api.coach.planCancelFailed");
+    return json;
   } catch (e: any) {
     console.error("[Coach][apiActivePlanCancel] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan cancel): ${String(e)}`);
+    throw new Error("api.coach.planCancelFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to cancel active plan"
-    );
-  }
-
-  return json;
 }
 
 /* ========================= CONTINUE ACTIVE PLAN ========================= */
-/**
- * PATCH /coach-plan-active/{user_id}/continue
- */
 export async function apiActivePlanContinue(
   userId: number,
   minHorizonDays = 10
 ): Promise<ExtendActivePlanResult> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanContinue");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/continue`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/continue`;
 
-  let json: ExtendActivePlanResult;
   try {
-    json = await callBackend<ExtendActivePlanResult>(path, {
+    const json = await callBackend<ExtendActivePlanResult>(path, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({ min_horizon_days: minHorizonDays }),
     });
+
+    if (!json?.success) throw new Error("api.coach.planContinueFailed");
+    return json;
   } catch (e: any) {
     console.error("[Coach][apiActivePlanContinue] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan continue): ${String(e)}`);
+    throw new Error("api.coach.planContinueFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to continue active plan"
-    );
-  }
-
-  return json;
 }
 
 /* ========================= EXTEND ACTIVE PLAN ========================= */
-/**
- * POST /coach-plan-active/{user_id}/extend?min_horizon_days=...
- */
 export async function apiActivePlanExtend(
   userId: number,
   minHorizonDays = 10
 ): Promise<ExtendActivePlanResult> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanExtend");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-active/${encodeURIComponent(
     String(userId)
-  )}/extend?min_horizon_days=${encodeURIComponent(
-    String(minHorizonDays)
-  )}`;
+  )}/extend?min_horizon_days=${encodeURIComponent(String(minHorizonDays))}`;
 
-  let json: ExtendActivePlanResult;
   try {
-    json = await callBackend<ExtendActivePlanResult>(path, {
+    const json = await callBackend<ExtendActivePlanResult>(path, {
       method: "POST",
       cache: "no-store",
     });
+
+    if (!json?.success) throw new Error("api.coach.planContinueFailed");
+    return json;
   } catch (e: any) {
     console.error("[Coach][apiActivePlanExtend] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan extend): ${String(e)}`);
+    throw new Error("api.coach.planContinueFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to extend active plan"
-    );
-  }
-
-  return json;
 }
 
 /* ========================= REORDER DAILY ========================= */
-/**
- * POST /coach-plan-active/{user_id}/reorder
- */
 export async function apiActivePlanReorder(
   userId: number,
   updates: ReorderUpdate[]
 ): Promise<{ success: boolean }> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanReorder");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/reorder`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/reorder`;
 
-  let json: SimpleSuccess;
   try {
-    json = await callBackend<SimpleSuccess>(path, {
+    const json = await callBackend<SimpleSuccess>(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({ updates }),
     });
+
+    if (!json?.success) throw new Error("api.coach.planReorderFailed");
+    return { success: true };
   } catch (e: any) {
     console.error("[Coach][apiActivePlanReorder] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan reorder): ${String(e)}`);
+    throw new Error("api.coach.planReorderFailed");
   }
-
-  return { success: !!json?.success };
 }
 
 /* ========================= LINK ACTIVITY ========================= */
-/**
- * POST /coach-plan-active/{user_id}/link
- */
 export async function apiActivePlanLinkActivity(
   userId: number,
   sessionId: number,
   activityId: number | null
 ): Promise<{ success: boolean }> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanLinkActivity");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/link`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/link`;
 
-  let json: SimpleSuccess;
   try {
-    json = await callBackend<SimpleSuccess>(path, {
+    const json = await callBackend<SimpleSuccess>(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
@@ -263,45 +198,34 @@ export async function apiActivePlanLinkActivity(
         activity_id: activityId,
       }),
     });
+
+    if (!json?.success) throw new Error("api.coach.planLinkFailed");
+    return { success: true };
   } catch (e: any) {
     console.error("[Coach][apiActivePlanLinkActivity] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan link): ${String(e)}`);
+    throw new Error("api.coach.planLinkFailed");
   }
-
-  return { success: !!json?.success };
 }
 
 /* ========================= STATUS ========================= */
 export async function apiActivePlanStatus(
   userId: number
 ): Promise<ActivePlanStatus> {
-  if (!userId) throw new Error("Missing userId in apiActivePlanStatus");
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/status`;
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/status`;
 
-  let json: ActivePlanStatus;
   try {
-    json = await callBackend<ActivePlanStatus>(path, {
+    const json = await callBackend<ActivePlanStatus>(path, {
       method: "GET",
       headers: { "content-type": "application/json" },
       cache: "no-store",
     });
+
+    if (!json?.success) throw new Error("api.coach.planStatusFailed");
+    return json;
   } catch (e: any) {
     console.error("[Coach][apiActivePlanStatus] ERROR", e);
-    throw e instanceof Error
-      ? e
-      : new Error(`Network/BE error (active plan status): ${String(e)}`);
+    throw new Error("api.coach.planStatusFailed");
   }
-
-  if (!json?.success) {
-    throw new Error(
-      json.detail || json.error || "Failed to load active plan status"
-    );
-  }
-
-  return json;
 }
