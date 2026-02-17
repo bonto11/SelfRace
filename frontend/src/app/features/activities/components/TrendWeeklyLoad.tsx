@@ -73,7 +73,7 @@ const StackedTooltip = ({ active, payload, label, metric, t }: any) => {
         </div>
         
         <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold" style={{ borderColor: appColors.divider }}>
-          <span>{t("common.together") || "Total"}:</span>
+          <span>{t("common.together") || "Spolu"}:</span>
           <span>{formatFn(total)}</span>
         </div>
       </div>
@@ -126,18 +126,41 @@ export default function TrendWeeklyLoad({
     return () => { alive = false; };
   }, [userId, lookback, t]);
 
-  const chartData = useMemo(() => {
-    return weeks.map((w) => {
+  // Transformácia dát + Zisťovanie, ktoré športy reálne existujú
+  const { chartData, hasData } = useMemo(() => {
+    const data = [];
+    const hd = { run: false, ride: false, strength: false, mixed: false, skate: false, other: false };
+
+    for (const w of weeks) {
       const base = { label: w.label || w.week, rawWeek: w };
-      
+      let row: any = { ...base };
+
       if (metric === "km") {
-        return { ...base, run: w.km_run, ride: w.km_ride, mixed: w.km_mixed, skate: w.km_skate };
+        row = { ...base, run: w.km_run, ride: w.km_ride, mixed: w.km_mixed, skate: w.km_skate };
+        if (w.km_run > 0) hd.run = true;
+        if (w.km_ride > 0) hd.ride = true;
+        if (w.km_mixed > 0) hd.mixed = true;
+        if (w.km_skate > 0) hd.skate = true;
       } else if (metric === "time") {
-        return { ...base, run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min, mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min };
+        row = { ...base, run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min, mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min };
+        if (w.time_run_min > 0) hd.run = true;
+        if (w.time_ride_min > 0) hd.ride = true;
+        if (w.time_strength_min > 0) hd.strength = true;
+        if (w.time_mixed_min > 0) hd.mixed = true;
+        if (w.time_skate_min > 0) hd.skate = true;
+        if (w.time_other_min > 0) hd.other = true;
       } else {
-        return { ...base, run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength, mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other };
+        row = { ...base, run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength, mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other };
+        if (w.trimp_run > 0) hd.run = true;
+        if (w.trimp_ride > 0) hd.ride = true;
+        if (w.trimp_strength > 0) hd.strength = true;
+        if (w.trimp_mixed > 0) hd.mixed = true;
+        if (w.trimp_skate > 0) hd.skate = true;
+        if (w.trimp_other > 0) hd.other = true;
       }
-    });
+      data.push(row);
+    }
+    return { chartData: data, hasData: hd };
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
@@ -153,10 +176,9 @@ export default function TrendWeeklyLoad({
     }
   };
 
-  // Názov osi Y
-  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? "[h]" : `[${t("common.units.trimp")}]`;
+  // Názov osi Y s dynamickou jednotkou
+  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour")}]` : `[${t("common.units.trimp")}]`;
 
-  // Formátovač tikov na osi Y (vyžaduje návratový typ string)
   const yAxisTickFormatter = (val: any): string => {
     const num = Number(val);
     if (metric === "time") {
@@ -164,9 +186,9 @@ export default function TrendWeeklyLoad({
       if (num >= 60) {
          const h = Math.floor(num / 60);
          const m = Math.floor(num % 60);
-         return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
+         return m === 0 ? `${h}${t("common.units.hour")}` : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}m`;
+      return `${num}${t("common.units.min")}`;
     }
     return String(val); 
   };
@@ -204,8 +226,8 @@ export default function TrendWeeklyLoad({
         )}
         
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          {/* ✅ Zväčšený left margin na 0, aby sa zmestila jednotka na ľavej osi */}
-          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+          {/* Mierne upravený left margin, aby sa jednotka pekne zmestila */}
+          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
             <XAxis 
@@ -225,15 +247,15 @@ export default function TrendWeeklyLoad({
             />
             
             <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-            
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            <Bar dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />
-            <Bar dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />
-            {(metric === "time" || metric === "trimp") && <Bar dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            <Bar dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />
-            <Bar dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />
-            {(metric === "time" || metric === "trimp") && <Bar dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+            {/* ✅ DYNAMICKÉ VYKRESLOVANIE ŠPORTOV PODĽA TOHO ČI MAJÚ DÁTA */}
+            {hasData.run && <Bar dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.ride && <Bar dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.mixed && <Bar dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.skate && <Bar dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.other && (metric === "time" || metric === "trimp") && <Bar dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
           </BarChart>
         </ResponsiveContainer>
       </div>

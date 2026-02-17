@@ -64,7 +64,7 @@ function parseHHMMToDayMinutesSafe(hhmm: string): number {
 
 function shiftAfterMidnightForChart(dayMin: number): number {
   if (!Number.isFinite(dayMin)) return NaN;
-  const cutoff = 12 * 60; // posúvame všetko pred 12:00 na ďalší "fiktívny" deň aby 01:00 bolo vyššie na grafe ako 23:00
+  const cutoff = 12 * 60; 
   return dayMin < cutoff ? dayMin + DAY_MIN : dayMin;
 }
 
@@ -212,17 +212,16 @@ export default function TrendSleepStart() {
       return {
         date: d,
         val: isMissing ? null : v,
-        bandRange: [22 * 60, 23 * 60], // ✅ POUŽITIE ROZSAHU PRE SPÁNOK (22:00 - 23:00)
+        bandRange: [22 * 60, 23 * 60], 
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
     });
   }, [labelsISO, startMin, missingY, byDate]);
 
-  // Vypočítame dynamické yMin / yMax aby graf mal logické odrezky pre hodiny (napr. 21:00 až 02:00)
   const allY = [...startMin.filter(Number.isFinite), 22 * 60, 23 * 60];
-  const minY = Math.floor(Math.min(...allY) / 60) * 60 - 60; // 1 hodina pod
-  const maxY = Math.ceil(Math.max(...allY) / 60) * 60 + 60; // 1 hodina nad
+  const minY = Math.floor(Math.min(...allY) / 60) * 60 - 60; 
+  const maxY = Math.ceil(Math.max(...allY) / 60) * 60 + 60; 
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -266,7 +265,7 @@ export default function TrendSleepStart() {
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -293,7 +292,9 @@ export default function TrendSleepStart() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(val) => minutesToClockLabel(val)} // preloží minúty na 22:00 atď.
+                tickFormatter={(val) => minutesToClockLabel(Number(val))} 
+                // ✅ Pridaná jednotka osi [h] (keďže zobrazuje HH:MM)
+                label={{ value: `${t("common.units.hour")}`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
 
               <Tooltip
@@ -309,7 +310,6 @@ export default function TrendSleepStart() {
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
               />
 
-              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
               <Area
                 type="monotone"
                 dataKey="bandRange"

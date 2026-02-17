@@ -275,8 +275,8 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
             <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} hide={false} tickFormatter={formatCompactTime} tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} dy={5} />
             <YAxis domain={getDynamicDomain("altitude", 5, 10, true)} tick={{ fontSize: 10, fill: "rgba(255,255,255,0.4)" }} tickCount={4} axisLine={false} tickLine={false} width={40} />
-            <Tooltip content={<CustomTooltip showTooltip={showTooltip} formatY={(v: number) => `${Math.round(v)} ${t("common.units.m")}`} />} cursor={tooltipCursor} isAnimationActive={false} />
-            <Area type="monotone" dataKey="altitude" connectNulls={true} name={t("common.units.m")} stroke={CHART_HR.colors.z2} fill="url(#colorAlt)" isAnimationActive={false} />
+            <Tooltip content={<CustomTooltip showTooltip={showTooltip} formatY={(v: number) => `${Math.round(v)} ${t("common.units.meter")}`} />} cursor={tooltipCursor} isAnimationActive={false} />
+            <Area type="monotone" dataKey="altitude" connectNulls={true} name={t("common.units.meter")} stroke={CHART_HR.colors.z2} fill="url(#colorAlt)" isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

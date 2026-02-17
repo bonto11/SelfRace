@@ -81,7 +81,7 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
               style={{ backgroundColor: mainData.color }}
             ></span>
             <span className="opacity-90">RHR:</span>
-            <span className="font-bold">{Math.round(mainData.value)} bpm</span>
+            <span className="font-bold">{Math.round(mainData.value)} {t("common.units.hr")}</span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
@@ -202,7 +202,7 @@ export default function TrendRHR() {
       return {
         date: d,
         val: isMissing ? null : v,
-        bandRange: hasBand ? [lower[i], upper[i]] : null, // ✅ POUŽITIE ROZSAHU
+        bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
@@ -217,9 +217,10 @@ export default function TrendRHR() {
   const minValue = validValues.length ? Math.min(...validValues) : 40;
   const maxValue = validValues.length ? Math.max(...validValues) : 80;
 
-  // Dynamická škála (žiadne začínanie od nuly)
   const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5);
   const yMax = Math.ceil((maxValue + 5) / 5) * 5;
+
+  const yAxisLabel = `[${t("common.units.hr")}]`;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -260,10 +261,11 @@ export default function TrendRHR() {
             </div>
           )}
 
-           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+            {/* ✅ Okraj zväčšený na 10, aby sa vpratal label */}
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
             >
               
               <CartesianGrid
@@ -291,6 +293,8 @@ export default function TrendRHR() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
+                // ✅ Pridaná jednotka pre os Y
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
 
               <Tooltip
@@ -306,7 +310,6 @@ export default function TrendRHR() {
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
               />
 
-              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
               <Area
                 type="monotone"
                 dataKey="bandRange"

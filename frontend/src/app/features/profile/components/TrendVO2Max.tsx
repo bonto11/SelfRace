@@ -43,7 +43,6 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
-// Náš prémiový tooltip
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -232,10 +231,10 @@ export default function TrendVO2Max() {
         )}
 
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          {/* ✅ Zväčšený left margin na 0 */}
+          {/* ✅ Opravený left margin na 10 aby vošiel Label */}
           <LineChart
             data={chartData}
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
           >
             {ranges.map((r, i) => {
               const prevMax = i === 0 ? yMin : (ranges[i - 1].max ?? yMin);
@@ -278,7 +277,6 @@ export default function TrendVO2Max() {
               tick={{ fill: appColors.textMuted, fontSize: 10 }}
               axisLine={false}
               tickLine={false}
-              // ✅ Pridaná jednotka osi
               label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
 

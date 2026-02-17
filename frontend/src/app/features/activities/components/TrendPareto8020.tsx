@@ -53,7 +53,6 @@ type Lookback = 2 | 4 | 8 | 12;
 // Prémiový Recharts Tooltip
 const ParetoTooltip = ({ active, payload, label, t, rows }: any) => {
   if (active && payload && payload.length) {
-    // Nájdeme surový riadok, aby sme mohli vypísať formátovaný čas v pätičke
     const r = rows.find((row: any) => row.label === label);
 
     return (
@@ -140,7 +139,6 @@ export default function TrendPareto8020({
     });
   }, [fetchedAvailableSports]);
 
-  // Formátovanie dát pre Recharts
   const chartData = useMemo(() => {
     return rows.map((r) => ({
       label: r.label,
@@ -182,7 +180,6 @@ export default function TrendPareto8020({
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         
-        {/* Hlavička responzívna */}
         <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_TITLE}>{t("pareto8020.trend.title")}</h2>
           <div className="ml-auto">
@@ -197,7 +194,6 @@ export default function TrendPareto8020({
           </div>
         </div>
 
-        {/* Tlačidlá športov */}
         <div className="flex flex-wrap gap-2">
           {visibleSportsOptions.map((opt) => {
             const norm = normalizeSport(opt.value) ?? "";
@@ -228,7 +224,7 @@ export default function TrendPareto8020({
         )}
         
          <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
             <XAxis 
@@ -244,14 +240,15 @@ export default function TrendPareto8020({
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false}
-              tickFormatter={(val) => `${val}%`}
+              tickFormatter={(val) => `${val}${t("common.units.pct")}`}
+              // ✅ Pridaná jednotka pre os
+              label={{ value:  `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
             <Tooltip content={<ParetoTooltip t={t} rows={rows} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {/* Referenčné čiary 80 a 20 z Recharts */}
             <ReferenceLine y={80} stroke={appColors.chartLine1} strokeDasharray="3 3" opacity={0.5} label={{ position: 'top', value: '80%', fill: appColors.chartLine1, fontSize: 10 }} />
             <ReferenceLine y={20} stroke={appColors.chartLine2} strokeDasharray="3 3" opacity={0.5} label={{ position: 'top', value: '20%', fill: appColors.chartLine2, fontSize: 10 }} />
 

@@ -68,7 +68,8 @@ export const sk = {
     units: {
       trimp: "trimp",
       min: "min",
-      m: "m",
+      hour: "h",
+      meter: "m",
       km: "km",
       power: "W",
       vo2max: "ml/kg/min",
@@ -79,6 +80,7 @@ export const sk = {
       ms: "ms",
       hr: "úde./min",
       pace: "s/km",
+      pct : "%",
       kadenceRun: "krok/min",
       kadenceBike: "ot/min",
     },

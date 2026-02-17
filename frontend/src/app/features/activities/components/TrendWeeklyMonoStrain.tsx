@@ -35,7 +35,7 @@ import { useT } from "@/app/shared/i18n/useT";
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
 
-// Helper funkcia na formátovanie času v Tooltipe (Vždy presné H:MM)
+// Helper funkcia na formátovanie času v Tooltipe
 const formatTimeValue = (val: number) => {
   if (!val || val === 0) return "0:00";
   const h = Math.floor(val / 60);
@@ -43,7 +43,6 @@ const formatTimeValue = (val: number) => {
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
 
-// Náš prémiový tooltip (s podporou formátovania času pre Úsilie)
 const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -54,7 +53,6 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
         
         {payload.map((entry: any, index: number) => {
-          // Monotónnosť (index 0) sa nemení, ale Úsilie (index 1) sa prepočíta, ak je vybraný Čas
           let formattedValue = Number(entry.value).toFixed(2);
           
           if (entry.dataKey === "strain" && metric === "time") {
@@ -124,7 +122,7 @@ export default function TrendWeeklyMonoStrain({
       label: w.label || w.week,
       mono: w.monotony?.[metric] ?? null,
       strain: w.strain?.[metric] ?? null,
-      rawWeek: w // schováme si celý objekt pre onClick
+      rawWeek: w 
     }));
   }, [weeks, metric]);
 
@@ -141,7 +139,6 @@ export default function TrendWeeklyMonoStrain({
     }
   };
 
-  // ✅ SPRÁVNY formátovač pre pravú os (Úsilie)
   const yAxisTickFormatter = (val: any) => {
     if (metric === "time") {
       const num = Number(val);
@@ -149,16 +146,15 @@ export default function TrendWeeklyMonoStrain({
       if (num >= 60) {
         const h = Math.floor(num / 60);
         const m = Math.floor(num % 60);
-        // Ak je to celá hodina, ukážeme "2h", inak "1:30"
-        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
+        return m === 0 ? `${h}${t("common.units.hour")}` : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}m`;
+      return `${num}${t("common.units.min")}`;
     }
     return String(val);
   };
 
-  // ✅ Názov jednotky pre pravú os
-  const rightAxisUnit = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? "[h]" : `[${t("common.units.trimp")}]`;
+  // ✅ Názov jednotky pre pravú os (Úsilie)
+  const rightAxisUnit = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour")}]` : `[${t("common.units.trimp")}]`;
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -196,8 +192,7 @@ export default function TrendWeeklyMonoStrain({
         )}
         
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          {/* ✅ Zväčšený right margin z 10 na 25, aby sa zmestila jednotka osi Y */}
-          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 10, right: 25, left: -20, bottom: 0 }}>
+          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
             <XAxis 
@@ -213,6 +208,8 @@ export default function TrendWeeklyMonoStrain({
               tick={{ fill: C.monotony, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false} 
+              // Monotónnosť je bezrozmerné číslo (index), pridáme symbol [-]
+              label={{ value: "[-]", angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
             <YAxis 
@@ -222,8 +219,8 @@ export default function TrendWeeklyMonoStrain({
               axisLine={false} 
               tickLine={false}
               tickFormatter={yAxisTickFormatter}
-              // ✅ Pridaná jednotka [h] / [km] s odsadnítím dx
-              label={{ value: rightAxisUnit, angle: 90, position: 'insideRight', fill: C.strain, fontSize: 10, dx: 18 }}
+              // ✅ Jednotka pre úsilie
+              label={{ value: rightAxisUnit, angle: 90, position: 'insideRight', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
             <Tooltip content={<CustomTooltip metric={metric} t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />

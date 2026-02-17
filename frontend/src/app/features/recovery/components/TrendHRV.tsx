@@ -67,7 +67,7 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
           <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
             <span className="opacity-90">HRV:</span>
-            <span className="font-bold">{Math.round(mainData.value)} ms</span>
+            <span className="font-bold">{Math.round(mainData.value)} {t("common.units.ms")}</span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
@@ -166,19 +166,20 @@ export default function TrendHRV() {
       return {
         date: d,
         val: isMissing ? null : v,
-        bandRange: hasBand ? [lower[i], upper[i]] : null, // ✅ POUŽITIE ROZSAHU
+        bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
     });
   }, [labelsISO, hrv, lower, upper, missingY, byDate]);
 
-  // Dynamický výpočet pre HRV (napr. 20-100)
   const validValues = [...hrv.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null), ...upper.filter((v): v is number => v !== null)];
   const minValue = validValues.length ? Math.min(...validValues) : 0;
   const maxValue = validValues.length ? Math.max(...validValues) : 100;
   const yMin = Math.max(0, Math.floor((minValue - 10) / 10) * 10);
   const yMax = Math.ceil((maxValue + 10) / 10) * 10;
+
+  const yAxisLabel = `[${t("common.units.ms")}]`;
 
   return (
     <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
@@ -212,7 +213,8 @@ export default function TrendHRV() {
           )}
           
            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            {/* Zmenšený left margin na 0 */}
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               
@@ -230,12 +232,13 @@ export default function TrendHRV() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }} 
                 axisLine={false} 
                 tickLine={false}
+                // ✅ Pridaná jednotka osi
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
               
               <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
               <Area 
                 type="monotone" 
                 dataKey="bandRange" 

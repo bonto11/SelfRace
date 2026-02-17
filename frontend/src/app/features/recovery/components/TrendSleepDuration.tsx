@@ -198,11 +198,9 @@ export default function TrendSleepDuration() {
     });
   }, [labelsISO, sleepMin, missingY, byDate]);
 
-  // Dynamická os pre spánok, aby nezačínala od 0
   const validValues = sleepMin.filter(Number.isFinite);
-  const minValue = validValues.length ? Math.min(...validValues) : 360; // default 6h
-  const maxValue = validValues.length ? Math.max(...validValues) : 600; // default 10h
-  // Zaokrúhlime na celé hodiny
+  const minValue = validValues.length ? Math.min(...validValues) : 360; 
+  const maxValue = validValues.length ? Math.max(...validValues) : 600; 
   const yMin = Math.max(0, Math.floor((minValue - 60) / 60) * 60);
   const yMax = Math.ceil((maxValue + 60) / 60) * 60;
 
@@ -245,12 +243,11 @@ export default function TrendSleepDuration() {
             </div>
           )}
 
-           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
-              
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -276,7 +273,9 @@ export default function TrendSleepDuration() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(val) => `${Math.floor(val / 60)}h`}
+                tickFormatter={(val) => `${Math.floor(Number(val) / 60)}`}
+                // ✅ Pridaná jednotka osi [h]
+                label={{ value: `${t("common.units.hour")}`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
 
               <Tooltip
@@ -292,7 +291,6 @@ export default function TrendSleepDuration() {
                 wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
               />
 
-              {/* ✅ JEDINÁ AREA PRE PÁSMO */}
               <Area
                 type="monotone"
                 dataKey="bandRange"

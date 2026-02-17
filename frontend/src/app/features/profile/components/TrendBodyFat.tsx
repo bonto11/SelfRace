@@ -42,7 +42,6 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
-// Náš prémiový tooltip prispôsobený tvojej natur téme
 const CustomTooltip = ({ active, payload, label, t }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -143,7 +142,6 @@ export default function TrendBodyFat() {
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         
-        {/* Hlavička responzívna */}
         <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_CARD_TITLE}>{t("bodyFat.detailTitle")}</h2>
           <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
@@ -167,11 +165,10 @@ export default function TrendBodyFat() {
           </div>
         )}
         
-         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            {/* Vykreslenie pásov (Bands) na pozadie */}
+        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          {/* ✅ Zväčšený okraj na 10 aby sa label osi Y vpratal */}
+          <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             {bands.map((b, i) => {
-              // Zabezpečíme, že to budú vždy čísla
               const prevMax = i === 0 ? 0 : (bands[i-1].max ?? 0);
               const currentMax = b.max ?? suggestedTop;
 
@@ -202,11 +199,13 @@ export default function TrendBodyFat() {
             />
             
             <YAxis 
-              domain={[0, suggestedTop]} // Zafixujeme os aby sa nemenila
+              domain={[0, suggestedTop]}
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false}
-              tickFormatter={(val) => `${val}%`}
+              tickFormatter={(val) => `${val}${t("common.units.pct")}`}
+              // ✅ Pridaná jednotka [%]
+              label={{ value:  `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
             <Tooltip content={<CustomTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
