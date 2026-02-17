@@ -66,7 +66,7 @@ export default function ClientProtectedShell({
                     }}
                   >
                     <Link
-                      href="/activity"
+                      href="/activities"
                       className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
                       style={{ color: appColors.textPrimary }}
                       aria-label={t("activities.goTo")}
