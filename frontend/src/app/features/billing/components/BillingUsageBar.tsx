@@ -25,13 +25,13 @@ export default function BillingUsageBar({
     <div className="w-full">
       <div className="flex justify-between items-end mb-1.5">
         <span className="text-xs font-semibold uppercase tracking-wider opacity-80" style={{ color: appColors.textPrimary }}>
-          {t("billing.usage.title")}
+          {t("subscription.usage.title")}
         </span>
 
         {limit > 0 ? (
           <span className="text-xs font-mono" style={{ color: appColors.textMuted }}>
             {used.toLocaleString("sk-SK")} / {limit.toLocaleString("sk-SK")}{" "}
-            {t("billing.usage.tokensUnit")}
+            {t("subscription.usage.tokensUnit")}
           </span>
         ) : null}
       </div>
@@ -52,13 +52,13 @@ export default function BillingUsageBar({
           </div>
 
           <div className="flex justify-between mt-1.5 text-[10px]" style={{ color: appColors.textMuted }}>
-            <span>{t("billing.usage.summary").replace("{{pct}}", String(pct))}</span>
-            <span>{resetAt ? `${t("billing.usage.reset")}: ${resetAt.slice(0, 10)}` : ""}</span>
+            <span>{t("subscription.usage.summary").replace("{{pct}}", String(pct))}</span>
+            <span>{resetAt ? `${t("subscription.usage.reset")}: ${resetAt.slice(0, 10)}` : ""}</span>
           </div>
         </>
       ) : (
         <div className="text-[11px] mt-1" style={{ color: appColors.textMuted }}>
-          {t("billing.usage.noLimitDefined")}
+          {t("subscription.usage.noLimitDefined")}
         </div>
       )}
     </div>

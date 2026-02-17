@@ -242,6 +242,10 @@ export default function UserMenu() {
                 {t("userMenu.account")}
               </a>
 
+              <a className={DROPDOWN_ITEM} href="/subscription" role="menuitem">
+                {t("userMenu.subscription")}
+              </a>
+
               <a
                 className={DROPDOWN_ITEM}
                 href="/connectedApps"

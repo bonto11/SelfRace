@@ -230,6 +230,7 @@ export const sk = {
   },
   userMenu: {
     account: "Účet",
+    subscription: "Predplatné",
     connectedApps: "Pripojené aplikácie",
     logginOff: "Odhlasujem…",
     logoff: "Odhlásiť sa",
@@ -1519,6 +1520,65 @@ export const sk = {
   account: {
     title: "Môj účet",
   },
+  subscription: {
+    title: "Predplatné a platby",
+    subtitle: "Správa tvojho plánu",
+    devModeNote:
+      "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
+    notLoggedInDesc: "Pre správu predplatného sa najskôr prihlás.",
+    sections: {
+      tiers: "Dostupné plány",
+      history: "História platieb",
+    },
+    status: {
+      notLoggedIn: "Neprihlásený",
+      loading: "Načítavam...",
+      tierPrefix: "Aktuálny plán",
+    },
+    usage: {
+      title: "Využitie AI",
+      tokensUnit: "tokenov",
+      summary: "Aktuálna spotreba v tomto mesiaci",
+      reset: "Limit sa obnoví",
+      noLimitDefined: "Bez obmedzenia",
+    },
+    history: {
+      noRecords: "Zatiaľ neboli zaznamenané žiadne platby.",
+    },
+    planned: {
+      previewLabel: "Plánovaná zmena",
+      kinds: {
+        cancel: "Zrušenie",
+        downgrade: "Zníženie",
+        upgrade: "Zvýšenie",
+      },
+    },
+    toasts: {
+      paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
+      paymentCanceled: "Proces platby bol zrušený.",
+    },
+    statusCard: {
+      active: "Aktívny",
+      canceling: "Ruší sa",
+      periodEnds: "Obdobie končí:",
+      changeEffective: "Zmena nastane:",
+      cancelChangeBtn: "Zrušiť zmenu",
+    },
+    tierSelector: {
+      btnChoose: "Zvoliť plán",
+      btnCurrentTemp: "Aktuálny (dočasne)",
+      btnBasic: "Základný plán",
+      btnManage: "Spravovať plán",
+      btnPlanned: "Plánovaný prechod",
+      btnCancelSub: "Zrušiť predplatné",
+      btnActivate: "Aktivovať {{plan}}",
+      kTokensPerMonth: "k tokenov/mes.",
+      basicLimit: "Základný limit",
+      defaultDesc:
+        "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
+      activeBadge: "aktívny",
+    },
+  },
   dashboard: {
     title: "Dashboard",
   },
@@ -1843,65 +1903,6 @@ export const sk = {
       disconnectSuccess:
         "Strava účet bol odpojený. Dáta zo Stravy boli vymazané.",
       disconnectFailed: "Odpojenie Stravy zlyhalo.",
-    },
-  },
-  billing: {
-    title: "Predplatné a platby",
-    subtitle: "Správa tvojho plánu",
-    devModeNote:
-      "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
-    notLoggedInDesc: "Pre správu predplatného sa najskôr prihlás.",
-    sections: {
-      tiers: "Dostupné plány",
-      history: "História platieb",
-    },
-    status: {
-      notLoggedIn: "Neprihlásený",
-      loading: "Načítavam...",
-      tierPrefix: "Aktuálny plán",
-    },
-    usage: {
-      title: "Využitie AI",
-      tokensUnit: "tokenov",
-      summary: "Aktuálna spotreba v tomto mesiaci",
-      reset: "Limit sa obnoví",
-      noLimitDefined: "Bez obmedzenia",
-    },
-    history: {
-      noRecords: "Zatiaľ neboli zaznamenané žiadne platby.",
-    },
-    planned: {
-      previewLabel: "Plánovaná zmena",
-      kinds: {
-        cancel: "Zrušenie",
-        downgrade: "Zníženie",
-        upgrade: "Zvýšenie",
-      },
-    },
-    toasts: {
-      paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
-      paymentCanceled: "Proces platby bol zrušený.",
-    },
-    statusCard: {
-      active: "Aktívny",
-      canceling: "Ruší sa",
-      periodEnds: "Obdobie končí:",
-      changeEffective: "Zmena nastane:",
-      cancelChangeBtn: "Zrušiť zmenu",
-    },
-    tierSelector: {
-      btnChoose: "Zvoliť plán",
-      btnCurrentTemp: "Aktuálny (dočasne)",
-      btnBasic: "Základný plán",
-      btnManage: "Spravovať plán",
-      btnPlanned: "Plánovaný prechod",
-      btnCancelSub: "Zrušiť predplatné",
-      btnActivate: "Aktivovať {{plan}}",
-      kTokensPerMonth: "k tokenov/mes.",
-      basicLimit: "Základný limit",
-      defaultDesc:
-        "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
-      activeBadge: "aktívny",
     },
   },
   sessions: {

@@ -16,7 +16,7 @@ export default function BillingHistory({ history }: BillingHistoryProps) {
   if (history.length === 0) {
     return (
       <p style={{ color: appColors.textMuted }} className="text-xs">
-        {t("billing.history.noRecords")}
+        {t("subscription.history.noRecords")}
       </p>
     );
   }

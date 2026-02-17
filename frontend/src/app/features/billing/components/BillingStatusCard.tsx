@@ -57,8 +57,8 @@ export default function BillingStatusCard({
   const currentEnd = status?.active_subscription?.current_period_end;
   const isCanceled = status?.active_subscription?.cancel_at_period_end;
 
-  const tierPrefix = t("billing.status.tierPrefix") || "Aktuálny plán";
-  const previewLabel = t("billing.planned.previewLabel") || "Plánovaná zmena";
+  const tierPrefix = t("subscription.status.tierPrefix") || "Aktuálny plán";
+  const previewLabel = t("subscription.planned.previewLabel") || "Plánovaná zmena";
 
   const getTierColor = (code: string) => {
     switch (code.toLowerCase()) {
@@ -82,12 +82,12 @@ export default function BillingStatusCard({
             {activeTierCode.toUpperCase()}
             {subStatus === "active" && !isCanceled && (
               <span className="badge badge-success badge-sm border-none bg-emerald-500/20 text-emerald-300">
-                {t("billing.statusCard.active")}
+                {t("subscription.statusCard.active")}
               </span>
             )}
             {subStatus === "active" && isCanceled && (
               <span className="badge badge-warning badge-sm border-none bg-yellow-500/20 text-yellow-300">
-                {t("billing.statusCard.canceling")}
+                {t("subscription.statusCard.canceling")}
               </span>
             )}
           </div>
@@ -106,7 +106,7 @@ export default function BillingStatusCard({
         <div className="pt-3 border-t text-sm space-y-3" style={{ borderColor: appColors.divider }}>
           {currentEnd && (
             <div className="flex justify-between items-center text-white/80">
-              <span className="opacity-70">{t("billing.statusCard.periodEnds")}</span>
+              <span className="opacity-70">{t("subscription.statusCard.periodEnds")}</span>
               <span className="font-medium">
                 {new Date(currentEnd).toLocaleDateString()}
               </span>
@@ -117,7 +117,7 @@ export default function BillingStatusCard({
             <div className="flex flex-col gap-2 p-3 rounded-lg border bg-yellow-500/10 border-yellow-500/20">
               <div className="flex justify-between items-center">
                 <span className="text-yellow-400 font-semibold">
-                  ⚠️ {previewLabel} ({t(`billing.planned.kinds.${plannedChange.kind}`)}):
+                  ⚠️ {previewLabel} ({t(`subscription.planned.kinds.${plannedChange.kind}`)}):
                 </span>
                 <span className="font-bold" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
                   {plannedChange.to_tier_code?.toUpperCase() || "FREE"}
@@ -125,7 +125,7 @@ export default function BillingStatusCard({
               </div>
               {plannedChange.effective_from && (
                 <div className="text-xs text-yellow-400/70">
-                  {t("billing.statusCard.changeEffective")}{" "}
+                  {t("subscription.statusCard.changeEffective")}{" "}
                   {new Date(plannedChange.effective_from).toLocaleDateString()}
                 </div>
               )}
@@ -137,7 +137,7 @@ export default function BillingStatusCard({
                   onClick={onCancelPlannedChange}
                 >
                   {loadingAny && <span className="loading loading-spinner loading-xs"></span>}
-                  {t("billing.statusCard.cancelChangeBtn")}
+                  {t("subscription.statusCard.cancelChangeBtn")}
                 </button>
               </div>
             </div>

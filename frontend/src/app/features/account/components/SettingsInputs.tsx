@@ -115,7 +115,7 @@ export default function SettingsInputs() {
   const { userId } = useUserId();
   const t = useT(); // ✅ Inicializácia prekladača
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
