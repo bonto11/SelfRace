@@ -35,8 +35,16 @@ import { useT } from "@/app/shared/i18n/useT";
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
 
-// Náš prémiový tooltip prispôsobený tvojej natur téme
-const CustomTooltip = ({ active, payload, label }: any) => {
+// Helper funkcia na formátovanie času v Tooltipe (Vždy presné H:MM)
+const formatTimeValue = (val: number) => {
+  if (!val || val === 0) return "0:00";
+  const h = Math.floor(val / 60);
+  const m = Math.floor(val % 60);
+  return `${h}:${m.toString().padStart(2, "0")}`;
+};
+
+// Náš prémiový tooltip (s podporou formátovania času pre Úsilie)
+const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
   if (active && payload && payload.length) {
     return (
       <div 
@@ -44,13 +52,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
       >
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
-            <span className="opacity-90">{entry.name}:</span>
-            <span className="font-bold">{Number(entry.value).toFixed(2)}</span>
-          </div>
-        ))}
+        
+        {payload.map((entry: any, index: number) => {
+          // Monotónnosť (index 0) sa nemení, ale Úsilie (index 1) sa prepočíta, ak je vybraný Čas
+          let formattedValue = Number(entry.value).toFixed(2);
+          
+          if (entry.dataKey === "strain" && metric === "time") {
+            formattedValue = formatTimeValue(entry.value);
+          }
+
+          return (
+            <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+              <span className="opacity-90">{entry.name}:</span>
+              <span className="font-bold">{formattedValue}</span>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -101,7 +119,6 @@ export default function TrendWeeklyMonoStrain({
     return () => { alive = false; };
   }, [userId, lookback]);
 
-  // Dáta preformátované pre Recharts
   const chartData = useMemo(() => {
     return weeks.map((w) => ({
       label: w.label || w.week,
@@ -124,10 +141,28 @@ export default function TrendWeeklyMonoStrain({
     }
   };
 
+  // ✅ SPRÁVNY formátovač pre pravú os (Úsilie)
+  const yAxisTickFormatter = (val: any) => {
+    if (metric === "time") {
+      const num = Number(val);
+      if (num === 0) return "0";
+      if (num >= 60) {
+        const h = Math.floor(num / 60);
+        const m = Math.floor(num % 60);
+        // Ak je to celá hodina, ukážeme "2h", inak "1:30"
+        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
+      }
+      return `${num}m`;
+    }
+    return String(val);
+  };
+
+  // ✅ Názov jednotky pre pravú os
+  const rightAxisUnit = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? "[h]" : `[${t("common.units.trimp")}]`;
+
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       
-      {/* Vylepšená hlavička, ktorá sa na mobiloch zalomí a neschová prepínač */}
       <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
         <div className="flex items-center gap-2">
           <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
@@ -153,7 +188,6 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
-      {/* Recharts kontajner */}
       <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 320 }}>
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
@@ -161,12 +195,11 @@ export default function TrendWeeklyMonoStrain({
           </div>
         )}
         
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            {/* Jemná horizontálna mriežka */}
+        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          {/* ✅ Zväčšený right margin z 10 na 25, aby sa zmestila jednotka osi Y */}
+          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 10, right: 25, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
-            {/* X Os (Dátumy) */}
             <XAxis 
               dataKey="label" 
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
@@ -175,7 +208,6 @@ export default function TrendWeeklyMonoStrain({
               dy={10}
             />
             
-            {/* Y Os 1 (Monotónnosť - Vľavo) */}
             <YAxis 
               yAxisId="left" 
               tick={{ fill: C.monotony, fontSize: 10 }} 
@@ -183,25 +215,23 @@ export default function TrendWeeklyMonoStrain({
               tickLine={false} 
             />
             
-            {/* Y Os 2 (Úsilie - Vpravo) */}
             <YAxis 
               yAxisId="right" 
               orientation="right" 
               tick={{ fill: C.strain, fontSize: 10 }} 
               axisLine={false} 
-              tickLine={false} 
+              tickLine={false}
+              tickFormatter={yAxisTickFormatter}
+              // ✅ Pridaná jednotka [h] / [km] s odsadnítím dx
+              label={{ value: rightAxisUnit, angle: 90, position: 'insideRight', fill: C.strain, fontSize: 10, dx: 18 }}
             />
             
-            {/* Tooltip */}
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-            
-            {/* Legenda */}
+            <Tooltip content={<CustomTooltip metric={metric} t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {/* Samotné čiary */}
             <Line 
               yAxisId="left" 
-              type="monotone" // Monotone vytvorí moderné oblé krivky
+              type="monotone"
               dataKey="mono" 
               name={t("monoStrain.trend.mono") as string} 
               stroke={C.monotony} 
@@ -217,7 +247,7 @@ export default function TrendWeeklyMonoStrain({
               name={t("monoStrain.trend.strain") as string} 
               stroke={C.strain} 
               strokeWidth={3}
-              strokeDasharray="5 5" // Čiarkovaná čiara
+              strokeDasharray="5 5"
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               connectNulls

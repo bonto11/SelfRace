@@ -227,7 +227,7 @@ export default function TrendPareto8020({
           </div>
         )}
         
-        <ResponsiveContainer width="100%" height="100%">
+         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
           <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             

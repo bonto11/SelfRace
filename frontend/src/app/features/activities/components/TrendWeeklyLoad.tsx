@@ -34,12 +34,22 @@ import { useT } from "@/app/shared/i18n/useT";
 
 const DEFAULT_SPORT = "all" as const;
 
+// Helper funkcia na formátovanie (minúty na hodiny a minúty)
+const formatTimeValue = (val: number) => {
+  if (!val || val === 0) return "0:00";
+  const h = Math.floor(val / 60);
+  const m = Math.floor(val % 60);
+  return `${h}:${m.toString().padStart(2, "0")}`;
+};
+
 // Náš prémiový Tooltip
-const StackedTooltip = ({ active, payload, label }: any) => {
+const StackedTooltip = ({ active, payload, label, metric, t }: any) => {
   if (active && payload && payload.length) {
-    // Spočítame total za celý stĺpec
     const total = payload.reduce((sum: number, entry: any) => sum + (Number(entry.value) || 0), 0);
     
+    // Ak je to čas, sformátujeme to na H:MM, inak len 1 desatinné miesto
+    const formatFn = (val: number) => metric === "time" ? formatTimeValue(val) : val.toFixed(1);
+
     return (
       <div 
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px]"
@@ -49,22 +59,22 @@ const StackedTooltip = ({ active, payload, label }: any) => {
         
         <div className="space-y-1 mb-2">
           {payload.map((entry: any, index: number) => {
-            if (!entry.value) return null; // Ak je hodnota 0, schováme to z tooltipu nech nezavadzia
+            if (!entry.value) return null;
             return (
               <div key={index} className="flex items-center justify-between gap-4 text-sm" style={{ color: entry.color }}>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                   <span className="opacity-90">{entry.name}</span>
                 </div>
-                <span className="font-bold">{Number(entry.value).toFixed(1)}</span>
+                <span className="font-bold">{formatFn(entry.value)}</span>
               </div>
             );
           })}
         </div>
         
         <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold" style={{ borderColor: appColors.divider }}>
-          <span>Total:</span>
-          <span>{total.toFixed(1)}</span>
+          <span>{t("common.together") || "Total"}:</span>
+          <span>{formatFn(total)}</span>
         </div>
       </div>
     );
@@ -116,7 +126,6 @@ export default function TrendWeeklyLoad({
     return () => { alive = false; };
   }, [userId, lookback, t]);
 
-  // Formátovanie dát pre Stacked Bar Chart v Recharts
   const chartData = useMemo(() => {
     return weeks.map((w) => {
       const base = { label: w.label || w.week, rawWeek: w };
@@ -144,7 +153,23 @@ export default function TrendWeeklyLoad({
     }
   };
 
-  const yAxisLabel = metric === "km" ? t("common.units.km") : metric === "time" ? t("common.units.min") : t("common.units.trimp");
+  // Názov osi Y
+  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? "[h]" : `[${t("common.units.trimp")}]`;
+
+  // Formátovač tikov na osi Y (vyžaduje návratový typ string)
+  const yAxisTickFormatter = (val: any): string => {
+    const num = Number(val);
+    if (metric === "time") {
+      if (num === 0) return "0";
+      if (num >= 60) {
+         const h = Math.floor(num / 60);
+         const m = Math.floor(num % 60);
+         return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
+      }
+      return `${num}m`;
+    }
+    return String(val); 
+  };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -178,8 +203,9 @@ export default function TrendWeeklyLoad({
           </div>
         )}
         
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          {/* ✅ Zväčšený left margin na 0, aby sa zmestila jednotka na ľavej osi */}
+          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
             <XAxis 
@@ -194,21 +220,20 @@ export default function TrendWeeklyLoad({
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false} 
-              label={{ value: yAxisLabel as string, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              tickFormatter={yAxisTickFormatter}
+              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
-            <Tooltip content={<StackedTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+            <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {/* Jednotlivé športy ako Stacked Bars (stackId="a" ich ukladá na seba) */}
             <Bar dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />
             <Bar dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />
             {(metric === "time" || metric === "trimp") && <Bar dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
             <Bar dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />
             <Bar dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />
             {(metric === "time" || metric === "trimp") && <Bar dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
-            {/* (Posledný bar dostal radius [4, 4, 0, 0] pre mierne zaoblený vrch) */}
           </BarChart>
         </ResponsiveContainer>
       </div>

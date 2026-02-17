@@ -12,7 +12,6 @@ export async function apiFetchUserPrefs(
 
   const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : "";
   const path = `/prefs/${encodeURIComponent(String(userId))}${qs}`;
-  console.debug("[UserPrefs][apiFetchUserPrefs] ->", path);
 
   try {
     const json = await callBackend<{ prefs?: UserPrefRow[]; detail?: string }>(
@@ -44,7 +43,6 @@ export async function apiFetchUserPref(
   const path = `/prefs/${encodeURIComponent(
     String(userId)
   )}/key/${encodeURIComponent(key)}`;
-  console.debug("[UserPrefs][apiFetchUserPref] ->", path);
 
   try {
     const json = await callBackend<{
@@ -78,7 +76,6 @@ export async function apiUpsertUserPref(
   const path = `/prefs/${encodeURIComponent(
     String(userId)
   )}/key/${encodeURIComponent(key)}`;
-  console.debug("[UserPrefs][apiUpsertUserPref] ->", path, "value:", value);
 
   try {
     await callBackend<any>(path, {
@@ -102,7 +99,6 @@ export async function apiUpsertUserPrefs(
   }
 
   const path = `/prefs/${encodeURIComponent(String(userId))}`;
-  console.debug("[UserPrefs][apiUpsertUserPrefs] ->", path, "rows:", rows);
 
   try {
     await callBackend<any>(path, {
