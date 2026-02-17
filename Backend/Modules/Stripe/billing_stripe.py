@@ -77,7 +77,7 @@ def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
             # ✅ OPRAVENÁ NÁVRATOVÁ URL
-            return_url=f"{FRONTEND_URL}/account",
+            return_url=f"{FRONTEND_URL}/subscription",
         )
         return {"ok": True, "portal_url": session.url}
     except Exception as e:
