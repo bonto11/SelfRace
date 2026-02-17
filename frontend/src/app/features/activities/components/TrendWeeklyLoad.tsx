@@ -28,7 +28,6 @@ import {
   PANEL_PAD,
   PANEL_CARD_HEAD,
   PANEL_TITLE,
-  PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -48,8 +47,8 @@ const StackedTooltip = ({ active, payload, label, metric, t }: any) => {
 
     return (
       <div 
-        className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px] focus:outline-none outline-none"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px]"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder, outline: "none" }}
       >
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
         
@@ -162,8 +161,8 @@ export default function TrendWeeklyLoad({
     if (!onPickWeek || !state || !state.activePayload) return;
     const w = state.activePayload[0].payload.rawWeek;
     if (w) {
+      // ✅ Odosielame všetky dáta potrebné pre načítanie histórie z DB
       onPickWeek({
-        // ✅ OPRAVA: Pre tabuľku posielame surové w.week (napr. '2024-W12') ak existuje, inak start
         week: w.week || w.start || "",
         start: w.start,
         end: w.end,
@@ -172,24 +171,24 @@ export default function TrendWeeklyLoad({
     }
   };
 
-  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour")}]` : `[${t("common.units.trimp")}]`;
+  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour") || "h"}]` : `[${t("common.units.trimp")}]`;
 
-  const yAxisTickFormatter = (val: any): string => {
+  const yAxisTickFormatter = (val: any, index: number): string => {
     const num = Number(val);
     if (metric === "time") {
       if (num === 0) return "0";
       if (num >= 60) {
          const h = Math.floor(num / 60);
          const m = Math.floor(num % 60);
-         return m === 0 ? `${h}${t("common.units.hour")}` : `${h}:${m.toString().padStart(2, "0")}`;
+         return m === 0 ? `${h}${t("common.units.hour") || "h"}` : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}${t("common.units.min")}`;
+      return `${num}${t("common.units.min") || "m"}`;
     }
     return String(val); 
   };
 
-  // ✅ OPRAVA: Objekt pre odstránenie bieleho outline pre Bar element
-  const noOutlineBar = { style: { outline: 'none' } };
+  // ✅ Odstránenie outline z Bar prvkov
+  const noOutlineBar = { style: { outline: "none", stroke: "none" } };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -223,8 +222,8 @@ export default function TrendWeeklyLoad({
           </div>
         )}
         
-        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }} style={{ outline: 'none' }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
             <XAxis 
