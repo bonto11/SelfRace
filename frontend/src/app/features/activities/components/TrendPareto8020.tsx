@@ -57,7 +57,7 @@ const ParetoTooltip = ({ active, payload, label, t, rows }: any) => {
 
     return (
       <div 
-        className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md focus:outline-none outline-none"
         style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
       >
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
@@ -103,6 +103,9 @@ export default function TrendPareto8020({
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
   const [fetchedAvailableSports, setFetchedAvailableSports] = useState<string[]>([]);
+  
+  // 🔥 Uložíme si vybraný index na zobrazenie v UI
+  const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -119,10 +122,14 @@ export default function TrendPareto8020({
         if (response.availableSports && response.availableSports.length > 0) {
           setFetchedAvailableSports(response.availableSports);
         }
+        
+        // Zresetujeme výber, ak sa načítajú nové dáta (napr. pri zmene týždňov)
+        setPickedIdx(null);
       } catch (e: any) {
         console.error("Pareto trend fetch failed:", t(e?.message as any));
         if (!alive) return;
         setRows([]);
+        setPickedIdx(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -140,17 +147,19 @@ export default function TrendPareto8020({
   }, [fetchedAvailableSports]);
 
   const chartData = useMemo(() => {
-    return rows.map((r) => ({
+    return rows.map((r, i) => ({
       label: r.label,
       easy_pct: Number.isFinite(r.easy_pct) ? r.easy_pct : 0,
       hard_pct: Number.isFinite(r.hard_pct) ? r.hard_pct : 0,
       rawRow: r,
+      idx: i, // Pridáme si index pre lepšie klikanie
     }));
   }, [rows]);
 
   const toggleSport = (s: string) => {
     const n = normalizeSport(s);
     if (!n || n === "all") return;
+    setPickedIdx(null); // Zresetuj výber pri prepnutí športu
     setSelectedSports((prev) => {
       const set = new Set(prev.map(normalizeSport).filter(Boolean) as string[]);
       set.has(n) ? set.delete(n) : set.add(n);
@@ -166,8 +175,13 @@ export default function TrendPareto8020({
 
   const handleChartClick = (state: any) => {
     if (!onPickWeek || !state || !state.activePayload) return;
+    
+    // Zistíme, na ktorý bod sa kliklo
     const r = state.activePayload[0].payload.rawRow;
-    if (r) {
+    const index = state.activePayload[0].payload.idx;
+    
+    if (r && typeof index === 'number') {
+      setPickedIdx(index);
       onPickWeek({
         start: r.start,
         end: r.end,
@@ -175,6 +189,9 @@ export default function TrendPareto8020({
       });
     }
   };
+
+  // Ak je niečo vybrané, zistíme jeho label pre ReferenceLine
+  const pickedLabel = pickedIdx !== null && chartData[pickedIdx] ? chartData[pickedIdx].label : null;
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -227,6 +244,16 @@ export default function TrendPareto8020({
           <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
+            {/* 🔥 Vykreslenie vybraného týždňa (Highlight vertikálna čiara) */}
+            {pickedLabel && (
+              <ReferenceLine 
+                x={pickedLabel} 
+                stroke={appColors.textMuted} 
+                strokeOpacity={0.3} 
+                strokeWidth={20} // Vytvorí pekný "highlight" pás pre celý týždeň
+              />
+            )}
+
             <XAxis 
               dataKey="label" 
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
@@ -240,12 +267,11 @@ export default function TrendPareto8020({
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false}
-              tickFormatter={(val) => `${val}${t("common.units.pct")}`}
-              // ✅ Pridaná jednotka pre os
-              label={{ value:  `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              tickFormatter={(val) => `${val}%`}
+              label={{ value: `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
-            <Tooltip content={<ParetoTooltip t={t} rows={rows} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+            <Tooltip content={<ParetoTooltip t={t} rows={rows} />} cursor={{ fill: "rgba(255,255,255,0.05)", stroke: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
@@ -258,8 +284,10 @@ export default function TrendPareto8020({
               name={t("pareto8020.trend.labelEasy") as string} 
               stroke={appColors.chartLine1} 
               strokeWidth={3}
+              // ✅ OPRAVA: Odstránený "outline" z objektu dot
               dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: 'none' }} // ✅ OPRAVA: Presunuté sem
             />
             
             <Line 
@@ -269,8 +297,10 @@ export default function TrendPareto8020({
               stroke={appColors.chartLine2} 
               strokeWidth={3}
               strokeDasharray="5 5"
+              // ✅ OPRAVA: Odstránený "outline" z objektu dot
               dot={{ r: 3, fill: appColors.chartLine2, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: 'none' }} // ✅ OPRAVA: Presunuté sem
             />
           </LineChart>
         </ResponsiveContainer>

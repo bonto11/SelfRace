@@ -35,7 +35,6 @@ import { useT } from "@/app/shared/i18n/useT";
 const C = { monotony: appColors.chartLine1, strain: appColors.chartLine2 };
 const DEFAULT_SPORT = "all" as const;
 
-// Helper funkcia na formátovanie času v Tooltipe
 const formatTimeValue = (val: number) => {
   if (!val || val === 0) return "0:00";
   const h = Math.floor(val / 60);
@@ -46,15 +45,20 @@ const formatTimeValue = (val: number) => {
 const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div 
+      <div
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        style={{
+          backgroundColor: "rgba(9, 24, 18, 0.92)",
+          borderColor: appColors.panelBorder,
+        }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-        
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>
+          {label}
+        </p>
+
         {payload.map((entry: any, index: number) => {
           let formattedValue = Number(entry.value).toFixed(2);
-          
+
           if (entry.dataKey === "strain" && metric === "time") {
             formattedValue = formatTimeValue(entry.value);
           }
@@ -108,13 +112,15 @@ export default function TrendWeeklyMonoStrain({
         setWeeks(rows);
       } catch (e: any) {
         console.error("Weekly mono/strain load failed:", e?.message);
-        if (alive) setWeeks([]); 
+        if (alive) setWeeks([]);
       } finally {
         if (alive) setLoading(false);
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, lookback]);
 
   const chartData = useMemo(() => {
@@ -122,7 +128,7 @@ export default function TrendWeeklyMonoStrain({
       label: w.label || w.week,
       mono: w.monotony?.[metric] ?? null,
       strain: w.strain?.[metric] ?? null,
-      rawWeek: w 
+      rawWeek: w,
     }));
   }, [weeks, metric]);
 
@@ -139,26 +145,32 @@ export default function TrendWeeklyMonoStrain({
     }
   };
 
-  const yAxisTickFormatter = (val: any) => {
+  // ✅ OPRAVA: Pridaný parameter index: number a zabezpečené vracanie stringu
+  const yAxisTickFormatter = (val: any, index: number): string => {
     if (metric === "time") {
       const num = Number(val);
       if (num === 0) return "0";
       if (num >= 60) {
         const h = Math.floor(num / 60);
         const m = Math.floor(num % 60);
-        return m === 0 ? `${h}${t("common.units.hour")}` : `${h}:${m.toString().padStart(2, "0")}`;
+        return m === 0
+          ? `${h}${t("common.units.hour") || "h"}`
+          : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}${t("common.units.min")}`;
+      return `${num}${t("common.units.min") || "m"}`;
     }
     return String(val);
   };
 
-  // ✅ Názov jednotky pre pravú os (Úsilie)
-  const rightAxisUnit = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour")}]` : `[${t("common.units.trimp")}]`;
+  const rightAxisUnit =
+    metric === "km"
+      ? `[${t("common.units.km")}]`
+      : metric === "time"
+        ? `[${t("common.units.hour")}]`
+        : `[${t("common.units.trimp")}]`;
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      
       <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
         <div className="flex items-center gap-2">
           <h2 className={PANEL_TITLE}>{t("monoStrain.trend.title")}</h2>
@@ -166,10 +178,16 @@ export default function TrendWeeklyMonoStrain({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 ml-auto">
-          <div className="flex items-center gap-1 bg-black/20 p-1 rounded-lg border border-white/5">
-            <Button size="xs" variant={metric === "km" ? "active" : "ghost"} onClick={() => setMetric("km")}>{t("common.metrics.distance")}</Button>
-            <Button size="xs" variant={metric === "time" ? "active" : "ghost"} onClick={() => setMetric("time")}>{t("common.metrics.time")}</Button>
-            <Button size="xs" variant={metric === "trimp" ? "active" : "ghost"} onClick={() => setMetric("trimp")}>{t("common.metrics.trimp")}</Button>
+          <div className="flex items-center gap-1 p-1 rounded-lg">
+            <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
+              {t("common.metrics.distance")}
+            </Button>
+            <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
+              {t("common.metrics.time")}
+            </Button>
+            <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
+              {t("common.metrics.trimp")}
+            </Button>
           </div>
 
           {showLookback && (
@@ -190,63 +208,67 @@ export default function TrendWeeklyMonoStrain({
             <LoadingSpinner size="trend" />
           </div>
         )}
-        
-        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-          <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
+
+        {/* ✅ OPRAVA: Pridaný minHeight=1 proti žltým errorom */}
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+          <LineChart
+            data={chartData}
+            onClick={handleChartClick}
+            margin={{ top: 20, right: 10, left: 10, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-            
-            <XAxis 
-              dataKey="label" 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
-              dy={10}
+
+            <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+
+            <YAxis
+              yAxisId="left"
+              tick={{ fill: C.monotony, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              label={{ value: "[-]", angle: -90, position: "insideLeft", fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
-            
-            <YAxis 
-              yAxisId="left" 
-              tick={{ fill: C.monotony, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
-              // Monotónnosť je bezrozmerné číslo (index), pridáme symbol [-]
-              label={{ value: "[-]", angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
-            />
-            
-            <YAxis 
-              yAxisId="right" 
-              orientation="right" 
-              tick={{ fill: C.strain, fontSize: 10 }} 
-              axisLine={false} 
+
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fill: C.strain, fontSize: 10 }}
+              axisLine={false}
               tickLine={false}
               tickFormatter={yAxisTickFormatter}
-              // ✅ Jednotka pre úsilie
-              label={{ value: rightAxisUnit, angle: 90, position: 'insideRight', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{ value: rightAxisUnit, angle: 90, position: "insideRight", fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
-            
-            <Tooltip content={<CustomTooltip metric={metric} t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-            
-            <Line 
-              yAxisId="left" 
+
+            <Tooltip
+              content={<CustomTooltip metric={metric} t={t} />}
+              cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }}
+              wrapperStyle={{ outline: "none" }}
+            />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
+
+            {/* ✅ OPRAVA: Zmazaný outline z dot={} a presunutý do style={} */}
+            <Line
+              yAxisId="left"
               type="monotone"
-              dataKey="mono" 
-              name={t("monoStrain.trend.mono") as string} 
-              stroke={C.monotony} 
+              dataKey="mono"
+              name={t("monoStrain.trend.mono") as string}
+              stroke={C.monotony}
               strokeWidth={3}
               dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: "none" }}
               connectNulls
             />
-            <Line 
-              yAxisId="right" 
-              type="monotone" 
-              dataKey="strain" 
-              name={t("monoStrain.trend.strain") as string} 
-              stroke={C.strain} 
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="strain"
+              name={t("monoStrain.trend.strain") as string}
+              stroke={C.strain}
               strokeWidth={3}
               strokeDasharray="5 5"
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: "none" }}
               connectNulls
             />
           </LineChart>
