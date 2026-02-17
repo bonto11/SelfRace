@@ -142,16 +142,20 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      if (tierCode === "free" && activeTierCode !== "free") {
+      // ✅ Ak user MÁ aktuálne platený plán (nie je free), akúkoľvek zmenu 
+      // (downgrade, upgrade, alebo zrušenie) posielame do Stripe Portalu.
+      // Vyhneme sa tak vytvoreniu duplicitného predplatného.
+      if (activeTierCode !== "free") {
         const url = await apiCreateStripePortal(userId);
         window.location.href = url;
         return;
       }
       
+      // ✅ Ak je user FREE a ide na platený, vytvoríme nový Checkout
       const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
-      const msg = t(e?.message) || t("api.billing.tierChangeFailed");
+      const msg = t(e?.message as any) || t("api.billing.tierChangeFailed");
       setError(msg);
       toast.error(msg);
     } finally {

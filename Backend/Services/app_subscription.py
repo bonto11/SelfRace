@@ -42,7 +42,6 @@ def service_list_app_subscription_tiers(
 
 # ---------- STATUS / HISTORY ----------
 
-
 def service_get_user_app_subscription_status(
     *,
     user_id: int,
@@ -58,12 +57,31 @@ def service_get_user_app_subscription_status(
         ctx=ctx,
     )
 
+    # ✅ AUTO-TRIAL LOGIKA (BEZPEČNÁ)
+    # Ak nemá aktívny plán, skontrolujeme, či je to úplne nový používateľ
+    if not active:
+        # Vytiahneme len 1 záznam z histórie. Ak vráti prázdne pole, je to nováčik.
+        history = db_list_app_user_subscriptions(
+            user_id=user_id,
+            limit=1,
+            ctx=ctx,
+        )
+        if not history:
+            # Udelíme mu 14-dňový trial
+            service_start_pro_trial(user_id=user_id, ctx=ctx)
+            # Znovu načítame aktívny stav (teraz by už mal nájsť ten čerstvý PRO trial)
+            active = db_get_active_app_subscription_for_user(
+                user_id=user_id,
+                ctx=ctx,
+            )
+
     effective_tier = "free"
     scheduled_change: Optional[Dict[str, Any]] = None
 
     if active:
         effective_tier = str(active.get("tier_code") or "free")
         meta = active.get("meta") or {}
+        
         if active.get("cancel_at_period_end"):
             if meta.get("pending_downgrade_to") and meta["pending_downgrade_to"] != "free":
                 scheduled_change = {
@@ -86,7 +104,6 @@ def service_get_user_app_subscription_status(
         "tiers": tiers,
         "scheduled_change": scheduled_change,
     }
-
 
 def service_list_user_app_subscriptions(
     *,
@@ -362,3 +379,48 @@ def service_cancel_scheduled_subscription_change(
         "active_subscription": updated,
         "tier": tier,
     }
+
+
+def service_start_pro_trial(
+    *,
+    user_id: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Aktivuje 14-dňový PRO trial pre nového používateľa.
+    Nastaví sa cancel_at_period_end = True a downgrade_to = free,
+    takže tvoj existujúci CRON ho po 14 dňoch automaticky prepne späť.
+    """
+    # 1. Skontrolujeme, či už náhodou nemá aktívne predplatné
+    active = db_get_active_app_subscription_for_user(
+        user_id=user_id,
+        ctx=ctx,
+    )
+    
+    if active:
+        return {"success": False, "detail": "User already has an active subscription."}
+
+    # 2. Vypočítame dátumy (dnes + 14 dní)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    end_iso = (now + timedelta(days=14)).isoformat()
+
+    # 3. Vytvoríme ACTIVE trial
+    new_active = db_insert_app_user_subscription(
+        user_id=user_id,
+        tier_code="pro",
+        status="active",
+        current_period_start=now_iso,
+        current_period_end=end_iso,
+        cancel_at_period_end=True, # Kľúčové pre CRON
+        external_customer_id=None,
+        external_subscription_id=None,
+        meta={
+            "source": "registration_pro_trial",
+            "pending_downgrade_to": "free", # Kľúčové pre CRON
+            "pending_cancel": True
+        },
+        ctx=ctx,
+    )
+
+    return {"success": True, "trial_end": end_iso, "subscription": new_active}
