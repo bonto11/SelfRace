@@ -5,7 +5,6 @@ import type {
   KPI,
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
-import { useT } from "@/app/shared/i18n/useT";
 
 /* ---------- small helpers (UI-friendly strings, no hardcoded colors) ---------- */
 
@@ -53,7 +52,6 @@ export function buildDayBuckets({
   const tIso = todayIso();
 
   // --- activities for day ---
-  // ✅ FIX: activityId musí byť number (nie null). Nevalidné ID rovno vyhodíme.
   const actsForDay: SessionCardItem[] = actRows
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
     .filter((r) => Number.isFinite(Number(r.activity_id))) // <-- fix
@@ -88,8 +86,6 @@ export function buildDayBuckets({
         subtitle,
         kpis,
         notes: null,
-
-        // ✅ must be number
         activityId: aid,
 
         // fallbacky

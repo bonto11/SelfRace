@@ -3,19 +3,12 @@
 
 import type { BillingUsageBarProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  PANEL_BAR_CARD,
-  PANEL_BAR_HEAD,
-  PANEL_BAR_TRACK,
-  PANEL_BAR_FILL,
-  PANEL_BAR_FOOT,
-} from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
 function pickColor(pct: number) {
   if (pct >= 90) return appColors.statusError;
   if (pct >= 75) return appColors.statusWarning;
-  return appColors.statusSuccess;
+  return appColors.brandPrimary; // Zelená (natur.greenPrimary)
 }
 
 export default function BillingUsageBar({
@@ -29,19 +22,14 @@ export default function BillingUsageBar({
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
   return (
-    <div
-      className={PANEL_BAR_CARD}
-      style={{
-        background: appColors.surfaceCard,
-        borderColor: appColors.surfaceCardBorder,
-        color: appColors.textPrimary,
-      }}
-    >
-      <div className={PANEL_BAR_HEAD}>
-        <span className="font-semibold">{t("billing.usage.title")}</span>
+    <div className="w-full">
+      <div className="flex justify-between items-end mb-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wider opacity-80" style={{ color: appColors.textPrimary }}>
+          {t("billing.usage.title")}
+        </span>
 
         {limit > 0 ? (
-          <span className="font-mono" style={{ color: appColors.textMuted }}>
+          <span className="text-xs font-mono" style={{ color: appColors.textMuted }}>
             {used.toLocaleString("sk-SK")} / {limit.toLocaleString("sk-SK")}{" "}
             {t("billing.usage.tokensUnit")}
           </span>
@@ -51,11 +39,11 @@ export default function BillingUsageBar({
       {limit > 0 ? (
         <>
           <div
-            className={PANEL_BAR_TRACK}
-            style={{ background: appColors.buttonGhostBg }}
+            className="h-2 w-full rounded-full overflow-hidden"
+            style={{ background: appColors.buttonGhostBgHover }} // Jemne viditeľný track
           >
             <div
-              className={PANEL_BAR_FILL}
+              className="h-full rounded-full transition-all duration-500 ease-out"
               style={{
                 width: `${pct}%`,
                 background: pickColor(pct),
@@ -63,16 +51,13 @@ export default function BillingUsageBar({
             />
           </div>
 
-          <div
-            className={PANEL_BAR_FOOT}
-            style={{ color: appColors.textMuted }}
-          >
+          <div className="flex justify-between mt-1.5 text-[10px]" style={{ color: appColors.textMuted }}>
             <span>{t("billing.usage.summary").replace("{{pct}}", String(pct))}</span>
             <span>{resetAt ? `${t("billing.usage.reset")}: ${resetAt.slice(0, 10)}` : ""}</span>
           </div>
         </>
       ) : (
-        <div className="text-[11px]" style={{ color: appColors.textMuted }}>
+        <div className="text-[11px] mt-1" style={{ color: appColors.textMuted }}>
           {t("billing.usage.noLimitDefined")}
         </div>
       )}

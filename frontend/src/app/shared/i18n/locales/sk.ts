@@ -1877,6 +1877,26 @@ export const sk = {
       paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
       paymentCanceled: "Proces platby bol zrušený.",
     },
+    statusCard: {
+      active: "Aktívny",
+      canceling: "Ruší sa",
+      periodEnds: "Obdobie končí:",
+      changeEffective: "Zmena nastane:",
+      cancelChangeBtn: "Zrušiť zmenu"
+    },
+    tierSelector: {
+      btnChoose: "Zvoliť plán",
+      btnCurrentTemp: "Aktuálny (dočasne)",
+      btnBasic: "Základný plán",
+      btnManage: "Spravovať plán",
+      btnPlanned: "Plánovaný prechod",
+      btnCancelSub: "Zrušiť predplatné",
+      btnActivate: "Aktivovať {{plan}}",
+      kTokensPerMonth: "k tokenov/mes.",
+      basicLimit: "Základný limit",
+      defaultDesc: "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
+      activeBadge: "aktívny"
+    },
   },
   sessions: {
     review: {

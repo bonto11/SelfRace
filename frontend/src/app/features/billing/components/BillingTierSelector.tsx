@@ -4,6 +4,7 @@
 import React from "react";
 import { useT } from "@/app/shared/i18n/useT";
 import type { AppSubscriptionTier } from "@/app/features/billing/types/billing";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type PlannedChange = {
   kind: "cancel" | "downgrade" | "upgrade";
@@ -36,26 +37,44 @@ export default function BillingTierSelector({
     );
   }
 
+  // Helper na farbu tieru
+  const getTierColor = (code: string) => {
+    switch (code) {
+      case "family": return appColors.brandFamily;
+      case "pro": return appColors.brandPro;
+      case "classic": return appColors.brandClassic;
+      default: return appColors.brandFree;
+    }
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tiers.map((tier) => {
         const isActive = activeTierCode === tier.code;
-        // Ak užívateľ zadal zrušenie na "free", ukážeme to ako target
         const isPlannedTarget = plannedChange?.to_tier_code === tier.code;
+        const tierColor = getTierColor(tier.code);
         
-        let cardClass = "card bg-base-100 border transition-all ";
+        let cardStyle: React.CSSProperties = {
+          borderColor: appColors.surfaceCardBorder,
+          background: appColors.surfaceCard,
+        };
+
         if (isActive) {
-          cardClass += "border-primary shadow-md ring-1 ring-primary/20 ";
+          cardStyle = {
+            borderColor: tierColor,
+            background: appColors.surfaceCardHover,
+            boxShadow: `0 0 15px -3px ${tierColor}40`, // Jemný glow
+          };
         } else if (isPlannedTarget) {
-          cardClass += "border-warning border-dashed ";
-        } else {
-          cardClass += "border-base-content/10 hover:border-base-content/30 ";
+          cardStyle = {
+            borderColor: appColors.statusWarning,
+            borderStyle: "dashed",
+            background: appColors.surfaceCard,
+          };
         }
 
-        // Lokálny preklad pre názvy tierov (ak máš pridané v sk.ts, použijeme to)
         const nameFallback = tier.name || tier.code.toUpperCase();
         
-        // Zistenie, akú akciu tlačidlo robí
         let btnText = "Zvoliť plán";
         let btnClass = "btn btn-sm btn-outline";
         let btnDisabled = isBusy;
@@ -68,7 +87,6 @@ export default function BillingTierSelector({
             btnText = "Základný plán";
             btnDisabled = true;
           } else {
-            // Sme na prémium, tlačidlo pôjde na správu predplatného (Portal)
             btnText = "Spravovať plán";
             btnClass = "btn btn-sm btn-primary btn-outline";
           }
@@ -77,7 +95,6 @@ export default function BillingTierSelector({
           btnClass = "btn btn-sm btn-warning btn-outline";
           btnDisabled = true;
         } else {
-          // Prechod na iný tier
           if (tier.code === "free") {
             btnText = "Zrušiť predplatné";
             btnClass = "btn btn-sm btn-outline btn-error";
@@ -88,19 +105,19 @@ export default function BillingTierSelector({
         }
 
         return (
-          <div key={tier.code} className={cardClass}>
+          <div key={tier.code} className="card transition-all" style={cardStyle}>
             <div className="card-body p-5 gap-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="card-title text-lg flex items-center gap-2">
+                  <h3 className="card-title text-lg flex items-center gap-2" style={{ color: isActive ? tierColor : appColors.textPrimary }}>
                     {nameFallback}
                     {isActive && !plannedChange && (
-                      <span className="text-primary text-sm font-normal">
+                      <span className="text-sm font-normal opacity-80">
                         ✓ {t("common.set") || "aktívny"}
                       </span>
                     )}
                   </h3>
-                  <div className="text-xs opacity-60 uppercase tracking-wide">
+                  <div className="text-xs opacity-60 uppercase tracking-wide mt-1">
                     {tier.ai_monthly_tokens_limit > 0
                       ? `${(tier.ai_monthly_tokens_limit / 1000).toFixed(0)}k tokenov/mes.`
                       : "Základný limit"}
@@ -108,7 +125,7 @@ export default function BillingTierSelector({
                 </div>
               </div>
 
-              <div className="text-sm opacity-80 min-h-[40px]">
+              <div className="text-sm opacity-80 min-h-[40px] mt-2">
                 {tier.description || "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera."}
               </div>
 

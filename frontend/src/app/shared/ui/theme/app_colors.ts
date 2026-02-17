@@ -171,6 +171,12 @@ export const appColors = {
   //Strava
   backgroundStrava: natur.backgroundStrava,
   textStrava: natur.textStrava,
+
+  // Tiers
+  brandFamily: natur.tierFamily,
+  brandPro: natur.tierPro,
+  brandClassic: natur.tierClassic,
+  brandFree: natur.tierFree,
 } as const;
 
 export type AppColors = typeof appColors;

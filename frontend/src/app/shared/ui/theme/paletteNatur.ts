@@ -139,6 +139,12 @@ export const natur = {
   backgroundStrava: "#FC5200",
   textStrava: "#FFFFFF",
 
+  // --- Tiers (Predplatné) ---
+  tierFamily: "#D8B4E2", // Jemná lila / fialová (nech je to fresh, ale neťahá oči)
+  tierPro: "#FDE047",    // Výrazná zlatá/žltá
+  tierClassic: "#94A3B8", // Chladná strieborná/šedá
+  tierFree: "#3F3F46",   // Tmavá šedá / neutrálna
+
 } as const;
 
 export type NaturPalette = typeof natur;

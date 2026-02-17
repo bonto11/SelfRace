@@ -15,7 +15,6 @@ import {
   USER_MENU_TRIGGER,
   USER_MENU_LABEL_ROW,
   USER_MENU_LABEL,
-  USER_MENU_TIER_PILL,
   USER_MENU_PANEL_HEAD,
   USER_MENU_HEAD_ROW,
   USER_MENU_HEAD_LEFT,
@@ -29,6 +28,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   getSubscriptionTier,
   subscribeSubscriptionTier,
+  setSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -39,6 +39,7 @@ type LocalUser = {
   name: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  tier_code?: string; // Pridané pre ťahanie z API
 };
 
 export default function UserMenu() {
@@ -54,7 +55,11 @@ export default function UserMenu() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const t = useT();
 
-  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{
+    left: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +71,13 @@ export default function UserMenu() {
         });
         const j = await r.json();
         if (!alive) return;
-        if (j?.ok && j.user) setMe(j.user as LocalUser);
+        if (j?.ok && j.user) {
+          setMe(j.user as LocalUser);
+          // ✅ Ak nám BE poslal aj tier, hneď ho uložíme
+          if (j.user.tier_code) {
+            setSubscriptionTier(j.user.tier_code);
+          }
+        }
       } catch {}
     })();
     return () => {
@@ -88,14 +99,12 @@ export default function UserMenu() {
     const nm = (me?.name ?? "").trim();
     if (nm) return nm;
 
-    // fallback: initials from email if nothing else
     const em = (me?.email ?? "").trim();
     if (!em) return "";
     const local = em.split("@")[0] ?? "";
     return local || em;
   }, [me?.displayName, me?.name, me?.email]);
 
-  // show initials ONLY if display name is empty
   const initials = useMemo(() => {
     const dn = (me?.displayName ?? "").trim();
     if (dn) return "";
@@ -111,24 +120,19 @@ export default function UserMenu() {
     return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
   }, [me?.displayName, me?.name, me?.email]);
 
-  const tierStyle =
-    tierCode === "pro"
-      ? {
-          background: "rgba(56,189,248,0.16)",
-          border: `1px solid ${appColors.panelBorder}`,
-          color: appColors.textPrimary,
-        }
-      : tierCode === "classic"
-        ? {
-            background: "rgba(163,230,53,0.14)",
-            border: `1px solid ${appColors.pillActiveBorder}`,
-            color: appColors.textPrimary,
-          }
-        : {
-            background: appColors.pillBg,
-            border: `1px solid ${appColors.pillBorder}`,
-            color: appColors.textSecondary,
-          };
+  const getTierBorderStyle = () => {
+    switch (tierCode) {
+      case "family":
+        return `1px solid ${appColors.brandFamily}`;
+      case "pro":
+        return `1px solid ${appColors.brandPro}`;
+      case "classic":
+        return `1px solid ${appColors.brandClassic}`;
+      case "free":
+      default:
+        return `1px solid ${appColors.brandFree}`;
+    }
+  };
 
   // close on outside click (portal-safe)
   useEffect(() => {
@@ -230,12 +234,6 @@ export default function UserMenu() {
                     {me?.email || ""}
                   </div>
                 </div>
-
-                {tierCode && (
-                  <span className={USER_MENU_TIER_PILL} style={tierStyle}>
-                    {tierCode.toUpperCase()}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -244,20 +242,29 @@ export default function UserMenu() {
                 {t("userMenu.account")}
               </a>
 
-              <a className={DROPDOWN_ITEM} href="/connectedApps" role="menuitem">
+              <a
+                className={DROPDOWN_ITEM}
+                href="/connectedApps"
+                role="menuitem"
+              >
                 {t("userMenu.connectedApps")}
               </a>
 
               <div className={DROPDOWN_DIVIDER} />
 
               <button
-                className={[DROPDOWN_ITEM_DANGER, USER_MENU_SIGNOUT_DISABLED].join(" ")}
+                className={[
+                  DROPDOWN_ITEM_DANGER,
+                  USER_MENU_SIGNOUT_DISABLED,
+                ].join(" ")}
                 onClick={handleSignOut}
                 disabled={busy === "signout"}
                 role="menuitem"
                 type="button"
               >
-                {busy === "signout" ? t("userMenu.logginOff") : t("userMenu.logoff")}
+                {busy === "signout"
+                  ? t("userMenu.logginOff")
+                  : t("userMenu.logoff")}
               </button>
             </nav>
           </div>,
@@ -270,36 +277,23 @@ export default function UserMenu() {
         ref={btnRef}
         className={USER_MENU_TRIGGER}
         style={{
-          background: open ? appColors.surfaceCardHover : appColors.buttonGhostBg,
-          border: `1px solid ${appColors.surfaceCardBorder}`,
+          background: open
+            ? appColors.surfaceCardHover
+            : appColors.buttonGhostBg,
+          border: getTierBorderStyle(), // ✅ Farba rámčeka podľa tieru
           color: appColors.textPrimary,
+          transition: "border-color 0.2s ease, background-color 0.2s ease",
         }}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
         type="button"
-        onMouseDown={(e) => e.preventDefault()} // iOS “sticky focus”
+        onMouseDown={(e) => e.preventDefault()}
       >
-        {/* ✅ only tier + display name (no avatar circle) */}
         <div className={USER_MENU_LABEL_ROW}>
           <span className={USER_MENU_LABEL}>
             {displayLabel || initials || "User"}
           </span>
-
-          {tierCode && (
-            <span
-              className={USER_MENU_TIER_PILL}
-              style={tierStyle}
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = "/account";
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              {tierCode.toUpperCase()}
-            </span>
-          )}
         </div>
       </button>
 

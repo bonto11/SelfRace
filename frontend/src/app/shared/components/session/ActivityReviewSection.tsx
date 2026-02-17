@@ -24,6 +24,15 @@ import {
   subscribeSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 
+// ✅ Importujeme config variables
+import { 
+  MAX_VERSIONS_FREE, 
+  MAX_VERSIONS_CLASSIC, 
+  MAX_VERSIONS_PRO, 
+  MAX_VERSIONS_FAMILY,
+  MAX_COMMENT_CHARS,
+} from "@/app/shared/config";
+
 import type { ActivitySession } from "./SessionCard";
 import { ActivitySectionShell } from "./ActivitySessionDetail";
 import type { Injury, InjuryArea, InjuryType } from "@/app/features/prefs/types/prefs";
@@ -33,7 +42,6 @@ type Props = {
   activityId: number;
 };
 
-const MAX_COMMENT_CHARS = 900;
 const REFRESH_COOLDOWN_MS = 10000;
 
 const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
@@ -58,9 +66,10 @@ function parseDateSafe(v: any): Date | null {
 }
 
 function maxVersionsForTier(tier: string): number {
-  if (tier === "pro") return 3;
-  if (tier === "classic") return 2;
-  return 1;
+  if (tier === "family") return MAX_VERSIONS_FAMILY;
+  if (tier === "pro") return MAX_VERSIONS_PRO;
+  if (tier === "classic") return MAX_VERSIONS_CLASSIC;
+  return MAX_VERSIONS_FREE;
 }
 
 /* ================= UI helpers ================= */
@@ -467,33 +476,30 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       );
 
       if (!out?.ok) {
-        // Backend vracia kódy (out.code), mapujeme ich na náš I18n slovník
         if (out?.code === "limit_reached") {
-          setUiError(t("api.activities.limitReached"));
+          setUiError(t("api.activities.limitReached" as any));
         } else if (out?.code === "activity_too_old") {
-          setUiError(t("api.activities.activityTooOld"));
+          setUiError(t("api.activities.activityTooOld" as any));
         } else if (out?.code === "only_one_for_free_tier") {
-          setUiError(t("api.activities.onlyOneForFreeTier"));
+          setUiError(t("api.activities.onlyOneForFreeTier" as any));
         } else if (out?.code === "duplicate_content") {
-          setUiError(t("api.activities.duplicateContent"));
+          setUiError(t("api.activities.duplicateContent" as any));
         } else if (out?.code === "activity_not_found") {
-          setUiError(t("api.activities.activityNotFound"));
+          setUiError(t("api.activities.activityNotFound" as any));
         } else {
-          // Ak by prišiel nejaký iný error z BE, preložíme jeho message (ak je to kľúč), inak default.
-          setUiError(t(out?.message as any) || t("sessions.review.errorRerunRejected"));
+          setUiError(t(out?.message as any) || t("sessions.review.errorRerunRejected" as any));
         }
       } else {
-        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
-        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
-        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
+        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success" as any));
+        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing" as any));
+        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued" as any));
 
         await loadData(true);
         setJustAddedNewInjury(false);
       }
     } catch (e: any) {
-      // Tu padnú "throw new Error('api.activities.enqueueFailed')" z frontend API vrstvy
       const translatedError = t(e?.message as any);
-      setUiError(translatedError || t("sessions.review.errorGeneric"));
+      setUiError(translatedError || t("sessions.review.errorGeneric" as any));
     } finally {
       setBusyGen(false);
       setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);
@@ -505,7 +511,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       <div className="flex items-center justify-between min-h-[32px]">
         <div className="text-xs font-medium opacity-70">
           {!hasReview ? (
-             (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld" as any)}</span> : <span>{t("sessions.review.statusNoReview" as any)}</span>
+              (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld" as any)}</span> : <span>{t("sessions.review.statusNoReview" as any)}</span>
           ) : (
             <span>{t("sessions.review.statusReviewCount" as any)?.replace("{{version}}", String(aiReviewVersion)).replace("{{max}}", String(maxVersions))}</span>
           )}
