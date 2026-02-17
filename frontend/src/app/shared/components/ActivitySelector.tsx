@@ -47,11 +47,18 @@ export default function ActivitySelector({
 
   async function loadActivities() {
     if (!userId || !dateIso) return [] as MiniActivity[];
-    return await apiFetchActivitiesAround(userId, {
-      date: dateIso,
-      deltaDays,
-      sports,
-    });
+
+    try {
+      return await apiFetchActivitiesAround(userId, {
+        date: dateIso,
+        deltaDays,
+        sports,
+      });
+    } catch (err: any) {
+      // Tichý log, alebo ak chceš, môžeš tu dať toast.error(t(err?.message))
+      console.error("Failed to load around activities:", err?.message);
+      return [] as MiniActivity[];
+    }
   }
 
   // fetch po otvorení selectu
@@ -125,7 +132,9 @@ export default function ActivitySelector({
   return (
     <div className={className}>
       <select
-        className={[FIELD_READONLY_BASE, disabled ? FIELD_DISABLED : ""].join(" ")}
+        className={[FIELD_READONLY_BASE, disabled ? FIELD_DISABLED : ""].join(
+          " ",
+        )}
         value={value === "" ? "" : String(value)}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
@@ -135,7 +144,7 @@ export default function ActivitySelector({
 
           if (onPicked) {
             const picked = v
-              ? items.find((x) => String(x.id) === v) ?? null
+              ? (items.find((x) => String(x.id) === v) ?? null)
               : null;
             onPicked(picked);
           }
@@ -146,8 +155,8 @@ export default function ActivitySelector({
           {disabled
             ? t("activitySelector.pickDateFirst")
             : loading
-            ? t("common.loading")
-            : t("activitySelector.noActivity")}
+              ? t("common.loading")
+              : t("activitySelector.noActivity")}
         </option>
 
         {!loading &&

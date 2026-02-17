@@ -78,8 +78,10 @@ export default function TrendWeeklyLoad({
         });
         if (!alive) return;
         setWeeks(rows);
-      } catch (e) {
-        console.error("Weekly load fetch failed:", e);
+      } catch (e: any) {
+        // Tiché logovanie
+        console.error("Weekly load fetch failed:", t(e?.message as any));
+        if (alive) setWeeks([]);
       } finally {
         if (alive) setLoading(false);
       }
@@ -88,7 +90,7 @@ export default function TrendWeeklyLoad({
     return () => {
       alive = false;
     };
-  }, [userId, lookback]);
+  }, [userId, lookback, t]);
 
   const labels = useMemo(() => weeks.map((w) => w.label || w.week), [weeks]);
 
@@ -199,7 +201,7 @@ export default function TrendWeeklyLoad({
     }
 
     return ds;
-  }, [weeks, metric]);
+  }, [weeks, metric, t]);
 
   const data: ChartData<"bar" | "line", number[], string> = {
     labels,
@@ -279,6 +281,7 @@ export default function TrendWeeklyLoad({
       _maxBarThickness,
       _categoryPercentage,
       _barPercentage,
+      t
     ],
   );
 

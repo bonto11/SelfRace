@@ -467,19 +467,33 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       );
 
       if (!out?.ok) {
-        if (out?.code === "limit_reached") setUiError(t("sessions.review.api.limitReached" as any));
-        else setUiError(out?.message || t("sessions.review.errorRerunRejected" as any));
+        // Backend vracia kódy (out.code), mapujeme ich na náš I18n slovník
+        if (out?.code === "limit_reached") {
+          setUiError(t("api.activities.limitReached"));
+        } else if (out?.code === "activity_too_old") {
+          setUiError(t("api.activities.activityTooOld"));
+        } else if (out?.code === "only_one_for_free_tier") {
+          setUiError(t("api.activities.onlyOneForFreeTier"));
+        } else if (out?.code === "duplicate_content") {
+          setUiError(t("api.activities.duplicateContent"));
+        } else if (out?.code === "activity_not_found") {
+          setUiError(t("api.activities.activityNotFound"));
+        } else {
+          // Ak by prišiel nejaký iný error z BE, preložíme jeho message (ak je to kľúč), inak default.
+          setUiError(t(out?.message as any) || t("sessions.review.errorRerunRejected"));
+        }
       } else {
-        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success" as any));
-        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing" as any));
-        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued" as any));
+        if (out.status === "SUCCESS") setApiNote(t("sessions.review.api.success"));
+        if (out.status === "PROCESSING") setApiNote(t("sessions.review.api.processing"));
+        if (out.status === "QUEUED") setApiNote(t("sessions.review.api.queued"));
 
         await loadData(true);
         setJustAddedNewInjury(false);
       }
     } catch (e: any) {
-      if (e?.message === "ERROR_ENQUEUE") setUiError(t("sessions.review.api.errorEnqueue" as any));
-      else setUiError(e?.message || t("sessions.review.errorGeneric" as any));
+      // Tu padnú "throw new Error('api.activities.enqueueFailed')" z frontend API vrstvy
+      const translatedError = t(e?.message as any);
+      setUiError(translatedError || t("sessions.review.errorGeneric"));
     } finally {
       setBusyGen(false);
       setTimeout(() => { setRefreshLocked(false); }, REFRESH_COOLDOWN_MS);

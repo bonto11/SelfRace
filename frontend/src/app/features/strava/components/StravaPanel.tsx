@@ -9,7 +9,7 @@ import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
-import { apiSyncActivities } from "@/app/features/activities/api/synchronization";
+import { apiSyncActivities } from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import { API_URL } from "@/app/shared/config";
 
@@ -39,7 +39,7 @@ import {
   PANEL_ACTIONS_INLINE,
   SURFACE_INSET_STYLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; // 1. Import hooku
+import { useT } from "@/app/shared/i18n/useT"; 
 
 type BusyKind = "import" | "disconnect" | null;
 
@@ -50,7 +50,7 @@ function fmtIsoLocal(iso?: string | null): string | null {
 
 export default function StravaPanel() {
   const { userId } = useUserId();
-  const t = useT(); // 2. Inicializácia t
+  const t = useT(); 
   const [busy, setBusy] = useState<BusyKind>(null);
 
   const [status, setStatus] = useState<StravaStatus | null>(null);
@@ -79,8 +79,8 @@ export default function StravaPanel() {
     try {
       const s = await apiGetStravaStatus(uid);
       setStatus(s);
-    } catch (e) {
-      console.error("[StravaPanel] status error:", e);
+    } catch (e: any) {
+      console.error("[StravaPanel] status error:", t(e?.message as any));
     } finally {
       setStatusLoading(false);
     }
@@ -129,7 +129,7 @@ export default function StravaPanel() {
   }, [searchParams, pathname, router, userId, t]);
 
   async function handleImportFromStrava() {
-    if (!userId) return toast.error(t("common.errors.missingUser"));
+    if (!userId) return toast.error(t("common.errors.missingUserAuth"));
     if (busy) return;
 
     if (status?.can_manual_import !== true) {
@@ -150,11 +150,15 @@ export default function StravaPanel() {
       const skp = stats.skipped ?? 0;
 
       // UX: Preložený súhrn importu
-      toast.success(`${t("strava.toasts.importOk")} • ${t("strava.import.new")}: ${imp} • ${t("strava.import.updated")}: ${upd} • ${t("strava.import.skipped")}: ${skp}`);
+      toast.success(
+        `${t("strava.toasts.importOk")} • ${t("strava.import.new")}: ${imp} • ${t("strava.import.updated")}: ${upd} • ${t("strava.import.skipped")}: ${skp}`
+      );
 
       await reloadStatus(userId);
     } catch (e: any) {
-      toast.error(e?.message || t("strava.toasts.importFailed"));
+      // ✅ Zabezpečenie: Ak to nevieme preložiť, dáme fallback
+      const errorMsg = t(e?.message as any) || t("strava.toasts.importFailed");
+      toast.error(errorMsg);
     } finally {
       setBusy(null);
     }
@@ -171,7 +175,7 @@ export default function StravaPanel() {
   }
 
   async function handleDisconnectConfirmed() {
-    if (!userId) return toast.error(t("common.errors.missingUser"));
+    if (!userId) return toast.error(t("common.errors.missingUserAuth"));
     if (busy) return;
 
     setBusy("disconnect");
@@ -182,7 +186,8 @@ export default function StravaPanel() {
       closeDisconnectModal();
       await reloadStatus(userId);
     } catch (e: any) {
-      toast.error(e?.message || t("strava.toasts.disconnectFailed"));
+      const errorMsg = t(e?.message as any) || t("strava.toasts.disconnectFailed");
+      toast.error(errorMsg);
     } finally {
       setBusy(null);
     }

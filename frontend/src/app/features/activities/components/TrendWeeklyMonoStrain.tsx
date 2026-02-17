@@ -68,8 +68,10 @@ export default function TrendWeeklyMonoStrain({
         });
         if (!alive) return;
         setWeeks(rows);
-      } catch (e) {
-        console.error("Weekly mono/strain load failed:", e);
+      } catch (e: any) {
+        // Tiché zalogovanie kľúča
+        console.error("Weekly mono/strain load failed:", e?.message);
+        if (alive) setWeeks([]); 
       } finally {
         if (alive) setLoading(false);
       }

@@ -20,6 +20,7 @@ import {
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
+import { toast } from "@/app/shared/ui/components/Toast"; // ✅ Pridaný toast
 
 import {
   CARD,
@@ -65,7 +66,6 @@ export default function TrendPareto8020({
   }, [selectedSports]);
 
   const [rows, setRows] = useState<ParetoRow[]>([]);
-  // NOVÉ: State pre uloženie reálnych športov z backendu
   const [fetchedAvailableSports, setFetchedAvailableSports] = useState<string[]>([]);
   const [pickedIdx, setPickedIdx] = useState<number | null>(null);
 
@@ -83,18 +83,16 @@ export default function TrendPareto8020({
         const response = await apiFetchParetoTrend(userId, lookback, sportCsv);
         if (!alive) return;
         
-        // ZMENA: Nastavujeme aj trend aj dostupné športy
         setRows(response.trend as ParetoRow[]);
         
-        // Ak API vracia zoznam, uložíme ho. Ak sa vráti prázdny a už máme vybraté športy,
-        // neresetujeme to (aby pri vyklikaní všetkého nezmizli tlačidlá).
         if (response.availableSports && response.availableSports.length > 0) {
           setFetchedAvailableSports(response.availableSports);
         }
         
         setPickedIdx(null);
-      } catch (e) {
-        console.error("Pareto trend fetch failed:", e);
+      } catch (e: any) {
+        // Tichšie logovanie s prekladom
+        console.error("Pareto trend fetch failed:", t(e?.message as any));
         if (!alive) return;
         setRows([]);
       } finally {
@@ -105,9 +103,8 @@ export default function TrendPareto8020({
     return () => {
       alive = false;
     };
-  }, [userId, lookback, sportCsv]);
+  }, [userId, lookback, sportCsv, t]);
 
-  // Výpočet zobrazených tlačidiel na základe fetchedAvailableSports
   const visibleSportsOptions = useMemo(() => {
     if (fetchedAvailableSports.length === 0) {
       return SPORT_OPTIONS; // Fallback pre istotu

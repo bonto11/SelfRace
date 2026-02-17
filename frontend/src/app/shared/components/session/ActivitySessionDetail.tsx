@@ -14,8 +14,7 @@ import {
   CHART_HR
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { useT } from "@/app/shared/i18n/useT";
-
+import { toast } from "@/app/shared/ui/components/Toast";
 import Button from "@/app/shared/ui/components/Button";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -25,7 +24,6 @@ import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { ActivitySplitsSection } from "./ActivitySplitsSection";
 
-import type { ActivitySession } from "./SessionCard";
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -34,9 +32,9 @@ import {
   PieTrend,
   type PieTrendItem,
 } from "@/app/shared/components/trend/PieTrend";
-import { type ActivityEnrichment } from "@/app/features/activities/api/activities_enrichment";
+import type{  ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
+import { useT } from "@/app/shared/i18n/useT";
 
-// --- Pridaný import pre nové API ---
 import { apiFetchActivityExtrasCombined } from "@/app/features/activities/api/analytics_activities";
 
 function fmtTime(min: number) {
@@ -181,6 +179,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   }, [act.activityId, getExtras, getEnrichment]);
 
   // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
+  // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
   const handleFetchDetailedData = async () => {
     if (!userId || !act.activityId || isFetchingDetailed) return;
     
@@ -190,10 +189,11 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       if (result) {
         if (result.streams) setStreams(result.streams);
         if (result.splits) setSplits(result.splits);
-        // Poznámka: Pre Enrichment by sme mohli zavolať refresh, ak by sme chceli prepočítať aj zóny
+        // Voliteľné: toast.success(t("common.done"));
       }
-    } catch (e) {
-      console.error("Failed to fetch detailed data from Strava", e);
+    } catch (e: any) {
+      // TU JE UŽÍVATEĽSKÁ AKCIA = UKÁŽEME TOAST S PREKLADOM
+      toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
     } finally {
       setIsFetchingDetailed(false);
     }

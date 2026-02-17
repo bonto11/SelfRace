@@ -139,3 +139,11 @@ export interface WeekRow {
   monotony: { km?: number; time?: number; trimp?: number };
   strain: { km?: number; time?: number; trimp?: number };
 }
+
+export type ActivityExtrasCombined = {
+  streams: StreamsData | null;
+  laps: any[];
+  splits: any[];
+  source: string;
+  fetched: boolean;
+};

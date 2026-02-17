@@ -32,33 +32,39 @@ function normalizeStatus(json: any, userId: number): AccountDeleteStatus {
 
 export async function apiGetAccountDeleteStatus(userId: number): Promise<AccountDeleteStatus> {
   const path = `/account/delete/status/${userId}`;
-
-  const json = await callBackend<any>(path, {
-    method: "GET",
-    cache: "no-store",
-  });
-
-  return normalizeStatus(json, userId);
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return normalizeStatus(json, userId);
+  } catch (err) {
+    throw new Error("api.account.statusFailed");
+  }
 }
 
 export async function apiRequestAccountDelete(userId: number): Promise<AccountDeleteStatus> {
   const path = `/account/delete/request/${userId}`;
-
-  const json = await callBackend<any>(path, {
-    method: "POST",
-    cache: "no-store",
-  });
-
-  return normalizeStatus(json, userId);
+  try {
+    const json = await callBackend<any>(path, {
+      method: "POST",
+      cache: "no-store",
+    });
+    return normalizeStatus(json, userId);
+  } catch (err) {
+    throw new Error("api.account.requestFailed");
+  }
 }
 
 export async function apiCancelAccountDelete(userId: number): Promise<AccountDeleteStatus> {
   const path = `/account/delete/cancel/${userId}`;
-
-  const json = await callBackend<any>(path, {
-    method: "POST",
-    cache: "no-store",
-  });
-
-  return normalizeStatus(json, userId);
+  try {
+    const json = await callBackend<any>(path, {
+      method: "POST",
+      cache: "no-store",
+    });
+    return normalizeStatus(json, userId);
+  } catch (err) {
+    throw new Error("api.account.cancelFailed");
+  }
 }

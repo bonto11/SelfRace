@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import { useT } from "@/app/shared/i18n/useT";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -112,6 +113,7 @@ function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
 export default function SettingsInputs() {
   const router = useRouter();
   const { userId } = useUserId();
+  const t = useT(); // ✅ Inicializácia prekladača
 
   const [open, setOpen] = useState(false);
 
@@ -187,11 +189,11 @@ export default function SettingsInputs() {
     setSaving(true);
     try {
       await apiUpsertUserPref(userId, "user.settings", settings);
-      toast.success("Nastavenia uložené.");
+      toast.success(t("api.common.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
       console.error("[SettingsInputs] save error", e);
-      toast.error(e?.message || "Nepodarilo sa uložiť nastavenia.");
+      toast.error(t("api.common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -216,7 +218,7 @@ export default function SettingsInputs() {
     if (!userId || processingDelete) return;
 
     if (!deleteConsentChecked) {
-      toast.error("Najprv potvrď súhlas (checkbox).");
+      toast.error(t("accountDelete.modal.errorCheckbox"));
       return;
     }
 
@@ -225,10 +227,10 @@ export default function SettingsInputs() {
       const st = await apiRequestAccountDelete(userId);
       setDeleteStatus(st);
       closeDeleteModal();
-      toast.success("Účet je označený na zmazanie. Do lehoty to môžeš ešte zrušiť.");
+      toast.success(t("accountDelete.toasts.requestSuccess"));
     } catch (e: any) {
       console.error("[SettingsInputs] delete request error", e);
-      toast.error(e?.message || "Nepodarilo sa označiť účet na zmazanie.");
+      toast.error(t(e?.message) || t("api.account.requestFailed"));
     } finally {
       setProcessingDelete(false);
     }
@@ -238,7 +240,7 @@ export default function SettingsInputs() {
     if (!userId || processingDelete) return;
 
     if (!deleteConsentChecked) {
-      toast.error("Najprv potvrď súhlas (checkbox).");
+      toast.error(t("accountDelete.modal.errorCheckbox"));
       return;
     }
 
@@ -247,10 +249,10 @@ export default function SettingsInputs() {
       const st = await apiCancelAccountDelete(userId);
       setDeleteStatus(st);
       closeDeleteModal();
-      toast.success("Plánované zmazanie účtu bolo zrušené.");
+      toast.success(t("accountDelete.toasts.cancelSuccess"));
     } catch (e: any) {
       console.error("[SettingsInputs] cancel delete error", e);
-      toast.error(e?.message || "Nepodarilo sa zrušiť plánované zmazanie.");
+      toast.error(t(e?.message) || t("api.account.cancelFailed"));
     } finally {
       setProcessingDelete(false);
     }
@@ -321,7 +323,7 @@ export default function SettingsInputs() {
             onClick={handleSave}
             className={INPUTS_CARD_SAVE_BTN}
           >
-            {saving ? "Ukladám…" : "Uložiť"}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         }
       >
@@ -438,7 +440,7 @@ export default function SettingsInputs() {
           {/* Zrušenie účtu */}
           <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
             <div className="text-sm font-semibold" style={{ color: appColors.statusError }}>
-              Zrušenie účtu (nezvratné)
+              {t("accountDelete.title")}
             </div>
 
             {/* Status box: pending = red, cancelled = neutral, none = red info */}
@@ -452,18 +454,18 @@ export default function SettingsInputs() {
               }}
             >
               {loadingDelete ? (
-                <p style={{ color: appColors.textMuted }}>Kontrolujem stav zmazania účtu…</p>
+                <p style={{ color: appColors.textMuted }}>{t("accountDelete.checkingStatus")}</p>
               ) : deletePending ? (
                 <>
                   <p>
-                    Účet je <span className="font-semibold">označený na zmazanie</span>.
+                    Účet je <span className="font-semibold">{t("accountDelete.status.pendingLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
-                    Ak nič neurobíš, všetky tvoje dáta v aplikácii sa po uplynutí lehoty trvalo vymažú.
+                    {t("accountDelete.status.pendingDesc")}
                     {deleteAtLabel ? (
                       <>
                         {" "}
-                        Odhadovaný dátum zmazania:{" "}
+                        {t("accountDelete.status.estimatedDate")}{" "}
                         <span className="font-semibold" style={{ color: appColors.textPrimary }}>
                           {deleteAtLabel}
                         </span>
@@ -474,28 +476,28 @@ export default function SettingsInputs() {
                     )}
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
-                    Poznámka: Nevymaže sa tvoj Strava účet – odstránia sa len importované dáta a prepojenie v tejto aplikácii.
+                    {t("accountDelete.status.stravaNote")}
                   </p>
                 </>
               ) : deleteCancelled ? (
                 <>
                   <p>
-                    Plánované zmazanie účtu bolo <span className="font-semibold">zrušené</span>.
+                    Plánované zmazanie účtu bolo <span className="font-semibold">{t("accountDelete.status.cancelledLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
-                    Účet je aktívny a tvoje dáta v aplikácii sa nevymažú.
+                    {t("accountDelete.status.cancelledDesc")}
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    Zmazanie účtu je <span className="font-semibold">nezvratné</span>.
+                    Zmazanie účtu je <span className="font-semibold">{t("accountDelete.status.defaultLabel")}</span>.
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
-                    Najprv sa účet označí na zmazanie. Počas lehoty ho môžeš ešte zrušiť, potom sa odstránia všetky dáta v aplikácii.
+                    {t("accountDelete.status.defaultDesc")}
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
-                    Poznámka: Nevymaže sa tvoj Strava účet – odstránia sa len dáta uložené v tejto aplikácii.
+                    {t("accountDelete.status.stravaNote")}
                   </p>
                 </>
               )}
@@ -509,7 +511,7 @@ export default function SettingsInputs() {
                   disabled={busyAny || !userId}
                   onClick={openDeleteCancelModal}
                 >
-                  Zrušiť plánované zmazanie
+                  {t("accountDelete.buttons.cancelDelete")}
                 </Button>
               ) : (
                 <Button
@@ -518,7 +520,7 @@ export default function SettingsInputs() {
                   disabled={busyAny || !userId}
                   onClick={openDeleteRequestModal}
                 >
-                  Označiť účet na zmazanie
+                  {t("accountDelete.buttons.requestDelete")}
                 </Button>
               )}
 
@@ -536,7 +538,7 @@ export default function SettingsInputs() {
                       .finally(() => setLoadingDelete(false));
                   }}
                 >
-                  Obnoviť stav
+                  {t("accountDelete.buttons.refreshState")}
                 </Button>
               )}
             </div>
@@ -565,10 +567,10 @@ export default function SettingsInputs() {
                   className="text-base font-semibold"
                   style={{ color: "rgba(254, 202, 202, 0.95)" }}
                 >
-                  {deleteModal === "request" ? "Zrušenie účtu" : "Zrušiť plánované zmazanie"}
+                  {deleteModal === "request" ? t("accountDelete.modal.titleRequest") : t("accountDelete.modal.titleCancel")}
                 </div>
                 <div className="text-[12px] mt-1" style={{ color: appColors.textMuted }}>
-                  {deleteModal === "request" ? "Toto je vážna akcia." : "Týmto ponecháš účet aktívny."}
+                  {deleteModal === "request" ? t("accountDelete.modal.subtitleRequest") : t("accountDelete.modal.subtitleCancel")}
                 </div>
               </div>
 
@@ -584,18 +586,16 @@ export default function SettingsInputs() {
 
             {deleteModal === "request" ? (
               <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
-                Najprv sa účet označí na zmazanie. Strava sa ale odpojí okamžite a vymažú sa importované dáta zo Stravy v tejto aplikácii.
-                Počas lehoty to môžeš ešte odvolať, ak nie tak potom sa odstránia všetky dáta v aplikácii.
+                {t("accountDelete.modal.infoRequest")}
                 <ul className="list-disc ml-5 mt-2 space-y-1">
-                  <li>trvalo sa vymažú tréningy, plány a nastavenia uložené v tejto aplikácii</li>
-                  <li>odpojí sa Strava a vymažú sa importované dáta zo Stravy v tejto aplikácii</li>
-                  <li>tvoj Strava účet sa nevymaže</li>
+                  <li>{t("accountDelete.modal.bullets.b1")}</li>
+                  <li>{t("accountDelete.modal.bullets.b2")}</li>
+                  <li>{t("accountDelete.modal.bullets.b3")}</li>
                 </ul>
               </div>
             ) : (
               <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
-                Zrušením plánovaného zmazania zostane účet aktívny a tvoje dáta v aplikácii sa nevymažú.
-                Strava sa ale bude musieť opäť pripojiť a budeš mať možnosť skráteného reimportu.
+                {t("accountDelete.modal.infoCancel")}
               </div>
             )}
 
@@ -606,17 +606,17 @@ export default function SettingsInputs() {
                 label={
                   <span className="text-sm">
                     {deleteModal === "request"
-                      ? "Súhlasím so spracovaním žiadosti o zrušenie účtu a beriem na vedomie, že po uplynutí lehoty sa moje dáta v aplikácii trvalo vymažú a že Strava dáta v SelfRace aplikácii budú zmazané okamžite."
-                      : "Rozumiem a chcem zrušiť plánované zmazanie účtu."}
+                      ? t("accountDelete.modal.consentRequest")
+                      : t("accountDelete.modal.consentCancel")}
                   </span>
                 }
-                hint={<span className="text-[11px]">Bez tohto súhlasu akciu nepovolíme.</span>}
+                hint={<span className="text-[11px]">{t("accountDelete.modal.consentHint")}</span>}
               />
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button size="sm" variant="secondary" onClick={closeDeleteModal} disabled={processingDelete}>
-                Zrušiť
+                {t("accountDelete.modal.btnCancel")}
               </Button>
 
               {deleteModal === "request" ? (
@@ -625,15 +625,15 @@ export default function SettingsInputs() {
                   variant="danger"
                   disabled={!deleteConsentChecked || processingDelete}
                   onClick={confirmRequestDelete}
-                  title={!deleteConsentChecked ? "Zaškrtni súhlas, aby sa akcia povolila." : "Označiť účet na zmazanie"}
+                  title={!deleteConsentChecked ? t("accountDelete.modal.errorCheckbox") : t("accountDelete.buttons.requestDelete")}
                 >
                   {processingDelete ? (
                     <span className="inline-flex items-center gap-1">
                       <LoadingSpinner size="button" />
-                      Spracúvam…
+                      {t("accountDelete.modal.btnProcessing")}
                     </span>
                   ) : (
-                    "Označiť na zmazanie"
+                    t("accountDelete.buttons.requestDelete")
                   )}
                 </Button>
               ) : (
@@ -642,15 +642,15 @@ export default function SettingsInputs() {
                   variant="danger"
                   disabled={!deleteConsentChecked || processingDelete}
                   onClick={confirmCancelDelete}
-                  title={!deleteConsentChecked ? "Zaškrtni súhlas, aby sa akcia povolila." : "Zrušiť plánované zmazanie"}
+                  title={!deleteConsentChecked ? t("accountDelete.modal.errorCheckbox") : t("accountDelete.buttons.cancelDelete")}
                 >
                   {processingDelete ? (
                     <span className="inline-flex items-center gap-1">
                       <LoadingSpinner size="button" />
-                      Spracúvam…
+                      {t("accountDelete.modal.btnProcessing")}
                     </span>
                   ) : (
-                    "Zrušiť zmazanie"
+                    t("accountDelete.buttons.cancelDelete")
                   )}
                 </Button>
               )}

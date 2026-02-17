@@ -11,3 +11,16 @@ export type ParetoRow = {
 };
 
 export const PARETO_SPORTS_DEFAULT = ["run", "ride", "mixed", "skate"] as const;
+
+export type ParetoTrendResponse = {
+  trend: Array<{
+    label: string;
+    easy_min: number;
+    hard_min: number;
+    easy_pct: number;
+    hard_pct: number;
+    start?: string;
+    end?: string;
+  }>;
+  availableSports: string[];
+};

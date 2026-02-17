@@ -1,74 +1,20 @@
 // src/app/features/activities/api/activities_enrichment.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
+import type {
+  ActivityReviewRerunResponse,
+  ActivityEnrichment
+} from "@/app/features/activities/types/activities_enrichment";
 
-export type ActivityEnrichment = {
-  activity_id: number;
-  z1_min: number | null;
-  z2_min: number | null;
-  z3_min: number | null;
-  z4_min: number | null;
-  z5_min: number | null;
-  sport_type_fe: string | null;
-  avg_hr_bpm: number | null;
-  moving_time_s: number | null;
-  distance_m: number | null;
-  ai_review: any | null;
-  updated_at: string | null;
-  ai_review_version: number | null;
-  ai_review_last_user_comment: string | null;
-  ai_review_last_user_comment_at: string | null;
-  ai_review_last_source: string | null;
-};
-
-export type ActivityReviewEnqueueOpts = {
-  runNow?: boolean;
-  model?: string | null;
-  comment?: string | null;
-  has_new_injury?: boolean; // ✅ ZMENA NA BOOLEAN
-};
-
-type AsyncJobRow = {
-  id: number;
-  user_id: number;
-  job_type: string;
-  status: string;
-  progress: number;
-  error: string | null;
-  result: any | null;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-};
-
-export type ActivityReviewRerunResponse =
-  | {
-      success: true;
-      ok: true;
-      status: "SUCCESS" | "PROCESSING" | "QUEUED";
-      job?: AsyncJobRow;
-      note?: string | null;
-      tier?: string;
-      ai_review_version?: number;
-      max_versions?: number;
-    }
-  | {
-      success: false;
-      ok: false;
-      code: string;
-      message: string;
-      tier?: string;
-      ai_review_version?: number;
-      max_versions?: number;
-    };
 
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
   opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean }
 ): Promise<ActivityReviewRerunResponse | any> {
-  if (!userId) throw new Error("Missing userId");
+  if (!userId) throw new Error("api.activities.missingUserId");
 
-  const requestPath = `/activities/enrichment/reviewRun/${userId}/${activityId}`;
+
+  const requestPath = `/activities/enrichment/reviewRun/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
   let enqueueJson: any;
   try {
@@ -76,13 +22,16 @@ export async function apiRerunActivityReview(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(opts), // ✅ Tu sa automaticky pošle has_new_injury (ak existuje)
+      body: JSON.stringify(opts),
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
-    throw new Error("ERROR_ENQUEUE");
+    // Hádžeme čistý I18n kľúč
+    throw new Error("api.activities.enqueueFailed");
   }
 
+  // Backend môže vrátiť ok: false s kódmi ako limit_reached, activity_too_old atď.
+  // Necháme to prejsť, FE si to preloží na základe vráteného `code`.
   if (!enqueueJson?.ok) {
     return enqueueJson;
   }
@@ -92,7 +41,7 @@ export async function apiRerunActivityReview(
     return { success: true, ok: true, status: "QUEUED" };
   }
 
-  const runPath = `/jobs/run/${userId}/${jobId}`;
+  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
 
   try {
     const runJson = await callBackend<any>(runPath, {
@@ -118,19 +67,24 @@ export async function apiGetActivityEnrichment(
   userId: number,
   activityId: number,
 ): Promise<ActivityEnrichment | null> {
-  if (!userId) throw new Error("userId is required");
-  if (!activityId) throw new Error("activityId is required");
+  if (!userId) throw new Error("api.activities.missingUserId");
+  if (!activityId) throw new Error("api.activities.missingActivityId");
 
   const path = `/activities/enrichment/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
-  const json = await callBackend<any>(path, {
-    method: "GET",
-    cache: "no-store",
-  });
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-  if (!json?.success) {
-    return null; 
+    if (!json?.success) {
+      return null; 
+    }
+
+    return json.data;
+  } catch (e) {
+    console.error("[AR] Enrichment Fetch Error", e);
+    throw new Error("api.activities.enrichmentFetchFailed");
   }
-
-  return json.data;
 }

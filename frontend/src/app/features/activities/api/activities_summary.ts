@@ -1,4 +1,4 @@
-// src/features/activity/api/activities_summary.ts
+// src/app/features/activities/api/activities_summary.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   ActivityRow,
@@ -14,29 +14,36 @@ export async function apiFetchRange(
   start: string,
   end: string
 ): Promise<ActivityRow[]> {
-  const path = `/activities_summary/range/${userId}?start=${encodeURIComponent(
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/activities_summary/range/${encodeURIComponent(String(userId))}?start=${encodeURIComponent(
     start
   )}&end=${encodeURIComponent(end)}`;
 
-  const json = await callBackend<any>(path, {
-    method: "GET",
-    cache: "no-store",
-  });
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-  const raw =
-    (Array.isArray(json?.data) && json.data) ||
-    (Array.isArray(json?.rows) && json.rows) ||
-    (Array.isArray(json?.items) && json.items) ||
-    (Array.isArray(json) && json) ||
-    [];
+    const raw =
+      (Array.isArray(json?.data) && json.data) ||
+      (Array.isArray(json?.rows) && json.rows) ||
+      (Array.isArray(json?.items) && json.items) ||
+      (Array.isArray(json) && json) ||
+      [];
 
-  const norm = (raw as any[])
-    .map(normalizeActivityRow)
-    .filter(Boolean) as ActivityRow[];
+    const norm = (raw as any[])
+      .map(normalizeActivityRow)
+      .filter(Boolean) as ActivityRow[];
 
-  // ak chceš najnovšie hore, prehoď poradie
-  norm.sort((a, b) => a.date.localeCompare(b.date));
-  return norm;
+    // ak chceš najnovšie hore, prehoď poradie
+    norm.sort((a, b) => a.date.localeCompare(b.date));
+    return norm;
+  } catch (err: any) {
+    console.error("[Activities API] apiFetchRange ERROR", err);
+    throw new Error("api.common.fetchFailed");
+  }
 }
 
 export async function apiFetchActivitiesAround(
@@ -47,19 +54,26 @@ export async function apiFetchActivitiesAround(
     sports?: SportFE[]; // default ["run","mixed"]
   }
 ): Promise<MiniActivity[]> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
   const delta = opts.deltaDays ?? 1;
   const sports = (opts.sports ?? ["run", "mixed"]).join(",");
 
   const path =
-    `/activities_summary/select/${userId}` +
+    `/activities_summary/select/${encodeURIComponent(String(userId))}` +
     `?date=${encodeURIComponent(opts.date)}` +
     `&delta_days=${delta}` +
     `&sports=${encodeURIComponent(sports)}`;
 
-  const j = await callBackend<{ items?: MiniActivity[] }>(path, {
-    method: "GET",
-    cache: "no-store",
-  });
+  try {
+    const j = await callBackend<{ items?: MiniActivity[] }>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-  return (j?.items ?? []) as MiniActivity[];
+    return (j?.items ?? []) as MiniActivity[];
+  } catch (err: any) {
+    console.error("[Activities API] apiFetchActivitiesAround ERROR", err);
+    throw new Error("api.common.fetchFailed");
+  }
 }

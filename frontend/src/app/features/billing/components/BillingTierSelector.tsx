@@ -1,23 +1,23 @@
 // src/features/billing/components/BillingTierSelector.tsx
 "use client";
 
-import Button from "@/app/shared/ui/components/Button";
-import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import type { BillingTierSelectorProps } from "@/app/features/billing/types/billing";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { PANEL_GRID_3, PANEL_BADGE } from "@/app/shared/ui/tokens";
+import React from "react";
 import { useT } from "@/app/shared/i18n/useT";
+import type { AppSubscriptionTier } from "@/app/features/billing/types/billing";
 
-const TIER_ORDER: Record<string, number> = { free: 0, classic: 1, pro: 2 };
+type PlannedChange = {
+  kind: "cancel" | "downgrade" | "upgrade";
+  to_tier_code: string | null;
+  effective_from: string | null;
+} | null;
 
-function tierRank(code: string | null | undefined): number {
-  if (!code) return 0;
-  return TIER_ORDER[code] ?? 0;
-}
-
-function d10(s?: string | null) {
-  return s ? s.slice(0, 10) : "";
-}
+type Props = {
+  tiers: AppSubscriptionTier[];
+  activeTierCode: string;
+  plannedChange: PlannedChange;
+  isBusy: boolean;
+  onSetTier: (code: string) => void;
+};
 
 export default function BillingTierSelector({
   tiers,
@@ -25,142 +25,104 @@ export default function BillingTierSelector({
   plannedChange,
   isBusy,
   onSetTier,
-}: BillingTierSelectorProps) {
+}: Props) {
   const t = useT();
-  const activeRank = tierRank(activeTierCode);
 
-  if (tiers.length === 0) {
+  if (!tiers.length) {
     return (
-      <p className="text-sm" style={{ color: appColors.textMuted }}>
-        {t("billing.tiers.noTiersConfigured")}
-      </p>
+      <div className="text-sm opacity-50 italic">
+        {t("common.noData")}
+      </div>
     );
   }
 
   return (
-    <div className={PANEL_GRID_3}>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tiers.map((tier) => {
-        const isCurrent = tier.code === activeTierCode;
-        const priceEur = (tier.monthly_price_cents || 0) / 100;
+        const isActive = activeTierCode === tier.code;
+        // Ak užívateľ zadal zrušenie na "free", ukážeme to ako target
+        const isPlannedTarget = plannedChange?.to_tier_code === tier.code;
+        
+        let cardClass = "card bg-base-100 border transition-all ";
+        if (isActive) {
+          cardClass += "border-primary shadow-md ring-1 ring-primary/20 ";
+        } else if (isPlannedTarget) {
+          cardClass += "border-warning border-dashed ";
+        } else {
+          cardClass += "border-base-content/10 hover:border-base-content/30 ";
+        }
 
-        const rank = tierRank(tier.code);
-        const isUpgrade = rank > activeRank;
-        const isDowngrade = rank < activeRank;
+        // Lokálny preklad pre názvy tierov (ak máš pridané v sk.ts, použijeme to)
+        const nameFallback = tier.name || tier.code.toUpperCase();
+        
+        // Zistenie, akú akciu tlačidlo robí
+        let btnText = "Zvoliť plán";
+        let btnClass = "btn btn-sm btn-outline";
+        let btnDisabled = isBusy;
 
-        const isPlannedTarget =
-          !!plannedChange &&
-          plannedChange.to_tier_code === tier.code &&
-          plannedChange.kind === "downgrade";
-
-        const isPlannedCancel =
-          tier.code === "free" && plannedChange?.kind === "cancel";
-
-        let buttonLabel = t("billing.tiers.btnSelect");
-        if (isCurrent) buttonLabel = t("billing.tiers.btnCurrent");
-        else if (isPlannedCancel)
-          buttonLabel = plannedChange?.effective_from
-            ? `${t("billing.tiers.btnWillCancel")} ${d10(plannedChange.effective_from)}`
-            : t("billing.tiers.btnCancelPlanned");
-        else if (isPlannedTarget)
-          buttonLabel = plannedChange?.effective_from
-            ? `${t("billing.tiers.btnWillDowngrade")} ${d10(plannedChange.effective_from)}`
-            : t("billing.tiers.btnDowngradePlanned");
-        else if (tier.code === "free") buttonLabel = t("billing.tiers.btnPlanCancel");
-        else if (isDowngrade) buttonLabel = t("billing.tiers.btnPlanDowngrade");
-        else if (isUpgrade) buttonLabel = t("billing.tiers.btnUpgradeNow");
-
-        const disabled =
-          isBusy || isCurrent || isPlannedTarget || isPlannedCancel;
-
-        const borderColor = isCurrent
-          ? appColors.statusSuccess
-          : isPlannedTarget || isPlannedCancel
-            ? appColors.statusWarning
-            : appColors.surfaceCardBorder;
-
-        const badge = isCurrent
-          ? t("billing.tiers.badgeCurrent")
-          : isPlannedTarget || isPlannedCancel
-            ? t("billing.tiers.badgePlanned")
-            : null;
+        if (isActive) {
+          if (plannedChange) {
+            btnText = "Aktuálny (dočasne)";
+            btnDisabled = true;
+          } else if (tier.code === "free") {
+            btnText = "Základný plán";
+            btnDisabled = true;
+          } else {
+            // Sme na prémium, tlačidlo pôjde na správu predplatného (Portal)
+            btnText = "Spravovať plán";
+            btnClass = "btn btn-sm btn-primary btn-outline";
+          }
+        } else if (isPlannedTarget) {
+          btnText = "Plánovaný prechod";
+          btnClass = "btn btn-sm btn-warning btn-outline";
+          btnDisabled = true;
+        } else {
+          // Prechod na iný tier
+          if (tier.code === "free") {
+            btnText = "Zrušiť predplatné";
+            btnClass = "btn btn-sm btn-outline btn-error";
+          } else {
+            btnText = `Aktivovať ${nameFallback}`;
+            btnClass = "btn btn-sm btn-primary";
+          }
+        }
 
         return (
-          <div
-            key={tier.id}
-            className="rounded-lg border px-3 py-3"
-            style={{
-              background: appColors.surfaceCard,
-              borderColor,
-              color: appColors.textPrimary,
-            }}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="font-semibold uppercase tracking-wide text-xs">
-                  {tier.code}
-                </div>
-                <div className="text-xs" style={{ color: appColors.textMuted }}>
-                  {tier.name}
+          <div key={tier.code} className={cardClass}>
+            <div className="card-body p-5 gap-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="card-title text-lg flex items-center gap-2">
+                    {nameFallback}
+                    {isActive && !plannedChange && (
+                      <span className="text-primary text-sm font-normal">
+                        ✓ {t("common.set") || "aktívny"}
+                      </span>
+                    )}
+                  </h3>
+                  <div className="text-xs opacity-60 uppercase tracking-wide">
+                    {tier.ai_monthly_tokens_limit > 0
+                      ? `${(tier.ai_monthly_tokens_limit / 1000).toFixed(0)}k tokenov/mes.`
+                      : "Základný limit"}
+                  </div>
                 </div>
               </div>
 
-              {badge ? (
-                <span
-                  className={PANEL_BADGE}
-                  style={{
-                    borderColor,
-                    color: isCurrent
-                      ? appColors.statusSuccess
-                      : appColors.statusWarning,
-                    background: appColors.pillBg,
-                  }}
+              <div className="text-sm opacity-80 min-h-[40px]">
+                {tier.description || "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera."}
+              </div>
+
+              <div className="card-actions justify-end mt-2">
+                <button
+                  className={btnClass}
+                  disabled={btnDisabled}
+                  onClick={() => onSetTier(tier.code)}
                 >
-                  {badge}
-                </span>
-              ) : null}
+                  {isBusy && !isActive && <span className="loading loading-spinner loading-xs"></span>}
+                  {btnText}
+                </button>
+              </div>
             </div>
-
-            <div
-              className="text-sm font-semibold"
-              style={{ color: appColors.textPrimary }}
-            >
-              {priceEur === 0 ? t("billing.tiers.free") : `${priceEur.toFixed(2)} ${t("billing.tiers.currencySuffix")}`}
-            </div>
-
-            <div className="text-[11px]" style={{ color: appColors.textMuted }}>
-              {t("billing.tiers.aiLimitLabel")}:{" "}
-              <span
-                className="font-semibold"
-                style={{ color: appColors.textPrimary }}
-              >
-                {tier.ai_monthly_tokens_limit.toLocaleString("sk-SK")} {t("billing.tiers.tokensPerMonth")}
-              </span>
-            </div>
-
-            {tier.description ? (
-              <p
-                className="text-[11px] line-clamp-3"
-                style={{ color: appColors.textSecondary }}
-              >
-                {tier.description}
-              </p>
-            ) : null}
-
-            <Button
-              size="xs"
-              variant={isCurrent ? "secondary" : "primary"}
-              disabled={disabled}
-              onClick={() => onSetTier(tier.code)}
-            >
-              {isBusy && !isCurrent ? (
-                <span className="inline-flex items-center gap-1">
-                  <LoadingSpinner size="button" />
-                  {t("common.saving")}
-                </span>
-              ) : (
-                buttonLabel
-              )}
-            </Button>
           </div>
         );
       })}

@@ -26,17 +26,20 @@ import {
   apiFetchParetoWidget,
   apiFetchParetoTrend,
   apiFetchActivityExtrasCombined,
-  type ActivityExtrasCombined,
-  type ParetoTrendResponse, // ✅ Importujeme nový typ z API klienta
 } from "@/app/features/activities/api/analytics_activities";
+import type {
+  ParetoTrendResponse,
+} from "@/app/features/activities/types/pareto";
+import type {
+  ActivityExtrasCombined,
+} from "@/app/features/activities/types/activities";
+import { toast } from "@/app/shared/ui/components/Toast";
+import { useT } from "@/app/shared/i18n/useT";
 
 import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
 
-// ✅ NEW IMPORTS
-import {
-  apiGetActivityEnrichment,
-  type ActivityEnrichment,
-} from "@/app/features/activities/api/activities_enrichment";
+import { apiGetActivityEnrichment } from "@/app/features/activities/api/activities_enrichment";
+import type { ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
 
 import { hasSesssioStorage } from "@/app/shared/utils/sessionStorage";
 
@@ -48,7 +51,6 @@ function rangeKey(userId: number, start: string, end: string) {
 function extrasKey(activityId: number) {
   return `ACT:EXTRAS:v1:${activityId}`;
 }
-// ✅ NEW KEY
 function enrichmentKey(activityId: number) {
   return `ACT:ENRICH:v1:${activityId}`;
 }
@@ -86,7 +88,6 @@ function loadRange(
 
 /* ------------------------------ cache helpers (Enrichment) ------------------------------ */
 
-// ✅ NEW Save/Load logic for Enrichment
 function saveEnrichment(activityId: number, data: ActivityEnrichment) {
   if (!hasSesssioStorage()) return;
   try {
@@ -111,16 +112,11 @@ function loadEnrichment(activityId: number): ActivityEnrichment | null {
 
 /* ------------------------------ streams normalize ------------------------------ */
 
-/**
- * BE/DB/Strava transport -> FE model (StreamsData)
- * - podporuje oba kľúče: hr aj heartrate_bpm
- */
 function normalizeStreams(raw: any): StreamsData | null {
   if (!raw || typeof raw !== "object") return null;
 
   const time_s = Array.isArray(raw?.time_s) ? (raw.time_s as number[]) : [];
   if (!time_s.length) {
-    // bez time_s to v UI aj tak nechceš (grafy, pace derivácie, ...)
     return null;
   }
 
@@ -160,7 +156,6 @@ function normalizeStreams(raw: any): StreamsData | null {
 function saveExtras(activityId: number, data: ActivityExtrasCombined) {
   if (!hasSesssioStorage()) return;
   try {
-    // uložíme už normalizované streams (nie transport shape)
     const normStreams = normalizeStreams((data as any)?.streams) ?? null;
 
     sessionStorage.setItem(
@@ -186,8 +181,6 @@ function loadExtras(activityId: number): ActivityExtrasCombined | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
 
-    // spätná kompatibilita:
-    // - ak by v cache náhodou bol starý transport shape, normalizeStreams ho zoberie
     const streams = normalizeStreams(parsed?.streams) ?? null;
     const laps = Array.isArray(parsed?.laps) ? parsed.laps : [];
     const splits = Array.isArray(parsed?.splits) ? parsed.splits : [];
@@ -246,10 +239,7 @@ type Ctx = {
   selectByRange: (start: string, end: string) => ActivityRow[];
   getSummary: (activityId: number) => ActivityRow | null;
 
-  // ✅ existujúce "detail" API (streams, laps)
   getExtras: (activityId: number, opts?: FetchOpts) => Promise<ActivityExtras>;
-
-  // ✅ NEW: Enrichment API (AI, zones, detailed metrics)
   getEnrichment: (
     activityId: number,
     opts?: FetchOpts,
@@ -267,7 +257,6 @@ type Ctx = {
     days: number;
   } | null>;
 
-  // ✅ ZMENA: Návratový typ je teraz aktualizovaný ParetoTrendResponse objekt
   getParetoTrend: (
     weeks: number,
     sport?: string | string[] | null,
@@ -297,6 +286,7 @@ export function ActivityDataProvider({
   const { userId } = useUserId();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const t = useT();
 
   const rangeEnd = todayISO();
   const rangeStart = addDays(rangeEnd, -(days - 1));
@@ -317,12 +307,15 @@ export function ActivityDataProvider({
       try {
         const norm = await apiFetchRange(userId, rangeStart, rangeEnd);
         setRows(norm);
-        saveRange(userId, rangeStart, rangeEnd, norm);
+        saveRange(userId, rangeStart, rangeEnd, norm); 
+      } catch (err: any) {
+        const translatedError = t(err?.message as any) || t("api.common.fetchFailed");
+        toast.error(translatedError);
       } finally {
         setLoading(false);
       }
     },
-    [userId, rangeStart, rangeEnd],
+    [userId, rangeStart, rangeEnd, t],
   );
 
   useEffect(() => {
@@ -349,7 +342,6 @@ export function ActivityDataProvider({
     [rows],
   );
 
-  // ✅ existujúce extras
   const getExtras = useCallback(
     async (activityId: number, opts?: FetchOpts): Promise<ActivityExtras> => {
       if (userId == null || !activityId)
@@ -357,7 +349,6 @@ export function ActivityDataProvider({
 
       const fetch = !!opts?.fetch;
 
-      // 1) cache (iba keď fetch=false)
       if (!fetch) {
         const cached = loadExtras(activityId);
         if (cached) {
@@ -371,32 +362,33 @@ export function ActivityDataProvider({
         }
       }
 
-      // 2) API (db alebo strava podľa fetch)
-      const res = await apiFetchActivityExtrasCombined(
-        userId,
-        activityId,
-        fetch,
-      );
+      try {
+        const res = await apiFetchActivityExtrasCombined(
+          userId,
+          activityId,
+          fetch,
+        );
 
-      // res.streams je transport shape -> normalizujeme
-      const normStreams = normalizeStreams((res as any)?.streams) ?? null;
+        const normStreams = normalizeStreams((res as any)?.streams) ?? null;
 
-      const out: ActivityExtras = {
-        streams: normStreams,
-        laps: (res as any)?.laps ?? [],
-        splits: (res as any)?.splits ?? [],
-        source: (res as any)?.source,
-        fetched: (res as any)?.fetched,
-      };
+        const out: ActivityExtras = {
+          streams: normStreams,
+          laps: (res as any)?.laps ?? [],
+          splits: (res as any)?.splits ?? [],
+          source: (res as any)?.source,
+          fetched: (res as any)?.fetched,
+        };
 
-      // 3) cache len pre fetch=false (DB path)
-      if (!fetch && res) saveExtras(activityId, res);
-      return out;
+        if (!fetch && res) saveExtras(activityId, res);
+        return out;
+      } catch (err: any) {
+        console.error("getExtras Provider fetch error:", t(err?.message as any));
+        return { streams: null, laps: [], splits: [] }; // Silent fallback
+      }
     },
-    [userId],
+    [userId, t],
   );
 
-  // ✅ NEW: Enrichment Provider Method
   const getEnrichment = useCallback(
     async (
       activityId: number,
@@ -406,26 +398,24 @@ export function ActivityDataProvider({
 
       const fetch = !!opts?.fetch;
 
-      // 1) Skúsime cache (ak nie je vynútený fetch)
       if (!fetch) {
         const cached = loadEnrichment(activityId);
         if (cached) return cached;
       }
 
-      // 2) Zavoláme API
       try {
         const data = await apiGetActivityEnrichment(userId, activityId);
         if (data) {
-          // 3) Uložíme do cache
           saveEnrichment(activityId, data);
         }
         return data;
-      } catch (err) {
-        console.error("[DataProvider] getEnrichment failed", err);
+      } catch (err: any) {
+        console.error("[DataProvider] getEnrichment failed:", t(err?.message as any));
+        // Nevyhadzujeme toast tu, lebo je to casto pozadove volanie
         return null;
       }
     },
-    [userId],
+    [userId, t],
   );
 
   const rolling7 = useCallback(
@@ -505,23 +495,32 @@ export function ActivityDataProvider({
   const getParetoWidget = useCallback(
     async (daysParam: number, sportSel: string | string[] | null = null) => {
       if (userId == null) return null;
-      const sportCsv = toCsvSportParam(sportSel);
-      return apiFetchParetoWidget(userId, daysParam, sportCsv);
+      try {
+        const sportCsv = toCsvSportParam(sportSel);
+        return await apiFetchParetoWidget(userId, daysParam, sportCsv);
+      } catch (err: any) {
+        console.error("Pareto widget error:", t(err?.message as any));
+        return null; // Silent fallback
+      }
     },
-    [userId],
+    [userId, t],
   );
 
-  // ✅ ZMENA: Ak nie je userId, vráti objekt, nie pole
   const getParetoTrend = useCallback(
     async (
       weeksParam: number,
       sportSel: string | string[] | null = null,
     ): Promise<ParetoTrendResponse> => {
       if (userId == null) return { trend: [], availableSports: [] };
-      const sportCsv = toCsvSportParam(sportSel);
-      return apiFetchParetoTrend(userId, weeksParam, sportCsv);
+      try {
+        const sportCsv = toCsvSportParam(sportSel);
+        return await apiFetchParetoTrend(userId, weeksParam, sportCsv);
+      } catch (err: any) {
+        console.error("Pareto trend error:", t(err?.message as any));
+        return { trend: [], availableSports: [] }; // Silent fallback
+      }
     },
-    [userId],
+    [userId, t],
   );
 
   const value: Ctx = useMemo(
@@ -535,7 +534,7 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getExtras,
-      getEnrichment, // ✅ Exported
+      getEnrichment,
       rolling7,
       getParetoWidget,
       getParetoTrend,
@@ -550,7 +549,7 @@ export function ActivityDataProvider({
       selectByRange,
       getSummary,
       getExtras,
-      getEnrichment, // ✅ Dependecy
+      getEnrichment,
       rolling7,
       getParetoWidget,
       getParetoTrend,
