@@ -1,7 +1,7 @@
 // src/app/shared/components/session/ActivitySessionDetail.tsx
 "use client";
 
-import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, type ReactNode, type CSSProperties, useMemo } from "react";
 import {
   SURFACE_INLINE,
   SURFACE_INLINE_STYLE,
@@ -154,7 +154,29 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   // --- Nové stavy pre načítavanie dát ---
   const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  const hasStreams = streams.time_s && streams.time_s.length > 0;
+
+  // ✅ OPRAVA: Vyčistíme streamy, aby sme do grafov neposielali polia plné núl
+  const cleanedStreams = useMemo(() => {
+    if (!streams.time_s || streams.time_s.length === 0) return streams;
+
+    const out = { ...streams };
+
+    // Ak pole nemá aspoň jednu hodnotu rôznu od nuly/null, vynulujeme ho na prázdne pole
+    const hasData = (arr: (number | null)[] | undefined) => {
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      return arr.some(val => val !== null && val !== 0);
+    };
+
+    if (!hasData(out.altitude_m)) out.altitude_m = [];
+    if (!hasData(out.distance_m)) out.distance_m = [];
+    if (!hasData(out.cadence_rpm)) out.cadence_rpm = [];
+    if (!hasData(out.power_w)) out.power_w = [];
+    if (!hasData(out.hr)) out.hr = [];
+
+    return out;
+  }, [streams]);
+
+  const hasStreams = cleanedStreams.time_s && cleanedStreams.time_s.length > 0;
 
   useEffect(() => {
     if (!act.activityId) return;
@@ -179,7 +201,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   }, [act.activityId, getExtras, getEnrichment]);
 
   // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
-  // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
   const handleFetchDetailedData = async () => {
     if (!userId || !act.activityId || isFetchingDetailed) return;
     
@@ -192,7 +213,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         // Voliteľné: toast.success(t("common.done"));
       }
     } catch (e: any) {
-      // TU JE UŽÍVATEĽSKÁ AKCIA = UKÁŽEME TOAST S PREKLADOM
       toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
     } finally {
       setIsFetchingDetailed(false);
@@ -245,16 +265,16 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {/* Zobrazenie grafov ALEBO tlačidla na ich stiahnutie */}
+      {/* ✅ Posielame vyčistené streamy do grafu */}
       {hasStreams ? (
         <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
-           <ActivityStreamCharts streams={streams} compact={compactChart} sportHint={sportHint} />
+           <ActivityStreamCharts streams={cleanedStreams} compact={compactChart} sportHint={sportHint} />
         </ActivitySectionShell>
       ) : (
         initialLoadDone && stravaActivityId && (
           <div className="mt-4 p-5 rounded-2xl border border-white/5 bg-[#121418] flex flex-col items-center justify-center text-center space-y-3">
             <div className="text-white/50 text-sm">
-              {t("sessions.detail.btnMoreData" as any) /* "Načítať podrobné dáta" alebo pod. */}
+              {t("sessions.detail.btnMoreData" as any)}
             </div>
             <Button
               type="button"
