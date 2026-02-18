@@ -256,7 +256,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
             onClick={handleFetchDetailedData} 
             disabled={isFetchingDetailed}
             className={`${SESSION_PILL} ${isFetchingDetailed ? 'opacity-50 cursor-not-allowed' : ''}`}
-            style={{ ...SESSION_PILL_STYLE, backgroundColor: appColors.greenPrimary, color: appColors.backgroundMain, borderColor: appColors.greenPrimary }}
+            style={{ ...SESSION_PILL_STYLE, backgroundColor: appColors.brandPrimary, color: appColors.backgroundMain, borderColor: appColors.greenPrimary }}
           >
             {isFetchingDetailed ? t("common.loading") : t("sessions.detail.btnMoreData" as any)}
           </button>
