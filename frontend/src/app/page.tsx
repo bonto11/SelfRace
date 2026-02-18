@@ -52,11 +52,11 @@ export default function LandingPage() {
             >
               {t("landing.p2") || "Vytvorené bežcom, nie korporáciou. Prečítaj si "}
               <Link 
-                href="/about" 
+                href="/ourStory" 
                 className="font-medium hover:underline transition-all"
                 style={{ color: appColors.textPrimary }}
               >
-                {t("landing.p2Link") || "príbeh o tom, prečo SelfRace vznikol."}
+                {t("landing.p2Link")}
               </Link>
             </p>
 

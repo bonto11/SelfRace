@@ -65,11 +65,17 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
+// ✅ OPRAVENÁ FUNKCIA: Bezpečné parsovanie čísel, aby sme predišli NaN
 function maxVersionsForTier(tier: string): number {
-  if (tier === "family") return MAX_VERSIONS_FAMILY;
-  if (tier === "pro") return MAX_VERSIONS_PRO;
-  if (tier === "classic") return MAX_VERSIONS_CLASSIC;
-  return MAX_VERSIONS_FREE;
+  const parseSafe = (val: any, fallback: number) => {
+    const num = Number(val);
+    return Number.isFinite(num) ? num : fallback;
+  };
+
+  if (tier === "family") return parseSafe(MAX_VERSIONS_FAMILY, 4);
+  if (tier === "pro") return parseSafe(MAX_VERSIONS_PRO, 3);
+  if (tier === "classic") return parseSafe(MAX_VERSIONS_CLASSIC, 2);
+  return parseSafe(MAX_VERSIONS_FREE, 1);
 }
 
 /* ================= UI helpers ================= */
