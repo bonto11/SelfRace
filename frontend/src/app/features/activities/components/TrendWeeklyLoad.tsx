@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  Rectangle,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -160,7 +161,7 @@ export default function TrendWeeklyLoad({
   const handleChartClick = (state: any) => {
     if (!onPickWeek || !state) return;
     
-    // ✅ Používame activeTooltipIndex, aby sme presne trafili kliknutý stĺpec (ako ukázala konzola!)
+    // Používame activeTooltipIndex, aby sme trafili správny stĺpec
     const index = state.activeTooltipIndex ?? state.activeIndex;
     
     if (index !== undefined && chartData[index]) {
@@ -168,10 +169,10 @@ export default function TrendWeeklyLoad({
       
       if (w && w.start && w.end) {
         onPickWeek({
-          week: w.week || w.start,
+          week: w.week || w.start || "",
           start: w.start,
           end: w.end,
-          sport: "all", // ✅ Opravené na string "all", aby to sedelo s TS
+          sport: "all",
         });
       }
     }
@@ -179,8 +180,7 @@ export default function TrendWeeklyLoad({
 
   const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour") || "h"}]` : `[${t("common.units.trimp")}]`;
 
-  // ✅ Zabezpečené návratové typy String()
-  const yAxisTickFormatter = (val: any): string => {
+  const yAxisTickFormatter = (val: any, index: number): string => {
     const num = Number(val);
     if (metric === "time") {
       if (num === 0) return "0";
@@ -226,7 +226,6 @@ export default function TrendWeeklyLoad({
           </div>
         )}
         
-        {/* ✅ minHeight a minWidth pridané */}
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }} style={{ outline: 'none' }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
@@ -250,12 +249,13 @@ export default function TrendWeeklyLoad({
             <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {hasData.run && <Bar activeBar={false} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.ride && <Bar activeBar={false} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={false} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.mixed && <Bar activeBar={false} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.skate && <Bar activeBar={false} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={false} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+            {/* activeBar s Rectangle odstráni biely okraj pri hover/click eventoch */}
+            {hasData.run && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.ride && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.mixed && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.skate && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
           </BarChart>
         </ResponsiveContainer>
       </div>

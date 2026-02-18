@@ -52,10 +52,7 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
           borderColor: appColors.panelBorder,
         }}
       >
-        <p
-          className="mb-2 text-xs font-semibold"
-          style={{ color: appColors.textMuted }}
-        >
+        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>
           {label}
         </p>
 
@@ -138,25 +135,27 @@ export default function TrendWeeklyMonoStrain({
       label: w.label || w.week,
       mono: w.monotony?.[metric] ?? null,
       strain: w.strain?.[metric] ?? null,
-      rawWeek: w, // Ukladame data pre event kliku
+      rawWeek: w,
     }));
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    if (!onPickWeek || !state || !state.activePayload || !state.activePayload.length) return;
+    if (!onPickWeek || !state) return;
     
-    // Extrahovanie dat
-    const w = state.activePayload[0].payload.rawWeek as WeekRow;
-    if (w && w.start && w.end) {
-      console.log("🔥 CLICK MonoStrain: Posielam do ActivityTable: start=", w.start, " end=", w.end);
-      onPickWeek({
-        week: w.week || w.start,
-        start: w.start,
-        end: w.end,
-        sport: DEFAULT_SPORT,
-      });
-    } else {
-      console.error("❌ CLICK ZLYHAL v MonoStrain: rawWeek chýba start/end. Obj:", w);
+    // Používame activeTooltipIndex, aby sme trafili správny stĺpec
+    const index = state.activeTooltipIndex ?? state.activeIndex;
+    
+    if (index !== undefined && chartData[index]) {
+      const w = chartData[index].rawWeek;
+      
+      if (w && w.start && w.end) {
+        onPickWeek({
+          week: w.week || w.start || "",
+          start: w.start,
+          end: w.end,
+          sport: "all", // Posielame null aby sa tabuľka ukázala pre všetky aktivity dňa
+        });
+      }
     }
   };
 
@@ -295,9 +294,7 @@ export default function TrendWeeklyMonoStrain({
 
             <Tooltip
               content={<CustomTooltip metric={metric} t={t} />}
-              cursor={{
-                stroke: "transparent", // Zabitie vertical highlight čiary za tooltipom (často robí bordel)
-              }}
+              cursor={{ stroke: "transparent" }}
               wrapperStyle={{ outline: "none" }}
             />
             <Legend
@@ -312,7 +309,6 @@ export default function TrendWeeklyMonoStrain({
               name={t("monoStrain.trend.mono") as string}
               stroke={C.monotony}
               strokeWidth={3}
-              // ✅ Týmto sa zbavíme bielych outline štvorcov pri LineCharts bodkách
               dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               connectNulls
@@ -325,7 +321,6 @@ export default function TrendWeeklyMonoStrain({
               stroke={C.strain}
               strokeWidth={3}
               strokeDasharray="5 5"
-              // ✅ Rovnako aj tu
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               connectNulls
