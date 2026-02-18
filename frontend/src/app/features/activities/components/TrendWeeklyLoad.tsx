@@ -159,20 +159,21 @@ export default function TrendWeeklyLoad({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    // 1. Ochrana: Ak user klikne mimo reálneho stĺpca (napr. na legendu, os, alebo pozadie), nerob nič.
-    if (!state || !state.activePayload || !state.isTooltipActive) return;
+    // Odstránená prísna podmienka !state.activePayload. Preskočíme len ak state vôbec nepríde.
+    if (!onPickWeek || !state) return;
 
+    // Vytiahneme index
     const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
     
-    if (index !== undefined && chartData[index]) {
+    if (index !== undefined && index !== null && chartData[index]) {
       const w = chartData[index].rawWeek;
       
       if (w && w.start && w.end) {
-        onPickWeek?.({
-          week: w.week || w.start,
+        onPickWeek({
+          week: w.week || w.start || "",
           start: w.start,
           end: w.end,
-          sport: "all",
+          sport: "all", // Opravené späť na string "all" tak ako si chcel
         });
       }
     }
@@ -180,7 +181,7 @@ export default function TrendWeeklyLoad({
 
   const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour") || "h"}]` : `[${t("common.units.trimp")}]`;
 
-  const yAxisTickFormatter = (val: any): string => {
+  const yAxisTickFormatter = (val: any, index: number): string => {
     const num = Number(val);
     if (metric === "time") {
       if (num === 0) return "0";
@@ -192,6 +193,11 @@ export default function TrendWeeklyLoad({
       return `${num}${t("common.units.min") || "m"}`;
     }
     return String(val); 
+  };
+
+  // ✅ Opravený activeBar, aby nevznikal biely stroke (okraj), ale aby zostal stĺpec klikateľný
+  const renderActiveBar = (props: any) => {
+    return <Rectangle {...props} stroke="none" style={{ outline: "none" }} />;
   };
 
   return (
@@ -219,11 +225,8 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      {/* ✅ PRÍSNE CSS pravidlá pre zrušenie Recharts focus rámikov na celom SVG obale */}
-      <div 
-        className="w-full relative px-2 sm:px-4 pb-4 select-none focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none" 
-        style={{ height: 360 }}
-      >
+      {/* ✅ Zachované Tailwind hacky na SVG obrysy (prístupnosť) */}
+      <div className="w-full relative px-2 sm:px-4 pb-4 focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none select-none" style={{ height: 360 }}>
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
@@ -250,16 +253,17 @@ export default function TrendWeeklyLoad({
               label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
+            {/* ✅ Cursor transparent zabráni tmavému bloku za stĺpcami */}
             <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {/* ✅ activeBar={false} - Recharts nevykreslí nad vybraným stĺpcom nič */}
-            {hasData.run && <Bar activeBar={false} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.ride && <Bar activeBar={false} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={false} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.mixed && <Bar activeBar={false} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.skate && <Bar activeBar={false} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={false} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+            {/* Používame custom Rectangle (renderActiveBar), takže nevznikne žiaden biely obrys! */}
+            {hasData.run && <Bar activeBar={renderActiveBar} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.ride && <Bar activeBar={renderActiveBar} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.mixed && <Bar activeBar={renderActiveBar} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.skate && <Bar activeBar={renderActiveBar} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
           </BarChart>
         </ResponsiveContainer>
       </div>
