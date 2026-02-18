@@ -151,17 +151,15 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const [splits, setSplits] = useState<any[]>([]);
   const [enrichment, setEnrichment] = useState<ActivityEnrichment | null>(null);
   
-  // --- Nové stavy pre načítavanie dát ---
   const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // ✅ OPRAVA: Vyčistíme streamy, aby sme do grafov neposielali polia plné núl
+  // Vyčistíme streamy, aby sme do grafov neposielali polia plné núl
   const cleanedStreams = useMemo(() => {
     if (!streams.time_s || streams.time_s.length === 0) return streams;
 
     const out = { ...streams };
 
-    // Ak pole nemá aspoň jednu hodnotu rôznu od nuly/null, vynulujeme ho na prázdne pole
     const hasData = (arr: (number | null)[] | undefined) => {
       if (!Array.isArray(arr) || arr.length === 0) return false;
       return arr.some(val => val !== null && val !== 0);
@@ -177,6 +175,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   }, [streams]);
 
   const hasStreams = cleanedStreams.time_s && cleanedStreams.time_s.length > 0;
+  const hasSplits = Array.isArray(splits) && splits.length > 1;
 
   useEffect(() => {
     if (!act.activityId) return;
@@ -200,7 +199,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     return () => { alive = false; };
   }, [act.activityId, getExtras, getEnrichment]);
 
-  // --- Funkcia na manuálne stiahnutie dát zo Stravy ---
+  // Funkcia na manuálne stiahnutie dát zo Stravy
   const handleFetchDetailedData = async () => {
     if (!userId || !act.activityId || isFetchingDetailed) return;
     
@@ -210,7 +209,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       if (result) {
         if (result.streams) setStreams(result.streams);
         if (result.splits) setSplits(result.splits);
-        // Voliteľné: toast.success(t("common.done"));
       }
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
@@ -250,6 +248,19 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         {act.onDelete && <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>{t("common.delete")}</button>}
         {onOpenActivity && <button type="button" onClick={() => onOpenActivity(act.activityId)} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("calendar.openActivity")}</button>}
         {stravaUrl && <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>{t("sessions.detail.btnStrava")}</Button>}
+        
+        {/* ✅ PÔVODNÉ MIESTO PRE TLAČIDLO NA DETAILNÉ DÁTA (ukáže sa len ak streamy/splity chýbajú po prvom načítaní) */}
+        {initialLoadDone && stravaActivityId && !hasStreams && !hasSplits && (
+          <button 
+            type="button" 
+            onClick={handleFetchDetailedData} 
+            disabled={isFetchingDetailed}
+            className={`${SESSION_PILL} ${isFetchingDetailed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={{ ...SESSION_PILL_STYLE, backgroundColor: appColors.greenPrimary, color: appColors.backgroundMain, borderColor: appColors.greenPrimary }}
+          >
+            {isFetchingDetailed ? t("common.loading") : t("sessions.detail.btnMoreData" as any)}
+          </button>
+        )}
       </div>
 
       <ActivitySectionShell title={t("sessions.detail.sectionOverview")} defaultOpen={true} items={allKpis}>
@@ -265,32 +276,15 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {/* ✅ Posielame vyčistené streamy do grafu */}
-      {hasStreams ? (
+      {/* Grafy sa ukážu len ak máme vyčistené dáta */}
+      {hasStreams && (
         <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
            <ActivityStreamCharts streams={cleanedStreams} compact={compactChart} sportHint={sportHint} />
         </ActivitySectionShell>
-      ) : (
-        initialLoadDone && stravaActivityId && (
-          <div className="mt-4 p-5 rounded-2xl border border-white/5 bg-[#121418] flex flex-col items-center justify-center text-center space-y-3">
-            <div className="text-white/50 text-sm">
-              {t("sessions.detail.btnMoreData" as any)}
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleFetchDetailedData}
-              disabled={isFetchingDetailed}
-              className="min-w-[140px]"
-            >
-              {isFetchingDetailed ? t("common.loading") : "Načítať zo Stravy"}
-            </Button>
-          </div>
-        )
       )}
 
-      {Array.isArray(splits) && splits.length > 1 && (
+      {/* Splity sa ukážu len ak existujú */}
+      {hasSplits && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
           <ActivitySplitsSection kind={splits} />
         </ActivitySectionShell>
