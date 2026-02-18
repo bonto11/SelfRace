@@ -25,6 +25,7 @@ import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
 import { PANEL_STACK } from "@/app/shared/ui/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors"; // Pridaný import farieb
 import { useT } from "@/app/shared/i18n/useT";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
@@ -196,15 +197,36 @@ export default function BillingPanel() {
           />
 
           <div className={PANEL_STACK}>
-            <section>
-              <div className="text-sm font-semibold mb-2">{t("subscription.sections.tiers")}</div>
-              <BillingTierSelector
-                tiers={tiers}
-                activeTierCode={activeTierCode}
-                plannedChange={plannedChange}
-                isBusy={isAnyActionLoading}
-                onSetTier={handleSetTier}
-              />
+            <section className="space-y-4">
+              
+              {/* ✅ Osobný Pitch Box zobrazený iba používateľom, ktorí ešte neplatia */}
+              {activeTierCode === "free" && !isStatusLoading && (
+                <div 
+                  className="p-5 sm:p-6 rounded-2xl border-l-4 shadow-sm"
+                  style={{
+                    backgroundColor: "rgba(255, 255, 255, 0.03)",
+                    borderColor: appColors.brandPrimary,
+                  }}
+                >
+                  <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>
+                    {t("subscription.pitch.title") || "Prečo do toho ísť?"}
+                  </h3>
+                  <p className="text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
+                    {t("subscription.pitch.body") || "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si sám napíšeš. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <div className="text-sm font-semibold mb-2">{t("subscription.sections.tiers")}</div>
+                <BillingTierSelector
+                  tiers={tiers}
+                  activeTierCode={activeTierCode}
+                  plannedChange={plannedChange}
+                  isBusy={isAnyActionLoading}
+                  onSetTier={handleSetTier}
+                />
+              </div>
             </section>
 
             <section>

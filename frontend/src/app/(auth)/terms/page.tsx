@@ -39,7 +39,7 @@ export default function TermsPage() {
               href={pdfPath}
               className="text-xs font-semibold py-1.5 px-3 rounded-lg flex items-center gap-2 transition-colors"
               style={{ 
-                color: appColors.textPrimary,
+                color: appColors.brandPrimary,
                 backgroundColor: "rgba(255,255,255,0.05)"
               }}
               download

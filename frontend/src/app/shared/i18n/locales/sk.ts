@@ -107,6 +107,9 @@ export const sk = {
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase.",
     p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, výkonnosť a sledovať mieru regenerácie a únavy.",
+    p2: "Vytvorené bežcom, nie korporáciou.",
+    p2Link: "Prečítaj si príbeh o tom, prečo SelfRace vznikol.",
+    
     ctaStart: "Vyskúšať zdarma",
     ctaSignIn: "Prihlásiť sa",
     foot: "Detailné metriky behu, tréningové zóny a AI tréner po prepojení účtu.",
@@ -1596,7 +1599,7 @@ export const sk = {
       "Zmena plánu ťa presmeruje na zabezpečenú platobnú bránu Stripe.",
     notLoggedInDesc: "Pre správu predplatného sa najskôr prihlás.",
     sections: {
-      tiers: "Dostupné plány",
+      tiers: "Možnosti predplatného",
       history: "História platieb",
     },
     status: {
@@ -1647,6 +1650,10 @@ export const sk = {
         "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera.",
       activeBadge: "aktívny",
     },
+    pitch: {
+    title: "Prečo do toho ísť?",
+    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si sám napíšeš. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
+  },
   },
   dashboard: {
     title: "Dashboard",

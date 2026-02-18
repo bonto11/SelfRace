@@ -45,6 +45,21 @@ export default function LandingPage() {
               {t("landing.p1")}
             </p>
 
+            {/* ✅ Nový "Trust building" odsek s preklikom na Our Story */}
+            <p
+              className="text-sm sm:text-base max-w-xl mx-auto mt-2 leading-relaxed"
+              style={{ color: appColors.textSecondary }}
+            >
+              {t("landing.p2") || "Vytvorené bežcom, nie korporáciou. Prečítaj si "}
+              <Link 
+                href="/about" 
+                className="font-medium hover:underline transition-all"
+                style={{ color: appColors.textPrimary }}
+              >
+                {t("landing.p2Link") || "príbeh o tom, prečo SelfRace vznikol."}
+              </Link>
+            </p>
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-7">
               <Link
                 href="/signup"
