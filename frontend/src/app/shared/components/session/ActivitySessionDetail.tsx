@@ -249,8 +249,8 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         {onOpenActivity && <button type="button" onClick={() => onOpenActivity(act.activityId)} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("calendar.openActivity")}</button>}
         {stravaUrl && <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>{t("sessions.detail.btnStrava")}</Button>}
         
-        {/* ✅ PÔVODNÉ MIESTO PRE TLAČIDLO NA DETAILNÉ DÁTA (ukáže sa len ak streamy/splity chýbajú po prvom načítaní) */}
-        {initialLoadDone && stravaActivityId && !hasStreams && !hasSplits && (
+        {/* ✅ Tlačidlo hore, zobrazené LEN ak po načítaní NEMÁME STREAMY. Použitá farba brandPrimary. */}
+        {initialLoadDone && stravaActivityId && !hasStreams && (
           <button 
             type="button" 
             onClick={handleFetchDetailedData} 
