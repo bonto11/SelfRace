@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
   Brush,
   Line,
-  LineChart, // <-- TOTO TU CHÝBALO
+  LineChart, 
 } from "recharts";
 
 export type StreamMetric = "hr" | "elevation" | "power" | "pace" | "cadence";
@@ -165,12 +165,13 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
   // FULL dáta
   const fullChartData = useMemo(() => formatDataForRecharts(streams, isRunSport), [streams, isRunSport]);
   
+  // Kontrolujeme nielen či nie je null, ale či existuje aspoň jedna hodnota > 0 (alebo pri výške rôzna od 0).
   const hasTime = fullChartData.length > 0;
-  const hasHr = fullChartData.some((d) => d.hr != null);
-  const hasAlt = fullChartData.some((d) => d.altitude != null);
-  const hasPace = fullChartData.some((d) => d.pace != null);
-  const hasPow = fullChartData.some((d) => d.power != null);
-  const hasCad = fullChartData.some((d) => d.cadence != null);
+  const hasHr = fullChartData.some((d) => d.hr != null && d.hr > 0);
+  const hasAlt = fullChartData.some((d) => d.altitude != null && d.altitude !== 0);
+  const hasPace = fullChartData.some((d) => d.pace != null && d.pace > 0);
+  const hasPow = fullChartData.some((d) => d.power != null && d.power > 0);
+  const hasCad = fullChartData.some((d) => d.cadence != null && d.cadence > 0);
 
   const [brushIdx, setBrushIdx] = useState({ start: 0, end: hasTime ? fullChartData.length - 1 : 0 });
   const [showTooltip, setShowTooltip] = useState(true);
@@ -201,8 +202,8 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
     return [Math.max(0, Math.floor(min) - padBot), Math.ceil(max) + padTop];
   };
 
-  if (!hasTime) {
-    return <div className="opacity-70 text-sm">{t("sessions.charts.stream.unavailable" as any)}</div>;
+  if (!hasTime || (!hasHr && !hasAlt && !hasPace && !hasPow && !hasCad)) {
+    return <div className="opacity-70 text-sm p-4 text-center border border-white/5 rounded-lg bg-black/10">{t("sessions.charts.stream.unavailable" as any)}</div>;
   }
 
   const formatPace = (v: number) => formatCompactTime(Math.round(v));
@@ -210,6 +211,17 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
   const chartHeight = compact ? 120 : 160;
   const mainMargins = { top: 5, right: 10, left: 0, bottom: 5 };
   const tooltipCursor = showTooltip ? { stroke: "rgba(255,255,255,0.2)", strokeWidth: 1, strokeDasharray: "4 4" } : false;
+
+  const activeCharts = [
+    { key: "hr", active: hasHr, render: () => renderHrChart() },
+    { key: "pace", active: hasPace, render: () => renderPaceChart() },
+    { key: "power", active: hasPow, render: () => renderPowerChart() },
+    { key: "elevation", active: hasAlt, render: () => renderElevationChart() },
+    { key: "cadence", active: hasCad, render: () => renderCadenceChart() },
+  ].filter(c => c.active);
+
+  // Zistíme, akú líniu máme vykresliť do minigrafu v Slidri (napr. prvú dostupnú)
+  const brushDataKey = activeCharts.length > 0 ? activeCharts[0].key : "hr";
 
   const renderMiniMapZoom = (key: string) => (
     <div key={key} className="my-2">
@@ -219,7 +231,8 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
       <div style={{ height: 40, width: "100%" }}>
         <ResponsiveContainer>
           <LineChart data={fullChartData} margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-            <Line type="monotone" dataKey={hasHr ? "hr" : "altitude"} stroke="rgba(255,255,255,0.15)" dot={false} strokeWidth={1} isAnimationActive={false} />
+            {/* Vykreslíme to, čo je práve dostupné */}
+            <Line type="monotone" dataKey={brushDataKey} stroke="rgba(255,255,255,0.15)" dot={false} strokeWidth={1} isAnimationActive={false} />
             <Brush 
               dataKey="time" 
               height={30} 
@@ -340,14 +353,6 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
     </div>
   );
 
-  const activeCharts = [
-    { key: "hr", active: hasHr, render: renderHrChart },
-    { key: "pace", active: hasPace, render: renderPaceChart },
-    { key: "power", active: hasPow, render: renderPowerChart },
-    { key: "elevation", active: hasAlt, render: renderElevationChart },
-    { key: "cadence", active: hasCad, render: renderCadenceChart },
-  ].filter(c => c.active);
-
   return (
     <div className="w-full">
       <div className="flex justify-end mb-4 pr-4">
@@ -363,8 +368,12 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
         </button>
       </div>
 
-      {activeCharts.length > 1 && renderMiniMapZoom("top-brush")}
+      {/* ✅ HORNÝ SLIDER (zobrazí sa vždy, keď je aspoň 1 graf) */}
+      {activeCharts.length > 0 && renderMiniMapZoom("top-brush")}
+      
       <div className="mt-6">{activeCharts.map(chart => <div key={chart.key}>{chart.render()}</div>)}</div>
+      
+      {/* ✅ SPODNÝ SLIDER (zobrazí sa len vtedy, ak je grafov viac ako 1) */}
       {activeCharts.length > 1 && renderMiniMapZoom("bottom-brush")}
     </div>
   );
