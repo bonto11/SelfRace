@@ -13,65 +13,51 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
+// Import našich nových textových komponentov (uprav cestu ak ich máš inde)
+import TermsOfServiceEN from "./components/TermsOfServiceEN";
+import TermsOfServiceSK from "./components/TermsOfServiceSK";
+
 export default function TermsPage() {
-  // 1. Získame jazyk
   const { lang } = useSettings();
   const isSk = lang === "sk";
   const t = useT();
 
-  // 2. Dynamická cesta k PDF
+  // Dynamická cesta k PDF pre možnosť stiahnutia
   const pdfFileName = isSk
     ? "TermsOfService_SelfRace_SK.pdf"
     : "TermsOfService_SelfRace_EN.pdf";
   const pdfPath = `/documents/${pdfFileName}`;
 
   return (
-    // Použitie PageShell pre konzistentný layout a navigáciu (napr. tlačidlo späť)
-    <PageShell title={t("terms.title")} showBack showPoweredByStrava={false}>
+    <PageShell title={t("terms.title") || "Terms of Service"} showBack showPoweredByStrava={false}>
       <section className={`${CARD}`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           
-          {/* Odkaz na stiahnutie sme presunuli sem, keďže nadpis rieši PageShell */}
-          <div className="flex justify-end w-full">
+          {/* Odkaz na stiahnutie PDFka - zarovnaný doprava, decentný */}
+          <div className="flex justify-end w-full pb-4 border-b" style={{ borderColor: appColors.divider }}>
             <a
               href={pdfPath}
-              className="text-xs hover:underline"
-              style={{ color: appColors.textSecondary }}
+              className="text-xs font-semibold py-1.5 px-3 rounded-lg flex items-center gap-2 transition-colors"
+              style={{ 
+                color: appColors.textPrimary,
+                backgroundColor: "rgba(255,255,255,0.05)"
+              }}
               download
             >
-              {t("common.downloadPDF")}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              {t("common.downloadPDF") || "Stiahnuť PDF"}
             </a>
           </div>
 
-          <div
-            className="w-full overflow-hidden rounded-xl border"
-            style={{
-              borderColor: appColors.divider,
-              background: appColors.backgroundAlt,
-            }}
-          >
-            <object
-              data={pdfPath}
-              type="application/pdf"
-              width="100%"
-              height="780"
-            >
-              <div
-                className="p-3 text-sm"
-                style={{ color: appColors.textSecondary }}
-              >
-                {t("common.showPDFError")}
-                <a
-                  href={pdfPath}
-                  className="ml-2 underline"
-                  style={{ color: appColors.textPrimary }}
-                >
-                  {t("common.downloadPDF")}
-                </a>
-                .
-              </div>
-            </object>
+          {/* Samotný text z komponentu */}
+          <div className="w-full pt-2">
+            {isSk ? <TermsOfServiceSK /> : <TermsOfServiceEN />}
           </div>
+
         </div>
       </section>
     </PageShell>
