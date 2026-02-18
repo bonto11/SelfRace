@@ -140,23 +140,40 @@ export default function TrendWeeklyMonoStrain({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    // ✅ Ochrana: Zareaguj len vtedy, ak user klikne priamo na payload dát
-    if (!onPickWeek || !state || !state.activePayload) return;
+    console.log("🔥 [MonoStrain] 1. KLIK ZAZNAMENANÝ! RAW state:", state);
+
+    if (!onPickWeek) {
+      console.warn("❌ [MonoStrain] onPickWeek chýba (neprišlo z parenta)!");
+      return;
+    }
+
+    if (!state) {
+      console.warn("⚠️ [MonoStrain] state je null (klikol si mimo bodu).");
+      return;
+    }
     
-    // Používame activeTooltipIndex, aby sme trafili správny bod
+    // Zistíme index. Pre LineChart je activeTooltipIndex oveľa spoľahlivejší pri kliku než activePayload!
     const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
+    console.log("🟢 [MonoStrain] 2. Získaný index kliknutia:", index);
     
     if (index !== undefined && index !== null && chartData[index]) {
       const w = chartData[index].rawWeek;
+      console.log("📊 [MonoStrain] 3. Dáta pod indexom (rawWeek):", w);
       
       if (w && w.start && w.end) {
-        onPickWeek({
+        const payload = {
           week: w.week || w.start || "",
           start: w.start,
           end: w.end,
-          sport: "all", // ✅ Tvoj požadovaný sport: "all"
-        });
+          sport: "all",
+        };
+        console.log("🚀 [MonoStrain] 4. Odosielam dáta do tabuľky:", payload);
+        onPickWeek(payload);
+      } else {
+        console.error("❌ [MonoStrain] rawWeek nemá start alebo end!", w);
       }
+    } else {
+      console.warn("⚠️ [MonoStrain] Index je neplatný alebo neexistuje v chartData.");
     }
   };
 
@@ -230,7 +247,6 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
-      {/* ✅ Pridané triedy pre likvidáciu akýchkoľvek bielych focus rámikov (SVG outline reset) */}
       <div
         className="w-full relative px-2 sm:px-4 pb-4 select-none focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
         style={{ height: 320 }}
@@ -241,7 +257,6 @@ export default function TrendWeeklyMonoStrain({
           </div>
         )}
 
-        {/* ✅ minWidth a minHeight proti errorom */}
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <LineChart
             data={chartData}
