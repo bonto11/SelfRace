@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
   Brush,
   Line,
-  LineChart, 
+  LineChart, // <-- TOTO TU CHÝBALO
 } from "recharts";
 
 export type StreamMetric = "hr" | "elevation" | "power" | "pace" | "cadence";
@@ -165,16 +165,12 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
   // FULL dáta
   const fullChartData = useMemo(() => formatDataForRecharts(streams, isRunSport), [streams, isRunSport]);
   
-  // ✅ OPRAVA: Kontrolujeme nielen či nie je null, ale či existuje aspoň jedna hodnota > 0 (alebo pri výške rôzna od 0).
   const hasTime = fullChartData.length > 0;
-  const hasHr = fullChartData.some((d) => d.hr != null && d.hr > 0);
-  
-  // Výška môže byť výnimočne pod morom, ale ak je všetko presne 0, je to len šum (fake nuly).
-  const hasAlt = fullChartData.some((d) => d.altitude != null && d.altitude !== 0);
-  
-  const hasPace = fullChartData.some((d) => d.pace != null && d.pace > 0);
-  const hasPow = fullChartData.some((d) => d.power != null && d.power > 0);
-  const hasCad = fullChartData.some((d) => d.cadence != null && d.cadence > 0);
+  const hasHr = fullChartData.some((d) => d.hr != null);
+  const hasAlt = fullChartData.some((d) => d.altitude != null);
+  const hasPace = fullChartData.some((d) => d.pace != null);
+  const hasPow = fullChartData.some((d) => d.power != null);
+  const hasCad = fullChartData.some((d) => d.cadence != null);
 
   const [brushIdx, setBrushIdx] = useState({ start: 0, end: hasTime ? fullChartData.length - 1 : 0 });
   const [showTooltip, setShowTooltip] = useState(true);
@@ -205,8 +201,8 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
     return [Math.max(0, Math.floor(min) - padBot), Math.ceil(max) + padTop];
   };
 
-  if (!hasTime || (!hasHr && !hasAlt && !hasPace && !hasPow && !hasCad)) {
-    return <div className="opacity-70 text-sm p-4 text-center border border-white/5 rounded-lg bg-black/10">{t("sessions.charts.stream.unavailable" as any)}</div>;
+  if (!hasTime) {
+    return <div className="opacity-70 text-sm">{t("sessions.charts.stream.unavailable" as any)}</div>;
   }
 
   const formatPace = (v: number) => formatCompactTime(Math.round(v));
