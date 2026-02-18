@@ -140,8 +140,7 @@ export default function TrendWeeklyMonoStrain({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    console.log("🔥 [MonoStrain] 1. KLIK ZAZNAMENANÝ! RAW state:", state);
-
+  
     if (!onPickWeek) {
       console.warn("❌ [MonoStrain] onPickWeek chýba (neprišlo z parenta)!");
       return;
@@ -154,12 +153,10 @@ export default function TrendWeeklyMonoStrain({
     
     // Zistíme index. Pre LineChart je activeTooltipIndex oveľa spoľahlivejší pri kliku než activePayload!
     const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
-    console.log("🟢 [MonoStrain] 2. Získaný index kliknutia:", index);
-    
+
     if (index !== undefined && index !== null && chartData[index]) {
       const w = chartData[index].rawWeek;
-      console.log("📊 [MonoStrain] 3. Dáta pod indexom (rawWeek):", w);
-      
+
       if (w && w.start && w.end) {
         const payload = {
           week: w.week || w.start || "",
@@ -167,7 +164,7 @@ export default function TrendWeeklyMonoStrain({
           end: w.end,
           sport: "all",
         };
-        console.log("🚀 [MonoStrain] 4. Odosielam dáta do tabuľky:", payload);
+
         onPickWeek(payload);
       } else {
         console.error("❌ [MonoStrain] rawWeek nemá start alebo end!", w);
