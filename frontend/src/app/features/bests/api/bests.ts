@@ -18,7 +18,6 @@ export async function apiGetBests(
   const path = `/users/${encodeURIComponent(
     String(userId)
   )}/bests?sport=${encodeURIComponent(sport)}`;
-  console.debug("[bests][GET] ->", path);
 
   try {
     const j = await callBackend<any>(path, {
@@ -72,7 +71,6 @@ export async function apiSaveBest(
   }
 
   const path = `/users/${encodeURIComponent(String(userId))}/bests`;
-  console.debug("[bests][PUT] ->", path, "payload", payload);
 
   try {
     await callBackend<any>(path, {
@@ -102,7 +100,6 @@ export async function apiDeleteBest(
   )}/bests/${encodeURIComponent(sport)}/${encodeURIComponent(
     String(distance_m)
   )}`;
-  console.debug("[bests][DELETE] ->", path);
 
   try {
     await callBackend<any>(path, {

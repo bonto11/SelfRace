@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  Rectangle,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -126,7 +127,6 @@ export default function TrendWeeklyLoad({
     const hd = { run: false, ride: false, strength: false, mixed: false, skate: false, other: false };
 
     for (const w of weeks) {
-      // ✅ Uložíme celý surový riadok do chart dát pod klúčom "rawWeek"
       const base = { label: w.label || w.week, rawWeek: w };
       let row: any = { ...base };
 
@@ -159,23 +159,17 @@ export default function TrendWeeklyLoad({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    // Recharts pošle state.activePayload, kde je pole objektov (pre každý Bar jedna hodnota). 
-    // Keďže všetky pochádzajú z rovnakého dátového bodu (rovnaký týždeň), stačí zobrať prvý [0]
-    if (!onPickWeek || !state || !state.activePayload || !state.activePayload.length) return;
-    
-    // Tu vytiahneme náš rawWeek objekt, ktorý sme do chartData podstrčili
-    const w = state.activePayload[0].payload.rawWeek as WeekRow;
-    
-    if (w && w.start && w.end) {
+    if (!onPickWeek || !state || !state.activePayload) return;
+    const w = state.activePayload[0].payload.rawWeek;
+    if (w) {
       console.log("🔥 CLICK: Posielam do ActivityTable: start=", w.start, " end=", w.end);
       onPickWeek({
-        week: w.week || w.start,
+        week: w.week || w.start || "",
         start: w.start,
         end: w.end,
-        sport: DEFAULT_SPORT,
+        // ✅ OPRAVA: Posielame null miesto "all", aby tabuľka ukázala všetko
+        sport: "",
       });
-    } else {
-      console.error("❌ CLICK ZLYHAL: rawWeek neobsahuje start alebo end. Obj:", w);
     }
   };
 
@@ -194,9 +188,6 @@ export default function TrendWeeklyLoad({
     }
     return String(val); 
   };
-
-  // Zabitie bieleho outline-u pre Bar chart kliknutia
-  const noOutlineBar = { style: { outline: "none", stroke: "none" } };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -250,16 +241,16 @@ export default function TrendWeeklyLoad({
               label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
-            {/* fill="transparent" odstraňuje podfarbenie pri hoveri na bar */}
             <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
             
-            {hasData.run && <Bar activeBar={noOutlineBar} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.ride && <Bar activeBar={noOutlineBar} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={noOutlineBar} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.mixed && <Bar activeBar={noOutlineBar} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.skate && <Bar activeBar={noOutlineBar} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={noOutlineBar} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+            {/* ✅ OPRAVA outline pre stĺpce */}
+            {hasData.run && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.ride && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.mixed && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.skate && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
+            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={<Rectangle style={{ outline: 'none' }} fillOpacity={0.8} />} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
           </BarChart>
         </ResponsiveContainer>
       </div>

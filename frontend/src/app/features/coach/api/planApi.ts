@@ -22,8 +22,6 @@ export async function fetchPlanRangeApi(
     String(userId)
   )}?${params.toString()}`;
 
-  console.debug("[PLAN][api] ->", path);
-
   try {
     const json = await callBackend<any>(path, {
       method: "GET",
