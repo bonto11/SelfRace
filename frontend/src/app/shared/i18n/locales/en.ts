@@ -2007,6 +2007,23 @@ export const en = {
         errorEnqueue: "Failed to create the analysis request.",
         limitReached: "You have reached the recalculation limit for this activity.",
       },
+      injuryModal: {
+        title: "Manage Injuries and Pain",
+        addNewTitle: "Add new injury",
+        severityTitle: "Pain severity (1-10)",
+        severityHint: "1 = mild, 10 = extreme",
+        btnCancel: "Cancel",
+        btnSave: "Save changes",
+        btnSaving: "Saving...",
+        btnAddToList: "+ Add to list",
+        btnRemove: "Remove",
+        currentStatus: "Current status ({{count}})",
+        emptyStatus: "No active injuries. You are fit!",
+        severityLabel: "Severity: {{severity}}/10",
+        alertActive: "Active injury reported",
+        alertReport: "Report pain / injury",
+        tooltipActive: "⚠️ The injury is saved in your profile. The AI will know about it when generating a new Review. To cancel, click the button and remove it from the list."
+      },
     },
     detail: {
       btnFavoriteSet: "Add to favorites",

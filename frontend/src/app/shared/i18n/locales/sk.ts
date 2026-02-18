@@ -2015,6 +2015,23 @@ export const sk = {
         errorEnqueue: "Nepodarilo sa vytvoriť požiadavku na analýzu.",
         limitReached: "Dosiahli ste limit prepočtov pre túto aktivitu.",
       },
+      injuryModal: {
+        title: "Správa zranení a bolestí",
+        addNewTitle: "Pridať nové zranenie",
+        severityTitle: "Vážnosť bolesti (1-10)",
+        severityHint: "1 = mierna, 10 = extrémna",
+        btnCancel: "Zrušiť",
+        btnSave: "Uložiť zmeny",
+        btnSaving: "Ukladám...",
+        btnAddToList: "+ Pridať do zoznamu",
+        btnRemove: "Zmazať",
+        currentStatus: "Aktuálny stav ({{count}})",
+        emptyStatus: "Žiadne aktívne zranenia. Ste fit!",
+        severityLabel: "Vážnosť: {{severity}}/10",
+        alertActive: "Aktívne zranenie nahlásené",
+        alertReport: "Hlásim bolesť / zranenie",
+        tooltipActive: "⚠️ Zranenie je uložené v profile. Pri generovaní nového Review o ňom bude AI vedieť. Pre zrušenie kliknite na tlačidlo a zmažte ho zo zoznamu."
+      },
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",

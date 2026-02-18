@@ -24,7 +24,6 @@ import {
   subscribeSubscriptionTier,
 } from "@/app/shared/state/subscriptionTierStore";
 
-// ✅ Importujeme config variables
 import { 
   MAX_VERSIONS_FREE, 
   MAX_VERSIONS_CLASSIC, 
@@ -46,7 +45,7 @@ const REFRESH_COOLDOWN_MS = 10000;
 
 const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
 const INJ_TYPES: InjuryType[] = ["overuse", "acute", "tendon", "stress", "shin_splints", "plantar", "itb", "other"];
-const INJ_SEVERITY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 1 = mierne, 10 = neznesiteľné
+const INJ_SEVERITY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
 
 /* ================= date & tier helpers ================= */
 function parseDateSafe(v: any): Date | null {
@@ -65,11 +64,11 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
-// ✅ OPRAVENÁ FUNKCIA: Bezpečné parsovanie čísel, aby sme predišli NaN
+// Bezpečné parsovanie čísel, aby sme na 100% predišli "NaN"
 function maxVersionsForTier(tier: string): number {
   const parseSafe = (val: any, fallback: number) => {
     const num = Number(val);
-    return Number.isFinite(num) ? num : fallback;
+    return Number.isFinite(num) && num > 0 ? num : fallback;
   };
 
   if (tier === "family") return parseSafe(MAX_VERSIONS_FAMILY, 4);
@@ -121,17 +120,12 @@ function InjuryReportModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Zoznam všetkých zranení (z DB + novo pridané)
   const [activeInjuries, setActiveInjuries] = useState<Injury[]>([]);
-  // Pomocný flag, či používateľ práve nejaké zranenie počas tejto session pridal
   const [addedNewInSession, setAddedNewInSession] = useState(false);
-  
-  // Rozpracované zranenie (Draft)
   const [draft, setDraft] = useState<Injury>({ area: "foot", type: "overuse", severity: 3, note: "" });
 
   useEffect(() => setMounted(true), []);
 
-  // Pri otvorení modalu stiahneme aktuálne zranenia z Prefs
   useEffect(() => {
     if (open && userId) {
       const fetchInjuries = async () => {
@@ -150,11 +144,10 @@ function InjuryReportModal({
         }
       };
       fetchInjuries();
-      setAddedNewInSession(false); // Resetujeme pri otvorení
+      setAddedNewInSession(false);
     }
   }, [open, userId]);
 
-  // Pomocník pre text vážnosti z katalógu
   const getSeverityNote = (val: number) => {
     if (val <= 3) return t("prefs.sections.injuriesSection.severityLevels.mild" as any);
     if (val <= 6) return t("prefs.sections.injuriesSection.severityLevels.moderate" as any);
@@ -163,7 +156,7 @@ function InjuryReportModal({
 
   const handleAddDraftToList = () => {
     setActiveInjuries([...activeInjuries, { ...draft, note: draft.note?.trim() || undefined }]);
-    setAddedNewInSession(true); // Evidujeme, že pridal nové
+    setAddedNewInSession(true); 
     setDraft({ area: "foot", type: "overuse", severity: 3, note: "" });
   };
 
@@ -178,11 +171,9 @@ function InjuryReportModal({
       const currentPrefs = await apiFetchUserPref(userId, "coach.prefs") || {};
       const updatedPrefs = { ...currentPrefs, injuries: activeInjuries };
       await apiUpsertUserPref(userId, "coach.prefs", updatedPrefs);
-      // Vrátime stav + či reálne pridal nové zranenie
       onSaveSuccess(activeInjuries.length > 0, addedNewInSession);
     } catch (e) {
       console.error("Failed to save injuries", e);
-      alert("Nepodarilo sa uložiť zmeny.");
     } finally {
       setIsSaving(false);
     }
@@ -201,23 +192,23 @@ function InjuryReportModal({
       >
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5 shrink-0">
           <h3 className="text-sm font-bold uppercase tracking-wider opacity-90 text-white">
-            Správa Zranení a Bolestí
+            {t("sessions.review.injuryModal.title" as any) || "Manage Injuries"}
           </h3>
           <button onClick={onClose} className="opacity-50 hover:opacity-100 p-1">✕</button>
         </div>
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center py-10 opacity-50">
-            Načítavam aktuálny stav...
+            {t("common.loading" as any)}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto pr-2 space-y-6">
             
-            {/* --- FORMULÁR PRE NOVÉ ZRANENIE --- */}
             <div className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/5">
-              <h4 className="text-xs font-bold uppercase text-white/60 mb-2">Pridať nové zranenie</h4>
+              <h4 className="text-xs font-bold uppercase text-white/60 mb-2">
+                {t("sessions.review.injuryModal.addNewTitle" as any) || "Add new injury"}
+              </h4>
               
-              {/* AREA */}
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.areaLabel" as any)}</div>
                 <div className="flex flex-wrap gap-1.5">
@@ -236,7 +227,6 @@ function InjuryReportModal({
                 </div>
               </div>
 
-              {/* TYPE */}
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.typeLabel" as any)}</div>
                 <div className="flex flex-wrap gap-1.5">
@@ -255,11 +245,10 @@ function InjuryReportModal({
                 </div>
               </div>
 
-              {/* SEVERITY (Vážnosť 1-10) */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[10px] uppercase font-bold opacity-50">Vážnosť bolesti (1-10)</div>
-                  <div className="text-[10px] opacity-40">1 = mierna, 10 = extrémna</div>
+                  <div className="text-[10px] uppercase font-bold opacity-50">{t("sessions.review.injuryModal.severityTitle" as any) || "Severity (1-10)"}</div>
+                  <div className="text-[10px] opacity-40">{t("sessions.review.injuryModal.severityHint" as any) || "1 = mild, 10 = extreme"}</div>
                 </div>
                 <div className="flex gap-1 mb-2">
                   {INJ_SEVERITY.map((num) => {
@@ -281,18 +270,16 @@ function InjuryReportModal({
                     )
                   })}
                 </div>
-                {/* Dynamická vysvetlivka */}
                 <div className="text-[11px] leading-relaxed p-2 rounded bg-white/5 border border-white/5 text-white/60 italic">
                   {getSeverityNote(draft.severity ?? 0)}
                 </div>
               </div>
 
-              {/* NOTE */}
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">{t("prefs.sections.injuriesSection.noteLabel" as any)}</div>
                 <TextField
                   label=""
-                  placeholder="Napr. ostrá bolesť pri došlape..."
+                  placeholder={t("prefs.sections.injuriesSection.notePlaceholder" as any) || "e.g. sharp pain..."}
                   value={draft.note ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, note: (e.target as HTMLInputElement).value }))}
                 />
@@ -300,18 +287,17 @@ function InjuryReportModal({
 
               <div className="flex justify-end pt-2">
                 <Button type="button" variant="secondary" size="sm" onClick={handleAddDraftToList}>
-                  + Pridať do zoznamu
+                  {t("sessions.review.injuryModal.btnAddToList" as any) || "+ Add to list"}
                 </Button>
               </div>
             </div>
 
-            {/* --- ZOZNAM AKTÍVNYCH ZRANENÍ --- */}
             <div>
               <h4 className="text-xs font-bold uppercase text-white/60 mb-3 border-b border-white/5 pb-2">
-                Aktuálny stav ({activeInjuries.length})
+                {(t("sessions.review.injuryModal.currentStatus" as any) || "Current status ({{count}})").replace("{{count}}", String(activeInjuries.length))}
               </h4>
               {activeInjuries.length === 0 ? (
-                <div className="text-xs opacity-50 italic">Žiadne aktívne zranenia. Ste fit!</div>
+                <div className="text-xs opacity-50 italic">{t("sessions.review.injuryModal.emptyStatus" as any) || "No active injuries."}</div>
               ) : (
                 <ul className="space-y-2">
                   {activeInjuries.map((inj, idx) => (
@@ -325,7 +311,7 @@ function InjuryReportModal({
                             (inj.severity || 0) <= 3 ? "bg-emerald-500/20 text-emerald-300" :
                             (inj.severity || 0) <= 6 ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300"
                           }`}>
-                            Vážnosť: {inj.severity || "?"}/10
+                            {(t("sessions.review.injuryModal.severityLabel" as any) || "Severity: {{severity}}/10").replace("{{severity}}", String(inj.severity || "?"))}
                           </span>
                           <span className="opacity-60">{inj.note}</span>
                         </div>
@@ -334,7 +320,7 @@ function InjuryReportModal({
                         onClick={() => handleRemoveFromList(idx)}
                         className="text-xs px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded border border-red-500/20"
                       >
-                        Zmazať
+                        {t("sessions.review.injuryModal.btnRemove" as any) || "Delete"}
                       </button>
                     </li>
                   ))}
@@ -346,7 +332,7 @@ function InjuryReportModal({
 
         <div className="mt-6 pt-4 border-t border-white/5 flex justify-end gap-3 shrink-0">
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={isSaving}>
-            Zrušiť
+            {t("common.cancel" as any)}
           </Button>
           <Button 
             type="button" 
@@ -355,7 +341,7 @@ function InjuryReportModal({
             onClick={handleSaveChanges}
             disabled={isSaving || isLoading}
           >
-            {isSaving ? "Ukladám..." : "Uložiť zmeny"}
+            {isSaving ? (t("common.saving" as any) || "Saving...") : (t("common.save" as any) || "Save changes")}
           </Button>
         </div>
       </div>
@@ -400,7 +386,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
   const showCharCount = commentLen > MAX_COMMENT_CHARS * 0.8;
 
-  // Stavy pre zranenia
   const [showInjuryModal, setShowInjuryModal] = useState(false);
   const [hasActiveInjuries, setHasActiveInjuries] = useState(false); 
   const [justAddedNewInjury, setJustAddedNewInjury] = useState(false);
@@ -519,7 +504,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           {!hasReview ? (
               (!isEligible && startDt) ? <span className="text-yellow-500/80">{t("sessions.review.statusTooOld" as any)}</span> : <span>{t("sessions.review.statusNoReview" as any)}</span>
           ) : (
-            <span>{t("sessions.review.statusReviewCount" as any)?.replace("{{version}}", String(aiReviewVersion)).replace("{{max}}", String(maxVersions))}</span>
+            <span>
+              {(t("sessions.review.statusReviewCount" as any) || "Version {{version}} / {{max}}")
+                .replace("{{version}}", String(aiReviewVersion))
+                .replace("{{max}}", String(maxVersions))}
+            </span>
           )}
         </div>
 
@@ -568,12 +557,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                   </svg>
                 )}
               </div>
-              {hasActiveInjuries ? "Aktívne zranenie nahlásené" : "Hlásim bolesť / zranenie"}
+              {hasActiveInjuries 
+                ? (t("sessions.review.injuryModal.alertActive" as any) || "Aktívne zranenie nahlásené") 
+                : (t("sessions.review.injuryModal.alertReport" as any) || "Hlásim bolesť / zranenie")}
             </button>
             
             {hasActiveInjuries && (
                <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
-                 <TooltipIcon text="⚠️ Zranenie je uložené v profile. Pri generovaní nového Review o ňom bude AI vedieť. Pre zrušenie kliknite na tlačidlo a zmažte ho zo zoznamu." size={20} />
+                 <TooltipIcon text={t("sessions.review.injuryModal.tooltipActive" as any) || "⚠️ Zranenie je uložené v profile."} size={20} />
                </div>
             )}
           </div>
