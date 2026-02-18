@@ -140,12 +140,13 @@ export default function TrendWeeklyMonoStrain({
   }, [weeks, metric]);
 
   const handleChartClick = (state: any) => {
-    if (!onPickWeek || !state) return;
+    // ✅ Ochrana: Zareaguj len vtedy, ak user klikne priamo na payload dát
+    if (!onPickWeek || !state || !state.activePayload) return;
     
-    // Používame activeTooltipIndex, aby sme trafili správny stĺpec
-    const index = state.activeTooltipIndex ?? state.activeIndex;
+    // Používame activeTooltipIndex, aby sme trafili správny bod
+    const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
     
-    if (index !== undefined && chartData[index]) {
+    if (index !== undefined && index !== null && chartData[index]) {
       const w = chartData[index].rawWeek;
       
       if (w && w.start && w.end) {
@@ -153,7 +154,7 @@ export default function TrendWeeklyMonoStrain({
           week: w.week || w.start || "",
           start: w.start,
           end: w.end,
-          sport: "all", // Posielame null aby sa tabuľka ukázala pre všetky aktivity dňa
+          sport: "all", // ✅ Tvoj požadovaný sport: "all"
         });
       }
     }
@@ -229,8 +230,9 @@ export default function TrendWeeklyMonoStrain({
         </div>
       </div>
 
+      {/* ✅ Pridané triedy pre likvidáciu akýchkoľvek bielych focus rámikov (SVG outline reset) */}
       <div
-        className="w-full relative px-2 sm:px-4 pb-4"
+        className="w-full relative px-2 sm:px-4 pb-4 select-none focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
         style={{ height: 320 }}
       >
         {loading && (
@@ -239,6 +241,7 @@ export default function TrendWeeklyMonoStrain({
           </div>
         )}
 
+        {/* ✅ minWidth a minHeight proti errorom */}
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <LineChart
             data={chartData}
@@ -311,6 +314,7 @@ export default function TrendWeeklyMonoStrain({
               strokeWidth={3}
               dot={{ r: 3, fill: C.monotony, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: "none" }}
               connectNulls
             />
             <Line
@@ -323,6 +327,7 @@ export default function TrendWeeklyMonoStrain({
               strokeDasharray="5 5"
               dot={{ r: 3, fill: C.strain, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
+              style={{ outline: "none" }}
               connectNulls
             />
           </LineChart>

@@ -56,8 +56,8 @@ const ParetoTooltip = ({ active, payload, label, t, rows }: any) => {
 
     return (
       <div 
-        className="p-3 rounded-xl border shadow-xl backdrop-blur-md focus:outline-none outline-none"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
+        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder, outline: 'none' }}
       >
         <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
         
@@ -170,12 +170,12 @@ export default function TrendPareto8020({
   }, [selectedSports.length]);
 
   const handleChartClick = (state: any) => {
-    if (!onPickWeek || !state) return;
+    // ✅ Ochrana: Zareaguj len vtedy, ak user klikne priamo na payload dát, nie do prázdneho pozadia
+    if (!onPickWeek || !state || !state.activePayload) return;
     
-    // ✅ Použijeme index z Tooltipu (identické riešenie ako pre WeeklyLoad)
-    const index = state.activeTooltipIndex ?? state.activeIndex;
+    const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
     
-    if (index !== undefined && chartData[index]) {
+    if (index !== undefined && index !== null && chartData[index]) {
       const r = chartData[index].rawRow;
       
       if (r && r.start && r.end) {
@@ -183,13 +183,11 @@ export default function TrendPareto8020({
         onPickWeek({
           start: r.start,
           end: r.end,
-          sport: "all",
+          sport: "all", // ✅ Tvoj požadovaný sport: "all"
         });
       }
     }
   };
-
-  const pickedLabel = pickedIdx !== null && chartData[pickedIdx] ? chartData[pickedIdx].label : null;
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -231,28 +229,18 @@ export default function TrendPareto8020({
         </div>
       </div>
 
-      {/* ✅ Reset outline v CSS */}
-      <div className="w-full relative px-2 sm:px-4 pb-4 focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none select-none" style={{ height: 360 }}>
+      {/* ✅ Totálne zablokovanie akýchkoľvek bielych rámikov cez CSS */}
+      <div className="w-full relative px-2 sm:px-4 pb-4 select-none outline-none focus:outline-none [&_*:focus]:outline-none [&_*:focus-visible]:outline-none [&_svg]:outline-none" style={{ height: 360 }}>
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
           </div>
         )}
         
-        {/* ✅ minWidth a minHeight proti errorom */}
          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
           <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }} style={{ outline: 'none' }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             
-            {pickedLabel && (
-              <ReferenceLine 
-                x={pickedLabel} 
-                stroke={appColors.textMuted} 
-                strokeOpacity={0.3} 
-                strokeWidth={20} 
-              />
-            )}
-
             <XAxis 
               dataKey="label" 
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
@@ -266,11 +254,10 @@ export default function TrendPareto8020({
               tick={{ fill: appColors.textMuted, fontSize: 10 }} 
               axisLine={false} 
               tickLine={false}
-              tickFormatter={(val) => `${val}${t("common.units.pct")}`}
-              label={{ value: `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              tickFormatter={(val) => `${val}%`}
+              label={{ value: `[${t("common.units.pct") || "%"}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
             />
             
-            {/* ✅ Zabitie pozadia na Tooltipe */}
             <Tooltip content={<ParetoTooltip t={t} rows={rows} />} cursor={{ fill: "transparent", stroke: "transparent" }} wrapperStyle={{ outline: 'none' }} />
             
             <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
@@ -284,7 +271,6 @@ export default function TrendPareto8020({
               name={t("pareto8020.trend.labelEasy") as string} 
               stroke={appColors.chartLine1} 
               strokeWidth={3}
-              /* ✅ Vymazané outline: none z dot a presunuté na Line style */
               dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               style={{ outline: 'none' }}
@@ -298,7 +284,6 @@ export default function TrendPareto8020({
               stroke={appColors.chartLine2} 
               strokeWidth={3}
               strokeDasharray="5 5"
-              /* ✅ Rovnako tu */
               dot={{ r: 3, fill: appColors.chartLine2, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}
               style={{ outline: 'none' }}
