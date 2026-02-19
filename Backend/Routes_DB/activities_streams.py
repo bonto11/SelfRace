@@ -38,12 +38,10 @@ def db_get_streams_one(
         )
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
-        .gt("expires_at", _now_iso())  # ✅ ZMENENÉ pre absolútnu istotu času v pythone
+        .gt("expires_at", _now_iso())  # ✅ Bezpečné porovnanie s Python časom
         .limit(1)
         .execute()
     )
-
-    print("db_get_streams_one", res)
 
     data = res.data or []
     if not data:
@@ -58,6 +56,9 @@ def db_get_streams_ids_present(
     *,
     ctx: AuthCtx,
 ) -> List[int]:
+    """
+    Vráti activity_id, ktoré majú PLATNÉ streamy (nie expirované).
+    """
     if not activity_ids:
         return []
 
@@ -99,9 +100,17 @@ def db_upsert_streams_with_sport(
     temp: List[float],
     ctx: AuthCtx,
 ) -> None:
-    # TÚTO METÓDU UŽ HORE NEVOLÁME, ale nechávame ju tu, 
-    # ak by si ju používal v nejakom inom súbore pre import.
-    sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
+    """
+    Používa RPC, ale najprv vymaže starý záznam.
+    Tým donúti databázu pri najbližšom INSERT nastaviť nový, čerstvý expires_at.
+    """
+    sb = get_sb(ctx, caller="activities_streams.db_upsert_streams_with_sport")
+
+    # ✅ TRIK: Najprv potichu zmažeme záznam (ak existuje)
+    try:
+        sb.table(TABLE_ACTIVITIES_STREAMS).delete().eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
+    except Exception as e:
+        print("[WARN] Failed to delete old stream before upsert:", e)
 
     params = {
         "p_user_id": int(user_id),
@@ -117,6 +126,7 @@ def db_upsert_streams_with_sport(
         "p_temp": [float(x) for x in temp] if temp else [],
     }
 
+    # Čistý INSERT cez pôvodné RPC
     sb.rpc("upsert_streams_with_sport", params).execute()
 
 
@@ -134,11 +144,10 @@ def db_upsert_stream_arrays(
     grade_smooth: Optional[List[float]] = None,
     temp_c: Optional[List[float]] = None,
     moving: Optional[List[bool]] = None,
-    expires_at: Optional[str] = None, # ✅ PRIDANÉ
     ctx: AuthCtx,
 ) -> None:
     """
-    Priamy upsert do activities_streams cez Supabase python clienta.
+    Priamy upsert do activities_streams (záložná funkcia).
     """
     sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
 
@@ -147,9 +156,6 @@ def db_upsert_stream_arrays(
         "activity_id": activity_id,
         "time_s": time_s,
     }
-
-    if expires_at is not None:
-        payload["expires_at"] = expires_at  # ✅ Zápis nového času
 
     if heartrate_bpm is not None:
         payload["heartrate_bpm"] = heartrate_bpm
