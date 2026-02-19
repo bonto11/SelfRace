@@ -1242,15 +1242,15 @@ export const en = {
     monotony: "Monotony",
     levels: {
       mono: {
-        low: "low variability (OK)",
+        low: "low (OK)",
         ok: "balanced (OK)",
-        warn: "higher monotony",
+        warn: "higher",
         danger: "overload risk",
       },
       strain: {
-        low: "lighter week",
-        ok: "medium load",
-        warn: "higher load",
+        low: "lighter",
+        ok: "medium",
+        warn: "higher",
         danger: "very high",
       },
     },
@@ -1749,7 +1749,7 @@ export const en = {
     title: "Calendar",
     widget: {
       open: "Open calendar",
-      title: "Weekly Agenda • ",
+      title: "Weekly oberview",
       errorFailedLoad: "Failed to load external events.",
       tooltip: [
         "This is a quick 'weekly overview' – what actually happened, what is planned, and what the external blocks are.",

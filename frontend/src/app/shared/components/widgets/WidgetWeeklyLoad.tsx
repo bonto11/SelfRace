@@ -14,6 +14,7 @@ import {
   WIDGET_VALUE_PRIMARY,
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
+  WIDGET_FOOTNOTE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -73,21 +74,26 @@ export default function WeeklyLoadWidget({
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <>
-          <div className={WIDGET_VALUE_ROW}>
-            <span className={WIDGET_VALUE_PRIMARY}>{h}</span>
-            <span className={WIDGET_VALUE_UNIT}>h</span>
-            <span className={WIDGET_VALUE_PRIMARY}>
-              {String(m).padStart(2, "0")}
-            </span>
-            <span className={WIDGET_VALUE_UNIT}>m</span>
+        <div className="flex flex-col h-full">
+          <div className="flex-1">
+            <div className={WIDGET_VALUE_ROW}>
+              <span className={WIDGET_VALUE_PRIMARY}>{h}</span>
+              <span className={WIDGET_VALUE_UNIT}>h</span>
+              <span className={WIDGET_VALUE_PRIMARY}>
+                {String(m).padStart(2, "0")}
+              </span>
+              <span className={WIDGET_VALUE_UNIT}>m</span>
+            </div>
+
+            <p className={WIDGET_NOTE}>
+              {note}
+            </p>
           </div>
 
-          <p className={WIDGET_NOTE}>
-            {note}
-            {rangeTxt && rangeTxt !== "—" ? ` • ${rangeTxt}` : ""}
-          </p>
-        </>
+          <div className={`${WIDGET_FOOTNOTE} mt-auto pt-2`}>
+            {t("common.last7Days")} • {rangeTxt}
+          </div>
+        </div>
       )}
     </WidgetCard>
   );

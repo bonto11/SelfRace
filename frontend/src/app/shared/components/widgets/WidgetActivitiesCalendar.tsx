@@ -12,11 +12,10 @@ import { useActivityData } from "@/app/shared/components/dataProviders/ActivityD
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import { apiGetExternalEventsWindow } from "@/app/features/coach/api/coach_external_events";
-
-// ✅ Import na načítanie zranení
 import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
 
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
+import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
 import {
   dedupeCalendarItems,
@@ -24,10 +23,10 @@ import {
   type CalendarItemBase,
   type CalendarItemKind,
 } from "@/app/features/calendar/utils/calendarSlots";
-import type { SportKey } from "@/app/features/calendar/types/calendarTypes";
 
 import { WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
+import { WIDGET_FOOTNOTE } from "@/app/shared/ui/tokens"; // ✅ Pridaný import pre Footnote
 import {
   CAL_WIDGET_DOW_ROW,
   CAL_WIDGET_DOW_CELL,
@@ -285,7 +284,7 @@ export default function WidgetActivitiesCalendar({
 
   return (
     <WidgetCard
-      title={(t("calendar.widget.title" as any) || "Kalendár") + ` • ${weekLabel}`}
+      title={t("calendar.widget.title")} // ✅ Odstránený weekLabel z nadpisu
       tooltip={t("calendar.widget.tooltip" as any)}
       onOpen={handleOpen}
       accent={isMedicalSuspend ? "danger" : "none"}
@@ -293,131 +292,140 @@ export default function WidgetActivitiesCalendar({
       minH={160}
       innerClassName={NO_X_OVERFLOW}
     >
-      {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
+      <div className="flex flex-col h-full min-h-[110px]">
+        <div className="flex-1">
+          {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
 
-      {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
-      {activeInjury && (
-        <div className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
-            activeInjury.severity >= 7 
-              ? "bg-red-500/10 border-red-500/20 text-red-400" 
-              : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-          }`}>
-          <div className="flex-shrink-0">
-            ⚠️
-          </div>
-          <div className="leading-tight">
-            <strong>Zranenie nahlásené:</strong> {activeInjury.text}
-            <div className="opacity-80 text-[10px] mt-0.5">
-              {activeInjury.severity >= 7 ? "Kalendár zablokovaný (Lekárske voľno)." : "Tréningy upravené pre zotavenie."}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div
-        className={CAL_WIDGET_DOW_ROW}
-        style={{ color: appColors.textMuted }}
-      >
-        {dow.map((d) => (
-          <div key={d} className={CAL_WIDGET_DOW_CELL}>
-            {d}
-          </div>
-        ))}
-      </div>
-
-      <div
-        className={CAL_WIDGET_GRID}
-        onClick={handleOpen}
-        aria-label={t("calendar.widget.open" as any)}
-      >
-        {Array.from({ length: 7 }).map((_, i) => {
-          const d = new Date(monday);
-          d.setDate(monday.getDate() + i);
-
-          const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
-          const items = byDay.get(key) ?? [];
-          const shown = items.slice(0, perDayLimit);
-          const isToday = d.toDateString() === todayStr;
-
-          const cellStyle: React.CSSProperties = {
-            background: appColors.inputBg,
-            borderColor: appColors.surfaceCardBorder,
-            color: appColors.textPrimary,
-            WebkitTapHighlightColor: "transparent",
-            ...(isToday
-              ? { boxShadow: `0 0 0 2px ${appColors.statusSuccess}55` }
-              : null),
-          };
-
-          return (
-            <div key={key} className={CAL_WIDGET_DAY_CELL} style={cellStyle}>
-              <div className="flex flex-col">
-                <span className={CAL_WIDGET_DAY_NUM}>{d.getDate()}</span>
-
-                <div className={CAL_WIDGET_ITEMS_WRAP}>
-                  {shown.map((it) => {
-                    const color =
-                      SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
-
-                    if (it.kind === "activity" || it.kind === "external") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_DOT}
-                          style={{ backgroundColor: color }}
-                        />
-                      );
-                    }
-
-                    if (it.kind === "plan") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_PLAN_DOT}
-                          style={{
-                            borderColor: color,
-                            backgroundColor: "transparent",
-                          }}
-                        />
-                      );
-                    }
-
-                    if (it.kind === "done") {
-                      return (
-                        <span
-                          key={`${it.kind}-${it.id}`}
-                          className={CAL_WIDGET_MARK}
-                          style={{ color }}
-                        >
-                          ✓
-                        </span>
-                      );
-                    }
-
-                    return (
-                      <span
-                        key={`${it.kind}-${it.id}`}
-                        className={CAL_WIDGET_MARK}
-                        style={{ color }}
-                      >
-                        ✕
-                      </span>
-                    );
-                  })}
-
-                  {items.length > shown.length && (
-                    <span
-                      className={CAL_WIDGET_MORE}
-                      style={{ color: appColors.textMuted }}
-                    >
-                      +{items.length - shown.length}
-                    </span>
-                  )}
+          {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
+          {activeInjury && (
+            <div className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+                activeInjury.severity >= 7 
+                  ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                  : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+              }`}>
+              <div className="flex-shrink-0">
+                ⚠️
+              </div>
+              <div className="leading-tight">
+                <strong>Zranenie nahlásené:</strong> {activeInjury.text}
+                <div className="opacity-80 text-[10px] mt-0.5">
+                  {activeInjury.severity >= 7 ? "Kalendár zablokovaný (Lekárske voľno)." : "Tréningy upravené pre zotavenie."}
                 </div>
               </div>
             </div>
-          );
-        })}
+          )}
+
+          <div
+            className={CAL_WIDGET_DOW_ROW}
+            style={{ color: appColors.textMuted }}
+          >
+            {dow.map((d) => (
+              <div key={d} className={CAL_WIDGET_DOW_CELL}>
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div
+            className={CAL_WIDGET_GRID}
+            onClick={handleOpen}
+            aria-label={t("calendar.widget.open" as any)}
+          >
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = new Date(monday);
+              d.setDate(monday.getDate() + i);
+
+              const key = iso(d.getFullYear(), d.getMonth(), d.getDate());
+              const items = byDay.get(key) ?? [];
+              const shown = items.slice(0, perDayLimit);
+              const isToday = d.toDateString() === todayStr;
+
+              const cellStyle: React.CSSProperties = {
+                background: appColors.inputBg,
+                borderColor: appColors.surfaceCardBorder,
+                color: appColors.textPrimary,
+                WebkitTapHighlightColor: "transparent",
+                ...(isToday
+                  ? { boxShadow: `0 0 0 2px ${appColors.statusSuccess}55` }
+                  : null),
+              };
+
+              return (
+                <div key={key} className={CAL_WIDGET_DAY_CELL} style={cellStyle}>
+                  <div className="flex flex-col">
+                    <span className={CAL_WIDGET_DAY_NUM}>{d.getDate()}</span>
+
+                    <div className={CAL_WIDGET_ITEMS_WRAP}>
+                      {shown.map((it) => {
+                        const color =
+                          SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
+
+                        if (it.kind === "activity" || it.kind === "external") {
+                          return (
+                            <span
+                              key={`${it.kind}-${it.id}`}
+                              className={CAL_WIDGET_DOT}
+                              style={{ backgroundColor: color }}
+                            />
+                          );
+                        }
+
+                        if (it.kind === "plan") {
+                          return (
+                            <span
+                              key={`${it.kind}-${it.id}`}
+                              className={CAL_WIDGET_PLAN_DOT}
+                              style={{
+                                borderColor: color,
+                                backgroundColor: "transparent",
+                              }}
+                            />
+                          );
+                        }
+
+                        if (it.kind === "done") {
+                          return (
+                            <span
+                              key={`${it.kind}-${it.id}`}
+                              className={CAL_WIDGET_MARK}
+                              style={{ color }}
+                            >
+                              ✓
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <span
+                            key={`${it.kind}-${it.id}`}
+                            className={CAL_WIDGET_MARK}
+                            style={{ color }}
+                          >
+                            ✕
+                          </span>
+                        );
+                      })}
+
+                      {items.length > shown.length && (
+                        <span
+                          className={CAL_WIDGET_MORE}
+                          style={{ color: appColors.textMuted }}
+                        >
+                          +{items.length - shown.length}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ✅ Dátum presunutý dole do pätice, prilepený naspodok vďaka mt-auto */}
+        <div className={`${WIDGET_FOOTNOTE} mt-auto pt-4`}>
+          {weekLabel}
+        </div>
       </div>
     </WidgetCard>
   );

@@ -1247,16 +1247,16 @@ export const sk = {
     monotony: "Monotónnosť",
     levels: {
       mono: {
-        low: "nízka variabilita (OK)",
-        ok: "vyvážené (OK)",
-        warn: "vyššia monotónnosť",
+        low: "nízka (OK)",
+        ok: "vyvážená (OK)",
+        warn: "vyššia",
         danger: "riziko preťaženia",
       },
       strain: {
-        low: "ľahší týždeň",
-        ok: "stredný load",
-        warn: "vyšší load",
-        danger: "veľmi vysoký",
+        low: "nižšie",
+        ok: "stredné",
+        warn: "vyššie",
+        danger: "veľmi vysoké",
       },
     },
 
@@ -1756,7 +1756,7 @@ export const sk = {
     title: "Kalendár",
     widget: {
       open: "Otvoriť kalendár",
-      title: "Týždenná agenda • ",
+      title: "Týždenný prehľad",
       errorFailedLoad: "Zlyhalo načítanie externých udalostí.",
 
       tooltip: [
