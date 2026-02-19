@@ -24,7 +24,7 @@ def db_get_streams_one(
     res = (
         sb.table(TABLE_ACTIVITIES_STREAMS)
         .select(
-            "expires_at,"  # ✅ NEW
+            "expires_at,"
             "time_s,"
             "heartrate_bpm,"
             "cadence_rpm,"
@@ -38,7 +38,7 @@ def db_get_streams_one(
         )
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
-        .gt("expires_at", "now()")  # ✅ kľúčové (Supabase/Postg REST vie now())
+        .gt("expires_at", _now_iso())  # ✅ ZMENENÉ pre absolútnu istotu času v pythone
         .limit(1)
         .execute()
     )
@@ -58,9 +58,6 @@ def db_get_streams_ids_present(
     *,
     ctx: AuthCtx,
 ) -> List[int]:
-    """
-    Vráti activity_id, ktoré majú PLATNÉ streamy (nie expirované).
-    """
     if not activity_ids:
         return []
 
@@ -102,11 +99,8 @@ def db_upsert_streams_with_sport(
     temp: List[float],
     ctx: AuthCtx,
 ) -> None:
-    """
-    RPC upsert.
-    Dôležité: expires_at neriešime tu — DB default pri INSERT,
-    a pri UPSERT ho nemeníme (RPC nech to nerieši vôbec).
-    """
+    # TÚTO METÓDU UŽ HORE NEVOLÁME, ale nechávame ju tu, 
+    # ak by si ju používal v nejakom inom súbore pre import.
     sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
 
     params = {
@@ -140,12 +134,11 @@ def db_upsert_stream_arrays(
     grade_smooth: Optional[List[float]] = None,
     temp_c: Optional[List[float]] = None,
     moving: Optional[List[bool]] = None,
+    expires_at: Optional[str] = None, # ✅ PRIDANÉ
     ctx: AuthCtx,
 ) -> None:
     """
-    Priamy upsert do activities_streams.
-    - expires_at neposielame -> DB default pri INSERT, pri UPSERT sa nemení.
-    - deleted_at tiež nemeníme tu.
+    Priamy upsert do activities_streams cez Supabase python clienta.
     """
     sb = get_sb(ctx, caller="activities_streams.db_upsert_stream_arrays")
 
@@ -154,6 +147,9 @@ def db_upsert_stream_arrays(
         "activity_id": activity_id,
         "time_s": time_s,
     }
+
+    if expires_at is not None:
+        payload["expires_at"] = expires_at  # ✅ Zápis nového času
 
     if heartrate_bpm is not None:
         payload["heartrate_bpm"] = heartrate_bpm
