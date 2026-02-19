@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from Modules.Strava.activities import StravaActivitiesClient
 from Routes_DB.activities_streams import (
     db_get_streams_one,
-    db_upsert_streams_with_sport,  # ✅ Vrátili sme sa k tvojmu spoľahlivému RPC
+    db_upsert_streams_with_sport,
 )
 
 from Modules.Supabase.auth import AuthCtx
@@ -264,8 +264,6 @@ def service_get_streams_cached_or_fetch(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
-    print("service_get_streams_cached_or_fetch", user_id, activity_id)
-    
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
@@ -294,8 +292,7 @@ def service_get_streams_cached_or_fetch(
         streams_json=j,
         ctx=ctx
     )
-    print("service_get_streams_cached_or_fetch save_streams_with_sport_to_db", ok)
-    
+
     if not ok:
         raise RuntimeError(f"Failed to store streams: {err}")
 
