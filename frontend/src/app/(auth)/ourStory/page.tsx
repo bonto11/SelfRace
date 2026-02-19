@@ -23,7 +23,7 @@ export default function AboutPage() {
 
   return (
     // showPoweredByStrava={true} sa sem hodí viac ako na legal stránky
-    <PageShell title={t("ourStory.title") || "Our Story"} showBack showPoweredByStrava={true}>
+    <PageShell title={t("ourStory.title") || "Our Story"} showBack showPoweredByStrava={false}>
       <section className={`${CARD} max-w-4xl mx-auto`} style={SURFACE_CARD_STYLE}>
         <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
           {/* Samotný príbeh */}

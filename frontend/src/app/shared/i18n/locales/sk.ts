@@ -46,12 +46,18 @@ export const sk = {
       expand: "Zobraziť sekciu",
     },
     levels: {
+      low:"nízka",
+      moderate:"stredná",
+      high: "vysoká",
       superior: "vynikajúca",
       excellent: "výborná",
       good: "dobrá",
       fair: "priemerná",
       poor: "slabá",
       very_poor: "veľmi slabá",
+    },
+    phases: {
+      threshold_speed:"Prahová rýchlosť",
     },
     sports: {
       run: "Beh",
@@ -912,7 +918,7 @@ export const sk = {
         "• Keď zmeníš preferencie (goal, weeks, športy) alebo pribudne veľa nových aktivít, má zmysel vygenerovať nový daily plán, aby zodpovedal realite.",
       ].join("\n"),
 
-      noteOK: "Najbližších dní: ",
+      noteOK: "Vygenerované",
       noteMissing: "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.",
       missingData:
         "Zatiaľ nemáš uložený denný plán. Po vygenerovaní prvého týždňa sa tu zobrazí prehľad najbližších dní.",
@@ -974,10 +980,10 @@ export const sk = {
       },
     },
     status: {
-      active: "Aktívny plán ✓",
-      both: "Weekly+Daily ✓",
-      weeklyOnly: "Weekly ✓",
-      dailyOnly: "Daily ✓",
+      active: "Aktívny plán",
+      both: "Týždenný+Denný ✓",
+      weeklyOnly: "Týždenný ✓",
+      dailyOnly: "Denný ✓",
       none: "Žiadny plán",
     },
     prefs: {
@@ -997,7 +1003,7 @@ export const sk = {
       generatingDaily: "Generujem…",
       startPlan: "Spusti plán",
       startingPlan: "Spúšťam…",
-      activePlan: "Plán je aktívny ✓",
+      activePlan: "Plán aktívny",
       openPlan: "Otvoriť plán",
       cancelPlan: "Ukončiť plán",
       cancellingPlan: "Ruším…",

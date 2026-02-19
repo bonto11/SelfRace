@@ -111,7 +111,7 @@ export default function WidgetMonoStrain({
             </div>
           </div>
 
-          <div className={WIDGET_FOOTNOTE}>
+          <div className={`${WIDGET_FOOTNOTE} mt-auto pt-2`}>
             {t("common.last7Days")} • {rangeTxt}
           </div>
         </>

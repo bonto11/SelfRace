@@ -108,9 +108,12 @@ export default function WidgetActivitiesCalendar({
 
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
-  
+
   // ✅ Pridaný stav pre zranenie do kalendára
-  const [activeInjury, setActiveInjury] = React.useState<{ severity: number; text: string } | null>(null);
+  const [activeInjury, setActiveInjury] = React.useState<{
+    severity: number;
+    text: string;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!userId) return;
@@ -118,7 +121,10 @@ export default function WidgetActivitiesCalendar({
       try {
         const prefs = await apiFetchUserPref(userId, "coach.prefs");
         if (prefs && Array.isArray(prefs.injuries)) {
-          const maxSev = Math.max(...prefs.injuries.map((i: any) => i.severity || 0), 0);
+          const maxSev = Math.max(
+            ...prefs.injuries.map((i: any) => i.severity || 0),
+            0,
+          );
           setIsMedicalSuspend(maxSev >= 7);
         }
       } catch (err) {
@@ -136,29 +142,39 @@ export default function WidgetActivitiesCalendar({
       try {
         // ✅ Paralelné volanie udalostí aj zranení pre rýchlejší render
         const [rows, prefsRes] = await Promise.all([
-          apiGetExternalEventsWindow(userId, startIso, endIso).catch((e) => { throw e; }),
-          apiFetchUserPref(userId, "coach.prefs").catch(() => null)
+          apiGetExternalEventsWindow(userId, startIso, endIso).catch((e) => {
+            throw e;
+          }),
+          apiFetchUserPref(userId, "coach.prefs").catch(() => null),
         ]);
 
         if (!alive) return;
         setExternalRows(Array.isArray(rows) ? rows : []);
 
         // Vyhodnotenie zranenia
-        if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
-          const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
-            return (current.severity || 0) > (prev.severity || 0) ? current : prev;
-          }, { severity: 0 });
+        if (
+          prefsRes &&
+          Array.isArray(prefsRes.injuries) &&
+          prefsRes.injuries.length > 0
+        ) {
+          const maxInjury = prefsRes.injuries.reduce(
+            (prev: any, current: any) => {
+              return (current.severity || 0) > (prev.severity || 0)
+                ? current
+                : prev;
+            },
+            { severity: 0 },
+          );
 
           if (maxInjury && maxInjury.severity > 0) {
             setActiveInjury({
               severity: maxInjury.severity,
-              text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
+              text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`,
             });
           }
         } else {
-           setActiveInjury(null);
+          setActiveInjury(null);
         }
-
       } catch (e: any) {
         if (!alive) return;
         setExternalRows([]);
@@ -280,7 +296,15 @@ export default function WidgetActivitiesCalendar({
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
-  const dow = [t("common.weeksShort.mon" as any), t("common.weeksShort.tue" as any), t("common.weeksShort.wed" as any), t("common.weeksShort.thu" as any), t("common.weeksShort.fri" as any),t("common.weeksShort.sat" as any), t("common.weeksShort.sun" as any)] as const;
+  const dow = [
+    t("common.weeksShort.mon" as any),
+    t("common.weeksShort.tue" as any),
+    t("common.weeksShort.wed" as any),
+    t("common.weeksShort.thu" as any),
+    t("common.weeksShort.fri" as any),
+    t("common.weeksShort.sat" as any),
+    t("common.weeksShort.sun" as any),
+  ] as const;
 
   return (
     <WidgetCard
@@ -298,18 +322,20 @@ export default function WidgetActivitiesCalendar({
 
           {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
           {activeInjury && (
-            <div className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
-                activeInjury.severity >= 7 
-                  ? "bg-red-500/10 border-red-500/20 text-red-400" 
+            <div
+              className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+                activeInjury.severity >= 7
+                  ? "bg-red-500/10 border-red-500/20 text-red-400"
                   : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-              }`}>
-              <div className="flex-shrink-0">
-                ⚠️
-              </div>
+              }`}
+            >
+              <div className="flex-shrink-0">⚠️</div>
               <div className="leading-tight">
                 <strong>Zranenie nahlásené:</strong> {activeInjury.text}
                 <div className="opacity-80 text-[10px] mt-0.5">
-                  {activeInjury.severity >= 7 ? "Kalendár zablokovaný (Lekárske voľno)." : "Tréningy upravené pre zotavenie."}
+                  {activeInjury.severity >= 7
+                    ? "Kalendár zablokovaný (Lekárske voľno)."
+                    : "Tréningy upravené pre zotavenie."}
                 </div>
               </div>
             </div>
@@ -351,7 +377,11 @@ export default function WidgetActivitiesCalendar({
               };
 
               return (
-                <div key={key} className={CAL_WIDGET_DAY_CELL} style={cellStyle}>
+                <div
+                  key={key}
+                  className={CAL_WIDGET_DAY_CELL}
+                  style={cellStyle}
+                >
                   <div className="flex flex-col">
                     <span className={CAL_WIDGET_DAY_NUM}>{d.getDate()}</span>
 
@@ -422,9 +452,8 @@ export default function WidgetActivitiesCalendar({
           </div>
         </div>
 
-        {/* ✅ Dátum presunutý dole do pätice, prilepený naspodok vďaka mt-auto */}
-        <div className={`${WIDGET_FOOTNOTE} mt-auto pt-4`}>
-          {weekLabel}
+        <div className={`${WIDGET_FOOTNOTE} mt-auto pt-2`}>
+          {t("common.last7Days")} • {weekLabel}
         </div>
       </div>
     </WidgetCard>

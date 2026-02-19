@@ -46,6 +46,7 @@ type UiState = {
   todaySessions: DailyPlanDay["sessions"] | null;
   isMedicalSuspend: boolean;
   maxInjurySeverity: number;
+  hasAnyPlan: boolean; // ✅ Pridaný flag, či vôbec nejaký plán existuje
 };
 
 function buildUiState(overview: DailyOverview | null, injurySeverity: number): UiState {
@@ -57,6 +58,7 @@ function buildUiState(overview: DailyOverview | null, injurySeverity: number): U
     todaySessions: null,
     isMedicalSuspend: injurySeverity >= 7,
     maxInjurySeverity: injurySeverity,
+    hasAnyPlan: false,
   };
 
   if (!overview || !overview.days?.length) {
@@ -64,19 +66,37 @@ function buildUiState(overview: DailyOverview | null, injurySeverity: number): U
   }
 
   const days = overview.days;
-  const daysCount = days.length;
-
-  let sessionsCount = 0;
-  for (const d of days) sessionsCount += d.sessions?.length ?? 0;
-
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayDay = days.find((d) => d.date === todayStr) ?? days[0];
+  
+  // Namiesto dĺžky celého poľa (ktoré obsahuje aj historické a voľné dni) 
+  // spočítame iba BUDÚCE (vrátane dnes) aktívne tréningy
+  let futureActiveDaysCount = 0;
+  let futureSessionsCount = 0;
+
+  for (const d of days) {
+    // Ignorujeme dni v minulosti pre výpočet "zostáva"
+    if (d.date < todayStr) continue;
+
+    const sessionCountForDay = d.sessions?.length ?? 0;
+    if (sessionCountForDay > 0) {
+      // Overíme, či to nie je len "rest" deň
+      const hasRealWorkout = d.sessions!.some(s => s.session_type?.toLowerCase() !== "rest");
+      if (hasRealWorkout) {
+        futureActiveDaysCount++;
+        futureSessionsCount += sessionCountForDay;
+      }
+    }
+  }
+
+  // Ak je plán prázdny alebo v minulosti, todayDay bude null
+  const todayDay = days.find((d) => d.date === todayStr) ?? null;
 
   return {
     ...base,
-    horizonDays: overview.horizon_days ?? daysCount,
-    daysCount,
-    sessionsCount,
+    hasAnyPlan: true,
+    horizonDays: overview.horizon_days ?? days.length,
+    daysCount: futureActiveDaysCount, // ✅ Ukazujeme len ZOSTÁVAJÚCE tréningové dni
+    sessionsCount: futureSessionsCount, // ✅ Ukazujeme len ZOSTÁVAJÚCE tréningy
     todayLabel: todayDay?.date ?? null,
     todaySessions: todayDay?.sessions ?? [],
   };
@@ -88,10 +108,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   
-  // ✅ Pôvodný stav pre zranenie, ktorý nám chýbal
   const [injurySeverity, setInjurySeverity] = useState<number>(0); 
-  
-  // ✅ Tvoj nový stav pre banner so zranením
   const [activeInjury, setActiveInjury] = useState<{ severity: number; text: string } | null>(null);
   
   const [loading, setLoading] = useState(false);
@@ -119,7 +136,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             }, { severity: 0 });
 
             if (maxInjury && maxInjury.severity > 0) {
-              setInjurySeverity(maxInjury.severity); // ✅ Tu nastavíme číselnú hodnotu
+              setInjurySeverity(maxInjury.severity); 
               setActiveInjury({
                 severity: maxInjury.severity,
                 text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
@@ -149,8 +166,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
   const note = ui.isMedicalSuspend 
     ? t("coachDaily.widget.medicalTitle")
-    : ui.daysCount
-      ? `${t("coachDaily.widget.noteOK")} ${ui.daysCount}`
+    : ui.hasAnyPlan
+      ? t("coachDaily.widget.noteOK") + ui.daysCount
       : t("coachDaily.widget.noteMissing");
 
   return (
@@ -178,7 +195,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
         </div>
       ) : (
         <>
-          {/* ✅ Banner zranenia nad detailmi */}
           {activeInjury && (
             <div className={`mb-4 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
                 activeInjury.severity >= 7 
@@ -195,7 +211,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             </div>
           )}
 
-          {!overview || !ui.daysCount ? (
+          {/* Ak vôbec nemáme plán */}
+          {!ui.hasAnyPlan ? (
             <div className={WIDGET_EMPTY_TEXT}>
               {t("coachDaily.widget.missingData")}
             </div>

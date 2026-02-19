@@ -36,7 +36,7 @@ type UiState = {
   bullets: string[];
   fatigueData: { previous: string | null; current: string | null };
   injuryData: { previous: string | null; current: string | null };
-  blockLabel: string | null;
+  blockData: { previous: string | null; current: string | null }; // ✅ Zmena z blockLabel stringu na objekt
   volumeData: { from: number; to: number } | null;
 };
 
@@ -57,7 +57,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
       bullets: [],
       fatigueData: { previous: null, current: null },
       injuryData: { previous: null, current: null },
-      blockLabel: null,
+      blockData: { previous: null, current: null }, // ✅ Inicializácia na objekt
       volumeData: null,
     };
   }
@@ -98,9 +98,7 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
     bullets,
     fatigueData: { previous: comp.fatigue_level?.previous, current: comp.fatigue_level?.current },
     injuryData: { previous: comp.injury_risk?.previous, current: comp.injury_risk?.current },
-    blockLabel: comp.block_kind?.previous || comp.block_kind?.current 
-      ? `${comp.block_kind.previous || "—"} → ${comp.block_kind.current || "—"}` 
-      : null,
+    blockData: { previous: comp.block_kind?.previous, current: comp.block_kind?.current }, // ✅ Vytiahnuté ako objekt
     volumeData,
   };
 }
@@ -133,12 +131,20 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-  // Pomocná funkcia na preklad úrovní (low/high...)
+  // Pomocná funkcia na preklad úrovní (low/high/moderate...)
   const getLvl = (lvl?: string | null) => {
     if (!lvl) return "—";
     const key = `common.levels.${lvl.toLowerCase()}`;
     const translated = (t as any)(key);
     return translated === key ? lvl : translated;
+  };
+
+  // ✅ Pomocná funkcia na preklad fáz (base, build, peak, recovery)
+  const getPhaseLabel = (phaseStr?: string | null) => {
+    if (!phaseStr) return "—";
+    const key = `common.phases.${phaseStr.toLowerCase()}`;
+    const translated = (t as any)(key);
+    return translated === key ? phaseStr : translated;
   };
 
   const fatigueLabel = ui.fatigueData.previous || ui.fatigueData.current
@@ -148,6 +154,11 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
   const injuryLabel = ui.injuryData.previous || ui.injuryData.current
     ? `${getLvl(ui.injuryData.previous)} → ${getLvl(ui.injuryData.current)}`
     : "—";
+
+  // ✅ Spracovanie bloku úplne rovnako ako pri únave a zraneniach
+  const blockLabel = ui.blockData.previous || ui.blockData.current
+    ? `${getPhaseLabel(ui.blockData.previous)} → ${getPhaseLabel(ui.blockData.current)}`
+    : "—"; 
 
   const volumeLabel = ui.volumeData
     ? t("coachProgress.labels.volumeValue")
@@ -211,7 +222,7 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
             <div className={WIDGET_VALUE_STRONG_XS}>{injuryLabel}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>{t("coach.weekly.phase")}</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{ui.blockLabel ?? "—"}</div>
+            <div className={WIDGET_VALUE_STRONG_XS}>{blockLabel}</div>
 
             <div className={WIDGET_LABEL_MUTED_XS}>{t("coachProgress.labels.volume")}</div>
             <div className={WIDGET_VALUE_STRONG_XS}>{volumeLabel}</div>

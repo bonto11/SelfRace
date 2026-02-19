@@ -46,12 +46,18 @@ export const en = {
       expand: "Show section",
     },
     levels: {
+      low:"low",
+      moderate:"moderate",
+      high: "high",
       superior: "superior",
       excellent: "excellent",
       good: "good",
       fair: "fair",
       poor: "poor",
       very_poor: "very poor",
+    },
+    phases: {
+      threshold_speed:"Threshold speed",
     },
     sports: {
       run: "Run",
@@ -909,7 +915,8 @@ export const en = {
         "Tips for consistency:",
         "• When you change preferences (goal, weeks, sports) or log many new activities, it makes sense to generate a new daily plan so it matches reality.",
       ].join("\n"),
-      noteOK: "Next few days: ",
+
+      noteOK: "Generated",
       noteMissing: "Generate a daily plan (at least 1 week) in the coach section.",
       missingData:
         "You don't have a saved daily plan yet. Once you generate your first week, an overview of the upcoming days will appear here.",
@@ -970,7 +977,7 @@ export const en = {
       },
     },
     status: {
-      active: "Active Plan ✓",
+      active: "Active plan",
       both: "Weekly+Daily ✓",
       weeklyOnly: "Weekly ✓",
       dailyOnly: "Daily ✓",
@@ -993,7 +1000,7 @@ export const en = {
       generatingDaily: "Generating...",
       startPlan: "Start plan",
       startingPlan: "Starting...",
-      activePlan: "Plan is active ✓",
+      activePlan: "Plan activated",
       openPlan: "Open plan",
       cancelPlan: "Cancel plan",
       cancellingPlan: "Canceling...",

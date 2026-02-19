@@ -86,7 +86,7 @@ function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
 
   const current = findCurrentWeek(weeks);
   const currentWeekLabel = current 
-    ? `${t("common.week")} ${current.week_index}` 
+    ? `${current.week_index}.` 
     : null;
   const currentWeekFocus = current?.focus ?? current?.goal ?? null;
   const currentWeekLoad = current?.load_phase ?? null;

@@ -55,9 +55,7 @@ function ClientPage() {
         <WidgetExternalEvents />
         <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
         <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-        <WidgetCoachPlan />
-
-        {/* AI widgety */}
+        
         <WidgetCoachAIAnalyze
           onOpenDetail={() => router.push("/coach/ai/athleteState")}
         />
@@ -67,9 +65,11 @@ function ClientPage() {
         <WidgetCoachAIDaily
           onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
         />
+        <WidgetCoachPlan />
         <WidgetCoachAIProgress
           onOpenDetail={() => router.push("/coach/ai/progress")}
         />
+        
       </div>
     </PageShell>
   );
