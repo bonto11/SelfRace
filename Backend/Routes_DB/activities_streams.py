@@ -43,6 +43,8 @@ def db_get_streams_one(
         .execute()
     )
 
+    print("db_get_streams_one", res)
+
     data = res.data or []
     if not data:
         return None

@@ -313,12 +313,15 @@ def service_get_streams_cached_or_fetch(
        - ak fetch_if_missing=True: fetchne zo Stravy, uloží do DB, re-read, vráti source="strava", fetched=True
     """
 
+    print("service_get_streams_cached_or_fetch",user_id, activity_id)
     # 1) DB read
     row = db_get_streams_one(
         user_id=user_id,
         activity_id=activity_id,
         ctx=ctx
     )
+
+    print("service_get_streams_cached_or_fetch db_get_streams_one" ,row)
 
     if row:
         # shape fix nech má FE všetko
@@ -338,13 +341,14 @@ def service_get_streams_cached_or_fetch(
     # 3) fetch zo Stravy + store
     j = fetch_streams_from_strava(ctx=ctx, user_id=user_id, activity_id=activity_id)
 
+    print("service_get_streams_cached_or_fetch fetch_streams_from_strava",j )
     ok, err = save_streams_with_sport_to_db(
         user_id=user_id,
         activity_id=activity_id,
         streams_json=j,
         ctx=ctx
     )
-
+    print("service_get_streams_cached_or_fetch save_streams_with_sport_to_db" ,ok)
     if not ok:
         raise RuntimeError(f"Failed to store streams: {err}")
 
@@ -354,6 +358,8 @@ def service_get_streams_cached_or_fetch(
         activity_id=activity_id,
         ctx=ctx
     )
+
+    print("service_get_streams_cached_or_fetch db_get_streams_one 2" ,row2)
     if not row2:
         raise RuntimeError("Streams stored but not readable from DB")
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-import os
-
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
 from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
@@ -15,16 +13,8 @@ from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
 from Modules.Supabase.auth import AuthCtx
+from Configs.config import WEEKDAY_TO_ABBR
 
-_WEEKDAY_TO_ABBR: Dict[int, str] = {
-    0: "Mon",
-    1: "Tue",
-    2: "Wed",
-    3: "Thu",
-    4: "Fri",
-    5: "Sat",
-    6: "Sun",
-}
 
 _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
 _ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
@@ -60,7 +50,7 @@ def _weekday_abbr_from_iso(d: str) -> Optional[str]:
         return None
     try:
         dd = date.fromisoformat(d[:10])
-        return _WEEKDAY_TO_ABBR.get(dd.weekday())
+        return WEEKDAY_TO_ABBR.get(dd.weekday())
     except Exception:
         return None
 

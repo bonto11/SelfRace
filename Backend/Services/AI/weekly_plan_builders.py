@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, List
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
-    COACH_PLAN_DEAFULT_WEEKS,  # historický názov, nechávame
+    COACH_PLAN_DEFAULT_WEEKS,  # historický názov, nechávame
     COACH_PLAN_MAX_WEEKS,
 )
 
@@ -196,7 +196,7 @@ def build_weekly_context_from_db(
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEAFULT_WEEKS)
+    raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
     analyze_input_min = _minify_analyze_input_for_weekly(analyze_input)

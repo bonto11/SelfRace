@@ -1,6 +1,0 @@
-terminal-	.\venv\Scripts\Activate.ps1   //Prepne ťa do prostredia (venv) → všetky pip install pôjdu len do tohto projektu
-	Ak to neaktivuješ, inštalácie idú do globálneho Pythonu a môže nastať chaos
-
-terminal- 	pip freeze > requirements.txt  //Zoznam knižníc potrebných pre projekt
-terminal- 	pip install -r requirements.txt		//Keď niekto stiahne projekt, spustí:
-terminal- 	python -m trainalyze.main		//Namiesto python trainalyze/main.py sa odporúča:

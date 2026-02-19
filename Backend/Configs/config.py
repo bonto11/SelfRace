@@ -127,12 +127,8 @@ STRAVA_CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
 
 REDIRECT_URI = env_optional("STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token")
-TOKENS_FILE = env_optional("STRAVA_TOKENS_FILE", "data/tokens.json")
 
-USE_STRAVA_CACHE = False
-CACHE_DIR = "data/strava_cache"
 
-REQUEST_DELAY_SECS = 0.3
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
 
 STRAVA_MANUAL_IMPORT_DEFAULT_DAYS = 10
@@ -239,15 +235,13 @@ WEEKDAY_TO_ABBR: Dict[int, str] = {
     6: "Sun",
 }
 
+PY_WEEKDAY_TO_INT: Dict[int, int] = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7}
+
 
 STRIPE_API_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PRICE_CLASSIC = os.getenv("STRIPE_PRICE_CLASSIC")
 STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-
-# legacy typo alias (ak niekde ešte svieti)
-COACH_PLAN_DEAFULT_WEEKS = COACH_PLAN_DEFAULT_WEEKS
-
 
 # Tiers max limits for AI Review versioning
 MAX_VERSIONS_FREE : int =  env_int("MAX_VERSIONS_FREE", 1)

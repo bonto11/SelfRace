@@ -9,30 +9,9 @@ from Routes_DB.coach_external_events import (
     db_insert_external_events,
 )
 from Modules.Supabase.auth import AuthCtx
-
-# 1=Mon ... 7=Sun
-INT_TO_ABBR: Dict[int, str] = {
-    1: "Mon",
-    2: "Tue",
-    3: "Wed",
-    4: "Thu",
-    5: "Fri",
-    6: "Sat",
-    7: "Sun",
-}
-
-ABBR_TO_INT: Dict[str, int] = {
-    "Mon": 1,
-    "Tue": 2,
-    "Wed": 3,
-    "Thu": 4,
-    "Fri": 5,
-    "Sat": 6,
-    "Sun": 7,
-}
+from Configs.config import WEEKDAY_TO_ABBR, PY_WEEKDAY_TO_INT
 
 # JS/Python weekday for date.weekday(): 0=Mon..6=Sun
-PY_WEEKDAY_TO_INT: Dict[int, int] = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7}
 
 
 def _normalize_weekday_int(v: Any) -> Optional[int]:
@@ -137,7 +116,7 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
     start_time_local = ev.get("start_time_local") or None
 
     # optional legacy weekday text for debugging/compat (not a source of truth)
-    weekday_abbr = INT_TO_ABBR.get(weekday_int) if weekday_int else None
+    weekday_abbr = WEEKDAY_TO_ABBR.get(weekday_int) if weekday_int else None
 
     return {
         "user_id": user_id,
@@ -197,7 +176,7 @@ def _expand_events_to_window(
     while current <= date_to:
         iso = current.isoformat()
         wd_int = PY_WEEKDAY_TO_INT.get(current.weekday(), 1)  # 1..7
-        wd_abbr = INT_TO_ABBR.get(wd_int, "Mon")
+        wd_abbr = WEEKDAY_TO_ABBR.get(wd_int, "Mon")
 
         for ev in events:
             rk = (ev.get("recurrence_kind") or "weekly").lower()
