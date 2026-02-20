@@ -1,5 +1,6 @@
 export const en = {
   common: {
+    locale: "en-US",
     and: "and",
     weeksShort: {
       mon: "Mon",
@@ -1088,7 +1089,7 @@ export const en = {
     },
     labels: {
       volume: "Min. weekly volume",
-      volumeValue: "{{from}} h → {{to}} h / week (min)",
+      volumeValue: "{{from}} h → {{to}} h / week",
     },
   },
   coachWeekly: {

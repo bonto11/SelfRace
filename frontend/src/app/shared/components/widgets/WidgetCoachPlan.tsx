@@ -401,16 +401,6 @@ export default function WidgetCoachPlan() {
   // ✅ Celkové blokovanie generátorov ak je aktívny plán ALEBO kritické zranenie
   const generatorsDisabled = disabled || planLocked || isCriticallyInjured;
 
-  const statusLabel = useMemo(() => {
-    if (isMedicalSuspend) return t("coachPlan.widget.status.medicalSuspend");
-    if (planLocked) return t("coachPlan.status.active");
-    if (hasWeekly && hasDaily) return t("coachPlan.status.both");
-    if (hasWeekly) return t("coachPlan.status.weeklyOnly");
-    if (hasDaily) return t("coachPlan.status.dailyOnly");
-    return t("coachPlan.status.none");
-  }, [planLocked, hasWeekly, hasDaily, isMedicalSuspend, t]);
-
-  const statusColor = planLocked ? appColors.brandPrimary : appColors.textMuted;
   const lockReason = planLocked ? t("coachPlan.lockReason") : injuryLockReason;
 
   return (
@@ -422,10 +412,7 @@ export default function WidgetCoachPlan() {
       interactive={false}
       minH={210}
     >
-      <div className={WIDGET_STATUS_ROW}>
-        <Pill label={statusLabel} color={statusColor} />
-        <PrefsMiniInline prefs={prefs} />
-      </div>
+
 
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 

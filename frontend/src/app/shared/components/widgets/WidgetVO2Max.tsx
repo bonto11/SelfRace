@@ -127,24 +127,29 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-6 md:gap-10">
+        // ✅ Znížil som gap, aby bolo viac miesta pre dlhšie texty
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-4 md:gap-6">
+          
           {/* estimated */}
-          <div>
+          <div className="min-w-0"> {/* min-w-0 je dôležité pre text-overflow v gride */}
             <div className={WIDGET_META_LABEL}>
               {t("VO2Max.chart.estimated")}: {fmtDate(est?.updated_at ?? null)}
             </div>
-            <div className={WIDGET_VALUE_ROW}>
+            {/* Pridané items-center a flex-wrap, aby sa pill nezmrštil */}
+            <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
               <div className={WIDGET_VALUE_MAIN}>
                 {estVal != null ? estVal.toFixed(1) : "—"}
               </div>
-              {levelEstimated ? (
-                <Pill
-                  label={levelEstimated.label}
-                  color={levelEstimated.color}
-                />
-              ) : (
-                <span className={WIDGET_PLACEHOLDER}>—</span>
-              )}
+              <div className="shrink-0"> {/* Zabráni zmenšovaniu Pill komponentu */}
+                {levelEstimated ? (
+                  <Pill
+                    label={levelEstimated.label}
+                    color={levelEstimated.color}
+                  />
+                ) : (
+                  <span className={WIDGET_PLACEHOLDER}>—</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -154,19 +159,22 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           />
 
           {/* measured */}
-          <div>
+          <div className="min-w-0">
             <div className={WIDGET_META_LABEL}>
               {t("VO2Max.chart.measured")}: {fmtDate(measured?.updated_at ?? null)}
             </div>
-            <div className={WIDGET_VALUE_ROW}>
+            {/* Rovnaká oprava ako vyššie */}
+            <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
               <div className={WIDGET_VALUE_MAIN}>
                 {mVO2 != null ? mVO2.toFixed(1) : "—"}
               </div>
-              {levelMeasured ? (
-                <Pill label={levelMeasured.label} color={levelMeasured.color} />
-              ) : (
-                <span className={WIDGET_PLACEHOLDER}>—</span>
-              )}
+              <div className="shrink-0">
+                {levelMeasured ? (
+                  <Pill label={levelMeasured.label} color={levelMeasured.color} />
+                ) : (
+                  <span className={WIDGET_PLACEHOLDER}>—</span>
+                )}
+              </div>
             </div>
           </div>
         </div>

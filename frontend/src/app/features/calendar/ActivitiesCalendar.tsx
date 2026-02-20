@@ -155,10 +155,24 @@ export default function ActivitiesCalendar({
 
   const [label, setLabel] = React.useState("");
 
+  // ✅ Získanie aktuálneho locale kódu
+  const currentLocale = React.useMemo(() => {
+    const loc = t("common.locale" as any);
+    // Ak si locale kľúč do common ešte nepridal, robíme fallback trik na zistenie jazyka z iného prekladu
+    if (loc === "common.locale") {
+      return t("common.and" as any) === "and" ? "en-US" : "sk-SK";
+    }
+    return loc;
+  }, [t]);
+
   React.useEffect(() => {
     const d = new Date(year, month0, 1);
-    setLabel(d.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }));
-  }, [year, month0]);
+    // ✅ Použitie premennej s aktuálnym jazykom
+    let text = d.toLocaleDateString(currentLocale, { month: "long", year: "numeric" });
+    // Zabezpečíme prvé veľké písmeno (napríklad Február 2024 namiesto február 2024)
+    text = text.charAt(0).toUpperCase() + text.slice(1);
+    setLabel(text);
+  }, [year, month0, currentLocale]);
 
   const selectedPlanRows = React.useMemo(() => {
     if (!selectedIso) return [];

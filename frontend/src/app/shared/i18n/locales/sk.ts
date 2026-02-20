@@ -1,5 +1,6 @@
 export const sk = {
   common: {
+    locale: "sk-SK",
     and: "a",
     weeksShort: {
       mon: "Po",
@@ -1091,7 +1092,7 @@ export const sk = {
     },
     labels: {
       volume: "Min. týždenný objem",
-      volumeValue: "{{from}} h → {{to}} h / týždeň (min)",
+      volumeValue: "{{from}} h → {{to}} h / týždeň",
     },
   },
   coachWeekly: {

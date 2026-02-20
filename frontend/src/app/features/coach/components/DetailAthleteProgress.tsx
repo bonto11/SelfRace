@@ -412,18 +412,6 @@ export default function DetailAthleteProgress() {
           </div>
         </div>
       </Card>
-
-      <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
-        <div className={PANEL_PAD}>
-          <details className="text-xs">
-            <summary className="cursor-pointer">{t("coach.progress.debugRaw")}</summary>
-            <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] opacity-85">
-              {JSON.stringify(p.raw, null, 2)}
-            </pre>
-          </details>
-        </div>
-        <div className={ACCORDION_FOOTER_BAR_MUTED} />
-      </section>
     </div>
   );
 }
