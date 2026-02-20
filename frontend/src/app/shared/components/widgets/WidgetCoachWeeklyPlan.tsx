@@ -184,13 +184,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
               {ui.currentWeekLoad ?? "—"}
             </div>
           </div>
-
-          {ui.currentWeekFocus && (
-            <p className={WIDGET_NOTE_P_SM}>
-              {t("coachWeekly.widget.thisWeekSummary")}: {ui.currentWeekFocus}
-              {ui.currentWeekLoad ? ` (${ui.currentWeekLoad})` : ""}
-            </p>
-          )}
         </>
       )}
     </WidgetCard>

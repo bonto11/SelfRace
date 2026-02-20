@@ -916,7 +916,6 @@ export const en = {
         "• When you change preferences (goal, weeks, sports) or log many new activities, it makes sense to generate a new daily plan so it matches reality.",
       ].join("\n"),
 
-      noteOK: "Generated",
       noteMissing: "Generate a daily plan (at least 1 week) in the coach section.",
       missingData:
         "You don't have a saved daily plan yet. Once you generate your first week, an overview of the upcoming days will appear here.",
@@ -1124,7 +1123,6 @@ export const en = {
       labelCurrentWeek: "Current week",
       labelFocus: "Focus",
       labelPhase: "Phase",
-      thisWeekSummary: "This week",
     },
   },
   externalEvents: {

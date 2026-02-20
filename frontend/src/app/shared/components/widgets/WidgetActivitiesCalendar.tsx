@@ -451,10 +451,6 @@ export default function WidgetActivitiesCalendar({
             })}
           </div>
         </div>
-
-        <div className={`${WIDGET_FOOTNOTE} mt-auto pt-2`}>
-          {t("common.last7Days")} • {weekLabel}
-        </div>
       </div>
     </WidgetCard>
   );

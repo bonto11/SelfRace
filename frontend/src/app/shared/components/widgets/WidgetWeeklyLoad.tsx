@@ -89,10 +89,6 @@ export default function WeeklyLoadWidget({
               {note}
             </p>
           </div>
-
-          <div className={`${WIDGET_FOOTNOTE} mt-auto pt-2`}>
-            {t("common.last7Days")} • {rangeTxt}
-          </div>
         </div>
       )}
     </WidgetCard>

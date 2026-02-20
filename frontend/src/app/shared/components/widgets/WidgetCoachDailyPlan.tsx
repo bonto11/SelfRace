@@ -164,17 +164,11 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(overview, injurySeverity), [overview, injurySeverity]);
 
-  const note = ui.isMedicalSuspend 
-    ? t("coachDaily.widget.medicalTitle")
-    : ui.hasAnyPlan
-      ? t("coachDaily.widget.noteOK") + ui.daysCount
-      : t("coachDaily.widget.noteMissing");
 
   return (
     <WidgetCard
       title={t("coachDaily.widget.title")}
       tooltip={t("coachDaily.widget.tooltip")}
-      note={note}
       accent={ui.isMedicalSuspend ? "danger" : "none"} 
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

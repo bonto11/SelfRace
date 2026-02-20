@@ -918,7 +918,6 @@ export const sk = {
         "• Keď zmeníš preferencie (goal, weeks, športy) alebo pribudne veľa nových aktivít, má zmysel vygenerovať nový daily plán, aby zodpovedal realite.",
       ].join("\n"),
 
-      noteOK: "Vygenerované",
       noteMissing: "Vygeneruj daily plán (aspoň 1 týždeň) v coach sekcii.",
       missingData:
         "Zatiaľ nemáš uložený denný plán. Po vygenerovaní prvého týždňa sa tu zobrazí prehľad najbližších dní.",
@@ -1127,7 +1126,6 @@ export const sk = {
       labelCurrentWeek: "Aktuálny týždeň",
       labelFocus: "Zameranie",
       labelPhase: "Fáza",
-      thisWeekSummary: "Tento týždeň",
     },
   },
   externalEvents: {
