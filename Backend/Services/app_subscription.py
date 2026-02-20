@@ -19,6 +19,7 @@ TIER_ORDER: Dict[str, int] = {
     "free": 0,
     "classic": 1,
     "pro": 2,
+    "family": 3,
 }
 
 
@@ -42,6 +43,7 @@ def service_list_app_subscription_tiers(
 
 # ---------- STATUS / HISTORY ----------
 
+
 def service_get_user_app_subscription_status(
     *,
     user_id: int,
@@ -57,7 +59,7 @@ def service_get_user_app_subscription_status(
         ctx=ctx,
     )
 
-    # ✅ AUTO-TRIAL LOGIKA (BEZPEČNÁ)
+    # ✅ AUTO-TRIAL LOGIKA (BEZPEČNÁ A OPTIMALIZOVANÁ)
     # Ak nemá aktívny plán, skontrolujeme, či je to úplne nový používateľ
     if not active:
         # Vytiahneme len 1 záznam z histórie. Ak vráti prázdne pole, je to nováčik.
@@ -68,12 +70,10 @@ def service_get_user_app_subscription_status(
         )
         if not history:
             # Udelíme mu 14-dňový trial
-            service_start_pro_trial(user_id=user_id, ctx=ctx)
-            # Znovu načítame aktívny stav (teraz by už mal nájsť ten čerstvý PRO trial)
-            active = db_get_active_app_subscription_for_user(
-                user_id=user_id,
-                ctx=ctx,
-            )
+            trial_res = service_start_pro_trial(user_id=user_id, ctx=ctx)
+            # Rovno použijeme vrátený objekt z insertu, neťaháme to znova z DB (rýchlejšie a stabilnejšie)
+            if trial_res.get("success"):
+                active = trial_res.get("subscription")
 
     effective_tier = "free"
     scheduled_change: Optional[Dict[str, Any]] = None
@@ -81,9 +81,12 @@ def service_get_user_app_subscription_status(
     if active:
         effective_tier = str(active.get("tier_code") or "free")
         meta = active.get("meta") or {}
-        
+
         if active.get("cancel_at_period_end"):
-            if meta.get("pending_downgrade_to") and meta["pending_downgrade_to"] != "free":
+            if (
+                meta.get("pending_downgrade_to")
+                and meta["pending_downgrade_to"] != "free"
+            ):
                 scheduled_change = {
                     "kind": "downgrade",
                     "to_tier_code": str(meta["pending_downgrade_to"]),
@@ -104,6 +107,7 @@ def service_get_user_app_subscription_status(
         "tiers": tiers,
         "scheduled_change": scheduled_change,
     }
+
 
 def service_list_user_app_subscriptions(
     *,
@@ -127,18 +131,6 @@ def service_set_user_app_subscription_tier_manual(
     tier_code: str,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Manuálne prepnutie:
-
-      - upgrade (classic/pro vyššie ako current):
-          * ihneď zruší current ACTIVE
-          * založí nový ACTIVE na 30 dní
-
-      - downgrade (nižší tier) alebo prechod na free:
-          * current ACTIVE ponechá
-          * nastaví cancel_at_period_end = true
-          * meta.pending_downgrade_to = cieľ (alebo 'free' = cancel)
-    """
     tier_code = tier_code.strip().lower()
     if not tier_code:
         raise ValueError("tier_code is required")
@@ -242,16 +234,6 @@ def service_apply_due_subscription_changes(
     now: Optional[datetime] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Cron – napr. raz denne.
-
-    Nájde ACTIVE subscriptions s:
-      - cancel_at_period_end = true
-      - current_period_end <= now
-    a podľa meta.pending_downgrade_to buď:
-      - spraví downgrade na iný tier
-      - alebo zruší platené členstvo úplne (-> free)
-    """
     now = now or datetime.now(timezone.utc)
     now_iso = now.isoformat()
 
@@ -273,9 +255,7 @@ def service_apply_due_subscription_changes(
 
         period_end_raw = row.get("current_period_end")
         if isinstance(period_end_raw, str):
-            start_dt = datetime.fromisoformat(
-                period_end_raw.replace("Z", "+00:00")
-            )
+            start_dt = datetime.fromisoformat(period_end_raw.replace("Z", "+00:00"))
         else:
             start_dt = now
         end_dt = start_dt + timedelta(days=30)
@@ -332,15 +312,12 @@ def service_apply_due_subscription_changes(
 
     return {"now": now_iso, "count": len(processed), "items": processed}
 
+
 def service_cancel_scheduled_subscription_change(
     *,
     user_id: int,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Zruší pending_downgrade/pending_cancel na aktuálnom active subscriptione.
-    Použiješ z Billing UI ako 'Keep current program'.
-    """
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
         ctx=ctx,
@@ -358,10 +335,8 @@ def service_cancel_scheduled_subscription_change(
         changed = True
 
     if not active.get("cancel_at_period_end") and not changed:
-        # nič nie je naplánované
         return {"active_subscription": active, "tier": None, "user": None}
 
-    # resetni cancel_at_period_end + meta
     updated = db_update_app_user_subscription_status(
         subscription_id=sub_id,
         status=active.get("status", "active"),
@@ -388,15 +363,13 @@ def service_start_pro_trial(
 ) -> Dict[str, Any]:
     """
     Aktivuje 14-dňový PRO trial pre nového používateľa.
-    Nastaví sa cancel_at_period_end = True a downgrade_to = free,
-    takže tvoj existujúci CRON ho po 14 dňoch automaticky prepne späť.
     """
     # 1. Skontrolujeme, či už náhodou nemá aktívne predplatné
     active = db_get_active_app_subscription_for_user(
         user_id=user_id,
         ctx=ctx,
     )
-    
+
     if active:
         return {"success": False, "detail": "User already has an active subscription."}
 
@@ -412,13 +385,13 @@ def service_start_pro_trial(
         status="active",
         current_period_start=now_iso,
         current_period_end=end_iso,
-        cancel_at_period_end=True, # Kľúčové pre CRON
+        cancel_at_period_end=True,  # Kľúčové pre CRON
         external_customer_id=None,
         external_subscription_id=None,
         meta={
             "source": "registration_pro_trial",
-            "pending_downgrade_to": "free", # Kľúčové pre CRON
-            "pending_cancel": True
+            "pending_downgrade_to": "free",  # Kľúčové pre CRON
+            "pending_cancel": True,
         },
         ctx=ctx,
     )
