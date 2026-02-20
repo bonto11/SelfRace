@@ -127,7 +127,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         <div className={WIDGET_ROW_BETWEEN}>
           <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
-              merané: {fmtDate(latest?.updated_at ?? null)}
+              {t("profile.metrics.measuredPlaceholder")} {fmtDate(latest?.updated_at ?? null)}
             </div>
 
             <div className={WIDGET_VALUE_ROW}>
