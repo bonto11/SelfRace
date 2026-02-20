@@ -331,11 +331,11 @@ export default function WidgetActivitiesCalendar({
             >
               <div className="flex-shrink-0">⚠️</div>
               <div className="leading-tight">
-                <strong>Zranenie nahlásené:</strong> {activeInjury.text}
+                <strong>{t("common.injury.reported")}</strong> {activeInjury.text}
                 <div className="opacity-80 text-[10px] mt-0.5">
                   {activeInjury.severity >= 7
-                    ? "Kalendár zablokovaný (Lekárske voľno)."
-                    : "Tréningy upravené pre zotavenie."}
+                    ? t("common.injury.calendar")
+                    : t("common.injury.planAdjusted")}
                 </div>
               </div>
             </div>

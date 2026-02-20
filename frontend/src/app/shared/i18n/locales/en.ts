@@ -16,6 +16,12 @@ export const en = {
       count2to4: "weeks",
       count5plus: "weeks",
     },
+    injury:{
+    reported: "Injury reported:",
+    calendar: "Calendar paused (Medical leave).",
+    dailyPlan: "The plan is in medical leave mode..",
+    planAdjusted: "Training were adjusted due to injury.",
+  },
     downloadPDF: "Download PDF",
     showPDFError: "Your browser cannot display the PDF. ",
     done: "Done",

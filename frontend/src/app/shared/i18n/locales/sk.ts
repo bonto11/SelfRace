@@ -16,6 +16,12 @@ export const sk = {
       count2to4: "týždne",
       count5plus: "týždňov",
     },
+      injury:{
+    reported: "Zranenie nahlásené:",
+    calendar: "Kalendár zablokovaný (Lekárske voľno).",
+    dailyPlan: "Plán je v režime lekárskeho voľna.",
+    planAdjusted: "Tréningy upravené pre zotavenie.",
+  },
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",

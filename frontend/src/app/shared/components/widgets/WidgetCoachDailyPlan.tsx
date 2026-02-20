@@ -197,9 +197,9 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
               }`}>
               <div className="flex-shrink-0 text-base">⚠️</div>
               <div className="leading-tight">
-                <strong>Zranenie:</strong> {activeInjury.text}
+                <strong>{t("common.injury.reported")}</strong> {activeInjury.text}
                 <div className="opacity-80 text-[10px] mt-0.5">
-                  {activeInjury.severity >= 7 ? "Plán je v režime lekárskeho voľna." : "Plán je upravený pre zotavenie."}
+                  {activeInjury.severity >= 7 ? t("common.injury.dailyPlan") : t("common.injury.planAdjusted")}
                 </div>
               </div>
             </div>
