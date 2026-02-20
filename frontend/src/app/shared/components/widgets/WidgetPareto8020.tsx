@@ -12,6 +12,7 @@ import {
   WIDGET_LOADING_WRAP,
   WIDGET_CENTER,
   WIDGET_NOTE,
+  WIDGET_EMPTY_TEXT,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -71,6 +72,7 @@ export default function WidgetPareto8020({
   const targetEasy = 0.8 * T;
   const deltaEasy = Math.round(targetEasy - E);
 
+  // Ak sú dáta prázdne, nezvýrazňujeme widget
   const accent = T === 0 ? "none" : appColors.stateWarning;
 
   const note = useMemo(() => {
@@ -84,20 +86,19 @@ export default function WidgetPareto8020({
     return t("pareto8020.widget.notePerfect");
   }, [T, deltaEasy, t]);
 
-  const widgetTitle = t("pareto8020.widget.title")
-    .replace("{{weeks}}", String(weeks));
+  const widgetTitle = t("pareto8020.widget.title").replace("{{weeks}}", String(weeks));
 
   // Príprava dát pre PieTrend graf
   const pieItems: PieTrendItem[] = useMemo(() => {
     return [
       {
         value: E,
-        label: t("pareto8020.trend.labelEasy"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Easy")
+        label: t("pareto8020.trend.labelEasy"),
         color: appColors.chartLine1,
       },
       {
         value: H,
-        label: t("pareto8020.trend.labelHard"), // Uistite sa, že tento kľúč máte v slovníku (napr. "Hard")
+        label: t("pareto8020.trend.labelHard"),
         color: appColors.chartLine2,
       },
     ];
@@ -116,6 +117,12 @@ export default function WidgetPareto8020({
         <div className={WIDGET_LOADING_WRAP}>
           <LoadingSpinner size="widget" />
         </div>
+      ) : T === 0 ? (
+        // ✅ Pridaný fallback pre prípad, že graf nemá z čoho renderovať.
+        // Týmto úplne obídeme chybu a ukážeme štandardné "Žiadne dáta" pekne na stred.
+        <div className={WIDGET_EMPTY_TEXT}>
+          {t("common.noData")}
+        </div>
       ) : (
         <>
           <div className={WIDGET_CENTER}>
@@ -131,8 +138,6 @@ export default function WidgetPareto8020({
               )}
             />
           </div>
-
-          {/* WIDGET_FOOTNOTE som odstránil, pretože PieTrend si tvorí vlastnú legendu */}
 
           {note && <div className={WIDGET_NOTE}>{note}</div>}
         </>
