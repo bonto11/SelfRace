@@ -8,4 +8,4 @@ export const MAX_VERSIONS_FREE = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_FRE
 export const MAX_VERSIONS_CLASSIC = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_CLASSIC);
 export const MAX_VERSIONS_PRO = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_PRO);
 export const MAX_VERSIONS_FAMILY = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_FAMILY);
-export const MAX_COMMENT_CHARS = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_FAMILY);
+export const MAX_COMMENT_CHARS = Number(process.env.NEXT_PUBLIC_MAX_COMMENT_CHARS);
