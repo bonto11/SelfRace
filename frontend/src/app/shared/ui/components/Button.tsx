@@ -11,7 +11,6 @@ import {
 
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 
-// ✅ berieme NOVÉ button tokeny z inputs.ts (lebo si ich tam presunul)
 import {
   BUTTON_BASE,
   buttonSizeClass,

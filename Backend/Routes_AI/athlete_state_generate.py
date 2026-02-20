@@ -55,18 +55,11 @@ def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
 
 
 def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
-    """
-    ✅ Trace vždy:
-    - primárne res.trace (nové správanie ako pri activity_review)
-    - fallback na res.error.trace (ak ešte niekde zostalo staré správanie)
-    - inak minimálny fallback
-    """
     provider = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or requested_model)
 
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
-        # doplň povinné polia, ak by chýbali
         tr.setdefault("provider", provider)
         tr.setdefault("models_tried", [])
         tr.setdefault("attempts", [])
@@ -132,7 +125,10 @@ def generate_athlete_state_json(
 
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-        parsed["generated_at"] = parsed.get("generated_at") or now_local
+        
+        # ✅ OPRAVA DÁTUMU: Natvrdo prepíšeme AI výmysel skutočným aktuálnym časom
+        parsed["generated_at"] = now_local 
+        
         parsed["model"] = str(getattr(res, "model", None) or model) 
         # sync trace ok_model
         if isinstance(trace, dict) and not trace.get("ok_model"):
@@ -219,7 +215,6 @@ def generate_athlete_progress_report(
 
     tzinfo = _tzinfo_from_settings(settings)
 
-
     system_txt, user_txt = build_prompts_for_progress(
         previous_state=previous_state,
         current_state=current_state,
@@ -248,7 +243,10 @@ def generate_athlete_progress_report(
 
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-        parsed["generated_at"] = parsed.get("generated_at") or now_local
+        
+        # ✅ OPRAVA DÁTUMU: Natvrdo prepíšeme AI výmysel skutočným aktuálnym časom
+        parsed["generated_at"] = now_local
+        
         parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
 
         if isinstance(trace, dict) and not trace.get("ok_model"):

@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailAthleteProgress.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +9,9 @@ import {
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
+
+// ✅ Import pre ukladanie metrík
+import { apiSaveMetrics } from "@/app/features/profile/api/metrics";
 
 import {
   PANEL_STACK,
@@ -64,6 +68,7 @@ type Parsed = {
   celebrations: string[];
   risksToWatch: string[];
   focusNextWeeks: string[];
+  vo2maxEstimate: number | null; // ✅ Pridané pre VO2Max
   raw: any | null;
 };
 
@@ -76,10 +81,20 @@ function toStringArray(v: any): string[] {
 function slovakLevel(level: string | null, t: any): string {
   const l = (level || "").toLowerCase();
   if (!l) return "—";
-  if (l === "low") return t("coach.levels.low");
-  if (l === "moderate") return t("coach.levels.moderate");
-  if (l === "high") return t("coach.levels.high");
+  if (l === "low") return t("common.levels.low");
+  if (l === "moderate") return t("common.levels.moderate");
+  if (l === "high") return t("common.levels.high");
   return l;
+}
+
+// ✅ Nová funkcia na preklad FÁZY TRÉNINGU (z katalógu coach.weekly.phases)
+function translatePhase(phase: string | null, t: any): string {
+  const p = (phase || "").toLowerCase();
+  if (!p) return "—";
+  const key = `common.phases.${p}`;
+  const translated = t(key);
+  // TypeScript fix: phase môže byť null, tak mu dáme fallback na string
+  return translated === key ? (phase || "—") : translated;
 }
 
 function formatMinutesRange(min: number | null | undefined, max: number | null | undefined, t: any): string {
@@ -109,6 +124,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
       fitnessStrengthPrev: null, fitnessStrengthCurr: null, fitnessStrengthComment: null,
       volPrevMin: null, volPrevMax: null, volCurrMin: null, volCurrMax: null, volComment: null,
       planSoften: null, planWeekly: null, celebrations: [], risksToWatch: [], focusNextWeeks: [],
+      vo2maxEstimate: null,
       raw: payload,
     };
   }
@@ -131,6 +147,12 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
       });
     } catch { /* fallback */ }
   }
+
+  // ✅ Vyhľadávanie VO2Max z rôznych miest v JSONe
+  let vo2max = null;
+  if (typeof comp.vo2max?.current === "number") vo2max = comp.vo2max.current;
+  else if (typeof cp.vo2max_estimate === "number") vo2max = cp.vo2max_estimate;
+  else if (typeof fit.vo2max_estimate === "number") vo2max = fit.vo2max_estimate;
 
   return {
     model: cp.model || null,
@@ -166,6 +188,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     celebrations: toStringArray(cp.recommendations?.celebrations),
     risksToWatch: toStringArray(cp.recommendations?.risks_to_watch),
     focusNextWeeks: toStringArray(cp.recommendations?.focus_next_weeks),
+    vo2maxEstimate: vo2max, // ✅
     raw: cp,
   };
 }
@@ -208,6 +231,9 @@ export default function DetailAthleteProgress() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ Udržujeme stav, aby sa VO2Max neukladal pri každom re-rendri komponentu
+  const [vo2maxSaved, setVo2maxSaved] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -227,6 +253,26 @@ export default function DetailAthleteProgress() {
   }, [userId, t]);
 
   const p = useMemo(() => parseProgress(row), [row]);
+
+  // ✅ Automatické uloženie VO2Max_estimated
+  useEffect(() => {
+    if (userId && p.vo2maxEstimate && !vo2maxSaved) {
+      console.log(`[Progress] Zistený nový odhad VO2Max od AI: ${p.vo2maxEstimate}. Odosielam na server...`);
+      
+      apiSaveMetrics(userId, [{
+        metric: "VO2Max_estimated",
+        value_num: p.vo2maxEstimate,
+        unit: "ml/kg/min", // Hardcoded alebo zober t("common.units.vo2max") ak chceš
+        measured_at: new Date().toISOString(),
+        source: "system", // Zmenené z "user" na "system", keďže je to odhad AI
+      }]).then(() => {
+        setVo2maxSaved(true);
+        console.log(`[Progress] VO2Max úspešne uložený do profilu.`);
+      }).catch(err => {
+        console.warn(`[Progress] Uloženie VO2Max zlyhalo:`, err);
+      });
+    }
+  }, [userId, p.vo2maxEstimate, vo2maxSaved]);
 
   if (!userId) {
     return (
@@ -261,7 +307,6 @@ export default function DetailAthleteProgress() {
         title={t("coach.progress.summaryTitle")}
         subtitle={[
           p.generatedAt ? `${t("coach.progress.createdAt")}: ${p.generatedAt}` : null,
-          p.model ? `AI: ${p.model}` : null,
         ].filter(Boolean).join(" · ")}
       >
         {p.headline && <div className={PANEL_PREVIEW}>{p.headline}</div>}
@@ -286,7 +331,8 @@ export default function DetailAthleteProgress() {
           />
           <Subcard
             title={t("coach.progress.blockTitle")}
-            value={`${p.blockPrev || "—"} → ${p.blockCurr || "—"}`}
+            // ✅ Použitý bezpečný preklad fáz
+            value={`${translatePhase(p.blockPrev, t)} → ${translatePhase(p.blockCurr, t)}`}
             text={p.blockComment || undefined}
           />
         </div>

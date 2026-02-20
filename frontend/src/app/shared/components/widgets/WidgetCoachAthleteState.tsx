@@ -142,10 +142,18 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const ui = useMemo(() => extractUiState(row), [row]);
   const accent = useMemo(() => pickAccent(ui), [ui]);
+
+  // ✅ Pomocná funkcia na preklad úrovní (low/high/moderate...)
+  const getLvl = (lvl?: string | null) => {
+    if (!lvl) return "—";
+    const key = `common.levels.${lvl.toLowerCase()}`;
+    const translated = (t as any)(key);
+    return translated === key ? lvl : translated;
+  };
 
   return (
     <WidgetCard
@@ -183,10 +191,10 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
             </div>
 
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.fatigue")}</div>
-            <div className={WIDGET_KV_VALUE}>{ui.fatigueLabel ?? "—"}</div>
+            <div className={WIDGET_KV_VALUE}>{getLvl(ui.fatigueLabel)}</div>
 
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
-            <div className={WIDGET_KV_VALUE}>{ui.injuryLabel ?? "—"}</div>
+            <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
           </div>
 
           <p className={WIDGET_SUMMARY_TEXT}>

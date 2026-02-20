@@ -39,7 +39,6 @@ export default function WidgetCoachPrefs({ onOpenDetail }: Props) {
     <WidgetCard
       title={t("coachPrefs.widget.title")}
       tooltip={t("coachPrefs.widget.tooltip")}
-      note={t("coachPrefs.widget.note")}
       accent="none"
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

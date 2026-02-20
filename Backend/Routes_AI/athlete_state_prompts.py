@@ -6,8 +6,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from Modules.Supabase.auth import AuthCtx
 
-
-# 👇 Pridaj túto pomocnú funkciu tesne nad `minify_analyze_context_for_ai`
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
@@ -18,20 +16,13 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-# 👇 Tu je upravená funkcia minify_analyze_context_for_ai
+
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Minifikácia CoachAnalyzeInput pre LLM:
-    - drop user.id + potenciálne PII
-    - last_activities: drop name + activity_id, date -> relatívne ak je možné
-    - drop heavy/raw blocks ak by sa niekde objavili (streams/laps/splits)
-    """
     if not isinstance(context, dict):
         return {}
 
     out: Dict[str, Any] = json.loads(json.dumps(context, default=str))  # deep-ish copy
 
-    # --- user: remove id/email/name if exist ---
     u = out.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
@@ -39,10 +30,8 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         u.pop("name", None)
         out["user"] = u
 
-    # --- prefs: drop external_activities if present ---
     prefs = out.get("prefs")
     if isinstance(prefs, dict):
-        # handle prefs.value too
         pv = prefs.get("value")
         if isinstance(pv, dict):
             pv.pop("external_activities", None)
@@ -50,12 +39,10 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         prefs.pop("external_activities", None)
         out["prefs"] = prefs
 
-    # --- heavy raw blocks (just in case) ---
     out.pop("streams", None)
     out.pop("laps", None)
     out.pop("splits", None)
 
-    # --- last_activities anonymize ---
     def _parse_date_yyyy_mm_dd(s: str) -> Optional[datetime]:
         try:
             if not s:
@@ -67,7 +54,7 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
         dt = _parse_date_yyyy_mm_dd(date_str or "")
         if not dt:
-            return date_str  # fallback: keep as is
+            return date_str
         today = datetime.now(timezone.utc).date()
         d = (today - dt.date()).days
         if d <= 0:
@@ -90,7 +77,6 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 break
         out["last_activities"] = cleaned
 
-    # --- user_settings: keep only lang/tz if present ---
     us = out.get("user_settings")
     if isinstance(us, dict):
         out["user_settings"] = {
@@ -98,11 +84,9 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "timezone": us.get("timezone"),
         }
 
-    # ✅ APLIKOVANIE ČISTIČA: Vyhodí všetky null a prázdne listy
     return _remove_empty(out)
 
 
-# 👇 Pridaj tento pomocník tesne nad `build_prompts_for_progress`
 def _minify_state_for_progress(state: dict) -> dict:
     """Ponechá len podstatné dáta pre porovnanie (zahodí trace, timestampy, schema_version atď.)"""
     if not isinstance(state, dict):
@@ -114,7 +98,6 @@ def _minify_state_for_progress(state: dict) -> dict:
     return _remove_empty(minified)
 
 
-# 👇 Upravená funkcia build_prompts_for_progress
 def build_prompts_for_progress(
     previous_state: dict,
     current_state: dict,
@@ -125,7 +108,6 @@ def build_prompts_for_progress(
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
-    # ✅ OSEKANÝ PAYLOAD: AI už nedostane zbytočný balast, iba to, čo sa reálne zmenilo
     context_for_llm = {
         "previous_state": _minify_state_for_progress(previous_state),
         "current_state": _minify_state_for_progress(current_state),
@@ -141,6 +123,7 @@ def build_prompts_for_progress(
         "Do NOT output prose or code fences, only JSON."
     )
 
+    # ✅ PRIDANÝ VO2MAX do porovnávacej schémy
     schema_text = f"""
 {{
   "schema_version": 1,
@@ -166,6 +149,11 @@ def build_prompts_for_progress(
       "current": string | null,
       "comment": string | null
     }},
+    "vo2max": {{
+      "previous": number | null,
+      "current": number | null,
+      "comment": string | null
+    }} | null,
     "fitness_level": {{
       "run": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
       "ride": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
@@ -201,6 +189,7 @@ def build_prompts_for_progress(
         "- Always return exactly one JSON object matching the schema.\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
+        "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
     return system_txt, user_txt
@@ -221,24 +210,18 @@ def build_prompts_for_analyze(
     settings: Optional[Dict[str, Any]] = None,
     ctx:AuthCtx,
 ) -> Tuple[str, str]:
-    """
-    Prompt builder pre ANALYZE ATHLETE STATE.
-    """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
-    # attach safe settings
     context2 = dict(context_payload) if isinstance(context_payload, dict) else {}
     context2["user_settings"] = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
     }
 
-    # ✅ MINIFY HERE
     context_for_llm = minify_analyze_context_for_ai(context2)
 
     prefs = (context_for_llm.get("prefs") or {})
-    # prefs môže byť {value:{...}} alebo flat
     if isinstance(prefs, dict) and isinstance(prefs.get("value"), dict):
         prefs2 = prefs["value"]
     else:
@@ -308,6 +291,7 @@ def build_prompts_for_analyze(
 }}
 """.strip()
 
+    # ✅ PRIDANÁ INŠTRUKCIA PRE VÝPOČET VO2MAX
     user_txt = (
         "Analyze the athlete context JSON and fill the schema.\n"
         f"The main sport is: {main_sport}.\n"
@@ -322,6 +306,7 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- If prefs.volume is defined, set weekly_minutes_min/max around it (roughly 70–120%) adjusted by recovery.\n"
+        "- Calculate 'estimated_vo2max' if recent running data (pace vs HR vs thresholds) allows it, otherwise leave null.\n"
         "- Keep numbers realistic.\n"
     )
 

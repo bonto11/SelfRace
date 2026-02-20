@@ -38,7 +38,7 @@ export const natur = {
   overlay: "rgba(0,0,0,0.45)",
 
   // --- Status colors ---
-  statusSuccess: "#2BBE8D",
+  statusSuccess: "#BFF159",
   statusWarning: "#D8B24A",
   statusError: "#F0545E",
   statusErrorHover: "#E04852",
@@ -73,7 +73,7 @@ export const natur = {
 
   // --- Brand greens ---
   greenPrimary: "#BFF159",
-  greenSoft: "#2BBE8D",
+  greenSoft: "#BFFF30",
   greenMuted: "#1E7F61",
 
   // --- MAIN button (save vibe) ---
