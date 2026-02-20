@@ -1,10 +1,19 @@
 // src/app/shared/utils/callBackend.ts
 "use client";
 
-import { API_URL } from "@/app/shared/config";
+// Uisti sa, že táto cesta smeruje do SPRÁVNEHO config súboru!
+import { API_URL } from "@/app/shared/config"; 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
+
+// ==========================================
+// 🚨 DEBUG BLOK - Vypíše sa pri načítaní súboru
+// ==========================================
+console.log("=== DEBUG ENVIRONMENT PREMENNÝCH ===");
+console.log("1. Importované API_URL z configu:", API_URL);
+console.log("2. Priamo z process.env.NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
+console.log("======================================");
 
 async function getAuthToken(): Promise<{
   token: string | null;
@@ -91,7 +100,22 @@ export async function callBackend<T = any>(
     console.warn("[callBackend] no token available");
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  // ==========================================
+  // 🚨 BEZPEČNOSTNÁ POISTKA A DEBUG REQUESTU
+  // ==========================================
+  // Ak je API_URL z importu undefined, skúsime to ťahať priamo z process.env.
+  // Ak ani to nepôjde, necháme prázdny string namiesto slova "undefined".
+  const baseUrl = API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+  const fullUrl = `${baseUrl}${path}`;
+
+  console.log(`[callBackend] Vykonávam request na: ${fullUrl}`);
+
+  if (fullUrl.includes("undefined")) {
+    console.error("🚨 KRITICKÁ CHYBA: URL stále obsahuje slovo 'undefined'. Skontroluj Vercel build logs a cesty k premenným!");
+  }
+  // ==========================================
+
+  const res = await fetch(fullUrl, {
     ...init,
     headers,
   });
