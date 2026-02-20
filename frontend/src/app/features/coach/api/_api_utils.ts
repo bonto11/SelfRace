@@ -1,7 +1,11 @@
 // src/features/coach/api/_api_utils.ts
 import { API_URL } from "@/app/shared/config";
 
-export const COACH_API_BASE: string = API_URL ?? "";
+  const apiUrlSafe = API_URL && !API_URL.includes("undefined") 
+      ? API_URL 
+      : "https://api.selfrace.com";
+
+export const COACH_API_BASE: string = apiUrlSafe ?? "";
 
 /**
  * Robustné čítanie JSONu – ak odpoveď nie je JSON, vráti text.

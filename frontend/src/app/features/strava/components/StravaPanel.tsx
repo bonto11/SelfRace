@@ -63,7 +63,11 @@ export default function StravaPanel() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const apiUrlSafe = API_URL ?? "";
+  // ✅ Železná poistka pre případ rozbitého Vercelu: 
+  // Ak API_URL chýba alebo je to reťazec "undefined", použijeme fallback.
+  const apiUrlSafe = API_URL && !API_URL.includes("undefined") 
+      ? API_URL 
+      : "https://api.selfrace.com";
 
   const stravaConnectUrl = useMemo(() => {
     if (!userId || !apiUrlSafe) return null;
@@ -156,7 +160,6 @@ export default function StravaPanel() {
 
       await reloadStatus(userId);
     } catch (e: any) {
-      // ✅ Zabezpečenie: Ak to nevieme preložiť, dáme fallback
       const errorMsg = t(e?.message as any) || t("strava.toasts.importFailed");
       toast.error(errorMsg);
     } finally {
@@ -224,6 +227,8 @@ export default function StravaPanel() {
   })();
 
   const canConnect = canConnectStravaNow(status);
+  
+  // Tlačidlo už nebude zablokované len preto, že stravaConnectUrl bolo null pre "undefined" ENV.
   const connectDisabled =
     disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
 

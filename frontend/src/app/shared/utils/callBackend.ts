@@ -7,20 +7,12 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-// ==========================================
-// 🚨 DEBUG BLOK - Vypíše sa do konzoly v prehliadači
-// ==========================================
-console.log("=== API CONFIG DEBUG ===");
-console.log("1. API_URL z configu:", API_URL);
-console.log("2. process.env.NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
-
 // ŽELEZNÁ POISTKA: Ak zlyhá Vercel env, použijeme natvrdo tvoj produkčný backend,
 // aby aplikácia nezostala rozbitá s "undefined" v URL.
-const FALLBACK_URL = "https://api.selfrace.com"; 
-const FINAL_BASE_URL = API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || FALLBACK_URL;
-
-console.log("3. FINAL_BASE_URL pre requesty:", FINAL_BASE_URL);
-console.log("========================");
+const FINAL_BASE_URL =
+  API_URL && !API_URL.includes("undefined")
+    ? API_URL
+    : "https://api.selfrace.com";
 // ==========================================
 
 async function getAuthToken(): Promise<{
@@ -75,7 +67,7 @@ async function getAuthToken(): Promise<{
       } catch (e: any) {
         console.warn(
           "[callBackend] supabase.auth.setSession failed:",
-          e?.message ?? e
+          e?.message ?? e,
         );
       }
       return { token: access, refreshed: true };
@@ -85,7 +77,7 @@ async function getAuthToken(): Promise<{
   } catch (e: any) {
     console.warn(
       "[callBackend] /api/auth/session-token error:",
-      e?.message ?? e
+      e?.message ?? e,
     );
     return { token: null, refreshed: false };
   }
@@ -93,7 +85,7 @@ async function getAuthToken(): Promise<{
 
 export async function callBackend<T = any>(
   path: string,
-  init: BackendInit = {}
+  init: BackendInit = {},
 ): Promise<T> {
   const { token } = await getAuthToken();
 
