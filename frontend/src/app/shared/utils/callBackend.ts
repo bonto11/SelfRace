@@ -1,19 +1,27 @@
 // src/app/shared/utils/callBackend.ts
 "use client";
 
-// Uisti sa, že táto cesta smeruje do SPRÁVNEHO config súboru!
-import { API_URL } from "@/app/shared/config"; 
+// Uisti sa, že táto cesta je správna! (Niekedy si mal /lib/config)
+import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
 // ==========================================
-// 🚨 DEBUG BLOK - Vypíše sa pri načítaní súboru
+// 🚨 DEBUG BLOK - Vypíše sa do konzoly v prehliadači
 // ==========================================
-console.log("=== DEBUG ENVIRONMENT PREMENNÝCH ===");
-console.log("1. Importované API_URL z configu:", API_URL);
-console.log("2. Priamo z process.env.NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
-console.log("======================================");
+console.log("=== API CONFIG DEBUG ===");
+console.log("1. API_URL z configu:", API_URL);
+console.log("2. process.env.NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
+
+// ŽELEZNÁ POISTKA: Ak zlyhá Vercel env, použijeme natvrdo tvoj produkčný backend,
+// aby aplikácia nezostala rozbitá s "undefined" v URL.
+const FALLBACK_URL = "https://api.selfrace.com"; 
+const FINAL_BASE_URL = API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || FALLBACK_URL;
+
+console.log("3. FINAL_BASE_URL pre requesty:", FINAL_BASE_URL);
+console.log("========================");
+// ==========================================
 
 async function getAuthToken(): Promise<{
   token: string | null;
@@ -60,8 +68,6 @@ async function getAuthToken(): Promise<{
 
     if (access && refresh) {
       try {
-        // re-hydration do Supabase JS klienta,
-        // aby ďalšie getSession() vracali platnú session
         await supabase.auth.setSession({
           access_token: access,
           refresh_token: refresh,
@@ -100,20 +106,9 @@ export async function callBackend<T = any>(
     console.warn("[callBackend] no token available");
   }
 
-  // ==========================================
-  // 🚨 BEZPEČNOSTNÁ POISTKA A DEBUG REQUESTU
-  // ==========================================
-  // Ak je API_URL z importu undefined, skúsime to ťahať priamo z process.env.
-  // Ak ani to nepôjde, necháme prázdny string namiesto slova "undefined".
-  const baseUrl = API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
-  const fullUrl = `${baseUrl}${path}`;
-
-  console.log(`[callBackend] Vykonávam request na: ${fullUrl}`);
-
-  if (fullUrl.includes("undefined")) {
-    console.error("🚨 KRITICKÁ CHYBA: URL stále obsahuje slovo 'undefined'. Skontroluj Vercel build logs a cesty k premenným!");
-  }
-  // ==========================================
+  // Použijeme našu bezpečnú premennú namiesto API_URL
+  const fullUrl = `${FINAL_BASE_URL}${path}`;
+  console.log(`[callBackend] Vykonavam fetch na: ${fullUrl}`);
 
   const res = await fetch(fullUrl, {
     ...init,
