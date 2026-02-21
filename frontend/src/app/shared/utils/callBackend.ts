@@ -7,14 +7,6 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-// ŽELEZNÁ POISTKA: Ak zlyhá Vercel env, použijeme natvrdo tvoj produkčný backend,
-// aby aplikácia nezostala rozbitá s "undefined" v URL.
-const FINAL_BASE_URL =
-  API_URL && !API_URL.includes("undefined")
-    ? API_URL
-    : "https://api.selfrace.com";
-// ==========================================
-
 async function getAuthToken(): Promise<{
   token: string | null;
   refreshed: boolean;
@@ -98,10 +90,9 @@ export async function callBackend<T = any>(
     console.warn("[callBackend] no token available");
   }
 
-  // Použijeme našu bezpečnú premennú namiesto API_URL
-  const fullUrl = `${FINAL_BASE_URL}${path}`;
-  console.log(`[callBackend] Vykonavam fetch na: ${fullUrl}`);
+  const fullUrl = `${API_URL}${path}`;
 
+  console.log("call backend fullUrl", fullUrl);
   const res = await fetch(fullUrl, {
     ...init,
     headers,

@@ -78,8 +78,12 @@ export default function BillingStatusCard({
           <div className="text-sm font-medium opacity-70 mb-1">
             {tierPrefix}
           </div>
-          <div className="text-2xl font-bold flex items-center gap-3" style={{ color: activeColor }}>
+          
+          {/* Tu je zmena: Uistil som sa, že background je transparentný */}
+          <div className="text-2xl font-bold flex items-center gap-3 bg-transparent" style={{ color: activeColor }}>
             {activeTierCode.toUpperCase()}
+            
+            {/* Statusy (Active/Canceling) ostávajú ako badge vedľa, ak chceš zrušiť podfarbenie aj im, daj vedieť */}
             {subStatus === "active" && !isCanceled && (
               <span className="badge badge-success badge-sm border-none bg-emerald-500/20 text-emerald-300">
                 {t("subscription.statusCard.active")}
@@ -119,7 +123,7 @@ export default function BillingStatusCard({
                 <span className="text-yellow-400 font-semibold">
                   ⚠️ {previewLabel} ({t(`subscription.planned.kinds.${plannedChange.kind}`)}):
                 </span>
-                <span className="font-bold" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
+                <span className="font-bold bg-transparent" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
                   {plannedChange.to_tier_code?.toUpperCase() || "FREE"}
                 </span>
               </div>
