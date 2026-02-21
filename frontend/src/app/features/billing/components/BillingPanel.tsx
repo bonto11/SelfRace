@@ -1,6 +1,7 @@
+// src/features/billing/components/BillingPanel.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation"; 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -25,7 +26,7 @@ import BillingTierSelector from "./BillingTierSelector";
 import BillingHistory from "./BillingHistory";
 
 import { PANEL_STACK } from "@/app/shared/ui/tokens";
-import { appColors } from "@/app/shared/ui/theme/app_colors"; // Pridaný import farieb
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
 type LoadingKind = "status" | "history" | "set-tier" | null;
@@ -54,7 +55,13 @@ export default function BillingPanel() {
   const [activeTierCode, setActiveTierCode] = useState<string>("free");
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
-  const tiers: AppSubscriptionTier[] = status?.tiers ?? [];
+  
+  // ✅ SCHOVANIE FAMILY TIERU
+  // Zobrazíme všetky tiery, ale "family" ukážeme JEDINE vtedy, ak ho už má používateľ aktívny.
+  const allTiers: AppSubscriptionTier[] = status?.tiers ?? [];
+  const visibleTiers = allTiers.filter(
+    (tier) => tier.code !== "family" || tier.code === activeTierCode
+  );
 
   const isStatusLoading = loading === "status";
   const isAnyActionLoading = loading === "set-tier";
@@ -130,6 +137,7 @@ export default function BillingPanel() {
     return () => { alive = false; };
   }, [userId, isMounted]);
 
+  // ✅ OPRAVA 404 STRIPE ERRORU
   async function handleSetTier(tierCode: string) {
     if (!userId) {
       toast.error(t("api.common.missingUserAuth"));
@@ -140,12 +148,23 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      if (activeTierCode !== "free") {
-        const url = await apiCreateStripePortal(userId);
-        window.location.href = url;
-        return;
+      // Ak používateľ klikne na SVOJ AKTÍVNY PLÁN (napr. tlačidlo "Spravovať plán") a nie je free
+      if (tierCode === activeTierCode && activeTierCode !== "free") {
+        try {
+          const url = await apiCreateStripePortal(userId);
+          window.location.href = url;
+          return;
+        } catch (portalError: any) {
+          // Ak to spadne na 404 (Stripe Customer ID chýba kvôli lokálnemu trialu),
+          // elegantne to zachytíme a pošleme ho do klasického Checkoutu, nech si ho kúpi.
+          console.warn("Portal failed (likely trial user), redirecting to checkout.");
+          const checkoutUrl = await apiCreateStripeCheckout(userId, tierCode);
+          window.location.href = checkoutUrl;
+          return;
+        }
       }
       
+      // Ak si vyberá ÚPLNE NOVÝ plán (upgrade/downgrade), ideme rovno do Checkoutu
       const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
@@ -199,7 +218,7 @@ export default function BillingPanel() {
           <div className={PANEL_STACK}>
             <section className="space-y-4">
               
-              {/* ✅ Osobný Pitch Box zobrazený iba používateľom, ktorí ešte neplatia */}
+              {/* Osobný Pitch Box zobrazený iba používateľom, ktorí ešte neplatia */}
               {activeTierCode === "free" && !isStatusLoading && (
                 <div 
                   className="p-5 sm:p-6 rounded-2xl border-l-4 shadow-sm"
@@ -220,7 +239,7 @@ export default function BillingPanel() {
               <div>
                 <div className="text-sm font-semibold mb-2">{t("subscription.sections.tiers")}</div>
                 <BillingTierSelector
-                  tiers={tiers}
+                  tiers={visibleTiers} // Tu posielame to vyfiltrované pole bez "family"
                   activeTierCode={activeTierCode}
                   plannedChange={plannedChange}
                   isBusy={isAnyActionLoading}
