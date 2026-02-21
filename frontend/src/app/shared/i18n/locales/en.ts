@@ -1607,6 +1607,36 @@ export const en = {
       tiers: "Subscription Tiers",
       history: "Billing History",
     },
+  statusCard: {
+    tierPrefix: "Current plan",
+    active: "Active",
+    canceling: "Canceling",
+    periodEnds: "Period ends",
+    cancelChangeBtn: "Cancel change",
+    changeEffective: "Change effective from:",
+  },
+  planned: {
+    previewLabel: "Planned change",
+    kinds: {
+      cancel: "Cancellation",
+      downgrade: "Downgrade",
+      upgrade: "Upgrade",
+    },
+  },
+  tiers: {
+    btnCurrentTemp: "Current (temporary)",
+    btnBasic: "Basic plan",
+    btnManage: "Manage plan",
+    btnPlanned: "Planned transition",
+    btnCancel: "Cancel subscription",
+    btnActivate: "Activate {{tier}}",
+    limitBasic: "Basic limit",
+    tokensPerMonth: "tokens/mo.",
+  },
+  pitch: {
+    title: "Why subscribe?",
+    body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support big companies, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
+  },
     status: {
       notLoggedIn: "Not logged in",
       loading: "Loading...",
@@ -1622,25 +1652,11 @@ export const en = {
     history: {
       noRecords: "No payments have been recorded yet.",
     },
-    planned: {
-      previewLabel: "Planned change",
-      kinds: {
-        cancel: "Cancellation",
-        downgrade: "Downgrade",
-        upgrade: "Upgrade",
-      },
-    },
     toasts: {
       paymentSuccess: "Payment successful! Welcome to your new plan.",
       paymentCanceled: "The payment process was cancelled.",
     },
-    statusCard: {
-      active: "Active",
-      canceling: "Canceling",
-      periodEnds: "Period ends:",
-      changeEffective: "Change effective:",
-      cancelChangeBtn: "Cancel Change",
-    },
+   
     tierSelector: {
       btnChoose: "Choose plan",
       btnCurrentTemp: "Current (temporary)",
@@ -1654,10 +1670,6 @@ export const en = {
       defaultDesc:
         "Basic app features without a guaranteed AI coach quota.",
       activeBadge: "active",
-    },
-    pitch: {
-      title: "Why go for it?",
-      body: "SelfRace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support shareholders, but the development of features you actually ask for. Give us a chance for one month and you'll see that training can be done with a smile.",
     },
   },
   dashboard: {
