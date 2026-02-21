@@ -1629,22 +1629,23 @@ export const sk = {
     },
     planned: {
       previewLabel: "Plánovaná zmena",
-      kinds: {
-        cancel: "Zrušenie",
-        downgrade: "Zníženie",
-        upgrade: "Zvýšenie",
-      },
+    kinds: {
+      cancel: "Zrušenie",
+      downgrade: "Prechod na nižší",
+      upgrade: "Prechod na vyšší",
+    },
     },
     toasts: {
       paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
       paymentCanceled: "Proces platby bol zrušený.",
     },
     statusCard: {
-      active: "Aktívny",
-      canceling: "Ruší sa",
-      periodEnds: "Obdobie končí:",
-      changeEffective: "Zmena nastane:",
-      cancelChangeBtn: "Zrušiť zmenu",
+      tierPrefix: "Aktuálny plán",
+    active: "Aktívny",
+    canceling: "Ruší sa",
+    periodEnds: "Obdobie končí",
+    cancelChangeBtn: "Zrušiť zmenu",
+    changeEffective: "Zmena platná od:",
     },
     tierSelector: {
       btnChoose: "Zvoliť plán",
@@ -1662,7 +1663,17 @@ export const sk = {
     },
     pitch: {
     title: "Prečo do toho ísť?",
-    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si sám napíšeš. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
+    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si môžeš požiadať - stačí mi napisať. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
+  },
+  tiers: {
+    btnCurrentTemp: "Aktuálny (dočasne)",
+    btnBasic: "Základný plán",
+    btnManage: "Spravovať plán",
+    btnPlanned: "Plánovaný prechod",
+    btnCancel: "Zrušiť predplatné",
+    btnActivate: "Aktivovať {{tier}}",
+    limitBasic: "Základný limit",
+    tokensPerMonth: "tokenov/mes.",
   },
   },
   dashboard: {

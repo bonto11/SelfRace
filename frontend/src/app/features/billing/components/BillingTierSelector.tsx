@@ -5,6 +5,7 @@ import React from "react";
 import { useT } from "@/app/shared/i18n/useT";
 import type { AppSubscriptionTier } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import Button from "@/app/shared/ui/components/Button";
 
 type PlannedChange = {
   kind: "cancel" | "downgrade" | "upgrade";
@@ -37,7 +38,6 @@ export default function BillingTierSelector({
     );
   }
 
-  // Helper na farbu tieru
   const getTierColor = (code: string) => {
     switch (code) {
       case "family": return appColors.brandFamily;
@@ -48,7 +48,7 @@ export default function BillingTierSelector({
   };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {tiers.map((tier) => {
         const isActive = activeTierCode === tier.code;
         const isPlannedTarget = plannedChange?.to_tier_code === tier.code;
@@ -61,9 +61,9 @@ export default function BillingTierSelector({
 
         if (isActive) {
           cardStyle = {
-            borderColor: tierColor,
+            borderColor: appColors.brandPrimary,
             background: appColors.surfaceCardHover,
-            boxShadow: `0 0 15px -3px ${tierColor}40`, // Jemný glow
+            boxShadow: `0 0 15px -3px ${appColors.brandPrimary}20`,
           };
         } else if (isPlannedTarget) {
           cardStyle = {
@@ -73,71 +73,72 @@ export default function BillingTierSelector({
           };
         }
 
-        const nameFallback = tier.name || tier.code.toUpperCase();
+        const tierName = tier.name || tier.code.toUpperCase();
         
-        let btnText = "Zvoliť plán";
-        let btnClass = "btn btn-sm btn-outline";
+        let btnText = "";
+        let btnVariant: "primary" | "danger" = "primary";
         let btnDisabled = isBusy;
 
         if (isActive) {
           if (plannedChange) {
-            btnText = "Aktuálny (dočasne)";
+            btnText = t("subscription.tiers.btnCurrentTemp");
             btnDisabled = true;
           } else if (tier.code === "free") {
-            btnText = "Základný plán";
+            btnText = t("subscription.tiers.btnBasic");
             btnDisabled = true;
           } else {
-            btnText = "Spravovať plán";
-            btnClass = "btn btn-sm btn-primary btn-outline";
+            btnText = t("subscription.tiers.btnManage");
           }
         } else if (isPlannedTarget) {
-          btnText = "Plánovaný prechod";
-          btnClass = "btn btn-sm btn-warning btn-outline";
+          btnText = t("subscription.tiers.btnPlanned");
           btnDisabled = true;
         } else {
           if (tier.code === "free") {
-            btnText = "Zrušiť predplatné";
-            btnClass = "btn btn-sm btn-outline btn-error";
+            btnText = t("subscription.tiers.btnCancel");
+            btnVariant = "danger";
           } else {
-            btnText = `Aktivovať ${nameFallback}`;
-            btnClass = "btn btn-sm btn-primary";
+            btnText = t("subscription.tiers.btnActivate").replace("{{tier}}", tierName);
           }
         }
 
         return (
-          <div key={tier.code} className="card transition-all" style={cardStyle}>
-            <div className="card-body p-5 gap-3">
+          <div key={tier.code} className="card transition-all rounded-xl border-2" style={cardStyle}>
+            <div className="card-body p-6 gap-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="card-title text-lg flex items-center gap-2" style={{ color: isActive ? tierColor : appColors.textPrimary }}>
-                    {nameFallback}
+                  <h3 className="card-title text-xl flex items-center gap-2" style={{ color: isActive ? tierColor : appColors.textPrimary }}>
+                    {tierName}
                     {isActive && !plannedChange && (
-                      <span className="text-sm font-normal opacity-80">
-                        ✓ {t("common.set") || "aktívny"}
+                      <span className="text-sm font-normal opacity-80 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        {t("common.set")}
                       </span>
                     )}
                   </h3>
-                  <div className="text-xs opacity-60 uppercase tracking-wide mt-1">
+                  <div className="text-xs opacity-60 uppercase tracking-widest mt-1 font-semibold">
                     {tier.ai_monthly_tokens_limit > 0
-                      ? `${(tier.ai_monthly_tokens_limit / 1000).toFixed(0)}k tokenov/mes.`
-                      : "Základný limit"}
+                      ? `${(tier.ai_monthly_tokens_limit / 1000).toFixed(0)}k ${t("subscription.tiers.tokensPerMonth")}`
+                      : t("subscription.tiers.limitBasic")}
                   </div>
                 </div>
               </div>
 
-              <div className="text-sm opacity-80 min-h-[40px] mt-2">
-                {tier.description || "Základné funkcie aplikácie bez garantovanej kvóty pre AI trénera."}
+              <div className="text-sm opacity-80 leading-relaxed min-h-[48px]">
+                {tier.description}
               </div>
 
-              <div className="card-actions justify-end mt-2">
-                <button
-                  className={btnClass}
+              <div className="card-actions justify-end mt-4">
+                <Button
+                  variant={btnVariant}
                   disabled={btnDisabled}
                   onClick={() => onSetTier(tier.code)}
+                  className="w-full sm:w-auto"
                 >
-                  {isBusy && !isActive && <span className="loading loading-spinner loading-xs"></span>}
+                  {isBusy && !isActive && <span className="loading loading-spinner loading-xs mr-2"></span>}
                   {btnText}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

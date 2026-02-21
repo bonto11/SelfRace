@@ -56,8 +56,6 @@ export default function BillingPanel() {
 
   const plannedChange: PlannedChange = status?.scheduled_change ?? null;
   
-  // ✅ SCHOVANIE FAMILY TIERU
-  // Zobrazíme všetky tiery, ale "family" ukážeme JEDINE vtedy, ak ho už má používateľ aktívny.
   const allTiers: AppSubscriptionTier[] = status?.tiers ?? [];
   const visibleTiers = allTiers.filter(
     (tier) => tier.code !== "family" || tier.code === activeTierCode
@@ -70,7 +68,6 @@ export default function BillingPanel() {
     setIsMounted(true);
   }, []);
 
-  // SPRACOVANIE NÁVRATU ZO STRIPE (TOASTY)
   useEffect(() => {
     if (!isMounted) return;
     const paymentStatus = searchParams.get("status");
@@ -110,7 +107,7 @@ export default function BillingPanel() {
         }
       } catch (e: any) {
         if (!alive) return;
-        setError(t(e?.message as any) || t("api.common.fetchFailed"));
+        setError(t(e?.message as any) ?? t("api.common.fetchFailed"));
       } finally {
         if (!alive) return;
         setLoading(null);
@@ -137,7 +134,6 @@ export default function BillingPanel() {
     return () => { alive = false; };
   }, [userId, isMounted]);
 
-  // ✅ OPRAVA 404 STRIPE ERRORU
   async function handleSetTier(tierCode: string) {
     if (!userId) {
       toast.error(t("api.common.missingUserAuth"));
@@ -148,27 +144,22 @@ export default function BillingPanel() {
     setLoading("set-tier");
     setError(null);
     try {
-      // Ak používateľ klikne na SVOJ AKTÍVNY PLÁN (napr. tlačidlo "Spravovať plán") a nie je free
       if (tierCode === activeTierCode && activeTierCode !== "free") {
         try {
           const url = await apiCreateStripePortal(userId);
           window.location.href = url;
           return;
         } catch (portalError: any) {
-          // Ak to spadne na 404 (Stripe Customer ID chýba kvôli lokálnemu trialu),
-          // elegantne to zachytíme a pošleme ho do klasického Checkoutu, nech si ho kúpi.
-          console.warn("Portal failed (likely trial user), redirecting to checkout.");
           const checkoutUrl = await apiCreateStripeCheckout(userId, tierCode);
           window.location.href = checkoutUrl;
           return;
         }
       }
       
-      // Ak si vyberá ÚPLNE NOVÝ plán (upgrade/downgrade), ideme rovno do Checkoutu
       const url = await apiCreateStripeCheckout(userId, tierCode);
       window.location.href = url;
     } catch (e: any) {
-      const msg = t(e?.message as any) || t("api.billing.tierChangeFailed");
+      const msg = t(e?.message as any) ?? t("api.billing.tierChangeFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -185,7 +176,7 @@ export default function BillingPanel() {
       const url = await apiCreateStripePortal(userId);
       window.location.href = url;
     } catch (e: any) {
-      const msg = t(e?.message as any) || t("api.billing.cancelPlannedFailed");
+      const msg = t(e?.message as any) ?? t("api.billing.cancelPlannedFailed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -216,30 +207,31 @@ export default function BillingPanel() {
           />
 
           <div className={PANEL_STACK}>
-            <section className="space-y-4">
+            <section className="space-y-6">
               
-              {/* Osobný Pitch Box zobrazený iba používateľom, ktorí ešte neplatia */}
               {activeTierCode === "free" && !isStatusLoading && (
                 <div 
-                  className="p-5 sm:p-6 rounded-2xl border-l-4 shadow-sm"
+                  className="p-6 rounded-2xl border-l-4 shadow-sm bg-gradient-to-r from-white/5 to-transparent"
                   style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.03)",
+                    backgroundColor: appColors.surfaceCard,
                     borderColor: appColors.brandPrimary,
                   }}
                 >
                   <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>
-                    {t("subscription.pitch.title") || "Prečo do toho ísť?"}
+                    {t("subscription.pitch.title")}
                   </h3>
                   <p className="text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
-                    {t("subscription.pitch.body") || "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si sám napíšeš. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."}
+                    {t("subscription.pitch.body")}
                   </p>
                 </div>
               )}
 
               <div>
-                <div className="text-sm font-semibold mb-2">{t("subscription.sections.tiers")}</div>
+                <div className="text-sm font-semibold mb-3 tracking-wide uppercase opacity-70">
+                  {t("subscription.sections.tiers")}
+                </div>
                 <BillingTierSelector
-                  tiers={visibleTiers} // Tu posielame to vyfiltrované pole bez "family"
+                  tiers={visibleTiers}
                   activeTierCode={activeTierCode}
                   plannedChange={plannedChange}
                   isBusy={isAnyActionLoading}
@@ -248,8 +240,10 @@ export default function BillingPanel() {
               </div>
             </section>
 
-            <section>
-              <div className="text-sm font-semibold mb-2">{t("subscription.sections.history")}</div>
+            <section className="pt-4">
+              <div className="text-sm font-semibold mb-3 tracking-wide uppercase opacity-70">
+                {t("subscription.sections.history")}
+              </div>
               <BillingHistory history={history} />
             </section>
           </div>
