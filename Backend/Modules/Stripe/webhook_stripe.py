@@ -29,7 +29,7 @@ async def stripe_webhook(request: Request):
 
     sb = get_sb(service_ctx(caller="stripe_webhook"), caller="stripe_webhook")
 
-    # --- 1. ZÁKAZNÍK ZAPLATIL ---
+    # --- 1. ZÁKAZNÍK ÚSPEŠNE DOKONČIL CHECKOUT ---
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
         
@@ -41,57 +41,48 @@ async def stripe_webhook(request: Request):
 
         if user_id_str and stripe_subscription_id:
             try:
-                # ✅ Vypýtame si od Stripeu presné údaje o platnosti
-                stripe_sub = stripe.Subscription.retrieve(stripe_subscription_id)
+                # ✅ KROK 1: Iba priradíme Stripe IDčka nášmu používateľovi.
+                # O dátumy sa postará ďalší webhook (subscription.updated).
+                # Použijeme UPSERT, aby sme predišli chybe, ak by záznam neexistoval.
                 
-                # ✅ BEZPEČNÉ ČÍTANIE POMOCOU .get() - žiadne hranaté zátvorky!
-                start_ts = stripe_sub.get("current_period_start")
-                end_ts = stripe_sub.get("current_period_end")
-                
-                # Prevedieme timestampy iba vtedy, ak reálne existujú
-                period_start = datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat() if start_ts else None
-                period_end = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat() if end_ts else None
-
-                sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
+                payload_data = {
+                    "user_id": int(user_id_str), # Toto je náš primárny kľúč (alebo unikátny)
                     "tier_code": tier,
-                    "status": "active",
                     "external_customer_id": stripe_customer_id,
                     "external_subscription_id": stripe_subscription_id,
-                    "current_period_start": period_start,
-                    "current_period_end": period_end,
-                    "cancel_at_period_end": False,
                     "meta": {"source": "stripe_checkout"},
                     "updated_at": datetime.now(timezone.utc).isoformat()
-                }).eq("user_id", int(user_id_str)).execute()
-                
-                print(f"[STRIPE] Úspešná platba pre usera: {user_id_str}, Tier: {tier}, Platí do: {period_end}")
-            except Exception as e:
-                print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť usera {user_id_str}:", repr(e))
+                }
 
-    # --- 1.5 PREDPLATNÉ BOLO UPRAVENÉ (Zrušené, obnovené, zmenené) ---
-    elif event['type'] == 'customer.subscription.updated':
+                # V Supabase musíš mať v tabuľke app_user_subscriptions nastavený "user_id" ako UNIQUE,
+                # aby upsert() vedel, že má aktualizovať riadok, nie vložiť nový.
+                # Ak to tak nemáš, nechaj len .update().eq("user_id", int(user_id_str))
+                
+                sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq("user_id", int(user_id_str)).execute()
+                
+                print(f"[STRIPE] Úspešný checkout pre usera: {user_id_str}. Priradené sub_id: {stripe_subscription_id}")
+            except Exception as e:
+                print(f"[STRIPE DB ERROR] Nepodarilo sa prepojiť usera {user_id_str}:", repr(e))
+
+    # --- 2. PREDPLATNÉ VYTVORENÉ / AKTUALIZOVANÉ (Tu sú tie dátumy!) ---
+    elif event['type'] in ['customer.subscription.created', 'customer.subscription.updated']:
         subscription = event['data']['object']
         stripe_subscription_id = subscription.get('id')
         
-        # ✅ NOVÁ, PRESNÁ LOGIKA PODĽA STRIPE API:
-        # Predplatné je naplánované na zrušenie, ak:
-        # 1. Je v ňom priamo vyplnený timestamp 'cancel_at' (napr. zrušenie z portálu)
-        # 2. ALEBO je z nejakého staršieho dôvodu 'cancel_at_period_end' = True
+        # Logika pre kontrolu zrušenia
         has_cancel_at = subscription.get('cancel_at') is not None
         has_cancel_end = subscription.get('cancel_at_period_end') is True
-        
-        # Ak platí aspoň jedno, užívateľ to zrušil a my si to do našej DB uložíme ako True
         is_canceled_future = has_cancel_at or has_cancel_end
         
-        stripe_status = subscription.get('status')
+        stripe_status = subscription.get('status') # 'active', 'past_due', 'canceled'...
         
-        # Čítanie dátumov
+        # ✅ TUTO SÚ DÁTUMY PRIAMO Z EVENTU (Netreba robiť retrieve())
         start_ts = subscription.get("current_period_start")
         end_ts = subscription.get("current_period_end")
         
         update_data = {
             "status": stripe_status,
-            "cancel_at_period_end": is_canceled_future, # Tu uložíme ten náš vyhodnotený stav
+            "cancel_at_period_end": is_canceled_future,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
@@ -101,22 +92,31 @@ async def stripe_webhook(request: Request):
             update_data["current_period_end"] = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat()
 
         try:
-            sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(update_data).eq("external_subscription_id", stripe_subscription_id).execute()
-            print(f"[STRIPE] Update predplatného {stripe_subscription_id}. Zrušiť na konci (cancel_at={has_cancel_at}): {is_canceled_future}")
+            # Aktualizujeme záznam na základe stripe_subscription_id
+            # Tento event môže prísť zlomok sekundy po checkout.session.completed
+            res = sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(update_data).eq("external_subscription_id", stripe_subscription_id).execute()
+            
+            # Kontrola, či sa niečo reálne updatlo
+            if not res.data:
+                 print(f"[STRIPE WARNING] Prišiel update pre sub {stripe_subscription_id}, ale v našej DB sa tento ID nenachádza. (Možno ešte nedobehol checkout event?)")
+            else:
+                 print(f"[STRIPE] Update predplatného {stripe_subscription_id} úspešný. Status: {stripe_status}, Do: {update_data.get('current_period_end')}")
+                 
         except Exception as e:
             print(f"[STRIPE DB ERROR] Nepodarilo sa updatnúť sub {stripe_subscription_id}:", repr(e))
 
-    # --- 2. PREDPLATNÉ BOLO ZRUŠENÉ ---
+    # --- 3. PREDPLATNÉ BOLO ÚPLNE ZRUŠENÉ (Expirovalo / Zmazané) ---
     elif event['type'] == 'customer.subscription.deleted':
         subscription = event['data']['object']
         stripe_subscription_id = subscription.get('id')
 
-        print(f"[STRIPE] Predplatné {stripe_subscription_id} zrušené. Prehadzujem na free.")
+        print(f"[STRIPE] Predplatné {stripe_subscription_id} natvrdo zrušené. Prehadzujem na free.")
         try:
             sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update({
                 "tier_code": "free",
                 "status": "canceled",
-                "meta": {"source": "stripe_canceled"},
+                "cancel_at_period_end": False,
+                "meta": {"source": "stripe_deleted"},
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("external_subscription_id", stripe_subscription_id).execute()
         except Exception as e:
