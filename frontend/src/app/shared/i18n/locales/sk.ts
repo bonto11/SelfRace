@@ -1663,7 +1663,7 @@ export const sk = {
     },
     pitch: {
     title: "Prečo do toho ísť?",
-    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ akcionárov, ale ďalší vývoj funkcií, o ktoré si môžeš požiadať - stačí mi napisať. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
+    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ veľké firmy, ale ďalší vývoj funkcií, o ktoré si môžeš požiadať - stačí mi napisať. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
   },
   tiers: {
     btnCurrentTemp: "Aktuálny (dočasne)",

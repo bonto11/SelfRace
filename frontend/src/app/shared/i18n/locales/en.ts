@@ -1635,7 +1635,7 @@ export const en = {
   },
   pitch: {
     title: "Why subscribe?",
-    body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support shareholders, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
+    body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support big companies, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
   },
     status: {
       notLoggedIn: "Not logged in",
