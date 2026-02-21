@@ -6,6 +6,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import type { AppSubscriptionStatus } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import BillingUsageBar from "./BillingUsageBar";
+import Button from "@/app/shared/ui/components/Button";
 
 type PlannedChange = {
   kind: "cancel" | "downgrade" | "upgrade";
@@ -57,9 +58,6 @@ export default function BillingStatusCard({
   const currentEnd = status?.active_subscription?.current_period_end;
   const isCanceled = status?.active_subscription?.cancel_at_period_end;
 
-  const tierPrefix = t("subscription.status.tierPrefix") || "Aktuálny plán";
-  const previewLabel = t("subscription.planned.previewLabel") || "Plánovaná zmena";
-
   const getTierColor = (code: string) => {
     switch (code.toLowerCase()) {
       case "family": return appColors.brandFamily;
@@ -72,25 +70,38 @@ export default function BillingStatusCard({
   const activeColor = getTierColor(activeTierCode);
 
   return (
-    <div className="rounded-xl border p-5 space-y-4 shadow-sm" style={{ borderColor: appColors.surfaceCardBorder, background: appColors.surfaceCard }}>
+    <div className="rounded-xl border-2 p-5 space-y-4 shadow-sm transition-all" style={{ borderColor: appColors.brandPrimary, background: appColors.surfaceCard }}>
       <div className="flex flex-wrap gap-6 items-start justify-between">
         <div>
           <div className="text-sm font-medium opacity-70 mb-1">
-            {tierPrefix}
+            {t("subscription.statusCard.tierPrefix")}
           </div>
-          
-          {/* Tu je zmena: Uistil som sa, že background je transparentný */}
-          <div className="text-2xl font-bold flex items-center gap-3 bg-transparent" style={{ color: activeColor }}>
-            {activeTierCode.toUpperCase()}
+          <div className="text-2xl font-bold flex items-center gap-3 bg-transparent">
+            <span style={{ color: activeColor }}>
+              {activeTierCode.toUpperCase()}
+            </span>
             
-            {/* Statusy (Active/Canceling) ostávajú ako badge vedľa, ak chceš zrušiť podfarbenie aj im, daj vedieť */}
             {subStatus === "active" && !isCanceled && (
-              <span className="badge badge-success badge-sm border-none bg-emerald-500/20 text-emerald-300">
+              <span 
+                className="text-xs font-semibold px-2 py-1 rounded border tracking-wide uppercase"
+                style={{ 
+                  borderColor: appColors.brandPrimary, 
+                  color: appColors.brandPrimary,
+                  backgroundColor: "transparent"
+                }}
+              >
                 {t("subscription.statusCard.active")}
               </span>
             )}
             {subStatus === "active" && isCanceled && (
-              <span className="badge badge-warning badge-sm border-none bg-yellow-500/20 text-yellow-300">
+              <span 
+                className="text-xs font-semibold px-2 py-1 rounded border tracking-wide uppercase"
+                style={{ 
+                  borderColor: appColors.statusWarning || "#eab308", 
+                  color: appColors.statusWarning || "#eab308",
+                  backgroundColor: "transparent"
+                }}
+              >
                 {t("subscription.statusCard.canceling")}
               </span>
             )}
@@ -107,7 +118,7 @@ export default function BillingStatusCard({
       </div>
 
       {(currentEnd || plannedChange) && (
-        <div className="pt-3 border-t text-sm space-y-3" style={{ borderColor: appColors.divider }}>
+        <div className="pt-4 border-t text-sm space-y-3" style={{ borderColor: appColors.divider }}>
           {currentEnd && (
             <div className="flex justify-between items-center text-white/80">
               <span className="opacity-70">{t("subscription.statusCard.periodEnds")}</span>
@@ -118,10 +129,10 @@ export default function BillingStatusCard({
           )}
 
           {plannedChange && (
-            <div className="flex flex-col gap-2 p-3 rounded-lg border bg-yellow-500/10 border-yellow-500/20">
+            <div className="flex flex-col gap-3 p-4 rounded-lg border bg-yellow-500/5 border-yellow-500/20">
               <div className="flex justify-between items-center">
                 <span className="text-yellow-400 font-semibold">
-                  ⚠️ {previewLabel} ({t(`subscription.planned.kinds.${plannedChange.kind}`)}):
+                  ⚠️ {t("subscription.planned.previewLabel")} ({t(`subscription.planned.kinds.${plannedChange.kind}`)}):
                 </span>
                 <span className="font-bold bg-transparent" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
                   {plannedChange.to_tier_code?.toUpperCase() || "FREE"}
@@ -134,15 +145,15 @@ export default function BillingStatusCard({
                 </div>
               )}
 
-              <div className="mt-2 flex justify-end">
-                <button
-                  className="btn btn-sm btn-outline border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20 hover:border-yellow-500"
-                  disabled={loadingAny}
+              <div className="mt-1 flex justify-end">
+                <Button
+                  variant="danger"
                   onClick={onCancelPlannedChange}
+                  disabled={loadingAny}
                 >
-                  {loadingAny && <span className="loading loading-spinner loading-xs"></span>}
+                  {loadingAny && <span className="loading loading-spinner loading-xs mr-2"></span>}
                   {t("subscription.statusCard.cancelChangeBtn")}
-                </button>
+                </Button>
               </div>
             </div>
           )}
