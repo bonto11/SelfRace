@@ -63,16 +63,10 @@ export default function StravaPanel() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // ✅ Železná poistka pre případ rozbitého Vercelu: 
-  // Ak API_URL chýba alebo je to reťazec "undefined", použijeme fallback.
-  const apiUrlSafe = API_URL && !API_URL.includes("undefined") 
-      ? API_URL 
-      : "https://api.selfrace.com";
-
   const stravaConnectUrl = useMemo(() => {
-    if (!userId || !apiUrlSafe) return null;
-    return getStravaConnectUrl(userId, apiUrlSafe);
-  }, [userId, apiUrlSafe]);
+    if (!userId || !API_URL) return null;
+    return getStravaConnectUrl(userId, API_URL);
+  }, [userId, API_URL]);
 
   const connected = !!status?.connected;
   const syncDays = status?.sync_import_window_days ?? null;

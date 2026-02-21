@@ -43,8 +43,8 @@ def create_checkout_session(
             }],
             mode="subscription",
             # ✅ OPRAVENÁ NÁVRATOVÁ URL
-            success_url=f"{FRONTEND_URL}/account?status=success",
-            cancel_url=f"{FRONTEND_URL}/account?status=canceled",
+            success_url=f"{FRONTEND_URL}/subscription?status=success",
+            cancel_url=f"{FRONTEND_URL}/subscription?status=canceled",
             client_reference_id=str(user_id),
             metadata={
                 "user_id": str(user_id),
