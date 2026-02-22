@@ -252,6 +252,7 @@ export const sk = {
     connectedApps: "Pripojené aplikácie",
     logginOff: "Odhlasujem…",
     logoff: "Odhlásiť sa",
+    showTutorial: "Zobraziť sprievodcu",
   },
   prefs: {
     title: "Tréningové preferencie",
