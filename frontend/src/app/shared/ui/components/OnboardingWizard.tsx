@@ -165,7 +165,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
                 {chap.tabLabel}
               </button>
             );
-          });}
+          })}
         </div>
 
         {/* OBSAH KAPITOLY */}
