@@ -7,34 +7,68 @@ import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   userId: number;
-  forceShow?: boolean; 
+  forceShow?: boolean;
   onCloseManual?: () => void;
 };
 
+// Extrahované kapitoly s upravenými textami
 const CHAPTERS = [
   {
     id: "welcome",
     tabLabel: "Vitaj",
     title: "Vitaj v Selfrace! 🏁",
-    content: "Pre ten najlepší zážitok z aplikácie ti odporúčame pridať si ju na plochu telefónu. V Safari (iPhone) klikni dole na ikonu zdieľania a vyber 'Pridať na plochu'. Bude fungovať presne ako rýchla natívna apka.",
+    content: (
+      <div className="space-y-3">
+        <p>Pre ten najlepší zážitok ti odporúčame pridať si apku na plochu, aby fungovala bleskovo a bez rušivých prvkov prehliadača:</p>
+        <ul className="list-disc pl-5 opacity-90 space-y-1">
+          <li><b>Apple (iOS Safari):</b> Klikni dole na ikonu zdieľania a zvoľ <i>"Pridať na plochu"</i>.</li>
+          <li><b>Android (Chrome):</b> Klikni na tri bodky vpravo hore a zvoľ <i>"Pridať na domovskú obrazovku"</i>.</li>
+        </ul>
+        <p className="text-xs opacity-70 mt-4 italic">
+          PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v User Menu (tvoj avatar vpravo hore).
+        </p>
+      </div>
+    ),
   },
   {
-    id: "strava",
-    tabLabel: "Strava",
-    title: "Prepoj si Stravu 🚴‍♂️",
-    content: "Bez dát to nepôjde. V sekcii Nastavenia si jedným klikom prepoj svoj Strava účet. Tvoje dáta sú u nás v bezpečí a tréner k nim získa prístup.",
+    id: "strava_import",
+    tabLabel: "Strava & Dáta",
+    title: "Pripojenie a Import 🚴‍♂️",
+    content: (
+      <div className="space-y-3">
+        <p>Aby ti tréner mohol radiť, potrebuje tvoje historické dáta.</p>
+        <ul className="list-disc pl-5 opacity-90 space-y-1">
+          <li><b>1. Pripojenie:</b> V User Menu (avatar) prejdi do <i>"Pripojené aplikácie"</i> a klikni na oranžové tlačidlo <i>Connect with Strava</i>.</li>
+          <li><b>2. Import:</b> Na tej istej stránke nižšie následne spusti import aktivít. Odporúčame stiahnuť aspoň pár týždňov dozadu.</li>
+        </ul>
+      </div>
+    ),
   },
   {
-    id: "import",
-    tabLabel: "Import",
-    title: "Stiahni si aktivity 📥",
-    content: "Po prepojení Stravy choď do sekcie Aktivity a spusti import. Tréner potrebuje vidieť tvoju históriu (aspoň pár týždňov), aby vedel odhadnúť tvoju aktuálnu kondíciu a zóny.",
+    id: "profile_recovery",
+    tabLabel: "Môj Stav",
+    title: "Profil a Regenerácia 🔋",
+    content: (
+      <div className="space-y-3">
+        <p><b>Tvoj Profil:</b> V User Menu pod <i>"Môj účet"</i> si doplň svoje telesné miery a tepové zóny pre presnejšie výpočty.</p>
+        <p><b>Regenerácia:</b> V sekcii <i>Recovery</i> si zapisuj rannú únavu, kvalitu spánku či stres. Zatiaľ to musíš robiť ručne – giganti ako Garmin či Apple s nami zatiaľ nie sú až takí veľkí kamaráti, aby nám to dali automaticky! 😃</p>
+      </div>
+    ),
   },
   {
     id: "coach",
-    tabLabel: "Tréner",
-    title: "AI Tréner a Únava 🔋",
-    content: "V sekcii Recovery vidíš svoju dennú únavu. Na základe nej ti tvoj AI Tréner každý deň namixuje tréning presne na mieru. Dodržuj zóny a sleduj, ako napreduješ!",
+    tabLabel: "AI Tréner",
+    title: "Tréner na mieru 🧠",
+    content: (
+      <div className="space-y-3">
+        <p>Srdce našej aplikácie! Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol dokonalý plán.</p>
+        <ul className="list-disc pl-5 opacity-90 space-y-1">
+          <li><b>Nastavenia (Prefs):</b> Povedz trénerovi, koľko dní v týždni chceš makať a aké máš ciele.</li>
+          <li><b>Externé eventy:</b> Plánuješ pretek alebo máš dovolenku? Pridaj si to, tréner to zohľadní.</li>
+          <li><b>Generovanie:</b> Stačí kliknúť a tvoj nový tréningový plán je na svete!</li>
+        </ul>
+      </div>
+    ),
   }
 ];
 
@@ -57,20 +91,17 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
     let alive = true;
     (async () => {
       try {
-        // Zavoláme tvoj endpoint pre načítanie nastavení
-        const res = await fetch(`/prefs/${userId}/key/user.settings`);
+        const res = await fetch(`/api/prefs/${userId}/key/user.settings`);
         if (!res.ok) throw new Error("Chyba API");
         
         const data = await res.json();
         const settings = data?.value || {};
 
-        // Ak užívateľ nemá nastavené onboarding_seen na true, ukážeme modal
         if (!settings.onboarding_seen && alive) {
           setIsOpen(true);
         }
       } catch (e) {
         console.error("Nepodarilo sa načítať prefs pre onboarding", e);
-        // V prípade chyby radšej ukážeme (alebo môžeme schovať, podľa preferencie)
         if (alive) setIsOpen(true); 
       } finally {
         if (alive) setIsLoading(false);
@@ -87,14 +118,12 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
 
     if (!forceShow) {
       try {
-        // Stiahneme aktuálne nastavenia, aby sme ich neprepísali, len doplnili
-        const resGet = await fetch(`/prefs/${userId}/key/user.settings`);
+        const resGet = await fetch(`/api/prefs/${userId}/key/user.settings`);
         const dataGet = resGet.ok ? await resGet.json() : {};
         const currentSettings = dataGet?.value || {};
 
-        // Uložíme aktualizované nastavenia späť do DB
-        await fetch(`/prefs/${userId}/key/user.settings`, {
-          method: "POST", // Alebo PUT, podľa toho ako máš API
+        await fetch(`/api/prefs/${userId}/key/user.settings`, {
+          method: "POST", 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...currentSettings,
@@ -112,7 +141,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
   const currentChapter = CHAPTERS[activeTab];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
       <div 
         className="w-full max-w-md bg-base-100 rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
@@ -136,17 +165,17 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
                 {chap.tabLabel}
               </button>
             );
-          })}
+          });}
         </div>
 
         {/* OBSAH KAPITOLY */}
-        <div className="p-6 sm:p-8 min-h-[220px] flex flex-col justify-center">
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-white">
+        <div className="p-6 sm:p-8 min-h-[260px] flex flex-col justify-start">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white">
             {currentChapter.title}
           </h2>
-          <p className="text-sm sm:text-base leading-relaxed opacity-80">
+          <div className="text-sm sm:text-base leading-relaxed opacity-80 text-left">
             {currentChapter.content}
-          </p>
+          </div>
         </div>
 
         {/* FOOTER A TLAČIDLÁ */}
@@ -173,7 +202,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
           </div>
 
           <Button onClick={handleDismiss} variant="primary" className="btn-sm sm:btn-md">
-            {t("common.close") || "Rozumiem, zavrieť"}
+            {activeTab === CHAPTERS.length - 1 ? (t("common.finish") || "Mám to!") : (t("common.close") || "Zavrieť")}
           </Button>
 
         </div>
