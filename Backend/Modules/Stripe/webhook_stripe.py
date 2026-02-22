@@ -1,4 +1,5 @@
 import stripe
+import json
 from fastapi import APIRouter, Request, HTTPException
 from datetime import datetime, timezone
 
@@ -39,11 +40,14 @@ async def stripe_webhook(request: Request):
     if event_type == 'checkout.session.completed':
         session = event['data']['object']
         
-        user_id_str = session.get('client_reference_id') 
-        tier = session.get('metadata', {}).get('tier', 'pro')
+        # Prevod checkout session na čistý dict
+        sess_dict = session.to_dict() if hasattr(session, "to_dict") else dict(session)
         
-        stripe_customer_id = session.get('customer')
-        stripe_subscription_id = session.get('subscription')
+        user_id_str = sess_dict.get('client_reference_id') 
+        tier = sess_dict.get('metadata', {}).get('tier', 'pro')
+        
+        stripe_customer_id = sess_dict.get('customer')
+        stripe_subscription_id = sess_dict.get('subscription')
 
         print(f"[DEBUG CHECKOUT] Extrahované z checkout session:")
         print(f"  -> user_id (z client_reference_id): {user_id_str}")
@@ -56,14 +60,16 @@ async def stripe_webhook(request: Request):
                 print(f"[DEBUG CHECKOUT] Volám API pre detaily subskripcie: {stripe_subscription_id}")
                 sub_obj = stripe.Subscription.retrieve(stripe_subscription_id)
                 
-                start_ts = sub_obj.get("current_period_start")
-                end_ts = sub_obj.get("current_period_end")
-                stripe_status = sub_obj.get("status", "active")
+                # ✅ KLÚČOVÁ OPRAVA: Prevod na čistý Python slovník
+                sub_dict = sub_obj.to_dict() if hasattr(sub_obj, "to_dict") else dict(sub_obj)
+                
+                print(f"[DEBUG CHECKOUT] Extrahovaný ČISTÝ DICT zo Stripe:\n{json.dumps(sub_dict, indent=2)}")
+                
+                start_ts = sub_dict.get("current_period_start")
+                end_ts = sub_dict.get("current_period_end")
+                stripe_status = sub_dict.get("status", "active")
 
-                print(f"[DEBUG CHECKOUT] Vrátený objekt zo Stripe:")
-                print(f"  -> RAW start_ts: {start_ts}")
-                print(f"  -> RAW end_ts: {end_ts}")
-                print(f"  -> status: {stripe_status}")
+                print(f"[DEBUG CHECKOUT] Vytiahnuté z dictu: start_ts={start_ts}, end_ts={end_ts}, status={stripe_status}")
 
                 period_start = datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat() if start_ts else None
                 period_end = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat() if end_ts else None
@@ -82,7 +88,6 @@ async def stripe_webhook(request: Request):
                 print(f"[DEBUG CHECKOUT] Pripravený PAYLOAD na zápis do DB:\n{payload_data}")
 
                 sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq("user_id", int(user_id_str)).execute()
-                
                 print(f"[STRIPE SUCCESS] Úspešný checkout pre usera: {user_id_str}. Zapísané všetky dáta do DB.")
             except Exception as e:
                 print(f"[STRIPE DB ERROR] Nepodarilo sa prepojiť usera {user_id_str}:", repr(e))
@@ -91,20 +96,24 @@ async def stripe_webhook(request: Request):
 
     # --- 2. PREDPLATNÉ VYTVORENÉ / AKTUALIZOVANÉ ---
     elif event_type in ['customer.subscription.created', 'customer.subscription.updated']:
-        subscription = event['data']['object']
-        stripe_subscription_id = subscription.get('id')
+        raw_obj = event['data']['object']
         
-        has_cancel_at = subscription.get('cancel_at') is not None
-        has_cancel_end = subscription.get('cancel_at_period_end') is True
+        # ✅ KLÚČOVÁ OPRAVA
+        sub_dict = raw_obj.to_dict() if hasattr(raw_obj, "to_dict") else dict(raw_obj)
+        
+        stripe_subscription_id = sub_dict.get('id')
+        
+        has_cancel_at = sub_dict.get('cancel_at') is not None
+        has_cancel_end = sub_dict.get('cancel_at_period_end') is True
         is_canceled_future = has_cancel_at or has_cancel_end
         
-        stripe_status = subscription.get('status') 
-        start_ts = subscription.get("current_period_start")
-        end_ts = subscription.get("current_period_end")
+        stripe_status = sub_dict.get('status') 
+        start_ts = sub_dict.get("current_period_start")
+        end_ts = sub_dict.get("current_period_end")
 
         print(f"[DEBUG UPDATE] Event: {event_type} pre subskripciu: {stripe_subscription_id}")
-        print(f"  -> RAW cancel_at: {subscription.get('cancel_at')}")
-        print(f"  -> RAW cancel_at_period_end: {subscription.get('cancel_at_period_end')}")
+        print(f"  -> RAW cancel_at: {sub_dict.get('cancel_at')}")
+        print(f"  -> RAW cancel_at_period_end: {sub_dict.get('cancel_at_period_end')}")
         print(f"  -> Vyhodnotené is_canceled_future: {is_canceled_future}")
         print(f"  -> RAW start_ts: {start_ts} | end_ts: {end_ts}")
         print(f"  -> status: {stripe_status}")
@@ -135,8 +144,9 @@ async def stripe_webhook(request: Request):
 
     # --- 3. PREDPLATNÉ BOLO ÚPLNE ZRUŠENÉ ---
     elif event_type == 'customer.subscription.deleted':
-        subscription = event['data']['object']
-        stripe_subscription_id = subscription.get('id')
+        raw_obj = event['data']['object']
+        sub_dict = raw_obj.to_dict() if hasattr(raw_obj, "to_dict") else dict(raw_obj)
+        stripe_subscription_id = sub_dict.get('id')
 
         print(f"[DEBUG DELETE] Predplatné natvrdo zrušené. ID: {stripe_subscription_id}")
 
@@ -151,7 +161,7 @@ async def stripe_webhook(request: Request):
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             print(f"[DEBUG DELETE] Zapisujem PAYLOAD do DB:\n{payload_data}")
-
+            
             sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq("external_subscription_id", stripe_subscription_id).execute()
             print(f"[STRIPE SUCCESS] Subskripcia {stripe_subscription_id} zrušená, účet zmenený na free.")
         except Exception as e:
