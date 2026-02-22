@@ -112,10 +112,11 @@ export default function ClientPage() {
         return;
       }
 
-      // 4) čakáme na session z onAuthStateChange
-      const sub = sb.auth.onAuthStateChange((_e, session) => {
+            // 4) čakáme na session z onAuthStateChange
+      const sub = sb.auth.onAuthStateChange((_e: any, session: any) => {
         if (session && mounted) setPhase("ready");
       });
+
 
       return () => sub.data.subscription.unsubscribe();
     })();
