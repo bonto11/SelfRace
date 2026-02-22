@@ -29,6 +29,7 @@ export const en = {
     undo: "Undo",
     cancel: "Cancel",
     close: "Understand, close",
+    finish: "Got it!",
     save: "Save changes",
     saving: "Saving...",
     soon: "Soon...",
