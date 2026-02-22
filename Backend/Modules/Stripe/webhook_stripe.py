@@ -9,6 +9,28 @@ from Configs.config import STRIPE_WEBHOOK_SECRET, TABLE_APP_USER_SUBSCRIPTIONS
 
 router = APIRouter(tags=["Stripe Webhooks"])
 
+def extract_timestamps(stripe_obj_dict):
+    """
+    Pomocná funkcia, ktorá sa pokúsi vydolovať dátumy zo Stripe objektu,
+    nech sú skryté kdekoľvek (či na vrchu, alebo vo vnútri items).
+    """
+    start_ts = stripe_obj_dict.get('current_period_start')
+    end_ts = stripe_obj_dict.get('current_period_end')
+    
+    # Ak nie sú na najvyššej úrovni, skúsime ich pohľadať vo vnútri 'items'
+    if start_ts is None or end_ts is None:
+        items = stripe_obj_dict.get('items', {})
+        if isinstance(items, dict):
+            data_arr = items.get('data', [])
+            if isinstance(data_arr, list) and len(data_arr) > 0:
+                first_item = data_arr[0]
+                if start_ts is None:
+                    start_ts = first_item.get('current_period_start')
+                if end_ts is None:
+                    end_ts = first_item.get('current_period_end')
+                    
+    return start_ts, end_ts
+
 @router.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
     payload = await request.body()
@@ -43,14 +65,11 @@ async def stripe_webhook(request: Request):
         else:
             raw_dict = json.loads(str(raw_event_data).replace("'", '"')) # Hack, ale funguje pre Stripe repr
             
-        print(f"[DEBUG LINE 1] STRIPE POSLAL TOTO (Surové dáta vnútri objektu):")
-        print(json.dumps(raw_dict, indent=2, default=str)) # default=str zabráni pádu na divných typoch
-        
     except Exception as e:
         print(f"[STRIPE WEBHOOK ERROR] Nepodarilo sa zobraziť / parsovať event dáta: {repr(e)}")
         raw_dict = {}
 
-    # 1. Časť: Spracovanie zmazania (toto je izolované)
+    # 1. Časť: Spracovanie zmazania
     if event_type == 'customer.subscription.deleted':
         sub_id = raw_dict.get('id')
         if not sub_id:
@@ -95,7 +114,7 @@ async def stripe_webhook(request: Request):
             customer_id = raw_dict.get('customer')
 
         if not sub_id:
-            print(f"[STRIPE WARN] Event {event_type} neobsahuje subscription ID. (Typické pre jednorazové platby, nie predplatné). Preskakujem.")
+            print(f"[STRIPE WARN] Event {event_type} neobsahuje subscription ID. Preskakujem.")
             return {"status": "ok"}
 
         print(f"[STRIPE API] Volám natvrdo Stripe API pre čerstvé dáta o subskripcii: {sub_id}")
@@ -105,13 +124,17 @@ async def stripe_webhook(request: Request):
             fresh_sub_obj = stripe.Subscription.retrieve(sub_id)
             fresh_sub = fresh_sub_obj.to_dict() if hasattr(fresh_sub_obj, 'to_dict') else dict(fresh_sub_obj)
             
-            print(f"[DEBUG LINE 2] Z TOHTO BUDEM ČÍTAŤ (API Odpoveď pre predplatné):")
-            print(json.dumps(fresh_sub, indent=2, default=str))
-
-            # ČÍTANIE DÁT 
+            # ČÍTANIE DÁT S POUŽITÍM NOVEJ EXTRACT FUNKCIE
             fresh_status = fresh_sub.get('status', 'active')
-            start_ts = fresh_sub.get('current_period_start')
-            end_ts = fresh_sub.get('current_period_end')
+            
+            # Najprv sa pokúsime nájsť dátumy vo fresh_sub z API
+            start_ts, end_ts = extract_timestamps(fresh_sub)
+            
+            # Ak API zlyhá (čo by nemalo), pre istotu pozrieme aj do samotného prichádzajúceho webhook eventu
+            if start_ts is None or end_ts is None:
+                raw_start, raw_end = extract_timestamps(raw_dict)
+                start_ts = start_ts or raw_start
+                end_ts = end_ts or raw_end
             
             has_cancel_at = fresh_sub.get('cancel_at') is not None
             has_cancel_end = fresh_sub.get('cancel_at_period_end') is True
@@ -133,7 +156,7 @@ async def stripe_webhook(request: Request):
                     target_user_id = res.data[0].get("user_id")
 
             if not target_user_id:
-                 print(f"[STRIPE IGNORED] Nemám user_id pre sub {sub_id}. (Toto sa stane, keď 'created' dobehne skôr ako 'checkout'). Čakám.")
+                 print(f"[STRIPE IGNORED] Nemám user_id pre sub {sub_id}. Čakám.")
                  return {"status": "ok"}
 
             # Zostavenie payloadu pre DB
