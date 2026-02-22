@@ -28,6 +28,8 @@ import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 
+// ✅ Pridaný import pre získanie ID používateľa
+import { useUserId } from "@/app/shared/hooks/useUserId";
 
 export default function ClientProtectedShell({
   children,
@@ -35,17 +37,23 @@ export default function ClientProtectedShell({
   children: ReactNode;
 }) {
   const t = useT();
+  
+  // ✅ Vytiahnutie userId pomocou tvojho hooku
+  const { userId } = useUserId();
+
   return (
     <>
       <UserPrefsBootstrapper />
       <UserSettingsBootstrapper />
 
-
       <SidebarProvider>
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
-              <OnboardingWizard userId={user.id} />
+              
+              {/* ✅ Spustíme OnboardingWizard, len ak už máme userId */}
+              {userId && <OnboardingWizard userId={userId} />}
+
               <div
                 className="min-h-dvh flex flex-col relative overflow-hidden"
                 style={{
