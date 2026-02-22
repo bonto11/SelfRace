@@ -9,7 +9,6 @@ from Configs.config import STRIPE_WEBHOOK_SECRET, TABLE_APP_USER_SUBSCRIPTIONS
 
 router = APIRouter(tags=["Stripe Webhooks"])
 
-
 @router.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
     payload = await request.body()
@@ -17,17 +16,12 @@ async def stripe_webhook(request: Request):
 
     if not sig_header or not STRIPE_WEBHOOK_SECRET:
         print("[STRIPE WEBHOOK ERROR] Chýba hlavička alebo secret!")
-        raise HTTPException(
-            status_code=400, detail="Missing signature or webhook secret"
-        )
+        raise HTTPException(status_code=400, detail="Missing signature or webhook secret")
 
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
-
-        print(f"[event ", event)
-
     except ValueError as e:
         print("[STRIPE WEBHOOK ERROR] Invalid payload:", e)
         raise HTTPException(status_code=400, detail="Invalid payload")
@@ -36,199 +30,126 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     sb = get_sb(service_ctx(caller="stripe_webhook"), caller="stripe_webhook")
-
-    event_type = event.get("type")
+    event_type = event.get('type')
+    
     print(f"\n{'='*60}")
-    print(f"[STRIPE WEBHOOK IN] Prichádza event: {event_type}")
-    print(f"{'='*60}")
+    print(f"[STRIPE WEBHOOK] Zachytený event: {event_type}")
+    
+    try:
+        # Prevádzame surový event objekt na string a potom na slovník, aby sme sa zbavili Stripe mágie
+        raw_dict = json.loads(str(event.get('data', {}).get('object', {})))
+    except Exception as e:
+        print(f"[STRIPE WEBHOOK ERROR] Nepodarilo sa parsovať event dáta: {repr(e)}")
+        return {"status": "error"}
 
-    # --- 1. ZÁKAZNÍK ÚSPEŠNE DOKONČIL CHECKOUT ---
-    if event_type == "checkout.session.completed":
-        # Tu musíme zobrať event data a prehnať to cez json.loads
-        # aby sme zhodili "StripeObject" masku a mali čistý Python Dict
-        raw_session_dict = json.loads(str(event["data"]["object"]))
-
-        user_id_str = raw_session_dict.get("client_reference_id")
-        tier = raw_session_dict.get("metadata", {}).get("tier", "pro")
-        stripe_customer_id = raw_session_dict.get("customer")
-        stripe_subscription_id = raw_session_dict.get("subscription")
-
-        print(
-            f"[DEBUG CHECKOUT] Extrahované IDčka: user_id={user_id_str}, tier={tier}, sub_id={stripe_subscription_id}"
-        )
-
-        if user_id_str and stripe_subscription_id:
-            try:
-                # Zavoláme Stripe API pre detail predplatného
-                sub_obj = stripe.Subscription.retrieve(stripe_subscription_id)
-
-                # ✅ ULTIMÁTNA OPRAVA: Prevod na čistý Python dict cez JSON stringifikáciu
-                # Toto zaručí, že zmizne celá mágia knižnice stripe
-                sub_clean_dict = json.loads(str(sub_obj))
-
-                print(f"[sub_clean_dict ", sub_clean_dict)
-
-                # Teraz už normálne funguje klasický .get()
-                start_ts = sub_clean_dict.get("current_period_start")
-                end_ts = sub_clean_dict.get("current_period_end")
-                stripe_status = sub_clean_dict.get("status", "active")
-
-                print(
-                    f"[DEBUG CHECKOUT] Čisté TS získané zo sub_clean_dict: start_ts={start_ts}, end_ts={end_ts}, status={stripe_status}"
-                )
-
-                # Ošetrenie timestampu
-                period_start = None
-                period_end = None
-
-                if start_ts is not None:
-                    period_start = datetime.fromtimestamp(
-                        int(start_ts), tz=timezone.utc
-                    ).isoformat()
-                if end_ts is not None:
-                    period_end = datetime.fromtimestamp(
-                        int(end_ts), tz=timezone.utc
-                    ).isoformat()
-
-                payload_data = {
-                    "tier_code": tier,
-                    "status": stripe_status,
-                    "external_customer_id": stripe_customer_id,
-                    "external_subscription_id": stripe_subscription_id,
-                    "current_period_start": period_start,
-                    "current_period_end": period_end,
-                    "meta": {"source": "stripe_checkout"},
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-
-                print(f"[DEBUG CHECKOUT] Zápis do Supabase:\n{payload_data}")
-                sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq(
-                    "user_id", int(user_id_str)
-                ).execute()
-                print(
-                    f"[STRIPE SUCCESS] Úspešný checkout pre usera: {user_id_str}. Zapísané všetky dáta do DB."
-                )
-
-            except Exception as e:
-                print(
-                    f"[STRIPE DB ERROR] Nepodarilo sa prepojiť usera {user_id_str}:",
-                    repr(e),
-                )
-        else:
-            print(
-                "[DEBUG CHECKOUT WARN] Chýba user_id_str alebo stripe_subscription_id. Zápis sa preskakuje."
-            )
-
-    # --- 2. PREDPLATNÉ VYTVORENÉ / AKTUALIZOVANÉ ---
-    elif event_type in [
-        "customer.subscription.created",
-        "customer.subscription.updated",
-    ]:
-
-        # ✅ Rovnaká finta, preč od Stripe objektu
-        sub_clean_dict = json.loads(str(event["data"]["object"]))
-
-        print(f"[sub_clean_dict ", sub_clean_dict)
-
-        stripe_subscription_id = sub_clean_dict.get("id")
-
-        has_cancel_at = sub_clean_dict.get("cancel_at") is not None
-        has_cancel_end = sub_clean_dict.get("cancel_at_period_end", False) is True
-        is_canceled_future = has_cancel_at or has_cancel_end
-
-        stripe_status = sub_clean_dict.get("status", "active")
-
-        start_ts = sub_clean_dict.get("current_period_start")
-        end_ts = sub_clean_dict.get("current_period_end")
-
-        print(
-            f"[DEBUG UPDATE] Natvrdo získané JSON: start_ts={start_ts} | end_ts={end_ts} | cancel_future={is_canceled_future}"
-        )
-
-        period_start = None
-        period_end = None
-
-        if start_ts is not None:
-            period_start = datetime.fromtimestamp(
-                int(start_ts), tz=timezone.utc
-            ).isoformat()
-        if end_ts is not None:
-            period_end = datetime.fromtimestamp(
-                int(end_ts), tz=timezone.utc
-            ).isoformat()
-
-        update_data = {
-            "status": stripe_status,
-            "cancel_at_period_end": is_canceled_future,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+    # 1. Časť: Spracovanie zmazania (toto je izolované)
+    if event_type == 'customer.subscription.deleted':
+        sub_id = raw_dict.get('id')
+        if not sub_id:
+            return {"status": "ok", "note": "missing sub_id in deleted"}
+            
+        print(f"[DEBUG DELETE] Natvrdo ruším v DB subskripciu: {sub_id}")
+        payload_data = {
+            "tier_code": "free",
+            "status": "canceled",
+            "cancel_at_period_end": False,
+            "current_period_start": None,
+            "current_period_end": None,
+            "meta": {"source": "stripe_deleted"},
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
+        sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq("external_subscription_id", sub_id).execute()
+        return {"status": "success"}
 
-        if period_start:
-            update_data["current_period_start"] = period_start
-        if period_end:
-            update_data["current_period_end"] = period_end
+    # 2. Časť: KLADIVO (Checkout, Created, Updated)
+    if event_type in [
+        'checkout.session.completed', 
+        'customer.subscription.created', 
+        'customer.subscription.updated'
+    ]:
+        # Vytiahneme len to nevyhnutné, čo nám event dáva, aby sme vedeli, koho a čo updatovať
+        user_id_str = None
+        tier_code = None
+        customer_id = None
+        sub_id = None
 
-        print(f"[DEBUG UPDATE] Posielam do Supabase:\n{update_data}")
+        if event_type == 'checkout.session.completed':
+            user_id_str = raw_dict.get('client_reference_id')
+            tier_code = raw_dict.get('metadata', {}).get('tier', 'pro')
+            customer_id = raw_dict.get('customer')
+            sub_id = raw_dict.get('subscription')
+        else:
+            # Pre created/updated eventy
+            sub_id = raw_dict.get('id')
+            customer_id = raw_dict.get('customer')
+            # tier_code a user_id si pre istotu budeme musieť vytiahnuť z API ak ich nemáme
 
+        if not sub_id:
+            print(f"[STRIPE WARN] Event {event_type} neobsahuje subscription ID, preskakujem.")
+            return {"status": "ok"}
+
+        print(f"[STRIPE API] Volám natvrdo Stripe API pre čerstvé dáta o subskripcii: {sub_id}")
+        
         try:
-            res = (
-                sb.table(TABLE_APP_USER_SUBSCRIPTIONS)
-                .update(update_data)
-                .eq("external_subscription_id", stripe_subscription_id)
-                .execute()
-            )
+            # ✅ KLADIVO: Zavoláme priamo API Stripe, nech nám dá čerstvý objekt. Tu sú dáta zaručené.
+            fresh_sub_obj = stripe.Subscription.retrieve(sub_id)
+            fresh_sub = json.loads(str(fresh_sub_obj))
+            
+            # Vytiahneme absolútne presné dáta
+            fresh_status = fresh_sub.get('status', 'active')
+            start_ts = fresh_sub.get('current_period_start')
+            end_ts = fresh_sub.get('current_period_end')
+            
+            has_cancel_at = fresh_sub.get('cancel_at') is not None
+            has_cancel_end = fresh_sub.get('cancel_at_period_end') is True
+            is_canceled_future = has_cancel_at or has_cancel_end
 
-            if not res.data:
-                print(
-                    f"[STRIPE IGNORED] Update pre {stripe_subscription_id} ignorovaný (záznam s týmto ID v DB ešte nie je)."
-                )
+            # Formátovanie dátumov
+            period_start = datetime.fromtimestamp(int(start_ts), tz=timezone.utc).isoformat() if start_ts else None
+            period_end = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).isoformat() if end_ts else None
+
+            print(f"[STRIPE DATA] API vrátilo: status={fresh_status}, start={period_start}, end={period_end}, cancel={is_canceled_future}")
+
+            # Príprava záchranného kolesa: ak nemáme user_id_str (napr. pri update evente), skúsime ho nájsť v DB podľa sub_id
+            target_user_id = None
+            if user_id_str:
+                target_user_id = int(user_id_str)
             else:
-                print(
-                    f"[STRIPE SUCCESS] Update predplatného {stripe_subscription_id} úspešný."
-                )
+                # Skúsime nájsť usera v DB
+                res = sb.table(TABLE_APP_USER_SUBSCRIPTIONS).select("user_id").eq("external_subscription_id", sub_id).limit(1).execute()
+                if res.data and len(res.data) > 0:
+                    target_user_id = res.data[0].get("user_id")
 
-        except Exception as e:
-            print(
-                f"[STRIPE DB ERROR] Nepodarilo sa updatnúť sub {stripe_subscription_id}:",
-                repr(e),
-            )
+            if not target_user_id:
+                 print(f"[STRIPE IGNORED] Nemám user_id pre subskripciu {sub_id} a nie je ani v DB. Čakám na checkout event.")
+                 return {"status": "ok"}
 
-    # --- 3. PREDPLATNÉ BOLO ÚPLNE ZRUŠENÉ ---
-    elif event_type == "customer.subscription.deleted":
-        sub_clean_dict = json.loads(str(event["data"]["object"]))
-        stripe_subscription_id = sub_clean_dict.get("id")
-
-        print(f"[sub_clean_dict ", sub_clean_dict)
-
-        print(
-            f"[DEBUG DELETE] Predplatné natvrdo zrušené. ID: {stripe_subscription_id}"
-        )
-
-        try:
-            payload_data = {
-                "tier_code": "free",
-                "status": "canceled",
-                "cancel_at_period_end": False,
-                "current_period_start": None,
-                "current_period_end": None,
-                "meta": {"source": "stripe_deleted"},
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+            # Ideme robiť veľký, bezpečný zápis do DB pre nájdeného usera
+            payload = {
+                "status": fresh_status,
+                "cancel_at_period_end": is_canceled_future,
+                "external_subscription_id": sub_id,
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
-            sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq(
-                "external_subscription_id", stripe_subscription_id
-            ).execute()
-            print(
-                f"[STRIPE SUCCESS] Subskripcia {stripe_subscription_id} zrušená, účet zmenený na free."
-            )
+            
+            if customer_id:
+                payload["external_customer_id"] = customer_id
+            if tier_code:
+                payload["tier_code"] = tier_code
+            if period_start:
+                payload["current_period_start"] = period_start
+            if period_end:
+                payload["current_period_end"] = period_end
+
+            print(f"[DB UPDATE] Pripravený masívny payload pre usera {target_user_id}:\n{payload}")
+            
+            # Bez ohľadu na to, ktorý event prišiel prvý, my updatneme usera podľa jeho ID
+            sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload).eq("user_id", target_user_id).execute()
+            
+            print(f"[STRIPE SUCCESS] Zápis pre usera {target_user_id} s predplatným {sub_id} bol úspešný a kompletný.")
+
         except Exception as e:
-            print(
-                f"[STRIPE DB ERROR] Nepodarilo sa zrušiť sub {stripe_subscription_id}:",
-                repr(e),
-            )
+            print(f"[STRIPE ERROR] Katastrofálne zlyhanie pri spracovaní sub {sub_id}: {repr(e)}")
 
-    else:
-        print(
-            f"[DEBUG OTHER] Event {event_type} zachytený, ale nevykonávam žiadnu akciu."
-        )
-
+    print(f"{'='*60}\n")
     return {"status": "success"}
