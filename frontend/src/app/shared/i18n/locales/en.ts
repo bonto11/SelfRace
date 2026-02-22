@@ -251,6 +251,7 @@ export const en = {
     connectedApps: "Connected Apps",
     logginOff: "Logging off...",
     logoff: "Log out",
+    showTutorial: "Show setup wizard",
   },
   prefs: {
     title: "Training Preferences",
