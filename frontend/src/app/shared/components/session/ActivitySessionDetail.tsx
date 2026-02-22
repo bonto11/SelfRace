@@ -191,12 +191,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         const [extras, enr] = await Promise.all([getExtras(act.activityId), getEnrichment(act.activityId)]);
         if (!alive) return;
 
-        // DEBUG: Úvodné načítanie
-        console.log("[DEBUG STREAMY] Počiatočné načítanie DB:");
-        console.log("- Extras nájdené:", !!extras);
-        console.log("- Streamy (time_s) prítomné:", Array.isArray(extras?.streams?.time_s) && extras!.streams.time_s.length > 0);
-        console.log("- Splity prítomné:", Array.isArray(extras?.splits) && extras!.splits.length > 0);
-
         if (extras?.streams) setStreams(extras.streams);
         if (extras?.splits) setSplits(extras.splits);
         if (enr) setEnrichment(enr);
@@ -216,23 +210,16 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     if (!userId || !act.activityId || isFetchingDetailed) return;
     
     setIsFetchingDetailed(true);
-    console.log("[DEBUG STREAMY] Požiadavka na stiahnutie zo Stravy ODOSLANÁ...");
 
     try {
       const result = await apiFetchActivityExtrasCombined(Number(userId), act.activityId, true);
       
-      // DEBUG: Výsledok zo Stravy
-      console.log("[DEBUG STREAMY] Odpoveď zo Stravy PRIJATÁ:");
-      console.log("- Result existuje:", !!result);
-      console.log("- Streamy (time_s) doručené:", Array.isArray(result?.streams?.time_s) && result!.streams.time_s.length > 0);
-      console.log("- Splity doručené:", Array.isArray(result?.splits) && result!.splits.length > 0);
-
       if (result) {
         if (result.streams) setStreams(result.streams);
         if (result.splits) setSplits(result.splits);
       }
     } catch (e: any) {
-      console.error("[DEBUG STREAMY] Chyba pri sťahovaní zo Stravy:", e);
+      console.error("Chyba pri sťahovaní zo Stravy:", e);
       toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
     } finally {
       setIsFetchingDetailed(false);

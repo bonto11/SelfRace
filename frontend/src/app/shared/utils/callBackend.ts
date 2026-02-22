@@ -92,7 +92,6 @@ export async function callBackend<T = any>(
 
   const fullUrl = `${API_URL}${path}`;
 
-  console.log("call backend fullUrl", fullUrl);
   const res = await fetch(fullUrl, {
     ...init,
     headers,
