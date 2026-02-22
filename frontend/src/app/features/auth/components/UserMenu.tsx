@@ -32,6 +32,9 @@ import {
 } from "@/app/shared/state/subscriptionTierStore";
 import { useT } from "@/app/shared/i18n/useT";
 
+// ✅ Importujeme nášho sprievodcu
+import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
+
 type LocalUser = {
   id: number | null;
   uuid: string | null;
@@ -49,6 +52,9 @@ export default function UserMenu() {
   const [tierCode, setTierCode] = useState<string>(
     () => getSubscriptionTier() || "free",
   );
+  
+  // ✅ Stav pre manuálne zobrazenie sprievodcu
+  const [showWizard, setShowWizard] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -73,7 +79,7 @@ export default function UserMenu() {
         if (!alive) return;
         if (j?.ok && j.user) {
           setMe(j.user as LocalUser);
-          // ✅ Ak nám BE poslal aj tier, hneď ho uložíme
+          // Ak nám BE poslal aj tier, hneď ho uložíme
           if (j.user.tier_code) {
             setSubscriptionTier(j.user.tier_code);
           }
@@ -256,6 +262,21 @@ export default function UserMenu() {
 
               <div className={DROPDOWN_DIVIDER} />
 
+              {/* ✅ Tlačidlo pre vyvolanie návodu */}
+              <button
+                className={DROPDOWN_ITEM}
+                onClick={() => {
+                  setShowWizard(true);
+                  setOpen(false); // Po kliknutí menu hneď zavrieme
+                }}
+                role="menuitem"
+                type="button"
+              >
+                {t("userMenu.showTutorial") || "Zobraziť sprievodcu"}
+              </button>
+
+              <div className={DROPDOWN_DIVIDER} />
+
               <button
                 className={[
                   DROPDOWN_ITEM_DANGER,
@@ -276,32 +297,43 @@ export default function UserMenu() {
         );
 
   return (
-    <div ref={wrapRef} className={USER_MENU_WRAP}>
-      <button
-        ref={btnRef}
-        className={USER_MENU_TRIGGER}
-        style={{
-          background: open
-            ? appColors.surfaceCardHover
-            : appColors.buttonGhostBg,
-          border: getTierBorderStyle(), // ✅ Farba rámčeka podľa tieru
-          color: appColors.textPrimary,
-          transition: "border-color 0.2s ease, background-color 0.2s ease",
-        }}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        <div className={USER_MENU_LABEL_ROW}>
-          <span className={USER_MENU_LABEL}>
-            {displayLabel || initials || "User"}
-          </span>
-        </div>
-      </button>
+    <>
+      <div ref={wrapRef} className={USER_MENU_WRAP}>
+        <button
+          ref={btnRef}
+          className={USER_MENU_TRIGGER}
+          style={{
+            background: open
+              ? appColors.surfaceCardHover
+              : appColors.buttonGhostBg,
+            border: getTierBorderStyle(), // Farba rámčeka podľa tieru
+            color: appColors.textPrimary,
+            transition: "border-color 0.2s ease, background-color 0.2s ease",
+          }}
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <div className={USER_MENU_LABEL_ROW}>
+            <span className={USER_MENU_LABEL}>
+              {displayLabel || initials || "User"}
+            </span>
+          </div>
+        </button>
 
-      {Panel}
-    </div>
+        {Panel}
+      </div>
+
+      {/* ✅ Vykreslenie manuálne spustenej inštancie sprievodcu */}
+      {showWizard && me?.id && (
+        <OnboardingWizard
+          userId={me.id}
+          forceShow={true}
+          onCloseManual={() => setShowWizard(false)}
+        />
+      )}
+    </>
   );
 }
