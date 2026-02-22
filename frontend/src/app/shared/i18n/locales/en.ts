@@ -28,6 +28,7 @@ export const en = {
     loading: "Loading...",
     undo: "Undo",
     cancel: "Cancel",
+    close: "Understand, close",
     save: "Save changes",
     saving: "Saving...",
     soon: "Soon...",
