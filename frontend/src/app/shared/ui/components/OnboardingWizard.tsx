@@ -32,14 +32,14 @@ const CHAPTERS = [
   },
   {
     id: "strava_import",
-    tabLabel: "Strava & Dáta",
-    title: "Pripojenie a Import 🚴‍♂️",
+    tabLabel: "Dáta",
+    title: "Strava a Aktivity 🚴‍♂️",
     content: (
       <div className="space-y-3">
         <p>Aby ti tréner mohol radiť, potrebuje tvoje historické dáta.</p>
         <ul className="list-disc pl-5 opacity-90 space-y-1">
-          <li><b>1. Pripojenie:</b> V User Menu (avatar) prejdi do <i>"Pripojené aplikácie"</i> a klikni na oranžové tlačidlo <i>Connect with Strava</i>.</li>
-          <li><b>2. Import:</b> Na tej istej stránke nižšie následne spusti import aktivít. Odporúčame stiahnuť aspoň pár týždňov dozadu.</li>
+          <li><b>Pripojenie:</b> V User Menu prejdi do <i>"Pripojené aplikácie"</i> a klikni na oranžové tlačidlo <i>Connect with Strava</i>. Tvoje dáta sú v bezpečí.</li>
+          <li><b>Import:</b> Hneď po prepojení Stravy, na tej istej stránke, spusti import aktivít. Odporúčame stiahnuť aspoň pár týždňov dozadu.</li>
         </ul>
       </div>
     ),
@@ -50,27 +50,28 @@ const CHAPTERS = [
     title: "Profil a Regenerácia 🔋",
     content: (
       <div className="space-y-3">
-        <p><b>Tvoj Profil:</b> V User Menu pod <i>"Môj účet"</i> si doplň svoje telesné miery a tepové zóny pre presnejšie výpočty.</p>
-        <p><b>Regenerácia:</b> V sekcii <i>Recovery</i> si zapisuj rannú únavu, kvalitu spánku či stres. Zatiaľ to musíš robiť ručne – giganti ako Garmin či Apple s nami zatiaľ nie sú až takí veľkí kamaráti, aby nám to dali automaticky! 😃</p>
+        <p><b>Tvoj Profil:</b> V User Menu pod <i>"Môj účet"</i> si doplň svoje základné telesné miery.</p>
+        <p><b>Regenerácia:</b> V sekcii <i>Recovery</i> si každý deň poctivo zapisuj rannú únavu, kvalitu spánku či stres. Zatiaľ si to tam musíš klikať ručne – giganti ako Garmin či Apple s nami zatiaľ nie sú až takí obrovskí kamaráti, aby nám to hrnuli automaticky! 😃</p>
       </div>
     ),
   },
   {
     id: "coach",
-    tabLabel: "AI Tréner",
+    tabLabel: "Tréner",
     title: "Tréner na mieru 🧠",
     content: (
       <div className="space-y-3">
-        <p>Srdce našej aplikácie! Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol dokonalý plán.</p>
+        <p>Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol dokonalý plán.</p>
         <ul className="list-disc pl-5 opacity-90 space-y-1">
-          <li><b>Nastavenia (Prefs):</b> Povedz trénerovi, koľko dní v týždni chceš makať a aké máš ciele.</li>
-          <li><b>Externé eventy:</b> Plánuješ pretek alebo máš dovolenku? Pridaj si to, tréner to zohľadní.</li>
-          <li><b>Generovanie:</b> Stačí kliknúť a tvoj nový tréningový plán je na svete!</li>
+          <li><b>Nastavenia (Prefs):</b> Úplne hore vpravo v sekcii Coach klikni na ikonu nastavení. Tam si určíš svoje <b>Tepové zóny, Prahy</b>, koľko dní v týždni chceš makať a aké máš ciele.</li>
+          <li><b>Externé eventy:</b> Plánuješ pretek? Pridaj si ho a tréner to zohľadní pri plánovaní.</li>
+          <li><b>Generovanie:</b> Klikni na Vytvoriť plán a máš hotovo!</li>
         </ul>
       </div>
     ),
   }
 ];
+
 
 export default function OnboardingWizard({ userId, forceShow = false, onCloseManual }: Props) {
   const t = useT();
