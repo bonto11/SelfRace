@@ -26,6 +26,8 @@ import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
+import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
+
 
 export default function ClientProtectedShell({
   children,
@@ -38,10 +40,12 @@ export default function ClientProtectedShell({
       <UserPrefsBootstrapper />
       <UserSettingsBootstrapper />
 
+
       <SidebarProvider>
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
+              <OnboardingWizard userId={user.id} />
               <div
                 className="min-h-dvh flex flex-col relative overflow-hidden"
                 style={{
