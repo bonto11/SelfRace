@@ -1,28 +1,20 @@
 // src/app/shared/utils/supabaseBrowser.ts
 "use client";
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-import { SUPABASE_URL,SUPABASE_ANON_KEY } from "@/app/shared/config";
-// vlastný kľúč v localStorage – ľahko ho nájdeš v DevTools
-const STORAGE_KEY = "sb-selfrace-auth-token";
+let _client: ReturnType<typeof createBrowserClient> | null = null;
 
-let _client: SupabaseClient | null = null;
-
-export function getSupabaseBrowser(): SupabaseClient {
+export function getSupabaseBrowser() {
   if (!_client) {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       throw new Error("Missing Supabase env vars");
     }
 
-    _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,        // <<< kľúčové
-        autoRefreshToken: true,      // obnovuje tokeny na pozadí
-        detectSessionInUrl: true,
-        storageKey: STORAGE_KEY,     // budeš vidieť v localStorage
-      },
-    });
+    // createBrowserClient automaticky ukladá session do Cookies, nie do localStorage!
+    // Vďaka tomu ich Next.js server vždy bezpečne vidí.
+    _client = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
   return _client;
 }

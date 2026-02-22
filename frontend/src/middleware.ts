@@ -1,38 +1,48 @@
 // src/middleware.ts
-import { NextRequest, NextResponse } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  
-
-  // 1) Lokálne ignoruj statické veci a API – matcher potom môže byť len '/:path*'
+export async function middleware(request: NextRequest) {
+  // 1. Lokálne ignoruj statické veci a API, aby sme nepreťažovali middleware
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname === "/favicon.ico" ||
-    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
+    request.nextUrl.pathname.startsWith("/_next") ||
+    request.nextUrl.pathname.startsWith("/api") ||
+    request.nextUrl.pathname === "/favicon.ico" ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(request.nextUrl.pathname)
   ) {
     return NextResponse.next();
   }
 
-  const res = NextResponse.next();
+  let supabaseResponse = NextResponse.next({ request });
 
-  try {
-    // 2) Supabase klient naviazaný na req/res — tu si vie zapisovať/refreshnúť cookies
-    const supabase = createMiddlewareClient({ req, res });
+  // 2. Vytvoríme klienta, ktorý dokáže čítať aj zapisovať do prebiehajúceho requestu
+  const supabase = createServerClient(
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
 
-    // 3) Tichý refresh / bootstrap cookies (nič nepresmerúvame)
-    const { data, error } = await supabase.auth.getSession();
+  // 3. Kľúčový krok: Zavolaním getUser() Supabase zistí, či token expiruje. 
+  // Ak áno, vďaka kódu vyššie (setAll) ho ticho obnoví priamo do Cookies prehliadača.
+  await supabase.auth.getUser();
 
-  } catch (e: any) {
-    console.error("[SB][mw] ERROR", e?.message ?? e);
-  }
-
-  return res;
+  return supabaseResponse;
 }
 
-// Žiadne komplikované regexy – aplikuj na všetky cesty, ignorovanie riešime vyššie.
 export const config = {
   matcher: ["/:path*"],
 };
