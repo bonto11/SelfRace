@@ -32,7 +32,7 @@ import {
 } from "@/app/shared/state/subscriptionTierStore";
 import { useT } from "@/app/shared/i18n/useT";
 
-// ✅ Importujeme nášho sprievodcu
+// Importujeme nášho sprievodcu
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 
 type LocalUser = {
@@ -42,7 +42,7 @@ type LocalUser = {
   name: string | null;
   displayName: string | null;
   avatarUrl: string | null;
-  tier_code?: string; // Pridané pre ťahanie z API
+  tier_code?: string;
 };
 
 export default function UserMenu() {
@@ -53,7 +53,6 @@ export default function UserMenu() {
     () => getSubscriptionTier() || "free",
   );
   
-  // ✅ Stav pre manuálne zobrazenie sprievodcu
   const [showWizard, setShowWizard] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -79,7 +78,6 @@ export default function UserMenu() {
         if (!alive) return;
         if (j?.ok && j.user) {
           setMe(j.user as LocalUser);
-          // Ak nám BE poslal aj tier, hneď ho uložíme
           if (j.user.tier_code) {
             setSubscriptionTier(j.user.tier_code);
           }
@@ -140,7 +138,6 @@ export default function UserMenu() {
     }
   };
 
-  // close on outside click (portal-safe)
   useEffect(() => {
     if (!open) return;
 
@@ -163,7 +160,6 @@ export default function UserMenu() {
     };
   }, [open]);
 
-  // compute fixed position (portal)
   useEffect(() => {
     if (!open) return;
     const el = btnRef.current;
@@ -171,15 +167,11 @@ export default function UserMenu() {
 
     const update = () => {
       const r = el.getBoundingClientRect();
-
       const w = Math.max(r.width, 260);
       const margin = 10;
-
       let left = r.right - w;
       left = Math.max(margin, Math.min(left, window.innerWidth - w - margin));
-
       const top = r.bottom + 10;
-
       setPos({ left, top, width: w });
     };
 
@@ -200,6 +192,14 @@ export default function UserMenu() {
       setBusy(null);
     }
   }
+
+  // ✅ Funkcia pre bezpečné spustenie wizarda bez kolízie z-indexov
+  const handleOpenWizard = () => {
+    setOpen(false); // Najprv natvrdo zabijeme menu
+    setTimeout(() => {
+      setShowWizard(true); // O chvíľočku neskôr vyvoláme Modal
+    }, 150);
+  };
 
   const Panel =
     !open || !pos
@@ -262,17 +262,13 @@ export default function UserMenu() {
 
               <div className={DROPDOWN_DIVIDER} />
 
-              {/* ✅ Tlačidlo pre vyvolanie návodu */}
               <button
                 className={DROPDOWN_ITEM}
-                onClick={() => {
-                  setShowWizard(true);
-                  setOpen(false); // Po kliknutí menu hneď zavrieme
-                }}
+                onClick={handleOpenWizard}
                 role="menuitem"
                 type="button"
               >
-                {t("userMenu.showTutorial") || "Zobraziť sprievodcu"}
+                {t("userMenu.showTutorial" as any) || "Zobraziť sprievodcu"}
               </button>
 
               <div className={DROPDOWN_DIVIDER} />
@@ -306,7 +302,7 @@ export default function UserMenu() {
             background: open
               ? appColors.surfaceCardHover
               : appColors.buttonGhostBg,
-            border: getTierBorderStyle(), // Farba rámčeka podľa tieru
+            border: getTierBorderStyle(),
             color: appColors.textPrimary,
             transition: "border-color 0.2s ease, background-color 0.2s ease",
           }}
@@ -326,7 +322,7 @@ export default function UserMenu() {
         {Panel}
       </div>
 
-      {/* ✅ Vykreslenie manuálne spustenej inštancie sprievodcu */}
+      {/* Vykreslíme to priamo na najvyššej možnej úrovni */}
       {showWizard && me?.id && (
         <OnboardingWizard
           userId={me.id}
