@@ -38,35 +38,41 @@ async def stripe_webhook(request: Request):
 
     # --- 1. ZÁKAZNÍK ÚSPEŠNE DOKONČIL CHECKOUT ---
     if event_type == 'checkout.session.completed':
-        session = event['data']['object']
+        # Tu musíme zobrať event data a prehnať to cez json.loads
+        # aby sme zhodili "StripeObject" masku a mali čistý Python Dict
+        raw_session_dict = json.loads(str(event['data']['object']))
         
-        # Extrahujeme základné IDčka priamo z objektu
-        user_id_str = getattr(session, 'client_reference_id', None)
-        
-        # Meta data bývajú niekedy prázdne
-        metadata = getattr(session, 'metadata', {})
-        tier = metadata.get('tier', 'pro') if isinstance(metadata, dict) else 'pro'
-        
-        stripe_customer_id = getattr(session, 'customer', None)
-        stripe_subscription_id = getattr(session, 'subscription', None)
+        user_id_str = raw_session_dict.get('client_reference_id') 
+        tier = raw_session_dict.get('metadata', {}).get('tier', 'pro')
+        stripe_customer_id = raw_session_dict.get('customer')
+        stripe_subscription_id = raw_session_dict.get('subscription')
 
-        print(f"[DEBUG CHECKOUT] Extrahované: user_id={user_id_str}, tier={tier}, sub_id={stripe_subscription_id}")
+        print(f"[DEBUG CHECKOUT] Extrahované IDčka: user_id={user_id_str}, tier={tier}, sub_id={stripe_subscription_id}")
 
         if user_id_str and stripe_subscription_id:
             try:
-                # Načítame detailný objekt priamo zo Stripe
+                # Zavoláme Stripe API pre detail predplatného
                 sub_obj = stripe.Subscription.retrieve(stripe_subscription_id)
                 
-                # ✅ NATVRDO čítame atribúty, žiadne .get()
-                start_ts = getattr(sub_obj, "current_period_start", None)
-                end_ts = getattr(sub_obj, "current_period_end", None)
-                stripe_status = getattr(sub_obj, "status", "active")
+                # ✅ ULTIMÁTNA OPRAVA: Prevod na čistý Python dict cez JSON stringifikáciu
+                # Toto zaručí, že zmizne celá mágia knižnice stripe
+                sub_clean_dict = json.loads(str(sub_obj))
+                
+                # Teraz už normálne funguje klasický .get()
+                start_ts = sub_clean_dict.get("current_period_start")
+                end_ts = sub_clean_dict.get("current_period_end")
+                stripe_status = sub_clean_dict.get("status", "active")
 
-                print(f"[DEBUG CHECKOUT] NATVRDO získané ts: start_ts={start_ts}, end_ts={end_ts}, status={stripe_status}")
+                print(f"[DEBUG CHECKOUT] Čisté TS získané zo sub_clean_dict: start_ts={start_ts}, end_ts={end_ts}, status={stripe_status}")
 
-                # Bezpečná konverzia timestampu na ISO format
-                period_start = datetime.fromtimestamp(int(start_ts), tz=timezone.utc).isoformat() if start_ts else None
-                period_end = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).isoformat() if end_ts else None
+                # Ošetrenie timestampu
+                period_start = None
+                period_end = None
+                
+                if start_ts is not None:
+                    period_start = datetime.fromtimestamp(int(start_ts), tz=timezone.utc).isoformat()
+                if end_ts is not None:
+                    period_end = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).isoformat()
 
                 payload_data = {
                     "tier_code": tier,
@@ -79,9 +85,10 @@ async def stripe_webhook(request: Request):
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
 
-                print(f"[DEBUG CHECKOUT] Posielam do Supabase:\n{payload_data}")
+                print(f"[DEBUG CHECKOUT] Zápis do Supabase:\n{payload_data}")
                 sb.table(TABLE_APP_USER_SUBSCRIPTIONS).update(payload_data).eq("user_id", int(user_id_str)).execute()
                 print(f"[STRIPE SUCCESS] Úspešný checkout pre usera: {user_id_str}. Zapísané všetky dáta do DB.")
+                
             except Exception as e:
                 print(f"[STRIPE DB ERROR] Nepodarilo sa prepojiť usera {user_id_str}:", repr(e))
         else:
@@ -89,32 +96,41 @@ async def stripe_webhook(request: Request):
 
     # --- 2. PREDPLATNÉ VYTVORENÉ / AKTUALIZOVANÉ ---
     elif event_type in ['customer.subscription.created', 'customer.subscription.updated']:
-        sub_obj = event['data']['object']
         
-        stripe_subscription_id = getattr(sub_obj, 'id', None)
+        # ✅ Rovnaká finta, preč od Stripe objektu
+        sub_clean_dict = json.loads(str(event['data']['object']))
         
-        has_cancel_at = getattr(sub_obj, 'cancel_at', None) is not None
-        has_cancel_end = getattr(sub_obj, 'cancel_at_period_end', False) is True
+        stripe_subscription_id = sub_clean_dict.get('id')
+        
+        has_cancel_at = sub_clean_dict.get('cancel_at') is not None
+        has_cancel_end = sub_clean_dict.get('cancel_at_period_end', False) is True
         is_canceled_future = has_cancel_at or has_cancel_end
         
-        stripe_status = getattr(sub_obj, 'status', 'active') 
+        stripe_status = sub_clean_dict.get('status', 'active') 
         
-        # ✅ NATVRDO čítame atribúty
-        start_ts = getattr(sub_obj, "current_period_start", None)
-        end_ts = getattr(sub_obj, "current_period_end", None)
+        start_ts = sub_clean_dict.get("current_period_start")
+        end_ts = sub_clean_dict.get("current_period_end")
 
-        print(f"[DEBUG UPDATE] Natvrdo získané: start_ts={start_ts} | end_ts={end_ts} | cancel_future={is_canceled_future}")
+        print(f"[DEBUG UPDATE] Natvrdo získané JSON: start_ts={start_ts} | end_ts={end_ts} | cancel_future={is_canceled_future}")
         
+        period_start = None
+        period_end = None
+        
+        if start_ts is not None:
+            period_start = datetime.fromtimestamp(int(start_ts), tz=timezone.utc).isoformat()
+        if end_ts is not None:
+            period_end = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).isoformat()
+
         update_data = {
             "status": stripe_status,
             "cancel_at_period_end": is_canceled_future,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
-        if start_ts:
-            update_data["current_period_start"] = datetime.fromtimestamp(int(start_ts), tz=timezone.utc).isoformat()
-        if end_ts:
-            update_data["current_period_end"] = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).isoformat()
+        if period_start:
+            update_data["current_period_start"] = period_start
+        if period_end:
+            update_data["current_period_end"] = period_end
 
         print(f"[DEBUG UPDATE] Posielam do Supabase:\n{update_data}")
 
@@ -131,8 +147,8 @@ async def stripe_webhook(request: Request):
 
     # --- 3. PREDPLATNÉ BOLO ÚPLNE ZRUŠENÉ ---
     elif event_type == 'customer.subscription.deleted':
-        sub_obj = event['data']['object']
-        stripe_subscription_id = getattr(sub_obj, 'id', None)
+        sub_clean_dict = json.loads(str(event['data']['object']))
+        stripe_subscription_id = sub_clean_dict.get('id')
 
         print(f"[DEBUG DELETE] Predplatné natvrdo zrušené. ID: {stripe_subscription_id}")
 
