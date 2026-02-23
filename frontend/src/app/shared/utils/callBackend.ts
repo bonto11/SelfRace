@@ -1,30 +1,51 @@
+// src/app/shared/utils/callBackend.ts
 "use client";
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
+let refreshPromise: Promise<string | null> | null = null;
+
 export async function callBackend<T = any>(
   path: string,
   init: RequestInit = {},
+  _retry = false
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
 
-  const { data, error } = await supabase.auth.getSession();
+  const { data } = await supabase.auth.getSession();
+  let token = data?.session?.access_token ?? null;
 
-  if (error || !data?.session?.access_token) {
-    throw new Error("User not authenticated");
-  }
-
-  const token = data.session.access_token;
+  const headers = new Headers(init.headers || {});
+  headers.set("Accept", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      ...(init.headers || {}),
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   });
+
+  // Zámok na obnovu tokenu z ChatGPT, vložený do tvojho kódu
+  if (res.status === 401 && !_retry) {
+    if (!refreshPromise) {
+      refreshPromise = supabase.auth
+        .refreshSession()
+        .then(({ data }) => data?.session?.access_token ?? null)
+        .finally(() => { refreshPromise = null; });
+    }
+
+    const newToken = await refreshPromise;
+    if (newToken) {
+      headers.set("Authorization", `Bearer ${newToken}`);
+      const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
+      
+      if (!retryRes.ok) {
+        throw new Error(`HTTP ${retryRes.status}`);
+      }
+      const retryText = await retryRes.text();
+      return retryText ? JSON.parse(retryText) : ({} as T);
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();
@@ -32,10 +53,5 @@ export async function callBackend<T = any>(
   }
 
   const text = await res.text();
-
-  if (!text) {
-    return undefined as T;
-  }
-
-  return JSON.parse(text) as T;
+  return text ? JSON.parse(text) : ({} as T);
 }
