@@ -6,7 +6,7 @@ import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
-import Checkbox from "@/app/shared/ui/components/CheckBox";
+import Checkbox from "@/app/shared/ui/components/Checkbox";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
