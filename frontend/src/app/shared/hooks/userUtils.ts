@@ -2,65 +2,36 @@
 "use client";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { callBackend } from "@/app/shared/utils/callBackend";
 
 const supabase = getSupabaseBrowser();
 
 /**
- * Zabezpečí, že user existuje v tabuľke `users`.
- * Ak neexistuje, vloží ho. Vráti jeho numerické id.
+ * Už nepotrebujeme zapisovať do DB z frontendu.
+ * Povieme len Python backendu, aby nám vrátil profil a ten si ho prípadne sám vytvorí.
  */
-export async function ensureUserExists(
-  authUid: string,
-  email: string
-): Promise<number | null> {
-  // Skús nájsť užívateľa
-  const { data: existing, error: selError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_uid", authUid)
-    .limit(1);
-
-  if (selError) {
-    console.error("❌ Chyba pri hľadaní usera:", selError);
+export async function ensureUserExists(): Promise<number | null> {
+  try {
+    // Predpokladám, že máš v Pythone nejaký /me alebo /users endpoint, ktorý ti vráti tvoje číselné ID.
+    // Ak nemáš, tak to budeš musieť vyriešiť na backende, aby tvoj Python po prihlásení usera zaregistroval.
+    const userProfile = await callBackend("/users/me");
+    return userProfile?.id ?? null;
+  } catch (e) {
+    console.error("❌ ensureUserExists zlyhal. Backend neodpovedal alebo nemáš /users/me endpoint.", e);
     return null;
   }
-
-  if (existing && existing.length > 0) {
-    return existing[0].id;
-  }
-
-  // Ak neexistuje → vytvor
-  const { data: inserted, error: insError } = await supabase
-    .from("users")
-    .insert({
-      auth_uid: authUid,
-      mail_address: email,
-      display_name: email.split("@")[0],
-    })
-    .select("id")
-    .single();
-
-  if (insError) {
-    console.error("❌ Chyba pri vkladaní usera:", insError);
-    return null;
-  }
-
-  return inserted?.id ?? null;
 }
 
 /**
  * Vracia interné `users.id` pre aktuálne prihláseného usera.
  */
 export async function getUserId(): Promise<number | null> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     console.error("❌ getUserId: žiadny prihlásený user");
     return null;
   }
 
-  return await ensureUserExists(user.id, user.email ?? "");
+  return await ensureUserExists();
 }

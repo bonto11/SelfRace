@@ -60,8 +60,7 @@ export default function SignInForm() {
       return;
     }
 
-    // VYMAZALI SME FETCH NA /api/auth/set-session. Je to nepotrebné.
-    
+    // Žiadne volanie API. Supabase klient uložil token do localStorage a to je všetko.
     router.replace("/activities");
   }
 

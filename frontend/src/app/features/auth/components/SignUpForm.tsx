@@ -4,6 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation"; // ✅ Pridaný router pre automatické presmerovanie
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/ui/components/Button";
@@ -36,6 +37,8 @@ import { useT } from "@/app/shared/i18n/useT";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
+  const router = useRouter(); // ✅ Inicializácia routra
+  
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [name, setName] = useState("");
@@ -43,7 +46,8 @@ export default function SignUpForm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [isOk, setIsOk] = useState<boolean>(false);
   const t = useT();
-  // ✅ explicit consent
+  
+  // explicit consent
   const [agreeRisk, setAgreeRisk] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -59,12 +63,14 @@ export default function SignUpForm() {
     setMsg(null);
     setIsOk(false);
 
-    const { error } = await sb.auth.signUp({
+    // ✅ Supabase signup volanie
+    const { data, error } = await sb.auth.signUp({
       email,
       password: pwd,
       options: {
         data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/coach`,
+        // Návratová adresa po kliknutí na link v maily
+        emailRedirectTo: `${window.location.origin}/activities`,
       },
     });
 
@@ -78,6 +84,13 @@ export default function SignUpForm() {
       return;
     }
 
+    // Ak Supabase rovno vytvoril aktívnu session (tzv. "Auto Confirm" je ON v Supabase)
+    if (data?.session) {
+      router.replace("/activities");
+      return;
+    }
+
+    // Ak používateľ musí ešte potvrdiť email (Auto Confirm je OFF v Supabase)
     const okMsg = t("signUp.registerCheckMail");
     setMsg(okMsg);
     setIsOk(true);
@@ -103,7 +116,7 @@ export default function SignUpForm() {
         <div className={AUTH_FIELD}>
           <TextField
             type="email"
-            placeholder= {t("signUp.registerMail")}
+            placeholder={t("signUp.registerMail")}
             required
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
@@ -122,7 +135,7 @@ export default function SignUpForm() {
           />
         </div>
 
-        {/* ✅ legal line (pod heslom, nad checkboxom/submitom) */}
+        {/* legal line (pod heslom, nad checkboxom/submitom) */}
         <div
           className="text-[11px] leading-relaxed"
           style={{ color: appColors.textMuted }}
@@ -146,7 +159,7 @@ export default function SignUpForm() {
           .
         </div>
 
-        {/* ✅ explicitný checkbox (must-check) */}
+        {/* explicitný checkbox (must-check) */}
         <label
           className={CHECKBOX_ROW}
           style={{ ...(FORM_TEXT_VARS as any), ...(CHECKBOX_BOX_EDITABLE_STYLE as any) }}
@@ -175,7 +188,7 @@ export default function SignUpForm() {
           </div>
         ) : null}
 
-        {/* ✅ disabled kým nie je checkbox */}
+        {/* disabled kým nie je checkbox */}
         <Button type="submit" variant="primary" block disabled={!canSubmit}>
           {busy ? t("signUp.registering") : t("signUp.register")}
         </Button>

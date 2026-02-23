@@ -8,20 +8,19 @@ export type BackendInit = RequestInit;
 
 export async function callBackend<T = any>(
   path: string,
-  init: BackendInit = {},
+  init: BackendInit = {}
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
 
-  // Ak je token starý, toto ho v pozadí (ticho) obnoví predtým, než vráti data.
-  const { data, error } = await supabase.auth.getSession();
+  // Zázrak č.1: getSession() si automaticky a bezpečne obnoví token v pozadí, ak vypršal.
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
 
-  if (data?.session?.access_token) {
-    headers.set("Authorization", `Bearer ${data.session.access_token}`);
-  } else if (error) {
-    console.warn("[callBackend] Chýbajúca alebo neplatná session", error.message);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const fullUrl = `${API_URL}${path}`;
@@ -36,12 +35,12 @@ export async function callBackend<T = any>(
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // fallback pre non-json
+    // fallback
   }
 
   if (!res.ok) {
     console.error(`[callBackend] HTTP ${res.status} na ${path}`);
-    throw new Error(`HTTP ${res.status} ${text}`);
+    throw new Error(`HTTP ${res.status}`);
   }
 
   return (json ?? {}) as T;

@@ -8,7 +8,7 @@ export async function signOut(redirectTo: string = "/") {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
   } catch (e) {
-    console.warn("[signOut] Supabase signOut failed:", e);
+    console.warn("[signOut] error:", e);
   }
 
   try {
@@ -22,7 +22,7 @@ export async function signOut(redirectTo: string = "/") {
     window.localStorage.setItem("up:logout_at", String(Date.now()));
     window.sessionStorage.clear();
   } catch (e) {
-    console.warn("[signOut] Storage cleanup failed:", e);
+    console.warn("[signOut] storage cleanup failed:", e);
   }
 
   if (typeof window !== "undefined") {

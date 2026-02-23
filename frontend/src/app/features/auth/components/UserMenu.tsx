@@ -5,7 +5,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { signOut } from "@/app/shared/utils/signOut";
-import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser"; // ✅ Pridané
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser"; 
 import {
   DROPDOWN_DIVIDER,
   DROPDOWN_PANEL,
@@ -59,7 +59,7 @@ export default function UserMenu() {
     width: number;
   } | null>(null);
 
-  // ✅ Načítanie používateľa priamo zo Supabase klienta
+  // ✅ Klientske načítanie bez volania vlastného API
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -69,13 +69,14 @@ export default function UserMenu() {
         
         if (!alive || !user) return;
         
+        const fullName = user.user_metadata?.full_name || user.user_metadata?.name || null;
+
         setMe({
           email: user.email ?? null,
-          name: user.user_metadata?.full_name ?? null,
-          displayName: user.user_metadata?.full_name ?? null,
+          name: fullName,
+          displayName: fullName,
         });
 
-        // Tu si môžeš načítať tierCode ak ho máš uložený napr. v app_metadata
         if (user.app_metadata?.tier_code) {
            setSubscriptionTier(user.app_metadata.tier_code);
         }
