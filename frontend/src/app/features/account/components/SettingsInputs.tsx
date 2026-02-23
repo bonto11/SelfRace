@@ -14,7 +14,7 @@ import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import Checkbox from "@/app/shared/ui/components/Checkbox1";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 
