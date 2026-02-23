@@ -1,9 +1,63 @@
 // src/app/shared/utils/supabaseBrowser.ts
 "use client";
 
-// ✅ 1. Odstránili sme @supabase/ssr a importujeme čistý klientsky balík
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
+
+// ✅ Skutočná prehliadačová databáza (Prežije aj okamžité Vyswipeovanie apky)
+const idbStorage = {
+  async getDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('SupabaseAuthDB', 1);
+      request.onupgradeneeded = (event: any) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('auth')) {
+          db.createObjectStore('auth', { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async getItem(key: string): Promise<string | null> {
+    try {
+      const db = await this.getDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('auth', 'readonly');
+        const store = tx.objectStore('auth');
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result ? request.result.value : null);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return null;
+    }
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      const db = await this.getDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('auth', 'readwrite');
+        const store = tx.objectStore('auth');
+        const request = store.put({ id: key, value });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch {}
+  },
+  async removeItem(key: string): Promise<void> {
+    try {
+      const db = await this.getDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('auth', 'readwrite');
+        const store = tx.objectStore('auth');
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch {}
+  }
+};
 
 let _client: ReturnType<typeof createClient> | null = null;
 
@@ -17,10 +71,9 @@ export function getSupabaseBrowser() {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          // ✅ 2. Vlastný kľúč. Bude pevne zabetónovaný v LocalStorage.
-          storageKey: 'selfrace-pwa-session', 
-          // ✅ 3. Vyslovene prikážeme použiť LocalStorage (žiadne cookies)
-          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+          storageKey: 'selfrace-pwa-session',
+          // ✅ Prikážeme Supabase uložiť token do IndexedDB
+          storage: typeof window !== 'undefined' ? idbStorage : undefined,
         }
       }
     );
