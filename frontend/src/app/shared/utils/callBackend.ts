@@ -3,6 +3,7 @@
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import type { AuthResponse } from "@supabase/supabase-js"; // ✅ Pridaný typ pre opravu ts(7006)
 
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -11,11 +12,12 @@ export async function callBackend<T = any>(
   init: RequestInit = {},
   _retry = false
 ): Promise<T> {
+  console.log(`[AUTH_DEBUG: callBackend] -----------------------------------------`);
   console.log(`[AUTH_DEBUG: callBackend] Štartujem request na: ${path}`);
   
   const supabase = getSupabaseBrowser();
-  const { data } = await supabase.auth.getSession();
-  let token = data?.session?.access_token ?? null;
+  const { data: { session } } = await supabase.auth.getSession();
+  let token = session?.access_token ?? null;
 
   if (token) {
     console.log(`[AUTH_DEBUG: callBackend] Mám token pre ${path} (končí na ...${token.slice(-5)})`);
@@ -27,25 +29,21 @@ export async function callBackend<T = any>(
   headers.set("Accept", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  let res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-  });
+  let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  // Zachytenie vypršaného tokenu (401)
   if (res.status === 401 && !_retry) {
     console.warn(`[AUTH_DEBUG: callBackend] 🔴 Dostal som 401 Unauthorized z ${path}. Skúšam obnoviť token...`);
     
     if (!refreshPromise) {
       console.log(`[AUTH_DEBUG: callBackend] Volám supabase.auth.refreshSession()...`);
-      refreshPromise = supabase.auth
-        .refreshSession()
-        .then(({ data, error }) => {
-          if (error) console.error(`[AUTH_DEBUG: callBackend] Chyba pri refreshi:`, error.message);
-          if (data?.session) console.log(`[AUTH_DEBUG: callBackend] ✅ Token úspešne obnovený!`);
-          return data?.session?.access_token ?? null;
-        })
-        .finally(() => { refreshPromise = null; });
+      
+      // ✅ Opravená TypeScript chyba s typom 'response'
+      refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
+        const newToken = response.data?.session?.access_token ?? null;
+        if (newToken) console.log(`[AUTH_DEBUG: callBackend] ✅ Token úspešne obnovený!`);
+        else console.error(`[AUTH_DEBUG: callBackend] ❌ Refresh vrátil prázdny token! Error:`, response.error?.message);
+        return newToken;
+      }).finally(() => { refreshPromise = null; });
     }
 
     const newToken = await refreshPromise;
@@ -56,12 +54,15 @@ export async function callBackend<T = any>(
       const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
       
       if (!retryRes.ok) {
-        console.error(`[AUTH_DEBUG: callBackend] ❌ Retry request zlyhal so statusom ${retryRes.status}`);
-        throw new Error(`HTTP ${retryRes.status}`);
+        const errText = await retryRes.text();
+        console.error(`[AUTH_DEBUG: callBackend] ❌ Retry request zlyhal so statusom ${retryRes.status}: ${errText}`);
+        throw new Error(`HTTP ${retryRes.status}: ${errText}`);
       }
       
+      console.log(`[AUTH_DEBUG: callBackend] ✅ Retry request na ${path} úspešný.`);
       const retryText = await retryRes.text();
-      return retryText ? JSON.parse(retryText) : ({} as T);
+      // ✅ Opravená TypeScript chyba ts(2322) pomocou 'as T'
+      return retryText ? (JSON.parse(retryText) as T) : ({} as T);
     } else {
       console.error(`[AUTH_DEBUG: callBackend] ❌ Nepodarilo sa získať nový token, retry sa nekoná.`);
     }
@@ -75,5 +76,6 @@ export async function callBackend<T = any>(
 
   console.log(`[AUTH_DEBUG: callBackend] ✅ Request na ${path} úspešný (Status 200)`);
   const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+  // ✅ Opravená TypeScript chyba ts(2322) pomocou 'as T'
+  return text ? (JSON.parse(text) as T) : ({} as T);
 }
