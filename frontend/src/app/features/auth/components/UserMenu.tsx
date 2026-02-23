@@ -32,9 +32,6 @@ import {
 } from "@/app/shared/state/subscriptionTierStore";
 import { useT } from "@/app/shared/i18n/useT";
 
-// Importujeme nášho sprievodcu
-import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
-
 type LocalUser = {
   id: number | null;
   uuid: string | null;
@@ -52,8 +49,6 @@ export default function UserMenu() {
   const [tierCode, setTierCode] = useState<string>(
     () => getSubscriptionTier() || "free",
   );
-  
-  const [showWizard, setShowWizard] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -283,43 +278,32 @@ export default function UserMenu() {
         );
 
   return (
-    <>
-      <div ref={wrapRef} className={USER_MENU_WRAP}>
-        <button
-          ref={btnRef}
-          className={USER_MENU_TRIGGER}
-          style={{
-            background: open
-              ? appColors.surfaceCardHover
-              : appColors.buttonGhostBg,
-            border: getTierBorderStyle(),
-            color: appColors.textPrimary,
-            transition: "border-color 0.2s ease, background-color 0.2s ease",
-          }}
-          onClick={() => setOpen((v) => !v)}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <div className={USER_MENU_LABEL_ROW}>
-            <span className={USER_MENU_LABEL}>
-              {displayLabel || initials || "User"}
-            </span>
-          </div>
-        </button>
+    <div ref={wrapRef} className={USER_MENU_WRAP}>
+      <button
+        ref={btnRef}
+        className={USER_MENU_TRIGGER}
+        style={{
+          background: open
+            ? appColors.surfaceCardHover
+            : appColors.buttonGhostBg,
+          border: getTierBorderStyle(),
+          color: appColors.textPrimary,
+          transition: "border-color 0.2s ease, background-color 0.2s ease",
+        }}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <div className={USER_MENU_LABEL_ROW}>
+          <span className={USER_MENU_LABEL}>
+            {displayLabel || initials || "User"}
+          </span>
+        </div>
+      </button>
 
-        {Panel}
-      </div>
-
-      {/* Vykreslíme to priamo na najvyššej možnej úrovni */}
-      {showWizard && me?.id && (
-        <OnboardingWizard
-          userId={me.id}
-          forceShow={true}
-          onCloseManual={() => setShowWizard(false)}
-        />
-      )}
-    </>
+      {Panel}
+    </div>
   );
 }

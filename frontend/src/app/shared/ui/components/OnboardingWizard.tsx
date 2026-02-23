@@ -18,6 +18,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
+  const [dontShowAgain, setDontShowAgain] = useState(true);
 
   const CHAPTERS = [
     {
@@ -94,7 +95,6 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
     let alive = true;
     (async () => {
       try {
-        // ✅ Načítanie cez abstraktnú vrstvu API
         const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
 
         if (!currentSettings.onboarding_seen && alive) {
@@ -115,7 +115,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
     setIsOpen(false);
     if (onCloseManual) onCloseManual();
 
-    if (!forceShow && userId) {
+    if (!forceShow && userId && dontShowAgain) {
       try {
         const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
         
@@ -134,6 +134,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
   if (isLoading || !isOpen) return null;
 
   const currentChapter = CHAPTERS[activeTab];
+  const isLastTab = activeTab === CHAPTERS.length - 1;
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
@@ -161,13 +162,28 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
           })}
         </div>
 
-        <div className="p-6 sm:p-8 min-h-[260px] flex flex-col justify-start">
+        <div className="p-6 sm:p-8 min-h-[260px] flex flex-col justify-start relative">
           <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white">
             {currentChapter.title}
           </h2>
           <div className="text-sm sm:text-base leading-relaxed opacity-80 text-left">
             {currentChapter.content}
           </div>
+
+          {/* CHECKBOX na konci stránky */}
+          {isLastTab && (
+            <div className="mt-auto pt-6">
+              <label className="flex items-center gap-3 cursor-pointer w-fit opacity-80 hover:opacity-100 transition-opacity">
+                <input 
+                  type="checkbox" 
+                  className="checkbox checkbox-primary checkbox-sm rounded"
+                  checked={dontShowAgain}
+                  onChange={(e) => setDontShowAgain(e.target.checked)}
+                />
+                <span className="text-xs font-medium">{t("onboarding.dontShowAgain")}</span>
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="p-4 sm:p-6 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
@@ -180,7 +196,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
                 {t("onboarding.back")}
               </button>
             )}
-            {activeTab < CHAPTERS.length - 1 && (
+            {!isLastTab && (
               <button 
                 onClick={() => setActiveTab(prev => prev + 1)}
                 className="btn btn-sm btn-outline text-xs"
@@ -192,7 +208,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
           </div>
 
           <Button onClick={handleDismiss} variant="primary" className="btn-sm sm:btn-md">
-            {activeTab === CHAPTERS.length - 1 ? t("onboarding.finish") : t("onboarding.close")}
+            {isLastTab ? t("onboarding.finish") : t("onboarding.skip")}
           </Button>
         </div>
       </div>

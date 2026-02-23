@@ -861,10 +861,12 @@ export const sk = {
     },
     finish: "Mám to!",
     finishGo: "Mám to, poďme trénovať!",
+
     close: "Zavrieť",
     skip: "Preskočiť a začať",
     back: "Späť",
     next: "Ďalej",
+    dontShowAgain: "Už viac nezobrazovať",
   },
   widget: {
     missingserId: "Skontroluj autentifikáciu",

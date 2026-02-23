@@ -866,6 +866,7 @@ export const en = {
     skip: "Skip and start",
     back: "Back",
     next: "Next",
+    dontShowAgain: "Do not show again",
   },
   widget: {
     missingserId: "Check authentication",

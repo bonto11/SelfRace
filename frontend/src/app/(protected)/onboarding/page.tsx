@@ -16,6 +16,7 @@ export default function OnboardingPage() {
   const { userId } = useUserId();
 
   const [activeTab, setActiveTab] = useState(0);
+  const [dontShowAgain, setDontShowAgain] = useState(true);
 
   const CHAPTERS = [
     {
@@ -78,7 +79,7 @@ export default function OnboardingPage() {
   ];
 
   const handleFinish = async () => {
-    if (userId) {
+    if (userId && dontShowAgain) {
       try {
         const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
         
@@ -98,6 +99,7 @@ export default function OnboardingPage() {
   if (!userId) return null;
 
   const currentChapter = CHAPTERS[activeTab];
+  const isLastTab = activeTab === CHAPTERS.length - 1;
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 mt-10">
@@ -125,13 +127,28 @@ export default function OnboardingPage() {
           })}
         </div>
 
-        <div className="p-8 sm:p-12 min-h-[350px] flex flex-col justify-start">
+        <div className="p-8 sm:p-12 min-h-[350px] flex flex-col justify-start relative">
           <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-white">
             {currentChapter.title}
           </h2>
           <div className="text-base sm:text-lg leading-relaxed opacity-80 text-left">
             {currentChapter.content}
           </div>
+
+          {/* CHECKBOX na konci stránky, iba na poslednom tabe */}
+          {isLastTab && (
+            <div className="mt-auto pt-8">
+              <label className="flex items-center gap-3 cursor-pointer w-fit opacity-80 hover:opacity-100 transition-opacity">
+                <input 
+                  type="checkbox" 
+                  className="checkbox checkbox-primary checkbox-sm rounded"
+                  checked={dontShowAgain}
+                  onChange={(e) => setDontShowAgain(e.target.checked)}
+                />
+                <span className="text-sm font-medium">{t("onboarding.dontShowAgain")}</span>
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="p-6 sm:p-8 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
@@ -145,7 +162,7 @@ export default function OnboardingPage() {
                 {t("onboarding.back")}
               </button>
             )}
-            {activeTab < CHAPTERS.length - 1 && (
+            {!isLastTab && (
               <button 
                 onClick={() => setActiveTab(prev => prev + 1)}
                 className="btn btn-outline"
@@ -157,7 +174,7 @@ export default function OnboardingPage() {
           </div>
 
           <Button onClick={handleFinish} variant="primary" className="px-8">
-            {activeTab === CHAPTERS.length - 1 ? t("onboarding.finishGo") : t("onboarding.skip")}
+            {isLastTab ? t("onboarding.finishGo") : t("onboarding.skip")}
           </Button>
 
         </div>
