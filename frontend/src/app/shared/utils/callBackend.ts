@@ -6,48 +6,60 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-async function getAuthToken(): Promise<string | null> {
-  const supabase = getSupabaseBrowser();
-
-  try {
-    // V SSR architektúre si tento klient vytiahne token sám z Cookies (pretože sme ho tak nastavili)
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      console.warn("[callBackend] getSession error:", error.message);
-      return null;
-    }
-
-    return data?.session?.access_token ?? null;
-  } catch (e: any) {
-    console.warn("[callBackend] getSession threw:", e?.message ?? e);
-    return null;
-  }
-}
-
 export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {},
+  _isRetry = false // Interná vlajka, aby sa to nezacyklilo
 ): Promise<T> {
-  const token = await getAuthToken();
+  const supabase = getSupabaseBrowser();
+  let token: string | null = null;
+
+  try {
+    // 1. Priamo si vytiahneme aktuálny token (SSR klient si ho prečíta z cookies)
+    const { data } = await supabase.auth.getSession();
+    token = data?.session?.access_token ?? null;
+  } catch (e) {
+    console.warn("[callBackend] getSession failed");
+  }
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
-  } else {
-    // Keď nie je token, je lepšie backendu aspoň povedať, že sa to snažíme
-    console.warn(`[callBackend] volanie ${path} beží bez tokenu`);
   }
 
   const fullUrl = `${API_URL}${path}`;
 
-  const res = await fetch(fullUrl, {
+  // 2. Odpálime request na tvoj backend
+  let res = await fetch(fullUrl, {
     ...init,
     headers,
   });
 
+  // 3. MAGICKÁ ČASŤ: Backend zahlásil 401 (token expiroval) a ešte sme neskúšali retry
+  if (res.status === 401 && !_isRetry) {
+    console.warn(`[callBackend] 401 z backendu na ${path}, pokus o obnovu tokenu...`);
+    
+    // Povieme Supabase, nech nasilu obnoví token
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (data?.session?.access_token) {
+      console.log(`[callBackend] Token obnovený, opakujem request na ${path}`);
+      
+      // Nasadíme nový token a skúsime request na backend ešte raz
+      headers.set("Authorization", `Bearer ${data.session.access_token}`);
+      res = await fetch(fullUrl, {
+        ...init,
+        headers,
+      });
+    } else {
+      console.error("[callBackend] Nepodarilo sa obnoviť token. Zrejme vypršal aj refresh token.", error);
+      // Až v tomto jedinom prípade by ťa malo odhlásiť.
+    }
+  }
+
+  // 4. Spracovanie odpovede z backendu
   const text = await res.text();
   let json: any = null;
   try {
