@@ -11,8 +11,27 @@ export async function signOut(redirectTo: string = "/") {
     console.warn("[signOut] error:", e);
   }
 
+  // ✅ 1. MANUÁLNE VYMAZANIE COOKIES (Veľmi dôležité!)
+  // Keďže sme v supabaseBrowser zablokovali automatické mazanie, musíme to tu "nasilu" vyčistiť ručne
   try {
-    const LS_PREFIXES = ["sb-selfrace-auth-token", "up:", "coach.", "selfrace:"];
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const name = cookies[i].trim().split("=")[0];
+        // Zmažeme Supabase auth cookies a naše sr_ cookies
+        if (name.startsWith("sb-") || name === "sr_id" || name === "sr_uuid") {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[signOut] cookies cleanup failed:", e);
+  }
+
+  // ✅ 2. VYMAZANIE LOCALSTORAGE
+  try {
+    // Pridal som "selfrace_" aby to chytilo aj naše nové "selfrace_numeric_id" a "sb-" pre istotu
+    const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_"];
     const keys = Object.keys(window.localStorage);
     for (const key of keys) {
       if (LS_PREFIXES.some((p) => key.startsWith(p))) {

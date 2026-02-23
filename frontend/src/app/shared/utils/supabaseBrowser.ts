@@ -8,7 +8,6 @@ let _client: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    console.log("[AUTH_DEBUG: BrowserClient] Vytváram SSR klienta s OCHRANOU COOKIES...");
     _client = createBrowserClient(
       SUPABASE_URL!,
       SUPABASE_ANON_KEY!,
@@ -26,12 +25,9 @@ export function getSupabaseBrowser() {
           },
           set(name: string, value: string, options: any) {
              if (typeof document === 'undefined') return;
-             console.log(`[AUTH_DEBUG: Cookie SET] Zapisujem/Obnovujem cookie: ${name}`);
              document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
           },
           remove(name: string, options: any) {
-             // 🔴 TOTO NÁS ZACHRÁNI: Blokujeme zmazanie pri refreshi!
-             console.warn(`[AUTH_DEBUG: Cookie REMOVE] 🛑 ZABRÁNENÉ zmazaniu cookie: ${name}! Prehliadač (alebo Next) sa snažil zmazať session, ale nedovolili sme to.`);
           }
         }
       }

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { useRouter } from "next/navigation";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js"; // ✅ Pridané typy
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 export function useUser(redirectToLogin: boolean = false) {
   const [user, setUser] = useState<any>(null);
@@ -31,7 +31,6 @@ export function useUser(redirectToLogin: boolean = false) {
     loadUser();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      // ✅ Explicitne pridané typy, aby TypeScript nehlásil chybu ts(7006)
       (_event: AuthChangeEvent, session: Session | null) => {
         if (!mounted) return;
         setUser(session?.user ?? null);
