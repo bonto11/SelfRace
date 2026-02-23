@@ -25,7 +25,7 @@ async function fetchWhoAmI(): Promise<WhoAmI> {
       const maxAge = 60 * 60 * 24 * 30; // 30 dní
       
       // Zápis sr_uuid
-      //document.cookie = `sr_uuid=${user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      document.cookie = `sr_uuid=${user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
       
       // Zápis sr_id (ak existuje)
       if (numId) {
