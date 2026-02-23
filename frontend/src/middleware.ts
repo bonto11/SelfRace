@@ -4,9 +4,11 @@ import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
 export async function middleware(request: NextRequest) {
-  // 1. Ignoruj iba Next.js statické súbory a obrázky
+  // VRÁTENÁ VÝNIMKA PRE /api ! 
+  // Týmto zabránime, aby paralelné dátové requesty zmazali cookies.
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
+    request.nextUrl.pathname.startsWith("/api") || 
     request.nextUrl.pathname === "/favicon.ico" ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(request.nextUrl.pathname)
   ) {
@@ -15,7 +17,6 @@ export async function middleware(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request });
 
-  // 2. Klient na čítanie a bezpečné zapisovanie cookies pre obnovu session
   const supabase = createServerClient(
     SUPABASE_URL!,
     SUPABASE_ANON_KEY!,
@@ -35,8 +36,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 3. Spustením getUser() dáš Supabase pokyn, aby skontroloval, či nevypršal token. 
-  // Ak áno, ticho ho obnoví pomocou funkcie setAll.
+  // Aktualizuje session len pri prechádzaní medzi stránkami (nie pri API calls)
   await supabase.auth.getUser();
 
   return supabaseResponse;

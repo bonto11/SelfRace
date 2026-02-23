@@ -9,13 +9,14 @@ export type BackendInit = RequestInit;
 export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {},
-  _isRetry = false // Interná vlajka, aby sa to nezacyklilo
+  _isRetry = false
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
   let token: string | null = null;
 
   try {
-    // 1. Priamo si vytiahneme aktuálny token (SSR klient si ho prečíta z cookies)
+    // Toto bezpečne vytiahne token. Ak je expirovaný, Supabase klient ho tu
+    // v pozadí (a bezpečne bez race-condition) obnoví predtým, než pôjdeme ďalej.
     const { data } = await supabase.auth.getSession();
     token = data?.session?.access_token ?? null;
   } catch (e) {
@@ -31,43 +32,38 @@ export async function callBackend<T = any>(
 
   const fullUrl = `${API_URL}${path}`;
 
-  // 2. Odpálime request na tvoj backend
+  // Pridané credentials: "include" pre istotu, ak tvoje API číta aj cookies
   let res = await fetch(fullUrl, {
     ...init,
     headers,
+    credentials: "same-origin", // Zabráni strate session pri same-origin API calls
   });
 
-  // 3. MAGICKÁ ČASŤ: Backend zahlásil 401 (token expiroval) a ešte sme neskúšali retry
+  // Ak napriek všetkému backend vráti 401 a ešte sme neskúsili retry...
   if (res.status === 401 && !_isRetry) {
-    console.warn(`[callBackend] 401 z backendu na ${path}, pokus o obnovu tokenu...`);
+    console.warn(`[callBackend] 401 z backendu na ${path}, vynucujem obnovu...`);
     
-    // Povieme Supabase, nech nasilu obnoví token
-    const { data, error } = await supabase.auth.refreshSession();
+    const { data } = await supabase.auth.refreshSession();
     
     if (data?.session?.access_token) {
-      console.log(`[callBackend] Token obnovený, opakujem request na ${path}`);
-      
-      // Nasadíme nový token a skúsime request na backend ešte raz
       headers.set("Authorization", `Bearer ${data.session.access_token}`);
       res = await fetch(fullUrl, {
         ...init,
         headers,
+        credentials: "same-origin",
       });
-    } else {
-      console.error("[callBackend] Nepodarilo sa obnoviť token. Zrejme vypršal aj refresh token.", error);
-      // Až v tomto jedinom prípade by ťa malo odhlásiť.
     }
   }
 
-  // 4. Spracovanie odpovede z backendu
   const text = await res.text();
   let json: any = null;
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // necháme json = null
+    // fallback
   }
 
+  // Ak to stále padá, vyhodíme chybu, nech ju ošetrí daný widget
   if (!res.ok) {
     console.error("[callBackend] HTTP error", {
       path,
