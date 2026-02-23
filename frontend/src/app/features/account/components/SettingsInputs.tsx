@@ -279,6 +279,7 @@ export default function SettingsInputs() {
           <div className={FORM_GRID_TWO}>
             <SelectField
               label={t("account.settings.labels.language")}
+              variant="editable"
               value={settings.language}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -291,6 +292,7 @@ export default function SettingsInputs() {
 
             <SelectField
               label={t("account.settings.labels.units")}
+              variant="readonly"
               value={settings.units}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -304,6 +306,7 @@ export default function SettingsInputs() {
             <SelectField
               label={t("account.settings.labels.timezone")}
               hint={t("account.settings.labels.timezoneHint")}
+              variant="readonly"
               value={settings.timezone}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -316,6 +319,7 @@ export default function SettingsInputs() {
 
             <SelectField
               label={t("account.settings.labels.weekStart")}
+              variant="readonly"
               value={settings.week_start}
               onChange={(e) =>
                 setSettings((s) => ({
@@ -332,6 +336,7 @@ export default function SettingsInputs() {
               </div>
               <div className="mt-1">
                 <TextField
+                variant="readonly"
                   type="text"
                   value={settings.date_format}
                   onChange={(e) => setSettings((s) => ({ ...s, date_format: e.target.value }))}
@@ -343,6 +348,7 @@ export default function SettingsInputs() {
 
             <SelectField
               label={t("account.settings.labels.timeFormat")}
+              variant="readonly"
               value={settings.time_format_24h ? "24" : "12"}
               onChange={(e) =>
                 setSettings((s) => ({

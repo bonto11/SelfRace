@@ -7,12 +7,12 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import { useT } from "@/app/shared/i18n/useT";
+import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
 export default function OnboardingPage() {
   const t = useT();
   const router = useRouter();
   
-  // Z tohto hooku berieme len userId (loading tam neexistuje)
   const { userId } = useUserId();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -80,18 +80,14 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     if (userId) {
       try {
-        const resGet = await fetch(`/api/prefs/${userId}/key/user.settings`);
-        const dataGet = resGet.ok ? await resGet.json() : {};
-        const currentSettings = dataGet?.value || {};
+        const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
+        
+        const updatedSettings = {
+          ...currentSettings,
+          onboarding_seen: true,
+        };
 
-        await fetch(`/api/prefs/${userId}/key/user.settings`, {
-          method: "POST", 
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...currentSettings,
-            onboarding_seen: true
-          }),
-        });
+        await apiUpsertUserPref(userId, "user.settings", updatedSettings);
       } catch (e) {
         console.error("Nepodarilo sa uložiť prefs pre onboarding", e);
       }
@@ -99,7 +95,6 @@ export default function OnboardingPage() {
     router.push("/activities");
   };
 
-  // Ak sa userId ešte naťahuje, ukážeme prázdno, aby nevznikali glitche
   if (!userId) return null;
 
   const currentChapter = CHAPTERS[activeTab];

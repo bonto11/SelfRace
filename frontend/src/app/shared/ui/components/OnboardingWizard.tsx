@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import { useT } from "@/app/shared/i18n/useT";
+import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
 type Props = {
   userId: number | null;
@@ -93,13 +94,10 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`/api/prefs/${userId}/key/user.settings`);
-        if (!res.ok) throw new Error("Chyba API");
-        
-        const data = await res.json();
-        const settings = data?.value || {};
+        // ✅ Načítanie cez abstraktnú vrstvu API
+        const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
 
-        if (!settings.onboarding_seen && alive) {
+        if (!currentSettings.onboarding_seen && alive) {
           setIsOpen(true);
         }
       } catch (e) {
@@ -119,20 +117,16 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
 
     if (!forceShow && userId) {
       try {
-        const resGet = await fetch(`/api/prefs/${userId}/key/user.settings`);
-        const dataGet = resGet.ok ? await resGet.json() : {};
-        const currentSettings = dataGet?.value || {};
+        const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
+        
+        const updatedSettings = {
+          ...currentSettings,
+          onboarding_seen: true,
+        };
 
-        await fetch(`/api/prefs/${userId}/key/user.settings`, {
-          method: "POST", 
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...currentSettings,
-            onboarding_seen: true
-          }),
-        });
+        await apiUpsertUserPref(userId, "user.settings", updatedSettings);
       } catch (e) {
-        console.error("Nepodarilo sa uložiť prefs pre onboarding", e);
+        console.error("Zápis onboarding status zlyhal", e);
       }
     }
   };
@@ -147,7 +141,6 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
         className="w-full max-w-md bg-base-100 rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
-        
         <div className="flex overflow-x-auto border-b hide-scrollbar" style={{ borderColor: appColors.surfaceCardBorder }}>
           {CHAPTERS.map((chap, idx) => {
             const isActive = activeTab === idx;
@@ -178,7 +171,6 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
         </div>
 
         <div className="p-4 sm:p-6 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
-          
           <div className="flex gap-2">
             {activeTab > 0 && (
               <button 
@@ -202,9 +194,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
           <Button onClick={handleDismiss} variant="primary" className="btn-sm sm:btn-md">
             {activeTab === CHAPTERS.length - 1 ? t("onboarding.finish") : t("onboarding.close")}
           </Button>
-
         </div>
-
       </div>
     </div>
   );
