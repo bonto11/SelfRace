@@ -6,9 +6,7 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-// --- FRONTEND ZÁMOK (QUEUE MECHANIZMUS) ---
-// Tieto dve premenné zabezpečia, že ak 5 widgetov naraz dostane 401, 
-// o nový token požiadame Supabase iba JEDENKÁT. Ostatné počkajú.
+// Mechanizmus fronty (Queue) pre obnovu tokenu
 let isRefreshing = false;
 let refreshSubscribers: ((token: string | null) => void)[] = [];
 
@@ -16,7 +14,6 @@ function onTokenRefreshed(token: string | null) {
   refreshSubscribers.forEach((callback) => callback(token));
   refreshSubscribers = [];
 }
-// ------------------------------------------
 
 export async function callBackend<T = any>(
   path: string,
@@ -27,11 +24,11 @@ export async function callBackend<T = any>(
   let token: string | null = null;
 
   try {
-    // Supabase Browser klient si token vytiahne bezpečne sám priamo z Cookies.
+    // getSession v prehliadači si bezpečne vytiahne token z cookies
     const { data } = await supabase.auth.getSession();
     token = data?.session?.access_token ?? null;
   } catch (e) {
-    console.warn("[callBackend] nepodarilo sa načítať session");
+    console.warn("[callBackend] getSession failed");
   }
 
   const headers = new Headers(init.headers || {});
@@ -48,39 +45,39 @@ export async function callBackend<T = any>(
     headers,
   });
 
-  // AK BACKEND VRÁTI 401 A EŠTE SME NESKÚŠALI RETRY
+  // AK BACKEND VRÁTI 401: Token vypršal a my sme ešte neskúšali retry
   if (res.status === 401 && _retryCount === 0) {
-    console.warn(`[callBackend] 401 na ${path}. Zastavujem a obnovujem token...`);
+    console.warn(`[callBackend] 401 na ${path}. Zastavujem a bezpečne obnovujem token...`);
 
     if (!isRefreshing) {
       isRefreshing = true;
       try {
-        // Iba JEDEN request spraví túto akciu
+        // O obnovu požiadame Supabase iba JEDENKÁT
         const { data, error } = await supabase.auth.refreshSession();
         if (error) throw error;
-        
-        // Máme nový token, odomkneme všetky čakajúce requesty
         onTokenRefreshed(data?.session?.access_token ?? null);
       } catch (err) {
         console.error("[callBackend] Fatálne zlyhanie obnovy tokenu", err);
-        onTokenRefreshed(null); // Odblokujeme radu, aby nezamrzla apka
+        onTokenRefreshed(null); // Ak to padne, aspoň odblokujeme čakajúce funkcie
       } finally {
         isRefreshing = false;
       }
     }
 
-    // Každý request, ktorý narazil na 401 (aj ten prvý), sa tu postaví do radu a čaká na nový token
+    // Tu všetky requesty, ktoré narazili na 401 (aj ten prvý), počkajú na nový token
     const newToken = await new Promise<string | null>((resolve) => {
       refreshSubscribers.push(resolve);
     });
 
-    // Keď sa token obnoví, vložíme ho do hlavičky a zopakujeme dotaz
+    // Keď získame nový token, zopakujeme request
     if (newToken) {
       headers.set("Authorization", `Bearer ${newToken}`);
       res = await fetch(fullUrl, {
         ...init,
         headers,
       });
+    } else {
+      console.warn(`[callBackend] Retry pre ${path} zrušený, nemáme platný token.`);
     }
   }
 
@@ -89,10 +86,11 @@ export async function callBackend<T = any>(
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // fallback
+    // fallback pre text
   }
 
   if (!res.ok) {
+    console.error(`[callBackend] HTTP ${res.status} na ${path}`);
     throw new Error(`HTTP ${res.status}`);
   }
 

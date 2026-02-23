@@ -4,8 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
 export async function middleware(request: NextRequest) {
-  // VRÁTENÁ VÝNIMKA PRE /api ! 
-  // Týmto zabránime, aby paralelné dátové requesty zmazali cookies.
+  // Ignorujeme statické súbory a naše API routy (aby sme pri API calloch nerobili chaos s cookies)
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/api") || 
@@ -36,7 +35,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Aktualizuje session len pri prechádzaní medzi stránkami (nie pri API calls)
+  // Synchronizácia session s prehliadačom
   await supabase.auth.getUser();
 
   return supabaseResponse;

@@ -1,11 +1,10 @@
 // src/shared/hooks/useUserId.ts
 "use client";
 
-import * as React from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-// modulová cache (jedno volanie / session)
 let cached: WhoAmI | null = null;
 let inflight: Promise<WhoAmI> | null = null;
 
@@ -15,30 +14,29 @@ async function fetchWhoAmI(): Promise<WhoAmI> {
     cache: "no-store",
   });
 
+  if (!res.ok) {
+    return { id: null, uuid: null }; // Ak API zlyhá, bezpečne vrátime null
+  }
+
   let json: any = null;
   try {
     json = await res.json();
   } catch (e) {
+    return { id: null, uuid: null };
   }
 
-  const parsed: WhoAmI = {
+  return {
     id: Number.isFinite(json?.id) ? Number(json.id) : null,
     uuid: typeof json?.uuid === "string" ? json.uuid : null,
   };
-
-  return parsed;
 }
 
 export function useUserId() {
-  // initial (z cache ak je)
-  const [state, setState] = React.useState<WhoAmI>(() => {
-    return cached ?? { id: null, uuid: null };
-  });
+  const [state, setState] = useState<WhoAmI>(() => cached ?? { id: null, uuid: null });
 
-  React.useEffect(() => {
-    if (cached) {
-      return;
-    }
+  useEffect(() => {
+    if (cached) return;
+
     if (!inflight) {
       inflight = fetchWhoAmI()
         .then((v) => {
@@ -51,15 +49,11 @@ export function useUserId() {
     }
 
     inflight
-      .then((v) => {
-        setState(v);
-      })
-      .catch((e) => {
-        setState({ id: null, uuid: null });
-      });
+      .then((v) => setState(v))
+      .catch(() => setState({ id: null, uuid: null }));
   }, []);
 
-  const refresh = React.useCallback(async () => {
+  const refresh = useCallback(async () => {
     cached = null;
     setState({ id: null, uuid: null });
     try {
@@ -71,7 +65,7 @@ export function useUserId() {
     }
   }, []);
 
-  const value = React.useMemo(
+  const value = useMemo(
     () => ({ userId: state.id, userUuid: state.uuid, refresh }),
     [state.id, state.uuid, refresh]
   );

@@ -12,9 +12,13 @@ export function getSupabaseBrowser() {
       throw new Error("Missing Supabase env vars");
     }
 
-    // createBrowserClient automaticky ukladá session do Cookies, nie do localStorage!
-    // Vďaka tomu ich Next.js server vždy bezpečne vidí.
-    _client = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _client = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        // Tieto dve nastavenia sú kritické pre bezproblémový návrat zo Stravy
+        detectSessionInUrl: true, 
+        autoRefreshToken: true,
+      },
+    });
   }
   return _client;
 }
