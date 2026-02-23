@@ -116,7 +116,8 @@ export default function OnboardingWizard({
   ];
 
   useEffect(() => {
-    if (!userId) {
+    // Striktná kontrola: ak nemáme userId alebo je 0, zrušíme loading a nepokračujeme
+    if (!userId || userId === 0) {
       setIsLoading(false);
       return;
     }
@@ -153,7 +154,7 @@ export default function OnboardingWizard({
     setIsOpen(false);
     if (onCloseManual) onCloseManual();
 
-    if (!forceShow && userId && dontShowAgain) {
+    if (!forceShow && userId && userId !== 0 && dontShowAgain) {
       try {
         const currentSettings =
           (await apiFetchUserPref(userId, "user.settings")) || {};
@@ -170,7 +171,8 @@ export default function OnboardingWizard({
     }
   };
 
-  if (isLoading || !isOpen) return null;
+  // Hard gate priamo v renderi: nevykreslí sa nič, ak id chýba alebo je 0
+  if (isLoading || !isOpen || !userId || userId === 0) return null;
 
   const currentChapter = CHAPTERS[activeTab];
   const isLastTab = activeTab === CHAPTERS.length - 1;
