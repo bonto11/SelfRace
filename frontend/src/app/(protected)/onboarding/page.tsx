@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { useT } from "@/app/shared/i18n/useT";
 import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
 
@@ -16,7 +17,7 @@ export default function OnboardingPage() {
   const { userId } = useUserId();
 
   const [activeTab, setActiveTab] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useState(true);
+  const [dontShowAgain, setDontShowAgain] = useState(false); // Default: nezaskrtnute
 
   const CHAPTERS = [
     {
@@ -135,18 +136,13 @@ export default function OnboardingPage() {
             {currentChapter.content}
           </div>
 
-          {/* CHECKBOX na konci stránky, iba na poslednom tabe */}
           {isLastTab && (
-            <div className="mt-auto pt-8">
-              <label className="flex items-center gap-3 cursor-pointer w-fit opacity-80 hover:opacity-100 transition-opacity">
-                <input 
-                  type="checkbox" 
-                  className="checkbox checkbox-primary checkbox-sm rounded"
+            <div className="mt-auto pt-8 flex items-center justify-start">
+               <Checkbox
+                  label={t("onboarding.dontShowAgain")}
                   checked={dontShowAgain}
-                  onChange={(e) => setDontShowAgain(e.target.checked)}
+                  onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
                 />
-                <span className="text-sm font-medium">{t("onboarding.dontShowAgain")}</span>
-              </label>
             </div>
           )}
         </div>
