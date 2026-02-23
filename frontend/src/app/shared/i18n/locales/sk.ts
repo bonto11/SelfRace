@@ -2017,7 +2017,7 @@ export const sk = {
     },
     section2: {
       label: "2. Import zo Stravy",
-      text: "Manuálny import je štandardne vypnutý a povoľuje sa len v špecifických prípadoch (riadi ho backend).",
+      text: "Manuálny import je štandardne vypnutý a povoľuje sa len v špecifických prípadoch.",
     },
     import: {
       button: "Importovať",

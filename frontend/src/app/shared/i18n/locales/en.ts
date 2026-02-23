@@ -2012,7 +2012,7 @@ export const en = {
     },
     section2: {
       label: "2. Import from Strava",
-      text: "Manual import is disabled by default and allowed only in specific cases (managed by the backend).",
+      text: "Manual import is disabled by default and allowed only in specific cases.",
     },
     import: {
       button: "Import",
