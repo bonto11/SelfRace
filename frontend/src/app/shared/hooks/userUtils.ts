@@ -7,17 +7,29 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 const supabase = getSupabaseBrowser();
 
 /**
- * Už nepotrebujeme zapisovať do DB z frontendu.
- * Povieme len Python backendu, aby nám vrátil profil a ten si ho prípadne sám vytvorí.
+ * Zabezpečí načítanie (a potenciálne overenie existencie) usera cez Python backend.
  */
-export async function ensureUserExists(): Promise<number | null> {
+export async function ensureUserExists(authUid: string): Promise<number | null> {
   try {
-    // Predpokladám, že máš v Pythone nejaký /me alebo /users endpoint, ktorý ti vráti tvoje číselné ID.
-    // Ak nemáš, tak to budeš musieť vyriešiť na backende, aby tvoj Python po prihlásení usera zaregistroval.
-    const userProfile = await callBackend("/users/me");
-    return userProfile?.id ?? null;
+    // Voláme tvoj FastAPI endpoint presne tak, ako je definovaný: POST /users/resolve
+    const response = await callBackend<{ success: boolean; error?: string; user_id?: number }>(
+      "/users/resolve",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_uid: authUid }),
+      }
+    );
+
+    if (response?.success && typeof response.user_id === "number") {
+      return response.user_id;
+    }
+    
+    console.error("❌ Backend vrátil neúspech pre resolve:", response?.error);
+    return null;
+
   } catch (e) {
-    console.error("❌ ensureUserExists zlyhal. Backend neodpovedal alebo nemáš /users/me endpoint.", e);
+    console.error("❌ ensureUserExists zlyhal pri volaní /users/resolve.", e);
     return null;
   }
 }
@@ -29,9 +41,10 @@ export async function getUserId(): Promise<number | null> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    console.error("❌ getUserId: žiadny prihlásený user");
+    console.error("❌ getUserId: žiadny prihlásený user v Supabase.");
     return null;
   }
 
-  return await ensureUserExists();
+  // Odovzdáme auth_uid do našej helper funkcie
+  return await ensureUserExists(user.id);
 }
