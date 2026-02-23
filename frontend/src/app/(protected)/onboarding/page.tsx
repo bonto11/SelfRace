@@ -1,21 +1,20 @@
-// src/app/shared/ui/components/OnboardingWizard.tsx
+// src/app/(protected)/onboarding/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import { useT } from "@/app/shared/i18n/useT";
 
-type Props = {
-  userId: number | null;
-  forceShow?: boolean;
-  onCloseManual?: () => void;
-};
-
-export default function OnboardingWizard({ userId, forceShow = false, onCloseManual }: Props) {
+export default function OnboardingPage() {
   const t = useT();
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  
+  // Z tohto hooku berieme len userId (loading tam neexistuje)
+  const { userId } = useUserId();
+
   const [activeTab, setActiveTab] = useState(0);
 
   const CHAPTERS = [
@@ -78,46 +77,8 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
     }
   ];
 
-  useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (forceShow) {
-      setIsOpen(true);
-      setIsLoading(false);
-      return;
-    }
-
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch(`/api/prefs/${userId}/key/user.settings`);
-        if (!res.ok) throw new Error("Chyba API");
-        
-        const data = await res.json();
-        const settings = data?.value || {};
-
-        if (!settings.onboarding_seen && alive) {
-          setIsOpen(true);
-        }
-      } catch (e) {
-        console.error("Nepodarilo sa načítať prefs pre onboarding", e);
-        if (alive) setIsOpen(true); 
-      } finally {
-        if (alive) setIsLoading(false);
-      }
-    })();
-
-    return () => { alive = false; };
-  }, [userId, forceShow]);
-
-  const handleDismiss = async () => {
-    setIsOpen(false);
-    if (onCloseManual) onCloseManual();
-
-    if (!forceShow && userId) {
+  const handleFinish = async () => {
+    if (userId) {
       try {
         const resGet = await fetch(`/api/prefs/${userId}/key/user.settings`);
         const dataGet = resGet.ok ? await resGet.json() : {};
@@ -135,19 +96,20 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
         console.error("Nepodarilo sa uložiť prefs pre onboarding", e);
       }
     }
+    router.push("/activities");
   };
 
-  if (isLoading || !isOpen) return null;
+  // Ak sa userId ešte naťahuje, ukážeme prázdno, aby nevznikali glitche
+  if (!userId) return null;
 
   const currentChapter = CHAPTERS[activeTab];
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
+    <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 mt-10">
       <div 
-        className="w-full max-w-md bg-base-100 rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all"
+        className="bg-base-100 rounded-3xl shadow-xl overflow-hidden flex flex-col"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
-        
         <div className="flex overflow-x-auto border-b hide-scrollbar" style={{ borderColor: appColors.surfaceCardBorder }}>
           {CHAPTERS.map((chap, idx) => {
             const isActive = activeTab === idx;
@@ -155,7 +117,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
               <button
                 key={chap.id}
                 onClick={() => setActiveTab(idx)}
-                className={`flex-1 min-w-[80px] py-3 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap px-2 ${
+                className={`flex-1 min-w-[80px] py-4 text-sm sm:text-base font-semibold transition-colors whitespace-nowrap px-4 ${
                   isActive ? "text-white" : "text-gray-500 hover:text-gray-300"
                 }`}
                 style={{
@@ -168,22 +130,22 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
           })}
         </div>
 
-        <div className="p-6 sm:p-8 min-h-[260px] flex flex-col justify-start">
-          <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white">
+        <div className="p-8 sm:p-12 min-h-[350px] flex flex-col justify-start">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-white">
             {currentChapter.title}
           </h2>
-          <div className="text-sm sm:text-base leading-relaxed opacity-80 text-left">
+          <div className="text-base sm:text-lg leading-relaxed opacity-80 text-left">
             {currentChapter.content}
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
+        <div className="p-6 sm:p-8 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
           
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {activeTab > 0 && (
               <button 
                 onClick={() => setActiveTab(prev => prev - 1)}
-                className="btn btn-sm btn-ghost text-xs"
+                className="btn btn-ghost"
               >
                 {t("onboarding.back")}
               </button>
@@ -191,7 +153,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
             {activeTab < CHAPTERS.length - 1 && (
               <button 
                 onClick={() => setActiveTab(prev => prev + 1)}
-                className="btn btn-sm btn-outline text-xs"
+                className="btn btn-outline"
                 style={{ borderColor: appColors.brandPrimary, color: appColors.brandPrimary }}
               >
                 {t("onboarding.next")}
@@ -199,12 +161,11 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
             )}
           </div>
 
-          <Button onClick={handleDismiss} variant="primary" className="btn-sm sm:btn-md">
-            {activeTab === CHAPTERS.length - 1 ? t("onboarding.finish") : t("onboarding.close")}
+          <Button onClick={handleFinish} variant="primary" className="px-8">
+            {activeTab === CHAPTERS.length - 1 ? t("onboarding.finishGo") : t("onboarding.skip")}
           </Button>
 
         </div>
-
       </div>
     </div>
   );

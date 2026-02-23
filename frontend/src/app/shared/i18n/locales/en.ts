@@ -35,6 +35,8 @@ export const en = {
     soon: "Soon...",
     refresh: "Refresh",
     refreshTitle: "Refresh data",
+    next:"Next",
+    back: "Back",
     edit: "Edit",
     delete: "Delete",
     none: "none",
@@ -809,6 +811,48 @@ export const en = {
         },
       },
     },
+  },
+  onboarding: {
+    welcome: {
+      tab: "Welcome",
+      title: "Welcome to Selfrace! 🏁",
+      desc1: "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
+      iosTitle: "Apple (iOS Safari):",
+      iosDesc: "Click the share icon at the bottom and select 'Add to Home Screen'.",
+      androidTitle: "Android (Chrome):",
+      androidDesc: "Click the three dots in the top right and select 'Add to Home screen'.",
+      ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right)."
+    },
+    data: {
+      tab: "Data",
+      title: "Connection & Import 🚴‍♂️",
+      desc1: "To get the best advice, your coach needs your historical data.",
+      connectTitle: "1. Connection:",
+      connectDesc: "In the User Menu (avatar), go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+      importTitle: "2. Import:",
+      importDesc: "On the same page below, run the activity import. We recommend downloading at least a few weeks of history."
+    },
+    status: {
+      tab: "My Status",
+      title: "Profile & Recovery 🔋",
+      profileTitle: "Your Profile:",
+      profileDesc: "In the User Menu under 'My Account', fill in your body metrics and heart rate zones for accurate calculations.",
+      recoveryTitle: "Recovery:",
+      recoveryDesc: "In the Recovery section, log your morning fatigue, sleep quality, or stress. You have to do this manually for now – giants like Garmin and Apple aren't big enough friends with us yet to provide it automatically! 😃"
+    },
+    coach: {
+      tab: "AI Coach",
+      title: "Custom Coach 🧠",
+      desc1: "The heart of our app! Here, the AI Coach uses your data and recovery to design the perfect plan.",
+      prefsTitle: "Settings (Prefs):",
+      prefsDesc: "Tell your coach how many days a week you want to train and what your goals are.",
+      eventsTitle: "External events:",
+      eventsDesc: "Planning a race or going on vacation? Add it, and the coach will adjust.",
+      genTitle: "Generation:",
+      genDesc: "Just click, and your new training plan is ready!"
+    },
+    finish: "Got it, let's train!",
+    skip: "Skip and start"
   },
   widget: {
     missingserId: "Check authentication",

@@ -193,14 +193,6 @@ export default function UserMenu() {
     }
   }
 
-  // ✅ Funkcia pre bezpečné spustenie wizarda bez kolízie z-indexov
-  const handleOpenWizard = () => {
-    setOpen(false); // Najprv natvrdo zabijeme menu
-    setTimeout(() => {
-      setShowWizard(true); // O chvíľočku neskôr vyvoláme Modal
-    }, 150);
-  };
-
   const Panel =
     !open || !pos
       ? null
@@ -260,16 +252,14 @@ export default function UserMenu() {
                 {t("userMenu.connectedApps")}
               </a>
 
-              <div className={DROPDOWN_DIVIDER} />
-
-              <button
-                className={DROPDOWN_ITEM}
-                onClick={handleOpenWizard}
+              <a 
+                className={DROPDOWN_ITEM} 
+                href="/onboarding" 
                 role="menuitem"
-                type="button"
+                onClick={() => setOpen(false)}
               >
-                {t("userMenu.showTutorial" as any) || "Zobraziť sprievodcu"}
-              </button>
+                {t("userMenu.showTutorial")}
+              </a>
 
               <div className={DROPDOWN_DIVIDER} />
 

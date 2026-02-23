@@ -811,6 +811,52 @@ export const sk = {
       },
     },
   },
+onboarding: {
+    welcome: {
+      tab: "Welcome",
+      title: "Welcome to Selfrace! 🏁",
+      desc1: "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
+      iosTitle: "Apple (iOS Safari):",
+      iosDesc: "Click the share icon at the bottom and select 'Add to Home Screen'.",
+      androidTitle: "Android (Chrome):",
+      androidDesc: "Click the three dots in the top right and select 'Add to Home screen'.",
+      ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right)."
+    },
+    data: {
+      tab: "Data",
+      title: "Strava & Activities 🚴‍♂️",
+      desc1: "To give you the best advice, your coach needs your historical data.",
+      connectTitle: "Connection:",
+      connectDesc: "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+      importTitle: "Import:",
+      importDesc: "Right after connecting Strava, on the same page, run the activity import. We recommend downloading at least a few weeks back."
+    },
+    status: {
+      tab: "My Status",
+      title: "Profile & Recovery 🔋",
+      profileTitle: "Your Profile:",
+      profileDesc: "In the User Menu under 'My Account', fill in your basic body metrics.",
+      recoveryTitle: "Recovery:",
+      recoveryDesc: "In the Recovery section, honestly log your morning fatigue, sleep quality, and stress every day. You have to click it manually for now – giants like Garmin and Apple aren't big enough friends with us yet to push it automatically! 😃"
+    },
+    coach: {
+      tab: "Coach",
+      title: "Custom Coach 🧠",
+      desc1: "Here, the AI Coach takes your data and recovery to design the perfect plan.",
+      prefsTitle: "Settings (Prefs):",
+      prefsDesc: "In the top right of the Coach section, click the settings icon. There you will define your Heart Rate Zones, Thresholds, how many days a week you want to train, and your goals.",
+      eventsTitle: "External events:",
+      eventsDesc: "Planning a race? Add it and the coach will consider it in the planning.",
+      genTitle: "Generation:",
+      genDesc: "Click Create plan and you're done!"
+    },
+    finish: "Got it!",
+    finishGo: "Got it, let's train!",
+    close: "Close",
+    skip: "Skip and start",
+    back: "Back",
+    next: "Next"
+  },
   widget: {
     missingserId: "Skontroluj autentifikáciu",
     errorLoad: "Nepodarilo sa načítať dáta",
