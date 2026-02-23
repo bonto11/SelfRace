@@ -6,35 +6,32 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-// Globálny zámok na ochranu pred paralelným obnovovaním tokenu
-let refreshPromise: Promise<string | null> | null = null;
+// --- FRONTEND ZÁMOK (QUEUE MECHANIZMUS) ---
+// Tieto dve premenné zabezpečia, že ak 5 widgetov naraz dostane 401, 
+// o nový token požiadame Supabase iba JEDENKÁT. Ostatné počkajú.
+let isRefreshing = false;
+let refreshSubscribers: ((token: string | null) => void)[] = [];
+
+function onTokenRefreshed(token: string | null) {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+}
+// ------------------------------------------
 
 export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {},
-  _isRetry = false,
+  _retryCount = 0
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
   let token: string | null = null;
 
   try {
+    // Supabase Browser klient si token vytiahne bezpečne sám priamo z Cookies.
     const { data } = await supabase.auth.getSession();
     token = data?.session?.access_token ?? null;
-
-    // Fallback po OAuth redirecte
-    if (!token) {
-      const r = await fetch("/api/auth/session-token", {
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      if (r.ok) {
-        const j = await r.json();
-        token = j?.access_token ?? null;
-      }
-    }
   } catch (e) {
-    console.warn("[callBackend] session resolve failed");
+    console.warn("[callBackend] nepodarilo sa načítať session");
   }
 
   const headers = new Headers(init.headers || {});
@@ -49,39 +46,40 @@ export async function callBackend<T = any>(
   let res = await fetch(fullUrl, {
     ...init,
     headers,
-    credentials: "include",
   });
 
-  // Ak backend vráti 401 (token vypršal) a ešte sme neskúsili retry...
-  if (res.status === 401 && !_isRetry) {
-    console.warn(`[callBackend] 401 z backendu na ${path}, vynucujem obnovu...`);
+  // AK BACKEND VRÁTI 401 A EŠTE SME NESKÚŠALI RETRY
+  if (res.status === 401 && _retryCount === 0) {
+    console.warn(`[callBackend] 401 na ${path}. Zastavujem a obnovujem token...`);
 
-    // ZÁMOK: Prepísaný na async/await, aby nevznikal ts(7031) error
-    if (!refreshPromise) {
-      refreshPromise = (async () => {
-        try {
-          const { data, error } = await supabase.auth.refreshSession();
-          if (error) return null;
-          return data?.session?.access_token ?? null;
-        } catch (err) {
-          return null;
-        }
-      })();
-
-      // Po dokončení (či už úspech alebo fail) uvoľníme zámok
-      refreshPromise.finally(() => {
-        refreshPromise = null;
-      });
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        // Iba JEDEN request spraví túto akciu
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) throw error;
+        
+        // Máme nový token, odomkneme všetky čakajúce requesty
+        onTokenRefreshed(data?.session?.access_token ?? null);
+      } catch (err) {
+        console.error("[callBackend] Fatálne zlyhanie obnovy tokenu", err);
+        onTokenRefreshed(null); // Odblokujeme radu, aby nezamrzla apka
+      } finally {
+        isRefreshing = false;
+      }
     }
 
-    const newToken = await refreshPromise;
+    // Každý request, ktorý narazil na 401 (aj ten prvý), sa tu postaví do radu a čaká na nový token
+    const newToken = await new Promise<string | null>((resolve) => {
+      refreshSubscribers.push(resolve);
+    });
 
+    // Keď sa token obnoví, vložíme ho do hlavičky a zopakujeme dotaz
     if (newToken) {
       headers.set("Authorization", `Bearer ${newToken}`);
       res = await fetch(fullUrl, {
         ...init,
         headers,
-        credentials: "include",
       });
     }
   }
@@ -95,11 +93,6 @@ export async function callBackend<T = any>(
   }
 
   if (!res.ok) {
-    console.error("[callBackend] HTTP error", {
-      path,
-      status: res.status,
-      body: json ?? text,
-    });
     throw new Error(`HTTP ${res.status}`);
   }
 
