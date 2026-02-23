@@ -75,7 +75,9 @@ export default function UserMenu() {
           </div>
           <nav className={USER_MENU_NAV} style={{ padding: '8px' }}>
             <Link className={DROPDOWN_ITEM} href="/account" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.account")}</Link>
+            <Link className={DROPDOWN_ITEM} href="/subscription" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.subscription")}</Link>
             <Link className={DROPDOWN_ITEM} href="/connectedApps" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.connectedApps")}</Link>
+            <Link className={DROPDOWN_ITEM} href="/onboarding" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.showTutorial")}</Link>
             <div className={DROPDOWN_DIVIDER} style={{ margin: '8px 0', borderTop: `1px solid ${appColors.panelBorder}` }} />
             <button 
               className={DROPDOWN_ITEM_DANGER} 
