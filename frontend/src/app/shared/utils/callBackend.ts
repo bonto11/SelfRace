@@ -6,21 +6,35 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
+// Globálny zámok na ochranu pred paralelným obnovovaním tokenu
+let refreshPromise: Promise<string | null> | null = null;
+
 export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {},
-  _isRetry = false
+  _isRetry = false,
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
   let token: string | null = null;
 
   try {
-    // Toto bezpečne vytiahne token. Ak je expirovaný, Supabase klient ho tu
-    // v pozadí (a bezpečne bez race-condition) obnoví predtým, než pôjdeme ďalej.
     const { data } = await supabase.auth.getSession();
     token = data?.session?.access_token ?? null;
+
+    // Fallback po OAuth redirecte
+    if (!token) {
+      const r = await fetch("/api/auth/session-token", {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      if (r.ok) {
+        const j = await r.json();
+        token = j?.access_token ?? null;
+      }
+    }
   } catch (e) {
-    console.warn("[callBackend] getSession failed");
+    console.warn("[callBackend] session resolve failed");
   }
 
   const headers = new Headers(init.headers || {});
@@ -32,25 +46,42 @@ export async function callBackend<T = any>(
 
   const fullUrl = `${API_URL}${path}`;
 
-  // Pridané credentials: "include" pre istotu, ak tvoje API číta aj cookies
   let res = await fetch(fullUrl, {
     ...init,
     headers,
-    credentials: "same-origin", // Zabráni strate session pri same-origin API calls
+    credentials: "include",
   });
 
-  // Ak napriek všetkému backend vráti 401 a ešte sme neskúsili retry...
+  // Ak backend vráti 401 (token vypršal) a ešte sme neskúsili retry...
   if (res.status === 401 && !_isRetry) {
     console.warn(`[callBackend] 401 z backendu na ${path}, vynucujem obnovu...`);
-    
-    const { data } = await supabase.auth.refreshSession();
-    
-    if (data?.session?.access_token) {
-      headers.set("Authorization", `Bearer ${data.session.access_token}`);
+
+    // ZÁMOK: Prepísaný na async/await, aby nevznikal ts(7031) error
+    if (!refreshPromise) {
+      refreshPromise = (async () => {
+        try {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (error) return null;
+          return data?.session?.access_token ?? null;
+        } catch (err) {
+          return null;
+        }
+      })();
+
+      // Po dokončení (či už úspech alebo fail) uvoľníme zámok
+      refreshPromise.finally(() => {
+        refreshPromise = null;
+      });
+    }
+
+    const newToken = await refreshPromise;
+
+    if (newToken) {
+      headers.set("Authorization", `Bearer ${newToken}`);
       res = await fetch(fullUrl, {
         ...init,
         headers,
-        credentials: "same-origin",
+        credentials: "include",
       });
     }
   }
@@ -63,7 +94,6 @@ export async function callBackend<T = any>(
     // fallback
   }
 
-  // Ak to stále padá, vyhodíme chybu, nech ju ošetrí daný widget
   if (!res.ok) {
     console.error("[callBackend] HTTP error", {
       path,
