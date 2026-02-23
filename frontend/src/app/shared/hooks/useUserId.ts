@@ -7,11 +7,11 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
+// Okamžité synchrónne prečítanie z cookies
 function getStoredId(): number | null {
-   if (typeof window === "undefined") return null;
-   const stored = window.localStorage.getItem("selfrace_numeric_id");
-   const val = stored ? Number(stored) : null;
-   return val;
+   if (typeof document === "undefined") return null;
+   const match = document.cookie.match(/(?:^|;\s*)selfrace_numeric_id=([^;]*)/);
+   return match ? Number(match[1]) : null;
 }
 
 export function useUserId() {
@@ -20,20 +20,18 @@ export function useUserId() {
   const fetchUser = useCallback(async () => {
     try {
       const supabase = getSupabaseBrowser();
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        if (typeof window !== "undefined") window.localStorage.removeItem("selfrace_numeric_id");
+        if (typeof document !== "undefined") {
+           document.cookie = "selfrace_numeric_id=; path=/; max-age=0; SameSite=Lax; Secure";
+        }
         setState({ id: null, uuid: null });
         return;
       }
 
-      //ID už máme v pamäti pre tohto usera, skipujem volanie backendu.
-      if (state.id && state.uuid === session.user.id) {
-         return;
-      }
+      if (state.id && state.uuid === session.user.id) return;
 
-      //Volám POST /users/resolve na zistenie numerického ID z Pythonu...
       const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,12 +40,12 @@ export function useUserId() {
 
       const numId = res?.success ? res.user_id : null;
 
-      if (numId && typeof window !== "undefined") {
-         window.localStorage.setItem("selfrace_numeric_id", numId.toString());
+      if (numId && typeof document !== "undefined") {
+         document.cookie = `selfrace_numeric_id=${numId}; path=/; max-age=31536000; SameSite=Lax; Secure`;
          setState({ id: numId, uuid: session.user.id });
-      } 
+      }
     } catch (e) {
-      console.error("[AUTH_DEBUG: useUserId] 💥 Fatálna chyba vo fetchUser:", e);
+      console.warn("[useUserId] Sync failed", e);
     }
   }, [state.id, state.uuid]);
 
