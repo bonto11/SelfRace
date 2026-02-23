@@ -1,3 +1,4 @@
+// src/app/shared/utils/supabaseBrowser.ts
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
@@ -13,12 +14,11 @@ export function getSupabaseBrowser() {
       {
         auth: {
           persistSession: true,
-          autoRefreshToken: true,
+          storageKey: 'selfrace-auth-session', // Vlastný kľúč = imunita voči Next.js
+          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
           detectSessionInUrl: true,
-          storage: typeof window !== "undefined"
-            ? window.localStorage
-            : undefined,
-        },
+          autoRefreshToken: true,
+        }
       }
     );
   }
