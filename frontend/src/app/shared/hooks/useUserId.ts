@@ -17,8 +17,21 @@ async function fetchWhoAmI(): Promise<WhoAmI> {
 
     if (!user) return { id: null, uuid: null };
 
-    // Vytiahneme ID priamo cez tvoju utilitu, už žiadne volanie /api/auth/whoami
+    // Vytiahneme číselné ID cez tvoju utilitu
     const numId = await getUserId();
+
+    // ✅ TOTO JE NOVÉ: Zapíšeme sr_id a sr_uuid do cookies manuálne, presne ako predtým server!
+    if (typeof document !== "undefined") {
+      const maxAge = 60 * 60 * 24 * 30; // 30 dní
+      
+      // Zápis sr_uuid
+      //document.cookie = `sr_uuid=${user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      
+      // Zápis sr_id (ak existuje)
+      if (numId) {
+        document.cookie = `sr_id=${numId}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      }
+    }
 
     return {
       id: numId,
