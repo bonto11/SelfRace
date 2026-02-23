@@ -3,8 +3,9 @@
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link"; // ✅ Pridaný Link pre stabilnú navigáciu
+import Link from "next/link";
 import { signOut } from "@/app/shared/utils/signOut";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser"; // ✅ Pridané
 import {
   DROPDOWN_DIVIDER,
   DROPDOWN_PANEL,
@@ -34,13 +35,9 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 type LocalUser = {
-  id: number | null;
-  uuid: string | null;
   email: string | null;
   name: string | null;
   displayName: string | null;
-  avatarUrl: string | null;
-  tier_code?: string;
 };
 
 export default function UserMenu() {
@@ -62,21 +59,25 @@ export default function UserMenu() {
     width: number;
   } | null>(null);
 
+  // ✅ Načítanie používateľa priamo zo Supabase klienta
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch("/api/auth/me", {
-          credentials: "include",
-          cache: "no-store",
+        const supabase = getSupabaseBrowser();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!alive || !user) return;
+        
+        setMe({
+          email: user.email ?? null,
+          name: user.user_metadata?.full_name ?? null,
+          displayName: user.user_metadata?.full_name ?? null,
         });
-        const j = await r.json();
-        if (!alive) return;
-        if (j?.ok && j.user) {
-          setMe(j.user as LocalUser);
-          if (j.user.tier_code) {
-            setSubscriptionTier(j.user.tier_code);
-          }
+
+        // Tu si môžeš načítať tierCode ak ho máš uložený napr. v app_metadata
+        if (user.app_metadata?.tier_code) {
+           setSubscriptionTier(user.app_metadata.tier_code);
         }
       } catch {}
     })();
@@ -95,10 +96,8 @@ export default function UserMenu() {
   const displayLabel = useMemo(() => {
     const dn = (me?.displayName ?? "").trim();
     if (dn) return dn;
-
     const nm = (me?.name ?? "").trim();
     if (nm) return nm;
-
     const em = (me?.email ?? "").trim();
     if (!em) return "";
     const local = em.split("@")[0] ?? "";
@@ -108,10 +107,8 @@ export default function UserMenu() {
   const initials = useMemo(() => {
     const dn = (me?.displayName ?? "").trim();
     if (dn) return "";
-
     const raw = ((me?.name ?? "") || (me?.email ?? "")).trim();
     if (!raw) return "";
-
     const base = raw.includes("@") ? (raw.split("@")[0] ?? raw) : raw;
     const parts = base.split(/\s+/).filter(Boolean);
 
@@ -122,32 +119,25 @@ export default function UserMenu() {
 
   const getTierBorderStyle = () => {
     switch (tierCode) {
-      case "family":
-        return `1px solid ${appColors.brandFamily}`;
-      case "pro":
-        return `1px solid ${appColors.brandPro}`;
-      case "classic":
-        return `1px solid ${appColors.brandClassic}`;
+      case "family": return `1px solid ${appColors.brandFamily}`;
+      case "pro": return `1px solid ${appColors.brandPro}`;
+      case "classic": return `1px solid ${appColors.brandClassic}`;
       case "free":
-      default:
-        return `1px solid ${appColors.brandFree}`;
+      default: return `1px solid ${appColors.brandFree}`;
     }
   };
 
   useEffect(() => {
     if (!open) return;
-
     const onDoc = (ev: MouseEvent) => {
       const t = ev.target as Node;
       if (wrapRef.current?.contains(t)) return;
       if (panelRef.current?.contains(t)) return;
       setOpen(false);
     };
-
     const onEsc = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") setOpen(false);
     };
-
     document.addEventListener("mousedown", onDoc, true);
     document.addEventListener("keydown", onEsc);
     return () => {
@@ -160,7 +150,6 @@ export default function UserMenu() {
     if (!open) return;
     const el = btnRef.current;
     if (!el) return;
-
     const update = () => {
       const r = el.getBoundingClientRect();
       const w = Math.max(r.width, 260);
@@ -170,7 +159,6 @@ export default function UserMenu() {
       const top = r.bottom + 10;
       setPos({ left, top, width: w });
     };
-
     update();
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
@@ -190,14 +178,11 @@ export default function UserMenu() {
   }
 
   const Panel =
-    !open || !pos
-      ? null
-      : createPortal(
+    !open || !pos ? null : createPortal(
           <div
             ref={panelRef}
             className={DROPDOWN_PANEL}
             role="menu"
-            aria-label="User menu"
             style={{
               position: "fixed",
               left: pos.left,
@@ -209,22 +194,13 @@ export default function UserMenu() {
               boxShadow: appColors.shadowCard,
             }}
           >
-            <div
-              className={USER_MENU_PANEL_HEAD}
-              style={{ borderBottom: `1px solid ${appColors.divider}` }}
-            >
+            <div className={USER_MENU_PANEL_HEAD} style={{ borderBottom: `1px solid ${appColors.divider}` }}>
               <div className={USER_MENU_HEAD_ROW}>
                 <div className={USER_MENU_HEAD_LEFT}>
-                  <div
-                    className={USER_MENU_HEAD_NAME}
-                    style={{ color: appColors.textPrimary }}
-                  >
+                  <div className={USER_MENU_HEAD_NAME} style={{ color: appColors.textPrimary }}>
                     {me?.displayName || me?.name || "User"}
                   </div>
-                  <div
-                    className={USER_MENU_HEAD_EMAIL}
-                    style={{ color: appColors.textMuted }}
-                  >
+                  <div className={USER_MENU_HEAD_EMAIL} style={{ color: appColors.textMuted }}>
                     {me?.email || ""}
                   </div>
                 </div>
@@ -232,58 +208,18 @@ export default function UserMenu() {
             </div>
 
             <nav className={USER_MENU_NAV}>
-              {/* ✅ Využívame <Link>, aby sme nerobili full-page reload */}
-              <Link
-                className={DROPDOWN_ITEM}
-                href="/account"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-              >
-                {t("userMenu.account")}
-              </Link>
-
-              <Link
-                className={DROPDOWN_ITEM}
-                href="/subscription"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-              >
-                {t("userMenu.subscription")}
-              </Link>
-
-              <Link
-                className={DROPDOWN_ITEM}
-                href="/connectedApps"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-              >
-                {t("userMenu.connectedApps")}
-              </Link>
-
-              <Link 
-                className={DROPDOWN_ITEM} 
-                href="/onboarding" 
-                role="menuitem"
-                onClick={() => setOpen(false)}
-              >
-                {t("userMenu.showTutorial")}
-              </Link>
-
+              <Link className={DROPDOWN_ITEM} href="/account" onClick={() => setOpen(false)}>{t("userMenu.account")}</Link>
+              <Link className={DROPDOWN_ITEM} href="/subscription" onClick={() => setOpen(false)}>{t("userMenu.subscription")}</Link>
+              <Link className={DROPDOWN_ITEM} href="/connectedApps" onClick={() => setOpen(false)}>{t("userMenu.connectedApps")}</Link>
+              <Link className={DROPDOWN_ITEM} href="/onboarding" onClick={() => setOpen(false)}>{t("userMenu.showTutorial")}</Link>
               <div className={DROPDOWN_DIVIDER} />
-
               <button
-                className={[
-                  DROPDOWN_ITEM_DANGER,
-                  USER_MENU_SIGNOUT_DISABLED,
-                ].join(" ")}
+                className={[DROPDOWN_ITEM_DANGER, USER_MENU_SIGNOUT_DISABLED].join(" ")}
                 onClick={handleSignOut}
                 disabled={busy === "signout"}
-                role="menuitem"
                 type="button"
               >
-                {busy === "signout"
-                  ? t("userMenu.logginOff")
-                  : t("userMenu.logoff")}
+                {busy === "signout" ? t("userMenu.logginOff") : t("userMenu.logoff")}
               </button>
             </nav>
           </div>,
@@ -296,26 +232,17 @@ export default function UserMenu() {
         ref={btnRef}
         className={USER_MENU_TRIGGER}
         style={{
-          background: open
-            ? appColors.surfaceCardHover
-            : appColors.buttonGhostBg,
+          background: open ? appColors.surfaceCardHover : appColors.buttonGhostBg,
           border: getTierBorderStyle(),
           color: appColors.textPrimary,
           transition: "border-color 0.2s ease, background-color 0.2s ease",
         }}
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
       >
         <div className={USER_MENU_LABEL_ROW}>
-          <span className={USER_MENU_LABEL}>
-            {displayLabel || initials || "User"}
-          </span>
+          <span className={USER_MENU_LABEL}>{displayLabel || initials || "User"}</span>
         </div>
       </button>
-
       {Panel}
     </div>
   );

@@ -60,19 +60,8 @@ export default function SignInForm() {
       return;
     }
 
-    if (data?.session) {
-      try {
-        await fetch("/api/auth/set-session", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ event: "SIGNED_IN", session: data.session }),
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-
+    // VYMAZALI SME FETCH NA /api/auth/set-session. Je to nepotrebné.
+    
     router.replace("/activities");
   }
 

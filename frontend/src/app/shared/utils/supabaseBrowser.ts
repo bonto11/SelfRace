@@ -14,9 +14,9 @@ export function getSupabaseBrowser() {
 
     _client = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
-        // Tieto dve nastavenia sú kritické pre bezproblémový návrat zo Stravy
-        detectSessionInUrl: true, 
         autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true, // Zásadné pre OAuth a Stravu
       },
     });
   }
