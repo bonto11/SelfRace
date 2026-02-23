@@ -7,77 +7,61 @@ import { getUserId } from "./userUtils";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-let cached: WhoAmI | null = null;
-let inflight: Promise<WhoAmI> | null = null;
-
-async function fetchWhoAmI(): Promise<WhoAmI> {
-  try {
-    const supabase = getSupabaseBrowser();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) return { id: null, uuid: null };
-
-    // Vytiahneme číselné ID cez tvoju utilitu
-    const numId = await getUserId();
-
-    // ✅ TOTO JE NOVÉ: Zapíšeme sr_id a sr_uuid do cookies manuálne, presne ako predtým server!
-    if (typeof document !== "undefined") {
-      const maxAge = 60 * 60 * 24 * 30; // 30 dní
-      
-      // Zápis sr_uuid
-      document.cookie = `sr_uuid=${user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
-      
-      // Zápis sr_id (ak existuje)
-      if (numId) {
-        document.cookie = `sr_id=${numId}; path=/; max-age=${maxAge}; SameSite=Lax`;
-      }
-    }
-
-    return {
-      id: numId,
-      uuid: user.id,
-    };
-  } catch (e) {
-    return { id: null, uuid: null };
-  }
+// Pomocná funkcia na bleskové prečítanie cookies bez čakania na sieť
+function getStoredIds(): WhoAmI {
+  if (typeof document === "undefined") return { id: null, uuid: null };
+  const idMatch = document.cookie.match(/(?:^|; )sr_id=([^;]*)/);
+  const uuidMatch = document.cookie.match(/(?:^|; )sr_uuid=([^;]*)/);
+  return {
+    id: idMatch ? Number(idMatch[1]) : null,
+    uuid: uuidMatch ? uuidMatch[1] : null,
+  };
 }
 
 export function useUserId() {
-  const [state, setState] = useState<WhoAmI>(() => cached ?? { id: null, uuid: null });
+  // 1. Apka okamžite štartuje s IDčkom, ktoré si pamätá z cookies (žiadne prázdne widgety)
+  const [state, setState] = useState<WhoAmI>(getStoredIds);
+
+  const fetchUser = useCallback(async () => {
+    try {
+      const supabase = getSupabaseBrowser();
+      // 2. Použijeme getSession namiesto getUser (číta z LocalStorage, takže nezlyhá na sieti)
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        setState({ id: null, uuid: null });
+        return;
+      }
+
+      // Ak už cookies máme a sedia s aktuálnym tokenom, nemusíme volať Python backend
+      const current = getStoredIds();
+      if (current.id && current.uuid === session.user.id) {
+        setState(current);
+        return;
+      }
+
+      // 3. Ak cookies náhodou nemáme, zavoláme backend a uložíme ich pre ďalší refresh
+      const numId = await getUserId();
+
+      if (typeof document !== "undefined" && numId) {
+        const maxAge = 60 * 60 * 24 * 30; // 30 dní
+        document.cookie = `sr_uuid=${session.user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `sr_id=${numId}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      }
+
+      setState({ id: numId, uuid: session.user.id });
+    } catch (e) {
+      // V prípade chyby potichu failneme, ale nezmažeme existujúci state
+      console.warn("[useUserId] Background sync zlyhal", e);
+    }
+  }, []);
 
   useEffect(() => {
-    if (cached) return;
-
-    if (!inflight) {
-      inflight = fetchWhoAmI()
-        .then((v) => {
-          cached = v;
-          return v;
-        })
-        .finally(() => {
-          inflight = null;
-        });
-    }
-
-    inflight
-      .then((v) => setState(v))
-      .catch(() => setState({ id: null, uuid: null }));
-  }, []);
-
-  const refresh = useCallback(async () => {
-    cached = null;
-    setState({ id: null, uuid: null });
-    try {
-      const v = await fetchWhoAmI();
-      cached = v;
-      setState(v);
-    } catch (e) {
-      setState({ id: null, uuid: null });
-    }
-  }, []);
+    fetchUser();
+  }, [fetchUser]);
 
   return useMemo(
-    () => ({ userId: state.id, userUuid: state.uuid, refresh }),
-    [state.id, state.uuid, refresh]
+    () => ({ userId: state.id, userUuid: state.uuid, refresh: fetchUser }),
+    [state.id, state.uuid, fetchUser]
   );
 }

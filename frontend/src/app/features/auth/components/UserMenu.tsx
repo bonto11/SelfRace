@@ -6,6 +6,9 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { signOut } from "@/app/shared/utils/signOut";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser"; 
+import { useUserId } from "@/app/shared/hooks/useUserId";
+import { apiGetAppSubscriptionStatus } from "@/app/features/billing/api/billing";
+
 import {
   DROPDOWN_DIVIDER,
   DROPDOWN_PANEL,
@@ -53,19 +56,23 @@ export default function UserMenu() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const t = useT();
 
+  // Získame ID používateľa pre API dotazy
+  const { userId } = useUserId();
+
   const [pos, setPos] = useState<{
     left: number;
     top: number;
     width: number;
   } | null>(null);
 
-  // ✅ Klientske načítanie bez volania vlastného API
+  // Klientske načítanie základného profilu (meno, email) z JWT
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const supabase = getSupabaseBrowser();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         
         if (!alive || !user) return;
         
@@ -77,15 +84,36 @@ export default function UserMenu() {
           displayName: fullName,
         });
 
-        if (user.app_metadata?.tier_code) {
-           setSubscriptionTier(user.app_metadata.tier_code);
-        }
-      } catch {}
+      } catch (e) {
+        console.warn("[UserMenu] Failed to load user profile:", e);
+      }
     })();
     return () => {
       alive = false;
     };
   }, []);
+
+  // ✅ Klientske načítanie aktívneho predplatného z nášho Python API
+  useEffect(() => {
+    let alive = true;
+    if (!userId || userId === 0) return;
+
+    (async () => {
+      try {
+        const status = await apiGetAppSubscriptionStatus(userId);
+        if (!alive) return;
+        
+        const activeTier = status?.tier_code || "free";
+        setSubscriptionTier(activeTier); // Uloží to do globálneho store
+      } catch (e) {
+        console.warn("[UserMenu] Nepodarilo sa načítať status predplatného", e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [userId]); // Zbehne iba ak máme platné userId
 
   useEffect(() => {
     const unsubscribe = subscribeSubscriptionTier((next) =>
@@ -131,9 +159,9 @@ export default function UserMenu() {
   useEffect(() => {
     if (!open) return;
     const onDoc = (ev: MouseEvent) => {
-      const t = ev.target as Node;
-      if (wrapRef.current?.contains(t)) return;
-      if (panelRef.current?.contains(t)) return;
+      const target = ev.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
       setOpen(false);
     };
     const onEsc = (ev: KeyboardEvent) => {
