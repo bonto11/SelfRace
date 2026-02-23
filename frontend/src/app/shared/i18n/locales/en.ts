@@ -825,34 +825,40 @@ export const en = {
     },
     data: {
       tab: "Data",
-      title: "Connection & Import 🚴‍♂️",
-      desc1: "To get the best advice, your coach needs your historical data.",
-      connectTitle: "1. Connection:",
-      connectDesc: "In the User Menu (avatar), go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
-      importTitle: "2. Import:",
-      importDesc: "On the same page below, run the activity import. We recommend downloading at least a few weeks of history."
+      title: "Strava & Activities 🚴‍♂️",
+      desc1: "To give you the best advice, your coach needs your historical data.",
+      connectTitle: "Connection:",
+      connectDesc: "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+      importTitle: "Import:",
+      importDesc: "Right after connecting Strava, on the same page, run the activity import. We recommend downloading at least a few weeks back."
     },
     status: {
       tab: "My Status",
       title: "Profile & Recovery 🔋",
-      profileTitle: "Your Profile:",
-      profileDesc: "In the User Menu under 'My Account', fill in your body metrics and heart rate zones for accurate calculations.",
+      profileTitle: "Your body profile:",
+      profileDesc:
+        "In the Profile section, fill in your basic body metrics. Continuously update your VO2Max data if you go for tests, or your body fat percentage.",
       recoveryTitle: "Recovery:",
-      recoveryDesc: "In the Recovery section, log your morning fatigue, sleep quality, or stress. You have to do this manually for now – giants like Garmin and Apple aren't big enough friends with us yet to provide it automatically! 😃"
+      recoveryDesc:
+        "In the Recovery section, honestly log your morning fatigue, sleep quality, and stress every day. For now, you have to log it manually – other watch manufacturers aren't big enough friends with us yet to provide it automatically... 😢",
     },
     coach: {
-      tab: "AI Coach",
+      tab: "Coach",
       title: "Custom Coach 🧠",
-      desc1: "The heart of our app! Here, the AI Coach uses your data and recovery to design the perfect plan.",
+      desc1: "Here, the AI Coach takes your data and recovery to design the perfect plan.",
       prefsTitle: "Settings (Prefs):",
-      prefsDesc: "Tell your coach how many days a week you want to train and what your goals are.",
+      prefsDesc: "In the top right of the Coach section, click the settings icon. There you will define your Heart Rate Zones, Thresholds, how many days a week you want to train, and your goals.",
       eventsTitle: "External events:",
-      eventsDesc: "Planning a race or going on vacation? Add it, and the coach will adjust.",
+      eventsDesc: "Planning a race? Add it and the coach will consider it in the planning.",
       genTitle: "Generation:",
-      genDesc: "Just click, and your new training plan is ready!"
+      genDesc: "Click Create plan and you're done!"
     },
-    finish: "Got it, let's train!",
-    skip: "Skip and start"
+    finish: "Got it!",
+    finishGo: "Got it, let's train!",
+    close: "Close",
+    skip: "Skip and start",
+    back: "Back",
+    next: "Next"
   },
   widget: {
     missingserId: "Check authentication",

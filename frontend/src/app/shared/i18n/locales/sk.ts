@@ -16,12 +16,12 @@ export const sk = {
       count2to4: "týždne",
       count5plus: "týždňov",
     },
-      injury:{
-    reported: "Zranenie nahlásené:",
-    calendar: "Kalendár zablokovaný (Lekárske voľno).",
-    dailyPlan: "Plán je v režime lekárskeho voľna.",
-    planAdjusted: "Tréningy upravené pre zotavenie.",
-  },
+    injury: {
+      reported: "Zranenie nahlásené:",
+      calendar: "Kalendár zablokovaný (Lekárske voľno).",
+      dailyPlan: "Plán je v režime lekárskeho voľna.",
+      planAdjusted: "Tréningy upravené pre zotavenie.",
+    },
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
@@ -55,8 +55,8 @@ export const sk = {
       expand: "Zobraziť sekciu",
     },
     levels: {
-      low:"nízka",
-      moderate:"stredná",
+      low: "nízka",
+      moderate: "stredná",
       high: "vysoká",
       superior: "vynikajúca",
       excellent: "výborná",
@@ -66,7 +66,7 @@ export const sk = {
       very_poor: "veľmi slabá",
     },
     phases: {
-      threshold_speed:"Prahová rýchlosť",
+      threshold_speed: "Prahová rýchlosť",
     },
     sports: {
       run: "Beh",
@@ -95,7 +95,7 @@ export const sk = {
       ms: "ms",
       hr: "úde./min",
       pace: "s/km",
-      pct : "%",
+      pct: "%",
       kadenceRun: "krok/min",
       kadenceBike: "ot/min",
     },
@@ -124,7 +124,7 @@ export const sk = {
     p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, výkonnosť a sledovať mieru regenerácie a únavy. ",
     p2: "Vytvorené bežcom, nie korporáciou. ",
     p2Link: "Prečítaj si príbeh o tom, prečo SelfRace vznikol. ",
-    
+
     ctaStart: "Vyskúšať zdarma",
     ctaSignIn: "Prihlásiť sa",
     foot: "Detailné metriky behu, tréningové zóny a AI tréner po prepojení účtu.",
@@ -811,51 +811,60 @@ export const sk = {
       },
     },
   },
-onboarding: {
+  onboarding: {
     welcome: {
-      tab: "Welcome",
-      title: "Welcome to Selfrace! 🏁",
-      desc1: "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
+      tab: "Vitaj",
+      title: "Vitaj v Selfrace! 🏁",
+      desc1:
+        "Pre ten najlepší zážitok ti odporúčame pridať si apku na plochu, aby fungovala bleskovo a bez rušivých prvkov prehliadača:",
       iosTitle: "Apple (iOS Safari):",
-      iosDesc: "Click the share icon at the bottom and select 'Add to Home Screen'.",
+      iosDesc: "Klikni dole na ikonu zdieľania a zvoľ 'Pridať na plochu'.",
       androidTitle: "Android (Chrome):",
-      androidDesc: "Click the three dots in the top right and select 'Add to Home screen'.",
-      ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right)."
+      androidDesc:
+        "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na domovskú obrazovku'.",
+      ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v User Menu (tvoj avatar vpravo hore).",
     },
     data: {
-      tab: "Data",
-      title: "Strava & Activities 🚴‍♂️",
-      desc1: "To give you the best advice, your coach needs your historical data.",
-      connectTitle: "Connection:",
-      connectDesc: "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+      tab: "Dáta",
+      title: "Strava a Aktivity 🚴‍♂️",
+      desc1: "Aby ti tréner mohol radiť, potrebuje tvoje historické dáta.",
+      connectTitle: "Pripojenie:",
+      connectDesc:
+        "V User Menu prejdi do 'Pripojené aplikácie' a klikni na oranžové tlačidlo Connect with Strava. Tvoje dáta sú v bezpečí.",
       importTitle: "Import:",
-      importDesc: "Right after connecting Strava, on the same page, run the activity import. We recommend downloading at least a few weeks back."
+      importDesc:
+        "Hneď po prepojení Stravy, na tej istej stránke, spusti import aktivít. Odporúčame stiahnuť aspoň pár týždňov dozadu.",
     },
     status: {
-      tab: "My Status",
-      title: "Profile & Recovery 🔋",
-      profileTitle: "Your Profile:",
-      profileDesc: "In the User Menu under 'My Account', fill in your basic body metrics.",
-      recoveryTitle: "Recovery:",
-      recoveryDesc: "In the Recovery section, honestly log your morning fatigue, sleep quality, and stress every day. You have to click it manually for now – giants like Garmin and Apple aren't big enough friends with us yet to push it automatically! 😃"
+      tab: "Môj Stav",
+      title: "Profil a Regenerácia 🔋",
+      profileTitle: "Tvoj telesný profil:",
+      profileDesc:
+        "V sekcii Profil si doplň svoje základné telesné miery. Priebežne doplnaj udaje o VO2Max ak bz si chodil na testy či percentá telesného tuku.",
+      recoveryTitle: "Regenerácia:",
+      recoveryDesc:
+        "V sekcii Regnenerácia si každý deň poctivo zapisuj rannú únavu, kvalitu spánku či stres. Zatiaľ si to tam musíš klikať ručne – iny výrobcovnia hodiniek s nami zatiaľ nie sú až takí obrovskí kamaráti, aby nám to dali automaticky... 😢 ",
     },
     coach: {
-      tab: "Coach",
-      title: "Custom Coach 🧠",
-      desc1: "Here, the AI Coach takes your data and recovery to design the perfect plan.",
-      prefsTitle: "Settings (Prefs):",
-      prefsDesc: "In the top right of the Coach section, click the settings icon. There you will define your Heart Rate Zones, Thresholds, how many days a week you want to train, and your goals.",
-      eventsTitle: "External events:",
-      eventsDesc: "Planning a race? Add it and the coach will consider it in the planning.",
-      genTitle: "Generation:",
-      genDesc: "Click Create plan and you're done!"
+      tab: "Tréner",
+      title: "Tréner na mieru 🧠",
+      desc1:
+        "Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol dokonalý plán.",
+      prefsTitle: "Nastavenia (Prefs):",
+      prefsDesc:
+        "Úplne hore vpravo v sekcii Coach klikni na ikonu nastavení. Tam si určíš svoje Tepové zóny, Prahy, koľko dní v týždni chceš makať a aké máš ciele.",
+      eventsTitle: "Externé eventy:",
+      eventsDesc:
+        "Plánuješ pretek? Pridaj si ho a tréner to zohľadní pri plánovaní.",
+      genTitle: "Generovanie:",
+      genDesc: "Klikni na Vytvoriť plán a máš hotovo!",
     },
-    finish: "Got it!",
-    finishGo: "Got it, let's train!",
-    close: "Close",
-    skip: "Skip and start",
-    back: "Back",
-    next: "Next"
+    finish: "Mám to!",
+    finishGo: "Mám to, poďme trénovať!",
+    close: "Zavrieť",
+    skip: "Preskočiť a začať",
+    back: "Späť",
+    next: "Ďalej",
   },
   widget: {
     missingserId: "Skontroluj autentifikáciu",
@@ -1678,11 +1687,11 @@ onboarding: {
     },
     planned: {
       previewLabel: "Plánovaná zmena",
-    kinds: {
-      cancel: "Zrušenie",
-      downgrade: "Prechod na nižší",
-      upgrade: "Prechod na vyšší",
-    },
+      kinds: {
+        cancel: "Zrušenie",
+        downgrade: "Prechod na nižší",
+        upgrade: "Prechod na vyšší",
+      },
     },
     toasts: {
       paymentSuccess: "Platba prebehla úspešne! Vitaj v novom programe.",
@@ -1690,11 +1699,11 @@ onboarding: {
     },
     statusCard: {
       tierPrefix: "Aktuálny plán",
-    active: "Aktívny",
-    canceling: "Ruší sa",
-    periodEnds: "Obdobie končí",
-    cancelChangeBtn: "Zrušiť zmenu",
-    changeEffective: "Zmena platná od:",
+      active: "Aktívny",
+      canceling: "Ruší sa",
+      periodEnds: "Obdobie končí",
+      cancelChangeBtn: "Zrušiť zmenu",
+      changeEffective: "Zmena platná od:",
     },
     tierSelector: {
       btnChoose: "Zvoliť plán",
@@ -1711,19 +1720,19 @@ onboarding: {
       activeBadge: "aktívny",
     },
     pitch: {
-    title: "Prečo do toho ísť?",
-    body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ veľké firmy, ale ďalší vývoj funkcií, o ktoré si môžeš požiadať - stačí mi napisať. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom."
-  },
-  tiers: {
-    btnCurrentTemp: "Aktuálny (dočasne)",
-    btnBasic: "Základný plán",
-    btnManage: "Spravovať plán",
-    btnPlanned: "Plánovaný prechod",
-    btnCancel: "Zrušiť predplatné",
-    btnActivate: "Aktivovať {{tier}}",
-    limitBasic: "Základný limit",
-    tokensPerMonth: "tokenov/mes.",
-  },
+      title: "Prečo do toho ísť?",
+      body: "Selfrace nie je len ďalšia predplatená služba. Je to investícia do tvojho napredovania, ktorú riadi jeden z vás. Tvojím predplatným nepodporuješ veľké firmy, ale ďalší vývoj funkcií, o ktoré si môžeš požiadať - stačí mi napisať. Daj nám šancu na jeden mesiac a uvidíš, že trénovať sa dá aj s úsmevom.",
+    },
+    tiers: {
+      btnCurrentTemp: "Aktuálny (dočasne)",
+      btnBasic: "Základný plán",
+      btnManage: "Spravovať plán",
+      btnPlanned: "Plánovaný prechod",
+      btnCancel: "Zrušiť predplatné",
+      btnActivate: "Aktivovať {{tier}}",
+      limitBasic: "Základný limit",
+      tokensPerMonth: "tokenov/mes.",
+    },
   },
   dashboard: {
     title: "Dashboard",
@@ -2100,7 +2109,8 @@ onboarding: {
         severityLabel: "Vážnosť: {{severity}}/10",
         alertActive: "Aktívne zranenie nahlásené",
         alertReport: "Hlásim bolesť / zranenie",
-        tooltipActive: "⚠️ Zranenie je uložené v profile. Pri generovaní nového Review o ňom bude AI vedieť. Pre zrušenie kliknite na tlačidlo a zmažte ho zo zoznamu."
+        tooltipActive:
+          "⚠️ Zranenie je uložené v profile. Pri generovaní nového Review o ňom bude AI vedieť. Pre zrušenie kliknite na tlačidlo a zmažte ho zo zoznamu.",
       },
     },
     detail: {
@@ -2309,8 +2319,8 @@ onboarding: {
     checkingStatus: "Kontrolujem stav zmazania účtu…",
     status: {
       accountIs: "Účet je",
-    plannedDeletionWas: "Plánované zmazanie účtu bolo",
-    deletionIs: "Zmazanie účtu je",
+      plannedDeletionWas: "Plánované zmazanie účtu bolo",
+      deletionIs: "Zmazanie účtu je",
       pendingLabel: "označený na zmazanie",
       pendingDesc:
         "Ak nič neurobíš, všetky tvoje dáta v aplikácii sa po uplynutí lehoty trvalo vymažú.",
@@ -2355,6 +2365,5 @@ onboarding: {
         "Účet je označený na zmazanie. Do lehoty to môžeš ešte zrušiť.",
       cancelSuccess: "Plánované zmazanie účtu bolo zrušené.",
     },
-    
   },
 } as const;
