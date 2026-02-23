@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import Checkbox from "@/app/shared/ui/components/CheckBox";
+import Checkbox from "@/app/shared/ui/components/Checkbox1";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 
@@ -21,7 +24,10 @@ import {
   apiCancelAccountDelete,
 } from "@/app/features/account/api/account";
 
-import type { UserSettings, AccountDeleteStatus } from "@/app/features/account/types/account";
+import type {
+  UserSettings,
+  AccountDeleteStatus,
+} from "@/app/features/account/types/account";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -47,11 +53,29 @@ const WEEK_STARTS = ["Mon", "Sun"];
 const TIME_FORMATS = ["24", "12"];
 
 const TIMEZONES = [
-  "UTC", "Atlantic/Canary", "Europe/Bratislava", "Europe/Vienna", "Europe/Paris",
-  "Europe/Athens", "Europe/Helsinki", "Africa/Cairo", "Europe/Moscow", "Asia/Riyadh",
-  "America/Sao_Paulo", "America/Halifax", "America/New_York", "America/Chicago",
-  "America/Denver", "America/Los_Angeles", "Asia/Dubai", "Asia/Karachi",
-  "Asia/Kolkata", "Asia/Bangkok", "Asia/Shanghai", "Asia/Tokyo", "Australia/Sydney"
+  "UTC",
+  "Atlantic/Canary",
+  "Europe/Bratislava",
+  "Europe/Vienna",
+  "Europe/Paris",
+  "Europe/Athens",
+  "Europe/Helsinki",
+  "Africa/Cairo",
+  "Europe/Moscow",
+  "Asia/Riyadh",
+  "America/Sao_Paulo",
+  "America/Halifax",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Asia/Dubai",
+  "Asia/Karachi",
+  "Asia/Kolkata",
+  "Asia/Bangkok",
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "Australia/Sydney",
 ];
 
 type DeleteModalKind = "request" | "cancel" | null;
@@ -79,30 +103,72 @@ export default function SettingsInputs() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<AccountDeleteStatus | null>(
+    null,
+  );
   const [loadingDelete, setLoadingDelete] = useState(false);
   const [processingDelete, setProcessingDelete] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState<DeleteModalKind>(null);
   const [deleteConsentChecked, setDeleteConsentChecked] = useState(false);
 
-// Preložené možnosti pre selecty s potlačením TS varovania (as any)
-  const LANGUAGE_OPTIONS = useMemo(() => LANGUAGES.map(v => ({ value: v, label: t(`account.languageOptions.${v}` as any) })), [t]);
-  const UNIT_OPTIONS = useMemo(() => UNITS.map(v => ({ value: v, label: t(`account.unitOptions.${v}` as any) })), [t]);
-  const WEEK_START_OPTIONS = useMemo(() => WEEK_STARTS.map(v => ({ value: v, label: t(`account.weekStartOptions.${v}` as any) })), [t]);
-  const TIME_FORMAT_OPTIONS = useMemo(() => TIME_FORMATS.map(v => ({ value: v, label: t(`account.timeFormatOptions.${v}` as any) })), [t]);
-  const TIMEZONE_OPTIONS = useMemo(() => TIMEZONES.map(tz => ({ value: tz, label: t(`account.timezones.${tz}` as any) })), [t]);
+  // Preložené možnosti pre selecty s potlačením TS varovania (as any)
+  const LANGUAGE_OPTIONS = useMemo(
+    () =>
+      LANGUAGES.map((v) => ({
+        value: v,
+        label: t(`account.languageOptions.${v}` as any),
+      })),
+    [t],
+  );
+  const UNIT_OPTIONS = useMemo(
+    () =>
+      UNITS.map((v) => ({
+        value: v,
+        label: t(`account.unitOptions.${v}` as any),
+      })),
+    [t],
+  );
+  const WEEK_START_OPTIONS = useMemo(
+    () =>
+      WEEK_STARTS.map((v) => ({
+        value: v,
+        label: t(`account.weekStartOptions.${v}` as any),
+      })),
+    [t],
+  );
+  const TIME_FORMAT_OPTIONS = useMemo(
+    () =>
+      TIME_FORMATS.map((v) => ({
+        value: v,
+        label: t(`account.timeFormatOptions.${v}` as any),
+      })),
+    [t],
+  );
+  const TIMEZONE_OPTIONS = useMemo(
+    () =>
+      TIMEZONES.map((tz) => ({
+        value: tz,
+        label: t(`account.timezones.${tz}` as any),
+      })),
+    [t],
+  );
   useEffect(() => {
     if (!userId) return;
     let alive = true;
 
     (async () => {
       try {
-        const raw = await apiFetchUserPref(userId, "user.settings").catch(() => null);
+        const raw = await apiFetchUserPref(userId, "user.settings").catch(
+          () => null,
+        );
         if (!alive) return;
 
         if (raw && typeof raw === "object") {
-          setSettings((prev) => ({ ...prev, ...(raw as Partial<UserSettings>) }));
+          setSettings((prev) => ({
+            ...prev,
+            ...(raw as Partial<UserSettings>),
+          }));
         } else {
           await apiUpsertUserPref(userId, "user.settings", DEFAULT_SETTINGS);
           setSettings(DEFAULT_SETTINGS);
@@ -114,7 +180,9 @@ export default function SettingsInputs() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -136,7 +204,9 @@ export default function SettingsInputs() {
         if (alive) setLoadingDelete(false);
       });
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   async function handleSave() {
@@ -250,9 +320,7 @@ export default function SettingsInputs() {
           : t("account.preview.deleteNone");
 
     return `${lang} • ${units} • ${tz} • ${t("account.preview.week")} ${wk} • ${tf} • ${del}`;
-  }, [
-    settings, loadingDelete, deleteState, deleteAtLabel, t
-  ]);
+  }, [settings, loadingDelete, deleteState, deleteAtLabel, t]);
 
   return (
     <>
@@ -331,15 +399,20 @@ export default function SettingsInputs() {
             />
 
             <div>
-              <div className="text-xs font-medium" style={{ color: appColors.textMuted }}>
-                 {t("account.dateFormat")}
+              <div
+                className="text-xs font-medium"
+                style={{ color: appColors.textMuted }}
+              >
+                {t("account.dateFormat")}
               </div>
               <div className="mt-1">
                 <TextField
-                variant="readonly"
+                  variant="readonly"
                   type="text"
                   value={settings.date_format}
-                  onChange={(e) => setSettings((s) => ({ ...s, date_format: e.target.value }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, date_format: e.target.value }))
+                  }
                   placeholder="yyyy-MM-dd"
                   disabled={disabled}
                 />
@@ -360,8 +433,14 @@ export default function SettingsInputs() {
             />
           </div>
 
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-            <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+          <div
+            className="mt-4 pt-3 border-t"
+            style={{ borderColor: appColors.divider }}
+          >
+            <div
+              className="text-sm font-semibold"
+              style={{ color: appColors.textPrimary }}
+            >
               {t("account.actions")}
             </div>
             <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
@@ -389,25 +468,41 @@ export default function SettingsInputs() {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: appColors.divider }}>
-            <div className="text-sm font-semibold" style={{ color: appColors.statusError }}>
+          <div
+            className="mt-4 pt-3 border-t"
+            style={{ borderColor: appColors.divider }}
+          >
+            <div
+              className="text-sm font-semibold"
+              style={{ color: appColors.statusError }}
+            >
               {t("accountDelete.title")}
             </div>
 
             <div
               className="mt-2 rounded-lg border px-3 py-2 text-xs"
               style={{
-                borderColor: deleteCancelled ? "rgba(148,163,184,0.35)" : "rgba(239,68,68,0.55)",
-                background: deleteCancelled ? "rgba(30,41,59,0.35)" : "rgba(127,29,29,0.35)",
+                borderColor: deleteCancelled
+                  ? "rgba(148,163,184,0.35)"
+                  : "rgba(239,68,68,0.55)",
+                background: deleteCancelled
+                  ? "rgba(30,41,59,0.35)"
+                  : "rgba(127,29,29,0.35)",
                 color: appColors.textPrimary,
               }}
             >
               {loadingDelete ? (
-                <p style={{ color: appColors.textMuted }}>{t("accountDelete.checkingStatus")}</p>
+                <p style={{ color: appColors.textMuted }}>
+                  {t("accountDelete.checkingStatus")}
+                </p>
               ) : deletePending ? (
                 <>
                   <p>
-                    {t("accountDelete.status.accountIs")} <span className="font-semibold">{t("accountDelete.status.pendingLabel")}</span>.
+                    {t("accountDelete.status.accountIs")}{" "}
+                    <span className="font-semibold">
+                      {t("accountDelete.status.pendingLabel")}
+                    </span>
+                    .
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.pendingDesc")}
@@ -415,7 +510,10 @@ export default function SettingsInputs() {
                       <>
                         {" "}
                         {t("accountDelete.status.estimatedDate")}{" "}
-                        <span className="font-semibold" style={{ color: appColors.textPrimary }}>
+                        <span
+                          className="font-semibold"
+                          style={{ color: appColors.textPrimary }}
+                        >
                           {deleteAtLabel}
                         </span>
                         .
@@ -431,7 +529,11 @@ export default function SettingsInputs() {
               ) : deleteCancelled ? (
                 <>
                   <p>
-                    {t("accountDelete.status.plannedDeletionWas")} <span className="font-semibold">{t("accountDelete.status.cancelledLabel")}</span>.
+                    {t("accountDelete.status.plannedDeletionWas")}{" "}
+                    <span className="font-semibold">
+                      {t("accountDelete.status.cancelledLabel")}
+                    </span>
+                    .
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.cancelledDesc")}
@@ -440,7 +542,11 @@ export default function SettingsInputs() {
               ) : (
                 <>
                   <p>
-                    {t("accountDelete.status.deletionIs")} <span className="font-semibold">{t("accountDelete.status.defaultLabel")}</span>.
+                    {t("accountDelete.status.deletionIs")}{" "}
+                    <span className="font-semibold">
+                      {t("accountDelete.status.defaultLabel")}
+                    </span>
+                    .
                   </p>
                   <p className="mt-1" style={{ color: appColors.textMuted }}>
                     {t("accountDelete.status.defaultDesc")}
@@ -482,7 +588,12 @@ export default function SettingsInputs() {
                     setLoadingDelete(true);
                     apiGetAccountDeleteStatus(userId!)
                       .then(setDeleteStatus)
-                      .catch((e) => console.error("[SettingsInputs] delete status refresh error", e))
+                      .catch((e) =>
+                        console.error(
+                          "[SettingsInputs] delete status refresh error",
+                          e,
+                        ),
+                      )
                       .finally(() => setLoadingDelete(false));
                   }}
                 >
@@ -514,10 +625,17 @@ export default function SettingsInputs() {
                   className="text-base font-semibold"
                   style={{ color: "rgba(254, 202, 202, 0.95)" }}
                 >
-                  {deleteModal === "request" ? t("accountDelete.modal.titleRequest") : t("accountDelete.modal.titleCancel")}
+                  {deleteModal === "request"
+                    ? t("accountDelete.modal.titleRequest")
+                    : t("accountDelete.modal.titleCancel")}
                 </div>
-                <div className="text-[12px] mt-1" style={{ color: appColors.textMuted }}>
-                  {deleteModal === "request" ? t("accountDelete.modal.subtitleRequest") : t("accountDelete.modal.subtitleCancel")}
+                <div
+                  className="text-[12px] mt-1"
+                  style={{ color: appColors.textMuted }}
+                >
+                  {deleteModal === "request"
+                    ? t("accountDelete.modal.subtitleRequest")
+                    : t("accountDelete.modal.subtitleCancel")}
                 </div>
               </div>
 
@@ -532,7 +650,10 @@ export default function SettingsInputs() {
             </div>
 
             {deleteModal === "request" ? (
-              <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
+              <div
+                className="mt-3 text-sm"
+                style={{ color: appColors.textMuted }}
+              >
                 {t("accountDelete.modal.infoRequest")}
                 <ul className="list-disc ml-5 mt-2 space-y-1">
                   <li>{t("accountDelete.modal.bullets.b1")}</li>
@@ -541,7 +662,10 @@ export default function SettingsInputs() {
                 </ul>
               </div>
             ) : (
-              <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
+              <div
+                className="mt-3 text-sm"
+                style={{ color: appColors.textMuted }}
+              >
                 {t("accountDelete.modal.infoCancel")}
               </div>
             )}
@@ -549,7 +673,9 @@ export default function SettingsInputs() {
             <div className="mt-4">
               <Checkbox
                 checked={deleteConsentChecked}
-                onChange={(e) => setDeleteConsentChecked(e.currentTarget.checked)}
+                onChange={(e) =>
+                  setDeleteConsentChecked(e.currentTarget.checked)
+                }
                 label={
                   <span className="text-sm">
                     {deleteModal === "request"
@@ -557,12 +683,21 @@ export default function SettingsInputs() {
                       : t("accountDelete.modal.consentCancel")}
                   </span>
                 }
-                hint={<span className="text-[11px]">{t("accountDelete.modal.consentHint")}</span>}
+                hint={
+                  <span className="text-[11px]">
+                    {t("accountDelete.modal.consentHint")}
+                  </span>
+                }
               />
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
-              <Button size="sm" variant="secondary" onClick={closeDeleteModal} disabled={processingDelete}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={closeDeleteModal}
+                disabled={processingDelete}
+              >
                 {t("accountDelete.modal.btnCancel")}
               </Button>
 
@@ -572,7 +707,11 @@ export default function SettingsInputs() {
                   variant="danger"
                   disabled={!deleteConsentChecked || processingDelete}
                   onClick={confirmRequestDelete}
-                  title={!deleteConsentChecked ? t("accountDelete.modal.errorCheckbox") : t("accountDelete.buttons.requestDelete")}
+                  title={
+                    !deleteConsentChecked
+                      ? t("accountDelete.modal.errorCheckbox")
+                      : t("accountDelete.buttons.requestDelete")
+                  }
                 >
                   {processingDelete ? (
                     <span className="inline-flex items-center gap-1">
@@ -589,7 +728,11 @@ export default function SettingsInputs() {
                   variant="danger"
                   disabled={!deleteConsentChecked || processingDelete}
                   onClick={confirmCancelDelete}
-                  title={!deleteConsentChecked ? t("accountDelete.modal.errorCheckbox") : t("accountDelete.buttons.cancelDelete")}
+                  title={
+                    !deleteConsentChecked
+                      ? t("accountDelete.modal.errorCheckbox")
+                      : t("accountDelete.buttons.cancelDelete")
+                  }
                 >
                   {processingDelete ? (
                     <span className="inline-flex items-center gap-1">

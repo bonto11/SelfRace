@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/ui/components/Button";
-import Checkbox from "@/app/shared/ui/components/CheckBox";
+import Checkbox from "@/app/shared/ui/components/Checkbox1";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -39,7 +39,7 @@ import {
   PANEL_ACTIONS_INLINE,
   SURFACE_INSET_STYLE,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; 
+import { useT } from "@/app/shared/i18n/useT";
 
 type BusyKind = "import" | "disconnect" | null;
 
@@ -50,7 +50,7 @@ function fmtIsoLocal(iso?: string | null): string | null {
 
 export default function StravaPanel() {
   const { userId } = useUserId();
-  const t = useT(); 
+  const t = useT();
   const [busy, setBusy] = useState<BusyKind>(null);
 
   const [status, setStatus] = useState<StravaStatus | null>(null);
@@ -114,7 +114,7 @@ export default function StravaPanel() {
           reconnectAfter
             ? `${t("strava.toasts.reconnectAfter")} ${reconnectAfter}`
             : t("strava.toasts.reconnectCooldownDefault"),
-          Infinity
+          Infinity,
         );
       } else if (reason === "strava_denied") {
         toast.error(t("strava.toasts.errorDenied"));
@@ -149,7 +149,7 @@ export default function StravaPanel() {
 
       // UX: Preložený súhrn importu
       toast.success(
-        `${t("strava.toasts.importOk")} • ${t("strava.import.new")}: ${imp} • ${t("strava.import.updated")}: ${upd} • ${t("strava.import.skipped")}: ${skp}`
+        `${t("strava.toasts.importOk")} • ${t("strava.import.new")}: ${imp} • ${t("strava.import.updated")}: ${upd} • ${t("strava.import.skipped")}: ${skp}`,
       );
 
       await reloadStatus(userId);
@@ -177,13 +177,17 @@ export default function StravaPanel() {
 
     setBusy("disconnect");
     try {
-      await apiDisconnectStrava(userId, { consent: true, reason: "user_request" });
+      await apiDisconnectStrava(userId, {
+        consent: true,
+        reason: "user_request",
+      });
 
       toast.success(t("strava.toasts.disconnectSuccess"));
       closeDisconnectModal();
       await reloadStatus(userId);
     } catch (e: any) {
-      const errorMsg = t(e?.message as any) || t("strava.toasts.disconnectFailed");
+      const errorMsg =
+        t(e?.message as any) || t("strava.toasts.disconnectFailed");
       toast.error(errorMsg);
     } finally {
       setBusy(null);
@@ -195,7 +199,9 @@ export default function StravaPanel() {
   const statusText = (() => {
     if (!userId) return t("strava.status.notLoggedIn");
     if (statusLoading) return t("strava.status.loading");
-    return connected ? t("strava.status.connected") : t("strava.status.disconnected");
+    return connected
+      ? t("strava.status.connected")
+      : t("strava.status.disconnected");
   })();
 
   const pillPaint = (() => {
@@ -221,7 +227,7 @@ export default function StravaPanel() {
   })();
 
   const canConnect = canConnectStravaNow(status);
-  
+
   // Tlačidlo už nebude zablokované len preto, že stravaConnectUrl bolo null pre "undefined" ENV.
   const connectDisabled =
     disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
@@ -230,7 +236,8 @@ export default function StravaPanel() {
     disabled || !userId || !connected || statusLoading || busy === "disconnect";
 
   const importAllowed = status?.can_manual_import === true;
-  const importDisabled = !userId || busy === "import" || !connected || !importAllowed;
+  const importDisabled =
+    !userId || busy === "import" || !connected || !importAllowed;
 
   const reconnectAfterLabel = fmtIsoLocal(status?.reconnect_after ?? null);
 
@@ -240,8 +247,8 @@ export default function StravaPanel() {
       : null;
 
   const syncMaxLabel =
-    connected && typeof syncMax === "number" && syncMax > 0 
-      ? `${t("strava.sync.max")} ${syncMax} ${t("strava.sync.activities")}` 
+    connected && typeof syncMax === "number" && syncMax > 0
+      ? `${t("strava.sync.max")} ${syncMax} ${t("strava.sync.activities")}`
       : null;
 
   return (
@@ -252,22 +259,36 @@ export default function StravaPanel() {
       >
         <header className={PANEL_HEADER}>
           <div>
-            <h2 className={PANEL_TITLE} style={{ color: appColors.textPrimary }}>
+            <h2
+              className={PANEL_TITLE}
+              style={{ color: appColors.textPrimary }}
+            >
               {t("strava.title")}
             </h2>
-            <p className={PANEL_SUBTITLE} style={{ color: appColors.textMuted }}>
+            <p
+              className={PANEL_SUBTITLE}
+              style={{ color: appColors.textMuted }}
+            >
               {t("strava.subtitle")}
             </p>
 
             {!connected && reconnectAfterLabel ? (
-              <p className="text-[12px] mt-2" style={{ color: appColors.textMuted }}>
+              <p
+                className="text-[12px] mt-2"
+                style={{ color: appColors.textMuted }}
+              >
                 {t("strava.reconnectAfterLabel")}{" "}
-                <span style={{ color: appColors.textSecondary }}>{reconnectAfterLabel}</span>
+                <span style={{ color: appColors.textSecondary }}>
+                  {reconnectAfterLabel}
+                </span>
               </p>
             ) : null}
 
             {connected && (syncWindowLabel || syncMaxLabel) ? (
-              <p className="text-[12px] mt-2" style={{ color: appColors.textMuted }}>
+              <p
+                className="text-[12px] mt-2"
+                style={{ color: appColors.textMuted }}
+              >
                 {t("strava.syncWindowLabel")}{" "}
                 <span style={{ color: appColors.textSecondary }}>
                   <b>{syncWindowLabel ?? "—"}</b>
@@ -282,11 +303,19 @@ export default function StravaPanel() {
               {statusText}
             </span>
 
-            <p className={PANEL_BRAND_TINY} style={{ color: appColors.textMuted }}>
+            <p
+              className={PANEL_BRAND_TINY}
+              style={{ color: appColors.textMuted }}
+            >
               <img
                 src={STRAVA_ASSETS.poweredBySvg_white}
                 alt="Powered by Strava"
-                style={{ height: 16, width: "auto", display: "block", opacity: 0.9 }}
+                style={{
+                  height: 16,
+                  width: "auto",
+                  display: "block",
+                  opacity: 0.9,
+                }}
                 draggable={false}
               />
             </p>
@@ -296,10 +325,16 @@ export default function StravaPanel() {
         <div className={PANEL_INNER_STACK}>
           {/* Sekcia 1 */}
           <div className={PANEL_SECTION}>
-            <div className={PANEL_SECTION_LABEL} style={{ color: appColors.textSecondary }}>
+            <div
+              className={PANEL_SECTION_LABEL}
+              style={{ color: appColors.textSecondary }}
+            >
               {t("strava.section1.label")}
             </div>
-            <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
+            <p
+              className={PANEL_SECTION_TEXT}
+              style={{ color: appColors.textMuted }}
+            >
               {t("strava.section1.text")}
             </p>
 
@@ -343,15 +378,28 @@ export default function StravaPanel() {
             className={PANEL_SECTION + " " + PANEL_SECTION_DIVIDER}
             style={{ borderColor: appColors.divider }}
           >
-            <div className={PANEL_SECTION_LABEL} style={{ color: appColors.textSecondary }}>
+            <div
+              className={PANEL_SECTION_LABEL}
+              style={{ color: appColors.textSecondary }}
+            >
               {t("strava.section2.label")}
             </div>
-            <p className={PANEL_SECTION_TEXT} style={{ color: appColors.textMuted }}>
+            <p
+              className={PANEL_SECTION_TEXT}
+              style={{ color: appColors.textMuted }}
+            >
               {t("strava.section2.text")}
               {importAllowed && syncWindowLabel ? (
                 <>
-                  {" "}{t("strava.sync.currentWindow")}: <b>{syncWindowLabel}</b>
-                  {syncMaxLabel ? <> • <b>{syncMaxLabel}</b></> : null}.
+                  {" "}
+                  {t("strava.sync.currentWindow")}: <b>{syncWindowLabel}</b>
+                  {syncMaxLabel ? (
+                    <>
+                      {" "}
+                      • <b>{syncMaxLabel}</b>
+                    </>
+                  ) : null}
+                  .
                 </>
               ) : null}
             </p>
@@ -398,7 +446,10 @@ export default function StravaPanel() {
                 >
                   {t("strava.modal.title")}
                 </div>
-                <div className="text-[12px] mt-1" style={{ color: appColors.textMuted }}>
+                <div
+                  className="text-[12px] mt-1"
+                  style={{ color: appColors.textMuted }}
+                >
                   {t("strava.modal.warning")}
                 </div>
               </div>
@@ -413,7 +464,10 @@ export default function StravaPanel() {
               </button>
             </div>
 
-            <div className="mt-3 text-sm" style={{ color: appColors.textMuted }}>
+            <div
+              className="mt-3 text-sm"
+              style={{ color: appColors.textMuted }}
+            >
               {t("strava.modal.consequencesTitle")}
               <ul className="list-disc ml-5 mt-2 space-y-1">
                 <li>{t("strava.modal.consequence1")}</li>
@@ -431,7 +485,11 @@ export default function StravaPanel() {
                     {t("strava.modal.consentLabel")}
                   </span>
                 }
-                hint={<span className="text-[11px]">{t("strava.modal.consentHint")}</span>}
+                hint={
+                  <span className="text-[11px]">
+                    {t("strava.modal.consentHint")}
+                  </span>
+                }
               />
             </div>
 
@@ -450,7 +508,11 @@ export default function StravaPanel() {
                 variant="danger"
                 disabled={!confirmChecked || busy === "disconnect"}
                 onClick={handleDisconnectConfirmed}
-                title={!confirmChecked ? t("strava.modal.btnDisabledTitle") : t("strava.modal.btnAction")}
+                title={
+                  !confirmChecked
+                    ? t("strava.modal.btnDisabledTitle")
+                    : t("strava.modal.btnAction")
+                }
               >
                 {busy === "disconnect" ? (
                   <span className="inline-flex items-center gap-1">

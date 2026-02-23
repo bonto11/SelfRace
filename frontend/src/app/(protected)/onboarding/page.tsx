@@ -6,14 +6,17 @@ import { useRouter } from "next/navigation";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
-import Checkbox from "@/app/shared/ui/components/CheckBox";
+import Checkbox from "@/app/shared/ui/components/Checkbox1";
 import { useT } from "@/app/shared/i18n/useT";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 export default function OnboardingPage() {
   const t = useT();
   const router = useRouter();
-  
+
   const { userId } = useUserId();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -28,8 +31,14 @@ export default function OnboardingPage() {
         <div className="space-y-3">
           <p>{t("onboarding.welcome.desc1")}</p>
           <ul className="list-disc pl-5 opacity-90 space-y-1">
-            <li><b>{t("onboarding.welcome.iosTitle")}</b> <i>{t("onboarding.welcome.iosDesc")}</i></li>
-            <li><b>{t("onboarding.welcome.androidTitle")}</b> <i>{t("onboarding.welcome.androidDesc")}</i></li>
+            <li>
+              <b>{t("onboarding.welcome.iosTitle")}</b>{" "}
+              <i>{t("onboarding.welcome.iosDesc")}</i>
+            </li>
+            <li>
+              <b>{t("onboarding.welcome.androidTitle")}</b>{" "}
+              <i>{t("onboarding.welcome.androidDesc")}</i>
+            </li>
           </ul>
           <p className="text-xs opacity-70 mt-4 italic">
             {t("onboarding.welcome.ps")}
@@ -45,8 +54,14 @@ export default function OnboardingPage() {
         <div className="space-y-3">
           <p>{t("onboarding.data.desc1")}</p>
           <ul className="list-disc pl-5 opacity-90 space-y-1">
-            <li><b>{t("onboarding.data.connectTitle")}</b> {t("onboarding.data.connectDesc")}</li>
-            <li><b>{t("onboarding.data.importTitle")}</b> {t("onboarding.data.importDesc")}</li>
+            <li>
+              <b>{t("onboarding.data.connectTitle")}</b>{" "}
+              {t("onboarding.data.connectDesc")}
+            </li>
+            <li>
+              <b>{t("onboarding.data.importTitle")}</b>{" "}
+              {t("onboarding.data.importDesc")}
+            </li>
           </ul>
         </div>
       ),
@@ -57,8 +72,14 @@ export default function OnboardingPage() {
       title: t("onboarding.status.title"),
       content: (
         <div className="space-y-3">
-          <p><b>{t("onboarding.status.profileTitle")}</b> {t("onboarding.status.profileDesc")}</p>
-          <p><b>{t("onboarding.status.recoveryTitle")}</b> {t("onboarding.status.recoveryDesc")}</p>
+          <p>
+            <b>{t("onboarding.status.profileTitle")}</b>{" "}
+            {t("onboarding.status.profileDesc")}
+          </p>
+          <p>
+            <b>{t("onboarding.status.recoveryTitle")}</b>{" "}
+            {t("onboarding.status.recoveryDesc")}
+          </p>
         </div>
       ),
     },
@@ -70,20 +91,30 @@ export default function OnboardingPage() {
         <div className="space-y-3">
           <p>{t("onboarding.coach.desc1")}</p>
           <ul className="list-disc pl-5 opacity-90 space-y-1">
-            <li><b>{t("onboarding.coach.prefsTitle")}</b> {t("onboarding.coach.prefsDesc")}</li>
-            <li><b>{t("onboarding.coach.eventsTitle")}</b> {t("onboarding.coach.eventsDesc")}</li>
-            <li><b>{t("onboarding.coach.genTitle")}</b> {t("onboarding.coach.genDesc")}</li>
+            <li>
+              <b>{t("onboarding.coach.prefsTitle")}</b>{" "}
+              {t("onboarding.coach.prefsDesc")}
+            </li>
+            <li>
+              <b>{t("onboarding.coach.eventsTitle")}</b>{" "}
+              {t("onboarding.coach.eventsDesc")}
+            </li>
+            <li>
+              <b>{t("onboarding.coach.genTitle")}</b>{" "}
+              {t("onboarding.coach.genDesc")}
+            </li>
           </ul>
         </div>
       ),
-    }
+    },
   ];
 
   const handleFinish = async () => {
     if (userId && dontShowAgain) {
       try {
-        const currentSettings = await apiFetchUserPref(userId, "user.settings") || {};
-        
+        const currentSettings =
+          (await apiFetchUserPref(userId, "user.settings")) || {};
+
         const updatedSettings = {
           ...currentSettings,
           onboarding_seen: true,
@@ -104,11 +135,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 mt-10">
-      <div 
+      <div
         className="bg-base-100 rounded-3xl shadow-xl overflow-hidden flex flex-col"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
-        <div className="flex overflow-x-auto border-b hide-scrollbar" style={{ borderColor: appColors.surfaceCardBorder }}>
+        <div
+          className="flex overflow-x-auto border-b hide-scrollbar"
+          style={{ borderColor: appColors.surfaceCardBorder }}
+        >
           {CHAPTERS.map((chap, idx) => {
             const isActive = activeTab === idx;
             return (
@@ -119,7 +153,9 @@ export default function OnboardingPage() {
                   isActive ? "text-white" : "text-gray-500 hover:text-gray-300"
                 }`}
                 style={{
-                  borderBottom: isActive ? `2px solid ${appColors.brandPrimary}` : "2px solid transparent"
+                  borderBottom: isActive
+                    ? `2px solid ${appColors.brandPrimary}`
+                    : "2px solid transparent",
                 }}
               >
                 {chap.tabLabel}
@@ -135,46 +171,77 @@ export default function OnboardingPage() {
           <div className="text-base sm:text-lg leading-relaxed opacity-80 text-left">
             {currentChapter.content}
           </div>
-
-          {/* CHECKBOX: Zobrazí sa iba na poslednej záložke */}
-          {isLastTab && (
-            <div className="mt-auto pt-8">
-              <Checkbox
-                label={t("onboarding.dontShowAgain")}
-                checked={dontShowAgain}
-                onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
-              />
-            </div>
-          )}
         </div>
 
-        <div className="p-6 sm:p-8 bg-base-200/30 flex justify-between items-center" style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}>
-          
-          <div className="flex gap-3">
-            {activeTab > 0 && (
-              <button 
-                onClick={() => setActiveTab(prev => prev - 1)}
-                className="btn btn-ghost"
-              >
-                {t("onboarding.back")}
-              </button>
-            )}
-            {!isLastTab && (
-              <button 
-                onClick={() => setActiveTab(prev => prev + 1)}
-                className="btn btn-outline"
-                style={{ borderColor: appColors.brandPrimary, color: appColors.brandPrimary }}
-              >
-                {t("onboarding.next")}
-              </button>
+        {/* FOOTER s Checkboxom na poslednom tabe */}
+        <div
+          className="p-6 sm:p-8 bg-base-200/30 flex justify-between items-center"
+          style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
+        >
+          {/* Ľavá strana: Navigácia a Checkbox */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex gap-3">
+              {activeTab > 0 && (
+                <button
+                  onClick={() => setActiveTab((prev) => prev - 1)}
+                  className="btn btn-ghost"
+                >
+                  {t("onboarding.back")}
+                </button>
+              )}
+              {!isLastTab && (
+                <button
+                  onClick={() => setActiveTab((prev) => prev + 1)}
+                  className="btn btn-outline"
+                  style={{
+                    borderColor: appColors.brandPrimary,
+                    color: appColors.brandPrimary,
+                  }}
+                >
+                  {t("onboarding.next")}
+                </button>
+              )}
+            </div>
+
+            {/* Zobrazené iba na poslednom tabe */}
+            {isLastTab && (
+              <div className="hidden sm:block">
+                <Checkbox
+                  label={
+                    <span className="text-sm font-medium">
+                      {t("onboarding.dontShowAgain")}
+                    </span>
+                  }
+                  checked={dontShowAgain}
+                  onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
+                />
+              </div>
             )}
           </div>
 
-          <Button onClick={handleFinish} variant="primary" className="px-8">
+          <Button
+            onClick={handleFinish}
+            variant="primary"
+            className="px-8 shrink-0"
+          >
             {isLastTab ? t("onboarding.finishGo") : t("onboarding.skip")}
           </Button>
-
         </div>
+
+        {/* Mobilný Checkbox pod footrom pre úzke displeje */}
+        {isLastTab && (
+          <div className="sm:hidden px-6 pb-6 bg-base-200/30">
+            <Checkbox
+              label={
+                <span className="text-sm font-medium">
+                  {t("onboarding.dontShowAgain")}
+                </span>
+              }
+              checked={dontShowAgain}
+              onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

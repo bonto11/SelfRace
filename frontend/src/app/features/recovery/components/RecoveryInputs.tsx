@@ -6,7 +6,7 @@ import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
-import Checkbox from "@/app/shared/ui/components/CheckBox";
+import Checkbox from "@/app/shared/ui/components/Checkbox1";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -90,7 +90,8 @@ export default function RecoveryInputs() {
     setDirty((d) => (d[k] ? d : { ...d, [k]: true }));
   };
 
-  const shiftDate = (deltaDays: number) => setDate((prev) => addDaysIso(prev, deltaDays));
+  const shiftDate = (deltaDays: number) =>
+    setDate((prev) => addDaysIso(prev, deltaDays));
 
   async function handleSave() {
     if (!userId) {
@@ -102,18 +103,25 @@ export default function RecoveryInputs() {
 
     if (dirty.RHR_bpm) patch.RHR_bpm = toNumberOrNull(rhr);
     if (dirty.HRV_avg_ms) patch.HRV_avg_ms = toNumberOrNull(hrvAvg);
-    if (dirty.sleep_duration_min) patch.sleep_duration_min = sleepHHMMToMinutesOrNull(sleepDuration);
+    if (dirty.sleep_duration_min)
+      patch.sleep_duration_min = sleepHHMMToMinutesOrNull(sleepDuration);
 
     if (dirty.food_2h_before) patch.food_2h_before = Boolean(lateFood);
     if (dirty.caffeine_8h) patch.caffeine_8h = Boolean(lateCaffeine);
-    if (dirty.alcohol_volume_ml) patch.alcohol_volume_ml = toNumberOrNull(alcoholVolume);
-    if (dirty.alcohol_type_pct) patch.alcohol_type_pct = toNumberOrNull(alcoholType);
-    if (dirty.comments) patch.comments = comments.trim() ? comments.trim() : null;
+    if (dirty.alcohol_volume_ml)
+      patch.alcohol_volume_ml = toNumberOrNull(alcoholVolume);
+    if (dirty.alcohol_type_pct)
+      patch.alcohol_type_pct = toNumberOrNull(alcoholType);
+    if (dirty.comments)
+      patch.comments = comments.trim() ? comments.trim() : null;
 
     if (dirty.HRV_max_ms) patch.HRV_max_ms = toNumberOrNull(hrvMax);
-    if (dirty.sleep_start_time) patch.sleep_start_time = sleepStart ? sleepStart : null;
+    if (dirty.sleep_start_time)
+      patch.sleep_start_time = sleepStart ? sleepStart : null;
 
-    const keys = Object.keys(patch).filter((k) => k !== "date" && k !== "user_id");
+    const keys = Object.keys(patch).filter(
+      (k) => k !== "date" && k !== "user_id",
+    );
     if (keys.length === 0) {
       toast.error(t("recovery.inputs.errorNoChanges"));
       return;
@@ -145,7 +153,12 @@ export default function RecoveryInputs() {
       always={
         <div className={INPUTS_CARD_DATE_ROW}>
           <div className={INPUTS_CARD_DATE_INNER}>
-            <Button size="sm" variant="ghost" onClick={() => shiftDate(-1)} disabled={saving}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => shiftDate(-1)}
+              disabled={saving}
+            >
               −1
             </Button>
 
@@ -157,7 +170,12 @@ export default function RecoveryInputs() {
               variant="editable"
             />
 
-            <Button size="sm" variant="ghost" onClick={() => shiftDate(+1)} disabled={saving}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => shiftDate(+1)}
+              disabled={saving}
+            >
               +1
             </Button>
           </div>
@@ -179,7 +197,10 @@ export default function RecoveryInputs() {
         <div className={FORM_GRID_TWO}>
           {/* HLAVNÉ UKAZOVATELE */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.hrvAvgLabel")}
             </div>
             <TextField
@@ -195,7 +216,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.rhrLabel")}
             </div>
             <TextField
@@ -211,7 +235,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.sleepDurationLabel")}
             </div>
             <TextField
@@ -229,7 +256,10 @@ export default function RecoveryInputs() {
 
           {/* OVPLYVŇUJÚCE FAKTORY */}
           <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_2} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_2}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.factorsSection")}
             </div>
 
@@ -258,7 +288,10 @@ export default function RecoveryInputs() {
             </div>
 
             <div className="mt-3">
-              <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
                 {t("recovery.inputs.alcoholLabel")}
               </div>
               <div className={FORM_GRID_SPLIT}>
@@ -286,7 +319,10 @@ export default function RecoveryInputs() {
             </div>
 
             <div className="mt-3">
-              <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              <div
+                className={INPUTS_CARD_LABEL_SM_1}
+                style={{ color: appColors.textMuted }}
+              >
                 {t("recovery.inputs.noteLabel")}
               </div>
               <TextField
@@ -303,7 +339,10 @@ export default function RecoveryInputs() {
 
           {/* DOPLNKY */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.hrvMaxLabel")}
             </div>
             <TextField
@@ -319,7 +358,10 @@ export default function RecoveryInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("recovery.inputs.sleepStartLabel")}
             </div>
             <TextField
