@@ -3,21 +3,24 @@
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-// Používame čistý JS klient s vlastným storage kľúčom
-export const supabaseBrowser = createClient(
-  SUPABASE_URL!,
-  SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: true,
-      storageKey: 'selfrace-auth-session', // Vlastný kľúč v LocalStorage
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      detectSessionInUrl: true,
-      autoRefreshToken: true,
-    }
-  }
-);
+let _client: ReturnType<typeof createClient> | null = null;
 
 export function getSupabaseBrowser() {
-  return supabaseBrowser;
+  if (!_client) {
+    _client = createClient(
+      SUPABASE_URL!,
+      SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: typeof window !== "undefined"
+            ? window.localStorage
+            : undefined,
+        },
+      }
+    );
+  }
+  return _client;
 }
