@@ -44,7 +44,6 @@ export async function apiGetStravaStatus(userId: number): Promise<StravaStatus> 
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `${STRAVA_BASE}/status?user_id=${enc(userId)}`;
-  console.debug("[Strava][apiGetStravaStatus] ->", path);
 
   try {
     const json = await callBackend<any>(path, {
@@ -91,7 +90,6 @@ export async function apiDisconnectStrava(
   if (opts?.dryRun) qs.set("dry_run", "1");
 
   const path = `${STRAVA_BASE}/disconnect?${qs.toString()}`;
-  console.debug("[Strava][apiDisconnectStrava] ->", path, "payload:", payload);
 
   try {
     const json = await callBackend<any>(path, {
