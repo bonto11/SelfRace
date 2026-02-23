@@ -19,7 +19,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useState(false); // Default: nezaskrtnute
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const CHAPTERS = [
     {
@@ -171,6 +171,7 @@ export default function OnboardingWizard({ userId, forceShow = false, onCloseMan
             {currentChapter.content}
           </div>
 
+          {/* CHECKBOX: Iba pre posledný tab */}
           {isLastTab && (
             <div className="mt-auto pt-6 flex items-center justify-start">
                <Checkbox

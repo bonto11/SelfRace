@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link"; // ✅ Pridaný Link pre stabilnú navigáciu
 import { signOut } from "@/app/shared/utils/signOut";
 import {
   DROPDOWN_DIVIDER,
@@ -231,30 +232,42 @@ export default function UserMenu() {
             </div>
 
             <nav className={USER_MENU_NAV}>
-              <a className={DROPDOWN_ITEM} href="/account" role="menuitem">
+              {/* ✅ Využívame <Link>, aby sme nerobili full-page reload */}
+              <Link
+                className={DROPDOWN_ITEM}
+                href="/account"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
                 {t("userMenu.account")}
-              </a>
+              </Link>
 
-              <a className={DROPDOWN_ITEM} href="/subscription" role="menuitem">
+              <Link
+                className={DROPDOWN_ITEM}
+                href="/subscription"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
                 {t("userMenu.subscription")}
-              </a>
+              </Link>
 
-              <a
+              <Link
                 className={DROPDOWN_ITEM}
                 href="/connectedApps"
                 role="menuitem"
+                onClick={() => setOpen(false)}
               >
                 {t("userMenu.connectedApps")}
-              </a>
+              </Link>
 
-              <a 
+              <Link 
                 className={DROPDOWN_ITEM} 
                 href="/onboarding" 
                 role="menuitem"
                 onClick={() => setOpen(false)}
               >
                 {t("userMenu.showTutorial")}
-              </a>
+              </Link>
 
               <div className={DROPDOWN_DIVIDER} />
 

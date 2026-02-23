@@ -17,7 +17,7 @@ export default function OnboardingPage() {
   const { userId } = useUserId();
 
   const [activeTab, setActiveTab] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useState(false); // Default: nezaskrtnute
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const CHAPTERS = [
     {
@@ -136,13 +136,14 @@ export default function OnboardingPage() {
             {currentChapter.content}
           </div>
 
+          {/* CHECKBOX: Zobrazí sa iba na poslednej záložke */}
           {isLastTab && (
-            <div className="mt-auto pt-8 flex items-center justify-start">
-               <Checkbox
-                  label={t("onboarding.dontShowAgain")}
-                  checked={dontShowAgain}
-                  onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
-                />
+            <div className="mt-auto pt-8">
+              <Checkbox
+                label={t("onboarding.dontShowAgain")}
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
+              />
             </div>
           )}
         </div>
