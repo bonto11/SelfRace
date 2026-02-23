@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
-import Checkbox from "@/app/shared/ui/components/Checkbox1";
+import Checkbox from "@/app/shared/ui/components/CheckBox";
 import { useT } from "@/app/shared/i18n/useT";
 import {
   apiFetchUserPref,
