@@ -4,10 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
 export async function middleware(request: NextRequest) {
-  // 1. Lokálne ignoruj statické veci a API, aby sme nepreťažovali middleware
+  // 1. Ignoruj iba Next.js statické súbory a obrázky
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/api") ||
     request.nextUrl.pathname === "/favicon.ico" ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(request.nextUrl.pathname)
   ) {
@@ -16,7 +15,7 @@ export async function middleware(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request });
 
-  // 2. Vytvoríme klienta, ktorý dokáže čítať aj zapisovať do prebiehajúceho requestu
+  // 2. Klient na čítanie a bezpečné zapisovanie cookies pre obnovu session
   const supabase = createServerClient(
     SUPABASE_URL!,
     SUPABASE_ANON_KEY!,
@@ -36,8 +35,8 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 3. Kľúčový krok: Zavolaním getUser() Supabase zistí, či token expiruje. 
-  // Ak áno, vďaka kódu vyššie (setAll) ho ticho obnoví priamo do Cookies prehliadača.
+  // 3. Spustením getUser() dáš Supabase pokyn, aby skontroloval, či nevypršal token. 
+  // Ak áno, ticho ho obnoví pomocou funkcie setAll.
   await supabase.auth.getUser();
 
   return supabaseResponse;

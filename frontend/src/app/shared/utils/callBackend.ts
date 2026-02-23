@@ -1,77 +1,27 @@
 // src/app/shared/utils/callBackend.ts
 "use client";
 
-// Uisti sa, že táto cesta je správna! (Niekedy si mal /lib/config)
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export type BackendInit = RequestInit;
 
-async function getAuthToken(): Promise<{
-  token: string | null;
-  refreshed: boolean;
-}> {
+async function getAuthToken(): Promise<string | null> {
   const supabase = getSupabaseBrowser();
 
-  // 1) pokus z browser Supabase klienta (localStorage)
   try {
+    // V SSR architektúre si tento klient vytiahne token sám z Cookies (pretože sme ho tak nastavili)
     const { data, error } = await supabase.auth.getSession();
 
     if (error) {
       console.warn("[callBackend] getSession error:", error.message);
+      return null;
     }
 
-    const token = data?.session?.access_token ?? null;
-    if (token) {
-      return { token, refreshed: false };
-    }
+    return data?.session?.access_token ?? null;
   } catch (e: any) {
     console.warn("[callBackend] getSession threw:", e?.message ?? e);
-  }
-
-  // 2) fallback → zober session z httpOnly cookies cez server route
-  try {
-    const res = await fetch("/api/auth/session-token", {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      console.warn("[callBackend] /api/auth/session-token status:", res.status);
-      return { token: null, refreshed: false };
-    }
-
-    const json = (await res.json()) as {
-      access_token?: string | null;
-      refresh_token?: string | null;
-    };
-
-    const access = json?.access_token ?? null;
-    const refresh = json?.refresh_token ?? null;
-
-    if (access && refresh) {
-      try {
-        await supabase.auth.setSession({
-          access_token: access,
-          refresh_token: refresh,
-        });
-      } catch (e: any) {
-        console.warn(
-          "[callBackend] supabase.auth.setSession failed:",
-          e?.message ?? e,
-        );
-      }
-      return { token: access, refreshed: true };
-    }
-
-    return { token: null, refreshed: false };
-  } catch (e: any) {
-    console.warn(
-      "[callBackend] /api/auth/session-token error:",
-      e?.message ?? e,
-    );
-    return { token: null, refreshed: false };
+    return null;
   }
 }
 
@@ -79,7 +29,7 @@ export async function callBackend<T = any>(
   path: string,
   init: BackendInit = {},
 ): Promise<T> {
-  const { token } = await getAuthToken();
+  const token = await getAuthToken();
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -87,7 +37,8 @@ export async function callBackend<T = any>(
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   } else {
-    console.warn("[callBackend] no token available");
+    // Keď nie je token, je lepšie backendu aspoň povedať, že sa to snažíme
+    console.warn(`[callBackend] volanie ${path} beží bez tokenu`);
   }
 
   const fullUrl = `${API_URL}${path}`;
