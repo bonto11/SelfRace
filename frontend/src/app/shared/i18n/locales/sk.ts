@@ -822,42 +822,42 @@ export const sk = {
       androidTitle: "Android (Chrome):",
       androidDesc:
         "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na domovskú obrazovku'.",
-      ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v User Menu (tvoj avatar vpravo hore).",
+      ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v Užívateľskom menu (tvoj avatar vpravo hore).",
     },
     data: {
       tab: "Dáta",
       title: "Strava a Aktivity 🚴‍♂️",
-      desc1: "Aby ti tréner mohol radiť, potrebuje tvoje historické dáta.",
+      desc1: "Aby ti tréner mohol radiť, potrebuje tvoje dáta.",
       connectTitle: "Pripojenie:",
       connectDesc:
-        "V User Menu prejdi do 'Pripojené aplikácie' a klikni na oranžové tlačidlo Connect with Strava. Tvoje dáta sú v bezpečí.",
+        "V Užívateľskom menu prejdi do 'Pripojené aplikácie' a klikni na oranžové tlačidlo Connect with Strava. Tvoje dáta sú v bezpečí.",
       importTitle: "Import:",
       importDesc:
-        "Hneď po prepojení Stravy, na tej istej stránke, spusti import aktivít. Odporúčame stiahnuť aspoň pár týždňov dozadu.",
+        "Hneď po prepojení Stravy, na tej istej stránke, spusti import aktivít.",
     },
     status: {
       tab: "Môj Stav",
       title: "Profil a Regenerácia 🔋",
       profileTitle: "Tvoj telesný profil:",
       profileDesc:
-        "V sekcii Profil si doplň svoje základné telesné miery. Priebežne doplnaj udaje o VO2Max ak bz si chodil na testy či percentá telesného tuku.",
+        "V sekcii Profil si vyplň svoje základné telesné miery. Pre čo najlepšie výsledky odporúčame priebežne aktualizovať údaje, ako je tvoja hmotnosť, percento telesného tuku či aktuálne VO2Max (napríklad z testov).",
       recoveryTitle: "Regenerácia:",
       recoveryDesc:
-        "V sekcii Regnenerácia si každý deň poctivo zapisuj rannú únavu, kvalitu spánku či stres. Zatiaľ si to tam musíš klikať ručne – iny výrobcovnia hodiniek s nami zatiaľ nie sú až takí obrovskí kamaráti, aby nám to dali automaticky... 😢 ",
+        "V sekcii Regenerácia si každý deň poctivo zapisuj údaje o spánku ako sú trvanie, HRV, RHR či ďalšie doplňujúce údaje. Zatiaľ si to tam musíš klikať ručne – iní výrobcovia hodiniek s nami zatiaľ nie sú až takí kamaráti, aby nám to dali automaticky... 😢",
     },
     coach: {
       tab: "Tréner",
       title: "Tréner na mieru 🧠",
       desc1:
-        "Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol dokonalý plán.",
-      prefsTitle: "Nastavenia (Prefs):",
+        "Tu si AI Tréner berie tvoje dáta a regeneráciu, aby ti navrhol prispôsobený plán len pre teba.",
+      prefsTitle: "Preferencie:",
       prefsDesc:
-        "Úplne hore vpravo v sekcii Coach klikni na ikonu nastavení. Tam si určíš svoje Tepové zóny, Prahy, koľko dní v týždni chceš makať a aké máš ciele.",
-      eventsTitle: "Externé eventy:",
+        "V sekcii Tréner klikni na widget preferencií. Tam si určíš svoje ciele, Tepové zóny, Prahy, koľko dní v týždni chceš makať a veľa iného. Čím presnejšie to vyplníš, tým viac ti bude tréner rozumieť a vyhovovať.",
+      eventsTitle: "Externé udalosti:",
       eventsDesc:
-        "Plánuješ pretek? Pridaj si ho a tréner to zohľadní pri plánovaní.",
+        "Plánuješ iné športy či udalosti v týždni? Tréner to zohľadní pri plánovaní.",
       genTitle: "Generovanie:",
-      genDesc: "Klikni na Vytvoriť plán a máš hotovo!",
+      genDesc: "Vo widgete vyhodnoť svoju trénovanosť, vytvor týždenný a denný plán, spusti ho a máš hotovo!",
     },
     finish: "Mám to!",
     finishGo: "Mám to, poďme trénovať!",

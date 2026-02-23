@@ -816,49 +816,56 @@ export const en = {
     welcome: {
       tab: "Welcome",
       title: "Welcome to Selfrace! 🏁",
-      desc1: "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
+      desc1:
+        "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
       iosTitle: "Apple (iOS Safari):",
       iosDesc: "Click the share icon at the bottom and select 'Add to Home Screen'.",
       androidTitle: "Android (Chrome):",
-      androidDesc: "Click the three dots in the top right and select 'Add to Home screen'.",
-      ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right)."
+      androidDesc:
+        "Click the three dots in the top right and select 'Add to Home screen'.",
+      ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right).",
     },
     data: {
       tab: "Data",
       title: "Strava & Activities 🚴‍♂️",
-      desc1: "To give you the best advice, your coach needs your historical data.",
+      desc1: "To give you the best advice, your coach needs your data.",
       connectTitle: "Connection:",
-      connectDesc: "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+      connectDesc:
+        "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
       importTitle: "Import:",
-      importDesc: "Right after connecting Strava, on the same page, run the activity import. We recommend downloading at least a few weeks back."
+      importDesc:
+        "Right after connecting Strava, on the same page, run the activity import.",
     },
     status: {
       tab: "My Status",
       title: "Profile & Recovery 🔋",
       profileTitle: "Your body profile:",
       profileDesc:
-        "In the Profile section, fill in your basic body metrics. Continuously update your VO2Max data if you go for tests, or your body fat percentage.",
+        "In the Profile section, fill in your basic body metrics. For the best results, we recommend continuously updating data such as your weight, body fat percentage, or current VO2Max (e.g., from lab tests).",
       recoveryTitle: "Recovery:",
       recoveryDesc:
-        "In the Recovery section, honestly log your morning fatigue, sleep quality, and stress every day. For now, you have to log it manually – other watch manufacturers aren't big enough friends with us yet to provide it automatically... 😢",
+        "In the Recovery section, honestly log your sleep data every day, such as duration, HRV, RHR, or other supplementary data. For now, you have to enter it manually – other watch manufacturers aren't big enough friends with us yet to provide it automatically... 😢",
     },
     coach: {
       tab: "Coach",
       title: "Custom Coach 🧠",
-      desc1: "Here, the AI Coach takes your data and recovery to design the perfect plan.",
-      prefsTitle: "Settings (Prefs):",
-      prefsDesc: "In the top right of the Coach section, click the settings icon. There you will define your Heart Rate Zones, Thresholds, how many days a week you want to train, and your goals.",
+      desc1:
+        "Here, the AI Coach takes your data and recovery to design a personalized plan just for you.",
+      prefsTitle: "Preferences:",
+      prefsDesc:
+        "In the Coach section, click on the preferences widget. There you will define your goals, Heart Rate Zones, Thresholds, how many days a week you want to train, and much more. The more accurately you fill this out, the better the coach will understand and suit you.",
       eventsTitle: "External events:",
-      eventsDesc: "Planning a race? Add it and the coach will consider it in the planning.",
+      eventsDesc:
+        "Planning other sports or events during the week? The coach will consider them when planning.",
       genTitle: "Generation:",
-      genDesc: "Click Create plan and you're done!"
+      genDesc: "In the widget, evaluate your fitness level, create a weekly and daily plan, run it, and you're done!",
     },
     finish: "Got it!",
     finishGo: "Got it, let's train!",
     close: "Close",
     skip: "Skip and start",
     back: "Back",
-    next: "Next"
+    next: "Next",
   },
   widget: {
     missingserId: "Check authentication",
