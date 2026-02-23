@@ -11,26 +11,28 @@ export async function signOut(redirectTo: string = "/") {
     console.warn("[signOut] error:", e);
   }
 
-  // ✅ 1. MANUÁLNE VYMAZANIE COOKIES (Veľmi dôležité!)
-  // Keďže sme v supabaseBrowser zablokovali automatické mazanie, musíme to tu "nasilu" vyčistiť ručne
+  // ✅ Zmažeme novú IndexedDB databázu
+  try {
+    if (typeof window !== "undefined" && window.indexedDB) {
+       indexedDB.deleteDatabase("SupabaseAuthDB");
+    }
+  } catch (e) {}
+
+  // Zmažeme staré cookies pre istotu
   try {
     if (typeof document !== "undefined") {
       const cookies = document.cookie.split(";");
       for (let i = 0; i < cookies.length; i++) {
         const name = cookies[i].trim().split("=")[0];
-        // Zmažeme Supabase auth cookies a naše sr_ cookies
         if (name.startsWith("sb-") || name === "sr_id" || name === "sr_uuid") {
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
         }
       }
     }
-  } catch (e) {
-    console.warn("[signOut] cookies cleanup failed:", e);
-  }
+  } catch (e) {}
 
-  // ✅ 2. VYMAZANIE LOCALSTORAGE
+  // Zmažeme LocalStorage
   try {
-    // Pridal som "selfrace_" aby to chytilo aj naše nové "selfrace_numeric_id" a "sb-" pre istotu
     const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_"];
     const keys = Object.keys(window.localStorage);
     for (const key of keys) {
@@ -40,9 +42,7 @@ export async function signOut(redirectTo: string = "/") {
     }
     window.localStorage.setItem("up:logout_at", String(Date.now()));
     window.sessionStorage.clear();
-  } catch (e) {
-    console.warn("[signOut] storage cleanup failed:", e);
-  }
+  } catch (e) {}
 
   if (typeof window !== "undefined") {
     window.location.replace(redirectTo);
