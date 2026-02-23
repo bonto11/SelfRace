@@ -1,4 +1,3 @@
-// src/app/shared/utils/callBackend.ts
 "use client";
 
 import { API_URL } from "@/app/shared/config";
@@ -8,40 +7,27 @@ export type BackendInit = RequestInit;
 
 export async function callBackend<T = any>(
   path: string,
-  init: BackendInit = {}
+  init: BackendInit = {},
 ): Promise<T> {
   const supabase = getSupabaseBrowser();
-
-  // Zázrak č.1: getSession() si automaticky a bezpečne obnoví token v pozadí, ak vypršal.
   const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token ?? null;
+  const token = data?.session?.access_token;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const fullUrl = `${API_URL}${path}`;
-
-  const res = await fetch(fullUrl, {
-    ...init,
-    headers,
-  });
-
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    // fallback
-  }
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
   if (!res.ok) {
-    console.error(`[callBackend] HTTP ${res.status} na ${path}`);
-    throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
   }
 
-  return (json ?? {}) as T;
+  const responseText = await res.text();
+  try {
+    return responseText ? (JSON.parse(responseText) as T) : ({} as T);
+  } catch {
+    return {} as T;
+  }
 }
