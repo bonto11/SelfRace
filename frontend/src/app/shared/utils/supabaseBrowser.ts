@@ -4,58 +4,24 @@
 import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-// ✅ Skutočná prehliadačová databáza (Prežije aj okamžité Vyswipeovanie apky)
-const idbStorage = {
-  async getDb(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('SupabaseAuthDB', 1);
-      request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('auth')) {
-          db.createObjectStore('auth', { keyPath: 'id' });
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+// ✅ Vlastný SYNCHRÓNNY storage cez Cookies. 
+// Prežije iOS swipe kill a nespôsobí asynchrónny výpadok (race-condition).
+const syncCookieStorage = {
+  getItem: (key: string) => {
+    if (typeof document === 'undefined') return null;
+    const name = encodeURIComponent(key);
+    const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+    return match ? decodeURIComponent(match[3]) : null;
   },
-  async getItem(key: string): Promise<string | null> {
-    try {
-      const db = await this.getDb();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('auth', 'readonly');
-        const store = tx.objectStore('auth');
-        const request = store.get(key);
-        request.onsuccess = () => resolve(request.result ? request.result.value : null);
-        request.onerror = () => reject(request.error);
-      });
-    } catch {
-      return null;
-    }
+  setItem: (key: string, value: string) => {
+    if (typeof document === 'undefined') return;
+    // Zabetónujeme na 1 rok
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax; Secure`;
   },
-  async setItem(key: string, value: string): Promise<void> {
-    try {
-      const db = await this.getDb();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('auth', 'readwrite');
-        const store = tx.objectStore('auth');
-        const request = store.put({ id: key, value });
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {}
-  },
-  async removeItem(key: string): Promise<void> {
-    try {
-      const db = await this.getDb();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('auth', 'readwrite');
-        const store = tx.objectStore('auth');
-        const request = store.delete(key);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch {}
+  removeItem: (key: string) => {
+    if (typeof document === 'undefined') return;
+    // Bezpečné zmazanie
+    document.cookie = `${encodeURIComponent(key)}=; path=/; max-age=0; SameSite=Lax; Secure`;
   }
 };
 
@@ -71,9 +37,8 @@ export function getSupabaseBrowser() {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          storageKey: 'selfrace-pwa-session',
-          // ✅ Prikážeme Supabase uložiť token do IndexedDB
-          storage: typeof window !== 'undefined' ? idbStorage : undefined,
+          storageKey: 'selfrace-cookie-session', // Nový názov
+          storage: syncCookieStorage, // 🚀 Vynútime naše synchrónne cookies
         }
       }
     );
