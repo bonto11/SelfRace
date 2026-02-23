@@ -1992,9 +1992,7 @@ export const en = {
   },
   strava: {
     title: "Strava",
-    subtitle: "Account integration and manual activity import.",
     reconnectAfterLabel: "Reconnection possible after:",
-    syncWindowLabel: "Sync window:",
     status: {
       connected: "Connected",
       disconnected: "Disconnected",

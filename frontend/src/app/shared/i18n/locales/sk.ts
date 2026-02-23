@@ -1997,9 +1997,7 @@ export const sk = {
   },
   strava: {
     title: "Strava",
-    subtitle: "Prepojenie účtu a manuálny import aktivít.",
     reconnectAfterLabel: "Znovu pripojenie možné najskôr po:",
-    syncWindowLabel: "Sync okno:",
     status: {
       connected: "Pripojené",
       disconnected: "Nepripojené",

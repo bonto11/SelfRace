@@ -265,13 +265,6 @@ export default function StravaPanel() {
             >
               {t("strava.title")}
             </h2>
-            <p
-              className={PANEL_SUBTITLE}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("strava.subtitle")}
-            </p>
-
             {!connected && reconnectAfterLabel ? (
               <p
                 className="text-[12px] mt-2"
@@ -280,19 +273,6 @@ export default function StravaPanel() {
                 {t("strava.reconnectAfterLabel")}{" "}
                 <span style={{ color: appColors.textSecondary }}>
                   {reconnectAfterLabel}
-                </span>
-              </p>
-            ) : null}
-
-            {connected && (syncWindowLabel || syncMaxLabel) ? (
-              <p
-                className="text-[12px] mt-2"
-                style={{ color: appColors.textMuted }}
-              >
-                {t("strava.syncWindowLabel")}{" "}
-                <span style={{ color: appColors.textSecondary }}>
-                  <b>{syncWindowLabel ?? "—"}</b>
-                  {syncMaxLabel ? ` • ${syncMaxLabel}` : null}
                 </span>
               </p>
             ) : null}
