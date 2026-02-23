@@ -11,11 +11,11 @@ function getStoredIds(): WhoAmI {
   const idMatch = document.cookie.match(/(?:^|; )sr_id=([^;]*)/);
   const uuidMatch = document.cookie.match(/(?:^|; )sr_uuid=([^;]*)/);
   const id = idMatch ? Number(idMatch[1]) : null;
-  // Ochrana: ak je v cookie ID 1 (test), vrátime null kým sa neoverí session
-  return { id: id === 1 ? null : id, uuid: uuidMatch ? uuidMatch[1] : null };
+  return { id, uuid: uuidMatch ? uuidMatch[1] : null };
 }
 
 export function useUserId() {
+  // Inicializujeme okamžite z cookies, aby widgety nepreblikli na 401
   const [state, setState] = useState<WhoAmI>(getStoredIds);
 
   const fetchUser = useCallback(async () => {
@@ -24,25 +24,35 @@ export function useUserId() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        document.cookie = "sr_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        document.cookie = "sr_uuid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        // Iba ak Supabase povie, že session fakt nie je, zmažeme cookies
+        if (typeof document !== "undefined") {
+          document.cookie = "sr_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+          document.cookie = "sr_uuid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        }
         setState({ id: null, uuid: null });
         return;
       }
 
-      const numId = await getUserId();
-      if (numId) {
-        const maxAge = 60 * 60 * 24 * 30;
-        document.cookie = `sr_uuid=${session.user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
-        document.cookie = `sr_id=${numId}; path=/; max-age=${maxAge}; SameSite=Lax`;
-        setState({ id: numId, uuid: session.user.id });
+      // Ak máme session, ale chýba nám numerické ID, dotiahneme ho
+      if (!state.id) {
+        const numId = await getUserId();
+        if (numId) {
+          const maxAge = 60 * 60 * 24 * 30;
+          document.cookie = `sr_uuid=${session.user.id}; path=/; max-age=${maxAge}; SameSite=Lax`;
+          document.cookie = `sr_id=${numId}; path=/; max-age=${maxAge}; SameSite=Lax`;
+          setState({ id: numId, uuid: session.user.id });
+        }
       }
     } catch (e) {
       console.warn("[useUserId] Sync failed", e);
     }
-  }, []);
+  }, [state.id]);
 
   useEffect(() => { fetchUser(); }, [fetchUser]);
 
-  return useMemo(() => ({ userId: state.id, userUuid: state.uuid, refresh: fetchUser }), [state, fetchUser]);
+  return useMemo(() => ({ 
+    userId: state.id, 
+    userUuid: state.uuid, 
+    refresh: fetchUser 
+  }), [state, fetchUser]);
 }
