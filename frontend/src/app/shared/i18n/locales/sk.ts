@@ -830,7 +830,7 @@ export const sk = {
       desc1: "Aby ti tréner mohol radiť, potrebuje tvoje dáta.",
       connectTitle: "Pripojenie:",
       connectDesc:
-        "V Užívateľskom menu prejdi do 'Pripojené aplikácie' a klikni na oranžové tlačidlo Connect with Strava. Tvoje dáta sú v bezpečí.",
+        "V Užívateľskom menu prejdi do 'Pripojené aplikácie' a klikni na oranžové tlačidlo Connect with Strava.",
       importTitle: "Import:",
       importDesc:
         "Hneď po prepojení Stravy, na tej istej stránke, spusti import aktivít.",

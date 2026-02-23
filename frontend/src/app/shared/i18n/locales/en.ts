@@ -831,7 +831,7 @@ export const en = {
       desc1: "To give you the best advice, your coach needs your data.",
       connectTitle: "Connection:",
       connectDesc:
-        "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button. Your data is safe.",
+        "In the User Menu, go to 'Connected Apps' and click the orange Connect with Strava button.",
       importTitle: "Import:",
       importDesc:
         "Right after connecting Strava, on the same page, run the activity import.",
