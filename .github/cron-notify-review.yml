@@ -1,0 +1,22 @@
+name: Push Notify Review (Hourly)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  run-review-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Review Push Endpoint
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}
+        run: |
+          set -e
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -d '{"test_user_id": 1, "test_activity_id": 123}' \
+            $API_BASE_URL_GITHUB/notifications-timed/review
