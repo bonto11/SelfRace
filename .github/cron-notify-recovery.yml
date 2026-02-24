@@ -18,5 +18,5 @@ jobs:
           curl -sS -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
-            -d '{"test_user_id": 1}' \
+            -d '{}' \
             $API_BASE_URL_GITHUB/notifications-timed/recovery
