@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from Services.notifications import service_save_push_subscription
+from Services.notifications import service_save_push_subscription, service_send_push_notification
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -20,8 +20,6 @@ def save_push_subscription(
     Uloží 
     (upsert) Push Subscription objekt z prehliadača do DB.
     """
-
-    print("FE save_push_subscription subscription", user_id, subscription)
     try:
         ctx = require_user(get_auth_ctx(req))
         
@@ -36,4 +34,28 @@ def save_push_subscription(
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/{user_id}/test-push")
+def test_push_notification(
+    req: Request,
+    user_id: int,
+):
+    """
+    Endpoint na manuálne otestovanie push notifikácie (napríklad cez Swagger/Postman).
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        
+        result = service_send_push_notification(
+            user_id=user_id,
+            title="Ahoj zo SelfRace!",
+            body="Tvoja testovacia PWA notifikácia práve dorazila. Gratulujem!",
+            ctx=ctx
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

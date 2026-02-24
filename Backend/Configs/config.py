@@ -249,3 +249,8 @@ MAX_VERSIONS_FREE : int =  env_int("MAX_VERSIONS_FREE", 1)
 MAX_VERSIONS_CLASSIC : int =  env_int("MAX_VERSIONS_CLASSIC", 2)
 MAX_VERSIONS_PRO : int =  env_int("MAX_VERSIONS_PRO", 3)
 MAX_VERSIONS_FAMILY : int =  env_int("MAX_VERSIONS_FAMILY", 10)
+
+
+# Push notifications
+VAPID_PRIVATE_KEY: str = env_required("VAPID_PRIVATE_KEY")
+VAPID_CLAIM_EMAIL: str = env_required("VAPID_CLAIM_EMAIL")

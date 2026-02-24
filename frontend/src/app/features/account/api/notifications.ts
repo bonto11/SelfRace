@@ -3,8 +3,6 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 export async function apiSavePushSubscription(userId: number, subscription: any) {
   
-  console.log("FE apiSavePushSubscription subscription", userId, subscription)
-
   return callBackend(`/notifications/${userId}/push-subscription`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
