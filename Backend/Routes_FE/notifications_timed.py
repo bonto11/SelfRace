@@ -39,7 +39,6 @@ async def timed_notify_recovery(
 @router.post("/review")
 async def timed_notify_review(
     test_user_id: int = Body(..., embed=True),
-    test_activity_id: int = Body(999, embed=True), # Dummy ID pre test URL
     x_api_key: str | None = Header(default=None),
 ):
     _require_api_key(x_api_key)
@@ -48,7 +47,6 @@ async def timed_notify_review(
     try:
         result = service_cron_notify_review(
             user_id=test_user_id, 
-            activity_id=test_activity_id, 
             ctx=ctx
         )
         return JSONResponse({"ok": True, "result": result})
