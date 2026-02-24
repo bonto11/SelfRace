@@ -52,7 +52,7 @@ def service_send_push_notification(
         "title": title,
         "body": body,
         # Ak chceš presmerovať po kliknutí na konkrétnu url, zmeň toto:
-        "url": "/", 
+        "url": "/calendar", 
         "icon": "/logo/selfrace_logo_nocolor_230.png"
     })
 
