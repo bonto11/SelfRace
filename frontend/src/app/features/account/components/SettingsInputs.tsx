@@ -12,6 +12,7 @@ import {
 
 import {
   apiSavePushSubscription,
+  apiTestPushNotification, // ✅ Pridaný import
 } from "@/app/features/account/api/notifications";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -132,6 +133,7 @@ export default function SettingsInputs() {
   const [pushSupported, setPushSupported] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [pushTesting, setPushTesting] = useState(false); // ✅ Stav pre testovacie tlačidlo
 
   const LANGUAGE_OPTIONS = useMemo(
     () =>
@@ -272,10 +274,8 @@ export default function SettingsInputs() {
         return;
       }
 
-      // ✅ TENTO RIADOK CHÝBAL: Zaregistrujeme Service Workera
       await navigator.serviceWorker.register('/sw.js');
       
-      // Teraz už nezostane visieť, lebo Worker existuje!
       const reg = await navigator.serviceWorker.ready;
       
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -298,6 +298,22 @@ export default function SettingsInputs() {
       toast.error(t("account.push.error"));
     } finally {
       setPushLoading(false);
+    }
+  }
+
+  // ✅ Funkcia pre testovacie odpálenie
+  async function handleTestPush() {
+    if (!userId) return;
+    setPushTesting(true);
+    try {
+      await apiTestPushNotification(userId);
+      // Fallback text, ak náhodou nemáš preklad pridaný
+      toast.success(t("account.push.testSuccess" as any) || "Test notifikácia odoslaná!");
+    } catch (error: any) {
+      console.error("[SettingsInputs] Test Push error:", error);
+      toast.error(t("account.push.testError" as any) || "Nepodarilo sa odoslať test.");
+    } finally {
+      setPushTesting(false);
     }
   }
 
@@ -558,7 +574,8 @@ export default function SettingsInputs() {
             <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
               {t("account.push.desc")}
             </p>
-            <div className="mt-3">
+            {/* ✅ PRIDANÝ FLEX PRE DVE TLAČIDLÁ VEDĽA SEBA */}
+            <div className="mt-3 flex items-center gap-2">
               <Button
                 size="xs"
                 variant={pushSubscribed ? "secondary" : "primary"}
@@ -570,12 +587,26 @@ export default function SettingsInputs() {
                   ? t("account.push.btnActive") 
                   : t("account.push.btnEnable")}
               </Button>
-              {!pushSupported && (
-                <p className="text-[11px] mt-1 text-red-500">
-                  {t("account.push.notSupportedHint")}
-                </p>
+
+              {/* Tlačidlo na test sa ukáže len vtedy, ak sú notifikácie už zapnuté */}
+              {pushSubscribed && (
+                <Button
+                  size="xs"
+                  variant="primary"
+                  onClick={handleTestPush}
+                  disabled={pushTesting || !userId}
+                  title="Odoslať testovaciu notifikáciu"
+                >
+                  {pushTesting && <LoadingSpinner size="button" className="mr-2" />}
+                  Test
+                </Button>
               )}
             </div>
+            {!pushSupported && (
+              <p className="text-[11px] mt-1 text-red-500">
+                {t("account.push.notSupportedHint")}
+              </p>
+            )}
           </div>
 
           <div
