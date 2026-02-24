@@ -171,11 +171,3 @@ export async function apiEnsureCoachPlanStartFuture(
 
   return updated;
 }
-
-export async function apiSavePushSubscription(userId: number, subscription: any) {
-  return callBackend(`/users/${userId}/push-subscription`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription),
-  });
-}

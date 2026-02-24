@@ -8,8 +8,11 @@ import { useT } from "@/app/shared/i18n/useT";
 import {
   apiFetchUserPref,
   apiUpsertUserPref,
-  apiSavePushSubscription,
 } from "@/app/features/prefs/api/prefs";
+
+import {
+  apiSavePushSubscription,
+} from "@/app/features/account/api/notifications";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";

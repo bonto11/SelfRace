@@ -26,6 +26,7 @@ from Routes_FE import (
     maintenance,
     app_subscription,
     account,
+    notifications,
 )
 
 app = FastAPI()
@@ -76,6 +77,8 @@ app.include_router(async_jobs.router)
 app.include_router(maintenance.router)
 app.include_router(app_subscription.router)
 app.include_router(account.router)
+app.include_router(notifications.router)
+
 
 app.include_router(webhook_strava.router)
 
