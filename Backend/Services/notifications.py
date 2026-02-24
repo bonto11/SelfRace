@@ -11,6 +11,7 @@ from Routes_DB.notifications import (
 )
 from Modules.Supabase.auth import AuthCtx
 from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_push
+from Routes_DB.user_recovery import db_get_recovery_record
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
 def service_save_push_subscription(
@@ -86,14 +87,26 @@ def service_send_push_notification(
 
     return {"success": True, "sent": success_count, "failed": error_count}
 
-
-# ... tvoj doterajší kód (service_save_push_subscription a service_send_push_notification) ...
-
 # --- SKELETONY PRE CRONY ---
 
 def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 11:00."""
-    # TODO: Neskôr tu pridáme DB logiku pre nájdenie userov bez recovery
+    
+    # 1. Získame dnešný dátum vo formáte YYYY-MM-DD (podľa UTC)
+    today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # 2. Pozrieme sa do DB, či pre dnešok už existuje záznam
+    existing_record = db_get_recovery_record(
+        user_id=user_id,
+        date_iso=today_iso,
+        ctx=ctx
+    )
+    
+    if existing_record:
+        # Užívateľ si už recovery vyplnil, neotravujeme ho
+        return {"success": True, "sent": 0, "message": f"Recovery pre {today_iso} už bolo vyplnené."}
+    
+    # 3. Ak neexistuje, pošleme notifikáciu
     return service_send_push_notification(
         user_id=user_id,
         title="Nezabudni na Ranné Recovery 🔋",
@@ -101,6 +114,7 @@ def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/recovery/recoveryInputs",
         ctx=ctx
     )
+
 
 def service_cron_notify_review(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z hodinového cronu."""
