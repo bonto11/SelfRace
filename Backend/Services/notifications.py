@@ -87,57 +87,38 @@ def service_send_push_notification(
     return {"success": True, "sent": success_count, "failed": error_count}
 
 
-# --- 2. SKELETONY PRE CRONY A EVENTY ---
+# ... tvoj doterajší kód (service_save_push_subscription a service_send_push_notification) ...
 
-def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z FE tlačidla 'Test'."""
-    return service_send_push_notification(
-        user_id=user_id,
-        title="Test Notifikácie",
-        body="Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
-        url="/",
-        ctx=ctx
-    )
+# --- SKELETONY PRE CRONY ---
 
-def service_notify_recovery_reminder(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 11:00."""
-    # TODO: Logika pre check DB, či user už zadal dnešné recovery
+    # TODO: Neskôr tu pridáme DB logiku pre nájdenie userov bez recovery
     return service_send_push_notification(
         user_id=user_id,
-        title="Nezabudni na Ranné Recovery",
+        title="Nezabudni na Ranné Recovery 🔋",
         body="Zadaj svoje pocity a tep, nech presne vieme, ako si na tom.",
         url="/recovery/recoveryInputs",
         ctx=ctx
     )
 
-def service_notify_activity_review(user_id: int, activity_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+def service_cron_notify_review(user_id: int, activity_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z hodinového cronu (1 hodinu po aktivite)."""
-    # TODO: Logika pre check DB, či aktivita už má review
+    # TODO: Neskôr tu pridáme DB logiku na vyhľadanie čerstvých aktivít bez review
     return service_send_push_notification(
         user_id=user_id,
-        title="Ako sa ti dnes išlo?",
+        title="Ako sa ti dnes išlo? 🏃",
         body="Ohodnoť svoj posledný tréning a zadaj náročnosť (RPE).",
-        url=f"/activities/{activity_id}",  # Nasmerujeme priamo na detail aktivity
+        url=f"/activities/{activity_id}", # Ukážka dynamickej URL
         ctx=ctx
     )
 
-def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z víkendového cronu po prepočte."""
-    # TODO: Logika pre check DB
-    return service_send_push_notification(
-        user_id=user_id,
-        title="Nová Analýza Výkonnosti",
-        body="Tvoj Athlete State je aktualizovaný. Pozri si svoj progres!",
-        url="/progress",
-        ctx=ctx
-    )
-
-def service_notify_training_reminder(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 19:00."""
-    # TODO: Logika pre check DB, či je plán splnený
+    # TODO: Neskôr tu skontrolujeme, či je dnešný plán splnený
     return service_send_push_notification(
         user_id=user_id,
-        title="Dnes ťa ešte čaká tréning",
+        title="Dnes ťa ešte čaká tréning! 👟",
         body="Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
         url="/calendar",
         ctx=ctx
