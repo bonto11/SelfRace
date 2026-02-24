@@ -10,8 +10,11 @@ from Routes_DB.notifications import (
     db_delete_push_subscription
 )
 from Modules.Supabase.auth import AuthCtx
+
 from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_push
 from Routes_DB.user_recovery import db_get_recovery_record
+from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
+
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
 def service_save_push_subscription(
@@ -144,7 +147,22 @@ def service_cron_notify_review(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
 
 def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 19:00."""
-    # TODO: Neskôr tu skontrolujeme, či je dnešný plán splnený
+    
+    # 1. Zistíme dnešný dátum
+    today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # 2. Skontrolujeme DB, či mu na dnes nezostal nejaký neukončený tréning
+    has_uncompleted = db_has_uncompleted_daily_sessions(
+        user_id=user_id,
+        plan_date=today_iso,
+        ctx=ctx
+    )
+    
+    # Ak nemá neukončené tréningy (všetko odbehol, alebo mal rest day), potichu skončíme
+    if not has_uncompleted:
+        return {"success": True, "sent": 0, "message": "Plán na dnes je splnený (alebo voľný deň)."}
+    
+    # 3. Ak mu ešte niečo zostalo, pošleme mu Push postrčenie
     return service_send_push_notification(
         user_id=user_id,
         title="Dnes ťa ešte čaká tréning! 👟",
@@ -152,3 +170,4 @@ def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/calendar",
         ctx=ctx
     )
+
