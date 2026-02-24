@@ -272,23 +272,22 @@ export default function SettingsInputs() {
         return;
       }
 
-      console.log("FE handleEnablePush permission", userId, permission)
-
+      // ✅ TENTO RIADOK CHÝBAL: Zaregistrujeme Service Workera
+      await navigator.serviceWorker.register('/sw.js');
+      
+      // Teraz už nezostane visieť, lebo Worker existuje!
       const reg = await navigator.serviceWorker.ready;
+      
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       
       if (!vapidKey) {
         throw new Error("Chýba NEXT_PUBLIC_VAPID_PUBLIC_KEY v prostredí.");
       }
 
-      console.log("FE handleEnablePush vapidKey", userId, vapidKey)
-
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
-
-      console.log("FE handleEnablePush subscription.toJSON()", userId, subscription.toJSON())
 
       await apiSavePushSubscription(userId, subscription.toJSON());
 
