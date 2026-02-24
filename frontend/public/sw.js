@@ -6,11 +6,12 @@ self.addEventListener('push', function (event) {
       const data = event.data.json();
       const options = {
         body: data.body,
-        icon: data.icon || '/logo/selfrace_logo_nocolor_230.png', // Ak máš v public zložke ikonu apky
-        badge: data.badge || '/logo/selfrace_logo_nocolor_230.png',
-        vibrate: [200, 100, 200], // Zavibruje telefón
+        icon: data.icon || '/icon.png',
+        badge: data.badge || '/icon.png',
+        vibrate: [200, 100, 200],
         data: {
-          url: data.url || '/' // Kam ťa to presmeruje po kliknutí
+          // Tu príde tá tvoja cieľová URL, napr. '/activities'
+          url: data.url || '/' 
         }
       };
       
@@ -23,10 +24,35 @@ self.addEventListener('push', function (event) {
   }
 });
 
-self.addEventListener('notificationclick', function (event) {
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  // Po kliknutí na notifikáciu sa otvorí apka
+
+  // Vybudujeme plnú URL adresu, kam chceme usera poslať
+  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    // 1. Pozrieme sa, či už náhodou PWA apka nie je otvorená na pozadí
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
+      
+      // Ak je otvorená, nájdeme ju
+      if (windowClients.length > 0) {
+        const client = windowClients[0];
+        
+        // Vytiahneme ju z pozadia do popredia (Focus)
+        if ('focus' in client) {
+          client.focus();
+        }
+        
+        // Presmerujeme ju na požadovanú URL (napr. /activities)
+        if ('navigate' in client) {
+          return client.navigate(urlToOpen);
+        }
+      }
+      
+      // 2. Ak apka bola úplne "zabitá" (vyswipeovaná), otvoríme ju nanovo
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
   );
 });
