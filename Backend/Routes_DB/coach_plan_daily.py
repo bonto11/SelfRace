@@ -207,3 +207,25 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
 
     if errors: return {"ok": False, "updated": updated, "error": "some_moves_failed", "errors": errors}
     return {"ok": True, "updated": updated}
+    
+    
+def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: AuthCtx) -> bool:
+    """
+    Vráti True, ak pre daný deň existuje aspoň jeden tréning,
+    ktorý EŠTE NEMÁ priradené activity_id (t.j. nebol odtrénovaný).
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_has_uncompleted_daily_sessions")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id")
+            .eq("user_id", int(user_id))
+            .eq("plan_date", plan_date)
+            .is_("activity_id", "null")  # Ak je null, znamená to neukončený
+            .limit(1)
+            .execute()
+        )
+        return len(res.data or []) > 0
+    except Exception as e:
+        print("[DB-COACH-DAILY] has_uncompleted_sessions error:", repr(e))
+        return False
