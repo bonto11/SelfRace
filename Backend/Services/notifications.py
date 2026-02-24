@@ -69,6 +69,11 @@ def service_send_push_notification(
         }
         
         try:
+            print("--- DEBUG PUSH ---")
+            print(f"VAPID_CLAIM_EMAIL: '{VAPID_CLAIM_EMAIL}'")
+            print(f"VAPID_PRIVATE_KEY dĺžka: {len(str(VAPID_PRIVATE_KEY))}")
+            print(f"Endpoint: {sub['endpoint']}")
+
             webpush(
                 subscription_info=sub_info,
                 data=payload,
