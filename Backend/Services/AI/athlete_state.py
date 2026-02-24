@@ -37,6 +37,9 @@ from Configs.config import (
     GEMINI_DEFAULT_MODEL,
 )
 
+# ✅ PRIDANÝ IMPORT PRE NOTIFIKÁCIU
+from Services.notifications import service_notify_athlete_state_progress
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -438,6 +441,12 @@ def service_compare_latest_athlete_states(
             "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
             repr(e),
         )
+
+    # ✅ ODPÁLENIE PUSH NOTIFIKÁCIE O NOVOM PROGRESE
+    try:
+        service_notify_athlete_state_progress(user_id=user_id, ctx=ctx)
+    except Exception as e:
+        print("[service_compare_latest_athlete_states] push notification error:", repr(e))
 
     resp: Dict[str, Any] = {
         "ok": True,
