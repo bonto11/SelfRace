@@ -53,7 +53,7 @@ def service_send_push_notification(
         "body": body,
         # Ak chceš presmerovať po kliknutí na konkrétnu url, zmeň toto:
         "url": "/", 
-        "icon": "/icon.png"
+        "icon": "/logo/selfrace_logo_nocolor_230.png"
     })
 
     success_count = 0
