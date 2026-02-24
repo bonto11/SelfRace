@@ -15,45 +15,50 @@ export async function callBackend<T = any>(
 
   const supabase = getSupabaseBrowser();
   const { data: { session } } = await supabase.auth.getSession();
-  let token = session?.access_token ?? null;
+
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error("User not authenticated");
+  }
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Authorization", `Bearer ${token}`);
 
-  let res = await fetch(`${API_URL}${path}`, { ...init, headers });
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers,
+  });
 
+  // 401 → pokus o refresh
   if (res.status === 401 && !_retry) {
+
     if (!refreshPromise) {
-      refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        const newToken = response.data?.session?.access_token ?? null;
-        return newToken;
-      }).finally(() => { refreshPromise = null; });
+      refreshPromise = supabase.auth
+        .refreshSession()
+        .then((response: AuthResponse) => {
+          return response.data?.session?.access_token ?? null;
+        })
+        .finally(() => {
+          refreshPromise = null;
+        });
     }
 
     const newToken = await refreshPromise;
-    
-    if (newToken) {
-      headers.set("Authorization", `Bearer ${newToken}`);
-      const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
-      
-      if (!retryRes.ok) {
-        const errText = await retryRes.text();
-        console.error(`[AUTH: callBackend] ❌ Retry failed with status ${retryRes.status}: ${errText}`);
-        throw new Error(`HTTP ${retryRes.status}: ${errText}`);
-      }
-      
-      const retryText = await retryRes.text();
-      return retryText ? (JSON.parse(retryText) as T) : ({} as T);
+
+    if (!newToken) {
+      throw new Error("Session expired");
     }
+
+    return callBackend<T>(path, init, true);
   }
 
   if (!res.ok) {
     const text = await res.text();
-    console.error(`[AUTH: callBackend] ❌ HTTP Error ${res.status} on ${path}. Detail: ${text}`);
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
 
   const text = await res.text();
-  return text ? (JSON.parse(text) as T) : ({} as T);
+  return text ? JSON.parse(text) as T : ({} as T);
 }
