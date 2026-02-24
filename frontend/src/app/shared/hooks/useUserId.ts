@@ -7,11 +7,10 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-// Okamžité synchrónne prečítanie z cookies
 function getStoredId(): number | null {
-   if (typeof document === "undefined") return null;
-   const match = document.cookie.match(/(?:^|;\s*)selfrace_numeric_id=([^;]*)/);
-   return match ? Number(match[1]) : null;
+   if (typeof window === "undefined") return null;
+   const stored = window.localStorage.getItem("selfrace_numeric_id");
+   return stored ? Number(stored) : null;
 }
 
 export function useUserId() {
@@ -23,13 +22,14 @@ export function useUserId() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        if (typeof document !== "undefined") {
-           document.cookie = "selfrace_numeric_id=; path=/; max-age=0; SameSite=Lax; Secure";
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("selfrace_numeric_id");
         }
         setState({ id: null, uuid: null });
         return;
       }
 
+      // Ak už ID máme pre tohto usera, nemusíme volať backend
       if (state.id && state.uuid === session.user.id) return;
 
       const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
@@ -40,8 +40,8 @@ export function useUserId() {
 
       const numId = res?.success ? res.user_id : null;
 
-      if (numId && typeof document !== "undefined") {
-         document.cookie = `selfrace_numeric_id=${numId}; path=/; max-age=31536000; SameSite=Lax; Secure`;
+      if (numId && typeof window !== "undefined") {
+         window.localStorage.setItem("selfrace_numeric_id", numId.toString());
          setState({ id: numId, uuid: session.user.id });
       }
     } catch (e) {

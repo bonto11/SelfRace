@@ -12,23 +12,25 @@ export async function callBackend<T = any>(
   init: RequestInit = {},
   _retry = false
 ): Promise<T> {
-
   const supabase = getSupabaseBrowser();
   const { data: { session } } = await supabase.auth.getSession();
   let token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
   if (res.status === 401 && !_retry) {
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        const newToken = response.data?.session?.access_token ?? null;
-        return newToken;
-      }).finally(() => { refreshPromise = null; });
+        return response.data?.session?.access_token ?? null;
+      }).finally(() => { 
+        refreshPromise = null; 
+      });
     }
 
     const newToken = await refreshPromise;
