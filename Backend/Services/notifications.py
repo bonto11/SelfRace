@@ -114,8 +114,8 @@ def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     return service_send_push_notification(
         user_id=user_id,
         title="Nezabudni na Ranné Recovery 🔋",
-        body="Zadaj svoje pocity a tep, nech presne vieme, ako si na tom.",
-        url="/recovery/recoveryInputs",
+        body="Zadaj info o spánku a HR nech presne vieme, ako si na tom.",
+        url="/recovery",
         ctx=ctx
     )
 
@@ -140,8 +140,8 @@ def service_cron_notify_review(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     return service_send_push_notification(
         user_id=user_id,
         title="Ako sa ti dnes išlo? 🏃",
-        body="Ohodnoť svoj posledný tréning a zadaj náročnosť (RPE).",
-        url=f"/activities/{activity_id}", 
+        body="Ohodnoť svoj posledný tréning.",
+        url=f"/calendar", 
         ctx=ctx
     )
 
@@ -168,7 +168,7 @@ def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         user_id=user_id,
         title="Dnes ťa ešte čaká tréning! 👟",
         body="Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
-        url="/calendar",
+        url="/coach/ai/dailyPlan",
         ctx=ctx
     )
     
@@ -179,7 +179,7 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
         user_id=user_id,
         title="Nová Analýza Výkonnosti 📈",
         body="Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
-        url="/progress",
+        url="/coach/ai/progress",
         ctx=ctx
     )
 
@@ -189,7 +189,7 @@ def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         user_id=user_id,
         title="Test Notifikácie 🚀",
         body="Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
-        url="/",
+        url="/activities",
         ctx=ctx
     )
 
