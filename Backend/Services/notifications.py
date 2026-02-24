@@ -15,11 +15,58 @@ from Modules.Supabase.auth import AuthCtx
 from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_push
 from Routes_DB.user_recovery import db_get_recovery_record
 from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
-
-# ✅ PRIDANÝ IMPORT PRE ZOZNAM POUŽÍVATEĽOV
 from Routes_DB.users import db_list_users_for_cron
 
+# ✅ PRIDANÝ IMPORT PRE PREFERENCIE
+from Routes_DB.user_prefs import db_get_pref_single
+
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
+
+# =====================================================================
+# LOKÁLNE PREKLADY PRE PUSH NOTIFIKÁCIE
+# =====================================================================
+PUSH_TRANSLATIONS = {
+    "sk": {
+        "recovery_title": "Nezabudni na Ranné Recovery 🔋",
+        "recovery_body": "Zadaj info o spánku a HR nech presne vieme, ako si na tom.",
+        "review_title": "Ako sa ti dnes išlo? 🏃",
+        "review_body": "Ohodnoť svoj posledný tréning.",
+        "training_title": "Dnes ťa ešte čaká tréning! 👟",
+        "training_body": "Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
+        "progress_title": "Nová Analýza Výkonnosti 📈",
+        "progress_body": "Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
+        "test_title": "Test Notifikácie 🚀",
+        "test_body": "Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku."
+    },
+    "en": {
+        "recovery_title": "Morning Recovery Reminder 🔋",
+        "recovery_body": "Log your sleep and HR so we know exactly how you're doing.",
+        "review_title": "How did it go today? 🏃",
+        "review_body": "Rate and review your latest training session.",
+        "training_title": "Training pending today! 👟",
+        "training_body": "Your plan for today is not finished yet. Will you make it?",
+        "progress_title": "New Performance Analysis 📈",
+        "progress_body": "Your Athlete State was just updated. Check out your progress!",
+        "test_title": "Test Notification 🚀",
+        "test_body": "Everything works! The PWA is ready and routing you to the home screen."
+    }
+}
+
+# =====================================================================
+# POMOCNÉ FUNKCIE (DRY)
+# =====================================================================
+
+def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
+    """Zistí preferovaný jazyk užívateľa z DB. Fallback je 'sk'."""
+    pref = db_get_pref_single(user_id=user_id, key="user.settings", ctx=ctx)
+    
+    if pref and isinstance(pref.get("value"), dict):
+        lang = pref["value"].get("language")
+        if lang in ["sk", "en"]:
+            return lang
+            
+    return "sk" # Predvolený jazyk ak neexistuje záznam
+
 
 def service_save_push_subscription(
     user_id: int,
@@ -41,6 +88,7 @@ def service_save_push_subscription(
         auth=auth,
         ctx=ctx
     )
+
 
 # --- 1. UNIVERZÁLNY ODOSIELATEĽ ---
 
@@ -115,12 +163,14 @@ def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
             ctx=ctx
         )
         
-        # Ak záznam neexistuje, posielame notifikáciu
         if not existing_record:
+            lang = _get_user_language(user_id, ctx)
+            t = PUSH_TRANSLATIONS[lang]
+            
             res = service_send_push_notification(
                 user_id=user_id,
-                title="Nezabudni na Ranné Recovery 🔋",
-                body="Zadaj info o spánku a HR nech presne vieme, ako si na tom.",
+                title=t["recovery_title"],
+                body=t["recovery_body"],
                 url="/recovery",
                 ctx=ctx
             )
@@ -144,16 +194,19 @@ def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
         if not pending_activities:
             continue
             
-        # Zoradíme podľa updated_at a zoberieme poslednú
         pending_activities.sort(key=lambda x: x.get("updated_at", ""))
         latest_activity = pending_activities[-1]
         
-        activity_id = latest_activity["activity_id"]
+        # activity_id by sme využili ak by URL smerovala presne na danú aktivitu
+        # activity_id = latest_activity["activity_id"]
+
+        lang = _get_user_language(user_id, ctx)
+        t = PUSH_TRANSLATIONS[lang]
 
         res = service_send_push_notification(
             user_id=user_id,
-            title="Ako sa ti dnes išlo? 🏃",
-            body="Ohodnoť svoj posledný tréning.",
+            title=t["review_title"],
+            body=t["review_body"],
             url="/calendar", 
             ctx=ctx
         )
@@ -180,12 +233,14 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
             ctx=ctx
         )
         
-        # Ak má neukončené tréningy, posielame postrčenie
         if has_uncompleted:
+            lang = _get_user_language(user_id, ctx)
+            t = PUSH_TRANSLATIONS[lang]
+            
             res = service_send_push_notification(
                 user_id=user_id,
-                title="Dnes ťa ešte čaká tréning! 👟",
-                body="Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
+                title=t["training_title"],
+                body=t["training_body"],
                 url="/coach/ai/dailyPlan",
                 ctx=ctx
             )
@@ -198,20 +253,26 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
     
 def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané priamo z AI service po prepočte nového Athlete State."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    
     return service_send_push_notification(
         user_id=user_id,
-        title="Nová Analýza Výkonnosti 📈",
-        body="Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
+        title=t["progress_title"],
+        body=t["progress_body"],
         url="/coach/ai/progress",
         ctx=ctx
     )
 
 def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z FE tlačidla 'Test'."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    
     return service_send_push_notification(
         user_id=user_id,
-        title="Test Notifikácie 🚀",
-        body="Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
+        title=t["test_title"],
+        body=t["test_body"],
         url="/activities",
         ctx=ctx
     )
