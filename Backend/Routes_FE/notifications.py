@@ -17,8 +17,11 @@ def save_push_subscription(
     subscription: Dict[str, Any] = Body(...),
 ):
     """
-    Uloží (upsert) Push Subscription objekt z prehliadača do DB.
+    Uloží 
+    (upsert) Push Subscription objekt z prehliadača do DB.
     """
+
+    print("FE save_push_subscription subscription", user_id, subscription)
     try:
         ctx = require_user(get_auth_ctx(req))
         
