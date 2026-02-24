@@ -8,6 +8,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import {
   apiFetchUserPref,
   apiUpsertUserPref,
+  apiSavePushSubscription,
 } from "@/app/features/prefs/api/prefs";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -92,6 +93,19 @@ function getDeleteState(st: AccountDeleteStatus | null): DeleteState {
   return "none";
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function SettingsInputs() {
   const router = useRouter();
   const { userId } = useUserId();
@@ -112,7 +126,10 @@ export default function SettingsInputs() {
   const [deleteModal, setDeleteModal] = useState<DeleteModalKind>(null);
   const [deleteConsentChecked, setDeleteConsentChecked] = useState(false);
 
-  // Preložené možnosti pre selecty s potlačením TS varovania (as any)
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
   const LANGUAGE_OPTIONS = useMemo(
     () =>
       LANGUAGES.map((v) => ({
@@ -153,6 +170,7 @@ export default function SettingsInputs() {
       })),
     [t],
   );
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -209,6 +227,17 @@ export default function SettingsInputs() {
     };
   }, [userId]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+      setPushSupported(true);
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.pushManager.getSubscription().then((sub) => {
+          if (sub) setPushSubscribed(true);
+        });
+      });
+    }
+  }, []);
+
   async function handleSave() {
     if (!userId) return;
     setSaving(true);
@@ -221,6 +250,46 @@ export default function SettingsInputs() {
       toast.error(t("api.common.saveFailed"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleEnablePush() {
+    if (!userId) return;
+    if (!pushSupported) {
+      toast.error(t("account.push.notSupported"));
+      return;
+    }
+
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        toast.error(t("account.push.permissionDenied"));
+        setPushLoading(false);
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      
+      if (!vapidKey) {
+        throw new Error("Chýba NEXT_PUBLIC_VAPID_PUBLIC_KEY v prostredí.");
+      }
+
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      await apiSavePushSubscription(userId, subscription.toJSON());
+
+      setPushSubscribed(true);
+      toast.success(t("account.push.success"));
+    } catch (error: any) {
+      console.error("[SettingsInputs] Push error:", error);
+      toast.error(t("account.push.error"));
+    } finally {
+      setPushLoading(false);
     }
   }
 
@@ -465,6 +534,39 @@ export default function SettingsInputs() {
               >
                 {t("account.btnChangeMail")}
               </Button>
+            </div>
+          </div>
+
+          <div
+            className="mt-4 pt-3 border-t"
+            style={{ borderColor: appColors.divider }}
+          >
+            <div
+              className="text-sm font-semibold"
+              style={{ color: appColors.textPrimary }}
+            >
+              {t("account.push.title")}
+            </div>
+            <p className="text-xs mt-1" style={{ color: appColors.textMuted }}>
+              {t("account.push.desc")}
+            </p>
+            <div className="mt-3">
+              <Button
+                size="xs"
+                variant={pushSubscribed ? "secondary" : "primary"}
+                onClick={handleEnablePush}
+                disabled={!pushSupported || pushSubscribed || pushLoading || !userId}
+              >
+                {pushLoading && <LoadingSpinner size="button" className="mr-2" />}
+                {pushSubscribed 
+                  ? t("account.push.btnActive") 
+                  : t("account.push.btnEnable")}
+              </Button>
+              {!pushSupported && (
+                <p className="text-[11px] mt-1 text-red-500">
+                  {t("account.push.notSupportedHint")}
+                </p>
+              )}
             </div>
           </div>
 

@@ -1661,6 +1661,17 @@ export const sk = {
       deleteNone: "mazanie: —",
       deleteLoading: "mazanie: …",
     },
+    push: {
+      "title": "Push Notifications",
+      "desc": "Get training notifications right on your screen.",
+      "btnEnable": "Enable notifications",
+      "btnActive": "Notifications are active",
+      "success": "Notifications were successfully enabled!",
+      "error": "An error occurred while enabling notifications.",
+      "permissionDenied": "Notification access was denied in your browser.",
+      "notSupported": "Your browser does not support push notifications.",
+      "notSupportedHint": "On iOS, you must first add the app to your Home Screen."
+    },
   },
   subscription: {
     title: "Predplatné a platby",
