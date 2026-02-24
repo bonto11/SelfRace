@@ -9,3 +9,10 @@ export async function apiSavePushSubscription(userId: number, subscription: any)
     body: JSON.stringify(subscription),
   });
 }
+
+export async function apiTestPushNotification(userId: number) {
+  return callBackend(`/notifications/${userId}/test-push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+}
