@@ -1665,6 +1665,7 @@ export const sk = {
       "title": "Push Notifications",
       "desc": "Get training notifications right on your screen.",
       "btnEnable": "Enable notifications",
+      "btnTest": "Test",
       "btnActive": "Notifications are active",
       "success": "Notifications were successfully enabled!",
       "error": "An error occurred while enabling notifications.",
