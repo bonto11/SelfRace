@@ -2,17 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { useT } from "@/app/shared/i18n/useT";
-import {
-  apiFetchUserPref,
-  apiUpsertUserPref,
-} from "@/app/features/prefs/api/"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import {
