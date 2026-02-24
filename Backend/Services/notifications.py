@@ -10,7 +10,7 @@ from Routes_DB.notifications import (
     db_delete_push_subscription
 )
 from Modules.Supabase.auth import AuthCtx
-
+from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_push
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
 def service_save_push_subscription(
@@ -102,16 +102,31 @@ def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         ctx=ctx
     )
 
-def service_cron_notify_review(user_id: int, activity_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z hodinového cronu (1 hodinu po aktivite)."""
-    # TODO: Neskôr tu pridáme DB logiku na vyhľadanie čerstvých aktivít bez review
+def service_cron_notify_review(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané z hodinového cronu."""
+    
+    # 1. Vytiahneme aktivity v správnom časovom okne
+    pending_activities = db_get_unreviewed_activities_for_push(user_id=user_id, ctx=ctx)
+    
+    if not pending_activities:
+        return {"success": True, "sent": 0, "message": "Ziadne cerstve aktivity bez review."}
+    
+    # 2. Ak ich je viac (napr. mal 2 tréningy rýchlo po sebe), vezmeme tú najnovšiu
+    # Zoradíme podľa updated_at a zoberieme poslednú
+    pending_activities.sort(key=lambda x: x.get("updated_at", ""))
+    latest_activity = pending_activities[-1]
+    
+    activity_id = latest_activity["activity_id"]
+
+    # 3. Odošleme Push
     return service_send_push_notification(
         user_id=user_id,
         title="Ako sa ti dnes išlo? 🏃",
         body="Ohodnoť svoj posledný tréning a zadaj náročnosť (RPE).",
-        url=f"/activities/{activity_id}", # Ukážka dynamickej URL
+        url=f"/activities/{activity_id}", 
         ctx=ctx
     )
+
 
 def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 19:00."""
