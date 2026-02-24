@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
@@ -195,3 +195,31 @@ def db_upsert_ai_review_one(
         return False
 
     return True
+    
+
+def db_get_unreviewed_activities_for_push(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Nájde aktivity, ktoré sa skončili (updated_at) pred viac ako 1 hodinou, 
+    ale menej ako 2 hodinami, a ešte nemajú AI review.
+    """
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_unreviewed_activities_for_push")
+
+    now = datetime.now(timezone.utc)
+    one_hour_ago = (now - timedelta(hours=1)).isoformat()
+    two_hours_ago = (now - timedelta(hours=2)).isoformat()
+
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("activity_id, updated_at, ai_review")
+        .eq("user_id", int(user_id))
+        .is_("ai_review", "null")  # Ešte nebolo ohodnotené
+        .lte("updated_at", one_hour_ago) # Staršie ako 1 hodina
+        .gte("updated_at", two_hours_ago) # Ale nie staršie ako 2 hodiny
+        .execute()
+    )
+    
+    return res.data or []
