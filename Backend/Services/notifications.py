@@ -65,7 +65,8 @@ def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
         if lang in ["sk", "en"]:
             return lang
             
-    return "sk" # Predvolený jazyk ak neexistuje záznam
+    print("pref and lang",pref, lang)
+    return "en" # Predvolený jazyk ak neexistuje záznam
 
 
 def service_save_push_subscription(
@@ -267,7 +268,10 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
 def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z FE tlačidla 'Test'."""
     lang = _get_user_language(user_id, ctx)
+    
     t = PUSH_TRANSLATIONS[lang]
+    
+    print("lang",lang)
     
     return service_send_push_notification(
         user_id=user_id,
