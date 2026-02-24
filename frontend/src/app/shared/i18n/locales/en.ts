@@ -1662,6 +1662,7 @@ export const en = {
       "desc": "Dostávaj notifikácie o tréningoch priamo na obrazovku.",
       "btnEnable": "Zapnúť upozornenia",
       "btnActive": "Upozornenia sú aktívne",
+      "btnTest": "Test",
       "success": "Notifikácie boli úspešne zapnuté!",
       "error": "Nastala chyba pri aktivácii upozornení.",
       "permissionDenied": "Prístup k notifikáciám bol zamietnutý vo vašom prehliadači.",
