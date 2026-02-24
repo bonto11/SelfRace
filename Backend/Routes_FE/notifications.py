@@ -50,6 +50,7 @@ def test_push_notification(
         
         result = service_send_push_notification(
             user_id=user_id,
+            url="/activities/load",
             title="Ahoj zo SelfRace!",
             body="Tvoja testovacia PWA notifikácia práve dorazila. Gratulujem!",
             ctx=ctx

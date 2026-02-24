@@ -1,0 +1,22 @@
+name: Push Notify Training (19:00)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *"
+
+jobs:
+  run-training-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Training Push Endpoint (DEV)
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
+        run: |
+          set -e
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -d '{}' \
+            $API_BASE_URL_GITHUB/notifications-timed/training

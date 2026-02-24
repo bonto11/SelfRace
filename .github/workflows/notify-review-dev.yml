@@ -9,10 +9,10 @@ jobs:
   run-review-notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Review Push Endpoint
+      - name: Call Review Push Endpoint (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
-          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
         run: |
           set -e
           curl -sS -X POST \

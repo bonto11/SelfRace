@@ -1,15 +1,15 @@
-name: Push Notify Recovery (11:00)
+name: Push Notify Training (19:00)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 10 * * *"
+    - cron: "0 18 * * *"
 
 jobs:
-  run-recovery-notify:
+  run-training-notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Recovery Push Endpoint
+      - name: Call Training Push Endpoint (PROD)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_PROD_GITHUB }}
@@ -19,4 +19,4 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{}' \
-            $API_BASE_URL_GITHUB/notifications-timed/recovery
+            $API_BASE_URL_GITHUB/notifications-timed/training
