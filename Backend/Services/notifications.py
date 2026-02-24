@@ -170,4 +170,26 @@ def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/calendar",
         ctx=ctx
     )
+    
+    
+def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané priamo z AI service po prepočte nového Athlete State."""
+    return service_send_push_notification(
+        user_id=user_id,
+        title="Nová Analýza Výkonnosti 📈",
+        body="Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
+        url="/progress",
+        ctx=ctx
+    )
+
+def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané z FE tlačidla 'Test'."""
+    return service_send_push_notification(
+        user_id=user_id,
+        title="Test Notifikácie 🚀",
+        body="Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
+        url="/",
+        ctx=ctx
+    )
+
 
