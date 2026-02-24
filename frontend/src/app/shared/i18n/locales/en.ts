@@ -1658,16 +1658,16 @@ export const en = {
       deleteLoading: "deletion: ...",
     },
     push: {
-      "title": "Push notification",
-      "desc": "Dostávaj notifikácie o tréningoch priamo na obrazovku.",
-      "btnEnable": "Zapnúť upozornenia",
-      "btnActive": "Upozornenia sú aktívne",
+      "title": "Push notifications",
+      "desc": "Get training notifications directly on your screen.",
+      "btnEnable": "Enable notifications",
+      "btnActive": "Notifications are active",
       "btnTest": "Test",
-      "success": "Notifikácie boli úspešne zapnuté!",
-      "error": "Nastala chyba pri aktivácii upozornení.",
-      "permissionDenied": "Prístup k notifikáciám bol zamietnutý vo vašom prehliadači.",
-      "notSupported": "Váš prehliadač nepodporuje push notifikácie.",
-      "notSupportedHint": "Na iOS musíte apku najprv pridať na plochu (Add to Home Screen)."
+      "success": "Notifications were successfully enabled!",
+      "error": "An error occurred while enabling notifications.",
+      "permissionDenied": "Notification access was denied in your browser.",
+      "notSupported": "Your browser does not support push notifications.",
+      "notSupportedHint": "On iOS, you must first add the app to your Home Screen."
     },
   },
   subscription: {
