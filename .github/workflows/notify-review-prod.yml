@@ -1,4 +1,4 @@
-name: Push Notify Review (Hourly)
+name: Push Notify Review (Hourly) (PROD)
 
 on:
   workflow_dispatch:

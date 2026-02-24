@@ -1,4 +1,4 @@
-name: Push Notify Recovery (11:00)
+name: Push Notify Recovery (11:00) (PROD)
 
 on:
   workflow_dispatch:

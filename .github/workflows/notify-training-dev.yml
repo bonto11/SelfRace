@@ -1,4 +1,4 @@
-name: Push Notify Training (19:00)
+name: Push Notify Training (19:00) (DEV)
 
 on:
   workflow_dispatch:

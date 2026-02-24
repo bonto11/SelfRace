@@ -1,4 +1,4 @@
-name: Push Notify Recovery (11:00)
+name: Push Notify Recovery (11:00) (DEV)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
   run-recovery-notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Recovery Push Endpoint DEV
+      - name: Call Recovery Push Endpoint (DEV)
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
