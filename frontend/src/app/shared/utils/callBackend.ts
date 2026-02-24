@@ -12,25 +12,23 @@ export async function callBackend<T = any>(
   init: RequestInit = {},
   _retry = false
 ): Promise<T> {
+
   const supabase = getSupabaseBrowser();
   const { data: { session } } = await supabase.auth.getSession();
   let token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
   if (res.status === 401 && !_retry) {
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        return response.data?.session?.access_token ?? null;
-      }).finally(() => { 
-        refreshPromise = null; 
-      });
+        const newToken = response.data?.session?.access_token ?? null;
+        return newToken;
+      }).finally(() => { refreshPromise = null; });
     }
 
     const newToken = await refreshPromise;
@@ -41,6 +39,7 @@ export async function callBackend<T = any>(
       
       if (!retryRes.ok) {
         const errText = await retryRes.text();
+        console.error(`[AUTH: callBackend] ❌ Retry failed with status ${retryRes.status}: ${errText}`);
         throw new Error(`HTTP ${retryRes.status}: ${errText}`);
       }
       
@@ -51,6 +50,7 @@ export async function callBackend<T = any>(
 
   if (!res.ok) {
     const text = await res.text();
+    console.error(`[AUTH: callBackend] ❌ HTTP Error ${res.status} on ${path}. Detail: ${text}`);
     throw new Error(`HTTP ${res.status}: ${text}`);
   }
 

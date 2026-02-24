@@ -10,7 +10,8 @@ type WhoAmI = { id: number | null; uuid: string | null };
 function getStoredId(): number | null {
    if (typeof window === "undefined") return null;
    const stored = window.localStorage.getItem("selfrace_numeric_id");
-   return stored ? Number(stored) : null;
+   const val = stored ? Number(stored) : null;
+   return val;
 }
 
 export function useUserId() {
@@ -22,15 +23,14 @@ export function useUserId() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("selfrace_numeric_id");
-        }
+        if (typeof window !== "undefined") window.localStorage.removeItem("selfrace_numeric_id");
         setState({ id: null, uuid: null });
         return;
       }
 
-      // Ak už ID máme pre tohto usera, nemusíme volať backend
-      if (state.id && state.uuid === session.user.id) return;
+      if (state.id && state.uuid === session.user.id) {
+         return;
+      }
 
       const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
         method: "POST",
@@ -43,9 +43,9 @@ export function useUserId() {
       if (numId && typeof window !== "undefined") {
          window.localStorage.setItem("selfrace_numeric_id", numId.toString());
          setState({ id: numId, uuid: session.user.id });
-      }
+      } 
     } catch (e) {
-      console.warn("[useUserId] Sync failed", e);
+      console.error("[AUTH: useUserId] 💥 Error in fetchUser:", e);
     }
   }, [state.id, state.uuid]);
 
