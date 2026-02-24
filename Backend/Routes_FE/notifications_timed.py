@@ -23,14 +23,13 @@ def _require_api_key(x_api_key: str | None) -> None:
 
 @router.post("/recovery")
 async def timed_notify_recovery(
-    test_user_id: int = Body(..., embed=True), # Na testovanie zatiaľ natvrdo vyžadujeme user_id
     x_api_key: str | None = Header(default=None),
 ):
     _require_api_key(x_api_key)
     ctx = service_ctx("notifications_timed.recovery")
 
     try:
-        result = service_cron_notify_recovery(user_id=test_user_id, ctx=ctx)
+        result = service_cron_notify_recovery(ctx=ctx)
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -38,7 +37,6 @@ async def timed_notify_recovery(
 
 @router.post("/review")
 async def timed_notify_review(
-    test_user_id: int = Body(..., embed=True),
     x_api_key: str | None = Header(default=None),
 ):
     _require_api_key(x_api_key)
@@ -46,7 +44,6 @@ async def timed_notify_review(
 
     try:
         result = service_cron_notify_review(
-            user_id=test_user_id, 
             ctx=ctx
         )
         return JSONResponse({"ok": True, "result": result})
@@ -56,14 +53,13 @@ async def timed_notify_review(
 
 @router.post("/training")
 async def timed_notify_training(
-    test_user_id: int = Body(..., embed=True),
     x_api_key: str | None = Header(default=None),
 ):
     _require_api_key(x_api_key)
     ctx = service_ctx("notifications_timed.training")
 
     try:
-        result = service_cron_notify_training(user_id=test_user_id, ctx=ctx)
+        result = service_cron_notify_training(ctx=ctx)
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

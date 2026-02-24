@@ -16,6 +16,9 @@ from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_pus
 from Routes_DB.user_recovery import db_get_recovery_record
 from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
 
+# ✅ PRIDANÝ IMPORT PRE ZOZNAM POUŽÍVATEĽOV
+from Routes_DB.users import db_list_users_for_cron
+
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
 def service_save_push_subscription(
@@ -91,87 +94,107 @@ def service_send_push_notification(
 
     return {"success": True, "sent": success_count, "failed": error_count}
 
-# --- SKELETONY PRE CRONY ---
 
-def service_cron_notify_recovery(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z denného cronu o 11:00."""
-    
-    # 1. Získame dnešný dátum vo formáte YYYY-MM-DD (podľa UTC)
+# --- SKELETONY PRE CRONY (PRODUKČNÉ VERZIE) ---
+
+def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané z denného cronu o 11:00. Skontroluje všetkých userov."""
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    users = db_list_users_for_cron(ctx=ctx)
     
-    # 2. Pozrieme sa do DB, či pre dnešok už existuje záznam
-    existing_record = db_get_recovery_record(
-        user_id=user_id,
-        date_iso=today_iso,
-        ctx=ctx
-    )
+    total_sent = 0
     
-    if existing_record:
-        # Užívateľ si už recovery vyplnil, neotravujeme ho
-        return {"success": True, "sent": 0, "message": f"Recovery pre {today_iso} už bolo vyplnené."}
-    
-    # 3. Ak neexistuje, pošleme notifikáciu
-    return service_send_push_notification(
-        user_id=user_id,
-        title="Nezabudni na Ranné Recovery 🔋",
-        body="Zadaj info o spánku a HR nech presne vieme, ako si na tom.",
-        url="/recovery",
-        ctx=ctx
-    )
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+            
+        existing_record = db_get_recovery_record(
+            user_id=user_id,
+            date_iso=today_iso,
+            ctx=ctx
+        )
+        
+        # Ak záznam neexistuje, posielame notifikáciu
+        if not existing_record:
+            res = service_send_push_notification(
+                user_id=user_id,
+                title="Nezabudni na Ranné Recovery 🔋",
+                body="Zadaj info o spánku a HR nech presne vieme, ako si na tom.",
+                url="/recovery",
+                ctx=ctx
+            )
+            total_sent += res.get("sent", 0)
+            
+    return {"success": True, "sent": total_sent, "message": f"Skontrolovaných {len(users)} užívateľov."}
 
 
-def service_cron_notify_review(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z hodinového cronu."""
+def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané z hodinového cronu. Skontroluje všetkých userov."""
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
     
-    # 1. Vytiahneme aktivity v správnom časovom okne
-    pending_activities = db_get_unreviewed_activities_for_push(user_id=user_id, ctx=ctx)
-    
-    if not pending_activities:
-        return {"success": True, "sent": 0, "message": "Ziadne cerstve aktivity bez review."}
-    
-    # 2. Ak ich je viac (napr. mal 2 tréningy rýchlo po sebe), vezmeme tú najnovšiu
-    # Zoradíme podľa updated_at a zoberieme poslednú
-    pending_activities.sort(key=lambda x: x.get("updated_at", ""))
-    latest_activity = pending_activities[-1]
-    
-    activity_id = latest_activity["activity_id"]
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+            
+        pending_activities = db_get_unreviewed_activities_for_push(user_id=user_id, ctx=ctx)
+        
+        if not pending_activities:
+            continue
+            
+        # Zoradíme podľa updated_at a zoberieme poslednú
+        pending_activities.sort(key=lambda x: x.get("updated_at", ""))
+        latest_activity = pending_activities[-1]
+        
+        activity_id = latest_activity["activity_id"]
 
-    # 3. Odošleme Push
-    return service_send_push_notification(
-        user_id=user_id,
-        title="Ako sa ti dnes išlo? 🏃",
-        body="Ohodnoť svoj posledný tréning.",
-        url=f"/calendar", 
-        ctx=ctx
-    )
+        res = service_send_push_notification(
+            user_id=user_id,
+            title="Ako sa ti dnes išlo? 🏃",
+            body="Ohodnoť svoj posledný tréning.",
+            url="/calendar", 
+            ctx=ctx
+        )
+        total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent, "message": f"Skontrolovaných {len(users)} užívateľov."}
 
 
-def service_cron_notify_training(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z denného cronu o 19:00."""
-    
-    # 1. Zistíme dnešný dátum
+def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané z denného cronu o 19:00. Skontroluje všetkých userov."""
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    users = db_list_users_for_cron(ctx=ctx)
     
-    # 2. Skontrolujeme DB, či mu na dnes nezostal nejaký neukončený tréning
-    has_uncompleted = db_has_uncompleted_daily_sessions(
-        user_id=user_id,
-        plan_date=today_iso,
-        ctx=ctx
-    )
+    total_sent = 0
     
-    # Ak nemá neukončené tréningy (všetko odbehol, alebo mal rest day), potichu skončíme
-    if not has_uncompleted:
-        return {"success": True, "sent": 0, "message": "Plán na dnes je splnený (alebo voľný deň)."}
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+            
+        has_uncompleted = db_has_uncompleted_daily_sessions(
+            user_id=user_id,
+            plan_date=today_iso,
+            ctx=ctx
+        )
+        
+        # Ak má neukončené tréningy, posielame postrčenie
+        if has_uncompleted:
+            res = service_send_push_notification(
+                user_id=user_id,
+                title="Dnes ťa ešte čaká tréning! 👟",
+                body="Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
+                url="/coach/ai/dailyPlan",
+                ctx=ctx
+            )
+            total_sent += res.get("sent", 0)
+            
+    return {"success": True, "sent": total_sent, "message": f"Skontrolovaných {len(users)} užívateľov."}
     
-    # 3. Ak mu ešte niečo zostalo, pošleme mu Push postrčenie
-    return service_send_push_notification(
-        user_id=user_id,
-        title="Dnes ťa ešte čaká tréning! 👟",
-        body="Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
-        url="/coach/ai/dailyPlan",
-        ctx=ctx
-    )
     
+# --- EVENT NOTIFIKÁCIE (Udalosti) ---
     
 def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané priamo z AI service po prepočte nového Athlete State."""
@@ -192,5 +215,3 @@ def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/activities",
         ctx=ctx
     )
-
-

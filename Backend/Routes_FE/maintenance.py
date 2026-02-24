@@ -13,12 +13,11 @@ from Services.maintenance import (
 from Services.AI.athlete_state import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
 from Services.app_subscription import service_apply_due_subscription_changes
-from Configs.config import MAINTENANCE_API_KEY
 
+from Configs.config import MAINTENANCE_API_KEY
 from Modules.Supabase.auth import service_ctx
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
-
 
 def _require_api_key(x_api_key: str | None) -> None:
     if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
