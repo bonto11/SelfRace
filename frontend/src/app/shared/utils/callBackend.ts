@@ -3,7 +3,7 @@
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import type { AuthResponse } from "@supabase/supabase-js"; // ✅ Pridaný typ pre opravu ts(7006)
+import type { AuthResponse } from "@supabase/supabase-js";
 
 let refreshPromise: Promise<string | null> | null = null;
 
