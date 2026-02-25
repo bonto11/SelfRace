@@ -9,7 +9,6 @@ from Services.notifications import (
     service_cron_notify_recovery,
     service_cron_notify_review,
     service_cron_notify_training,
-    service_notify_global,
 )
 from Configs.config import MAINTENANCE_API_KEY
 from Modules.Supabase.auth import service_ctx
