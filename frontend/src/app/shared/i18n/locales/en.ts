@@ -828,11 +828,11 @@ export const en = {
     notifications: {
       tab: "Notifications",
       title: "Never miss a workout",
-      desc1: "SelfRace can remind you about morning measurements, activity reviews, or evening workouts. To do this, we need your permission.",
+      desc1: "SelfRace can remind you about morning measurements, activity reviews, or missed workouts. To do this, we need your permission.",
       iosTitle: "Apple (iOS):",
-      iosDesc: "First, you must add the app to your Home Screen (Share icon -> Add to Home Screen). Then open it from there, go to Profile Settings, and enable Notifications.",
+      iosDesc: "First, you must add the app to your Home Screen (Share icon -> Add to Home Screen). Then enable push notifications in your Settings (in user menu)",
       androidTitle: "Android:",
-      androidDesc: "Install the app to your home screen (via the popup prompt). Then enable push notifications in your Profile Settings.",
+      androidDesc: "Install the app to your home screen (via the popup prompt). Then enable push notifications in your Settings (in user menu)",
       ps: "You can find these settings anytime in your profile under 'Push Notifications'."
     },
     data: {
