@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from Services.notifications import service_save_push_subscription, service_notify_test
+from Services.notifications import service_save_push_subscription, service_delete_push_subscription, service_notify_test
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -35,7 +35,33 @@ def save_push_subscription(
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+@router.delete("/{user_id}/push-subscription")
+def delete_push_subscription(
+    req: Request,
+    user_id: int,
+    endpoint: str = Body(..., embed=True),
+):
+    """
+    Vymaže konkrétny Push Subscription (endpoint zariadenia) z databázy.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        
+        # Voláme service vrstvu
+        result = service_delete_push_subscription(
+            user_id=user_id,
+            endpoint=endpoint, 
+            ctx=ctx
+        )
+        
+        return result
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{user_id}/test-push")
 def test_push_notification(

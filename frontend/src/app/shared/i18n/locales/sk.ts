@@ -249,7 +249,7 @@ export const sk = {
     footer: "Stravu prepojíš po registrácii v sekcii Connected Apps.",
   },
   userMenu: {
-    account: "Účet",
+    settings: "Nastavenia",
     subscription: "Predplatné",
     connectedApps: "Pripojené aplikácie",
     logginOff: "Odhlasujem…",
@@ -1592,15 +1592,15 @@ export const sk = {
   connectedApps: {
     title: "Pripojenené aplikácie",
   },
-  account: {
-    title: "Môj účet",
+  settings: {
+    title: "Nastavenia",
     btnChangeMail: "Zmeniť e-mail / profil",
     btnChangePassword: "Zmeniť heslo (e-mailom)",
     quickActions:
       "Rýchle akcie pre zmenu hesla a profilu (otvoria samostatnú stránku).",
     actions: "Akcie účtu",
     dateFormat: "Formát dátumu",
-    settings: {
+    prefs: {
       title: "Osobné nastavenia",
       subtitle:
         "Jazyk, jednotky, časové pásmo a formát dátumu/času pre celé rozhranie.",
@@ -1667,11 +1667,15 @@ export const sk = {
       "btnEnable": "Enable notifications",
       "btnTest": "Test",
       "btnActive": "Notifications are active",
+      "btnDisable": "Vypnúť upozornenia",
+      "disableSuccess": "Upozornenia boli úspešne vypnuté.",
+      "disableError": "Nepodarilo sa vypnúť upozornenia.",
       "success": "Notifications were successfully enabled!",
       "error": "An error occurred while enabling notifications.",
       "permissionDenied": "Notification access was denied in your browser.",
       "notSupported": "Your browser does not support push notifications.",
-      "notSupportedHint": "On iOS, you must first add the app to your Home Screen."
+      "notSupportedHint": "On iOS, you must first add the app to your Home Screen.",
+      
     },
   },
   subscription: {

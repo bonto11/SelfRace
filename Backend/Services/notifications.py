@@ -90,6 +90,23 @@ def service_save_push_subscription(
         ctx=ctx
     )
 
+def service_delete_push_subscription(
+    user_id: int,
+    endpoint: str,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Vymaže Push Subscription (endpoint) z databázy.
+    """
+    if not endpoint:
+        raise ValueError("Chýba endpoint na vymazanie.")
+
+    # Zavoláme DB vrstvu pre vymazanie
+    db_delete_push_subscription(endpoint=endpoint, ctx=ctx)
+
+    return {"success": True, "message": "Odber bol úspešne vymazaný."}
+
+
 
 # --- 1. UNIVERZÁLNY ODOSIELATEĽ ---
 

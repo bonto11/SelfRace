@@ -250,7 +250,7 @@ export const en = {
     footer: "You can connect Strava after registration in the Connected Apps section.",
   },
   userMenu: {
-    account: "Account",
+    settings: "Settings",
     subscription: "Subscription",
     connectedApps: "Connected Apps",
     logginOff: "Logging off...",
@@ -1588,15 +1588,15 @@ export const en = {
   connectedApps: {
     title: "Connected Apps",
   },
-  account: {
-    title: "My Account",
+  settings: {
+    title: "Settings",
     btnChangeMail: "Change Email / Profile",
     btnChangePassword: "Change Password (via email)",
     quickActions:
       "Quick actions to update your password and profile (opens a new page).",
     actions: "Account Actions",
     dateFormat: "Date Format",
-    settings: {
+    prefs: {
       title: "Personal Settings",
       subtitle:
         "Language, units, time zone, and date/time formatting for the entire interface.",
@@ -1662,12 +1662,15 @@ export const en = {
       "desc": "Get training notifications directly on your screen.",
       "btnEnable": "Enable notifications",
       "btnActive": "Notifications are active",
+      "btnDisable": "Disable notifications",
+      "disableSuccess": "Notifications were successfully disabled!",
+      "disableError": "An error occurred while disabling notifications.",
       "btnTest": "Test",
       "success": "Notifications were successfully enabled!",
       "error": "An error occurred while enabling notifications.",
       "permissionDenied": "Notification access was denied in your browser.",
       "notSupported": "Your browser does not support push notifications.",
-      "notSupportedHint": "On iOS, you must first add the app to your Home Screen."
+      "notSupportedHint": "On iOS, you must first add the app to your Home Screen.",  
     },
   },
   subscription: {
