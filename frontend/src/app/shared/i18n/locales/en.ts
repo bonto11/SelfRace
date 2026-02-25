@@ -825,6 +825,16 @@ export const en = {
         "Click the three dots in the top right and select 'Add to Home screen'.",
       ps: "PS: If you close this now, you can find this guide anytime in the User Menu (your avatar in the top right).",
     },
+    notifications: {
+      tab: "Notifications",
+      title: "Never miss a workout",
+      desc1: "SelfRace can remind you about morning measurements, activity reviews, or evening workouts. To do this, we need your permission.",
+      iosTitle: "Apple (iOS):",
+      iosDesc: "First, you must add the app to your Home Screen (Share icon -> Add to Home Screen). Then open it from there, go to Profile Settings, and enable Notifications.",
+      androidTitle: "Android:",
+      androidDesc: "Install the app to your home screen (via the popup prompt). Then enable push notifications in your Profile Settings.",
+      ps: "You can find these settings anytime in your profile under 'Push Notifications'."
+    },
     data: {
       tab: "Data",
       title: "Strava & Activities 🚴‍♂️",

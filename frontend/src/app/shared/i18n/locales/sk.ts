@@ -824,6 +824,16 @@ export const sk = {
         "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na domovskú obrazovku'.",
       ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v Užívateľskom menu (tvoj avatar vpravo hore).",
     },
+    notifications: {
+      tab: "Notifikácie",
+      title: "Nezmeškaj žiadny tréning",
+      desc1: "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity či večerný tréning. Na to však potrebuje tvoj súhlas.",
+      iosTitle: "Apple (iOS):",
+      iosDesc: "Najprv si musíš apku pridať na Domovskú obrazovku (ikonka zdieľania -> Pridať na plochu). Potom si ju otvor z plochy, choď do Nastavení profilu a zapni Notifikácie.",
+      androidTitle: "Android:",
+      androidDesc: "Nainštaluj si aplikáciu na plochu (vyskakovacie okno zospodu). Následne v Nastaveniach profilu povoľ odosielanie upozornení.",
+      ps: "Tieto nastavenia nájdeš kedykoľvek neskôr vo svojom profile pod 'Push Notifikácie'."
+    },
     data: {
       tab: "Dáta",
       title: "Strava a Aktivity 🚴‍♂️",

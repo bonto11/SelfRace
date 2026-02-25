@@ -1,4 +1,3 @@
-// src/app/shared/ui/components/OnboardingWizard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -48,6 +47,30 @@ export default function OnboardingWizard({
           </ul>
           <p className="text-xs opacity-70 mt-4 italic">
             {t("onboarding.welcome.ps")}
+          </p>
+        </div>
+      ),
+    },
+    // ✅ NOVÁ SEKCIA PRE NOTIFIKÁCIE PRIDANÁ SEM
+    {
+      id: "notifications",
+      tabLabel: t("onboarding.notifications.tab" as any),
+      title: t("onboarding.notifications.title" as any),
+      content: (
+        <div className="space-y-3">
+          <p>{t("onboarding.notifications.desc1" as any)}</p>
+          <ul className="list-disc pl-5 opacity-90 space-y-1">
+            <li>
+              <b>{t("onboarding.notifications.iosTitle" as any)}</b>{" "}
+              {t("onboarding.notifications.iosDesc" as any)}
+            </li>
+            <li>
+              <b>{t("onboarding.notifications.androidTitle" as any)}</b>{" "}
+              {t("onboarding.notifications.androidDesc" as any)}
+            </li>
+          </ul>
+          <p className="text-xs opacity-70 mt-4 italic">
+            {t("onboarding.notifications.ps" as any)}
           </p>
         </div>
       ),
@@ -116,7 +139,6 @@ export default function OnboardingWizard({
   ];
 
   useEffect(() => {
-    // Striktná kontrola: ak nemáme userId alebo je 0, zrušíme loading a nepokračujeme
     if (!userId || userId === 0) {
       setIsLoading(false);
       return;
@@ -171,7 +193,6 @@ export default function OnboardingWizard({
     }
   };
 
-  // Hard gate priamo v renderi: nevykreslí sa nič, ak id chýba alebo je 0
   if (isLoading || !isOpen || !userId || userId === 0) return null;
 
   const currentChapter = CHAPTERS[activeTab];
@@ -217,12 +238,10 @@ export default function OnboardingWizard({
           </div>
         </div>
 
-        {/* FOOTER s Checkboxom na poslednom tabe */}
         <div
           className="p-4 sm:p-6 bg-base-200/30 flex justify-between items-center"
           style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
         >
-          {/* Ľavá strana: Tlačidlá navigácie a Checkbox */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex gap-2">
               {activeTab > 0 && (
@@ -247,7 +266,6 @@ export default function OnboardingWizard({
               )}
             </div>
 
-            {/* Zobrazené iba na poslednom tabe */}
             {isLastTab && (
               <div className="hidden sm:block">
                 <Checkbox
@@ -272,7 +290,6 @@ export default function OnboardingWizard({
           </Button>
         </div>
 
-        {/* Mobilný Checkbox pod footrom, aby sa to nerozbíjalo na malom displeji */}
         {isLastTab && (
           <div className="sm:hidden px-4 pb-4 bg-base-200/30">
             <Checkbox

@@ -1,4 +1,3 @@
-// src/app/(protected)/onboarding/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -42,6 +41,30 @@ export default function OnboardingPage() {
           </ul>
           <p className="text-xs opacity-70 mt-4 italic">
             {t("onboarding.welcome.ps")}
+          </p>
+        </div>
+      ),
+    },
+    // ✅ NOVÁ SEKCIA PRE NOTIFIKÁCIE PRIDANÁ SEM
+    {
+      id: "notifications",
+      tabLabel: t("onboarding.notifications.tab" as any),
+      title: t("onboarding.notifications.title" as any),
+      content: (
+        <div className="space-y-3">
+          <p>{t("onboarding.notifications.desc1" as any)}</p>
+          <ul className="list-disc pl-5 opacity-90 space-y-1">
+            <li>
+              <b>{t("onboarding.notifications.iosTitle" as any)}</b>{" "}
+              {t("onboarding.notifications.iosDesc" as any)}
+            </li>
+            <li>
+              <b>{t("onboarding.notifications.androidTitle" as any)}</b>{" "}
+              {t("onboarding.notifications.androidDesc" as any)}
+            </li>
+          </ul>
+          <p className="text-xs opacity-70 mt-4 italic">
+            {t("onboarding.notifications.ps" as any)}
           </p>
         </div>
       ),
@@ -173,12 +196,10 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* FOOTER s Checkboxom na poslednom tabe */}
         <div
           className="p-6 sm:p-8 bg-base-200/30 flex justify-between items-center"
           style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
         >
-          {/* Ľavá strana: Navigácia a Checkbox */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex gap-3">
               {activeTab > 0 && (
@@ -203,7 +224,6 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Zobrazené iba na poslednom tabe */}
             {isLastTab && (
               <div className="hidden sm:block">
                 <Checkbox
@@ -228,7 +248,6 @@ export default function OnboardingPage() {
           </Button>
         </div>
 
-        {/* Mobilný Checkbox pod footrom pre úzke displeje */}
         {isLastTab && (
           <div className="sm:hidden px-6 pb-6 bg-base-200/30">
             <Checkbox
