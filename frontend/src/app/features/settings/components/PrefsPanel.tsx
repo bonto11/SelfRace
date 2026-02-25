@@ -75,7 +75,7 @@ export default function PrefsPanel() {
     () =>
       LANGUAGES.map((v) => ({
         value: v,
-        label: t(`account.languageOptions.${v}` as any),
+        label: t(`settings.prefs.languageOptions.${v}` as any),
       })),
     [t],
   );
@@ -83,7 +83,7 @@ export default function PrefsPanel() {
     () =>
       UNITS.map((v) => ({
         value: v,
-        label: t(`account.unitOptions.${v}` as any),
+        label: t(`settings.prefs.unitOptions.${v}` as any),
       })),
     [t],
   );
@@ -91,7 +91,7 @@ export default function PrefsPanel() {
     () =>
       WEEK_STARTS.map((v) => ({
         value: v,
-        label: t(`account.weekStartOptions.${v}` as any),
+        label: t(`settings.prefs.weekStartOptions.${v}` as any),
       })),
     [t],
   );
@@ -99,7 +99,7 @@ export default function PrefsPanel() {
     () =>
       TIME_FORMATS.map((v) => ({
         value: v,
-        label: t(`account.timeFormatOptions.${v}` as any),
+        label: t(`settings.prefs.timeFormatOptions.${v}` as any),
       })),
     [t],
   );
@@ -107,7 +107,7 @@ export default function PrefsPanel() {
     () =>
       TIMEZONES.map((tz) => ({
         value: tz,
-        label: t(`account.timezones.${tz}` as any),
+        label: t(`settings.prefs.timezones.${tz}` as any),
       })),
     [t],
   );
