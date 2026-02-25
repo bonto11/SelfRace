@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Body, HTTPException, Request
 
-from Services.notifications import service_save_push_subscription, service_send_push_notification
+from Services.notifications import service_save_push_subscription, service_notify_test
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -48,11 +48,8 @@ def test_push_notification(
     try:
         ctx = require_user(get_auth_ctx(req))
         
-        result = service_send_push_notification(
+        result = service_notify_test(
             user_id=user_id,
-            url="/activities/load",
-            title="Ahoj zo SelfRace!",
-            body="Tvoja testovacia PWA notifikácia práve dorazila. Gratulujem!",
             ctx=ctx
         )
         return result

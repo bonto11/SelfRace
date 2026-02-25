@@ -1,3 +1,4 @@
+# Services/notifications.py
 from __future__ import annotations
 
 import json
@@ -17,7 +18,6 @@ from Routes_DB.user_recovery import db_get_recovery_record
 from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
 from Routes_DB.users import db_list_users_for_cron
 
-# ✅ PRIDANÝ IMPORT PRE PREFERENCIE
 from Routes_DB.user_prefs import db_get_pref_single
 
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
@@ -57,7 +57,7 @@ PUSH_TRANSLATIONS = {
 # =====================================================================
 
 def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
-    """Zistí preferovaný jazyk užívateľa z DB. Fallback je 'sk'."""
+    """Zistí preferovaný jazyk užívateľa z DB. Fallback je 'en'."""
     pref = db_get_pref_single(user_id=user_id, key="user.settings", ctx=ctx)
     
     if pref and isinstance(pref.get("value"), dict):
@@ -65,8 +65,9 @@ def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
         if lang in ["sk", "en"]:
             return lang
             
-    print("pref and lang", pref, lang)
+    print("pref and lang", pref, pref.get("value", {}).get("language") if pref else "None")
     return "en" # Predvolený jazyk ak neexistuje záznam
+
 
 def service_save_push_subscription(
     user_id: int,
@@ -196,9 +197,6 @@ def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
             
         pending_activities.sort(key=lambda x: x.get("updated_at", ""))
         latest_activity = pending_activities[-1]
-        
-        # activity_id by sme využili ak by URL smerovala presne na danú aktivitu
-        # activity_id = latest_activity["activity_id"]
 
         lang = _get_user_language(user_id, ctx)
         t = PUSH_TRANSLATIONS[lang]
@@ -267,10 +265,7 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
 def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z FE tlačidla 'Test'."""
     lang = _get_user_language(user_id, ctx)
-    
     t = PUSH_TRANSLATIONS[lang]
-    
-    print("lang",lang)
     
     return service_send_push_notification(
         user_id=user_id,
@@ -279,3 +274,46 @@ def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/activities",
         ctx=ctx
     )
+
+# --- GLOBÁLNE / HROMADNÉ OZNÁMENIA ---
+
+def service_notify_global(messages: Dict[str, Dict[str, str]], ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Volané manuálne (napr. cez cron/admin endpoint) pre hromadnú správu.
+    Očakáva messages v tvare:
+    {
+        "sk": {"title": "...", "body": "...", "url": "..."},
+        "en": {"title": "...", "body": "...", "url": "..."}
+    }
+    """
+    if not messages:
+        return {"success": False, "sent": 0, "message": "Prázdny payload správ."}
+
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
+    
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+            
+        lang = _get_user_language(user_id, ctx)
+        user_msg = messages.get(lang)
+        
+        # Fallback na EN alebo hocičo čo je k dispozícii
+        if not user_msg:
+            user_msg = messages.get("en") or next(iter(messages.values()), None)
+            
+        if not user_msg:
+            continue 
+            
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=user_msg.get("title", "Oznámenie"),
+            body=user_msg.get("body", ""),
+            url=user_msg.get("url", "/"),
+            ctx=ctx
+        )
+        total_sent += res.get("sent", 0)
+        
+    return {"success": True, "sent": total_sent, "message": f"Globálna správa odoslaná. Zásah: {total_sent}."}
