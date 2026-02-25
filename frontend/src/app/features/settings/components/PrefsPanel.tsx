@@ -66,7 +66,7 @@ export default function PrefsPanel() {
   const { userId } = useUserId();
   const t = useT();
 
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
