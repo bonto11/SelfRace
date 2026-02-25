@@ -58,14 +58,14 @@ export default function NotificationPanel() {
   async function handleEnablePush() {
     if (!userId) return;
     if (!pushSupported) {
-      toast.error(t("account.push.notSupported"));
+      toast.error(t("settings.push.notSupported"));
       return;
     }
     setPushLoading(true);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        toast.error(t("account.push.permissionDenied"));
+        toast.error(t("settings.push.permissionDenied"));
         setPushLoading(false);
         return;
       }
@@ -82,10 +82,10 @@ export default function NotificationPanel() {
 
       await apiSavePushSubscription(userId, subscription.toJSON());
       setPushSubscribed(true);
-      toast.success(t("account.push.success"));
+      toast.success(t("settings.push.success"));
     } catch (error: any) {
       console.error("[NotificationPanel] Push error:", error);
-      toast.error(t("account.push.error"));
+      toast.error(t("settings.push.error"));
     } finally {
       setPushLoading(false);
     }
@@ -103,10 +103,10 @@ export default function NotificationPanel() {
         await apiDeletePushSubscription(userId, endpoint);
       }
       setPushSubscribed(false);
-      toast.success(t("account.push.disableSuccess" as any));
+      toast.success(t("settings.push.disableSuccess" as any));
     } catch (error: any) {
       console.error("[NotificationPanel] Disable Push error:", error);
-      toast.error(t("account.push.disableError" as any));
+      toast.error(t("settings.push.disableError" as any));
     } finally {
       setPushLoading(false);
     }
@@ -117,10 +117,10 @@ export default function NotificationPanel() {
     setPushTesting(true);
     try {
       await apiTestPushNotification(userId);
-      toast.success(t("account.push.testSuccess" as any));
+      toast.success(t("settings.push.testSuccess" as any));
     } catch (error: any) {
       console.error("[NotificationPanel] Test Push error:", error);
-      toast.error(t("account.push.testError" as any));
+      toast.error(t("settings.push.testError" as any));
     } finally {
       setPushTesting(false);
     }
@@ -128,14 +128,14 @@ export default function NotificationPanel() {
 
   const previewText = pushSupported
     ? pushSubscribed
-      ? t("account.push.btnActive" as any)
-      : t("account.push.btnEnable" as any)
-    : t("account.push.notSupportedHint" as any);
+      ? t("settings.push.btnActive" as any)
+      : t("settings.push.btnEnable" as any)
+    : t("settings.push.notSupportedHint" as any);
 
   return (
     <InputsCard
-      title={t("account.push.title")}
-      subtitle={t("account.push.desc")}
+      title={t("settings.push.title")}
+      subtitle={t("settings.push.desc")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
@@ -151,8 +151,8 @@ export default function NotificationPanel() {
           >
             {pushLoading && <LoadingSpinner size="button" className="mr-2" />}
             {pushSubscribed
-              ? t("account.push.btnDisable" as any)
-              : t("account.push.btnEnable")}
+              ? t("settings.push.btnDisable" as any)
+              : t("settings.push.btnEnable")}
           </Button>
 
           {pushSubscribed && (
@@ -161,16 +161,16 @@ export default function NotificationPanel() {
               variant="primary"
               onClick={handleTestPush}
               disabled={pushTesting || !userId}
-              title={t("account.push.testTitle" as any)}
+              title={t("settings.push.testTitle" as any)}
             >
               {pushTesting && <LoadingSpinner size="button" className="mr-2" />}
-              {t("account.push.btnTest" as any)}
+              {t("settings.push.btnTest" as any)}
             </Button>
           )}
         </div>
         {!pushSupported && (
           <p className="text-[11px] mt-2 text-red-500">
-            {t("account.push.notSupportedHint")}
+            {t("settings.push.notSupportedHint")}
           </p>
         )}
       </div>
