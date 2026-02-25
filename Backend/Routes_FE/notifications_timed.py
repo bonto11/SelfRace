@@ -66,8 +66,7 @@ async def timed_notify_training(
 
 @router.post("/global")
 async def timed_notify_global(
-    # 👇 TOTO JE KĽÚČOVÉ: Musí to byť Dict vodic Dict, nie iba Dict[str, str]
-    messages: Dict[str, Dict[str, str]] = Body(...), 
+    messages: Dict[str, Dict[str, str]] = Body(..., embed=True),
     x_api_key: str | None = Header(default=None),
 ):
     """
