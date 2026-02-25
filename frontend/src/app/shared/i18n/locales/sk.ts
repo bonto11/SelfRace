@@ -827,7 +827,7 @@ export const sk = {
     notifications: {
       tab: "Notifikácie",
       title: "Nezmeškaj žiadny tréning",
-      desc1: "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity či zmeškaný tréning. Na to však potrebuje tvoj súhlas.",
+      desc1: "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity, zmeškaný tréning či iné novinky. Na to však potrebuje tvoj súhlas.",
       iosTitle: "Apple (iOS):",
       iosDesc: "Najprv si musíš apku pridať na Domovskú obrazovku (ikonka zdieľania -> Pridať na plochu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
       androidTitle: "Android:",
