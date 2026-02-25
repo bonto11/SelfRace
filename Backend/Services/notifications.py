@@ -65,9 +65,8 @@ def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
         if lang in ["sk", "en"]:
             return lang
             
-    print("pref and lang",pref, lang)
+    print("pref and lang", pref, lang)
     return "en" # Predvolený jazyk ak neexistuje záznam
-
 
 def service_save_push_subscription(
     user_id: int,
