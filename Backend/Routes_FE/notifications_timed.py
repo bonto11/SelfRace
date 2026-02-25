@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Dict
 from fastapi import APIRouter, Body, Header, HTTPException, status
 from fastapi.responses import JSONResponse
-
+from typing import Dict 
 from Services.notifications import (
     service_cron_notify_recovery,
     service_cron_notify_review,
@@ -67,7 +67,8 @@ async def timed_notify_training(
 
 @router.post("/global")
 async def timed_notify_global(
-    messages: Dict[str, Dict[str, str]] = Body(...),
+    # 👇 TOTO JE KĽÚČOVÉ: Musí to byť Dict vodic Dict, nie iba Dict[str, str]
+    messages: Dict[str, Dict[str, str]] = Body(...), 
     x_api_key: str | None = Header(default=None),
 ):
     """
@@ -78,6 +79,9 @@ async def timed_notify_global(
     ctx = service_ctx("notifications_timed.global")
 
     try:
+        # Musíme importovať service až tu (ak by náhodou aj tu bol circular import problém)
+        from Services.notifications import service_notify_global
+        
         result = service_notify_global(
             messages=messages,
             ctx=ctx
