@@ -97,7 +97,6 @@ export default function ProfileStaticInputs() {
     <InputsCard
       title={t("profile.static.title")}
       subtitle={t("profile.static.subtitle")}
-      preview={previewText}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"

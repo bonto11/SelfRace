@@ -1811,6 +1811,7 @@ export const en = {
       saveTip: "Only enter new values – you can leave the other fields empty.",
       saveSuccess: "Metrics successfully saved",
       errorNoValues: "Enter at least one new value.",
+      summary: "Summary",
       previewWeight: "Weight",
       previewFat: "Fat",
       previewHrMax: "Max HR",

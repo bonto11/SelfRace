@@ -36,7 +36,7 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; 
+import { useT } from "@/app/shared/i18n/useT";
 
 const UNIT_MAP: Record<EditableMetricKey, string> = {
   weight_kg: "kg",
@@ -48,7 +48,7 @@ const UNIT_MAP: Record<EditableMetricKey, string> = {
 
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); 
+  const t = useT();
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -126,7 +126,9 @@ export default function ProfileMetricInputs() {
       setLoading(true);
       const res = await apiSaveMetrics(userId, entries);
       // UX: Preložený úspech s počtom uložených hodnôt
-      toast.success(`${t("profile.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`);
+      toast.success(
+        `${t("profile.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`,
+      );
 
       const data = await apiGetLatestMetrics(userId);
       setLatest(data);
@@ -173,7 +175,7 @@ export default function ProfileMetricInputs() {
     const vo2 = Number.isFinite(latest?.VO2Max_estimated?.value as number)
       ? `${latest?.VO2Max_estimated?.value}`
       : "—";
-    
+
     // Použitie preložených labelov v náhľade
     return `${t("profile.metrics.previewWeight")}: ${w} • ${t("profile.metrics.previewFat")}: ${bf} • ${t("profile.metrics.previewHrMax")}: ${hr} • VO₂Max: ${vo2}`;
   }, [latest, t]);
@@ -182,7 +184,6 @@ export default function ProfileMetricInputs() {
     <InputsCard
       title={t("profile.metrics.title")}
       subtitle={t("profile.metrics.subtitle")}
-      preview={previewText}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
@@ -263,7 +264,10 @@ export default function ProfileMetricInputs() {
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_estimated ?? ""}
-                placeholder={ph.VO2Max_estimated || t("profile.metrics.estimatedPlaceholder")}
+                placeholder={
+                  ph.VO2Max_estimated ||
+                  t("profile.metrics.estimatedPlaceholder")
+                }
                 onChange={(e) =>
                   onChangeNumber("VO2Max_estimated", e.target.value)
                 }
@@ -273,7 +277,9 @@ export default function ProfileMetricInputs() {
                 type="number"
                 inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
-                placeholder={ph.VO2Max_measured || t("profile.metrics.measuredPlaceholder")}
+                placeholder={
+                  ph.VO2Max_measured || t("profile.metrics.measuredPlaceholder")
+                }
                 onChange={(e) =>
                   onChangeNumber("VO2Max_measured", e.target.value)
                 }
@@ -297,12 +303,9 @@ export default function ProfileMetricInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("common.soon")}
+              {t("profile.metrics.summary")}
             </div>
-            <TextField
-              value={t("profile.metrics.saveTip")}
-              disabled
-            />
+            <TextField value={previewText} disabled />
           </section>
         </div>
       </div>

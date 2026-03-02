@@ -1806,6 +1806,7 @@ export const sk = {
         "Zadajte len nové hodnoty – ostatné polia môžete nechať prázdne.",
       saveSuccess: "Metriky boli úspešne uložené",
       errorNoValues: "Zadajte aspoň jednu novú hodnotu.",
+      summary: "Zhrnutie",
       previewWeight: "Hmotnosť",
       previewFat: "Tuk",
       previewHrMax: "HR max",
