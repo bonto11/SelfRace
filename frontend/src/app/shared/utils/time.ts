@@ -339,3 +339,37 @@ export function formatMetricDate(d?: string | null): string {
   const loc = "sk-SK";
   return d ? new Date(d).toLocaleDateString(loc) : "—";
 }
+
+/**
+ * Zoberie ľubovoľný formát dátumu a vráti pekný lokalizovaný formát.
+ * Podporuje prepínanie jazyka cez parameter `locale`.
+ */
+export function parseAndFormatPrettyDate(
+  dateString?: string | null, 
+  locale: string = "sk-SK"
+): string {
+  if (!dateString) return "—";
+
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return dateString;
+
+  const hasTime = dateString.includes(":");
+
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long", // "Pondelok" / "Monday"
+    day: "numeric",  // "2"
+    month: "long",   // "marec" / "March"
+  };
+
+  if (hasTime) {
+    options.hour = "2-digit";
+    options.minute = "2-digit";
+  }
+
+  // Použijeme locale dodané z komponentu (napr. "sk" alebo "en")
+  const formatted = d.toLocaleDateString(locale, options);
+
+  // V slovenčine Intl vracia dni s malým písmenom (napr. "pondelok"), 
+  // v UI väčšinou chceme veľké prvé písmeno.
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}

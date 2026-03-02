@@ -4,9 +4,11 @@
 import { useEffect, useMemo, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -32,7 +34,7 @@ import {
   type DailyPlanDay,
 } from "@/app/features/coach/api/coach_plan_daily";
 
-import { apiFetchUserPref } from "@/app/features/prefs/api/prefs"; 
+import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -49,7 +51,10 @@ type UiState = {
   hasAnyPlan: boolean; // ✅ Pridaný flag, či vôbec nejaký plán existuje
 };
 
-function buildUiState(overview: DailyOverview | null, injurySeverity: number): UiState {
+function buildUiState(
+  overview: DailyOverview | null,
+  injurySeverity: number,
+): UiState {
   const base = {
     horizonDays: 0,
     daysCount: 0,
@@ -67,8 +72,8 @@ function buildUiState(overview: DailyOverview | null, injurySeverity: number): U
 
   const days = overview.days;
   const todayStr = new Date().toISOString().slice(0, 10);
-  
-  // Namiesto dĺžky celého poľa (ktoré obsahuje aj historické a voľné dni) 
+
+  // Namiesto dĺžky celého poľa (ktoré obsahuje aj historické a voľné dni)
   // spočítame iba BUDÚCE (vrátane dnes) aktívne tréningy
   let futureActiveDaysCount = 0;
   let futureSessionsCount = 0;
@@ -80,7 +85,9 @@ function buildUiState(overview: DailyOverview | null, injurySeverity: number): U
     const sessionCountForDay = d.sessions?.length ?? 0;
     if (sessionCountForDay > 0) {
       // Overíme, či to nie je len "rest" deň
-      const hasRealWorkout = d.sessions!.some(s => s.session_type?.toLowerCase() !== "rest");
+      const hasRealWorkout = d.sessions!.some(
+        (s) => s.session_type?.toLowerCase() !== "rest",
+      );
       if (hasRealWorkout) {
         futureActiveDaysCount++;
         futureSessionsCount += sessionCountForDay;
@@ -105,12 +112,16 @@ function buildUiState(overview: DailyOverview | null, injurySeverity: number): U
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
   const t = useT();
+  const { lang } = useSettings();
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
-  
-  const [injurySeverity, setInjurySeverity] = useState<number>(0); 
-  const [activeInjury, setActiveInjury] = useState<{ severity: number; text: string } | null>(null);
-  
+
+  const [injurySeverity, setInjurySeverity] = useState<number>(0);
+  const [activeInjury, setActiveInjury] = useState<{
+    severity: number;
+    text: string;
+  } | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,30 +135,39 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       try {
         const [planRes, prefsRes] = await Promise.all([
           apiGetDailyOverview(userId).catch(() => null),
-          apiFetchUserPref(userId, "coach.prefs").catch(() => null)
+          apiFetchUserPref(userId, "coach.prefs").catch(() => null),
         ]);
-        
+
         if (alive) {
           if (planRes) setOverview(planRes);
-          
-          if (prefsRes && Array.isArray(prefsRes.injuries) && prefsRes.injuries.length > 0) {
-            const maxInjury = prefsRes.injuries.reduce((prev: any, current: any) => {
-              return (current.severity || 0) > (prev.severity || 0) ? current : prev;
-            }, { severity: 0 });
+
+          if (
+            prefsRes &&
+            Array.isArray(prefsRes.injuries) &&
+            prefsRes.injuries.length > 0
+          ) {
+            const maxInjury = prefsRes.injuries.reduce(
+              (prev: any, current: any) => {
+                return (current.severity || 0) > (prev.severity || 0)
+                  ? current
+                  : prev;
+              },
+              { severity: 0 },
+            );
 
             if (maxInjury && maxInjury.severity > 0) {
-              setInjurySeverity(maxInjury.severity); 
+              setInjurySeverity(maxInjury.severity);
               setActiveInjury({
                 severity: maxInjury.severity,
-                text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`
+                text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`,
               });
             } else {
-               setInjurySeverity(0);
-               setActiveInjury(null);
+              setInjurySeverity(0);
+              setActiveInjury(null);
             }
           } else {
-             setInjurySeverity(0);
-             setActiveInjury(null);
+            setInjurySeverity(0);
+            setActiveInjury(null);
           }
         }
       } catch (e: any) {
@@ -162,14 +182,16 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     };
   }, [userId, t]);
 
-  const ui = useMemo(() => buildUiState(overview, injurySeverity), [overview, injurySeverity]);
-
+  const ui = useMemo(
+    () => buildUiState(overview, injurySeverity),
+    [overview, injurySeverity],
+  );
 
   return (
     <WidgetCard
       title={t("coachDaily.widget.title")}
       tooltip={t("coachDaily.widget.tooltip")}
-      accent={ui.isMedicalSuspend ? "danger" : "none"} 
+      accent={ui.isMedicalSuspend ? "danger" : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -184,22 +206,25 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className={WIDGET_INFO_TEXT}>
-          {t("widget.missingUserId")}
-        </div>
+        <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
       ) : (
         <>
           {activeInjury && (
-            <div className={`mb-4 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
-                activeInjury.severity >= 7 
-                  ? "bg-red-500/10 border-red-500/20 text-red-400" 
+            <div
+              className={`mb-4 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${
+                activeInjury.severity >= 7
+                  ? "bg-red-500/10 border-red-500/20 text-red-400"
                   : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-              }`}>
+              }`}
+            >
               <div className="flex-shrink-0 text-base">⚠️</div>
               <div className="leading-tight">
-                <strong>{t("common.injury.reported")}</strong> {activeInjury.text}
+                <strong>{t("common.injury.reported")}</strong>{" "}
+                {activeInjury.text}
                 <div className="opacity-80 text-[10px] mt-0.5">
-                  {activeInjury.severity >= 7 ? t("common.injury.dailyPlan") : t("common.injury.planAdjusted")}
+                  {activeInjury.severity >= 7
+                    ? t("common.injury.dailyPlan")
+                    : t("common.injury.planAdjusted")}
                 </div>
               </div>
             </div>
@@ -213,15 +238,23 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
           ) : (
             <>
               <div className={WIDGET_KV_GRID}>
-                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelDays")}</div>
+                <div className={WIDGET_KV_LABEL}>
+                  {t("coachDaily.widget.labelDays")}
+                </div>
                 <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
 
-                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.labelSessions")}</div>
+                <div className={WIDGET_KV_LABEL}>
+                  {t("coachDaily.widget.labelSessions")}
+                </div>
                 <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
 
-                <div className={WIDGET_KV_LABEL}>{t("coachDaily.widget.todayLabel")}</div>
+                <div className={WIDGET_KV_LABEL}>
+                  {t("coachDaily.widget.todayLabel")}
+                </div>
                 <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
-                  {ui.todayLabel ?? "—"}
+                  {ui.todayLabel
+                    ? parseAndFormatPrettyDate(ui.todayLabel, lang)
+                    : "—"}
                 </div>
               </div>
 
@@ -240,7 +273,9 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
                         />
                         <span className={WIDGET_TRUNCATE}>
                           {s.title || s.session_type || s.sport}
-                          {s.duration_min ? ` · ${s.duration_min} ${t("common.units.min")}` : ""}
+                          {s.duration_min
+                            ? ` · ${s.duration_min} ${t("common.units.min")}`
+                            : ""}
                           {s.intensity ? ` · ${s.intensity}` : ""}
                         </span>
                       </li>
@@ -249,7 +284,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
                   {ui.todaySessions.length > 3 && (
                     <div className={WIDGET_MORE_HINT}>
-                      + {ui.todaySessions.length - 3} {t("coachDaily.widget.moreSessions")}
+                      + {ui.todaySessions.length - 3}{" "}
+                      {t("coachDaily.widget.moreSessions")}
                     </div>
                   )}
                 </div>
