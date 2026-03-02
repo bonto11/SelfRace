@@ -173,13 +173,6 @@ export default function CalendarItemCard({
             <div className="text-xs sm:text-sm opacity-90">{notes}</div>
           )}
 
-          {realSummary && (
-            <div className="text-xs sm:text-sm">
-              <span className="opacity-60 mr-1">MBP Real:</span>
-              <span>{realSummary}</span>
-            </div>
-          )}
-
           {onOpenActivity && (
             <div
               style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}

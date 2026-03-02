@@ -51,7 +51,6 @@ export default function OnboardingWizard({
         </div>
       ),
     },
-    // ✅ NOVÁ SEKCIA PRE NOTIFIKÁCIE PRIDANÁ SEM
     {
       id: "notifications",
       tabLabel: t("onboarding.notifications.tab" as any),
@@ -214,7 +213,7 @@ export default function OnboardingWizard({
               <button
                 key={chap.id}
                 onClick={() => setActiveTab(idx)}
-                className={`flex-1 min-w-[80px] py-3 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap px-2 ${
+                className={`flex-1 min-w-[60px] py-3 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap px-2 ${
                   isActive ? "text-white" : "text-gray-500 hover:text-gray-300"
                 }`}
                 style={{

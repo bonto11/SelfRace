@@ -102,7 +102,7 @@ export default function WidgetSleepDuration({
         <>
           <div className={WIDGET_VALUE_ROW}>
             <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
-            <span className={WIDGET_VALUE_UNIT}>{t("common.units.hour")}:{t("common.units.min")}</span>
+            <span className={WIDGET_VALUE_UNIT}>{t("common.units.hour")}</span>
           </div>
           {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>
