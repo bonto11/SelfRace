@@ -50,10 +50,10 @@ function dateSeq(startISO: string, endISO: string): string[] {
 
 const DAY_MIN = 24 * 60;
 
-function minutesToClockLabel(v: number): string {
+function minutesToClockLabel(v: number, t: (key: any) => string): string {
   if (!Number.isFinite(v)) return "—";
   const m = ((Math.round(v) % DAY_MIN) + DAY_MIN) % DAY_MIN;
-  return minutesToHHMM(m);
+  return minutesToHHMM(m,t);
 }
 
 function parseHHMMToDayMinutesSafe(hhmm: string): number {
@@ -102,7 +102,7 @@ const SleepStartTooltip = ({ active, payload, label, t }: any) => {
               {t("recovery.trends.sleepStart.tooltipLabel")}:
             </span>
             <span className="font-bold">
-              {minutesToClockLabel(mainData.value)}
+              {minutesToClockLabel(mainData.value,t)}
             </span>
           </div>
         ) : missingData ? (
@@ -292,7 +292,7 @@ export default function TrendSleepStart() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(val) => minutesToClockLabel(Number(val))} 
+                tickFormatter={(val) => minutesToClockLabel(Number(val),t)} 
                 // ✅ Pridaná jednotka osi [h] (keďže zobrazuje HH:MM)
                 label={{ value: `${t("common.units.hour")}`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />

@@ -138,11 +138,18 @@ export function formatWeekRange(startIso: string) {
   return sm === em ? `${sd}–${ed}.${em}.` : `${sd}.${sm}.–${ed}.${em}.`;
 }
 
-export function minutesToHHMM(total: number): string {
+export function minutesToHHMM(total: number, t: (key: any) => string): string {
+  const time = Math.max(0, Math.round(total));
+  const h = Math.floor(time / 60);
+  const m = time % 60;
+  return `${h}${t("common.units.hour")} ${String(m).padStart(2, "0")}${t("common.units.min")}`;
+}
+
+export function minutesToHHMM_Time(total: number): string {
   const t = Math.max(0, Math.round(total));
   const h = Math.floor(t / 60);
   const m = t % 60;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${h}:${String(m).padStart(2, "0")}`;
 }
 
 export function HHMMToMinutes(hhmm: string): number | null {
@@ -164,7 +171,7 @@ export function todayLocalISO(): string {
 
 /** Bezpečne vytiahne ISO dátum (YYYY-MM-DD) z hodnoty string/Date. */
 export function toISODateLoose(
-  v: string | Date | null | undefined
+  v: string | Date | null | undefined,
 ): string | null {
   if (!v) return null;
   if (typeof v === "string") {
@@ -198,7 +205,7 @@ export function addDaysIso(iso: string, delta: number): string {
 
 export function handleTimeInput(
   e: React.ChangeEvent<HTMLInputElement>,
-  setter: (val: string) => void
+  setter: (val: string) => void,
 ) {
   let v = e.target.value.replace(/\D/g, "").slice(0, 4);
   if (v.length >= 3) v = v.slice(0, 2) + ":" + v.slice(2);
@@ -240,13 +247,13 @@ export function isoWeekInfo(iso: string) {
 
 export function isoWeekNumber(d: Date): number {
   const date = new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
   );
   // Thursday in current week decides the year.
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil(
-    ((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+    ((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
   );
   return weekNo;
 }

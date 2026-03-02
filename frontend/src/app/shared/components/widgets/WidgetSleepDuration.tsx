@@ -65,7 +65,7 @@ export default function WidgetSleepDuration({
   const valueText = showNA
     ? "—"
     : Number.isFinite(latest)
-      ? minutesToHHMM(latest as number)
+      ? minutesToHHMM(latest as number,t)
       : "—";
 
   // Lokalizovaná správa pre chýbajúce dáta alebo poznámka z porovnania

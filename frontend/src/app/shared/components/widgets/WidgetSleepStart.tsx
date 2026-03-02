@@ -7,7 +7,7 @@ import {
   checkRecoveryFreshness,
   compareTimeToBaselineMinutes,
 } from "@/app/shared/utils/recovery";
-import { HHMMToMinutes, minutesToHHMM } from "@/app/shared/utils/time";
+import { HHMMToMinutes, minutesToHHMM_Time } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -88,7 +88,7 @@ export default function WidgetSleepStart({
   const valueText = showNA
     ? "—"
     : Number.isFinite(latest)
-      ? minutesToHHMM(latest as number)
+      ? minutesToHHMM_Time(latest as number)
       : "—";
 
   const note = showNA ? t("sleepStart.widget.noData") : cmp.note;

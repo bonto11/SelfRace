@@ -86,7 +86,7 @@ const SleepDurationTooltip = ({ active, payload, label, t }: any) => {
             <span className="opacity-90">
               {t("recovery.trends.sleepDuration.tooltipLabel")}:
             </span>
-            <span className="font-bold">{minutesToHHMM(mainData.value)}</span>
+            <span className="font-bold">{minutesToHHMM(mainData.value,t)}</span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
