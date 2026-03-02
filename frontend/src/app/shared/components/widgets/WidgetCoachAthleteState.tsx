@@ -24,7 +24,10 @@ import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
+
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 
 type Props = {
   onOpenDetail?: () => void;
@@ -37,8 +40,8 @@ type UiState = {
   summary: string | null;
 };
 
-
-function extractUiState(row: AthleteStateRecord | null): UiState {
+// 👇 ZMENA: Pridali sme parameter lang 👇
+function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
   if (!row || !row.state) {
     return {
       lastAnalysisAt: null,
@@ -55,19 +58,10 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
 
   let lastAnalysisAt: string | null = null;
   const iso = generatedAt || createdAt;
+  
   if (iso) {
-    try {
-      const d = new Date(iso);
-      lastAnalysisAt = d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      lastAnalysisAt = iso;
-    }
+    // 👇 ZMENA: Použitie novej funkcie s jazykom 👇
+    lastAnalysisAt = parseAndFormatPrettyDate(iso, lang);
   }
 
   const fatigueLabel: string | null =
@@ -120,7 +114,10 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
   const t = useT();
+  // 👇 ZMENA: Vytiahneme lang 👇
+  const { lang } = useSettings();
 
   useEffect(() => {
     if (!userId) return;
@@ -144,10 +141,11 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
     };
   }, [userId, t]);
 
-  const ui = useMemo(() => extractUiState(row), [row]);
+  // 👇 ZMENA: Posielame lang do funkcie 👇
+  const ui = useMemo(() => extractUiState(row, lang), [row, lang]);
+  
   const accent = useMemo(() => pickAccent(ui), [ui]);
 
-  // ✅ Pomocná funkcia na preklad úrovní (low/high/moderate...)
   const getLvl = (lvl?: string | null) => {
     if (!lvl) return "—";
     const key = `common.levels.${lvl.toLowerCase()}`;
@@ -165,6 +163,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={180}
     >
+      {/* ... (loading/error stavy) ... */}
       {loading ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
@@ -176,7 +175,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>
-          {t("widget.missingserId")}
+          {t("widget.missingserId")} {/* Ponechal som tvoje preklepy :) */}
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
