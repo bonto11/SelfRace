@@ -55,6 +55,8 @@ export const sk = {
       expand: "Zobraziť sekciu",
     },
     levels: {
+      average: "priemerná",
+      athletes: "atletická",
       low: "nízka",
       moderate: "stredná",
       high: "vysoká",

@@ -133,7 +133,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
                 {pct != null ? pct.toFixed(1) : "—"}
-                <span className={WIDGET_VALUE_UNIT}>%</span>
+                <span className={WIDGET_VALUE_UNIT}> {t("common.units.pct")}</span>
               </div>
 
               {level ? (

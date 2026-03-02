@@ -17,6 +17,7 @@ import {
   WIDGET_VALUE_ROW,
   WIDGET_VALUE_MAIN,
   WIDGET_PLACEHOLDER,
+  WIDGET_VALUE_UNIT,
 } from "@/app/shared/ui/tokens";
 
 import type {
@@ -140,6 +141,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
               <div className={WIDGET_VALUE_MAIN}>
                 {estVal != null ? estVal.toFixed(1) : "—"}
               </div>
+              <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
               <div className="shrink-0"> {/* Zabráni zmenšovaniu Pill komponentu */}
                 {levelEstimated ? (
                   <Pill
@@ -168,6 +170,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
               <div className={WIDGET_VALUE_MAIN}>
                 {mVO2 != null ? mVO2.toFixed(1) : "—"}
               </div>
+              <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
               <div className="shrink-0">
                 {levelMeasured ? (
                   <Pill label={levelMeasured.label} color={levelMeasured.color} />

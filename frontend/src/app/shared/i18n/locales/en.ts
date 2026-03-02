@@ -57,6 +57,8 @@ export const en = {
       expand: "Show section",
     },
     levels: {
+      average: "average",
+      athletes: "athletes",
       low: "low",
       moderate: "moderate",
       high: "high",
