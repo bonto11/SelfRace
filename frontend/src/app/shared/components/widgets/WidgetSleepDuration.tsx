@@ -8,7 +8,7 @@ import {
   makeBaselinePoint,
   compareLatestToBaseline,
 } from "@/app/shared/utils/recovery";
-import { minutesToHHMM } from "@/app/shared/utils/time";
+import { minutesToHHMM_Time } from "@/app/shared/utils/time";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -18,6 +18,7 @@ import {
   WIDGET_VALUE_ROW,
   WIDGET_VALUE_PRIMARY,
   WIDGET_NOTE,
+  WIDGET_VALUE_UNIT
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -65,7 +66,7 @@ export default function WidgetSleepDuration({
   const valueText = showNA
     ? "—"
     : Number.isFinite(latest)
-      ? minutesToHHMM(latest as number,t)
+      ? minutesToHHMM_Time(latest as number)
       : "—";
 
   // Lokalizovaná správa pre chýbajúce dáta alebo poznámka z porovnania
@@ -101,6 +102,7 @@ export default function WidgetSleepDuration({
         <>
           <div className={WIDGET_VALUE_ROW}>
             <span className={WIDGET_VALUE_PRIMARY}>{valueText}</span>
+            <span className={WIDGET_VALUE_UNIT}>{t("common.units.hour")}:{t("common.units.min")}</span>
           </div>
           {note && <p className={WIDGET_NOTE}>{note}</p>}
         </>

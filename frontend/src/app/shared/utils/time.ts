@@ -142,7 +142,7 @@ export function minutesToHHMM(total: number, t: (key: any) => string): string {
   const time = Math.max(0, Math.round(total));
   const h = Math.floor(time / 60);
   const m = time % 60;
-  return `${h}${t("common.units.hour")} ${String(m).padStart(2, "0")}${t("common.units.min")}`;
+  return `${h} ${String(m).padStart(2, "0")}`;
 }
 
 export function minutesToHHMM_Time(total: number): string {
