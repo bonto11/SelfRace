@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -15,7 +15,6 @@ import {
   apiSaveStaticProfile,
 } from "@/app/features/profile/api/static";
 import type { Sex, StaticProfile } from "@/app/features/profile/types/profile";
-import { summarizeStaticProfile } from "@/app/features/profile/utils/profile";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -64,16 +63,6 @@ export default function ProfileStaticInputs() {
       alive = false;
     };
   }, [userId, t]);
-
-  const summary = useMemo(() => summarizeStaticProfile(data), [data]);
-
-  const previewText = useMemo(() => {
-    return [
-      `${t("profile.static.sex")}: ${String(summary.sex ?? "—")}`,
-      `${t("profile.static.birthDate")}: ${String(summary.bd ?? "—")}`,
-      `${t("profile.static.height")}: ${String(summary.h ?? "—")}`,
-    ].join(" • ");
-  }, [summary, t]);
 
   async function handleSave() {
     if (!userId) {
@@ -181,16 +170,6 @@ export default function ProfileStaticInputs() {
               placeholder="cm"
               disabled={loading}
             />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("profile.static.summary")}
-            </div>
-            <TextField value={previewText} disabled />
           </section>
         </div>
       </div>

@@ -46,14 +46,25 @@ function colorForLevel(labelRaw: string) {
   return appColors.textMuted;
 }
 
-function classifyBodyFat(sex: "M" | "F", pct?: number | null) {
+function classifyBodyFat(sex: "M" | "F", t: (key: any) => string, pct?: number | null,) {
   if (pct == null || !Number.isFinite(pct)) return null;
   const bands = getBodyFatBands(sex);
   const hit = bands.find(
     (b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max),
   );
+
   if (!hit) return null;
-  return { label: hit.label.trim(), color: colorForLevel(hit.label) };
+
+  const lvlKey = hit.label.trim().toLowerCase();
+  const localizedLabel = (t as any)(`common.levels.${lvlKey}`);
+
+  return {
+    label:
+      localizedLabel === `common.levels.${lvlKey}`
+        ? hit.label.trim()
+        : localizedLabel,
+    color: colorForLevel(hit.label),
+  };
 }
 
 export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
@@ -106,7 +117,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   }, [userId]);
 
   const pct = latest?.body_fat_pct ?? null;
-  const level = classifyBodyFat(stat?.sex === "F" ? "F" : "M", pct);
+  const level = classifyBodyFat(stat?.sex === "F" ? "F" : "M", t, pct);
   const accent = level?.color ?? appColors.brandPrimary;
 
   return (
@@ -127,13 +138,17 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         <div className={WIDGET_ROW_BETWEEN}>
           <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
-              {t("profile.metrics.measuredPlaceholder")} {fmtDate(latest?.updated_at ?? null)}
+              {t("profile.metrics.measuredPlaceholder")}{" "}
+              {fmtDate(latest?.updated_at ?? null)}
             </div>
 
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
                 {pct != null ? pct.toFixed(1) : "—"}
-                <span className={WIDGET_VALUE_UNIT}> {t("common.units.pct")}</span>
+                <span className={WIDGET_VALUE_UNIT}>
+                  {" "}
+                  {t("common.units.pct")}
+                </span>
               </div>
 
               {level ? (
