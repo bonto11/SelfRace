@@ -56,6 +56,7 @@ export default function WidgetSleepDuration({
     baselinePoint,
     "higher-better",
     0.05,
+    t
   );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);

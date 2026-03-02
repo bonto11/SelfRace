@@ -26,7 +26,6 @@ import {
 
 import { WIDGET_ERROR_LINE } from "@/app/shared/ui/tokens/widgets";
 import { NO_X_OVERFLOW } from "@/app/shared/ui/tokens/core";
-import { WIDGET_FOOTNOTE } from "@/app/shared/ui/tokens"; // ✅ Pridaný import pre Footnote
 import {
   CAL_WIDGET_DOW_ROW,
   CAL_WIDGET_DOW_CELL,

@@ -16,12 +16,12 @@ export const en = {
       count2to4: "weeks",
       count5plus: "weeks",
     },
-    injury:{
-    reported: "Injury reported:",
-    calendar: "Calendar paused (Medical leave).",
-    dailyPlan: "The plan is in medical leave mode..",
-    planAdjusted: "Training were adjusted due to injury.",
-  },
+    injury: {
+      reported: "Injury reported:",
+      calendar: "Calendar paused (Medical leave).",
+      dailyPlan: "The plan is in medical leave mode..",
+      planAdjusted: "Training were adjusted due to injury.",
+    },
     downloadPDF: "Download PDF",
     showPDFError: "Your browser cannot display the PDF. ",
     done: "Done",
@@ -35,7 +35,7 @@ export const en = {
     soon: "Soon...",
     refresh: "Refresh",
     refreshTitle: "Refresh data",
-    next:"Next",
+    next: "Next",
     back: "Back",
     edit: "Edit",
     delete: "Delete",
@@ -57,8 +57,8 @@ export const en = {
       expand: "Show section",
     },
     levels: {
-      low:"low",
-      moderate:"moderate",
+      low: "low",
+      moderate: "moderate",
       high: "high",
       superior: "superior",
       excellent: "excellent",
@@ -68,7 +68,7 @@ export const en = {
       very_poor: "very poor",
     },
     phases: {
-      threshold_speed:"Threshold speed",
+      threshold_speed: "Threshold speed",
     },
     sports: {
       run: "Run",
@@ -93,7 +93,7 @@ export const en = {
       kg: "kg",
       days: "days",
       hPerWeek: "h / week",
-      weeksAbbrev: "w", 
+      weeksAbbrev: "w",
       ms: "ms",
       hr: "bpm",
       pace: "min/km",
@@ -247,7 +247,8 @@ export const en = {
     btnForgotPassword: "Forgot password?",
     haveAccount: "Already have an account? ",
     btnSignin: "Sign in",
-    footer: "You can connect Strava after registration in the Connected Apps section.",
+    footer:
+      "You can connect Strava after registration in the Connected Apps section.",
   },
   userMenu: {
     settings: "Settings",
@@ -436,7 +437,8 @@ export const en = {
       },
 
       injuriesSection: {
-        subtitle: "The coach will reduce risky elements and add compensatory exercises.",
+        subtitle:
+          "The coach will reduce risky elements and add compensatory exercises.",
         noInjuries: "No injury records",
         areaLabel: "Area",
         areaTooltip: "Select the body part where you feel the issue.",
@@ -791,7 +793,8 @@ export const en = {
         errors: {
           empty: "Zone data is empty.",
           mustBeNumber: "must be a valid number.",
-          minMax: "Error: Each zone must have a minimum smaller than its maximum.",
+          minMax:
+            "Error: Each zone must have a minimum smaller than its maximum.",
           order: "Zones must be in ascending order and cannot overlap.",
           maxHr: "Zone 5 cannot exceed your HRmax ({{hr}}).",
         },
@@ -819,7 +822,8 @@ export const en = {
       desc1:
         "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
       iosTitle: "Apple (iOS Safari):",
-      iosDesc: "Click the share icon at the bottom and select 'Add to Home Screen'.",
+      iosDesc:
+        "Click the share icon at the bottom and select 'Add to Home Screen'.",
       androidTitle: "Android (Chrome):",
       androidDesc:
         "Click the three dots in the top right and select 'Add to Home screen'.",
@@ -828,12 +832,15 @@ export const en = {
     notifications: {
       tab: "Notifications",
       title: "Never miss a workout",
-      desc1: "SelfRace can remind you about morning measurements, activity reviews, missed workouts or any news. To do this, we need your permission.",
+      desc1:
+        "SelfRace can remind you about morning measurements, activity reviews, missed workouts or any news. To do this, we need your permission.",
       iosTitle: "Apple (iOS):",
-      iosDesc: "First, you must add the app to your Home Screen (Share icon -> Add to Home Screen). Then enable push notifications in your Settings (in user menu)",
+      iosDesc:
+        "First, you must add the app to your Home Screen (Share icon -> Add to Home Screen). Then enable push notifications in your Settings (in user menu)",
       androidTitle: "Android:",
-      androidDesc: "Install the app to your home screen (via the popup prompt). Then enable push notifications in your Settings (in user menu)",
-      ps: "You can find these settings anytime in your profile under 'Push Notifications'."
+      androidDesc:
+        "Install the app to your home screen (via the popup prompt). Then enable push notifications in your Settings (in user menu)",
+      ps: "You can find these settings anytime in your profile under 'Push Notifications'.",
     },
     data: {
       tab: "Data",
@@ -868,7 +875,8 @@ export const en = {
       eventsDesc:
         "Planning other sports or events during the week? The coach will consider them when planning.",
       genTitle: "Generation:",
-      genDesc: "In the widget, evaluate your fitness level, create a weekly and daily plan, run it, and you're done!",
+      genDesc:
+        "In the widget, evaluate your fitness level, create a weekly and daily plan, run it, and you're done!",
     },
     finish: "Got it!",
     finishGo: "Got it, let's train!",
@@ -994,7 +1002,8 @@ export const en = {
         "• When you change preferences (goal, weeks, sports) or log many new activities, it makes sense to generate a new daily plan so it matches reality.",
       ].join("\n"),
 
-      noteMissing: "Generate a daily plan (at least 1 week) in the coach section.",
+      noteMissing:
+        "Generate a daily plan (at least 1 week) in the coach section.",
       missingData:
         "You don't have a saved daily plan yet. Once you generate your first week, an overview of the upcoming days will appear here.",
       summary: "Today's Plan (quick overview)",
@@ -1050,7 +1059,8 @@ export const en = {
       medicalSuspendBanner: {
         title: "Training Stop-State",
         text: "Your plan has been suspended due to reported pain ({{severity}}/10).",
-        action: "Delete the injury from your profile only after consulting a doctor.",
+        action:
+          "Delete the injury from your profile only after consulting a doctor.",
       },
     },
     status: {
@@ -1207,8 +1217,7 @@ export const en = {
     subtitle:
       "Sports and other events (wedding, work, vacation) the coach accounts for when generating your plan.",
     preview: {
-      noUser:
-        "Log in first so we can load your external events.",
+      noUser: "Log in first so we can load your external events.",
       loading: "Loading your external activities from the database...",
       empty: "You have no external loads saved yet.",
     },
@@ -1287,12 +1296,13 @@ export const en = {
       high: "High (hard day)",
     },
     errors: {
-      loadFailed:
-        "Failed to load external activities. Please try again later.",
+      loadFailed: "Failed to load external activities. Please try again later.",
       saveFailed: "Error saving data. Check your connection.",
       deleteFailed: "Error deleting data.",
-      missingDate: "For a one-off event, please select a date from the calendar.",
-      notLoggedIn: "Please log in first so your changes can be permanently saved.",
+      missingDate:
+        "For a one-off event, please select a date from the calendar.",
+      notLoggedIn:
+        "Please log in first so your changes can be permanently saved.",
     },
     info: {
       saved: "Data saved successfully ({{count}} events).",
@@ -1386,7 +1396,8 @@ export const en = {
       ].join("\n"),
       noteMissing:
         "You are missing {{min}} min of low intensity to hit the optimal ratio.",
-      noteExtra: "You have +{{min}} min of low intensity compared to the ideal ratio.",
+      noteExtra:
+        "You have +{{min}} min of low intensity compared to the ideal ratio.",
       notePerfect: "You have exactly the optimal ratio ✔",
     },
     trend: {
@@ -1454,6 +1465,9 @@ export const en = {
         "• the best signal comes from consistent measurement under the same conditions (morning after waking up, no rush)",
       ].join("\n"),
       noData: "No data available for today yet",
+      noteWorse: "Yesterday's value was WORSE than average (↓)",
+      noteOK: "Yesterday's value was AROUND AVERAGE",
+      noteBetter: "Yesterday's value was BETTER than average (↑)",
     },
   },
   RHR: {
@@ -1486,6 +1500,9 @@ export const en = {
         "• if RHR is higher but you feel good and other metrics are OK → it might not be a problem",
       ].join("\n"),
       noData: "No data available for today yet",
+      noteWorse: "Yesterday's value was WORSE than average (↑)",
+      noteOK: "Yesterday's value was AROUND AVERAGE",
+      noteBetter: "Yesterday's value was BETTER than average (↓)",
     },
   },
   sleepDuration: {
@@ -1534,6 +1551,9 @@ export const en = {
         "• if it's chaotic (10:00 PM one night, 1:00 AM the next): the biggest benefit comes from stability, not a perfect number",
       ].join("\n"),
       noData: "Sleep start time is not recorded",
+      noteLater: "You fell asleep LATER than usual",
+      noteOK: "Bedtime was AROUND AVERAGE (±30 min)",
+      noteSooner: "You fell asleep EARLIER than usual",
     },
   },
   VO2Max: {
@@ -1618,49 +1638,49 @@ export const en = {
         weekStart: "Start of the week",
         timeFormat: "Time Format",
       },
-        languageOptions: {
+      languageOptions: {
         sk: "Slovak (Slovenčina)",
         en: "English",
-        },
-        unitOptions: {
-          metric: "Metric (km, kg)",
-          imperial: "Imperial (mi, lb)",
-        },
-        weekStartOptions: {
-          Mon: "Monday",
-          Sun: "Sunday",
-        },
-        timeFormatOptions: {
-          "24": "24 h (13:37)",
-          "12": "12 h (1:37 PM)",
-        },
-        timezones: {
-          UTC: "(UTC±00:00) London, Reykjavik",
-          "Atlantic/Canary": "(UTC±00:00) Canary Islands",
-          "Europe/Bratislava": "(UTC+01:00) Bratislava, Prague, Berlin",
-          "Europe/Vienna": "(UTC+01:00) Vienna, Budapest, Warsaw",
-          "Europe/Paris": "(UTC+01:00) Paris, Madrid, Rome",
-          "Europe/Athens": "(UTC+02:00) Athens, Bucharest",
-          "Europe/Helsinki": "(UTC+02:00) Helsinki, Riga",
-          "Africa/Cairo": "(UTC+02:00) Cairo",
-          "Europe/Moscow": "(UTC+03:00) Moscow",
-          "Asia/Riyadh": "(UTC+03:00) Riyadh",
-          "America/Sao_Paulo": "(UTC−03:00) São Paulo",
-          "America/Halifax": "(UTC−04:00) Halifax",
-          "America/New_York": "(UTC−05:00) New York",
-          "America/Chicago": "(UTC−06:00) Chicago",
-          "America/Denver": "(UTC−07:00) Denver",
-          "America/Los_Angeles": "(UTC−08:00) Los Angeles",
-          "Asia/Dubai": "(UTC+04:00) Dubai",
-          "Asia/Karachi": "(UTC+05:00) Karachi",
-          "Asia/Kolkata": "(UTC+05:30) India (Kolkata)",
-          "Asia/Bangkok": "(UTC+07:00) Bangkok",
-          "Asia/Shanghai": "(UTC+08:00) Shanghai, Hong Kong",
-          "Asia/Tokyo": "(UTC+09:00) Tokyo, Seoul",
-          "Australia/Sydney": "(UTC+10:00) Sydney",
-        },
+      },
+      unitOptions: {
+        metric: "Metric (km, kg)",
+        imperial: "Imperial (mi, lb)",
+      },
+      weekStartOptions: {
+        Mon: "Monday",
+        Sun: "Sunday",
+      },
+      timeFormatOptions: {
+        "24": "24 h (13:37)",
+        "12": "12 h (1:37 PM)",
+      },
+      timezones: {
+        UTC: "(UTC±00:00) London, Reykjavik",
+        "Atlantic/Canary": "(UTC±00:00) Canary Islands",
+        "Europe/Bratislava": "(UTC+01:00) Bratislava, Prague, Berlin",
+        "Europe/Vienna": "(UTC+01:00) Vienna, Budapest, Warsaw",
+        "Europe/Paris": "(UTC+01:00) Paris, Madrid, Rome",
+        "Europe/Athens": "(UTC+02:00) Athens, Bucharest",
+        "Europe/Helsinki": "(UTC+02:00) Helsinki, Riga",
+        "Africa/Cairo": "(UTC+02:00) Cairo",
+        "Europe/Moscow": "(UTC+03:00) Moscow",
+        "Asia/Riyadh": "(UTC+03:00) Riyadh",
+        "America/Sao_Paulo": "(UTC−03:00) São Paulo",
+        "America/Halifax": "(UTC−04:00) Halifax",
+        "America/New_York": "(UTC−05:00) New York",
+        "America/Chicago": "(UTC−06:00) Chicago",
+        "America/Denver": "(UTC−07:00) Denver",
+        "America/Los_Angeles": "(UTC−08:00) Los Angeles",
+        "Asia/Dubai": "(UTC+04:00) Dubai",
+        "Asia/Karachi": "(UTC+05:00) Karachi",
+        "Asia/Kolkata": "(UTC+05:30) India (Kolkata)",
+        "Asia/Bangkok": "(UTC+07:00) Bangkok",
+        "Asia/Shanghai": "(UTC+08:00) Shanghai, Hong Kong",
+        "Asia/Tokyo": "(UTC+09:00) Tokyo, Seoul",
+        "Australia/Sydney": "(UTC+10:00) Sydney",
+      },
     },
-    
+
     preview: {
       week: "week",
       deletePending: "deletion pending",
@@ -1681,10 +1701,11 @@ export const en = {
       error: "An error occurred while enabling notifications.",
       permissionDenied: "Notification access was denied in your browser.",
       notSupported: "Your browser does not support push notifications.",
-      notSupportedHint: "On iOS, you must first add the app to your Home Screen.",  
+      notSupportedHint:
+        "On iOS, you must first add the app to your Home Screen.",
       testSuccess: "Test notification sent successfully!",
-      testError: "Failed to send test notification."
-    }
+      testError: "Failed to send test notification.",
+    },
   },
   subscription: {
     title: "Subscription & Billing",
@@ -1696,36 +1717,36 @@ export const en = {
       tiers: "Subscription Tiers",
       history: "Billing History",
     },
-  statusCard: {
-    tierPrefix: "Current plan",
-    active: "Active",
-    canceling: "Canceling",
-    periodEnds: "Period ends",
-    cancelChangeBtn: "Cancel change",
-    changeEffective: "Change effective from:",
-  },
-  planned: {
-    previewLabel: "Planned change",
-    kinds: {
-      cancel: "Cancellation",
-      downgrade: "Downgrade",
-      upgrade: "Upgrade",
+    statusCard: {
+      tierPrefix: "Current plan",
+      active: "Active",
+      canceling: "Canceling",
+      periodEnds: "Period ends",
+      cancelChangeBtn: "Cancel change",
+      changeEffective: "Change effective from:",
     },
-  },
-  tiers: {
-    btnCurrentTemp: "Current (temporary)",
-    btnBasic: "Basic plan",
-    btnManage: "Manage plan",
-    btnPlanned: "Planned transition",
-    btnCancel: "Cancel subscription",
-    btnActivate: "Activate {{tier}}",
-    limitBasic: "Basic limit",
-    tokensPerMonth: "tokens/mo.",
-  },
-  pitch: {
-    title: "Why subscribe?",
-    body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support big companies, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
-  },
+    planned: {
+      previewLabel: "Planned change",
+      kinds: {
+        cancel: "Cancellation",
+        downgrade: "Downgrade",
+        upgrade: "Upgrade",
+      },
+    },
+    tiers: {
+      btnCurrentTemp: "Current (temporary)",
+      btnBasic: "Basic plan",
+      btnManage: "Manage plan",
+      btnPlanned: "Planned transition",
+      btnCancel: "Cancel subscription",
+      btnActivate: "Activate {{tier}}",
+      limitBasic: "Basic limit",
+      tokensPerMonth: "tokens/mo.",
+    },
+    pitch: {
+      title: "Why subscribe?",
+      body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support big companies, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
+    },
     status: {
       notLoggedIn: "Not logged in",
       loading: "Loading...",
@@ -1745,7 +1766,7 @@ export const en = {
       paymentSuccess: "Payment successful! Welcome to your new plan.",
       paymentCanceled: "The payment process was cancelled.",
     },
-   
+
     tierSelector: {
       btnChoose: "Choose plan",
       btnCurrentTemp: "Current (temporary)",
@@ -1756,8 +1777,7 @@ export const en = {
       btnActivate: "Activate {{plan}}",
       kTokensPerMonth: "k tokens/mo.",
       basicLimit: "Basic limit",
-      defaultDesc:
-        "Basic app features without a guaranteed AI coach quota.",
+      defaultDesc: "Basic app features without a guaranteed AI coach quota.",
       activeBadge: "active",
     },
   },
@@ -1786,8 +1806,7 @@ export const en = {
       bmiLabel: "BMI (Body Mass Index)",
       estimatedPlaceholder: "estimated",
       measuredPlaceholder: "measured",
-      saveTip:
-        "Only enter new values – you can leave the other fields empty.",
+      saveTip: "Only enter new values – you can leave the other fields empty.",
       saveSuccess: "Metrics successfully saved",
       errorNoValues: "Enter at least one new value.",
       previewWeight: "Weight",
@@ -1849,7 +1868,8 @@ export const en = {
       },
       sleepStart: {
         title: "Sleep Start",
-        subtitle: "Sleep start time with a recommended 10:00 PM – 11:00 PM band.",
+        subtitle:
+          "Sleep start time with a recommended 10:00 PM – 11:00 PM band.",
         bandLower: "10:00 PM – 11:00 PM (lower bound)",
         bandUpper: "10:00 PM – 11:00 PM (upper bound)",
         label: "Sleep start time",
@@ -1961,7 +1981,8 @@ export const en = {
       mainRisks: "Main Risks",
       noRisksDesc: "The AI did not detect elevated risks during analysis.",
       quickTips: "Quick Tips",
-      noTipsDesc: "Specific recommendations will appear here after your next analysis.",
+      noTipsDesc:
+        "Specific recommendations will appear here after your next analysis.",
     },
     weekly: {
       phase: "Phase",
@@ -1993,8 +2014,7 @@ export const en = {
       errorLoad: "Failed to load the daily plan.",
       errorLoadTitle: "Loading Error",
       errorSave: "Failed to save plan changes.",
-      noPlan:
-        "You don't have an active daily training plan generated yet.",
+      noPlan: "You don't have an active daily training plan generated yet.",
       rescheduleNotice:
         "You can move workouts between days directly on the cards, but keep in mind this alters the coach's original strategy.",
       scheduleTitle: "Workout Schedule",
@@ -2115,7 +2135,8 @@ export const en = {
         processing: "Analysis in progress, it will appear shortly...",
         queued: "The request has been submitted for processing.",
         errorEnqueue: "Failed to create the analysis request.",
-        limitReached: "You have reached the recalculation limit for this activity.",
+        limitReached:
+          "You have reached the recalculation limit for this activity.",
       },
       injuryModal: {
         title: "Manage Injuries and Pain",
@@ -2132,7 +2153,8 @@ export const en = {
         severityLabel: "Severity: {{severity}}/10",
         alertActive: "Active injury reported",
         alertReport: "Report pain / injury",
-        tooltipActive: "⚠️ The injury is saved in your profile. The AI will know about it when generating a new Review. To cancel, click the button and remove it from the list."
+        tooltipActive:
+          "⚠️ The injury is saved in your profile. The AI will know about it when generating a new Review. To cancel, click the button and remove it from the list.",
       },
     },
     detail: {
@@ -2241,8 +2263,7 @@ export const en = {
     },
     billing: {
       missingTier: "No plan selected.",
-      checkoutSessionFailed:
-        "Failed to create checkout session. Try again.",
+      checkoutSessionFailed: "Failed to create checkout session. Try again.",
       portalSessionFailed: "Failed to open subscription management.",
       tierChangeFailed: "Failed to change subscription plan.",
       cancelPlannedFailed: "Failed to cancel planned subscription change.",
@@ -2260,10 +2281,12 @@ export const en = {
       enqueueFailed:
         "Failed to create an analysis request. Please try again later.",
       enrichmentFetchFailed: "Failed to load workout details.",
-      limitReached: "You have reached the recalculation limit for this activity.",
+      limitReached:
+        "You have reached the recalculation limit for this activity.",
       activityTooOld:
         "The activity is older than 7 days and can no longer be analyzed.",
-      onlyOneForFreeTier: "On the free tier, you are entitled to only one review per activity.",
+      onlyOneForFreeTier:
+        "On the free tier, you are entitled to only one review per activity.",
       duplicateContent:
         "You already used this comment in your last generation.",
       activityNotFound: "Activity not found.",
@@ -2271,10 +2294,8 @@ export const en = {
         "Failed to download detailed charts and data from Strava.",
       extrasFetchFailed: "Failed to download splits and laps from Strava.",
       paretoFetchFailed: "Failed to load data for the 80/20 chart.",
-      weeklyLoadFetchFailed:
-        "Failed to load data for the weekly load chart.",
-      monoStrainFetchFailed:
-        "Failed to load data for monotony and strain.",
+      weeklyLoadFetchFailed: "Failed to load data for the weekly load chart.",
+      monoStrainFetchFailed: "Failed to load data for monotony and strain.",
     },
     strava: {
       statusLoadFailed: "Failed to load Strava connection status.",
@@ -2346,7 +2367,8 @@ export const en = {
       stravaNote:
         "Note: Your Strava account will not be deleted – only the imported data and the connection within this app will be removed.",
       cancelledLabel: "cancelled",
-      cancelledDesc: "Your account is active and your data in the app will not be deleted.",
+      cancelledDesc:
+        "Your account is active and your data in the app will not be deleted.",
       defaultLabel: "irreversible",
       defaultDesc:
         "First, the account is marked for deletion. You can still cancel this during the grace period, after which all data in the app will be removed.",
@@ -2372,7 +2394,8 @@ export const en = {
       },
       consentRequest:
         "I agree to the processing of the account deletion request and acknowledge that after the grace period, my app data will be permanently deleted, and that Strava data inside the SelfRace app will be deleted immediately.",
-      consentCancel: "I understand and wish to cancel the planned account deletion.",
+      consentCancel:
+        "I understand and wish to cancel the planned account deletion.",
       consentHint: "We cannot allow this action without your consent.",
       errorCheckbox: "Please check the consent box first.",
       btnProcessing: "Processing...",

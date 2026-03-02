@@ -73,6 +73,7 @@ export default function WidgetHRV({
     baselinePoint,
     "higher-better",
     0.05,
+    t
   );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);

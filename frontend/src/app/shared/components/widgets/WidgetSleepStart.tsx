@@ -79,6 +79,7 @@ export default function WidgetSleepStart({
     latestForCompare,
     FIX_BASELINE_MIN,
     TOL_MIN,
+    t
   );
 
   const freshness = checkRecoveryFreshness(rows, (r) => r.date);

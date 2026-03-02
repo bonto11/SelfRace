@@ -77,7 +77,8 @@ export function compareLatestToBaseline(
   latest: number | null | undefined,
   baseline: number | null | undefined,
   kind: "lower-better" | "higher-better" = "lower-better",
-  tolPct = 0.05
+  tolPct = 0.05,
+  t: (key: any) => string
 ): { note: string; accent: "bg-emerald-600" | "bg-amber-600" | "bg-sky-600" } {
   if (!(typeof latest === "number") || !(typeof baseline === "number")) {
     return { note: "Bez dát.", accent: "bg-slate-700" as any };
@@ -86,27 +87,27 @@ export function compareLatestToBaseline(
   if (kind === "lower-better") {
     if (diff <= -tolPct)
       return {
-        note: "Včerajší RHR bol LEPŠÍ než priemer (↓)",
+        note: t("RHR.widget.noteBetter"),
         accent: "bg-emerald-600",
       };
     if (diff >= tolPct)
       return {
-        note: "Včerajší RHR bol HORŠÍ než priemer (↑)",
+        note: t("RHR.widget.noteWorse"),
         accent: "bg-amber-600",
       };
-    return { note: "Včerajší RHR bol V PRIEMERE", accent: "bg-sky-600" };
+    return { note: t("RHR.widget.noteOK"), accent: "bg-sky-600" };
   } else {
     if (diff >= tolPct)
       return {
-        note: "Včerajšia hodnota bola LEPŠIA než priemer (↑)",
+        note: t("HRV.widget.noteBetter"),
         accent: "bg-emerald-600",
       };
     if (diff <= -tolPct)
       return {
-        note: "Včerajšia hodnota bola HORŠIA než priemer (↓)",
+        note: t("HRV.widget.noteWorse"),
         accent: "bg-amber-600",
       };
-    return { note: "Včerajšia hodnota bola V PRIEMERE", accent: "bg-sky-600" };
+    return { note: t("HRV.widget.noteOK"), accent: "bg-sky-600" };
   }
 }
 
@@ -242,7 +243,8 @@ export function makeBaselinePoint(
 export function compareTimeToBaselineMinutes(
   latestMin: number | null | undefined,
   baselineMin: number | null | undefined,
-  tolMinutes = 30
+  tolMinutes = 30,
+   t: (key: any) => string
 ): { note: string; accent: "bg-emerald-600" | "bg-amber-600" | "bg-sky-600" } {
   if (!(typeof latestMin === "number") || !(typeof baselineMin === "number")) {
     return { note: "Bez dát.", accent: "bg-slate-700" as any };
@@ -251,10 +253,10 @@ export function compareTimeToBaselineMinutes(
   const abs = Math.abs(diff);
   if (abs <= tolMinutes)
     return {
-      note: "Čas zaspania bol V PRIEMERE (±30 min)",
+      note: t("sleepStart.widget.noteOK"),
       accent: "bg-sky-600",
     };
   if (diff < 0)
-    return { note: "Zaspal si SKÔR než obvykle", accent: "bg-emerald-600" };
-  return { note: "Zaspal si NESKÔR než obvykle", accent: "bg-amber-600" };
+    return { note: t("sleepStart.widget.noteSooner"), accent: "bg-emerald-600" };
+  return { note: t("sleepStart.widget.noteLater"), accent: "bg-amber-600" };
 }

@@ -1459,6 +1459,10 @@ export const sk = {
         "• najlepší signál je konzistentné meranie v rovnakých podmienkach (ráno po zobudení, bez rushu)",
       ].join("\n"),
       noData: "Dnešné dáta zatiaľ chýbajú",
+      noteWorse: "Včerajšia hodnota bola HORŠIA než priemer (↓)",
+      noteOK: "Včerajšia hodnota bola V PRIEMERE",
+      noteBetter: "Včerajšia hodnota bola LEPŠIA než priemer (↑)",
+      
     },
   },
   RHR: {
@@ -1491,6 +1495,9 @@ export const sk = {
         "• ak je RHR vyššie, ale cítiš sa dobre a ostatné metriky sú OK → nemusí to byť problém",
       ].join("\n"),
       noData: "Dnešné dáta zatiaľ chýbajú",
+      noteWorse: "Včerajšia hodnota bola HORŠIA než priemer (↑)",
+      noteOK: "Včerajšia hodnota bola V PRIEMERE",
+      noteBetter: "Včerajšia hodnota bola LEPŠIA než priemer (↓)",
     },
   },
   sleepDuration: {
@@ -1539,6 +1546,9 @@ export const sk = {
         "• ak je chaotický (raz 22:00, raz 01:00): najväčší prínos je stabilita, nie perfektné číslo",
       ].join("\n"),
       noData: "Čas zaspania nie je zaznamenaný",
+      noteLater: "Zaspal si NESKÔR než obvykle",
+      noteOK: "Čas zaspania bol V PRIEMERE (±30 min)",
+      noteSooner: "Zaspal si SKÔR než obvykle",
     },
   },
   VO2Max: {
