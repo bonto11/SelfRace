@@ -59,11 +59,13 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
-    # ✅ PRIDANÉ: included_sports pre multi-sport podporu
+    # ✅ OPRAVA: Berieme 'add_on_sports' aj 'included_sports' pre istotu
+    # Na screenshote je vidno 'add_on_sports': ['ride', 'swim']
     context2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "main_sport": prefs.get("main_sport"),
-        "included_sports": prefs.get("included_sports"),  # <--- TU TO PRIDÁVAME
+        "add_on_sports": prefs.get("add_on_sports"), # <--- TOTO JE KĽÚČOVÉ
+        "included_sports": prefs.get("included_sports"), 
         "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
         "preferences": {
@@ -124,13 +126,25 @@ def build_prompts_for_daily(
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
     
-    # ✅ PRIDANÉ: Získanie zoznamu všetkých športov
-    included_sports = prefs.get("included_sports") or []
-    if isinstance(included_sports, list):
-        # Vyčistíme a uistíme sa, že main_sport je tam tiež
-        included_sports = list(set([str(s).lower() for s in included_sports if s] + [main_sport]))
-    else:
-        included_sports = [main_sport]
+    # ✅ LOGIKA PRE MULTI-SPORT
+    # 1. Skúsime nájsť 'add_on_sports' (podľa screenshotu)
+    add_on = prefs.get("add_on_sports")
+    # 2. Fallback na 'included_sports' (ak by to bolo inak)
+    included = prefs.get("included_sports")
+
+    sports_set = set()
+    sports_set.add(main_sport)
+
+    if isinstance(add_on, list):
+        for s in add_on:
+            if isinstance(s, str) and s: sports_set.add(s.lower())
+    
+    if isinstance(included, list):
+        for s in included:
+            if isinstance(s, str) and s: sports_set.add(s.lower())
+
+    # Zoznam finálnych športov pre tento týždeň
+    final_sports_list = list(sports_set)
 
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
@@ -169,13 +183,12 @@ def build_prompts_for_daily(
             try: strength_target_int = int(legacy)
             except Exception: strength_target_int = None
 
-    # Externé eventy a výpočet ich trvania
+    # Externé eventy
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else []
     if not isinstance(ext_occ, list): ext_occ = []
     ext_count = len(ext_occ)
     
-    # ✅ PRIDANÉ: Spočítame minúty v externých eventoch
     ext_minutes_total = 0
     for e in ext_occ:
         d = _safe_int(e.get("duration_min"), 0)
@@ -185,7 +198,6 @@ def build_prompts_for_daily(
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
-    # ✅ UPRAVENÉ: Weekly intent zohľadňuje externé eventy
     if isinstance(planned_minutes, (int, float)):
         remaining_min = max(0, int(planned_minutes) - ext_minutes_total)
         weekly_volume_line = (
@@ -216,7 +228,6 @@ def build_prompts_for_daily(
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
 
-    # Medical Rules (active_injuries logic remains same...)
     active_injuries = prefs.get("injuries") or []
     injury_rule = ""
     if isinstance(active_injuries, list) and len(active_injuries) > 0:
@@ -286,7 +297,6 @@ def build_prompts_for_daily(
         "  Only use dates inside the given Week range. Do NOT invent dates.\n\n"
     )
 
-    # ✅ UPRAVENÉ: External Rules teraz explicitne spomínajú Load a Intenzitu
     external_rules = (
         "- EXTERNAL EVENTS (HARD):\n"
         "  CONTEXT_JSON.external_events.occurrences contains fixed events from DB.\n"
@@ -317,16 +327,17 @@ def build_prompts_for_daily(
         "  Mark it explicitly: session_type='long_run'.\n\n"
     )
 
-    # ✅ PRIDANÉ: Multi-sport Rule
+    # ✅ PRIDANÉ: Multi-sport Rule (teraz pracuje so správnym zoznamom)
     multi_sport_rule = ""
-    if len(included_sports) > 1:
-        other_sports = [s for s in included_sports if s != main_sport and s != "strength"]
+    if len(final_sports_list) > 1:
+        other_sports = [s for s in final_sports_list if s != main_sport and s != "strength"]
         if other_sports:
             multi_sport_rule = (
                 "- MULTI-SPORT MIX (HARD):\n"
-                f"  The athlete performs these sports: {', '.join(included_sports)}.\n"
+                f"  The athlete performs these sports: {', '.join(final_sports_list)}.\n"
                 f"  The main sport is {main_sport}, but you MUST schedule sessions for {', '.join(other_sports)} as well.\n"
-                "  Create a balanced week including these sports based on standard triathlon/cross-training principles.\n\n"
+                "  Create a balanced week including these sports based on standard triathlon/cross-training principles.\n"
+                "  Ensure that swimming or cycling sessions are appropriately placed to allow recovery from running.\n\n"
             )
 
     strength_rule = (
@@ -372,19 +383,19 @@ def build_prompts_for_daily(
         f"Week range: {week_start or 'unknown'} .. {week_end or 'unknown'}\n"
         f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
         f"Main sport: {main_sport}\n"
-        f"Included sports: {', '.join(included_sports)}\n"
+        f"Sports available: {', '.join(final_sports_list)}\n"
         f"External events occurrences in this week: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
         + injury_rule 
         + two_a_day_rule
         + long_run_rule
-        + multi_sport_rule  # <--- Pridané
+        + multi_sport_rule
         + strength_rule
         + endurance_structure_rule 
         + intensity_model_rule
         + blocks_rule
-        + weekly_volume_line # <--- Upravené
+        + weekly_volume_line
         + back_to_back_rule
         + explanation_rule
         + "\nCONTEXT_JSON:\n"
