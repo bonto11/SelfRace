@@ -25,6 +25,7 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     u = out.get("user")
     if isinstance(u, dict):
+        # Odstránime PII, ale necháme bio dáta (weight, birth_date, gender) dôležité pre VO2Max
         u.pop("id", None)
         u.pop("email", None)
         u.pop("name", None)
@@ -70,6 +71,7 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             it2 = dict(it)
             it2.pop("activity_id", None)
             it2.pop("name", None)
+            # Necháme heartrate, speed, atď. pre výpočet fitness
             if "date" in it2:
                 it2["date"] = _rel_day_label(it2.get("date"))
             cleaned.append(it2)
@@ -123,7 +125,6 @@ def build_prompts_for_progress(
         "Do NOT output prose or code fences, only JSON."
     )
 
-    # ✅ PRIDANÝ VO2MAX do porovnávacej schémy
     schema_text = f"""
 {{
   "schema_version": 1,
@@ -291,7 +292,7 @@ def build_prompts_for_analyze(
 }}
 """.strip()
 
-    # ✅ PRIDANÁ INŠTRUKCIA PRE VÝPOČET VO2MAX
+    # ✅ PRIDANÁ INŠTRUKCIA PRE VO2MAX NA ZÁKLADE BIOMETRIE A HISTÓRIE
     user_txt = (
         "Analyze the athlete context JSON and fill the schema.\n"
         f"The main sport is: {main_sport}.\n"
@@ -306,7 +307,7 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- If prefs.volume is defined, set weekly_minutes_min/max around it (roughly 70–120%) adjusted by recovery.\n"
-        "- Calculate 'estimated_vo2max' if recent running data (pace vs HR vs thresholds) allows it, otherwise leave null.\n"
+        "- Estimate 'estimated_vo2max' (ml/kg/min, range ~20-90) based on: recent activity performance (pace vs HR), user biometrics (weight, age, gender) and Heart Rate Reserve (Max HR - Resting HR). If data is insufficient, return null.\n"
         "- Keep numbers realistic.\n"
     )
 
