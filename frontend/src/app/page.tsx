@@ -50,7 +50,6 @@ export default function LandingPage() {
               className="text-sm sm:text-base max-w-xl mx-auto mt-2 leading-relaxed"
               style={{ color: appColors.textSecondary }}
             >
-              {t("landing.p2")}
               <Link 
                 href="/ourStory" 
                 className="font-medium hover:underline transition-all"
@@ -98,10 +97,6 @@ export default function LandingPage() {
                 priority={false}
               />
             </div>
-
-            <p className="text-[11px] mt-3" style={{ color: appColors.textMuted }}>
-              {t("landing.foot")}
-            </p>
           </div>
         </div>
       </main>

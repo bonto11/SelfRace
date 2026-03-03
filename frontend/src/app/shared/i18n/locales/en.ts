@@ -128,12 +128,10 @@ export const en = {
   },
   landing: {
     h1: "Your personal coach that reacts to your state in real time. ",
-    p1: "Connect Strava, set a goal, and the app will build your training blocks, track performance, and monitor recovery and fatigue. ",
-    p2: "Built by a runner, not a corporation. ",
+    p1: "Connect Strava, set a goal, and the app will build your training blocks and update according your comments, regeneration and fatigue. ",
     p2Link: "Read the story of why SelfRace was created. ",
     ctaStart: "Try for free",
     ctaSignIn: "Sign in",
-    foot: "Detailed running metrics, training zones, and an AI coach after connecting your account.",
   },
   appFooter: {
     privacy: "Privacy Policy",

@@ -138,13 +138,11 @@ export const sk = {
   },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase. ",
-    p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky, výkonnosť a sledovať mieru regenerácie a únavy. ",
-    p2: "Vytvorené bežcom, nie korporáciou. ",
+    p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky a reagovať podľa tvojích komentárov, regenerácie a únavy.",
     p2Link: "Prečítaj si príbeh o tom, prečo SelfRace vznikol. ",
 
     ctaStart: "Vyskúšať zdarma",
     ctaSignIn: "Prihlásiť sa",
-    foot: "Detailné metriky behu, tréningové zóny a AI tréner po prepojení účtu.",
   },
   appFooter: {
     privacy: "Zásady ochrany osobných údajov",
