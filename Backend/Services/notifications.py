@@ -128,7 +128,7 @@ def service_send_push_notification(
         "title": title,
         "body": body,
         "url": url,
-        "icon": "/logo/selfrace_logo_nocolor_230.png"
+        "icon": "/logo/actual/selfrace_icon.svg"
     })
 
     success_count = 0

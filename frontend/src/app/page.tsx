@@ -25,7 +25,7 @@ export default function LandingPage() {
           >
             <div className="flex justify-center mb-6">
               <Image
-                src="/logo/selfrace_logo_nocolor_230.png"
+                src="/logo/actual/selfrace_logo.svg"
                 alt="SelfRace"
                 width={520}
                 height={140}

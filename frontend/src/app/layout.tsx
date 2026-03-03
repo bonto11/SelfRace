@@ -15,10 +15,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "SelfRace",
-    startupImage: "/logo/selfrace_logo_black_260.png",
+    startupImage: "/logo/actual/selfrace_icon.svg",
   },
   icons: {
-    apple: "/logo/selfrace_logo_black_260.png",
+    apple: "/logo/actual/selfrace_icon.svg",
   },
 };
 

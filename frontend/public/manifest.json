@@ -8,13 +8,13 @@
   "theme_color": "#FFFFFF",
   "icons": [
     {
-      "src": "/logo/selfrace_logo_black_512.png",
+      "src": "/logo/actual/selfrace_icon.svg",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo/selfrace_logo_black_260.png",
+      "src": "/logo/actual/selfrace_icon.svg",
       "sizes": "260x260",
       "type": "image/png",
       "purpose": "maskable"

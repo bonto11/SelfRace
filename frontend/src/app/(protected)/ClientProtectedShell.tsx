@@ -84,7 +84,7 @@ export default function ClientProtectedShell({
                       aria-label={t("activities.goTo")}
                     >
                       <Image
-                        src="/logo/selfrace_logo_nocolor_230.png"
+                        src="/logo/actual/selfrace_logo.svg"
                         alt="SelfRace"
                         width={120}
                         height={28}
