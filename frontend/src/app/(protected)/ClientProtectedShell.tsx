@@ -86,12 +86,11 @@ export default function ClientProtectedShell({
                       <Image
                         src="/logo/actual/selfrace_logo.svg"
                         alt="SelfRace"
-                        width={120}
-                        height={28}
+                        width={135}
+                        height={35}
                         priority
                         className="h-6 w-auto opacity-95"
                       />
-                      <div className="font-semibold truncate">SelfRace</div>
                     </Link>
 
                     <div className="flex items-center gap-2">
