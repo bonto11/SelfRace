@@ -27,7 +27,6 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
         return raw_prefs["value"]
     return raw_prefs if isinstance(raw_prefs, dict) else {}
 
-# 👇 Pridaj tento čistič tesne nad _minify_context_for_ai
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
@@ -38,11 +37,9 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-# 👇 Tu je nová, plne optimalizovaná minifikácia pre Daily
 def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context2: Dict[str, Any] = {}
     
-    # Pridáme len kľúčové veci
     for k in ("week", "zones", "thresholds", "external_events"):
         if k in context:
             context2[k] = context[k]
@@ -62,10 +59,11 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
-    # Z prefs vyberieme fakt len to nutné (žiadne target races do detailu atď)
+    # ✅ PRIDANÉ: included_sports pre multi-sport podporu
     context2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "main_sport": prefs.get("main_sport"),
+        "included_sports": prefs.get("included_sports"),  # <--- TU TO PRIDÁVAME
         "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
         "preferences": {
@@ -77,7 +75,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "injuries": prefs.get("injuries") or [], 
     }
 
-    # Zoberieme AI State (ale bez metrics, lebo vo2max nepotrebujeme na denný rozpis)
     athlete_state = context.get("athlete_state") or {}
     ai_state = athlete_state.get("ai_state") or {}
     if isinstance(ai_state, dict):
@@ -85,18 +82,12 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         ai_state_clean.pop("metrics", None)
         context2["athlete_state"] = {"ai_state": ai_state_clean}
 
-    # Z user settings len základ pre jazyk
     us = context.get("user_settings") or {}
     if isinstance(us, dict):
         context2["user_settings"] = {
             "language": us.get("language"),
             "timezone": us.get("timezone"),
         }
-
-    # ✅ VYHADZUJEME: recent_load a last_activities!
-    # Tieto dáta generujú obrovský payload, ale AI má inštrukcie držať sa parametrov 
-    # aktuálneho `week` (kde je už zadefinovaný cieľový objem a zameranie) 
-    # a `ai_state` (kde je napísaná únava). Ostatné je zbytočný šum.
 
     return _remove_empty(context2)
 
@@ -128,8 +119,18 @@ def build_prompts_for_daily(
     week_end = week.get("week_end") or context_payload.get("week_end") or ""
     focus = week.get("focus") or ""
     load_phase = week.get("load_phase") or ""
+    
+    # Volume variables
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
+    
+    # ✅ PRIDANÉ: Získanie zoznamu všetkých športov
+    included_sports = prefs.get("included_sports") or []
+    if isinstance(included_sports, list):
+        # Vyčistíme a uistíme sa, že main_sport je tam tiež
+        included_sports = list(set([str(s).lower() for s in included_sports if s] + [main_sport]))
+    else:
+        included_sports = [main_sport]
 
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
@@ -144,7 +145,6 @@ def build_prompts_for_daily(
     long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
 
     avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
-
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
     tb = pref_obj.get("training_blocks") or {}
@@ -169,23 +169,45 @@ def build_prompts_for_daily(
             try: strength_target_int = int(legacy)
             except Exception: strength_target_int = None
 
+    # Externé eventy a výpočet ich trvania
     ext = context_payload.get("external_events") or {}
-    ext_occ = ext.get("occurrences") if isinstance(ext, dict) else None
-    ext_count = len(ext_occ) if isinstance(ext_occ, list) else 0
+    ext_occ = ext.get("occurrences") if isinstance(ext, dict) else []
+    if not isinstance(ext_occ, list): ext_occ = []
+    ext_count = len(ext_occ)
+    
+    # ✅ PRIDANÉ: Spočítame minúty v externých eventoch
+    ext_minutes_total = 0
+    for e in ext_occ:
+        d = _safe_int(e.get("duration_min"), 0)
+        ext_minutes_total += d
 
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
+    # ✅ UPRAVENÉ: Weekly intent zohľadňuje externé eventy
     if isinstance(planned_minutes, (int, float)):
-        weekly_volume_line = f"- Weekly intent: planned_minutes ≈ {planned_minutes} min (soft).\n"
+        remaining_min = max(0, int(planned_minutes) - ext_minutes_total)
+        weekly_volume_line = (
+            f"- WEEKLY VOLUME INTENT:\n"
+            f"  The TOTAL weekly target is approx {planned_minutes} min.\n"
+            f"  External events already occupy {ext_minutes_total} min.\n"
+            f"  You should schedule approximately {remaining_min} min of NEW training sessions to meet the goal.\n"
+        )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
-        weekly_volume_line = f"- Weekly intent: prefs.volume weekly_hours ≈ {volume_value * 60:.0f} min (soft).\n"
+        target_min = int(volume_value * 60)
+        remaining_min = max(0, target_min - ext_minutes_total)
+        weekly_volume_line = (
+            f"- WEEKLY VOLUME INTENT:\n"
+            f"  The TOTAL weekly target is approx {target_min} min.\n"
+            f"  External events already occupy {ext_minutes_total} min.\n"
+            f"  You should schedule approximately {remaining_min} min of NEW training sessions.\n"
+        )
     else:
-        weekly_volume_line = "- Weekly intent: infer from recent_load (soft).\n"
+        weekly_volume_line = "- Weekly intent: infer from recent_load (soft), keeping in mind external events count towards load.\n"
 
     back_to_back_rule = (
-        "- AVOID BACK-TO-BACK HARD (HARD): Do NOT schedule two hard sessions on consecutive days.\n"
+        "- AVOID BACK-TO-BACK HARD (HARD): Do NOT schedule two hard sessions on consecutive days (consider external events too).\n"
         if avoid_back_to_back_hard
         else "- AVOID BACK-TO-BACK HARD (SOFT): Avoid back-to-back hard days when possible.\n"
     )
@@ -194,25 +216,21 @@ def build_prompts_for_daily(
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
 
-    # ✅ MEDICAL LIABILITY: Rozlíšenie medzi ľahkými a ťažkými zraneniami
+    # Medical Rules (active_injuries logic remains same...)
     active_injuries = prefs.get("injuries") or []
     injury_rule = ""
     if isinstance(active_injuries, list) and len(active_injuries) > 0:
         inj_details = []
         max_severity = 0
-        
         for inj in active_injuries:
             if isinstance(inj, dict):
                 area = inj.get("area", "unknown area")
                 typ = inj.get("type", "unknown type")
                 sev = _safe_int(inj.get("severity"), 0)
-                if sev > max_severity:
-                    max_severity = sev
+                if sev > max_severity: max_severity = sev
                 inj_details.append(f"{area} ({typ}, severity: {sev}/10)")
         
         inj_str = ", ".join(inj_details)
-
-        # 🚨 SEVERITY 7-10: TVRDÁ STOPKA
         if max_severity >= 7:
             injury_rule = (
                 "- CRITICAL MEDICAL RULE (HARD):\n"
@@ -220,65 +238,40 @@ def build_prompts_for_daily(
                 "  DO NOT SCHEDULE ANY PHYSICAL TRAINING. ZERO. NONE.\n"
                 "  - Every single day in the plan MUST be set to session_type='rest' and sport='other'.\n"
                 "  - Title should be 'Lekárske voľno' or 'Regenerácia'.\n"
-                "  - In the `notes` for the very first day, you MUST include this exact medical disclaimer: "
-                "    'Zaznamenali sme vysoký stupeň bolesti. Aplikácia nenahrádza lekársku starostlivosť. "
-                "Bezodkladne vyhľadaj lekára alebo fyzioterapeuta. Tréningový plán je pozastavený, kým zranenie "
-                "nevyliečiš a nezmažeš ho z profilu.'\n\n"
+                "  - Include medical disclaimer in notes.\n\n"
             )
-        # ⚠️ SEVERITY 1-6: ZVOĽNENIE
         else:
             injury_rule = (
                 "- ACTIVE INJURY (CRITICAL/HARD):\n"
                 f"  The athlete has reported active injuries: {inj_str}.\n"
                 "  You MUST adjust the plan for recovery. \n"
-                "  - Replace high-intensity/hard sessions with REST, recovery walks, or very light cross-training.\n"
-                "  - Explicitly mention the injury adaptation in the session `notes`.\n"
+                "  - Replace high-intensity/hard sessions with REST or very light activity.\n"
                 "  - Do NOT schedule workouts that would worsen the reported injury.\n\n"
             )
 
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON for ONE training week containing the week's goal, "
-        "athlete's zones, current fitness/fatigue state, and fixed external events. "
-        "Your task is to design a detailed daily workout schedule for this specific week. "
-        "Return ONE valid JSON object only. No prose, no code fences."
+        "You receive structured JSON for ONE training week. "
+        "Your task is to design a detailed daily workout schedule. "
+        "Return ONE valid JSON object only."
     )
 
     schema_text = """
 {
   "schema_version": 3,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string",
-  "week_index": number,
-  "week_start": "YYYY-MM-DD",
-  "week_end": "YYYY-MM-DD",
   "days": [
     {
       "date": "YYYY-MM-DD",
       "sessions": [
         {
-          "sport": "run" | "ride" | "strength" | "swim" | "other",
+          "sport": "run" | "ride" | "swim" | "strength" | "other",
           "title": string,
           "duration_min": number,
           "intensity": string | null,
           "session_type": string | null,
           "zone_text": string | null,
           "notes": string | null,
-          "structure": {
-            "warmup": { "duration_min": number, "target": string, "instruction": string },
-            "main_part": [
-              {
-                "kind": "steady" | "interval_block",
-                "repeats": number | null,
-                "work": { "duration_min": number, "target": string, "instruction": string } | null,
-                "rest": { "duration_min": number, "target": string, "instruction": string } | null,
-                "duration_min": number | null,
-                "target": string | null,
-                "instruction": string | null
-              }
-            ],
-            "cooldown": { "duration_min": number, "target": string, "instruction": string }
-          } | null,
+          "structure": { ... } | null,
           "payload"?: object | null
         }
       ]
@@ -290,82 +283,71 @@ def build_prompts_for_daily(
 
     date_integrity_rule = (
         "- DATE INTEGRITY (HARD):\n"
-        "  Only use dates inside the given Week range (week_start..week_end inclusive).\n"
-        "  Do NOT invent dates outside this range.\n\n"
+        "  Only use dates inside the given Week range. Do NOT invent dates.\n\n"
     )
 
+    # ✅ UPRAVENÉ: External Rules teraz explicitne spomínajú Load a Intenzitu
     external_rules = (
         "- EXTERNAL EVENTS (HARD):\n"
-        "  CONTEXT_JSON.external_events.occurrences contains date-based external events from DB.\n"
+        "  CONTEXT_JSON.external_events.occurrences contains fixed events from DB.\n"
         "  You MUST include EVERY occurrence EXACTLY ONCE, on the SAME date.\n"
-        "  Do NOT move them. Do NOT duplicate them. Do NOT rename titles.\n"
-        "  For each external event session you MUST set ALL of these:\n"
+        "  CRITICAL: These events COUNT towards the weekly volume and load.\n"
+        "  - If an external event has high intensity, treat it as a HARD session for recovery purposes.\n"
+        "  - Subtract their duration from the total weekly training time available.\n"
+        "  Properties for external sessions:\n"
         "    - session_type = 'external_event'\n"
         "    - sport = occurrence.session_sport\n"
         "    - title = occurrence.title (exact)\n"
-        "    - duration_min = occurrence.duration_min (if missing, choose a reasonable default AND say you guessed it in notes)\n"
-        "    - intensity = occurrence.intensity if present (easy|medium|hard), otherwise null\n"
-        "    - structure = null\n"
-        "    - zone_text = null\n"
-        "    - payload.external_event (HARD REQUIRED) with exact keys: date, title, sport_raw, start_time_local, duration_min, priority, intensity\n\n"
+        "    - duration_min = occurrence.duration_min\n"
+        "    - intensity = occurrence.intensity (easy|medium|hard)\n"
+        "    - payload.external_event (HARD REQUIRED)\n\n"
     )
 
     two_a_day_rule = (
         "- TWO-A-DAY (HARD):\n"
         "  Prefer 1 session/day.\n"
         f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
-        "  If cap is 0, never schedule 2 sessions in a day.\n"
-        "  If you schedule a 2-a-day, explain why in notes.\n\n"
+        "  If cap is 0, never schedule 2 sessions in a day.\n\n"
     )
 
     long_run_rule = (
         "- LONG RUN RULE (HARD WHEN POSSIBLE):\n"
         "  If main_sport is run, schedule exactly 1 long run in the week.\n"
         f"  Preferred weekdays: {long_run_days_str}.\n"
-        "  If there is NO hard conflict on preferred weekdays, you MUST place the long run on ONE of the preferred weekdays.\n"
         "  Mark it explicitly: session_type='long_run'.\n\n"
     )
 
+    # ✅ PRIDANÉ: Multi-sport Rule
+    multi_sport_rule = ""
+    if len(included_sports) > 1:
+        other_sports = [s for s in included_sports if s != main_sport and s != "strength"]
+        if other_sports:
+            multi_sport_rule = (
+                "- MULTI-SPORT MIX (HARD):\n"
+                f"  The athlete performs these sports: {', '.join(included_sports)}.\n"
+                f"  The main sport is {main_sport}, but you MUST schedule sessions for {', '.join(other_sports)} as well.\n"
+                "  Create a balanced week including these sports based on standard triathlon/cross-training principles.\n\n"
+            )
+
     strength_rule = (
         "- STRENGTH (PREF TARGET):\n"
-        f"  Aim for {strength_str}.\n"
-        "  Keep strength SIMPLE:\n"
-        "    - set structure=null\n"
-        "    - do NOT list exercises (mapper will do it)\n"
-        "  Use sport='strength'.\n\n"
+        f"  Aim for {strength_str}. Use sport='strength'. Keep structure=null.\n\n"
     )
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (run, ride, swim):\n"
-        "  For endurance workouts, you MUST provide a detailed `structure` object.\n"
-        "  Write instructions for absolute beginners. Explain exactly what they should do and feel.\n"
-        "  - `warmup`: Explain pace and feeling (e.g. 'Pomalý poklus na zahriatie, môžeš dýchať nosom').\n"
-        "  - `main_part`: Provide an array of blocks. \n"
-        "     If it is a steady run, use kind='steady' with `duration_min`, `target` (e.g. 'Z2 140-150 bpm') and `instruction`.\n"
-        "     If it is an interval session, use kind='interval_block' with `repeats`, `work` (duration, target, instruction) and `rest` (duration, target, instruction).\n"
-        "  - `cooldown`: Explain how to cool down (e.g. 'Voľná chôdza na upokojenie tepu').\n"
-        "  Use concrete numbers for targets (Pace or HR bpm) based on athlete's zones from context.\n\n"
+        "  For endurance workouts, provide a detailed `structure` object (warmup, main_part, cooldown).\n"
+        "  Write instructions for absolute beginners.\n\n"
     )
 
     intensity_model_rule = (
-        "- INTENSITY MODEL (GUIDANCE):\n"
-        f"  preferences.intensity_model = '{intensity_model}'.\n"
-        "  If 'polarized': keep most volume easy/recovery, with a small number of hard sessions.\n"
-        "  If 'pyramidal': still mostly easy, but allow more moderate work.\n\n"
-    )
-
-    blocks_rule = (
-        "- TRAINING BLOCKS (GUIDANCE):\n"
-        f"  preferences.training_blocks enabled: {blocks_str}.\n"
-        "  If a block is enabled, include at most ONE session aligned with it in this week.\n\n"
+        f"- INTENSITY MODEL: {intensity_model}.\n"
+        "  Polarized = mostly easy + small amount hard. Pyramidal = allow more moderate.\n\n"
     )
 
     explanation_rule = (
         "- NOTES (HARD):\n"
-        "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n"
-        "  1) Why this session is today.\n"
-        "  2) What to focus on (e.g. cadence, posture).\n"
-        "  No fluff, no emojis.\n\n"
+        "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n\n"
     )
 
     fallback_block = ""
@@ -390,17 +372,19 @@ def build_prompts_for_daily(
         f"Week range: {week_start or 'unknown'} .. {week_end or 'unknown'}\n"
         f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
         f"Main sport: {main_sport}\n"
+        f"Included sports: {', '.join(included_sports)}\n"
         f"External events occurrences in this week: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
         + injury_rule 
         + two_a_day_rule
         + long_run_rule
+        + multi_sport_rule  # <--- Pridané
         + strength_rule
         + endurance_structure_rule 
         + intensity_model_rule
         + blocks_rule
-        + weekly_volume_line
+        + weekly_volume_line # <--- Upravené
         + back_to_back_rule
         + explanation_rule
         + "\nCONTEXT_JSON:\n"
