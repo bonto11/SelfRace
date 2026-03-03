@@ -10,13 +10,13 @@
     {
       "src": "/logo/actual/selfrace_icon.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg",
       "purpose": "any"
     },
     {
       "src": "/logo/actual/selfrace_icon.svg",
       "sizes": "260x260",
-      "type": "image/png",
+      "type": "image/svg",
       "purpose": "maskable"
     }
   ]
