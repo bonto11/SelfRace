@@ -37,7 +37,8 @@ type UiState = {
   fatigueLabel: string | null;
   injuryLabel: string | null;
   summary: string | null;
-  mainCapabilityLabel: string | null; // ✅ Pridané: Label hlavného športu (napr. Hobby)
+  capabilityLabel: string | null;
+  capabilityKey: string | null; 
 };
 
 function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
@@ -47,58 +48,52 @@ function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
       fatigueLabel: null,
       injuryLabel: null,
       summary: null,
-      mainCapabilityLabel: null,
+      capabilityLabel: null,
+      capabilityKey: null,
     };
   }
 
-  const s: any = row.state;
-  const generatedAt: string | undefined = s.generated_at;
-  const createdAt: string | undefined = row.created_at;
+  // Support pre orezaný aj plný formát
+  const s: any = row.state.ai_state ? row.state : (row.state.analysis || row.state);
+  const generatedAt: string | undefined = s.generated_at || row.created_at;
 
   let lastAnalysisAt: string | null = null;
-  const iso = generatedAt || createdAt;
-  
-  if (iso) {
-    lastAnalysisAt = parseAndFormatPrettyDate(iso, lang);
+  if (generatedAt) {
+    lastAnalysisAt = parseAndFormatPrettyDate(generatedAt, lang);
   }
 
-  const fatigueLabel: string | null =
-    s?.ai_state?.fatigue_level ??
-    s?.ai_state?.fatigue?.label ??
-    null;
+  const aiState = s.ai_state || {};
+  const userSummary = s.user_summary || {};
 
-  const injuryLabel: string | null =
-    s?.ai_state?.injury_risk ?? // V novej štruktúre je to string "low"|"high"...
-    s?.ai_state?.injury_risk?.label ??
-    null;
+  const fatigueLabel = aiState.fatigue_level || null;
+  const injuryLabel = aiState.injury_risk || null;
 
-  // ✅ Nová štruktúra pre capabilities
-  const runCap = s?.ai_state?.capabilities?.run;
-  const mainCapabilityLabel: string | null = runCap?.label ?? null;
+  // ✅ Nájdeme najrelevantnejšiu schopnosť na zobrazenie vo widgete
+  // Priorita: Run -> Ride -> Strength
+  let capabilityLabel: string | null = null;
+  let capabilityKey: string | null = null;
 
-  const summary: string | null =
-    s?.user_summary?.headline ??
-    s?.user_summary?.short ??
-    null;
+  if (aiState.capabilities?.run?.label) {
+     capabilityLabel = aiState.capabilities.run.label;
+     capabilityKey = "run";
+  } else if (aiState.capabilities?.ride?.label) {
+     capabilityLabel = aiState.capabilities.ride.label;
+     capabilityKey = "ride";
+  } else if (aiState.capabilities?.strength?.label) {
+     capabilityLabel = aiState.capabilities.strength.label;
+     capabilityKey = "strength";
+  }
 
-  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary, mainCapabilityLabel };
+  const summary = userSummary.headline || userSummary.short || null;
+
+  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary, capabilityLabel, capabilityKey };
 }
 
 function pickAccent(ui: UiState) {
   const fat = (ui.fatigueLabel || "").toLowerCase();
   const inj = (ui.injuryLabel || "").toLowerCase();
-
-  const hasHigh =
-    fat.includes("high") ||
-    fat.includes("vysok") ||
-    inj.includes("high") ||
-    inj.includes("vysok");
-
-  const hasMod =
-    fat.includes("moder") ||
-    fat.includes("stred") ||
-    inj.includes("moder") ||
-    inj.includes("stred");
+  const hasHigh = fat.includes("high") || inj.includes("high") || fat.includes("vysok") || inj.includes("vysok");
+  const hasMod = fat.includes("moder") || inj.includes("moder") || fat.includes("stred") || inj.includes("stred");
 
   if (hasHigh) return appColors.stateDanger;
   if (hasMod) return appColors.stateWarning;
@@ -183,11 +178,11 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
             
-            {/* ✅ Zobrazíme aj level ak existuje */}
-            {ui.mainCapabilityLabel && (
+            {/* ✅ Dynamický label podľa toho, čo je dostupné */}
+            {ui.capabilityLabel && ui.capabilityKey && (
               <>
-                 <div className={WIDGET_KV_LABEL}>{t("common.sports.run")}</div>
-                 <div className={WIDGET_KV_VALUE}>{ui.mainCapabilityLabel}</div>
+                 <div className={WIDGET_KV_LABEL}>{t(`common.sports.${ui.capabilityKey}` as any)}</div>
+                 <div className={WIDGET_KV_VALUE}>{ui.capabilityLabel}</div>
               </>
             )}
           </div>

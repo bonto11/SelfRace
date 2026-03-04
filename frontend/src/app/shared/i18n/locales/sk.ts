@@ -1963,8 +1963,8 @@ export const sk = {
       createdAt: "Vytvorené",
       indicatorsTitle: "Únava, riziko zranenia a zameranie",
       blockTitle: "Fáza prípravy",
-      fitnessTitle: "Vývoj kondície", // Updated
-      volumeTitle: "Vývoj objemu", // Updated
+      fitnessTitle: "Vývoj kondície",
+      volumeTitle: "Vývoj objemu",
       planChanges: "Navrhované zmeny v pláne",
       noPlanChanges:
         "Tréner nateraz neodporúča meniť tvoju štruktúru tréningu.",
@@ -2011,6 +2011,7 @@ export const sk = {
       noTipsDesc: "Po ďalšej analýze sa tu zobrazia konkrétne odporúčania.",
       // ✅ VO2 Max
       vo2maxDesc: "Odhadovaná hodnota na základe biometrie a výkonu.",
+      noCapabilities: "Zatiaľ neboli vyhodnotené žiadne konkrétne schopnosti.",
     },
     weekly: {
       phase: "Fáza",

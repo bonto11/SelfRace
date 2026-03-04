@@ -37,7 +37,6 @@ from Configs.config import (
     GEMINI_DEFAULT_MODEL,
 )
 
-# ✅ PRIDANÝ IMPORT PRE NOTIFIKÁCIU
 from Services.notifications import service_notify_athlete_state_progress
 
 
@@ -120,7 +119,18 @@ def service_get_latest_athlete_state(
     if not row:
         return None
 
-    state_json = row.get("state_json") or {}
+    full_state_json = row.get("state_json") or {}
+    
+    # ✅ OREZANIE (CUT): Pre FE nepotrebujeme input ani debug_trace
+    clean_state = {}
+    if "analysis" in full_state_json:
+        clean_state = full_state_json["analysis"]
+    else:
+        clean_state = full_state_json
+
+    # Poistka proti balastu
+    clean_state.pop("input", None)
+    clean_state.pop("debug_trace", None)
 
     return {
         "id": row.get("id"),
@@ -128,7 +138,7 @@ def service_get_latest_athlete_state(
         "model": row.get("model"),
         "version": row.get("version"),
         "created_at": row.get("created_at"),
-        "state": state_json,
+        "state": clean_state, # Vraciame čistý stav
         "compare_previous": row.get("compare_previous"),
     }
 
@@ -168,13 +178,6 @@ def service_analyze_athlete(
 ) -> Dict[str, Any]:
     """
     Hlavná service funkcia pre AI analýzu atleta.
-
-    - service=False (FE): kontroluje mesačný limit AI tokenov.
-    - service=True  (cron/webhook): ignoruje limit, ide cez service klienta.
-
-    Dôležité:
-    - trace/usage sa počítajú vždy (kvôli billing).
-    - do FE ich posielame len keď debug=True.
     """
 
     model_to_use = (model or _default_ai_model()).strip()
@@ -209,7 +212,6 @@ def service_analyze_athlete(
     # 1b) Kontext pre AI – deep copy + drop interných polí
     context_for_ai = json.loads(json.dumps(input_data, default=str))
 
-    # drop internal user id
     try:
         u = context_for_ai.get("user")
         if isinstance(u, dict):
@@ -217,7 +219,6 @@ def service_analyze_athlete(
     except Exception:
         pass
 
-    # drop external_activities z prefs (ak sú)
     try:
         prefs_block = context_for_ai.get("prefs") or {}
         if isinstance(prefs_block, dict):
@@ -229,7 +230,6 @@ def service_analyze_athlete(
         pass
 
     # 2) AI CALL
-    # POZOR: generator MUSÍ vracať trace vždy (aj bez debug flagov)
     analysis, trace = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,ctx=ctx,
@@ -316,14 +316,15 @@ def service_analyze_athlete(
         "state_id": state_id,
         "model": str(analysis.get("model") or model_to_use),
         "analysis": analysis,
-        "input": input_data,
+        # "input": input_data,  <-- OREZANÉ (už netreba vracať veľký input)
         "error": None,
     }
     if compare_previous is not None:
         resp["compare_previous"] = compare_previous
 
-    resp["debug_trace"] = trace
-    resp["ai_usage"] = usage
+    # ✅ OREZANIE: Usage a Trace sme už zalogovali, neposielame ich späť
+    # resp["debug_trace"] = trace
+    # resp["ai_usage"] = usage
 
     return resp
 
@@ -337,11 +338,6 @@ def service_compare_latest_athlete_states(
 ) -> Dict[str, Any]:
     """
     Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
-    Report sa zároveň uloží do compare_previous na najnovšom state.
-
-    Dôležité:
-    - trace/usage sa počítajú vždy.
-    - do FE ich posielame len keď debug=True.
     """
 
     model_to_use = (model or _default_ai_model()).strip()
@@ -460,8 +456,9 @@ def service_compare_latest_athlete_states(
         "source": "generated",
     }
 
-    resp["debug_trace"] = trace
-    resp["ai_usage"] = usage
+    # ✅ OREZANIE: Usage a Trace sme už zalogovali, neposielame ich späť
+    # resp["debug_trace"] = trace
+    # resp["ai_usage"] = usage
 
     return resp
 

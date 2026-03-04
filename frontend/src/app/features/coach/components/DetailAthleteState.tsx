@@ -1,4 +1,3 @@
-// src/app/features/coach/components/DetailAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -32,7 +31,6 @@ import {
 
 /* ---------- helper types ---------- */
 
-// ✅ UPDATED TYPE: Capabilities namiesto fitness_level
 type Capability = {
   level_1_to_5?: number | null;
   label?: string | null;
@@ -40,17 +38,17 @@ type Capability = {
 };
 
 type AiState = {
+  // Nový formát
+  capabilities?: {
+    run?: Capability | null;
+    ride?: Capability | null;
+    strength?: Capability | null;
+  };
   // Starý formát (fallback)
   fitness_level?: {
     run?: any;
     ride?: any;
     strength?: any;
-  };
-  // ✅ Nový formát
-  capabilities?: {
-    run?: Capability | null;
-    ride?: Capability | null;
-    strength?: Capability | null;
   };
   
   fatigue_level?: string | null;
@@ -73,15 +71,13 @@ type AiState = {
   
   metrics?: {
     estimated_vo2max?: number | null;
-    estimated_5k_time_min?: number | null;
-    chronic_load_score?: number | null;
     acute_load_score?: number | null;
+    chronic_load_score?: number | null;
   } | null;
 };
 
 type UserSummary = {
   headline?: string | null;
-  bullets?: string[] | null;
   risks?: string[] | null;
   suggestions_short?: string[] | null;
 };
@@ -97,16 +93,14 @@ function formatLevelLabel(level: string | null, t: any): string {
   return l;
 }
 
-// ✅ 1-5 Scale normalization
 function normalizeCapability(level?: number | null): number {
   const n = typeof level === "number" ? level : 0;
   return Math.max(0, Math.min(5, n));
 }
 
-// Fallback pre starý 1-10 systém
 function normalizeLegacyLevel(level?: number | null): number {
     const n = typeof level === "number" ? level : 0;
-    return Math.max(0, Math.min(10, n)) / 2; // Convert 10 -> 5 scale
+    return Math.max(0, Math.min(10, n)) / 2; 
 }
 
 function formatMinutesRange(min: number | null | undefined, max: number | null | undefined, t: any): string {
@@ -133,17 +127,9 @@ function blockPillStyle(): CSSProperties {
 /* ---------- building blocks ---------- */
 
 function Card({
-  title,
-  subtitle,
-  topRight,
-  children,
-  footer = true,
+  title, subtitle, topRight, children, footer = true,
 }: {
-  title?: React.ReactNode;
-  subtitle?: React.ReactNode;
-  topRight?: React.ReactNode;
-  children?: React.ReactNode;
-  footer?: boolean;
+  title?: React.ReactNode; subtitle?: React.ReactNode; topRight?: React.ReactNode; children?: React.ReactNode; footer?: boolean;
 }) {
   return (
     <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}>
@@ -162,19 +148,11 @@ function Card({
   );
 }
 
-function Subcard({
-  title,
-  value,
-  children,
-}: {
-  title: string;
-  value?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
+function Subcard({ title, value, children }: { title: string; value?: React.ReactNode; children?: React.ReactNode; }) {
   return (
     <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className="flex justify-between items-baseline">
+        <div className="flex justify-between items-baseline gap-2">
             <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
             {value != null && <div className={PANEL_SECTION_TITLE} style={{fontSize: '0.9rem'}}>{value}</div>}
         </div>
@@ -184,17 +162,7 @@ function Subcard({
   );
 }
 
-function Bar({
-  value01, // 0 to 1
-  labelLeft,
-  labelRight,
-  fillKind,
-}: {
-  value01: number;
-  labelLeft?: React.ReactNode;
-  labelRight?: React.ReactNode;
-  fillKind: "success" | "info" | "warning" | "danger";
-}) {
+function Bar({ value01, labelLeft, labelRight, fillKind }: { value01: number; labelLeft?: React.ReactNode; labelRight?: React.ReactNode; fillKind: "success" | "info" | "warning" | "danger"; }) {
   const pct = Math.max(0, Math.min(1, value01)) * 100;
   const fillStyle = {
     success: { background: appColors.statusSuccess },
@@ -218,7 +186,7 @@ function Bar({
   );
 }
 
-/* ---------- hlavný komponent ---------- */
+/* ---------- main ---------- */
 
 export default function DetailAthleteState() {
   const { userId } = useUserId();
@@ -248,6 +216,9 @@ export default function DetailAthleteState() {
   const parsed = useMemo(() => {
     if (!row || !row.state) return { userSummary: {} as UserSummary, aiState: {} as AiState, generatedAt: null };
     const s: any = row.state;
+    // Podpora pre orezaný backend (analysis je root) alebo starý (state je root)
+    const root = s.ai_state ? s : (s.analysis || s);
+    
     const genAt = s.generated_at || row.created_at;
     let formattedDate = genAt;
     try {
@@ -255,17 +226,21 @@ export default function DetailAthleteState() {
         year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
       });
     } catch { /* fallback */ }
-    return { userSummary: s.user_summary || {}, aiState: s.ai_state || {}, generatedAt: formattedDate };
+    
+    return { 
+        userSummary: root.user_summary || {}, 
+        aiState: root.ai_state || {}, 
+        generatedAt: formattedDate 
+    };
   }, [row]);
 
   const { userSummary, aiState, generatedAt } = parsed;
 
-  // ✅ Extrakcia Capabilities (1-5)
-  // Fallback na starý fitness_level ak capabilities neexistuje
-  let runLevel = 0;
-  let runLabel = "";
-  let runComment = "";
+  /* --- Spracovanie Schopností (Capabilities) --- */
   
+  // RUN
+  const hasRun = !!(aiState.capabilities?.run || aiState.fitness_level?.run);
+  let runLevel = 0, runLabel = "", runComment = "";
   if (aiState.capabilities?.run) {
       runLevel = normalizeCapability(aiState.capabilities.run.level_1_to_5);
       runLabel = aiState.capabilities.run.label || "";
@@ -276,10 +251,9 @@ export default function DetailAthleteState() {
       runComment = aiState.fitness_level.run.comment || "";
   }
 
-  let strengthLevel = 0;
-  let strengthLabel = "";
-  let strengthComment = "";
-
+  // STRENGTH
+  const hasStrength = !!(aiState.capabilities?.strength || aiState.fitness_level?.strength);
+  let strengthLevel = 0, strengthLabel = "", strengthComment = "";
   if (aiState.capabilities?.strength) {
       strengthLevel = normalizeCapability(aiState.capabilities.strength.level_1_to_5);
       strengthLabel = aiState.capabilities.strength.label || "";
@@ -288,27 +262,19 @@ export default function DetailAthleteState() {
       strengthLevel = normalizeLegacyLevel(aiState.fitness_level.strength.level_1_to_10);
       strengthComment = aiState.fitness_level.strength.comment || "";
   }
-
-  // ✅ VO2 Max
+  
+  // VO2MAX
   const vo2max = aiState.metrics?.estimated_vo2max;
 
   const volumeRangeLabel = formatMinutesRange(aiState.volume_tolerance?.weekly_minutes_min, aiState.volume_tolerance?.weekly_minutes_max, t);
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
 
-  /* ---------- states ---------- */
+  /* ---------- render ---------- */
 
-  if (!userId) {
-    return <Card title={t("coachAthleteState.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
-  }
-  if (loading) {
-    return <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
-  }
-  if (error || !row || !row.state) {
-    return <Card title={t("coachAthleteState.title")} subtitle={t("coach.state.noDataTitle")}><div className={PANEL_PREVIEW}>{error ?? t("coach.state.noDataDesc")}</div></Card>;
-  }
-
-  /* ---------- UI ---------- */
+  if (!userId) return <Card title={t("coachAthleteState.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
+  if (loading) return <section className={PANEL_SURFACE} style={PANEL_SURFACE_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
+  if (error || !row || !row.state) return <Card title={t("coachAthleteState.title")} subtitle={t("coach.state.noDataTitle")}><div className={PANEL_PREVIEW}>{error ?? t("coach.state.noDataDesc")}</div></Card>;
 
   const statusPills = (
     <>
@@ -338,41 +304,47 @@ export default function DetailAthleteState() {
         footer
       />
 
-      <Card title={t("coach.state.capabilitiesTitle") || "Schopnosti & Fitness"} subtitle={t("coach.state.capabilitiesSubtitle") || "Odhadovaná úroveň na základe histórie"}>
+      <Card title={t("coach.state.capabilitiesTitle")} subtitle={t("coach.state.capabilitiesSubtitle")}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
           
-          {/* ✅ Run Capability */}
-          <Subcard title={t("common.sports.run")} value={runLabel || `${runLevel}/5`}>
-            {/* Bar scale 0 to 1 based on 5 levels */}
-            <Bar 
-                value01={runLevel / 5} 
-                fillKind="success" 
-                labelLeft={runComment}
-                labelRight={`${runLevel}/5`}
-            />
-          </Subcard>
+          {/* ✅ Zobrazíme iba ak máme dáta o behu */}
+          {hasRun && (
+            <Subcard title={t("common.sports.run")} value={runLabel || `${runLevel}/5`}>
+              <Bar 
+                  value01={runLevel / 5} 
+                  fillKind="success" 
+                  labelLeft={runComment}
+                  labelRight={`${runLevel}/5`}
+              />
+            </Subcard>
+          )}
 
-          {/* ✅ Strength Capability */}
-          <Subcard title={t("common.sports.strength")} value={strengthLabel || `${strengthLevel}/5`}>
-            <Bar 
-                value01={strengthLevel / 5} 
-                fillKind="info" 
-                labelLeft={strengthComment}
-                labelRight={`${strengthLevel}/5`}
-            />
-          </Subcard>
+          {/* ✅ Zobrazíme iba ak máme dáta o sile */}
+          {hasStrength && (
+            <Subcard title={t("common.sports.strength")} value={strengthLabel || `${strengthLevel}/5`}>
+              <Bar 
+                  value01={strengthLevel / 5} 
+                  fillKind="info" 
+                  labelLeft={strengthComment}
+                  labelRight={`${strengthLevel}/5`}
+              />
+            </Subcard>
+          )}
 
-          {/* ✅ VO2 Max Card */}
           {vo2max && (
              <Subcard title="VO₂ Max (Est.)" value={vo2max}>
                 <div className="text-sm text-gray-500 mt-1">
-                   {t("coach.state.vo2maxDesc") || "Odhadovaná hodnota na základe biometrie a výkonu."}
+                   {t("coach.state.vo2maxDesc") || "Estimate based on performance."}
                 </div>
-                {/* Visual bar relative to scale approx 20-80 */}
                 <div className="mt-2">
                      <Bar value01={(vo2max - 20) / 60} fillKind="warning" labelLeft="Aerobic Capacity" />
                 </div>
              </Subcard>
+          )}
+
+          {/* Fallback ak nič nemáme */}
+          {!hasRun && !hasStrength && !vo2max && (
+              <div className={PANEL_PREVIEW}>{t("coach.state.noCapabilities")}</div>
           )}
 
         </div>

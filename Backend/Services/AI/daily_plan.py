@@ -280,10 +280,10 @@ def service_generate_daily_week(
         "error": None,
     }
 
-    resp["debug_trace"] = trace
+    #resp["debug_trace"] = trace
     resp["context_payload"] = context_payload
-    resp["ai_usage"] = usage
-    resp["billing"] = billing_result
+    #resp["ai_usage"] = usage
+    #resp["billing"] = billing_result
     resp["ai_plan_raw"] = ai_plan
 
     return resp

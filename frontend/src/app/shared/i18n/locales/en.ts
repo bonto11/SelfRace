@@ -2013,6 +2013,7 @@ export const en = {
       noTipsDesc:
         "Specific recommendations will appear here after your next analysis.",
       vo2maxDesc: "Estimated value based on biometrics and performance.",
+      noCapabilities: "No specific capabilities have been evaluated yet.",
     },
     weekly: {
       phase: "Phase",
@@ -2044,8 +2045,7 @@ export const en = {
       errorLoad: "Failed to load the daily plan.",
       errorLoadTitle: "Loading Error",
       errorSave: "Failed to save plan changes.",
-      noPlan:
-        "You don't have an active daily training plan generated yet.",
+      noPlan: "You don't have an active daily training plan generated yet.",
       rescheduleNotice:
         "You can move workouts between days directly on the cards, but keep in mind this alters the coach's original strategy.",
       scheduleTitle: "Workout Schedule",
@@ -2166,7 +2166,8 @@ export const en = {
         processing: "Analysis in progress, it will appear shortly...",
         queued: "The request has been submitted for processing.",
         errorEnqueue: "Failed to create the analysis request.",
-        limitReached: "You have reached the recalculation limit for this activity.",
+        limitReached:
+          "You have reached the recalculation limit for this activity.",
       },
       injuryModal: {
         title: "Manage Injuries and Pain",
@@ -2293,8 +2294,7 @@ export const en = {
     },
     billing: {
       missingTier: "No plan selected.",
-      checkoutSessionFailed:
-        "Failed to create checkout session. Try again.",
+      checkoutSessionFailed: "Failed to create checkout session. Try again.",
       portalSessionFailed: "Failed to open subscription management.",
       tierChangeFailed: "Failed to change subscription plan.",
       cancelPlannedFailed: "Failed to cancel planned subscription change.",
@@ -2312,10 +2312,12 @@ export const en = {
       enqueueFailed:
         "Failed to create an analysis request. Please try again later.",
       enrichmentFetchFailed: "Failed to load workout details.",
-      limitReached: "You have reached the recalculation limit for this activity.",
+      limitReached:
+        "You have reached the recalculation limit for this activity.",
       activityTooOld:
         "The activity is older than 7 days and can no longer be analyzed.",
-      onlyOneForFreeTier: "On the free tier, you are entitled to only one review per activity.",
+      onlyOneForFreeTier:
+        "On the free tier, you are entitled to only one review per activity.",
       duplicateContent:
         "You already used this comment in your last generation.",
       activityNotFound: "Activity not found.",
@@ -2323,10 +2325,8 @@ export const en = {
         "Failed to download detailed charts and data from Strava.",
       extrasFetchFailed: "Failed to download splits and laps from Strava.",
       paretoFetchFailed: "Failed to load data for the 80/20 chart.",
-      weeklyLoadFetchFailed:
-        "Failed to load data for the weekly load chart.",
-      monoStrainFetchFailed:
-        "Failed to load data for monotony and strain.",
+      weeklyLoadFetchFailed: "Failed to load data for the weekly load chart.",
+      monoStrainFetchFailed: "Failed to load data for monotony and strain.",
     },
     strava: {
       statusLoadFailed: "Failed to load Strava connection status.",
@@ -2402,7 +2402,8 @@ export const en = {
       stravaNote:
         "Note: Your Strava account will not be deleted – only the imported data and the connection within this app will be removed.",
       cancelledLabel: "cancelled",
-      cancelledDesc: "Your account is active and your data in the app will not be deleted.",
+      cancelledDesc:
+        "Your account is active and your data in the app will not be deleted.",
       defaultLabel: "irreversible",
       defaultDesc:
         "First, the account is marked for deletion. You can still cancel this during the grace period, after which all data in the app will be removed.",
@@ -2428,7 +2429,8 @@ export const en = {
       },
       consentRequest:
         "I agree to the processing of the account deletion request and acknowledge that after the grace period, my app data will be permanently deleted, and that Strava data inside the SelfRace app will be deleted immediately.",
-      consentCancel: "I understand and wish to cancel the planned account deletion.",
+      consentCancel:
+        "I understand and wish to cancel the planned account deletion.",
       consentHint: "We cannot allow this action without your consent.",
       errorCheckbox: "Please check the consent box first.",
       btnProcessing: "Processing...",

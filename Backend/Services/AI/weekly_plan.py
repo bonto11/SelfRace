@@ -248,9 +248,9 @@ def service_generate_weekly_plan(
 
     # dočasne vraciame všetko (na FE ladenie)
     resp["weekly_plan"] = weekly_plan
-    resp["debug_trace"] = trace
-    resp["ai_usage"] = usage
-    resp["billing"] = billing_result
+    #resp["debug_trace"] = trace
+    #resp["ai_usage"] = usage
+    #resp["billing"] = billing_result
 
     return resp
 
