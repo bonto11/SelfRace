@@ -97,7 +97,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     run_t = _get_dict(targets, "run")
     strength_t = _get_dict(targets, "strength")
 
-    # races minify: keep only key fields
     races_raw = run_t.get("races")
     races_min: Optional[List[Dict[str, Any]]] = None
     if isinstance(races_raw, list):
@@ -118,7 +117,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if len(races_min) >= 10:
                 break
 
-    # ✅ PRIDANÉ: add_on_sports a included_sports
     prefs2: Dict[str, Any] = {
         "main_sport": prefs.get("main_sport"),
         "add_on_sports": prefs.get("add_on_sports"),
@@ -164,9 +162,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
-    # --- athlete_state ---
     athlete_state = _as_dict(context.get("athlete_state"))
-    # ✅ PRIDANÉ: is_returning_beginner
     is_beginner = athlete_state.get("is_returning_beginner")
 
     if athlete_state:
@@ -177,7 +173,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "is_returning_beginner": is_beginner
         }
 
-    # --- external_events ---
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
@@ -234,7 +229,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         else:
             ctx2["external_events"] = {"events": cleaned_events}
 
-    # --- settings ---
     settings = _as_dict(context.get("user_settings"))
     if settings:
         ctx2["user_settings"] = {
@@ -287,7 +281,6 @@ def build_prompts_for_weekly(
     main_sport = prefs.get("main_sport") or "run"
     goal_kind = prefs.get("goal_kind") or "improve_overall"
 
-    # ✅ MULTI-SPORT LOGIKA
     add_on = prefs.get("add_on_sports")
     included = prefs.get("included_sports")
     sports_set = set()
@@ -300,7 +293,6 @@ def build_prompts_for_weekly(
             if isinstance(s, str) and s: sports_set.add(s.lower())
     final_sports_list = list(sports_set)
 
-    # ✅ BEGINNER LOGIKA
     athlete_state = _as_dict(ctx.get("athlete_state"))
     is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
 
@@ -320,38 +312,25 @@ def build_prompts_for_weekly(
 
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON with athlete preferences (including volume preferences), "
-        "AI analysis state and external events. "
-        "External events are fixed activities like football matches, club runs or other regular trainings, "
-        "which already create load and must be counted into total weekly volume or at least reduce the room for training. "
-        "The AI analysis (athlete_state.ai_state) also includes a plan_adjustment block that can suggest "
-        "short-term softening of load or a need to re-plan the weekly structure. "
-        "Your task is to design a WEEK-BY-WEEK meta training plan (no daily sessions yet). "
-        "You must return ONE valid JSON object only. No prose, no code fences."
+        "Your goal is to design a high-level WEEKLY meta training plan. "
+        "Return ONE valid JSON object only."
     )
 
     schema_text = f"""
 {{
   "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name)",
-  "plan_meta": {{
-    "start_date": "YYYY-MM-DD" | null,
-    "weeks": number,
-    "main_sport": string,
-    "goal_kind": string | null
-  }},
+  "generated_at": "ISO-8601 timestamp",
   "weeks": [
     {{
       "week_index": number,
       "week_start": "YYYY-MM-DD",
       "week_end": "YYYY-MM-DD",
-      "goal": string | null,
-      "focus": string | null,
-      "load_phase": string | null,
+      "goal": string (Focus of the week in human language),
+      "focus": string (Short technical tag or secondary focus),
+      "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | etc,
       "planned_km": number | null,
       "planned_minutes": number | null,
-      "notes": string | null
+      "notes": string (Detailed coaching advice for the week)
     }}
   ]
 }}
@@ -359,84 +338,60 @@ def build_prompts_for_weekly(
 
     volume_hint_lines: List[str] = []
     
-    # ✅ BEGINNER RULE pre VOLUME
+    # ✅ BEGINNER VOLUME RULE
     if is_returning_beginner:
         volume_hint_lines.append(
-            "- CRITICAL: The athlete is a BEGINNER or RETURNING after a long break. "
-            "Start VERY LOW (e.g. 40-80 mins/week total). "
-            "Increase gradually. Focus on consistency over volume."
+            "- ATHLETE IS A BEGINNER (LEVEL 1): Start VERY light (e.g. 40-90 min total/week). "
+            "Focus on adaptation of bones and tendons, not fitness. "
+            "Planned minutes must reflect a safe, low-impact return."
         )
 
     if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(
-            "- In prefs.volume the athlete has a target as weekly_hours. "
-            "Convert this to minutes (hours * 60) and treat it as the baseline weekly volume target."
-        )
+        volume_hint_lines.append(f"- Baseline target: {volume_value * 60} minutes per week.")
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(
-            "- In prefs.volume the athlete has a target as daily_minutes. "
-            "Approximate training_days from prefs.preferences.days_off: training_days ≈ 7 - count(days_off). "
-            "Baseline weekly volume ≈ daily_minutes * training_days."
-        )
+        volume_hint_lines.append(f"- Baseline target: Roughly {volume_value} min per active day.")
     else:
-        volume_hint_lines.append(
-            "- prefs.volume.value is null or missing, so estimate the target volume "
-            "from recent_load, recovery and ai_state.volume_tolerance. Be conservative."
-        )
+        volume_hint_lines.append("- No volume target specified: use ai_state.volume_tolerance.")
 
-    volume_hint_lines.append(
-        "- In athlete_state.ai_state.volume_tolerance you have weekly_minutes_min and weekly_minutes_max. "
-        "Keep planned_minutes mostly inside this range. Short deviations are OK but not extreme."
-    )
-    volume_hint_lines.append(
-        "- external_events contains external sports and life events. Sports-type events count as training load. "
-        "Non-sport big events reduce available time and should lower planned_minutes."
-    )
-    volume_hint_lines.append(
-        "- Use recent_load and recovery to shape progression (e.g. 2–3 build weeks + 1 recovery week), "
-        "without chronically exceeding weekly_minutes_max."
-    )
+    volume_hint_lines.append("- athlete_state.ai_state.volume_tolerance is your safety guard. Stay mostly within min/max.")
+    volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
 
     volume_hint = "\n".join(volume_hint_lines)
     
-    # ✅ MULTI SPORT HINT
-    multi_sport_hint = ""
-    if len(final_sports_list) > 1:
-        multi_sport_hint = (
-            f"- MULTI-SPORT: Athlete performs: {', '.join(final_sports_list)}. "
-            "The `planned_minutes` MUST include ALL these sports combined, not just running."
+    # ✅ BEGINNER META PROTOCOL (Tone and Content)
+    beginner_protocol = ""
+    if is_returning_beginner:
+        beginner_protocol = (
+            "- BEGINNER COACHING PROTOCOL (META-LEVEL):\n"
+            "  - Tone: Encouraging, educational, protective.\n"
+            "  - 'goal' and 'focus' fields: Use descriptive titles like 'Building consistency' or 'Joint adaptation' instead of just 'Base'.\n"
+            "  - 'notes' field: Every week MUST explain the theme. Remind the athlete that 'Easy means Easy'.\n"
+            "  - Mention the 'Talk Test' or 'Sing Test' as the primary way to measure intensity this week.\n"
+            "  - Emphasize that walking during a run is a success, not a failure.\n\n"
         )
 
+    multi_sport_hint = ""
+    if len(final_sports_list) > 1:
+        multi_sport_hint = f"- MULTI-SPORT: {', '.join(final_sports_list)}. planned_minutes includes ALL sports."
+
     user_txt = (
-        "You will design a WEEKLY meta training plan for the athlete.\n"
+        "Design a WEEKLY meta plan.\n"
         f"Main sport: {main_sport}\n"
-        f"All Sports: {', '.join(final_sports_list)}\n"
-        f"Goal kind: {goal_kind}\n"
-        f"Planning horizon (weeks): {weeks}\n"
-        f"Preferred plan start date (if any): {start_date or 'none'}\n"
-        f"Target athlete language for all text fields: {lang_label}.\n\n"
-        "CONTEXT_JSON (ground truth – use it as the only source of information):\n"
+        f"Sports involved: {', '.join(final_sports_list)}\n"
+        f"Horizon: {weeks} weeks starting {start_date or 'ASAP'}.\n"
+        f"Language: {lang_label}.\n\n"
+        + beginner_protocol
+        + "CONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
-        + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
+        + "\n\nSCHEMA & REQUIREMENTS:\n"
         + schema_text
-        + "\n\nHard requirements:\n"
-        "- Always return a single JSON object exactly matching the schema (you may set numeric fields to null if unknown).\n"
-        f"- All free text fields (goal, focus, notes) MUST be written in {lang_label} and MUST speak directly to the athlete in 2nd person. "
-        f"{second_person_note} Never refer to them as 'the athlete', 'he', 'she' or similar.\n"
-        "- Make sure week_index starts at 1 and increases consecutively (1, 2, 3, ...).\n"
-        "- week_start and week_end must be valid dates and form continuous, non-overlapping weeks.\n"
-        "- Use athlete_state.ai_state (fitness, fatigue, injury risk, volume_tolerance, intensity_tolerance, plan_adjustment)\n"
-        "  to assign load_phase and decide load progression.\n"
-        "- Do NOT generate daily sessions here – only weekly meta.\n"
-        "- planned_minutes must include meaningful sports-type external events; reduce for big non-sport events.\n"
-        + multi_sport_hint + "\n"
-        "- Volume guidelines:\n"
-        + volume_hint
         + "\n"
-        "- If fatigue_level='high' or injury_risk='high', make week 1 a clear recovery week near weekly_minutes_min.\n"
-        "- If plan_adjustment.soften_next_days.should_soften is true, ensure week 1 (optionally week 2) is visibly lighter.\n"
-        "- If plan_adjustment.should_replan_weekly is true, design a structurally improved plan for the whole horizon.\n"
-        "- Do NOT plan a long-term trend where most weeks are far above weekly_minutes_max.\n"
+        + f"- All text fields (goal, notes) must be in {lang_label} and use 2nd person ('you'). {second_person_note}\n"
+        + "- week_index starts at 1.\n"
+        + multi_sport_hint + "\n"
+        + "- Volume guidelines:\n"
+        + volume_hint
+        + "\n- If recovery/fatigue is poor, start with a light week.\n"
     )
 
     return system_txt, user_txt

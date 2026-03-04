@@ -1,4 +1,3 @@
-# Routes_AI/daily_plan_prompts.py
 from __future__ import annotations
 
 import json
@@ -73,7 +72,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     athlete_state = context.get("athlete_state") or {}
-    # ✅ Ponecháme flag pre začiatočníka
     is_beginner = athlete_state.get("is_returning_beginner") 
 
     ai_state = athlete_state.get("ai_state") or {}
@@ -92,7 +90,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "timezone": us.get("timezone"),
         }
     
-    # ✅ Prenesieme aj planning_constraints kde je beginner flag
     pc = context.get("planning_constraints")
     if isinstance(pc, dict):
         context2["planning_constraints"] = pc
@@ -108,7 +105,6 @@ def build_prompts_for_daily(
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
     
-    # Simple lang setup
     if lang_code.startswith("en"):
         lang_label = "English"
         second_person_note = "Always speak directly to the athlete and use 'you'."
@@ -122,7 +118,6 @@ def build_prompts_for_daily(
     week = context_payload.get("week") or {}
     prefs = _flatten_prefs(context_payload.get("prefs") or {})
     
-    # ✅ Získanie flagu pre začiatočníka
     constraints = context_payload.get("planning_constraints") or {}
     is_returning_beginner = bool(constraints.get("is_returning_beginner"))
 
@@ -134,7 +129,6 @@ def build_prompts_for_daily(
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
     
-    # ✅ OPRAVENÁ LOGIKA PRE MULTI-SPORT (Priority: add_on_sports > included_sports)
     add_on = prefs.get("add_on_sports")
     included = prefs.get("included_sports")
 
@@ -153,7 +147,6 @@ def build_prompts_for_daily(
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
 
-    # Two a day
     two = pref_obj.get("two_a_day") or {}
     two_enabled = bool(two.get("enabled")) if isinstance(two, dict) else False
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
@@ -166,7 +159,6 @@ def build_prompts_for_daily(
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
-    # Training blocks
     tb = pref_obj.get("training_blocks") or {}
     if not isinstance(tb, dict): tb = {}
     blocks = {
@@ -175,7 +167,6 @@ def build_prompts_for_daily(
         "threshold": bool(tb.get("threshold")),
     }
 
-    # Strength target
     strength_settings = prefs.get("strength_settings")
     if not isinstance(strength_settings, dict): strength_settings = {}
     
@@ -185,14 +176,12 @@ def build_prompts_for_daily(
         try: strength_target_int = int(ss_raw)
         except Exception: pass
     
-    # External events calc
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else []
     if not isinstance(ext_occ, list): ext_occ = []
     ext_count = len(ext_occ)
     ext_minutes_total = sum(_safe_int(e.get("duration_min"), 0) for e in ext_occ if isinstance(e, dict))
 
-    # Volume line
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
@@ -215,7 +204,6 @@ def build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     
-    # Injuries
     active_injuries = prefs.get("injuries") or []
     injury_rule = ""
     if isinstance(active_injuries, list) and len(active_injuries) > 0:
@@ -238,19 +226,25 @@ def build_prompts_for_daily(
                 f"- ACTIVE INJURY ({inj_str}): Adjust for recovery. No high intensity. Safe mode.\n\n"
             )
 
-    # ✅ BEGINNER RULE - Najdôležitejšia časť
+    # ✅ BEGINNER RULE - Rozšírené o Talk/Sing test a edukačné prvky
     beginner_rule = ""
+    explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
+    
     if is_returning_beginner:
         beginner_rule = (
             "- BEGINNER / RETURNING ATHLETE PROTOCOL (CRITICAL):\n"
-            "  The user has NO recent activity (last 6 weeks or more).\n"
-            "  You MUST treat them as a complete beginner. \n"
-            "  - DO NOT schedule continuous running for more than 5-10 minutes.\n"
-            "  - USE RUN/WALK STRATEGY: e.g. '3 min run / 2 min walk' or '5 min run / 1 min walk'.\n"
-            "  - Keep total duration low (max 30-40 min).\n"
-            "  - Intensity must be EASY (Zone 1-2).\n"
-            "  - In the output `meta` object, set `is_beginner_adaptation`: true and add a `msg` explaining this.\n\n"
+            "  The user has NO recent activity. They are unfamiliar with technical terms (like Zones).\n"
+            "  - You MUST explain intensity using human feeling, not just numbers.\n"
+            "  - MANDATORY CUES to include in notes:\n"
+            "    * 'Talk Test': You should be able to speak in full sentences without gasping.\n"
+            "    * 'Sing Test': If you can hum or sing, the pace is perfect.\n"
+            "    * 'RPE Scale': Effort should feel like a 2-3 out of 10.\n"
+            "  - DO NOT schedule continuous running for more than 5-10 minutes. USE RUN/WALK intervals.\n"
+            "  - Emphasize WHY: 'Adaptation of joints and tendons takes more time than muscles.'\n"
+            "  - In the output `meta` object, set `is_beginner_adaptation`: true.\n\n"
         )
+        # Pre začiatočníka chceme dlhšie, povzbudzujúce a vysvetľujúce poznámky
+        explanation_rule = "- NOTES: 3-5 detailed, encouraging sentences. Explain exactly HOW it should feel (Talk/Sing test) and WHY it's beneficial.\n\n"
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -311,11 +305,10 @@ def build_prompts_for_daily(
     
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE: Provide `structure` (warmup, main_part, cooldown). "
-        "Instructions for beginners.\n\n"
+        "Detailed instructions for beginners.\n\n"
     )
 
     intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}.\n\n"
-    explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
     blocks_rule = f"- TRAINING BLOCKS: {', '.join([k for k,v in blocks.items() if v]) or 'none'}.\n\n"
 
     context_for_ai = _minify_context_for_ai(context_payload)
@@ -331,7 +324,7 @@ def build_prompts_for_daily(
         + date_integrity_rule
         + external_rules
         + injury_rule 
-        + beginner_rule  # <--- TU JE NOVÝ PRAVIDLO
+        + beginner_rule
         + two_a_day_rule
         + long_run_rule
         + multi_sport_rule
