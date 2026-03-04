@@ -113,7 +113,7 @@ def build_prompts_for_daily(
         second_person_note = "Vždy mluv přímo k atletovi a používej 2. osobu."
     else:
         lang_label = "Slovak"
-        second_person_note = "Vždy hovor priamo k atlétovi a používaj 2. osobu."
+        second_person_note = "Vždy hovor priamo k atlétovi a používej 2. osobu."
 
     week = context_payload.get("week") or {}
     prefs = _flatten_prefs(context_payload.get("prefs") or {})
@@ -124,8 +124,6 @@ def build_prompts_for_daily(
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
     week_start = week.get("week_start") or context_payload.get("week_start") or ""
     week_end = week.get("week_end") or context_payload.get("week_end") or ""
-    focus = week.get("focus") or ""
-    load_phase = week.get("load_phase") or ""
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
     
@@ -226,25 +224,23 @@ def build_prompts_for_daily(
                 f"- ACTIVE INJURY ({inj_str}): Adjust for recovery. No high intensity. Safe mode.\n\n"
             )
 
-    # ✅ BEGINNER RULE - Rozšírené o Talk/Sing test a edukačné prvky
+    # ✅ BEGINNER RULE - Talk/Sing test platí pre oba športy
     beginner_rule = ""
     explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
     
     if is_returning_beginner:
         beginner_rule = (
             "- BEGINNER / RETURNING ATHLETE PROTOCOL (CRITICAL):\n"
-            "  The user has NO recent activity. They are unfamiliar with technical terms (like Zones).\n"
-            "  - You MUST explain intensity using human feeling, not just numbers.\n"
-            "  - MANDATORY CUES to include in notes:\n"
+            "  The user has NO recent activity. They are unfamiliar with technical terms.\n"
+            "  - You MUST explain intensity using human feeling (Talk Test).\n"
+            "  - MANDATORY CUES for Run and Ride:\n"
             "    * 'Talk Test': You should be able to speak in full sentences without gasping.\n"
             "    * 'Sing Test': If you can hum or sing, the pace is perfect.\n"
-            "    * 'RPE Scale': Effort should feel like a 2-3 out of 10.\n"
-            "  - DO NOT schedule continuous running for more than 5-10 minutes. USE RUN/WALK intervals.\n"
+            "  - FOR BIKE: Emphasize 'Cadence over Power' (keep pedaling easy).\n"
             "  - Emphasize WHY: 'Adaptation of joints and tendons takes more time than muscles.'\n"
             "  - In the output `meta` object, set `is_beginner_adaptation`: true.\n\n"
         )
-        # Pre začiatočníka chceme dlhšie, povzbudzujúce a vysvetľujúce poznámky
-        explanation_rule = "- NOTES: 3-5 detailed, encouraging sentences. Explain exactly HOW it should feel (Talk/Sing test) and WHY it's beneficial.\n\n"
+        explanation_rule = "- NOTES: 3-5 detailed, encouraging sentences. Explain exactly HOW it should feel (Talk/Sing test) and WHY.\n\n"
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -252,6 +248,7 @@ def build_prompts_for_daily(
         "Return ONE valid JSON object."
     )
 
+    # ✅ SCHEMA UPDATE - Explicitne definovaná štruktúra ako objekty
     schema_text = """
 {
   "schema_version": 3,
@@ -271,7 +268,11 @@ def build_prompts_for_daily(
           "session_type": string | null,
           "zone_text": string | null,
           "notes": string | null,
-          "structure": { ... } | null,
+          "structure": {
+             "warmup": { "minutes": number, "notes": string },
+             "main_part": [ { "minutes": number, "notes": string, "target": string } ] | { "minutes": number, "notes": string },
+             "cooldown": { "minutes": number, "notes": string }
+          } | null,
           "payload"?: object | null
         }
       ]
@@ -284,8 +285,7 @@ def build_prompts_for_daily(
     date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
     
     external_rules = (
-        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date. "
-        "They count towards load. Subtract their duration from weekly budget.\n\n"
+        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date.\n\n"
     )
 
     two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Prefer 1 session/day.\n\n"
@@ -298,14 +298,16 @@ def build_prompts_for_daily(
         if other_sports:
             multi_sport_rule = (
                 f"- MULTI-SPORT: Athlete sports: {', '.join(final_sports_list)}. "
-                f"Main: {main_sport}. Schedule {', '.join(other_sports)} sessions too. Balanced plan.\n\n"
+                f"Schedule {', '.join(other_sports)} sessions too. Balanced plan.\n\n"
             )
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
+    # ✅ ENDURANCE STRUCTURE RULE - Teraz pre RUN aj RIDE
     endurance_structure_rule = (
-        "- ENDURANCE STRUCTURE: Provide `structure` (warmup, main_part, cooldown). "
-        "Detailed instructions for beginners.\n\n"
+        "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
+        "provide a detailed `structure` object. `warmup`, `main_part`, and `cooldown` "
+        "MUST be OBJECTS as per schema, not plain strings.\n\n"
     )
 
     intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}.\n\n"
