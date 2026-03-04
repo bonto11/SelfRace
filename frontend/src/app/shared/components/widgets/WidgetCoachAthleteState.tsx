@@ -1,4 +1,3 @@
-// src/shared/components/widgets/WidgetCoachAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -38,9 +37,9 @@ type UiState = {
   fatigueLabel: string | null;
   injuryLabel: string | null;
   summary: string | null;
+  mainCapabilityLabel: string | null; // ✅ Pridané: Label hlavného športu (napr. Hobby)
 };
 
-// 👇 ZMENA: Pridali sme parameter lang 👇
 function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
   if (!row || !row.state) {
     return {
@@ -48,11 +47,11 @@ function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
       fatigueLabel: null,
       injuryLabel: null,
       summary: null,
+      mainCapabilityLabel: null,
     };
   }
 
   const s: any = row.state;
-
   const generatedAt: string | undefined = s.generated_at;
   const createdAt: string | undefined = row.created_at;
 
@@ -60,31 +59,29 @@ function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
   const iso = generatedAt || createdAt;
   
   if (iso) {
-    // 👇 ZMENA: Použitie novej funkcie s jazykom 👇
     lastAnalysisAt = parseAndFormatPrettyDate(iso, lang);
   }
 
   const fatigueLabel: string | null =
-    s?.ai_state?.fatigue?.label ??
     s?.ai_state?.fatigue_level ??
-    s?.fatigue?.label ??
-    s?.fatigue_level ??
+    s?.ai_state?.fatigue?.label ??
     null;
 
   const injuryLabel: string | null =
+    s?.ai_state?.injury_risk ?? // V novej štruktúre je to string "low"|"high"...
     s?.ai_state?.injury_risk?.label ??
-    s?.ai_state?.injury_risk_level ??
-    s?.injury_risk?.label ??
-    s?.injury_risk_level ??
     null;
+
+  // ✅ Nová štruktúra pre capabilities
+  const runCap = s?.ai_state?.capabilities?.run;
+  const mainCapabilityLabel: string | null = runCap?.label ?? null;
 
   const summary: string | null =
     s?.user_summary?.headline ??
     s?.user_summary?.short ??
-    s?.user_summary?.text ??
     null;
 
-  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary };
+  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary, mainCapabilityLabel };
 }
 
 function pickAccent(ui: UiState) {
@@ -110,18 +107,15 @@ function pickAccent(ui: UiState) {
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const { userId } = useUserId();
-
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const t = useT();
-  // 👇 ZMENA: Vytiahneme lang 👇
   const { lang } = useSettings();
 
   useEffect(() => {
     if (!userId) return;
-
     let alive = true;
     (async () => {
       setLoading(true);
@@ -135,15 +129,10 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, t]);
 
-  // 👇 ZMENA: Posielame lang do funkcie 👇
   const ui = useMemo(() => extractUiState(row, lang), [row, lang]);
-  
   const accent = useMemo(() => pickAccent(ui), [ui]);
 
   const getLvl = (lvl?: string | null) => {
@@ -163,7 +152,6 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={180}
     >
-      {/* ... (loading/error stavy) ... */}
       {loading ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
@@ -175,7 +163,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>
-          {t("widget.missingserId")} {/* Ponechal som tvoje preklepy :) */}
+          {t("widget.missingUserId")}
         </div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
@@ -194,6 +182,14 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
 
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
+            
+            {/* ✅ Zobrazíme aj level ak existuje */}
+            {ui.mainCapabilityLabel && (
+              <>
+                 <div className={WIDGET_KV_LABEL}>{t("common.sports.run")}</div>
+                 <div className={WIDGET_KV_VALUE}>{ui.mainCapabilityLabel}</div>
+              </>
+            )}
           </div>
 
           <p className={WIDGET_SUMMARY_TEXT}>

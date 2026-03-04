@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -233,7 +234,7 @@ export default function DetailDailyPlan() {
 
   if (!userId) {
     return (
-      <Card title={t("coach.daily.title")} subtitle={t("common.errors.missingUserAuth")}>
+      <Card title={t("coach.daily.detailTitle")} subtitle={t("common.errors.missingUserAuth")}>
         <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );
@@ -253,7 +254,7 @@ export default function DetailDailyPlan() {
 
   if (error) {
     return (
-      <Card title={t("coach.daily.title")} subtitle={t("coach.daily.errorLoadTitle")}>
+      <Card title={t("coach.daily.detailTitle")} subtitle={t("coach.daily.errorLoadTitle")}>
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );

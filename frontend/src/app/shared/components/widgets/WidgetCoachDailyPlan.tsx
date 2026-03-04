@@ -48,7 +48,7 @@ type UiState = {
   todaySessions: DailyPlanDay["sessions"] | null;
   isMedicalSuspend: boolean;
   maxInjurySeverity: number;
-  hasAnyPlan: boolean; // ✅ Pridaný flag, či vôbec nejaký plán existuje
+  hasAnyPlan: boolean;
 };
 
 function buildUiState(
@@ -73,13 +73,12 @@ function buildUiState(
   const days = overview.days;
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // Namiesto dĺžky celého poľa (ktoré obsahuje aj historické a voľné dni)
-  // spočítame iba BUDÚCE (vrátane dnes) aktívne tréningy
+  // Spočítame budúce aktívne tréningy (vrátane dneška)
   let futureActiveDaysCount = 0;
   let futureSessionsCount = 0;
 
   for (const d of days) {
-    // Ignorujeme dni v minulosti pre výpočet "zostáva"
+    // Ignorujeme dni v minulosti
     if (d.date < todayStr) continue;
 
     const sessionCountForDay = d.sessions?.length ?? 0;
@@ -95,15 +94,14 @@ function buildUiState(
     }
   }
 
-  // Ak je plán prázdny alebo v minulosti, todayDay bude null
   const todayDay = days.find((d) => d.date === todayStr) ?? null;
 
   return {
     ...base,
     hasAnyPlan: true,
     horizonDays: overview.horizon_days ?? days.length,
-    daysCount: futureActiveDaysCount, // ✅ Ukazujeme len ZOSTÁVAJÚCE tréningové dni
-    sessionsCount: futureSessionsCount, // ✅ Ukazujeme len ZOSTÁVAJÚCE tréningy
+    daysCount: futureActiveDaysCount,
+    sessionsCount: futureSessionsCount,
     todayLabel: todayDay?.date ?? null,
     todaySessions: todayDay?.sessions ?? [],
   };
@@ -157,9 +155,14 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
             if (maxInjury && maxInjury.severity > 0) {
               setInjurySeverity(maxInjury.severity);
+              // Zostavíme text: Oblasť (N/10)
+              const areaKey = `prefs.sections.injuriesSection.areas.${maxInjury.area}`;
+              const areaTrans = (t as any)(areaKey);
+              const areaLabel = areaTrans === areaKey ? maxInjury.area : areaTrans;
+              
               setActiveInjury({
                 severity: maxInjury.severity,
-                text: `${t(`prefs.sections.injuriesSection.areas.${maxInjury.area}` as any) || maxInjury.area} (${maxInjury.severity}/10)`,
+                text: `${areaLabel} (${maxInjury.severity}/10)`,
               });
             } else {
               setInjurySeverity(0);
@@ -230,7 +233,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             </div>
           )}
 
-          {/* Ak vôbec nemáme plán */}
           {!ui.hasAnyPlan ? (
             <div className={WIDGET_EMPTY_TEXT}>
               {t("coachDaily.widget.missingData")}

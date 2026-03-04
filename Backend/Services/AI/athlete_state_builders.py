@@ -1,7 +1,7 @@
 # Services/AI/athlete_state_builders.py
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 
 from Services.profile_metrics import service_load_user_profile_for_analysis
@@ -183,11 +183,6 @@ def build_last_activities_block_for_analysis(
 ) -> List[Dict[str, Any]]:
     """
     Posledných N aktivít (summary + zóny z enrichment) pre AI.
-
-    HARDENING:
-      - name = None
-      - activity_id = None
-      - date = relatívny label: today / today-N
     """
 
     if limit <= 0:
@@ -263,13 +258,11 @@ def build_last_activities_block_for_analysis(
 
         enr = enr_by_id.get(aid, {})
 
-        # ✅ OPTIMALIZÁCIA PRE AI: Namiesto 5 rôznych float hodnôt (Z1-Z5), 
-        # pošleme len jeden string s intenzitou, čo radikálne šetrí tokeny.
         z45 = (_to_float(enr.get("z4_min")) or 0.0) + (_to_float(enr.get("z5_min")) or 0.0)
         z12 = (_to_float(enr.get("z1_min")) or 0.0) + (_to_float(enr.get("z2_min")) or 0.0)
         
         intensity = "easy"
-        if z45 > 5:  # ak bol vo vysokej tepovke viac ako 5 min
+        if z45 > 5:
             intensity = "hard"
         elif z45 > 0 or (dur_min and z12 < (dur_min * 0.8)):
             intensity = "moderate"
@@ -281,7 +274,7 @@ def build_last_activities_block_for_analysis(
                 "duration_min": round(dur_min) if dur_min else None,
                 "distance_km": round(dist_km, 2) if dist_km else None,
                 "avg_hr": avg_hr,
-                "intensity": intensity, # 👈 Tu je ten hlavný rozdiel
+                "intensity": intensity,
             }
         )
 
@@ -335,7 +328,26 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         },
         "external_events": None,
         "last_activities": [],
+        "is_returning_beginner": False, # ✅ New field
     }
+
+# ✅ Helper (reused logic)
+def _check_is_returning_beginner(last_activities: List[Dict[str, Any]]) -> bool:
+    if not last_activities:
+        return True
+    
+    # Check date of most recent activity
+    latest_date_str = None
+    for act in last_activities:
+        # Note: build_last_activities_block vracia 'date' ako 'today-N' alebo 'today'.
+        # Ak je to 'today-N', musíme to parsovať, alebo sa pozrieť na DB input.
+        # ALE: build_last_activities je volané nižšie.
+        # Zjednodušenie: Ak last_activities je prázdne, je beginner.
+        # Ak tam sú len aktivity staršie ako 42 dní (čo tu nebudú, lebo query limituje na 60), tak je beginner.
+        pass
+    
+    # Pre potreby buildera budeme predpokladať, že ak DB query vrátila 0 aktivít za posledných 60 dní, je beginner.
+    return False 
 
 
 def build_input_from_db(
@@ -394,10 +406,15 @@ def build_input_from_db(
     )
     input_data["external_events"] = _minify_external_events_for_ai(ext)
 
-    input_data["last_activities"] = build_last_activities_block_for_analysis(
+    # ✅ Last Activities & Beginner Logic
+    acts = build_last_activities_block_for_analysis(
         user_id=user_id,
         ctx=ctx,
         limit=6,
     )
+    input_data["last_activities"] = acts
+    
+    # Ak nemá žiadne aktivity za posledných 60 dní (limit v DB query), je beginner.
+    input_data["is_returning_beginner"] = (len(acts) == 0)
 
     return input_data

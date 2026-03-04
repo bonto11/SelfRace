@@ -19,8 +19,8 @@ export const en = {
     injury: {
       reported: "Injury reported:",
       calendar: "Calendar paused (Medical leave).",
-      dailyPlan: "The plan is in medical leave mode..",
-      planAdjusted: "Training were adjusted due to injury.",
+      dailyPlan: "Medical leave mode active.",
+      planAdjusted: "Training adjusted for recovery.",
     },
     downloadPDF: "Download PDF",
     showPDFError: "Your browser cannot display the PDF. ",
@@ -28,15 +28,13 @@ export const en = {
     loading: "Loading...",
     undo: "Undo",
     cancel: "Cancel",
-    close: "Understand, close",
-    finish: "Got it!",
     save: "Save changes",
+    close: "Close",
+    finish: "Got it!",
     saving: "Saving...",
     soon: "Soon...",
     refresh: "Refresh",
     refreshTitle: "Refresh data",
-    next: "Next",
-    back: "Back",
     edit: "Edit",
     delete: "Delete",
     none: "none",
@@ -46,7 +44,7 @@ export const en = {
     more: "more",
     noData: "No data",
     last7Days: "Last 7 days",
-    together: "together",
+    together: "total",
     confirm: {
       title: "Confirm",
       ok: "OK",
@@ -57,32 +55,51 @@ export const en = {
       expand: "Show section",
     },
     levels: {
-      essential: "essential",
-      athletes: "athlete",
-      fitness: "fitness",
-      average: "average",
-      obese: "obese",
-      low: "low",
-      moderate: "moderate",
-      high: "high",
-      superior: "superior",
-      excellent: "excellent",
-      good: "good",
-      fair: "fair",
-      poor: "poor",
-      very_poor: "very poor",
+      essential: "Essential minimum",
+      athletes: "Athlete level",
+      fitness: "Fitness level",
+      average: "Average",
+      obese: "Obese",
+
+      low: "Low",
+      moderate: "Moderate",
+      medium: "Medium",
+      high: "High",
+      superior: "Superior",
+      excellent: "Excellent",
+      good: "Good",
+      fair: "Fair",
+      poor: "Poor",
+      very_poor: "Very poor",
+      beginner: "Beginner",
+      hobby: "Hobby",
+      intermediate: "Intermediate",
+      performance: "Performance",
+      elite: "Elite",
+      form: "Current Form (1-10)",
     },
     phases: {
-      threshold_speed: "Threshold speed",
+      base_aerobic: "Base (Aerobic)",
+      base_long: "Base (Volume)",
+      build: "Build",
+      threshold_speed: "Threshold / Speed",
+      peak: "Peak",
+      race_specific: "Race Prep",
+      taper: "Taper",
+      race: "Race",
+      regeneration: "Regeneration",
+      recovery: "Recovery",
+      transition: "Transition",
     },
     sports: {
       run: "Run",
-      bike: "Ride",
+      bike: "Bike",
       ride: "Ride",
       strength: "Strength",
       mixed: "Mixed",
       skate: "Skate",
       football: "Football",
+      padel: "Padel",
       other: "Other",
       swim: "Swim",
       walk: "Walk",
@@ -113,7 +130,7 @@ export const en = {
       intensity: "Intensity",
       target: "Target",
       distance: "Distance",
-      hr: "Heart rate",
+      hr: "Heart Rate",
       hr_avg: "Avg HR",
       hr_max: "Max HR",
       pace: "Pace",
@@ -127,9 +144,9 @@ export const en = {
     },
   },
   landing: {
-    h1: "Your personal coach that reacts to your state in real time. ",
-    p1: "Connect Strava, set a goal, and the app will build your training blocks and update according your comments, regeneration and fatigue. ",
-    p2Link: "Read the story of why SelfRace was created. ",
+    h1: "Your personal coach reacting to your state in real-time.",
+    p1: "Connect Strava, set a goal, and the app will build training blocks and adapt based on your comments, recovery, and fatigue.",
+    p2Link: "Read the story of why SelfRace was created.",
     ctaStart: "Try for free",
     ctaSignIn: "Sign in",
   },
@@ -200,7 +217,7 @@ export const en = {
     },
   },
   forgotPassword: {
-    tittle: "",
+    tittle: "Forgot Password",
     fillValidMail: "Enter a valid email.",
     sentMail:
       "If the account exists, we have sent you an email with a link to reset your password.",
@@ -257,7 +274,7 @@ export const en = {
     settings: "Settings",
     subscription: "Subscription",
     connectedApps: "Connected Apps",
-    logginOff: "Logging off...",
+    logginOff: "Logging out...",
     logoff: "Log out",
     showTutorial: "Show setup wizard",
   },
@@ -475,7 +492,7 @@ export const en = {
           other: "Other",
         },
         severityLevels: {
-          mild: "Mild aching. You feel it, but it doesn't limit you. The coach will slightly adjust the load.",
+          mild: "Mild ache. You feel it, but it doesn't limit you. The coach will slightly adjust the load.",
           moderate:
             "Pain forces you to change technique or cut the workout short. The coach will prescribe active recovery.",
           critical:
@@ -646,7 +663,7 @@ export const en = {
           "We recommend 1–3 sessions. Setting it to zero removes strength completely from the plan.",
         btnDecrease: "Decrease",
         btnIncrease: "Increase",
-        btnUnset: "Unset",
+        btnUnset: "Clear",
         currentLabel: "Current",
         locationLabel: "Where you train",
         modeLabel: "Equipment mode",
@@ -823,7 +840,7 @@ export const en = {
       tab: "Welcome",
       title: "Welcome to Selfrace! 🏁",
       desc1:
-        "For the best experience, we recommend adding the app to your home screen so it runs lightning fast without browser distractions:",
+        "For the best experience, we recommend adding the app to your home screen so it runs lightning-fast without browser distractions:",
       iosTitle: "Apple (iOS Safari):",
       iosDesc:
         "Click the share icon at the bottom and select 'Add to Home Screen'.",
@@ -864,7 +881,7 @@ export const en = {
         "In the Profile section, fill in your basic body metrics. For the best results, we recommend continuously updating data such as your weight, body fat percentage, or current VO2Max (e.g., from lab tests).",
       recoveryTitle: "Recovery:",
       recoveryDesc:
-        "In the Recovery section, honestly log your sleep data every day, such as duration, HRV, RHR, or other supplementary data. For now, you have to enter it manually – other watch manufacturers aren't big enough friends with us yet to provide it automatically... 😢",
+        "In the Recovery section, honestly log your sleep data every day, such as duration, HRV, RHR, or other supplementary data. For now, you must enter it manually – other watch manufacturers don't share this data with us automatically yet... 😢",
     },
     coach: {
       tab: "Coach",
@@ -883,6 +900,7 @@ export const en = {
     },
     finish: "Got it!",
     finishGo: "Got it, let's train!",
+
     close: "Close",
     skip: "Skip and start",
     back: "Back",
@@ -969,6 +987,7 @@ export const en = {
         "Tip:",
         "• When fatigue or injury risk is 'high', don't panic. Solve it with contrast: 1–2 very easy days, reduce monotony, get more sleep and food.",
       ].join("\n"),
+
       missingData:
         "You don't have any readiness assessments saved yet. Evaluate it in the coach section and the widget will populate automatically.",
       summary:
@@ -1026,6 +1045,7 @@ export const en = {
         "Delete the injury in settings to resume your plan, but only after your doctor's approval.",
     },
   },
+
   coachPlan: {
     widget: {
       title: "Coach Planning",
@@ -1253,6 +1273,7 @@ export const en = {
       loadingFromDb: "Loading from database...",
       emptyHint: "Click to add your first external event.",
     },
+
     form: {
       type: "Type",
       categorySport: "Sports activity",
@@ -1349,6 +1370,7 @@ export const en = {
         danger: "very high",
       },
     },
+
     trend: {
       title: "Weekly Monotony & Strain",
       tooltip: [
@@ -1695,11 +1717,11 @@ export const en = {
       title: "Push notifications",
       desc: "Get training notifications directly on your screen.",
       btnEnable: "Enable notifications",
+      btnTest: "Test",
       btnActive: "Notifications are active",
       btnDisable: "Disable notifications",
       disableSuccess: "Notifications were successfully disabled!",
       disableError: "An error occurred while disabling notifications.",
-      btnTest: "Test",
       success: "Notifications were successfully enabled!",
       error: "An error occurred while enabling notifications.",
       permissionDenied: "Notification access was denied in your browser.",
@@ -1720,36 +1742,6 @@ export const en = {
       tiers: "Subscription Tiers",
       history: "Billing History",
     },
-    statusCard: {
-      tierPrefix: "Current plan",
-      active: "Active",
-      canceling: "Canceling",
-      periodEnds: "Period ends",
-      cancelChangeBtn: "Cancel change",
-      changeEffective: "Change effective from:",
-    },
-    planned: {
-      previewLabel: "Planned change",
-      kinds: {
-        cancel: "Cancellation",
-        downgrade: "Downgrade",
-        upgrade: "Upgrade",
-      },
-    },
-    tiers: {
-      btnCurrentTemp: "Current (temporary)",
-      btnBasic: "Basic plan",
-      btnManage: "Manage plan",
-      btnPlanned: "Planned transition",
-      btnCancel: "Cancel subscription",
-      btnActivate: "Activate {{tier}}",
-      limitBasic: "Basic limit",
-      tokensPerMonth: "tokens/mo.",
-    },
-    pitch: {
-      title: "Why subscribe?",
-      body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by one of you. Your subscription doesn't support big companies, but the further development of features you ask for yourself - just write me. Give us a chance for one month and you'll see that training can be done with a smile.",
-    },
     status: {
       notLoggedIn: "Not logged in",
       loading: "Loading...",
@@ -1765,11 +1757,26 @@ export const en = {
     history: {
       noRecords: "No payments have been recorded yet.",
     },
+    planned: {
+      previewLabel: "Planned change",
+      kinds: {
+        cancel: "Cancellation",
+        downgrade: "Downgrade",
+        upgrade: "Upgrade",
+      },
+    },
     toasts: {
       paymentSuccess: "Payment successful! Welcome to your new plan.",
       paymentCanceled: "The payment process was cancelled.",
     },
-
+    statusCard: {
+      tierPrefix: "Current plan",
+      active: "Active",
+      canceling: "Canceling",
+      periodEnds: "Period ends",
+      cancelChangeBtn: "Cancel change",
+      changeEffective: "Change effective from:",
+    },
     tierSelector: {
       btnChoose: "Choose plan",
       btnCurrentTemp: "Current (temporary)",
@@ -1782,6 +1789,20 @@ export const en = {
       basicLimit: "Basic limit",
       defaultDesc: "Basic app features without a guaranteed AI coach quota.",
       activeBadge: "active",
+    },
+    pitch: {
+      title: "Why subscribe?",
+      body: "Selfrace isn't just another subscription service. It's an investment in your progress, driven by a fellow athlete. Your subscription doesn't go to a big corporation; it directly supports the development of features you ask for—just drop me a message. Give us a try for a month, and you'll see that training can be done with a smile.",
+    },
+    tiers: {
+      btnCurrentTemp: "Current (temporary)",
+      btnBasic: "Basic plan",
+      btnManage: "Manage plan",
+      btnPlanned: "Planned transition",
+      btnCancel: "Cancel subscription",
+      btnActivate: "Activate {{tier}}",
+      limitBasic: "Basic limit",
+      tokensPerMonth: "tokens/mo.",
     },
   },
   dashboard: {
@@ -1849,7 +1870,7 @@ export const en = {
         subtitle: "HRV trend and baseline band. Missing days are highlighted.",
         baselineMinus: "Baseline −5%",
         baselinePlus: "Baseline +5%",
-        hrvLabel: "HRV)",
+        hrvLabel: "HRV",
         missingLabel: "Missing record",
         noRecord: "No record",
       },
@@ -1862,6 +1883,7 @@ export const en = {
         missingLabel: "Missing record",
         noRecord: "No record",
       },
+
       sleepDuration: {
         title: "Sleep Duration",
         subtitle: "Sleep duration over time with a recommended 7–9 hr band.",
@@ -1885,8 +1907,9 @@ export const en = {
     title: "Calendar",
     widget: {
       open: "Open calendar",
-      title: "Weekly oberview",
+      title: "Weekly overview",
       errorFailedLoad: "Failed to load external events.",
+
       tooltip: [
         "This is a quick 'weekly overview' – what actually happened, what is planned, and what the external blocks are.",
         "",
@@ -1943,8 +1966,8 @@ export const en = {
       createdAt: "Created",
       indicatorsTitle: "Fatigue, Injury Risk, and Focus",
       blockTitle: "Preparation Phase",
-      fitnessTitle: "Fitness Level Change (1–10)",
-      volumeTitle: "Load Tolerance and Adjustments",
+      fitnessTitle: "Fitness Score",
+      volumeTitle: "Volume Trends",
       planChanges: "Suggested Plan Changes",
       noPlanChanges:
         "The coach does not recommend changing your training structure at this time.",
@@ -1964,8 +1987,10 @@ export const en = {
         "Run 'Analyze Athlete state' in the Plan section. AI will recalculate your current fatigue and readiness.",
       mainTitle: "Readiness State – AI Analysis",
       lastAnalysis: "Last Calculation",
-      fitnessTitle: "Strengths by Discipline",
-      fitnessSubtitle: "Your current score on a scale of 1–10.",
+      capabilitiesTitle: "Capabilities & Fitness",
+      capabilitiesSubtitle: "Estimated level based on history",
+      fitnessTitle: "Fitness Level",
+      fitnessSubtitle: "Coach's subjective rating (AI)",
       toleranceTitle: "Training Capacity",
       toleranceSubtitle:
         "How much load your body can safely tolerate right now.",
@@ -1987,6 +2012,7 @@ export const en = {
       quickTips: "Quick Tips",
       noTipsDesc:
         "Specific recommendations will appear here after your next analysis.",
+      vo2maxDesc: "Estimated value based on biometrics and performance.",
     },
     weekly: {
       phase: "Phase",
@@ -2018,7 +2044,8 @@ export const en = {
       errorLoad: "Failed to load the daily plan.",
       errorLoadTitle: "Loading Error",
       errorSave: "Failed to save plan changes.",
-      noPlan: "You don't have an active daily training plan generated yet.",
+      noPlan:
+        "You don't have an active daily training plan generated yet.",
       rescheduleNotice:
         "You can move workouts between days directly on the cards, but keep in mind this alters the coach's original strategy.",
       scheduleTitle: "Workout Schedule",
@@ -2139,8 +2166,7 @@ export const en = {
         processing: "Analysis in progress, it will appear shortly...",
         queued: "The request has been submitted for processing.",
         errorEnqueue: "Failed to create the analysis request.",
-        limitReached:
-          "You have reached the recalculation limit for this activity.",
+        limitReached: "You have reached the recalculation limit for this activity.",
       },
       injuryModal: {
         title: "Manage Injuries and Pain",
@@ -2267,7 +2293,8 @@ export const en = {
     },
     billing: {
       missingTier: "No plan selected.",
-      checkoutSessionFailed: "Failed to create checkout session. Try again.",
+      checkoutSessionFailed:
+        "Failed to create checkout session. Try again.",
       portalSessionFailed: "Failed to open subscription management.",
       tierChangeFailed: "Failed to change subscription plan.",
       cancelPlannedFailed: "Failed to cancel planned subscription change.",
@@ -2285,12 +2312,10 @@ export const en = {
       enqueueFailed:
         "Failed to create an analysis request. Please try again later.",
       enrichmentFetchFailed: "Failed to load workout details.",
-      limitReached:
-        "You have reached the recalculation limit for this activity.",
+      limitReached: "You have reached the recalculation limit for this activity.",
       activityTooOld:
         "The activity is older than 7 days and can no longer be analyzed.",
-      onlyOneForFreeTier:
-        "On the free tier, you are entitled to only one review per activity.",
+      onlyOneForFreeTier: "On the free tier, you are entitled to only one review per activity.",
       duplicateContent:
         "You already used this comment in your last generation.",
       activityNotFound: "Activity not found.",
@@ -2298,8 +2323,10 @@ export const en = {
         "Failed to download detailed charts and data from Strava.",
       extrasFetchFailed: "Failed to download splits and laps from Strava.",
       paretoFetchFailed: "Failed to load data for the 80/20 chart.",
-      weeklyLoadFetchFailed: "Failed to load data for the weekly load chart.",
-      monoStrainFetchFailed: "Failed to load data for monotony and strain.",
+      weeklyLoadFetchFailed:
+        "Failed to load data for the weekly load chart.",
+      monoStrainFetchFailed:
+        "Failed to load data for monotony and strain.",
     },
     strava: {
       statusLoadFailed: "Failed to load Strava connection status.",
@@ -2342,17 +2369,21 @@ export const en = {
       progressLoadFailed: "Failed to load your progress report.",
       aiQuotaExceeded:
         "Your monthly AI limit has been exhausted. Please try again at the start of the next month or contact me.",
+
       eventsLoadFailed: "Failed to load your external events.",
       eventsSaveFailed: "Failed to save external events.",
+
       planSaveFailed: "Failed to save the active plan.",
       planCancelFailed: "Failed to cancel the active plan.",
       planContinueFailed: "Failed to extend your active plan.",
       planReorderFailed: "Failed to save the new workout order.",
       planLinkFailed: "Failed to link the activity to the plan.",
       planStatusFailed: "Failed to load the status of your plan.",
+
       dailyGenerateFailed: "Daily plan generation failed.",
       dailyLoadFailed: "Failed to load the daily plan overview.",
       dailyRescheduleFailed: "Failed to reschedule the workout.",
+
       weeklyGenerateFailed: "Weekly plan generation failed.",
       weeklyLoadFailed: "Failed to load the weekly plan.",
     },
@@ -2371,8 +2402,7 @@ export const en = {
       stravaNote:
         "Note: Your Strava account will not be deleted – only the imported data and the connection within this app will be removed.",
       cancelledLabel: "cancelled",
-      cancelledDesc:
-        "Your account is active and your data in the app will not be deleted.",
+      cancelledDesc: "Your account is active and your data in the app will not be deleted.",
       defaultLabel: "irreversible",
       defaultDesc:
         "First, the account is marked for deletion. You can still cancel this during the grace period, after which all data in the app will be removed.",
@@ -2398,8 +2428,7 @@ export const en = {
       },
       consentRequest:
         "I agree to the processing of the account deletion request and acknowledge that after the grace period, my app data will be permanently deleted, and that Strava data inside the SelfRace app will be deleted immediately.",
-      consentCancel:
-        "I understand and wish to cancel the planned account deletion.",
+      consentCancel: "I understand and wish to cancel the planned account deletion.",
       consentHint: "We cannot allow this action without your consent.",
       errorCheckbox: "Please check the consent box first.",
       btnProcessing: "Processing...",

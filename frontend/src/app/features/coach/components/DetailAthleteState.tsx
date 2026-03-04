@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -31,29 +32,45 @@ import {
 
 /* ---------- helper types ---------- */
 
+// ✅ UPDATED TYPE: Capabilities namiesto fitness_level
+type Capability = {
+  level_1_to_5?: number | null;
+  label?: string | null;
+  comment?: string | null;
+};
+
 type AiState = {
+  // Starý formát (fallback)
   fitness_level?: {
-    run?: { level_1_to_10?: number | null; comment?: string | null } | null;
-    ride?: { level_1_to_10?: number | null; comment?: string | null } | null;
-    strength?: {
-      level_1_to_10?: number | null;
-      comment?: string | null;
-    } | null;
+    run?: any;
+    ride?: any;
+    strength?: any;
   };
+  // ✅ Nový formát
+  capabilities?: {
+    run?: Capability | null;
+    ride?: Capability | null;
+    strength?: Capability | null;
+  };
+  
   fatigue_level?: string | null;
   injury_risk?: string | null;
+  
   volume_tolerance?: {
     weekly_minutes_min?: number | null;
     weekly_minutes_max?: number | null;
     note?: string | null;
   } | null;
+  
   intensity_tolerance?: {
     hard_sessions_per_week_max?: number | null;
     comment?: string | null;
   } | null;
+  
   suggested_block_kind?: string | null;
   key_limitations?: string[] | null;
   key_strengths?: string[] | null;
+  
   metrics?: {
     estimated_vo2max?: number | null;
     estimated_5k_time_min?: number | null;
@@ -80,9 +97,16 @@ function formatLevelLabel(level: string | null, t: any): string {
   return l;
 }
 
-function normalizeLevel(level?: number | null): number {
+// ✅ 1-5 Scale normalization
+function normalizeCapability(level?: number | null): number {
   const n = typeof level === "number" ? level : 0;
-  return Math.max(0, Math.min(10, n));
+  return Math.max(0, Math.min(5, n));
+}
+
+// Fallback pre starý 1-10 systém
+function normalizeLegacyLevel(level?: number | null): number {
+    const n = typeof level === "number" ? level : 0;
+    return Math.max(0, Math.min(10, n)) / 2; // Convert 10 -> 5 scale
 }
 
 function formatMinutesRange(min: number | null | undefined, max: number | null | undefined, t: any): string {
@@ -150,8 +174,10 @@ function Subcard({
   return (
     <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
-        {value != null && <div className={PANEL_SECTION_TITLE}>{value}</div>}
+        <div className="flex justify-between items-baseline">
+            <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
+            {value != null && <div className={PANEL_SECTION_TITLE} style={{fontSize: '0.9rem'}}>{value}</div>}
+        </div>
         {children && <div className={PANEL_INNER_STACK}>{children}</div>}
       </div>
     </div>
@@ -159,7 +185,7 @@ function Subcard({
 }
 
 function Bar({
-  value01,
+  value01, // 0 to 1
   labelLeft,
   labelRight,
   fillKind,
@@ -181,7 +207,7 @@ function Bar({
     <div className={PANEL_INNER_STACK}>
       {(labelLeft || labelRight) && (
         <div className="flex items-center justify-between gap-2 text-xs">
-          <div className="min-w-0 truncate">{labelLeft}</div>
+          <div className="min-w-0 truncate text-gray-500">{labelLeft}</div>
           <div className="shrink-0">{labelRight}</div>
         </div>
       )}
@@ -233,8 +259,39 @@ export default function DetailAthleteState() {
   }, [row]);
 
   const { userSummary, aiState, generatedAt } = parsed;
-  const runLevel = normalizeLevel(aiState.fitness_level?.run?.level_1_to_10);
-  const strengthLevel = normalizeLevel(aiState.fitness_level?.strength?.level_1_to_10);
+
+  // ✅ Extrakcia Capabilities (1-5)
+  // Fallback na starý fitness_level ak capabilities neexistuje
+  let runLevel = 0;
+  let runLabel = "";
+  let runComment = "";
+  
+  if (aiState.capabilities?.run) {
+      runLevel = normalizeCapability(aiState.capabilities.run.level_1_to_5);
+      runLabel = aiState.capabilities.run.label || "";
+      runComment = aiState.capabilities.run.comment || "";
+  } else if (aiState.fitness_level?.run) {
+      runLevel = normalizeLegacyLevel(aiState.fitness_level.run.level_1_to_10);
+      runLabel = t("common.levels.form");
+      runComment = aiState.fitness_level.run.comment || "";
+  }
+
+  let strengthLevel = 0;
+  let strengthLabel = "";
+  let strengthComment = "";
+
+  if (aiState.capabilities?.strength) {
+      strengthLevel = normalizeCapability(aiState.capabilities.strength.level_1_to_5);
+      strengthLabel = aiState.capabilities.strength.label || "";
+      strengthComment = aiState.capabilities.strength.comment || "";
+  } else if (aiState.fitness_level?.strength) {
+      strengthLevel = normalizeLegacyLevel(aiState.fitness_level.strength.level_1_to_10);
+      strengthComment = aiState.fitness_level.strength.comment || "";
+  }
+
+  // ✅ VO2 Max
+  const vo2max = aiState.metrics?.estimated_vo2max;
+
   const volumeRangeLabel = formatMinutesRange(aiState.volume_tolerance?.weekly_minutes_min, aiState.volume_tolerance?.weekly_minutes_max, t);
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
@@ -281,14 +338,43 @@ export default function DetailAthleteState() {
         footer
       />
 
-      <Card title={t("coach.state.fitnessTitle")} subtitle={t("coach.state.fitnessSubtitle")}>
+      <Card title={t("coach.state.capabilitiesTitle") || "Schopnosti & Fitness"} subtitle={t("coach.state.capabilitiesSubtitle") || "Odhadovaná úroveň na základe histórie"}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard title={t("common.sports.run")} value={`${runLevel}/10`}>
-            <Bar value01={runLevel / 10} fillKind="success" labelLeft={aiState.fitness_level?.run?.comment} />
+          
+          {/* ✅ Run Capability */}
+          <Subcard title={t("common.sports.run")} value={runLabel || `${runLevel}/5`}>
+            {/* Bar scale 0 to 1 based on 5 levels */}
+            <Bar 
+                value01={runLevel / 5} 
+                fillKind="success" 
+                labelLeft={runComment}
+                labelRight={`${runLevel}/5`}
+            />
           </Subcard>
-          <Subcard title={t("common.sports.strength")} value={`${strengthLevel}/10`}>
-            <Bar value01={strengthLevel / 10} fillKind="info" labelLeft={aiState.fitness_level?.strength?.comment} />
+
+          {/* ✅ Strength Capability */}
+          <Subcard title={t("common.sports.strength")} value={strengthLabel || `${strengthLevel}/5`}>
+            <Bar 
+                value01={strengthLevel / 5} 
+                fillKind="info" 
+                labelLeft={strengthComment}
+                labelRight={`${strengthLevel}/5`}
+            />
           </Subcard>
+
+          {/* ✅ VO2 Max Card */}
+          {vo2max && (
+             <Subcard title="VO₂ Max (Est.)" value={vo2max}>
+                <div className="text-sm text-gray-500 mt-1">
+                   {t("coach.state.vo2maxDesc") || "Odhadovaná hodnota na základe biometrie a výkonu."}
+                </div>
+                {/* Visual bar relative to scale approx 20-80 */}
+                <div className="mt-2">
+                     <Bar value01={(vo2max - 20) / 60} fillKind="warning" labelLeft="Aerobic Capacity" />
+                </div>
+             </Subcard>
+          )}
+
         </div>
       </Card>
 

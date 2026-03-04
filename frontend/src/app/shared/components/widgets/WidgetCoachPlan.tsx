@@ -5,14 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
-import Pill from "@/app/shared/ui/components/Pill";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
-  WIDGET_STATUS_ROW,
   WIDGET_ACTIONS_WRAP,
   WIDGET_ACTION_ROW,
   WIDGET_ACTION_ROW_INNER,
@@ -20,6 +17,7 @@ import {
   WIDGET_CTA_ROW,
   WIDGET_ERROR_LINE_COLORED,
 } from "@/app/shared/ui/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   apiFetchUserPref,
@@ -64,23 +62,6 @@ function readPrefsFromStorage(): CoachPrefs | null {
   } catch {
     return null;
   }
-}
-
-function PrefsMiniInline({ prefs }: { prefs: CoachPrefs | null }) {
-  const t = useT();
-  if (!prefs) return <span className="text-xs opacity-70">{t("coachPlan.prefs.empty")}</span>;
-
-  const main = (prefs as any).main_sport ?? prefs.main_sport?.[0] ?? "—";
-  const goal = (prefs as any).goal_kind ?? "—";
-  const weeks = (prefs as any).weeks ?? "—";
-
-  return (
-    <span className="text-[11px] opacity-80">
-      {t("coachPlan.prefs.goal")}: <span className="font-semibold">{goal}</span> • {t("coachPlan.prefs.weeks")}:{" "}
-      <span className="font-semibold">{weeks}</span> • {t("coachPlan.prefs.main")}:{" "}
-      <span className="font-semibold">{main}</span>
-    </span>
-  );
 }
 
 function RowAction({
@@ -133,8 +114,6 @@ function RowAction({
   );
 }
 
-
-
 /* ---------- main widget ---------- */
 
 export default function WidgetCoachPlan() {
@@ -147,7 +126,11 @@ export default function WidgetCoachPlan() {
   const [latestStateId, setLatestStateId] = useState<number | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Stav z DB
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  
+  // UI flagy (zostali len pre vizuál, neblokujú logiku)
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
 
@@ -172,6 +155,7 @@ export default function WidgetCoachPlan() {
     return e?.message || String(e);
   }, [t]);
 
+  // 1. Načítanie prefs
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -185,6 +169,7 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
+  // 2. Načítanie Athlete State (Analýza)
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -192,38 +177,50 @@ export default function WidgetCoachPlan() {
       try {
         const row = await apiGetLatestAthleteState(userId);
         if (!alive) return;
+        
+        console.log("[CoachPlan DEBUG] Latest Athlete State Row:", row); // DEBUG
+
         if (row && typeof row.id === "number") setLatestStateId(row.id);
         else setLatestStateId(null);
-      } catch {
+      } catch (err) {
+        console.error("[CoachPlan DEBUG] Failed to fetch state:", err);
         if (alive) setLatestStateId(null);
       }
     })();
     return () => { alive = false; };
   }, [userId]);
 
+  // 3. Načítanie LS flagov (už len pre info)
   useEffect(() => {
     if (typeof window === "undefined") return;
     setHasWeekly(!!localStorage.getItem(LS_GEN_WEEKLY));
     setHasDaily(!!localStorage.getItem(LS_GEN_DAILY));
   }, []);
 
+  // 4. Načítanie stavu plánu z DB
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     (async () => {
       setLoadingKind("status");
+      console.log("[CoachPlan DEBUG] Checking Active Plan Status for UserID:", userId); // DEBUG
+
       try {
         const s = await apiActivePlanStatus(userId);
+        
         if (!alive) return;
+        console.log("[CoachPlan DEBUG] DB Response Status:", s); // DEBUG
+
         const pid = s.has_active ? (s.plan_id ?? null) : null;
         setActivePlanId(pid);
+        
         if (typeof window !== "undefined") {
           if (pid) localStorage.setItem("coach.active_plan_id", String(pid));
           else localStorage.removeItem("coach.active_plan_id");
         }
       } catch (e: any) {
         if (!alive) return;
-        console.warn("[CoachPlan] active status error:", e?.message || String(e));
+        console.warn("[CoachPlan DEBUG] active status error:", e?.message || String(e));
       } finally {
         if (!alive) return;
         setLoadingKind(null);
@@ -254,6 +251,7 @@ export default function WidgetCoachPlan() {
     setHasDaily(true);
   }, []);
 
+  // HANDLERS
   const handleAnalyze = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
@@ -319,7 +317,6 @@ export default function WidgetCoachPlan() {
 
   const planLocked = !!activePlanId;
 
-  // ✅ Detekcia kritického zranenia (7+) priamo z prefs
   const isCriticallyInjured = useMemo(() => {
     if (!prefs || !Array.isArray((prefs as any).injuries)) return false;
     const injuries = (prefs as any).injuries as Injury[];
@@ -330,41 +327,65 @@ export default function WidgetCoachPlan() {
     ? "Generovanie zablokované: Máš nahlásené kritické zranenie. Zmaž ho z profilu." 
     : undefined;
 
+  // ✅ OPRAVENÁ LOGIKA POVOĽOVANIA
+  // Odstránili sme závislosť na `hasWeekly` a `hasDaily` z localStorage.
+  // Ak má užívateľ Analýzu (latestStateId), povolíme mu kliknúť na Štart.
+  // Backend validácia rozhodne, či dáta naozaj existujú.
   const canStartPlan = useMemo(() => {
-    if (!userId || planLocked || !latestStateId || !hasWeekly || !hasDaily || isCriticallyInjured) return false;
+    if (!userId) return false;
+    if (planLocked) return false; 
+    if (isCriticallyInjured) return false;
+    
+    // Musíme mať aspoň analýzu (State), aby sme vedeli z čoho vychádzať
+    if (!latestStateId) {
+      // console.log("[CoachPlan DEBUG] Blocked: Missing Analysis (latestStateId)");
+      return false;
+    }
+    
+    // Povolíme to "optimisticky". Ak v DB nie je Weekly/Daily, API apiActivePlanSave vráti chybu.
     return true;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, isCriticallyInjured]);
+  }, [userId, planLocked, latestStateId, isCriticallyInjured]);
+
 
   const startDisabledReason = useMemo(() => {
     if (!userId) return t("coachPlan.errors.missingUserId");
     if (isCriticallyInjured) return injuryLockReason;
     if (planLocked) return t("coachPlan.errors.alreadyActive");
     if (!latestStateId) return t("coachPlan.errors.needAnalyze");
-    if (!hasWeekly && !hasDaily) return t("coachPlan.errors.needBoth");
-    if (!hasWeekly) return t("coachPlan.errors.needWeekly");
-    if (!hasDaily) return t("coachPlan.errors.needDaily");
+    
+    // Tieto hlášky necháme len informatívne, ak by chcel vedieť prečo to nejde (ak backend zlyhá)
+    // Ale neblokujeme tým tlačidlo priamo v canStartPlan
     return null;
-  }, [userId, planLocked, latestStateId, hasWeekly, hasDaily, t, isCriticallyInjured, injuryLockReason]);
+  }, [userId, planLocked, latestStateId, isCriticallyInjured, injuryLockReason, t]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId || isMedicalSuspend) return;
     setError(null);
+    
     if (!canStartPlan) {
       setError(startDisabledReason || t("coachPlan.errors.genericStart"));
       return;
     }
+
     setLoadingKind("start");
+    console.log("[CoachPlan DEBUG] Starting Plan for User:", userId); // DEBUG
+
     try {
+      // Tu sa pýtame "priamo DB" (backendu). Ak neexistuje weekly/daily, backend vyhodí error.
       const res = await apiActivePlanSave(userId, {});
+      console.log("[CoachPlan DEBUG] Plan Started Success:", res); // DEBUG
+
       const pid = res.plan_id ?? null;
       setActivePlanId(pid);
       if (typeof window !== "undefined" && pid) localStorage.setItem("coach.active_plan_id", pid);
     } catch (e: any) {
+      console.error("[CoachPlan DEBUG] Start Failed:", e); // DEBUG
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
   }, [userId, canStartPlan, startDisabledReason, t, isMedicalSuspend]);
+
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId || !activePlanId) return;
@@ -394,13 +415,8 @@ export default function WidgetCoachPlan() {
   }, [userId, activePlanId, t]);
 
   const loading = loadingKind !== null && loadingKind !== "status";
-  
-  // ✅ Pôvodná premenná `disabled`, ktorá chýbala
   const disabled = !userId || loading;
-  
-  // ✅ Celkové blokovanie generátorov ak je aktívny plán ALEBO kritické zranenie
   const generatorsDisabled = disabled || planLocked || isCriticallyInjured;
-
   const lockReason = planLocked ? t("coachPlan.lockReason") : injuryLockReason;
 
   return (
@@ -412,11 +428,8 @@ export default function WidgetCoachPlan() {
       interactive={false}
       minH={210}
     >
-
-
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
-      {/* ✅ Jasné varovanie pre používateľa, ak má 7+ bolesť */}
       {isCriticallyInjured && (
         <div className="mb-3 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-xs text-red-400 font-medium text-center">
           ⚠️ {injuryLockReason}
@@ -452,6 +465,9 @@ export default function WidgetCoachPlan() {
           <Button
             size="xs"
             variant="primary"
+            // ✅ Uvoľnené pravidlá pre disabled:
+            // Ak nemôže začať (napr. nemá analýzu), button je disabled.
+            // Ale už neblokujeme kvôli hasWeekly/hasDaily z localStorage.
             disabled={disabled || !canStartPlan || isMedicalSuspend}
             onClick={handleStartPlan}
             title={!canStartPlan ? (startDisabledReason ?? undefined) : t("coachPlan.actions.startPlan")}
@@ -499,6 +515,7 @@ export default function WidgetCoachPlan() {
           <div className="text-[11px] opacity-70">{lockReason}</div>
         )}
 
+        {/* Indikátory necháme, ale sú len informatívne */}
         {!planLocked && (!hasWeekly || !hasDaily) && (
           <div className="text-[11px] opacity-70">
             {t("coachPlan.requirements.title")}:{" "}
@@ -523,7 +540,6 @@ export default function WidgetCoachPlan() {
 /* ---------- localStorage flags ---------- */
 const LS_GEN_WEEKLY = "coach.generated.weekly";
 const LS_GEN_DAILY = "coach.generated.daily";
-const LS_GEN_ANY = "coach.generated";
 
 function readBoolLS(key: string): boolean {
   if (typeof window === "undefined") return false;

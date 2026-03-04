@@ -49,15 +49,15 @@ type Parsed = {
   blockPrev: string | null;
   blockCurr: string | null;
   blockComment: string | null;
-  fitnessRunPrev: number | null;
-  fitnessRunCurr: number | null;
-  fitnessRunComment: string | null;
-  fitnessRidePrev: number | null;
-  fitnessRideCurr: number | null;
-  fitnessRideComment: string | null;
-  fitnessStrengthPrev: number | null;
-  fitnessStrengthCurr: number | null;
-  fitnessStrengthComment: string | null;
+  
+  // ✅ Capabilities (new) instead of fitness
+  capRunPrev: number | null;
+  capRunCurr: number | null;
+  capRunLabel: string | null;
+  
+  capStrengthPrev: number | null;
+  capStrengthCurr: number | null;
+  
   volPrevMin: number | null;
   volPrevMax: number | null;
   volCurrMin: number | null;
@@ -68,7 +68,8 @@ type Parsed = {
   celebrations: string[];
   risksToWatch: string[];
   focusNextWeeks: string[];
-  vo2maxEstimate: number | null; // ✅ Pridané pre VO2Max
+  vo2maxEstimate: number | null;
+  vo2maxPrev: number | null;
   raw: any | null;
 };
 
@@ -87,13 +88,11 @@ function slovakLevel(level: string | null, t: any): string {
   return l;
 }
 
-// ✅ Nová funkcia na preklad FÁZY TRÉNINGU (z katalógu coach.weekly.phases)
 function translatePhase(phase: string | null, t: any): string {
   const p = (phase || "").toLowerCase();
   if (!p) return "—";
   const key = `common.phases.${p}`;
   const translated = t(key);
-  // TypeScript fix: phase môže byť null, tak mu dáme fallback na string
   return translated === key ? (phase || "—") : translated;
 }
 
@@ -119,12 +118,11 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
       fatiguePrev: null, fatigueCurr: null, fatigueComment: null,
       injuryPrev: null, injuryCurr: null, injuryComment: null,
       blockPrev: null, blockCurr: null, blockComment: null,
-      fitnessRunPrev: null, fitnessRunCurr: null, fitnessRunComment: null,
-      fitnessRidePrev: null, fitnessRideCurr: null, fitnessRideComment: null,
-      fitnessStrengthPrev: null, fitnessStrengthCurr: null, fitnessStrengthComment: null,
+      capRunPrev: null, capRunCurr: null, capRunLabel: null,
+      capStrengthPrev: null, capStrengthCurr: null,
       volPrevMin: null, volPrevMax: null, volCurrMin: null, volCurrMax: null, volComment: null,
       planSoften: null, planWeekly: null, celebrations: [], risksToWatch: [], focusNextWeeks: [],
-      vo2maxEstimate: null,
+      vo2maxEstimate: null, vo2maxPrev: null,
       raw: payload,
     };
   }
@@ -136,7 +134,10 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   const block = comp.block_kind || {};
   const planAdj = comp.plan_adjustment || {};
   const vol = comp.volume_tolerance || {};
-  const fit = comp.fitness_level || {};
+  
+  // ✅ Handle both legacy 'fitness_level' and new 'capabilities' if available in comparison
+  // (Assuming backend compares capabilities properly now)
+  const cap = comp.capabilities || comp.fitness_level || {};
 
   let generatedAt: string | null = cp.generated_at || row.created_at || null;
   if (generatedAt) {
@@ -148,11 +149,17 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     } catch { /* fallback */ }
   }
 
-  // ✅ Vyhľadávanie VO2Max z rôznych miest v JSONe
+  // ✅ Extract VO2Max
   let vo2max = null;
-  if (typeof comp.vo2max?.current === "number") vo2max = comp.vo2max.current;
-  else if (typeof cp.vo2max_estimate === "number") vo2max = cp.vo2max_estimate;
-  else if (typeof fit.vo2max_estimate === "number") vo2max = fit.vo2max_estimate;
+  let vo2maxPrev = null;
+  
+  // Skúsime nájsť v comparison objekte
+  if (comp.vo2max) {
+      vo2max = comp.vo2max.current;
+      vo2maxPrev = comp.vo2max.previous;
+  }
+  // Fallbacky
+  if (vo2max == null && typeof cp.vo2max_estimate === "number") vo2max = cp.vo2max_estimate;
 
   return {
     model: cp.model || null,
@@ -169,15 +176,17 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     blockPrev: block.previous || null,
     blockCurr: block.current || null,
     blockComment: block.comment || null,
-    fitnessRunPrev: typeof fit.run?.previous === "number" ? fit.run.previous : null,
-    fitnessRunCurr: typeof fit.run?.current === "number" ? fit.run.current : null,
-    fitnessRunComment: fit.run?.comment || null,
-    fitnessRidePrev: typeof fit.ride?.previous === "number" ? fit.ride.previous : null,
-    fitnessRideCurr: typeof fit.ride?.current === "number" ? fit.ride.current : null,
-    fitnessRideComment: fit.ride?.comment || null,
-    fitnessStrengthPrev: typeof fit.strength?.previous === "number" ? fit.strength.previous : null,
-    fitnessStrengthCurr: typeof fit.strength?.current === "number" ? fit.strength.current : null,
-    fitnessStrengthComment: fit.strength?.comment || null,
+    
+    // ✅ Extract Capabilities
+    // Note: if backend uses level_1_to_5 in comparison, adjust accordingly.
+    // If fallback fitness_level (1-10), divide by 2 for UI logic
+    capRunPrev: cap.run?.previous ?? null,
+    capRunCurr: cap.run?.current ?? null,
+    capRunLabel: cap.run?.label ?? null, // Ak by to BE poslal (custom field), inak null
+
+    capStrengthPrev: cap.strength?.previous ?? null,
+    capStrengthCurr: cap.strength?.current ?? null,
+    
     volPrevMin: vol.previous_weekly_minutes_min,
     volPrevMax: vol.previous_weekly_minutes_max,
     volCurrMin: vol.current_weekly_minutes_min,
@@ -188,7 +197,8 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     celebrations: toStringArray(cp.recommendations?.celebrations),
     risksToWatch: toStringArray(cp.recommendations?.risks_to_watch),
     focusNextWeeks: toStringArray(cp.recommendations?.focus_next_weeks),
-    vo2maxEstimate: vo2max, // ✅
+    vo2maxEstimate: vo2max,
+    vo2maxPrev,
     raw: cp,
   };
 }
@@ -231,7 +241,6 @@ export default function DetailAthleteProgress() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Udržujeme stav, aby sa VO2Max neukladal pri každom re-rendri komponentu
   const [vo2maxSaved, setVo2maxSaved] = useState(false);
 
   useEffect(() => {
@@ -262,12 +271,11 @@ export default function DetailAthleteProgress() {
       apiSaveMetrics(userId, [{
         metric: "VO2Max_estimated",
         value_num: p.vo2maxEstimate,
-        unit: "ml/kg/min", // Hardcoded alebo zober t("common.units.vo2max") ak chceš
+        unit: "ml/kg/min",
         measured_at: new Date().toISOString(),
-        source: "system", // Zmenené z "user" na "system", keďže je to odhad AI
+        source: "system",
       }]).then(() => {
         setVo2maxSaved(true);
-        console.log(`[Progress] VO2Max úspešne uložený do profilu.`);
       }).catch(err => {
         console.warn(`[Progress] Uloženie VO2Max zlyhalo:`, err);
       });
@@ -331,27 +339,34 @@ export default function DetailAthleteProgress() {
           />
           <Subcard
             title={t("coach.progress.blockTitle")}
-            // ✅ Použitý bezpečný preklad fáz
             value={`${translatePhase(p.blockPrev, t)} → ${translatePhase(p.blockCurr, t)}`}
             text={p.blockComment || undefined}
           />
         </div>
       </Card>
 
-      <Card title={t("coach.progress.fitnessTitle")}>
+      <Card title={t("coach.state.capabilitiesTitle")}>
         <div className={PANEL_GRID_3}>
-          {[
-            { label: t("common.sports.run"), prev: p.fitnessRunPrev, curr: p.fitnessRunCurr, comment: p.fitnessRunComment },
-            { label: t("common.sports.bike"), prev: p.fitnessRidePrev, curr: p.fitnessRideCurr, comment: p.fitnessRideComment },
-            { label: t("common.sports.strength"), prev: p.fitnessStrengthPrev, curr: p.fitnessStrengthCurr, comment: p.fitnessStrengthComment },
-          ].map((r) => (
-            <Subcard
-              key={r.label}
-              title={r.label}
-              value={r.prev != null || r.curr != null ? `${r.prev ?? "—"} → ${r.curr ?? "—"}` : "—"}
-              text={r.comment || undefined}
-            />
-          ))}
+          
+          {/* ✅ RUN CAPABILITY COMPARISON */}
+          <Subcard
+            title={t("common.sports.run")}
+            value={p.capRunPrev != null || p.capRunCurr != null ? `${p.capRunPrev ?? "—"} → ${p.capRunCurr ?? "—"}` : "—"}
+            text={p.capRunLabel ? `Label: ${p.capRunLabel}` : undefined}
+          />
+
+          {/* ✅ STRENGTH CAPABILITY COMPARISON */}
+          <Subcard
+            title={t("common.sports.strength")}
+            value={p.capStrengthPrev != null || p.capStrengthCurr != null ? `${p.capStrengthPrev ?? "—"} → ${p.capStrengthCurr ?? "—"}` : "—"}
+          />
+
+          {/* ✅ VO2MAX COMPARISON */}
+          <Subcard
+            title="VO₂ Max"
+            value={p.vo2maxPrev != null || p.vo2maxEstimate != null ? `${p.vo2maxPrev ?? "—"} → ${p.vo2maxEstimate ?? "—"}` : "—"}
+          />
+
         </div>
       </Card>
 

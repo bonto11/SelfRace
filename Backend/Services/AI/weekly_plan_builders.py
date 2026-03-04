@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
+from datetime import date
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
@@ -156,6 +157,33 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 
     return ai
 
+# ✅ Helper na zistenie, či je user začiatočník/navrátilec (skopírované z daily pre konzistenciu)
+def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
+    last_activities = analyze_input.get("last_activities") or []
+    if not last_activities:
+        return True # Žiadna história = začiatočník
+    
+    # Nájdeme najnovšiu aktivitu
+    latest_date_str = None
+    for act in last_activities:
+        d = act.get("start_date_local") or act.get("start_date") or act.get("date")
+        if d:
+            if latest_date_str is None or d > latest_date_str:
+                latest_date_str = d
+    
+    if not latest_date_str:
+        return True
+
+    # Ak je posledná aktivita staršia ako 6 týždňov (42 dní), považujeme ho za začiatočníka
+    try:
+        latest_dt = date.fromisoformat(latest_date_str[:10])
+        diff = (date.today() - latest_dt).days
+        if diff > 42:
+            return True
+    except Exception:
+        pass
+        
+    return False
 
 def build_weekly_context_from_db(
     user_id: int,
@@ -195,6 +223,11 @@ def build_weekly_context_from_db(
 
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
+
+    # ✅ Zistíme status začiatočníka a vložíme do state (len v pamäti pre AI)
+    is_returning_beginner = _check_is_returning_beginner(analyze_input)
+    if isinstance(athlete_state, dict):
+        athlete_state["is_returning_beginner"] = is_returning_beginner
 
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))

@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailExternalEvents.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

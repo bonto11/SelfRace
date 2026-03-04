@@ -1,7 +1,7 @@
 # ===== Services/AI/daily_builders.py =====
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
@@ -24,70 +24,50 @@ def _safe_int(
     v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
 ) -> int:
     try:
-        if v is None:
-            out = default
-        elif isinstance(v, bool):
-            out = int(v)
-        elif isinstance(v, (int, float)):
-            out = int(v)
+        if v is None: out = default
+        elif isinstance(v, (int, float)): out = int(v)
         elif isinstance(v, str):
             s = v.strip()
             out = int(float(s)) if s else default
-        else:
-            out = int(v)
+        else: out = int(v)
     except Exception:
         out = default
 
-    if min_v is not None and out < min_v:
-        out = min_v
-    if max_v is not None and out > max_v:
-        out = max_v
+    if min_v is not None and out < min_v: out = min_v
+    if max_v is not None and out > max_v: out = max_v
     return out
 
 
 def _weekday_abbr_from_iso(d: str) -> Optional[str]:
-    if not isinstance(d, str) or not d:
-        return None
+    if not isinstance(d, str) or not d: return None
     try:
         dd = date.fromisoformat(d[:10])
         return WEEKDAY_TO_ABBR.get(dd.weekday())
-    except Exception:
-        return None
+    except Exception: return None
 
 
 def _weekday_abbr_from_int(v: Any) -> Optional[str]:
-    try:
-        n = int(v)
-    except Exception:
-        return None
+    try: n = int(v)
+    except Exception: return None
     return {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}.get(n)
 
 
 def _coerce_session_sport(raw_sport: Any) -> str:
     s = str(raw_sport or "").strip().lower()
-    if s in _ALLOWED_SESSION_SPORTS:
-        return s
-    if s in {"bike", "cycling", "bicycle"}:
-        return "ride"
-    if s in {"run", "running"}:
-        return "run"
-    if s in {"gym", "weights", "weightlifting"}:
-        return "strength"
-    if s in {"swim", "swimming"}:
-        return "swim"
+    if s in _ALLOWED_SESSION_SPORTS: return s
+    if s in {"bike", "cycling", "bicycle"}: return "ride"
+    if s in {"run", "running"}: return "run"
+    if s in {"gym", "weights", "weightlifting"}: return "strength"
+    if s in {"swim", "swimming"}: return "swim"
     return "other"
 
 
 def _normalize_external_intensity(v: Any) -> Optional[str]:
     s = str(v or "").strip().lower()
-    if not s:
-        return None
-    if s in {"high", "very_hard", "vhard", "hard"}:
-        return "hard"
-    if s in {"moderate", "mod", "mid", "medium"}:
-        return "medium"
-    if s in {"low", "easy", "light"}:
-        return "easy"
+    if not s: return None
+    if s in {"high", "very_hard", "vhard", "hard"}: return "hard"
+    if s in {"moderate", "mod", "mid", "medium"}: return "medium"
+    if s in {"low", "easy", "light"}: return "easy"
     return s if s in _ALLOWED_EXTERNAL_INTENSITIES else None
 
 
@@ -99,23 +79,18 @@ def build_daily_rows_from_ai(
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
 
-    if not isinstance(days, list):
-        return rows
+    if not isinstance(days, list): return rows
 
     for day in days:
-        if not isinstance(day, dict):
-            continue
+        if not isinstance(day, dict): continue
 
         date_str = day.get("date")
         sessions = day.get("sessions") or []
-        if not isinstance(date_str, str) or not date_str:
-            continue
-        if not isinstance(sessions, list):
-            continue
+        if not isinstance(date_str, str) or not date_str: continue
+        if not isinstance(sessions, list): continue
 
         for idx, s in enumerate(sessions):
-            if not isinstance(s, dict):
-                continue
+            if not isinstance(s, dict): continue
 
             sport_safe = _coerce_session_sport(s.get("sport") or "other")
 
@@ -137,7 +112,6 @@ def build_daily_rows_from_ai(
                 "activity_id": None,
             }
             rows.append(row)
-
     return rows
 
 
@@ -155,31 +129,18 @@ def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
 
 def _two_a_day_cap_from_prefs(prefs: Dict[str, Any]) -> int:
     pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
-    if not isinstance(pref_obj, dict):
-        return 0
-
+    if not isinstance(pref_obj, dict): return 0
     two = pref_obj.get("two_a_day") or {}
-    if not isinstance(two, dict):
-        return 0
-
-    if not bool(two.get("enabled")):
-        return 0
-
+    if not isinstance(two, dict) or not bool(two.get("enabled")): return 0
     return _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
 
 
 def _long_run_days_from_prefs(prefs: Dict[str, Any]) -> List[str]:
     pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
-    if not isinstance(pref_obj, dict):
-        return []
+    if not isinstance(pref_obj, dict): return []
     days = pref_obj.get("long_run_days") or []
-    if not isinstance(days, list):
-        return []
-    out: List[str] = []
-    for d in days:
-        if isinstance(d, str) and d.strip():
-            out.append(d.strip())
-    return out
+    if not isinstance(days, list): return []
+    return [d.strip() for d in days if isinstance(d, str) and d.strip()]
 
 
 def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]:
@@ -187,122 +148,97 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
     if isinstance(strength_settings, dict):
         raw = strength_settings.get("sessions_per_week")
         if isinstance(raw, (int, float, str)):
-            try:
-                return int(raw)
-            except Exception:
-                return None
+            try: return int(raw)
+            except Exception: return None
 
+    # Fallback to legacy
     targets = prefs.get("targets")
-    legacy = (
-        (targets.get("strength") or {}).get("sessions_per_week")
-        if isinstance(targets, dict)
-        else None
-    )
+    legacy = ((targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None)
     if isinstance(legacy, (int, float, str)):
-        try:
-            return int(legacy)
-        except Exception:
-            return None
+        try: return int(legacy)
+        except Exception: return None
 
     return None
 
 
-def _normalize_external_occurrences_from_service(
-    ext_window: Dict[str, Any],
-) -> List[Dict[str, Any]]:
-    if not isinstance(ext_window, dict):
-        return []
-
-    raw_list: Any = ext_window.get("occurrences")
-    if not isinstance(raw_list, list):
-        raw_list = ext_window.get("events")
+def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if not isinstance(ext_window, dict): return []
+    raw_list: Any = ext_window.get("occurrences") or ext_window.get("events")
     if not isinstance(raw_list, list):
         win = ext_window.get("window")
-        if isinstance(win, dict) and isinstance(win.get("events"), list):
-            raw_list = win.get("events")
-
-    if not isinstance(raw_list, list):
-        return []
+        if isinstance(win, dict): raw_list = win.get("events")
+    
+    if not isinstance(raw_list, list): return []
 
     out: List[Dict[str, Any]] = []
     for e in raw_list:
-        if not isinstance(e, dict):
-            continue
-
-        occ_date = (
-            e.get("occurrence_date")
-            or e.get("date")
-            or e.get("start_date_local")
-            or e.get("start_date")
-            or e.get("start_date_iso")
-            or e.get("single_date")
-        )
-        if not isinstance(occ_date, str) or not occ_date:
-            continue
+        if not isinstance(e, dict): continue
+        occ_date = (e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date"))
+        if not isinstance(occ_date, str) or not occ_date: continue
 
         ds = occ_date[:10]
-
-        # ✅ preferuj čo vrátil BE, fallback na výpočet z dátumu
-        wd = None
-        wd = wd or _weekday_abbr_from_int(e.get("occurrence_weekday_int"))
-        wd = wd or (
-            e.get("occurrence_weekday")
-            if isinstance(e.get("occurrence_weekday"), str)
-            else None
-        )
-        wd = wd or _weekday_abbr_from_iso(ds)
-        if not wd:
-            continue
+        wd = _weekday_abbr_from_int(e.get("occurrence_weekday_int")) or \
+             (e.get("occurrence_weekday") if isinstance(e.get("occurrence_weekday"), str) else None) or \
+             _weekday_abbr_from_iso(ds)
+        if not wd: continue
 
         sport_raw = e.get("sport") or e.get("sport_raw")
-        duration_min = e.get("duration_min")
-        dur_int = int(duration_min) if isinstance(duration_min, (int, float)) else None
-        intensity = _normalize_external_intensity(e.get("intensity"))
-
-        out.append(
-            {
-                "date": ds,
-                "weekday": wd,
-                "sport_raw": sport_raw,
-                "session_sport": _coerce_session_sport(sport_raw),
-                "title": e.get("title") or "Externá aktivita",
-                "duration_min": dur_int,
-                "priority": e.get("priority") or "optional",
-                "start_time_local": e.get("start_time_local"),
-                "notes": e.get("notes"),
-                "source": "external_events",
-                "intensity": intensity,
-                "allow_other_training": e.get("allow_other_training"),
-            }
-        )
-
+        
+        # ✅ OPRAVA: Uložíme do premennej, aby linter chápal typovú kontrolu
+        raw_dur = e.get("duration_min")
+        dur_int = int(raw_dur) if isinstance(raw_dur, (int, float)) else None
+        
+        out.append({
+            "date": ds,
+            "weekday": wd,
+            "sport_raw": sport_raw,
+            "session_sport": _coerce_session_sport(sport_raw),
+            "title": e.get("title") or "Externá aktivita",
+            "duration_min": dur_int,
+            "priority": e.get("priority") or "optional",
+            "start_time_local": e.get("start_time_local"),
+            "notes": e.get("notes"),
+            "source": "external_events",
+            "intensity": _normalize_external_intensity(e.get("intensity")),
+            "allow_other_training": e.get("allow_other_training"),
+        })
     return out
 
 
-def _build_external_block(
-    occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any
-) -> Dict[str, Any]:
+def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any) -> Dict[str, Any]:
     return {
         "schema_version": 1,
-        "occurrences": [
-            {
-                "date": o.get("date"),
-                "weekday": o.get("weekday"),
-                "sport_raw": o.get("sport_raw"),
-                "session_sport": o.get("session_sport"),
-                "title": o.get("title"),
-                "duration_min": o.get("duration_min"),
-                "priority": o.get("priority"),
-                "start_time_local": o.get("start_time_local"),
-                "notes": o.get("notes"),
-                "source": o.get("source"),
-                "intensity": o.get("intensity"),
-                "allow_other_training": o.get("allow_other_training"),
-            }
-            for o in occurrences
-        ],
+        "occurrences": occurrences,
         "window": {"from": week_start, "to": week_end},
     }
+
+# ✅ Helper na zistenie, či je user začiatočník/navrátilec
+def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
+    last_activities = analyze_input.get("last_activities") or []
+    if not last_activities:
+        return True # Žiadna história = začiatočník
+    
+    # Nájdeme najnovšiu aktivitu
+    latest_date_str = None
+    for act in last_activities:
+        d = act.get("start_date_local") or act.get("start_date") or act.get("date")
+        if d:
+            if latest_date_str is None or d > latest_date_str:
+                latest_date_str = d
+    
+    if not latest_date_str:
+        return True
+
+    # Ak je posledná aktivita staršia ako 6 týždňov (42 dní), považujeme ho za začiatočníka
+    try:
+        latest_dt = date.fromisoformat(latest_date_str[:10])
+        diff = (date.today() - latest_dt).days
+        if diff > 42:
+            return True
+    except Exception:
+        pass
+        
+    return False
 
 
 def build_daily_context_from_db(
@@ -312,42 +248,25 @@ def build_daily_context_from_db(
     plan_id: Optional[str],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    # ✅ AUTH FIX: service=True => jwt=None (service client)
-
+    
     # 1) resolve plan_id
     plan_id_effective: Optional[str] = plan_id
-    resolved_via = "input"
     if not plan_id_effective:
-        meta = db_get_active_plan_meta_for_user(
-            user_id=user_id,
-            ctx=ctx,
-        )
+        meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
         if meta and isinstance(meta.get("plan_id"), str):
             plan_id_effective = meta["plan_id"]
-            resolved_via = "active_meta"
         else:
-            meta2 = db_get_latest_plan_meta_for_user(
-                user_id=user_id,
-                ctx=ctx,
-            )
+            meta2 = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
             if meta2 and isinstance(meta2.get("plan_id"), str):
                 plan_id_effective = meta2["plan_id"]
-                resolved_via = "latest_meta"
 
     # 2) analyze input
-    analyze_input = build_input_from_db(
-        user_id=user_id,
-        ctx=ctx,
-    )
-    if not isinstance(analyze_input, dict):
-        analyze_input = {}
-
+    analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
-    two_a_day_cap = _two_a_day_cap_from_prefs(prefs_ai)
-    long_run_days = _long_run_days_from_prefs(prefs_ai)
-    strength_target = _strength_sessions_target_from_prefs(prefs_ai)
+    # ✅ Zistíme status začiatočníka
+    is_returning_beginner = _check_is_returning_beginner(analyze_input)
 
     recent_load = analyze_input.get("recent_load") or {}
     zones = analyze_input.get("zones") or {}
@@ -357,10 +276,7 @@ def build_daily_context_from_db(
     week_row: Optional[Dict[str, Any]] = None
     if plan_id_effective:
         week_row = db_get_week_row_for_plan(
-            user_id=user_id,
-            plan_id=plan_id_effective,
-            week_index=week_index,
-            ctx=ctx,
+            user_id=user_id, plan_id=plan_id_effective, week_index=week_index, ctx=ctx
         )
 
     week_meta: Dict[str, Any] = {
@@ -374,9 +290,8 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # 4) external occurrences (DB) – ONLY hard constraint
+    # 4) external occurrences
     external_block: Optional[Dict[str, Any]] = None
-    external_occurrences_norm: List[Dict[str, Any]] = []
     external_fetch_error: Optional[str] = None
 
     if week_meta.get("week_start") and week_meta.get("week_end"):
@@ -387,27 +302,20 @@ def build_daily_context_from_db(
                 to_iso=str(week_meta["week_end"]),
                 ctx=ctx,
             )
-            external_occurrences_norm = _normalize_external_occurrences_from_service(
-                ext_window
-            )
-
+            external_occurrences_norm = _normalize_external_occurrences_from_service(ext_window)
             external_block = _build_external_block(
-                external_occurrences_norm,
-                week_meta["week_start"],
-                week_meta["week_end"],
+                external_occurrences_norm, week_meta["week_start"], week_meta["week_end"]
             )
-        except Exception as e:  # noqa: BLE001
-            external_block = None
-            external_occurrences_norm = []
+        except Exception as e:
             external_fetch_error = repr(e)
 
     # 5) athlete_state
-    state_row = db_get_latest_state_for_user(
-        user_id=user_id,
-        version=1,
-        ctx=ctx,
-    )
-    athlete_state_json = (state_row or {}).get("state_json") or None
+    state_row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
+    athlete_state_json = (state_row or {}).get("state_json") or {}
+    
+    # ✅ Vložíme informáciu o začiatočníkovi do stavu atléta, aby to AI videlo
+    if isinstance(athlete_state_json, dict):
+        athlete_state_json["is_returning_beginner"] = is_returning_beginner
 
     # 6) context payload
     context_payload: Dict[str, Any] = {
@@ -424,20 +332,18 @@ def build_daily_context_from_db(
         "zones": zones,
         "thresholds": thresholds,
         "planning_constraints": {
-            "two_a_day_max_days_per_week": int(two_a_day_cap),
-            "long_run_days": long_run_days,
-            "strength_sessions_per_week_target": strength_target,
+            "two_a_day_max_days_per_week": int(_two_a_day_cap_from_prefs(prefs_ai)),
+            "long_run_days": _long_run_days_from_prefs(prefs_ai),
+            "strength_sessions_per_week_target": _strength_sessions_target_from_prefs(prefs_ai),
             "external_events_must_be_included": True,
+            "is_returning_beginner": is_returning_beginner, # Aj sem pre istotu
         },
     }
 
     if external_block is not None:
         context_payload["external_events"] = external_block
     elif external_fetch_error:
-        # optional: pomôže promptu + debug
-        context_payload["planning_constraints"][
-            "external_events_fetch_error"
-        ] = external_fetch_error
+        context_payload["planning_constraints"]["external_events_fetch_error"] = external_fetch_error
 
     return {
         "context_payload": context_payload,

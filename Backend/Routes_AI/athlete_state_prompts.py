@@ -155,11 +155,6 @@ def build_prompts_for_progress(
       "current": number | null,
       "comment": string | null
     }} | null,
-    "fitness_level": {{
-      "run": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
-      "ride": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null,
-      "strength": {{ "previous": number | null, "current": number | null, "comment": string | null }} | null
-    }},
     "volume_tolerance": {{
       "previous_weekly_minutes_min": number | null,
       "previous_weekly_minutes_max": number | null,
@@ -230,16 +225,19 @@ def build_prompts_for_analyze(
 
     weeks = int(prefs2.get("weeks") or 4)
     main_sport = prefs2.get("main_sport") or "run"
+    
+    # ✅ Vyberieme beginner flag pre prompt
+    is_beginner = context_for_llm.get("is_returning_beginner")
 
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive structured JSON about an athlete (profile, zones, thresholds, personal bests, "
         "recent load, recovery, preferences including volume, external events, and last activities). "
-        "External events are fixed sessions that already create load and must be considered. "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
         "Do NOT output prose or code fences, only JSON."
     )
 
+    # ✅ UPDATED SCHEMA: capabilities namiesto fitness_level
     schema_text = f"""
 {{
   "schema_version": 1,
@@ -252,10 +250,10 @@ def build_prompts_for_analyze(
     "suggestions_short": string[]
   }},
   "ai_state": {{
-    "fitness_level": {{
-      "run":      {{ "level_1_to_10": number, "comment": string | null }},
-      "ride":     {{ "level_1_to_10": number, "comment": string | null }} | null,
-      "strength": {{ "level_1_to_10": number, "comment": string | null }} | null
+    "capabilities": {{
+      "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }},
+      "ride":     {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }} | null,
+      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }} | null
     }},
     "fatigue_level": "low" | "moderate" | "high",
     "injury_risk": "low" | "moderate" | "high",
@@ -292,7 +290,10 @@ def build_prompts_for_analyze(
 }}
 """.strip()
 
-    # ✅ PRIDANÁ INŠTRUKCIA PRE VO2MAX NA ZÁKLADE BIOMETRIE A HISTÓRIE
+    beginner_hint = ""
+    if is_beginner:
+        beginner_hint = "- USER IS DETECTED AS BEGINNER/RETURNING (no recent activities). Assign capabilities.run.level_1_to_5 = 1 (Beginner).\n"
+
     user_txt = (
         "Analyze the athlete context JSON and fill the schema.\n"
         f"The main sport is: {main_sport}.\n"
@@ -306,9 +307,14 @@ def build_prompts_for_analyze(
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
-        "- If prefs.volume is defined, set weekly_minutes_min/max around it (roughly 70–120%) adjusted by recovery.\n"
-        "- Estimate 'estimated_vo2max' (ml/kg/min, range ~20-90) based on: recent activity performance (pace vs HR), user biometrics (weight, age, gender) and Heart Rate Reserve (Max HR - Resting HR). If data is insufficient, return null.\n"
-        "- Keep numbers realistic.\n"
+        + beginner_hint
+        + "- 'capabilities' (1-5 scale):\n"
+        "  1 = Beginner (Začiatočník): Starts from zero or returning. < 6 months exp. Run/walk.\n"
+        "  2 = Hobby (Rekreačný): Regular activity 1-2x week, unstructured.\n"
+        "  3 = Intermediate (Pokročilý): Structured training, can run 10k continuous, has distinct paces.\n"
+        "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
+        "  5 = Elite (Elitný): Top tier performance.\n"
+        "- Estimate 'estimated_vo2max' based on biometrics and performance. If no recent activities, make a rough guess based on age/sex/training_age or return null.\n"
     )
 
     return system_txt, user_txt

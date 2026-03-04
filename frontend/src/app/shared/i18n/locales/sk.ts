@@ -55,35 +55,42 @@ export const sk = {
       expand: "Zobraziť sekciu",
     },
     levels: {
-      essential: "esenciálne minimum",
-      athletes: "športová úroveň",
-      fitness: "kondičná úroveň",
-      average: "priemer",
-      obese: "obezita",
-      
-      low: "nízka",
-      moderate: "stredná",
-      high: "vysoká",
-      superior: "špičková",
-      excellent: "výborná",
-      good: "dobrá",
-      fair: "uspokojivá",
-      poor: "slabá",
-      very_poor: "veľmi slabá",
-      
-      // ALTERNATÍVA pre prídavné mená - stredný rod (ak sa to viaže na "skóre" alebo "hodnotenie"):
-      // low: "nízke",
-      // moderate: "stredné",
-      // high: "vysoké",
-      // superior: "špičkové",
-      // excellent: "výborné",
-      // good: "dobré",
-      // fair: "uspokojivé",
-      // poor: "slabé",
-      // very_poor: "veľmi slabé",
+      // ✅ Všetky levely začínajú Veľkým Písmenom
+      essential: "Esenciálne minimum",
+      athletes: "Športová úroveň",
+      fitness: "Kondičná úroveň",
+      average: "Priemer",
+      obese: "Obezita",
+
+      low: "Nízka",
+      moderate: "Stredná",
+      medium: "Stredná",
+      high: "Vysoká",
+      superior: "Špičková",
+      excellent: "Výborná",
+      good: "Dobrá",
+      fair: "Uspokojivá",
+      poor: "Slabá",
+      very_poor: "Veľmi slabá",
+      beginner: "Začiatočník",
+      hobby: "Hobby",
+      intermediate: "Pokročilý",
+      performance: "Výkonnostný",
+      elite: "Elita",
+      form: "Aktuálna forma (1-10)",
     },
     phases: {
-      threshold_speed: "Prahová rýchlosť",
+      base_aerobic: "Základná (Aeróbna)",
+      base_long: "Základná (Objem)",
+      build: "Budovacia",
+      threshold_speed: "Prahová / Rýchlosť",
+      peak: "Ladenie formy",
+      race_specific: "Preteková príprava",
+      taper: "Taper (Ladenie)",
+      race: "Preteky",
+      regeneration: "Regenerácia",
+      recovery: "Regenerácia",
+      transition: "Prechodné obdobie",
     },
     sports: {
       run: "Beh",
@@ -93,6 +100,7 @@ export const sk = {
       mixed: "Zmiešané",
       skate: "Korčule",
       football: "Futbal",
+      padel: "Padel",
       other: "Iné",
       swim: "Plávanie",
       walk: "Chôdza",
@@ -842,12 +850,15 @@ export const sk = {
     notifications: {
       tab: "Notifikácie",
       title: "Nezmeškaj žiadny tréning",
-      desc1: "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity, zmeškaný tréning či iné novinky. Na to však potrebuje tvoj súhlas.",
+      desc1:
+        "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity, zmeškaný tréning či iné novinky. Na to však potrebuje tvoj súhlas.",
       iosTitle: "Apple (iOS):",
-      iosDesc: "Najprv si musíš apku pridať na Domovskú obrazovku (ikonka zdieľania -> Pridať na plochu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
+      iosDesc:
+        "Najprv si musíš apku pridať na Domovskú obrazovku (ikonka zdieľania -> Pridať na plochu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
       androidTitle: "Android:",
-      androidDesc: "Nainštaluj si aplikáciu na plochu (vyskakovacie okno zospodu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
-      ps: "Tieto nastavenia nájdeš kedykoľvek neskôr vo svojom profile pod 'Push Notifikácie'."
+      androidDesc:
+        "Nainštaluj si aplikáciu na plochu (vyskakovacie okno zospodu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
+      ps: "Tieto nastavenia nájdeš kedykoľvek neskôr vo svojom profile pod 'Push Notifikácie'.",
     },
     data: {
       tab: "Dáta",
@@ -1477,7 +1488,6 @@ export const sk = {
       noteWorse: "Včerajšia hodnota bola HORŠIA než priemer (↓)",
       noteOK: "Včerajšia hodnota bola V PRIEMERE",
       noteBetter: "Včerajšia hodnota bola LEPŠIA než priemer (↑)",
-      
     },
   },
   RHR: {
@@ -1709,11 +1719,13 @@ export const sk = {
       disableError: "Nepodarilo sa vypnúť upozornenia.",
       success: "Upozornenia boli úspešne zapnuté!",
       error: "Pri zapínaní upozornení nastala chyba.",
-      permissionDenied: "Prístup k upozorneniam bol vo tvojom prehliadači zamietnutý.",
+      permissionDenied:
+        "Prístup k upozorneniam bol vo tvojom prehliadači zamietnutý.",
       notSupported: "Tvoj prehliadač nepodporuje push notifikácie.",
-      notSupportedHint: "Na iOS si musíš aplikáciu najprv pridať na Domovskú obrazovku (Add to Home Screen).",
+      notSupportedHint:
+        "Na iOS si musíš aplikáciu najprv pridať na Domovskú obrazovku (Add to Home Screen).",
       testSuccess: "Testovacia notifikácia bola úspešne odoslaná!",
-      testError: "Nepodarilo sa odoslať testovaciu notifikáciu."
+      testError: "Nepodarilo sa odoslať testovaciu notifikáciu.",
     },
   },
   subscription: {
@@ -1951,8 +1963,8 @@ export const sk = {
       createdAt: "Vytvorené",
       indicatorsTitle: "Únava, riziko zranenia a zameranie",
       blockTitle: "Fáza prípravy",
-      fitnessTitle: "Zmena fitness úrovne (1–10)",
-      volumeTitle: "Tolerancia záťaže a úpravy",
+      fitnessTitle: "Vývoj kondície", // Updated
+      volumeTitle: "Vývoj objemu", // Updated
       planChanges: "Navrhované zmeny v pláne",
       noPlanChanges:
         "Tréner nateraz neodporúča meniť tvoju štruktúru tréningu.",
@@ -1972,8 +1984,11 @@ export const sk = {
         "Spusti 'Analyze Athlete state' v sekcii Plán. AI prepočíta tvoju aktuálnu únavu a pripravenosť.",
       mainTitle: "Stav trénovanosti – AI analýza",
       lastAnalysis: "Posledný výpočet",
-      fitnessTitle: "Silné stránky podľa disciplín",
-      fitnessSubtitle: "Tvoje aktuálne skóre na stupnici 1–10.",
+      // ✅ Updated Capabilities & Fitness
+      capabilitiesTitle: "Schopnosti & Fitness",
+      capabilitiesSubtitle: "Odhadovaná úroveň na základe histórie",
+      fitnessTitle: "Úroveň kondície",
+      fitnessSubtitle: "Subjektívne hodnotenie trénera (AI)",
       toleranceTitle: "Tréningová kapacita",
       toleranceSubtitle:
         "Koľko záťaže tvoje telo momentálne bezpečne toleruje.",
@@ -1994,6 +2009,8 @@ export const sk = {
       noRisksDesc: "AI pri analýze nezistila zvýšené riziká.",
       quickTips: "Rýchle tipy",
       noTipsDesc: "Po ďalšej analýze sa tu zobrazia konkrétne odporúčania.",
+      // ✅ VO2 Max
+      vo2maxDesc: "Odhadovaná hodnota na základe biometrie a výkonu.",
     },
     weekly: {
       phase: "Fáza",

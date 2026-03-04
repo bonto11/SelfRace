@@ -9,7 +9,6 @@ def _safe_int(
 ) -> int:
     try:
         if v is None: out = default
-        elif isinstance(v, bool): out = int(v)
         elif isinstance(v, (int, float)): out = int(v)
         elif isinstance(v, str):
             s = v.strip()
@@ -28,7 +27,6 @@ def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
     return raw_prefs if isinstance(raw_prefs, dict) else {}
 
 def _remove_empty(d: Any) -> Any:
-    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
         return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
@@ -46,8 +44,7 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     prefs = _flatten_prefs(context.get("prefs") or {})
     pref_obj = prefs.get("preferences") or {}
-    if not isinstance(pref_obj, dict):
-        pref_obj = {}
+    if not isinstance(pref_obj, dict): pref_obj = {}
 
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
@@ -59,12 +56,10 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "threshold": bool(tb.get("threshold")),
     }
 
-    # ✅ OPRAVA: Berieme 'add_on_sports' aj 'included_sports' pre istotu
-    # Na screenshote je vidno 'add_on_sports': ['ride', 'swim']
     context2["prefs"] = {
         "weeks": prefs.get("weeks"),
         "main_sport": prefs.get("main_sport"),
-        "add_on_sports": prefs.get("add_on_sports"), # <--- TOTO JE KĽÚČOVÉ
+        "add_on_sports": prefs.get("add_on_sports"), 
         "included_sports": prefs.get("included_sports"), 
         "goal_kind": prefs.get("goal_kind"),
         "volume": prefs.get("volume"),
@@ -78,11 +73,17 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     athlete_state = context.get("athlete_state") or {}
+    # ✅ Ponecháme flag pre začiatočníka
+    is_beginner = athlete_state.get("is_returning_beginner") 
+
     ai_state = athlete_state.get("ai_state") or {}
     if isinstance(ai_state, dict):
         ai_state_clean = dict(ai_state)
         ai_state_clean.pop("metrics", None)
-        context2["athlete_state"] = {"ai_state": ai_state_clean}
+        context2["athlete_state"] = {
+            "ai_state": ai_state_clean,
+            "is_returning_beginner": is_beginner
+        }
 
     us = context.get("user_settings") or {}
     if isinstance(us, dict):
@@ -90,6 +91,11 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "language": us.get("language"),
             "timezone": us.get("timezone"),
         }
+    
+    # ✅ Prenesieme aj planning_constraints kde je beginner flag
+    pc = context.get("planning_constraints")
+    if isinstance(pc, dict):
+        context2["planning_constraints"] = pc
 
     return _remove_empty(context2)
 
@@ -101,7 +107,8 @@ def build_prompts_for_daily(
     
     settings = settings or {}
     lang_code = (settings.get("language") or "sk").lower()
-
+    
+    # Simple lang setup
     if lang_code.startswith("en"):
         lang_label = "English"
         second_person_note = "Always speak directly to the athlete and use 'you'."
@@ -114,22 +121,21 @@ def build_prompts_for_daily(
 
     week = context_payload.get("week") or {}
     prefs = _flatten_prefs(context_payload.get("prefs") or {})
-    targets = context_payload.get("targets") or prefs.get("targets") or {}
+    
+    # ✅ Získanie flagu pre začiatočníka
+    constraints = context_payload.get("planning_constraints") or {}
+    is_returning_beginner = bool(constraints.get("is_returning_beginner"))
 
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
     week_start = week.get("week_start") or context_payload.get("week_start") or ""
     week_end = week.get("week_end") or context_payload.get("week_end") or ""
     focus = week.get("focus") or ""
     load_phase = week.get("load_phase") or ""
-    
-    # Volume variables
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
     
-    # ✅ LOGIKA PRE MULTI-SPORT
-    # 1. Skúsime nájsť 'add_on_sports' (podľa screenshotu)
+    # ✅ OPRAVENÁ LOGIKA PRE MULTI-SPORT (Priority: add_on_sports > included_sports)
     add_on = prefs.get("add_on_sports")
-    # 2. Fallback na 'included_sports' (ak by to bolo inak)
     included = prefs.get("included_sports")
 
     sports_set = set()
@@ -138,29 +144,29 @@ def build_prompts_for_daily(
     if isinstance(add_on, list):
         for s in add_on:
             if isinstance(s, str) and s: sports_set.add(s.lower())
-    
-    if isinstance(included, list):
+    elif isinstance(included, list):
         for s in included:
             if isinstance(s, str) and s: sports_set.add(s.lower())
 
-    # Zoznam finálnych športov pre tento týždeň
     final_sports_list = list(sports_set)
 
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
 
+    # Two a day
     two = pref_obj.get("two_a_day") or {}
-    if not isinstance(two, dict): two = {}
-    two_enabled = bool(two.get("enabled"))
+    two_enabled = bool(two.get("enabled")) if isinstance(two, dict) else False
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
 
     long_run_days = pref_obj.get("long_run_days") or []
-    if not isinstance(long_run_days, list): long_run_days = []
-    long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
+    if isinstance(long_run_days, list):
+        long_run_days = [str(d) for d in long_run_days if isinstance(d, str) and d.strip()]
+    else: long_run_days = []
 
-    avoid_back_to_back_hard = bool(pref_obj.get("avoid_back_to_back_hard"))
+    avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
 
+    # Training blocks
     tb = pref_obj.get("training_blocks") or {}
     if not isinstance(tb, dict): tb = {}
     blocks = {
@@ -169,65 +175,47 @@ def build_prompts_for_daily(
         "threshold": bool(tb.get("threshold")),
     }
 
+    # Strength target
     strength_settings = prefs.get("strength_settings")
     if not isinstance(strength_settings, dict): strength_settings = {}
-
+    
     strength_target_int: Optional[int] = None
     ss_raw = strength_settings.get("sessions_per_week")
     if isinstance(ss_raw, (int, float, str)):
         try: strength_target_int = int(ss_raw)
-        except Exception: strength_target_int = None
-    else:
-        legacy = (targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None
-        if isinstance(legacy, (int, float, str)):
-            try: strength_target_int = int(legacy)
-            except Exception: strength_target_int = None
-
-    # Externé eventy
+        except Exception: pass
+    
+    # External events calc
     ext = context_payload.get("external_events") or {}
     ext_occ = ext.get("occurrences") if isinstance(ext, dict) else []
     if not isinstance(ext_occ, list): ext_occ = []
     ext_count = len(ext_occ)
-    
-    ext_minutes_total = 0
-    for e in ext_occ:
-        d = _safe_int(e.get("duration_min"), 0)
-        ext_minutes_total += d
+    ext_minutes_total = sum(_safe_int(e.get("duration_min"), 0) for e in ext_occ if isinstance(e, dict))
 
+    # Volume line
     volume_prefs = prefs.get("volume") or {}
     volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
     volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
 
     if isinstance(planned_minutes, (int, float)):
-        remaining_min = max(0, int(planned_minutes) - ext_minutes_total)
-        weekly_volume_line = (
-            f"- WEEKLY VOLUME INTENT:\n"
-            f"  The TOTAL weekly target is approx {planned_minutes} min.\n"
-            f"  External events already occupy {ext_minutes_total} min.\n"
-            f"  You should schedule approximately {remaining_min} min of NEW training sessions to meet the goal.\n"
-        )
+        rem = max(0, int(planned_minutes) - ext_minutes_total)
+        weekly_volume_line = f"- WEEKLY VOLUME: Target {planned_minutes} min. External events: {ext_minutes_total} min. Schedule approx {rem} min NEW training.\n"
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
-        target_min = int(volume_value * 60)
-        remaining_min = max(0, target_min - ext_minutes_total)
-        weekly_volume_line = (
-            f"- WEEKLY VOLUME INTENT:\n"
-            f"  The TOTAL weekly target is approx {target_min} min.\n"
-            f"  External events already occupy {ext_minutes_total} min.\n"
-            f"  You should schedule approximately {remaining_min} min of NEW training sessions.\n"
-        )
+        tgt = int(volume_value * 60)
+        rem = max(0, tgt - ext_minutes_total)
+        weekly_volume_line = f"- WEEKLY VOLUME: Target {tgt} min. External events: {ext_minutes_total} min. Schedule approx {rem} min NEW training.\n"
     else:
-        weekly_volume_line = "- Weekly intent: infer from recent_load (soft), keeping in mind external events count towards load.\n"
+        weekly_volume_line = "- Weekly intent: infer from recent_load, count external events.\n"
 
     back_to_back_rule = (
-        "- AVOID BACK-TO-BACK HARD (HARD): Do NOT schedule two hard sessions on consecutive days (consider external events too).\n"
-        if avoid_back_to_back_hard
-        else "- AVOID BACK-TO-BACK HARD (SOFT): Avoid back-to-back hard days when possible.\n"
+        "- AVOID BACK-TO-BACK HARD: YES (Strict).\n" if avoid_back_to_back
+        else "- AVOID BACK-TO-BACK HARD: Soft preference.\n"
     )
 
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
-    blocks_str = ", ".join([k for k, v in blocks.items() if v]) if any(blocks.values()) else "none"
-
+    
+    # Injuries
     active_injuries = prefs.get("injuries") or []
     injury_rule = ""
     if isinstance(active_injuries, list) and len(active_injuries) > 0:
@@ -235,41 +223,48 @@ def build_prompts_for_daily(
         max_severity = 0
         for inj in active_injuries:
             if isinstance(inj, dict):
-                area = inj.get("area", "unknown area")
-                typ = inj.get("type", "unknown type")
                 sev = _safe_int(inj.get("severity"), 0)
                 if sev > max_severity: max_severity = sev
-                inj_details.append(f"{area} ({typ}, severity: {sev}/10)")
+                inj_details.append(f"{inj.get('area')} ({inj.get('type')}, sev: {sev})")
         
         inj_str = ", ".join(inj_details)
         if max_severity >= 7:
             injury_rule = (
-                "- CRITICAL MEDICAL RULE (HARD):\n"
-                f"  The athlete reported a SEVERE injury: {inj_str}.\n"
-                "  DO NOT SCHEDULE ANY PHYSICAL TRAINING. ZERO. NONE.\n"
-                "  - Every single day in the plan MUST be set to session_type='rest' and sport='other'.\n"
-                "  - Title should be 'Lekárske voľno' or 'Regenerácia'.\n"
-                "  - Include medical disclaimer in notes.\n\n"
+                f"- CRITICAL MEDICAL RULE (HARD): SEVERE INJURY ({inj_str}). "
+                "DO NOT SCHEDULE TRAINING. All days must be REST. Title: 'Lekárske voľno'.\n\n"
             )
         else:
             injury_rule = (
-                "- ACTIVE INJURY (CRITICAL/HARD):\n"
-                f"  The athlete has reported active injuries: {inj_str}.\n"
-                "  You MUST adjust the plan for recovery. \n"
-                "  - Replace high-intensity/hard sessions with REST or very light activity.\n"
-                "  - Do NOT schedule workouts that would worsen the reported injury.\n\n"
+                f"- ACTIVE INJURY ({inj_str}): Adjust for recovery. No high intensity. Safe mode.\n\n"
             )
+
+    # ✅ BEGINNER RULE - Najdôležitejšia časť
+    beginner_rule = ""
+    if is_returning_beginner:
+        beginner_rule = (
+            "- BEGINNER / RETURNING ATHLETE PROTOCOL (CRITICAL):\n"
+            "  The user has NO recent activity (last 6 weeks or more).\n"
+            "  You MUST treat them as a complete beginner. \n"
+            "  - DO NOT schedule continuous running for more than 5-10 minutes.\n"
+            "  - USE RUN/WALK STRATEGY: e.g. '3 min run / 2 min walk' or '5 min run / 1 min walk'.\n"
+            "  - Keep total duration low (max 30-40 min).\n"
+            "  - Intensity must be EASY (Zone 1-2).\n"
+            "  - In the output `meta` object, set `is_beginner_adaptation`: true and add a `msg` explaining this.\n\n"
+        )
 
     system_txt = (
         "You are an endurance coaching assistant. "
-        "You receive structured JSON for ONE training week. "
-        "Your task is to design a detailed daily workout schedule. "
-        "Return ONE valid JSON object only."
+        "Design a daily workout schedule for ONE week based on the JSON context. "
+        "Return ONE valid JSON object."
     )
 
     schema_text = """
 {
   "schema_version": 3,
+  "meta": {
+    "is_beginner_adaptation": boolean,
+    "msg": "Explanation for the user if beginner mode is active"
+  },
   "days": [
     {
       "date": "YYYY-MM-DD",
@@ -292,102 +287,51 @@ def build_prompts_for_daily(
 }
 """.strip()
 
-    date_integrity_rule = (
-        "- DATE INTEGRITY (HARD):\n"
-        "  Only use dates inside the given Week range. Do NOT invent dates.\n\n"
-    )
-
+    date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
+    
     external_rules = (
-        "- EXTERNAL EVENTS (HARD):\n"
-        "  CONTEXT_JSON.external_events.occurrences contains fixed events from DB.\n"
-        "  You MUST include EVERY occurrence EXACTLY ONCE, on the SAME date.\n"
-        "  CRITICAL: These events COUNT towards the weekly volume and load.\n"
-        "  - If an external event has high intensity, treat it as a HARD session for recovery purposes.\n"
-        "  - Subtract their duration from the total weekly training time available.\n"
-        "  Properties for external sessions:\n"
-        "    - session_type = 'external_event'\n"
-        "    - sport = occurrence.session_sport\n"
-        "    - title = occurrence.title (exact)\n"
-        "    - duration_min = occurrence.duration_min\n"
-        "    - intensity = occurrence.intensity (easy|medium|hard)\n"
-        "    - payload.external_event (HARD REQUIRED)\n\n"
+        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date. "
+        "They count towards load. Subtract their duration from weekly budget.\n\n"
     )
 
-    two_a_day_rule = (
-        "- TWO-A-DAY (HARD):\n"
-        "  Prefer 1 session/day.\n"
-        f"  You may schedule 2 sessions in a day on at most {two_cap} day(s) in the week.\n"
-        "  If cap is 0, never schedule 2 sessions in a day.\n\n"
-    )
+    two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Prefer 1 session/day.\n\n"
+    
+    long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
 
-    long_run_rule = (
-        "- LONG RUN RULE (HARD WHEN POSSIBLE):\n"
-        "  If main_sport is run, schedule exactly 1 long run in the week.\n"
-        f"  Preferred weekdays: {long_run_days_str}.\n"
-        "  Mark it explicitly: session_type='long_run'.\n\n"
-    )
-
-    # ✅ PRIDANÉ: Multi-sport Rule (teraz pracuje so správnym zoznamom)
     multi_sport_rule = ""
     if len(final_sports_list) > 1:
         other_sports = [s for s in final_sports_list if s != main_sport and s != "strength"]
         if other_sports:
             multi_sport_rule = (
-                "- MULTI-SPORT MIX (HARD):\n"
-                f"  The athlete performs these sports: {', '.join(final_sports_list)}.\n"
-                f"  The main sport is {main_sport}, but you MUST schedule sessions for {', '.join(other_sports)} as well.\n"
-                "  Create a balanced week including these sports based on standard triathlon/cross-training principles.\n"
-                "  Ensure that swimming or cycling sessions are appropriately placed to allow recovery from running.\n\n"
+                f"- MULTI-SPORT: Athlete sports: {', '.join(final_sports_list)}. "
+                f"Main: {main_sport}. Schedule {', '.join(other_sports)} sessions too. Balanced plan.\n\n"
             )
 
-    strength_rule = (
-        "- STRENGTH (PREF TARGET):\n"
-        f"  Aim for {strength_str}. Use sport='strength'. Keep structure=null.\n\n"
-    )
-
+    strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
+    
     endurance_structure_rule = (
-        "- ENDURANCE STRUCTURE (run, ride, swim):\n"
-        "  For endurance workouts, provide a detailed `structure` object (warmup, main_part, cooldown).\n"
-        "  Write instructions for absolute beginners.\n\n"
+        "- ENDURANCE STRUCTURE: Provide `structure` (warmup, main_part, cooldown). "
+        "Instructions for beginners.\n\n"
     )
 
-    intensity_model_rule = (
-        f"- INTENSITY MODEL: {intensity_model}.\n"
-        "  Polarized = mostly easy + small amount hard. Pyramidal = allow more moderate.\n\n"
-    )
-
-    explanation_rule = (
-        "- NOTES (HARD):\n"
-        "  Every session MUST include 2–3 short, concrete sentences in `notes`.\n\n"
-    )
-
-    fallback_block = ""
-    if not week_start or not week_end:
-        fallback_block = (
-            "\nFALLBACK MODE (missing week_start/week_end):\n"
-            "- You MUST NOT invent calendar dates.\n"
-            "- Return days: [] and add warnings: ['missing_week_range'].\n"
-        )
+    intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}.\n\n"
+    explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
+    blocks_rule = f"- TRAINING BLOCKS: {', '.join([k for k,v in blocks.items() if v]) or 'none'}.\n\n"
 
     context_for_ai = _minify_context_for_ai(context_payload)
-
-    safe_settings = {
-        "language": settings.get("language"),
-        "timezone": settings.get("timezone"),
-    }
+    safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
     context_for_ai["user_settings"] = safe_settings
 
     user_txt = (
-        "Generate a full weekly training plan (calendar dates + sessions) based on the context JSON.\n"
-        f"Week index: {week_index}\n"
-        f"Week range: {week_start or 'unknown'} .. {week_end or 'unknown'}\n"
-        f"Focus: {focus or 'N/A'} | Load phase: {load_phase or 'N/A'}\n"
-        f"Main sport: {main_sport}\n"
-        f"Sports available: {', '.join(final_sports_list)}\n"
-        f"External events occurrences in this week: {ext_count}\n\n"
+        "Generate a weekly plan.\n"
+        f"Week: {week_index} ({week_start} .. {week_end})\n"
+        f"Main Sport: {main_sport}\n"
+        f"All Sports: {', '.join(final_sports_list)}\n"
+        f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
         + injury_rule 
+        + beginner_rule  # <--- TU JE NOVÝ PRAVIDLO
         + two_a_day_rule
         + long_run_rule
         + multi_sport_rule
@@ -400,14 +344,12 @@ def build_prompts_for_daily(
         + explanation_rule
         + "\nCONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
-        + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
+        + "\n\nSCHEMA:\n"
         + schema_text
-        + fallback_block
-        + "\n\nHard requirements:\n"
-        + "- Always return a single JSON object matching the schema.\n"
-        + f"- All free text MUST be written in {lang_label} and address the athlete directly in 2nd person. {second_person_note}\n"
+        + "\n\nRequirements:\n"
+        + "- Single valid JSON matching schema.\n"
+        + f"- Language: {lang_label}, address user as 'you' ({second_person_note}).\n"
         + "- Do NOT invent extreme workloads.\n"
-        + "- Do NOT omit any external event occurrence.\n"
     )
 
     return system_txt, user_txt, [], strength_target_int

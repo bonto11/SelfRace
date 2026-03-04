@@ -31,11 +31,6 @@ def _derive_key_slots_from_weekly_template(
     wt: Dict[str, Any],
     max_fixed: int = 10,
 ) -> List[Dict[str, Any]]:
-    """
-    Z weekly_template vyber len 'key' sloty (soft preferencie).
-    Očakávaný tvar:
-      wt = {"mode": "...", "days": [{"day":"Mon","slots":[{"priority":"key","sport":"run","kind":"intervals"}]}]}
-    """
     wt = _as_dict(wt)
     days = _as_list(wt.get("days"))
     out: List[Dict[str, Any]] = []
@@ -64,10 +59,6 @@ def _derive_key_slots_from_weekly_template(
 
 
 def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Preferuj prefs z analyze_input_min/analyze_input (to je "ground truth" z DB buildera),
-    fallback na ctx["prefs"] (ktoré môže byť už prefiltrované).
-    """
     analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
     prefs_any = analyze_src.get("prefs")
     if isinstance(prefs_any, dict):
@@ -80,9 +71,7 @@ def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
     return {}
 
 
-# 👇 Pomocná funkcia pre čistenie
 def _remove_empty(d: Any) -> Any:
-    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
         return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
@@ -91,13 +80,8 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-# 👇 Upravená minifikácia pre Weekly Plan
+
 def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Orezaný context pre WEEKLY LLM:
-    - AI potrebuje vedieť len Ciele (Prefs), Aktuálny stav (Athlete State), a Udalosti (Events).
-    - VŠETKO OSTATNÉ (Zóny, aktivity, denné HR limity) vyhadzujeme, rieši sa to až v Daily Plane.
-    """
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
 
@@ -134,8 +118,11 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if len(races_min) >= 10:
                 break
 
+    # ✅ PRIDANÉ: add_on_sports a included_sports
     prefs2: Dict[str, Any] = {
         "main_sport": prefs.get("main_sport"),
+        "add_on_sports": prefs.get("add_on_sports"),
+        "included_sports": prefs.get("included_sports"),
         "weeks": prefs.get("weeks"),
         "start_date": _safe_date_yyyy_mm_dd(prefs.get("start_date") or prefs.get("plan_start_date")),
         "goal_kind": prefs.get("goal_kind"),
@@ -168,7 +155,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         else {},
     }
 
-    # weekly_template: posli len key slots
     wt = _as_dict(prefs.get("weekly_template"))
     if wt:
         prefs2["weekly_template"] = {
@@ -178,17 +164,19 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
-    # --- athlete_state (len to najnutnejšie) ---
+    # --- athlete_state ---
     athlete_state = _as_dict(context.get("athlete_state"))
+    # ✅ PRIDANÉ: is_returning_beginner
+    is_beginner = athlete_state.get("is_returning_beginner")
+
     if athlete_state:
         ai_state = _as_dict(athlete_state.get("ai_state"))
-        # Z ai_state vyhodíme metrics, tie ho nezaujímajú
         ai_state.pop("metrics", None)
-        ctx2["athlete_state"] = {"ai_state": ai_state}
+        ctx2["athlete_state"] = {
+            "ai_state": ai_state,
+            "is_returning_beginner": is_beginner
+        }
 
-    # ✅ POZNÁMKA: Zámerne tu NEPRIDÁVAME recent_load, zones, thresholds ani last_activities!
-    # Tie veci týždenný meta-plán nepotrebuje a žerú tisíce tokenov.
-    
     # --- external_events ---
     ext = _as_dict(context.get("external_events"))
     if ext:
@@ -246,7 +234,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         else:
             ctx2["external_events"] = {"events": cleaned_events}
 
-    # --- settings (minify) ---
+    # --- settings ---
     settings = _as_dict(context.get("user_settings"))
     if settings:
         ctx2["user_settings"] = {
@@ -254,7 +242,6 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "timezone": settings.get("timezone"),
         }
 
-    # --- meta ---
     if "weeks" in context:
         ctx2["weeks"] = context.get("weeks")
     if "overwrite" in context:
@@ -262,8 +249,8 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if "replan_trigger" in context:
         ctx2["replan_trigger"] = context.get("replan_trigger")
 
-    # ✅ Všetko pekne prečistíme od null a prázdnych objektov
     return _remove_empty(ctx2)
+
 
 def build_prompts_for_weekly(
     context_payload: dict,
@@ -284,8 +271,6 @@ def build_prompts_for_weekly(
         second_person_note = "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
     ctx = _as_dict(context_payload)
-
-    # ✅ preferuj analyze_input_min (z buildera), fallback na analyze_input
     analyze_input = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
 
     raw_prefs = _as_dict(analyze_input.get("prefs") or ctx.get("prefs") or {})
@@ -302,7 +287,23 @@ def build_prompts_for_weekly(
     main_sport = prefs.get("main_sport") or "run"
     goal_kind = prefs.get("goal_kind") or "improve_overall"
 
-    # attach settings safely
+    # ✅ MULTI-SPORT LOGIKA
+    add_on = prefs.get("add_on_sports")
+    included = prefs.get("included_sports")
+    sports_set = set()
+    sports_set.add(main_sport)
+    if isinstance(add_on, list):
+        for s in add_on:
+            if isinstance(s, str) and s: sports_set.add(s.lower())
+    elif isinstance(included, list):
+        for s in included:
+            if isinstance(s, str) and s: sports_set.add(s.lower())
+    final_sports_list = list(sports_set)
+
+    # ✅ BEGINNER LOGIKA
+    athlete_state = _as_dict(ctx.get("athlete_state"))
+    is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
+
     safe_settings = {
         "language": settings.get("language"),
         "timezone": settings.get("timezone"),
@@ -310,10 +311,8 @@ def build_prompts_for_weekly(
     ctx2 = dict(ctx)
     ctx2["user_settings"] = safe_settings
 
-    # ✅ MINIFY HERE
     context_for_ai = minify_weekly_context_for_ai(ctx2)
 
-    # derive volume hint from MINIFIED prefs
     prefs_min = _as_dict(context_for_ai.get("prefs"))
     vol = _get_dict(prefs_min, "volume")
     volume_mode = vol.get("mode")
@@ -359,6 +358,14 @@ def build_prompts_for_weekly(
 """.strip()
 
     volume_hint_lines: List[str] = []
+    
+    # ✅ BEGINNER RULE pre VOLUME
+    if is_returning_beginner:
+        volume_hint_lines.append(
+            "- CRITICAL: The athlete is a BEGINNER or RETURNING after a long break. "
+            "Start VERY LOW (e.g. 40-80 mins/week total). "
+            "Increase gradually. Focus on consistency over volume."
+        )
 
     if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(
@@ -391,10 +398,19 @@ def build_prompts_for_weekly(
     )
 
     volume_hint = "\n".join(volume_hint_lines)
+    
+    # ✅ MULTI SPORT HINT
+    multi_sport_hint = ""
+    if len(final_sports_list) > 1:
+        multi_sport_hint = (
+            f"- MULTI-SPORT: Athlete performs: {', '.join(final_sports_list)}. "
+            "The `planned_minutes` MUST include ALL these sports combined, not just running."
+        )
 
     user_txt = (
         "You will design a WEEKLY meta training plan for the athlete.\n"
         f"Main sport: {main_sport}\n"
+        f"All Sports: {', '.join(final_sports_list)}\n"
         f"Goal kind: {goal_kind}\n"
         f"Planning horizon (weeks): {weeks}\n"
         f"Preferred plan start date (if any): {start_date or 'none'}\n"
@@ -413,6 +429,7 @@ def build_prompts_for_weekly(
         "  to assign load_phase and decide load progression.\n"
         "- Do NOT generate daily sessions here – only weekly meta.\n"
         "- planned_minutes must include meaningful sports-type external events; reduce for big non-sport events.\n"
+        + multi_sport_hint + "\n"
         "- Volume guidelines:\n"
         + volume_hint
         + "\n"

@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailWeeklyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -102,21 +103,48 @@ export default function DetailWeeklyPlan() {
 
   const view = useMemo(() => {
     if (!plan?.weeks?.length) return { weeksSorted: [], rangeLabel: null, totalKm: 0, totalMin: 0, phaseCounts: {} as any, maxKm: 0 };
+    
     const weeksSorted = [...plan.weeks].sort((a, b) => (a.week_index || 0) - (b.week_index || 0));
+    
     const firstStr = formatDate(weeksSorted.find(w => w.week_start)?.week_start);
     const lastStr = formatDate([...weeksSorted].reverse().find(w => w.week_end)?.week_end);
+    
     let totalKm = 0, totalMin = 0, maxKm = 0;
     const phaseCounts: any = {};
+    
     for (const w of weeksSorted) {
       const km = Number(w.planned_km || 0);
       totalKm += km;
       totalMin += Number(w.planned_minutes || 0);
       if (km > maxKm) maxKm = km;
+      
       const pk = phaseKey(w.load_phase);
       phaseCounts[pk] = (phaseCounts[pk] || 0) + 1;
     }
-    return { weeksSorted, rangeLabel: firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr, totalKm, totalMin, phaseCounts, maxKm };
+    
+    return { 
+      weeksSorted, 
+      rangeLabel: firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr, 
+      totalKm, 
+      totalMin, 
+      phaseCounts, 
+      maxKm 
+    };
   }, [plan]);
+
+  // Helper na preklad detailnej fázy v zozname (Base Aerobic, Build 1...)
+  const getPhaseLabel = (phaseStr?: string | null) => {
+    if (!phaseStr) return "?";
+    const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
+    const key = `common.phases.${safeKey}`;
+    const translated = (t as any)(key);
+    return translated === key ? phaseStr : translated;
+  };
+
+  const getWeekLabel = () => {
+    const w = t("common.weeksSelect.count1");
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  };
 
   if (!userId) return <Card title={t("coachWeekly.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
   if (loading) return <section className={SESSION_CARD} style={SESSION_CARD_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
@@ -124,6 +152,8 @@ export default function DetailWeeklyPlan() {
 
   const weeksCount = view.weeksSorted.length;
   const totalHours = Math.round((view.totalMin / 60) * 10) / 10;
+  const unitKm = t("common.units.km");
+  const unitH = t("common.units.hour");
 
   return (
     <div className={PANEL_STACK}>
@@ -133,7 +163,7 @@ export default function DetailWeeklyPlan() {
         headRight={
           <div className="text-right text-xs opacity-80">
             <div>{t("coachDaily.widget.daysCount")}: <b>{weeksCount}</b></div>
-            <div>{t("coach.weekly.totalVolume")}: <b>{Math.round(view.totalKm)} km / {totalHours} h</b></div>
+            <div>{t("coach.weekly.totalVolume")}: <b>{Math.round(view.totalKm)} {unitKm} / {totalHours} {unitH}</b></div>
           </div>
         }
       >
@@ -154,27 +184,43 @@ export default function DetailWeeklyPlan() {
             const km = Number(w.planned_km || 0);
             const hours = w.planned_minutes ? Math.round((w.planned_minutes / 60) * 10) / 10 : null;
             const widthPct = view.maxKm > 0 ? Math.max(6, Math.min(100, (km / view.maxKm) * 100)) : 0;
+            
             return (
               <div key={w.week_index} className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] uppercase tracking-wide opacity-70">Week {w.week_index}</span>
-                      <span className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[pk]}>{w.load_phase || "?"}</span>
+                      <span className="text-[10px] uppercase tracking-wide opacity-70">
+                         {getWeekLabel()} {w.week_index}
+                      </span>
+                      <span className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[pk]}>
+                        {getPhaseLabel(w.load_phase)}
+                      </span>
                     </div>
                     <div className="text-[11px] opacity-70">{formatDate(w.week_start)} – {formatDate(w.week_end)}</div>
                   </div>
+                  
                   <div className="text-sm font-semibold">{w.goal || w.focus || t("coach.weekly.noGoalShort")}</div>
-                  {w.focus && <div className="text-xs opacity-80">Focus: {w.focus}</div>}
+                  
+                  {w.focus && (
+                    <div className="text-xs opacity-80">
+                       {t("coachWeekly.widget.labelFocus")}: {w.focus}
+                    </div>
+                  )}
+
                   <div className={PANEL_INNER_STACK}>
                     <div className="flex items-center justify-between text-xs">
                       <span className="opacity-70">{t("coach.weekly.plannedVolume")}</span>
-                      <span className="font-semibold">{km ? `${km} km` : "—"}{hours ? ` · ${hours} h` : ""}</span>
+                      <span className="font-semibold">
+                        {km ? `${km} ${unitKm}` : "—"}
+                        {hours ? ` · ${hours} ${unitH}` : ""}
+                      </span>
                     </div>
                     <div className={PANEL_BAR_TRACK} style={PANEL_BAR_TRACK_STYLE}>
                       <div className={PANEL_BAR_FILL} style={{ ...PANEL_PHASE_BAR_STYLE[pk], width: `${widthPct}%` }} />
                     </div>
                   </div>
+                  
                   {w.notes && <div className="text-xs italic opacity-85">{w.notes}</div>}
                 </div>
               </div>

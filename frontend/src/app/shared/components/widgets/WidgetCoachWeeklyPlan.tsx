@@ -1,4 +1,4 @@
-// src/shared/components/widgets/WidgetCoachWeeklyPlan.tsx
+// src/app/features/coach/components/WidgetCoachWeeklyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +14,6 @@ import {
   WIDGET_INFO_GRID_SM,
   WIDGET_LABEL_MUTED_SM,
   WIDGET_VALUE_STRONG_SM,
-  WIDGET_NOTE_P_SM,
 } from "@/app/shared/ui/tokens";
 
 import {
@@ -55,11 +54,12 @@ function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
     if (today >= s && today <= e) return w;
   }
 
+  // Fallback: return the first week (index 1 usually)
   const idx1 = weeks.find((w) => w.week_index === 1);
   return idx1 ?? weeks[0];
 }
 
-function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
+function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   if (!plan || !plan.weeks?.length) {
     return {
       weeksCount: 0,
@@ -85,9 +85,10 @@ function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
   else if (firstStr) lastPlanRange = firstStr;
 
   const current = findCurrentWeek(weeks);
-  const currentWeekLabel = current 
-    ? `${current.week_index}.` 
+  const currentWeekLabel = current
+    ? `${current.week_index}.`
     : null;
+  
   const currentWeekFocus = current?.focus ?? current?.goal ?? null;
   const currentWeekLoad = current?.load_phase ?? null;
 
@@ -130,7 +131,19 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
     };
   }, [userId, t]);
 
-  const ui = useMemo(() => buildUiState(plan, t), [plan, t]);
+  const ui = useMemo(() => buildUiState(plan), [plan]);
+
+  // Pomocná funkcia na preklad fáz (Base, Build...)
+  const getPhaseLabel = (phaseStr?: string | null) => {
+    if (!phaseStr) return "—";
+    // Skúsime nájsť kľúč v common.phases (napr. base_aerobic)
+    // Nahrádzame medzery podčiarkovníkmi pre istotu
+    const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
+    const key = `common.phases.${safeKey}`;
+    const translated = (t as any)(key);
+    // Ak sa preklad rovná kľúču (nepreložené), vrátime pôvodný string
+    return translated === key ? phaseStr : translated;
+  };
 
   const note = ui.lastPlanRange
     ? `${t("coachWeekly.widget.noteRange")} ${ui.lastPlanRange}`
@@ -181,7 +194,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
             <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelPhase")}</div>
             <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
-              {ui.currentWeekLoad ?? "—"}
+              {getPhaseLabel(ui.currentWeekLoad)}
             </div>
           </div>
         </>

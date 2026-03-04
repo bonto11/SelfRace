@@ -131,18 +131,21 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-  // Pomocná funkcia na preklad úrovní (low/high/moderate...)
+// Pomocná funkcia na preklad úrovní (low/high/moderate...)
   const getLvl = (lvl?: string | null) => {
     if (!lvl) return "—";
-    const key = `common.levels.${lvl.toLowerCase()}`;
+    // Zmena: replace medzery za podčiarkovník pre istotu (napr. "Very Poor" -> "very_poor")
+    const safeKey = lvl.toLowerCase().replace(/ /g, "_");
+    const key = `common.levels.${safeKey}`;
     const translated = (t as any)(key);
     return translated === key ? lvl : translated;
   };
 
-  // ✅ Pomocná funkcia na preklad fáz (base, build, peak, recovery)
+  // Pomocná funkcia na preklad fáz
   const getPhaseLabel = (phaseStr?: string | null) => {
     if (!phaseStr) return "—";
-    const key = `common.phases.${phaseStr.toLowerCase()}`;
+    const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
+    const key = `common.phases.${safeKey}`;
     const translated = (t as any)(key);
     return translated === key ? phaseStr : translated;
   };
