@@ -10,6 +10,7 @@ from Routes_AI.athlete_state_generate import (
     generate_athlete_progress_report,
 )
 
+from Routes_DB.profile_metrics import db_insert_metric_rows
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
@@ -53,6 +54,33 @@ def _default_ai_model() -> str:
         return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash-latest").strip()
     return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
 
+# pomocná funkcia na extrakciu a uloženie
+def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
+    """
+    Vytiahne estimated_vo2max z analýzy a uloží ho do profile_metrics.
+    """
+    try:
+        ai_state = analysis.get("ai_state") or {}
+        metrics = ai_state.get("metrics") or {}
+        vo2_val = metrics.get("estimated_vo2max")
+
+        if vo2_val and isinstance(vo2_val, (int, float)):
+            # Pripravíme riadok pre tabuľku profile_metric
+            metric_row = {
+                "user_id": user_id,
+                "metric": "VO2Max_estimated",
+                "value_num": float(vo2_val),
+                "unit": "ml/kg/min",
+                "measured_at": analysis.get("generated_at") or _now_iso(),
+                "source": "system",
+                "note": f"AI Estimate (model: {analysis.get('model')})",
+            }
+            
+            db_insert_metric_rows([metric_row], ctx=ctx)
+
+    except Exception as e:
+        # Nechceme, aby pád zápisu metriky zhodil celú analýzu
+        print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
 
 # -------------------- STORAGE --------------------
 
@@ -299,6 +327,10 @@ def service_analyze_athlete(
         analysis=analysis,
         ctx=ctx,
     )
+
+    # ✅ NOVINKA: Ak analýza prebehla úspešne, skúsime uložiť VO2Max ako metriku
+    if analysis and not analysis.get("error"):
+        _maybe_save_estimated_vo2max(user_id, analysis, ctx)
 
     try:
         progress_result = service_compare_latest_athlete_states(
