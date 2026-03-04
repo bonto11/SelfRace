@@ -436,9 +436,22 @@ export default function WidgetCoachPlan() {
     setLoadingKind("cancel");
     try {
       await apiActivePlanCancel(userId, activePlanId);
+
+      // ✅ 1. Zmažeme informáciu o aktívnom pláne
       setActivePlanId(null);
-      if (typeof window !== "undefined")
+      if (typeof window !== "undefined") {
         localStorage.removeItem("coach.active_plan_id");
+
+        // ✅ 2. VYMAŽEME FAJKY Z LOCAL STORAGE
+        localStorage.removeItem(LS_GEN_WEEKLY);
+        localStorage.removeItem(LS_GEN_DAILY);
+      }
+
+      // ✅ 3. ZRESETUJEME REACT STAV (fajky zmiznú hneď v UI)
+      setHasWeekly(false);
+      setHasDaily(false);
+      setLatestStateId(null); // Voliteľné: ak chceš vynútiť aj novú analýzu stavu
+
       try {
         const stat = await apiActivePlanStatus(userId);
         setActivePlanId(stat.has_active ? (stat.plan_id ?? null) : null);
@@ -448,7 +461,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, activePlanId, t]);
+  }, [userId, activePlanId, t, LS_GEN_WEEKLY, LS_GEN_DAILY]);
 
   const disabled = !userId || loading;
   const generatorsDisabled = disabled || planLocked || isCriticallyInjured;
