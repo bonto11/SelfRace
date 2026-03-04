@@ -278,8 +278,8 @@ export default function PlanSessionDetail({
                   {t("sessions.detail.plan.cooldown")}
                 </div>
                 <div className={PLAN_BLOCK_TEXT}>
-                  {typeof wu === "string"
-                    ? wu
+                  {typeof cd === "string"
+                    ? cd
                     : [getDuration(cd), getTarget(cd), getNote(cd)]
                         .filter(Boolean)
                         .join(" · ") || "—"}
