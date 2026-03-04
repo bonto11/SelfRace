@@ -101,7 +101,8 @@ function RowAction({
           disabled={disabled}
           onClick={onPrimary}
           title={title}
-          className="flex-1"
+          // ✅ Zarovnanie textu doľava pomocou !justify-start a pridanie px-3
+          className="flex-1 !justify-start px-3"
         >
           {loading ? (
             <span className="inline-flex items-center gap-1">
@@ -144,7 +145,6 @@ export default function WidgetCoachPlan() {
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
 
-  // ✅ Logika pre náhodnú hlášku
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
 
   const LS_GEN_WEEKLY = "coach.generated.weekly";
@@ -152,7 +152,6 @@ export default function WidgetCoachPlan() {
 
   const loading = loadingKind !== null && loadingKind !== "status";
 
-  // Vyberieme náhodnú hlášku pri každom spustení loadingu
   useEffect(() => {
     if (loading) {
       setLoadingMsgIdx(Math.floor(Math.random() * 4) + 1);
@@ -439,11 +438,10 @@ export default function WidgetCoachPlan() {
           status={hasDaily}
         />
 
-        {/* ✅ DYNAMICKÁ HLÁŠKA + TIME NOTE */}
         {loading && (
            <div className="text-[10px] text-center opacity-60 italic py-1 leading-relaxed">
              <span className="animate-pulse block text-white/80">
-                {(t as any)(`coachPlan.loading.msg.${loadingMsgIdx}`)}
+                {(t as any)(`coachPlan.loading.msg${loadingMsgIdx}`)}
              </span>
              <span className="block mt-0.5">
                 {t("coachPlan.widget.timeNote")}
