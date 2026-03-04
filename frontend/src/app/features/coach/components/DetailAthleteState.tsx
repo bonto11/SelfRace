@@ -38,10 +38,9 @@ const BAR_COLORS = {
   danger: appColors.statusError,
 };
 
-// Definícia fixnej veľkosti pre pilulky v záhlaví
 const UNIFORM_PILL_BASE: CSSProperties = {
-  width: "160px", // Fixná šírka
-  height: "42px", // Fixná výška
+  width: "160px",
+  height: "42px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -432,6 +431,7 @@ export default function DetailAthleteState() {
       </Card>
     );
 
+  // ✅ OPRAVENÝ PREKLAD FÁZY
   const statusPills = (
     <>
       <div
@@ -450,7 +450,8 @@ export default function DetailAthleteState() {
       </div>
       {aiState.suggested_block_kind && (
         <div className={PANEL_STATUS_PILL} style={blockPillStyle()}>
-          {t("common.phases" as any)}: {aiState.suggested_block_kind}
+          {/* Tu prekladáme label 'Fáza' a následne hodnotu pomocou common.phases */}
+          {t("coach.weekly.phase" as any)}: {t(`common.phases.${aiState.suggested_block_kind}` as any)}
         </div>
       )}
     </>
