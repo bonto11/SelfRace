@@ -1223,6 +1223,7 @@ export const en = {
         "• Focus tells you the priority (e.g., speed vs. endurance).",
         "• Phase tells you whether to expect more fatigue (build/peak) or relief (deload).",
       ].join("\n"),
+      weeksCount: "Number of weeks",
       noteRange: "Plan range:",
       noteMissing: "Generate a weekly plan via AI.",
       errorTitle: "Failed to load weekly plan.",
@@ -2033,6 +2034,7 @@ export const en = {
       phases: {
         base: "Base",
         build: "Build",
+        taper: "Tapering",
         peak: "Peak",
         recovery: "Recovery",
         other: "Other",

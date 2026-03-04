@@ -38,7 +38,7 @@ import {
 
 /* ---------- helpers ---------- */
 
-type PhaseKey = "base" | "build" | "peak" | "recovery" | "other";
+type PhaseKey = "base" | "build" | "peak" | "taper" | "recovery" | "other";
 
 function formatDate(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -52,6 +52,7 @@ function phaseKey(load_phase?: string | null): PhaseKey {
   if (l.startsWith("base")) return "base";
   if (l.startsWith("build")) return "build";
   if (l.startsWith("peak")) return "peak";
+  if (l.startsWith("taper")) return "taper";
   if (l.startsWith("recovery") || l.startsWith("deload")) return "recovery";
   return "other";
 }
@@ -162,7 +163,7 @@ export default function DetailWeeklyPlan() {
         subtitle={<>{t("coach.weekly.overviewSubtitle")}{view.rangeLabel && <span className="block">{t("coach.weekly.range")}: {view.rangeLabel}</span>}</>}
         headRight={
           <div className="text-right text-xs opacity-80">
-            <div>{t("coachDaily.widget.daysCount")}: <b>{weeksCount}</b></div>
+            <div>{t("coachWeekly.widget.weeksCount")}: <b>{weeksCount}</b></div>
             <div>{t("coach.weekly.totalVolume")}: <b>{Math.round(view.totalKm)} {unitKm} / {totalHours} {unitH}</b></div>
           </div>
         }

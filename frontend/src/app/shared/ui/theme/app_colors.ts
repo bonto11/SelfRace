@@ -156,6 +156,7 @@ export const appColors = {
   //phase
   phaseBase: natur.phaseBase,
   phaseBuild: natur.phaseBuild,
+  phaseTaper: natur.phaseTaper,
   phasePeak: natur.phasePeak,
   phaseRecovery: natur.phaseRecovery,
 

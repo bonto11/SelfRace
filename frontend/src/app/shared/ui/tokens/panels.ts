@@ -123,7 +123,7 @@ export const POPOVER_BODY = [
   "leading-snug",
 ].join(" ");
 
-type PhaseKey = "base" | "build" | "peak" | "recovery" | "other";
+type PhaseKey = "base" | "build" | "taper" | "peak" | "recovery" | "other";
 
 
 /** Phase pill uses the same CSS vars as SESSION_PILL (bg/border/text) */
@@ -137,6 +137,11 @@ export const PANEL_PHASE_PILL_STYLE: Record<PhaseKey, VarStyle> = {
     "--pill-bg": "rgba(0,0,0,0)",
     "--pill-border": appColors.phaseBuild,
     "--pill-text": appColors.phaseBuild,
+  },
+  taper: {
+    "--pill-bg": "rgba(0,0,0,0)",
+    "--pill-border": appColors.phaseTaper,
+    "--pill-text": appColors.phaseTaper,
   },
   peak: {
     "--pill-bg": "rgba(0,0,0,0)",
@@ -158,6 +163,7 @@ export const PANEL_PHASE_PILL_STYLE: Record<PhaseKey, VarStyle> = {
 export const PANEL_PHASE_BAR_STYLE: Record<PhaseKey, CSSProperties> = {
   base: { background: appColors.phaseBase },
   build: { background: appColors.phaseBuild },
+  taper: { background: appColors.phaseTaper },
   peak: { background: appColors.phasePeak },
   recovery: { background: appColors.phaseRecovery },
   other: { background: appColors.stateNeutral },

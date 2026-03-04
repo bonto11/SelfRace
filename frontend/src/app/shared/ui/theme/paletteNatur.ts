@@ -124,6 +124,7 @@ export const natur = {
   //phase
   phaseBase: "#10B981",
   phaseBuild: "#6366F1",
+  phaseTaper: "#06B6D4",
   phasePeak: "#F59E0B",
   phaseRecovery: "##22C55E",
 

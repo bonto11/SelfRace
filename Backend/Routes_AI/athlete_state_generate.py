@@ -106,16 +106,12 @@ def generate_athlete_state_json(
         ctx=ctx,
     )
 
-    print("generate_athlete_state_json context_payload",context_payload)
-
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
-
-    print("generate_athlete_state_json res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 
@@ -125,10 +121,7 @@ def generate_athlete_state_json(
 
         now_local = _now_local_iso(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-        
-        # ✅ OPRAVA DÁTUMU: Natvrdo prepíšeme AI výmysel skutočným aktuálnym časom
-        parsed["generated_at"] = now_local 
-        
+        parsed["generated_at"] = now_local   
         parsed["model"] = str(getattr(res, "model", None) or model) 
         # sync trace ok_model
         if isinstance(trace, dict) and not trace.get("ok_model"):
