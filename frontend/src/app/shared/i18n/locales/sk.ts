@@ -1069,8 +1069,18 @@ export const sk = {
         "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť novú analýzu/týždenný/denný a spustiť nový plán.",
       ].join("\n"),
       note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
+      timeNote: "Generovanie môže trvať až 3 minúty.",
+      loading: {
+        msg1: "Zahrievam obvody a ladím tvoju formu...",
+        msg2: "Prepočítavam milióny bežeckých scenárov. Zatiaľ si skontroluj šnúrky.",
+        msg3: "Bude to vyzerať parádne!",
+        msg4: "Analyzujem dáta. Trvá to dlhšie, lebo mi na tvojom progresu záleží.",
+      },
+
       status: {
         medicalSuspend: "PLÁN POZASTAVENÝ (ZRANENIE)",
+        success: "Hotovo",
+        missing: "Chýba",
       },
       errors: {
         medicalBlocked:

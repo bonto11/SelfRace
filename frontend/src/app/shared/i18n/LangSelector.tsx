@@ -55,7 +55,9 @@ export default function LangSelector({
   const editable = variant === "editable";
   const effectiveDisabled = !!disabled || !editable;
 
-  const menuVariantClass = editable ? SELECT_MENU_EDITABLE : SELECT_MENU_READONLY;
+  const menuVariantClass = editable
+    ? SELECT_MENU_EDITABLE
+    : SELECT_MENU_READONLY;
   const menuStyle = {
     ...(editable ? SELECT_MENU_EDITABLE_STYLE : SELECT_MENU_READONLY_STYLE),
     ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
@@ -64,7 +66,11 @@ export default function LangSelector({
 
   const current = LANGS.find((x) => x.value === lang) ?? LANGS[0];
 
-  const [pos, setPos] = React.useState<{ left: number; top: number; width: number } | null>(null);
+  const [pos, setPos] = React.useState<{
+    right: number;
+    top: number;
+    width: number;
+  } | null>(null);
 
   function close() {
     setOpen(false);
@@ -96,7 +102,8 @@ export default function LangSelector({
 
     const update = () => {
       const r = el.getBoundingClientRect();
-      setPos({ left: r.left, top: r.bottom + 8, width: r.width });
+      // 2. Tu zmeníme left na right
+      setPos({ right: r.right, top: r.bottom + 8, width: r.width });
     };
 
     update();
@@ -110,9 +117,7 @@ export default function LangSelector({
 
   // kruh button sizing
   const circleCls =
-    size === "xs" ? "h-8 w-8"
-    : size === "md" ? "h-10 w-10"
-    : "h-9 w-9";
+    size === "xs" ? "h-8 w-8" : size === "md" ? "h-10 w-10" : "h-9 w-9";
 
   return (
     <div ref={wrapRef} className={cx("relative", className)}>
@@ -153,7 +158,9 @@ export default function LangSelector({
                 style={{
                   ...menuStyle,
                   position: "fixed",
-                  left: pos.left,
+                  // 3. TU JE HLAVNÁ ZMENA:
+                  // Nastavíme left tak, aby pravý okraj menu (pos.right) lícoval s pravým okrajom buttonu
+                  left: pos.right - 220,
                   top: pos.top,
                   width: 220,
                   zIndex: 999999,
@@ -185,7 +192,11 @@ export default function LangSelector({
                       />
                       <span className="flex-1 text-left">{o.name}</span>
                       <span className="text-xs opacity-70">{o.short}</span>
-                      <svg viewBox="0 0 16 16" aria-hidden="true" className={cx(SELECT_ICON, "opacity-0")} />
+                      <svg
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        className={cx(SELECT_ICON, "opacity-0")}
+                      />
                     </button>
                   );
                 })}

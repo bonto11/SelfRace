@@ -1072,8 +1072,18 @@ export const en = {
         "• Ends the active plan (moves it to finished). You can then do a new analyze/weekly/daily sequence and start a fresh plan.",
       ].join("\n"),
       note: "Analyze your state, generate your weekly and daily schedule, and then start the active plan.",
+      timeNote: "Generation can take up to 3 minutes.",
+      loading: {
+        msg1: "Warming up circuits and tuning your form...",
+        msg2: "Calculating millions of running scenarios. Check your laces in the meantime.",
+        msg3: "It's going to look awesome!",
+        msg4: "Analyzing data. It takes longer because I really care about your progress.",
+      },
+
       status: {
         medicalSuspend: "PLAN SUSPENDED (INJURY)",
+        success: "Done",
+        missing: "Mising",
       },
       errors: {
         medicalBlocked:
