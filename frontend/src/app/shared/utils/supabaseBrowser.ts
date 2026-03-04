@@ -18,7 +18,7 @@ export function getSupabaseBrowser() {
           detectSessionInUrl: true,
         },
 
-        /*cookies: {
+        cookies: {
           get(name: string) {
             if (typeof document === 'undefined') return '';
             const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
@@ -31,7 +31,7 @@ export function getSupabaseBrowser() {
           remove(name: string, options: any) {
           }
         }
-*/
+
       }
     );
   }
