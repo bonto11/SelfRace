@@ -226,7 +226,6 @@ def build_prompts_for_analyze(
     weeks = int(prefs2.get("weeks") or 4)
     main_sport = prefs2.get("main_sport") or "run"
     
-    # ✅ Vyberieme beginner flag pre prompt
     is_beginner = context_for_llm.get("is_returning_beginner")
 
     system_txt = (
@@ -237,8 +236,6 @@ def build_prompts_for_analyze(
         "Do NOT output prose or code fences, only JSON."
     )
 
-    # ✅ UPDATED SCHEMA: capabilities namiesto fitness_level
-    # ✅ Pridaný blok 'estimated_paces'
     schema_text = f"""
 {{
   "schema_version": 1,
@@ -323,11 +320,13 @@ def build_prompts_for_analyze(
         "  3 = Intermediate (Pokročilý): Structured training, can run 10k continuous, has distinct paces.\n"
         "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
         "  5 = Elite (Elitný): Top tier performance.\n"
-        "- Estimate 'estimated_vo2max' based on biometrics and performance. If no recent activities, make a rough guess based on age/sex/training_age or return null.\n"
-        "- CRITICAL FOR estimated_paces: Use the 'avg_pace_s' (seconds per km) and 'avg_hr' from the 'last_activities' block to estimate the user's current pace for each heart rate zone (Z1-Z5). "
-        "Compare the 'avg_hr' from their recent runs against their defined 'zones' bounds to determine which zone they were in, and use that 'avg_pace_s' as a baseline. "
-        "For missing zones, interpolate or extrapolate logically. 'best_1k_s' is their estimated absolute max effort for 1km. "
-        "Return all pace values as integers (seconds per kilometer).\n"
+        "- Estimate 'estimated_vo2max' based on biometrics and performance.\n"
+        "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' (ANCHOR AND EXTRAPOLATE METHOD):\n"
+        "1. DO NOT extract Z4 or Z5 pace directly from an activity's 'avg_pace_s'. Interval sessions include slow recovery periods that artificially lower the session's overall average pace.\n"
+        "2. ANCHOR Z2: Look for steady-state aerobic runs in 'last_activities' (where intensity is 'easy' or 'moderate' and avg_hr aligns with Z1/Z2). Use the 'avg_pace_s' from these specific runs as the baseline for Z2_pace_s.\n"
+        "3. ANCHOR Z4 / BESTS: Use 'thresholds.run.pace_lthr_s_per_km' or 'bests' array (personal bests) to anchor Z4 (Threshold pace) and best_1k_s.\n"
+        "4. EXTRAPOLATE: Mathematically estimate Z1, Z3, and Z5 based on the Z2 anchor and Z4/Bests. (e.g., Z1 is slower than Z2. Z5 is significantly faster than Z4).\n"
+        "5. FALLBACK: If there are no steady runs this week, extrapolate all paces using historical data, personal bests, or standard pace calculator logic based on their stated goal. Provide realistic integers (seconds per km).\n"
     )
 
     return system_txt, user_txt
