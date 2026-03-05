@@ -253,6 +253,11 @@ def build_last_activities_block_for_analysis(
         dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
         dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
 
+        # Vypočítame priemerné tempo pre aktivitu (sekundy na km), ak máme vzdialenosť a čas
+        avg_pace_s = None
+        if dist_km and dist_km > 0 and moving_s and moving_s > 0:
+            avg_pace_s = int(moving_s / dist_km)
+
         sport_src = r.get("sport_type_fe") or r.get("sport_type")
         sport = _canonical_sport(sport_src)
 
@@ -273,6 +278,7 @@ def build_last_activities_block_for_analysis(
                 "sport": sport,
                 "duration_min": round(dur_min) if dur_min else None,
                 "distance_km": round(dist_km, 2) if dist_km else None,
+                "avg_pace_s": avg_pace_s, # ✅ Pridané tempo pre AI
                 "avg_hr": avg_hr,
                 "intensity": intensity,
             }
@@ -335,16 +341,6 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
 def _check_is_returning_beginner(last_activities: List[Dict[str, Any]]) -> bool:
     if not last_activities:
         return True
-    
-    # Check date of most recent activity
-    latest_date_str = None
-    for act in last_activities:
-        # Note: build_last_activities_block vracia 'date' ako 'today-N' alebo 'today'.
-        # Ak je to 'today-N', musíme to parsovať, alebo sa pozrieť na DB input.
-        # ALE: build_last_activities je volané nižšie.
-        # Zjednodušenie: Ak last_activities je prázdne, je beginner.
-        # Ak tam sú len aktivity staršie ako 42 dní (čo tu nebudú, lebo query limituje na 60), tak je beginner.
-        pass
     
     # Pre potreby buildera budeme predpokladať, že ak DB query vrátila 0 aktivít za posledných 60 dní, je beginner.
     return False 
