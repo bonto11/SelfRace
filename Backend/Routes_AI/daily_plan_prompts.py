@@ -156,6 +156,7 @@ def build_prompts_for_daily(
 
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+    has_zones = bool(pref_obj.get("use_zones", True))
 
     tb = pref_obj.get("training_blocks") or {}
     if not isinstance(tb, dict): tb = {}
@@ -224,7 +225,6 @@ def build_prompts_for_daily(
                 f"- ACTIVE INJURY ({inj_str}): Adjust for recovery. No high intensity. Safe mode.\n\n"
             )
 
-    # ✅ BEGINNER RULE - Talk/Sing test platí pre oba športy
     beginner_rule = ""
     explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
     
@@ -248,7 +248,6 @@ def build_prompts_for_daily(
         "Return ONE valid JSON object."
     )
 
-    # ✅ SCHEMA UPDATE - Explicitne definovaná štruktúra ako objekty
     schema_text = """
     {
     "schema_version": 3,
@@ -266,7 +265,6 @@ def build_prompts_for_daily(
             "duration_min": number,
             "intensity": string | null,
             "session_type": string | null,
-            "zone_text": string | null,
             "notes": string | null,
             "structure": {
                 "warmup": { "minutes": number, "notes": string },
@@ -309,28 +307,30 @@ def build_prompts_for_daily(
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
-    # ✅ ENDURANCE STRUCTURE RULE - Teraz pre RUN aj RIDE
+    intensity_format_rule = (
+        "- INTENSITY FORMATING: In the main `intensity` field, format as 'Z1'/'Z2' or 'RPE 1/10' (e.g., if zones are missing). "
+        "In the `notes` of `warmup`, `main_part`, and `cooldown`, ALWAYS include the exact Heart Rate range or Pace/Power if available, "
+        "otherwise use RPE. Example: 'Upper Z2 (160-170) @ 4:30-5:00'.\n\n"
+    )
+
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
         "provide a detailed `structure` object using `warmup`, `main_part`, and `cooldown`.\n\n"
     )
 
-    # --- NEW: STRENGTH INTELLIGENCE RULE ---
     strength_structure_rule = (
-        "- STRENGTH STRUCTURE: When creating a 'strength' session, you MUST build the workout using "
-        "the provided 'strength_ai_menu' in planning_constraints. Follow the menu's instructions carefully! "
-        "Use ONLY the specific 'exercise_id' values provided. Distribute the exercises into 'activation', "
-        "'strength_main_part', and 'add_ons' arrays within the `structure` object.\n\n"
+        "- STRENGTH STRUCTURE: When creating a 'strength' session, use the provided 'strength_ai_menu'. "
+        "Use ONLY the specific 'exercise_id' values. Distribute the exercises into 'activation' (1-2 exercises), "
+        "'strength_main_part' (3-5 heavy exercises), and 'add_ons' (1-3 core/accessory exercises).\n\n"
     )
 
-    intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}.\n\n"
+    intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
     blocks_rule = f"- TRAINING BLOCKS: {', '.join([k for k,v in blocks.items() if v]) or 'none'}.\n\n"
 
     context_for_ai = _minify_context_for_ai(context_payload)
     safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
     context_for_ai["user_settings"] = safe_settings
 
-    # Zostavenie user_txt
     user_txt = (
         "Generate a weekly plan.\n"
         f"Week: {week_index} ({week_start} .. {week_end})\n"
@@ -345,8 +345,9 @@ def build_prompts_for_daily(
         + long_run_rule
         + multi_sport_rule
         + strength_rule
+        + intensity_format_rule
         + endurance_structure_rule 
-        + strength_structure_rule  # <--- Vložené nové pravidlo pre silu
+        + strength_structure_rule
         + intensity_model_rule
         + blocks_rule
         + weekly_volume_line

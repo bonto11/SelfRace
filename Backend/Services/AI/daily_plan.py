@@ -98,8 +98,6 @@ def service_generate_daily_week(
         ctx=ctx,
     )
 
-    print("DP build_daily_context_from_db contex",contex)
-
     context_payload = contex["context_payload"]
     plan_id_effective: Optional[str] = contex["plan_id_effective"]
     week_meta: Dict[str, Any] = contex["week_meta"]
