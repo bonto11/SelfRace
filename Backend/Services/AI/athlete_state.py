@@ -22,7 +22,7 @@ from Routes_DB.coach_athlete_state import (
 )
 
 # NEW: Import funkcie na ukladanie temp
-from Routes_DB.coach_pace_history import db_save_pace_history_batch
+from Routes_DB.users_pace_history import db_save_pace_history_batch
 
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state_builders import build_input_from_db
