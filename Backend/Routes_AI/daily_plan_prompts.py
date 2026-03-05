@@ -312,7 +312,9 @@ def build_prompts_for_daily(
         intensity_format_rule = (
             "- INTENSITY FORMATTING (HAS ZONES): Main `intensity` field MUST be 'Z1'-'Z5'. "
             "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH the exact Heart Rate range (use 'bpm', NOT 'rpm') AND Pace (min/km) or Power (W). "
-            "Example: 'Z2 (140-150 bpm) @ 5:45-6:15 min/km'. "
+            "CRITICAL INSTRUCTION FOR HEART RATE: You MUST use the exact hr_min and hr_max values provided in the context_payload.zones object for the respective sport. "
+            "DO NOT use generic formulas or average human heart rates. If the payload says Z2 is 155-169 bpm, you must write '155-169 bpm' in the notes. "
+            "Example Format: 'Z2 ([insert hr_min]-[insert hr_max] bpm) @ [insert pace] min/km'. "
             "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )
@@ -320,7 +322,7 @@ def build_prompts_for_daily(
         intensity_format_rule = (
             "- INTENSITY FORMATTING (NO ZONES): Main `intensity` field MUST be 'RPE X/10'. "
             "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
-            "Example: 'RPE 3/10 @ 6:00-6:30 min/km'. "
+            "Example Format: 'RPE 3/10 @ 6:00-6:30 min/km'. "
             "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )
@@ -373,6 +375,7 @@ def build_prompts_for_daily(
         + "- Single valid JSON matching schema.\n"
         + f"- Language: {lang_label}, address user as 'you' ({second_person_note}).\n"
         + "- Do NOT invent extreme workloads.\n"
+        + "- OUTPUT FORMATTING: Return ONLY valid JSON. Do not output any markdown formatting like ```json, and absolutely NO conversational text, explanations, or lists before or after the JSON.\n"
     )
 
     return system_txt, user_txt, [], strength_target_int
