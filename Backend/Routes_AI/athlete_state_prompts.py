@@ -269,10 +269,10 @@ def build_prompts_for_analyze(
     "key_strengths": string[],
     "metrics": {{
       "estimated_vo2max": number | null,
-      "estimated_5k_time_min": number | null,
-      "estimated_10k_time_min": number | null,
-      "estimated_half_marathon_time_min": number | null,
-      "estimated_marathon_time_min": number | null,
+      "estimated_5k_time_s": number | null,
+      "estimated_10k_time_s": number | null,
+      "estimated_half_marathon_time_s": number | null,
+      "estimated_marathon_time_s": number | null,
       "chronic_load_score": number | null,
       "acute_load_score": number | null
     }},
@@ -324,7 +324,7 @@ def build_prompts_for_analyze(
         "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
         "  5 = Elite (Elitný): Top tier performance.\n"
         "- Estimate 'estimated_vo2max' based on biometrics and performance.\n"
-        "- Estimate race times (5k, 10k, half marathon, marathon) in minutes based on VO2Max, recent load, and personal bests. Ensure realistic scaling (e.g., 10k is more than double 5k).\n"
+        "- CRITICAL FOR RACE ESTIMATES: Estimate race times (5k, 10k, half marathon, marathon) in TOTAL SECONDS based on VO2Max, recent load, and personal bests. (For example, if the estimated 10k time is 45:30, return 2730). Ensure realistic scaling (e.g., 10k is more than double 5k).\n"
         "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' (ANCHOR AND EXTRAPOLATE METHOD):\n"
         "1. DO NOT extract Z4 or Z5 pace directly from an activity's 'avg_pace_s'. Interval sessions include slow recovery periods that artificially lower the session's overall average pace.\n"
         "2. ANCHOR Z2: Look for steady-state aerobic runs in 'last_activities' (where intensity is 'easy' or 'moderate' and avg_hr aligns with Z1/Z2). Use the 'avg_pace_s' from these specific runs as the baseline for Z2_pace_s.\n"
