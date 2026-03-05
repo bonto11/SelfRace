@@ -1,3 +1,4 @@
+# ===== Services/AI/daily_prompts.py =====
 from __future__ import annotations
 
 import json
@@ -99,8 +100,10 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
 def _format_pace(seconds_per_km: int) -> str:
     """Konvertuje sekundy na format mm:ss pre prompt."""
-    minutes = seconds_per_km // 60
-    seconds = seconds_per_km % 60
+    if not isinstance(seconds_per_km, (int, float)) or seconds_per_km <= 0:
+        return ""
+    minutes = int(seconds_per_km) // 60
+    seconds = int(seconds_per_km) % 60
     return f"{minutes}:{seconds:02d}"
 
 def build_prompts_for_daily(
@@ -314,15 +317,17 @@ def build_prompts_for_daily(
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
-    latest_paces = context_payload.get("latest_paces", {})
+    latest_paces = context_payload.get("latest_paces") or {}
     if has_zones:
-        # Dynamická tvorba inštrukcií pre tempá z DB
+        # Dynamická tvorba inštrukcií pre tempá z flat DB štruktúry
         pace_instructions = ""
-        if latest_paces:
+        if isinstance(latest_paces, dict) and any(latest_paces.get(k) for k in ["z1_pace_s", "z2_pace_s", "z3_pace_s", "z4_pace_s", "z5_pace_s"]):
             pace_str_parts = []
-            for zone, seconds in latest_paces.items():
-                if zone <= 5: # Limitujeme na Z1-Z5
-                    pace_str_parts.append(f"Z{zone}: {_format_pace(seconds)}")
+            for i in range(1, 6):
+                key = f"z{i}_pace_s"
+                val = latest_paces.get(key)
+                if val is not None:
+                    pace_str_parts.append(f"Z{i}: {_format_pace(val)}")
             
             if pace_str_parts:
                 pace_instructions = (
