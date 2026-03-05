@@ -89,7 +89,7 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
 
 def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     """
-    Vytiahne odhadnuté tempá a odhady pretekov z analýzy a uloží ich ako jeden flat riadok.
+    Vytiahne odhadnuté tempá a odhady pretekov (v sekundách) z analýzy a uloží ich ako flat riadok.
     """
     try:
         ai_state = analysis.get("ai_state") or {}
@@ -116,10 +116,11 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
             "z4_pace_s": _get_int(paces, "z4_pace_s"),
             "z5_pace_s": _get_int(paces, "z5_pace_s"),
             "best_1k_s": _get_int(paces, "best_1k_s"),
-            "est_5k_time_min": _get_int(metrics, "estimated_5k_time_min"),
-            "est_10k_time_min": _get_int(metrics, "estimated_10k_time_min"),
-            "est_half_marathon_time_min": _get_int(metrics, "estimated_half_marathon_time_min"),
-            "est_marathon_time_min": _get_int(metrics, "estimated_marathon_time_min"),
+            # Aktualizované kľúče pre sekundy
+            "est_5k_time_s": _get_int(metrics, "estimated_5k_time_s"),
+            "est_10k_time_s": _get_int(metrics, "estimated_10k_time_s"),
+            "est_half_marathon_time_s": _get_int(metrics, "estimated_half_marathon_time_s"),
+            "est_marathon_time_s": _get_int(metrics, "estimated_marathon_time_s"),
         }
 
         # Uložíme iba ak máme aspoň jednu reálnu hodnotu okrem user_id a measured_at
@@ -129,7 +130,6 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
             db_save_pace_history(row_to_insert, ctx=ctx)
 
     except Exception as e:
-        # Bezpečný odchyt, aby to nezhodilo celú service_analyze_athlete
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
 
 # -------------------- STORAGE --------------------
