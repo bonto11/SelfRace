@@ -11,6 +11,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
+from Routes_DB.coach_pace_history import db_get_latest_paces  # NEW: Načítanie temp z DB
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
 from Services.coach_strength_mapper import prepare_strength_context_for_ai # NEW
@@ -270,6 +271,9 @@ def build_daily_context_from_db(
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
 
+    # NEW: Vytiahnutie aktuálnych temp z databázy
+    latest_paces = db_get_latest_paces(user_id=user_id, ctx=ctx)
+
     # 3) week meta from DB
     week_row: Optional[Dict[str, Any]] = None
     week_row = db_get_week_row_for_plan(
@@ -345,6 +349,7 @@ def build_daily_context_from_db(
         "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
+        "latest_paces": latest_paces, # Pridáme tempá priamo do payloadu pre AI
         "planning_constraints": {
             "two_a_day_max_days_per_week": int(_two_a_day_cap_from_prefs(prefs_ai)),
             "long_run_days": _long_run_days_from_prefs(prefs_ai),
