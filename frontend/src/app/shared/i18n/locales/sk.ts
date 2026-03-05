@@ -2236,6 +2236,9 @@ export const sk = {
         main: "Hlavná časť",
         warmup: "Rozcvička",
         cooldown: "Výklus",
+        activation: "Aktivácia",
+        strengthMain: "Hlavná časť",
+        addOns: "Doplnky a jadro",
       },
     },
     splits: {

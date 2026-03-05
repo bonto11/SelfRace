@@ -10,6 +10,7 @@ import {
 } from "@/app/shared/components/session/sessionUtils";
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
+import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog"; 
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -36,10 +37,10 @@ import {
   PLAN_DEBUG_PRE,
 } from "@/app/shared/ui/tokens";
 
-// --- Pomocné funkcie pre čítanie novej štruktúry ---
+// --- Pomocné funkcie pre čítanie štruktúry ---
 
 function getDuration(block: any): string | null {
-  if (typeof block === "string") return null; // Pri stringu dĺžku nevieme extrahovať samostatne
+  if (typeof block === "string") return null;
   const m = block?.duration_min ?? block?.minutes ?? block?.work_min;
   return m ? fmtMin(m) : null;
 }
@@ -50,7 +51,6 @@ function getTarget(block: any): string | null {
 }
 
 function getNote(block: any): string | null {
-  // Ak je block string, vrátime ho priamo ako inštrukciu
   if (typeof block === "string") return block;
   return block?.instruction ?? block?.notes ?? null;
 }
@@ -89,22 +89,26 @@ export default function PlanSessionDetail({
   showPlanDebug: boolean;
 }) {
   const t = useT();
+  // Zistenie aktuálneho jazyka pre katalóg (fallback na slovenčinu ak useT nemá explicitný lang)
+  // Ak máš v projekte hook na jazyk (napr. useLocale()), kľudne ho použi namiesto tohto
+  const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk"; 
+
   const raw = item.planRaw ?? undefined;
-  // Fallback: structure môže byť priamo objekt, alebo byť v 'structure' kľúči
   const structure = item.planStructure ?? raw?.structure ?? undefined;
 
-  // 1. Spracovanie Cvikov (Strength)
-  const exercises =
-    Array.isArray(item.planExercises) && item.planExercises.length > 0
-      ? item.planExercises
-      : ((structure as any)?.strength_exercises ??
-        (raw as any)?.strength_exercises ??
-        []);
+  // 1. Spracovanie Cvikov (Strength) - IBA NOVÁ ŠTRUKTÚRA
+  const strengthActivation = (structure as any)?.activation || [];
+  const strengthMainPart = (structure as any)?.strength_main_part || [];
+  const strengthAddOns = (structure as any)?.add_ons || [];
+  
+  const hasStrength =
+    strengthActivation.length > 0 ||
+    strengthMainPart.length > 0 ||
+    strengthAddOns.length > 0;
 
   // 2. Spracovanie Endurance (Beh/Bike)
-  // Nový formát používa "main_part" (pole), starý formát "main" (objekt alebo pole)
   const wu = (structure as any)?.warmup;
-  const rawMain = (structure as any)?.main_part ?? (structure as any)?.main;
+  const rawMain = (structure as any)?.main_part;
   const mainBlocks = Array.isArray(rawMain)
     ? rawMain
     : rawMain
@@ -136,6 +140,41 @@ export default function PlanSessionDetail({
             : null,
         ]
   ).filter(Boolean);
+
+  // Helper na vykreslenie listu cvikov a preklad cez Katalóg
+  const renderExerciseList = (exercises: any[], fallbackLabel: string) => (
+    <ul className={PLAN_EX_LIST}>
+      {exercises.map((e: any, i: number) => {
+        const id = e?.exercise_id;
+        // Ak nájdeme ID v katalógu, použijeme lokalizovaný názov, inak formatujeme ID, inak fallback
+        const catalogName = id && STRENGTH_CATALOG_FE[id] ? STRENGTH_CATALOG_FE[id][currentLang] : null;
+        const formattedId = id ? id.replace(/_/g, " ") : null;
+        
+        const displayName = catalogName || e?.exercise_name || formattedId || `${fallbackLabel} ${i + 1}`;
+
+        return (
+          <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
+            <div className={PLAN_EX_NAME} style={{ textTransform: "capitalize" }}>
+              {displayName}
+            </div>
+            <div className={PLAN_EX_LINE}>
+              {[
+                e?.sets ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}` : null,
+                e?.reps ? `${e.reps} ${t("sessions.detail.unitReps") || "opak."}` : null,
+                e?.seconds ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}` : null,
+                e?.rest_sec || e?.rest_s
+                  ? `${t("sessions.detail.unitRest") || "Pauza"} ${e.rest_sec || e.rest_s}s`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "—"}
+            </div>
+            {e?.notes && <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>}
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <div>
@@ -169,7 +208,6 @@ export default function PlanSessionDetail({
                 </div>
                 <div className={PLAN_MAIN_STACK}>
                   {mainBlocks.map((blk: any, idx: number) => {
-                    // Ak je blk len string (ako v tvojom JSON-e)
                     if (typeof blk === "string") {
                       return (
                         <div
@@ -291,40 +329,34 @@ export default function PlanSessionDetail({
       )}
 
       {/* --- SEKCIA: CVIKY (Strength) --- */}
-      {exercises?.length > 0 && (
+      {hasStrength && (
         <DetailSection title={t("sessions.detail.sectionExercises")}>
-          <ul className={PLAN_EX_LIST}>
-            {exercises.map((e: any, i: number) => (
-              <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
-                <div className={PLAN_EX_NAME}>
-                  {e?.exercise_name ||
-                    e?.name ||
-                    `${t("sessions.detail.sectionExercises")} ${i + 1}`}
+          <div className={PLAN_STRUCT_STACK}>
+            {strengthActivation.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.activation") || "Aktivácia"}
                 </div>
-                <div className={PLAN_EX_LINE}>
-                  {[
-                    e?.sets
-                      ? `${e.sets} ${t("sessions.detail.unitSets")}`
-                      : null,
-                    e?.reps
-                      ? `${e.reps} ${t("sessions.detail.unitReps")}`
-                      : null,
-                    e?.seconds
-                      ? `${e.seconds}${t("sessions.detail.unitSec")}`
-                      : null,
-                    e?.rest_sec || e?.rest_s
-                      ? `${t("sessions.detail.unitRest")} ${e.rest_sec || e.rest_s}s`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
+                {renderExerciseList(strengthActivation, "Cvik")}
+              </div>
+            )}
+            {strengthMainPart.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
                 </div>
-                {e?.notes && (
-                  <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>
-                )}
-              </li>
-            ))}
-          </ul>
+                {renderExerciseList(strengthMainPart, "Cvik")}
+              </div>
+            )}
+            {strengthAddOns.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
+                </div>
+                {renderExerciseList(strengthAddOns, "Cvik")}
+              </div>
+            )}
+          </div>
         </DetailSection>
       )}
 
@@ -335,7 +367,7 @@ export default function PlanSessionDetail({
           defaultOpen={false}
         >
           <pre className={PLAN_DEBUG_PRE}>
-            {safeText({ structure, exercises, raw })}
+            {safeText({ structure, raw })}
           </pre>
         </DetailSection>
       )}

@@ -337,8 +337,6 @@ def generate_daily_week_json(
             temperature=resolved_temperature,
         )
 
-        print("DPG ai_call_json_model res",res)
-        
         # --- safe error fields ---
         err = getattr(res, "error", None)
         err_code = getattr(err, "code", None) if err is not None else None

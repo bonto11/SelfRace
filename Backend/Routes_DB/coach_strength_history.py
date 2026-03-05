@@ -8,7 +8,6 @@ from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_STRENGTH_HISTORY
 
-
 def db_insert_strength_history_rows(
     rows: List[Dict[str, Any]],
     *,

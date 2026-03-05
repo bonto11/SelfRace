@@ -110,9 +110,6 @@ def service_generate_daily_week(
         model=daily_model,
     )
 
-    print("DP generate_daily_week_json ai_plan",ai_plan)
-    print("DP generate_daily_week_json trace",trace)
-
     if not isinstance(ai_plan, dict):
         ai_plan = {}
     if not isinstance(trace, dict):
