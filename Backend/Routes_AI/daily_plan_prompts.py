@@ -307,11 +307,23 @@ def build_prompts_for_daily(
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
-    intensity_format_rule = (
-        "- INTENSITY FORMATING: In the main `intensity` field, format as 'Z1'/'Z2' or 'RPE 1/10' (e.g., if zones are missing). "
-        "In the `notes` of `warmup`, `main_part`, and `cooldown`, ALWAYS include the exact Heart Rate range or Pace/Power if available, "
-        "otherwise use RPE. Example: 'Upper Z2 (160-170) @ 4:30-5:00'.\n\n"
-    )
+    # ✅ NOVÉ PRAVIDLÁ PRE INTENZITU PODĽA ZÓN A OBMEDZENIE RÝCHLOSTI
+    if has_zones:
+        intensity_format_rule = (
+            "- INTENSITY FORMATTING (HAS ZONES): Main `intensity` field MUST be 'Z1'-'Z5'. "
+            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH the exact Heart Rate range (use 'bpm', NOT 'rpm') AND Pace (min/km) or Power (W). "
+            "Example: 'Z2 (140-150 bpm) @ 5:45-6:15 min/km'. "
+            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
+            "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
+        )
+    else:
+        intensity_format_rule = (
+            "- INTENSITY FORMATTING (NO ZONES): Main `intensity` field MUST be 'RPE X/10'. "
+            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
+            "Example: 'RPE 3/10 @ 6:00-6:30 min/km'. "
+            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
+            "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
+        )
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
