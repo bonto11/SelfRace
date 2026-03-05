@@ -138,18 +138,27 @@ export interface SwimTargets {
 export type InjuryArea =
   | "foot"
   | "ankle"
+  | "achilles"
   | "shin"
-  | "knee"
-  | "hip"
-  | "hamstring"
   | "calf"
+  | "knee"
+  | "quad"
+  | "hamstring"
+  | "glute"
+  | "hip"
+  | "psoas"
+  | "groin"
+  | "abdomen"
   | "back"
+  | "neck"
   | "shoulder"
+  | "arm_wrist"
   | "other";
 
 export type InjuryType =
   | "overuse"
   | "acute"
+  | "muscle_strain"
   | "tendon"
   | "stress"
   | "shin_splints"
@@ -163,7 +172,6 @@ export type Injury = {
   note?: string;
   severity?: number; // 1-10
 };
-
 
 export type RehabFocus = {
   stretching: boolean;
@@ -219,10 +227,8 @@ export interface Preferences {
   avoid_back_to_back_hard: boolean;
   use_zones: boolean;
   two_a_day: TwoADayPrefs;
-
-  /** NEW */
-  intensity_model?: IntensityModel; // default "polarized"
-  training_blocks?: TrainingBlocks; // default {}
+  intensity_model?: IntensityModel; 
+  training_blocks?: TrainingBlocks; 
 }
 
 /* -------- Main prefs -------- */
@@ -245,12 +251,11 @@ export type CoachPrefs = {
   };
 
   preferences?: Preferences;
-
   strength_settings?: StrengthSettings | null;
 
   zones?: Zones;
   thresholds?: Thresholds;
-  injuries?: Injury;
+  injuries?: Injury[]; // Pole zranení
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
@@ -282,7 +287,6 @@ export const DEFAULT_PREFS: CoachPrefs = {
     use_zones: true,
     avoid_back_to_back_hard: false,
     two_a_day: { enabled: true, max_days_per_week: 2 },
-
     intensity_model: "polarized",
     training_blocks: {},
   },
