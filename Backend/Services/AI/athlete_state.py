@@ -21,6 +21,9 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_athlete_progress,
 )
 
+# NEW: Import funkcie na ukladanie temp
+from Routes_DB.coach_pace_history import db_save_pace_history_batch
+
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
@@ -81,6 +84,48 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
     except Exception as e:
         # Nechceme, aby pád zápisu metriky zhodil celú analýzu
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
+
+
+def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
+    """
+    Vytiahne odhadnuté tempá (estimated_paces) z analýzy a uloží ich ako batch do coach_pace_history.
+    """
+    try:
+        ai_state = analysis.get("ai_state") or {}
+        paces = ai_state.get("estimated_paces") or {}
+        
+        if not paces:
+            return
+
+        measured_at = analysis.get("generated_at") or _now_iso()
+        rows_to_insert = []
+
+        # Mapovanie kľúčov z JSONu na zone_index
+        pace_mapping = {
+            "z1_pace_s": 1,
+            "z2_pace_s": 2,
+            "z3_pace_s": 3,
+            "z4_pace_s": 4,
+            "z5_pace_s": 5,
+            "best_1k_s": 6
+        }
+
+        for key, zone_idx in pace_mapping.items():
+            pace_val = paces.get(key)
+            if pace_val is not None and isinstance(pace_val, (int, float)):
+                rows_to_insert.append({
+                    "user_id": user_id,
+                    "zone_index": zone_idx,
+                    "pace_s": int(pace_val),
+                    "measured_at": measured_at
+                })
+
+        if rows_to_insert:
+            db_save_pace_history_batch(rows_to_insert, ctx=ctx)
+
+    except Exception as e:
+        # Bezpečný odchyt, aby to nezhodilo celú service_analyze_athlete
+        print(f"[AI-STATE] Error saving estimated paces: {repr(e)}")
 
 # -------------------- STORAGE --------------------
 
@@ -328,9 +373,10 @@ def service_analyze_athlete(
         ctx=ctx,
     )
 
-    # ✅ NOVINKA: Ak analýza prebehla úspešne, skúsime uložiť VO2Max ako metriku
+    # ✅ NOVINKA: Ak analýza prebehla úspešne, extrahujeme metriky a tempá
     if analysis and not analysis.get("error"):
         _maybe_save_estimated_vo2max(user_id, analysis, ctx)
+        _maybe_save_estimated_paces(user_id, analysis, ctx) # <--- TU SA UKLADAJÚ TEMPÁ DO DB
 
     try:
         progress_result = service_compare_latest_athlete_states(
