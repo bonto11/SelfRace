@@ -62,6 +62,7 @@ def prepare_strength_context_for_ai(
         "core": [],
         "lower_quad": [],
         "lower_posterior": [],
+        "lower_calves": [], 
         "upper_push": [],
         "upper_pull": []
     }
