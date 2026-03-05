@@ -156,3 +156,21 @@ def db_update_plan_status(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-META] update_plan_status error:", repr(e))
         return None
+
+def db_delete_plan_meta(user_id: int, plan_id: str, *, ctx: AuthCtx) -> bool:
+    """
+    Tvrdé zmazanie meta záznamu z databázy. Žiadna archivácia.
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_delete_plan_meta")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .delete()
+            .eq("user_id", user_id)
+            .eq("plan_id", plan_id)
+            .execute()
+        )
+        return True
+    except Exception as e:
+        print("[DB-COACH-META] delete_plan_meta error:", repr(e))
+        return False

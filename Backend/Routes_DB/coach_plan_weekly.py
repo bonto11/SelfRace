@@ -139,3 +139,22 @@ def db_get_latest_plan_id_for_user(
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-WEEKLY] latest_plan_id error:", repr(e))
         return None
+
+def db_check_weekly_data_exists(user_id: int, plan_id: str, *, ctx: AuthCtx) -> bool:
+    """
+    Vráti True, ak pre daný plán a používateľa existuje aspoň jeden weekly záznam.
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_check_weekly_data_exists")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("plan_id", plan_id)
+            .limit(1)
+            .execute()
+        )
+        return bool(res.count and res.count > 0)
+    except Exception as e:
+        print("[DB-COACH-WEEKLY] check_exists error:", repr(e))
+        return False

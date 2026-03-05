@@ -229,3 +229,22 @@ def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: Auth
     except Exception as e:
         print("[DB-COACH-DAILY] has_uncompleted_sessions error:", repr(e))
         return False
+
+def db_check_daily_data_exists(user_id: int, plan_id: str, *, ctx: AuthCtx) -> bool:
+    """
+    Vráti True, ak pre daný plán a používateľa existuje aspoň jeden daily záznam.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_check_daily_data_exists")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("plan_id", plan_id)
+            .limit(1)
+            .execute()
+        )
+        return bool(res.count and res.count > 0)
+    except Exception as e:
+        print("[DB-COACH-DAILY] check_exists error:", repr(e))
+        return False

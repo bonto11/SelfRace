@@ -8,8 +8,6 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from Services.coach_plan_active import (
     service_save_active_plan,
     service_cancel_active_plan,
-    service_continue_active_plan,
-    service_extend_active_plan,
     service_link_activity,
     service_get_active_plan_status,
 )
@@ -65,47 +63,6 @@ async def cancel_active_plan(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"cancel_active_plan ERROR: {e}")
-
-
-# ----------------------------------------------------
-# PATCH /coach-plan-active/{user_id}/continue
-# ----------------------------------------------------
-@router.patch("/coach-plan-active/{user_id}/continue")
-async def continue_active_plan(
-    req: Request,
-    user_id: int,
-    payload: Dict[str, Any],
-):
-    ctx = require_user(get_auth_ctx(req))
-
-    min_days = int(payload.get("min_horizon_days", 10))
-    result = service_continue_active_plan(
-        user_id=user_id,
-        min_horizon_days=min_days,
-        ctx=ctx,
-    )
-    return result
-
-
-# ----------------------------------------------------
-# POST /coach-plan-active/{user_id}/extend
-# ----------------------------------------------------
-@router.post("/coach-plan-active/{user_id}/extend")
-async def extend_active_plan(
-    user_id: int,
-     req: Request,
-    min_horizon_days: int = 10,
-):
-    
-    ctx = require_user(get_auth_ctx(req))
-
-    result = service_extend_active_plan(
-        user_id=user_id,
-        min_horizon_days=min_horizon_days,
-        ctx=ctx,
-    )
-    return result
-
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/link

@@ -106,7 +106,6 @@ function RowAction({
           disabled={disabled}
           onClick={onPrimary}
           title={title}
-          // ✅ Zarovnanie textu doľava pomocou !justify-start a pridanie px-3
           className="flex-1 !justify-start px-3"
         >
           {loading ? (
@@ -162,6 +161,7 @@ export default function WidgetCoachPlan() {
 
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
 
+  // Ponechané iba pre účely upratania starej cache
   const LS_GEN_WEEKLY = "coach.generated.weekly";
   const LS_GEN_DAILY = "coach.generated.daily";
 
@@ -228,12 +228,7 @@ export default function WidgetCoachPlan() {
     };
   }, [userId]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setHasWeekly(!!localStorage.getItem(LS_GEN_WEEKLY));
-    setHasDaily(!!localStorage.getItem(LS_GEN_DAILY));
-  }, []);
-
+  // FETCH STATUS A DÁT Z DB PRIAMO Z API
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -242,8 +237,15 @@ export default function WidgetCoachPlan() {
       try {
         const s = await apiActivePlanStatus(userId);
         if (!alive) return;
+        
         const pid = s.has_active ? (s.plan_id ?? null) : null;
         setActivePlanId(pid);
+        
+        // ✅ Berieme dáta priamo zo statusu z databázy
+        // Ak backend ešte nevracia tieto polia, budú undefined (teda false)
+        setHasWeekly(!!(s as any).has_weekly_data);
+        setHasDaily(!!(s as any).has_daily_data);
+
         if (typeof window !== "undefined") {
           if (pid) localStorage.setItem("coach.active_plan_id", String(pid));
           else localStorage.removeItem("coach.active_plan_id");
@@ -269,18 +271,6 @@ export default function WidgetCoachPlan() {
       console.warn("[CoachPlan] ensurePlanStartFuture error", e);
     }
   }, [userId]);
-
-  const markWeeklyGenerated = useCallback(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(LS_GEN_WEEKLY, "1");
-    setHasWeekly(true);
-  }, []);
-
-  const markDailyGenerated = useCallback(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(LS_GEN_DAILY, "1");
-    setHasDaily(true);
-  }, []);
 
   const handleAnalyze = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend) return;
@@ -318,7 +308,8 @@ export default function WidgetCoachPlan() {
         weeks,
         state_id: stateId,
       });
-      markWeeklyGenerated();
+      // Okamžitý vizuálny update
+      setHasWeekly(true);
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
@@ -331,7 +322,6 @@ export default function WidgetCoachPlan() {
     result,
     latestStateId,
     ensurePlanStartFuture,
-    markWeeklyGenerated,
     formatAiError,
     isMedicalSuspend,
   ]);
@@ -347,7 +337,8 @@ export default function WidgetCoachPlan() {
         plan_id: null,
         overwrite: true,
       });
-      markDailyGenerated();
+      // Okamžitý vizuálny update
+      setHasDaily(true);
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
@@ -357,7 +348,6 @@ export default function WidgetCoachPlan() {
     userId,
     userUuid,
     ensurePlanStartFuture,
-    markDailyGenerated,
     formatAiError,
     isMedicalSuspend,
   ]);
@@ -437,20 +427,17 @@ export default function WidgetCoachPlan() {
     try {
       await apiActivePlanCancel(userId, activePlanId);
 
-      // ✅ 1. Zmažeme informáciu o aktívnom pláne
       setActivePlanId(null);
       if (typeof window !== "undefined") {
         localStorage.removeItem("coach.active_plan_id");
-
-        // ✅ 2. VYMAŽEME FAJKY Z LOCAL STORAGE
+        // Upratanie prípadnej starej cache
         localStorage.removeItem(LS_GEN_WEEKLY);
         localStorage.removeItem(LS_GEN_DAILY);
       }
 
-      // ✅ 3. ZRESETUJEME REACT STAV (fajky zmiznú hneď v UI)
       setHasWeekly(false);
       setHasDaily(false);
-      setLatestStateId(null); // Voliteľné: ak chceš vynútiť aj novú analýzu stavu
+      setLatestStateId(null);
 
       try {
         const stat = await apiActivePlanStatus(userId);
@@ -524,7 +511,6 @@ export default function WidgetCoachPlan() {
           status={hasDaily}
         />
 
-        {/* DYNAMICKÁ HLÁŠKA + TIME NOTE */}
         {loading && (
           <div className="text-[10px] text-center opacity-60 italic py-1 leading-relaxed">
             <span className="animate-pulse block text-white/80">

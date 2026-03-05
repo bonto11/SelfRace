@@ -42,6 +42,9 @@ export type ActivePlanStatus = {
   success: boolean;
   has_active: boolean;
   plan_id: string | null;
+  // ✅ Pridané nové premenné z backendu
+  has_weekly_data?: boolean;
+  has_daily_data?: boolean;
   meta?: any;
   detail?: string | null;
   error?: string | null;
@@ -100,56 +103,6 @@ export async function apiActivePlanCancel(
   } catch (e: any) {
     console.error("[Coach][apiActivePlanCancel] ERROR", e);
     throw new Error("api.coach.planCancelFailed");
-  }
-}
-
-/* ========================= CONTINUE ACTIVE PLAN ========================= */
-export async function apiActivePlanContinue(
-  userId: number,
-  minHorizonDays = 10
-): Promise<ExtendActivePlanResult> {
-  if (!userId) throw new Error("api.common.missingUserAuth");
-
-  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/continue`;
-
-  try {
-    const json = await callBackend<ExtendActivePlanResult>(path, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ min_horizon_days: minHorizonDays }),
-    });
-
-    if (!json?.success) throw new Error("api.coach.planContinueFailed");
-    return json;
-  } catch (e: any) {
-    console.error("[Coach][apiActivePlanContinue] ERROR", e);
-    throw new Error("api.coach.planContinueFailed");
-  }
-}
-
-/* ========================= EXTEND ACTIVE PLAN ========================= */
-export async function apiActivePlanExtend(
-  userId: number,
-  minHorizonDays = 10
-): Promise<ExtendActivePlanResult> {
-  if (!userId) throw new Error("api.common.missingUserAuth");
-
-  const path = `/coach-plan-active/${encodeURIComponent(
-    String(userId)
-  )}/extend?min_horizon_days=${encodeURIComponent(String(minHorizonDays))}`;
-
-  try {
-    const json = await callBackend<ExtendActivePlanResult>(path, {
-      method: "POST",
-      cache: "no-store",
-    });
-
-    if (!json?.success) throw new Error("api.coach.planContinueFailed");
-    return json;
-  } catch (e: any) {
-    console.error("[Coach][apiActivePlanExtend] ERROR", e);
-    throw new Error("api.coach.planContinueFailed");
   }
 }
 

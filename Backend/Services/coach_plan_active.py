@@ -1,19 +1,25 @@
+# Services/coach_plan_active.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from Modules.Supabase.auth import AuthCtx
+
 from Routes_DB.coach_plan_meta import (
-    db_archive_user_plans,
     db_get_latest_plan_meta_for_user,
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
+    db_delete_plan_meta,  # <-- pridali sme novú mazaciu funkciu
 )
 from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
     db_clear_daily_for_user_plan,
+    db_check_daily_data_exists,  # <-- check pre daily
 )
-from Routes_DB.coach_plan_weekly import db_clear_weekly_for_user_plan
-from Modules.Supabase.auth import AuthCtx
+from Routes_DB.coach_plan_weekly import (
+    db_clear_weekly_for_user_plan,
+    db_check_weekly_data_exists, # <-- check pre weekly
+)
 
 
 def _ensure_latest_plan_meta(
@@ -21,13 +27,6 @@ def _ensure_latest_plan_meta(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Nájde najnovší záznam v coach_plan_meta pre daného usera.
-    Ak nič nie je, hodí ValueError.
-
-    - service=False → RLS (vyžaduje user_jwt)
-    - service=True  → service klient (user_jwt ignorujeme)
-    """
     meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,
@@ -45,27 +44,12 @@ def service_save_active_plan(
 ) -> Dict[str, Any]:
     """
     Aktivuje najnovší vygenerovaný plán.
-
-    - očakáva, že weekly generátor už založil coach_plan_meta so status='generated'
-    - zaarchivuje všetky existujúce plány (generated/active)
-    - najnovšiemu nastaví status='active'
-    - vráti info pre FE
-
-    - FE:      service=False, user_jwt=JWT (RLS)
-    - worker:  service=True,  user_jwt=None (service role)
     """
-
-    # 1) nájdi najnovší plán z meta
+    # 1) nájdi najnovší plán z meta (zvyčajne v stave 'generated')
     meta = _ensure_latest_plan_meta(user_id=user_id, ctx=ctx)
     plan_id: str = meta["plan_id"]
 
-    # 2) archivuj staré plány (generated + active)
-    db_archive_user_plans(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
-    # 3) nastav status = active pre daný plan_id
+    # 2) nastav status = active pre daný plan_id
     updated = (
         db_update_plan_status(
             user_id=user_id,
@@ -91,12 +75,8 @@ def service_cancel_active_plan(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Ukončí aktuálny aktívny plán:
-      - nájde active meta
-      - nastaví status='archived'
-      - vymaže všetky weekly + daily riadky daného plan_id
+    Ukončí aktuálny aktívny plán. Žiadna archivácia, čisté premazanie DB.
     """
-
     meta = db_get_active_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,
@@ -106,18 +86,7 @@ def service_cancel_active_plan(
 
     plan_id = meta["plan_id"]
 
-    # 1) meta -> archived
-    updated_meta = (
-        db_update_plan_status(
-            user_id=user_id,
-            plan_id=plan_id,
-            new_status="archived",
-            ctx=ctx,
-        )
-        or meta
-    )
-
-    # 2) zmaž plán
+    # 1) Zmaž dáta z weekly a daily
     weekly_deleted = db_clear_weekly_for_user_plan(
         user_id=user_id,
         plan_id=plan_id,
@@ -129,80 +98,14 @@ def service_cancel_active_plan(
         ctx=ctx,
     )
 
+    # 2) Vymaž rovno celý meta záznam (nechcem zbytočný bordel v db)
+    db_delete_plan_meta(user_id=user_id, plan_id=plan_id, ctx=ctx)
+
     return {
         "plan_id": plan_id,
-        "meta": updated_meta,
+        "meta": None,
         "weekly_deleted": weekly_deleted,
         "daily_deleted": daily_deleted,
-    }
-
-
-def service_continue_active_plan(
-    user_id: int,
-    min_horizon_days: int,
-    *,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
-    Zatiaľ len stub – vráti info o aktuálnom aktívnom pláne.
-    """
-
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
-    if not meta:
-        return {
-            "success": False,
-            "extended_days": 0,
-            "plan_start": "",
-            "plan_end": "",
-            "horizon_days": 0,
-            "note": "no_active_plan",
-        }
-
-    return {
-        "success": True,
-        "extended_days": 0,
-        "plan_start": meta.get("start_date") or "",
-        "plan_end": meta.get("end_date") or "",
-        "horizon_days": min_horizon_days,
-        "note": "continue_active_plan stub – no automatic extension yet",
-    }
-
-
-def service_extend_active_plan(
-    user_id: int,
-    min_horizon_days: int,
-    *,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
-    Stub pre extend – zatiaľ nič nemení, len vráti info,
-    aby FE nepadal.
-    """
-
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
-    if not meta:
-        return {
-            "success": False,
-            "extended_days": 0,
-            "plan_start": "",
-            "plan_end": "",
-            "horizon_days": 0,
-            "note": "no_active_plan",
-        }
-
-    return {
-        "success": True,
-        "extended_days": 0,
-        "plan_start": meta.get("start_date") or "",
-        "plan_end": meta.get("end_date") or "",
-        "horizon_days": min_horizon_days,
-        "note": "extend_active_plan stub – not implemented yet",
     }
 
 
@@ -213,13 +116,6 @@ def service_link_activity(
     *,
     ctx: AuthCtx,
 ) -> bool:
-    """
-    Prelinkovanie planned session -> activity_id.
-
-    - FE/RLS:   service=False, user_jwt=JWT
-    - worker:   service=True,  user_jwt=None
-    """
-
     try:
         db_link_session_to_activity(
             user_id=user_id,
@@ -236,22 +132,41 @@ def service_get_active_plan_status(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Zistí, či má user aktívny plán.
+    Zistí, či má user aktívny (alebo vygenerovaný) plán a skontroluje dáta 
+    cez databázovú vrstvu (žiadne priame query v service).
     """
 
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    # 1) Najskôr skúsime nájsť aktívny plán
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    has_active = True
+
+    # 2) Ak nie je aktívny, pozrieme najnovší (napr. status='generated')
+    if not meta:
+        has_active = False
+        meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+
     if not meta:
         return {
             "has_active": False,
             "plan_id": None,
+            "has_weekly_data": False,
+            "has_daily_data": False,
             "meta": None,
         }
 
+    plan_id = meta.get("plan_id")
+    has_weekly = False
+    has_daily = False
+
+    if plan_id:
+        # Voláme pekne funkcie z DB vrstvy
+        has_weekly = db_check_weekly_data_exists(user_id=user_id, plan_id=plan_id, ctx=ctx)
+        has_daily = db_check_daily_data_exists(user_id=user_id, plan_id=plan_id, ctx=ctx)
+
     return {
-        "has_active": True,
-        "plan_id": meta.get("plan_id"),
+        "has_active": has_active,
+        "plan_id": plan_id,
+        "has_weekly_data": has_weekly,
+        "has_daily_data": has_daily,
         "meta": meta,
     }
