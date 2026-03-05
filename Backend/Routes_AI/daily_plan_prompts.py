@@ -37,7 +37,8 @@ def _remove_empty(d: Any) -> Any:
 def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context2: Dict[str, Any] = {}
     
-    for k in ("week", "zones", "thresholds", "external_events"):
+    # Pridané latest_paces do minifikovaného payloadu
+    for k in ("week", "zones", "thresholds", "external_events", "latest_paces"):
         if k in context:
             context2[k] = context[k]
 
@@ -95,6 +96,12 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         context2["planning_constraints"] = pc
 
     return _remove_empty(context2)
+
+def _format_pace(seconds_per_km: int) -> str:
+    """Konvertuje sekundy na format mm:ss pre prompt."""
+    minutes = seconds_per_km // 60
+    seconds = seconds_per_km % 60
+    return f"{minutes}:{seconds:02d}"
 
 def build_prompts_for_daily(
     context_payload: dict,
@@ -307,7 +314,28 @@ def build_prompts_for_daily(
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
+    latest_paces = context_payload.get("latest_paces", {})
     if has_zones:
+        # Dynamická tvorba inštrukcií pre tempá z DB
+        pace_instructions = ""
+        if latest_paces:
+            pace_str_parts = []
+            for zone, seconds in latest_paces.items():
+                if zone <= 5: # Limitujeme na Z1-Z5
+                    pace_str_parts.append(f"Z{zone}: {_format_pace(seconds)}")
+            
+            if pace_str_parts:
+                pace_instructions = (
+                    f"CRITICAL: When prescribing Pace for running, strictly use the following reference from user preferences: "
+                    f"{', '.join(pace_str_parts)}. Do not deviate by more than 5-10 seconds per km unless the session is specifically hilly or trail-based.\n"
+                )
+        else:
+            # Ak tabuľka temp ešte neobsahuje dáta
+            pace_instructions = (
+                "CRITICAL: No specific pace history found. You must ESTIMATE realistic target paces based on the user's recent load, target race time, and athlete state capabilities. "
+                "Provide a realistic average pace (min/km) for the specific zone being targeted, not max pace. Keep it conservative.\n"
+            )
+
         intensity_format_rule = (
             "- INTENSITY FORMATTING (HAS ZONES): Main `intensity` field MUST be 'Z1'-'Z5'. "
             "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
@@ -316,8 +344,8 @@ def build_prompts_for_daily(
             "Instead, prescribe a narrower, realistic target range (e.g., a 10-15 bpm window like '135-150 bpm') that fits strictly WITHIN the user's specific zone limits. "
             "NEVER use generic human heart rates; strictly respect the user's minimum and maximum bounds for each zone. "
             "Example Format: 'Z2 (145-155 bpm) @ [insert pace] min/km'. "
-            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
-            "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
+            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown.\n"
+            f"{pace_instructions}\n"
         )
     else:
         intensity_format_rule = (
