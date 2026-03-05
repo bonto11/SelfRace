@@ -238,6 +238,7 @@ def build_prompts_for_analyze(
     )
 
     # ✅ UPDATED SCHEMA: capabilities namiesto fitness_level
+    # ✅ Pridaný blok 'estimated_paces'
     schema_text = f"""
 {{
   "schema_version": 1,
@@ -274,6 +275,14 @@ def build_prompts_for_analyze(
       "estimated_5k_time_min": number | null,
       "chronic_load_score": number | null,
       "acute_load_score": number | null
+    }},
+    "estimated_paces": {{
+      "z1_pace_s": number | null,
+      "z2_pace_s": number | null,
+      "z3_pace_s": number | null,
+      "z4_pace_s": number | null,
+      "z5_pace_s": number | null,
+      "best_1k_s": number | null
     }},
     "plan_adjustment": {{
       "soften_next_days": {{
@@ -315,6 +324,10 @@ def build_prompts_for_analyze(
         "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
         "  5 = Elite (Elitný): Top tier performance.\n"
         "- Estimate 'estimated_vo2max' based on biometrics and performance. If no recent activities, make a rough guess based on age/sex/training_age or return null.\n"
+        "- CRITICAL FOR estimated_paces: Use the 'avg_pace_s' (seconds per km) and 'avg_hr' from the 'last_activities' block to estimate the user's current pace for each heart rate zone (Z1-Z5). "
+        "Compare the 'avg_hr' from their recent runs against their defined 'zones' bounds to determine which zone they were in, and use that 'avg_pace_s' as a baseline. "
+        "For missing zones, interpolate or extrapolate logically. 'best_1k_s' is their estimated absolute max effort for 1km. "
+        "Return all pace values as integers (seconds per kilometer).\n"
     )
 
     return system_txt, user_txt
