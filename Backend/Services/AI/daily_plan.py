@@ -98,6 +98,8 @@ def service_generate_daily_week(
         ctx=ctx,
     )
 
+    print("DP build_daily_context_from_db contex",contex)
+
     context_payload = contex["context_payload"]
     plan_id_effective: Optional[str] = contex["plan_id_effective"]
     week_meta: Dict[str, Any] = contex["week_meta"]
@@ -107,6 +109,10 @@ def service_generate_daily_week(
         context_payload=context_payload,
         model=daily_model,
     )
+
+    print("DP generate_daily_week_json ai_plan",ai_plan)
+    print("DP generate_daily_week_json trace",trace)
+
     if not isinstance(ai_plan, dict):
         ai_plan = {}
     if not isinstance(trace, dict):
