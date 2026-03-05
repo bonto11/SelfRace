@@ -120,44 +120,47 @@ def extract_and_save_ai_strength_history(
 ) -> int:
     """
     Prejde vrátený vygenerovaný JSON od AI, vyextrahuje použité cviky 
-    a uloží ich do databázy histórie, aby sme o nich vedeli o týždeň.
+    a uloží ich do databázy histórie.
     """
     new_history_rows = []
     
     days = ai_daily_plan.get("days", [])
     for day in days:
         day_date = day.get("date")
-        
         sessions = day.get("sessions", [])
+        
         for session_idx, session in enumerate(sessions):
-            
             # Zaujímajú nás iba silové tréningy
             if session.get("sport") == "strength":
                 structure = session.get("structure", {})
                 
-                # AI by mala vracať cviky v týchto troch poliach
-                blocks_to_check = ["activation", "main_part", "add_ons"]
+                # Skontrolujeme všetky možné bloky, kde môžu byť cviky
+                blocks_to_check = ["activation", "strength_main_part", "main_part", "add_ons"]
                 
                 for block_name in blocks_to_check:
                     exercises_in_block = structure.get(block_name, [])
                     
+                    if not exercises_in_block or not isinstance(exercises_in_block, list):
+                        continue
+                        
                     for ex in exercises_in_block:
                         ex_id = ex.get("exercise_id")
                         if not ex_id:
                             continue
                             
-                        # Lookup cieľového svalu (target) z nášho lokálneho katalógu
-                        target_slot = block_name  # fallback ak nenajde
-                        for catalog_item in STRENGTH_EXERCISE_CATALOG:
-                            if catalog_item["id"] == ex_id:
-                                target_slot = catalog_item["target"]
+                        target_slot = block_name  # fallback
+                        
+                        # Prechádzame plochý list katalógu priamo, bez .values()
+                        for item in STRENGTH_EXERCISE_CATALOG:
+                            if item.get("id") == ex_id:
+                                target_slot = item.get("target", block_name)
                                 break
                                 
                         new_history_rows.append({
                             "user_id": user_id,
                             "session_date": day_date,
                             "session_index": session_idx,
-                            "slot": target_slot,  # napr. 'lower_quad'
+                            "slot": target_slot,
                             "exercise_id": ex_id
                         })
                         
