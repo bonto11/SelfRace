@@ -22,12 +22,10 @@ from Routes_AI.weekly_plan_generate import generate_weekly_plan_json
 from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
-    db_get_latest_plan_id_for_user,
     db_get_weekly_for_user_plan,
 )
 from Routes_DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
-    db_archive_user_plans,
     db_get_latest_plan_meta_for_user,
 )
 
@@ -88,7 +86,6 @@ def service_generate_weekly_plan(
     ):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
-            "plan_id": None,
             "state_id": None,
             "model": (model or "auto"),
             "overwrite": overwrite,
@@ -100,7 +97,6 @@ def service_generate_weekly_plan(
             ),
         }
 
-    # --- build context ---
     # --- build context ---
     context = build_weekly_context_from_db(
         user_id=user_id,
@@ -114,11 +110,9 @@ def service_generate_weekly_plan(
     horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
 
-    # ✅ ZÁSAH: Ak bol vyžiadaný nový dátum začiatku, povieme to AI
     if override_start_date:
         if isinstance(context_payload.get("prefs"), dict):
             context_payload["prefs"]["plan_start_date"] = override_start_date
-            # Pridáme jasný signál (pre prompt)
             context_payload["replan_trigger"] = "critical_injury_override"
 
     # --- AI call ---
@@ -130,12 +124,9 @@ def service_generate_weekly_plan(
 
     if not isinstance(weekly_plan, dict):
         weekly_plan = {}
-
-    # TRACE: chceme vždy dict (kvôli FE tuning / billing)
     if not isinstance(trace, dict):
         trace = {}
 
-    # preferuj model, ktorý AI vráti (ak vráti)
     model_used = str(weekly_plan.get("model") or model or "auto")
 
     # --- billing (best effort) ---
@@ -161,34 +152,18 @@ def service_generate_weekly_plan(
         except Exception as e:  # noqa: BLE001
             print("[AI_BILLING] weekly_plan billing error:", repr(e))
 
-    # --- plan_id ---
-    plan_id = str(weekly_plan.get("plan_id") or uuid4())
-
     # --- overwrite: archive + clear previous weekly rows ---
     deleted_rows = 0
-    archived_meta = 0
     if overwrite:
-        archived_meta = db_archive_user_plans(
-            user_id,
-            ctx=ctx,
-        )
-
-        latest_plan_id = db_get_latest_plan_id_for_user(
+        deleted_rows = db_clear_weekly_for_user_plan(
             user_id=user_id,
             ctx=ctx,
         )
-        if latest_plan_id:
-            deleted_rows = db_clear_weekly_for_user_plan(
-                user_id=user_id,
-                plan_id=latest_plan_id,
-                ctx=ctx,
-            )
 
     # --- store weekly rows ---
     weeks_list = extract_weeks_payload(weekly_plan)
     rows: List[Dict[str, Any]] = build_weekly_rows_from_ai(
         user_id=user_id,
-        plan_id=plan_id,
         weeks_list=weeks_list,
     )
 
@@ -213,19 +188,12 @@ def service_generate_weekly_plan(
         last_week = weeks_list[-1]
         end_date = last_week.get("week_end") or last_week.get("week_start") or None
 
-    main_sport = plan_meta_dict.get("main_sport")
-    goal_kind = plan_meta_dict.get("goal_kind")
-
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
-        plan_id=plan_id,
         base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
         start_date=start_date,
         end_date=end_date,
-        main_sport=main_sport,
-        goal_kind=goal_kind,
-        source="ai_weekly_v1",
         ctx=ctx,
     )
 
@@ -233,14 +201,12 @@ def service_generate_weekly_plan(
     error_norm = _normalize_weekly_error(weekly_plan.get("error"))
 
     resp: Dict[str, Any] = {
-        "plan_id": plan_id,
         "state_id": used_state_id,
         "model": model_used,
         "overwrite": True,
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
-        "archived_meta": archived_meta,
         "error": error_norm,
     }
     if meta_row is not None:
@@ -269,21 +235,9 @@ def service_get_latest_weekly_plan(
         user_id=user_id,
         ctx=ctx,
     )
-    plan_id: Optional[str] = None
-    if meta and isinstance(meta.get("plan_id"), str):
-        plan_id = meta["plan_id"]
-
-    if not plan_id:
-        plan_id = db_get_latest_plan_id_for_user(
-            user_id=user_id,
-            ctx=ctx,
-        )
-        if not plan_id:
-            return None
 
     rows = db_get_weekly_for_user_plan(
         user_id=user_id,
-        plan_id=plan_id,
         ctx=ctx,
     )
     if not rows:
@@ -308,6 +262,5 @@ def service_get_latest_weekly_plan(
         )
 
     return {
-        "plan_id": plan_id,
         "weeks": weeks_out,
     }

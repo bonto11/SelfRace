@@ -47,13 +47,11 @@ def service_save_active_plan(
     """
     # 1) nájdi najnovší plán z meta (zvyčajne v stave 'generated')
     meta = _ensure_latest_plan_meta(user_id=user_id, ctx=ctx)
-    plan_id: str = meta["plan_id"]
 
-    # 2) nastav status = active pre daný plan_id
+    # 2) nastav status = active pre daný
     updated = (
         db_update_plan_status(
             user_id=user_id,
-            plan_id=plan_id,
             new_status="active",
             ctx=ctx,
         )
@@ -61,7 +59,6 @@ def service_save_active_plan(
     )
 
     return {
-        "plan_id": plan_id,
         "plan_start": updated.get("start_date"),
         "plan_end": updated.get("end_date"),
         "weeks": updated.get("weeks_total"),
@@ -84,25 +81,21 @@ def service_cancel_active_plan(
     if not meta:
         raise ValueError("User has no active plan to cancel.")
 
-    plan_id = meta["plan_id"]
 
     # 1) Zmaž dáta z weekly a daily
     weekly_deleted = db_clear_weekly_for_user_plan(
         user_id=user_id,
-        plan_id=plan_id,
         ctx=ctx,
     )
     daily_deleted = db_clear_daily_for_user_plan(
         user_id=user_id,
-        plan_id=plan_id,
         ctx=ctx,
     )
 
     # 2) Vymaž rovno celý meta záznam (nechcem zbytočný bordel v db)
-    db_delete_plan_meta(user_id=user_id, plan_id=plan_id, ctx=ctx)
+    db_delete_plan_meta(user_id=user_id, ctx=ctx)
 
     return {
-        "plan_id": plan_id,
         "meta": None,
         "weekly_deleted": weekly_deleted,
         "daily_deleted": daily_deleted,
@@ -148,24 +141,20 @@ def service_get_active_plan_status(
     if not meta:
         return {
             "has_active": False,
-            "plan_id": None,
             "has_weekly_data": False,
             "has_daily_data": False,
             "meta": None,
         }
 
-    plan_id = meta.get("plan_id")
     has_weekly = False
     has_daily = False
 
-    if plan_id:
-        # Voláme pekne funkcie z DB vrstvy
-        has_weekly = db_check_weekly_data_exists(user_id=user_id, plan_id=plan_id, ctx=ctx)
-        has_daily = db_check_daily_data_exists(user_id=user_id, plan_id=plan_id, ctx=ctx)
+    # Voláme pekne funkcie z DB vrstvy
+    has_weekly = db_check_weekly_data_exists(user_id=user_id, ctx=ctx)
+    has_daily = db_check_daily_data_exists(user_id=user_id, ctx=ctx)
 
     return {
         "has_active": has_active,
-        "plan_id": plan_id,
         "has_weekly_data": has_weekly,
         "has_daily_data": has_daily,
         "meta": meta,

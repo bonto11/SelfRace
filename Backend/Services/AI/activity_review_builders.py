@@ -315,10 +315,8 @@ def _split_history_0_7_and_8_14(items: List[Dict[str, Any]]) -> Tuple[List[Dict[
 def _real_db_get_plans_for_today_tomorrow(user_id: int, date_str_today: str, ctx: AuthCtx) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     try:
         meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-        plan_id = meta.get("plan_id") if isinstance(meta, dict) else None
-        if not plan_id: return None, None
 
-        daily_rows = db_list_daily_for_user_horizon(user_id=user_id, horizon_days=2, plan_id=plan_id, ctx=ctx) or []
+        daily_rows = db_list_daily_for_user_horizon(user_id=user_id, horizon_days=2, ctx=ctx) or []
         
         dt_today = datetime.strptime(date_str_today, "%Y-%m-%d")
         date_str_tomorrow = (dt_today + timedelta(days=1)).strftime("%Y-%m-%d")

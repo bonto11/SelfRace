@@ -263,7 +263,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 week_index=int(payload["week_index"]),
-                plan_id=payload.get("plan_id"),
                 model=payload.get("model"),
             )
 

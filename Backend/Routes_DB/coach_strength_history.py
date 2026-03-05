@@ -15,7 +15,7 @@ def db_insert_strength_history_rows(
 ) -> int:
     """
     Bulk INSERT do coach_strength_history.
-    Očakáva zoznam dictov obsahujúcich: user_id, session_date, plan_id, session_index, slot, exercise_id
+    Očakáva zoznam dictov obsahujúcich: user_id, session_date, session_index, slot, exercise_id
     """
     if not rows:
         return 0

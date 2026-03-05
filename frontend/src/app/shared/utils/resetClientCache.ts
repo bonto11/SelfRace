@@ -3,7 +3,6 @@ export function resetClientCache() {
   if (typeof window === "undefined") return;
 
   const LS_KEYS = [
-    "coach.active_plan_id",
     "coach.generated",
     "coach.prefs",
     "up:coach.prefs",

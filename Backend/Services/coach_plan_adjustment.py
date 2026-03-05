@@ -150,10 +150,9 @@ def service_coach_autoadjust_after_update(
         }
 
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-    if not meta or not isinstance(meta.get("plan_id"), str):
+    if not meta:
         return {"changed": False, "mode": "no_plan"}
 
-    plan_id = meta["plan_id"]
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days = (today - meta_created).days if meta_created else None
 
@@ -194,7 +193,6 @@ def service_coach_autoadjust_after_update(
             # ✅ ČISTKA: Keďže starý plán ide do koša, zmažeme jeho budúce tréningy v kalendári
             db_clear_daily_for_user_range(
                 user_id=user_id,
-                plan_id=plan_id,
                 date_from=today.isoformat(),
                 date_to=(today + timedelta(days=100)).isoformat(), # Zabezpečíme, že zmažeme celú budúcnosť
                 ctx=ctx,
@@ -211,13 +209,11 @@ def service_coach_autoadjust_after_update(
                 ctx=ctx,
             )
             
-            new_plan_id = weekly_resp.get("plan_id")
             cur_idx = 1
             
             service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
-                plan_id=new_plan_id,
                 model=None,
                 ctx=ctx,
             )
@@ -233,12 +229,11 @@ def service_coach_autoadjust_after_update(
                 "mode": "weekly_replan",
                 "reason": weekly_replan_reason or "weekly plan re-generated",
                 "plan_adjustment": plan_adjustment,
-                "weekly_plan_meta": {"plan_id": new_plan_id},
                 "daily_extend": daily_extend,
             }
 
     if soften_should:
-        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_id=plan_id, ctx=ctx) or []
+        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
         if not isinstance(weekly_rows, list):
             weekly_rows = []
             
@@ -250,7 +245,6 @@ def service_coach_autoadjust_after_update(
         daily_resp = service_generate_daily_week(
             user_id=user_id, 
             week_index=cur_idx, 
-            plan_id=plan_id, 
             model=None, 
             drop_past_days=True, 
             ctx=ctx
@@ -261,7 +255,7 @@ def service_coach_autoadjust_after_update(
             "mode": "daily_soften",
             "reason": soften_reason,
             "affected_week_index": cur_idx,
-            "daily_result": {"plan_id": daily_resp.get("plan_id"), "week_index": daily_resp.get("week_index")}
+            "daily_result": {"week_index": daily_resp.get("week_index")}
         }
 
     return {"changed": False, "mode": "no_adjustment", "reason": "No changes requested"}

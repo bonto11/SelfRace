@@ -101,7 +101,7 @@ class CoachDailyWeekInput(TypedDict):
     prefs: Dict[str, Any]
     athlete_state: Dict[str, Any]
     existing_days: List[DailyDay]
-    meta: Dict[str, Any]  # user_id, plan_id, atď.
+    meta: Dict[str, Any]  # user_id, atď.
 
 
 class CoachDailyWeekPlan(TypedDict):

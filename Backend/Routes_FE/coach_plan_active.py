@@ -34,7 +34,6 @@ async def save_active_plan(
         )
         return {
             "success": True,
-            "plan_id": result.get("plan_id"),
             "plan_start": result.get("plan_start"),
             "plan_end": result.get("plan_end"),
             "weeks": result.get("weeks"),

@@ -33,7 +33,6 @@ def db_insert_weekly_rows(
 
 def db_clear_weekly_for_user_plan(
     user_id: int,
-    plan_id: str,
     *,
     ctx: AuthCtx,
 ) -> int:
@@ -47,7 +46,6 @@ def db_clear_weekly_for_user_plan(
             sb.table(TABLE_COACH_PLAN_WEEKLY)
             .delete()
             .eq("user_id", user_id)
-            .eq("plan_id", plan_id)
             .execute()
         )
         data = res.data or []
@@ -60,12 +58,11 @@ def db_clear_weekly_for_user_plan(
 
 def db_get_weekly_for_user_plan(
     user_id: int,
-    plan_id: str,
     *,
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
-    Načítanie weekly riadkov pre konkrétny plan_id.
+    Načítanie weekly riadkov pre konkrétny.
     """
     sb = get_sb(ctx, caller="coach_plan_weekly.db_get_weekly_for_user_plan")
 
@@ -74,7 +71,6 @@ def db_get_weekly_for_user_plan(
             sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("*")
             .eq("user_id", user_id)
-            .eq("plan_id", plan_id)
             .order("week_index", desc=False)
             .execute()
         )
@@ -86,13 +82,12 @@ def db_get_weekly_for_user_plan(
 
 def db_get_week_row_for_plan(
     user_id: int,
-    plan_id: str,
     week_index: int,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
-    Načíta konkrétny týždeň (1 riadok) pre daný plan_id + week_index.
+    Načíta konkrétny týždeň (1 riadok) + week_index.
     """
     sb = get_sb(ctx, caller="coach_plan_weekly.db_get_week_row_for_plan")
 
@@ -101,7 +96,6 @@ def db_get_week_row_for_plan(
             sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("*")
             .eq("user_id", user_id)
-            .eq("plan_id", plan_id)
             .eq("week_index", week_index)
             .limit(1)
             .execute()
@@ -112,35 +106,7 @@ def db_get_week_row_for_plan(
         print("[DB-COACH-WEEKLY] get_week_row error:", repr(e))
         return None
 
-
-def db_get_latest_plan_id_for_user(
-    user_id: int,
-    *,
-    ctx: AuthCtx,
-) -> Optional[str]:
-    """
-    Vracia posledný použitý plan_id pre usera (podľa created_at).
-    """
-    sb = get_sb(ctx, caller="coach_plan_weekly.db_get_latest_plan_id_for_user")
-
-    try:
-        res = (
-            sb.table(TABLE_COACH_PLAN_WEEKLY)
-            .select("plan_id, created_at")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
-        rows = res.data or []
-        if not rows:
-            return None
-        return rows[0]["plan_id"]
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-WEEKLY] latest_plan_id error:", repr(e))
-        return None
-
-def db_check_weekly_data_exists(user_id: int, plan_id: str, *, ctx: AuthCtx) -> bool:
+def db_check_weekly_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     """
     Vráti True, ak pre daný plán a používateľa existuje aspoň jeden weekly záznam.
     """
@@ -150,7 +116,6 @@ def db_check_weekly_data_exists(user_id: int, plan_id: str, *, ctx: AuthCtx) -> 
             sb.table(TABLE_COACH_PLAN_WEEKLY)
             .select("id", count="exact")
             .eq("user_id", user_id)
-            .eq("plan_id", plan_id)
             .limit(1)
             .execute()
         )

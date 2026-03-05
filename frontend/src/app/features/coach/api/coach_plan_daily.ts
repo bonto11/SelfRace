@@ -32,7 +32,6 @@ type RunJobResponse = {
 
 export type DailyWeekGenerateOptions = {
   week_index: number;
-  plan_id?: string | null;
   overwrite?: boolean;
 };
 
@@ -45,7 +44,6 @@ export async function apiGenerateDailyForWeek(
 
   const payload = {
     week_index: opts.week_index,
-    plan_id: opts.plan_id ?? null,
     overwrite: opts.overwrite ?? true,
     debug: true,
   };
@@ -126,7 +124,6 @@ export type DailyPlanSession = {
   duration_min: number | null;
   intensity: string | null;
   notes: string | null;
-  zone_text?: string | null;
   session_type?: string | null;
   structure?: DailyPlanStructure | null;
 };

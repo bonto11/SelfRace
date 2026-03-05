@@ -265,7 +265,6 @@ def build_weekly_context_from_db(
 
 def build_weekly_rows_from_ai(
     user_id: int,
-    plan_id: str,
     weeks_list: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """
@@ -282,7 +281,6 @@ def build_weekly_rows_from_ai(
         rows.append(
             {
                 "user_id": user_id,
-                "plan_id": plan_id,
                 "week_index": week_index,
                 "week_start": w.get("week_start"),
                 "week_end": w.get("week_end"),

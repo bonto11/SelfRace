@@ -45,11 +45,6 @@ function getDuration(block: any): string | null {
   return m ? fmtMin(m) : null;
 }
 
-function getTarget(block: any): string | null {
-  if (typeof block === "string") return null;
-  return block?.target ?? block?.zone_text ?? null;
-}
-
 function getNote(block: any): string | null {
   if (typeof block === "string") return block;
   return block?.instruction ?? block?.notes ?? null;
@@ -218,7 +213,7 @@ export default function PlanSessionDetail({
                 <div className={PLAN_BLOCK_TEXT}>
                   {typeof wu === "string"
                     ? wu
-                    : [getDuration(wu), getTarget(wu), getNote(wu)]
+                    : [getDuration(wu), getNote(wu)]
                         .filter(Boolean)
                         .join(" · ") || "—"}
                 </div>
@@ -252,8 +247,6 @@ export default function PlanSessionDetail({
                       const reps = blk.repeats || 1;
                       const workDur = getDuration(blk.work);
                       const restDur = getDuration(blk.rest);
-                      const workTgt = getTarget(blk.work);
-                      const restTgt = getTarget(blk.rest);
                       const workNote = getNote(blk.work);
 
                       return (
@@ -282,21 +275,6 @@ export default function PlanSessionDetail({
                             )}
                           </div>
 
-                          {/* Targets */}
-                          {(workTgt || restTgt) && (
-                            <div className={PLAN_MAIN_TGT}>
-                              {workTgt && <span>Work: {workTgt}</span>}
-                              {workTgt && restTgt && (
-                                <span className="mx-1 opacity-30">|</span>
-                              )}
-                              {restTgt && (
-                                <span className="opacity-70">
-                                  Rest: {restTgt}
-                                </span>
-                              )}
-                            </div>
-                          )}
-
                           {/* Note/Instruction */}
                           {workNote && (
                             <div className={PLAN_MAIN_NOTE}>
@@ -309,7 +287,6 @@ export default function PlanSessionDetail({
 
                     // B) STEADY / SIMPLE BLOCK
                     const dur = getDuration(blk);
-                    const tgt = getTarget(blk);
                     const note = getNote(blk);
 
                     return (
@@ -321,9 +298,6 @@ export default function PlanSessionDetail({
                         <div className="font-semibold text-white/90">
                           {dur || "—"}
                         </div>
-                        {tgt && (
-                          <div className={PLAN_MAIN_TGT}>{tgtToStr(tgt)}</div>
-                        )}
                         {note && (
                           <div className={PLAN_MAIN_NOTE}>{safeText(note)}</div>
                         )}
@@ -343,7 +317,7 @@ export default function PlanSessionDetail({
                 <div className={PLAN_BLOCK_TEXT}>
                   {typeof cd === "string"
                     ? cd
-                    : [getDuration(cd), getTarget(cd), getNote(cd)]
+                    : [getDuration(cd), getNote(cd)]
                         .filter(Boolean)
                         .join(" · ") || "—"}
                 </div>

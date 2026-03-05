@@ -38,7 +38,6 @@ def generate_daily_for_week(
         result = service_generate_daily_week(
             user_id=user_id,
             week_index=payload.week_index,
-            plan_id=payload.plan_id,
             model=payload.model,
             ctx=ctx,
         )

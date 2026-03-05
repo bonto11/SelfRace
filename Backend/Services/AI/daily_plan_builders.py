@@ -75,7 +75,6 @@ def _normalize_external_intensity(v: Any) -> Optional[str]:
 
 def build_daily_rows_from_ai(
     user_id: int,
-    plan_id: Optional[str],
     daily_plan: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
     days = daily_plan.get("days") or []
@@ -103,11 +102,9 @@ def build_daily_rows_from_ai(
                 "title": s.get("title"),
                 "duration_min": s.get("duration_min"),
                 "intensity": s.get("intensity"),
-                "zone_text": s.get("zone_text"),
                 "structure": s.get("structure"),
                 "notes": s.get("notes"),
                 "source": "ai_daily_v2",
-                "plan_id": plan_id,
                 "session_type": s.get("session_type"),
                 "session_index": int(s.get("session_index") or idx),
                 "payload": s.get("payload"),
@@ -255,20 +252,9 @@ def build_daily_context_from_db(
     user_id: int,
     *,
     week_index: int,
-    plan_id: Optional[str],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     
-    # 1) resolve plan_id
-    plan_id_effective: Optional[str] = plan_id
-    if not plan_id_effective:
-        meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
-        if meta and isinstance(meta.get("plan_id"), str):
-            plan_id_effective = meta["plan_id"]
-        else:
-            meta2 = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-            if meta2 and isinstance(meta2.get("plan_id"), str):
-                plan_id_effective = meta2["plan_id"]
 
     # 2) analyze input
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
@@ -286,10 +272,9 @@ def build_daily_context_from_db(
 
     # 3) week meta from DB
     week_row: Optional[Dict[str, Any]] = None
-    if plan_id_effective:
-        week_row = db_get_week_row_for_plan(
-            user_id=user_id, plan_id=plan_id_effective, week_index=week_index, ctx=ctx
-        )
+    week_row = db_get_week_row_for_plan(
+        user_id=user_id,  week_index=week_index, ctx=ctx
+    )
 
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
@@ -352,7 +337,6 @@ def build_daily_context_from_db(
         "schema_version": 2,
         "user_id": user_id,
         "week_index": week_index,
-        "plan_id": plan_id_effective,
         "overwrite": True,
         "week": week_meta,
         "prefs": prefs_ai,
@@ -378,7 +362,6 @@ def build_daily_context_from_db(
 
     return {
         "context_payload": context_payload,
-        "plan_id_effective": plan_id_effective,
         "week_meta": week_meta,
         "state_row": state_row,
         "prefs_ai": prefs_ai,

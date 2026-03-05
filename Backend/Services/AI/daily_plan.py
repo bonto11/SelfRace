@@ -56,7 +56,6 @@ def service_generate_daily_week(
     user_id: int,
     *,
     week_index: int,
-    plan_id: Optional[str] = None,
     model: Optional[str] = None,
     drop_past_days: bool = False,
     ctx: AuthCtx,
@@ -74,7 +73,6 @@ def service_generate_daily_week(
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "daily_plan": None,
-            "plan_id": plan_id,
             "week_index": week_index,
             "week_start": None,
             "week_end": None,
@@ -94,12 +92,10 @@ def service_generate_daily_week(
     contex = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
-        plan_id=plan_id,
         ctx=ctx,
     )
 
     context_payload = contex["context_payload"]
-    plan_id_effective: Optional[str] = contex["plan_id_effective"]
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
 
@@ -122,8 +118,6 @@ def service_generate_daily_week(
         ai_plan.setdefault("week_start", week_start)
     if week_end:
         ai_plan.setdefault("week_end", week_end)
-    if plan_id_effective:
-        ai_plan["plan_id"] = plan_id_effective
 
     daily_plan = ai_plan
 
@@ -137,12 +131,12 @@ def service_generate_daily_week(
                 log_ai_usage_for_user(
                     user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
                     source="user", billed_via="internal", charge_wallet=False,
-                    meta={"week_index": week_index, "plan_id": plan_id_effective}, ctx=ctx,
+                    meta={"week_index": week_index}, ctx=ctx,
                 )
             except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
 
         return {
-            "daily_plan": daily_plan, "plan_id": plan_id_effective, "week_index": week_index,
+            "daily_plan": daily_plan, "week_index": week_index,
             "week_start": week_start, "week_end": week_end, "state_id": (state_row or {}).get("id"),
             "model": daily_model, "overwrite": True, "inserted_rows": 0, "deleted_rows": 0,
             "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
@@ -158,23 +152,21 @@ def service_generate_daily_week(
             log_ai_usage_for_user(
                 user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
                 source="user", billed_via="internal", charge_wallet=False,
-                meta={"week_index": week_index, "plan_id": plan_id_effective}, ctx=ctx,
+                meta={"week_index": week_index}, ctx=ctx,
             )
         except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
 
     daily_plan = _reindex_sessions_per_day(daily_plan)
 
     # --- NEW: Extract and Save AI generated Strength Exercises to History ---
-    if plan_id_effective:
-        try:
-            extract_and_save_ai_strength_history(
-                user_id=user_id,
-                plan_id=plan_id_effective,
-                ai_daily_plan=daily_plan,
-                ctx=ctx
-            )
-        except Exception as e:
-            print("[STRENGTH_MAPPER] error saving ai history:", repr(e))
+    try:
+        extract_and_save_ai_strength_history(
+            user_id=user_id,
+            ai_daily_plan=daily_plan,
+            ctx=ctx
+        )
+    except Exception as e:
+        print("[STRENGTH_MAPPER] error saving ai history:", repr(e))
 
     days = daily_plan.get("days")
     if not isinstance(days, list): days = []
@@ -193,14 +185,14 @@ def service_generate_daily_week(
         date_from = today_iso 
 
     deleted_rows = 0
-    if plan_id_effective and date_from and date_to:
+    if date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
-            user_id=user_id, plan_id=plan_id_effective,
+            user_id=user_id,
             date_from=date_from, date_to=date_to, ctx=ctx,
         )
 
     rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
-        user_id=user_id, plan_id=plan_id_effective, daily_plan=daily_plan,
+        user_id=user_id, daily_plan=daily_plan,
     )
 
     if drop_past_days:
@@ -210,7 +202,6 @@ def service_generate_daily_week(
 
     resp: Dict[str, Any] = {
         "daily_plan": daily_plan,
-        "plan_id": plan_id_effective,
         "week_index": week_index,
         "week_start": daily_plan.get("week_start") or week_meta.get("week_start"),
         "week_end": daily_plan.get("week_end") or week_meta.get("week_end"),
@@ -242,13 +233,11 @@ def service_get_daily_overview(
         user_id=user_id,
         ctx=ctx,
     )
-    plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
 
     rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
             user_id=user_id,
             horizon_days=horizon_days,
-            plan_id=plan_id,
             ctx=ctx,
         )
         or []
@@ -291,7 +280,6 @@ def service_get_daily_overview(
                     "title": s.get("title"),
                     "duration_min": s.get("duration_min"),
                     "intensity": s.get("intensity"),
-                    "zone_text": s.get("zone_text"),
                     "notes": s.get("notes"),
                     "session_type": s.get("session_type"),
                     "structure": structure,
@@ -323,15 +311,11 @@ def service_auto_extend_daily_plan(
         user_id=user_id,
         ctx=ctx,
     )
-    plan_id: Optional[str] = meta.get("plan_id") if isinstance(meta, dict) else None
-    if not plan_id:
-        return {"changed": False, "reason": "no_plan"}
 
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
             user_id=user_id,
             horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-            plan_id=plan_id,
             ctx=ctx,
         )
         or []
@@ -356,7 +340,6 @@ def service_auto_extend_daily_plan(
     weekly_rows: List[Dict[str, Any]] = (
         db_get_weekly_for_user_plan(
             user_id=user_id,
-            plan_id=plan_id,
             ctx=ctx,
         )
         or []
@@ -415,7 +398,6 @@ def service_auto_extend_daily_plan(
         _ = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
-            plan_id=plan_id,
             model=None,
             ctx=ctx,
         )
@@ -425,7 +407,6 @@ def service_auto_extend_daily_plan(
             db_list_daily_for_user_horizon(
                 user_id=user_id,
                 horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-                plan_id=plan_id,
                 ctx=ctx,
             )
             or []
@@ -446,7 +427,6 @@ def service_auto_extend_daily_plan(
         "current_week_index": current_week_index,
         "final_days_left": days_left,
         "last_daily_date": current_last_str,
-        "plan_id": plan_id,
     }
 
 

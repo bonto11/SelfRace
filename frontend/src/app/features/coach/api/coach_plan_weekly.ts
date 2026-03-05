@@ -125,7 +125,6 @@ export type WeeklyPlanWeek = {
 };
 
 export type WeeklyPlanLatest = {
-  plan_id: string;
   weeks: WeeklyPlanWeek[];
 };
 

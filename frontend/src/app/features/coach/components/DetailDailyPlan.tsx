@@ -350,11 +350,6 @@ export default function DetailDailyPlan() {
                     label: t("common.metrics.intensity").toUpperCase(), 
                     value: String(s.intensity) 
                   });
-                if (s.zone_text)
-                  kpis.push({ 
-                    label: t("common.metrics.target").toUpperCase(), 
-                    value: String(s.zone_text) 
-                  });
 
                 const item: PlanSession = {
                   id: s.id,
@@ -369,7 +364,6 @@ export default function DetailDailyPlan() {
 
                   planDur: s.duration_min ? `${s.duration_min} ${t("common.units.min")}` : null,
                   planIntensity: s.intensity ?? null,
-                  planTarget: s.zone_text ?? null,
                   planNotes: s.notes ?? null,
 
                   planRaw: s,

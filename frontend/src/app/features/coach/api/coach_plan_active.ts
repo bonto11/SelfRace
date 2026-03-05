@@ -5,7 +5,6 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type SaveActivePlanResult = {
   success: boolean;
-  plan_id: string | null;
   plan_start?: string;
   plan_end?: string;
   horizon_days?: number;
@@ -41,8 +40,6 @@ export type ReorderUpdate = {
 export type ActivePlanStatus = {
   success: boolean;
   has_active: boolean;
-  plan_id: string | null;
-  // ✅ Pridané nové premenné z backendu
   has_weekly_data?: boolean;
   has_daily_data?: boolean;
   meta?: any;
@@ -95,7 +92,7 @@ export async function apiActivePlanCancel(
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
-      body: JSON.stringify({ plan_id: planId ?? null }),
+      body: JSON.stringify(null),
     });
 
     if (!json?.success) throw new Error("api.coach.planCancelFailed");

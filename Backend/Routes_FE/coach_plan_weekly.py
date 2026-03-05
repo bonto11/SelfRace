@@ -61,7 +61,6 @@ def get_latest_weekly_plan(
       {
         "success": true,
         "plan": {
-          "plan_id": "...",
           "weeks": [ ... ]
         } | None
       }

@@ -115,7 +115,6 @@ def prepare_strength_context_for_ai(
 
 def extract_and_save_ai_strength_history(
     user_id: int,
-    plan_id: str,
     ai_daily_plan: Dict[str, Any],
     ctx: AuthCtx
 ) -> int:
@@ -156,7 +155,6 @@ def extract_and_save_ai_strength_history(
                                 
                         new_history_rows.append({
                             "user_id": user_id,
-                            "plan_id": plan_id,
                             "session_date": day_date,
                             "session_index": session_idx,
                             "slot": target_slot,  # napr. 'lower_quad'

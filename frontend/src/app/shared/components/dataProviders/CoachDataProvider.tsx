@@ -47,7 +47,6 @@ export type PlanRow = {
   title?: string | null;
   duration_min?: number | null;
   intensity?: string | null;
-  plan_id?: string | null;
   activity_id?: number | null;
   session_type?: string | null;
   session_index?: number | null;

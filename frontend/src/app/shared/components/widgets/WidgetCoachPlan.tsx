@@ -237,19 +237,11 @@ export default function WidgetCoachPlan() {
       try {
         const s = await apiActivePlanStatus(userId);
         if (!alive) return;
-        
-        const pid = s.has_active ? (s.plan_id ?? null) : null;
-        setActivePlanId(pid);
-        
+
         // ✅ Berieme dáta priamo zo statusu z databázy
         // Ak backend ešte nevracia tieto polia, budú undefined (teda false)
         setHasWeekly(!!(s as any).has_weekly_data);
         setHasDaily(!!(s as any).has_daily_data);
-
-        if (typeof window !== "undefined") {
-          if (pid) localStorage.setItem("coach.active_plan_id", String(pid));
-          else localStorage.removeItem("coach.active_plan_id");
-        }
       } catch (e: any) {
         if (!alive) return;
       } finally {
@@ -334,7 +326,6 @@ export default function WidgetCoachPlan() {
       await ensurePlanStartFuture();
       await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: 1,
-        plan_id: null,
         overwrite: true,
       });
       // Okamžitý vizuálny update
@@ -401,10 +392,6 @@ export default function WidgetCoachPlan() {
     setLoadingKind("start");
     try {
       const res = await apiActivePlanSave(userId, {});
-      const pid = res.plan_id ?? null;
-      setActivePlanId(pid);
-      if (typeof window !== "undefined" && pid)
-        localStorage.setItem("coach.active_plan_id", pid);
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -413,7 +400,9 @@ export default function WidgetCoachPlan() {
   }, [userId, canStartPlan, isMedicalSuspend]);
 
   const handleCancelPlan = useCallback(async () => {
-    if (!userId || !activePlanId) return;
+    // 1. Kontrolujeme už len userId, nepotrebujeme ID konkrétneho plánu
+    if (!userId) return;
+
     setError(null);
     const ok = await confirm({
       title: t("coachPlan.confirmCancel.title"),
@@ -422,33 +411,41 @@ export default function WidgetCoachPlan() {
       cancelText: t("coachPlan.confirmCancel.cancel"),
       tone: "danger",
     });
+
     if (!ok) return;
+
     setLoadingKind("cancel");
     try {
-      await apiActivePlanCancel(userId, activePlanId);
+      // 2. API voláme len s userId - backend vie, ktorý plán je aktívny
+      await apiActivePlanCancel(userId);
 
-      setActivePlanId(null);
+      // 3. Vyčistíme lokálne cache
       if (typeof window !== "undefined") {
-        localStorage.removeItem("coach.active_plan_id");
-        // Upratanie prípadnej starej cache
         localStorage.removeItem(LS_GEN_WEEKLY);
         localStorage.removeItem(LS_GEN_DAILY);
       }
 
+      // 4. Resetujeme stavy (bez plan_id)
       setHasWeekly(false);
       setHasDaily(false);
       setLatestStateId(null);
 
+      // Ak si mal stav setActivePlanId(null), teraz pravdepodobne použiješ:
+      // setHasActivePlan(false);
+
+      // 5. Refresh statusu (voliteľné, ale dobré pre istotu)
       try {
         const stat = await apiActivePlanStatus(userId);
-        setActivePlanId(stat.has_active ? (stat.plan_id ?? null) : null);
+        // stat.has_active by teraz malo byť false
+        // setHasActivePlan(stat.has_active);
       } catch {}
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, activePlanId, t, LS_GEN_WEEKLY, LS_GEN_DAILY]);
+    // 6. Odstránili sme activePlanId z dependencies
+  }, [userId, t, LS_GEN_WEEKLY, LS_GEN_DAILY]);
 
   const disabled = !userId || loading;
   const generatorsDisabled = disabled || planLocked || isCriticallyInjured;
