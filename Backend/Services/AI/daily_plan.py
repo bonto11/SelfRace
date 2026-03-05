@@ -158,6 +158,7 @@ def service_generate_daily_week(
 
     daily_plan = _reindex_sessions_per_day(daily_plan)
 
+    print("daily_plan",daily_plan)
     # --- NEW: Extract and Save AI generated Strength Exercises to History ---
     try:
         extract_and_save_ai_strength_history(
