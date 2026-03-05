@@ -291,7 +291,8 @@ def build_prompts_for_daily(
     date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
     
     external_rules = (
-        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date.\n\n"
+        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date. "
+        "For these events, you MUST set `session_type: \"external_event\"`.\n\n"
     )
 
     two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Prefer 1 session/day.\n\n"
