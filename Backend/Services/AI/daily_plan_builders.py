@@ -12,6 +12,7 @@ from Routes_DB.coach_plan_meta import (
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.AI.athlete_state_builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
+from Services.coach_strength_mapper import prepare_strength_context_for_ai # NEW
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import WEEKDAY_TO_ABBR
 
@@ -240,7 +241,6 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
         
     return False
 
-
 def build_daily_context_from_db(
     user_id: int,
     *,
@@ -265,7 +265,7 @@ def build_daily_context_from_db(
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
-    # ✅ Zistíme status začiatočníka
+    # Zistíme status začiatočníka
     is_returning_beginner = _check_is_returning_beginner(analyze_input)
 
     recent_load = analyze_input.get("recent_load") or {}
@@ -313,9 +313,27 @@ def build_daily_context_from_db(
     state_row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
     athlete_state_json = (state_row or {}).get("state_json") or {}
     
-    # ✅ Vložíme informáciu o začiatočníkovi do stavu atléta, aby to AI videlo
     if isinstance(athlete_state_json, dict):
         athlete_state_json["is_returning_beginner"] = is_returning_beginner
+
+    # --- NEW: 5.5) Strength Mapper Context ---
+    strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
+    available_eq = strength_settings.get("available") or []
+    if not isinstance(available_eq, list): available_eq = []
+    eq_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
+    
+    active_injuries = prefs_ai.get("injuries") or []
+    # Placeholder na hated cviky (ak pridas do fe, mapuj sem)
+    disliked_ex = [] 
+    
+    strength_ai_menu = prepare_strength_context_for_ai(
+        user_id=user_id,
+        available_equipment=available_eq,
+        equipment_mode=eq_mode if isinstance(eq_mode, str) else None,
+        injuries=active_injuries,
+        disliked_exercises=disliked_ex,
+        ctx=ctx
+    )
 
     # 6) context payload
     context_payload: Dict[str, Any] = {
@@ -336,7 +354,8 @@ def build_daily_context_from_db(
             "long_run_days": _long_run_days_from_prefs(prefs_ai),
             "strength_sessions_per_week_target": _strength_sessions_target_from_prefs(prefs_ai),
             "external_events_must_be_included": True,
-            "is_returning_beginner": is_returning_beginner, # Aj sem pre istotu
+            "is_returning_beginner": is_returning_beginner,
+            "strength_ai_menu": strength_ai_menu # <--- Pridané menu pre AI!
         },
     }
 

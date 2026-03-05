@@ -1,7 +1,8 @@
+# Routes_DB/coach_strength_history.py
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
@@ -15,13 +16,14 @@ def db_insert_strength_history_rows(
 ) -> int:
     """
     Bulk INSERT do coach_strength_history.
+    Očakáva zoznam dictov obsahujúcich: user_id, session_date, plan_id, session_index, slot, exercise_id
     """
     if not rows:
         return 0
 
-    sb = get_sb(ctx, caller="coach_strength_history.db_insert_weekly_rows")
+    sb = get_sb(ctx, caller="coach_strength_history.db_insert_strength_history_rows")
 
-    # pre istotu normalizuj session_date na string
+    # Normalizácia dátumov na ISO string, aby s tým Supabase nemal problém
     normalized: List[Dict[str, Any]] = []
     for r in rows:
         r2 = dict(r)
@@ -32,26 +34,24 @@ def db_insert_strength_history_rows(
 
     try:
         res = sb.table(TABLE_COACH_STRENGTH_HISTORY).insert(normalized).execute()
-        data = res.data or []
-        return len(data)
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-STRENGTH] insert error:", repr(e))
+        return len(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-STRENGTH] insert history error:", repr(e))
         return 0
 
 
 def db_get_strength_history_for_user(
     user_id: int,
     *,
-    weeks_back: int = 8,
+    weeks_back: int = 4,  # Default na 4 týždne (ideálne okno pre silový blok)
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
-    Načíta históriu silových cvikov pre usera za posledných weeks_back týždňov.
+    Načíta históriu silových cvikov pre usera za posledných X týždňov.
     """
     sb = get_sb(ctx, caller="coach_strength_history.db_get_strength_history_for_user")
 
-    today = date.today()
-    start_date = today - timedelta(weeks=weeks_back)
+    start_date = date.today() - timedelta(weeks=weeks_back)
 
     try:
         res = (
@@ -63,9 +63,7 @@ def db_get_strength_history_for_user(
             .order("id", desc=True)
             .execute()
         )
-        data = res.data or []
-
-        return data
-    except Exception as e:  # noqa: BLE001
-        print("[DB-COACH-STRENGTH] history error:", repr(e))
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-STRENGTH] get history error:", repr(e))
         return []

@@ -250,37 +250,43 @@ def build_prompts_for_daily(
 
     # ✅ SCHEMA UPDATE - Explicitne definovaná štruktúra ako objekty
     schema_text = """
-{
-  "schema_version": 3,
-  "meta": {
-    "is_beginner_adaptation": boolean,
-    "msg": "Explanation for the user if beginner mode is active"
-  },
-  "days": [
     {
-      "date": "YYYY-MM-DD",
-      "sessions": [
+    "schema_version": 3,
+    "meta": {
+        "is_beginner_adaptation": boolean,
+        "msg": "Explanation for the user if beginner mode is active"
+    },
+    "days": [
         {
-          "sport": "run" | "ride" | "swim" | "strength" | "other",
-          "title": string,
-          "duration_min": number,
-          "intensity": string | null,
-          "session_type": string | null,
-          "zone_text": string | null,
-          "notes": string | null,
-          "structure": {
-             "warmup": { "minutes": number, "notes": string },
-             "main_part": [ { "minutes": number, "notes": string, "target": string } ] | { "minutes": number, "notes": string },
-             "cooldown": { "minutes": number, "notes": string }
-          } | null,
-          "payload"?: object | null
+        "date": "YYYY-MM-DD",
+        "sessions": [
+            {
+            "sport": "run" | "ride" | "swim" | "strength" | "other",
+            "title": string,
+            "duration_min": number,
+            "intensity": string | null,
+            "session_type": string | null,
+            "zone_text": string | null,
+            "notes": string | null,
+            "structure": {
+                "warmup": { "minutes": number, "notes": string },
+                
+                "main_part": [ { "minutes": number, "notes": string, "target": string } ] | { "minutes": number, "notes": string },
+                
+                "cooldown": { "minutes": number, "notes": string },
+                
+                "activation": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null,
+                "strength_main_part": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null,
+                "add_ons": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null
+            } | null,
+            "payload"?: object | null
+            }
+        ]
         }
-      ]
+    ],
+    "warnings"?: [string]
     }
-  ],
-  "warnings"?: [string]
-}
-""".strip()
+    """.strip()
 
     date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
     
@@ -289,7 +295,6 @@ def build_prompts_for_daily(
     )
 
     two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Prefer 1 session/day.\n\n"
-    
     long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
 
     multi_sport_rule = ""
@@ -306,8 +311,15 @@ def build_prompts_for_daily(
     # ✅ ENDURANCE STRUCTURE RULE - Teraz pre RUN aj RIDE
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
-        "provide a detailed `structure` object. `warmup`, `main_part`, and `cooldown` "
-        "MUST be OBJECTS as per schema, not plain strings.\n\n"
+        "provide a detailed `structure` object using `warmup`, `main_part`, and `cooldown`.\n\n"
+    )
+
+    # --- NEW: STRENGTH INTELLIGENCE RULE ---
+    strength_structure_rule = (
+        "- STRENGTH STRUCTURE: When creating a 'strength' session, you MUST build the workout using "
+        "the provided 'strength_ai_menu' in planning_constraints. Follow the menu's instructions carefully! "
+        "Use ONLY the specific 'exercise_id' values provided. Distribute the exercises into 'activation', "
+        "'strength_main_part', and 'add_ons' arrays within the `structure` object.\n\n"
     )
 
     intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}.\n\n"
@@ -317,6 +329,7 @@ def build_prompts_for_daily(
     safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
     context_for_ai["user_settings"] = safe_settings
 
+    # Zostavenie user_txt
     user_txt = (
         "Generate a weekly plan.\n"
         f"Week: {week_index} ({week_start} .. {week_end})\n"
@@ -332,6 +345,7 @@ def build_prompts_for_daily(
         + multi_sport_rule
         + strength_rule
         + endurance_structure_rule 
+        + strength_structure_rule  # <--- Vložené nové pravidlo pre silu
         + intensity_model_rule
         + blocks_rule
         + weekly_volume_line

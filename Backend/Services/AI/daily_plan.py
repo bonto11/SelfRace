@@ -26,7 +26,8 @@ from Services.AI.daily_plan_builders import (
     build_daily_context_from_db,
     build_daily_rows_from_ai,
 )
-from Services.coach_strength_mapper import enrich_daily_plan_with_strength_exercises
+# --- NEW IMPORTS ---
+from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -47,63 +48,6 @@ def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
         for i, s in enumerate(dict_sessions):
             s["session_index"] = i
         day["sessions"] = dict_sessions
-
-    return daily_plan
-
-
-def normalize_strength_sessions_quality(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(daily_plan, dict):
-        return daily_plan
-
-    days = daily_plan.get("days")
-    if not isinstance(days, list):
-        return daily_plan
-
-    for day in days:
-        if not isinstance(day, dict):
-            continue
-
-        sessions = day.get("sessions")
-        if not isinstance(sessions, list):
-            continue
-
-        for s in sessions:
-            if not isinstance(s, dict):
-                continue
-            if str(s.get("sport")) != "strength":
-                continue
-
-            payload = s.get("payload") or {}
-            if isinstance(payload, dict) and isinstance(
-                payload.get("external_event"), dict
-            ):
-                continue
-            if str(s.get("session_type") or "").strip().lower() == "external_event":
-                continue
-
-            s["duration_min"] = 75
-            s["session_type"] = s.get("session_type") or "strength_full"
-            s["intensity"] = s.get("intensity") or "moderate"
-            s["title"] = s.get("title") or "Silový tréning"
-
-            strength_exercises = [
-                {"slot": "core", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia / kontrola trupu."},
-                {"slot": "lower_posterior", "sets": 2, "reps": "8–12", "rest_s": 45, "notes": "Aktivácia zadného reťazca."},
-                {"slot": "lower_posterior", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "lower_quad", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "upper_pull", "sets": 4, "reps": "4–6", "rest_s": 120, "notes": "Hlavná časť – sila."},
-                {"slot": "upper_push", "sets": 3, "reps": "6–10", "rest_s": 90, "notes": "Hlavná časť – doplnok."},
-                {"slot": "core", "sets": 3, "reps": "8–12", "rest_s": 60, "notes": "Hlavná časť – core."},
-                {"slot": "upper_pull", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
-                {"slot": "lower_quad", "sets": 2, "reps": "10–15", "rest_s": 60, "notes": "Doplnok – ľahšie, technicky."},
-            ]
-
-            s["structure"] = {
-                "warmup": {"minutes": 15, "notes": "Aktivácia + mobilita (15 min)."},
-                "strength_exercises": strength_exercises,
-                "cooldown": {"minutes": 15, "notes": "Mobilita + uvoľnenie (15 min)."},
-            }
-            s["strength_exercises"] = strength_exercises
 
     return daily_plan
 
@@ -146,6 +90,7 @@ def service_generate_daily_week(
             },
         }
 
+    # Zostavenie kontextu (teraz už obsahuje aj silové menu od Mappera)
     contex = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
@@ -157,7 +102,6 @@ def service_generate_daily_week(
     plan_id_effective: Optional[str] = contex["plan_id_effective"]
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
-    prefs_ai: Dict[str, Any] = contex["prefs_ai"]
 
     ai_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
@@ -203,36 +147,32 @@ def service_generate_daily_week(
             "warnings": ["daily_plan_empty"],
         }
 
-    try:
-        daily_plan = normalize_strength_sessions_quality(daily_plan)
-    except Exception as e:
-        print("normalize_strength_sessions_quality error:", repr(e))
-
+    # Billing
     usage = extract_usage_from_trace(trace)
-    billing_result: Optional[Dict[str, Any]] = None
     if usage:
         used_model = str(daily_plan.get("model") or usage.get("model") or daily_model or "").strip()
         if used_model: usage["model"] = used_model
         try:
-            billing_result = log_ai_usage_for_user(
+            log_ai_usage_for_user(
                 user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
                 source="user", billed_via="internal", charge_wallet=False,
                 meta={"week_index": week_index, "plan_id": plan_id_effective}, ctx=ctx,
             )
         except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
 
-    strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
-    available_equipment = strength_settings.get("available") or []
-    if not isinstance(available_equipment, list): available_equipment = []
-    equipment_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
-
-    daily_plan = enrich_daily_plan_with_strength_exercises(
-        user_id=user_id, daily_plan=daily_plan, available_equipment=available_equipment,
-        equipment_mode=equipment_mode if isinstance(equipment_mode, str) else None,
-        today=date.today(), weeks_back=8, ctx=ctx,
-    )
-
     daily_plan = _reindex_sessions_per_day(daily_plan)
+
+    # --- NEW: Extract and Save AI generated Strength Exercises to History ---
+    if plan_id_effective:
+        try:
+            extract_and_save_ai_strength_history(
+                user_id=user_id,
+                plan_id=plan_id_effective,
+                ai_daily_plan=daily_plan,
+                ctx=ctx
+            )
+        except Exception as e:
+            print("[STRENGTH_MAPPER] error saving ai history:", repr(e))
 
     days = daily_plan.get("days")
     if not isinstance(days, list): days = []
@@ -280,10 +220,7 @@ def service_generate_daily_week(
         "error": None,
     }
 
-    #resp["debug_trace"] = trace
     resp["context_payload"] = context_payload
-    #resp["ai_usage"] = usage
-    #resp["billing"] = billing_result
     resp["ai_plan_raw"] = ai_plan
 
     return resp
@@ -509,3 +446,5 @@ def service_auto_extend_daily_plan(
         "last_daily_date": current_last_str,
         "plan_id": plan_id,
     }
+
+
