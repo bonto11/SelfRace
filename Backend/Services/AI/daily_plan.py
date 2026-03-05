@@ -103,8 +103,7 @@ def service_generate_daily_week(
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
 
-    print("service_generate_daily_week context_payload",context_payload)
-
+ 
     ai_plan, trace = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,

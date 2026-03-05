@@ -10,7 +10,7 @@ import {
 } from "@/app/shared/components/session/sessionUtils";
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog"; 
+import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -91,7 +91,7 @@ export default function PlanSessionDetail({
   const t = useT();
   // Zistenie aktuálneho jazyka pre katalóg (fallback na slovenčinu ak useT nemá explicitný lang)
   // Ak máš v projekte hook na jazyk (napr. useLocale()), kľudne ho použi namiesto tohto
-  const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk"; 
+  const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
 
   const raw = item.planRaw ?? undefined;
   const structure = item.planStructure ?? raw?.structure ?? undefined;
@@ -100,7 +100,7 @@ export default function PlanSessionDetail({
   const strengthActivation = (structure as any)?.activation || [];
   const strengthMainPart = (structure as any)?.strength_main_part || [];
   const strengthAddOns = (structure as any)?.add_ons || [];
-  
+
   const hasStrength =
     strengthActivation.length > 0 ||
     strengthMainPart.length > 0 ||
@@ -147,21 +147,37 @@ export default function PlanSessionDetail({
       {exercises.map((e: any, i: number) => {
         const id = e?.exercise_id;
         // Ak nájdeme ID v katalógu, použijeme lokalizovaný názov, inak formatujeme ID, inak fallback
-        const catalogName = id && STRENGTH_CATALOG_FE[id] ? STRENGTH_CATALOG_FE[id][currentLang] : null;
+        const catalogName =
+          id && STRENGTH_CATALOG_FE[id]
+            ? STRENGTH_CATALOG_FE[id][currentLang]
+            : null;
         const formattedId = id ? id.replace(/_/g, " ") : null;
-        
-        const displayName = catalogName || e?.exercise_name || formattedId || `${fallbackLabel} ${i + 1}`;
+
+        const displayName =
+          catalogName ||
+          e?.exercise_name ||
+          formattedId ||
+          `${fallbackLabel} ${i + 1}`;
 
         return (
           <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
-            <div className={PLAN_EX_NAME} style={{ textTransform: "capitalize" }}>
+            <div
+              className={PLAN_EX_NAME}
+              style={{ textTransform: "capitalize" }}
+            >
               {displayName}
             </div>
             <div className={PLAN_EX_LINE}>
               {[
-                e?.sets ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}` : null,
-                e?.reps ? `${e.reps} ${t("sessions.detail.unitReps") || "opak."}` : null,
-                e?.seconds ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}` : null,
+                e?.sets
+                  ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}`
+                  : null,
+                e?.reps
+                  ? `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`
+                  : null,
+                e?.seconds
+                  ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}`
+                  : null,
                 e?.rest_sec || e?.rest_s
                   ? `${t("sessions.detail.unitRest") || "Pauza"} ${e.rest_sec || e.rest_s}s`
                   : null,
@@ -169,7 +185,9 @@ export default function PlanSessionDetail({
                 .filter(Boolean)
                 .join(" · ") || "—"}
             </div>
-            {e?.notes && <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>}
+            {e?.notes && (
+              <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>
+            )}
           </li>
         );
       })}
@@ -183,6 +201,13 @@ export default function PlanSessionDetail({
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
         <DetailSection title={t("sessions.detail.sectionStructure")}>
+          {/* Pridaná poznámka pre Beh/Bike */}
+          {(item.sport === "run" || item.sport === "ride") && (
+            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/80 italic">
+              <strong>{t("common.note")}:</strong>{" "}
+              {t("sessions.detail.plan.noteEndurance")}
+            </div>
+          )}
           <div className={PLAN_STRUCT_STACK}>
             {/* WARMUP */}
             {wu && (
@@ -366,9 +391,7 @@ export default function PlanSessionDetail({
           title={t("sessions.detail.sectionDebug")}
           defaultOpen={false}
         >
-          <pre className={PLAN_DEBUG_PRE}>
-            {safeText({ structure, raw })}
-          </pre>
+          <pre className={PLAN_DEBUG_PRE}>{safeText({ structure, raw })}</pre>
         </DetailSection>
       )}
     </div>

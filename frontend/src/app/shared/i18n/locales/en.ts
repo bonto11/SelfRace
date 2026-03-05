@@ -45,6 +45,7 @@ export const en = {
     noData: "No data",
     last7Days: "Last 7 days",
     together: "total",
+    note: "Note",
     confirm: {
       title: "Confirm",
       ok: "OK",
@@ -1721,7 +1722,7 @@ export const en = {
         12: "12 h (1:37 PM)",
       },
       timezones: {
-        "UTC": "(UTC±00:00) London, Reykjavik",
+        UTC: "(UTC±00:00) London, Reykjavik",
         "Atlantic/Canary": "(UTC±00:00) Canary Islands",
         "Europe/Bratislava": "(UTC+01:00) Bratislava, Prague, Berlin",
         "Europe/Vienna": "(UTC+01:00) Vienna, Budapest, Warsaw",
@@ -2271,6 +2272,7 @@ export const en = {
         activation: "Activation",
         strengthMain: "Main part",
         addOns: "Add-ons and core",
+        noteEndurance: "Paces are indicative (ideal for phone GPS). If using a sports watch, prioritize heart rate. Otherwise, follow your perceived effort (RPE) – e.g., in Z1/Z2 you should be able to speak comfortably.",
       },
     },
     splits: {

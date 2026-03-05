@@ -307,14 +307,15 @@ def build_prompts_for_daily(
 
     strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
     
-    # ✅ NOVÉ PRAVIDLÁ PRE INTENZITU PODĽA ZÓN A OBMEDZENIE RÝCHLOSTI
     if has_zones:
         intensity_format_rule = (
             "- INTENSITY FORMATTING (HAS ZONES): Main `intensity` field MUST be 'Z1'-'Z5'. "
-            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH the exact Heart Rate range (use 'bpm', NOT 'rpm') AND Pace (min/km) or Power (W). "
-            "CRITICAL INSTRUCTION FOR HEART RATE: You MUST use the exact hr_min and hr_max values provided in the context_payload.zones object for the respective sport. "
-            "DO NOT use generic formulas or average human heart rates. If the payload says Z2 is 155-169 bpm, you must write '155-169 bpm' in the notes. "
-            "Example Format: 'Z2 ([insert hr_min]-[insert hr_max] bpm) @ [insert pace] min/km'. "
+            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
+            "CRITICAL INSTRUCTION FOR HEART RATE: The zones in context_payload.zones are your absolute BOUNDARIES for zones. "
+            "DO NOT output the entire width of the zone (e.g., if Z1 is 0-154 bpm, do NOT write '0-154 bpm'). "
+            "Instead, prescribe a narrower, realistic target range (e.g., a 10-15 bpm window like '135-150 bpm') that fits strictly WITHIN the user's specific zone limits. "
+            "NEVER use generic human heart rates; strictly respect the user's minimum and maximum bounds for each zone. "
+            "Example Format: 'Z2 (145-155 bpm) @ [insert pace] min/km'. "
             "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )

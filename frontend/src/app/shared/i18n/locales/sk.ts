@@ -45,6 +45,7 @@ export const sk = {
     noData: "Žiadne dáta",
     last7Days: "Posledných 7 dní",
     together: "spolu",
+    note:  "Poznámka",
     confirm: {
       title: "Potvrdiť",
       ok: "OK",
@@ -2274,6 +2275,7 @@ export const sk = {
         activation: "Aktivácia",
         strengthMain: "Hlavná časť",
         addOns: "Doplnky a jadro",
+        noteEndurance: "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom – intenzita by mala zodpovedať popisu (napr. pri Z1/Z2 vieš súvisle rozprávať).",
       },
     },
     splits: {

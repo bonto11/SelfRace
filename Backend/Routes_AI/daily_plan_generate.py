@@ -327,6 +327,10 @@ def generate_daily_week_json(
     last_err_msg: Optional[str] = None
     usage_sum: Optional[Dict[str, Any]] = None
 
+    print("generate_daily_week_json context_payload",ctx)
+    print("generate_daily_week_json system_prompt",system_txt)
+    print("generate_daily_week_json user_instructions",user_txt)
+
     for attempt in range(1, attempts + 1):
         res = ai_call_json_model(
             context_payload=ctx,
