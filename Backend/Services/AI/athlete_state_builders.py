@@ -324,6 +324,9 @@ def build_last_activities_block_for_analysis(
             segments = _get_minified_segments(user_id, aid, ctx)
             if segments:
                 act_obj["segments"] = segments
+            else:
+                # PRIDANÝ LOG PRE DEBUG:
+                print(f"DEBUG: Ziadne splits a laps pre aktivitu {aid} ({sport}) z datumu {date_str}")
 
         out.append(act_obj)
 

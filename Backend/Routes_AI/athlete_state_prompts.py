@@ -226,6 +226,41 @@ def build_prompts_for_analyze(
     
     is_beginner = context_for_llm.get("is_returning_beginner")
 
+    # ✅ Vypocet dni od posledneho behu pre dynamicky detraining hint
+    last_acts = context_for_llm.get("last_activities") or []
+    days_since_last_run = 999
+    
+    for a in last_acts:
+        if isinstance(a, dict) and a.get("sport") == "run":
+            date_label = str(a.get("date", ""))
+            if date_label == "today":
+                days_since_last_run = 0
+                break
+            elif date_label.startswith("today-"):
+                try:
+                    days_since_last_run = int(date_label.split("-")[1])
+                except ValueError:
+                    pass
+                break
+
+    # Dynamicka detraining logika (stratifikovana podla dlzky neaktivity)
+    detraining_hint = ""
+    if 0 < days_since_last_run <= 10:
+        detraining_hint = (
+            "\n- RECOVERY/DELOAD DETECTED (no runs for 1-10 days): Fitness is maintained. "
+            "Do NOT degrade paces or race estimates. Return the exact same 'estimated_paces' as 'latest_paces'.\n"
+        )
+    elif 10 < days_since_last_run <= 21:
+        detraining_hint = (
+            "\n- MILD DETRAINING DETECTED (no runs for 11-21 days): Aerobic fitness is slightly dropping. "
+            "Slightly degrade intensive paces (Z4, Z5) by 2-5 sec/km and add some time to race estimates compared to 'latest_paces'.\n"
+        )
+    elif days_since_last_run > 21:
+        detraining_hint = (
+            "\n- SIGNIFICANT DETRAINING DETECTED (no runs for >21 days): Noticeable loss of fitness. "
+            "Degrade all paces by 10-20 sec/km, significantly increase race estimates, and lower VO2max.\n"
+        )
+
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive structured JSON about an athlete (profile, zones, thresholds, personal bests, "
@@ -315,6 +350,7 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         + beginner_hint
+        + detraining_hint # ✅ Injectovanie dynamickej logiky pre dlzku neaktivity
         + "- 'capabilities' (1-5 scale):\n"
         "  1 = Beginner (Začiatočník): Starts from zero or returning. < 6 months exp. Run/walk.\n"
         "  2 = Hobby (Rekreačný): Regular activity 1-2x week, unstructured.\n"
@@ -323,7 +359,7 @@ def build_prompts_for_analyze(
         "  5 = Elite (Elitný): Top tier performance.\n"
         "- Estimate 'estimated_vo2max' based on biometrics and performance.\n"
         "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' & RACE ESTIMATES (EMPIRICAL METHOD):\n"
-        "1. NO RUNS = NO UPDATE: If 'last_activities' contains NO 'run' activities for the past 7 days, you MUST NOT hallucinate new paces or race times. In this case, copy the exact values from the 'latest_paces' object in the context into your output (or use null if it is empty).\n"
+        "1. NO RUNS = NO UPDATE (UNLESS DETRAINING): If 'last_activities' contains NO 'run' activities recently, follow the detraining rules provided above to either keep paces the same or degrade them.\n"
         "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS: Overall 'avg_pace_s' includes walk/rest breaks. Always look at the 'segments' array (laps/splits) inside the activity.\n"
         "3. EVALUATE SEGMENTS: The 'segments' array provides distance (d in meters), pace (p in sec/km), and heart rate (hr in bpm). Use these segments to empirically judge the athlete's true speed at specific heart rates. (e.g. if they ran 400m segments at 210 sec/km pace with HR 175, that is their true high-intensity capability).\n"
         "4. EVOLUTION, NOT REVOLUTION: Compare current segment performance against 'latest_paces' and 'bests'. Improve estimated times by a few seconds ONLY if empirical segment data proves the athlete is faster at a given HR. Do not jump by minutes.\n"
