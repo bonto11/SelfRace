@@ -139,8 +139,8 @@ export function PerformanceDataProvider({
       vo2Estimate,
       bodyFatHistory
     ] = await Promise.all([
-      apiFetchUserZonesLatest(uid, "run"),
-      apiFetchUserZoneTrends(uid, "run", days),
+      apiFetchUserZonesLatest(uid, "running"),
+      apiFetchUserZoneTrends(uid, "running", days),
       apiFetchLatestPaceHistory(uid),
       apiFetchPaceHistoryTrends(uid, days),
       apiGetVo2History(uid),
