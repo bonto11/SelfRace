@@ -9,8 +9,7 @@ import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { fmtDate } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-
-import { usePerformanceData } from "@/app/features/performance/providers/PerformanceDataProvider";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 
 import {
   NO_X_OVERFLOW,
