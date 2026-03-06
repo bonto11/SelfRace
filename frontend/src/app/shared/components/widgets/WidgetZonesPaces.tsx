@@ -4,7 +4,7 @@
 import * as React from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { usePerformanceData } from "@/app/features/performance/providers/PerformanceDataProvider";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import { useT } from "@/app/shared/i18n/useT";
 import { CHART_HR, WIDGET_LOADING_CENTER, WIDGET_META_LABEL } from "@/app/shared/ui/tokens";
 import { fmtDate } from "@/app/shared/utils/time";
