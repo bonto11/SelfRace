@@ -645,34 +645,45 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             )}
 
             {review.suggested_thresholds && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 animate-in slide-in-from-top duration-500">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 text-xl">🚀</div>
-                <div>
-                  <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-tight">
-                    {t("sessions.review.thresholdUpdateTitle")}
-                  </h4>
-                  <p className="text-xs text-white/70 mt-1 leading-relaxed">
-                    {review.suggested_thresholds.notes || "Na základe tvojho výkonu sme aktualizovali tvoj laktátový prah (LTHR) a tréningové zóny."}
-                  </p>
-                  <div className="flex gap-4 mt-3">
-                    {review.suggested_thresholds.hr_bpm && (
-                      <div className="text-[11px]">
-                        <span className="opacity-50"> {t("sessions.review.thresholdNew")}</span>{" "}
-                        <span className="font-bold text-white">{review.suggested_thresholds.hr_bpm} {t("common.units.hr")}</span>
-                      </div>
-                    )}
-                    {review.suggested_thresholds.pace_sec_km && (
-                      <div className="text-[11px]">
-                        <span className="opacity-50">{t("sessions.review.thresholdPace")}</span>{" "}
-                        <span className="font-bold text-white">{Math.floor(review.suggested_thresholds.pace_sec_km / 60)}:{(review.suggested_thresholds.pace_sec_km % 60).toString().padStart(2, '0')} /{t("common.units.km")}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+  <div className="mb-6 overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-700">
+    <div className="flex items-center gap-4 p-4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-2xl shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+        🚀
+      </div>
+      <div className="flex-1">
+        <h4 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
+          {t("sessions.review.thresholdUpdateTitle")}
+        </h4>
+        <p className="mt-1 text-xs leading-relaxed text-white/80">
+          {review.suggested_thresholds.notes || t("sessions.review.thresholdUpdateDesc")}
+        </p>
+        
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+          {review.suggested_thresholds.hr_bpm && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase opacity-50 font-medium">{t("sessions.review.thresholdNew")}</span>
+              <span className="text-sm font-bold text-white">{review.suggested_thresholds.hr_bpm} {t("common.units.hr")}</span>
             </div>
           )}
+          {review.suggested_thresholds.pace_sec_km && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase opacity-50 font-medium">{t("sessions.review.thresholdPace")}</span>
+              <span className="text-sm font-bold text-white">
+                {Math.floor(review.suggested_thresholds.pace_sec_km / 60)}:
+                {(review.suggested_thresholds.pace_sec_km % 60).toString().padStart(2, '0')} /{t("common.units.km")}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+    
+    {/* Malá infolinka naspodu */}
+    <div className="bg-emerald-500/10 px-4 py-2 text-[10px] text-emerald-400/80 italic border-t border-emerald-500/20">
+      ✨ {t("sessions.review.zonesAutoUpdated") || "Tvoje tréningové zóny v profile boli automaticky prepočítané."}
+    </div>
+  </div>
+)}
           </>
         ) : (!busyGen && <div className="py-8 text-center border border-dashed border-white/10 rounded-lg"><p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder" as any)}</p></div>)}
       </div>

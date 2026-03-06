@@ -2201,9 +2201,11 @@ export const sk = {
       tagZone: "Zóna",
       tagCaution: "Vyžaduje pozornosť",
       raceEffortLabel: "Pretek / All-out",
-      thresholdUpdateTitle: "Detekované zlepšenie prahu! Dobrá práca.",
+      thresholdUpdateTitle: "Detekovaný progres!",
+      thresholdUpdateDesc: "Tvoj dnešný výkon prekonal doterajšie limity. AI zaktualizovala tvoj prah a zóny.",
       thresholdPace: "Prahové tempo",
       thresholdNew: "Nový LTHR:",
+      zonesAutoUpdated: "Nové zóny boli automaticky uložené do tvojho profilu.",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
       noReviewPlaceholder:

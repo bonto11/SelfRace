@@ -1,3 +1,4 @@
+# Routes_AI/activity_review_prompts.py
 from __future__ import annotations
 
 import json
@@ -81,6 +82,7 @@ def _sport_rules(sport_key: str) -> str:
         "- Output must be valid JSON only (no markdown).",
         "- STYLE: Continuous prose. NO bullets, NO lists, NO headings inside text fields.",
         "- Mention numbers only to justify your LTHR/FTP analysis.",
+        "- PACE FORMAT: Always write pace in 'mm:ss/km' format (e.g., 4:35/km). NEVER write pace in raw seconds.",
     ]
     
     if sport_key == "run_race":
@@ -118,7 +120,7 @@ def _schema(lang: str, sport: str, is_race: bool = False) -> str:
   "activity_id": number | null,
   "sport": "{sport}",
   "session_kind": "{"race" if is_race else "training"}",
-  "review_text": "FREE TEXT. {review_len}. {lang}. Performance audit mode. You MUST include a specific paragraph comparing the current threshold to the session data and give a verdict (improved/stable/worsened).",
+  "review_text": "FREE TEXT. {review_len}. {lang}. Performance audit mode. Address athlete directly. USE mm:ss/km for all pace mentions. Compare threshold to session data and give a verdict.",
   "next_day_plan": "FREE TEXT. 4–8 sentences. Recovery focus.",
   "key_numbers": {{
     "duration_min": number,
@@ -133,7 +135,7 @@ def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     "hr_bpm": number | null,
     "pace_sec_km": number | null,
     "power_watt": number | null,
-    "notes": "Scientific reasoning for the threshold update or why it remains the same."
+    "notes": "Scientific reasoning. Use mm:ss/km format when mentioning pace in notes."
   }} | null,
   "flags": {{ "used_user_comment": boolean, "needs_caution": boolean }}
 }}
@@ -173,9 +175,9 @@ def build_prompts_for_activity_review(
             "2. PERFORM COMPARISON: Compare that value (e.g., 180 bpm) with the session `avg_hr_bpm`.\n"
             "3. MANDATORY STATEMENT: You MUST explicitly mention that you have performed this comparison in the `review_text`. "
             "Example: 'Porovnal som tvoj aktuálny prah 180 bpm s dnešným priemerom...'.\n"
-            "4. VERDICT: State if the threshold has improved (higher HR maintained for long duration or better pace at same HR), "
-            "worsened, or remains stable. Explain the logic.\n"
-            "5. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
+            "4. VERDICT: State if the threshold has improved, worsened, or remains stable. Explain the logic.\n"
+            "5. FORMATTING: All pace values MUST be in mm:ss/km format.\n"
+            "6. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
         )
 
     user_txt = (
