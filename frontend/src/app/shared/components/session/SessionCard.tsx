@@ -1,3 +1,4 @@
+// src/app/shared/components/session/SessionCard.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -192,7 +193,7 @@ export default function SessionCard({
     switch (item.kind) {
 
       case "activity": {
-        const act = item as ActivitySession | BestsSession;
+        const act = item as ActivitySession;
         const distKm = parseKm(act.distanceStr);
         if (distKm != null && distKm > 0 && act.distanceStr) {
           return `${t("sessions.card.distance")} ${act.distanceStr}`;
@@ -202,7 +203,8 @@ export default function SessionCard({
       }
       
       case "bests": {
-        const act = item as ActivitySession | BestsSession;
+        // 🔥 TU JE ZMENA: Pre bests vraciame len čas, vzdialenosť ignorujeme
+        const act = item as BestsSession;
         if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
         return null;
       }
