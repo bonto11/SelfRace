@@ -643,6 +643,36 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 <TextBlock>{nextDayPlan}</TextBlock>
               </div>
             )}
+
+            {review.suggested_thresholds && (
+            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 animate-in slide-in-from-top duration-500">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 text-xl">🚀</div>
+                <div>
+                  <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-tight">
+                    {t("sessions.review.thresholdUpdateTitle")}
+                  </h4>
+                  <p className="text-xs text-white/70 mt-1 leading-relaxed">
+                    {review.suggested_thresholds.notes || "Na základe tvojho výkonu sme aktualizovali tvoj laktátový prah (LTHR) a tréningové zóny."}
+                  </p>
+                  <div className="flex gap-4 mt-3">
+                    {review.suggested_thresholds.hr_bpm && (
+                      <div className="text-[11px]">
+                        <span className="opacity-50"> {t("sessions.review.thresholdNew")}</span>{" "}
+                        <span className="font-bold text-white">{review.suggested_thresholds.hr_bpm} {t("common.units.hr")}</span>
+                      </div>
+                    )}
+                    {review.suggested_thresholds.pace_sec_km && (
+                      <div className="text-[11px]">
+                        <span className="opacity-50">{t("sessions.review.thresholdPace")}</span>{" "}
+                        <span className="font-bold text-white">{Math.floor(review.suggested_thresholds.pace_sec_km / 60)}:{(review.suggested_thresholds.pace_sec_km % 60).toString().padStart(2, '0')} /{t("common.units.km")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           </>
         ) : (!busyGen && <div className="py-8 text-center border border-dashed border-white/10 rounded-lg"><p className="text-sm opacity-50">{t("sessions.review.noReviewPlaceholder" as any)}</p></div>)}
       </div>

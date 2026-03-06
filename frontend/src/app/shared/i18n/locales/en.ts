@@ -2197,6 +2197,9 @@ export const en = {
       tagZone: "Zone",
       tagCaution: "Requires Attention",
       raceEffortLabel: "Race Effort (All-out)",
+      thresholdUpdateTitle: "Detected threshold impovement! Good job",
+      thresholdPace: "Threshold pace",
+      thresholdNew: "New LTHR:",
       sectionReview: "Workout Review",
       sectionNextDay: "Recommendation for Tomorrow",
       noReviewPlaceholder:
@@ -2269,7 +2272,8 @@ export const en = {
         activation: "Activation",
         strengthMain: "Main part",
         addOns: "Add-ons and core",
-        noteEndurance: "Paces are indicative (ideal for phone GPS). If using a sports watch, prioritize heart rate. Otherwise, follow your perceived effort (RPE) – e.g., in Z1/Z2 you should be able to speak comfortably.",
+        noteEndurance:
+          "Paces are indicative (ideal for phone GPS). If using a sports watch, prioritize heart rate. Otherwise, follow your perceived effort (RPE) – e.g., in Z1/Z2 you should be able to speak comfortably.",
       },
     },
     splits: {

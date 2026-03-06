@@ -1,10 +1,8 @@
-# Routes_AI/activity_review_prompts.py
 from __future__ import annotations
 
 import json
 from typing import Dict, Optional, Tuple, Any
 
-# 👇 Naše známe čistítko
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
@@ -15,8 +13,6 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-
-# 👇 Upravený minifikátor pre Activity Review
 def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict): return {}
     out = json.loads(json.dumps(context, default=str))
@@ -32,22 +28,20 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(act, dict):
         for k in ("name", "external_id", "activity_id"): act.pop(k, None)
     
-    # 3. MASÍVNE ŠETRENIE: Odstránime history staršiu ako 7 dní (nepotrebuje ju)
+    # 3. MASÍVNE ŠETRENIE: Odstránime history staršiu ako 7 dní
     history = out.get("history", {})
     if isinstance(history, dict):
         history.pop("days_8_14", None)
-        # Z dní 0-7 vyhodíme prázdne štruktúry a id-čka
         days_0_7 = history.get("days_0_7", [])
         for day in days_0_7:
             day.pop("activity_id", None)
     
-    # 4. MASÍVNE ŠETRENIE 2: Vyhodíme recent_load (je to duplicitné s history a zbytočne dlhé)
+    # 4. MASÍVNE ŠETRENIE 2: Vyhodíme recent_load a duplicitné zóny
     ctx_block = out.get("context", {})
     if isinstance(ctx_block, dict):
         ctx_block.pop("recent_load", None)
-        ctx_block.pop("hr_zones_bpm", None) # Používame user_zones, toto je duplikát
+        ctx_block.pop("hr_zones_bpm", None)
     
-    # ✅ Všetko prebehneme odstraňovačom null hodnôt
     return _remove_empty(out)
 
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
@@ -65,88 +59,84 @@ def _canonical_sport(s: Any) -> str:
     if "swim" in v: return "swim"
     return "other"
 
-def _system_prompt(sport: str) -> str:
+def _system_prompt(sport: str, is_race: bool = False) -> str:
+    if is_race:
+        return (
+            "You are a Performance Analyst and Elite Coach. The athlete just completed an ALL-OUT RACE or maximum effort test. "
+            "Your goal is to analyze physical limits, determine if current thresholds (LTHR/FTP) are outdated, and provide a deep analytical review. "
+            "Ignore minor plan deviations; focus on physiological peak performance and recovery needs."
+        )
+    
     base = (
         "You are a highly empathetic coaching assistant evaluating ONE completed training session. "
-        "You receive structured JSON context containing the activity, history, and potentially the planned training for today and tomorrow. "
         "Return ONE valid JSON object only. No markdown. No extra text."
     )
-    if sport == "run": return base + " Focus on running execution, intensity vs. plan, and aerobic decoupling."
-    if sport == "ride": return base + " Focus on power/HR consistency, endurance steadiness, and execution vs. plan."
-    if sport == "strength": return base + " Focus on volume load and recovery needs. Do not evaluate cardio metrics."
-    if sport == "swim": return base + " Focus on swim consistency, effort control, and execution vs. plan."
-    return base + " Focus on general training evaluation vs. plan and recovery impact."
+    if sport == "run": return base + " Focus on running execution and intensity vs. plan."
+    if sport == "ride": return base + " Focus on power/HR consistency and execution vs. plan."
+    return base + " Focus on general training evaluation."
 
 def _sport_rules(sport_key: str) -> str:
     common = [
         "- Do NOT invent missing data.",
         "- Output must be valid JSON only (no markdown).",
-        "- STYLE: Write like a human coach. Continuous prose. NO bullets, NO lists, NO headings inside the text fields.",
-        "- Avoid repeating the same fact in multiple sentences.",
-        "- Do NOT dump raw metrics. Instead of saying 'Your HR was 145', say 'Your heart rate stayed in the aerobic zone'.",
-        "- Mention at most 1–2 specific numbers only if they tell a story (e.g. max HR on a hill).",
-        "- If user_input.comment exists, acknowledge it ONCE and integrate it.",
-        "- INTENSITY: Use specific HR zones if available (e.g. 'drž sa v Z2 okolo 145 tepov').",
-        "- RPE/FEEL: If zones are missing, describe intensity by feeling (RPE).",
+        "- STYLE: Continuous prose. NO bullets, NO lists, NO headings inside text fields.",
+        "- Avoid repeating facts. Mention numbers only if they tell a story.",
+        "- If user_input.comment exists, acknowledge it once.",
     ]
-    if sport_key == "run":
-        return "\n".join(common + [
-            "- Identify the session kind based on intensity.",
-            "- Check for HR Drift if pace is stable but HR rises.",
-        ])
+    
     if sport_key == "run_race":
         return "\n".join(common + [
-            "- Treat as a RACE / KEY EVENT. Evaluate pacing discipline.",
-            "- Always include recovery action.",
+            "- ANALYZE: Compare Avg HR to current LTHR (Z4/Z5 boundary).",
+            "- If Avg HR > current LTHR for > 20min, a threshold update is mandatory.",
+            "- Mention pacing: did they fade or finish strong?",
+            "- Mandatory recovery instruction (rest or active recovery)."
         ])
+    
+    if sport_key == "ride_race":
+        return "\n".join(common + [
+            "- ANALYZE: Compare Avg Power or HR to current thresholds (FTP/LTHR).",
+            "- If Normalized Power (or Avg Power) > current FTP for > 40min, suggest a new FTP.",
+            "- Look for 'all-out' signs: heart rate pinned in Z4/Z5, high variability index.",
+            "- Mandatory recovery advice."
+        ])
+
+    if sport_key == "run":
+        return "\n".join(common + [
+            "- Identify session kind based on intensity. Check for HR Drift."
+        ])
+    
     if sport_key == "ride":
         return "\n".join(common + [
-            "- Mention steadiness/spikiness. If power data exists, prioritize it over HR.",
+            "- Mention steadiness. Prioritize power data over HR if available."
         ])
+    
     if sport_key == "strength":
         return "\n".join(common + [
-            "- Focus on consistency and recovery. Do NOT evaluate pace.",
+            "- Focus on consistency and recovery. Do NOT evaluate pace."
         ])
+        
     return "\n".join(common)
 
 def _plan_and_injury_rules() -> str:
     return "\n".join([
         "--- CRITICAL CONTEXT RULES ---",
-        "1. INJURY REPORTED (ANTI-CHEAT & MEDICAL LIABILITY):",
-        "   If context.user_input.injury OR context.context.injury_state is present, the athlete IS INJURED.",
-        "   - Check the severity of the injury in the context.",
-        "   - IF SEVERITY IS >= 7 (SEVERE): DO NOT advise on future training. Your ONLY instruction for the `next_day_plan` MUST be to rest, seek a medical professional, and remind them that the app assumes no liability for their treatment.",
-        "   - IF SEVERITY IS < 7 (MILD): The tone MUST be empathetic. Prioritize recovery above fitness goals.",
-        "   - DEAF COACH RULE: IGNORE any questions regarding performance, pacing, or pushing harder. Answer ONLY regarding their health and recovery.",
-        "",
-        "2. TODAY'S PLAN (plan_today):",
-        "   - If present, compare their actual execution (context.activity.metrics) to what was planned.",
-        "   - Did they go too fast/hard? Praise them if they stuck to the discipline, gently warn them if they overcooked an easy run.",
-        "",
-        "3. TOMORROW'S PLAN (plan_tomorrow):",
-        "   - If present, use it to form the `next_day_plan`.",
-        "   - Explain HOW today's effort impacts tomorrow.",
-        "   - IF SEVERITY IS >= 7, IGNORE THIS STEP. The plan is cancelled.",
+        "1. INJURY: If context.context.injury_state is present, apply DEAF COACH RULE: ignore performance, focus ONLY on recovery/medical advice.",
+        "2. TODAY'S PLAN: Compare execution to plan_today. Praise discipline or warn if they overcooked it.",
+        "3. TOMORROW'S PLAN: Explain how today impacts plan_tomorrow. If injured, cancel the plan."
     ])
 
-def _schema(lang: str, sport: str) -> str:
+def _schema(lang: str, sport: str, is_race: bool = False) -> str:
+    review_len = "10–15 sentences" if is_race else "6–12 sentences"
     return f"""
 {{
   "schema_version": 6,
   "generated_at": "ISO timestamp",
   "model": "string",
-
   "activity_id": number | null,
   "sport": "{sport}",
-  "source": "auto" | "user" | "service" | null,
-
-  "session_kind": "recovery" | "easy" | "long" | "tempo" | "threshold" | "intervals" | "race" | "strength" | "other",
-
-  "confidence_0_to_100": number | null,
-
-  "review_text": "FREE TEXT. 6–12 sentences. {lang}. Address the athlete directly. Compare execution to today's plan if available. Apply Deaf Coach Rule if injured.",
-  "next_day_plan": "FREE TEXT. 4–8 sentences. Advice for tomorrow based on plan_tomorrow (if available) and today's fatigue/injuries.",
-
+  "session_kind": "{"race" if is_race else "easy"}",
+  "review_text": "FREE TEXT. {review_len}. {lang}. Performance mode if race. Address athlete directly.",
+  "next_day_plan": "FREE TEXT. 4–8 sentences. Recovery focus.",
   "key_numbers": {{
     "duration_min": number | null,
     "distance_km": number | null,
@@ -154,20 +144,15 @@ def _schema(lang: str, sport: str) -> str:
     "max_hr_bpm": number | null,
     "dominant_zone": "Z1" | "Z2" | "Z3" | "Z4" | "Z5" | null
   }},
-
   "suggested_thresholds": {{
     "sport": "running" | "cycling",
-    "threshold_type": "LT2",
+    "threshold_type": "LT2" | "FTP",
     "hr_bpm": number | null,
     "pace_sec_km": number | null,
     "power_watt": number | null,
-    "notes": "string explaining why (e.g. based on 20min all-out effort)"
+    "notes": "Scientific reasoning for the change."
   }} | null,
-
-  "flags": {{
-    "used_user_comment": boolean,
-    "needs_caution": boolean
-  }}
+  "flags": {{ "used_user_comment": boolean, "needs_caution": boolean }}
 }}
 """.strip()
 
@@ -182,56 +167,49 @@ def build_prompts_for_activity_review(
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
-    # ✅ Spájame informáciu o preteku z argumentu aj z user_input flagu (ak je prítomný)
     user_input_data = context_payload.get("user_input") or {}
-    user_is_race = bool(user_input_data.get("is_race_effort"))
-    actually_is_race = is_race or user_is_race
+    actually_is_race = is_race or bool(user_input_data.get("is_race_effort"))
 
     resolved_sport = _canonical_sport(
         (context_payload.get("sport") if isinstance(context_payload, dict) else None)
-        or sport
-        or ((context_payload.get("activity") or {}).get("sport") if isinstance(context_payload, dict) else None)
-        or "other"
+        or sport or "other"
     )
 
-    sport_key = "run_race" if (resolved_sport == "run" and actually_is_race) else resolved_sport
-
-    context = dict(context_payload) if isinstance(context_payload, dict) else {}
-    context["user_settings"] = {
-        "language": settings.get("language"),
-        "timezone": settings.get("timezone"),
-    }
-
-    context_for_llm = minify_activity_context_for_ai(context)
-
-    system_txt = _system_prompt(resolved_sport)
-    
-    # ✅ Dynamické inštrukcie pre "All-out" pretekový effort
-    race_effort_rule = ""
+    # Nastavenie sport_key pre výber pravidiel
     if actually_is_race:
-        race_effort_rule = "\n- CRITICAL: The athlete marked this as an ALL-OUT RACE EFFORT. Do NOT tell them they went too fast. Evaluate this as their true peak physical limit. Use the segment data (pace vs. HR) to empirically estimate their true LTHR and VO2max potential. Base your review on this being a peak performance.\n"
+        sport_key = "run_race" if resolved_sport == "run" else "ride_race" if resolved_sport == "ride" else resolved_sport
+    else:
+        sport_key = resolved_sport
+
+    context_for_llm = minify_activity_context_for_ai(context_payload)
+
+    system_txt = _system_prompt(resolved_sport, is_race=actually_is_race)
+
+    # Špeciálna analýza pre Race Effort
+    race_logic = ""
+    if actually_is_race:
+        race_logic = (
+            "\n--- PERFORMANCE ANALYTICS PROTOCOL ---\n"
+            "1. Find current thresholds in `context.user_zones` or `context.context.user_zones`.\n"
+            "2. If `avg_hr_bpm` >= current LTHR (Z4/Z5 boundary) for > 20min, athlete's fitness has increased.\n"
+            "3. If `ride` and `avg_power` or `NP` > current FTP for > 40min, athlete's fitness has increased.\n"
+            "4. Suggest new thresholds in `suggested_thresholds` only if the data clearly exceeds current limits.\n"
+            "5. Acknowledge this was an all-out effort. Do not warn about high heart rate; it is expected in a race.\n"
+        )
 
     user_txt = (
-        "Evaluate ONE completed session using the provided JSON context.\n\n"
-        "What you have:\n"
-        "- Focus activity: context.activity\n"
-        "- History: context.history.days_0_7\n"
-        "- Plans & Injuries: context.context.plan_today, context.context.plan_tomorrow, context.context.injury_state\n"
-        "- Optional user comment: context.user_input.comment.\n\n"
+        f"Analyze this {resolved_sport.upper()} session. {'[ALL-OUT EFFORT MODE]' if actually_is_race else '[STANDARD MODE]'}\n\n"
         "CONTEXT_JSON:\n"
         + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
-        + _schema(lang_label, resolved_sport)
+        + _schema(lang_label, resolved_sport, is_race=actually_is_race)
         + "\n\nRULES:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        f"- Sport route (fixed by backend): {sport_key}\n"
         + _sport_rules(sport_key)
         + "\n" + _plan_and_injury_rules()
-        + race_effort_rule # ✅ Injectovaný RACE rule
-        + "\n"
-        "- flags.needs_caution=true MUST be true if injury is reported or recovery is very poor.\n"
-        "- Output must be valid JSON only.\n"
+        + race_logic
+        + "\n- Return ONLY raw JSON."
     )
 
     return system_txt, user_txt

@@ -2201,6 +2201,9 @@ export const sk = {
       tagZone: "Zóna",
       tagCaution: "Vyžaduje pozornosť",
       raceEffortLabel: "Pretek / All-out",
+      thresholdUpdateTitle: "Detekované zlepšenie prahu! Dobrá práca.",
+      thresholdPace: "Prahové tempo",
+      thresholdNew: "Nový LTHR:",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
       noReviewPlaceholder:
@@ -2223,7 +2226,7 @@ export const sk = {
         btnAddToList: "+ Pridať do zoznamu",
         btnRemove: "Zmazať",
         currentStatus: "Aktuálny stav ({{count}})",
-        emptyStatus: "Žiadne aktívne zranenia. Ste fit!",
+        emptyStatus: "Žiadne aktívne zranenia. Si fit!",
         severityLabel: "Vážnosť: {{severity}}/10",
         alertActive: "Aktívne zranenie nahlásené",
         alertReport: "Hlásim bolesť / zranenie",
