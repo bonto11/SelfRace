@@ -79,7 +79,6 @@ def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
 
     return _trace_fallback(provider=provider, model=used_model)
 
-
 def generate_athlete_state_json(
     context_payload: dict,
     model: str,
@@ -106,12 +105,16 @@ def generate_athlete_state_json(
         ctx=ctx,
     )
 
+    print("generate_athlete_state_json context_payload",context_payload)
+    print("generate_athlete_state_json system_txt",system_txt)
+    print("generate_athlete_state_json user_txt",user_txt)
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
+    print("generate_athlete_state_json res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 
