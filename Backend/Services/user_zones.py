@@ -1,3 +1,4 @@
+# Services/user_zones.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -5,6 +6,7 @@ from Routes_DB.user_zones import (
     db_user_zones_fetch_all,
     db_user_zones_fetch_latest,
     db_user_zones_insert_row,
+    db_user_zones_fetch_trends, # Pridaný import
 )
 from Schemas.user_zones import ZonesOut, Sport
 from Modules.Supabase.auth import AuthCtx
@@ -30,10 +32,6 @@ def _canon_sport(s: Optional[str]) -> Sport:
 
 
 def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
-    """
-    Normalizuje raw DB row (hr_max_bpm, z2_min_bpm, ...) na jednotný ZonesOut.
-    Doplňuje chýbajúce spodné hranice z predchádzajúcej zóny.
-    """
     hr_max = (
         _num(row.get("hr_max_bpm"))
         or _num(row.get("HR_max_bpm"))
@@ -79,10 +77,6 @@ def _normalize_out(row: Dict[str, Any]) -> ZonesOut:
 
 
 def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Z payloadu z FE/AI vyrobí DB row so stĺpcami:
-      user_id, sport, hr_max_bpm, z1_max_bpm, z2_min_bpm, ...
-    """
     hr_max = (
         _num(payload.get("hr_max"))
         or _num(payload.get("hr_max_bpm"))
@@ -106,46 +100,24 @@ def _normalize_insert(user_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 # ------------ PUBLIC SERVICES: CRUD/LIST ------------
 
-
 def service_load_user_zones(
     user_id: int,
     ctx: AuthCtx,
     sport: Optional[str] = None,
 ) -> Optional[ZonesOut]:
-    """
-    Najnovšie zóny pre daného usera (+voliteľne sport), normalizované na ZonesOut.
-
-    Režimy:
-      - service=False: RLS (require_jwt).
-      - service=True: service klient.
-    """
-
     sport_filter = _canon_sport(sport) if sport else None
-    row = db_user_zones_fetch_latest(
-        user_id,
-        sport_filter,
-        ctx=ctx,
-    )
+    row = db_user_zones_fetch_latest(user_id, sport_filter, ctx=ctx)
     return _normalize_out(row) if row else None
 
 
 def service_load_user_zones_all_latest(
     user_id: int,
-        ctx: AuthCtx,
-
+    ctx: AuthCtx,
 ) -> Dict[str, ZonesOut]:
-    """
-    Vráti dict { sport -> ZonesOut } – pre každý sport len najnovší záznam.
-    """
-
-    rows = db_user_zones_fetch_all(
-        user_id,
-        ctx=ctx,
-    )
+    rows = db_user_zones_fetch_all(user_id, ctx=ctx)
     out: Dict[str, ZonesOut] = {}
     for r in rows:
         s = _canon_sport(r.get("sport"))
-        # prvý je najnovší (DESC order v DB vrstve)
         if s not in out:
             out[s] = _normalize_out(r)
     return out
@@ -154,58 +126,30 @@ def service_load_user_zones_all_latest(
 def service_save_user_zones(
     user_id: int,
     payload: Dict[str, Any],
-        ctx: AuthCtx,
-
+    ctx: AuthCtx,
 ) -> ZonesOut:
-    """
-    Uloží nové zóny pre usera a vráti normalizovaný posledný stav (ZonesOut).
-    Vyžaduje user_jwt (RLS).
-    """
-
     row = _normalize_insert(user_id, payload or {})
-    db_user_zones_insert_row(
-        row,
-        ctx=ctx,
-    )
+    db_user_zones_insert_row(row, ctx=ctx)
+    
     return service_load_user_zones(
         user_id=user_id,
-        sport = row["sport"],
+        sport=row["sport"],
         ctx=ctx,
-    ) or {
-        "sport": row["sport"]
-    }  # type: ignore[return-value]
+    ) or {"sport": row["sport"]}  # type: ignore[return-value]
 
 
 def service_choose_best_zones(
     user_id: int,
     ctx: AuthCtx,
     preferred_sport: Optional[str] = None,
-
 ) -> Optional[ZonesOut]:
-    """
-    Heuristika: skús preferred_sport, potom running, potom hocičo.
-    """
-    z = service_load_user_zones(
-        user_id=user_id,
-        ctx=ctx,
-        sport=preferred_sport,
-    )
-    if z:
-        return z
+    z = service_load_user_zones(user_id=user_id, ctx=ctx, sport=preferred_sport)
+    if z: return z
 
-    z = service_load_user_zones(
-        user_id=user_id,
-        ctx=ctx,
-        sport="running",
+    z = service_load_user_zones(user_id=user_id, ctx=ctx, sport="running")
+    if z: return z
 
-    )
-    if z:
-        return z
-
-    all_latest = service_load_user_zones_all_latest(
-        user_id,
-        ctx=ctx,
-    )
+    all_latest = service_load_user_zones_all_latest(user_id, ctx=ctx)
     return next(iter(all_latest.values()), None)
 
 
@@ -213,24 +157,9 @@ def service_build_zones_block_for_analysis(
     user_id: int,
     ctx: AuthCtx,
     preferred_sport: Optional[str] = "running",
-
 ) -> Dict[str, Any]:
-    """
-    Vráti blok pre CoachAnalyzeInput["zones"].
-
-    Aktuálne:
-      - mapujeme “best” zóny do "run" vetvy
-      - lthr_bpm nechávame None (LT2 pôjde z thresholds)
-
-    Režimy:
-      - service=False: RLS.
-      - service=True: service klient.
-    """
-    best = service_choose_best_zones(
-        user_id=user_id,
-        preferred_sport=preferred_sport,
-        ctx=ctx,
-    )
+    best = service_choose_best_zones(user_id=user_id, preferred_sport=preferred_sport, ctx=ctx)
+    
     if not best:
         return {
             "run": {
@@ -247,13 +176,11 @@ def service_build_zones_block_for_analysis(
         hi = best.get(f"{key}_max")
         if lo is None and hi is None:
             continue
-        zones_list.append(
-            {
-                "name": name,
-                "hr_min": lo,
-                "hr_max": hi,
-            }
-        )
+        zones_list.append({
+            "name": name,
+            "hr_min": lo,
+            "hr_max": hi,
+        })
 
     return {
         "run": {
@@ -262,3 +189,23 @@ def service_build_zones_block_for_analysis(
             "zones": zones_list,
         }
     }
+
+
+# ------------ TRENDS ------------
+
+def service_load_zone_trends(
+    user_id: int,
+    ctx: AuthCtx,
+    sport: str = "running",
+    days: int = 90
+) -> List[ZonesOut]:
+    """
+    Vráti historické záznamy zón (pre grafy) za definovaný počet dní.
+    Záznamy sú zoradené vzostupne (najstaršie -> najnovšie).
+    """
+    sport_filter = _canon_sport(sport)
+    rows = db_user_zones_fetch_trends(user_id=user_id, sport_raw=sport_filter, days=days, ctx=ctx)
+    
+    # Preženieme každý riadok normalizátorom, aby frontend dostal vždy konzistentný formát
+    return [_normalize_out(r) for r in rows if r]
+
