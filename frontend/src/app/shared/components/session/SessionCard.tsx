@@ -203,9 +203,7 @@ export default function SessionCard({
       }
       
       case "bests": {
-        // 🔥 TU JE ZMENA: Pre bests vraciame len čas, vzdialenosť ignorujeme
-        const act = item as BestsSession;
-        if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
+        // 🔥 ÚPLNE ODSTRÁNENÉ: Pre bests nechceme žiaden podtitulok, vrátime rovno null
         return null;
       }
 
