@@ -1,3 +1,4 @@
+// src/app/shared/components/UserMenu.tsx (alebo kde ho máš uložený)
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -50,7 +51,6 @@ export default function UserMenu() {
     return `1px solid ${colors[tier] || appColors.brandFree}`;
   };
 
-  // Label zobrazí meno, alebo email, alebo aspoň "User" kým sa čaká na session
   const label = me?.name || me?.email?.split('@')[0] || "User";
 
   return (
@@ -74,6 +74,9 @@ export default function UserMenu() {
             <div className={USER_MENU_HEAD_EMAIL} style={{ fontSize: '12px', opacity: 0.7 }}>{me?.email || ""}</div>
           </div>
           <nav className={USER_MENU_NAV} style={{ padding: '8px' }}>
+            {/* Pridaný link na Bio */}
+            <Link className={DROPDOWN_ITEM} href="/bio" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.bio") || "Bio"}</Link>
+            
             <Link className={DROPDOWN_ITEM} href="/settings" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.settings")}</Link>
             <Link className={DROPDOWN_ITEM} href="/subscription" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.subscription")}</Link>
             <Link className={DROPDOWN_ITEM} href="/connectedApps" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.connectedApps")}</Link>
