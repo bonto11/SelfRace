@@ -21,6 +21,9 @@ from Routes_DB.activities_summary import (
     db_get_summary_for_activities,
 )
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
+from Routes_DB.users_pace_history import db_get_latest_paces # ✅ NEW
+from Routes_DB.activities_laps import db_get_activity_laps # ✅ NEW
+from Routes_DB.activities_splits import db_get_activity_splits # ✅ NEW
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -175,6 +178,41 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
     return out
 
+
+def _get_minified_segments(user_id: int, activity_id: int, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """
+    Vyberie laps (alebo splits), a minifikuje ich pre AI.
+    d = distance_m, p = pace_s_per_km, hr = avg_hr_bpm
+    """
+    segments = []
+    # 1. Skús Laps
+    laps = db_get_activity_laps(user_id, activity_id, ctx=ctx)
+    if laps and len(laps) > 1: # Ignorujeme ak má aktivita len 1 lap (to je v podstate celá aktivita)
+        for lap in laps:
+            dist = _to_float(lap.get("distance_m"))
+            time_s = _to_float(lap.get("moving_time_s")) or _to_float(lap.get("elapsed_time_s"))
+            hr = _to_int(lap.get("average_heartrate_bpm"))
+            
+            if dist and time_s and dist > 0:
+                pace = int((time_s / dist) * 1000)
+                segments.append({"d": round(dist), "p": pace, "hr": hr})
+        return segments
+
+    # 2. Skús Splits (ak nie sú laps)
+    splits = db_get_activity_splits(user_id, activity_id, ctx=ctx)
+    if splits and len(splits) > 1:
+        for sp in splits:
+            dist = _to_float(sp.get("distance_m"))
+            time_s = _to_float(sp.get("moving_time_s")) or _to_float(sp.get("elapsed_time_s"))
+            hr = _to_int(sp.get("average_heartrate_bpm"))
+            
+            if dist and time_s and dist > 0:
+                pace = int((time_s / dist) * 1000)
+                segments.append({"d": round(dist), "p": pace, "hr": hr})
+    
+    return segments
+
+
 def build_last_activities_block_for_analysis(
     user_id: int,
     *,
@@ -182,7 +220,7 @@ def build_last_activities_block_for_analysis(
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
     """
-    Posledných N aktivít (summary + zóny z enrichment) pre AI.
+    Posledných N aktivít (summary + zóny z enrichment + segments) pre AI.
     """
 
     if limit <= 0:
@@ -253,7 +291,6 @@ def build_last_activities_block_for_analysis(
         dur_min = (moving_s / 60.0) if (moving_s and moving_s > 0) else None
         dist_km = (dist_m / 1000.0) if (dist_m and dist_m > 0) else None
 
-        # Vypočítame priemerné tempo pre aktivitu (sekundy na km), ak máme vzdialenosť a čas
         avg_pace_s = None
         if dist_km and dist_km > 0 and moving_s and moving_s > 0:
             avg_pace_s = int(moving_s / dist_km)
@@ -272,17 +309,23 @@ def build_last_activities_block_for_analysis(
         elif z45 > 0 or (dur_min and z12 < (dur_min * 0.8)):
             intensity = "moderate"
 
-        out.append(
-            {
-                "date": _rel_day_label(date_str),
-                "sport": sport,
-                "duration_min": round(dur_min) if dur_min else None,
-                "distance_km": round(dist_km, 2) if dist_km else None,
-                "avg_pace_s": avg_pace_s, # ✅ Pridané tempo pre AI
-                "avg_hr": avg_hr,
-                "intensity": intensity,
-            }
-        )
+        act_obj = {
+            "date": _rel_day_label(date_str),
+            "sport": sport,
+            "duration_min": round(dur_min) if dur_min else None,
+            "distance_km": round(dist_km, 2) if dist_km else None,
+            "avg_pace_s": avg_pace_s,
+            "avg_hr": avg_hr,
+            "intensity": intensity,
+        }
+
+        # ✅ Pridáme empirické segmenty (laps/splits) len pre beh a bike
+        if sport in ["run", "ride"]:
+            segments = _get_minified_segments(user_id, aid, ctx)
+            if segments:
+                act_obj["segments"] = segments
+
+        out.append(act_obj)
 
     return out
 
@@ -334,16 +377,9 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         },
         "external_events": None,
         "last_activities": [],
-        "is_returning_beginner": False, # ✅ New field
+        "latest_paces": None, # ✅ Nové pole pre zachovanie histórie
+        "is_returning_beginner": False,
     }
-
-# ✅ Helper (reused logic)
-def _check_is_returning_beginner(last_activities: List[Dict[str, Any]]) -> bool:
-    if not last_activities:
-        return True
-    
-    # Pre potreby buildera budeme predpokladať, že ak DB query vrátila 0 aktivít za posledných 60 dní, je beginner.
-    return False 
 
 
 def build_input_from_db(
@@ -402,7 +438,9 @@ def build_input_from_db(
     )
     input_data["external_events"] = _minify_external_events_for_ai(ext)
 
-    # ✅ Last Activities & Beginner Logic
+    # ✅ Posledné zaznamenané tempá a odhady pretekov z databázy
+    input_data["latest_paces"] = db_get_latest_paces(user_id=user_id, ctx=ctx)
+
     acts = build_last_activities_block_for_analysis(
         user_id=user_id,
         ctx=ctx,
@@ -410,7 +448,6 @@ def build_input_from_db(
     )
     input_data["last_activities"] = acts
     
-    # Ak nemá žiadne aktivity za posledných 60 dní (limit v DB query), je beginner.
     input_data["is_returning_beginner"] = (len(acts) == 0)
 
     return input_data

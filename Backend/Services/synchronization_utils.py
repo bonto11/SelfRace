@@ -1,4 +1,3 @@
-# Services/synchronization_utils
 from __future__ import annotations
 
 import statistics
@@ -405,7 +404,6 @@ def _decide_laps_or_splits(
 # Spoločná enrichment logika (streams + zóny + plan_match)
 # -----------------------------------------------------------------------------
 
-
 def enrich_activities_for_ids(
     user_id: int,
     activity_ids: List[int],
@@ -515,58 +513,3 @@ def enrich_activities_after_import(
         )
     except Exception as e:
         print(f"[SYNC] enrich wrapper failed: {e}")
-
-
-def decide_use_laps_or_generate_splits(
-    laps_raw: List[Dict[str, Any]],
-) -> str:
-    """
-    Vráti:
-      - "laps"   → intervalový tréning (použijeme laps)
-      - "splits" → long run / auto-lap (vygenerujeme splits)
-      - "none"   → nič nemá zmysel
-    """
-    if not laps_raw or len(laps_raw) < 2:
-        return "splits"
-
-    laps_dt = _extract_dt_pairs_from_laps(laps_raw)
-    if len(laps_dt) < 2:
-        return "splits"
-
-    distances = [d for d, _ in laps_dt]
-    mean = statistics.mean(distances)
-    spread = max(abs(d - mean) for d in distances) / mean
-
-    # intervaly: rovnaké úseky
-    if len(distances) >= 3 and spread <= 0.05:
-        return "laps"
-
-    return "splits"
-
-
-def generate_splits_from_laps(
-    *,
-    user_id: int,
-    activity_id: int,
-    laps: list[dict],
-    ctx: AuthCtx,
-) -> list[dict]:
-    """
-    Z laps spraví 1–km splits (alebo lap-based fallback).
-    """
-    out = []
-    for i, L in enumerate(laps):
-        out.append(
-            {
-                "user_id": user_id,
-                "activity_id": activity_id,
-                "split_index": i + 1,
-                "distance_m": L.get("distance_m"),
-                "moving_time_s": L.get("moving_time_s"),
-                "elapsed_time_s": L.get("elapsed_time_s"),
-                "pace_s_per_km": L.get("pace_s_per_km"),
-                "avg_speed_mps": L.get("avg_speed_mps"),
-                "avg_hr_bpm": L.get("avg_hr_bpm"),
-            }
-        )
-    return out

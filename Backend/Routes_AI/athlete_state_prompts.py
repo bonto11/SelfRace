@@ -25,7 +25,7 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     u = out.get("user")
     if isinstance(u, dict):
-        # Odstránime PII, ale necháme bio dáta (weight, birth_date, gender) dôležité pre VO2Max
+        # Odstránime PII, ale necháme bio dáta
         u.pop("id", None)
         u.pop("email", None)
         u.pop("name", None)
@@ -71,7 +71,6 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             it2 = dict(it)
             it2.pop("activity_id", None)
             it2.pop("name", None)
-            # Necháme heartrate, speed, atď. pre výpočet fitness
             if "date" in it2:
                 it2["date"] = _rel_day_label(it2.get("date"))
             cleaned.append(it2)
@@ -90,7 +89,6 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _minify_state_for_progress(state: dict) -> dict:
-    """Ponechá len podstatné dáta pre porovnanie (zahodí trace, timestampy, schema_version atď.)"""
     if not isinstance(state, dict):
         return {}
     minified = {
@@ -231,7 +229,7 @@ def build_prompts_for_analyze(
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
         "You receive structured JSON about an athlete (profile, zones, thresholds, personal bests, "
-        "recent load, recovery, preferences including volume, external events, and last activities). "
+        "recent load, recovery, preferences including volume, external events, last activities, and latest_paces). "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
         "Do NOT output prose or code fences, only JSON."
     )
@@ -324,13 +322,12 @@ def build_prompts_for_analyze(
         "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
         "  5 = Elite (Elitný): Top tier performance.\n"
         "- Estimate 'estimated_vo2max' based on biometrics and performance.\n"
-        "- CRITICAL FOR RACE ESTIMATES: Estimate race times (5k, 10k, half marathon, marathon) in TOTAL SECONDS based on VO2Max, recent load, and personal bests. (For example, if the estimated 10k time is 45:30, return 2730). Ensure realistic scaling (e.g., 10k is more than double 5k).\n"
-        "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' (ANCHOR AND EXTRAPOLATE METHOD):\n"
-        "1. DO NOT extract Z4 or Z5 pace directly from an activity's 'avg_pace_s'. Interval sessions include slow recovery periods that artificially lower the session's overall average pace.\n"
-        "2. ANCHOR Z2: Look for steady-state aerobic runs in 'last_activities' (where intensity is 'easy' or 'moderate' and avg_hr aligns with Z1/Z2). Use the 'avg_pace_s' from these specific runs as the baseline for Z2_pace_s.\n"
-        "3. ANCHOR Z4 / BESTS: Use 'thresholds.run.pace_lthr_s_per_km' or 'bests' array (personal bests) to anchor Z4 (Threshold pace) and best_1k_s.\n"
-        "4. EXTRAPOLATE: Mathematically estimate Z1, Z3, and Z5 based on the Z2 anchor and Z4/Bests. (e.g., Z1 is slower than Z2. Z5 is significantly faster than Z4).\n"
-        "5. FALLBACK: If there are no steady runs this week, extrapolate all paces using historical data, personal bests, or standard pace calculator logic based on their stated goal. Provide realistic integers (seconds per km).\n"
+        "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' & RACE ESTIMATES (EMPIRICAL METHOD):\n"
+        "1. NO RUNS = NO UPDATE: If 'last_activities' contains NO 'run' activities for the past 7 days, you MUST NOT hallucinate new paces or race times. In this case, copy the exact values from the 'latest_paces' object in the context into your output (or use null if it is empty).\n"
+        "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS: Overall 'avg_pace_s' includes walk/rest breaks. Always look at the 'segments' array (laps/splits) inside the activity.\n"
+        "3. EVALUATE SEGMENTS: The 'segments' array provides distance (d in meters), pace (p in sec/km), and heart rate (hr in bpm). Use these segments to empirically judge the athlete's true speed at specific heart rates. (e.g. if they ran 400m segments at 210 sec/km pace with HR 175, that is their true high-intensity capability).\n"
+        "4. EVOLUTION, NOT REVOLUTION: Compare current segment performance against 'latest_paces' and 'bests'. Improve estimated times by a few seconds ONLY if empirical segment data proves the athlete is faster at a given HR. Do not jump by minutes.\n"
+        "5. REALITY CHECK: If the athlete is capable of running a 5K under 25 minutes, their Z1 pace should never exceed 7:30 min/km (450 sec/km). Do not output walking paces for running zones.\n"
     )
 
     return system_txt, user_txt
