@@ -46,7 +46,7 @@ export async function apiFetchAllLatestZonesBySport(
 /** NOVÉ: Načíta historické dáta pre vykreslenie trendu LTHR/Zón */
 export async function apiFetchUserZoneTrends(
   userId: number,
-  sport: ZoneSport = "run",
+  sport: ZoneSport = "running", // 🔥 OPRAVA TU: Zmenené z "run" na "running"
   days: number = 90
 ): Promise<ZonesOut[]> {
   if (!userId) return [];
