@@ -166,9 +166,28 @@ def build_prompts_for_daily(
 
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
-    has_zones = bool(pref_obj.get("use_zones", True))
+    
+    # ✅ Dynamická detekcia: má používateľ reálne nastavené tepové/výkonové zóny v DB?
+    zones_data = context_payload.get("zones") or {}
+    has_zones = False
+    if isinstance(zones_data, dict):
+        for key, val in zones_data.items():
+            if isinstance(val, dict):
+                # Skontrolujeme vnorenú štruktúru (napr. zones_data["run"]["z1_min"])
+                if val.get("z1_min") is not None or val.get("z1_max") is not None:
+                    has_zones = True
+                    break
+                z_list = val.get("zones")
+                if isinstance(z_list, list) and len(z_list) > 0:
+                    has_zones = True
+                    break
+            # Pre prípad, že by to bol flat dict (priamo zones_data["z1_min"])
+            elif key in ["z1_min", "z1_max"] and val is not None:
+                has_zones = True
+                break
 
     tb = pref_obj.get("training_blocks") or {}
+
     if not isinstance(tb, dict): tb = {}
     blocks = {
         "vo2max": bool(tb.get("vo2max")),

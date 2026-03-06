@@ -625,10 +625,6 @@ export const en = {
             label: "Avoid back-to-back hard days",
             short: "No back-to-back hard",
           },
-          use_zones: {
-            label: "Use training zones",
-            short: "Use zones",
-          },
         },
         enums: {
           polarized: "Polarized (80/20)",

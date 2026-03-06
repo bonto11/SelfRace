@@ -124,10 +124,6 @@ def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     else:
         result = copy.deepcopy(raw) if isinstance(raw, dict) else {}
         
-    # ✅ Vymazanie use_zones z preferences, aby to AI nevidela
-    if "preferences" in result and isinstance(result["preferences"], dict):
-        result["preferences"].pop("use_zones", None)
-        
     return result
 
 
@@ -260,7 +256,6 @@ def build_daily_context_from_db(
     # 2) analyze input
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
     
-    # Funkcia teraz urobí deepcopy a natvrdo vymaže "use_zones"
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 

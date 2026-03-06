@@ -630,10 +630,6 @@ export const sk = {
             label: "Vyhnúť sa dvom náročným dňom po sebe",
             short: "Žiadne tvrdé dni po sebe",
           },
-          use_zones: {
-            label: "Používať tréningové zóny",
-            short: "Používať zóny",
-          },
         },
         enums: {
           polarized: "Polarizovaný (80/20)",

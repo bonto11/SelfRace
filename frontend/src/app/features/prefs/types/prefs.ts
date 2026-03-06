@@ -225,7 +225,6 @@ export interface Preferences {
   days_off: DayAbbrev[];
   long_run_days: DayAbbrev[];
   avoid_back_to_back_hard: boolean;
-  use_zones: boolean;
   two_a_day: TwoADayPrefs;
   intensity_model?: IntensityModel; 
   training_blocks?: TrainingBlocks; 
@@ -284,7 +283,6 @@ export const DEFAULT_PREFS: CoachPrefs = {
   preferences: {
     days_off: [],
     long_run_days: ["Sat"],
-    use_zones: true,
     avoid_back_to_back_hard: false,
     two_a_day: { enabled: true, max_days_per_week: 2 },
     intensity_model: "polarized",

@@ -144,7 +144,6 @@ export default function CoachPreferencies() {
       days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
       long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
       avoid_back_to_back_hard: typeof incoming.avoid_back_to_back_hard === "boolean" ? incoming.avoid_back_to_back_hard : true,
-      use_zones: typeof incoming.use_zones === "boolean" ? incoming.use_zones : true,
       two_a_day: { enabled, max_days_per_week: max },
       intensity_model,
       training_blocks,

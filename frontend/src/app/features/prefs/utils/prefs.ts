@@ -205,10 +205,6 @@ export function normalizeCoachPrefs(
         incomingPrefs.avoid_back_to_back_hard ??
         anyIn.avoid_back_to_back_hard ??
         DEFAULT_PREFS.preferences!.avoid_back_to_back_hard,
-      use_zones:
-        incomingPrefs.use_zones ??
-        anyIn.use_zones ??
-        DEFAULT_PREFS.preferences!.use_zones,
       two_a_day,
 
       intensity_model,
