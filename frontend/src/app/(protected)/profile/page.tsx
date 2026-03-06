@@ -19,6 +19,7 @@ export default function Page() {
   return (
     <PageShell title={t("profile.title")} showBack={false} showPoweredByStrava={false}>
       <div className={PAGE_GRID_2}>
+        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
         <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
         <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
       </div>
