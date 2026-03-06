@@ -7,7 +7,6 @@ import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { CoachDataProvider, useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
-import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
 import WidgetCoachPlan from "@/app/shared/components/widgets/WidgetCoachPlan";
 import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternalEvents";
