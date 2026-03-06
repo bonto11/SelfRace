@@ -122,9 +122,6 @@ export default function WidgetPB({
           {/* BLOK CELKOVEJ AKTIVITY */}
           {totalActivityInfo && (
             <div className="mt-4 pt-2 border-t border-white/5">
-              <div className={[WIDGET_FOOTNOTE, "opacity-40"].join(" ")}>
-                {t("PB.widget.totalActivity") || "Celý beh"}:
-              </div>
               <div className={[WIDGET_FOOTNOTE, "opacity-60 font-medium"].join(" ")}>
                 {totalActivityInfo}
               </div>

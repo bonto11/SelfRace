@@ -977,7 +977,6 @@ export const en = {
         "• PB should be evaluated in the context of a season, not in isolation",
       ].join("\n"),
       distanceLabel: "Distance",
-      totalActivity: "Distance runned",
       empty:
         "You don't have a saved record for your favorite distance yet. Open details and add your first achievement.",
     },

@@ -331,7 +331,7 @@ export default function PBRun() {
                 item={{
                   id: b.distance_m,
                   kind: "activity",
-                  title: dist,
+                  title: "dist",
                   dateIso: isoDateOnly(b.achieved_at),
                   sport: "run",
                   activityId: actId ?? 0,
@@ -369,8 +369,6 @@ export default function PBRun() {
     </div>
   );
 }
-
-// ... SwipeRow funkcia ostáva presne rovnaká ...
 
 function SwipeRow({
   children,

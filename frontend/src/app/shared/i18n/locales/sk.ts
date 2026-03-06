@@ -979,7 +979,6 @@ export const sk = {
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
       distanceLabel: "Vzdialenosť",
-      totalActivity: "Ubehnutá vzdialenosť",
       empty:
         "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
     },
