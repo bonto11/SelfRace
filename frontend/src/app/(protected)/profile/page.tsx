@@ -6,9 +6,6 @@ import PageShell from "@/app/shared/ui/components/PageShell";
 
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
-import ProfileMetricInputs from "@/app/features/profile/components/ProfileMetricInputs";
-import ProfileStaticInputs from "@/app/features/profile/components/ProfileStaticInputs";
-
 import WidgetBodyFat from "@/app/shared/components/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/app/shared/components/widgets/WidgetVO2Max";
 import { useT } from "@/app/shared/i18n/useT";
@@ -24,9 +21,6 @@ export default function Page() {
         <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
         <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
       </div>
-
-      <ProfileStaticInputs />
-      <ProfileMetricInputs />
     </PageShell>
   );
 }
