@@ -1,22 +1,17 @@
+// src/app/shared/components/widgets/WidgetBodyFat.tsx
 "use client";
 
 import * as React from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Pill from "@/app/shared/ui/components/Pill";
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
 
-import { apiGetStaticProfile } from "@/app/features/performance/api/static";
-import { apiGetMetricHistory } from "@/app/features/performance/api/metrics";
-import type {
-  StaticProfile,
-  MetricHistoryRow,
-} from "@/app/features/performance/types/performance";
+// Použitie nového Providera
+import { usePerformanceData } from "@/app/features/performance/providers/PerformanceDataProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-
 import {
   NO_X_OVERFLOW,
   WIDGET_LOADING_CENTER,
@@ -32,96 +27,49 @@ import { useT } from "@/app/shared/i18n/useT";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
-type MetricsRowFE = { updated_at: string; body_fat_pct: number | null };
-
 function colorForLevel(labelRaw: string) {
   const l = (labelRaw || "").toLowerCase();
-
   if (l.includes("athlete")) return appColors.stateAthletes;
   if (l.includes("fitness")) return appColors.stateFitness;
   if (l.includes("average")) return appColors.stateAverage;
   if (l.includes("essential")) return appColors.stateEssential;
   if (l.includes("obese")) return appColors.stateObese;
-
   return appColors.textMuted;
 }
 
-function classifyBodyFat(
-  sex: "M" | "F",
-  t: (key: any) => string,
-  pct?: number | null,
-) {
+function classifyBodyFat(sex: "M" | "F", t: (key: any) => string, pct?: number | null) {
   if (pct == null || !Number.isFinite(pct)) return null;
   const bands = getBodyFatBands(sex);
-  const hit = bands.find(
-    (b) => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max),
-  );
-
+  const hit = bands.find(b => (b.min == null || pct >= b.min) && (b.max == null || pct <= b.max));
   if (!hit) return null;
 
   const lvlKey = hit.label.trim().toLowerCase();
   const localizedLabel = (t as any)(`common.levels.${lvlKey}`);
 
   return {
-    label:
-      localizedLabel === `common.levels.${lvlKey}`
-        ? hit.label.trim()
-        : localizedLabel,
+    label: localizedLabel === `common.levels.${lvlKey}` ? hit.label.trim() : localizedLabel,
     color: colorForLevel(hit.label),
   };
 }
 
 export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
-  const { userId } = useUserId();
   const t = useT();
-  const [loading, setLoading] = React.useState(true);
-  const [stat, setStat] = React.useState<StaticProfile | null>(null);
-  const [latest, setLatest] = React.useState<MetricsRowFE | null>(null);
+  
+  // Namiesto useEffectov ťaháme dáta z Providera
+  const { data, loading } = usePerformanceData();
+  const { bodyFatHistory, vo2History } = data; // vo2History drží info o pohlaví z profilu
 
-  React.useEffect(() => {
-    if (!userId) return;
-    let alive = true;
+  const rowsBE = bodyFatHistory || [];
+  const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : null;
 
-    (async () => {
-      try {
-        setLoading(true);
-
-        const [staticProfile, history] = await Promise.all([
-          apiGetStaticProfile(userId).catch(() => null),
-          apiGetMetricHistory(userId, "body_fat_pct").catch(() => null),
-        ]);
-
-        if (!alive) return;
-
-        setStat(staticProfile ?? null);
-
-        const rowsBE: MetricHistoryRow[] = Array.isArray(history)
-          ? history
-          : [];
-        const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : undefined;
-
-        const last: MetricsRowFE | null = lastBE
-          ? {
-              updated_at: lastBE.measured_at,
-              body_fat_pct:
-                typeof lastBE.value_num === "number" ? lastBE.value_num : null,
-            }
-          : null;
-
-        setLatest(last);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId]);
-
-  const pct = latest?.body_fat_pct ?? null;
-  const level = classifyBodyFat(stat?.sex === "F" ? "F" : "M", t, pct);
+  const pct = typeof lastBE?.value_num === "number" ? lastBE.value_num : null;
+  const updatedAt = lastBE?.measured_at ?? null;
+  
+  // Pohlavie pre pásma vytiahneme z profilu (zdieľané s VO2)
+  const sex = vo2History?.sex === "F" ? "F" : "M";
+  const level = classifyBodyFat(sex, t, pct);
+  
   const accent = level?.color ?? appColors.brandPrimary;
 
   return (
@@ -134,7 +82,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
-      {loading ? (
+      {loading && rowsBE.length === 0 ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
@@ -142,24 +90,15 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         <div className={WIDGET_ROW_BETWEEN}>
           <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
-              {t("performance.metrics.measuredPlaceholder")}{" "}
-              {fmtDate(latest?.updated_at ?? null)}
+              {t("performance.metrics.measuredPlaceholder")} {fmtDate(updatedAt)}
             </div>
 
             <div className={WIDGET_VALUE_ROW}>
               <div className={WIDGET_VALUE_MAIN}>
                 {pct != null ? pct.toFixed(1) : "—"}
-                <span className={WIDGET_VALUE_UNIT}>
-                  {" "}
-                  {t("common.units.pct")}
-                </span>
+                <span className={WIDGET_VALUE_UNIT}> {t("common.units.pct")}</span>
               </div>
-
-              {level ? (
-                <Pill label={level.label} color={level.color} />
-              ) : (
-                <span className={WIDGET_PLACEHOLDER}>—</span>
-              )}
+              {level ? <Pill label={level.label} color={level.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
             </div>
           </div>
         </div>
