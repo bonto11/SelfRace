@@ -52,7 +52,7 @@ function ClientPage() {
       <div className={PAGE_GRID_2}>
         {/* existujúce widgety */}
         <WidgetExternalEvents />
-        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
+        
         <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
         
         <WidgetCoachAIAnalyze
