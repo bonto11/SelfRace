@@ -76,7 +76,9 @@ export default function CoachPreferencies() {
     dirtyRef.current = true;
   };
 
-  const [local, setLocal] = useState<CoachPrefsExtended>({} as CoachPrefsExtended);
+  const [local, setLocal] = useState<CoachPrefsExtended>(
+    {} as CoachPrefsExtended,
+  );
 
   useEffect(() => {
     if (!userId) return;
@@ -96,7 +98,10 @@ export default function CoachPreferencies() {
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
 
-        const draftThr = Array.isArray(thrRows) && thrRows.length > 0 ? { ...thrRows[0] } : undefined;
+        const draftThr =
+          Array.isArray(thrRows) && thrRows.length > 0
+            ? { ...thrRows[0] }
+            : undefined;
 
         const next: CoachPrefsExtended = {
           ...p,
@@ -112,7 +117,9 @@ export default function CoachPreferencies() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, t]);
 
   useEffect(() => {
@@ -132,18 +139,26 @@ export default function CoachPreferencies() {
     const incoming = (p?.preferences ?? {}) as any;
     const two = incoming.two_a_day;
     const enabled = !!(two && typeof two === "object" ? two.enabled : false);
-    const maxRaw = two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
+    const maxRaw =
+      two && typeof two === "object" ? Number(two.max_days_per_week) : 0;
     const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
-    const intensity_model = incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+    const intensity_model =
+      incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
     const b = incoming.training_blocks;
-    const training_blocks = b && typeof b === "object"
-      ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
-      : { vo2max: false, ftp: false, threshold: false };
+    const training_blocks =
+      b && typeof b === "object"
+        ? { vo2max: !!b.vo2max, ftp: !!b.ftp, threshold: !!b.threshold }
+        : { vo2max: false, ftp: false, threshold: false };
 
     return {
       days_off: Array.isArray(incoming.days_off) ? incoming.days_off : [],
-      long_run_days: Array.isArray(incoming.long_run_days) ? incoming.long_run_days : [],
-      avoid_back_to_back_hard: typeof incoming.avoid_back_to_back_hard === "boolean" ? incoming.avoid_back_to_back_hard : true,
+      long_run_days: Array.isArray(incoming.long_run_days)
+        ? incoming.long_run_days
+        : [],
+      avoid_back_to_back_hard:
+        typeof incoming.avoid_back_to_back_hard === "boolean"
+          ? incoming.avoid_back_to_back_hard
+          : true,
       two_a_day: { enabled, max_days_per_week: max },
       intensity_model,
       training_blocks,
@@ -151,21 +166,31 @@ export default function CoachPreferencies() {
   };
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
-    (arr ?? []).includes(v) ? (arr ?? []).filter((x) => x !== v) : [...(arr ?? []), v];
+    (arr ?? []).includes(v)
+      ? (arr ?? []).filter((x) => x !== v)
+      : [...(arr ?? []), v];
 
-  const setPref = <K extends keyof CoachPrefsExtended>(key: K, val: CoachPrefsExtended[K]) => {
+  const setPref = <K extends keyof CoachPrefsExtended>(
+    key: K,
+    val: CoachPrefsExtended[K],
+  ) => {
     markDirty();
     setLocal((prev) => ({ ...prev, [key]: val }));
   };
 
-  const setPrefNested = (path: "preferences.days_off" | "preferences.long_run_days", v: any) => {
+  const setPrefNested = (
+    path: "preferences.days_off" | "preferences.long_run_days",
+    v: any,
+  ) => {
     markDirty();
     setLocal((prev) => {
       const next: CoachPrefsExtended = { ...prev };
       const prefs = prefDefaults(next);
       next.preferences = { ...(next.preferences ?? {}), ...prefs } as any;
-      if (path.endsWith("days_off")) (next.preferences as any).days_off = v as DayAbbrev[];
-      if (path.endsWith("long_run_days")) (next.preferences as any).long_run_days = v as DayAbbrev[];
+      if (path.endsWith("days_off"))
+        (next.preferences as any).days_off = v as DayAbbrev[];
+      if (path.endsWith("long_run_days"))
+        (next.preferences as any).long_run_days = v as DayAbbrev[];
       return next;
     });
   };
@@ -175,11 +200,19 @@ export default function CoachPreferencies() {
     setLocal((prev) => {
       const prevTargets = prev.targets ?? {};
       const baseRun: RunTargets = {
-        races: [], race_goal: null, custom_distance_km: null, current_best_time: null,
-        target_time: null, longest_recent_distance_km: null, priority: null,
-        race_type: null, terrain: null, elevation_profile: null,
+        races: [],
+        race_goal: null,
+        custom_distance_km: null,
+        current_best_time: null,
+        target_time: null,
+        longest_recent_distance_km: null,
+        priority: null,
+        race_type: null,
+        terrain: null,
+        elevation_profile: null,
       };
-      const prevRun: RunTargets = (prevTargets.run as RunTargets | undefined) ?? baseRun;
+      const prevRun: RunTargets =
+        (prevTargets.run as RunTargets | undefined) ?? baseRun;
       const nextRun: RunTargets = { ...baseRun, ...prevRun, ...patch };
       return { ...prev, targets: { ...prevTargets, run: nextRun } };
     });
@@ -190,7 +223,12 @@ export default function CoachPreferencies() {
     try {
       const minIso = MIN_PLAN_START();
       const startIso = (local.start_date ?? "").trim();
-      const { zones: _z, thresholds: _t, thresholds_latest: _tl, ...rest } = local;
+      const {
+        zones: _z,
+        thresholds: _t,
+        thresholds_latest: _tl,
+        ...rest
+      } = local;
 
       const normalized: any = {
         ...rest,
@@ -204,10 +242,32 @@ export default function CoachPreferencies() {
         const trg = normalized.targets as any;
         const cleaned: any = {};
         if (trg.run) cleaned.run = trg.run;
-        if (trg.ride && (trg.ride.weekly_time_target_min != null || (trg.ride.focus && trg.ride.focus !== "endurance"))) cleaned.ride = trg.ride;
-        if (trg.strength && (trg.strength.sessions_per_week != null || (trg.strength.focus && trg.strength.focus !== "general"))) cleaned.strength = trg.strength;
-        if (trg.swim && (trg.swim.weekly_time_target_min != null || (trg.swim.sessions_per_week != null && Number(trg.swim.sessions_per_week) > 0) || (trg.swim.focus && trg.swim.focus !== "technique"))) {
-          cleaned.swim = { ...trg.swim, sessions_per_week: trg.swim.sessions_per_week != null ? Number(trg.swim.sessions_per_week) : null };
+        if (
+          trg.ride &&
+          (trg.ride.weekly_time_target_min != null ||
+            (trg.ride.focus && trg.ride.focus !== "endurance"))
+        )
+          cleaned.ride = trg.ride;
+        if (
+          trg.strength &&
+          (trg.strength.sessions_per_week != null ||
+            (trg.strength.focus && trg.strength.focus !== "general"))
+        )
+          cleaned.strength = trg.strength;
+        if (
+          trg.swim &&
+          (trg.swim.weekly_time_target_min != null ||
+            (trg.swim.sessions_per_week != null &&
+              Number(trg.swim.sessions_per_week) > 0) ||
+            (trg.swim.focus && trg.swim.focus !== "technique"))
+        ) {
+          cleaned.swim = {
+            ...trg.swim,
+            sessions_per_week:
+              trg.swim.sessions_per_week != null
+                ? Number(trg.swim.sessions_per_week)
+                : null,
+          };
         }
         normalized.targets = Object.keys(cleaned).length ? cleaned : undefined;
       }
@@ -233,10 +293,16 @@ export default function CoachPreferencies() {
       const { external_activities: _ext, ...p } = pAny;
       const zones = (zonesRaw ?? null) as any;
       const thrRows = (thrRowsRaw ?? []) as any[];
-      const draftThr = Array.isArray(thrRows) && thrRows.length > 0 ? { ...thrRows[0] } : undefined;
+      const draftThr =
+        Array.isArray(thrRows) && thrRows.length > 0
+          ? { ...thrRows[0] }
+          : undefined;
 
       const next: CoachPrefsExtended = {
-        ...p, zones, thresholds: draftThr ?? undefined, thresholds_latest: thrRows,
+        ...p,
+        zones,
+        thresholds: draftThr ?? undefined,
+        thresholds_latest: thrRows,
       };
 
       if (!dirtyRef.current) setLocal(next);
@@ -280,11 +346,21 @@ export default function CoachPreferencies() {
     try {
       const saved = await apiSaveUserThresholds(userId, th ?? {});
       setLocal((prev) => {
-        const latest = Array.isArray(prev.thresholds_latest) ? prev.thresholds_latest : [];
+        const latest = Array.isArray(prev.thresholds_latest)
+          ? prev.thresholds_latest
+          : [];
         const keySaved = `${(saved?.sport ?? th.sport ?? "running").toLowerCase()}|${(saved?.threshold_type ?? th.threshold_type ?? "LT2").toLowerCase()}`;
-        const filtered = latest.filter((r: any) => `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}` !== keySaved);
+        const filtered = latest.filter(
+          (r: any) =>
+            `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}` !==
+            keySaved,
+        );
         const mergedRow = { ...(th ?? {}), ...(saved ?? {}) };
-        return { ...prev, thresholds: mergedRow, thresholds_latest: [mergedRow, ...filtered] };
+        return {
+          ...prev,
+          thresholds: mergedRow,
+          thresholds_latest: [mergedRow, ...filtered],
+        };
       });
       toast.success(t("prefs.info.thresholdSaved"));
     } catch (e: any) {
@@ -296,37 +372,89 @@ export default function CoachPreferencies() {
     const draft = Number(local?.thresholds?.hr_bpm);
     if (Number.isFinite(draft) && draft > 0) return draft;
     const rows = (local.thresholds_latest ?? []) as any[];
-    const lt2 = rows.find((r) => String(r.threshold_type).toUpperCase() === "LT2");
+    const lt2 = rows.find(
+      (r) => String(r.threshold_type).toUpperCase() === "LT2",
+    );
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      <PlanStartSection local={local} setLocal={setLocal} markDirty={markDirty} />
-      <GoalSection local={local} setPref={setPref} upsertRunTargets={upsertRunTargets} />
-      <SportsSection local={local} mainSport={mainSport} addOnSports={addOnSports} setPref={setPref} />
+      <PlanStartSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+      <GoalSection
+        local={local}
+        setPref={setPref}
+        upsertRunTargets={upsertRunTargets}
+      />
+      <SportsSection
+        local={local}
+        mainSport={mainSport}
+        addOnSports={addOnSports}
+        setPref={setPref}
+      />
       <VolumeSection volume={local.volume} setPref={setPref} />
-      <StrengthSection local={local} setLocal={setLocal} markDirty={markDirty} />
-      <DaysSection daysOff={pref.days_off} longRunDays={pref.long_run_days} toggleInArray={toggleInArray} setPrefNested={setPrefNested} />
+      <StrengthSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+      <DaysSection
+        daysOff={pref.days_off}
+        longRunDays={pref.long_run_days}
+        toggleInArray={toggleInArray}
+        setPrefNested={setPrefNested}
+      />
       <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
-      <ZonesSection zones={local.zones} lthrBpm={lthrBpm} onZonesChange={handleZonesChange} onSaveZonesToDB={handleSaveZonesToDB} />
-      <ThresholdsSection thresholds={local.thresholds} latestList={local.thresholds_latest ?? []} onChange={handleThresholdsChange} onSaveToDB={handleSaveThresholdsToDB} />
+      <ZonesSection
+        zones={local.zones}
+        lthrBpm={lthrBpm}
+        onZonesChange={handleZonesChange}
+        onSaveZonesToDB={handleSaveZonesToDB}
+        calcMode={pref.hr_zone_calc_mode ?? "manual"}
+        onCalcModeChange={(m) =>
+          setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+        }
+      />
+      <ThresholdsSection
+        thresholds={local.thresholds}
+        latestList={local.thresholds_latest ?? []}
+        onChange={handleThresholdsChange}
+        onSaveToDB={handleSaveThresholdsToDB}
+      />
 
       <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
-        <button type="button" onClick={() => setShowAdv((s) => !s)} aria-expanded={showAdv} className="text-sm underline opacity-80 hover:opacity-100">
-          {showAdv ? t("prefs.actions.hideAdvanced") : t("prefs.actions.showAdvanced")}
+        <button
+          type="button"
+          onClick={() => setShowAdv((s) => !s)}
+          aria-expanded={showAdv}
+          className="text-sm underline opacity-80 hover:opacity-100"
+        >
+          {showAdv
+            ? t("prefs.actions.hideAdvanced")
+            : t("prefs.actions.showAdvanced")}
         </button>
       </div>
 
       {showAdv && (
         <>
           <InjuriesSection local={local} setLocal={setLocal} />
-          <FocusAvoidSection local={local} setPref={setPref} toggleInArray={toggleInArray} />
+          <FocusAvoidSection
+            local={local}
+            setPref={setPref}
+            toggleInArray={toggleInArray}
+          />
           <RehabSection local={local} setPref={setPref} />
         </>
       )}
 
-      <div className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")} style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+      <div
+        className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
+        style={{ borderColor: "rgba(255,255,255,0.1)" }}
+      >
         <Button onClick={onSave} variant="primary" className="flex-1">
           {t("common.save")}
         </Button>
