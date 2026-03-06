@@ -23,13 +23,13 @@ import type {
   StaticProfile,
   MetricHistoryRow,
   Group,
-} from "@/app/features/profile/types/profile";
-import { apiGetStaticProfile } from "@/app/features/profile/api/static";
-import { apiGetMetricHistory } from "@/app/features/profile/api/metrics";
+} from "@/app/features/performance/types/performance";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
+import { apiGetMetricHistory } from "@/app/features/performance/api/metrics";
 import {
   colorForVo2RangeLabel,
   hexWithAlpha,
-} from "@/app/features/profile/utils/profile";
+} from "@/app/features/performance/utils/performance";
 
 import {
   CARD,
@@ -277,7 +277,14 @@ export default function TrendVO2Max() {
               tick={{ fill: appColors.textMuted, fontSize: 10 }}
               axisLine={false}
               tickLine={false}
-              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{
+                value: yAxisLabel,
+                angle: -90,
+                position: "insideLeft",
+                fill: appColors.textMuted,
+                fontSize: 10,
+                dy: 30,
+              }}
             />
 
             <Tooltip

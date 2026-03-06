@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 const STROKE_WIDTH = 1.9;
 
-export type NavId = "dashboard" | "activities" | "coach" | "profile" | "recovery" | "calendar";
+export type NavId = "dashboard" | "activities" | "coach" | "performance" | "recovery" | "calendar";
 
 export function ActivityIcon() {
   return (
@@ -46,7 +46,7 @@ export function CoachIcon() {
   );
 }
 
-export function ProfileIcon() {
+export function PerformanceIcon() {
   return (
     <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true" fill="none">
       <circle cx={12} cy={8} r={2.6} stroke="currentColor" strokeWidth={STROKE_WIDTH} fill="none" />
@@ -118,8 +118,8 @@ export function NavIcon({ id }: { id: NavId }): ReactNode {
       return <ActivityIcon />;
     case "coach":
       return <CoachIcon />;
-    case "profile":
-      return <ProfileIcon />;
+    case "performance":
+      return <PerformanceIcon />;
     case "recovery":
       return <RecoveryIcon />;
     case "calendar":

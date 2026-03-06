@@ -29,7 +29,7 @@ export type StaticApiFail = {
   detail?: string;
 };
 
-/** Kľúče metrík, ktoré eviduješ v profile/metrics. */
+/** Kľúče metrík, ktoré eviduješ v performance/metrics. */
 export type MetricKey =
   | "weight_kg"
   | "body_fat_pct"
@@ -52,7 +52,7 @@ export type LatestMetric = {
   updated_at?: string | null;
 } | null;
 
-/** Map metrík, ktorý vracia BE pre `/profile/metrics/latest`. */
+/** Map metrík, ktorý vracia BE pre `/performance/metrics/latest`. */
 export type LatestMetricsMap = {
   weight_kg?: LatestMetric;
   body_fat_pct?: LatestMetric;

@@ -1,18 +1,18 @@
-// src/features/profile/api/static.ts
+// src/features/performance/api/static.ts
 
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   StaticProfile,
   StaticProfileSuccess,
   StaticApiFail,
-} from "@/app/features/profile/types/profile";
+} from "@/app/features/performance/types/performance";
 
 /**
- * GET /profile/static/:user_id
+ * GET /performance/static/:user_id
  * - user sa identifikuje cez JWT + path user_id
  */
 export async function apiGetStaticProfile(
-  userId: number
+  userId: number,
 ): Promise<StaticProfile | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
@@ -25,7 +25,7 @@ export async function apiGetStaticProfile(
       {
         method: "GET",
         cache: "no-store",
-      }
+      },
     );
 
     if (!json || (json as StaticApiFail).success === false) {
@@ -46,7 +46,7 @@ export async function apiGetStaticProfile(
  */
 export async function apiSaveStaticProfile(
   userId: number,
-  data: StaticProfile
+  data: StaticProfile,
 ): Promise<StaticProfile> {
   if (!userId) {
     throw new Error("api.common.missingUserAuth");
@@ -63,7 +63,7 @@ export async function apiSaveStaticProfile(
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }
+      },
     );
 
     if (!json || (json as StaticApiFail).success === false) {

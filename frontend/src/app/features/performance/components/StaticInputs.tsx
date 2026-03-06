@@ -13,8 +13,11 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetStaticProfile,
   apiSaveStaticProfile,
-} from "@/app/features/profile/api/static";
-import type { Sex, StaticProfile } from "@/app/features/profile/types/profile";
+} from "@/app/features/performance/api/static";
+import type {
+  Sex,
+  StaticProfile,
+} from "@/app/features/performance/types/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -26,7 +29,7 @@ import {
   INPUTS_CARD_LABEL_SM_1,
   INPUTS_CARD_SAVE_BTN,
 } from "@/app/shared/ui/tokens";
-import { useT } from "@/app/shared/i18n/useT"; 
+import { useT } from "@/app/shared/i18n/useT";
 
 const EMPTY: StaticProfile = {
   sex: null,
@@ -36,7 +39,7 @@ const EMPTY: StaticProfile = {
 
 export default function ProfileStaticInputs() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); 
+  const t = useT();
 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -73,10 +76,10 @@ export default function ProfileStaticInputs() {
       setLoading(true);
       const saved = await apiSaveStaticProfile(userId, data);
       setData(saved);
-      toast.success(t("profile.static.saveSuccess"));
+      toast.success(t("performance.static.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.profile.staticSaveFailed"));
+      toast.error(t(e?.message as any) || t("api.performance.staticSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -84,8 +87,8 @@ export default function ProfileStaticInputs() {
 
   return (
     <InputsCard
-      title={t("profile.static.title")}
-      subtitle={t("profile.static.subtitle")}
+      title={t("performance.static.title")}
+      subtitle={t("performance.static.subtitle")}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
@@ -108,7 +111,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("profile.static.sex")}
+              {t("performance.static.sex")}
             </div>
 
             <SelectField
@@ -123,8 +126,8 @@ export default function ProfileStaticInputs() {
               }}
               options={[
                 { value: "", label: "—" },
-                { value: "M", label: t("profile.static.sexMale") },
-                { value: "F", label: t("profile.static.sexFemale") },
+                { value: "M", label: t("performance.static.sexMale") },
+                { value: "F", label: t("performance.static.sexFemale") },
               ]}
             />
           </section>
@@ -134,7 +137,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("profile.static.birthDate")}
+              {t("performance.static.birthDate")}
             </div>
 
             <DateField
@@ -154,7 +157,7 @@ export default function ProfileStaticInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("profile.static.height")}
+              {t("performance.static.height")}
             </div>
 
             <TextField

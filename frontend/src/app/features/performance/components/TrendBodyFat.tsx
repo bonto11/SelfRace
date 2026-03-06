@@ -22,13 +22,13 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import type {
   StaticProfile,
   MetricHistoryRow,
-} from "@/app/features/profile/types/profile";
-import { apiGetStaticProfile } from "@/app/features/profile/api/static";
-import { apiGetMetricHistory } from "@/app/features/profile/api/metrics";
+} from "@/app/features/performance/types/performance";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
+import { apiGetMetricHistory } from "@/app/features/performance/api/metrics";
 import {
   colorForBodyFatBand,
   hexWithAlpha,
-} from "@/app/features/profile/utils/profile";
+} from "@/app/features/performance/utils/performance";
 
 import {
   CARD,
@@ -45,18 +45,35 @@ import { useT } from "@/app/shared/i18n/useT";
 const CustomTooltip = ({ active, payload, label, t }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div 
+      <div
         className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}
+        style={{
+          backgroundColor: "rgba(9, 24, 18, 0.92)",
+          borderColor: appColors.panelBorder,
+        }}
       >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        <p
+          className="mb-2 text-xs font-semibold"
+          style={{ color: appColors.textMuted }}
+        >
+          {label}
+        </p>
         {payload.map((entry: any, index: number) => {
           if (!entry.value) return null;
           return (
-            <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+            <div
+              key={index}
+              className="flex items-center gap-2 text-sm"
+              style={{ color: entry.color }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              ></span>
               <span className="opacity-90">{entry.name}:</span>
-              <span className="font-bold">{Number(entry.value).toFixed(1)}%</span>
+              <span className="font-bold">
+                {Number(entry.value).toFixed(1)}%
+              </span>
             </div>
           );
         })}
@@ -68,7 +85,7 @@ const CustomTooltip = ({ active, payload, label, t }: any) => {
 
 export default function TrendBodyFat() {
   const { userId } = useUserId() as { userId: number | null };
-  const t = useT(); 
+  const t = useT();
 
   const [loading, setLoading] = React.useState(false);
   const [stat, setStat] = React.useState<StaticProfile | null>(null);
@@ -94,11 +111,15 @@ export default function TrendBodyFat() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId]);
 
   const lookbackDays = weeks * 7;
-  const cutoffISO = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
+  const cutoffISO = new Date(Date.now() - lookbackDays * 86400000)
+    .toISOString()
+    .slice(0, 10);
 
   const samples = (hist || [])
     .map((r) => ({
@@ -134,14 +155,16 @@ export default function TrendBodyFat() {
   }));
 
   const values = points.map((p) => p.v);
-  const seriesMax = Math.max(0, ...((values.filter(Number.isFinite) as number[]) || [0]));
+  const seriesMax = Math.max(
+    0,
+    ...((values.filter(Number.isFinite) as number[]) || [0]),
+  );
   const suggestedTop = Math.max(35, Math.ceil(seriesMax + 1));
   const bands = stat ? getBodyFatBands(stat.sex ?? null) : [];
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        
         <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_CARD_TITLE}>{t("bodyFat.detailTitle")}</h2>
           <div className={["ml-auto", PANEL_ACTIONS_INLINE].join(" ")}>
@@ -155,68 +178,94 @@ export default function TrendBodyFat() {
             />
           </div>
         </div>
-
       </div>
 
-      <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
+      <div
+        className="w-full relative px-2 sm:px-4 pb-4"
+        style={{ height: 360 }}
+      >
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
           </div>
         )}
-        
+
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
           {/* ✅ Zväčšený okraj na 10 aby sa label osi Y vpratal */}
-          <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
             {bands.map((b, i) => {
-              const prevMax = i === 0 ? 0 : (bands[i-1].max ?? 0);
+              const prevMax = i === 0 ? 0 : (bands[i - 1].max ?? 0);
               const currentMax = b.max ?? suggestedTop;
 
               const y1 = Math.max(0, prevMax);
               const y2 = Math.min(suggestedTop, currentMax);
-              
+
               return (
-                <ReferenceArea 
-                  key={b.label} 
-                  y1={y1} 
-                  y2={y2} 
-                  fill={hexWithAlpha(colorForBodyFatBand(b.label || ""), 0.1)} 
-                  fillOpacity={1} 
-                  strokeOpacity={0} 
+                <ReferenceArea
+                  key={b.label}
+                  y1={y1}
+                  y2={y2}
+                  fill={hexWithAlpha(colorForBodyFatBand(b.label || ""), 0.1)}
+                  fillOpacity={1}
+                  strokeOpacity={0}
                 />
               );
             })}
 
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-            
-            <XAxis 
-              dataKey="label" 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
+            <CartesianGrid
+              strokeDasharray="3 3"
+              vertical={false}
+              stroke={appColors.chartGrid}
+            />
+
+            <XAxis
+              dataKey="label"
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
               dy={10}
               minTickGap={20}
             />
-            
-            <YAxis 
+
+            <YAxis
               domain={[0, suggestedTop]}
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
               tickLine={false}
               tickFormatter={(val) => `${val}${t("common.units.pct")}`}
               // ✅ Pridaná jednotka [%]
-              label={{ value:  `[${t("common.units.pct")}]`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{
+                value: `[${t("common.units.pct")}]`,
+                angle: -90,
+                position: "insideLeft",
+                fill: appColors.textMuted,
+                fontSize: 10,
+                dy: 30,
+              }}
             />
-            
-            <Tooltip content={<CustomTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-            
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-            
-            <Line 
-              type="monotone" 
-              dataKey="value" 
-              name={t("bodyFat.title")} 
-              stroke={appColors.chartLine1} 
+
+            <Tooltip
+              content={<CustomTooltip t={t} />}
+              cursor={{
+                stroke: appColors.textMuted,
+                strokeWidth: 1,
+                strokeDasharray: "5 5",
+              }}
+            />
+
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
+            />
+
+            <Line
+              type="monotone"
+              dataKey="value"
+              name={t("bodyFat.title")}
+              stroke={appColors.chartLine1}
               strokeWidth={3}
               dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }}
               activeDot={{ r: 6, strokeWidth: 0 }}

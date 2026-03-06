@@ -19,7 +19,7 @@ type ItemDef = {
 const ITEMS: ItemDef[] = [
   { id: "activities", href: "/activities", translationKey: "activities.title" },
   { id: "coach", href: "/coach", translationKey: "coach.title" },
-  { id: "profile", href: "/profile", translationKey: "profile.title" },
+  { id: "performance", href: "/performance", translationKey: "performance.title" },
   { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
   { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
 ];

@@ -1855,8 +1855,8 @@ export const en = {
   dashboard: {
     title: "Dashboard",
   },
-  profile: {
-    title: "Profile",
+  performance: {
+    title: "Performance",
     static: {
       title: "Basic Details",
       subtitle: "Gender, date of birth, and height.",
@@ -2404,7 +2404,7 @@ export const en = {
       fetchFailed: "Failed to load recovery data.",
       saveFailed: "Failed to save recovery data.",
     },
-    profile: {
+    performance: {
       staticLoadFailed: "Failed to load basic profile details.",
       staticSaveFailed: "Failed to save basic profile details.",
       metricsLoadFailed: "Failed to load your metrics.",

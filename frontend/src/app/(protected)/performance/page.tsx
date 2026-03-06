@@ -1,4 +1,4 @@
-// src/app/(protected)/profile/page.tsx  (alebo kde to reálne máš)
+// src/app/(protected)/performance/page.tsx  (alebo kde to reálne máš)
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -17,11 +17,11 @@ export default function Page() {
   const router = useRouter();
 
   return (
-    <PageShell title={t("profile.title")} showBack={false} showPoweredByStrava={false}>
+    <PageShell title={t("performance.title")} showBack={false} showPoweredByStrava={false}>
       <div className={PAGE_GRID_2}>
-        <WidgetPB onOpenDetail={() => router.push("/coach/pb")} />
-        <WidgetVO2Max onOpenDetail={() => router.push("/profile/vo2max")} />
-        <WidgetBodyFat onOpenDetail={() => router.push("/profile/bodyfat")} />
+        <WidgetPB onOpenDetail={() => router.push("/performance/pb")} />
+        <WidgetVO2Max onOpenDetail={() => router.push("/performance/vo2max")} />
+        <WidgetBodyFat onOpenDetail={() => router.push("/performance/bodyfat")} />
       </div>
     </PageShell>
   );

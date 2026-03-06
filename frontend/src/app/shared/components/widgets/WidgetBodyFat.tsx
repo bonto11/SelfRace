@@ -8,12 +8,12 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
 
-import { apiGetStaticProfile } from "@/app/features/profile/api/static";
-import { apiGetMetricHistory } from "@/app/features/profile/api/metrics";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
+import { apiGetMetricHistory } from "@/app/features/performance/api/metrics";
 import type {
   StaticProfile,
   MetricHistoryRow,
-} from "@/app/features/profile/types/profile";
+} from "@/app/features/performance/types/performance";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -46,7 +46,11 @@ function colorForLevel(labelRaw: string) {
   return appColors.textMuted;
 }
 
-function classifyBodyFat(sex: "M" | "F", t: (key: any) => string, pct?: number | null,) {
+function classifyBodyFat(
+  sex: "M" | "F",
+  t: (key: any) => string,
+  pct?: number | null,
+) {
   if (pct == null || !Number.isFinite(pct)) return null;
   const bands = getBodyFatBands(sex);
   const hit = bands.find(
@@ -138,7 +142,7 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
         <div className={WIDGET_ROW_BETWEEN}>
           <div className={WIDGET_BLOCK}>
             <div className={WIDGET_META_LABEL}>
-              {t("profile.metrics.measuredPlaceholder")}{" "}
+              {t("performance.metrics.measuredPlaceholder")}{" "}
               {fmtDate(latest?.updated_at ?? null)}
             </div>
 

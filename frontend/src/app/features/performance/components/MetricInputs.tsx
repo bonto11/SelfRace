@@ -11,18 +11,18 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetLatestMetrics,
   apiSaveMetrics,
-} from "@/app/features/profile/api/metrics";
+} from "@/app/features/performance/api/metrics";
 import type {
   LatestMetricsMap,
   MetricKey,
   EditableMetricKey,
   MetricState,
   DirtyMap,
-} from "@/app/features/profile/types/profile";
+} from "@/app/features/performance/types/performance";
 import {
   buildMetricPlaceholders,
   formatBmiFromLatest,
-} from "@/app/features/profile/utils/profile";
+} from "@/app/features/performance/utils/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -41,13 +41,16 @@ export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
   const t = useT();
 
-  const unitMap = useMemo<Record<EditableMetricKey, string>>(() => ({
-    weight_kg: t("common.units.kg"),
-    body_fat_pct: t("common.units.pct"),
-    HR_max: t("common.units.hr"),
-    VO2Max_measured: t("common.units.vo2max"),
-    VO2Max_estimated: t("common.units.vo2max"),
-  }), [t]);
+  const unitMap = useMemo<Record<EditableMetricKey, string>>(
+    () => ({
+      weight_kg: t("common.units.kg"),
+      body_fat_pct: t("common.units.pct"),
+      HR_max: t("common.units.hr"),
+      VO2Max_measured: t("common.units.vo2max"),
+      VO2Max_estimated: t("common.units.vo2max"),
+    }),
+    [t],
+  );
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -118,7 +121,7 @@ export default function ProfileMetricInputs() {
       }));
 
     if (!entries.length) {
-      toast.error(t("profile.metrics.errorNoValues"));
+      toast.error(t("performance.metrics.errorNoValues"));
       return;
     }
 
@@ -126,7 +129,7 @@ export default function ProfileMetricInputs() {
       setLoading(true);
       const res = await apiSaveMetrics(userId, entries);
       toast.success(
-        `${t("profile.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`,
+        `${t("performance.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`,
       );
 
       const data = await apiGetLatestMetrics(userId);
@@ -149,7 +152,7 @@ export default function ProfileMetricInputs() {
 
       setOpen(false);
     } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.profile.metricsSaveFailed"));
+      toast.error(t(e?.message as any) || t("api.performance.metricsSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -157,8 +160,8 @@ export default function ProfileMetricInputs() {
 
   return (
     <InputsCard
-      title={t("profile.metrics.title")}
-      subtitle={t("profile.metrics.subtitle")}
+      title={t("performance.metrics.title")}
+      subtitle={t("performance.metrics.subtitle")}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
@@ -176,10 +179,12 @@ export default function ProfileMetricInputs() {
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
-          
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {t("profile.metrics.weightLabel")}
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("performance.metrics.weightLabel")}
             </div>
             <TextField
               type="number"
@@ -192,8 +197,11 @@ export default function ProfileMetricInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {t("profile.metrics.fatLabel")}
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("performance.metrics.fatLabel")}
             </div>
             <TextField
               type="number"
@@ -206,8 +214,11 @@ export default function ProfileMetricInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {t("profile.metrics.hrMaxLabel")}
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("performance.metrics.hrMaxLabel")}
             </div>
             <TextField
               type="number"
@@ -221,7 +232,10 @@ export default function ProfileMetricInputs() {
 
           {/* ... zvyšok formulára ostáva rovnaký ... */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
               {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
@@ -231,7 +245,7 @@ export default function ProfileMetricInputs() {
                 value={m.VO2Max_estimated ?? ""}
                 placeholder={
                   ph.VO2Max_estimated ||
-                  t("profile.metrics.estimatedPlaceholder")
+                  t("performance.metrics.estimatedPlaceholder")
                 }
                 onChange={(e) =>
                   onChangeNumber("VO2Max_estimated", e.target.value)
@@ -243,7 +257,7 @@ export default function ProfileMetricInputs() {
                 inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
                 placeholder={
-                  ph.VO2Max_measured || t("profile.metrics.measuredPlaceholder")
+                  ph.VO2Max_measured || t("performance.metrics.measuredPlaceholder")
                 }
                 onChange={(e) =>
                   onChangeNumber("VO2Max_measured", e.target.value)
@@ -254,12 +268,14 @@ export default function ProfileMetricInputs() {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-              {t("profile.metrics.bmiLabel")}
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("performance.metrics.bmiLabel")}
             </div>
             <TextField value={bmiText || "—"} disabled />
           </section>
-
         </div>
       </div>
     </InputsCard>

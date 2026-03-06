@@ -1856,8 +1856,8 @@ export const sk = {
   dashboard: {
     title: "Dashboard",
   },
-  profile: {
-    title: "Profil",
+  performance: {
+    title: "Výkon",
     static: {
       title: "Základné údaje",
       subtitle: "Pohlavie, dátum narodenia a výška.",
@@ -2406,7 +2406,7 @@ export const sk = {
       fetchFailed: "Nepodarilo sa načítať dáta o regenerácii.",
       saveFailed: "Nepodarilo sa uložiť dáta o regenerácii.",
     },
-    profile: {
+    performance: {
       staticLoadFailed: "Nepodarilo sa načítať základné údaje profilu.",
       staticSaveFailed: "Nepodarilo sa uložiť základné údaje profilu.",
       metricsLoadFailed: "Nepodarilo sa načítať tvoje metriky.",

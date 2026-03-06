@@ -25,12 +25,12 @@ import type {
   EstRow,
   Group,
   Range,
-} from "@/app/features/profile/types/profile";
-import { levelColor } from "@/app/features/profile/utils/profile";
+} from "@/app/features/performance/types/performance";
+import { levelColor } from "@/app/features/performance/utils/performance";
 import {
   apiGetVo2History,
   apiGetVo2Estimate,
-} from "@/app/features/profile/api/metrics";
+} from "@/app/features/performance/api/metrics";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
@@ -77,8 +77,9 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   let ranges: Range[] = [];
   try {
-    const age =
-      birthDate ? Math.floor((Date.now() - +new Date(birthDate)) / 3.15e10) : 0;
+    const age = birthDate
+      ? Math.floor((Date.now() - +new Date(birthDate)) / 3.15e10)
+      : 0;
     const g = (vo2Ref as Group[]).find(
       (x) => x.sex === sex && age >= x.age_min && age <= x.age_max,
     );
@@ -97,9 +98,12 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     const lvlKey = hit.label.trim().toLowerCase();
     const localizedLabel = (t as any)(`common.levels.${lvlKey}`);
 
-    return { 
-      label: localizedLabel === `common.levels.${lvlKey}` ? hit.label.trim() : localizedLabel, 
-      color: levelColor(hit.label) 
+    return {
+      label:
+        localizedLabel === `common.levels.${lvlKey}`
+          ? hit.label.trim()
+          : localizedLabel,
+      color: levelColor(hit.label),
     };
   };
 
@@ -130,19 +134,27 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       ) : (
         // ✅ Znížil som gap, aby bolo viac miesta pre dlhšie texty
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-4 md:gap-6">
-          
           {/* estimated */}
-          <div className="min-w-0"> {/* min-w-0 je dôležité pre text-overflow v gride */}
+          <div className="min-w-0">
+            {" "}
+            {/* min-w-0 je dôležité pre text-overflow v gride */}
             <div className={WIDGET_META_LABEL}>
               {t("VO2Max.chart.estimated")}: {fmtDate(est?.updated_at ?? null)}
             </div>
             {/* Pridané items-center a flex-wrap, aby sa pill nezmrštil */}
-            <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
+            <div
+              className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}
+            >
               <div className={WIDGET_VALUE_MAIN}>
                 {estVal != null ? estVal.toFixed(1) : "—"}
               </div>
-              <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
-              <div className="shrink-0"> {/* Zabráni zmenšovaniu Pill komponentu */}
+              <span className={WIDGET_VALUE_UNIT}>
+                {" "}
+                {t("common.units.vo2max")}
+              </span>
+              <div className="shrink-0">
+                {" "}
+                {/* Zabráni zmenšovaniu Pill komponentu */}
                 {levelEstimated ? (
                   <Pill
                     label={levelEstimated.label}
@@ -163,17 +175,26 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
           {/* measured */}
           <div className="min-w-0">
             <div className={WIDGET_META_LABEL}>
-              {t("VO2Max.chart.measured")}: {fmtDate(measured?.updated_at ?? null)}
+              {t("VO2Max.chart.measured")}:{" "}
+              {fmtDate(measured?.updated_at ?? null)}
             </div>
             {/* Rovnaká oprava ako vyššie */}
-            <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
+            <div
+              className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}
+            >
               <div className={WIDGET_VALUE_MAIN}>
                 {mVO2 != null ? mVO2.toFixed(1) : "—"}
               </div>
-              <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
+              <span className={WIDGET_VALUE_UNIT}>
+                {" "}
+                {t("common.units.vo2max")}
+              </span>
               <div className="shrink-0">
                 {levelMeasured ? (
-                  <Pill label={levelMeasured.label} color={levelMeasured.color} />
+                  <Pill
+                    label={levelMeasured.label}
+                    color={levelMeasured.color}
+                  />
                 ) : (
                   <span className={WIDGET_PLACEHOLDER}>—</span>
                 )}

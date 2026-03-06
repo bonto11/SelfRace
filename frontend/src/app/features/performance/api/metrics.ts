@@ -1,4 +1,4 @@
-// src/features/profile/api/metrics.ts
+// src/features/performance/api/metrics.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
   LatestMetricsMap,
@@ -11,7 +11,7 @@ import type {
   EstRow,
   Vo2HistoryApiOk,
   Vo2EstimateApiOk,
-} from "@/app/features/profile/types/profile";
+} from "@/app/features/performance/types/performance";
 
 /**
  * GET latest metrics
@@ -19,18 +19,20 @@ import type {
  * - žiadny user_uid už netreba
  */
 export async function apiGetLatestMetrics(
-  userId: number
+  userId: number,
 ): Promise<LatestMetricsMap | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/metrics/latest/${encodeURIComponent(String(userId))}`;
-  console.debug("[METRICS][apiGetLatestMetrics] ->", path);
 
   try {
-    const json = await callBackend<LatestMetricsResponse | MetricsApiFail>(path, {
-      method: "GET",
-      cache: "no-store",
-    });
+    const json = await callBackend<LatestMetricsResponse | MetricsApiFail>(
+      path,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
 
     if (!json || (json as MetricsApiFail).success === false) {
       return null;
@@ -39,22 +41,19 @@ export async function apiGetLatestMetrics(
     return (json as LatestMetricsResponse).data ?? null;
   } catch (e) {
     console.error("[METRICS][apiGetLatestMetrics] ERROR", e);
-    throw new Error("api.profile.metricsLoadFailed");
+    throw new Error("api.performance.metricsLoadFailed");
   }
 }
-
-
 
 /**
  * GET VO2 history + meta (sex, birth_date)
  */
 export async function apiGetVo2History(
-  userId: number
+  userId: number,
 ): Promise<Vo2HistoryApiOk | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/vo2-history/${encodeURIComponent(String(userId))}`;
-  console.debug("[METRICS][apiGetVo2History] ->", path);
 
   try {
     const json = await callBackend<any>(path, {
@@ -83,7 +82,7 @@ export async function apiGetVo2History(
     };
   } catch (e) {
     console.error("[METRICS][apiGetVo2History] ERROR", e);
-    throw new Error("api.profile.vo2LoadFailed");
+    throw new Error("api.performance.vo2LoadFailed");
   }
 }
 
@@ -91,12 +90,11 @@ export async function apiGetVo2History(
  * GET VO2 estimate
  */
 export async function apiGetVo2Estimate(
-  userId: number
+  userId: number,
 ): Promise<EstRow | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/vo2-estimate/${encodeURIComponent(String(userId))}`;
-  console.debug("[METRICS][apiGetVo2Estimate] ->", path);
 
   try {
     const json = await callBackend<Vo2EstimateApiOk | MetricsApiFail | null>(
@@ -104,7 +102,7 @@ export async function apiGetVo2Estimate(
       {
         method: "GET",
         cache: "no-store",
-      }
+      },
     );
 
     if (!json || (json as any).success === false) {
@@ -118,7 +116,7 @@ export async function apiGetVo2Estimate(
     } as EstRow;
   } catch (e) {
     console.error("[METRICS][apiGetVo2Estimate] ERROR", e);
-    throw new Error("api.profile.vo2LoadFailed");
+    throw new Error("api.performance.vo2LoadFailed");
   }
 }
 
@@ -129,14 +127,13 @@ export async function apiGetVo2Estimate(
  */
 export async function apiSaveMetrics(
   userId: number,
-  entries: MetricEntryInput[]
+  entries: MetricEntryInput[],
 ): Promise<SaveMetricsSuccess> {
   if (!userId) {
     throw new Error("api.common.missingUserAuth");
   }
 
   const path = `/profile/metrics/${encodeURIComponent(String(userId))}`;
-  console.debug("[METRICS][apiSaveMetrics] ->", path, "entries:", entries?.length);
 
   try {
     const json = await callBackend<SaveMetricsSuccess | MetricsApiFail>(path, {
@@ -151,13 +148,13 @@ export async function apiSaveMetrics(
     });
 
     if (!json || (json as MetricsApiFail).success === false) {
-      throw new Error("api.profile.metricsSaveFailed");
+      throw new Error("api.performance.metricsSaveFailed");
     }
 
     return json as SaveMetricsSuccess;
   } catch (e) {
     console.error("[METRICS][apiSaveMetrics] ERROR", e);
-    throw new Error("api.profile.metricsSaveFailed");
+    throw new Error("api.performance.metricsSaveFailed");
   }
 }
 
@@ -168,15 +165,13 @@ export async function apiSaveMetrics(
  */
 export async function apiGetMetricHistory(
   userId: number,
-  metric: string
+  metric: string,
 ): Promise<MetricHistoryRow[] | null> {
   if (!userId || !metric) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/metrics/history/${encodeURIComponent(
-    String(userId)
+    String(userId),
   )}?metric=${encodeURIComponent(metric)}`;
-
-  console.debug("[METRICS][apiGetMetricHistory] ->", path);
 
   try {
     const json = await callBackend<any>(path, {
@@ -191,6 +186,6 @@ export async function apiGetMetricHistory(
     return json.data as MetricHistoryRow[];
   } catch (e) {
     console.error("[METRICS][apiGetMetricHistory] ERROR", e);
-    throw new Error("api.profile.metricsLoadFailed");
+    throw new Error("api.performance.metricsLoadFailed");
   }
 }
