@@ -155,6 +155,15 @@ def _schema(lang: str, sport: str) -> str:
     "dominant_zone": "Z1" | "Z2" | "Z3" | "Z4" | "Z5" | null
   }},
 
+  "suggested_thresholds": {{
+    "sport": "running" | "cycling",
+    "threshold_type": "LT2",
+    "hr_bpm": number | null,
+    "pace_sec_km": number | null,
+    "power_watt": number | null,
+    "notes": "string explaining why (e.g. based on 20min all-out effort)"
+  }} | null,
+
   "flags": {{
     "used_user_comment": boolean,
     "needs_caution": boolean
@@ -173,6 +182,11 @@ def build_prompts_for_activity_review(
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
+    # ✅ Spájame informáciu o preteku z argumentu aj z user_input flagu (ak je prítomný)
+    user_input_data = context_payload.get("user_input") or {}
+    user_is_race = bool(user_input_data.get("is_race_effort"))
+    actually_is_race = is_race or user_is_race
+
     resolved_sport = _canonical_sport(
         (context_payload.get("sport") if isinstance(context_payload, dict) else None)
         or sport
@@ -180,7 +194,7 @@ def build_prompts_for_activity_review(
         or "other"
     )
 
-    sport_key = "run_race" if (resolved_sport == "run" and is_race) else resolved_sport
+    sport_key = "run_race" if (resolved_sport == "run" and actually_is_race) else resolved_sport
 
     context = dict(context_payload) if isinstance(context_payload, dict) else {}
     context["user_settings"] = {
@@ -191,6 +205,11 @@ def build_prompts_for_activity_review(
     context_for_llm = minify_activity_context_for_ai(context)
 
     system_txt = _system_prompt(resolved_sport)
+    
+    # ✅ Dynamické inštrukcie pre "All-out" pretekový effort
+    race_effort_rule = ""
+    if actually_is_race:
+        race_effort_rule = "\n- CRITICAL: The athlete marked this as an ALL-OUT RACE EFFORT. Do NOT tell them they went too fast. Evaluate this as their true peak physical limit. Use the segment data (pace vs. HR) to empirically estimate their true LTHR and VO2max potential. Base your review on this being a peak performance.\n"
 
     user_txt = (
         "Evaluate ONE completed session using the provided JSON context.\n\n"
@@ -209,6 +228,7 @@ def build_prompts_for_activity_review(
         f"- Sport route (fixed by backend): {sport_key}\n"
         + _sport_rules(sport_key)
         + "\n" + _plan_and_injury_rules()
+        + race_effort_rule # ✅ Injectovaný RACE rule
         + "\n"
         "- flags.needs_caution=true MUST be true if injury is reported or recovery is very poor.\n"
         "- Output must be valid JSON only.\n"

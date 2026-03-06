@@ -25,7 +25,27 @@ from Routes_AI.activity_review_generate import generate_activity_review_json
 from Routes_DB.activities_enrichment import db_upsert_ai_review_one
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
 from Routes_DB.activities_summary import db_get_summary_for_activities
+from Routes_DB.user_thresholds import db_upsert_user_threshold
+from Routes_DB.user_prefs import db_get_pref_single
+from Routes_DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
 from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
+
+def _calculate_zones_from_lthr(lthr: int, hr_max: int) -> Dict[str, int]:
+    """
+    Konzistentná logika výpočtu zón z LTHR (zhodná s FE).
+    Vráti max hranice pre jednotlivé zóny.
+    """
+    return {
+        "z1_max": round(lthr * 0.81),
+        "z2_min": round(lthr * 0.81) + 1,
+        "z2_max": round(lthr * 0.89),
+        "z3_min": round(lthr * 0.89) + 1,
+        "z3_max": round(lthr * 0.93),
+        "z4_min": round(lthr * 0.93) + 1,
+        "z4_max": round(lthr * 0.99),
+        "z5_min": round(lthr * 0.99) + 1,
+        "z5_max": hr_max
+    }
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -172,6 +192,64 @@ def service_activity_review(
         return {"ok": False, "error": {"code": "missing_activity_data"}}
 
     review, trace = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
+
+    # --- LOGIKA PRE THRESHOLDY A ZÓNY ---
+    if isinstance(review, dict) and review.get("suggested_thresholds"):
+        sug = review["suggested_thresholds"]
+        new_lthr = sug.get("hr_bpm")
+        sport = sug.get("sport") or "running"
+        
+        if new_lthr:
+            # 1. Zapíšeme nový threshold (Upsert)
+            threshold_row = {
+                "sport": sport,
+                "threshold_type": sug.get("threshold_type") or "LT2",
+                "hr_bpm": new_lthr,
+                "pace_sec_km": sug.get("pace_sec_km"),
+                "power_watt": sug.get("power_watt"),
+                "measurement_type": "ai_estimate",
+                "updated_at": _now_iso()
+            }
+            try:
+                db_upsert_user_threshold(user_id=user_id, row=threshold_row, ctx=ctx)
+            except Exception as e:
+                print(f"[AR] Threshold upsert error: {repr(e)}")
+
+            # 2. Skontrolujeme, či máme prepočítať zóny
+            try:
+                prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
+                # Prefs sú v stĺpci 'value'
+                prefs_val = (prefs_row.get("value") or {}) if prefs_row else {}
+                calc_mode = prefs_val.get("preferences", {}).get("hr_zone_calc_mode", "manual")
+
+                # 3. Ak je zapnutý automat z LTHR, vypočítame nové zóny
+                if calc_mode == "percent_lthr":
+                    # Potrebujeme aktuálne HR Max užívateľa pre daný šport
+                    latest_zones = db_user_zones_fetch_latest(user_id=user_id, sport_raw=sport, ctx=ctx)
+                    # Fallback na 200, ak user ešte nikdy nemal zóny (čo je nepravdepodobné)
+                    hr_max = (latest_zones.get("hr_max_bpm") or 200) if latest_zones else 200
+
+                    z_vals = _calculate_zones_from_lthr(int(new_lthr), int(hr_max))
+
+                    # Vložíme nový riadok do users_zones (táto tabuľka u nás drží históriu)
+                    new_zone_row = {
+                        "user_id": user_id,
+                        "sport": sport,
+                        "hr_max_bpm": hr_max,
+                        "z1_max_bpm": z_vals["z1_max"],
+                        "z2_min_bpm": z_vals["z2_min"],
+                        "z2_max_bpm": z_vals["z2_max"],
+                        "z3_min_bpm": z_vals["z3_min"],
+                        "z3_max_bpm": z_vals["z3_max"],
+                        "z4_min_bpm": z_vals["z4_min"],
+                        "z4_max_bpm": z_vals["z4_max"],
+                        # created_at sa doplní v DB (now())
+                    }
+                    db_user_zones_insert_row(new_zone_row, ctx=ctx)
+                    print(f"[AR] Zones auto-updated for user {user_id} based on new LTHR ({new_lthr})")
+            
+            except Exception as e:
+                print(f"[AR] Zone recalculation error: {repr(e)}")
 
     if not isinstance(review, dict): review = {}
     review.setdefault("schema_version", 6)

@@ -1,4 +1,3 @@
-// src/app/shared/components/session/ActivityReviewSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -43,8 +42,16 @@ type Props = {
 
 const REFRESH_COOLDOWN_MS = 10000;
 
-const INJ_AREAS: InjuryArea[] = ["foot", "ankle", "shin", "knee", "hip", "hamstring", "calf", "back", "shoulder", "other"];
-const INJ_TYPES: InjuryType[] = ["overuse", "acute", "tendon", "stress", "shin_splints", "plantar", "itb", "other"];
+// ✅ Rozšírené katalógy zranení z prefs
+const INJ_AREAS: InjuryArea[] = [
+  "foot", "ankle", "achilles", "shin", "calf", "knee", "quad", "hamstring", 
+  "glute", "hip", "psoas", "groin", "abdomen", "back", "neck", "shoulder", 
+  "arm_wrist", "other"
+];
+const INJ_TYPES: InjuryType[] = [
+  "overuse", "acute", "muscle_strain", "tendon", "stress", 
+  "shin_splints", "plantar", "itb", "other"
+];
 const INJ_SEVERITY = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
 
 /* ================= date & tier helpers ================= */
@@ -64,7 +71,6 @@ function parseDateSafe(v: any): Date | null {
   return null;
 }
 
-// Bezpečné parsovanie čísel, aby sme na 100% predišli "NaN"
 function maxVersionsForTier(tier: string): number {
   const parseSafe = (val: any, fallback: number) => {
     const num = Number(val);
@@ -381,6 +387,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [review, setReview] = useState<any | null>(null);
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [comment, setComment] = useState<string>("");
+  
+  // ✅ Nový state pre Race Effort
+  const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
 
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
@@ -456,6 +465,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
     try {
       const c = comment.trim();
+      
+      // ✅ Payload teraz obsahuje is_race_effort
       const out = await apiRerunActivityReview(
         Number(userId),
         Number(activityId),
@@ -463,6 +474,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           comment: c.length ? c : null,
           model: null,
           has_new_injury: justAddedNewInjury,
+          is_race_effort: isRaceEffort,
         },
       );
 
@@ -541,7 +553,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             </div>
           )}
 
-          <div className="flex items-center gap-3 mt-3">
+          {/* ✅ Riadok pre Race Effort a Nahlásenie zranenia */}
+          <div className="flex flex-wrap items-center gap-4 mt-3">
             <button
               onClick={() => setShowInjuryModal(true)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
@@ -562,6 +575,19 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 : (t("sessions.review.injuryModal.alertReport" as any) || "Hlásim bolesť / zranenie")}
             </button>
             
+            <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors ml-auto md:ml-0">
+              <input
+                type="checkbox"
+                checked={isRaceEffort}
+                onChange={(e) => setIsRaceEffort(e.target.checked)}
+                className="rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer w-3.5 h-3.5"
+                disabled={busyGen}
+              />
+              <span className="flex items-center gap-1.5 font-semibold">
+                🏁 {t("sessions.review.raceEffortLabel" as any) || "Závodné tempo (Race Effort / All-out)"}
+              </span>
+            </label>
+
             {hasActiveInjuries && (
                <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
                  <TooltipIcon text={t("sessions.review.injuryModal.tooltipActive" as any) || "⚠️ Zranenie je uložené v profile."} size={20} />

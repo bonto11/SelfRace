@@ -9,7 +9,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
-
+import { ZoneCalcMode } from "@/app/features/prefs/types/prefs";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import {
@@ -21,17 +21,16 @@ import {
   SURFACE_INLINE,
 } from "@/app/shared/ui/tokens";
 
-export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
-
 type Props = {
   zones: any | undefined;
   lthrBpm?: number | null;
   onZonesChange: (z: any) => void;
   onSaveZonesToDB?: (z: any) => Promise<void>;
+  calcMode: ZoneCalcMode;
+  onCalcModeChange: (mode: ZoneCalcMode) => void;
 };
 
 const SPORT_OPTIONS_KEYS = ["running", "ride", "swimming", "rowing", "strength", "other"] as const;
-
 const ZONE_KEYS = ["z1_min", "z1_max", "z2_min", "z2_max", "z3_min", "z3_max", "z4_min", "z4_max", "z5_min", "z5_max"];
 
 function validateZones(z: any, t: any): string[] {
@@ -82,10 +81,16 @@ function recalc(mode: ZoneCalcMode, z: any, lthrBpm?: number | null) {
   return out;
 }
 
-export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZonesToDB }: Props) {
+export default function ZonesSection({ 
+  zones, 
+  lthrBpm, 
+  calcMode, 
+  onCalcModeChange, 
+  onZonesChange, 
+  onSaveZonesToDB 
+}: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [calcMode, setCalcMode] = useState<ZoneCalcMode>("manual");
 
   const z = useMemo(() => ({
       sport: zones?.sport ?? "running",
@@ -111,6 +116,7 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
 
   useEffect(() => {
     if (!zones) return;
+    // Pri zmene módu alebo LTHR okamžite prepočítame náhľad zón
     onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
@@ -132,7 +138,11 @@ export default function ZonesSection({ zones, lthrBpm, onZonesChange, onSaveZone
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className="flex items-center gap-2"><div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.zonesSection.calcLabel")}</div><TooltipIcon text={t("prefs.sections.zonesSection.calcTooltip")} /></div>
-            <SelectField value={calcMode} onChange={(e) => setCalcMode(e.target.value as ZoneCalcMode)} options={[
+            {/* ✅ Teraz voláme onCalcModeChange */}
+            <SelectField 
+              value={calcMode} 
+              onChange={(e) => onCalcModeChange(e.target.value as ZoneCalcMode)} 
+              options={[
                 { value: "manual", label: t("prefs.sections.zonesSection.enums.mode.manual") },
                 { value: "hrmax", label: t("prefs.sections.zonesSection.enums.mode.hrmax") },
                 { value: "percent_lthr", label: t("prefs.sections.zonesSection.enums.mode.lthr") },

@@ -10,7 +10,10 @@ import type {
 } from "@/app/features/prefs/types/prefs";
 import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
-import { apiFetchUserPref, apiUpsertUserPref } from "@/app/features/prefs/api/prefs";
+import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
 
 /** DB key + LS cache key */
 const KEY = "coach.prefs";
@@ -26,7 +29,8 @@ const SPORT_SET = new Set<SportKind>(["run", "ride", "swim"]);
 const clampSports = (xs?: unknown): SportKind[] | undefined => {
   if (!Array.isArray(xs)) return undefined;
   const out = xs.filter(
-    (s): s is SportKind => typeof s === "string" && SPORT_SET.has(s as SportKind)
+    (s): s is SportKind =>
+      typeof s === "string" && SPORT_SET.has(s as SportKind),
   );
   return out.length ? out : undefined;
 };
@@ -78,7 +82,10 @@ function normalizeTwoADay(incomingPrefs: any, anyIn: any) {
           enabled: !!incomingTwoA.enabled,
           max_days_per_week:
             typeof incomingTwoA.max_days_per_week === "number"
-              ? Math.max(0, Math.min(2, Math.floor(incomingTwoA.max_days_per_week)))
+              ? Math.max(
+                  0,
+                  Math.min(2, Math.floor(incomingTwoA.max_days_per_week)),
+                )
               : 2,
         }
       : legacyAvoidTwoA
@@ -88,7 +95,10 @@ function normalizeTwoADay(incomingPrefs: any, anyIn: any) {
   return two_a_day;
 }
 
-function normalizeIntensityModel(incomingPrefs: any, anyIn: any): IntensityModel {
+function normalizeIntensityModel(
+  incomingPrefs: any,
+  anyIn: any,
+): IntensityModel {
   // NEW: preferences.intensity_model
   if (incomingPrefs?.intensity_model === "pyramidal") return "pyramidal";
   if (incomingPrefs?.intensity_model === "polarized") return "polarized";
@@ -99,7 +109,10 @@ function normalizeIntensityModel(incomingPrefs: any, anyIn: any): IntensityModel
   return "polarized";
 }
 
-function normalizeTrainingBlocks(incomingPrefs: any, anyIn: any): TrainingBlocks {
+function normalizeTrainingBlocks(
+  incomingPrefs: any,
+  anyIn: any,
+): TrainingBlocks {
   // NEW: preferences.training_blocks
   const b = incomingPrefs?.training_blocks;
   if (b && typeof b === "object") {
@@ -125,13 +138,20 @@ export function readCoachPrefsFromStorage(): CoachPrefs {
   return normalizeCoachPrefs(raw);
 }
 
-export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPrefs> {
+export async function refreshCoachPrefsFromDB(
+  userId: number,
+): Promise<CoachPrefs> {
   const raw = await apiFetchUserPref(userId, KEY);
 
   let value: any = raw;
 
   // niekedy API vráti wrapper { success, key, value }
-  if (value && typeof value === "object" && "value" in value && !("goal_kind" in value)) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "value" in value &&
+    !("goal_kind" in value)
+  ) {
     value = (value as any).value;
   }
 
@@ -141,7 +161,10 @@ export async function refreshCoachPrefsFromDB(userId: number): Promise<CoachPref
   return prefs;
 }
 
-export async function saveCoachPrefs(userId: number, prefs: CoachPrefs): Promise<void> {
+export async function saveCoachPrefs(
+  userId: number,
+  prefs: CoachPrefs,
+): Promise<void> {
   // Chyba prebublá hore, kde si ju CoachPreferencies.tsx odchytí a vypíše preklad.
   await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
@@ -159,7 +182,7 @@ export function clearCoachPrefsCache() {
  * - supports legacy loose schema (CoachPrefsLegacyLoose)
  */
 export function normalizeCoachPrefs(
-  input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined
+  input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined,
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
@@ -209,19 +232,24 @@ export function normalizeCoachPrefs(
 
       intensity_model,
       training_blocks,
+      hr_zone_calc_mode:
+        incomingPrefs.hr_zone_calc_mode ??
+        DEFAULT_PREFS.preferences!.hr_zone_calc_mode,
     };
 
     // sanitize sports
     const mainSport: SportKind | null =
       anyIn.main_sport && SPORT_SET.has(anyIn.main_sport)
         ? (anyIn.main_sport as SportKind)
-        : DEFAULT_PREFS.main_sport ?? "run";
+        : (DEFAULT_PREFS.main_sport ?? "run");
 
     const addOnsRaw = Array.isArray(anyIn.add_on_sports)
-      ? clampSports(anyIn.add_on_sports) ?? []
+      ? (clampSports(anyIn.add_on_sports) ?? [])
       : [];
 
-    const addOns = mainSport ? addOnsRaw.filter((s) => s !== mainSport) : addOnsRaw;
+    const addOns = mainSport
+      ? addOnsRaw.filter((s) => s !== mainSport)
+      : addOnsRaw;
 
     const result: CoachPrefs = {
       ...DEFAULT_PREFS,
@@ -236,7 +264,8 @@ export function normalizeCoachPrefs(
     };
 
     // Drop old garbage / deprecated
-    if ("external_activities" in (result as any)) delete (result as any).external_activities;
+    if ("external_activities" in (result as any))
+      delete (result as any).external_activities;
 
     // drop old top-level intensity fields
     delete (result as any).polarized_model;
@@ -249,7 +278,10 @@ export function normalizeCoachPrefs(
     delete (result as any).weekly_template;
 
     // drop include_strides if it leaked (was old preference)
-    if ((result as any)?.preferences && "include_strides" in (result as any).preferences) {
+    if (
+      (result as any)?.preferences &&
+      "include_strides" in (result as any).preferences
+    ) {
       delete (result as any).preferences.include_strides;
     }
 
@@ -265,7 +297,8 @@ export function normalizeCoachPrefs(
 
   const result: CoachPrefs = {
     ...DEFAULT_PREFS,
-    goal_kind: (l.goal_kind ?? DEFAULT_PREFS.goal_kind) as CoachPrefs["goal_kind"],
+    goal_kind: (l.goal_kind ??
+      DEFAULT_PREFS.goal_kind) as CoachPrefs["goal_kind"],
     weeks: l.weeks ?? DEFAULT_PREFS.weeks,
     preferences: legacyPrefs,
   };
@@ -274,7 +307,9 @@ export function normalizeCoachPrefs(
   const sports = clampSports((l as any).sports);
   if (sports && sports.length) {
     result.main_sport = sports[0] ?? result.main_sport ?? "run";
-    result.add_on_sports = sports.slice(1).filter((s) => s !== result.main_sport);
+    result.add_on_sports = sports
+      .slice(1)
+      .filter((s) => s !== result.main_sport);
   }
 
   return result;
@@ -282,7 +317,9 @@ export function normalizeCoachPrefs(
 
 /* -------------------- live hook helpers -------------------- */
 
-export function subscribeCoachPrefs(cb: (prefs: CoachPrefs) => void): () => void {
+export function subscribeCoachPrefs(
+  cb: (prefs: CoachPrefs) => void,
+): () => void {
   const onEvt = (e: Event) => {
     const ce = e as CustomEvent<CoachPrefs>;
     if (ce?.detail) cb(ce.detail);

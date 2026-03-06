@@ -357,6 +357,7 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
         "user_input": {
             "source": None,
             "comment": None,
+            "is_race_effort": False, # ✅ Predvolená hodnota
         },
         "activity": {
             "activity_id": activity_id,
@@ -387,6 +388,7 @@ def build_input_from_db(
     ctx: AuthCtx,
     source: Optional[str] = None,
     user_comment: Optional[str] = None,
+    is_race_effort: Optional[bool] = False,
 ) -> Dict[str, Any]:
     
     input_data = build_base_input(user_id, activity_id)
@@ -396,6 +398,7 @@ def build_input_from_db(
 
     safe_comment = _sanitize_user_comment(user_comment)
     if safe_comment: input_data["user_input"]["comment"] = safe_comment
+    if is_race_effort: input_data["user_input"]["is_race_effort"] = True
 
     recovery = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
     recent_load_raw = service_build_recent_load_block_for_analysis(user_id=user_id, window_days=14, ctx=ctx)

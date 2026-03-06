@@ -5,14 +5,12 @@ import type {
   ActivityEnrichment
 } from "@/app/features/activities/types/activities_enrichment";
 
-
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean }
+  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean } // ✅ Pridané is_race_effort
 ): Promise<ActivityReviewRerunResponse | any> {
   if (!userId) throw new Error("api.activities.missingUserId");
-
 
   const requestPath = `/activities/enrichment/reviewRun/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
 
@@ -26,12 +24,9 @@ export async function apiRerunActivityReview(
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
-    // Hádžeme čistý I18n kľúč
     throw new Error("api.activities.enqueueFailed");
   }
 
-  // Backend môže vrátiť ok: false s kódmi ako limit_reached, activity_too_old atď.
-  // Necháme to prejsť, FE si to preloží na základe vráteného `code`.
   if (!enqueueJson?.ok) {
     return enqueueJson;
   }

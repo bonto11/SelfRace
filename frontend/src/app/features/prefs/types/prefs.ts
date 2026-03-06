@@ -47,6 +47,7 @@ export type RaceTerrain = "flat" | "rolling" | "hilly" | "mountain";
 export type RaceElevationProfile = "low" | "moderate" | "high";
 
 /* -------- Zones & Thresholds -------- */
+export type ZoneCalcMode = "manual" | "hrmax" | "percent_lthr" | "default";
 
 export type Zones = {
   hr_max?: number | null;
@@ -227,7 +228,8 @@ export interface Preferences {
   avoid_back_to_back_hard: boolean;
   two_a_day: TwoADayPrefs;
   intensity_model?: IntensityModel; 
-  training_blocks?: TrainingBlocks; 
+  training_blocks?: TrainingBlocks;
+  hr_zone_calc_mode?: ZoneCalcMode;
 }
 
 /* -------- Main prefs -------- */
@@ -287,6 +289,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     two_a_day: { enabled: true, max_days_per_week: 2 },
     intensity_model: "polarized",
     training_blocks: {},
+    hr_zone_calc_mode: "manual",
   },
 
   strength_settings: {

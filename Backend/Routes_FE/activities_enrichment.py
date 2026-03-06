@@ -1,5 +1,4 @@
 # Routes_FE/activities_enrichment.py
-
 from fastapi import APIRouter, Request
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
@@ -15,7 +14,8 @@ router = APIRouter(prefix="/activities/enrichment", tags=["activities/enrichment
 class ActivityReviewRerunPayload(BaseModel):
     comment: Optional[str] = None
     model: Optional[str] = None
-    has_new_injury: Optional[bool] = False  # ✅ OPRAVENÉ: Namiesto Dict iba Boolean
+    has_new_injury: Optional[bool] = False
+    is_race_effort: Optional[bool] = False
 
 @router.post("/reviewRun/{user_id}/{activity_id}")
 def rerun_activity_review(
@@ -31,7 +31,8 @@ def rerun_activity_review(
         activity_id=int(activity_id),
         comment=payload.comment,
         model=payload.model,
-        has_new_injury=payload.has_new_injury, # ✅ Posielame flag ďalej
+        has_new_injury=payload.has_new_injury,
+        is_race_effort=payload.is_race_effort,
         ctx=ctx,
     )
 
