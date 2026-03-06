@@ -330,7 +330,7 @@ export default function PBRun() {
                 variant="pb"
                 item={{
                   id: b.distance_m,
-                  kind: "activity",
+                  kind: "bests", 
                   title: dist,
                   dateIso: isoDateOnly(b.achieved_at),
                   sport: "run",
@@ -342,7 +342,7 @@ export default function PBRun() {
                   onToggleFavorite: toggleFav,
                   onEdit: doEdit,
                   onDelete: doDelete,
-                }}
+                } as any}
               />
             );
 
