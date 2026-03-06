@@ -680,7 +680,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     
     {/* Malá infolinka naspodu */}
     <div className="bg-emerald-500/10 px-4 py-2 text-[10px] text-emerald-400/80 italic border-t border-emerald-500/20">
-      ✨ {t("sessions.review.zonesAutoUpdated") || "Tvoje tréningové zóny v profile boli automaticky prepočítané."}
+      ✨ {t("sessions.review.zonesAutoUpdated")}
     </div>
   </div>
 )}
