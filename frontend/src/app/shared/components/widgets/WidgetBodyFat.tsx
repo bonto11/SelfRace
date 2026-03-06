@@ -7,9 +7,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Pill from "@/app/shared/ui/components/Pill";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
-
-// Použitie nového Providera
-import { usePerformanceData } from "@/app/features/performance/providers/PerformanceDataProvider";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
