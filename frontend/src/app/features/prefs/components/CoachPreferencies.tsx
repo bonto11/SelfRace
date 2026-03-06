@@ -333,8 +333,29 @@ export default function CoachPreferencies() {
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
-      const saved = await apiSaveUserZones(userId, z ?? {});
-      setLocal((prev) => ({ ...prev, zones: saved ?? z }));
+      // 1. Uložíme zóny
+      const savedZones = await apiSaveUserZones(userId, z ?? {});
+
+      // 2. Synchronizujeme calc_mode do preferencií
+      const freshPrefsRaw = await refreshCoachPrefsFromDB(userId);
+
+      // Použijeme tvoju normalizáciu, aby sme sa vyhli TS errorom s undefined poľami
+      const normalizedPrefs = {
+        ...freshPrefsRaw,
+        preferences: {
+          ...prefDefaults(freshPrefsRaw as any), // Zabezpečí defaulty pre arrays
+          hr_zone_calc_mode: pref.hr_zone_calc_mode ?? "manual",
+        },
+      } as CoachPrefs; // Type cast na upokojenie TS
+
+      await saveCoachPrefs(userId, normalizedPrefs);
+
+      setLocal((prev) => ({
+        ...prev,
+        zones: savedZones ?? z,
+        preferences: normalizedPrefs.preferences,
+      }));
+
       toast.success(t("prefs.info.zonesSaved"));
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));

@@ -196,13 +196,17 @@ def service_activity_review(
     review, trace = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
 
     print("service_activity_review review",review)
-    
+
     # --- LOGIKA PRE THRESHOLDY A ZÓNY ---
     if isinstance(review, dict) and review.get("suggested_thresholds"):
         sug = review["suggested_thresholds"]
         new_lthr = sug.get("hr_bpm")
-        sport = sug.get("sport") or "running"
+        # Normalizujeme šport: ak AI pošle "running", v našej DB je to pravdepodobne "run"
+        sport_raw = sug.get("sport") or "run"
+        sport = "run" if "run" in sport_raw.lower() else "ride" if "bike" in sport_raw.lower() or "rid" in sport_raw.lower() else sport_raw
         
+        print(f"[DEBUG-AR] Processing suggested thresholds. Sport: {sport}, New LTHR: {new_lthr}")
+
         if new_lthr:
             # 1. Zapíšeme nový threshold (Upsert)
             threshold_row = {
@@ -216,26 +220,31 @@ def service_activity_review(
             }
             try:
                 db_upsert_user_threshold(user_id=user_id, row=threshold_row, ctx=ctx)
+                print(f"[DEBUG-AR] Threshold successfully upserted.")
             except Exception as e:
                 print(f"[AR] Threshold upsert error: {repr(e)}")
 
             # 2. Skontrolujeme, či máme prepočítať zóny
             try:
                 prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
-                # Prefs sú v stĺpci 'value'
+                if not prefs_row:
+                    print(f"[DEBUG-AR] No coach.prefs found for user {user_id}")
+                
                 prefs_val = (prefs_row.get("value") or {}) if prefs_row else {}
+                # Pozor na štruktúru: preferences.hr_zone_calc_mode
                 calc_mode = prefs_val.get("preferences", {}).get("hr_zone_calc_mode", "manual")
+                
+                print(f"[DEBUG-AR] User Calc Mode: '{calc_mode}'")
 
                 # 3. Ak je zapnutý automat z LTHR, vypočítame nové zóny
                 if calc_mode == "percent_lthr":
-                    # Potrebujeme aktuálne HR Max užívateľa pre daný šport
                     latest_zones = db_user_zones_fetch_latest(user_id=user_id, sport_raw=sport, ctx=ctx)
-                    # Fallback na 200, ak user ešte nikdy nemal zóny (čo je nepravdepodobné)
+                    if not latest_zones:
+                        print(f"[DEBUG-AR] Latest zones not found for sport {sport}, using fallback HRmax=200")
+                    
                     hr_max = (latest_zones.get("hr_max_bpm") or 200) if latest_zones else 200
-
                     z_vals = _calculate_zones_from_lthr(int(new_lthr), int(hr_max))
 
-                    # Vložíme nový riadok do users_zones (táto tabuľka u nás drží históriu)
                     new_zone_row = {
                         "user_id": user_id,
                         "sport": sport,
@@ -247,14 +256,16 @@ def service_activity_review(
                         "z3_max_bpm": z_vals["z3_max"],
                         "z4_min_bpm": z_vals["z4_min"],
                         "z4_max_bpm": z_vals["z4_max"],
-                        # created_at sa doplní v DB (now())
                     }
+                    
+                    print(f"[DEBUG-AR] Inserting new zones row: {new_zone_row}")
                     db_user_zones_insert_row(new_zone_row, ctx=ctx)
-                    print(f"[AR] Zones auto-updated for user {user_id} based on new LTHR ({new_lthr})")
+                    print(f"[AR] Zones auto-updated for user {user_id}")
+                else:
+                    print(f"[DEBUG-AR] Zone update skipped because calc_mode is '{calc_mode}' (not 'percent_lthr')")
             
             except Exception as e:
                 print(f"[AR] Zone recalculation error: {repr(e)}")
-
     if not isinstance(review, dict): review = {}
     review.setdefault("schema_version", 6)
     review.setdefault("generated_at", _now_iso())

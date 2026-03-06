@@ -171,7 +171,7 @@ export default function ThresholdsSection({
           <Button
             type="button"
             size="sm"
-            variant="secondary"
+            variant="primary"
             onClick={handleSaveToDB}
           >
             {t("prefs.sections.thresholdsSection.saveBtn")}
