@@ -2200,6 +2200,7 @@ export const sk = {
       tagFocus: "Zameranie",
       tagZone: "Zóna",
       tagCaution: "Vyžaduje pozornosť",
+      raceEffortLabel: "Pretek / All-out",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
       noReviewPlaceholder:

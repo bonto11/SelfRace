@@ -2196,6 +2196,7 @@ export const en = {
       tagFocus: "Focus",
       tagZone: "Zone",
       tagCaution: "Requires Attention",
+      raceEffortLabel: "Race Effort (All-out)",
       sectionReview: "Workout Review",
       sectionNextDay: "Recommendation for Tomorrow",
       noReviewPlaceholder:
