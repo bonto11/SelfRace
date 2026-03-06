@@ -144,6 +144,7 @@ export default function CoachPreferencies() {
     const max = Number.isFinite(maxRaw) ? Math.max(0, Math.min(2, maxRaw)) : 0;
     const intensity_model =
       incoming.intensity_model === "pyramidal" ? "pyramidal" : "polarized";
+
     const b = incoming.training_blocks;
     const training_blocks =
       b && typeof b === "object"
@@ -162,6 +163,8 @@ export default function CoachPreferencies() {
       two_a_day: { enabled, max_days_per_week: max },
       intensity_model,
       training_blocks,
+      // ✅ PRIDANÉ:
+      hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
     };
   };
 
@@ -178,19 +181,21 @@ export default function CoachPreferencies() {
     setLocal((prev) => ({ ...prev, [key]: val }));
   };
 
-  const setPrefNested = (
-    path: "preferences.days_off" | "preferences.long_run_days",
-    v: any,
-  ) => {
+  const setPrefNested = (path: string, v: any) => {
     markDirty();
     setLocal((prev) => {
       const next: CoachPrefsExtended = { ...prev };
-      const prefs = prefDefaults(next);
-      next.preferences = { ...(next.preferences ?? {}), ...prefs } as any;
-      if (path.endsWith("days_off"))
-        (next.preferences as any).days_off = v as DayAbbrev[];
-      if (path.endsWith("long_run_days"))
-        (next.preferences as any).long_run_days = v as DayAbbrev[];
+
+      // Rozbijeme cestu (napr. "preferences.hr_zone_calc_mode")
+      const parts = path.split(".");
+      if (parts[0] === "preferences") {
+        const key = parts[1];
+        next.preferences = {
+          ...(next.preferences ?? {}),
+          [key]: v,
+        } as any;
+      }
+
       return next;
     });
   };

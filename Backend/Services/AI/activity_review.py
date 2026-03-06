@@ -191,8 +191,12 @@ def service_activity_review(
     if not isinstance(metrics, dict) or not metrics:
         return {"ok": False, "error": {"code": "missing_activity_data"}}
 
+    print("service_activity_review context_for_ai" ,context_for_ai)
+
     review, trace = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
 
+    print("service_activity_review review",review)
+    
     # --- LOGIKA PRE THRESHOLDY A ZÓNY ---
     if isinstance(review, dict) and review.get("suggested_thresholds"):
         sug = review["suggested_thresholds"]
