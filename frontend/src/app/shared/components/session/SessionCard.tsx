@@ -190,13 +190,19 @@ export default function SessionCard({
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
     switch (item.kind) {
-      case "activity":
-      case "bests": {
+
+      case "activity": {
         const act = item as ActivitySession | BestsSession;
         const distKm = parseKm(act.distanceStr);
         if (distKm != null && distKm > 0 && act.distanceStr) {
           return `${t("sessions.card.distance")} ${act.distanceStr}`;
         }
+        if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
+        return null;
+      }
+      
+      case "bests": {
+        const act = item as ActivitySession | BestsSession;
         if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
         return null;
       }
