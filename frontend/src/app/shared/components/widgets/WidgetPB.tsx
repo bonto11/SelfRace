@@ -1,4 +1,3 @@
-// src/features/widgets/WidgetPB.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -43,7 +42,6 @@ export default function WidgetPB({
         const r = await apiGetBests(userId, "run");
         if (alive) setRows(Array.isArray(r) ? r : []);
       } catch (e: any) {
-         // ✅ Tiché zalogovanie s prekladovým kľúčom, UI sa s tým popasuje a ukáže "empty" stav
          console.error("[WidgetPB] load failed:", t(e?.message as any));
          if (alive) setRows([]);
       } finally {
@@ -61,10 +59,37 @@ export default function WidgetPB({
     [rows, favM],
   );
 
+  // Formátovanie hlavného času rekordu
   const mainValue =
     fav?.best_time_s != null
       ? secToHHMMSS(fav.best_time_s)
       : fav?.time_str ?? "—";
+
+  // Výpočet tempa pre konkrétny rekord (segment)
+  const recordPace = useMemo(() => {
+    if (!fav?.best_time_s || !fav?.distance_m) return null;
+    const secondsPerKm = fav.best_time_s / (fav.distance_m / 1000);
+    const mins = Math.floor(secondsPerKm / 60);
+    const secs = Math.round(secondsPerKm % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }, [fav]);
+
+  // Formátovanie celkových informácií o aktivite (celý beh)
+  const totalActivityInfo = useMemo(() => {
+    // Predpokladáme, že UserBest obsahuje aj dáta o pôvodnej aktivite
+    const distM = fav?.total_distance_m;
+    const timeS = fav?.total_time_s;
+    if (!distM || !timeS) return null;
+
+    const distKm = (distM / 1000).toFixed(2);
+    const timeStr = secToHHMMSS(timeS);
+    const paceSecPerKm = timeS / (distM / 1000);
+    const pMins = Math.floor(paceSecPerKm / 60);
+    const pSecs = Math.round(paceSecPerKm % 60);
+    const paceStr = `${pMins}:${pSecs.toString().padStart(2, "0")}`;
+
+    return `${distKm} km • ${timeStr} • ${paceStr}/km`;
+  }, [fav]);
 
   const subLabel = `${t("PB.widget.distanceLabel")}: ${favM ? distanceLabel(favM, "run") : "—"}`;
 
@@ -82,12 +107,30 @@ export default function WidgetPB({
           <LoadingSpinner size="widget" />
         </div>
       ) : fav ? (
-        <>
-          <div className="flex items-baseline gap-2">
-            <span className={WIDGET_METRIC_VALUE}>{mainValue}</span>
+        <div className="flex flex-col h-full justify-between py-1">
+          {/* HLAVNÝ BLOK REKORDU */}
+          <div className="flex flex-col gap-0">
+            <div className={WIDGET_METRIC_VALUE}>{mainValue}</div>
+            {recordPace && (
+              <div className="text-lg font-bold opacity-90 -mt-1">
+                {recordPace} <span className="text-xs opacity-50 font-normal">/km</span>
+              </div>
+            )}
+            <div className={[WIDGET_FOOTNOTE, "mt-1"].join(" ")}>{subLabel}</div>
           </div>
-          <div className={WIDGET_FOOTNOTE}>{subLabel}</div>
-        </>
+
+          {/* BLOK CELKOVEJ AKTIVITY */}
+          {totalActivityInfo && (
+            <div className="mt-4 pt-2 border-t border-white/5">
+              <div className={[WIDGET_FOOTNOTE, "opacity-40"].join(" ")}>
+                {t("PB.widget.totalActivity") || "Celý beh"}:
+              </div>
+              <div className={[WIDGET_FOOTNOTE, "opacity-60 font-medium"].join(" ")}>
+                {totalActivityInfo}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className={WIDGET_EMPTY}>
           {t("PB.widget.empty")}
