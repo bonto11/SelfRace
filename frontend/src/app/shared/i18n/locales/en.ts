@@ -22,6 +22,7 @@ export const en = {
       dailyPlan: "Medical leave mode active.",
       planAdjusted: "Training adjusted for recovery.",
     },
+    optional: "Optional",
     downloadPDF: "Download PDF",
     showPDFError: "Your browser cannot display the PDF. ",
     done: "Done",
@@ -273,6 +274,7 @@ export const en = {
   },
   userMenu: {
     settings: "Settings",
+    bio: "Bio",
     subscription: "Subscription",
     connectedApps: "Connected Apps",
     logginOff: "Logging out...",
@@ -862,6 +864,10 @@ export const en = {
       },
     },
   },
+  bio: {
+    title: "Bio",
+  },
+
   onboarding: {
     welcome: {
       tab: "Welcome",
@@ -950,6 +956,8 @@ export const en = {
     removeCancel: "Cancel",
     favorite: "Favorite record",
     noRecords: "No records yet",
+    totalDistKm: "Total distance (km)",
+    totalTime: "Total time",
     widget: {
       title: "Personal Bests",
       tooltip: [
@@ -969,6 +977,7 @@ export const en = {
         "• PB should be evaluated in the context of a season, not in isolation",
       ].join("\n"),
       distanceLabel: "Distance",
+      totalActivity: "Distance runned",
       empty:
         "You don't have a saved record for your favorite distance yet. Open details and add your first achievement.",
     },
@@ -2198,10 +2207,12 @@ export const en = {
       tagCaution: "Requires Attention",
       raceEffortLabel: "Race / All-out",
       thresholdUpdateTitle: "Progress detected!",
-      thresholdUpdateDesc: "Today's performance exceeded previous limits. AI has updated your threshold and zones.",
+      thresholdUpdateDesc:
+        "Today's performance exceeded previous limits. AI has updated your threshold and zones.",
       thresholdPace: "Threshold Pace",
       thresholdNew: "New LTHR:",
-      zonesAutoUpdated: "Training zones have been automatically updated in your profile.",
+      zonesAutoUpdated:
+        "Training zones have been automatically updated in your profile.",
       sectionReview: "Workout Review",
       sectionNextDay: "Recommendation for Tomorrow",
       noReviewPlaceholder:

@@ -55,6 +55,8 @@ export function normalizeRow(r: any): UserBest {
     activity_id: r?.activity_id ?? null,
     activity_name: r?.activity_name ?? null,
     achieved_at: r?.achieved_at ?? null,
+    total_distance_m: r?.total_distance_m ?? null,
+    total_time_s: r?.total_time_s ?? null,
   };
 }
 

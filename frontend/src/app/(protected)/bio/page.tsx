@@ -10,7 +10,7 @@ export default function BioPage() {
   const t = useT();
 
   return (
-    <PageShell title={t("bio.title") || "Bio"} showBack={true} showPoweredByStrava={false}>
+    <PageShell title={t("bio.title")} showBack={true} showPoweredByStrava={false}>
       <div className="flex flex-col gap-6">
         <ProfileStaticInputs />
         <ProfileMetricInputs />

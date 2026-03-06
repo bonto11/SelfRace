@@ -59,6 +59,8 @@ const EMPTY: PBRunFormState = {
   achieved_at: "",
   activity_id: "",
   activity_name: undefined,
+  total_distance_km: "",
+  total_time_str: "",
 };
 
 const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
@@ -120,12 +122,18 @@ export default function PBRun() {
           : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "")
-        payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined)
-        payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at)
-        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+
+      // Pripravíme voliteľné total fields pre payload
+      if (form.total_distance_km) {
+        payload.total_distance_m = Math.round(parseFloat(form.total_distance_km.replace(",", ".")) * 1000);
+      }
+      if (form.total_time_str) {
+        const tSec = hhmmssToSec(form.total_time_str.trim());
+        if (Number.isFinite(tSec)) payload.total_time_s = tSec;
+      }
 
       await apiSaveBest(userId, payload);
       toast.success(t("PB.saved"));
@@ -223,6 +231,30 @@ export default function PBRun() {
             />
           </div>
 
+          {/* VOLITEĽNÉ CELKOVÉ DÁTA (ukážu sa len ak si chce user prepísať magické dotiahnutie z DB) */}
+          <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
+             <TextField
+              placeholder={t("PB.totalDistKm") || "Celk. vzdialenosť (km)"}
+              value={form.total_distance_km || ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, total_distance_km: (e.target as HTMLInputElement).value }))
+              }
+              inputMode="decimal"
+              hint={t("common.optional")}
+            />
+             <TextField
+              placeholder={t("PB.totalTime")}
+              value={form.total_time_str || ""}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  total_time_str: maskHHMMSS((e.target as HTMLInputElement).value),
+                }))
+              }
+              inputMode="numeric"
+            />
+          </div>
+
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
             <Button
               onClick={handleSave}
@@ -276,6 +308,9 @@ export default function PBRun() {
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
+                // Natiahneme aj total dáta do formulára
+                total_distance_km: b.total_distance_m ? (b.total_distance_m / 1000).toFixed(2) : "",
+                total_time_str: b.total_time_s ? secToHHMMSS(b.total_time_s) : "",
               });
             };
 
@@ -334,6 +369,8 @@ export default function PBRun() {
     </div>
   );
 }
+
+// ... SwipeRow funkcia ostáva presne rovnaká ...
 
 function SwipeRow({
   children,

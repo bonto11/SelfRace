@@ -22,7 +22,8 @@ def db_fetch_user_bests(
         sb.table(TABLE_USERS_BESTS)
         .select(
             "user_id,sport,distance_m,best_time_s,"
-            "activity_id,activity_name,achieved_at,updated_at"
+            "activity_id,activity_name,achieved_at,updated_at",
+            "total_distance_m,total_time_s"
         )
         .eq("user_id", user_id)
         .eq("sport", sport)

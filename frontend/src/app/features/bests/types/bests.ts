@@ -8,6 +8,8 @@ export type UserBest = {
   activity_id?: number | null;
   activity_name?: string | null;
   achieved_at?: string | null; // YYYY-MM-DD alebo ISO
+  total_distance_m?: number | null;
+  total_time_s?: number | null;
 };
 
 export type typePB = {
@@ -34,4 +36,6 @@ export type PBRunFormState = {
   achieved_at: string; // YYYY-MM-DD
   activity_id: string; // "" alebo číslo v texte
   activity_name?: string;
+  total_distance_km?: string; 
+  total_time_str?: string;
 };

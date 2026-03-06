@@ -22,6 +22,7 @@ export const sk = {
       dailyPlan: "Plán je v režime lekárskeho voľna.",
       planAdjusted: "Tréningy upravené pre zotavenie.",
     },
+    optional: "Voliteľné",
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
@@ -45,7 +46,7 @@ export const sk = {
     noData: "Žiadne dáta",
     last7Days: "Posledných 7 dní",
     together: "spolu",
-    note:  "Poznámka",
+    note: "Poznámka",
     confirm: {
       title: "Potvrdiť",
       ok: "OK",
@@ -274,6 +275,7 @@ export const sk = {
   },
   userMenu: {
     settings: "Nastavenia",
+    bio: "Bio",
     subscription: "Predplatné",
     connectedApps: "Pripojené aplikácie",
     logginOff: "Odhlasujem…",
@@ -866,6 +868,9 @@ export const sk = {
       },
     },
   },
+  bio: {
+    title: "Bio",
+  },
   onboarding: {
     welcome: {
       tab: "Vitaj",
@@ -953,6 +958,8 @@ export const sk = {
     removeCancel: "Zrušiť",
     favorite: "Obľúbený rekord",
     noRecords: "Zatiaľ žiadne rekordy",
+    totalDistKm: "Celk. vzdialenosť (km)",
+    totalTime: "Celk. čas",
     widget: {
       title: "Osobné rekordy",
       tooltip: [
@@ -972,6 +979,7 @@ export const sk = {
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
       distanceLabel: "Vzdialenosť",
+      totalActivity: "Ubehnutá vzdialenosť",
       empty:
         "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
     },
@@ -2202,7 +2210,8 @@ export const sk = {
       tagCaution: "Vyžaduje pozornosť",
       raceEffortLabel: "Pretek / All-out",
       thresholdUpdateTitle: "Detekovaný progres!",
-      thresholdUpdateDesc: "Tvoj dnešný výkon prekonal doterajšie limity. AI zaktualizovala tvoj prah a zóny.",
+      thresholdUpdateDesc:
+        "Tvoj dnešný výkon prekonal doterajšie limity. AI zaktualizovala tvoj prah a zóny.",
       thresholdPace: "Prahové tempo",
       thresholdNew: "Nový LTHR:",
       zonesAutoUpdated: "Nové zóny boli automaticky uložené do tvojho profilu.",
@@ -2277,7 +2286,8 @@ export const sk = {
         activation: "Aktivácia",
         strengthMain: "Hlavná časť",
         addOns: "Doplnky a jadro",
-        noteEndurance: "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom – intenzita by mala zodpovedať popisu (napr. pri Z1/Z2 vieš súvisle rozprávať).",
+        noteEndurance:
+          "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom – intenzita by mala zodpovedať popisu (napr. pri Z1/Z2 vieš súvisle rozprávať).",
       },
     },
     splits: {

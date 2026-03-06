@@ -75,7 +75,7 @@ export default function UserMenu() {
           </div>
           <nav className={USER_MENU_NAV} style={{ padding: '8px' }}>
             {/* Pridaný link na Bio */}
-            <Link className={DROPDOWN_ITEM} href="/bio" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.bio") || "Bio"}</Link>
+            <Link className={DROPDOWN_ITEM} href="/bio" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.bio")}</Link>
             
             <Link className={DROPDOWN_ITEM} href="/settings" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.settings")}</Link>
             <Link className={DROPDOWN_ITEM} href="/subscription" onClick={() => setOpen(false)} style={{ display: 'block', padding: '8px' }}>{t("userMenu.subscription")}</Link>

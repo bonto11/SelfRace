@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from Modules.Supabase.auth import AuthCtx
-
+from Routes_DB.activities_summary import db_get_activity_summary_one
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
 from Routes_DB.user_bests import (
     db_fetch_user_bests,
@@ -106,6 +106,34 @@ def service_upsert_user_best(
     if ach != "__MISSING__":
         row["achieved_at"] = ach if (isinstance(ach, str) and ach.strip()) else None
 
+    # ✅ PRIDANÉ PRE WIDGET (Toto už máš)
+    tot_dist = payload.get("total_distance_m", "__MISSING__")
+    if tot_dist != "__MISSING__":
+        try:
+            row["total_distance_m"] = int(str(tot_dist)) if str(tot_dist).strip() else None
+        except Exception:
+            row["total_distance_m"] = None
+
+    tot_time = payload.get("total_time_s", "__MISSING__")
+    if tot_time != "__MISSING__":
+        try:
+            row["total_time_s"] = int(str(tot_time)) if str(tot_time).strip() else None
+        except Exception:
+            row["total_time_s"] = None
+
+    # Ak máme activity_id, ale frontend nám neposlal total_distance_m alebo total_time_s
+    act_id = row.get("activity_id")
+    if act_id and (row.get("total_distance_m") is None or row.get("total_time_s") is None):
+        # Pylance potrebuje istotu, že act_id je int
+        summary = db_get_activity_summary_one(ctx, int(act_id))
+        if summary:
+            if row.get("total_distance_m") is None:
+                row["total_distance_m"] = int(summary.get("distance_m") or 0) or None
+            
+            if row.get("total_time_s") is None:
+                # Uprednostníme moving_time, ak nie je, vezmeme elapsed
+                row["total_time_s"] = int(summary.get("moving_time_s") or summary.get("elapsed_time_s") or 0) or None
+    # Uloženie do DB
     saved = db_upsert_user_best(row, ctx=ctx)
 
     best_time_s = saved.get("best_time_s") or row["best_time_s"]
