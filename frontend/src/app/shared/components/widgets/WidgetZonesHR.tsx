@@ -24,8 +24,8 @@ export default function WidgetZonesHR({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("performance.widget.zonesHr.title") || "Tepové zóny"}
-      tooltip={t("performance.widget.zonesHr.tooltip") || "Aktuálne nastavenie tvojich tréningových zón (HR)."}
+      title={t("zonesHr.widget.title")}
+      tooltip={t("zonesHr.widget.tooltip")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       accent="none"

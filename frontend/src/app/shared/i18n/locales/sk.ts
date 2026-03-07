@@ -995,6 +995,27 @@ export const sk = {
       title: "Osobné rekordy pre silový tréning",
     },
   },
+  estTopPaces: {
+    title: "Odhadované preteky",
+    widget: {
+      title: "Odhadované preteky",
+      tooltip: "Odhady tvojich maximálnych výkonov na pretekoch.",
+    },
+  },
+  zonesHr: {
+    title: "Tepové zóny",
+    widget: {
+      title: "Tepové zóny",
+      tooltip: "Aktuálne nastavenie tvojich tréningových zón (HR).",
+    },
+  },
+  zonesPaces: {
+    title: "Tempá v zónach",
+    widget: {
+      title: "Tempá v zónach",
+      tooltip: "Odhadované tempá prislúchajúce tvojim tepovým zónam.",
+    },
+  },
   coachAthleteState: {
     title: "Zhodnotenie trénovanosti",
     widget: {

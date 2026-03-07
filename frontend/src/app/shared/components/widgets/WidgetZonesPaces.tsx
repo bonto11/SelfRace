@@ -31,8 +31,8 @@ export default function WidgetZonesPaces({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("performance.widget.zonesPaces.title") || "Tempá v zónach"}
-      tooltip={t("performance.widget.zonesPaces.tooltip") || "Odhadované tempá prislúchajúce tvojim tepovým zónam."}
+      title={t("zonesPaces.widget.title")}
+      tooltip={t("zonesPaces.widget.tooltip")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       accent="none"

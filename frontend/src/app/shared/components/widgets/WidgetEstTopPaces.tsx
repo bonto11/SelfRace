@@ -34,8 +34,8 @@ export default function WidgetEstTopPaces({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("performance.widget.estPaces.title") || "Odhadované preteky"}
-      tooltip={t("performance.widget.estPaces.tooltip") || "Odhady tvojich maximálnych výkonov na pretekoch."}
+      title={t("estTopPaces.widget.title")}
+      tooltip={t("estTopPaces.widget.tooltip")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       accent="none"
