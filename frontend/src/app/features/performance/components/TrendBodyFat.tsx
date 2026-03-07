@@ -11,37 +11,33 @@ import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
-
 import { colorForBodyFatBand, hexWithAlpha } from "@/app/features/performance/utils/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-
 import {
   CARD, SURFACE_CARD_STYLE, PANEL_PAD, PANEL_INNER_STACK,
   PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="p-3 rounded-xl border shadow-xl backdrop-blur-md" style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}>
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
-            <span className="opacity-90">{entry.name}:</span>
-            <span className="font-bold">{Number(entry.value).toFixed(1)}%</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="p-3 rounded-xl border shadow-xl backdrop-blur-md" style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder }}>
+      <p className="mb-2 text-xs font-semibold text-white/50">{label}</p>
+      {payload.map((entry: any, index: number) => (
+        <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+          <span className="opacity-90">{entry.name}:</span>
+          <span className="font-bold">{Number(entry.value).toFixed(1)}%</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function TrendBodyFat() {
   const t = useT();
-  const { data, loading } = usePerformanceData(); // ✅ Používame Provider
+  const { data, loading } = usePerformanceData();
   const [weeks, setWeeks] = React.useState<number>(4);
 
   const chartData = React.useMemo(() => {
@@ -54,17 +50,14 @@ export default function TrendBodyFat() {
         label: new Date(r.measured_at).toLocaleDateString("sk-SK"),
         value: r.value_num,
       }));
-  }, [data, weeks]);
+  }, [data.bodyFatTrend, weeks]);
 
   const sex = data.bodyFatLatest?.sex || "M";
   const bands = getBodyFatBands(sex);
-  
-  const values = chartData.map(d => d.value);
-  const seriesMax = Math.max(0, ...values);
-  const suggestedTop = Math.max(35, Math.ceil(seriesMax + 2));
+  const suggestedTop = Math.max(35, Math.ceil(Math.max(0, ...chartData.map(d => d.value)) + 2));
 
   return (
-    <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
+    <div className={`${CARD} relative overflow-hidden`} style={SURFACE_CARD_STYLE}>
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
         <div className={[PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
           <h2 className={PANEL_CARD_TITLE}>{t("bodyFat.detailTitle")}</h2>
@@ -82,7 +75,7 @@ export default function TrendBodyFat() {
 
       <div className="w-full relative px-2 sm:px-4 pb-4" style={{ height: 360 }}>
         {loading && (
-          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
+          <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 backdrop-blur-sm">
             <LoadingSpinner size="trend" />
           </div>
         )}
@@ -92,20 +85,16 @@ export default function TrendBodyFat() {
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              {bands.map((b, i) => {
-                const y1 = Math.max(0, i === 0 ? 0 : (bands[i - 1].max ?? 0));
-                const y2 = Math.min(suggestedTop, b.max ?? suggestedTop);
-                return (
-                  <ReferenceArea
-                    key={b.label}
-                    y1={y1}
-                    y2={y2}
-                    fill={hexWithAlpha(colorForBodyFatBand(b.label || ""), 0.1)}
-                    fillOpacity={1}
-                    strokeOpacity={0}
-                  />
-                );
-              })}
+              {bands.map((b, i) => (
+                <ReferenceArea
+                  key={b.label}
+                  y1={Math.max(0, i === 0 ? 0 : (bands[i - 1].max ?? 0))}
+                  y2={Math.min(suggestedTop, b.max ?? suggestedTop)}
+                  fill={hexWithAlpha(colorForBodyFatBand(b.label || ""), 0.1)}
+                  fillOpacity={1}
+                  strokeOpacity={0}
+                />
+              ))}
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
               <YAxis domain={[0, suggestedTop]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
