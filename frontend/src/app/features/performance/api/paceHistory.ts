@@ -48,6 +48,9 @@ export async function apiFetchPaceHistoryTrends(
 
   try {
     const json = await callBackend<ApiOkPaceTrends | ApiFail>(path, { method: "GET", cache: "no-store" });
+
+    console.log("apiFetchPaceHistoryTrends json", json)
+    
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiOkPaceTrends).trends || [];
   } catch (e) {

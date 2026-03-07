@@ -59,6 +59,7 @@ def db_user_zones_fetch_trends(
     
     since_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
+    
     res = (
         sb.table(TABLE_USERS_ZONES)
         .select("*")
@@ -71,6 +72,8 @@ def db_user_zones_fetch_trends(
     
     rows: List[Dict[str, Any]] = res.data or []
     
+    print("db_user_zones_fetch_trends rows", rows)
+
     return rows
 
 

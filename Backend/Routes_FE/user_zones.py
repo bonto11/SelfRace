@@ -51,9 +51,12 @@ def get_user_zone_trends(
     try:
         ctx = require_user(get_auth_ctx(req))
         trends = service_load_zone_trends(user_id=user_id, sport=sport, days=days, ctx=ctx)
+        print("get_user_zone_trends rows trends", trends)
         return {"success": True, "trends": trends}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
 
 
 @router.put("/{user_id}/zones")

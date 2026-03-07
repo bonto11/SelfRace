@@ -39,6 +39,7 @@ def get_pace_history_trends(
     try:
         ctx = require_user(get_auth_ctx(req))
         trends = service_get_pace_history_trends(user_id=user_id, days=days, ctx=ctx)
+        print("get_pace_history_trends rows trends", trends)
         return {"success": True, "trends": trends}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -40,6 +40,7 @@ def db_get_latest_paces(
 
     rows: List[Dict[str, Any]] = res.data or []
 
+    print("db_get_latest_paces rows", rows)
     return rows[0] if rows else None
 
 
@@ -64,4 +65,5 @@ def db_get_pace_history_trends(
 
     rows: List[Dict[str, Any]] = res.data or []
 
+    print("db_get_pace_history_trends rows", rows)
     return rows

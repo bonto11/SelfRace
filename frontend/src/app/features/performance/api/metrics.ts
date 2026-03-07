@@ -34,6 +34,8 @@ export async function apiGetLatestMetrics(
       },
     );
 
+    console.log("apiGetLatestMetrics json", json)
+
     if (!json || (json as MetricsApiFail).success === false) {
       return null;
     }
@@ -60,6 +62,8 @@ export async function apiGetVo2History(
       method: "GET",
       cache: "no-store",
     });
+
+    console.log("apiGetVo2History json", json)
 
     if (!json || json.success === false) {
       return null;
@@ -104,6 +108,8 @@ export async function apiGetVo2Estimate(
         cache: "no-store",
       },
     );
+
+    console.log("apiGetVo2Estimate json", json)
 
     if (!json || (json as any).success === false) {
       return null;
@@ -178,6 +184,8 @@ export async function apiGetMetricHistory(
       method: "GET",
       cache: "no-store",
     });
+
+    console.log("apiGetMetricHistory json", json)
 
     if (!json || json?.success === false || !Array.isArray(json.data)) {
       return null;

@@ -19,6 +19,9 @@ export async function apiFetchUserZonesLatest(
 
   try {
     const json = await callBackend<ApiOkZones | ApiFail>(path, { method: "GET", cache: "no-store" });
+
+    console.log("apiFetchUserZoneLatest json", json)
+
     if (!json || (json as ApiFail).success === false) return null;
     return (json as ApiOkZones).zones ?? null;
   } catch (e) {
@@ -35,6 +38,9 @@ export async function apiFetchAllLatestZonesBySport(
 
   try {
     const json = await callBackend<ApiOkMap | ApiFail>(path, { method: "GET", cache: "no-store" });
+
+    console.log("apiFetchAllLatestZonesBySport json", json)
+
     if (!json || (json as ApiFail).success === false) return {} as Record<ZoneSport, ZonesOut>;
     return (json as ApiOkMap).zones_by_sport || {} as Record<ZoneSport, ZonesOut>;
   } catch (e) {
@@ -46,7 +52,7 @@ export async function apiFetchAllLatestZonesBySport(
 /** NOVÉ: Načíta historické dáta pre vykreslenie trendu LTHR/Zón */
 export async function apiFetchUserZoneTrends(
   userId: number,
-  sport: ZoneSport = "running", // 🔥 OPRAVA TU: Zmenené z "run" na "running"
+  sport: ZoneSport = "running",
   days: number = 90
 ): Promise<ZonesOut[]> {
   if (!userId) return [];
@@ -55,6 +61,9 @@ export async function apiFetchUserZoneTrends(
 
   try {
     const json = await callBackend<ApiOkZoneTrends | ApiFail>(path, { method: "GET", cache: "no-store" });
+
+    console.log("apiFetchUserZoneTrends json", json)
+
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiOkZoneTrends).trends || [];
   } catch (e) {
