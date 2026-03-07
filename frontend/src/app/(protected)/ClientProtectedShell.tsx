@@ -19,6 +19,7 @@ import ConfirmHost from "@/app/shared/ui/components/Confirm";
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { RecoveryDataProvider } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
+import { PerformanceDataProvider } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { SHELL_GRID } from "@/app/shared/ui/tokens";
@@ -50,6 +51,7 @@ export default function ClientProtectedShell({
         <CoachDataProvider>
           <ActivityDataProvider days={120}>
             <RecoveryDataProvider days={90}>
+              <PerformanceDataProvider days={90}>
               
               {/* ✅ Spustíme OnboardingWizard, len ak už máme userId */}
               {userId && <OnboardingWizard userId={userId} />}
@@ -132,6 +134,7 @@ export default function ClientProtectedShell({
                   <MobileBottomBar />
                 </div>
               </div>
+              </PerformanceDataProvider>
             </RecoveryDataProvider>
           </ActivityDataProvider>
         </CoachDataProvider>

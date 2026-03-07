@@ -113,10 +113,10 @@ export function usePerformanceData(): CtxValue {
 
 export function PerformanceDataProvider({
   children,
-  trendDays = 90, // default: 3 mesiace pre grafy
+  days = 90, // default: 3 mesiace pre grafy
 }: {
   children: React.ReactNode;
-  trendDays?: number;
+  days?: number;
 }) {
   const { userId } = useUserId();
 
@@ -173,7 +173,7 @@ export function PerformanceDataProvider({
           }
 
           // Tichý update z API v pozadí
-          fetchAllData(userId, trendDays)
+          fetchAllData(userId, days)
             .then((fresh) => {
               setData(fresh);
               saveCache(userIdStr, fresh);
@@ -186,7 +186,7 @@ export function PerformanceDataProvider({
         }
 
         // Force fetch – rovno z API a blokuj UI kým sa nenačíta
-        const fresh = await fetchAllData(userId, trendDays);
+        const fresh = await fetchAllData(userId, days);
         setData(fresh);
         saveCache(userIdStr, fresh);
       } catch (e) {
@@ -195,7 +195,7 @@ export function PerformanceDataProvider({
         setLoading(false);
       }
     },
-    [userId, userIdStr, trendDays]
+    [userId, userIdStr, days]
   );
 
   // Init
