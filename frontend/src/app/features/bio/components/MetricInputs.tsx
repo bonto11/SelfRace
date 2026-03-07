@@ -11,7 +11,7 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetLatestMetrics,
   apiSaveMetrics,
-} from "@/app/features/performance/api/metrics";
+} from "@/app/features/performance/api/userMetrics";
 import type {
   LatestMetricsMap,
   MetricKey,
@@ -152,7 +152,9 @@ export default function ProfileMetricInputs() {
 
       setOpen(false);
     } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.performance.metricsSaveFailed"));
+      toast.error(
+        t(e?.message as any) || t("api.performance.metricsSaveFailed"),
+      );
     } finally {
       setLoading(false);
     }
@@ -257,7 +259,8 @@ export default function ProfileMetricInputs() {
                 inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
                 placeholder={
-                  ph.VO2Max_measured || t("performance.metrics.measuredPlaceholder")
+                  ph.VO2Max_measured ||
+                  t("performance.metrics.measuredPlaceholder")
                 }
                 onChange={(e) =>
                   onChangeNumber("VO2Max_measured", e.target.value)

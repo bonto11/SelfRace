@@ -16,7 +16,7 @@ from Services.analytics_MonoStrainTrimp import (
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.user_recovery import db_get_recent_recovery
 from Routes_DB.profile_static import db_fetch_user_sex
-from Routes_DB.profile_metrics import fetch_user_hr_max
+from backend.Routes_DB.user_metrics import fetch_user_hr_max
 from Modules.Supabase.auth import AuthCtx
 
 

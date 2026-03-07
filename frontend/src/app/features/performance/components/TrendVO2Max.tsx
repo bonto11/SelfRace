@@ -25,7 +25,7 @@ import type {
   Group,
 } from "@/app/features/performance/types/performance";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
-import { apiGetMetricHistory } from "@/app/features/performance/api/metrics";
+import { apiGetMetricHistory } from "@/app/features/performance/api/userMetrics";
 import {
   colorForVo2RangeLabel,
   hexWithAlpha,

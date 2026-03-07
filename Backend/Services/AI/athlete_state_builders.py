@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 
-from Services.profile_metrics import service_load_user_profile_for_analysis
+from backend.Services.user_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
 from Services.user_bests import service_build_bests_block_for_analysis

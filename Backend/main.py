@@ -22,7 +22,6 @@ from Routes_FE import (
     coach_plan_active,
     coach_external_events,
     profile_static,
-    profile_metrics,
     async_jobs,
     maintenance,
     app_subscription,
@@ -30,6 +29,7 @@ from Routes_FE import (
     notifications,
     notifications_timed,
 )
+from backend.Routes_FE import user_metrics
 
 app = FastAPI()
 
@@ -59,7 +59,7 @@ app.add_middleware(
 app.include_router(user_recovery.router)
 app.include_router(users.router)
 app.include_router(profile_static.router)
-app.include_router(profile_metrics.router)
+app.include_router(user_metrics.router)
 app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
 app.include_router(user_zones.router)

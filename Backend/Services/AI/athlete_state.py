@@ -10,7 +10,7 @@ from Routes_AI.athlete_state_generate import (
     generate_athlete_progress_report,
 )
 
-from Routes_DB.profile_metrics import db_insert_metric_rows
+from backend.Routes_DB.user_metrics import db_insert_metric_rows
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,

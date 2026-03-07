@@ -11,7 +11,7 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 // ✅ Import pre ukladanie metrík
-import { apiSaveMetrics } from "@/app/features/performance/api/metrics";
+import { apiSaveMetrics } from "@/app/features/performance/api/userMetrics";
 
 import {
   PANEL_STACK,
