@@ -6,7 +6,7 @@ import {
   CartesianGrid, Tooltip, Legend, ReferenceArea,
 } from "recharts";
 
-import { usePerformanceData } from "@/shared/components/dataProviders/PerformanceDataProvider";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
