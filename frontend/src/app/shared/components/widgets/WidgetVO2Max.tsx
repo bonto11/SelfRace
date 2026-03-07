@@ -66,6 +66,11 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
   const accent = levelMeasured?.color ?? levelEstimated?.color ?? appColors.brandPrimary;
 
+  // Bezpečné vytiahnutie dátumu (TS error fix)
+  const measuredDate = measured 
+    ? ((measured as any).measured_at ?? (measured as any).updated_at ?? (measured as any).date ?? null)
+    : null;
+
   return (
     <WidgetCard
       title={t("VO2Max.widget.title")}
@@ -99,7 +104,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
 
           <div className="min-w-0">
             <div className={WIDGET_META_LABEL}>
-              {t("VO2Max.chart.measured")}: {fmtDate(measured?.measured_at ?? null)}
+              {t("VO2Max.chart.measured")}: {fmtDate(measuredDate)}
             </div>
             <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
               <div className={WIDGET_VALUE_MAIN}>{mVO2 != null ? mVO2.toFixed(1) : "—"}</div>
