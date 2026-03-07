@@ -138,14 +138,23 @@ export function TooltipIcon({
   const { openTooltip } = useTooltip();
 
   return (
-    <button
-      type="button"
+    <div // ✅ ZMENENÉ z <button> na <div>, aby nevznikal Hydration error vnoreného buttonu.
+      role="button"
+      tabIndex={0}
       aria-label={title}
       title={title}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         openTooltip(text);
+      }}
+      onKeyDown={(e) => {
+        // Podpora pre klávesnicu, keďže to už nie je button
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          openTooltip(text);
+        }
       }}
       className={className}
       style={{
@@ -157,6 +166,7 @@ export function TooltipIcon({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        cursor: "pointer", // ✅ Pridaný kurzor, aby to vizuálne pôsobilo ako button
       }}
     >
       <span
@@ -170,6 +180,6 @@ export function TooltipIcon({
       >
         i
       </span>
-    </button>
+    </div>
   );
 }
