@@ -11,9 +11,9 @@ from Services.users_pace_history import (
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users_pace_history", tags=["users_pace_history"])
 
-@router.get("/{user_id}/pace_history")
+@router.get("/{user_id}")
 def get_latest_pace_history(req: Request, user_id: int):
     """
     GET /users/{user_id}/pace_history
@@ -26,7 +26,7 @@ def get_latest_pace_history(req: Request, user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/{user_id}/pace_history/trends")
+@router.get("/trends/{user_id}")
 def get_pace_history_trends(
     req: Request, 
     user_id: int, 
@@ -44,7 +44,7 @@ def get_pace_history_trends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{user_id}/pace_history")
+@router.post("/{user_id}")
 def save_pace_history(req: Request, user_id: int, payload: Dict[str, Any]):
     """
     POST /users/{user_id}/pace_history

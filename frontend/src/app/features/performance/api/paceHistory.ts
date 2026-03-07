@@ -26,7 +26,7 @@ export async function apiFetchLatestPaceHistory(
   userId: number
 ): Promise<PaceHistoryData | null> {
   if (!userId) return null;
-  const path = `/users/${encodeURIComponent(String(userId))}/pace_history`;
+  const path = `/users_pace_history/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<ApiOkPace | ApiFail>(path, { method: "GET", cache: "no-store" });
@@ -44,13 +44,13 @@ export async function apiFetchPaceHistoryTrends(
   days: number = 90
 ): Promise<PaceHistoryData[]> {
   if (!userId) return [];
-  const path = `/users/${encodeURIComponent(String(userId))}/pace_history/trends?days=${days}`;
+  const path = `/users_pace_history/trends/${encodeURIComponent(String(userId))}?days=${days}`;
 
   try {
     const json = await callBackend<ApiOkPaceTrends | ApiFail>(path, { method: "GET", cache: "no-store" });
 
     console.log("apiFetchPaceHistoryTrends json", json)
-    
+
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiOkPaceTrends).trends || [];
   } catch (e) {
@@ -65,7 +65,7 @@ export async function apiSavePaceHistory(
   payload: Partial<PaceHistoryData>
 ): Promise<PaceHistoryData | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
-  const path = `/users/${encodeURIComponent(String(userId))}/pace_history`;
+  const path = `/users_pace_history/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<ApiOkPace | ApiFail>(path, {

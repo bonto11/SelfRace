@@ -15,6 +15,7 @@ from Routes_FE import (
     user_zones,
     user_thresholds,
     user_recovery,
+    users_pace_history,
     coach_plan_daily,
     coach_plan_weekly,
     coach_athlete_state,
@@ -63,6 +64,7 @@ app.include_router(user_prefs.router)
 app.include_router(user_bests.router)
 app.include_router(user_zones.router)
 app.include_router(user_thresholds.router)
+app.include_router(users_pace_history.router)
 
 app.include_router(activities_summary.router)
 app.include_router(activities_enrichment.router)

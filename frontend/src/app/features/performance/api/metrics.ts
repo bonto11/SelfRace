@@ -23,7 +23,7 @@ export async function apiGetLatestMetrics(
 ): Promise<LatestMetricsMap | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/profile/metrics/latest/${encodeURIComponent(String(userId))}`;
+  const path = `/profile_metrics/latest/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<LatestMetricsResponse | MetricsApiFail>(
@@ -55,7 +55,7 @@ export async function apiGetVo2History(
 ): Promise<Vo2HistoryApiOk | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/profile/vo2-history/${encodeURIComponent(String(userId))}`;
+  const path = `/profile_metrics/vo2-history/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<any>(path, {
@@ -98,7 +98,7 @@ export async function apiGetVo2Estimate(
 ): Promise<EstRow | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `/profile/vo2-estimate/${encodeURIComponent(String(userId))}`;
+  const path = `/profile_metrics/vo2-estimate/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<Vo2EstimateApiOk | MetricsApiFail | null>(
@@ -139,7 +139,7 @@ export async function apiSaveMetrics(
     throw new Error("api.common.missingUserAuth");
   }
 
-  const path = `/profile/metrics/${encodeURIComponent(String(userId))}`;
+  const path = `/profile_metrics/${encodeURIComponent(String(userId))}`;
 
   try {
     const json = await callBackend<SaveMetricsSuccess | MetricsApiFail>(path, {
@@ -175,7 +175,7 @@ export async function apiGetMetricHistory(
 ): Promise<MetricHistoryRow[] | null> {
   if (!userId || !metric) throw new Error("api.common.missingUserAuth");
 
-  const path = `/profile/metrics/history/${encodeURIComponent(
+  const path = `/profile_metrics/history/${encodeURIComponent(
     String(userId),
   )}?metric=${encodeURIComponent(metric)}`;
 

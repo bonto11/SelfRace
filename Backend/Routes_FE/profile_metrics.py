@@ -19,20 +19,20 @@ from Schemas.profile_metrics import (
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
-router = APIRouter(prefix="/profile", tags=["profile-metrics"])
+router = APIRouter(prefix="/profile_metrics", tags=["profile_metrics"])
 
 
 # ====== METRICS – BATCH INSERT ======
 
 
-@router.post("/metrics/{user_id}")
+@router.post("/{user_id}")
 def insert_metrics(
     req: Request,
     user_id: int,
     payload: BatchMetricsPayload,
 ):
     """
-    POST /profile/metrics/:user_id
+    POST /profile_metrics/:user_id
     """
     try:
         ctx = require_user(get_auth_ctx(req))
@@ -51,7 +51,7 @@ def insert_metrics(
 # ====== METRICS – HISTORY (jedna metrika) ======
 
 
-@router.get("/metrics/history/{user_id}")
+@router.get("/history/{user_id}")
 def get_metric_history(
     req: Request,
     user_id: int,
@@ -80,13 +80,13 @@ def get_metric_history(
 # ====== METRICS – LATEST (viac metrík + BMI v BE) ======
 
 
-@router.get("/metrics/latest/{user_id}")
+@router.get("/latest/{user_id}")
 def get_latest_metrics(
     req: Request,
     user_id: int,
 ):
     """
-    GET /profile/metrics/latest/:user_id
+    GET /profile_metrics/latest/:user_id
     """
     try:
         ctx = require_user(get_auth_ctx(req))

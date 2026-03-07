@@ -72,8 +72,6 @@ def db_user_zones_fetch_trends(
     
     rows: List[Dict[str, Any]] = res.data or []
     
-    print("db_user_zones_fetch_trends rows", rows)
-
     return rows
 
 
