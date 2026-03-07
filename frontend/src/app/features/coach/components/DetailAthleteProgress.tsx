@@ -1,4 +1,3 @@
-// src/app/features/coach/components/DetailAthleteProgress.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,9 +8,6 @@ import {
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
-
-// ✅ Import pre ukladanie metrík
-import { apiSaveMetrics } from "@/app/features/performance/api/userMetrics";
 
 import {
   PANEL_STACK,
@@ -32,7 +28,7 @@ import {
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens/sessionCard";
 
-/* ---------- helpers ---------- */
+/* ---------- Types ---------- */
 
 type Parsed = {
   model: string | null;
@@ -50,7 +46,6 @@ type Parsed = {
   blockCurr: string | null;
   blockComment: string | null;
 
-  // ✅ Capabilities (new) instead of fitness
   capRunPrev: number | null;
   capRunCurr: number | null;
   capRunLabel: string | null;
@@ -72,6 +67,8 @@ type Parsed = {
   vo2maxPrev: number | null;
   raw: any | null;
 };
+
+/* ---------- Helpers ---------- */
 
 function toStringArray(v: any): string[] {
   if (!v) return [];
@@ -119,37 +116,14 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
 
   if (!row || !payload) {
     return {
-      model: null,
-      schemaVersion: null,
-      headline: null,
-      generatedAt: null,
-      summaryBullets: [],
-      fatiguePrev: null,
-      fatigueCurr: null,
-      fatigueComment: null,
-      injuryPrev: null,
-      injuryCurr: null,
-      injuryComment: null,
-      blockPrev: null,
-      blockCurr: null,
-      blockComment: null,
-      capRunPrev: null,
-      capRunCurr: null,
-      capRunLabel: null,
-      capStrengthPrev: null,
-      capStrengthCurr: null,
-      volPrevMin: null,
-      volPrevMax: null,
-      volCurrMin: null,
-      volCurrMax: null,
-      volComment: null,
-      planSoften: null,
-      planWeekly: null,
-      celebrations: [],
-      risksToWatch: [],
-      focusNextWeeks: [],
-      vo2maxEstimate: null,
-      vo2maxPrev: null,
+      model: null, schemaVersion: null, headline: null, generatedAt: null,
+      summaryBullets: [], fatiguePrev: null, fatigueCurr: null, fatigueComment: null,
+      injuryPrev: null, injuryCurr: null, injuryComment: null, blockPrev: null,
+      blockCurr: null, blockComment: null, capRunPrev: null, capRunCurr: null,
+      capRunLabel: null, capStrengthPrev: null, capStrengthCurr: null,
+      volPrevMin: null, volPrevMax: null, volCurrMin: null, volCurrMax: null,
+      volComment: null, planSoften: null, planWeekly: null, celebrations: [],
+      risksToWatch: [], focusNextWeeks: [], vo2maxEstimate: null, vo2maxPrev: null,
       raw: payload,
     };
   }
@@ -161,9 +135,6 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   const block = comp.block_kind || {};
   const planAdj = comp.plan_adjustment || {};
   const vol = comp.volume_tolerance || {};
-
-  // ✅ Handle both legacy 'fitness_level' and new 'capabilities' if available in comparison
-  // (Assuming backend compares capabilities properly now)
   const cap = comp.capabilities || comp.fitness_level || {};
 
   let generatedAt: string | null = cp.generated_at || row.created_at || null;
@@ -171,38 +142,25 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     try {
       const d = new Date(generatedAt);
       generatedAt = d.toLocaleString("sk-SK", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
       });
-    } catch {
-      /* fallback */
-    }
+    } catch { /* fallback */ }
   }
 
-  // ✅ Extract VO2Max
   let vo2max = null;
   let vo2maxPrev = null;
-
-  // Skúsime nájsť v comparison objekte
   if (comp.vo2max) {
     vo2max = comp.vo2max.current;
     vo2maxPrev = comp.vo2max.previous;
   }
-  // Fallbacky
-  if (vo2max == null && typeof cp.vo2max_estimate === "number")
-    vo2max = cp.vo2max_estimate;
+  if (vo2max == null && typeof cp.vo2max_estimate === "number") vo2max = cp.vo2max_estimate;
 
   return {
     model: cp.model || null,
-    schemaVersion:
-      typeof cp.schema_version === "number" ? cp.schema_version : null,
+    schemaVersion: typeof cp.schema_version === "number" ? cp.schema_version : null,
     headline: cp.summary?.headline || cp.headline || null,
     generatedAt,
-    summaryBullets:
-      toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets),
+    summaryBullets: toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets),
     fatiguePrev: fatigue.previous || null,
     fatigueCurr: fatigue.current || null,
     fatigueComment: fatigue.comment || null,
@@ -212,17 +170,11 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
     blockPrev: block.previous || null,
     blockCurr: block.current || null,
     blockComment: block.comment || null,
-
-    // ✅ Extract Capabilities
-    // Note: if backend uses level_1_to_5 in comparison, adjust accordingly.
-    // If fallback fitness_level (1-10), divide by 2 for UI logic
     capRunPrev: cap.run?.previous ?? null,
     capRunCurr: cap.run?.current ?? null,
-    capRunLabel: cap.run?.label ?? null, // Ak by to BE poslal (custom field), inak null
-
+    capRunLabel: cap.run?.label ?? null,
     capStrengthPrev: cap.strength?.previous ?? null,
     capStrengthCurr: cap.strength?.current ?? null,
-
     volPrevMin: vol.previous_weekly_minutes_min,
     volPrevMax: vol.previous_weekly_minutes_max,
     volCurrMin: vol.current_weekly_minutes_min,
@@ -239,7 +191,7 @@ function parseProgress(row: AthleteProgressRecord | null): Parsed {
   };
 }
 
-/* ---------- building blocks ---------- */
+/* ---------- Building Blocks ---------- */
 
 function Card({
   title,
@@ -290,14 +242,14 @@ function Subcard({
   );
 }
 
+/* ---------- Main Component ---------- */
+
 export default function DetailAthleteProgress() {
   const { userId } = useUserId();
   const t = useT();
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [vo2maxSaved, setVo2maxSaved] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -315,44 +267,14 @@ export default function DetailAthleteProgress() {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [userId, t]);
 
   const p = useMemo(() => parseProgress(row), [row]);
 
-  // ✅ Automatické uloženie VO2Max_estimated
-  useEffect(() => {
-    if (userId && p.vo2maxEstimate && !vo2maxSaved) {
-      console.log(
-        `[Progress] Zistený nový odhad VO2Max od AI: ${p.vo2maxEstimate}. Odosielam na server...`,
-      );
-
-      apiSaveMetrics(userId, [
-        {
-          metric: "VO2Max_estimated",
-          value_num: p.vo2maxEstimate,
-          unit: "ml/kg/min",
-          measured_at: new Date().toISOString(),
-          source: "system",
-        },
-      ])
-        .then(() => {
-          setVo2maxSaved(true);
-        })
-        .catch((err) => {
-          console.warn(`[Progress] Uloženie VO2Max zlyhalo:`, err);
-        });
-    }
-  }, [userId, p.vo2maxEstimate, vo2maxSaved]);
-
   if (!userId) {
     return (
-      <Card
-        title={t("coach.progress.title")}
-        subtitle={t("common.errors.missingUserAuth")}
-      >
+      <Card title={t("coach.progress.title")} subtitle={t("common.errors.missingUserAuth")}>
         <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );
@@ -371,13 +293,8 @@ export default function DetailAthleteProgress() {
 
   if (error || !row || !(row as any).report) {
     return (
-      <Card
-        title={t("coach.progress.title")}
-        subtitle={t("coach.progress.noDataTitle")}
-      >
-        <div className={PANEL_PREVIEW}>
-          {error ?? t("coach.progress.noDataDesc")}
-        </div>
+      <Card title={t("coach.progress.title")} subtitle={t("coach.progress.noDataTitle")}>
+        <div className={PANEL_PREVIEW}>{error ?? t("coach.progress.noDataDesc")}</div>
       </Card>
     );
   }
@@ -386,13 +303,7 @@ export default function DetailAthleteProgress() {
     <div className={PANEL_STACK}>
       <Card
         title={t("coach.progress.summaryTitle")}
-        subtitle={[
-          p.generatedAt
-            ? `${t("coach.progress.createdAt")}: ${p.generatedAt}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
+        subtitle={p.generatedAt ? `${t("coach.progress.createdAt")}: ${p.generatedAt}` : ""}
       >
         {p.headline && <div className={PANEL_PREVIEW}>{p.headline}</div>}
         {p.summaryBullets.length > 0 && (
@@ -426,35 +337,18 @@ export default function DetailAthleteProgress() {
 
       <Card title={t("coach.state.capabilitiesTitle")}>
         <div className={PANEL_GRID_3}>
-          {/* ✅ RUN CAPABILITY COMPARISON */}
           <Subcard
             title={t("common.sports.run")}
-            value={
-              p.capRunPrev != null || p.capRunCurr != null
-                ? `${p.capRunPrev ?? "—"} → ${p.capRunCurr ?? "—"}`
-                : "—"
-            }
+            value={p.capRunPrev != null || p.capRunCurr != null ? `${p.capRunPrev ?? "—"} → ${p.capRunCurr ?? "—"}` : "—"}
             text={p.capRunLabel ? `Label: ${p.capRunLabel}` : undefined}
           />
-
-          {/* ✅ STRENGTH CAPABILITY COMPARISON */}
           <Subcard
             title={t("common.sports.strength")}
-            value={
-              p.capStrengthPrev != null || p.capStrengthCurr != null
-                ? `${p.capStrengthPrev ?? "—"} → ${p.capStrengthCurr ?? "—"}`
-                : "—"
-            }
+            value={p.capStrengthPrev != null || p.capStrengthCurr != null ? `${p.capStrengthPrev ?? "—"} → ${p.capStrengthCurr ?? "—"}` : "—"}
           />
-
-          {/* ✅ VO2MAX COMPARISON */}
           <Subcard
             title="VO₂ Max"
-            value={
-              p.vo2maxPrev != null || p.vo2maxEstimate != null
-                ? `${p.vo2maxPrev ?? "—"} → ${p.vo2maxEstimate ?? "—"}`
-                : "—"
-            }
+            value={p.vo2maxPrev != null || p.vo2maxEstimate != null ? `${p.vo2maxPrev ?? "—"} → ${p.vo2maxEstimate ?? "—"}` : "—"}
           />
         </div>
       </Card>
@@ -468,22 +362,14 @@ export default function DetailAthleteProgress() {
           />
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_SUBTITLE}>
-                {t("coach.progress.planChanges")}
-              </div>
+              <div className={PANEL_SECTION_SUBTITLE}>{t("coach.progress.planChanges")}</div>
               {p.planSoften || p.planWeekly ? (
                 <div className="space-y-2">
-                  {p.planSoften && (
-                    <div className={PANEL_PREVIEW}>{p.planSoften}</div>
-                  )}
-                  {p.planWeekly && (
-                    <div className={PANEL_PREVIEW}>{p.planWeekly}</div>
-                  )}
+                  {p.planSoften && <div className={PANEL_PREVIEW}>{p.planSoften}</div>}
+                  {p.planWeekly && <div className={PANEL_PREVIEW}>{p.planWeekly}</div>}
                 </div>
               ) : (
-                <div className={PANEL_PREVIEW}>
-                  {t("coach.progress.noPlanChanges")}
-                </div>
+                <div className={PANEL_PREVIEW}>{t("coach.progress.noPlanChanges")}</div>
               )}
             </div>
           </div>
@@ -494,55 +380,37 @@ export default function DetailAthleteProgress() {
         <div className={PANEL_GRID_3}>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                {t("coach.progress.celebrate")}
-              </div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.celebrate")}</div>
               {p.celebrations.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.celebrations.map((c, i) => (
-                    <li key={i}>{c}</li>
-                  ))}
+                  {p.celebrations.map((c, i) => <li key={i}>{c}</li>)}
                 </ul>
               ) : (
-                <div className={PANEL_PREVIEW}>
-                  {t("coach.progress.noCelebrate")}
-                </div>
+                <div className={PANEL_PREVIEW}>{t("coach.progress.noCelebrate")}</div>
               )}
             </div>
           </div>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                {t("coach.progress.risks")}
-              </div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.risks")}</div>
               {p.risksToWatch.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.risksToWatch.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
+                  {p.risksToWatch.map((r, i) => <li key={i}>{r}</li>)}
                 </ul>
               ) : (
-                <div className={PANEL_PREVIEW}>
-                  {t("coach.progress.noRisks")}
-                </div>
+                <div className={PANEL_PREVIEW}>{t("coach.progress.noRisks")}</div>
               )}
             </div>
           </div>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                {t("coach.progress.focus")}
-              </div>
+              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.focus")}</div>
               {p.focusNextWeeks.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
-                  {p.focusNextWeeks.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
+                  {p.focusNextWeeks.map((f, i) => <li key={i}>{f}</li>)}
                 </ul>
               ) : (
-                <div className={PANEL_PREVIEW}>
-                  {t("coach.progress.noFocus")}
-                </div>
+                <div className={PANEL_PREVIEW}>{t("coach.progress.noFocus")}</div>
               )}
             </div>
           </div>
