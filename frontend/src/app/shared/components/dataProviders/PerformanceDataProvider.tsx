@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
+/* API Importy */
 import { apiFetchUserZonesLatest, apiFetchUserZoneTrends } from "@/app/features/prefs/api/zones";
 import { apiGetLatestPaces, apiGetPaceTrend, type PaceHistoryData } from "@/app/features/performance/api/paceHistory";
 import { 
@@ -11,9 +12,8 @@ import {
   apiGetBodyFatLatest, apiGetBodyFatTrend 
 } from "@/app/features/performance/api/userMetrics";
 
+/* Typy */
 import type { ZonesOut } from "@/app/features/coach/types/zonesTypes";
-
-/* ---------- Typy ---------- */
 
 export type PerformanceDataState = {
   latestZones: ZonesOut | null;
@@ -35,20 +35,14 @@ type CtxValue = {
 };
 
 const EMPTY_DATA: PerformanceDataState = {
-  latestZones: null,
-  zoneTrends: [],
-  latestPace: null,
-  paceTrends: [],
-  vo2MeasuredLatest: null,
-  vo2MeasuredTrend: [],
-  vo2EstimatedLatest: null,
-  vo2EstimatedTrend: [],
-  bodyFatLatest: null,
-  bodyFatTrend: [],
+  latestZones: null, zoneTrends: [],
+  latestPace: null, paceTrends: [],
+  vo2MeasuredLatest: null, vo2MeasuredTrend: [],
+  vo2EstimatedLatest: null, vo2EstimatedTrend: [],
+  bodyFatLatest: null, bodyFatTrend: [],
 };
 
-/* ---------- Context & Cache Helpers ---------- */
-
+/* Cache Helpers */
 function cacheKey(userId: string) { return `PERF_DATA:${userId}`; }
 function hasSessionStorage() { return typeof window !== "undefined" && !!window.sessionStorage; }
 
@@ -74,8 +68,6 @@ export function usePerformanceData(): CtxValue {
   return ctx;
 }
 
-/* ---------- Provider ---------- */
-
 export function PerformanceDataProvider({ children, days = 90 }: { children: React.ReactNode; days?: number }) {
   const { userId } = useUserId();
   const userIdStr = useMemo(() => (userId == null ? "" : String(userId)), [userId]);
@@ -83,7 +75,7 @@ export function PerformanceDataProvider({ children, days = 90 }: { children: Rea
   const [data, setData] = useState<PerformanceDataState>(EMPTY_DATA);
   const [loading, setLoading] = useState(false);
 
-  const fetchAllData = async (uid: number, d: number): Promise<PerformanceDataState> => {
+  const fetchAllData = useCallback(async (uid: number, d: number): Promise<PerformanceDataState> => {
     const [
       latestZones, zoneTrends,
       latestPaceRes, paceTrendRes,
@@ -106,8 +98,8 @@ export function PerformanceDataProvider({ children, days = 90 }: { children: Rea
     return {
       latestZones,
       zoneTrends: zoneTrends || [],
-      latestPace: latestPaceRes?.data || null,
-      paceTrends: paceTrendRes?.trends || [],
+      latestPace: (latestPaceRes as any)?.data || null,
+      paceTrends: (paceTrendRes as any)?.trends || [],
       vo2MeasuredLatest: vo2MLatest?.data || null,
       vo2MeasuredTrend: vo2MTrend?.trends || [],
       vo2EstimatedLatest: vo2ELatest?.data || null,
@@ -115,7 +107,7 @@ export function PerformanceDataProvider({ children, days = 90 }: { children: Rea
       bodyFatLatest: fatLatest?.data || null,
       bodyFatTrend: fatTrend?.trends || [],
     };
-  };
+  }, []);
 
   const refresh = useCallback(async (force = false) => {
     if (!userId) return;
@@ -124,14 +116,17 @@ export function PerformanceDataProvider({ children, days = 90 }: { children: Rea
       if (!force) {
         const cached = loadCache(userIdStr);
         if (cached) { setData(cached); setLoading(false); }
-        fetchAllData(userId, days).then((fresh) => { setData(fresh); saveCache(userIdStr, fresh); }).catch(e => console.error(e));
+        fetchAllData(userId, days).then((fresh) => {
+          setData(fresh);
+          saveCache(userIdStr, fresh);
+        }).catch(e => console.error(e));
         return;
       }
       const fresh = await fetchAllData(userId, days);
       setData(fresh);
       saveCache(userIdStr, fresh);
     } finally { setLoading(false); }
-  }, [userId, userIdStr, days]);
+  }, [userId, userIdStr, days, fetchAllData]);
 
   useEffect(() => { if (userIdStr) refresh(false); }, [userIdStr, refresh]);
 
