@@ -9,12 +9,17 @@ import TextField from "@/app/shared/ui/components/TextField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
-  apiGetLatestMetrics,
-  apiSaveMetrics,
+  apiGetVo2MeasuredLatest,
+  apiGetVo2EstimatedLatest,
+  apiGetBodyFatLatest,
+  apiSaveMetric,
 } from "@/app/features/performance/api/userMetrics";
+
+// Ak ešte nemáš v userMetrics.ts tieto dve, budeme ich potrebovať pre váhu a tep
+import { callBackend } from "@/app/shared/utils/callBackend";
+
 import type {
   LatestMetricsMap,
-  MetricKey,
   EditableMetricKey,
   MetricState,
   DirtyMap,
@@ -41,19 +46,10 @@ export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
   const t = useT();
 
-  const unitMap = useMemo<Record<EditableMetricKey, string>>(
-    () => ({
-      weight_kg: t("common.units.kg"),
-      body_fat_pct: t("common.units.pct"),
-      HR_max: t("common.units.hr"),
-      VO2Max_measured: t("common.units.vo2max"),
-      VO2Max_estimated: t("common.units.vo2max"),
-    }),
-    [t],
-  );
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Tento stav si nechávame kvôli placeholderom a BMI výpočtu
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
   const [m, setM] = useState<MetricState>({
@@ -72,28 +68,37 @@ export default function ProfileMetricInputs() {
     VO2Max_estimated: false,
   });
 
+  // Pomocná funkcia na načítanie všetkých "Latest" dát po novom
+  const loadAllLatest = async (uid: number) => {
+    try {
+      // Tu využijeme naše nové sémantické API
+      const [vMeas, vEst, bFat, weight, hrMax] = await Promise.all([
+        apiGetVo2MeasuredLatest(uid),
+        apiGetVo2EstimatedLatest(uid),
+        apiGetBodyFatLatest(uid),
+        // Pre váhu a tep využijeme generický endpoint ak nemáme špecifický
+        callBackend<any>(`/user-metrics/latest/${uid}?metric=weight_kg`, { method: "GET" }),
+        callBackend<any>(`/user-metrics/latest/${uid}?metric=HR_max`, { method: "GET" }),
+      ]);
+
+      // Transformujeme na mapu, ktorú pôvodné UI očakáva
+      const map: LatestMetricsMap = {
+        VO2Max_measured: vMeas?.data,
+        VO2Max_estimated: vEst?.data,
+        body_fat_pct: bFat?.data,
+        weight_kg: weight?.data,
+        HR_max: hrMax?.data,
+      };
+      setLatest(map);
+    } catch (e) {
+      console.warn("[ProfileMetricInputs] bulk load failed", e);
+    }
+  };
+
   useEffect(() => {
-    // ... tvoj pôvodný kód pre useEffect ...
     if (!userId) return;
-    let alive = true;
-
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await apiGetLatestMetrics(userId);
-        if (!alive) return;
-        setLatest(data);
-      } catch (e: any) {
-        console.warn("[ProfileMetricInputs] load failed", t(e?.message as any));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, t]);
+    loadAllLatest(userId);
+  }, [userId]);
 
   const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
@@ -104,57 +109,34 @@ export default function ProfileMetricInputs() {
   }
 
   async function handleSave() {
-    if (!userId) {
-      toast.error(t("api.common.missingUserAuth"));
-      return;
-    }
+    if (!userId) return;
 
-    const entries = (Object.keys(unitMap) as EditableMetricKey[])
-      .filter((k) => dirty[k])
-      .filter((k) => Number.isFinite(m[k] as number))
-      .map((k) => ({
-        metric: k as MetricKey,
-        value_num: Number(m[k] as number),
-        unit: unitMap[k],
-        measured_at: new Date().toISOString(),
-        source: "user",
-      }));
+    // Filtrujeme len tie, ktoré sa zmenili
+    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(k => dirty[k] && m[k] !== null);
 
-    if (!entries.length) {
+    if (!toSave.length) {
       toast.error(t("performance.metrics.errorNoValues"));
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await apiSaveMetrics(userId, entries);
-      toast.success(
-        `${t("performance.metrics.saveSuccess")}${res.inserted ? ` (${res.inserted})` : ""}`,
+      // Ukladáme postupne cez nové apiSaveMetric (podporuje 1 záznam)
+      await Promise.all(
+        toSave.map(k => apiSaveMetric(userId, k, Number(m[k])))
       );
 
-      const data = await apiGetLatestMetrics(userId);
-      setLatest(data);
+      toast.success(t("performance.metrics.saveSuccess"));
+      
+      // Refresh dát
+      await loadAllLatest(userId);
 
-      setM({
-        weight_kg: null,
-        body_fat_pct: null,
-        HR_max: null,
-        VO2Max_measured: null,
-        VO2Max_estimated: null,
-      });
-      setDirty({
-        weight_kg: false,
-        body_fat_pct: false,
-        HR_max: false,
-        VO2Max_measured: false,
-        VO2Max_estimated: false,
-      });
-
+      // Reset stavu
+      setM({ weight_kg: null, body_fat_pct: null, HR_max: null, VO2Max_measured: null, VO2Max_estimated: null });
+      setDirty({ weight_kg: false, body_fat_pct: false, HR_max: false, VO2Max_measured: false, VO2Max_estimated: false });
       setOpen(false);
     } catch (e: any) {
-      toast.error(
-        t(e?.message as any) || t("api.performance.metricsSaveFailed"),
-      );
+      toast.error(t("api.performance.metricsSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -166,115 +148,82 @@ export default function ProfileMetricInputs() {
       subtitle={t("performance.metrics.subtitle")}
       open={open}
       onOpenChange={setOpen}
-      backdropVariant="default"
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={handleSave}
-          disabled={loading || !userId}
-          className={INPUTS_CARD_SAVE_BTN}
-        >
+        <Button size="sm" variant="primary" onClick={handleSave} disabled={loading || !userId}>
           {loading ? t("common.saving") : t("common.save")}
         </Button>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
+          {/* Váha */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.weightLabel")}
             </div>
             <TextField
               type="number"
-              inputMode="decimal"
               value={m.weight_kg ?? ""}
-              placeholder={ph.weight_kg || unitMap.weight_kg}
+              placeholder={ph.weight_kg || t("common.units.kg")}
               onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
               disabled={loading}
             />
           </section>
 
+          {/* Body Fat */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.fatLabel")}
             </div>
             <TextField
               type="number"
-              inputMode="decimal"
               value={m.body_fat_pct ?? ""}
-              placeholder={ph.body_fat_pct || unitMap.body_fat_pct}
+              placeholder={ph.body_fat_pct || "%"}
               onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
               disabled={loading}
             />
           </section>
 
+          {/* HR Max */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.hrMaxLabel")}
             </div>
             <TextField
               type="number"
-              inputMode="numeric"
               value={m.HR_max ?? ""}
-              placeholder={ph.HR_max || unitMap.HR_max}
+              placeholder={ph.HR_max || "bpm"}
               onChange={(e) => onChangeNumber("HR_max", e.target.value)}
               disabled={loading}
             />
           </section>
 
-          {/* ... zvyšok formulára ostáva rovnaký ... */}
+          {/* VO2 Max Duo */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
               <TextField
                 type="number"
-                inputMode="decimal"
                 value={m.VO2Max_estimated ?? ""}
-                placeholder={
-                  ph.VO2Max_estimated ||
-                  t("performance.metrics.estimatedPlaceholder")
-                }
-                onChange={(e) =>
-                  onChangeNumber("VO2Max_estimated", e.target.value)
-                }
+                placeholder={ph.VO2Max_estimated || "AI Est."}
+                onChange={(e) => onChangeNumber("VO2Max_estimated", e.target.value)}
                 disabled={loading}
               />
               <TextField
                 type="number"
-                inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
-                placeholder={
-                  ph.VO2Max_measured ||
-                  t("performance.metrics.measuredPlaceholder")
-                }
-                onChange={(e) =>
-                  onChangeNumber("VO2Max_measured", e.target.value)
-                }
+                placeholder={ph.VO2Max_measured || "Watch"}
+                onChange={(e) => onChangeNumber("VO2Max_measured", e.target.value)}
                 disabled={loading}
               />
             </div>
           </section>
 
+          {/* BMI (Read Only) */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.bmiLabel")}
             </div>
             <TextField value={bmiText || "—"} disabled />
