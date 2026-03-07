@@ -24,8 +24,8 @@ export default function WidgetZonesHR({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("zonesHr.widget.title")}
-      tooltip={t("zonesHr.widget.tooltip")}
+      title={t("zonesHR.widget.title")}
+      tooltip={t("zonesHR.widget.tooltip")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       accent="none"

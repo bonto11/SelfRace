@@ -2,8 +2,8 @@
 "use client";
 
 import PageShell from "@/app/shared/ui/components/PageShell";
-import ProfileMetricInputs from "@/app/features/performance/components/MetricInputs";
-import ProfileStaticInputs from "@/app/features/performance/components/StaticInputs";
+import ProfileMetricInputs from "@/app/features/bio/components/MetricInputs";
+import ProfileStaticInputs from "@/app/features/bio/components/StaticInputs";
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function BioPage() {
