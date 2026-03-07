@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -8,15 +8,15 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
+// Importujeme len čisté API funkcie
 import {
   apiGetVo2MeasuredLatest,
   apiGetVo2EstimatedLatest,
   apiGetBodyFatLatest,
+  apiGetWeightLatest,
+  apiGetHrMaxLatest,
   apiSaveMetric,
 } from "@/app/features/performance/api/userMetrics";
-
-// Ak ešte nemáš v userMetrics.ts tieto dve, budeme ich potrebovať pre váhu a tep
-import { callBackend } from "@/app/shared/utils/callBackend";
 
 import type {
   LatestMetricsMap,
@@ -48,8 +48,6 @@ export default function ProfileMetricInputs() {
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Tento stav si nechávame kvôli placeholderom a BMI výpočtu
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
   const [m, setM] = useState<MetricState>({
@@ -68,37 +66,35 @@ export default function ProfileMetricInputs() {
     VO2Max_estimated: false,
   });
 
-  // Pomocná funkcia na načítanie všetkých "Latest" dát po novom
-  const loadAllLatest = async (uid: number) => {
+  // Načítanie dát cez sémantické API funkcie
+  const loadAllLatest = useCallback(async (uid: number) => {
     try {
-      // Tu využijeme naše nové sémantické API
+      setLoading(true);
       const [vMeas, vEst, bFat, weight, hrMax] = await Promise.all([
         apiGetVo2MeasuredLatest(uid),
         apiGetVo2EstimatedLatest(uid),
         apiGetBodyFatLatest(uid),
-        // Pre váhu a tep využijeme generický endpoint ak nemáme špecifický
-        callBackend<any>(`/user-metrics/latest/${uid}?metric=weight_kg`, { method: "GET" }),
-        callBackend<any>(`/user-metrics/latest/${uid}?metric=HR_max`, { method: "GET" }),
+        apiGetWeightLatest(uid),
+        apiGetHrMaxLatest(uid),
       ]);
 
-      // Transformujeme na mapu, ktorú pôvodné UI očakáva
-      const map: LatestMetricsMap = {
+      setLatest({
         VO2Max_measured: vMeas?.data,
         VO2Max_estimated: vEst?.data,
         body_fat_pct: bFat?.data,
         weight_kg: weight?.data,
         HR_max: hrMax?.data,
-      };
-      setLatest(map);
+      });
     } catch (e) {
-      console.warn("[ProfileMetricInputs] bulk load failed", e);
+      console.warn("[ProfileMetricInputs] bulk load failed");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (!userId) return;
-    loadAllLatest(userId);
-  }, [userId]);
+    if (userId) loadAllLatest(userId);
+  }, [userId, loadAllLatest]);
 
   const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
@@ -109,10 +105,14 @@ export default function ProfileMetricInputs() {
   }
 
   async function handleSave() {
-    if (!userId) return;
+    if (!userId) {
+      toast.error(t("api.common.missingUserAuth"));
+      return;
+    }
 
-    // Filtrujeme len tie, ktoré sa zmenili
-    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(k => dirty[k] && m[k] !== null);
+    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(
+      (k) => dirty[k] && m[k] !== null
+    );
 
     if (!toSave.length) {
       toast.error(t("performance.metrics.errorNoValues"));
@@ -121,21 +121,32 @@ export default function ProfileMetricInputs() {
 
     setLoading(true);
     try {
-      // Ukladáme postupne cez nové apiSaveMetric (podporuje 1 záznam)
+      // Ukladáme každú zmenenú metriku cez apiSaveMetric
       await Promise.all(
-        toSave.map(k => apiSaveMetric(userId, k, Number(m[k])))
+        toSave.map((k) => apiSaveMetric(userId, k, Number(m[k])))
       );
 
       toast.success(t("performance.metrics.saveSuccess"));
       
-      // Refresh dát
       await loadAllLatest(userId);
 
-      // Reset stavu
-      setM({ weight_kg: null, body_fat_pct: null, HR_max: null, VO2Max_measured: null, VO2Max_estimated: null });
-      setDirty({ weight_kg: false, body_fat_pct: false, HR_max: false, VO2Max_measured: false, VO2Max_estimated: false });
+      // Reset
+      setM({
+        weight_kg: null,
+        body_fat_pct: null,
+        HR_max: null,
+        VO2Max_measured: null,
+        VO2Max_estimated: null,
+      });
+      setDirty({
+        weight_kg: false,
+        body_fat_pct: false,
+        HR_max: false,
+        VO2Max_measured: false,
+        VO2Max_estimated: false,
+      });
       setOpen(false);
-    } catch (e: any) {
+    } catch (e) {
       toast.error(t("api.performance.metricsSaveFailed"));
     } finally {
       setLoading(false);
@@ -149,7 +160,13 @@ export default function ProfileMetricInputs() {
       open={open}
       onOpenChange={setOpen}
       actions={
-        <Button size="sm" variant="primary" onClick={handleSave} disabled={loading || !userId}>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={handleSave}
+          disabled={loading || !userId}
+          className={INPUTS_CARD_SAVE_BTN}
+        >
           {loading ? t("common.saving") : t("common.save")}
         </Button>
       }
@@ -163,6 +180,7 @@ export default function ProfileMetricInputs() {
             </div>
             <TextField
               type="number"
+              inputMode="decimal"
               value={m.weight_kg ?? ""}
               placeholder={ph.weight_kg || t("common.units.kg")}
               onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
@@ -177,6 +195,7 @@ export default function ProfileMetricInputs() {
             </div>
             <TextField
               type="number"
+              inputMode="decimal"
               value={m.body_fat_pct ?? ""}
               placeholder={ph.body_fat_pct || "%"}
               onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
@@ -191,6 +210,7 @@ export default function ProfileMetricInputs() {
             </div>
             <TextField
               type="number"
+              inputMode="numeric"
               value={m.HR_max ?? ""}
               placeholder={ph.HR_max || "bpm"}
               onChange={(e) => onChangeNumber("HR_max", e.target.value)}
@@ -206,13 +226,15 @@ export default function ProfileMetricInputs() {
             <div className={FORM_GRID_SPLIT}>
               <TextField
                 type="number"
+                inputMode="decimal"
                 value={m.VO2Max_estimated ?? ""}
-                placeholder={ph.VO2Max_estimated || "AI Est."}
+                placeholder={ph.VO2Max_estimated || "AI"}
                 onChange={(e) => onChangeNumber("VO2Max_estimated", e.target.value)}
                 disabled={loading}
               />
               <TextField
                 type="number"
+                inputMode="decimal"
                 value={m.VO2Max_measured ?? ""}
                 placeholder={ph.VO2Max_measured || "Watch"}
                 onChange={(e) => onChangeNumber("VO2Max_measured", e.target.value)}
@@ -221,7 +243,7 @@ export default function ProfileMetricInputs() {
             </div>
           </section>
 
-          {/* BMI (Read Only) */}
+          {/* BMI */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.bmiLabel")}
