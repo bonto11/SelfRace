@@ -76,14 +76,17 @@ export function PerformanceDataProvider({ children, days = 90 }: { children: Rea
   const [loading, setLoading] = useState(false);
 
   const fetchAllData = useCallback(async (uid: number, d: number): Promise<PerformanceDataState> => {
+    // 1. ZOHRIEVACÍ REQUEST: Odpálime len jeden, aby sa (ak treba) v kľude obnovil Supabase Auth Token
+    const latestZones = await apiFetchUserZonesLatest(uid, "running");
+
+    // 2. Teraz je už session na 100% platná. Môžeme bezpečne odpáliť zvyšok naraz!
     const [
-      latestZones, zoneTrends,
+      zoneTrends,
       latestPaceRes, paceTrendRes,
       vo2MLatest, vo2MTrend,
       vo2ELatest, vo2ETrend,
       fatLatest, fatTrend
     ] = await Promise.all([
-      apiFetchUserZonesLatest(uid, "running"),
       apiFetchUserZoneTrends(uid, "running", d),
       apiGetLatestPaces(uid),
       apiGetPaceTrend(uid, d),
