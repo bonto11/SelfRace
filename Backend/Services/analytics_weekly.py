@@ -12,21 +12,14 @@ from Services.analytics_MonoStrainTrimp import (
     monotony_and_strain,
 )
 
-# DB vrstvy
+# --- UPRAVENÉ IMPORTY NA ZAČIATKU SÚBORU ---
 from Routes_DB.activities_summary import db_fetch_summary_since
 from Routes_DB.user_recovery import db_get_recent_recovery
 from Routes_DB.profile_static import db_fetch_user_sex
-from backend.Routes_DB.user_metrics import fetch_user_hr_max
+from Routes_DB.user_metrics import db_get_latest_metric 
 from Modules.Supabase.auth import AuthCtx
 
-
-def service_weekly_analytics(
-    user_id: int,
-    weeks: int = 12,
-    *,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
+"""
     Týždenná agregácia za posledných N týždňov.
 
     - km/time/TRIMP rozdelené podľa: run, ride, strength, skate, mixed, other
@@ -41,20 +34,22 @@ def service_weekly_analytics(
     Režimy:
       - FE / RLS: service=False, user_jwt povinný → require_jwt
       - worker / cron: service=True, user_jwt môže byť None → DB vrstvy používajú service klienta
-    """
-
+"""
+def service_weekly_analytics(
+    user_id: int,
+    weeks: int = 12,
+    *,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    
     # ---------------- HR parametre (sex, HR_max) ----------------
-    sex: Optional[str] = db_fetch_user_sex(
-        user_id,
-        ctx=ctx,
-    )
-    hr_max: Optional[float] = fetch_user_hr_max(
-        user_id,
-        ctx=ctx,
-    )
+    sex: Optional[str] = db_fetch_user_sex(user_id, ctx=ctx)
+    
+    # ✅ NOVÝ SPÔSOB VYTIAHNUTIA HR_MAX cez nové DB API
+    hr_row = db_get_latest_metric(user_id, "hr_max", ctx=ctx)
+    hr_max: Optional[float] = float(hr_row["value_num"]) if hr_row and hr_row.get("value_num") else None
 
     # ---------------- časové okno ----------------
-    # berieme o týždeň viac, aby sme mali buffer pre monotóniu / strain
     since_date = (datetime.utcnow() - timedelta(weeks=weeks + 1)).date()
     since_iso = since_date.isoformat()
 

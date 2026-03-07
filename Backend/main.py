@@ -15,6 +15,7 @@ from Routes_FE import (
     user_zones,
     user_thresholds,
     user_recovery,
+    user_metrics,
     users_pace_history,
     coach_plan_daily,
     coach_plan_weekly,
@@ -29,7 +30,6 @@ from Routes_FE import (
     notifications,
     notifications_timed,
 )
-from backend.Routes_FE import user_metrics
 
 app = FastAPI()
 

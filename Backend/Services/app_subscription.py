@@ -1,4 +1,4 @@
-# backend/Services/app_subscription.py
+# Services/app_subscription.py
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

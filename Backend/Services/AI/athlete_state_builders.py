@@ -1,32 +1,28 @@
 # Services/AI/athlete_state_builders.py
 from __future__ import annotations
 
+
 from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
 
-from backend.Services.user_metrics import service_load_user_profile_for_analysis
 from Services.user_thresholds import service_build_thresholds_block_for_analysis
 from Services.user_zones import service_build_zones_block_for_analysis
 from Services.user_bests import service_build_bests_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
-from Services.coach_external_events import (
-    service_build_external_events_block_for_analysis,
-)
+from Services.coach_external_events import service_build_external_events_block_for_analysis
 from Services.coach_plan_meta import service_build_active_plan_block_for_analysis
 
-from Routes_DB.activities_summary import (
-    db_get_recent_activity_ids,
-    db_get_summary_for_activities,
-)
+from Routes_DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for_activities
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-from Routes_DB.users_pace_history import db_get_latest_paces # ✅ NEW
-from Routes_DB.activities_laps import db_get_activity_laps # ✅ NEW
-from Routes_DB.activities_splits import db_get_activity_splits # ✅ NEW
+from Routes_DB.users_pace_history import db_get_latest_paces
+from Routes_DB.activities_laps import db_get_activity_laps
+from Routes_DB.activities_splits import db_get_activity_splits
+from Routes_DB.profile_static import db_fetch_static_basic
+from Routes_DB.user_metrics import db_get_latest_metric
 
 from Modules.Supabase.auth import AuthCtx
-
 
 def _to_float(x: Any) -> Optional[float]:
     try:
@@ -127,6 +123,34 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
 
     return out
 
+def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Kombinuje static profile (vek, pohlavie, výška) a najnovšiu váhu z user_metrics.
+    """
+    stat = db_fetch_static_basic(user_id=user_id, ctx=ctx) or {}
+    
+    # Vek z birth_date
+    age = None
+    birth_date = stat.get("birth_date")
+    if birth_date:
+        try:
+            d = date.fromisoformat(birth_date[:10])
+            t = date.today()
+            age = t.year - d.year - ((t.month, t.day) < (d.month, d.day))
+        except Exception:
+            pass
+
+    # Váha z novej tabuľky
+    w_row = db_get_latest_metric(user_id, "weight_kg", ctx=ctx)
+    weight_kg = float(w_row["value_num"]) if w_row and w_row.get("value_num") else None
+
+    return {
+        "id": user_id,
+        "sex": stat.get("sex"),
+        "age": age,
+        "height_cm": stat.get("height_cm"),
+        "weight_kg": weight_kg,
+    }
 
 def _minify_external_events_for_ai(ext: Any) -> Any:
     """
@@ -385,6 +409,8 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
     }
 
 
+# --- UPRAVENÁ HLAVNÁ FUNKCIA ---
+
 def build_input_from_db(
     user_id: int,
     *,
@@ -392,63 +418,31 @@ def build_input_from_db(
 ) -> Dict[str, Any]:
 
     input_data = build_base_input(user_id)
-
-    input_data["user"] = service_load_user_profile_for_analysis(
+    input_data["user"] = _load_user_profile_for_analysis(
         user_id=user_id,
         ctx=ctx,
     )
 
-    input_data["zones"] = service_build_zones_block_for_analysis(
-        user_id,
-        ctx=ctx,
-    )
-
-    input_data["thresholds"] = service_build_thresholds_block_for_analysis(
-        user_id,
-        ctx=ctx,
-    )
-
-    input_data["prefs"] = service_load_coach_prefs_for_analysis(
-        user_id,
-        ctx=ctx,
-    )
-
-    input_data["bests"] = service_build_bests_block_for_analysis(
-        user_id,
-        ctx=ctx,
-    )
+    input_data["zones"] = service_build_zones_block_for_analysis(user_id, ctx=ctx)
+    input_data["thresholds"] = service_build_thresholds_block_for_analysis(user_id, ctx=ctx)
+    input_data["prefs"] = service_load_coach_prefs_for_analysis(user_id, ctx=ctx)
+    
+    input_data["bests"] = service_build_bests_block_for_analysis(user_id, ctx=ctx)
     input_data["bests"] = _bests_dates_to_days_ago(input_data.get("bests") or {})
 
     input_data["recent_load"] = service_build_recent_load_block_for_analysis(
-        user_id=user_id,
-        window_days=42,
-        ctx=ctx,
+        user_id=user_id, window_days=42, ctx=ctx
     )
 
-    input_data["recovery"] = service_build_recovery_block_for_analysis(
-        user_id,
-        ctx=ctx,
-    )
+    input_data["recovery"] = service_build_recovery_block_for_analysis(user_id, ctx=ctx)
+    input_data["active_plan"] = service_build_active_plan_block_for_analysis(user_id=user_id, ctx=ctx)
 
-    input_data["active_plan"] = service_build_active_plan_block_for_analysis(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
-    ext = service_build_external_events_block_for_analysis(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    ext = service_build_external_events_block_for_analysis(user_id=user_id, ctx=ctx)
     input_data["external_events"] = _minify_external_events_for_ai(ext)
 
-    # ✅ Posledné zaznamenané tempá a odhady pretekov z databázy
     input_data["latest_paces"] = db_get_latest_paces(user_id=user_id, ctx=ctx)
 
-    acts = build_last_activities_block_for_analysis(
-        user_id=user_id,
-        ctx=ctx,
-        limit=6,
-    )
+    acts = build_last_activities_block_for_analysis(user_id=user_id, ctx=ctx, limit=6)
     input_data["last_activities"] = acts
     
     input_data["is_returning_beginner"] = (len(acts) == 0)

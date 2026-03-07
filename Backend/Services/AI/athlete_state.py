@@ -10,7 +10,10 @@ from Routes_AI.athlete_state_generate import (
     generate_athlete_progress_report,
 )
 
-from backend.Routes_DB.user_metrics import db_insert_metric_rows
+# ✅ Nové pomenovania funkcií
+from Routes_DB.user_metrics import db_insert_metrics
+from Routes_DB.users_pace_history import db_insert_pace_row
+
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
@@ -20,9 +23,6 @@ from Routes_DB.coach_athlete_state import (
     db_update_state_compare_previous,
     db_get_latest_athlete_progress,
 )
-
-# NEW: Import upravenej funkcie na ukladanie temp (flat structure)
-from Routes_DB.users_pace_history import db_save_pace_history
 
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state_builders import build_input_from_db
@@ -58,7 +58,6 @@ def _default_ai_model() -> str:
     return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
 
 
-# pomocná funkcia na extrakciu a uloženie
 def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     """
     Vytiahne estimated_vo2max z analýzy a uloží ho do profile_metrics.
@@ -69,23 +68,20 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
         vo2_val = metrics.get("estimated_vo2max")
 
         if vo2_val and isinstance(vo2_val, (int, float)):
-            # Pripravíme riadok pre tabuľku profile_metric
             metric_row = {
                 "user_id": user_id,
-                "metric": "VO2Max_estimated",
+                "metric": "vo2max_estimated", # Pre istotu lowercase ako v DB
                 "value_num": float(vo2_val),
                 "unit": "ml/kg/min",
                 "measured_at": analysis.get("generated_at") or _now_iso(),
                 "source": "system",
                 "note": f"AI Estimate (model: {analysis.get('model')})",
             }
-            
-            db_insert_metric_rows([metric_row], ctx=ctx)
+            # ✅ Nová funkcia z user_metrics
+            db_insert_metrics([metric_row], ctx=ctx)
 
     except Exception as e:
-        # Nechceme, aby pád zápisu metriky zhodil celú analýzu
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
-
 
 def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     """
@@ -116,22 +112,20 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
             "z4_pace_s": _get_int(paces, "z4_pace_s"),
             "z5_pace_s": _get_int(paces, "z5_pace_s"),
             "best_1k_s": _get_int(paces, "best_1k_s"),
-            # Aktualizované kľúče pre sekundy
             "est_5k_time_s": _get_int(metrics, "estimated_5k_time_s"),
             "est_10k_time_s": _get_int(metrics, "estimated_10k_time_s"),
             "est_half_marathon_time_s": _get_int(metrics, "estimated_half_marathon_time_s"),
             "est_marathon_time_s": _get_int(metrics, "estimated_marathon_time_s"),
         }
 
-        # Uložíme iba ak máme aspoň jednu reálnu hodnotu okrem user_id a measured_at
         has_data = any(v is not None for k, v in row_to_insert.items() if k not in ["user_id", "measured_at"])
 
         if has_data:
-            db_save_pace_history(row_to_insert, ctx=ctx)
+            # ✅ Nová funkcia z pace_history
+            db_insert_pace_row(row_to_insert, ctx=ctx)
 
     except Exception as e:
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
-
 # -------------------- STORAGE --------------------
 
 

@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetBodyFat.tsx
 "use client";
 
 import * as React from "react";
@@ -19,7 +18,6 @@ import {
   WIDGET_VALUE_UNIT,
   WIDGET_PLACEHOLDER,
   WIDGET_ROW_BETWEEN,
-  WIDGET_BLOCK,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -54,18 +52,14 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
   
-  // Namiesto useEffectov ťaháme dáta z Providera
   const { data, loading } = usePerformanceData();
-  const { bodyFatHistory, vo2History } = data; // vo2History drží info o pohlaví z profilu
+  const { bodyFatLatest, vo2MeasuredLatest } = data; 
 
-  const rowsBE = bodyFatHistory || [];
-  const lastBE = rowsBE.length ? rowsBE[rowsBE.length - 1] : null;
-
-  const pct = typeof lastBE?.value_num === "number" ? lastBE.value_num : null;
-  const updatedAt = lastBE?.measured_at ?? null;
+  const pct = bodyFatLatest?.value != null ? bodyFatLatest.value : null;
+  const updatedAt = bodyFatLatest?.measured_at ?? null;
   
-  // Pohlavie pre pásma vytiahneme z profilu (zdieľané s VO2)
-  const sex = vo2History?.sex === "F" ? "F" : "M";
+  // Pohlavie pre pásma vytiahneme z profilových info priložených k VO2
+  const sex = vo2MeasuredLatest?.sex === "F" ? "F" : "M";
   const level = classifyBodyFat(sex, t, pct);
   
   const accent = level?.color ?? appColors.brandPrimary;
@@ -80,13 +74,13 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
-      {loading && rowsBE.length === 0 ? (
+      {loading && !bodyFatLatest ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
         <div className={WIDGET_ROW_BETWEEN}>
-          <div className={WIDGET_BLOCK}>
+          <div className="flex flex-col gap-1 w-full">
             <div className={WIDGET_META_LABEL}>
               {t("performance.metrics.measuredPlaceholder")} {fmtDate(updatedAt)}
             </div>
@@ -96,7 +90,9 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
                 {pct != null ? pct.toFixed(1) : "—"}
                 <span className={WIDGET_VALUE_UNIT}> {t("common.units.pct")}</span>
               </div>
-              {level ? <Pill label={level.label} color={level.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
+              <div className="ml-auto">
+                {level ? <Pill label={level.label} color={level.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
+              </div>
             </div>
           </div>
         </div>

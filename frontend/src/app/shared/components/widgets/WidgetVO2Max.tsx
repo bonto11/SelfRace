@@ -1,4 +1,3 @@
-// src/app/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -31,21 +30,21 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
   const t = useT();
   
   const { data, loading } = usePerformanceData();
-  const { vo2History, vo2Estimate } = data;
+  const { vo2MeasuredLatest, vo2EstimatedLatest } = data;
 
-  const historyRows = vo2History?.history ?? [];
-  const measured = historyRows.length ? historyRows[historyRows.length - 1] : null;
-  const mVO2 = measured?.VO2Max ?? null;
+  const mVO2 = vo2MeasuredLatest?.value ?? null;
+  const measuredDate = vo2MeasuredLatest?.measured_at ?? null;
 
-  const sex = vo2History?.sex === "F" ? "F" : "M";
-  const birthDate = vo2History?.birth_date || "";
+  const sex = vo2MeasuredLatest?.sex === "F" ? "F" : "M";
+  const birthDate = vo2MeasuredLatest?.birth_date || "";
 
-  let ranges: Range[] = [];
-  try {
-    const age = birthDate ? Math.floor((Date.now() - +new Date(birthDate)) / 3.15e10) : 0;
-    const g = (vo2Ref as Group[]).find(x => x.sex === sex && age >= x.age_min && age <= x.age_max);
-    ranges = g?.ranges ?? [];
-  } catch {}
+  const ranges = React.useMemo(() => {
+    try {
+      const age = birthDate ? Math.floor((Date.now() - +new Date(birthDate)) / 3.15e10) : 0;
+      const g = (vo2Ref as Group[]).find(x => x.sex === sex && age >= x.age_min && age <= x.age_max);
+      return g?.ranges ?? [];
+    } catch { return []; }
+  }, [birthDate, sex]);
 
   const pickLevel = (v?: number | null) => {
     if (v == null || !Number.isFinite(v)) return null;
@@ -60,16 +59,11 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
     };
   };
 
-  const estVal = Number.isFinite(vo2Estimate?.value as number) ? Number(vo2Estimate?.value) : null;
+  const estVal = vo2EstimatedLatest?.value ?? null;
   const levelMeasured = pickLevel(mVO2);
   const levelEstimated = pickLevel(estVal);
 
   const accent = levelMeasured?.color ?? levelEstimated?.color ?? appColors.brandPrimary;
-
-  // Bezpečné vytiahnutie dátumu (TS error fix)
-  const measuredDate = measured 
-    ? ((measured as any).measured_at ?? (measured as any).updated_at ?? (measured as any).date ?? null)
-    : null;
 
   return (
     <WidgetCard
@@ -81,7 +75,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
-      {loading && !vo2History ? (
+      {loading && !vo2MeasuredLatest ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
@@ -89,7 +83,7 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-4 md:gap-6">
           <div className="min-w-0">
             <div className={WIDGET_META_LABEL}>
-              {t("VO2Max.chart.estimated")}: {fmtDate(vo2Estimate?.updated_at ?? null)}
+              {t("VO2Max.chart.estimated")}: {fmtDate(vo2EstimatedLatest?.measured_at ?? null)}
             </div>
             <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
               <div className={WIDGET_VALUE_MAIN}>{estVal != null ? estVal.toFixed(1) : "—"}</div>

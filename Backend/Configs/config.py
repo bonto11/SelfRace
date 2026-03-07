@@ -1,4 +1,4 @@
-# backend/Configs/config.py
+# Configs/config.py
 from __future__ import annotations
 
 import os
