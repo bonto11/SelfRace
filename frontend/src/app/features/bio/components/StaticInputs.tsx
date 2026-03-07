@@ -14,10 +14,7 @@ import {
   apiGetStaticProfile,
   apiSaveStaticProfile,
 } from "@/app/features/performance/api/static";
-import type {
-  Sex,
-  StaticProfile,
-} from "@/app/features/performance/types/performance";
+import type { Sex, StaticProfile } from "@/app/features/performance/types/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -53,33 +50,29 @@ export default function ProfileStaticInputs() {
       setLoading(true);
       try {
         const d = await apiGetStaticProfile(userId);
-        if (!alive) return;
-        if (d) setData(d);
+        if (alive && d) setData(d);
       } catch (e: any) {
-        console.warn("[ProfileStaticInputs] load failed", t(e?.message as any));
+        console.warn("[ProfileStaticInputs] load failed");
       } finally {
         if (alive) setLoading(false);
       }
     })();
 
-    return () => {
-      alive = false;
-    };
-  }, [userId, t]);
+    return () => { alive = false; };
+  }, [userId]);
 
   async function handleSave() {
-    if (!userId) {
-      toast.error(t("api.common.missingUserAuth"));
-      return;
-    }
+    if (!userId) return;
+    
     try {
       setLoading(true);
+      // apiSaveStaticProfile ukladá sex, birth_date a height_cm do profile_static
       const saved = await apiSaveStaticProfile(userId, data);
       setData(saved);
       toast.success(t("performance.static.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.performance.staticSaveFailed"));
+      toast.error(t("api.performance.staticSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -91,38 +84,25 @@ export default function ProfileStaticInputs() {
       subtitle={t("performance.static.subtitle")}
       open={open}
       onOpenChange={setOpen}
-      backdropVariant="default"
       actions={
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={handleSave}
-          disabled={loading || !userId}
-          className={INPUTS_CARD_SAVE_BTN}
-        >
+        <Button size="sm" variant="primary" onClick={handleSave} disabled={loading || !userId}>
           {loading ? t("common.saving") : t("common.save")}
         </Button>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
+          {/* Pohlavie */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.static.sex")}
             </div>
-
             <SelectField
               value={(data.sex ?? "") as any}
               disabled={loading}
               onChange={(e: any) => {
-                const v = (e?.target?.value ?? "") as string;
-                setData((s) => ({
-                  ...s,
-                  sex: v ? (v as Sex) : null,
-                }));
+                const v = e?.target?.value as string;
+                setData(s => ({ ...s, sex: v ? (v as Sex) : null }));
               }}
               options={[
                 { value: "", label: "—" },
@@ -132,44 +112,27 @@ export default function ProfileStaticInputs() {
             />
           </section>
 
+          {/* Dátum narodenia */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.static.birthDate")}
             </div>
-
             <DateField
               disabled={loading}
               value={data.birth_date}
-              onChange={(v) =>
-                setData((s) => ({
-                  ...s,
-                  birth_date: v || null,
-                }))
-              }
+              onChange={(v) => setData(s => ({ ...s, birth_date: v || null }))}
             />
           </section>
 
+          {/* Výška */}
           <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.static.height")}
             </div>
-
             <TextField
               type="number"
-              inputMode="numeric"
               value={data.height_cm ?? ""}
-              onChange={(e) =>
-                setData((s) => ({
-                  ...s,
-                  height_cm: e.target.value ? Number(e.target.value) : null,
-                }))
-              }
+              onChange={(e) => setData(s => ({ ...s, height_cm: e.target.value ? Number(e.target.value) : null }))}
               placeholder="cm"
               disabled={loading}
             />
