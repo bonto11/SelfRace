@@ -6,7 +6,7 @@ import {
   CartesianGrid, Tooltip, Legend, ReferenceArea,
 } from "recharts";
 
-import { usePerformanceData } from "@/shared/components/dataProviders/PerformanceDataProvider";
+import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
 import vo2Ref from "@/app/data/VO2Max_Ref_RunnersWorld.json";
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
