@@ -16,7 +16,7 @@ from Services.coach_plan_meta import service_build_active_plan_block_for_analysi
 
 from Routes_DB.activities_summary import db_get_recent_activity_ids, db_get_summary_for_activities
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-from backend.Routes_DB.user_pace_history import db_get_latest_paces
+from Routes_DB.user_pace_history import db_get_latest_paces
 from Routes_DB.activities_laps import db_get_activity_laps
 from Routes_DB.activities_splits import db_get_activity_splits
 from Routes_DB.profile_static import db_fetch_static_basic

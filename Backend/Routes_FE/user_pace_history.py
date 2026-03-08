@@ -1,7 +1,7 @@
 # Routes_API/users_pace_history.py
 from fastapi import APIRouter, HTTPException, Request
 
-from backend.Services.user_pace_history import (
+from Services.user_pace_history import (
     service_get_latest_paces,
     service_get_pace_history_trends
 )

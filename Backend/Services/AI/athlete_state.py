@@ -12,7 +12,7 @@ from Routes_AI.athlete_state_generate import (
 
 # ✅ Nové pomenovania funkcií
 from Routes_DB.user_metrics import db_insert_metrics
-from backend.Routes_DB.user_pace_history import db_insert_pace_row
+from Routes_DB.user_pace_history import db_insert_pace_row
 
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,

@@ -60,7 +60,7 @@ export function normalizeSportList(list: (string | null | undefined)[]): string[
 }
 
 /** 
- * CSV string pre backend. 
+ * CSV string pre be. 
  * - ak empty -> "all" (backend použije default whitelist)
  * - inak CSV z normalizovaných hodnôt
  */

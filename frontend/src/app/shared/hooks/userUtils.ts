@@ -7,7 +7,7 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 const supabase = getSupabaseBrowser();
 
 /**
- * Zabezpečí načítanie (a potenciálne overenie existencie) usera cez Python backend.
+ * Zabezpečí načítanie (a potenciálne overenie existencie) usera cez Python be.
  */
 export async function ensureUserExists(authUid: string): Promise<number | null> {
   try {
