@@ -16,8 +16,6 @@ def db_get_latest_paces(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any
         .execute()
     )
 
-    print("db_get_latest_paces",res)
-
     return res.data[0] if res.data else None
 
 def db_get_pace_trend(user_id: int, days: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
@@ -31,8 +29,6 @@ def db_get_pace_trend(user_id: int, days: int, *, ctx: AuthCtx) -> List[Dict[str
         .order("measured_at", desc=False)
         .execute()
     )
-
-    print("db_get_pace_trend",res)
 
     return res.data or []
 

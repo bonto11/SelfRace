@@ -87,6 +87,8 @@ TABLE_USERS_RECOVERY = "users_recovery"
 TABLE_USERS_NOTES = "users_notes"
 TABLE_USERS_PREFERENCES = "users_preferences"
 TABLE_USERS_PACE_HISTORY = "users_pace_history"
+TABLE_USERS_METRICS = "users_metrics"
+
 
 TABLE_COACH_FEEDBACK = "coach_feedback"
 TABLE_COACH_ATHLETE_STATE = "coach_athlete_state"
