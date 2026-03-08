@@ -45,10 +45,8 @@ def service_save_active_plan(
     """
     Aktivuje najnovší vygenerovaný plán.
     """
-    # 1) nájdi najnovší plán z meta (zvyčajne v stave 'generated')
     meta = _ensure_latest_plan_meta(user_id=user_id, ctx=ctx)
 
-    # 2) nastav status = active pre daný
     updated = (
         db_update_plan_status(
             user_id=user_id,
@@ -72,15 +70,23 @@ def service_cancel_active_plan(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Ukončí aktuálny aktívny plán. Žiadna archivácia, čisté premazanie DB.
+    Ukončí a zmaže akýkoľvek rozpracovaný alebo aktívny plán. 
+    Žiadna archivácia, čisté premazanie DB.
     """
-    meta = db_get_active_plan_meta_for_user(
+    # ✅ ZMENA: Použijeme "latest" namiesto "active", 
+    # aby sme vedeli zmazať aj plán, ktorý je len vo fáze "Weekly" (generated)
+    meta = db_get_latest_plan_meta_for_user(
         user_id=user_id,
         ctx=ctx,
     )
+    
     if not meta:
-        raise ValueError("User has no active plan to cancel.")
-
+        # Ak nie je čo mazať, proste vrátime success, nebudeme zhadzovať FE chybou.
+        return {
+            "meta": None,
+            "weekly_deleted": False,
+            "daily_deleted": False,
+        }
 
     # 1) Zmaž dáta z weekly a daily
     weekly_deleted = db_clear_weekly_for_user_plan(
@@ -92,7 +98,7 @@ def service_cancel_active_plan(
         ctx=ctx,
     )
 
-    # 2) Vymaž rovno celý meta záznam (nechcem zbytočný bordel v db)
+    # 2) Vymaž rovno celý meta záznam
     db_delete_plan_meta(user_id=user_id, ctx=ctx)
 
     return {
@@ -126,14 +132,11 @@ def service_get_active_plan_status(
 ) -> Dict[str, Any]:
     """
     Zistí, či má user aktívny (alebo vygenerovaný) plán a skontroluje dáta 
-    cez databázovú vrstvu (žiadne priame query v service).
+    cez databázovú vrstvu.
     """
-
-    # 1) Najskôr skúsime nájsť aktívny plán
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     has_active = True
 
-    # 2) Ak nie je aktívny, pozrieme najnovší (napr. status='generated')
     if not meta:
         has_active = False
         meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
@@ -146,10 +149,6 @@ def service_get_active_plan_status(
             "meta": None,
         }
 
-    has_weekly = False
-    has_daily = False
-
-    # Voláme pekne funkcie z DB vrstvy
     has_weekly = db_check_weekly_data_exists(user_id=user_id, ctx=ctx)
     has_daily = db_check_daily_data_exists(user_id=user_id, ctx=ctx)
 

@@ -114,12 +114,12 @@ def db_check_weekly_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_WEEKLY)
-            .select("id", count="exact")
+            .select("id")
             .eq("user_id", user_id)
             .limit(1)
             .execute()
         )
-        return bool(res.count and res.count > 0)
+        return bool(res.data) # Ak vráti aspoň jeden riadok, je to True
     except Exception as e:
         print("[DB-COACH-WEEKLY] check_exists error:", repr(e))
         return False
