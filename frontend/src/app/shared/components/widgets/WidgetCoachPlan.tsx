@@ -36,7 +36,6 @@ import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekl
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
 import type { CoachPrefs, Injury } from "@/app/features/prefs/types/prefs";
-import type { AnalyzeResult } from "@/app/features/coach/types/coachApiTypes";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useT } from "@/app/shared/i18n/useT";
 import { cx } from "@/app/shared/ui/utils/inputs";
@@ -64,6 +63,7 @@ function RowAction({
   disabled,
   title,
   status,
+  highlight = false, // ✅ Nová propka pre "ďalší krok"
 }: {
   onPrimary: () => void;
   primaryLabel: string;
@@ -71,21 +71,27 @@ function RowAction({
   disabled: boolean;
   title?: string;
   status: boolean | null;
+  highlight?: boolean;
 }) {
   return (
     <div
       className={cx(
         WIDGET_ACTION_ROW,
         WIDGET_ACTION_ROW_SURFACE,
-        "rounded-xl border overflow-hidden transition-all bg-opacity-10"
+        "rounded-xl border overflow-hidden transition-all",
+        highlight ? "bg-opacity-20" : "bg-opacity-10" // Jemné zvýraznenie pozadia pre aktívny krok
       )}
-      style={{ background: appColors.backgroundAlt, borderColor: appColors.surfaceCardBorder }}
+      style={{
+        background: highlight ? appColors.brandPrimary : appColors.backgroundAlt,
+        borderColor: highlight ? appColors.brandPrimary : appColors.surfaceCardBorder,
+      }}
       title={title}
     >
       <div className={cx(WIDGET_ACTION_ROW_INNER, "flex items-center justify-between gap-2")}>
         <Button
           size="xs"
-          variant="secondary"
+          // ✅ Ak je highlight, dáme primary vzhľad, inak secondary (ghost)
+          variant={highlight ? "primary" : "secondary"}
           disabled={disabled}
           onClick={onPrimary}
           className="flex-1 !justify-start px-3"
@@ -126,7 +132,6 @@ export default function WidgetCoachPlan() {
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Zjednotený stav bez plan_id
   const [isPlanActive, setIsPlanActive] = useState(false);
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
@@ -167,35 +172,31 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
-  // 2. Load Status (Zjednotené volanie pre zistenie stavu v DB)
-  useEffect(() => {
+  // 2. Load Status (Zjednotené volanie)
+  const fetchStatus = useCallback(async () => {
     if (!userId) return;
-    let alive = true;
-    
-    (async () => {
-      setLoadingKind("status");
-      try {
-        const [state, planStatus] = await Promise.all([
-          apiGetLatestAthleteState(userId).catch(() => null),
-          apiActivePlanStatus(userId).catch(() => null)
-        ]);
+    setLoadingKind("status");
+    try {
+      const [state, planStatus] = await Promise.all([
+        apiGetLatestAthleteState(userId).catch(() => null),
+        apiActivePlanStatus(userId).catch(() => null)
+      ]);
 
-        if (!alive) return;
-
-        if (state && typeof state.id === "number") setLatestStateId(state.id);
-        
-        if (planStatus) {
-          setIsPlanActive(!!planStatus.has_active);
-          setHasWeekly(!!planStatus.has_weekly_data);
-          setHasDaily(!!planStatus.has_daily_data);
-        }
-      } finally {
-        if (alive) setLoadingKind(null);
+      if (state && typeof state.id === "number") setLatestStateId(state.id);
+      
+      if (planStatus) {
+        setIsPlanActive(!!planStatus.has_active);
+        setHasWeekly(!!planStatus.has_weekly_data);
+        setHasDaily(!!planStatus.has_daily_data);
       }
-    })();
-
-    return () => { alive = false; };
+    } finally {
+      setLoadingKind(null);
+    }
   }, [userId]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   const handleAnalyze = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend) return;
@@ -207,7 +208,11 @@ export default function WidgetCoachPlan() {
         explicitModel: "coach-analyze-stub",
       });
       const sid = (json as any).state_id ?? (json as any).state?.id ?? null;
-      if (typeof sid === "number") setLatestStateId(sid);
+      if (typeof sid === "number") {
+          setLatestStateId(sid);
+          // Po novej analýze, ak boli staré plány, tak už zrejme nesedia s analýzou, 
+          // ale necháme to na užívateľovi, či dá Cancel. Zatiaľ len updatneme UI.
+      }
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
@@ -227,6 +232,8 @@ export default function WidgetCoachPlan() {
         state_id: latestStateId,
       });
       setHasWeekly(true);
+      // Ak pregenerujeme weekly, daily už nesedí, malo by sa logicky pregenerovať tiež
+      setHasDaily(false); 
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
@@ -277,10 +284,11 @@ export default function WidgetCoachPlan() {
     setLoadingKind("cancel");
     try {
       await apiActivePlanCancel(userId);
-      // Resetujeme stavy po zrušení
+      // Zhodíme celý frontend state do KROKU 0
       setIsPlanActive(false);
       setHasWeekly(false);
       setHasDaily(false);
+      // Analyzu (latestStateId) si môže nechať, tá sa mazať nemusí, len plán
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -288,19 +296,37 @@ export default function WidgetCoachPlan() {
     }
   }, [userId, t]);
 
-  // UI Podmienky
-  const planLocked = isPlanActive;
-  const canStartPlan = !planLocked && !!(latestStateId && hasWeekly && hasDaily) && !isMedicalSuspend;
-  const generatorsDisabled = loading || planLocked || isMedicalSuspend;
+  // ✅ LOGIKA KROKOV (STATE MACHINE)
+  const isGlobalLoading = loading || loadingKind === "cancel";
+  
+  // KROK 0: Ešte nemáme nič.
+  const isStep0 = !latestStateId && !hasWeekly && !hasDaily;
+  // KROK 1: Máme len analýzu, čakáme na Weekly.
+  const isStep1 = !!latestStateId && !hasWeekly && !hasDaily;
+  // KROK 2: Máme Weekly, čakáme na Daily.
+  const isStep2 = !!latestStateId && hasWeekly && !hasDaily;
+  // KROK 3: Máme všetko, čakáme len na Štart.
+  const isStep3 = !!latestStateId && hasWeekly && hasDaily && !isPlanActive;
+
+  // Ak je plán už aktívny, zablokujeme všetky generátory.
+  const generatorsBlockedGlobally = isPlanActive || isMedicalSuspend || isGlobalLoading;
+
+  // Highlight logiky (Ktoré tlačidlo má "kričať")
+  const highlightAnalyze = isStep0;
+  const highlightWeekly = isStep1;
+  const highlightDaily = isStep2;
+
+  // Môžeme zrušiť plán, ak sa začal generovať (máme aspoň Weekly) ALEBO ak je už aktívny.
+  const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
     if (isMedicalSuspend) return "Kritické zranenie: Tréning pozastavený.";
-    if (planLocked) return t("coachPlan.errors.alreadyActive");
+    if (isPlanActive) return t("coachPlan.errors.alreadyActive");
     if (!latestStateId) return "Najskôr vykonaj analýzu stavu.";
     if (!hasWeekly) return "Chýba vygenerovaný týždenný plán.";
     if (!hasDaily) return "Chýba vygenerovaný denný plán.";
     return null;
-  }, [planLocked, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
+  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
   return (
     <WidgetCard
@@ -312,28 +338,38 @@ export default function WidgetCoachPlan() {
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
       <div className={WIDGET_ACTIONS_WRAP}>
+        
+        {/* KROK 1: Analýza */}
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing") : t("coachPlan.actions.analyze")}
           loading={loadingKind === "analyze"}
-          disabled={generatorsDisabled}
+          // Je to ghost tlačidlo, ak sme ďalej. Ale nedovolíme klikať na analýzu, ak je plán aktívny, alebo ak sa niečo nahráva.
+          disabled={generatorsBlockedGlobally}
           status={!!latestStateId}
+          highlight={highlightAnalyze}
         />
 
+        {/* KROK 2: Weekly */}
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly") : t("coachPlan.actions.generateWeekly")}
           loading={loadingKind === "weekly"}
-          disabled={generatorsDisabled}
+          // Zakážeme, ak ešte nie je hotová analýza (KROK 0), alebo globálny blok.
+          disabled={isStep0 || generatorsBlockedGlobally}
           status={hasWeekly}
+          highlight={highlightWeekly}
         />
 
+        {/* KROK 3: Daily */}
         <RowAction
           onPrimary={handleGenerateDaily}
           primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily") : t("coachPlan.actions.generateDaily")}
           loading={loadingKind === "daily"}
-          disabled={generatorsDisabled}
+          // Zakážeme, ak ešte nie je Weekly (KROKY 0 a 1), alebo globálny blok.
+          disabled={isStep0 || isStep1 || generatorsBlockedGlobally}
           status={hasDaily}
+          highlight={highlightDaily}
         />
 
         {loading && (
@@ -345,30 +381,33 @@ export default function WidgetCoachPlan() {
         )}
 
         <div className={WIDGET_CTA_ROW}>
+          {/* Tlačidlo ŠTART svieti ako primary až vtedy, keď sme v KROKU 3 */}
           <Button
             size="xs"
-            variant="primary"
-            disabled={!canStartPlan || loading}
+            variant={isStep3 ? "primary" : "secondary"}
+            disabled={!!startDisabledReason || isGlobalLoading}
             onClick={handleStartPlan}
             title={startDisabledReason ?? undefined}
             className="flex-1"
           >
-            {loadingKind === "start" ? <LoadingSpinner size="button" /> : planLocked ? t("coachPlan.actions.activePlan") : t("coachPlan.actions.startPlan")}
+            {loadingKind === "start" ? <LoadingSpinner size="button" /> : isPlanActive ? t("coachPlan.actions.activePlan") : t("coachPlan.actions.startPlan")}
           </Button>
 
-          <Button
-            size="xs"
-            variant="secondary"
-            onClick={() => router.push("/coach/ai/dailyPlan")}
-            className="flex-1"
-          >
-            {t("coachPlan.actions.openPlan")}
-          </Button>
+          {isPlanActive && (
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => router.push("/coach/ai/dailyPlan")}
+              className="flex-1"
+            >
+              {t("coachPlan.actions.openPlan")}
+            </Button>
+          )}
 
           <Button
             size="xs"
             variant="danger"
-            disabled={!planLocked || loadingKind === "cancel"}
+            disabled={!canCancel}
             onClick={handleCancelPlan}
           >
             {loadingKind === "cancel" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.cancelPlan")}
