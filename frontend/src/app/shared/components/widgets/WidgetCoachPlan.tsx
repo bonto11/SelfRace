@@ -63,7 +63,7 @@ function RowAction({
   disabled,
   title,
   status,
-  highlight = false, // ✅ Nová propka pre "ďalší krok"
+  highlight = false, // ✅ Zostalo pre tlačidlo, ale zrušíme ho z pozadia riadku
 }: {
   onPrimary: () => void;
   primaryLabel: string;
@@ -78,19 +78,18 @@ function RowAction({
       className={cx(
         WIDGET_ACTION_ROW,
         WIDGET_ACTION_ROW_SURFACE,
-        "rounded-xl border overflow-hidden transition-all",
-        highlight ? "bg-opacity-20" : "bg-opacity-10" // Jemné zvýraznenie pozadia pre aktívny krok
+        "rounded-xl border overflow-hidden transition-all bg-opacity-10" // Vrátené na pôvodné
       )}
       style={{
-        background: highlight ? appColors.brandPrimary : appColors.backgroundAlt,
-        borderColor: highlight ? appColors.brandPrimary : appColors.surfaceCardBorder,
+        background: appColors.backgroundAlt, // Vrátené na pôvodné, už to nepodfarbuje celý riadok
+        borderColor: appColors.surfaceCardBorder, // Vrátené na pôvodné
       }}
       title={title}
     >
       <div className={cx(WIDGET_ACTION_ROW_INNER, "flex items-center justify-between gap-2")}>
         <Button
           size="xs"
-          // ✅ Ak je highlight, dáme primary vzhľad, inak secondary (ghost)
+          // ✅ Tlačidlo zostáva "kričať" (primary), ak je to krok, ktorý nasleduje
           variant={highlight ? "primary" : "secondary"}
           disabled={disabled}
           onClick={onPrimary}
