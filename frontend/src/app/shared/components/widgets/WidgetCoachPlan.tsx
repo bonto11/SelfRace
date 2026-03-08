@@ -297,8 +297,8 @@ export default function WidgetCoachPlan() {
   }, [userId, t]);
 
   // ✅ LOGIKA KROKOV (STATE MACHINE)
-  const isGlobalLoading = loading || loadingKind === "cancel";
-  
+  const isGlobalLoading = loading;
+
   // KROK 0: Ešte nemáme nič.
   const isStep0 = !latestStateId && !hasWeekly && !hasDaily;
   // KROK 1: Máme len analýzu, čakáme na Weekly.
