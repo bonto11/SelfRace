@@ -17,11 +17,13 @@ import {
 
 type Props = { onOpenDetail?: () => void };
 
-function formatRaceTime(minutes?: number | null) {
-  if (!minutes || !Number.isFinite(minutes)) return "—";
-  const h = Math.floor(minutes / 60);
-  const m = Math.floor(minutes % 60);
-  const s = Math.round((minutes % 1) * 60);
+// ✅ OPRAVENÉ: Funkcia teraz spracováva sekundy namiesto minút
+function formatRaceTime(seconds?: number | null) {
+  if (!seconds || !Number.isFinite(seconds)) return "—";
+  
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.round(seconds % 60);
   
   if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -51,22 +53,26 @@ export default function WidgetEstTopPaces({ onOpenDetail }: Props) {
           <div className="grid grid-cols-2 gap-y-4 gap-x-2">
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">5 km</div>
-              <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_5k_time_min)}</div>
+              {/* ✅ Zmenené na _s */}
+              <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_5k_time_s)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">10 km</div>
-              <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_10k_time_min)}</div>
+              {/* ✅ Zmenené na _s */}
+              <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_10k_time_s)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">Polmaratón</div>
+              {/* ✅ Zmenené na _half_marathon_time_s */}
               <div className="text-xl font-bold tracking-tight text-white/90 tabular-nums leading-none">
-                {formatRaceTime(latestPace?.est_21k_time_min)}
+                {formatRaceTime(latestPace?.est_half_marathon_time_s)}
               </div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">Maratón</div>
+              {/* ✅ Zmenené na _marathon_time_s */}
               <div className="text-xl font-bold tracking-tight text-white/90 tabular-nums leading-none">
-                {formatRaceTime(latestPace?.est_42k_time_min)}
+                {formatRaceTime(latestPace?.est_marathon_time_s)}
               </div>
             </div>
           </div>

@@ -26,8 +26,6 @@ export async function apiFetchUserZonesLatest(
       cache: "no-store",
     });
 
-    console.log("apiFetchUserZoneLatest json", json);
-
     if (!json || (json as ApiFail).success === false) return null;
     return (json as ApiOkZones).zones ?? null;
   } catch (e) {
@@ -47,8 +45,6 @@ export async function apiFetchAllLatestZonesBySport(
       method: "GET",
       cache: "no-store",
     });
-
-    console.log("apiFetchAllLatestZonesBySport json", json);
 
     if (!json || (json as ApiFail).success === false)
       return {} as Record<ZoneSport, ZonesOut>;
@@ -76,8 +72,6 @@ export async function apiFetchUserZoneTrends(
       method: "GET",
       cache: "no-store",
     });
-
-    console.log("apiFetchUserZoneTrends json", json);
 
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiOkZoneTrends).trends || [];
