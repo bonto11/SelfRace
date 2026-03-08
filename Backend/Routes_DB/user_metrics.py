@@ -22,6 +22,8 @@ def db_get_latest_metric(user_id: int, metric: str, *, ctx: AuthCtx) -> Optional
         .limit(1)
         .execute()
     )
+
+    print("db_get_latest_metric",metric,res)
     return res.data[0] if res.data else None
 
 def db_get_metric_trend(user_id: int, metric: str, days: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
@@ -36,4 +38,6 @@ def db_get_metric_trend(user_id: int, metric: str, days: int, *, ctx: AuthCtx) -
         .order("measured_at", desc=False) # Pre grafy vzostupne
         .execute()
     )
+
+    print("db_get_metric_trend",metric,res)
     return res.data or []

@@ -24,11 +24,11 @@ import { NO_X } from "@/app/shared/ui/tokens";
 import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
-} from "@/app/features/prefs/api/zones";
+} from "@/app/features/performance/api/zones";
 import {
   apiFetchUserThresholdsLatest,
   apiSaveUserThresholds,
-} from "@/app/features/prefs/api/thresholds";
+} from "@/app/features/performance/api/thresholds";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
 import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
@@ -330,39 +330,39 @@ export default function CoachPreferencies() {
     markDirty();
   };
 
-const handleSaveZonesToDB = async (z: any) => {
-  if (!userId) return;
-  try {
-    // 1. Uložíme zóny
-    const savedZones = await apiSaveUserZones(userId, z ?? {});
-    
-    // 2. Synchronizácia módu výpočtu
-    const freshPrefsFromDB = await refreshCoachPrefsFromDB(userId);
-    const currentModeInUI = local.preferences?.hr_zone_calc_mode ?? "manual";
+  const handleSaveZonesToDB = async (z: any) => {
+    if (!userId) return;
+    try {
+      // 1. Uložíme zóny
+      const savedZones = await apiSaveUserZones(userId, z ?? {});
 
-    // Použijeme prefDefaults na normalizáciu dát z DB (vyrieši tie "undefined" errory)
-    const normalizedPrefs = {
-      ...freshPrefsFromDB,
-      preferences: {
-        ...prefDefaults(freshPrefsFromDB as any),
-        hr_zone_calc_mode: currentModeInUI
-      }
-    } as CoachPrefs;
+      // 2. Synchronizácia módu výpočtu
+      const freshPrefsFromDB = await refreshCoachPrefsFromDB(userId);
+      const currentModeInUI = local.preferences?.hr_zone_calc_mode ?? "manual";
 
-    await saveCoachPrefs(userId, normalizedPrefs);
+      // Použijeme prefDefaults na normalizáciu dát z DB (vyrieši tie "undefined" errory)
+      const normalizedPrefs = {
+        ...freshPrefsFromDB,
+        preferences: {
+          ...prefDefaults(freshPrefsFromDB as any),
+          hr_zone_calc_mode: currentModeInUI,
+        },
+      } as CoachPrefs;
 
-    // 3. Aktualizujeme lokálny stav (Typovo bezpečne)
-    setLocal((prev) => ({ 
-      ...prev, 
-      zones: savedZones ?? z,
-      preferences: normalizedPrefs.preferences 
-    }));
+      await saveCoachPrefs(userId, normalizedPrefs);
 
-    toast.success(t("prefs.info.zonesSaved"));
-  } catch (e: any) {
-    toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));
-  }
-};
+      // 3. Aktualizujeme lokálny stav (Typovo bezpečne)
+      setLocal((prev) => ({
+        ...prev,
+        zones: savedZones ?? z,
+        preferences: normalizedPrefs.preferences,
+      }));
+
+      toast.success(t("prefs.info.zonesSaved"));
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));
+    }
+  };
 
   const handleThresholdsChange = (th: any) => {
     setLocal((prev) => ({ ...prev, thresholds: th }));

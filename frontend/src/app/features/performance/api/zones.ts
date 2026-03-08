@@ -1,6 +1,9 @@
 // src/features/prefs/api/zones.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
-import type { ZoneSport, ZonesOut } from "@/app/features/coach/types/zonesTypes";
+import type {
+  ZoneSport,
+  ZonesOut,
+} from "@/app/features/performance/types/zonesTypes";
 
 type ApiOkZones = { success: true; zones: ZonesOut | null };
 type ApiOkMap = { success: true; zones_by_sport: Record<string, ZonesOut> };
@@ -9,7 +12,7 @@ type ApiFail = { success: false; detail?: string };
 
 export async function apiFetchUserZonesLatest(
   userId: number,
-  sport?: ZoneSport
+  sport?: ZoneSport,
 ): Promise<ZonesOut | null> {
   if (!userId) return null;
   const params = new URLSearchParams();
@@ -18,9 +21,12 @@ export async function apiFetchUserZonesLatest(
   const path = `/users/${encodeURIComponent(String(userId))}/zones${params.size ? `?${params.toString()}` : ""}`;
 
   try {
-    const json = await callBackend<ApiOkZones | ApiFail>(path, { method: "GET", cache: "no-store" });
+    const json = await callBackend<ApiOkZones | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-    console.log("apiFetchUserZoneLatest json", json)
+    console.log("apiFetchUserZoneLatest json", json);
 
     if (!json || (json as ApiFail).success === false) return null;
     return (json as ApiOkZones).zones ?? null;
@@ -31,18 +37,24 @@ export async function apiFetchUserZonesLatest(
 }
 
 export async function apiFetchAllLatestZonesBySport(
-  userId: number
+  userId: number,
 ): Promise<Record<ZoneSport, ZonesOut>> {
   if (!userId) return {} as Record<ZoneSport, ZonesOut>;
   const path = `/users/${encodeURIComponent(String(userId))}/zones?all=1`;
 
   try {
-    const json = await callBackend<ApiOkMap | ApiFail>(path, { method: "GET", cache: "no-store" });
+    const json = await callBackend<ApiOkMap | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-    console.log("apiFetchAllLatestZonesBySport json", json)
+    console.log("apiFetchAllLatestZonesBySport json", json);
 
-    if (!json || (json as ApiFail).success === false) return {} as Record<ZoneSport, ZonesOut>;
-    return (json as ApiOkMap).zones_by_sport || {} as Record<ZoneSport, ZonesOut>;
+    if (!json || (json as ApiFail).success === false)
+      return {} as Record<ZoneSport, ZonesOut>;
+    return (
+      (json as ApiOkMap).zones_by_sport || ({} as Record<ZoneSport, ZonesOut>)
+    );
   } catch (e) {
     console.error("[zones][GET all-by-sport] error", e);
     return {} as Record<ZoneSport, ZonesOut>;
@@ -53,16 +65,19 @@ export async function apiFetchAllLatestZonesBySport(
 export async function apiFetchUserZoneTrends(
   userId: number,
   sport: ZoneSport = "running",
-  days: number = 90
+  days: number = 90,
 ): Promise<ZonesOut[]> {
   if (!userId) return [];
   const params = new URLSearchParams({ sport, days: String(days) });
   const path = `/users/${encodeURIComponent(String(userId))}/zones/trends?${params.toString()}`;
 
   try {
-    const json = await callBackend<ApiOkZoneTrends | ApiFail>(path, { method: "GET", cache: "no-store" });
+    const json = await callBackend<ApiOkZoneTrends | ApiFail>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-    console.log("apiFetchUserZoneTrends json", json)
+    console.log("apiFetchUserZoneTrends json", json);
 
     if (!json || (json as ApiFail).success === false) return [];
     return (json as ApiOkZoneTrends).trends || [];
@@ -76,7 +91,7 @@ export type SaveUserZonesBody = Partial<ZonesOut> & { sport?: ZoneSport };
 
 export async function apiSaveUserZones(
   userId: number,
-  body: SaveUserZonesBody
+  body: SaveUserZonesBody,
 ): Promise<ZonesOut> {
   if (!userId) throw new Error("api.common.missingUserAuth");
   const path = `/users/${encodeURIComponent(String(userId))}/zones`;
@@ -89,7 +104,8 @@ export async function apiSaveUserZones(
       body: JSON.stringify(body),
     });
 
-    if (!json || (json as ApiFail)?.success === false) throw new Error("api.prefs.zonesSaveFailed");
+    if (!json || (json as ApiFail)?.success === false)
+      throw new Error("api.prefs.zonesSaveFailed");
     return (json as ApiOkZones).zones as ZonesOut;
   } catch (e) {
     console.error("[zones][PUT] error", e);

@@ -1,6 +1,6 @@
 // src/features/prefs/api/thresholds.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
-import type { UserThresholdRow } from "@/app/features/coach/types/thresholdsTypes";
+import type { UserThresholdRow } from "@/app/features/performance/types/thresholdsTypes";
 
 type ApiRows = { success: true; rows: UserThresholdRow[] };
 type ApiRow = { success: true; thresholds: UserThresholdRow | null };
