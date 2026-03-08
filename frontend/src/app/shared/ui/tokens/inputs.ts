@@ -519,13 +519,14 @@ export const BUTTON_STYLE: Record<ButtonVariant, VarStyle> = {
   },
 
   danger: {
-    "--btn-bg": appColors.buttonDangerBg,
-    "--btn-bg-hover": appColors.buttonDangerBgHover,
-    "--btn-text": appColors.buttonDangerText,
-    "--btn-border": "transparent",
-    "--btn-ring": appColors.focusRing,
-    // old: "bg-red-600 text-white hover:bg-red-500"
+    "--btn-bg": "transparent", // alebo appColors.buttonGhostBg
+    "--btn-bg-hover": appColors.buttonGhostBgHover, // Rovnaký jemný hover ako majú tvoje ghost/secondary tlačidlá
+    "--btn-text": appColors.statusError, // Červený text z tvojej témy
+    "--btn-border": appColors.statusError, // Červený outline z tvojej témy
+    "--btn-ring": appColors.statusError,
   },
+
+
 
   back: {
     "--btn-bg": appColors.buttonGhostBg,
