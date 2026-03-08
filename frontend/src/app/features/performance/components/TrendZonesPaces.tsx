@@ -126,7 +126,7 @@ export default function TrendZonesPaces() {
           <LineChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-            {/* reversed = true, aby rýchlejšie tempo (menej sekúnd) bolo HORE */}
+            {/* reversed = true, aby rýchlejšie tempo (menej sekúnd/km) bolo HORE na grafe */}
             <YAxis reversed tickFormatter={formatPace} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} domain={['dataMin - 15', 'dataMax + 15']} />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeDasharray: "5 5" }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />

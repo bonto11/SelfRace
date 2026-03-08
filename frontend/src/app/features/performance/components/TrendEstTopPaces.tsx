@@ -30,12 +30,26 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
-const formatTime = (min: number) => {
-  if (!min) return "—";
-  const h = Math.floor(min / 60);
-  const m = Math.floor(min % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}h`;
+// ✅ OPRAVENÉ: Formátovač teraz prijíma sekundy a robí z nich H:MM:SS
+const formatRaceTime = (seconds: number) => {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.round(seconds % 60);
+  
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}h`; // Na Y osi stačí orientačne
   return `${m}m`;
+};
+
+// Presný formát pre Tooltip
+const formatExactTime = (seconds: number) => {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.round(seconds % 60);
+  
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -49,7 +63,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             <div key={index} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
               <span className="opacity-90">{entry.name}:</span>
-              <span className="font-bold">{formatTime(entry.value)}</span>
+              <span className="font-bold">{formatExactTime(entry.value)}</span>
             </div>
           );
         })}
@@ -62,7 +76,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function TrendEstTopPaces() {
   const t = useT();
   const { data, loading } = usePerformanceData();
-  const [weeks, setWeeks] = React.useState<number>(12); // Preteky sledujeme na dlhšie obdobie (12 týždňov)
+  const [weeks, setWeeks] = React.useState<number>(12);
 
   const { paceTrends } = data;
   const lookbackDays = weeks * 7;
@@ -88,9 +102,11 @@ export default function TrendEstTopPaces() {
     const r = rowMap.get(dISO);
     return {
       label: new Date(dISO).toLocaleDateString("sk-SK"),
-      t5k: r?.est_5k_time_min ?? null,
-      t10k: r?.est_10k_time_min ?? null,
-      t21k: r?.est_21k_time_min ?? null,
+      // ✅ OPRAVENÉ kľúče pre časy v sekundách
+      t5k: r?.est_5k_time_s ?? null,
+      t10k: r?.est_10k_time_s ?? null,
+      t21k: r?.est_half_marathon_time_s ?? null,
+      t42k: r?.est_marathon_time_s ?? null, // Pridaný maratón, pre istotu
     };
   });
 
@@ -122,11 +138,13 @@ export default function TrendEstTopPaces() {
           <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-            <YAxis tickFormatter={formatTime} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+            {/* ✅ OPRAVENÁ: Zobrazenie menšieho času (rýchlejšieho preteku) dole, pomalšieho hore */}
+            <YAxis tickFormatter={formatRaceTime} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeDasharray: "5 5" }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
             
-            <Line type="monotone" dataKey="t21k" name="21 km" stroke={appColors.brandPrimary} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+            <Line type="monotone" dataKey="t42k" name="Maratón" stroke={appColors.stateObese} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+            <Line type="monotone" dataKey="t21k" name="Polmaratón" stroke={appColors.brandPrimary} strokeWidth={2} dot={{ r: 2 }} connectNulls />
             <Line type="monotone" dataKey="t10k" name="10 km" stroke={appColors.chartLine1} strokeWidth={2} dot={{ r: 2 }} connectNulls />
             <Line type="monotone" dataKey="t5k" name="5 km" stroke={appColors.chartLine2} strokeWidth={2} dot={{ r: 2 }} connectNulls />
           </LineChart>

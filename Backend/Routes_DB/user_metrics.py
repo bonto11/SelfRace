@@ -17,13 +17,12 @@ def db_get_latest_metric(user_id: int, metric: str, *, ctx: AuthCtx) -> Optional
         sb.table(TABLE_USERS_METRICS)
         .select("*")
         .eq("user_id", user_id)
-        .ilike("metric", metric)  # ✅ ILIKE vyrieši problém s veľkými/malými písmenami
+        .ilike("metric", metric)
         .order("measured_at", desc=True)
         .limit(1)
         .execute()
     )
 
-    print("db_get_latest_metric", metric, res)
     return res.data[0] if res.data else None
 
 def db_get_metric_trend(user_id: int, metric: str, days: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
@@ -33,11 +32,10 @@ def db_get_metric_trend(user_id: int, metric: str, days: int, *, ctx: AuthCtx) -
         sb.table(TABLE_USERS_METRICS)
         .select("value_num, measured_at")
         .eq("user_id", user_id)
-        .ilike("metric", metric)  # ✅ ILIKE aj pre trendy
+        .ilike("metric", metric)
         .gte("measured_at", since_date)
-        .order("measured_at", desc=False) # Pre grafy vzostupne
+        .order("measured_at", desc=False)
         .execute()
     )
 
-    print("db_get_metric_trend", metric, res)
     return res.data or []
