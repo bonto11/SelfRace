@@ -1,7 +1,7 @@
 // src/app/features/auth/components/SignInForm.tsx
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,7 +31,10 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function SignInForm() {
   const t = useT();
   const router = useRouter();
-  const sb = getSupabaseBrowser();
+  
+  // ✅ 1. OPRAVA: Memoizácia klienta. 
+  // Zabraňuje vytváraniu novej Supabase inštancie pri každom stlačení klávesy v emaile.
+  const sb = useMemo(() => getSupabaseBrowser(), []);
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
@@ -40,6 +43,23 @@ export default function SignInForm() {
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
+
+  // ✅ 2. OPRAVA: Záchranná brzda (Self-healing).
+  // Hneď ako sa načíta Login screen, vymažeme staré pokazené tokeny z mobilu.
+  // Zastaví to akékoľvek cyklenie Supabase refreshov v pozadí.
+  useEffect(() => {
+    const nukeDeadSession = async () => {
+      try {
+        await sb.auth.signOut(); // Toto interne vyčistí Supabase LocalStorage
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("selfrace_numeric_id");
+        }
+      } catch (e) {
+        // Chyby pri odhlasovaní ignorujeme, dôležité je len zmazanie storage-u
+      }
+    };
+    nukeDeadSession();
+  }, [sb]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +80,6 @@ export default function SignInForm() {
       return;
     }
 
-    // Žiadne volanie API. Supabase klient uložil token do localStorage a to je všetko.
     router.replace("/activities");
   }
 
@@ -129,7 +148,7 @@ export default function SignInForm() {
           </span>
         </div>
 
-        {/* Strava branding (SVG, neruší, ale je compliant) */}
+        {/* Strava branding */}
         <div className="mt-6 flex justify-center">
           <Image
             src={STRAVA_ASSETS.poweredBySvg_white}
