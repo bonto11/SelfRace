@@ -167,3 +167,22 @@ async def maintenance_account_hard_delete(
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        
+from Services.coach_plan_active import service_complete_due_active_plans
+
+@router.post("/coach-plan-complete-due")
+async def coach_plan_complete_due_endpoint(
+    x_api_key: str | None = Header(default=None),
+):
+    """
+    Nočný cron na automatické ukončenie aktívnych plánov, 
+    ktorým vypršal end_date. Status sa mení na 'completed'.
+    """
+    _require_api_key(x_api_key)
+    ctx = service_ctx("maintenance.coach_plan_complete_due")
+
+    try:
+        result = service_complete_due_active_plans(ctx=ctx)
+        return JSONResponse({"ok": True, "result": result})
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
