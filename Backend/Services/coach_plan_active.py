@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from datetime import datetime, timezone
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -10,6 +11,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
     db_delete_plan_meta,
+    db_archive_plan_meta, # ✅ NOVÉ
 )
 from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
@@ -19,6 +21,7 @@ from Routes_DB.coach_plan_daily import (
 from Routes_DB.coach_plan_weekly import (
     db_clear_weekly_for_user_plan,
     db_check_weekly_data_exists,
+    db_get_weekly_for_user_plan, # ✅ NOVÉ
 )
 
 
@@ -64,48 +67,84 @@ def service_save_active_plan(
     }
 
 
-def service_cancel_active_plan(
+def service_archive_active_plan(
     user_id: int,
+    target_status: str, # "canceled" alebo "completed"
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Ukončí a zmaže akýkoľvek rozpracovaný alebo aktívny plán. 
-    Žiadna archivácia, čisté premazanie DB.
+    Ukončí plán. 
+    Ak bol len vygenerovaný -> Hard delete (nezostal v histórii).
+    Ak bol aktívny -> Zosumarizuje weekly dáta, uloží ich do meta ako snapshot,
+                      nastaví status na canceled/completed a vymaže daily/weekly tabuľky.
     """
-    # ✅ ZMENA: Použijeme "latest" namiesto "active", 
-    # aby sme vedeli zmazať aj plán, ktorý je len vo fáze "Weekly" (generated)
-    meta = db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     
     if not meta:
-        # Ak nie je čo mazať, proste vrátime success, nebudeme zhadzovať FE chybou.
-        return {
-            "meta": None,
-            "weekly_deleted": False,
-            "daily_deleted": False,
+        return {"meta": None, "archived": False, "deleted": False}
+
+    current_status = meta.get("status")
+    meta_id = meta.get("id")
+
+    # 1. Ak plán ešte ani nezačal, len ho celý bez stopy vymažeme
+    if current_status == "generated":
+        weekly_deleted = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        daily_deleted = db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        db_delete_plan_meta(user_id=user_id, ctx=ctx)
+        return {"meta": None, "archived": False, "deleted": True}
+
+    # 2. Ak bol aktívny, urobíme Snapshot
+    if current_status == "active":
+        weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        
+        final_planned = {}
+        final_actual = {}
+
+        # Sčítanie všetkých hodnôt v JSONB objektoch naprieč všetkými týždňami
+        for w in weeks:
+            ps = w.get("planned_stats") or {}
+            as_ = w.get("actual_stats") or {}
+            
+            for k, v in ps.items():
+                final_planned[k] = final_planned.get(k, 0) + (v or 0)
+            for k, v in as_.items():
+                final_actual[k] = final_actual.get(k, 0) + (v or 0)
+
+        # Zaokrúhlenie pre pekné JSONy (ak sú to km s desatinnými miestami)
+        for k in final_planned:
+            if isinstance(final_planned[k], float): 
+                final_planned[k] = round(final_planned[k], 2)
+        for k in final_actual:
+            if isinstance(final_actual[k], float): 
+                final_actual[k] = round(final_actual[k], 2)
+
+        final_stats = {
+            "weeks_tracked": len(weeks),
+            "weeks_total_planned": meta.get("weeks_total"),
+            "final_planned_stats": final_planned,
+            "final_actual_stats": final_actual,
         }
 
-    # 1) Zmaž dáta z weekly a daily
-    weekly_deleted = db_clear_weekly_for_user_plan(
-        user_id=user_id,
-        ctx=ctx,
-    )
-    daily_deleted = db_clear_daily_for_user_plan(
-        user_id=user_id,
-        ctx=ctx,
-    )
+        ended_at = datetime.now(timezone.utc).isoformat()
 
-    # 2) Vymaž rovno celý meta záznam
-    db_delete_plan_meta(user_id=user_id, ctx=ctx)
+        # Uložíme zmenu do databázy
+        archived = db_archive_plan_meta(
+            user_id=user_id,
+            meta_id=meta_id,
+            new_status=target_status,
+            final_stats=final_stats,
+            ended_at=ended_at,
+            ctx=ctx
+        )
 
-    return {
-        "meta": None,
-        "weekly_deleted": weekly_deleted,
-        "daily_deleted": daily_deleted,
-    }
+        # Vyčistíme staré data, ktoré už nepotrebujeme
+        db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+
+        return {"meta": meta_id, "archived": archived, "deleted": True}
+
+    return {"meta": None, "archived": False, "deleted": False}
 
 
 def service_link_activity(
@@ -131,8 +170,7 @@ def service_get_active_plan_status(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Zistí, či má user aktívny (alebo vygenerovaný) plán a skontroluje dáta 
-    cez databázovú vrstvu.
+    Zistí, či má user aktívny (alebo vygenerovaný) plán a skontroluje dáta.
     """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     has_active = True
