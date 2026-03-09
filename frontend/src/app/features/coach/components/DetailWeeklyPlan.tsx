@@ -21,11 +21,7 @@ import {
   PANEL_PREVIEW,
   PANEL_ACTIONS_INLINE,
   ACCORDION_FOOTER_BAR_MUTED,
-  PANEL_BAR_TRACK,
-  PANEL_BAR_FILL,
-  PANEL_BAR_TRACK_STYLE,
   PANEL_PHASE_PILL_STYLE,
-  PANEL_PHASE_BAR_STYLE,
 } from "@/app/shared/ui/tokens";
 
 import {
@@ -35,6 +31,7 @@ import {
   SESSION_SUBCARD_STYLE,
   SESSION_PILL,
 } from "@/app/shared/ui/tokens/sessionCard";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 /* ---------- helpers ---------- */
 
@@ -57,8 +54,34 @@ function phaseKey(load_phase?: string | null): PhaseKey {
   return "other";
 }
 
-/* ---------- card wrapper ---------- */
+/* ---------- mini progress bar ---------- */
+function MiniBar({ label, actual, planned, unit, colorHex }: { label: string, actual: number, planned: number, unit: string, colorHex: string }) {
+  if (planned === 0 && actual === 0) return null;
+  
+  // Percento výplne (zastaví sa na 100%, aj keby spravil viac)
+  const pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
+  
+  // Ak spravil viac ako plán (napr. 50/40), môžeme jemne zvýrazniť
+  const isOver = planned > 0 && actual > planned;
 
+  return (
+    <div className="mt-1.5">
+      <div className="flex justify-between items-end text-[10px] uppercase tracking-wide opacity-80 mb-1">
+        <span>{label}</span>
+        <span className={isOver ? "text-emerald-400 font-bold" : ""}>
+          {actual} / {planned} {unit}
+        </span>
+      </div>
+      {/* Track = Plan (opacity-20) */}
+      <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: `${colorHex}33` }}>
+        {/* Fill = Actual (solid) */}
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: colorHex }} />
+      </div>
+    </div>
+  );
+}
+
+/* ---------- card wrapper ---------- */
 function Card({ title, subtitle, children, headRight }: { title?: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; headRight?: React.ReactNode; }) {
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -88,8 +111,7 @@ export default function DetailWeeklyPlan() {
     if (!userId) return;
     let alive = true;
     (async () => {
-      setLoading(true);
-      setError(null);
+      setLoading(true); setError(null);
       try {
         const r = await apiGetLatestWeeklyPlan(userId);
         if (alive) setPlan(r ?? null);
@@ -103,37 +125,18 @@ export default function DetailWeeklyPlan() {
   }, [userId, t]);
 
   const view = useMemo(() => {
-    if (!plan?.weeks?.length) return { weeksSorted: [], rangeLabel: null, totalKm: 0, totalMin: 0, phaseCounts: {} as any, maxKm: 0 };
-    
+    if (!plan?.weeks?.length) return { weeksSorted: [], rangeLabel: null, phaseCounts: {} as any };
     const weeksSorted = [...plan.weeks].sort((a, b) => (a.week_index || 0) - (b.week_index || 0));
+    const firstStr = formatDate(weeksSorted[0].week_start);
+    const lastStr = formatDate(weeksSorted[weeksSorted.length - 1].week_end);
     
-    const firstStr = formatDate(weeksSorted.find(w => w.week_start)?.week_start);
-    const lastStr = formatDate([...weeksSorted].reverse().find(w => w.week_end)?.week_end);
-    
-    let totalKm = 0, totalMin = 0, maxKm = 0;
     const phaseCounts: any = {};
-    
     for (const w of weeksSorted) {
-      // ✅ Čítame z nového JSON objektu
-      const km = Number(w.planned_stats?.run_distance_km || 0);
-      const mins = Number(w.planned_stats?.run_time_min || 0);
-
-      totalKm += km;
-      totalMin += mins;
-      if (km > maxKm) maxKm = km;
-      
       const pk = phaseKey(w.load_phase);
       phaseCounts[pk] = (phaseCounts[pk] || 0) + 1;
     }
     
-    return { 
-      weeksSorted, 
-      rangeLabel: firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr, 
-      totalKm, 
-      totalMin, 
-      phaseCounts, 
-      maxKm 
-    };
+    return { weeksSorted, rangeLabel: firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr, phaseCounts };
   }, [plan]);
 
   const getPhaseLabel = (phaseStr?: string | null) => {
@@ -144,19 +147,11 @@ export default function DetailWeeklyPlan() {
     return translated === key ? phaseStr : translated;
   };
 
-  const getWeekLabel = () => {
-    const w = t("common.weeksSelect.count1");
-    return w.charAt(0).toUpperCase() + w.slice(1);
-  };
+  const formatHrs = (mins: number) => Math.round((mins / 60) * 10) / 10;
 
   if (!userId) return <Card title={t("coachWeekly.title")} subtitle={t("common.errors.missingUserAuth")}><div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div></Card>;
   if (loading) return <section className={SESSION_CARD} style={SESSION_CARD_STYLE}><div className={[PANEL_PAD, "grid place-items-center"].join(" ")}><LoadingSpinner size="widget" /></div></section>;
   if (error || !plan || !view.weeksSorted.length) return <Card title={t("coachWeekly.title")} subtitle={t("coach.weekly.noPlanTitle")}><div className={PANEL_PREVIEW}>{error ?? t("coach.weekly.noPlanDesc")}</div></Card>;
-
-  const weeksCount = view.weeksSorted.length;
-  const totalHours = Math.round((view.totalMin / 60) * 10) / 10;
-  const unitKm = t("common.units.km");
-  const unitH = t("common.units.hour");
 
   return (
     <div className={PANEL_STACK}>
@@ -165,8 +160,7 @@ export default function DetailWeeklyPlan() {
         subtitle={<>{t("coach.weekly.overviewSubtitle")}{view.rangeLabel && <span className="block">{t("coach.weekly.range")}: {view.rangeLabel}</span>}</>}
         headRight={
           <div className="text-right text-xs opacity-80">
-            <div>{t("coachWeekly.widget.weeksCount")}: <b>{weeksCount}</b></div>
-            <div>{t("coach.weekly.totalVolume")}: <b>{Math.round(view.totalKm)} {unitKm} / {totalHours} {unitH}</b></div>
+            <div>{t("coachWeekly.widget.weeksCount")}: <b>{view.weeksSorted.length}</b></div>
           </div>
         }
       >
@@ -180,24 +174,25 @@ export default function DetailWeeklyPlan() {
         </div>
       </Card>
 
-      <Card title={t("coach.weekly.weeksTitle")} subtitle={t("coach.weekly.weeksSubtitle")}>
+      <Card title={t("coach.weekly.weeksTitle")} subtitle="Porovnanie naplánovaného objemu s realitou">
         <div className={PANEL_STACK}>
           {view.weeksSorted.map((w: WeeklyPlanWeek) => {
             const pk = phaseKey(w.load_phase);
+            const ps = w.planned_stats || {};
+            const as = w.actual_stats || {};
 
-            const km = Number(w.planned_stats?.run_distance_km || 0);
-            const mins = Number(w.planned_stats?.run_time_min || 0);
-            const hours = mins ? Math.round((mins / 60) * 10) / 10 : null;
-            const widthPct = view.maxKm > 0 ? Math.max(6, Math.min(100, (km / view.maxKm) * 100)) : 0;
-            
+            // Helper na spočítanie celkového času
+            const totalPMin = (ps.run_time_min || 0) + (ps.bike_time_min || 0) + (ps.swim_time_min || 0) + (ps.strength_time_min || 0) + (ps.other_time_min || 0);
+            const totalAMin = (as.run_time_min || 0) + (as.bike_time_min || 0) + (as.swim_time_min || 0) + (as.strength_time_min || 0) + (as.other_time_min || 0);
+
             return (
               <div key={w.week_index} className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-                  <div className="flex items-center justify-between gap-2">
+                  
+                  {/* Hlavička týždňa */}
+                  <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] uppercase tracking-wide opacity-70">
-                         {getWeekLabel()} {w.week_index}
-                      </span>
+                      <span className="text-sm font-bold uppercase opacity-90">Týždeň {w.week_index}</span>
                       <span className={SESSION_PILL} style={PANEL_PHASE_PILL_STYLE[pk]}>
                         {getPhaseLabel(w.load_phase)}
                       </span>
@@ -205,28 +200,32 @@ export default function DetailWeeklyPlan() {
                     <div className="text-[11px] opacity-70">{formatDate(w.week_start)} – {formatDate(w.week_end)}</div>
                   </div>
                   
+                  {/* Ciele a Notes */}
                   <div className="text-sm font-semibold">{w.goal || w.focus || t("coach.weekly.noGoalShort")}</div>
-                  
-                  {w.focus && (
-                    <div className="text-xs opacity-80">
-                       {t("coachWeekly.widget.labelFocus")}: {w.focus}
-                    </div>
-                  )}
+                  {w.notes && <div className="text-xs italic opacity-70 mb-2">{w.notes}</div>}
 
-                  <div className={PANEL_INNER_STACK}>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="opacity-70">{t("coach.weekly.plannedVolume")} (Beh)</span>
-                      <span className="font-semibold">
-                        {km ? `${km} ${unitKm}` : "—"}
-                        {hours ? ` · ${hours} ${unitH}` : ""}
-                      </span>
-                    </div>
-                    <div className={PANEL_BAR_TRACK} style={PANEL_BAR_TRACK_STYLE}>
-                      <div className={PANEL_BAR_FILL} style={{ ...PANEL_PHASE_BAR_STYLE[pk], width: `${widthPct}%` }} />
+                  {/* MINI BARS PRE ŠPORTY */}
+                  <div className="flex flex-col gap-1 mt-2">
+                    {/* BEH */}
+                    <MiniBar label="Beh (Vzdialenosť)" actual={as.run_distance_km || 0} planned={ps.run_distance_km || 0} unit="km" colorHex={appColors.chartLine2} />
+                    <MiniBar label="Beh (Čas)" actual={formatHrs(as.run_time_min || 0)} planned={formatHrs(ps.run_time_min || 0)} unit="h" colorHex={appColors.chartLine2} />
+                    
+                    {/* BICYKEL */}
+                    <MiniBar label="Bicykel (Vzdialenosť)" actual={as.bike_distance_km || 0} planned={ps.bike_distance_km || 0} unit="km" colorHex={appColors.chartLine1} />
+                    <MiniBar label="Bicykel (Čas)" actual={formatHrs(as.bike_time_min || 0)} planned={formatHrs(ps.bike_time_min || 0)} unit="h" colorHex={appColors.chartLine1} />
+                    
+                    {/* PLÁVANIE */}
+                    <MiniBar label="Plávanie (Vzdialenosť)" actual={(as.swim_distance_m || 0)/1000} planned={(ps.swim_distance_m || 0)/1000} unit="km" colorHex={appColors.brandPrimary} />
+                    
+                    {/* SILA */}
+                    <MiniBar label="Silový tréning" actual={formatHrs(as.strength_time_min || 0)} planned={formatHrs(ps.strength_time_min || 0)} unit="h" colorHex="#9CA3AF" />
+                    
+                    {/* SPOLU ČAS */}
+                    <div className="mt-2 pt-2 border-t border-white/5">
+                      <MiniBar label="Spolu (Celkový čas)" actual={formatHrs(totalAMin)} planned={formatHrs(totalPMin)} unit="h" colorHex={appColors.textInverse} />
                     </div>
                   </div>
-                  
-                  {w.notes && <div className="text-xs italic opacity-85">{w.notes}</div>}
+
                 </div>
               </div>
             );
