@@ -66,3 +66,26 @@ def db_get_strength_history_for_user(
     except Exception as e:
         print("[DB-COACH-STRENGTH] get history error:", repr(e))
         return []
+
+
+def db_clear_strength_history_for_user(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> int:
+    """
+    Vymaže celú históriu silových tréningov pre daného používateľa.
+    Volá sa pri upratovaní (ukončení alebo zrušení) plánu.
+    """
+    sb = get_sb(ctx, caller="coach_strength_history.db_clear_strength_history_for_user")
+    try:
+        res = (
+            sb.table(TABLE_COACH_STRENGTH_HISTORY)
+            .delete()
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return len(res.data or [])
+    except Exception as e:
+        print("[DB-COACH-STRENGTH] clear history error:", repr(e))
+        return 0

@@ -22,8 +22,9 @@ from Routes_DB.coach_plan_daily import (
 from Routes_DB.coach_plan_weekly import (
     db_clear_weekly_for_user_plan,
     db_check_weekly_data_exists,
-    db_get_weekly_for_user_plan, # ✅ NOVÉ
+    db_get_weekly_for_user_plan,
 )
+from Routes_DB.coach_strength_history import db_clear_strength_history_for_user
 
 
 def _ensure_latest_plan_meta(
@@ -95,8 +96,9 @@ def service_cancel_active_plan(
 
     # 1. Ak plán ešte ani nezačal, len ho celý bez stopy vymažeme
     if current_status == "generated":
-        weekly_deleted = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-        daily_deleted = db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
         db_delete_plan_meta(user_id=user_id, ctx=ctx)
         return {"meta": None, "archived": False, "deleted": True}
 
@@ -147,6 +149,7 @@ def service_cancel_active_plan(
         # Vyčistíme staré data, ktoré už nepotrebujeme
         db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
 
         return {"meta": meta_id, "archived": archived, "deleted": True}
 
