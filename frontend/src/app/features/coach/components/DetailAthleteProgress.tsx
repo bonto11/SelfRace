@@ -261,7 +261,7 @@ function SubcardDynamic({
             <>
               <span className="opacity-60 font-normal">{prev ?? "—"}</span>
               <span className="opacity-50 mx-2">→</span>
-              {/* ✅ Aplikácia farby z appColors */}
+              {/* Aplikácia farby z appColors */}
               <span style={dynColor ? { color: dynColor } : {}}>{curr ?? "—"}</span>
             </>
           ) : (

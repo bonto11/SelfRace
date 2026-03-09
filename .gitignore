@@ -6,6 +6,10 @@ Backend/*.pyd
 Backend/*.egg-info/
 Backend/.coverage
 Backend/.pytest_cache/
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Virtual environment
 Backend/.venv/

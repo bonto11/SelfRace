@@ -8,6 +8,7 @@ from Services.AI.utils.billing import (
     is_user_over_token_quota,
     get_user_monthly_usage_tokens,
 )
+from Routes_DB.activities_summary import db_get_activities_in_range_basic
 
 from Services.AI.weekly_plan.builders import (
     build_weekly_context_from_db,
@@ -21,6 +22,8 @@ from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_get_weekly_for_user_plan,
+    db_get_weekly_row_by_date,
+    db_update_weekly_actual_stats
 )
 from Routes_DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
@@ -248,4 +251,83 @@ def service_get_latest_weekly_plan(
 
     return {
         "weeks": weeks_out,
+    }
+
+# =========================================================================
+# ASYNC WORKER: Weekly Volume Sync
+# =========================================================================
+
+def service_sync_weekly_volume_for_date(
+    user_id: int,
+    target_date: str,
+    *,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Nájde týždeň pre zadaný dátum, stiahne aktivity a prepočíta actual_stats.
+    """
+    # 1. Získaj riadok pre daný týždeň z DB
+    week_row = db_get_weekly_row_by_date(user_id=user_id, target_date_iso=target_date, ctx=ctx)
+    
+    if not week_row:
+        return {"ok": False, "note": f"Date {target_date[:10]} does not fall into any active plan week."}
+        
+    week_start = week_row["week_start"]
+    week_end = week_row["week_end"]
+    row_id = week_row["id"]
+    
+    # 2. Vytiahni aktivity v tomto rozsahu (využívame tvoju existujúcu DB funkciu!)
+    # Potrebujeme formát na timestampz, takže pridáme T00:00:00Z a T23:59:59Z
+    activities = db_get_activities_in_range_basic(
+        ctx=ctx,
+        user_id=user_id,
+        start_ts_iso=f"{week_start}T00:00:00Z",
+        end_ts_iso=f"{week_end}T23:59:59Z"
+    )
+    
+    # 3. Roztrieď a spočítaj
+    stats = {
+        "run_distance_km": 0.0,
+        "run_time_min": 0,
+        "bike_distance_km": 0.0,
+        "bike_time_min": 0,
+        "swim_distance_m": 0.0,
+        "swim_time_min": 0,
+        "strength_time_min": 0,
+        "other_time_min": 0,
+    }
+    
+    for act in activities:
+        act_type = str(act.get("sport_type") or act.get("sport_type_fe") or "").lower()
+        dist_m = float(act.get("distance_m") or 0.0)
+        time_sec = float(act.get("moving_time_s") or 0.0)
+        time_min = int(time_sec / 60)
+        
+        if "run" in act_type:
+            stats["run_distance_km"] += (dist_m / 1000.0)
+            stats["run_time_min"] += time_min
+        elif "ride" in act_type or "bike" in act_type or "cycl" in act_type:
+            stats["bike_distance_km"] += (dist_m / 1000.0)
+            stats["bike_time_min"] += time_min
+        elif "swim" in act_type:
+            stats["swim_distance_m"] += dist_m
+            stats["swim_time_min"] += time_min
+        elif "weight" in act_type or "strength" in act_type or "workout" in act_type:
+            stats["strength_time_min"] += time_min
+        else:
+            stats["other_time_min"] += time_min
+            
+    # Zaokrúhlenie
+    stats["run_distance_km"] = round(stats["run_distance_km"], 2)
+    stats["bike_distance_km"] = round(stats["bike_distance_km"], 2)
+    stats["swim_distance_m"] = round(stats["swim_distance_m"], 2)
+
+    # 4. Ulož do DB
+    success = db_update_weekly_actual_stats(row_id=row_id, actual_stats=stats, ctx=ctx)
+    
+    return {
+        "ok": success, 
+        "week_index": week_row.get("week_index"),
+        "processed_activities": len(activities),
+        "actual_stats_saved": stats
     }

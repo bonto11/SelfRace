@@ -124,27 +124,52 @@ def db_check_weekly_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
         print("[DB-COACH-WEEKLY] check_exists error:", repr(e))
         return False
 
-def db_update_weekly_completed_km(
-    user_id: int,
-    week_index: int,
-    completed_km: float,
-    *,
-    ctx: AuthCtx,
-) -> bool:
+def db_get_weekly_row_by_date(
+    user_id: int, 
+    target_date_iso: str, 
+    *, 
+    ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
     """
-    Zaktualizuje stĺpec 'completed_km' pre daný týždeň.
+    Nájde weekly riadok, do ktorého patrí zadaný dátum (medzi week_start a week_end).
     """
-    sb = get_sb(ctx, caller="coach_plan_weekly.db_update_weekly_completed_km")
-
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_get_weekly_row_by_date")
+    date_only = target_date_iso[:10]
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_WEEKLY)
-            .update({"completed_km": completed_km})
+            .select("id, week_start, week_end, week_index")
             .eq("user_id", user_id)
-            .eq("week_index", week_index)
+            .lte("week_start", date_only)
+            .gte("week_end", date_only)
+            .limit(1)
+            .execute()
+        )
+        return res.data[0] if res.data else None
+    except Exception as e:
+        print("[DB-COACH-WEEKLY] get_row_by_date error:", repr(e))
+        return None
+
+def db_update_weekly_actual_stats(
+    row_id: int, 
+    actual_stats: Dict[str, Any], 
+    *, 
+    ctx: AuthCtx
+) -> bool:
+    """
+    Zaktualizuje JSONB stĺpec 'actual_stats' pre konkrétny weekly riadok.
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_update_weekly_actual_stats")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .update({"actual_stats": actual_stats})
+            .eq("id", row_id)
             .execute()
         )
         return bool(res.data)
     except Exception as e:
-        print("[DB-COACH-WEEKLY] update_completed_km error:", repr(e))
+        print("[DB-COACH-WEEKLY] update_actual_stats error:", repr(e))
         return False
+
+# Tú starú funkciu db_update_weekly_completed_km môžeš kľudne zmazať, už ju nebudeme potrebovať.

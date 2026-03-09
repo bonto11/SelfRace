@@ -15,7 +15,7 @@ from Routes_DB.async_jobs import (
 )
 
 from Services.AI.athlete_state.main import service_analyze_athlete
-from Services.AI.weekly_plan.main import service_generate_weekly_plan
+from Services.AI.weekly_plan.main import service_generate_weekly_plan, service_sync_weekly_volume_for_date
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
@@ -46,6 +46,7 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "strava_sync_activity",  # sync single + enqueue followups (review only)
     "mark_activity_deleted",  # only marks deleted_at
     "coach_autoadjust",  # debounced per user
+    "weekly_volume_sync", # ✅ NOVÝ JOB: Prepočet nabehaných km v týždni
 }
 
 SENSITIVE_KEYS: Set[str] = {
@@ -79,17 +80,13 @@ def _scrub_dict(x: Any) -> Any:
 def _enqueue_autoadjust_debounced(
     ctx: AuthCtx, *, user_id: int, delay_sec: int = 120, force_reason: Optional[str] = None
 ) -> None:
-    """
-    Debounce per user: pri burst webhookoch / viacerých review naraz 
-    nespúšťaj autoadjust zbytočne viackrát.
-    """
     run_after = (
         datetime.now(timezone.utc) + timedelta(seconds=int(delay_sec))
     ).isoformat()
     
     payload = {}
     if force_reason:
-        payload["force_reason"] = force_reason # ✅ Pribalíme dôvod do payloadu
+        payload["force_reason"] = force_reason 
 
     service_enqueue_job(
         user_id=int(user_id),
@@ -104,10 +101,6 @@ def _enqueue_autoadjust_debounced(
 def _enqueue_activity_review_best_effort(
     ctx: AuthCtx, *, user_id: int, activity_id: int
 ) -> None:
-    """
-    Best-effort: review nikdy nesmie zhodiť import.
-    Auto review (sync pipeline) => source='auto'
-    """
     try:
         service_enqueue_job(
             user_id=int(user_id),
@@ -115,7 +108,7 @@ def _enqueue_activity_review_best_effort(
             payload={
                 "activity_id": int(activity_id),
                 "model": None,
-                "source": "auto",      # Automatické review zo Stravy
+                "source": "auto",
                 "comment": None,       
                 "service": True,
                 "save_to_db": True,
@@ -274,7 +267,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 score_threshold=float(payload.get("score_threshold", 0.55)),
                 ctx=ctx,
             )
-            # follow-up: extend daily plan
             service_enqueue_job(
                 user_id=user_id,
                 job_type="daily_extend",
@@ -308,15 +300,12 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
             if source == "user" or has_injury:
                 print(f"[WORKER] Manual review or Injury detected for user {user_id}. Enqueuing autoadjust.")
-                
-                # ✅ AK JE ZRANENIE, POŠLEME FORCE REASON ĎALEJ
                 reason = "new_injury" if has_injury else "manual_review"
-                
                 _enqueue_autoadjust_debounced(
                     ctx=ctx,
                     user_id=user_id,
                     delay_sec=5,
-                    force_reason=reason # ✅ Odkaz pre ďalší job
+                    force_reason=reason 
                 )
 
         elif job_type == "sync":
@@ -330,7 +319,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
         # -------------------------------
         # STRAVA PIPELINE
         # -------------------------------
-
         elif job_type == "strava_sync_activity":
             activity_id = int(payload.get("activity_id") or 0)
             if not activity_id:
@@ -338,21 +326,32 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
             fetch_details = bool(payload.get("fetch_details", True))
 
-            # 1) DATA IMPORT (pure) - toto nechávame, aby sa dáta uložili do DB
+            # 1) DATA IMPORT
             result = service_sync_single_activity(
                 user_id=int(user_id),
                 strava_activity_id=int(activity_id),
                 fetch_details=fetch_details,
                 ctx=ctx,
             )
-
-            # 2) FOLLOWUPS 
-            # ✅ VYPNUTÉ: Zrušili sme automatické generovanie AI Review po synce
-            # _enqueue_activity_review_best_effort(
-            #     ctx=ctx, user_id=int(user_id), activity_id=int(activity_id)
-            # )
-
-            # 3) OPTIONAL hooks (default OFF)
+            
+            # ✅ 2) Zistíme dátum importovanej aktivity (ak sa vrátil z výsledku)
+            act_date = result.get("start_date_local")
+            if act_date:
+                # Odošleme task na asynchrónne zrátanie a zapísanie do Weekly Plánu
+                try:
+                    service_enqueue_job(
+                        ctx=ctx,
+                        user_id=int(user_id),
+                        job_type="weekly_volume_sync",
+                        payload={"target_date": str(act_date)},
+                        priority=140, 
+                        # ✅ OPRAVA: Pridané str(...) okolo act_date pred slicovaním
+                        dedupe_key=f"vol_sync:{user_id}:{str(act_date)[:10]}",
+                    )
+                except Exception as e:
+                    print("[WEEKLY-VOL-SYNC][enqueue] failed", repr(e))
+                    
+            # 3) OPTIONAL hooks (plan match)
             if bool(payload.get("enqueue_plan_match", False)):
                 try:
                     service_enqueue_job(
@@ -371,7 +370,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                     print("[PLAN-MATCH][enqueue] failed", repr(e))
 
         elif job_type == "coach_autoadjust":
-            # ✅ Vyberieme force_reason z payloadu a pošleme ho do service
             force_reason = payload.get("force_reason")
             result = service_coach_autoadjust_after_update(
                 user_id=int(user_id),
@@ -390,6 +388,18 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             ).eq("activity_id", int(activity_id)).execute()
 
             result = {"ok": True, "deleted_at": deleted_at}
+
+        # ✅ NOVÝ WORKER: Prepočet týždenných štatistík z databázy
+        elif job_type == "weekly_volume_sync":
+            target_date = payload.get("target_date")
+            if not target_date:
+                raise ValueError("missing target_date")
+                
+            result = service_sync_weekly_volume_for_date(
+                user_id=int(user_id),
+                target_date=str(target_date),
+                ctx=ctx
+            )
 
         else:
             raise ValueError(f"Unsupported job_type: {job_type}")
