@@ -2156,6 +2156,7 @@ export const sk = {
         recovery: "Regenerácia (Recovery)",
         other: "Iné",
       },
+      volumeBars: "Porovnanie naplánovaného objemu s realitou",
     },
     daily: {
       title: "Denný plán",
@@ -2177,6 +2178,7 @@ export const sk = {
       undoConfirmMessage:
         "Táto akcia vráti posledný presun tréningu na pôvodný dátum.",
       sessionFallback: "Tréning",
+      
     },
   },
   activities: {

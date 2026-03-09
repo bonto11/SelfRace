@@ -31,13 +31,6 @@ import {
 
 /* ---------- KONŠTANTY FARIEB ---------- */
 
-const BAR_COLORS = {
-  success: appColors.statusSuccess,
-  info: appColors.statusInfo,
-  warning: appColors.statusWarning,
-  danger: appColors.statusError,
-};
-
 const UNIFORM_PILL_BASE: CSSProperties = {
   width: "160px",
   height: "42px",
@@ -145,20 +138,20 @@ function statusPillStyle(level?: string | null): CSSProperties {
   if (l === "low")
     colors = {
       background: "rgba(16,185,129,0.10)",
-      borderColor: BAR_COLORS.success,
-      color: BAR_COLORS.success,
+      borderColor: appColors.statusSuccess,
+      color: appColors.statusSuccess,
     };
   if (l === "moderate" || l === "medium")
     colors = {
       background: "rgba(245,158,11,0.10)",
-      borderColor: BAR_COLORS.warning,
-      color: BAR_COLORS.warning,
+      borderColor: appColors.statusWarning,
+      color: appColors.statusWarning,
     };
   if (l === "high")
     colors = {
       background: "rgba(239,68,68,0.10)",
-      borderColor: BAR_COLORS.danger,
-      color: BAR_COLORS.danger,
+      borderColor: appColors.statusError,
+      color: appColors.statusError,
     };
 
   return { ...UNIFORM_PILL_BASE, ...colors };
@@ -257,20 +250,20 @@ function Subcard({
   );
 }
 
+// ✅ OPRAVA: Prijíma priamo farbu z appColors
 function Bar({
   value01,
   labelLeft,
   labelRight,
-  fillKind,
+  fillColor,
 }: {
   value01: number;
   labelLeft?: React.ReactNode;
   labelRight?: React.ReactNode;
-  fillKind: keyof typeof BAR_COLORS;
+  fillColor: string;
 }) {
   const pct = Math.max(0, Math.min(1, value01)) * 100;
-  const fillStyle = { background: BAR_COLORS[fillKind] };
-
+  
   return (
     <div className={PANEL_INNER_STACK}>
       {(labelLeft || labelRight) && (
@@ -287,7 +280,7 @@ function Bar({
       >
         <div
           className={PANEL_BAR_FILL}
-          style={{ width: `${pct}%`, ...fillStyle }}
+          style={{ width: `${pct}%`, background: fillColor }}
         />
       </div>
     </div>
@@ -431,7 +424,6 @@ export default function DetailAthleteState() {
       </Card>
     );
 
-  // ✅ OPRAVENÝ PREKLAD FÁZY
   const statusPills = (
     <>
       <div
@@ -450,7 +442,6 @@ export default function DetailAthleteState() {
       </div>
       {aiState.suggested_block_kind && (
         <div className={PANEL_STATUS_PILL} style={blockPillStyle()}>
-          {/* Tu prekladáme label 'Fáza' a následne hodnotu pomocou common.phases */}
           {t("coach.weekly.phase" as any)}: {t(`common.phases.${aiState.suggested_block_kind}` as any)}
         </div>
       )}
@@ -485,7 +476,7 @@ export default function DetailAthleteState() {
             >
               <Bar
                 value01={runInfo.level / 5}
-                fillKind="success"
+                fillColor={appColors.chartRun}
                 labelLeft={runInfo.comment}
                 labelRight={`${runInfo.level}/5`}
               />
@@ -499,7 +490,7 @@ export default function DetailAthleteState() {
             >
               <Bar
                 value01={strengthInfo.level / 5}
-                fillKind="info"
+                fillColor={appColors.chartStrength}
                 labelLeft={strengthInfo.comment}
                 labelRight={`${strengthInfo.level}/5`}
               />
@@ -509,13 +500,12 @@ export default function DetailAthleteState() {
           {vo2max && (
             <Subcard title="VO₂ Max (Est.)" value={vo2max}>
               <div className="text-sm text-gray-500 mt-1 text-pretty">
-                {t("coach.state.vo2maxDesc" as any) ||
-                  "Odhad na základe biometrie a výkonu."}
+                {t("coach.state.vo2maxDesc")}
               </div>
               <div className="mt-2">
                 <Bar
                   value01={(vo2max - 20) / 60}
-                  fillKind="warning"
+                  fillColor={appColors.chartLine3}
                   labelLeft="Aerobic Capacity"
                 />
               </div>
@@ -541,7 +531,7 @@ export default function DetailAthleteState() {
           >
             <Bar
               value01={0.7}
-              fillKind="info"
+              fillColor={appColors.chartLine1}
               labelLeft={aiState.volume_tolerance?.note}
             />
           </Subcard>
@@ -555,7 +545,7 @@ export default function DetailAthleteState() {
           >
             <Bar
               value01={0.5}
-              fillKind="warning"
+              fillColor={appColors.chartLine2}
               labelLeft={aiState.intensity_tolerance?.comment}
             />
           </Subcard>
@@ -573,13 +563,13 @@ export default function DetailAthleteState() {
               <div className="grid gap-3 md:grid-cols-2 min-w-0">
                 <Bar
                   value01={Math.min(1, (chronic ?? 0) / 400)}
-                  fillKind="success"
+                  fillColor={appColors.statusSuccess}
                   labelLeft={t("coach.state.chronicLoad" as any)}
                   labelRight={chronic ?? "—"}
                 />
                 <Bar
                   value01={Math.min(1, (acute ?? 0) / 400)}
-                  fillKind="danger"
+                  fillColor={appColors.statusError}
                   labelLeft={t("coach.state.acuteLoad" as any)}
                   labelRight={acute ?? "—"}
                 />

@@ -2154,6 +2154,7 @@ export const en = {
         recovery: "Recovery",
         other: "Other",
       },
+      volumeBars: "Comparision planned volume with reality",
     },
     daily: {
       title: "Daily Plan",

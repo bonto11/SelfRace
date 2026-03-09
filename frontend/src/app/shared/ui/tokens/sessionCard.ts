@@ -266,10 +266,10 @@ export const SESSION_METRIC_BAR_STYLE: Record<
   "hr" | "pace" | "elev" | "time",
   CSSProperties
 > = {
-  hr: { background: appColors.statusError }, // červená-ish
-  pace: { background: appColors.statusInfo }, // modrá-ish
-  elev: { background: appColors.statusWarning }, // žltá-ish
-  time: { background: appColors.statusSuccess }, // zelená-ish
+  hr: { background: appColors.chartLine1 },
+  pace: { background: appColors.chartLine2 },
+  elev: { background: appColors.chartLine3 },
+  time: { background: appColors.chartLine4 },
 };
 
 /* ============================================================================

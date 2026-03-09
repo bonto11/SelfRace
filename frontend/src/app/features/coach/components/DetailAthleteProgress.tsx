@@ -8,6 +8,7 @@ import {
   type AthleteProgressRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -222,6 +223,57 @@ function Card({
   );
 }
 
+// ✅ Vylepšený Subcard s dynamickou farbou zmeny (používa appColors)
+function SubcardDynamic({
+  title,
+  prev,
+  curr,
+  text,
+  inverseLogic = false, // Ak je TRUE, menšie číslo je lepšie (napr. Únava, Riziko zranenia)
+}: {
+  title: string;
+  prev: number | string | null;
+  curr: number | string | null;
+  text?: React.ReactNode;
+  inverseLogic?: boolean;
+}) {
+  let dynColor = "";
+  
+  if (typeof prev === "number" && typeof curr === "number") {
+    if (curr > prev) {
+      dynColor = inverseLogic ? appColors.statusError : appColors.statusSuccess;
+    } else if (curr < prev) {
+      dynColor = inverseLogic ? appColors.statusSuccess : appColors.statusError;
+    }
+  } else if (typeof prev === "string" && typeof curr === "string" && prev !== curr) {
+     // Pre textové hodnoty skúsime aspoň nejaký jednoduchý odhad (napr. ak je aktuálny 'high', je to zlé)
+     const l = curr.toLowerCase();
+     if (l.includes("high") || l.includes("vysoké") || l.includes("vysoká")) dynColor = appColors.statusError;
+     else if (l.includes("low") || l.includes("nízke") || l.includes("nízka")) dynColor = appColors.statusSuccess;
+  }
+
+  return (
+    <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+        <div className={PANEL_SECTION_SUBTITLE}>{title}</div>
+        <div className={PANEL_SECTION_TITLE}>
+          {prev != null || curr != null ? (
+            <>
+              <span className="opacity-60 font-normal">{prev ?? "—"}</span>
+              <span className="opacity-50 mx-2">→</span>
+              {/* ✅ Aplikácia farby z appColors */}
+              <span style={dynColor ? { color: dynColor } : {}}>{curr ?? "—"}</span>
+            </>
+          ) : (
+            "—"
+          )}
+        </div>
+        {text && <div className={PANEL_SECTION_SUBTITLE}>{text}</div>}
+      </div>
+    </div>
+  );
+}
+
 function Subcard({
   title,
   value,
@@ -317,15 +369,19 @@ export default function DetailAthleteProgress() {
 
       <Card title={t("coach.progress.indicatorsTitle")}>
         <div className={PANEL_GRID_3}>
-          <Subcard
+          <SubcardDynamic
             title={t("coachAthleteState.lastAnalysis.fatigue")}
-            value={`${slovakLevel(p.fatiguePrev, t)} → ${slovakLevel(p.fatigueCurr, t)}`}
+            prev={slovakLevel(p.fatiguePrev, t)}
+            curr={slovakLevel(p.fatigueCurr, t)}
             text={p.fatigueComment || undefined}
+            inverseLogic={true} // Vyššia únava je horšia (červená)
           />
-          <Subcard
+          <SubcardDynamic
             title={t("coachAthleteState.lastAnalysis.injuryRisk")}
-            value={`${slovakLevel(p.injuryPrev, t)} → ${slovakLevel(p.injuryCurr, t)}`}
+            prev={slovakLevel(p.injuryPrev, t)}
+            curr={slovakLevel(p.injuryCurr, t)}
             text={p.injuryComment || undefined}
+            inverseLogic={true} // Vyššie riziko je horšie (červená)
           />
           <Subcard
             title={t("coach.progress.blockTitle")}
@@ -337,18 +393,21 @@ export default function DetailAthleteProgress() {
 
       <Card title={t("coach.state.capabilitiesTitle")}>
         <div className={PANEL_GRID_3}>
-          <Subcard
+          <SubcardDynamic
             title={t("common.sports.run")}
-            value={p.capRunPrev != null || p.capRunCurr != null ? `${p.capRunPrev ?? "—"} → ${p.capRunCurr ?? "—"}` : "—"}
+            prev={p.capRunPrev}
+            curr={p.capRunCurr}
             text={p.capRunLabel ? `Label: ${p.capRunLabel}` : undefined}
           />
-          <Subcard
+          <SubcardDynamic
             title={t("common.sports.strength")}
-            value={p.capStrengthPrev != null || p.capStrengthCurr != null ? `${p.capStrengthPrev ?? "—"} → ${p.capStrengthCurr ?? "—"}` : "—"}
+            prev={p.capStrengthPrev}
+            curr={p.capStrengthCurr}
           />
-          <Subcard
+          <SubcardDynamic
             title="VO₂ Max"
-            value={p.vo2maxPrev != null || p.vo2maxEstimate != null ? `${p.vo2maxPrev ?? "—"} → ${p.vo2maxEstimate ?? "—"}` : "—"}
+            prev={p.vo2maxPrev}
+            curr={p.vo2maxEstimate}
           />
         </div>
       </Card>
@@ -380,7 +439,10 @@ export default function DetailAthleteProgress() {
         <div className={PANEL_GRID_3}>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.celebrate")}</div>
+              {/*  Oslavy (Zelená) */}
+              <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusSuccess }}>
+                {t("coach.progress.celebrate")}
+              </div>
               {p.celebrations.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
                   {p.celebrations.map((c, i) => <li key={i}>{c}</li>)}
@@ -390,9 +452,13 @@ export default function DetailAthleteProgress() {
               )}
             </div>
           </div>
+          
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.risks")}</div>
+              {/*  Riziká (Červená) */}
+              <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusError }}>
+                {t("coach.progress.risks")}
+              </div>
               {p.risksToWatch.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
                   {p.risksToWatch.map((r, i) => <li key={i}>{r}</li>)}
@@ -402,9 +468,13 @@ export default function DetailAthleteProgress() {
               )}
             </div>
           </div>
+          
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>{t("coach.progress.focus")}</div>
+              {/*  Fokus (Modrá/Info) */}
+              <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusInfo }}>
+                {t("coach.progress.focus")}
+              </div>
               {p.focusNextWeeks.length ? (
                 <ul className="list-disc list-inside text-xs space-y-1">
                   {p.focusNextWeeks.map((f, i) => <li key={i}>{f}</li>)}

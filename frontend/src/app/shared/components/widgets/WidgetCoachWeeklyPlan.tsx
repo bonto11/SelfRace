@@ -83,21 +83,27 @@ function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
   const runPKm = ps.run_distance_km || 0; const runAKm = as.run_distance_km || 0;
   const runPMin = ps.run_time_min || 0; const runAMin = as.run_time_min || 0;
   if (runPKm > 0 || runAKm > 0 || runPMin > 0 || runAMin > 0) {
-    sports.push({ label: "Beh", actKm: runAKm, planKm: runPKm, actH: formatHours(runAMin), planH: formatHours(runPMin) });
+    sports.push({ label: t("common.sports.run"), actKm: runAKm, planKm: runPKm, actH: formatHours(runAMin), planH: formatHours(runPMin) });
   }
 
-  // BIKE
+  // BICYKEL
   const bikePKm = ps.bike_distance_km || 0; const bikeAKm = as.bike_distance_km || 0;
   const bikePMin = ps.bike_time_min || 0; const bikeAMin = as.bike_time_min || 0;
   if (bikePKm > 0 || bikeAKm > 0 || bikePMin > 0 || bikeAMin > 0) {
-    sports.push({ label: "Bicykel", actKm: bikeAKm, planKm: bikePKm, actH: formatHours(bikeAMin), planH: formatHours(bikePMin) });
+    sports.push({ label: t("common.sports.bike"), actKm: bikeAKm, planKm: bikePKm, actH: formatHours(bikeAMin), planH: formatHours(bikePMin) });
   }
 
-  // SWIM
+  // PLÁVANIE
   const swimPKm = (ps.swim_distance_m || 0) / 1000; const swimAKm = (as.swim_distance_m || 0) / 1000;
   const swimPMin = ps.swim_time_min || 0; const swimAMin = as.swim_time_min || 0;
   if (swimPKm > 0 || swimAKm > 0 || swimPMin > 0 || swimAMin > 0) {
-    sports.push({ label: "Plávanie", actKm: swimAKm, planKm: swimPKm, actH: formatHours(swimAMin), planH: formatHours(swimPMin) });
+    sports.push({ label: t("common.sports.swim"), actKm: swimAKm, planKm: swimPKm, actH: formatHours(swimAMin), planH: formatHours(swimPMin) });
+  }
+
+  // SILA
+  const strPMin = ps.strength_time_min || 0; const strAMin = as.strength_time_min || 0;
+  if (strPMin > 0 || strAMin > 0) {
+    sports.push({ label: t("common.sports.strength"), actKm: 0, planKm: 0, actH: formatHours(strAMin), planH: formatHours(strPMin) });
   }
 
   return { currentWeekLabel, currentWeekFocus, currentWeekLoad, lastPlanRange, sports };
@@ -172,9 +178,9 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
              <div key={i} className="contents">
                 <div className={WIDGET_LABEL_MUTED_SM}>{s.label}</div>
                 <div className={WIDGET_VALUE_STRONG_SM}>
-                  {s.planKm > 0 || s.actKm > 0 ? `${s.actKm}/${s.planKm} km` : ""}
+                  {s.planKm > 0 || s.actKm > 0 ? `${s.actKm}/${s.planKm} ${t("common.units.km")}` : ""}
                   {(s.planKm > 0 || s.actKm > 0) && (s.planH > 0 || s.actH > 0) ? " · " : ""}
-                  {s.planH > 0 || s.actH > 0 ? `${s.actH}/${s.planH} h` : ""}
+                  {s.planH > 0 || s.actH > 0 ? `${s.actH}/${s.planH} ${t("common.units.hour")}` : ""}
                 </div>
              </div>
           ))}
