@@ -385,7 +385,7 @@ export default function DetailWeeklyPlan() {
                     {/* SPOLU ČAS */}
                     <div className="mt-2 pt-2 border-t border-white/5">
                       <MiniBar
-                        label={`Spolu (${t("common.metrics.time")})`}
+                        label={`${t("common.together")} (${t("common.metrics.time")})`}
                         actual={formatHrs(totalAMin)}
                         planned={formatHrs(totalPMin)}
                         unit={t("common.units.hour")}
