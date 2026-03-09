@@ -34,7 +34,7 @@ import {
 } from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
-
+import Link from "next/link";
 import type { CoachPrefs, Injury } from "@/app/features/prefs/types/prefs";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useT } from "@/app/shared/i18n/useT";
@@ -63,7 +63,7 @@ function RowAction({
   disabled,
   title,
   status,
-  highlight = false, // ✅ Zostalo pre tlačidlo, ale zrušíme ho z pozadia riadku
+  highlight = false,
 }: {
   onPrimary: () => void;
   primaryLabel: string;
@@ -422,10 +422,12 @@ export default function WidgetCoachPlan() {
             {t("coachPlan.widget.tokenWarning.title")}
           </strong>{" "}
           {t("coachPlan.widget.tokenWarning.text")}
-          {/* Ak neskôr dorobíš stránku Predplatné, môžeš tu dať <Link href="/subscription">...</Link> */}
-          <span className="underline decoration-amber-500/30 underline-offset-2 cursor-pointer hover:text-amber-100 transition-colors">
+          <Link 
+            href="/subscription" 
+            className="underline decoration-amber-500/30 underline-offset-2 hover:text-amber-100 transition-colors"
+          >
             {t("coachPlan.widget.tokenWarning.link")}
-          </span>.
+          </Link>.
         </div>
       </div>
     </WidgetCard>
