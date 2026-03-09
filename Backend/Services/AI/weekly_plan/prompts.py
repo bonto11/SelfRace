@@ -328,8 +328,13 @@ def build_prompts_for_weekly(
       "goal": string (Focus of the week in human language),
       "focus": string (Short technical tag or secondary focus),
       "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | etc,
-      "planned_km": number | null,
-      "planned_minutes": number | null,
+      "planned_stats": {{
+          "run_distance_km": number,
+          "run_time_min": number,
+          "bike_time_min": number,
+          "strength_time_min": number,
+          "other_time_min": number
+      }},
       "notes": string (Detailed coaching advice for the week)
     }}
   ]
@@ -338,16 +343,15 @@ def build_prompts_for_weekly(
 
     volume_hint_lines: List[str] = []
     
-    # ✅ BEGINNER VOLUME RULE
     if is_returning_beginner:
         volume_hint_lines.append(
             "- ATHLETE IS A BEGINNER (LEVEL 1): Start VERY light (e.g. 40-90 min total/week). "
             "Focus on adaptation of bones and tendons, not fitness. "
-            "Planned minutes must reflect a safe, low-impact return."
+            "Planned minutes in planned_stats must reflect a safe, low-impact return."
         )
 
     if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(f"- Baseline target: {volume_value * 60} minutes per week.")
+        volume_hint_lines.append(f"- Baseline target: {volume_value * 60} total minutes per week across all sports.")
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(f"- Baseline target: Roughly {volume_value} min per active day.")
     else:
@@ -358,7 +362,6 @@ def build_prompts_for_weekly(
 
     volume_hint = "\n".join(volume_hint_lines)
     
-    # ✅ BEGINNER META PROTOCOL (Tone and Content)
     beginner_protocol = ""
     if is_returning_beginner:
         beginner_protocol = (
@@ -370,9 +373,12 @@ def build_prompts_for_weekly(
             "  - Emphasize that walking during a run is a success, not a failure.\n\n"
         )
 
-    multi_sport_hint = ""
-    if len(final_sports_list) > 1:
-        multi_sport_hint = f"- MULTI-SPORT: {', '.join(final_sports_list)}. planned_minutes includes ALL sports."
+    # ✅ ZMENA: Striktné upozornenie na obmedzenie športov
+    sports_restriction_hint = (
+        f"- ALLOWED SPORTS FROM PREFS: {', '.join(final_sports_list)}.\n"
+        "- IMPORTANT: Inside 'planned_stats', ONLY populate data for the sports explicitly listed above. "
+        "Do NOT invent or schedule sports the athlete hasn't selected. Omit unselected sports or set them to 0."
+    )
 
     user_txt = (
         "Design a WEEKLY meta plan.\n"
@@ -388,7 +394,7 @@ def build_prompts_for_weekly(
         + "\n"
         + f"- All text fields (goal, notes) must be in {lang_label} and use 2nd person ('you'). {second_person_note}\n"
         + "- week_index starts at 1.\n"
-        + multi_sport_hint + "\n"
+        + sports_restriction_hint + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
         + "\n- If recovery/fatigue is poor, start with a light week.\n"
