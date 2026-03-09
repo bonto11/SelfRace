@@ -116,10 +116,8 @@ export type WeeklyPlanWeek = {
   goal?: string | null;
   focus?: string | null;
   load_phase?: string | null;
-  planned_km?: number | null;
-  planned_minutes?: number | null;
-  completed_km?: number | null;
-  completed_minutes?: number | null;
+  planned_stats?: Record<string, number> | null; // ✅ Nahradené
+  actual_stats?: Record<string, number> | null;  // ✅ Nahradené
   notes?: string | null;
   raw_json?: any;
 };

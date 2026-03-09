@@ -114,9 +114,12 @@ export default function DetailWeeklyPlan() {
     const phaseCounts: any = {};
     
     for (const w of weeksSorted) {
-      const km = Number(w.planned_km || 0);
+      // ✅ Čítame z nového JSON objektu
+      const km = Number(w.planned_stats?.run_distance_km || 0);
+      const mins = Number(w.planned_stats?.run_time_min || 0);
+
       totalKm += km;
-      totalMin += Number(w.planned_minutes || 0);
+      totalMin += mins;
       if (km > maxKm) maxKm = km;
       
       const pk = phaseKey(w.load_phase);
@@ -133,7 +136,6 @@ export default function DetailWeeklyPlan() {
     };
   }, [plan]);
 
-  // Helper na preklad detailnej fázy v zozname (Base Aerobic, Build 1...)
   const getPhaseLabel = (phaseStr?: string | null) => {
     if (!phaseStr) return "?";
     const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
@@ -182,8 +184,10 @@ export default function DetailWeeklyPlan() {
         <div className={PANEL_STACK}>
           {view.weeksSorted.map((w: WeeklyPlanWeek) => {
             const pk = phaseKey(w.load_phase);
-            const km = Number(w.planned_km || 0);
-            const hours = w.planned_minutes ? Math.round((w.planned_minutes / 60) * 10) / 10 : null;
+
+            const km = Number(w.planned_stats?.run_distance_km || 0);
+            const mins = Number(w.planned_stats?.run_time_min || 0);
+            const hours = mins ? Math.round((mins / 60) * 10) / 10 : null;
             const widthPct = view.maxKm > 0 ? Math.max(6, Math.min(100, (km / view.maxKm) * 100)) : 0;
             
             return (
@@ -211,7 +215,7 @@ export default function DetailWeeklyPlan() {
 
                   <div className={PANEL_INNER_STACK}>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="opacity-70">{t("coach.weekly.plannedVolume")}</span>
+                      <span className="opacity-70">{t("coach.weekly.plannedVolume")} (Beh)</span>
                       <span className="font-semibold">
                         {km ? `${km} ${unitKm}` : "—"}
                         {hours ? ` · ${hours} ${unitH}` : ""}

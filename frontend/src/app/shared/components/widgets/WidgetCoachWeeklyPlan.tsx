@@ -28,11 +28,12 @@ type Props = {
 };
 
 type UiState = {
-  weeksCount: number;
   currentWeekLabel: string | null;
   currentWeekFocus: string | null;
   currentWeekLoad: string | null;
   lastPlanRange: string | null;
+  runPlannedKm: number;
+  runPlannedHours: number | null;
 };
 
 function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
@@ -54,7 +55,6 @@ function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
     if (today >= s && today <= e) return w;
   }
 
-  // Fallback: return the first week (index 1 usually)
   const idx1 = weeks.find((w) => w.week_index === 1);
   return idx1 ?? weeks[0];
 }
@@ -62,11 +62,12 @@ function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
 function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   if (!plan || !plan.weeks?.length) {
     return {
-      weeksCount: 0,
       currentWeekLabel: null,
       currentWeekFocus: null,
       currentWeekLoad: null,
       lastPlanRange: null,
+      runPlannedKm: 0,
+      runPlannedHours: null,
     };
   }
 
@@ -85,19 +86,27 @@ function buildUiState(plan: WeeklyPlanLatest | null): UiState {
   else if (firstStr) lastPlanRange = firstStr;
 
   const current = findCurrentWeek(weeks);
+  
+  // ✅ Zlúčené označenie "1 / 9"
   const currentWeekLabel = current
-    ? `${current.week_index}.`
+    ? `${current.week_index} / ${weeks.length}`
     : null;
   
   const currentWeekFocus = current?.focus ?? current?.goal ?? null;
   const currentWeekLoad = current?.load_phase ?? null;
 
+  // ✅ Vytiahnuté bežecké dáta z nového JSONB (s fallbackom na nulu)
+  const runKm = current?.planned_stats?.run_distance_km || 0;
+  const runMin = current?.planned_stats?.run_time_min || 0;
+  const runPlannedHours = runMin > 0 ? Math.round((runMin / 60) * 10) / 10 : null;
+
   return {
-    weeksCount: weeks.length,
     currentWeekLabel,
     currentWeekFocus,
     currentWeekLoad,
     lastPlanRange,
+    runPlannedKm: runKm,
+    runPlannedHours,
   };
 }
 
@@ -133,15 +142,11 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(plan), [plan]);
 
-  // Pomocná funkcia na preklad fáz (Base, Build...)
   const getPhaseLabel = (phaseStr?: string | null) => {
     if (!phaseStr) return "—";
-    // Skúsime nájsť kľúč v common.phases (napr. base_aerobic)
-    // Nahrádzame medzery podčiarkovníkmi pre istotu
     const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
     const key = `common.phases.${safeKey}`;
     const translated = (t as any)(key);
-    // Ak sa preklad rovná kľúču (nepreložené), vrátime pôvodný string
     return translated === key ? phaseStr : translated;
   };
 
@@ -179,9 +184,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
       ) : (
         <>
           <div className={WIDGET_INFO_GRID_SM}>
-            <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelWeeksCount")}</div>
-            <div className={WIDGET_VALUE_STRONG_SM}>{ui.weeksCount || "—"}</div>
-
+            {/* ✅ Nový riadok ukazujúci 1 / 9 namiesto dvoch osobitných */}
             <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelCurrentWeek")}</div>
             <div className={WIDGET_VALUE_STRONG_SM}>
               {ui.currentWeekLabel ?? "—"}
@@ -195,6 +198,17 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
             <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelPhase")}</div>
             <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>
               {getPhaseLabel(ui.currentWeekLoad)}
+            </div>
+
+            {/* ✅ Nový spojený riadok pre beh: "45 km · 5.5 h" */}
+            <div className={WIDGET_LABEL_MUTED_SM}>Plán (Beh)</div>
+            <div className={WIDGET_VALUE_STRONG_SM}>
+              {ui.runPlannedKm > 0 || ui.runPlannedHours ? (
+                <>
+                  {ui.runPlannedKm > 0 ? `${ui.runPlannedKm} km` : "0 km"} 
+                  {ui.runPlannedHours ? ` · ${ui.runPlannedHours} h` : ""}
+                </>
+              ) : "—"}
             </div>
           </div>
         </>
