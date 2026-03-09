@@ -67,7 +67,7 @@ def service_save_active_plan(
     }
 
 
-def service_archive_active_plan(
+def service_cancel_active_plan(
     user_id: int,
     target_status: str, # "canceled" alebo "completed"
     *,
