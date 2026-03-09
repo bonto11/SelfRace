@@ -506,7 +506,6 @@ export default function DetailAthleteState() {
                 <Bar
                   value01={(vo2max - 20) / 60}
                   fillColor={appColors.chartLine3}
-                  labelLeft="Aerobic Capacity"
                 />
               </div>
             </Subcard>
