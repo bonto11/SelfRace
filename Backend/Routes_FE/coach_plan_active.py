@@ -56,7 +56,8 @@ async def cancel_active_plan(
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        result = service_cancel_active_plan(user_id=user_id, ctx=ctx)
+        # NOVÉ:
+        result = service_cancel_active_plan(user_id=user_id, target_status="canceled", ctx=ctx)
         return {"success": True, **result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
