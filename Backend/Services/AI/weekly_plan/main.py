@@ -240,10 +240,8 @@ def service_get_latest_weekly_plan(
                 "goal": r.get("goal"),
                 "focus": r.get("focus"),
                 "load_phase": r.get("load_phase"),
-                "planned_km": r.get("planned_km"),
-                "planned_minutes": r.get("planned_minutes"),
-                "completed_km": r.get("completed_km"),
-                "completed_minutes": r.get("completed_minutes"),
+                "planned_stats": r.get("planned_stats") or {},
+                "actual_stats": r.get("actual_stats") or {},
                 "notes": r.get("notes"),
             }
         )
