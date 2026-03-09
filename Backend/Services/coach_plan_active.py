@@ -11,7 +11,8 @@ from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
     db_delete_plan_meta,
-    db_archive_plan_meta, # ✅ NOVÉ
+    db_archive_plan_meta,
+    db_get_due_active_plans
 )
 from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
@@ -195,4 +196,33 @@ def service_get_active_plan_status(
         "has_weekly_data": has_weekly,
         "has_daily_data": has_daily,
         "meta": meta,
+    }
+
+def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Hromadne nájde všetky aktívne plány, ktorých end_date je menší ako dnešný dátum,
+    a zavolá na ne funkciu service_cancel_active_plan(target_status="completed").
+    """
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    
+    # 1. Nájdi všetky user_id, ktorým vypršal čas (čistý call na DB vrstvu)
+    users_to_complete = db_get_due_active_plans(today_iso=today_iso, ctx=ctx)
+
+    processed = 0
+    errors = 0
+
+    # 2. Prejdi ich a ukonči s príznakom "completed"
+    for uid in users_to_complete:
+        try:
+            # Voláme tvoju funkciu (už premenovanú a upravenú na soft/hard cancel)
+            service_cancel_active_plan(user_id=uid, target_status="completed", ctx=ctx)
+            processed += 1
+        except Exception as e:
+            print(f"[MAINTENANCE] Failed to complete plan for user {uid}: {repr(e)}")
+            errors += 1
+
+    return {
+        "processed_users": processed,
+        "errors": errors,
+        "note": f"Checked against date {today_iso}"
     }
