@@ -159,3 +159,23 @@ def db_archive_plan_meta(
     except Exception as e:
         print("[DB-COACH-META] archive_plan error:", repr(e))
         return False
+        
+        
+def db_get_due_active_plans(today_iso: str, *, ctx: AuthCtx) -> List[int]:
+    """
+    Vráti zoznam user_id, ktorých aktívny plán už expiroval (end_date < today_iso).
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_get_due_active_plans")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .select("user_id")
+            .eq("status", "active")
+            .lt("end_date", today_iso)
+            .execute()
+        )
+        return [row["user_id"] for row in (res.data or []) if row.get("user_id")]
+    except Exception as e:
+        print("[DB-COACH-META] get_due_active_plans error:", repr(e))
+        return []
+
