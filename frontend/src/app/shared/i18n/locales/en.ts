@@ -1024,7 +1024,7 @@ export const en = {
         "Heart rate zones are your personal heart rate limits (HR) for 5 different levels of intensity.",
         "",
         "Why does this exist?",
-        "• The most common mistake is running \"everything at the same speed\". Zones provide guardrails so you run slow when building endurance, and fast when building speed.",
+        '• The most common mistake is running "everything at the same speed". Zones provide guardrails so you run slow when building endurance, and fast when building speed.',
         "",
         "How to read the zones?",
         "• Z1 / Z2 (Recovery & Endurance): The foundation. 80% of your training should happen here. It's a pace where you can comfortably hold a conversation.",
@@ -1183,6 +1183,11 @@ export const en = {
         msg2: "Calculating millions of running scenarios. Check your laces in the meantime.",
         msg3: "It's going to look awesome!",
         msg4: "Analyzing data. It takes longer because I really care about your progress.",
+      },
+      tokenWarning: {
+        title: "Save your tokens:",
+        text: "Generating a new plan consumes AI tokens from your monthly limit. Avoid unnecessary regenerations. You can find more details about your limits under ",
+        link: "Subscription",
       },
 
       status: {

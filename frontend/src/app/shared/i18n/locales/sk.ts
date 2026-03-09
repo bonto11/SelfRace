@@ -1185,6 +1185,11 @@ export const sk = {
         msg3: "Bude to vyzerať parádne!",
         msg4: "Analyzujem dáta. Trvá to dlhšie, lebo mi na tvojom progresu záleží.",
       },
+      tokenWarning: {
+        title: "Šetri si tokeny:",
+        text: "Každé vygenerovanie nového plánu spotrebúva AI tokeny z tvojho mesačného limitu. Vyhni sa zbytočnému pregenerovaniu. Viac detailov o svojom limite nájdeš v sekcii ",
+        link: "Predplatné",
+      },
 
       status: {
         medicalSuspend: "PLÁN POZASTAVENÝ (ZRANENIE)",
@@ -2178,7 +2183,6 @@ export const sk = {
       undoConfirmMessage:
         "Táto akcia vráti posledný presun tréningu na pôvodný dátum.",
       sessionFallback: "Tréning",
-      
     },
   },
   activities: {

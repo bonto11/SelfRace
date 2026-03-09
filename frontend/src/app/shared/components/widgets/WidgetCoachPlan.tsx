@@ -413,6 +413,21 @@ export default function WidgetCoachPlan() {
           </Button>
         </div>
       </div>
+
+      {/* Upozornenie na tokeny */}
+      <div className="mt-2 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200/90">
+        <span className="shrink-0 text-base leading-none">💡</span>
+        <div className="text-xs leading-relaxed">
+          <strong className="font-semibold text-amber-400">
+            {t("coachPlan.widget.tokenWarning.title")}
+          </strong>{" "}
+          {t("coachPlan.widget.tokenWarning.text")}
+          {/* Ak neskôr dorobíš stránku Predplatné, môžeš tu dať <Link href="/subscription">...</Link> */}
+          <span className="underline decoration-amber-500/30 underline-offset-2 cursor-pointer hover:text-amber-100 transition-colors">
+            {t("coachPlan.widget.tokenWarning.link")}
+          </span>.
+        </div>
+      </div>
     </WidgetCard>
   );
 }
