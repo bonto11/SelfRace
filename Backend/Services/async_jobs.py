@@ -46,7 +46,6 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "strava_sync_activity",  # sync single + enqueue followups (review only)
     "mark_activity_deleted",  # only marks deleted_at
     "coach_autoadjust",  # debounced per user
-    "weekly_volume_sync", # ✅ NOVÝ JOB: Prepočet nabehaných km v týždni
 }
 
 SENSITIVE_KEYS: Set[str] = {

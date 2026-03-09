@@ -87,6 +87,11 @@ def service_cancel_active_plan(
 
     current_status = meta.get("status")
     meta_id = meta.get("id")
+    
+    if not meta_id:
+        return {"meta": None, "archived": False, "deleted": False}
+        
+    meta_id = int(meta_id) # ✅ Pylance teraz vie, že je to na 100% int
 
     # 1. Ak plán ešte ani nezačal, len ho celý bez stopy vymažeme
     if current_status == "generated":

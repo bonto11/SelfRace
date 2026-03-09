@@ -1,0 +1,17 @@
+name: Daily Coach Plan Completion (DEV)
+
+on:
+  workflow_dispatch:
+jobs:
+  run-daily-plan-completion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call plan completion endpoint (DEV)
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            "$API_BASE_URL_GITHUB/maintenance/coach-plan-complete-due"
