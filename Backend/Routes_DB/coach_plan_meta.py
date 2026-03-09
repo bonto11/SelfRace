@@ -113,9 +113,9 @@ def db_update_plan_status(
         print("[DB-COACH-META] update_plan_status error:", repr(e))
         return None
 
-def db_delete_plan_meta(user_id: int, *, ctx: AuthCtx) -> bool:
+def db_delete_plan_meta(user_id: int, meta_id: int, *, ctx: AuthCtx) -> bool:
     """
-    Tvrdé zmazanie meta záznamu z databázy. Žiadna archivácia.
+    Tvrdé zmazanie KONKRÉTNEHO meta záznamu z databázy.
     """
     sb = get_sb(ctx, caller="coach_plan_meta.db_delete_plan_meta")
     try:
@@ -123,6 +123,7 @@ def db_delete_plan_meta(user_id: int, *, ctx: AuthCtx) -> bool:
             sb.table(TABLE_COACH_PLAN_META)
             .delete()
             .eq("user_id", user_id)
+            .eq("id", meta_id) # ✅ TOTO NÁM CHRÁNI ARCHIVU!
             .execute()
         )
         return True

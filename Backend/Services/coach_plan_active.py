@@ -92,14 +92,14 @@ def service_cancel_active_plan(
     if not meta_id:
         return {"meta": None, "archived": False, "deleted": False}
         
-    meta_id = int(meta_id) # ✅ Pylance teraz vie, že je to na 100% int
+    meta_id = int(meta_id)
 
     # 1. Ak plán ešte ani nezačal, len ho celý bez stopy vymažeme
     if current_status == "generated":
         db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
-        db_delete_plan_meta(user_id=user_id, ctx=ctx)
+        db_delete_plan_meta(user_id=user_id, ctx=ctx, meta_id=meta_id)
         return {"meta": None, "archived": False, "deleted": True}
 
     # 2. Ak bol aktívny, urobíme Snapshot
