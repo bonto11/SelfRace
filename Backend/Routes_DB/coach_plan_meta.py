@@ -10,7 +10,6 @@ from Configs.config import TABLE_COACH_PLAN_META
 def db_insert_plan_meta_generated(
     *,
     user_id: int,
-    base_state_id: Optional[int],
     weeks_total: Optional[int],
     start_date: Optional[str],
     end_date: Optional[str],
@@ -24,7 +23,6 @@ def db_insert_plan_meta_generated(
     row = {
         "user_id": user_id,
         "status": "generated",
-        "base_state_id": base_state_id,
         "weeks_total": weeks_total,
         "start_date": start_date,
         "end_date": end_date,

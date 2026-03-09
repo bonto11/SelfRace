@@ -190,7 +190,6 @@ def service_generate_weekly_plan(
 
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
-        base_state_id=used_state_id if isinstance(used_state_id, int) else None,
         weeks_total=len(weeks_list) or horizon_weeks,
         start_date=start_date,
         end_date=end_date,
