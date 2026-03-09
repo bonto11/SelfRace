@@ -129,3 +129,33 @@ def db_delete_plan_meta(user_id: int, *, ctx: AuthCtx) -> bool:
     except Exception as e:
         print("[DB-COACH-META] delete_plan_meta error:", repr(e))
         return False
+        
+def db_archive_plan_meta(
+    user_id: int,
+    meta_id: int,
+    new_status: str,
+    final_stats: Dict[str, Any],
+    ended_at: str,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Uloží finálne štatistiky do meta záznamu, zmení status a nastaví čas ukončenia.
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_archive_plan_meta")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .update({
+                "status": new_status,
+                "final_stats": final_stats,
+                "ended_at": ended_at
+            })
+            .eq("id", meta_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print("[DB-COACH-META] archive_plan error:", repr(e))
+        return False
