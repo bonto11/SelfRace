@@ -287,10 +287,8 @@ def build_weekly_rows_from_ai(
                 "goal": w.get("goal"),
                 "focus": w.get("focus"),
                 "load_phase": w.get("load_phase"),
-                "planned_km": w.get("planned_km"),
-                "planned_minutes": w.get("planned_minutes"),
-                "completed_km": None,
-                "completed_minutes": None,
+                "planned_stats": w.get("planned_stats") or {},
+                "actual_stats": {},
                 "notes": w.get("notes"),
                 "raw_json": w,
             }
