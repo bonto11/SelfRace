@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
-from uuid import uuid4
-
-from Services.AI.billing import (
+from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
     is_user_over_token_quota,
@@ -70,7 +68,7 @@ def service_generate_weekly_plan(
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
     model: Optional[str] = None,
-    override_start_date: Optional[str] = None, # ✅ Pridaný argument pre Zranenia
+    override_start_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Hlavná service pre weekly plán.
@@ -211,11 +209,7 @@ def service_generate_weekly_plan(
     if meta_row is not None:
         resp["plan_meta"] = meta_row
 
-    # dočasne vraciame všetko (na FE ladenie)
     resp["weekly_plan"] = weekly_plan
-    #resp["debug_trace"] = trace
-    #resp["ai_usage"] = usage
-    #resp["billing"] = billing_result
 
     return resp
 
@@ -229,11 +223,6 @@ def service_get_latest_weekly_plan(
     Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
     Čisto RLS/FE.
     """
-
-    meta = db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
 
     rows = db_get_weekly_for_user_plan(
         user_id=user_id,

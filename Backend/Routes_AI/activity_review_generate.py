@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from Services.user_prefs import service_load_user_settings
-from Services.AI.provider import ai_call_json_model
+from Services.AI.provider.provider import ai_call_json_model
 from Routes_AI.activity_review_prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
 

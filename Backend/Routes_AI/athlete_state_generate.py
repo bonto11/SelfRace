@@ -13,7 +13,7 @@ from Routes_AI.athlete_state_prompts import (
 )
 from Modules.Supabase.auth import AuthCtx
 
-from Services.AI.provider import ai_call_json_model
+from Services.AI.provider.provider import ai_call_json_model
 
 
 def _safe_user_id_from_context(context_payload: dict) -> Optional[int]:

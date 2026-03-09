@@ -11,7 +11,7 @@ from Services.app_subscription import (
     service_set_user_app_subscription_tier_manual,
     service_cancel_scheduled_subscription_change,
 )
-from Services.AI.billing import (
+from Services.AI.utils.billing import (
     get_user_ai_quota_status_for_current_tier,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user

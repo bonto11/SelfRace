@@ -6,7 +6,7 @@ from datetime import date
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
-    COACH_PLAN_DEFAULT_WEEKS,  # historický názov, nechávame
+    COACH_PLAN_DEFAULT_WEEKS,
     COACH_PLAN_MAX_WEEKS,
 )
 
@@ -157,7 +157,7 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 
     return ai
 
-# ✅ Helper na zistenie, či je user začiatočník/navrátilec (skopírované z daily pre konzistenciu)
+# Helper na zistenie, či je user začiatočník/navrátilec (skopírované z daily pre konzistenciu)
 def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     last_activities = analyze_input.get("last_activities") or []
     if not last_activities:
@@ -224,7 +224,7 @@ def build_weekly_context_from_db(
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    # ✅ Zistíme status začiatočníka a vložíme do state (len v pamäti pre AI)
+    # Zistíme status začiatočníka a vložíme do state (len v pamäti pre AI)
     is_returning_beginner = _check_is_returning_beginner(analyze_input)
     if isinstance(athlete_state, dict):
         athlete_state["is_returning_beginner"] = is_returning_beginner

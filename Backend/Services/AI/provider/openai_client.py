@@ -1,4 +1,4 @@
-# Services/AI/openai_client.py
+# Services/AI/provider/openai_client.py
 from __future__ import annotations
 
 import json
@@ -14,8 +14,8 @@ from Configs.config import (
     OPENAI_DEFAULT_MODEL,
     OPENAI_MODEL_FALLBACKS,
 )
-from Services.AI.types import AiResult, AiError
-from Services.AI.json_parse import parse_ai_json
+from Services.AI.utils.types import AiResult, AiError
+from Services.AI.utils.json_parse import parse_ai_json
 
 
 def _uniq_keep_order(items: List[str]) -> List[str]:

@@ -10,7 +10,6 @@ from Routes_AI.athlete_state_generate import (
     generate_athlete_progress_report,
 )
 
-# ✅ Nové pomenovania funkcií
 from Routes_DB.user_metrics import db_insert_metrics
 from Routes_DB.user_pace_history import db_insert_pace_row
 
@@ -26,9 +25,9 @@ from Routes_DB.coach_athlete_state import (
 
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state_builders import build_input_from_db
-from Services.AI.athlete_state_signals import compute_plan_adjustment_signals
+from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
 
-from Services.AI.billing import (
+from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
     get_user_monthly_usage_tokens,

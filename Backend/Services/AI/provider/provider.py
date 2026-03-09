@@ -1,4 +1,4 @@
-# Services/AI/provider.py
+# Services/AI/provider/provider.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -9,7 +9,7 @@ from Configs.config import (
     GEMINI_DEFAULT_MODEL,
     GEMINI_API_KEY,
 )
-from Services.AI.types import AiResult, AiError
+from Services.AI.utils.types import AiResult, AiError
 
 
 def _provider() -> str:
@@ -37,7 +37,7 @@ def ai_call_json_model(
     m = model or _default_model(p)
 
     if p == "openai":
-        from Services.AI.openai_client import openai_call_json_model
+        from Services.AI.provider.openai_client import openai_call_json_model
 
         return openai_call_json_model(
             context_payload=context_payload,
@@ -64,7 +64,7 @@ def ai_call_json_model(
                 },
             )
 
-        from Services.AI.gemini_client import gemini_call_json_model
+        from Services.AI.provider.gemini_client import gemini_call_json_model
 
         return gemini_call_json_model(
             context_payload=context_payload,

@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from Modules.Supabase.auth import AuthCtx
 
-from Services.AI.billing import (
+from Services.AI.utils.billing import (
     extract_usage_from_trace,
     log_ai_usage_for_user,
     get_user_monthly_usage_tokens,

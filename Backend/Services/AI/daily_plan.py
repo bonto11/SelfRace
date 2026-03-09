@@ -16,7 +16,7 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
-from Services.AI.billing import (
+from Services.AI.utils.billing import (
     extract_usage_from_trace,
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
@@ -26,7 +26,7 @@ from Services.AI.daily_plan_builders import (
     build_daily_context_from_db,
     build_daily_rows_from_ai,
 )
-# --- NEW IMPORTS ---
+
 from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
