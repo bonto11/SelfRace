@@ -1,3 +1,4 @@
+# Services/synchronization_single.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Mapping
@@ -35,6 +36,10 @@ from Configs.config import (
     TABLE_STRAVA_ACCOUNTS
 )
 
+# ✅ NOVÝ IMPORT: Zavoláme prepočítavanie priamo odtiaľto
+from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
+
+
 # -------------------------------------------------------------------
 # STRAVA TOKENS – helpery (čisto DB + OAuth refresh, žiadny legacy súbor)
 # -------------------------------------------------------------------
@@ -58,10 +63,6 @@ def _get_strava_client_secret() -> str:
 
 
 def _refresh_strava_tokens_for_user(user_id: int, row: Mapping[str, Any]) -> Optional[str]:
-    """
-    Refreshne Strava token pre daného usera na základe refresh_tokenu v strava_accounts
-    a updatne riadok v DB. Vracia nový access_token alebo None.
-    """
     refresh_token = row.get("refresh_token")
     if not refresh_token:
         print(f"[SYNC:tokens] user_id={user_id} missing refresh_token")
@@ -120,10 +121,6 @@ def _refresh_strava_tokens_for_user(user_id: int, row: Mapping[str, Any]) -> Opt
 
 
 def _get_access_token_for_user(user_id: int) -> Optional[str]:
-    """
-    Vytiahne access_token zo strava_accounts pre daného usera.
-    Ak je expirovaný, skúsi refresh a vráti nový token.
-    """
     try:
         resp = (
             _supabase_service.table(TABLE_STRAVA_ACCOUNTS)
@@ -173,10 +170,6 @@ def _get_access_token_for_user(user_id: int) -> Optional[str]:
 # -------------------------------------------------------------------
 
 def _to_list_of_dicts(items: Any) -> List[Dict[str, Any]]:
-    """
-    Strava klient často vracia list[dict], ale typovo to vie byť Sequence[Mapping].
-    Pre Pylance a naše helpery z toho spravíme List[Dict[str, Any]].
-    """
     if not items:
         return []
     out: List[Dict[str, Any]] = []
@@ -207,13 +200,6 @@ def service_sync_single_activity(
     ctx: AuthCtx,
     fetch_details: bool = True,
 ) -> Dict[str, int]:
-    """
-    Sync JEDNEJ Strava aktivity – pre webhook (user_jwt=None → service client)
-    aj manuálne použitie (user_jwt != None → RLS).
-
-    PRODUKCIA:
-      - access_token sa vždy berie z tabuľky strava_accounts pre daného usera.
-    """
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
         return {"imported": 0, "updated": 0, "skipped": 1, "fetched": 0}
@@ -276,7 +262,6 @@ def service_sync_single_activity(
 
         splits_raw_any = detail.get("splits_metric") or []
 
-        # ✅ TYPING FIX: prehoď na List[Dict[str, Any]] kvôli _decide/_normalize
         laps_raw: List[Dict[str, Any]] = _to_list_of_dicts(laps_raw_any)
         splits_raw: List[Dict[str, Any]] = _to_list_of_dicts(splits_raw_any)
 
@@ -286,7 +271,7 @@ def service_sync_single_activity(
             if mode == "splits":
                 db_delete_laps_for_activity(
                     aid,
-                   ctx=ctx,
+                    ctx=ctx,
                 )
 
                 split_rows = [
@@ -305,7 +290,6 @@ def service_sync_single_activity(
                     ctx=ctx,
                 )
 
-                # ✅ teraz L je Dict[str, Any], Pylance OK
                 lap_rows = [_normalize_lap(L, user_id, aid) for L in laps_raw]
                 for l_row in lap_rows:
                     db_upsert_lap(
@@ -329,10 +313,24 @@ def service_sync_single_activity(
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")
 
     mark_strava_ever_synced_now(ctx=ctx,user_id=user_id)
+    
+    # ✅ ---------- 5) PREPOČET WEEKLY PLÁNU ----------
+    # Vytiahneme dátum aktivity, aby sme vedeli, ktorý týždeň máme prepočítať
+    act_date = row.get("date")
+    if act_date:
+        try:
+            print(f"[SYNC:single] Triggering weekly volume recalculation for {act_date}...")
+            service_sync_weekly_volume_for_date(
+                user_id=user_id, 
+                target_date=str(act_date), 
+                ctx=ctx
+            )
+        except Exception as e:
+            print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
+
     return {
         "imported": int(imported),
         "updated": int(updated),
         "skipped": int(skipped),
-        "fetched": int(fetched),
+        "fetched": int(fetched)
     }
-

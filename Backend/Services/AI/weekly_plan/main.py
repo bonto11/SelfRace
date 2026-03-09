@@ -254,7 +254,7 @@ def service_get_latest_weekly_plan(
     }
 
 # =========================================================================
-# ASYNC WORKER: Weekly Volume Sync
+# Weekly Volume Sync
 # =========================================================================
 
 def service_sync_weekly_volume_for_date(

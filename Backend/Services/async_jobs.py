@@ -15,7 +15,7 @@ from Routes_DB.async_jobs import (
 )
 
 from Services.AI.athlete_state.main import service_analyze_athlete
-from Services.AI.weekly_plan.main import service_generate_weekly_plan, service_sync_weekly_volume_for_date
+from Services.AI.weekly_plan.main import service_generate_weekly_plan
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
@@ -334,24 +334,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 ctx=ctx,
             )
             
-            # ✅ 2) Zistíme dátum importovanej aktivity (ak sa vrátil z výsledku)
-            act_date = result.get("start_date_local")
-            if act_date:
-                # Odošleme task na asynchrónne zrátanie a zapísanie do Weekly Plánu
-                try:
-                    service_enqueue_job(
-                        ctx=ctx,
-                        user_id=int(user_id),
-                        job_type="weekly_volume_sync",
-                        payload={"target_date": str(act_date)},
-                        priority=140, 
-                        # ✅ OPRAVA: Pridané str(...) okolo act_date pred slicovaním
-                        dedupe_key=f"vol_sync:{user_id}:{str(act_date)[:10]}",
-                    )
-                except Exception as e:
-                    print("[WEEKLY-VOL-SYNC][enqueue] failed", repr(e))
-                    
-            # 3) OPTIONAL hooks (plan match)
+            # 2) OPTIONAL hooks (plan match)
             if bool(payload.get("enqueue_plan_match", False)):
                 try:
                     service_enqueue_job(
@@ -388,18 +371,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             ).eq("activity_id", int(activity_id)).execute()
 
             result = {"ok": True, "deleted_at": deleted_at}
-
-        # ✅ NOVÝ WORKER: Prepočet týždenných štatistík z databázy
-        elif job_type == "weekly_volume_sync":
-            target_date = payload.get("target_date")
-            if not target_date:
-                raise ValueError("missing target_date")
-                
-            result = service_sync_weekly_volume_for_date(
-                user_id=int(user_id),
-                target_date=str(target_date),
-                ctx=ctx
-            )
 
         else:
             raise ValueError(f"Unsupported job_type: {job_type}")
