@@ -20,8 +20,8 @@ from Configs.config import (
     GEMINI_DEFAULT_MODEL,
 )
 
-from Services.AI.activity_review_builders import build_input_from_db as build_review_input
-from Routes_AI.activity_review_generate import generate_activity_review_json
+from Services.AI.activity_review.builders import build_input_from_db as build_review_input
+from Services.AI.activity_review.generate import generate_activity_review_json
 from Routes_DB.activities_enrichment import db_upsert_ai_review_one
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
 from Routes_DB.activities_summary import db_get_summary_for_activities

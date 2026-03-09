@@ -1,4 +1,4 @@
-# ===== Routes_AI/daily_plan_generate.py =====
+# Services/AI/daily_plan/generate.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, date
@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple, List
 from zoneinfo import ZoneInfo
 
 from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
-from Routes_AI.daily_plan_prompts import build_prompts_for_daily
+from Services.AI.daily_plan.prompts import build_prompts_for_daily
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 

@@ -6,7 +6,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Request
 
 from Schemas.coach_plan_weekly import WeeklyGenerateConfig
-from Services.AI.weekly_plan import (
+from Services.AI.weekly_plan.main import (
     service_generate_weekly_plan,
     service_get_latest_weekly_plan,
 )

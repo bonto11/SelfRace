@@ -1,4 +1,4 @@
-# Routes_AI/weekly_plan_prompts.py
+# Services/AI/weekly_plan/prompts.py
 from __future__ import annotations
 
 import json

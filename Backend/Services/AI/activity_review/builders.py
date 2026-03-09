@@ -1,4 +1,4 @@
-# Services/AI/activity_review_builders.py
+# Services/AI/activity_review/builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
@@ -15,7 +15,6 @@ from Routes_DB.activities_laps import db_get_activity_laps
 from Routes_DB.activities_streams import db_get_streams_one
 from Routes_DB.user_zones import db_user_zones_fetch_latest
 
-# ✅ REÁLNE IMPORTY PRE PLÁN A PREFS
 from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_get_latest_plan_meta_for_user
 from Routes_DB.coach_plan_daily import db_list_daily_for_user_horizon
 from Routes_DB.user_prefs import db_get_pref_single

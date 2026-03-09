@@ -11,9 +11,9 @@ from Routes_DB.coach_plan_daily import (
 )
 from Modules.Supabase.auth import AuthCtx
 
-from Services.AI.athlete_state import service_analyze_athlete
-from Services.AI.weekly_plan import service_generate_weekly_plan
-from Services.AI.daily_plan import (
+from Services.AI.athlete_state.main import service_analyze_athlete
+from Services.AI.weekly_plan.main import service_generate_weekly_plan
+from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
     service_get_daily_overview,

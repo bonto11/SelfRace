@@ -1,4 +1,4 @@
-# ===== Services/AI/daily_builders.py =====
+# Services/AI/daily_plan/builders.py
 from __future__ import annotations
 
 import copy  # <-- Pridané pre bezpečné kopírovanie slovníka
@@ -6,15 +6,11 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
-from Routes_DB.coach_plan_meta import (
-    db_get_active_plan_meta_for_user,
-    db_get_latest_plan_meta_for_user,
-)
 from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
-from Routes_DB.user_pace_history import db_get_latest_paces  # NEW: Načítanie temp z DB
-from Services.AI.athlete_state_builders import build_input_from_db
+from Routes_DB.user_pace_history import db_get_latest_paces
+from Services.AI.athlete_state.builders import build_input_from_db
 from Services.coach_external_events import service_list_external_events_window
-from Services.coach_strength_mapper import prepare_strength_context_for_ai # NEW
+from Services.coach_strength_mapper import prepare_strength_context_for_ai
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import WEEKDAY_TO_ABBR
 

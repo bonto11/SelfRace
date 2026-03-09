@@ -1,11 +1,11 @@
-# ===== Services/AI/daily_plan.py =====
+# Services/AI/daily_plan/daily_plan.py
 from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
-from Routes_AI.daily_plan_generate import generate_daily_week_json
+from Services.AI.daily_plan.generate import generate_daily_week_json
 from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
     db_insert_daily_rows,
@@ -22,7 +22,7 @@ from Services.AI.utils.billing import (
     is_user_over_token_quota,
     log_ai_usage_for_user,
 )
-from Services.AI.daily_plan_builders import (
+from Services.AI.daily_plan.builders import (
     build_daily_context_from_db,
     build_daily_rows_from_ai,
 )

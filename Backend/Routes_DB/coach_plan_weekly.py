@@ -123,3 +123,28 @@ def db_check_weekly_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     except Exception as e:
         print("[DB-COACH-WEEKLY] check_exists error:", repr(e))
         return False
+
+def db_update_weekly_completed_km(
+    user_id: int,
+    week_index: int,
+    completed_km: float,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Zaktualizuje stĺpec 'completed_km' pre daný týždeň.
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_update_weekly_completed_km")
+
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .update({"completed_km": completed_km})
+            .eq("user_id", user_id)
+            .eq("week_index", week_index)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print("[DB-COACH-WEEKLY] update_completed_km error:", repr(e))
+        return False

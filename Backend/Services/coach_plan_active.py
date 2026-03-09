@@ -9,16 +9,16 @@ from Routes_DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
-    db_delete_plan_meta,  # <-- pridali sme novú mazaciu funkciu
+    db_delete_plan_meta,
 )
 from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
     db_clear_daily_for_user_plan,
-    db_check_daily_data_exists,  # <-- check pre daily
+    db_check_daily_data_exists,
 )
 from Routes_DB.coach_plan_weekly import (
     db_clear_weekly_for_user_plan,
-    db_check_weekly_data_exists, # <-- check pre weekly
+    db_check_weekly_data_exists,
 )
 
 

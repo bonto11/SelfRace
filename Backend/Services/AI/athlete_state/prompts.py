@@ -1,4 +1,4 @@
-# Routes_AI/athlete_state_prompts.py
+# Services/AI/athlete_state/prompts.py
 from __future__ import annotations
 
 import json

@@ -1,4 +1,4 @@
-# Routes_AI/weekly_plan_generate.py
+# Services/AI/weekly_plan/generate.py
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Services.user_prefs import service_load_user_settings
-from Routes_AI.weekly_plan_prompts import build_prompts_for_weekly
+from Services.AI.weekly_plan.prompts import build_prompts_for_weekly
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 

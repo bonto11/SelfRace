@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from Services.coach_plan_adjustment import service_reschedule_daily_plan
 
 from Schemas.coach_plan_daily import DailyWeekGenerateConfig
-from Services.AI.daily_plan import (
+from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_get_daily_overview,
 )

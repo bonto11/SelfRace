@@ -1,4 +1,4 @@
-# Routes_AI/activity_review_prompts.py
+# Services/AI/activity_review/prompts.py
 from __future__ import annotations
 
 import json

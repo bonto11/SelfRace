@@ -1,4 +1,4 @@
-# Services/AI/weekly_plan.py
+# Services/AI/weekly_plan/main.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -9,13 +9,13 @@ from Services.AI.utils.billing import (
     get_user_monthly_usage_tokens,
 )
 
-from Services.AI.weekly_plan_builders import (
+from Services.AI.weekly_plan.builders import (
     build_weekly_context_from_db,
     extract_weeks_payload,
     build_weekly_rows_from_ai,
 )
 
-from Routes_AI.weekly_plan_generate import generate_weekly_plan_json
+from Services.AI.weekly_plan.generate import generate_weekly_plan_json
 
 from Routes_DB.coach_plan_weekly import (
     db_insert_weekly_rows,
@@ -24,7 +24,6 @@ from Routes_DB.coach_plan_weekly import (
 )
 from Routes_DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
-    db_get_latest_plan_meta_for_user,
 )
 
 from Modules.Supabase.auth import AuthCtx

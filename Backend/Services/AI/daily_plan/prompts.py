@@ -1,4 +1,4 @@
-# ===== Services/AI/daily_prompts.py =====
+# Services/AI/daily_plan/prompts.py
 from __future__ import annotations
 
 import json

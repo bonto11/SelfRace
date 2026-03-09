@@ -14,14 +14,14 @@ from Routes_DB.async_jobs import (
     db_find_active_job_by_dedupe,
 )
 
-from Services.AI.athlete_state import service_analyze_athlete
-from Services.AI.weekly_plan import service_generate_weekly_plan
-from Services.AI.daily_plan import (
+from Services.AI.athlete_state.main import service_analyze_athlete
+from Services.AI.weekly_plan.main import service_generate_weekly_plan
+from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
 )
 from Services.plan_activity_match import auto_map_plans_for_activities
-from Services.AI.activity_review import service_activity_review
+from Services.AI.activity_review.main import service_activity_review
 from Modules.Supabase.auth import AuthCtx
 
 # service-mode DB access / Strava sync / coach autoadjust

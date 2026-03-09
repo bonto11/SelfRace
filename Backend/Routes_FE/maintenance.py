@@ -10,7 +10,7 @@ from Services.maintenance import (
     service_account_hard_delete,
     service_cleanup_expired_activity_details,
 )
-from Services.AI.athlete_state import service_analyze_athlete
+from Services.AI.athlete_state.main import service_analyze_athlete
 from Routes_DB.users import db_list_users_for_athlete_state
 from Services.app_subscription import service_apply_due_subscription_changes
 

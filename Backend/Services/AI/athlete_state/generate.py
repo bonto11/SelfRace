@@ -1,4 +1,4 @@
-# Routes_AI/athlete_state_generate.py
+# Services/AI/athlete_state/generate.py
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from Services.user_prefs import service_load_user_settings
 
-from Routes_AI.athlete_state_prompts import (
+from Services.AI.athlete_state.prompts import (
     build_prompts_for_analyze,
     build_prompts_for_progress,
 )

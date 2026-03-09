@@ -1,11 +1,11 @@
-# Services/AI/athlete_state.py
+# Services/AI/athlete_state/main.py
 from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
-from Routes_AI.athlete_state_generate import (
+from Services.AI.athlete_state.generate import (
     generate_athlete_state_json,
     generate_athlete_progress_report,
 )
@@ -24,7 +24,7 @@ from Routes_DB.coach_athlete_state import (
 )
 
 from Modules.Supabase.auth import AuthCtx
-from Services.AI.athlete_state_builders import build_input_from_db
+from Services.AI.athlete_state.builders import build_input_from_db
 from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
 
 from Services.AI.utils.billing import (
