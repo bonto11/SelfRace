@@ -1234,6 +1234,7 @@ export const en = {
       openPlan: "Open plan",
       cancelPlan: "Cancel plan",
       cancellingPlan: "Canceling...",
+      history: "History",
     },
     confirmCancel: {
       title: "End training plan?",
