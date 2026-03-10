@@ -199,7 +199,6 @@ def db_get_plan_history_for_user(
             .execute()
         )
 
-        print("db_get_plan_history_for_user res",res)
         return res.data or []
     except Exception as e:
         print("[DB-COACH-META] get_plan_history error:", repr(e))

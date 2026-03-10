@@ -194,8 +194,6 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
       cache: "no-store",
     });
 
-    console.log("apiGetCoachPlanHistory json",json)
-
     if (!Array.isArray(json)) throw new Error("api.coach.planHistoryFailed");
     return json;
   } catch (e: any) {

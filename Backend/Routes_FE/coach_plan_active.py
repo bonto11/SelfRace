@@ -172,13 +172,11 @@ async def get_plan_history(
     Vráti zoznam archivovaných plánov (completed a canceled).
     Frontend očakáva čistý List/Array (nie obalený v "success").
     """
-    print("get_plan_history userid",user_id)
+
     try:
         ctx = require_user(get_auth_ctx(req))
         data = service_get_plan_history(user_id=user_id, ctx=ctx)
 
-        print("get_plan_history data",data)
-        
         return data
     except Exception as e:  # noqa: BLE001
         raise HTTPException(

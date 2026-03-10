@@ -128,7 +128,7 @@ export default function ListCoachPlanHistory() {
                 {planned.run_distance_km > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{t("coachPlan.history.runned")} {t("common.units.km")}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.runned")} (${t("common.units.km")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{actual.run_distance_km || 0}</span>
                         <span className="text-sm opacity-50 mb-1">/ {planned.run_distance_km}</span>
@@ -141,7 +141,7 @@ export default function ListCoachPlanHistory() {
                 {planned.run_time_min > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{t("coachPlan.history.movementTime")} {t("common.units.hour")}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.movementTime")} (${t("common.units.hour")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{((actual.run_time_min || 0) / 60).toFixed(1)}</span>
                         <span className="text-sm opacity-50 mb-1">/ {((planned.run_time_min || 0) / 60).toFixed(1)}</span>
@@ -154,7 +154,7 @@ export default function ListCoachPlanHistory() {
                 {planned.strength_time_min > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{t("coachPlan.history.strength")} {t("common.units.hour")}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.strength")} (${t("common.units.hour")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{((actual.strength_time_min || 0) / 60).toFixed(1)}</span>
                         <span className="text-sm opacity-50 mb-1">/ {((planned.strength_time_min || 0) / 60).toFixed(1)}</span>
