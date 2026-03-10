@@ -1234,6 +1234,7 @@ export const sk = {
       openPlan: "Otvoriť plán",
       cancelPlan: "Ukonči plán",
       cancellingPlan: "Ruším…",
+      history: "História",
     },
     confirmCancel: {
       title: "Ukončiť tréningový plán?",
