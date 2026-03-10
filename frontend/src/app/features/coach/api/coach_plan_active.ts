@@ -179,3 +179,19 @@ export async function apiActivePlanStatus(
     throw new Error("api.coach.planStatusFailed");
   }
 }
+
+
+export async function apiGetCoachPlanHistory(userId: string | number) {
+  const { createClient } = await import("@/app/shared/supabase/client");
+  const sb = createClient();
+
+  const { data, error } = await sb
+    .from("coach_plan_meta")
+    .select("*")
+    .eq("user_id", userId)
+    .in("status", ["completed", "canceled"])
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
