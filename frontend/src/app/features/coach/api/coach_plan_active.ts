@@ -181,17 +181,23 @@ export async function apiActivePlanStatus(
 }
 
 
-export async function apiGetCoachPlanHistory(userId: string | number) {
-  const { createClient } = await import("@/app/shared/supabase/client");
-  const sb = createClient();
+/* ========================= GET HISTORY ========================= */
+export async function apiGetCoachPlanHistory(userId: number | string): Promise<any[]> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const { data, error } = await sb
-    .from("coach_plan_meta")
-    .select("*")
-    .eq("user_id", userId)
-    .in("status", ["completed", "canceled"])
-    .order("created_at", { ascending: false });
+  const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/history`;
 
-  if (error) throw error;
-  return data || [];
+  try {
+    const json = await callBackend<any[]>(path, {
+      method: "GET",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!Array.isArray(json)) throw new Error("api.coach.planHistoryFailed");
+    return json;
+  } catch (e: any) {
+    console.error("[Coach][apiGetCoachPlanHistory] ERROR", e);
+    throw new Error("api.coach.planHistoryFailed");
+  }
 }
