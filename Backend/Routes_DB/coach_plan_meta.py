@@ -180,3 +180,26 @@ def db_get_due_active_plans(today_iso: str, *, ctx: AuthCtx) -> List[int]:
         print("[DB-COACH-META] get_due_active_plans error:", repr(e))
         return []
 
+def db_get_plan_history_for_user(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti zoznam archivovaných plánov (completed, canceled) pre usera.
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_get_plan_history_for_user")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["completed", "canceled"])
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-META] get_plan_history error:", repr(e))
+        return []
+
