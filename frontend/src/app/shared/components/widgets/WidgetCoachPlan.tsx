@@ -379,37 +379,51 @@ export default function WidgetCoachPlan() {
           </div>
         )}
 
-        <div className={WIDGET_CTA_ROW}>
-          {/* Tlačidlo ŠTART svieti ako primary až vtedy, keď sme v KROKU 3 */}
-          <Button
-            size="xs"
-            variant={isStep3 ? "primary" : "secondary"}
-            disabled={!!startDisabledReason || isGlobalLoading}
-            onClick={handleStartPlan}
-            title={startDisabledReason ?? undefined}
-            className="flex-1"
-          >
-            {loadingKind === "start" ? <LoadingSpinner size="button" /> : isPlanActive ? t("coachPlan.actions.activePlan") : t("coachPlan.actions.startPlan")}
-          </Button>
-
-          {isPlanActive && (
+                <div className={WIDGET_CTA_ROW}>
+          {/* PRVÉ TLAČIDLO: Štart / Otvoriť aktívny plán */}
+          {isPlanActive ? (
             <Button
               size="xs"
-              variant="secondary"
+              variant="primary" // Aktívny plán bude svietiť ako hlavná akcia
               onClick={() => router.push("/coach/ai/dailyPlan")}
+              disabled={isGlobalLoading}
               className="flex-1"
             >
               {t("coachPlan.actions.openPlan")}
             </Button>
+          ) : (
+            <Button
+              size="xs"
+              variant={isStep3 ? "primary" : "secondary"}
+              disabled={!!startDisabledReason || isGlobalLoading}
+              onClick={handleStartPlan}
+              title={startDisabledReason ?? undefined}
+              className="flex-1"
+            >
+              {loadingKind === "start" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.startPlan")}
+            </Button>
           )}
 
+          {/* DRUHÉ TLAČIDLO: Zrušiť (Cancel) */}
           <Button
             size="xs"
             variant="danger"
-            disabled={!canCancel}
+            disabled={!canCancel || isGlobalLoading}
             onClick={handleCancelPlan}
+            className="flex-1"
           >
             {loadingKind === "cancel" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.cancelPlan")}
+          </Button>
+
+          {/* TRETIE TLAČIDLO: História plánov */}
+          <Button
+            size="xs"
+            variant="secondary"
+            disabled={isGlobalLoading}
+            onClick={() => router.push("/coach/history")} // Uprav si URL podľa seba
+            className="flex-1"
+          >
+            {t("coachPlan.actions.history")}
           </Button>
         </div>
       </div>
