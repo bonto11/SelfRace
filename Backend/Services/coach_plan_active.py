@@ -12,7 +12,8 @@ from Routes_DB.coach_plan_meta import (
     db_update_plan_status,
     db_delete_plan_meta,
     db_archive_plan_meta,
-    db_get_due_active_plans
+    db_get_due_active_plans,
+    db_get_plan_history_for_user,
 )
 from Routes_DB.coach_plan_daily import (
     db_link_session_to_activity,
@@ -234,3 +235,14 @@ def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
         "errors": errors,
         "note": f"Checked against date {today_iso}"
     }
+    
+def service_get_plan_history(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Načíta históriu ukončených a zrušených plánov.
+    """
+    return db_get_plan_history_for_user(user_id=user_id, ctx=ctx)
+
