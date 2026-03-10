@@ -1249,6 +1249,16 @@ export const sk = {
       weekly: "weekly",
       daily: "daily",
     },
+    history: {
+      empty: "Zatiaľ nemáš žiadne ukončené plány.",
+      completed: "Úspešne dokončené",
+      canceled: "Zrušené",
+      plan: "Tréningový Plán",
+      trained: "Odtrénované:",
+      runned: "Nabehnané",
+      movementTime: "Čas v pohybe",
+      strength: "Silový tréning",
+    },
     errors: {
       missingUserId: "Chýba identifikátor používateľa.",
       alreadyActive: "Plán je už aktívny.",

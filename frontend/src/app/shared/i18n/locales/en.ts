@@ -1249,6 +1249,16 @@ export const en = {
       weekly: "weekly",
       daily: "daily",
     },
+    history: {
+      empty: "You don't have any completed plans yet",
+      completed: "Successfully completed",
+      canceled: "Canceled",
+      plan: "Training Plan",
+      trained: "Trained:",
+      runned: "Runned",
+      movementTime: "Movement time",
+      strength: "Strength training",
+    },
     errors: {
       missingUserId: "Missing user identifier.",
       alreadyActive: "Plan is already active.",

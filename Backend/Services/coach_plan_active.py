@@ -1,7 +1,7 @@
 # Services/coach_plan_active.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone
 
 from Modules.Supabase.auth import AuthCtx

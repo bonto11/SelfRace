@@ -1,7 +1,7 @@
 # Routes/coach_plan_active.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
@@ -172,9 +172,14 @@ async def get_plan_history(
     Vráti zoznam archivovaných plánov (completed a canceled).
     Frontend očakáva čistý List/Array (nie obalený v "success").
     """
+    print("get_plan_history userid",user_id)
     try:
         ctx = require_user(get_auth_ctx(req))
-        return service_get_plan_history(user_id=user_id, ctx=ctx)
+        data = service_get_plan_history(user_id=user_id, ctx=ctx)
+
+        print("get_plan_history data",data)
+        
+        return data
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status_code=500, detail=f"get_plan_history ERROR: {e}"
