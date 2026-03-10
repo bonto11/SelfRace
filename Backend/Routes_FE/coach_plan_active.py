@@ -10,6 +10,7 @@ from Services.coach_plan_active import (
     service_cancel_active_plan,
     service_link_activity,
     service_get_active_plan_status,
+    service_get_plan_history,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 from Routes_DB.coach_plan_daily import db_get_planned_range_rows
@@ -157,3 +158,25 @@ async def get_active_plan_status(
         raise HTTPException(
             status_code=500, detail=f"get_active_plan_status ERROR: {e}"
         )
+        
+        
+# ----------------------------------------------------
+# GET /coach-plan-active/{user_id}/history
+# ----------------------------------------------------
+@router.get("/coach-plan-active/{user_id}/history")
+async def get_plan_history(
+    user_id: int,
+    req: Request,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti zoznam archivovaných plánov (completed a canceled).
+    Frontend očakáva čistý List/Array (nie obalený v "success").
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        return service_get_plan_history(user_id=user_id, ctx=ctx)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"get_plan_history ERROR: {e}"
+        )
+
