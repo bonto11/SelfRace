@@ -70,8 +70,9 @@ function formatCadenceSummary(s: any | null, t: any): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
   const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "").toString().toLowerCase();
   const rpm = s.average_cadence_rpm;
-  if (sport.includes("run")) return `${Math.round(rpm * 2)} ${t("common.units.kadenceRun")}`;
-  return `${rpm} ${t("common.units.kadenceBike")}`;
+  if (sport.includes("bike") || sport.includes("ride") ) 
+    return `${rpm} ${t("common.units.kadenceBike")}`;
+  return `${Math.round(rpm * 2)} ${t("common.units.kadenceRun")}`;
 }
 
 function formatPaceFromSpeedMps(speed: number | null | undefined, t: any): string | null {

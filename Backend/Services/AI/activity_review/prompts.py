@@ -18,10 +18,12 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict): return {}
     out = json.loads(json.dumps(context, default=str))
     
-    # 1. Čistenie používateľa
+    # 1. Čistenie používateľa - NEVYMAZÁVAME 'name' (zmeníme na first_name) a nechávame gender
     u = out.get("user")
     if isinstance(u, dict):
-        for k in ("id", "email", "name"): u.pop(k, None)
+        for k in ("id", "email"): u.pop(k, None) 
+        # Meno nechávame, ale ak je to celé meno, môžeme ho tu rozdeliť, 
+        # alebo predpokladať, že sa to spracuje vonku.
     out.pop("_debug", None)
     
     # 2. Čistenie hlavnej aktivity
@@ -45,11 +47,41 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     
     return _remove_empty(out)
 
-def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
+def _lang_notes(settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
     lang = (settings.get("language") or "sk").lower()
-    if lang.startswith("en"): return "English", "Use second person ('you')."
-    if lang.startswith("cs"): return "Czech", "Používej 2. osobu a mluv přímo k atletovi."
-    return "Slovak", "Používaj 2. osobu a hovor priamo k atlétovi."
+    user_data = user_data or {}
+    
+    first_name = user_data.get("first_name")
+    gender = user_data.get("gender")
+    address_rule = ""
+    
+    if lang.startswith("en"): 
+        lang_label = "English"
+        address_rule = "Use second person ('you'). "
+        if first_name:
+            address_rule += f"Address the athlete by their first name: '{first_name}'. "
+            
+    elif lang.startswith("cs"): 
+        lang_label = "Czech"
+        address_rule = "Používej 2. osobu (tykání) a mluv přímo k atletovi. "
+        if first_name:
+            address_rule += f"Oslovuj atlete jménem: '{first_name}'. "
+        if gender == "female":
+            address_rule += "DŮLEŽITÉ: Atletka je ŽENA. Používej ženský rod (např. 'běžela jsi', 'zvládla jsi'). "
+        elif gender == "male":
+            address_rule += "Atlet je MUŽ. Používej mužský rod (např. 'běžel jsi', 'zvládl jsi'). "
+            
+    else: # Slovak fallback
+        lang_label = "Slovak"
+        address_rule = "Používaj 2. osobu (tykanie) a hovor priamo k atlétovi. "
+        if first_name:
+            address_rule += f"Oslovuj atléta menom: '{first_name}'. "
+        if gender == "female":
+            address_rule += "DÔLEŽITÉ: Atlétka je ŽENA. Používaj výhradne ženský rod slovies a prídavných mien (napr. 'bežala si', 'zvládla si', 'bola si'). "
+        elif gender == "male":
+            address_rule += "Atlét je MUŽ. Používaj mužský rod slovies a prídavných mien (napr. 'bežal si', 'zvládol si', 'bol si'). "
+
+    return lang_label, address_rule
 
 def _canonical_sport(s: Any) -> str:
     if not s: return "other"
@@ -76,19 +108,21 @@ def _system_prompt(sport: str, is_race: bool = False) -> str:
     if sport == "ride": return base + " Focus on power/HR consistency and execution vs. plan."
     return base + " Focus on general training evaluation."
 
-def _sport_rules(sport_key: str) -> str:
+def _sport_rules(sport_key: str, is_race: bool = False) -> str:
     common = [
         "- Do NOT invent missing data.",
         "- Output must be valid JSON only (no markdown).",
         "- STYLE: Continuous prose. NO bullets, NO lists, NO headings inside text fields.",
-        "- Mention numbers only to justify your LTHR/FTP analysis.",
         "- PACE FORMAT: Always write pace in 'mm:ss/km' format (e.g., 4:35/km). NEVER write pace in raw seconds.",
     ]
+    
+    if not is_race:
+        common.append("- CRITICAL THRESHOLD RULE: Because this is a STANDARD TRAINING session (not a Race Effort), DO NOT suggest new thresholds. Set 'suggested_thresholds' to null.")
     
     if sport_key == "run_race":
         return "\n".join(common + [
             "- MANDATORY LTHR AUDIT: You MUST compare the session's Average HR with the current LTHR (Z4/Z5 boundary).",
-            "- VERDICT: Explicitly state in 'review_text' whether the LTHR has improved, worsened, or remained stable, and provide the 'why' based on the relationship between pace and heart rate.",
+            "- VERDICT: Explicitly state in 'review_text' whether the LTHR has improved, worsened, or remained stable.",
             "- Mention pacing: did they start too fast or finish with a strong kick?",
             "- Mandatory recovery instruction."
         ])
@@ -96,7 +130,7 @@ def _sport_rules(sport_key: str) -> str:
     if sport_key == "ride_race":
         return "\n".join(common + [
             "- MANDATORY FTP AUDIT: Compare Avg/Normalized Power with current FTP.",
-            "- VERDICT: Explicitly state whether the FTP threshold has improved, worsened, or remained stable based on the power-to-HR ratio during this effort.",
+            "- VERDICT: Explicitly state whether the FTP threshold has improved, worsened, or remained stable.",
             "- Mandatory recovery advice."
         ])
 
@@ -150,7 +184,11 @@ def build_prompts_for_activity_review(
 ) -> Tuple[str, str]:
 
     settings = settings or {}
-    lang_label, second_person_note = _lang_notes(settings)
+    
+    # Vytiahneme údaje o používateľovi z pôvodného kontextu (pred minifikáciou)
+    user_data = context_payload.get("user", {})
+    
+    lang_label, second_person_note = _lang_notes(settings, user_data=user_data)
 
     user_input_data = context_payload.get("user_input") or {}
     actually_is_race = is_race or bool(user_input_data.get("is_race_effort"))
@@ -173,8 +211,7 @@ def build_prompts_for_activity_review(
             "\n--- PERFORMANCE AUDIT PROTOCOL ---\n"
             "1. ACCESS CURRENT DATA: Find the current LTHR in `context.user_zones` (the top of Z4).\n"
             "2. PERFORM COMPARISON: Compare that value (e.g., 180 bpm) with the session `avg_hr_bpm`.\n"
-            "3. MANDATORY STATEMENT: You MUST explicitly mention that you have performed this comparison in the `review_text`. "
-            "Example: 'Porovnal som tvoj aktuálny prah 180 bpm s dnešným priemerom...'.\n"
+            "3. MANDATORY STATEMENT: You MUST explicitly mention that you have performed this comparison in the `review_text`.\n"
             "4. VERDICT: State if the threshold has improved, worsened, or remains stable. Explain the logic.\n"
             "5. FORMATTING: All pace values MUST be in mm:ss/km format.\n"
             "6. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
@@ -189,7 +226,7 @@ def build_prompts_for_activity_review(
         + "\n\nRULES:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        + _sport_rules(sport_key)
+        + _sport_rules(sport_key, is_race=actually_is_race) # Pridaný parameter is_race
         + race_logic
         + "\n- Return ONLY raw JSON."
     )

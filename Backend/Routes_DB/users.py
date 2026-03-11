@@ -141,3 +141,19 @@ def db_list_users_for_athlete_state(
         return list(res.data or [])
     except Exception:
         return []
+
+def db_get_user_display_name(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> Optional[str]:
+    """
+    Vytiahne používateľské meno (display_name alebo name) pre AI oslovenie.
+    """
+    sb = get_sb(ctx, caller="users.db_get_user_display_name")
+    try:
+        res = sb.table(TABLE_USERS).select("display_name, name").eq("id", user_id).limit(1).execute()
+        row = (res.data or [{}])[0]
+        return row.get("display_name") or row.get("name")
+    except Exception:
+        return None

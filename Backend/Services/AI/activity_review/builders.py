@@ -14,7 +14,8 @@ from Routes_DB.activities_splits import db_get_activity_splits
 from Routes_DB.activities_laps import db_get_activity_laps
 from Routes_DB.activities_streams import db_get_streams_one
 from Routes_DB.user_zones import db_user_zones_fetch_latest
-
+from Routes_DB.users import db_get_user_display_name
+        
 from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_get_latest_plan_meta_for_user
 from Routes_DB.coach_plan_daily import db_list_daily_for_user_horizon
 from Routes_DB.user_prefs import db_get_pref_single
@@ -328,22 +329,6 @@ def _real_db_get_plans_for_today_tomorrow(user_id: int, date_str_today: str, ctx
         print("[AI][builder] Failed to fetch plans for today/tomorrow", repr(e))
         return None, None
 
-def _real_db_get_user_injury_state(user_id: int, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
-    try:
-        # Voláme DB prefs
-        prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
-        if isinstance(prefs_row, dict):
-            # Bezpečný type-check pre Pylance
-            val = prefs_row.get("value")
-            data = val if isinstance(val, dict) else prefs_row
-            
-            injuries = data.get("injuries")
-            if isinstance(injuries, list) and len(injuries) > 0:
-                return {"active_injuries": injuries}
-    except Exception as e:
-        print("[AI][builder] Failed to fetch injury state", repr(e))
-    return None
-
 # =========================
 # MAIN INPUT BUILDER
 # =========================
@@ -404,10 +389,31 @@ def build_input_from_db(
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = _minify_recent_load_to_week_horizon(recent_load_raw)
 
-    # ✅ Načítanie aktívneho zranenia z DB
-    injury_state = _real_db_get_user_injury_state(user_id, ctx)
-    if injury_state:
-        input_data["context"]["injury_state"] = injury_state
+    # ✅ Načítanie preferencií (Zranenia + Pohlavie) a Mena pre AI personalizáciu
+    try:
+        # 1. Meno používateľa z tabuľky users
+        display_name = db_get_user_display_name(user_id, ctx=ctx)
+        if display_name:
+            input_data["user"]["first_name"] = display_name
+
+        # 2. Zranenia a pohlavie z coach.prefs
+        prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
+        if isinstance(prefs_row, dict):
+            val = prefs_row.get("value")
+            prefs_data = val if isinstance(val, dict) else prefs_row
+            
+            # Pohlavie
+            gender = prefs_data.get("gender")
+            if gender in ("male", "female"):
+                input_data["user"]["gender"] = gender
+                
+            # Zranenia
+            injuries = prefs_data.get("injuries")
+            if isinstance(injuries, list) and len(injuries) > 0:
+                input_data["context"]["injury_state"] = {"active_injuries": injuries}
+                
+    except Exception as e:
+        print("[AI][builder] Failed to fetch user personalization data", repr(e))
 
     window_ids: List[int] = []
     if db_fetch_window_activity_ids is not None:
