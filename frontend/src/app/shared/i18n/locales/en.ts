@@ -139,6 +139,7 @@ export const en = {
       pace: "Pace",
       power: "Power",
       elevation: "Elevation",
+      speed: "Speed",
     },
     errors: {
       missingUser: "Missing user identification.",
