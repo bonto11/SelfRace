@@ -18,16 +18,10 @@ function formatPaceFromSpeedMps(speed: number | null | undefined, t: any): strin
   const secPerKm = 1000 / speed;
   const minutes = Math.floor(secPerKm / 60);
   const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
-  // Pre istotu natvrdo pridávam /km, aby to nevyzeralo ako s/km
   return `${minutes}:${seconds} /km`;
 }
 
-export default function ActivityShareCard({ 
-  activity, 
-  summary, 
-  showHr = true,
-  cardRef 
-}: any) {
+export default function ActivityShareCard({ activity, summary, showHr = true, cardRef }: any) {
   const t = useT();
 
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
@@ -45,66 +39,63 @@ export default function ActivityShareCard({
   return (
     <div 
       ref={cardRef}
-      className="w-[400px] h-[400px] bg-black text-white p-8 relative overflow-hidden flex flex-col justify-between border border-white/10"
+      // Používame aspect-square a w-full, takže to bude vždy dokonalý štvorec podľa šírky mobilu
+      className="w-full aspect-square bg-black text-white p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between border border-white/10 shadow-lg"
       style={{ fontFamily: "sans-serif" }} 
     >
-      {/* Farebný pásik hore */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-4" 
-        style={{ backgroundColor: sportColor }} 
-      />
+      <div className="absolute top-0 left-0 right-0 h-3" style={{ backgroundColor: sportColor }} />
 
-      <div className="z-10 mt-3">
-        <h2 className="text-3xl font-black uppercase tracking-wide leading-tight line-clamp-2">
+      <div className="z-10 mt-2">
+        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide leading-tight line-clamp-2">
           {title}
         </h2>
-        <div className="text-white/50 text-base mt-2 uppercase font-bold tracking-widest">
+        <div className="text-white/50 text-xs sm:text-sm mt-1 uppercase font-bold tracking-widest">
           {dateStr} • {sport}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-y-6 gap-x-4 z-10 mt-4">
+      <div className="grid grid-cols-2 gap-y-4 gap-x-2 z-10 mt-4">
         <div>
-          <div className="text-sm uppercase font-bold opacity-50 mb-1">{t("common.metrics.distance" as any) || "Vzdialenosť"}</div>
-          <div className="text-3xl font-black">{distTxt}</div>
+          <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.distance" as any) || "Vzdialenosť"}</div>
+          <div className="text-2xl sm:text-3xl font-black">{distTxt}</div>
         </div>
 
         <div>
-          <div className="text-sm uppercase font-bold opacity-50 mb-1">{t("common.metrics.time" as any) || "Čas"}</div>
-          <div className="text-3xl font-black">{timeTxt}</div>
+          <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.time" as any) || "Čas"}</div>
+          <div className="text-2xl sm:text-3xl font-black">{timeTxt}</div>
         </div>
 
         {pace && (
           <div>
-            <div className="text-sm uppercase font-bold opacity-50 mb-1">{t("common.metrics.pace" as any) || "Tempo"}</div>
-            <div className="text-3xl font-black">{pace}</div>
+            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.pace" as any) || "Tempo"}</div>
+            <div className="text-2xl sm:text-3xl font-black">{pace}</div>
           </div>
         )}
 
         {elev && elev > 0 && (
           <div>
-            <div className="text-sm uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev" as any) || "Prevýšenie"}</div>
-            <div className="text-3xl font-black">{elev} m</div>
+            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev" as any) || "Prevýšenie"}</div>
+            <div className="text-2xl sm:text-3xl font-black">{elev} m</div>
           </div>
         )}
 
         {showHr && avgHr > 0 && (
-          <div className="col-span-2 mt-1">
-            <div className="text-sm uppercase font-bold opacity-50 mb-1">{t("common.metrics.hr_avg" as any) || "Priemerný tep"}</div>
-            <div className="text-2xl font-bold flex items-center gap-2">
+          <div className="col-span-2">
+            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.hr_avg" as any) || "Priemerný tep"}</div>
+            <div className="text-xl sm:text-2xl font-bold flex items-center gap-2">
                <span className="text-red-500">❤️</span> {avgHr} bpm
             </div>
           </div>
         )}
       </div>
 
-      <div className="z-10 flex justify-between items-end border-t border-white/20 pt-4 mt-2">
-        <div className="text-sm font-bold text-white/40 tracking-wider">Powered by SELFRACE</div>
-        <div className="w-8 h-8 rounded-full" style={{ backgroundColor: sportColor }} />
+      <div className="z-10 flex justify-between items-end border-t border-white/20 pt-3 mt-2">
+        <div className="text-[10px] sm:text-xs font-bold text-white/40 tracking-wider">Powered by SELFRACE</div>
+        <div className="w-6 h-6 rounded-full" style={{ backgroundColor: sportColor }} />
       </div>
 
       <div 
-        className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full opacity-10 blur-3xl pointer-events-none"
+        className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full opacity-10 blur-3xl pointer-events-none"
         style={{ backgroundColor: sportColor }}
       />
     </div>
