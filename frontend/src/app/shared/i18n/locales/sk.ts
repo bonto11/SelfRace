@@ -30,7 +30,7 @@ export const sk = {
     undo: "Vrátiť späť",
     cancel: "Zrušiť",
     save: "Uložiť zmeny",
-    close: "Rozumiem, zavrieť",
+    close: "Zavrieť",
     finish: "Mám to!",
     saving: "Ukladám...",
     soon: "Čoskoro...",

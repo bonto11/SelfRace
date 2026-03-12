@@ -8,6 +8,8 @@ import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
+import Button from "@/app/shared/ui/components/Button"; // ✅ Tvoj Button komponent
+import SegmentedControl from "@/app/shared/ui/components/SegmentedControl"; // ✅ Náš nový prepínač
 import { toast } from "@/app/shared/ui/components/Toast";
 
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
@@ -29,7 +31,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
 
-  // 1. NAČÍTANIE Z LOCALSTORAGE
+  // NAČÍTANIE Z LOCALSTORAGE
   useEffect(() => {
     setMounted(true);
     try {
@@ -48,7 +50,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   }, []);
 
-  // 2. UKLADANIE DO LOCALSTORAGE
+  // UKLADANIE DO LOCALSTORAGE
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem(
@@ -59,7 +61,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   // PRÍPRAVA DÁT
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
-  const title = summary?.name || activity?.title || t("share.title");
+  const title = summary?.name || activity?.title || t("share.title") || "Tréning";
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
   function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
@@ -85,6 +87,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const cardBg = isDark ? appColors.backgroundMain : "#ffffff";
   const textColor = isDark ? "#ffffff" : appColors.brandPrimary;
   const borderColor = isDark ? appColors.widgetBorder : "rgba(0,0,0,0.05)";
+  const iconSuffix = isDark ? "_green" : "_green"; // Pripravené, ak by si mal iné farby ikon pre light temu
 
   // GENEROVANIE OBRÁZKA
   useEffect(() => {
@@ -116,7 +119,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       } catch (err) {
         if (!isCancelled) {
           setIsGenerating(false);
-          console.error("html2canvas error:", err);
         }
       }
     };
@@ -161,9 +163,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY
+  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (Ikona zarovnaná k hodnote, bez fallbackov)
   const renderMetric = (iconName: string, label: string, value: string | number, unit: string) => {
-    const iconUrl = `/icons/${iconName}_green.svg`;
+    const iconUrl = `/icons/${iconName}${iconSuffix}.svg`;
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -171,7 +173,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         {/* TEXTOVÁ HLAVIČKA (Zobrazí sa len v režime text a both) */}
         {displayMode !== "icon" && (
           <div 
-            className="text-[11px] uppercase tracking-wider font-semibold mb-0.5" 
+            className="text-[10px] sm:text-[11px] uppercase tracking-wider font-bold mb-0.5" 
             style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}
           >
             {label}
@@ -179,19 +181,21 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         )}
 
         {/* RIADOK S HODNOTOU A IKONOU */}
-        <div className="flex items-center gap-2.5">
-          {/* IKONA JE VŽDY PRED HODNOTOU (Okrem text režimu) */}
+        <div className="flex items-center gap-2">
+          {/* IKONA JE VŽDY PRED HODNOTOU (Okrem čisto textového režimu) */}
           {displayMode !== "text" && (
              <img 
                src={iconUrl} 
                crossOrigin="anonymous" 
-               className="w-5 h-5 object-contain shrink-0"
+               className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
                onError={(e) => { e.currentTarget.style.display = 'none'; }}
              />
           )}
           <div className="flex items-baseline gap-1">
-            <span className="text-[24px] sm:text-[26px] font-black leading-none" style={{ color: textColor }}>{value}</span>
-            <span className="text-[10px] font-bold uppercase" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>{unit}</span>
+            <span className="text-[24px] sm:text-[28px] font-black leading-none" style={{ color: textColor }}>{value}</span>
+            {unit && (
+               <span className="text-[10px] font-bold uppercase" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>{unit}</span>
+            )}
           </div>
         </div>
         
@@ -225,7 +229,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
               </div>
 
               {/* Mriežka štatistík volaná cez helper */}
-              <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-4">
+              <div className="grid grid-cols-2 gap-y-7 gap-x-4 mb-4">
                 {renderMetric("distance", t("common.metrics.distance"), distVal, distUnit || t("common.units.km"))}
                 {showTime && renderMetric("time", t("common.metrics.time"), timeTxt, "")}
                 {showPace && paceVal && renderMetric("speed", t("common.metrics.pace"), paceVal, t("common.units.pace"))}
@@ -237,17 +241,15 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 )}
               </div>
 
-              {/* PÄTIČKA S LOGOM */}
+              {/* PÄTIČKA S NEMENNÝM LOGOM */}
               <div className="flex justify-center items-center mt-6 pt-5 border-t shrink-0" style={{ borderColor: borderColor }}>
                 <img 
                   src="/logo/actual/selfrace_logo.svg" 
                   alt="SelfRace" 
                   crossOrigin="anonymous"
-                  // Ak je tvoje logo v základe biele, invert() ho pre Light tému spraví čiernym (alebo zmeň na brightness-0 pre čisto čiernu).
-                  className={`h-10 w-auto object-contain opacity-90 ${theme === 'light' ? 'invert opacity-80' : ''}`}
+                  className="h-10 w-auto object-contain opacity-90"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span style="color: ${appColors.brandPrimary}; font-size: 20px; font-weight: 900;">▲ SELFRACE</span>`);
                   }} 
                 />
               </div>
@@ -269,28 +271,38 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         <div className="w-full flex flex-col gap-3">
             <div className="p-4 bg-[#141414] rounded-[20px] border border-white/5 shadow-xl flex flex-col gap-4">
               
-              {/* PREPÍNAČE DIZAJNU */}
-              <div className="flex gap-4">
-                <div className="flex-1 flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.theme")}</span>
-                  <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                    <button onClick={() => setTheme("dark")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "dark" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeDark")}</button>
-                    <button onClick={() => setTheme("light")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "light" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeLight")}</button>
-                  </div>
+              {/* PREPÍNAČE DIZAJNU (Použitý nový SegmentedControl) */}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.theme")}</span>
+                  <SegmentedControl
+                    options={[
+                      { label: t("share.themeDark"), value: "dark" },
+                      { label: t("share.themeLight"), value: "light" },
+                    ]}
+                    value={theme}
+                    onChange={(val) => setTheme(val)}
+                    disabled={isGenerating}
+                  />
                 </div>
 
-                <div className="flex-1 flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.displayMode")}</span>
-                  <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                    <button onClick={() => setDisplayMode("icon")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "icon" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeIcon")}</button>
-                    <button onClick={() => setDisplayMode("both")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "both" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeBoth")}</button>
-                    <button onClick={() => setDisplayMode("text")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "text" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeText")}</button>
-                  </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.displayMode")}</span>
+                  <SegmentedControl
+                    options={[
+                      { label: t("share.modeIcon"), value: "icon" },
+                      { label: t("share.modeText"), value: "text" },
+                      { label: t("share.modeBoth"), value: "both" },
+                    ]}
+                    value={displayMode}
+                    onChange={(val) => setDisplayMode(val)}
+                    disabled={isGenerating}
+                  />
                 </div>
               </div>
 
               {/* PREPÍNAČE METRÍK */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
                 <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
                 <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={t("common.metrics.pace")} disabled={isGenerating} />
                 <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
@@ -298,21 +310,25 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
               </div>
             </div>
 
+            {/* AKČNÉ TLAČIDLÁ (Použité tvoje natívne Button komponenty) */}
             <div className="flex gap-2">
-              <button 
-                onClick={handleShare}
-                disabled={isGenerating || !readyFile}
-                className="flex-1 py-3.5 bg-white text-black font-bold rounded-[16px] uppercase tracking-wider shadow-lg active:scale-95 transition-transform disabled:opacity-50"
-              >
-                {t("share.buttonShare")}
-              </button>
-
-              <button 
+              <div className="flex-1">
+                <Button 
+                  variant="primary" 
+                  block
+                  disabled={isGenerating || !readyFile}
+                  onClick={handleShare}
+                >
+                  {t("share.buttonShare")}
+                </Button>
+              </div>
+              <Button 
+                variant="secondary"
+                disabled={isGenerating}
                 onClick={onClose}
-                className="px-6 bg-white/10 text-white font-bold rounded-[16px] uppercase tracking-wider border border-white/5 active:scale-95 transition-transform"
               >
                 {t("common.close")}
-              </button>
+              </Button>
             </div>
         </div>
 
