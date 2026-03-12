@@ -122,7 +122,7 @@ export default function ActivityShareCard({
         <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/10">
           <div className="flex items-center gap-1.5">
             {/* Odkaz na public/logo.svg */}
-            <img src="/logo.svg" alt="SelfRace Logo" className="w-5 h-5 opacity-80" onError={(e) => {
+            <img src="/logo/actual/selfrace_logo.svg" alt="SelfRace Logo" className="w-5 h-5 opacity-80" onError={(e) => {
               // Ak náhodou logo.svg nemáš v public/, fallback na zelený trojuholník
               e.currentTarget.style.display = 'none';
               e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span style="color: ${appColors.brandPrimary}; font-size: 14px;">▲</span>`);
