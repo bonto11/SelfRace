@@ -32,7 +32,7 @@ export default function ActivityShareCard({
 
   // Základné dáta
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
-  const title = summary?.name || activity?.title || t("sessions.detail.newActivityTitle");
+  const title = summary?.name || activity?.title || (t("sessions.detail.newActivityTitle" as any) || "Nový tréning");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
   // Štatistiky
