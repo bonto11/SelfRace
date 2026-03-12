@@ -248,7 +248,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
           size="sm" 
           onClick={() => setIsShareOpen(true)}
         >
-          {t("sessions.detail.btnShare" as any) || "Zdieľať"}
+          {t("common.share")}
         </Button>
 
         {stravaUrl && (
