@@ -276,7 +276,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   {title}
                 </h2>
                 <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: isDark ? 0.5 : 0.7, marginTop: "6px", letterSpacing: "0.1em" }}>
-                  {dateStr} • {t(`common.sports.${sport}`)}
+                  {dateStr} • {t(`common.sports.${sport}` as any)}
                 </div>
               </div>
 
