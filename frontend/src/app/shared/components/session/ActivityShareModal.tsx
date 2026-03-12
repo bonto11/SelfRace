@@ -8,8 +8,8 @@ import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
-import Button from "@/app/shared/ui/components/Button"; // ✅ Tvoj Button komponent
-import SegmentedControl from "@/app/shared/ui/components/SegmentedControl"; // ✅ Náš nový prepínač
+import Button from "@/app/shared/ui/components/Button";
+import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
@@ -61,7 +61,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   // PRÍPRAVA DÁT
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
-  const title = summary?.name || activity?.title || t("share.title") || "Tréning";
+  const title = summary?.name || activity?.title || t("share.title");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
   function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
@@ -85,9 +85,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   // FARBY PODĽA TÉMY
   const isDark = theme === "dark";
   const cardBg = isDark ? appColors.backgroundMain : "#ffffff";
-  const textColor = isDark ? "#ffffff" : appColors.brandPrimary;
+  const textColor = isDark ? "#ffffff" : appColors.backgroundMain;
   const borderColor = isDark ? appColors.widgetBorder : "rgba(0,0,0,0.05)";
-  const iconSuffix = isDark ? "_green" : "_green"; // Pripravené, ak by si mal iné farby ikon pre light temu
+  const iconSuffix = isDark ? "" : "_green";
 
   // GENEROVANIE OBRÁZKA
   useEffect(() => {
