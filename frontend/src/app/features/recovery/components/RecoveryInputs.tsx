@@ -12,6 +12,8 @@ import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import { apiSaveRecoveryPatch } from "@/app/features/recovery/api/recovery";
+// ✅ IMPORT HOOKU PRE REFRESH DÁT
+import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
 import {
   SECTION,
@@ -61,6 +63,9 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
 export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
+  
+  // ✅ VYTIAHNUTIE FUNKCIE REFRESH Z PROVIDERA
+  const { refresh } = useRecoveryData();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
@@ -131,10 +136,13 @@ export default function RecoveryInputs() {
       setSaving(true);
       await apiSaveRecoveryPatch(userId, patch);
       toast.success(t("recovery.inputs.saveSuccess"));
+      
+      // ✅ ZATVORENIE, VYČISTENIE A REFRESH CELÉHO PROVIDERA
       setOpen(false);
       setDirty({});
+      refresh(true); 
+      
     } catch (e: any) {
-      // ✅ ZMENA: Preložíme api error message
       toast.error(t(e?.message as any) || t("api.recovery.saveFailed"));
     } finally {
       setSaving(false);
@@ -143,241 +151,9 @@ export default function RecoveryInputs() {
 
   const previewText = `${t("recovery.inputs.dateLabel")}: ${date}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
+  // ... (ZBYTOK KÓDU ZOSTÁVA ÚPLNE IDENTICKÝ, RETURN BLOK NEMENÍŠ) ...
   return (
     <InputsCard
       title={t("recovery.title")}
       subtitle={t("recovery.inputs.subtitle")}
-      open={open}
-      onOpenChange={setOpen}
-      preview={previewText}
-      always={
-        <div className={INPUTS_CARD_DATE_ROW}>
-          <div className={INPUTS_CARD_DATE_INNER}>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => shiftDate(-1)}
-              disabled={saving}
-            >
-              −1
-            </Button>
-
-            <DateField
-              value={date}
-              onChange={(v) => setDate(v ?? todayIso)}
-              disabled={saving}
-              className={INPUTS_CARD_DATE_PILL}
-              variant="editable"
-            />
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => shiftDate(+1)}
-              disabled={saving}
-            >
-              +1
-            </Button>
-          </div>
-        </div>
-      }
-      actions={
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={handleSave}
-          disabled={saving || !userId}
-          className={INPUTS_CARD_SAVE_BTN}
-        >
-          {saving ? t("common.saving") : t("common.save")}
-        </Button>
-      }
-    >
-      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        <div className={FORM_GRID_TWO}>
-          {/* HLAVNÉ UKAZOVATELE */}
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.hrvAvgLabel")}
-            </div>
-            <TextField
-              type="number"
-              value={hrvAvg}
-              onChange={(e) => {
-                setHrvAvg(e.target.value);
-                markDirty("HRV_avg_ms");
-              }}
-              placeholder="ms"
-              disabled={saving}
-            />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.rhrLabel")}
-            </div>
-            <TextField
-              type="number"
-              value={rhr}
-              onChange={(e) => {
-                setRhr(e.target.value);
-                markDirty("RHR_bpm");
-              }}
-              placeholder="bpm"
-              disabled={saving}
-            />
-          </section>
-
-          <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.sleepDurationLabel")}
-            </div>
-            <TextField
-              type="text"
-              placeholder="HH:MM"
-              value={sleepDuration}
-              onChange={(e) => {
-                handleTimeInput(e, setSleepDuration);
-                markDirty("sleep_duration_min");
-              }}
-              inputMode="numeric"
-              disabled={saving}
-            />
-          </section>
-
-          {/* OVPLYVŇUJÚCE FAKTORY */}
-          <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_2}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.factorsSection")}
-            </div>
-
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <Checkbox
-                containerClassName={INPUTS_CARD_CHECK_ROW_MB}
-                checked={lateFood}
-                onChange={(e) => {
-                  setLateFood(e.currentTarget.checked);
-                  markDirty("food_2h_before");
-                }}
-                disabled={saving}
-                label={t("recovery.inputs.lateFoodLabel")}
-              />
-
-              <Checkbox
-                containerClassName={INPUTS_CARD_CHECK_ROW_MB}
-                checked={lateCaffeine}
-                onChange={(e) => {
-                  setLateCaffeine(e.currentTarget.checked);
-                  markDirty("caffeine_8h");
-                }}
-                disabled={saving}
-                label={t("recovery.inputs.lateCaffeineLabel")}
-              />
-            </div>
-
-            <div className="mt-3">
-              <div
-                className={INPUTS_CARD_LABEL_SM_1}
-                style={{ color: appColors.textMuted }}
-              >
-                {t("recovery.inputs.alcoholLabel")}
-              </div>
-              <div className={FORM_GRID_SPLIT}>
-                <TextField
-                  type="number"
-                  value={alcoholVolume}
-                  onChange={(e) => {
-                    setAlcoholVolume(e.target.value);
-                    markDirty("alcohol_volume_ml");
-                  }}
-                  placeholder="ml"
-                  disabled={saving}
-                />
-                <TextField
-                  type="number"
-                  value={alcoholType}
-                  onChange={(e) => {
-                    setAlcoholType(e.target.value);
-                    markDirty("alcohol_type_pct");
-                  }}
-                  placeholder="%"
-                  disabled={saving}
-                />
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <div
-                className={INPUTS_CARD_LABEL_SM_1}
-                style={{ color: appColors.textMuted }}
-              >
-                {t("recovery.inputs.noteLabel")}
-              </div>
-              <TextField
-                value={comments}
-                onChange={(e) => {
-                  setComments(e.target.value);
-                  markDirty("comments");
-                }}
-                placeholder={t("recovery.inputs.notePlaceholder")}
-                disabled={saving}
-              />
-            </div>
-          </section>
-
-          {/* DOPLNKY */}
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.hrvMaxLabel")}
-            </div>
-            <TextField
-              type="number"
-              value={hrvMax}
-              onChange={(e) => {
-                setHrvMax(e.target.value);
-                markDirty("HRV_max_ms");
-              }}
-              placeholder="ms"
-              disabled={saving}
-            />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.sleepStartLabel")}
-            </div>
-            <TextField
-              type="text"
-              placeholder="HH:MM"
-              value={sleepStart}
-              onChange={(e) => {
-                handleTimeInput(e, setSleepStart);
-                markDirty("sleep_start_time");
-              }}
-              inputMode="numeric"
-              disabled={saving}
-            />
-          </section>
-        </div>
-      </div>
-    </InputsCard>
-  );
-}
+// ...
