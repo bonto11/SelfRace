@@ -31,12 +31,11 @@ import {
   PieTrend,
   type PieTrendItem,
 } from "@/app/shared/components/trend/PieTrend";
-import type{  ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
+import type { ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { apiFetchActivityExtrasCombined } from "@/app/features/activities/api/analytics_activities";
 
-// ✅ Nový import modalu (ktorý vytvoríme v kroku 2)
 import ActivityShareModal from "./ActivityShareModal";
 
 function fmtTime(min: number) {
@@ -147,7 +146,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps, t);
   const powerTxt = s?.average_watts ? `${Math.round(s.average_watts)} W` : null;
   const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
-  const stravaActivityId = s?.activity_id ?? s?.id ?? null; // ID priamo zo Stravy
+  const stravaActivityId = s?.activity_id ?? s?.id ?? null;
   const stravaUrl = stravaActivityId ? getStravaActivityUrl(stravaActivityId) : null;
 
   const [streams, setStreams] = useState<StreamsData>({ time_s: [], hr: [], duration_s: 0, cadence_rpm: [], power_w: [], distance_m: [], altitude_m: [] });
@@ -157,20 +156,15 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   
-  // ✅ State pre Share Modal
   const [isShareOpen, setIsShareOpen] = useState(false);
 
-  // Zistíme, či vôbec existujú hrubé dáta (aj keby to boli nuly). 
-  // Toto rozhoduje o tom, či schováme tlačidlo "Načítať zo Stravy".
   const hasRawStreams = Array.isArray(streams.time_s) && streams.time_s.length > 0;
   const hasSplits = Array.isArray(splits) && splits.length > 1;
 
-  // Vyčistíme streamy, aby sme do grafov neposielali polia plné núl
   const cleanedStreams = useMemo(() => {
     if (!streams.time_s || streams.time_s.length === 0) return streams;
 
     const out = { ...streams };
-
     const hasData = (arr: (number | null)[] | undefined) => {
       if (!Array.isArray(arr) || arr.length === 0) return false;
       return arr.some(val => val !== null && val !== 0);
@@ -185,7 +179,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     return out;
   }, [streams]);
 
-  // Toto použijeme pre zobrazenie GRAFOV
   const hasValidStreamsForChart = cleanedStreams.time_s && cleanedStreams.time_s.length > 0;
 
   useEffect(() => {
@@ -211,21 +204,16 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     return () => { alive = false; };
   }, [act.activityId, getExtras, getEnrichment]);
 
-  // Funkcia na manuálne stiahnutie dát zo Stravy
   const handleFetchDetailedData = async () => {
     if (!userId || !act.activityId || isFetchingDetailed) return;
-    
     setIsFetchingDetailed(true);
-
     try {
       const result = await apiFetchActivityExtrasCombined(Number(userId), act.activityId, true);
-      
       if (result) {
         if (result.streams) setStreams(result.streams);
         if (result.splits) setSplits(result.splits);
       }
     } catch (e: any) {
-      console.error("Chyba pri sťahovaní zo Stravy:", e);
       toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
     } finally {
       setIsFetchingDetailed(false);
@@ -254,7 +242,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   return (
     <div className="pb-4">
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* ✅ Tlačidlo Zdieľať (Primary) */}
         <Button 
           type="button" 
           variant="primary" 
@@ -264,7 +251,6 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
           {t("sessions.detail.btnShare" as any) || "Zdieľať"}
         </Button>
 
-        {/* Správne použitý Button komponent pre Stravu */}
         {stravaUrl && (
           <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>
             {t("sessions.detail.btnStrava")}
@@ -280,15 +266,8 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         {act.onDelete && <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>{t("common.delete")}</button>}
         {onOpenActivity && <button type="button" onClick={() => onOpenActivity(act.activityId)} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("calendar.openActivity")}</button>}
         
-        {/* Tlačidlo "Načítať podrobné dáta" */}
         {initialLoadDone && stravaActivityId && !hasRawStreams && (
-          <Button 
-            type="button" 
-            variant="secondary" 
-            size="sm" 
-            onClick={handleFetchDetailedData} 
-            disabled={isFetchingDetailed}
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={handleFetchDetailedData} disabled={isFetchingDetailed}>
             {isFetchingDetailed ? t("common.loading") : t("sessions.detail.btnMoreData" as any)}
           </Button>
         )}
@@ -325,13 +304,12 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         </div>
       )}
 
-      {/* ✅ Modal pre Zdieľanie */}
       {isShareOpen && (
         <ActivityShareModal 
           isOpen={isShareOpen} 
           onClose={() => setIsShareOpen(false)}
           activity={act}
-          summary={s} // Posielame aj summary dáta pre štatistiky
+          summary={s}
         />
       )}
     </div>
