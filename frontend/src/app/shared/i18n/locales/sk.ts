@@ -294,11 +294,11 @@ export const sk = {
     buttonShare: "Zdieľať fotku",
     theme: "Téma",
     themeLight: "Svetlá",
-    themeBrand: "Značková",
+    themeDark: "Tmavá",
     displayMode: "Zobrazenie",
     modeIcon: "Ikony",
     modeText: "Text",
-    modeBoth: "Kombinované"
+    modeBoth: "Oboje"
   },
   prefs: {
     title: "Tréningové preferencie",

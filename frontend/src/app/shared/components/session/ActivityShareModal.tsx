@@ -10,35 +10,26 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Fallback ikonky
-const ICONS = {
-  distance: "📏",
-  time: "⏱️",
-  pace: "⚡",
-  elev: "⛰️",
-  hr: "❤️",
-};
-
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
   const t = useT();
   const cardRef = useRef<HTMLDivElement>(null);
 
   const [mounted, setMounted] = useState(false);
 
-  // STAVY
+  // STAVY METRÍK
   const [showHr, setShowHr] = useState(true);
   const [showPace, setShowPace] = useState(true);
   const [showElev, setShowElev] = useState(true);
   const [showTime, setShowTime] = useState(true);
 
-  // NOVÉ STAVY PRE DIZAJN
-  const [theme, setTheme] = useState<"light" | "brand">("light");
-  const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("icon");
+  // STAVY DIZAJNU A TÉMY
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
 
-  // 1. NAČÍTANIE Z LOCALSTORAGE (iba raz po zobrazení)
+  // 1. NAČÍTANIE Z LOCALSTORAGE
   useEffect(() => {
     setMounted(true);
     try {
@@ -57,7 +48,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   }, []);
 
-  // 2. UKLADANIE DO LOCALSTORAGE (pri každej zmene)
+  // 2. UKLADANIE DO LOCALSTORAGE
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem(
@@ -66,9 +57,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     );
   }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
 
-  // SPRACOVANIE DÁT
+  // PRÍPRAVA DÁT
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
-  const title = summary?.name || activity?.title || t("share.title" as any) || "Tréning";
+  const title = summary?.name || activity?.title || t("share.title");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
   function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
@@ -90,11 +81,12 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const paceVal = formatPaceFromSpeedMps(summary?.average_speed_mps);
 
   // FARBY PODĽA TÉMY
-  const textColor = theme === "brand" ? appColors.brandPrimary : "#ffffff";
-  const mutedColor = theme === "brand" ? appColors.brandPrimary : "rgba(255,255,255,0.5)";
-  const iconSuffix = theme === "brand" ? "_green" : "";
+  const isDark = theme === "dark";
+  const cardBg = isDark ? appColors.backgroundMain : "#ffffff";
+  const textColor = isDark ? "#ffffff" : appColors.brandPrimary;
+  const borderColor = isDark ? appColors.widgetBorder : "rgba(0,0,0,0.05)";
 
-  // GENEROVANIE OBRÁZKA (Reaguje aj na zmenu témy a režimu)
+  // GENEROVANIE OBRÁZKA
   useEffect(() => {
     if (!isOpen || !mounted) return;
     let isCancelled = false;
@@ -103,7 +95,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      await new Promise((r) => setTimeout(r, 600)); 
+      await new Promise(r => setTimeout(r, 600)); 
 
       if (!cardRef.current || isCancelled) return;
 
@@ -122,7 +114,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           if (!isCancelled) setIsGenerating(false);
         }, "image/png");
       } catch (err) {
-        if (!isCancelled) setIsGenerating(false);
+        if (!isCancelled) {
+          setIsGenerating(false);
+          console.error("html2canvas error:", err);
+        }
       }
     };
 
@@ -134,19 +129,19 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   const handleShare = async () => {
     if (!readyFile) {
-      toast.error(t("share.generatingWarning" as any));
+      toast.error(t("share.generatingWarning"));
       return;
     }
 
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
       try {
         await navigator.share({
-          title: t("share.title" as any),
+          title: t("share.title"),
           files: [readyFile]
         });
         onClose();
       } catch (e: any) {
-        if (e.name !== "AbortError") toast.error(t("share.errorFailed" as any));
+        if (e.name !== "AbortError") toast.error(t("share.errorFailed"));
       }
     } else {
       try {
@@ -158,47 +153,48 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success(t("share.successDownload" as any));
+        toast.success(t("share.successDownload"));
         onClose();
       } catch (e) {
-        toast.error(t("share.errorNotSupported" as any));
+        toast.error(t("share.errorNotSupported"));
       }
     }
   };
 
-  // HELPER PRE VYKRESLENIE METRIKY (Aby bol kód čistejší)
-  const renderMetric = (iconName: string, fallbackEmoji: string, label: string, value: string | number, unit: string) => {
-    const iconUrl = `/icons/${iconName}${iconSuffix}.svg`;
-    
+  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY
+  const renderMetric = (iconName: string, label: string, value: string | number, unit: string) => {
+    const iconUrl = `/icons/${iconName}_green.svg`;
+
     return (
-      <div className={`flex ${displayMode === 'icon' ? 'items-center gap-3' : 'flex-col gap-0.5'}`}>
+      <div className="flex flex-col gap-0.5">
         
-        {/* Hlavička (Ikona a/alebo Text) */}
-        {displayMode !== 'icon' ? (
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold" style={{ color: mutedColor }}>
-            {displayMode === 'both' && (
-              <img src={iconUrl} crossOrigin="anonymous" className="w-3.5 h-3.5 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-            )}
-            <span>{label}</span>
+        {/* TEXTOVÁ HLAVIČKA (Zobrazí sa len v režime text a both) */}
+        {displayMode !== "icon" && (
+          <div 
+            className="text-[11px] uppercase tracking-wider font-semibold mb-0.5" 
+            style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}
+          >
+            {label}
           </div>
-        ) : (
-          <img 
-            src={iconUrl} 
-            crossOrigin="anonymous" 
-            className="w-6 h-6 object-contain shrink-0" 
-            style={{ opacity: theme === 'light' ? 0.7 : 1 }}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${fallbackEmoji}</span>`);
-            }}
-          />
         )}
 
-        {/* Hodnota a Jednotka */}
-        <div className="flex items-baseline gap-1">
-          <span className="text-[24px] sm:text-[26px] font-black leading-none" style={{ color: textColor }}>{value}</span>
-          <span className="text-xs font-bold uppercase" style={{ color: mutedColor }}>{unit}</span>
+        {/* RIADOK S HODNOTOU A IKONOU */}
+        <div className="flex items-center gap-2.5">
+          {/* IKONA JE VŽDY PRED HODNOTOU (Okrem text režimu) */}
+          {displayMode !== "text" && (
+             <img 
+               src={iconUrl} 
+               crossOrigin="anonymous" 
+               className="w-5 h-5 object-contain shrink-0"
+               onError={(e) => { e.currentTarget.style.display = 'none'; }}
+             />
+          )}
+          <div className="flex items-baseline gap-1">
+            <span className="text-[24px] sm:text-[26px] font-black leading-none" style={{ color: textColor }}>{value}</span>
+            <span className="text-[10px] font-bold uppercase" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>{unit}</span>
+          </div>
         </div>
+        
       </div>
     );
   };
@@ -211,10 +207,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         <div className="relative">
           <div 
             ref={cardRef}
-            className="w-full flex flex-col relative overflow-hidden rounded-[20px] shadow-2xl border"
-            style={{ backgroundColor: appColors.backgroundMain, borderColor: appColors.widgetBorder, fontFamily: "sans-serif" }} 
+            className="w-full flex flex-col relative overflow-hidden rounded-[20px] shadow-2xl border transition-colors duration-300"
+            style={{ backgroundColor: cardBg, borderColor: borderColor, fontFamily: "sans-serif" }} 
           >
-            {/* ✅ Horný pásik zmenený na brandPrimary */}
+            {/* ZELENÁ ZÁLOŽKA NA VRCHU */}
             <div className="h-2 w-full shrink-0" style={{ backgroundColor: appColors.brandPrimary }} />
 
             <div className="p-7 relative z-10 flex flex-col h-full">
@@ -223,36 +219,32 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 <h2 className="text-[22px] sm:text-2xl font-black uppercase tracking-wide leading-normal line-clamp-2 pt-1" style={{ color: textColor }}>
                   {title}
                 </h2>
-                <div className="text-[10px] sm:text-xs mt-1.5 uppercase font-bold tracking-widest" style={{ color: mutedColor }}>
+                <div className="text-[10px] sm:text-xs mt-1.5 uppercase font-bold tracking-widest" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>
                   {dateStr} • {t(`common.sports.${sport}` as any) || sport}
                 </div>
               </div>
 
-              {/* Štatistiky vykreslené cez helper */}
+              {/* Mriežka štatistík volaná cez helper */}
               <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-4">
-                
-                {renderMetric("distance", ICONS.distance, t("common.metrics.distance" as any) || "Vzdial.", distVal, distUnit || t("common.units.km"))}
-                
-                {showTime && renderMetric("time", ICONS.time, t("common.metrics.time" as any) || "Čas", timeTxt, "")}
-                
-                {showPace && paceVal && renderMetric("speed", ICONS.pace, t("common.metrics.pace" as any) || "Tempo", paceVal, t("common.units.pace"))}
-                
-                {showElev && elev && elev > 0 && renderMetric("elevation", ICONS.elev, t("common.metrics.elevation" as any) || "Prevýš.", elev, t("common.units.meter"))}
-                
+                {renderMetric("distance", t("common.metrics.distance"), distVal, distUnit || t("common.units.km"))}
+                {showTime && renderMetric("time", t("common.metrics.time"), timeTxt, "")}
+                {showPace && paceVal && renderMetric("speed", t("common.metrics.pace"), paceVal, t("common.units.pace"))}
+                {showElev && elev && elev > 0 && renderMetric("elevation", t("common.metrics.elevation"), elev, t("common.units.meter"))}
                 {showHr && avgHr && avgHr > 0 && (
-                   <div className="col-span-2 mt-2">
-                     {renderMetric("heartRate", ICONS.hr, t("common.metrics.hr_avg" as any) || "Tep", avgHr, t("common.units.hr"))}
+                   <div className="col-span-2 mt-1">
+                     {renderMetric("heartRate", t("common.metrics.hr_avg"), avgHr, t("common.units.hr"))}
                    </div>
                 )}
               </div>
 
-              {/* PÄTIČKA */}
-              <div className="flex justify-center items-center mt-6 pt-5 border-t border-white/10 shrink-0">
+              {/* PÄTIČKA S LOGOM */}
+              <div className="flex justify-center items-center mt-6 pt-5 border-t shrink-0" style={{ borderColor: borderColor }}>
                 <img 
                   src="/logo/actual/selfrace_logo.svg" 
                   alt="SelfRace" 
                   crossOrigin="anonymous"
-                  className="h-10 w-auto object-contain opacity-90"
+                  // Ak je tvoje logo v základe biele, invert() ho pre Light tému spraví čiernym (alebo zmeň na brightness-0 pre čisto čiernu).
+                  className={`h-10 w-auto object-contain opacity-90 ${theme === 'light' ? 'invert opacity-80' : ''}`}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span style="color: ${appColors.brandPrimary}; font-size: 20px; font-weight: 900;">▲ SELFRACE</span>`);
@@ -267,7 +259,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           {isGenerating && (
             <div className="absolute inset-0 bg-black/60 rounded-[20px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
-                 {t("share.generating" as any) || "Generujem..."}
+                 {t("share.generating")}
               </span>
             </div>
           )}
@@ -277,32 +269,32 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         <div className="w-full flex flex-col gap-3">
             <div className="p-4 bg-[#141414] rounded-[20px] border border-white/5 shadow-xl flex flex-col gap-4">
               
-              {/* Prepínače dizajnu (Ukladajú sa do Prefs) */}
+              {/* PREPÍNAČE DIZAJNU */}
               <div className="flex gap-4">
                 <div className="flex-1 flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.theme" as any) || "Téma"}</span>
+                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.theme")}</span>
                   <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                    <button onClick={() => setTheme("light")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "light" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeLight" as any) || "Svetlá"}</button>
-                    <button onClick={() => setTheme("brand")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "brand" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeBrand" as any) || "Značková"}</button>
+                    <button onClick={() => setTheme("dark")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "dark" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeDark")}</button>
+                    <button onClick={() => setTheme("light")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${theme === "light" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.themeLight")}</button>
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col gap-1.5">
-                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.displayMode" as any) || "Zobrazenie"}</span>
+                  <span className="text-[10px] uppercase text-white/50 font-bold">{t("share.displayMode")}</span>
                   <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
-                    <button onClick={() => setDisplayMode("icon")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "icon" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeIcon" as any) || "Ikony"}</button>
-                    <button onClick={() => setDisplayMode("both")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "both" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeBoth" as any) || "Oboje"}</button>
-                    <button onClick={() => setDisplayMode("text")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "text" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeText" as any) || "Text"}</button>
+                    <button onClick={() => setDisplayMode("icon")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "icon" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeIcon")}</button>
+                    <button onClick={() => setDisplayMode("both")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "both" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeBoth")}</button>
+                    <button onClick={() => setDisplayMode("text")} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${displayMode === "text" ? "bg-white/20 text-white" : "text-white/40"}`}>{t("share.modeText")}</button>
                   </div>
                 </div>
               </div>
 
-              {/* Prepínače metrík */}
+              {/* PREPÍNAČE METRÍK */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-3 border-t border-white/5">
-                <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg" as any) || "Tep"} disabled={isGenerating} />
-                <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={t("common.metrics.pace" as any) || "Tempo"} disabled={isGenerating} />
-                <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time" as any) || "Čas"} disabled={isGenerating} />
-                <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation" as any) || "Prevýšenie"} disabled={isGenerating} />
+                <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
+                <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={t("common.metrics.pace")} disabled={isGenerating} />
+                <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
+                <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isGenerating} />
               </div>
             </div>
 
@@ -312,14 +304,14 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 disabled={isGenerating || !readyFile}
                 className="flex-1 py-3.5 bg-white text-black font-bold rounded-[16px] uppercase tracking-wider shadow-lg active:scale-95 transition-transform disabled:opacity-50"
               >
-                {t("share.buttonShare" as any) || "Zdieľať fotku"}
+                {t("share.buttonShare")}
               </button>
 
               <button 
                 onClick={onClose}
                 className="px-6 bg-white/10 text-white font-bold rounded-[16px] uppercase tracking-wider border border-white/5 active:scale-95 transition-transform"
               >
-                {t("common.close" as any) || "Zavrieť"}
+                {t("common.close")}
               </button>
             </div>
         </div>

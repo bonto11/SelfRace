@@ -293,7 +293,7 @@ export const en = {
     buttonShare: "Share photo",
     theme: "Theme",
     themeLight: "Light",
-    themeBrand: "Brand",
+    themeDark: "Dark",
     displayMode: "Display",
     modeIcon: "Icons",
     modeText: "Text",
