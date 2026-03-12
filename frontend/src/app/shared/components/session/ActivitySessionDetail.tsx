@@ -1,4 +1,3 @@
-// src/app/shared/components/session/ActivitySessionDetail.tsx
 "use client";
 
 import { useState, useEffect, type ReactNode, type CSSProperties, useMemo } from "react";
@@ -36,6 +35,9 @@ import type{  ActivityEnrichment } from "@/app/features/activities/types/activit
 import { useT } from "@/app/shared/i18n/useT";
 
 import { apiFetchActivityExtrasCombined } from "@/app/features/activities/api/analytics_activities";
+
+// ✅ Nový import modalu (ktorý vytvoríme v kroku 2)
+import ActivityShareModal from "./ActivityShareModal";
 
 function fmtTime(min: number) {
   if (min < 1) return "<1m";
@@ -154,6 +156,9 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   
   const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  
+  // ✅ State pre Share Modal
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   // Zistíme, či vôbec existujú hrubé dáta (aj keby to boli nuly). 
   // Toto rozhoduje o tom, či schováme tlačidlo "Načítať zo Stravy".
@@ -249,6 +254,23 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   return (
     <div className="pb-4">
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* ✅ Tlačidlo Zdieľať (Primary) */}
+        <Button 
+          type="button" 
+          variant="primary" 
+          size="sm" 
+          onClick={() => setIsShareOpen(true)}
+        >
+          {t("sessions.detail.btnShare" as any) || "Zdieľať"}
+        </Button>
+
+        {/* Správne použitý Button komponent pre Stravu */}
+        {stravaUrl && (
+          <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>
+            {t("sessions.detail.btnStrava")}
+          </Button>
+        )}
+
         {act.onToggleFavorite && (
           <button type="button" onClick={act.onToggleFavorite} className={SESSION_PILL} style={act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE}>
             {act.isFavorite ? `★ ${t("sessions.detail.btnFavoriteUnset")}` : `☆ ${t("sessions.detail.btnFavoriteSet")}`}
@@ -258,18 +280,11 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         {act.onDelete && <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>{t("common.delete")}</button>}
         {onOpenActivity && <button type="button" onClick={() => onOpenActivity(act.activityId)} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("calendar.openActivity")}</button>}
         
-        {/* Správne použitý Button komponent */}
-        {stravaUrl && (
-          <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>
-            {t("sessions.detail.btnStrava")}
-          </Button>
-        )}
-        
-        {/* ✅ Tlačidlo "Načítať podrobné dáta" - ukáže sa LEN ak nemáme HRUBÉ streamy v pamäti */}
+        {/* Tlačidlo "Načítať podrobné dáta" */}
         {initialLoadDone && stravaActivityId && !hasRawStreams && (
           <Button 
             type="button" 
-            variant="primary" 
+            variant="secondary" 
             size="sm" 
             onClick={handleFetchDetailedData} 
             disabled={isFetchingDetailed}
@@ -292,14 +307,12 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       
       {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
 
-      {/* Grafy sa ukážu len ak máme aspoň jeden PLATNÝ (nenulový) stream pre graf */}
       {hasValidStreamsForChart && (
         <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
            <ActivityStreamCharts streams={cleanedStreams} compact={compactChart} sportHint={sportHint} />
         </ActivitySectionShell>
       )}
 
-      {/* Splity sa ukážu len ak existujú */}
       {hasSplits && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
           <ActivitySplitsSection kind={splits} />
@@ -310,6 +323,16 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         <div className="mt-4 p-4 rounded-xl bg-black/20 border border-white/5 text-sm text-white/80 leading-relaxed">
           {safeText(act.notes)}
         </div>
+      )}
+
+      {/* ✅ Modal pre Zdieľanie */}
+      {isShareOpen && (
+        <ActivityShareModal 
+          isOpen={isShareOpen} 
+          onClose={() => setIsShareOpen(false)}
+          activity={act}
+          summary={s} // Posielame aj summary dáta pre štatistiky
+        />
       )}
     </div>
   );
