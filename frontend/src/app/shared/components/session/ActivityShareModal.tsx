@@ -83,7 +83,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
         canvas.toBlob((blob) => {
           if (blob && !isCancelled) {
-            const file = new File([blob], "selfrace-trening.png", { type: "image/png" });
+            const file = new File([blob], "selfrace-training.png", { type: "image/png" });
             setReadyFile(file);
           }
           if (!isCancelled) setIsGenerating(false);
@@ -167,7 +167,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 <div className="flex flex-col">
                   <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
                     <img 
-                      src="/logo/actual/selfrace_icon.svg" 
+                      src="/icons/distance.svg" 
                       crossOrigin="anonymous"
                       className="w-3.5 h-3.5 object-contain opacity-70"
                       onError={(e) => {
@@ -185,7 +185,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
                       <img 
-                        src="/logo/actual/selfrace_icon.svg" 
+                        src="/icons/time.svg" 
                         crossOrigin="anonymous"
                         className="w-3.5 h-3.5 object-contain opacity-70"
                         onError={(e) => {
@@ -204,7 +204,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
                       <img 
-                        src="/logo/actual/selfrace_icon.svg" 
+                        src="/icons/speed.svg" 
                         crossOrigin="anonymous"
                         className="w-3.5 h-3.5 object-contain opacity-70"
                         onError={(e) => {
@@ -223,7 +223,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
                       <img 
-                        src="/logo/actual/selfrace_icon.svg" 
+                        src="/icons/elevation.svg" 
                         crossOrigin="anonymous"
                         className="w-3.5 h-3.5 object-contain opacity-70"
                         onError={(e) => {
@@ -242,7 +242,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   <div className="flex flex-col col-span-2">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
                       <img 
-                        src="/logo/actual/selfrace_icon.svg" 
+                        src="/icons/heartRate.svg" 
                         crossOrigin="anonymous"
                         className="w-3.5 h-3.5 object-contain opacity-70"
                         onError={(e) => {
