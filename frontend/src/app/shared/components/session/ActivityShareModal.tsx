@@ -4,7 +4,6 @@ import { useRef, useState, useEffect } from "react";
 import html2canvas from "html2canvas";
 import Button from "@/app/shared/ui/components/Button";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
-import { toast } from "@/app/shared/ui/components/Toast";
 import ActivityShareCard from "./ActivityShareCard";
 
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
@@ -22,13 +21,13 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      await new Promise(r => setTimeout(r, 600)); // Čakáme kým sa renderne CSS
+      await new Promise(r => setTimeout(r, 600)); 
 
       if (!cardRef.current || isCancelled) return;
 
       try {
         const canvas = await html2canvas(cardRef.current, {
-          scale: 3, // Vysoká kvalita (3x veľkosť pre IG)
+          scale: 3, 
           useCORS: true,
           backgroundColor: "#000000",
         });
@@ -51,30 +50,31 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   if (!isOpen) return null;
 
-  // 🔴 TESTOVACIE TLAČIDLO (Iba text)
+  // 🔴 AGRESÍVNY TEST (Iba text, použité alerty namiesto toastov)
   const handleTestShare = async () => {
-    // navigator.share vyžaduje HTTPS! Ak testuješ cez lokálnu IP, nepôjde to.
-    if (!navigator.share) {
-      toast.error("Tvoj prehliadač alebo zariadenie nepodporuje zdieľanie. (Si na HTTPS?)");
-      return;
-    }
-
     try {
+      if (!navigator.share) {
+        alert("CHYBA: Tvoj prehliadač vôbec nepodporuje Web Share API (navigator.share neexistuje).");
+        return;
+      }
+
       await navigator.share({
         title: "Test SelfRace",
         text: "Ak vidíš túto správu, zdieľanie v PWA funguje perfektne!",
         url: window.location.origin
       });
-      toast.success("Natívne okno otvorené!");
+      // Ak prejde, neukazujeme alert, lebo iOS už ukazuje natívne okno
     } catch (e: any) {
-      if (e.name !== "AbortError") toast.error("Chyba testu: " + e.message);
+      if (e.name !== "AbortError") {
+        alert("TEST ZLYHAL s chybou: " + e.message);
+      }
     }
   };
 
   // 🟢 HLAVNÉ TLAČIDLO (Obrázok)
   const handleShareSync = async () => {
     if (!readyFile) {
-      toast.error("Obrázok ešte nie je pripravený. Skús to o sekundu.");
+      alert("POZOR: Obrázok ešte nie je pripravený. Možno zlyhal html2canvas.");
       return;
     }
 
@@ -86,10 +86,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         });
         onClose();
       } catch (e: any) {
-        if (e.name !== "AbortError") toast.error("Zdieľanie zlyhalo: " + e.message);
+        if (e.name !== "AbortError") alert("Zdieľanie OBRÁZKA zlyhalo: " + e.message);
       }
     } else {
-      // Fallback pre PC/nepodporované
+      alert("Tvoj telefón nevie zdieľať SÚBORY. Skúsim ti ho stiahnuť do mobilu...");
       try {
         const url = URL.createObjectURL(readyFile);
         const a = document.createElement("a");
@@ -99,17 +99,15 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success("Obrázok bol stiahnutý!");
         onClose();
       } catch (dlErr) {
-         toast.error("Nepodarilo sa stiahnuť.");
+         alert("Zlyhalo aj stiahnutie.");
       }
     }
   };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      {/* Pridané max-h-[90vh] a overflow-y-auto aby sa dalo scrollovať ak je mobil malý */}
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl">
         
         <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a] sticky top-0 z-50">
@@ -117,19 +115,16 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
         </div>
 
-        {/* Tlačidlo na overenie API (Žlté) */}
         <div className="p-4 bg-yellow-500/10 border-b border-yellow-500/20">
-          <p className="text-xs text-yellow-500/80 mb-2 text-center">Nefunguje zdieľanie obrázka? Skús toto:</p>
           <Button 
             variant="secondary" 
             className="w-full py-2 bg-yellow-500 text-black font-bold hover:bg-yellow-400 border-none" 
             onClick={handleTestShare}
           >
-            TEST: Zdieľať len text
+            TEST: Zdieľať len text (Klikni najprv na toto)
           </Button>
         </div>
 
-        {/* Náhľad obrázka */}
         <div className="bg-black p-4 flex justify-center items-center relative">
           <ActivityShareCard 
             cardRef={cardRef} 
@@ -144,7 +139,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           )}
         </div>
 
-        {/* Nastavenia a Akcia */}
         <div className="px-5 py-5 bg-[#1a1a1a] flex flex-col gap-5 border-t border-white/10">
           <div className="flex items-center justify-between">
              <span className="text-sm text-white/70 font-medium">Zobraziť srdcový tep (HR)</span>
@@ -155,7 +149,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
             />
           </div>
           
-          {/* Tlačidlo na zdieľanie fotky NIE JE zablokované, aby mohlo hodiť chybový Toast, ak to stlačíš priskoro */}
           <Button 
             variant="primary" 
             className="w-full py-3 text-base font-bold rounded-xl" 
