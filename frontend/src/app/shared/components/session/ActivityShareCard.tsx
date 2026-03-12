@@ -39,50 +39,55 @@ export default function ActivityShareCard({ activity, summary, showHr = true, ca
   return (
     <div 
       ref={cardRef}
-      // Používame aspect-square a w-full, takže to bude vždy dokonalý štvorec podľa šírky mobilu
-      className="w-full aspect-square bg-black text-white p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between border border-white/10 shadow-lg"
-      style={{ fontFamily: "sans-serif" }} 
+      // Pevne definované rozmery, žiadne aspect-square ani scale
+      className="bg-black text-white p-6 relative flex flex-col justify-between"
+      style={{ 
+        width: "360px", 
+        height: "360px",
+        fontFamily: "sans-serif",
+        boxSizing: "border-box"
+      }} 
     >
       <div className="absolute top-0 left-0 right-0 h-3" style={{ backgroundColor: sportColor }} />
 
       <div className="z-10 mt-2">
-        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wide leading-tight line-clamp-2">
+        <h2 className="text-2xl font-black uppercase tracking-wide leading-tight line-clamp-2">
           {title}
         </h2>
-        <div className="text-white/50 text-xs sm:text-sm mt-1 uppercase font-bold tracking-widest">
+        <div className="text-white/50 text-xs mt-1 uppercase font-bold tracking-widest">
           {dateStr} • {sport}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-y-4 gap-x-2 z-10 mt-4">
         <div>
-          <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.distance" as any) || "Vzdialenosť"}</div>
-          <div className="text-2xl sm:text-3xl font-black">{distTxt}</div>
+          <div className="text-[11px] uppercase font-bold opacity-50 mb-1">{t("common.metrics.distance" as any) || "Vzdialenosť"}</div>
+          <div className="text-2xl font-black">{distTxt}</div>
         </div>
 
         <div>
-          <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.time" as any) || "Čas"}</div>
-          <div className="text-2xl sm:text-3xl font-black">{timeTxt}</div>
+          <div className="text-[11px] uppercase font-bold opacity-50 mb-1">{t("common.metrics.time" as any) || "Čas"}</div>
+          <div className="text-2xl font-black">{timeTxt}</div>
         </div>
 
         {pace && (
           <div>
-            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.pace" as any) || "Tempo"}</div>
-            <div className="text-2xl sm:text-3xl font-black">{pace}</div>
+            <div className="text-[11px] uppercase font-bold opacity-50 mb-1">{t("common.metrics.pace" as any) || "Tempo"}</div>
+            <div className="text-2xl font-black">{pace}</div>
           </div>
         )}
 
         {elev && elev > 0 && (
           <div>
-            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev" as any) || "Prevýšenie"}</div>
-            <div className="text-2xl sm:text-3xl font-black">{elev} m</div>
+            <div className="text-[11px] uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev" as any) || "Prevýšenie"}</div>
+            <div className="text-2xl font-black">{elev} m</div>
           </div>
         )}
 
         {showHr && avgHr > 0 && (
           <div className="col-span-2">
-            <div className="text-[10px] sm:text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.hr_avg" as any) || "Priemerný tep"}</div>
-            <div className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <div className="text-[11px] uppercase font-bold opacity-50 mb-1">{t("common.metrics.hr_avg" as any) || "Priemerný tep"}</div>
+            <div className="text-xl font-bold flex items-center gap-2">
                <span className="text-red-500">❤️</span> {avgHr} bpm
             </div>
           </div>
@@ -90,12 +95,12 @@ export default function ActivityShareCard({ activity, summary, showHr = true, ca
       </div>
 
       <div className="z-10 flex justify-between items-end border-t border-white/20 pt-3 mt-2">
-        <div className="text-[10px] sm:text-xs font-bold text-white/40 tracking-wider">Powered by SELFRACE</div>
-        <div className="w-6 h-6 rounded-full" style={{ backgroundColor: sportColor }} />
+        <div className="text-[10px] font-bold text-white/40 tracking-wider">Powered by SELFRACE</div>
+        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: sportColor }} />
       </div>
 
       <div 
-        className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full opacity-10 blur-3xl pointer-events-none"
+        className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full opacity-10 blur-2xl pointer-events-none"
         style={{ backgroundColor: sportColor }}
       />
     </div>
