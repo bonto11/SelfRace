@@ -91,7 +91,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   if (isSpeedSport) {
     speedOrPaceLabel = t("common.metrics.speed");
-    speedOrPaceUnit = t("common.units.km") + "/" + t("common.units.h");
+    speedOrPaceUnit = t("common.units.km") + "/" + t("common.units.hour");
     const avgMps = summary?.average_speed_mps ? parseFloat(summary.average_speed_mps) : null;
     if (avgMps && avgMps > 0) {
       speedOrPaceVal = (avgMps * 3.6).toFixed(1);
