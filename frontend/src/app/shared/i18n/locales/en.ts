@@ -38,6 +38,7 @@ export const en = {
     refreshTitle: "Refresh data",
     edit: "Edit",
     delete: "Delete",
+    share: "Share",
     none: "none",
     set: "set",
     enabled: "Enabled",
