@@ -140,6 +140,7 @@ export const sk = {
       pace: "Tempo",
       power: "Výkon",
       elevation: "Prevýšenie",
+      speed: "Rýchlosť",
     },
     errors: {
       missingUser: "Chýba identifikácia používateľa.",
