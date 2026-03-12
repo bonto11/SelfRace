@@ -18,6 +18,7 @@ const SPORT_COLORS: Record<string, string> = {
   other: appColors.chartOther,
 };
 
+// Fallback ikonky (ak by zlyhalo načítanie SVG)
 const ICONS = {
   distance: "📏",
   time: "⏱️",
@@ -38,7 +39,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const t = useT();
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Zabezpečenie pre React Portal (aby sa renderoval len na klientovi)
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -50,7 +50,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
 
-  // Príprava Dát
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
   const title = summary?.name || activity?.title || (t("sessions.detail.newActivityTitle" as any) || "Nový tréning");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
@@ -62,7 +61,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const pace = formatPaceFromSpeedMps(summary?.average_speed_mps);
   const sportColor = SPORT_COLORS[sport] || SPORT_COLORS.other;
 
-  // Generovanie obrázka na pozadí
   useEffect(() => {
     if (!isOpen || !mounted) return;
     let isCancelled = false;
@@ -71,14 +69,14 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      // Počkáme chvíľu, aby sa bezpečne stiahlo SVG logo a fonty
+      // Čakáme, aby sa SVG ikony stihli stiahnuť zo servera
       await new Promise(r => setTimeout(r, 600)); 
 
       if (!cardRef.current || isCancelled) return;
 
       try {
         const canvas = await html2canvas(cardRef.current, {
-          scale: 3, // Vysoké rozlíšenie
+          scale: 3, 
           useCORS: true,
           backgroundColor: null,
         });
@@ -104,7 +102,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   if (!isOpen || !mounted) return null;
 
-  // Natívne zdieľanie
   const handleShare = async () => {
     if (!readyFile) {
       toast.error("Obrázok sa ešte generuje, sekundu strpenia.");
@@ -122,7 +119,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         if (e.name !== "AbortError") toast.error("Zdieľanie zlyhalo.");
       }
     } else {
-      // Fallback - uloženie
       try {
         const url = URL.createObjectURL(readyFile);
         const a = document.createElement("a");
@@ -140,7 +136,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // ✅ TOTO JE MÁGIA: createPortal vloží celý modal priamo do <body>, takže nikdy nebude useknutý
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       
@@ -167,44 +162,95 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
               </div>
 
               <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-4">
+                
+                {/* VZDIALENOSŤ */}
                 <div className="flex flex-col">
                   <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                    <span className="text-sm">{ICONS.distance}</span> Vzdialenosť
+                    <img 
+                      src="/logo/actual/selfrace_icon.svg" 
+                      crossOrigin="anonymous"
+                      className="w-3.5 h-3.5 object-contain opacity-70"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.distance}</span>`);
+                      }}
+                    />
+                    Vzdialenosť
                   </div>
                   <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{distTxt}</div>
                 </div>
 
+                {/* ČAS */}
                 {showTime && (
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                      <span className="text-sm">{ICONS.time}</span> Čas
+                      <img 
+                        src="/logo/actual/selfrace_icon.svg" 
+                        crossOrigin="anonymous"
+                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.time}</span>`);
+                        }}
+                      />
+                      Čas
                     </div>
                     <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{timeTxt}</div>
                   </div>
                 )}
 
+                {/* TEMPO */}
                 {showPace && pace && (
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                      <span className="text-sm">{ICONS.pace}</span> Tempo
+                      <img 
+                        src="/logo/actual/selfrace_icon.svg" 
+                        crossOrigin="anonymous"
+                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.pace}</span>`);
+                        }}
+                      />
+                      Tempo
                     </div>
                     <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{pace}</div>
                   </div>
                 )}
 
+                {/* PREVÝŠENIE */}
                 {showElev && elev && elev > 0 ? (
                   <div className="flex flex-col">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                      <span className="text-sm">{ICONS.elev}</span> Prevýšenie
+                      <img 
+                        src="/logo/actual/selfrace_icon.svg" 
+                        crossOrigin="anonymous"
+                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.elev}</span>`);
+                        }}
+                      />
+                      Prevýšenie
                     </div>
                     <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{elev} m</div>
                   </div>
                 ) : null}
 
+                {/* TEP */}
                 {showHr && avgHr && avgHr > 0 ? (
                   <div className="flex flex-col col-span-2">
                     <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
-                      <span className="text-sm">{ICONS.hr}</span> Priem. tep
+                      <img 
+                        src="/logo/actual/selfrace_icon.svg" 
+                        crossOrigin="anonymous"
+                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.hr}</span>`);
+                        }}
+                      />
+                      Priem. tep
                     </div>
                     <div className="text-[20px] sm:text-[22px] font-bold text-white leading-none">
                        {avgHr} bpm
@@ -213,13 +259,13 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 ) : null}
               </div>
 
-              {/* ✅ PÄTIČKA - Obrovské logo, odstránený text a bodka */}
+              {/* PÄTIČKA */}
               <div className="flex justify-center items-center mt-6 pt-5 border-t border-white/10 shrink-0">
                 <img 
                   src="/logo/actual/selfrace_logo.svg" 
                   alt="SelfRace" 
                   crossOrigin="anonymous"
-                  className="h-10 w-auto object-contain opacity-90" // Výrazne zväčšené (h-10 namiesto h-5)
+                  className="h-10 w-auto object-contain opacity-90"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span style="color: ${appColors.brandPrimary}; font-size: 20px; font-weight: 900;">▲ SELFRACE</span>`);
@@ -271,6 +317,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
       </div>
     </div>,
-    document.body // ← TOTO JE TEN PORTAL
+    document.body
   );
 }
