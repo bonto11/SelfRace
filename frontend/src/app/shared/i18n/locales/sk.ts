@@ -287,11 +287,18 @@ export const sk = {
   share: {
     generating: "Generujem fotku...",
     generatingWarning: "Obrázok sa ešte generuje, sekundu strpenia.",
-    title: "Môj tréning v aplikácii SelfRace",
+    title: "Môj tréning",
     errorFailed: "Zdieľanie zlyhalo.",
     errorNotSupported: "Zariadenie nepodporuje zdieľanie obrázkov.",
     successDownload: "Obrázok stiahnutý.",
-    buttonShare: "Zdieľať fotku"
+    buttonShare: "Zdieľať fotku",
+    theme: "Téma",
+    themeLight: "Svetlá",
+    themeBrand: "Značková",
+    displayMode: "Zobrazenie",
+    modeIcon: "Ikony",
+    modeText: "Text",
+    modeBoth: "Kombinované"
   },
   prefs: {
     title: "Tréningové preferencie",
