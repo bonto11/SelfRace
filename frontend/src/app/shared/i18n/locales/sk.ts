@@ -139,6 +139,7 @@ export const sk = {
       hr_max: "Max. ST",
       pace: "Tempo",
       power: "Výkon",
+      elevation: "Prevýšenie",
     },
     errors: {
       missingUser: "Chýba identifikácia používateľa.",
@@ -282,6 +283,15 @@ export const sk = {
     logginOff: "Odhlasujem…",
     logoff: "Odhlásiť sa",
     showTutorial: "Zobraziť sprievodcu",
+  },
+  share: {
+    generating: "Generujem fotku...",
+    generatingWarning: "Obrázok sa ešte generuje, sekundu strpenia.",
+    title: "Môj tréning v aplikácii SelfRace",
+    errorFailed: "Zdieľanie zlyhalo.",
+    errorNotSupported: "Zariadenie nepodporuje zdieľanie obrázkov.",
+    successDownload: "Obrázok stiahnutý.",
+    buttonShare: "Zdieľať fotku"
   },
   prefs: {
     title: "Tréningové preferencie",

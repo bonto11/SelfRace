@@ -138,6 +138,7 @@ export const en = {
       hr_max: "Max HR",
       pace: "Pace",
       power: "Power",
+      elevation: "Elevation"
     },
     errors: {
       missingUser: "Missing user identification.",
@@ -281,6 +282,15 @@ export const en = {
     logginOff: "Logging out...",
     logoff: "Log out",
     showTutorial: "Show setup wizard",
+  },
+  share: {
+    generating: "Generating photo...",
+    generatingWarning: "Image is still generating, please wait a second.",
+    title: "My workout in SelfRace app",
+    errorFailed: "Sharing failed.",
+    errorNotSupported: "Device does not support image sharing.",
+    successDownload: "Image downloaded.",
+    buttonShare: "Share photo"
   },
   prefs: {
     title: "Training Preferences",

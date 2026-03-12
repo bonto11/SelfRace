@@ -18,7 +18,7 @@ const SPORT_COLORS: Record<string, string> = {
   other: appColors.chartOther,
 };
 
-// Fallback ikonky (ak by zlyhalo načítanie SVG)
+// Fallback ikonky
 const ICONS = {
   distance: "📏",
   time: "⏱️",
@@ -26,14 +26,6 @@ const ICONS = {
   elev: "⛰️",
   hr: "❤️",
 };
-
-function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
-  if (!speed || speed <= 0) return null;
-  const secPerKm = 1000 / speed;
-  const minutes = Math.floor(secPerKm / 60);
-  const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
-  return `${minutes}:${seconds} /km`;
-}
 
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
   const t = useT();
@@ -51,14 +43,28 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const [readyFile, setReadyFile] = useState<File | null>(null);
 
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
-  const title = summary?.name || activity?.title || (t("sessions.detail.newActivityTitle" as any) || "Nový tréning");
+  const title = summary?.name || activity?.title || (t("share.title"));
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
-  const distTxt = summary ? formatDistance(summary.distance_m ?? null) : activity?.distanceStr ?? "—";
+  // Helper funkcia pre tempo s prekladom jednotky
+  function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
+    if (!speed || speed <= 0) return null;
+    const secPerKm = 1000 / speed;
+    const minutes = Math.floor(secPerKm / 60);
+    const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
+    return `${minutes}:${seconds}`; 
+  }
+
+  // Pre parsovanie vzdialenosti (aby sme oddelili cislo a jednotku)
+  const distStr = summary ? formatDistance(summary.distance_m ?? null) : activity?.distanceStr ?? "—";
+  const distMatch = distStr.match(/^([\d.,]+)\s*(.*)$/);
+  const distVal = distMatch ? distMatch[1] : distStr;
+  const distUnit = distMatch ? distMatch[2] : "";
+
   const timeTxt = summary && summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : activity?.timeStr ?? "—";
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
   const elev = summary?.elevation_gain_m;
-  const pace = formatPaceFromSpeedMps(summary?.average_speed_mps);
+  const paceVal = formatPaceFromSpeedMps(summary?.average_speed_mps);
   const sportColor = SPORT_COLORS[sport] || SPORT_COLORS.other;
 
   useEffect(() => {
@@ -69,7 +75,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      // Čakáme, aby sa SVG ikony stihli stiahnuť zo servera
       await new Promise(r => setTimeout(r, 600)); 
 
       if (!cardRef.current || isCancelled) return;
@@ -104,19 +109,19 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   const handleShare = async () => {
     if (!readyFile) {
-      toast.error("Obrázok sa ešte generuje, sekundu strpenia.");
+      toast.error(t("share.generatingWarning" as any));
       return;
     }
 
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
       try {
         await navigator.share({
-          title: "Môj tréning",
+          title: t("share.title" as any),
           files: [readyFile]
         });
         onClose();
       } catch (e: any) {
-        if (e.name !== "AbortError") toast.error("Zdieľanie zlyhalo.");
+        if (e.name !== "AbortError") toast.error(t("share.errorFailed" as any));
       }
     } else {
       try {
@@ -128,25 +133,24 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success("Obrázok stiahnutý.");
+        toast.success(t("share.successDownload" as any));
         onClose();
       } catch (e) {
-        toast.error("Zariadenie nepodporuje zdieľanie obrázkov.");
+        toast.error(t("share.errorNotSupported" as any));
       }
     }
   };
 
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      
       <div className="w-full max-w-sm flex flex-col gap-4 mt-auto mb-auto">
-
+        
         {/* NÁHĽAD OBRÁZKA (KARTA) */}
         <div className="relative">
           <div 
             ref={cardRef}
             className="w-full flex flex-col relative overflow-hidden rounded-[20px] shadow-2xl border"
-            style={{ backgroundColor: "#0A1A12", borderColor: "rgba(255,255,255,0.08)", fontFamily: "sans-serif" }} 
+            style={{ backgroundColor: appColors.brandPrimary, borderColor: appColors.widgetBorder, fontFamily: "sans-serif" }} 
           >
             <div className="h-2 w-full shrink-0" style={{ backgroundColor: sportColor }} />
 
@@ -157,106 +161,105 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                   {title}
                 </h2>
                 <div className="text-white/50 text-[10px] sm:text-xs mt-1.5 uppercase font-bold tracking-widest">
-                  {dateStr} • {sport}
+                  {dateStr} • {t(`common.sports.${sport}` as any) || sport}
                 </div>
               </div>
 
+              {/* Štatistiky - Iba ikona, hodnota a jednotka */}
               <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-4">
                 
                 {/* VZDIALENOSŤ */}
-                <div className="flex flex-col">
-                  <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                <div className="flex items-center gap-3">
                     <img 
-                      src="/icons/distance.svg" 
+                      src="/icons/distance_green.svg" 
                       crossOrigin="anonymous"
-                      className="w-3.5 h-3.5 object-contain opacity-70"
+                      className="w-6 h-6 object-contain opacity-70 shrink-0"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.distance}</span>`);
+                        e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${ICONS.distance}</span>`);
                       }}
                     />
-                    Vzdialenosť
-                  </div>
-                  <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{distTxt}</div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[24px] sm:text-[26px] font-black text-white leading-none">{distVal}</span>
+                      <span className="text-white/50 text-xs font-bold uppercase">{distUnit || t("common.units.km")}</span>
+                    </div>
                 </div>
 
                 {/* ČAS */}
                 {showTime && (
-                  <div className="flex flex-col">
-                    <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                  <div className="flex items-center gap-3">
                       <img 
-                        src="/icons/time.svg" 
+                        src="/icons/time_green.svg" 
                         crossOrigin="anonymous"
-                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        className="w-6 h-6 object-contain opacity-70 shrink-0"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.time}</span>`);
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${ICONS.time}</span>`);
                         }}
                       />
-                      Čas
-                    </div>
-                    <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{timeTxt}</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[24px] sm:text-[26px] font-black text-white leading-none">{timeTxt}</span>
+                      </div>
                   </div>
                 )}
 
                 {/* TEMPO */}
-                {showPace && pace && (
-                  <div className="flex flex-col">
-                    <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                {showPace && paceVal && (
+                  <div className="flex items-center gap-3">
                       <img 
-                        src="/icons/speed.svg" 
+                        src="/icons/speed_green.svg" 
                         crossOrigin="anonymous"
-                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        className="w-6 h-6 object-contain opacity-70 shrink-0"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.pace}</span>`);
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${ICONS.pace}</span>`);
                         }}
                       />
-                      Tempo
-                    </div>
-                    <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{pace}</div>
+                      <div className="flex items-baseline gap-1">
+                         <span className="text-[24px] sm:text-[26px] font-black text-white leading-none">{paceVal}</span>
+                         <span className="text-white/50 text-xs font-bold uppercase">{t("common.units.pace")}</span>
+                      </div>
                   </div>
                 )}
 
                 {/* PREVÝŠENIE */}
                 {showElev && elev && elev > 0 ? (
-                  <div className="flex flex-col">
-                    <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                  <div className="flex items-center gap-3">
                       <img 
-                        src="/icons/elevation.svg" 
+                        src="/icons/elevation_green.svg" 
                         crossOrigin="anonymous"
-                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        className="w-6 h-6 object-contain opacity-70 shrink-0"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.elev}</span>`);
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${ICONS.elev}</span>`);
                         }}
                       />
-                      Prevýšenie
-                    </div>
-                    <div className="text-[24px] sm:text-[26px] font-black text-white leading-none">{elev} m</div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[24px] sm:text-[26px] font-black text-white leading-none">{elev}</span>
+                        <span className="text-white/50 text-xs font-bold uppercase">{t("common.units.meter")}</span>
+                      </div>
                   </div>
                 ) : null}
 
                 {/* TEP */}
                 {showHr && avgHr && avgHr > 0 ? (
-                  <div className="flex flex-col col-span-2">
-                    <div className="text-white/40 text-[11px] mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                  <div className="flex items-center gap-3 col-span-2 mt-2">
                       <img 
-                        src="/icons/heartRate.svg" 
+                        src="/icons/heartRate_green.svg" 
                         crossOrigin="anonymous"
-                        className="w-3.5 h-3.5 object-contain opacity-70"
+                        className="w-6 h-6 object-contain opacity-70 shrink-0"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-sm">${ICONS.hr}</span>`);
+                          e.currentTarget.parentElement?.insertAdjacentHTML('afterbegin', `<span class="text-xl shrink-0 opacity-70">${ICONS.hr}</span>`);
                         }}
                       />
-                      Priem. tep
-                    </div>
-                    <div className="text-[20px] sm:text-[22px] font-bold text-white leading-none">
-                       {avgHr} bpm
-                    </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-[24px] sm:text-[26px] font-black text-white leading-none">{avgHr}</span>
+                        <span className="text-white/50 text-xs font-bold uppercase">{t("common.units.hr")}</span>
+                      </div>
                   </div>
                 ) : null}
+
               </div>
 
               {/* PÄTIČKA */}
@@ -282,7 +285,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           {isGenerating && (
             <div className="absolute inset-0 bg-black/60 rounded-[20px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
-                Generujem fotku...
+                 {t("share.generating" as any)}
               </span>
             </div>
           )}
@@ -291,10 +294,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         {/* OVLÁDANIE DOLE */}
         <div className="w-full flex flex-col gap-3">
             <div className="p-5 bg-[#141414] rounded-[20px] border border-white/5 shadow-xl grid grid-cols-2 gap-x-4 gap-y-3">
-              <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label="Tep (HR)" disabled={isGenerating} />
-              <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label="Tempo" disabled={isGenerating} />
-              <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label="Čas" disabled={isGenerating} />
-              <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label="Prevýšenie" disabled={isGenerating} />
+              <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
+              <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={t("common.metrics.pace")} disabled={isGenerating} />
+              <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
+              <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation" as any) || "Prevýšenie"} disabled={isGenerating} />
             </div>
 
             <div className="flex gap-2">
@@ -303,14 +306,14 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 disabled={isGenerating || !readyFile}
                 className="flex-1 py-3.5 bg-white text-black font-bold rounded-[16px] uppercase tracking-wider shadow-lg active:scale-95 transition-transform disabled:opacity-50"
               >
-                Zdieľať
+                {t("share.buttonShare" as any)}
               </button>
 
               <button 
                 onClick={onClose}
                 className="px-6 bg-white/10 text-white font-bold rounded-[16px] uppercase tracking-wider border border-white/5 active:scale-95 transition-transform"
               >
-                Zavrieť
+                {t("common.close")}
               </button>
             </div>
         </div>
