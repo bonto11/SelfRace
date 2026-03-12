@@ -11,98 +11,94 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   
   const [showHr, setShowHr] = useState(true);
   const [isGenerating, setIsGenerating] = useState(true);
-  const [readyFile, setReadyFile] = useState<File | null>(null);
+  
+  // Namiesto File ukladáme aj Base64 URL, aby sme mohli obrázok priamo zobraziť
+  const [readyData, setReadyData] = useState<{ url: string, file: File } | null>(null);
+  
+  // Všetky chyby a logy pôjdu priamo do UI, aby sme ich na iPhone videli
+  const [debugMsg, setDebugMsg] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
     let isCancelled = false;
 
-    const generateImageInBackground = async () => {
+    const generateImage = async () => {
       setIsGenerating(true);
-      setReadyFile(null);
+      setReadyData(null);
+      setDebugMsg("Pripravujem plátno...");
 
-      await new Promise(r => setTimeout(r, 600)); 
+      // Dáme DOM-u chvíľu na vyrenderovanie HTML
+      await new Promise(r => setTimeout(r, 400)); 
 
       if (!cardRef.current || isCancelled) return;
 
       try {
+        setDebugMsg("Kreslím obrázok...");
         const canvas = await html2canvas(cardRef.current, {
           scale: 3, 
           useCORS: true,
           backgroundColor: "#000000",
         });
 
+        setDebugMsg("Spracovávam súbor...");
         canvas.toBlob((blob) => {
           if (blob && !isCancelled) {
-            const file = new File([blob], "selfrace-trening.png", { type: "image/png" });
-            setReadyFile(file);
+            const file = new File([blob], "trening.png", { type: "image/png" });
+            const url = canvas.toDataURL("image/png"); // Vytvoríme vizuálnu kópiu
+            setReadyData({ url, file });
+            setDebugMsg(""); // Zmažeme log, všetko je OK
+          } else {
+            if (!isCancelled) setDebugMsg("Chyba: Nepodarilo sa spracovať obrázok.");
           }
           if (!isCancelled) setIsGenerating(false);
         }, "image/png");
+
       } catch (err: any) {
-        if (!isCancelled) setIsGenerating(false);
+        if (!isCancelled) {
+          setDebugMsg("Chyba generovania: " + err.message);
+          setIsGenerating(false);
+        }
       }
     };
 
-    generateImageInBackground();
+    generateImage();
     return () => { isCancelled = true; };
   }, [isOpen, showHr, activity, summary]);
 
   if (!isOpen) return null;
 
-  // 🔴 AGRESÍVNY TEST (Iba text, použité alerty namiesto toastov)
-  const handleTestShare = async () => {
-    try {
-      if (!navigator.share) {
-        alert("CHYBA: Tvoj prehliadač vôbec nepodporuje Web Share API (navigator.share neexistuje).");
-        return;
-      }
+  // HLAVNÁ FUNKCIA (Zdieľanie cez tlačidlo)
+  const handleShare = async () => {
+    if (!readyData) return;
 
-      await navigator.share({
-        title: "Test SelfRace",
-        text: "Ak vidíš túto správu, zdieľanie v PWA funguje perfektne!",
-        url: window.location.origin
-      });
-      // Ak prejde, neukazujeme alert, lebo iOS už ukazuje natívne okno
-    } catch (e: any) {
-      if (e.name !== "AbortError") {
-        alert("TEST ZLYHAL s chybou: " + e.message);
-      }
-    }
-  };
-
-  // 🟢 HLAVNÉ TLAČIDLO (Obrázok)
-  const handleShareSync = async () => {
-    if (!readyFile) {
-      alert("POZOR: Obrázok ešte nie je pripravený. Možno zlyhal html2canvas.");
-      return;
-    }
-
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyData.file] })) {
       try {
+        setDebugMsg("Otváram zdieľanie...");
         await navigator.share({
           title: "Môj tréning",
-          files: [readyFile]
+          files: [readyData.file]
         });
         onClose();
       } catch (e: any) {
-        if (e.name !== "AbortError") alert("Zdieľanie OBRÁZKA zlyhalo: " + e.message);
+        // AbortError = používateľ to manuálne zavrel, to ignorujeme
+        if (e.name !== "AbortError") {
+          setDebugMsg("Zdieľanie zlyhalo: " + e.message);
+        } else {
+          setDebugMsg("");
+        }
       }
     } else {
-      alert("Tvoj telefón nevie zdieľať SÚBORY. Skúsim ti ho stiahnuť do mobilu...");
+      setDebugMsg("Tvoj prehliadač blokuje priame zdieľanie cez tlačidlo. Podrž prst na obrázku!");
+      
+      // Fallback pre PC
       try {
-        const url = URL.createObjectURL(readyFile);
         const a = document.createElement("a");
-        a.href = url;
+        a.href = readyData.url;
         a.download = "selfrace-trening.png";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        onClose();
-      } catch (dlErr) {
-         alert("Zlyhalo aj stiahnutie.");
-      }
+      } catch (e) {}
     }
   };
 
@@ -110,36 +106,62 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl">
         
+        {/* Hlavička */}
         <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a] sticky top-0 z-50">
           <h3 className="font-bold text-white tracking-wide">Zdieľať tréning</h3>
           <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
         </div>
 
-        <div className="p-4 bg-yellow-500/10 border-b border-yellow-500/20">
-          <Button 
-            variant="secondary" 
-            className="w-full py-2 bg-yellow-500 text-black font-bold hover:bg-yellow-400 border-none" 
-            onClick={handleTestShare}
-          >
-            TEST: Zdieľať len text (Klikni najprv na toto)
-          </Button>
-        </div>
+        {/* NÁHĽAD OBRÁZKA */}
+        <div className="bg-black p-4 flex justify-center items-center relative min-h-[300px]">
+          
+          {/* Ak už je obrázok hotový, ukážeme reálny <img> tag (Umožňuje Long-Press na iPhone!) */}
+          {readyData ? (
+            <img 
+              src={readyData.url} 
+              alt="Môj tréning" 
+              className="w-full h-auto aspect-square border border-white/20 shadow-lg rounded-sm touch-auto" 
+            />
+          ) : (
+            /* Ak sa ešte generuje, ukážeme HTML verziu (ktorú html2canvas fotí) */
+            <div className="relative w-full aspect-square">
+              <div className="absolute top-0 left-0 w-[400px] h-[400px] origin-top-left scale-[0.75]">
+                 <ActivityShareCard 
+                   cardRef={cardRef} 
+                   activity={activity} 
+                   summary={summary} 
+                   showHr={showHr} 
+                 />
+              </div>
+            </div>
+          )}
 
-        <div className="bg-black p-4 flex justify-center items-center relative">
-          <ActivityShareCard 
-            cardRef={cardRef} 
-            activity={activity} 
-            summary={summary} 
-            showHr={showHr} 
-          />
           {isGenerating && (
             <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-50">
-              <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">Vytváram obrázok...</span>
+              <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
+                Vytváram obrázok...
+              </span>
             </div>
           )}
         </div>
 
-        <div className="px-5 py-5 bg-[#1a1a1a] flex flex-col gap-5 border-t border-white/10">
+        {/* Nastavenia a Tlačidlo */}
+        <div className="px-5 py-5 bg-[#1a1a1a] flex flex-col gap-4 border-t border-white/10">
+          
+          {/* Zobrazenie chýb priamo do UI */}
+          {debugMsg && (
+            <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded text-center border border-red-500/20">
+              {debugMsg}
+            </div>
+          )}
+
+          {/* Inštrukcia pre iPhone */}
+          {readyData && (
+            <div className="text-[11px] text-white/50 text-center uppercase tracking-wider mb-2">
+              Tip: Ak tlačidlo nefunguje, <strong className="text-white/80">podrž prst na obrázku</strong> pre uloženie.
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
              <span className="text-sm text-white/70 font-medium">Zobraziť srdcový tep (HR)</span>
              <Checkbox 
@@ -152,9 +174,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           <Button 
             variant="primary" 
             className="w-full py-3 text-base font-bold rounded-xl" 
-            onClick={handleShareSync}
+            onClick={handleShare}
+            disabled={isGenerating || !readyData}
           >
-            {isGenerating ? "Čakaj (Generujem)..." : "Zdieľať obrázok"}
+            {isGenerating ? "Generujem..." : "Zdieľať obrázok"}
           </Button>
         </div>
 
