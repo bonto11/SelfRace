@@ -98,7 +98,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   } else {
     speedOrPaceLabel = t("common.metrics.pace");
-    speedOrPaceUnit = t("common.units.min") + "/" + t("common.units.h");
+    speedOrPaceUnit = t("common.units.min") + "/" + t("common.units.km");
     speedOrPaceVal = formatPaceSeconds(summary?.pace_seconds_per_km);
     // Ak by chýbalo pace_seconds_per_km, ale máme rýchlosť, prepočítame
     if (!speedOrPaceVal && summary?.average_speed_mps) {
