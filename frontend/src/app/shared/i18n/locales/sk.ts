@@ -38,6 +38,7 @@ export const sk = {
     refreshTitle: "Obnov dáta",
     edit: "Upraviť",
     delete: "Vymazať",
+    share: "Zdieľať",
     none: "žiadne",
     set: "nastavený",
     enabled: "Zapnuté",
