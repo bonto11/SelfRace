@@ -60,16 +60,52 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
 
   // PRÍPRAVA DÁT
-  const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
+  const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
+  const sport = String(rawSport).toLowerCase();
+  
   const title = summary?.name || activity?.title || t("share.title" as any) || "Tréning";
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
-  function formatPaceFromSpeedMps(speed: number | null | undefined): string | null {
-    if (!speed || speed <= 0) return null;
-    const secPerKm = 1000 / speed;
-    const minutes = Math.floor(secPerKm / 60);
-    const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
-    return `${minutes}:${seconds}`; 
+  // Helper na formátovanie sekúnd do MM:SS (alebo HH:MM:SS ak je to viac ako hodina)
+  function formatPaceSeconds(totalSeconds: number | null | undefined): string | null {
+    if (!totalSeconds || totalSeconds <= 0) return null;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.round(totalSeconds % 60);
+    
+    const sStr = String(s).padStart(2, "0");
+    const mStr = String(m).padStart(2, "0");
+
+    if (h > 0) {
+      return `${h}:${mStr}:${sStr}`;
+    }
+    return `${m}:${sStr}`;
+  }
+
+  // ROZHODOVANIE: Rýchlosť vs Tempo
+  const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "iceskate", "alpineski", "snowboard"].includes(sport);
+  
+  let speedOrPaceVal = null;
+  let speedOrPaceUnit = "";
+  let speedOrPaceLabel = "";
+
+  if (isSpeedSport) {
+    // Bicykel, korčule atď -> Rýchlosť v km/h
+    speedOrPaceLabel = t("common.metrics.speed" as any) || "Rýchlosť";
+    speedOrPaceUnit = t("common.units.speed" as any) || "km/h";
+    
+    // Použijeme average_speed_mps (m/s) a premeníme na km/h (* 3.6)
+    const avgMps = summary?.average_speed_mps ? parseFloat(summary.average_speed_mps) : null;
+    if (avgMps && avgMps > 0) {
+      speedOrPaceVal = (avgMps * 3.6).toFixed(1); // 1 desatinné miesto
+    }
+  } else {
+    // Beh, chôdza, hike atď -> Tempo v min/km
+    speedOrPaceLabel = t("common.metrics.pace" as any) || "Tempo";
+    speedOrPaceUnit = t("common.units.pace" as any) || "/km";
+    
+    // Tu zoberieme tvoj `pace_seconds_per_km` priamo z DB
+    speedOrPaceVal = formatPaceSeconds(summary?.pace_seconds_per_km);
   }
 
   const distStr = summary ? formatDistance(summary.distance_m ?? null) : activity?.distanceStr ?? "—";
@@ -80,7 +116,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const timeTxt = summary && summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : activity?.timeStr ?? "—";
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
   const elev = summary?.elevation_gain_m;
-  const paceVal = formatPaceFromSpeedMps(summary?.average_speed_mps);
 
   // FARBY PODĽA TÉMY
   const isDark = theme === "dark";
@@ -98,7 +133,8 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      await new Promise(r => setTimeout(r, 600)); 
+      // Pevne veríme, že 800ms stačí na stiahnutie .png ikoniek na iOS
+      await new Promise(r => setTimeout(r, 800)); 
 
       if (!cardRef.current || isCancelled) return;
 
@@ -107,7 +143,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           scale: 3, 
           useCORS: true,
           backgroundColor: null,
-          logging: false, // Odporúčam vypnúť pre produkciu
+          logging: false,
         });
 
         canvas.toBlob((blob) => {
@@ -126,7 +162,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
     generateImage();
     return () => { isCancelled = true; };
-  }, [isOpen, mounted, showHr, showPace, showElev, showTime, theme, displayMode, activity, summary]);
+  }, [isOpen, mounted, showHr, showPace, showElev, showTime, theme, displayMode, activity, summary, cardBg]);
 
   if (!isOpen || !mounted) return null;
 
@@ -164,43 +200,59 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (PNG namiesto SVG)
+  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (Pevné CSS, PNG ikony)
   const renderMetric = (iconName: string, label: string, value: string | number, unit: string) => {
-    // Zmena na .png
+    // Všetky ikonky načítava ako PNG
     const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
 
     return (
-      <div className="flex flex-col gap-0.5">
+      <div style={{ marginBottom: "16px", display: "block", clear: "both", minHeight: "40px" }}>
         
-        {/* TEXTOVÁ HLAVIČKA (Zobrazí sa len v režime text a both) */}
+        {/* TEXTOVÁ HLAVIČKA */}
         {displayMode !== "icon" && (
           <div 
-            className="text-[10px] sm:text-[11px] uppercase tracking-wider font-bold mb-0.5" 
-            style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}
+            style={{ 
+              fontSize: "11px", 
+              textTransform: "uppercase", 
+              fontWeight: "bold", 
+              color: textColor, 
+              opacity: isDark ? 0.5 : 0.7,
+              marginBottom: "4px",
+              letterSpacing: "0.05em",
+              display: "block"
+            }}
           >
             {label}
           </div>
         )}
 
         {/* RIADOK S HODNOTOU A IKONOU */}
-        <div className="flex items-center gap-2">
-          {/* IKONA JE VŽDY PRED HODNOTOU (Okrem čisto textového režimu) */}
+        <div style={{ display: "block" }}>
           {displayMode !== "text" && (
              <img 
                src={iconUrl} 
                crossOrigin="anonymous" 
-               className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
+               alt={iconName}
+               style={{
+                 width: "24px",
+                 height: "24px",
+                 objectFit: "contain",
+                 marginRight: "8px",
+                 verticalAlign: "middle",
+                 display: "inline-block"
+               }}
                onError={(e) => { e.currentTarget.style.display = 'none'; }}
              />
           )}
-          <div className="flex items-baseline gap-1">
-            <span className="text-[24px] sm:text-[28px] font-black leading-none" style={{ color: textColor }}>{value}</span>
-            {unit && (
-               <span className="text-[10px] font-bold uppercase" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>{unit}</span>
-            )}
-          </div>
+          <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "middle" }}>
+            {value}
+          </span>
+          {unit && (
+             <span style={{ fontSize: "12px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: isDark ? 0.5 : 0.7, marginLeft: "4px", verticalAlign: "baseline" }}>
+               {unit}
+             </span>
+          )}
         </div>
-        
       </div>
     );
   };
@@ -213,53 +265,72 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         <div className="relative">
           <div 
             ref={cardRef}
-            className="w-full flex flex-col relative overflow-hidden rounded-[20px] shadow-2xl border transition-colors duration-300"
-            style={{ backgroundColor: cardBg, borderColor: borderColor, fontFamily: "sans-serif" }} 
+            className="w-full relative overflow-hidden rounded-[20px] shadow-2xl border transition-colors duration-300"
+            style={{ backgroundColor: cardBg, borderColor: borderColor, fontFamily: "sans-serif", display: "block", boxSizing: "border-box" }} 
           >
             {/* ZELENÁ ZÁLOŽKA NA VRCHU */}
-            <div className="h-2 w-full shrink-0" style={{ backgroundColor: appColors.brandPrimary || "#4ade80" }} />
+            <div style={{ height: "8px", width: "100%", backgroundColor: appColors.brandPrimary || "#4ade80", display: "block" }} />
 
-            <div className="p-7 relative z-10 flex flex-col h-full">
+            <div style={{ padding: "28px", display: "block" }}>
               
-              <div className="mb-6">
-                <h2 className="text-[22px] sm:text-2xl font-black uppercase tracking-wide leading-normal line-clamp-2 pt-1" style={{ color: textColor }}>
+              {/* HLAVIČKA */}
+              <div style={{ marginBottom: "24px", display: "block" }}>
+                <h2 style={{ fontSize: "24px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2 }}>
                   {title}
                 </h2>
-                <div className="text-[10px] sm:text-xs mt-1.5 uppercase font-bold tracking-widest" style={{ color: textColor, opacity: isDark ? 0.5 : 0.7 }}>
+                <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: isDark ? 0.5 : 0.7, marginTop: "6px", letterSpacing: "0.1em" }}>
                   {dateStr} • {t(`common.sports.${sport}` as any) || sport}
                 </div>
               </div>
 
-              {/* Mriežka štatistík volaná cez helper */}
-              <div className="grid grid-cols-2 gap-y-7 gap-x-4 mb-4">
-                {renderMetric("distance", t("common.metrics.distance" as any) || "Vzdialenosť", distVal, distUnit || t("common.units.km" as any) || "km")}
-                {showTime && renderMetric("time", t("common.metrics.time" as any) || "Čas", timeTxt, "")}
-                {showPace && paceVal && renderMetric("speed", t("common.metrics.pace" as any) || "Tempo", paceVal, t("common.units.pace" as any) || "/km")}
-                {showElev && elev && elev > 0 && renderMetric("elevation", t("common.metrics.elevation" as any) || "Prevýšenie", elev, t("common.units.meter" as any) || "m")}
+              {/* ŠTATISTIKY (Plávajúce bloky pre maximálnu kompatibilitu v iOS html2canvas) */}
+              <div style={{ display: "block", overflow: "hidden", marginBottom: "8px", width: "100%" }}>
+                
+                {/* Ľavý stĺpec */}
+                <div style={{ float: "left", width: "50%", boxSizing: "border-box", paddingRight: "8px" }}>
+                  {renderMetric("distance", t("common.metrics.distance" as any) || "Vzdialenosť", distVal, distUnit || t("common.units.km" as any) || "km")}
+                  
+                  {/* Tempo alebo Rýchlosť (zobrazené, ak to nie je vypnuté) */}
+                  {showPace && speedOrPaceVal && renderMetric("speed", speedOrPaceLabel, speedOrPaceVal, speedOrPaceUnit)}
+                </div>
+
+                {/* Pravý stĺpec */}
+                <div style={{ float: "right", width: "50%", boxSizing: "border-box", paddingLeft: "8px" }}>
+                  {showTime && renderMetric("time", t("common.metrics.time" as any) || "Čas", timeTxt, "")}
+                  
+                  {showElev && elev && elev > 0 && renderMetric("elevation", t("common.metrics.elevation" as any) || "Prevýšenie", elev, t("common.units.meter" as any) || "m")}
+                </div>
+
+                {/* Čistý riadok pred Heart Rate */}
+                <div style={{ clear: "both" }}></div>
+
+                {/* Tep na celú šírku dole */}
                 {showHr && avgHr && avgHr > 0 && (
-                   <div className="col-span-2 mt-1">
+                   <div style={{ marginTop: "8px" }}>
                      {renderMetric("heartRate", t("common.metrics.hr_avg" as any) || "Priem. tep", avgHr, t("common.units.hr" as any) || "bpm")}
                    </div>
                 )}
               </div>
 
-              {/* PÄTIČKA S NEMENNÝM LOGOM (Zmena na PNG) */}
-              <div className="flex justify-center items-center mt-6 pt-5 border-t shrink-0" style={{ borderColor: borderColor }}>
-                <img 
-                  src="/logo/actual/selfrace_logo.png" 
-                  alt="SelfRace" 
-                  crossOrigin="anonymous"
-                  className="h-10 w-auto object-contain opacity-90"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }} 
-                />
+              {/* PÄTIČKA */}
+              <div style={{ borderTop: `1px solid ${borderColor}`, paddingTop: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", clear: "both" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <img 
+                    src="/logo/actual/selfrace_logo.png" 
+                    alt="SelfRace" 
+                    crossOrigin="anonymous"
+                    style={{ height: "20px", width: "auto", opacity: 0.9, objectFit: "contain" }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }} 
+                  />
+                </div>
               </div>
 
             </div>
           </div>
 
-          {/* Loading overlay na obrázku */}
+          {/* Loading overlay */}
           {isGenerating && (
             <div className="absolute inset-0 bg-black/60 rounded-[20px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
@@ -273,7 +344,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         <div className="w-full flex flex-col gap-3">
             <div className="p-4 bg-[#141414] rounded-[20px] border border-white/5 shadow-xl flex flex-col gap-4">
               
-              {/* PREPÍNAČE DIZAJNU (Použitý nový SegmentedControl) */}
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.theme" as any) || "Téma"}</span>
@@ -303,16 +373,22 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 </div>
               </div>
 
-              {/* PREPÍNAČE METRÍK */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
                 <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg" as any) || "Priem. tep"} disabled={isGenerating} />
-                <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={t("common.metrics.pace" as any) || "Tempo"} disabled={isGenerating} />
+                
+                {/* Dynamický label pre checkbox */}
+                <Checkbox 
+                  checked={showPace} 
+                  onChange={(e) => setShowPace(e.currentTarget.checked)} 
+                  label={speedOrPaceLabel} 
+                  disabled={isGenerating} 
+                />
+                
                 <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time" as any) || "Čas"} disabled={isGenerating} />
                 <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation" as any) || "Prevýšenie"} disabled={isGenerating} />
               </div>
             </div>
 
-            {/* AKČNÉ TLAČIDLÁ (Použité tvoje natívne Button komponenty) */}
             <div className="flex gap-2">
               <div className="flex-1">
                 <Button 
