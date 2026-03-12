@@ -27,7 +27,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setReadyData(null);
       setDebugMsg("");
 
-      await new Promise(r => setTimeout(r, 400)); 
+      await new Promise(r => setTimeout(r, 300)); 
 
       if (!cardRef.current || isCancelled) return;
 
@@ -35,7 +35,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         const canvas = await html2canvas(cardRef.current, {
           scale: 3, // Pôvodná vysoká kvalita pre IG 
           useCORS: true,
-          backgroundColor: "#000000",
+          backgroundColor: null, // Ponechá priehľadné rohy / farbu z karty
         });
 
         canvas.toBlob((blob) => {
@@ -77,33 +77,36 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         if (e.name !== "AbortError") setDebugMsg("Zdieľanie zrušené/zlyhalo.");
       }
     } else {
-      setDebugMsg("Web Share API nie je dostupné. Podrž prst na obrázku pre uloženie.");
+      setDebugMsg("Zariadenie nepodporuje zdieľanie. Podrž prst na obrázku hore a ulož si ho.");
     }
   };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      {/* Vždy limitujeme šírku a výšku, aby to na malom iPhone nepretieklo */}
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      
+      {/* Zabalíme to do jedného flex stĺpca. Obrázok HORE, Nastavenia DOLE. Bez zbytočných rámikov. */}
+      <div className="w-full max-w-sm flex flex-col items-center max-h-[90vh] overflow-y-auto">
         
-        <div className="px-5 py-4 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a] flex-shrink-0">
-          <h3 className="font-bold text-white tracking-wide">Zdieľať tréning</h3>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
+        {/* Krížik na zatvorenie umiestnený voľne nad kartou */}
+        <div className="w-full max-w-[320px] flex justify-end mb-3">
+           <button onClick={onClose} className="text-white/60 hover:text-white bg-black/40 rounded-full w-8 h-8 flex items-center justify-center text-xl backdrop-blur-sm">
+             &times;
+           </button>
         </div>
 
-        {/* NÁHĽAD OBRÁZKA - Tu sa to dá pekne scrollovať ak treba */}
-        <div className="overflow-y-auto flex-grow bg-black">
-          <div className="p-4 flex justify-center items-center relative">
-            
+        {/* NÁHĽAD OBRÁZKA */}
+        <div className="relative flex justify-center w-full mb-6">
             {readyData ? (
+              // Vykreslíme priamo už hotový obrázok, s ktorým sa užívateľ môže hrať (uložiť podržaním prsta)
               <img 
                 src={readyData.url} 
                 alt="Môj tréning" 
-                className="w-full max-w-[320px] aspect-square border border-white/20 shadow-lg rounded-md" 
+                className="w-full max-w-[320px] rounded-[20px] shadow-2xl" 
                 style={{ WebkitTouchCallout: "default", userSelect: "none" }}
               />
             ) : (
-              <div className="w-full max-w-[320px] aspect-square flex-shrink-0">
+              // Toto sa vykreslí a odfotí iba na chvíľku, potom sa to nahradí IMG tagom vyššie
+              <div className="w-full max-w-[320px]">
                  <ActivityShareCard 
                    cardRef={cardRef} 
                    activity={activity} 
@@ -116,52 +119,53 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
               </div>
             )}
 
+            {/* Spinner prekrytie, kým prebieha fotenie */}
             {isGenerating && (
-              <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+              <div className="absolute inset-0 bg-black/60 rounded-[20px] flex items-center justify-center z-50">
                 <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
                   Vytváram...
                 </span>
               </div>
             )}
-          </div>
-
-          {/* NASTAVENIA */}
-          <div className="px-5 py-4 bg-[#1a1a1a] flex flex-col gap-3">
-            
-            {debugMsg && (
-              <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded text-center border border-red-500/20">
-                {debugMsg}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div className="flex items-center justify-between">
-                 <span className="text-xs text-white/70">Tep (HR)</span>
-                 <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} disabled={isGenerating} />
-              </div>
-              <div className="flex items-center justify-between">
-                 <span className="text-xs text-white/70">Tempo</span>
-                 <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} disabled={isGenerating} />
-              </div>
-              <div className="flex items-center justify-between">
-                 <span className="text-xs text-white/70">Čas</span>
-                 <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} disabled={isGenerating} />
-              </div>
-              <div className="flex items-center justify-between">
-                 <span className="text-xs text-white/70">Prevýšenie</span>
-                 <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} disabled={isGenerating} />
-              </div>
-            </div>
-            
-            <button 
-              className="w-full py-3 mt-2 text-base font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 transition-colors" 
-              onClick={handleShare}
-              disabled={isGenerating || !readyData}
-            >
-              {isGenerating ? "Generujem..." : "Zdieľať na Instagram / Poslať"}
-            </button>
-          </div>
         </div>
+
+        {/* NASTAVENIA & TLAČIDLO (Obalené v nenápadnom boxe pod kartou) */}
+        <div className="w-full max-w-[320px] p-5 bg-[#1a1a1a] rounded-[20px] border border-white/5 flex flex-col gap-3 shadow-xl">
+          
+          {debugMsg && (
+            <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded text-center mb-2">
+              {debugMsg}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-2">
+            <div className="flex items-center justify-between">
+               <span className="text-xs text-white/60">Tep (HR)</span>
+               <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} disabled={isGenerating} />
+            </div>
+            <div className="flex items-center justify-between">
+               <span className="text-xs text-white/60">Tempo</span>
+               <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} disabled={isGenerating} />
+            </div>
+            <div className="flex items-center justify-between">
+               <span className="text-xs text-white/60">Čas</span>
+               <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} disabled={isGenerating} />
+            </div>
+            <div className="flex items-center justify-between">
+               <span className="text-xs text-white/60">Prevýšenie</span>
+               <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} disabled={isGenerating} />
+            </div>
+          </div>
+          
+          <button 
+            className="w-full py-3 mt-1 text-sm font-bold rounded-xl bg-white text-black hover:bg-white/90 disabled:opacity-50 transition-colors uppercase tracking-wide" 
+            onClick={handleShare}
+            disabled={isGenerating || !readyData}
+          >
+            {isGenerating ? "Generujem..." : "Zdieľať na sieťach"}
+          </button>
+        </div>
+
       </div>
     </div>
   );
