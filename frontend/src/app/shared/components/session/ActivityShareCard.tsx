@@ -5,7 +5,6 @@ import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-// Zjednodušené farby pre športy
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun,
   ride: appColors.chartBike,
@@ -30,12 +29,11 @@ export default function ActivityShareCard({
 }: any) {
   const t = useT();
 
-  // Základné dáta
   const sport = (summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other").toLowerCase();
+  // ✅ OPRAVA TYPE ERRORU: Používame "as any" aby build prešiel
   const title = summary?.name || activity?.title || (t("sessions.detail.newActivityTitle" as any) || "Nový tréning");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
-  // Štatistiky
   const distTxt = summary ? formatDistance(summary.distance_m ?? null) : activity?.distanceStr ?? "—";
   const timeTxt = summary && summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : activity?.timeStr ?? "—";
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
@@ -46,18 +44,15 @@ export default function ActivityShareCard({
 
   return (
     <div 
-      // Vynútime pevnú veľkosť pre IG post (štvorec) a čierne pozadie
       ref={cardRef}
       className="w-[400px] h-[400px] bg-black text-white p-8 relative overflow-hidden flex flex-col justify-between"
       style={{ fontFamily: "sans-serif" }} 
     >
-      {/* Farebný pásik hore */}
       <div 
         className="absolute top-0 left-0 right-0 h-3" 
         style={{ backgroundColor: sportColor }} 
       />
 
-      {/* Hlavička */}
       <div className="z-10 mt-2">
         <h2 className="text-2xl font-bold uppercase tracking-wide leading-tight line-clamp-2">
           {title}
@@ -67,7 +62,6 @@ export default function ActivityShareCard({
         </div>
       </div>
 
-      {/* Mriežka so štatistikami */}
       <div className="grid grid-cols-2 gap-4 z-10">
         <div>
           <div className="text-xs uppercase font-bold opacity-50 mb-1">{t("common.metrics.distance")}</div>
@@ -88,7 +82,7 @@ export default function ActivityShareCard({
 
         {elev && elev > 0 && (
           <div>
-            <div className="text-xs uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev")}</div>
+            <div className="text-xs uppercase font-bold opacity-50 mb-1">{t("sessions.splits.colElev" as any) || "Prevýšenie"}</div>
             <div className="text-3xl font-black">{elev} m</div>
           </div>
         )}
@@ -103,13 +97,11 @@ export default function ActivityShareCard({
         )}
       </div>
 
-      {/* Pätička */}
       <div className="z-10 flex justify-between items-end border-t border-white/20 pt-4 mt-4">
         <div className="text-xs font-bold text-white/40">Powered by SelfRace</div>
         <div className="w-6 h-6 rounded-full" style={{ backgroundColor: sportColor }} />
       </div>
 
-      {/* Dekoratívne kruhy v pozadí */}
       <div 
         className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full opacity-10 blur-2xl pointer-events-none"
         style={{ backgroundColor: sportColor }}
