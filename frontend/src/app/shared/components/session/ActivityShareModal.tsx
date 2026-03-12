@@ -91,14 +91,14 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   if (isSpeedSport) {
     speedOrPaceLabel = t("common.metrics.speed");
-    speedOrPaceUnit = t("common.units.speed");
+    speedOrPaceUnit = t("common.units.km") + "/" + t("common.units.h");
     const avgMps = summary?.average_speed_mps ? parseFloat(summary.average_speed_mps) : null;
     if (avgMps && avgMps > 0) {
       speedOrPaceVal = (avgMps * 3.6).toFixed(1);
     }
   } else {
     speedOrPaceLabel = t("common.metrics.pace");
-    speedOrPaceUnit = t("common.units.pace");
+    speedOrPaceUnit = t("common.units.min") + "/" + t("common.units.h");
     speedOrPaceVal = formatPaceSeconds(summary?.pace_seconds_per_km);
     // Ak by chýbalo pace_seconds_per_km, ale máme rýchlosť, prepočítame
     if (!speedOrPaceVal && summary?.average_speed_mps) {
