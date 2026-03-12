@@ -14,7 +14,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
 
-  // Mágia pre iOS: Generujeme obrázok na pozadí hneď pri otvorení alebo zmene nastavení
+  // Mágia pre iOS: Generujeme obrázok na pozadí
   useEffect(() => {
     if (!isOpen) return;
     let isCancelled = false;
@@ -23,43 +23,49 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
       setIsGenerating(true);
       setReadyFile(null);
 
-      // Dáme Reactu 300ms, aby najprv vykreslil HTML zmeny (napr. skrytie tepu)
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500)); // Dáme DOM-u čas na vyrenderovanie
 
       if (!cardRef.current || isCancelled) return;
 
       try {
         const canvas = await html2canvas(cardRef.current, {
-          scale: 3, // Vysoká kvalita
+          scale: 2, // Na test to znížime na 2
           useCORS: true,
           backgroundColor: "#000000",
+          logging: true, // Zapneme interné logy pre html2canvas
         });
 
         canvas.toBlob((blob) => {
           if (blob && !isCancelled) {
-            // Uložíme hotový súbor do state-u
             const file = new File([blob], "trening.png", { type: "image/png" });
             setReadyFile(file);
+            // toast.success("Obrázok pripravený v pozadí!"); // Odkomentuj ak chceš vidieť, že sa to podarilo
+          } else {
+            if (!isCancelled) toast.error("Blob z canvasu bol prázdny.");
           }
           if (!isCancelled) setIsGenerating(false);
         }, "image/png");
-      } catch (err) {
-        console.error("Generovanie zlyhalo:", err);
-        if (!isCancelled) setIsGenerating(false);
+      } catch (err: any) {
+        if (!isCancelled) {
+          toast.error("Chyba html2canvas: " + (err.message || "Neznáma chyba"));
+          setIsGenerating(false);
+        }
       }
     };
 
     generateImageInBackground();
 
-    // Cleanup funkcia pre prípad, že užívateľ rýchlo prepína nastavenia
     return () => { isCancelled = true; };
   }, [isOpen, showHr, activity, summary]);
 
   if (!isOpen) return null;
 
-  // Samotné zdieľanie je teraz OKAMŽITÉ (synchrónne), čo Safari miluje
+  // HLAVNÁ FUNKCIA (Fotka)
   const handleShareSync = async () => {
-    if (!readyFile) return;
+    if (!readyFile) {
+      toast.error("Obrázok ešte nie je pripravený alebo zlyhal.");
+      return;
+    }
 
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
       try {
@@ -70,30 +76,33 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         onClose();
       } catch (e: any) {
         if (e.name !== "AbortError") {
-          toast.error("Zdieľanie zrušené alebo zlyhalo.");
+          toast.error("Zdieľanie zlyhalo: " + e.message);
         }
       }
     } else {
-      // Fallback: PC alebo nepodporované zariadenia
+      toast.error("Tento prehliadač nepodporuje zdieľanie SÚBOROV.");
+    }
+  };
+
+  // ✅ TESTOVACIA FUNKCIA (Len čistý text, aby sme overili API)
+  const handleTestShare = async () => {
+    if (navigator.share) {
       try {
-        const url = URL.createObjectURL(readyFile);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "trening.png";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success("Obrázok bol stiahnutý do zariadenia.");
-        onClose();
-      } catch (dlErr) {
-         toast.error("Nepodarilo sa stiahnuť obrázok.");
+        await navigator.share({
+          title: "Test PWA",
+          text: "Toto je test, či funguje natívne okno na iOS!",
+          url: "https://selfrace.app"
+        });
+        toast.success("Natívne okno úspešne otvorené!");
+      } catch (e: any) {
+        if (e.name !== "AbortError") toast.error("Test zlyhal: " + e.message);
       }
+    } else {
+      toast.error("Tvoj prehliadač vôbec nepodporuje Web Share API.");
     }
   };
 
   return (
-    // ✅ Oprava Z-indexu: 99999 prekryje aj spodnú navigačnú lištu
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-[#111] border border-white/10 rounded-3xl w-full max-w-sm flex flex-col shadow-2xl overflow-hidden">
         
@@ -114,7 +123,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
             </div>
           </div>
           
-          {/* Vizuálna odozva pri generovaní */}
           {isGenerating && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse text-sm tracking-wider uppercase">Pripravujem obrázok...</span>
@@ -122,8 +130,8 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           )}
         </div>
 
-        <div className="px-5 py-5 bg-[#1a1a1a] flex flex-col gap-5 border-t border-white/10">
-          <div className="flex items-center justify-between">
+        <div className="px-5 py-5 bg-[#1a1a1a] flex flex-col gap-3 border-t border-white/10">
+          <div className="flex items-center justify-between mb-2">
              <span className="text-sm text-white/70 font-medium">Zobraziť srdcový tep (HR)</span>
              <Checkbox 
               checked={showHr} 
@@ -136,12 +144,21 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
             variant="primary" 
             className="w-full py-3 text-base font-bold rounded-xl" 
             onClick={handleShareSync}
-            disabled={isGenerating || !readyFile} // Tlačidlo čaká, kým nie je súbor pripravený v pozadí
+            disabled={isGenerating || !readyFile}
           >
-            {isGenerating ? "Čakajte..." : "Zdieľať tréning"}
+            {isGenerating ? "Čakajte..." : "Zdieľať obrázok"}
           </Button>
-        </div>
 
+          {/* ✅ TESTOVACIE TLAČIDLO */}
+          <Button 
+            variant="ghost" 
+            className="w-full py-2 text-xs opacity-50 border border-white/10" 
+            onClick={handleTestShare}
+          >
+            TEST: Iba otvoriť zdieľacie okno (Text)
+          </Button>
+
+        </div>
       </div>
     </div>
   );
