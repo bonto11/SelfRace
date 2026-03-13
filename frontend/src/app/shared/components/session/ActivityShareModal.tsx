@@ -12,7 +12,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku so striktným zarovnaním Labelu a Hodnoty
+// Vylepšený komponent pre metriku so striktným zarovnaním
 function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, textColor, isDark, centered = false }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
   const [iconErr, setIconErr] = useState(false);
@@ -23,16 +23,15 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
 
   return (
     <div style={{ 
-      marginBottom: "20px", 
+      marginBottom: "24px", // Jemne väčší margin pre lepšie dýchanie
       display: "flex", 
-      // Zarovnanie celého bloku (vľavo alebo na stred pre nepárny element)
       justifyContent: centered ? "center" : "flex-start",
       width: "100%" 
     }}>
       
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         
-        {/* IKONA (vycentrovaná vertikálne oproti celému textovému bloku) */}
+        {/* IKONA */}
         {displayMode !== "text" && !iconErr && (
            <img 
              src={iconUrl} 
@@ -42,7 +41,7 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
            />
         )}
 
-        {/* TEXTOVÝ BLOK (Label a Hodnota pekne lícujú na ľavej strane) */}
+        {/* TEXTOVÝ BLOK (Label a Hodnota lícujú vľavo) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center" }}>
           
           {displayMode !== "icon" && (
@@ -61,11 +60,17 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
           )}
 
           <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-            <span style={{ fontSize: "26px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
+            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
               {value}
             </span>
             {unit && (
-               <span style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: 0.5 }}>
+               <span style={{ 
+                 fontSize: "12px", // Zväčšené z 10 na 12 pre lepšiu čitateľnosť, 
+                 fontWeight: "bold", 
+                 // ODSTRÁNENÉ textTransform: "uppercase",
+                 color: textColor, 
+                 opacity: 0.5 
+               }}>
                  {unit}
                </span>
             )}
@@ -129,6 +134,20 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
   }
 
+  // Prepracované formátovanie času (namiesto xh ym zs vrátime klasický formát MM:SS alebo HH:MM:SS)
+  function getRawTime(seconds: number | null | undefined) {
+      if (!seconds || seconds <= 0) return "—";
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.round(seconds % 60);
+      
+      const sStr = String(s).padStart(2, "0");
+      const mStr = String(m).padStart(2, "0");
+
+      if (h > 0) return `${h}:${mStr}:${sStr}`;
+      return `${m}:${sStr}`;
+  }
+
   const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "skate", "iceskate", "alpineski", "snowboard"].includes(sport);
   let speedOrPaceVal = isSpeedSport ? (summary?.average_speed_mps ? (parseFloat(summary.average_speed_mps) * 3.6).toFixed(1) : null) : formatPaceSeconds(summary?.pace_seconds_per_km);
   const speedOrPaceLabel = isSpeedSport ? t("common.metrics.speed") : t("common.metrics.pace");
@@ -138,7 +157,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const distMatch = distStr.match(/^([\d.,]+)\s*(.*)$/);
   const distVal = distMatch ? distMatch[1] : distStr;
   const distUnit = distMatch ? distMatch[2] : "";
-  const timeTxt = summary && summary.moving_time_s != null ? fmtSecondsHMS(summary.moving_time_s) : activity?.timeStr ?? "—";
+  
+  // Upravený čas (iba čísla)
+  const rawTimeVal = summary && summary.moving_time_s != null ? getRawTime(summary.moving_time_s) : activity?.timeStr ?? "—";
+  
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
   const elev = summary?.elevation_gain_m;
 
@@ -192,8 +214,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   );
 
   if (showTime) {
+    // Čas už neposielame s jednotkou vnútri `value`, ale bez jednotky (iba 0:10:31)
     activeMetrics.push(
-      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={timeTxt} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={rawTimeVal} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
     );
   }
 
@@ -244,8 +267,8 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                         display: "flex", 
                         justifyContent: isOddLast ? "center" : "flex-start",
                         boxSizing: "border-box",
-                        paddingRight: (!isOddLast && index % 2 === 0) ? "8px" : "0",
-                        paddingLeft: (!isOddLast && index % 2 !== 0) ? "8px" : "0",
+                        paddingRight: (!isOddLast && index % 2 === 0) ? "12px" : "0", // Zväčšený vnútorný padding
+                        paddingLeft: (!isOddLast && index % 2 !== 0) ? "12px" : "0",
                       }}>
                          {React.cloneElement(item, { centered: isOddLast })}
                       </div>
