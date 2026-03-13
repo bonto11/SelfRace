@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku so zjednodušeným flexboxom
+// Komponent pre metriku s presným zarovnaním a oddeleným nadpisom
 function MetricItem({
   iconName,
   label,
@@ -36,12 +36,11 @@ function MetricItem({
         marginBottom: "24px",
         display: "flex",
         flexDirection: "column",
-        justifyContent: centered ? "center" : "flex-start",
-        width: "100%",
         alignItems: centered ? "center" : "flex-start",
+        width: "100%",
       }}
     >
-      {/* Nadpis (Label) nad celým blokom */}
+      {/* 1. NADPIS (Label) - Vyňatý von, aby neovplyvňoval centrovanie ikony */}
       {displayMode !== "icon" && (
         <div
           style={{
@@ -53,22 +52,18 @@ function MetricItem({
             marginBottom: "4px",
             letterSpacing: "0.1em",
             lineHeight: 1,
-            marginLeft: displayMode !== "text" && !centered ? "40px" : "0px", // Odsadenie podľa šírky ikony + medzera
+            // Odsadenie presne o šírku ikony (30px) + medzeru (10px), aby lícoval s číslom
+            marginLeft: displayMode !== "text" && !centered ? "40px" : "0px", 
           }}
         >
           {label}
         </div>
       )}
 
-      {/* Riadok s Ikonou a Hodnotou (vycentrované na spodok) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end", // Zarovnanie na spodnú hranu
-          gap: "10px",
-        }}
-      >
-        {/* IKONA */}
+      {/* 2. RIADOK S IKONOU A HODNOTOU */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        
+        {/* Ikona */}
         {displayMode !== "text" && !iconErr && (
           <img
             src={iconUrl}
@@ -83,25 +78,31 @@ function MetricItem({
           />
         )}
 
-        {/* HODNOTA A JEDNOTKA */}
+        {/* Hodnota a Jednotka */}
         <div
           style={{
             display: "flex",
-            alignItems: "flex-end", // Zarovnanie hodnoty a jednotky na spodnú hranu
+            alignItems: "baseline",
+            gap: "4px",
             lineHeight: 1,
-            paddingBottom: "2px", // Jemné doladenie kvôli výške písma
           }}
         >
-          <span
-            style={{
-              fontSize: "28px",
-              fontWeight: 900,
-              color: textColor,
-              lineHeight: "28px", // Pevný riadok
-            }}
-          >
-            {value}
-          </span>
+          {/* Ošetrenie: Ak je hodnota priamo string/číslo, dáme veľký font. Ak je to už naformátované HTML (ako náš Čas), len to vložíme. */}
+          {typeof value === "string" || typeof value === "number" ? (
+             <span
+               style={{
+                 fontSize: "28px",
+                 fontWeight: 900,
+                 color: textColor,
+                 lineHeight: 1,
+               }}
+             >
+               {value}
+             </span>
+          ) : (
+             value
+          )}
+          
           {unit && (
             <span
               style={{
@@ -109,8 +110,7 @@ function MetricItem({
                 fontWeight: "bold",
                 color: textColor,
                 opacity: 0.5,
-                marginLeft: "4px",
-                lineHeight: "16px", // Pevný riadok pre jednotku
+                // ODSTRÁNENÝ textTransform: uppercase, riadi sa to katalógom!
               }}
             >
               {unit}
@@ -201,16 +201,17 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Funkcia na vyrenderovanie času s malými jednotkami
+  // Ošetrený ČAS so správne malými jednotkami pre "h", "m" a "s"
   function renderTimeValue(
     seconds: number | null | undefined,
     textColor: string,
   ) {
-    if (!seconds || seconds <= 0) return "—";
+    if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>—</span>;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.round(seconds % 60);
 
+    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 };
     const unitStyle = {
       fontSize: "12px",
       fontWeight: "bold",
@@ -218,26 +219,21 @@ export default function ActivityShareModal({
       opacity: 0.5,
       marginLeft: "2px",
       marginRight: "6px",
-      lineHeight: "16px", // Pevný riadok pre jednotku
     };
 
     if (h > 0) {
       return (
-        <span style={{ display: "flex", alignItems: "flex-end" }}>
-          {h}
-          <span style={unitStyle}>h</span>
-          {m}
-          <span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </span>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
+          <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
+          <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
+        </div>
       );
     }
     return (
-      <span style={{ display: "flex", alignItems: "flex-end" }}>
-        {m}
-        <span style={unitStyle}>m</span>
-        {s}
-        <span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </span>
+      <div style={{ display: "flex", alignItems: "baseline" }}>
+        <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
+        <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
+      </div>
     );
   }
 
@@ -252,6 +248,7 @@ export default function ActivityShareModal({
     "alpineski",
     "snowboard",
   ].includes(sport);
+  
   let speedOrPaceVal = isSpeedSport
     ? summary?.average_speed_mps
       ? (parseFloat(summary.average_speed_mps) * 3.6).toFixed(1)
@@ -427,7 +424,6 @@ export default function ActivityShareModal({
     );
   }
 
-  // TEP vložený rovnako kaskádovito
   if (showHr && avgHr && avgHr > 0) {
     activeMetrics.push(
       <MetricItem
