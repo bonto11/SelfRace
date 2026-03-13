@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import { useT } from "@/app/shared/i18n/useT";
@@ -12,7 +12,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku - teraz upravený pre lepšie centrovanie
+// Komponent pre metriku so striktným zarovnaním Labelu a Hodnoty
 function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, textColor, isDark, centered = false }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
   const [iconErr, setIconErr] = useState(false);
@@ -25,44 +25,55 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
     <div style={{ 
       marginBottom: "20px", 
       display: "flex", 
-      flexDirection: "column", 
-      alignItems: centered ? "center" : "flex-start",
-      textAlign: centered ? "center" : "left" 
+      // Zarovnanie celého bloku (vľavo alebo na stred pre nepárny element)
+      justifyContent: centered ? "center" : "flex-start",
+      width: "100%" 
     }}>
-      {displayMode !== "icon" && (
-        <div style={{ 
-          fontSize: "10px", 
-          textTransform: "uppercase", 
-          fontWeight: "bold", 
-          color: textColor, 
-          opacity: isDark ? 0.4 : 0.6,
-          marginBottom: "4px",
-          letterSpacing: "0.1em"
-        }}>
-          {label}
-        </div>
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        
+        {/* IKONA (vycentrovaná vertikálne oproti celému textovému bloku) */}
         {displayMode !== "text" && !iconErr && (
            <img 
              src={iconUrl} 
              crossOrigin="anonymous" 
-             style={{ width: "20px", height: "20px", objectFit: "contain" }}
+             style={{ width: "30px", height: "30px", objectFit: "contain", flexShrink: 0 }}
              onError={() => setIconErr(true)}
            />
         )}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-          <span style={{ fontSize: "26px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
-            {value}
-          </span>
-          {unit && (
-             <span style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: 0.5 }}>
-               {unit}
-             </span>
+
+        {/* TEXTOVÝ BLOK (Label a Hodnota pekne lícujú na ľavej strane) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center" }}>
+          
+          {displayMode !== "icon" && (
+            <div style={{ 
+              fontSize: "10px", 
+              textTransform: "uppercase", 
+              fontWeight: "bold", 
+              color: textColor, 
+              opacity: isDark ? 0.4 : 0.6,
+              marginBottom: "2px",
+              letterSpacing: "0.1em",
+              lineHeight: 1
+            }}>
+              {label}
+            </div>
           )}
+
+          <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+            <span style={{ fontSize: "26px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
+              {value}
+            </span>
+            {unit && (
+               <span style={{ fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: 0.5 }}>
+                 {unit}
+               </span>
+            )}
+          </div>
+
         </div>
       </div>
+      
     </div>
   );
 }
@@ -134,9 +145,8 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const isDark = theme === "dark";
   const cardBg = isDark ? appColors.brandDark : appColors.brandLight;
   const textColor = isDark ? appColors.brandLight : appColors.brandDark;
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
   const iconSuffix = isDark ? "" : "_darkGreen";
-  const logoSuffix = isDark ? "" : "_darkGreen";
+  const logoSuffix = isDark ? "" : "_black";
 
   useEffect(() => { setLogoError(false); }, [logoSuffix]);
 
@@ -174,12 +184,40 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
+  // Dynamická príprava aktívnych metrík
+  const activeMetrics = [];
+  
+  activeMetrics.push(
+    <MetricItem key="dist" iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+  );
+
+  if (showTime) {
+    activeMetrics.push(
+      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={timeTxt} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+    );
+  }
+
+  if (showPace && speedOrPaceVal) {
+    activeMetrics.push(
+      <MetricItem key="pace" iconName="speed" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+    );
+  }
+
+  if (showElev && elev && elev > 0) {
+    activeMetrics.push(
+       <MetricItem key="elev" iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       <div className="w-full max-w-sm flex flex-col gap-4 mt-auto mb-auto pt-6 pb-6">
         <div className="relative">
-          <div ref={cardRef} className="w-full relative overflow-hidden rounded-[24px] shadow-2xl border transition-colors duration-300" style={{ backgroundColor: cardBg, borderColor, fontFamily: "sans-serif" }}>
+          <div ref={cardRef} className="w-full relative overflow-hidden rounded-[24px] shadow-2xl border border-white/5 transition-colors duration-300" style={{ backgroundColor: cardBg, fontFamily: "sans-serif" }}>
+            
+            {/* Horný zelený pruh */}
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
+            
             <div style={{ padding: "32px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
               {/* LOGO NA STRED HORE */}
@@ -189,30 +227,45 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 )}
               </div>
 
+              {/* TITULOK */}
               <div style={{ textAlign: "center", marginBottom: "32px" }}>
                 <h2 style={{ fontSize: "22px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2, letterSpacing: "0.02em" }}>{title}</h2>
                 <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>{dateStr} • {t(`common.sports.${sport}` as any)}</div>
               </div>
 
-              <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                <MetricItem iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered />
-                {showTime && <MetricItem iconName="time" label={t("common.metrics.time")} value={timeTxt} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered />}
-                {showPace && speedOrPaceVal && <MetricItem iconName="speed" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered />}
-                {showElev && elev && elev > 0 && <MetricItem iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered />}
+              {/* METRIKY v Grid Mape - Zarovnané doľava */}
+              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "10px" }}>
+                 {activeMetrics.map((item, index) => {
+                    const isOddLast = (activeMetrics.length % 2 !== 0) && (index === activeMetrics.length - 1);
+                    
+                    return (
+                      <div key={item.key} style={{ 
+                        width: isOddLast ? "100%" : "50%", 
+                        display: "flex", 
+                        justifyContent: isOddLast ? "center" : "flex-start",
+                        boxSizing: "border-box",
+                        paddingRight: (!isOddLast && index % 2 === 0) ? "8px" : "0",
+                        paddingLeft: (!isOddLast && index % 2 !== 0) ? "8px" : "0",
+                      }}>
+                         {React.cloneElement(item, { centered: isOddLast })}
+                      </div>
+                    );
+                 })}
               </div>
 
+              {/* TEP (Na stred, bez oddeľovacej čiary) */}
               {showHr && avgHr && avgHr > 0 && (
-                <div style={{ width: "100%", borderTop: `1px solid ${borderColor}`, paddingTop: "20px", marginTop: "10px" }}>
-                  <MetricItem iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered />
+                <div style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: "0px" }}>
+                  <MetricItem iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={true} />
                 </div>
               )}
 
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "0.3em", color: textColor, opacity: 0.3, marginTop: "20px", textTransform: "uppercase" }}>Powered by SelfRace</div>
             </div>
           </div>
           {isGenerating && <div className="absolute inset-0 bg-black/60 rounded-[24px] flex items-center justify-center z-50"><span className="text-white font-bold animate-pulse uppercase tracking-widest text-xs">{t("share.generating")}</span></div>}
         </div>
 
+        {/* OVLÁDANIE DOLE */}
         <div className="w-full flex flex-col gap-3">
           <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
             <div className="flex flex-col gap-3">
