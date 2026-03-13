@@ -1,4 +1,3 @@
-// src/app/features/auth/components/SignInForm.tsx
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -31,9 +30,40 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function SignInForm() {
   const t = useT();
   const router = useRouter();
-  
-  // ✅ 1. OPRAVA: Memoizácia klienta. 
-  // Zabraňuje vytváraniu novej Supabase inštancie pri každom stlačení klávesy v emaile.
+
+  // ✅ 1. NATVRDÉ PREČISTENIE PRED INICIALIZÁCIOU
+  // Spustí sa iba raz pri načítaní komponentu na klientovi.
+  // Nájdeme všetky kľúče v localStorage, ktoré obsahujú 'supabase', 'auth' alebo tvoje vlastné,
+  // a odstránime ich. Týmto zabránime cykleniu tokenov, kedy si klient myslí, že je prihlásený.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key.includes("supabase") ||
+             key.includes("auth") ||
+             key === "selfrace_numeric_id")
+          ) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        keysToRemove.forEach((key) => {
+          window.localStorage.removeItem(key);
+        });
+        
+        console.log("Zvyšky predchádzajúcich session (Supabase/SelfRace) boli úspešne vymazané, aby sa zabránilo cykleniu.");
+      } catch (e) {
+        console.error("Nepodarilo sa vyčistiť localStorage:", e);
+      }
+    }
+  }, []);
+
+  // Inicializácia klienta po prečistení. Vzhľadom k tomu, že getSupabaseBrowser
+  // interne pozerá do cookies/storage, malo by už nájsť "čistý stôl".
   const sb = useMemo(() => getSupabaseBrowser(), []);
 
   const [email, setEmail] = useState("");
@@ -43,23 +73,6 @@ export default function SignInForm() {
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
-
-  // ✅ 2. OPRAVA: Záchranná brzda (Self-healing).
-  // Hneď ako sa načíta Login screen, vymažeme staré pokazené tokeny z mobilu.
-  // Zastaví to akékoľvek cyklenie Supabase refreshov v pozadí.
-  useEffect(() => {
-    const nukeDeadSession = async () => {
-      try {
-        await sb.auth.signOut(); // Toto interne vyčistí Supabase LocalStorage
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("selfrace_numeric_id");
-        }
-      } catch (e) {
-        // Chyby pri odhlasovaní ignorujeme, dôležité je len zmazanie storage-u
-      }
-    };
-    nukeDeadSession();
-  }, [sb]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
