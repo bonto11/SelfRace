@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Úplne prepracovaný MetricItem - využíva "Table" layout pre 100% zhodu na iOS
+// Komponent pre metriku prepracovaný na natívny HTML TABLE (najbezpečnejší layout pre html2canvas)
 function MetricItem({
   iconName,
   label,
@@ -41,7 +41,7 @@ function MetricItem({
         textAlign: centered ? "center" : "left",
       }}
     >
-      {/* 1. NADPIS (Label) - Úplne oddelený */}
+      {/* NADPIS (Label) */}
       {showLabel && (
         <div
           style={{
@@ -52,60 +52,79 @@ function MetricItem({
             opacity: isDark ? 0.4 : 0.6,
             marginBottom: "4px",
             letterSpacing: "0.1em",
-            // Odsadenie: šírka ikony(28px) + medzera(8px) = 36px (lícovanie s textom)
-            paddingLeft: showIcon && !centered ? "36px" : "0px",
+            // Odsadenie: šírka ikony(30px) + padding bunky(10px) = 40px
+            paddingLeft: showIcon && !centered ? "40px" : "0px",
           }}
         >
           {label}
         </div>
       )}
 
-      {/* 2. RIADOK: IKONA + HODNOTA (Starý dobrý Table Layout - iOS ho nevie rozbiť) */}
-      <div style={{ display: "inline-table", margin: centered ? "0 auto" : "0" }}>
-        
-        {/* Bunka pre ikonu */}
-        {showIcon && (
-          <div style={{ display: "table-cell", verticalAlign: "bottom", paddingRight: "8px", paddingBottom: "2px" }}>
-            <img
-              src={iconUrl}
-              crossOrigin="anonymous"
-              style={{
-                width: "28px",
-                height: "28px",
-                display: "block",
-              }}
-              onError={() => setIconErr(true)}
-            />
-          </div>
-        )}
+      {/* OUT OF THE BOX RIEŠENIE: Natívna HTML Tabuľka */}
+      <table 
+        cellPadding={0} 
+        cellSpacing={0} 
+        style={{ 
+          margin: centered ? "0 auto" : "0", 
+          borderCollapse: "collapse", 
+          border: "none",
+          background: "transparent"
+        }}
+      >
+        <tbody>
+          <tr>
+            {/* Bunka pre ikonu */}
+            {showIcon && (
+              <td style={{ 
+                verticalAlign: "bottom", 
+                paddingRight: "10px", 
+                paddingBottom: "4px" // Ochrana proti orezaniu zospodu
+              }}>
+                <img
+                  src={iconUrl}
+                  crossOrigin="anonymous"
+                  style={{
+                    width: "30px",
+                    height: "30px",
+                    display: "block",
+                  }}
+                  onError={() => setIconErr(true)}
+                />
+              </td>
+            )}
 
-        {/* Bunka pre Hodnotu a Jednotku */}
-        <div style={{ display: "table-cell", verticalAlign: "bottom", paddingBottom: "2px" }}>
-          <span style={{ whiteSpace: "nowrap" }}>
-            {typeof value === "string" || typeof value === "number" ? (
-              <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
-                {value}
-              </span>
-            ) : (
-              value 
-            )}
-            
-            {unit && (
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: "bold",
-                  color: textColor,
-                  opacity: 0.5,
-                  marginLeft: "4px",
-                }}
-              >
-                {unit}
-              </span>
-            )}
-          </span>
-        </div>
-      </div>
+            {/* Bunka pre Hodnotu a Jednotku */}
+            <td style={{ 
+              verticalAlign: "bottom", 
+              paddingBottom: "4px" // Ochrana proti orezaniu fontov (9, 3, 5, p, atď.)
+            }}>
+              <div style={{ whiteSpace: "nowrap" }}>
+                {typeof value === "string" || typeof value === "number" ? (
+                  <span style={{ fontSize: "30px", fontWeight: 900, color: textColor }}>
+                    {value}
+                  </span>
+                ) : (
+                  value 
+                )}
+                
+                {unit && (
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      color: textColor,
+                      opacity: 0.5,
+                      marginLeft: "6px",
+                    }}
+                  >
+                    {unit}
+                  </span>
+                )}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -171,16 +190,16 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Prepracované pre HTML Table kompatibilitu
+  // Funkcia pre renderovanie Času (bez flexboxov, prispôsobené pre tabuľku)
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
-    if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
+    if (!seconds || seconds <= 0) return <span style={{ fontSize: "30px", fontWeight: 900, color: textColor }}>—</span>;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.round(seconds % 60);
 
-    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor };
+    const valStyle = { fontSize: "30px", fontWeight: 900, color: textColor };
     const unitStyle = {
-      fontSize: "12px",
+      fontSize: "14px",
       fontWeight: "bold",
       color: textColor,
       opacity: 0.5,
@@ -316,7 +335,8 @@ export default function ActivityShareModal({
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div style={{ padding: "36px 28px 46px 28px", display: "block" }}>
+            {/* Ochranný paddingBottom pridaný z 46px na 56px, aby mal canvas pre posledný riadok absolútnu rezervu */}
+            <div style={{ padding: "36px 28px 56px 28px", display: "block" }}>
               
               <div style={{ marginBottom: "24px", textAlign: "center" }}>
                 {!logoError && (
@@ -339,7 +359,7 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA (Namiesto Flexboxu opäť Float systém pre 100% istotu) */}
+              {/* JEDNOTNÁ KASKÁDA - Návrat k spoľahlivému Float Left pre rozloženie mriežky */}
               <div style={{ width: "100%", display: "block", overflow: "hidden", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
