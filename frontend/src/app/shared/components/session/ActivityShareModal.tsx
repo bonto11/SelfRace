@@ -30,6 +30,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
+  
+  // Stav pre sledovanie chyby pri načítaní loga
+  const [logoError, setLogoError] = useState(false);
 
   // NAČÍTANIE Z LOCALSTORAGE
   useEffect(() => {
@@ -83,7 +86,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   }
 
   // ROZHODOVANIE: Rýchlosť vs Tempo
-  const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "iceskate", "alpineski", "snowboard"].includes(sport);
+  const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "skate", "iceskate", "alpineski", "snowboard"].includes(sport);
   
   let speedOrPaceVal = null;
   let speedOrPaceUnit = "";
@@ -122,6 +125,12 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const textColor = isDark ? "#ffffff" : appColors.backgroundMain;
   const borderColor = isDark ? appColors.widgetBorder : "rgba(0,0,0,0.1)";
   const iconSuffix = isDark ? "" : "_green";
+  const logoSuffix = isDark ? "" : "_black";
+
+  // Reset logo error flag when theme changes so it tries to reload
+  useEffect(() => {
+      setLogoError(false);
+  }, [logoSuffix]);
 
   // GENEROVANIE OBRÁZKA
   useEffect(() => {
@@ -198,9 +207,16 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (PNG ikony)
+  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (PNG ikony s React state handlingom pre chyby)
   const renderMetric = (iconName: string, label: string, value: string | number, unit: string) => {
     const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
+    // Lokálny stav pre ikonu, aby sme neupravovali DOM priamo
+    const [iconErr, setIconErr] = useState(false);
+
+    // Reset error when theme changes
+    useEffect(() => {
+        setIconErr(false);
+    }, [iconSuffix])
 
     return (
       <div style={{ marginBottom: "16px", display: "block", clear: "both", minHeight: "40px" }}>
@@ -225,7 +241,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
         {/* RIADOK S HODNOTOU A IKONOU */}
         <div style={{ display: "block" }}>
-          {displayMode !== "text" && (
+          {displayMode !== "text" && !iconErr && (
              <img 
                src={iconUrl} 
                crossOrigin="anonymous" 
@@ -238,7 +254,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                  verticalAlign: "middle",
                  display: "inline-block"
                }}
-               onError={(e) => { e.currentTarget.style.display = 'none'; }}
+               onError={() => setIconErr(true)}
              />
           )}
           <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "middle" }}>
@@ -311,15 +327,15 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
               {/* PÄTIČKA */}
               <div style={{ borderTop: `1px solid ${borderColor}`, paddingTop: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", clear: "both" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <img 
-                    src="/logo/actual/selfrace_logo.png" 
-                    alt="SelfRace" 
-                    crossOrigin="anonymous"
-                    style={{ height: "20px", width: "auto", opacity: 0.9, objectFit: "contain" }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }} 
-                  />
+                    {!logoError && (
+                        <img 
+                            src={`/logo/actual/selfrace_logo${logoSuffix}.png`}
+                            alt="SelfRace" 
+                            crossOrigin="anonymous"
+                            style={{ height: "20px", width: "auto", opacity: 0.9, objectFit: "contain" }}
+                            onError={() => setLogoError(true)} 
+                        />
+                    )}
                 </div>
               </div>
 
