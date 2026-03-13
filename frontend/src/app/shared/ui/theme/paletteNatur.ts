@@ -75,6 +75,8 @@ export const natur = {
   greenPrimary: "#BFF159",
   greenSoft: "#BFFF30",
   greenMuted: "#1E7F61",
+  darkGreen: "#0A1A12",
+  light: "#ffffff",
 
   // --- MAIN button (save vibe) ---
   main: "#BFF159",

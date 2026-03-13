@@ -35,6 +35,8 @@ export const appColors = {
   // Brand / accents
   brandPrimary: natur.greenPrimary,
   brandSecondary: natur.greenSoft,
+  brandDark: natur.darkGreen,
+  brandLight: natur.light,
   brandMuted: natur.greenMuted,
   accentTeal: natur.accentTeal,
   accentLime: natur.accentLime,
