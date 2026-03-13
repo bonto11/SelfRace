@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku s ochranou proti orezávaniu fontov (Padding-bottom trik)
+// Úplne prepracovaný MetricItem - stavia na prirodzenom HTML zarovnaní textu
 function MetricItem({
   iconName,
   label,
@@ -36,15 +36,14 @@ function MetricItem({
   return (
     <div
       style={{
-        marginBottom: "26px", // Jemne zväčšené pre lepšie dýchanie
+        marginBottom: "24px",
         width: "100%",
         display: "flex",
         flexDirection: "column",
         alignItems: centered ? "center" : "flex-start",
-        boxSizing: "border-box"
       }}
     >
-      {/* NADPIS */}
+      {/* NADPIS (Label) - Úplne oddelený od ikony a hodnoty */}
       {showLabel && (
         <div
           style={{
@@ -53,71 +52,60 @@ function MetricItem({
             fontWeight: "bold",
             color: textColor,
             opacity: isDark ? 0.4 : 0.6,
-            marginBottom: "6px",
+            marginBottom: "4px",
             letterSpacing: "0.1em",
-            lineHeight: "normal",
-            // Odsadenie presne o šírku ikony (32px) + medzeru (10px)
-            paddingLeft: showIcon && !centered ? "42px" : "0px",
+            // Odsadenie o veľkosť ikony(28px) + medzera(8px) = 36px, aby to lícovalo s textom hodnoty
+            marginLeft: showIcon && !centered ? "36px" : "0px",
           }}
         >
           {label}
         </div>
       )}
 
-      {/* RIADOK: IKONA + HODNOTY (flex-end zaručí, že sú prilepené na rovnaký spodok) */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: centered ? "center" : "flex-start" }}>
+      {/* RIADOK: IKONA + HODNOTA */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         
-        {/* IKONA */}
+        {/* Ikona */}
         {showIcon && (
           <img
             src={iconUrl}
             crossOrigin="anonymous"
             style={{
-              width: "32px", // Zväčšená ikona
-              height: "32px",
+              width: "28px",
+              height: "28px",
               objectFit: "contain",
-              marginRight: "10px",
               flexShrink: 0,
-              display: "block"
             }}
             onError={() => setIconErr(true)}
           />
         )}
 
-        {/* HODNOTY (Zoskupené na rovnakú textovú základňu - baseline) */}
-        <div style={{ display: "flex", alignItems: "baseline", paddingBottom: "2px" }}>
+        {/* Hodnota a Jednotka - Ako prirodzený text (bez flexboxu vo vnútri!) */}
+        <div style={{ whiteSpace: "nowrap" }}>
           
           {typeof value === "string" || typeof value === "number" ? (
-            <span style={{ 
-              fontSize: "30px", 
-              fontWeight: 900, 
-              color: textColor, 
-              lineHeight: "normal", // DÔLEŽITÉ: Zabraňuje zrezaniu zvrchu/zospodu
-              paddingBottom: "4px" // DÔLEŽITÉ: Zabraňuje zrezaniu chvostov čísel (9,3,5)
-            }}>
+            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
               {value}
             </span>
           ) : (
-            value
+            value // V prípade, že je to čas (ktorý vráti pole spanov)
           )}
           
           {unit && (
             <span
               style={{
-                fontSize: "14px", // Zväčšená jednotka
+                fontSize: "12px",
                 fontWeight: "bold",
                 color: textColor,
                 opacity: 0.5,
-                marginLeft: "6px",
-                lineHeight: "normal",
-                paddingBottom: "4px"
+                marginLeft: "4px",
               }}
             >
               {unit}
             </span>
           )}
+          
         </div>
-
       </div>
     </div>
   );
@@ -165,7 +153,7 @@ export default function ActivityShareModal({
     if (!mounted) return;
     localStorage.setItem(
       "selfrace_share_prefs",
-      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode }),
+      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode })
     );
   }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
 
@@ -184,40 +172,36 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Funkcia na vyrenderovanie času s ochrannými paddingami
+  // Primitívna štruktúra textu pre čas, aby to html2canvas nikdy nepokazil
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
-    if (!seconds || seconds <= 0) {
-      return <span style={{ fontSize: "30px", fontWeight: 900, color: textColor, paddingBottom: "4px" }}>—</span>;
-    }
+    if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.round(seconds % 60);
 
-    const valStyle = { fontSize: "30px", fontWeight: 900, color: textColor, lineHeight: "normal", paddingBottom: "4px" };
+    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor };
     const unitStyle = {
-      fontSize: "14px",
+      fontSize: "12px",
       fontWeight: "bold",
       color: textColor,
       opacity: 0.5,
       marginLeft: "2px",
       marginRight: "6px",
-      lineHeight: "normal",
-      paddingBottom: "4px"
     };
 
     if (h > 0) {
       return (
-        <div style={{ display: "flex", alignItems: "baseline" }}>
+        <>
           <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
           <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </div>
+        </>
       );
     }
     return (
-      <div style={{ display: "flex", alignItems: "baseline" }}>
+      <>
         <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
         <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </div>
+      </>
     );
   }
 
@@ -225,7 +209,6 @@ export default function ActivityShareModal({
   let speedOrPaceVal = isSpeedSport
     ? summary?.average_speed_mps ? (parseFloat(summary.average_speed_mps) * 3.6).toFixed(1) : null
     : formatPaceSeconds(summary?.pace_seconds_per_km);
-  
   const speedOrPaceLabel = isSpeedSport ? t("common.metrics.speed") : t("common.metrics.pace");
   const speedOrPaceUnit = isSpeedSport ? `${t("common.units.km")}/${t("common.units.hour")}` : `${t("common.units.min")}/${t("common.units.km")}`;
 
@@ -334,7 +317,12 @@ export default function ActivityShareModal({
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div style={{ padding: "36px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ 
+              padding: "36px 28px 46px 28px", // Pridaný extra spodný padding (z 32 na 46), aby sa fonty dole nikdy neorezali
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center" 
+            }}>
               
               <div style={{ marginBottom: "24px" }}>
                 {!logoError && (
@@ -357,7 +345,7 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Návrat k flexbox wrapu */}
+              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Návrat k bezpečnému flex-wrap (už bez overflow: hidden) */}
               <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
