@@ -12,29 +12,76 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
+// ✅ Nový dedikovaný komponent pre Metriku (rieši problém s padaním Reactu)
+function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, textColor, isDark }: any) {
+  const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
+  const [iconErr, setIconErr] = useState(false);
+
+  useEffect(() => {
+    setIconErr(false);
+  }, [iconSuffix]);
+
+  return (
+    <div style={{ marginBottom: "16px", display: "block", clear: "both", minHeight: "40px" }}>
+      {displayMode !== "icon" && (
+        <div 
+          style={{ 
+            fontSize: "11px", 
+            textTransform: "uppercase", 
+            fontWeight: "bold", 
+            color: textColor, 
+            opacity: isDark ? 0.5 : 0.7,
+            marginBottom: "4px",
+            letterSpacing: "0.05em",
+            display: "block"
+          }}
+        >
+          {label}
+        </div>
+      )}
+
+      <div style={{ display: "block" }}>
+        {displayMode !== "text" && !iconErr && (
+           <img 
+             src={iconUrl} 
+             crossOrigin="anonymous" 
+             alt={iconName}
+             style={{ width: "24px", height: "24px", objectFit: "contain", marginRight: "8px", verticalAlign: "middle", display: "inline-block" }}
+             onError={() => setIconErr(true)}
+           />
+        )}
+        <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "middle" }}>
+          {value}
+        </span>
+        {unit && (
+           <span style={{ fontSize: "12px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: isDark ? 0.5 : 0.7, marginLeft: "4px", verticalAlign: "baseline" }}>
+             {unit}
+           </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ActivityShareModal({ isOpen, onClose, activity, summary }: any) {
   const t = useT();
   const cardRef = useRef<HTMLDivElement>(null);
 
   const [mounted, setMounted] = useState(false);
 
-  // STAVY METRÍK
   const [showHr, setShowHr] = useState(true);
   const [showPace, setShowPace] = useState(true);
   const [showElev, setShowElev] = useState(true);
   const [showTime, setShowTime] = useState(true);
 
-  // STAVY DIZAJNU A TÉMY
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
   
-  // Stav pre sledovanie chyby pri načítaní loga
   const [logoError, setLogoError] = useState(false);
 
-  // NAČÍTANIE Z LOCALSTORAGE
   useEffect(() => {
     setMounted(true);
     try {
@@ -48,12 +95,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
         if (p.theme) setTheme(p.theme);
         if (p.displayMode) setDisplayMode(p.displayMode);
       }
-    } catch (e) {
-      console.error("Nepodarilo sa načítať prefs", e);
-    }
+    } catch (e) {}
   }, []);
 
-  // UKLADANIE DO LOCALSTORAGE
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem(
@@ -62,14 +106,12 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     );
   }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
 
-  // PRÍPRAVA DÁT
   const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
   const sport = String(rawSport).toLowerCase();
   
   const title = summary?.name || activity?.title || t("share.title");
   const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
-  // Helper pre sekundy na MM:SS
   function formatPaceSeconds(totalSeconds: number | null | undefined): string | null {
     if (!totalSeconds || totalSeconds <= 0) return null;
     const h = Math.floor(totalSeconds / 3600);
@@ -79,13 +121,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     const sStr = String(s).padStart(2, "0");
     const mStr = String(m).padStart(2, "0");
 
-    if (h > 0) {
-      return `${h}:${mStr}:${sStr}`;
-    }
+    if (h > 0) return `${h}:${mStr}:${sStr}`;
     return `${m}:${sStr}`;
   }
 
-  // ROZHODOVANIE: Rýchlosť vs Tempo
   const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "skate", "iceskate", "alpineski", "snowboard"].includes(sport);
   
   let speedOrPaceVal = null;
@@ -96,14 +135,11 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     speedOrPaceLabel = t("common.metrics.speed");
     speedOrPaceUnit = t("common.units.km") + "/" + t("common.units.hour");
     const avgMps = summary?.average_speed_mps ? parseFloat(summary.average_speed_mps) : null;
-    if (avgMps && avgMps > 0) {
-      speedOrPaceVal = (avgMps * 3.6).toFixed(1);
-    }
+    if (avgMps && avgMps > 0) speedOrPaceVal = (avgMps * 3.6).toFixed(1);
   } else {
     speedOrPaceLabel = t("common.metrics.pace");
     speedOrPaceUnit = t("common.units.min") + "/" + t("common.units.km");
     speedOrPaceVal = formatPaceSeconds(summary?.pace_seconds_per_km);
-    // Ak by chýbalo pace_seconds_per_km, ale máme rýchlosť, prepočítame
     if (!speedOrPaceVal && summary?.average_speed_mps) {
       const avgMps = parseFloat(summary.average_speed_mps);
       if (avgMps > 0) speedOrPaceVal = formatPaceSeconds(1000 / avgMps);
@@ -119,7 +155,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
   const elev = summary?.elevation_gain_m;
 
-  // FARBY PODĽA TÉMY
   const isDark = theme === "dark";
   const cardBg = isDark ? appColors.backgroundMain : "#ffffff";
   const textColor = isDark ? "#ffffff" : appColors.backgroundMain;
@@ -127,12 +162,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const iconSuffix = isDark ? "" : "_green";
   const logoSuffix = isDark ? "" : "_black";
 
-  // Reset logo error flag when theme changes so it tries to reload
   useEffect(() => {
       setLogoError(false);
   }, [logoSuffix]);
 
-  // GENEROVANIE OBRÁZKA
   useEffect(() => {
     if (!isOpen || !mounted) return;
     let isCancelled = false;
@@ -161,9 +194,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
           if (!isCancelled) setIsGenerating(false);
         }, "image/png");
       } catch (err) {
-        if (!isCancelled) {
-          setIsGenerating(false);
-        }
+        if (!isCancelled) setIsGenerating(false);
       }
     };
 
@@ -207,69 +238,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // POMOCNÁ FUNKCIA NA VYKRESLENIE METRIKY (PNG ikony s React state handlingom pre chyby)
-  const renderMetric = (iconName: string, label: string, value: string | number, unit: string) => {
-    const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
-    // Lokálny stav pre ikonu, aby sme neupravovali DOM priamo
-    const [iconErr, setIconErr] = useState(false);
-
-    // Reset error when theme changes
-    useEffect(() => {
-        setIconErr(false);
-    }, [iconSuffix])
-
-    return (
-      <div style={{ marginBottom: "16px", display: "block", clear: "both", minHeight: "40px" }}>
-        
-        {/* TEXTOVÁ HLAVIČKA */}
-        {displayMode !== "icon" && (
-          <div 
-            style={{ 
-              fontSize: "11px", 
-              textTransform: "uppercase", 
-              fontWeight: "bold", 
-              color: textColor, 
-              opacity: isDark ? 0.5 : 0.7,
-              marginBottom: "4px",
-              letterSpacing: "0.05em",
-              display: "block"
-            }}
-          >
-            {label}
-          </div>
-        )}
-
-        {/* RIADOK S HODNOTOU A IKONOU */}
-        <div style={{ display: "block" }}>
-          {displayMode !== "text" && !iconErr && (
-             <img 
-               src={iconUrl} 
-               crossOrigin="anonymous" 
-               alt={iconName}
-               style={{
-                 width: "24px",
-                 height: "24px",
-                 objectFit: "contain",
-                 marginRight: "8px",
-                 verticalAlign: "middle",
-                 display: "inline-block"
-               }}
-               onError={() => setIconErr(true)}
-             />
-          )}
-          <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "middle" }}>
-            {value}
-          </span>
-          {unit && (
-             <span style={{ fontSize: "12px", fontWeight: "bold", textTransform: "uppercase", color: textColor, opacity: isDark ? 0.5 : 0.7, marginLeft: "4px", verticalAlign: "baseline" }}>
-               {unit}
-             </span>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       <div className="w-full max-w-sm flex flex-col gap-4 mt-auto mb-auto pt-6 pb-6">
@@ -281,12 +249,10 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
             className="w-full relative overflow-hidden rounded-[20px] shadow-2xl border transition-colors duration-300"
             style={{ backgroundColor: cardBg, borderColor: borderColor, fontFamily: "sans-serif", display: "block", boxSizing: "border-box" }} 
           >
-            {/* ZELENÁ ZÁLOŽKA NA VRCHU */}
             <div style={{ height: "8px", width: "100%", backgroundColor: appColors.brandPrimary, display: "block" }} />
 
             <div style={{ padding: "28px", display: "block" }}>
               
-              {/* HLAVIČKA */}
               <div style={{ marginBottom: "24px", display: "block" }}>
                 <h2 style={{ fontSize: "24px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2 }}>
                   {title}
@@ -296,35 +262,27 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                 </div>
               </div>
 
-              {/* ŠTATISTIKY */}
               <div style={{ display: "block", overflow: "hidden", marginBottom: "8px", width: "100%" }}>
                 
-                {/* Ľavý stĺpec */}
                 <div style={{ float: "left", width: "50%", boxSizing: "border-box", paddingRight: "8px" }}>
-                  {renderMetric("distance", t("common.metrics.distance"), distVal, distUnit || t("common.units.km"))}
-                  
-                  {/* Tempo alebo Rýchlosť */}
-                  {showPace && speedOrPaceVal && renderMetric("speed", speedOrPaceLabel, speedOrPaceVal, speedOrPaceUnit)}
+                  <MetricItem iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} />
+                  {showPace && speedOrPaceVal && <MetricItem iconName="pace" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} />}
                 </div>
 
-                {/* Pravý stĺpec */}
                 <div style={{ float: "right", width: "50%", boxSizing: "border-box", paddingLeft: "8px" }}>
-                  {showTime && renderMetric("time", t("common.metrics.time"), timeTxt, "")}
-                  
-                  {showElev && elev && elev > 0 && renderMetric("elevation", t("common.metrics.elevation"), elev, t("common.units.meter"))}
+                  {showTime && <MetricItem iconName="time" label={t("common.metrics.time")} value={timeTxt} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} />}
+                  {showElev && elev && elev > 0 && <MetricItem iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} />}
                 </div>
 
                 <div style={{ clear: "both" }}></div>
 
-                {/* Tep */}
                 {showHr && avgHr && avgHr > 0 && (
                    <div style={{ marginTop: "8px" }}>
-                     {renderMetric("heartRate", t("common.metrics.hr_avg"), avgHr, t("common.units.hr"))}
+                     <MetricItem iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} />
                    </div>
                 )}
               </div>
 
-              {/* PÄTIČKA */}
               <div style={{ borderTop: `1px solid ${borderColor}`, paddingTop: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", clear: "both" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                     {!logoError && (
@@ -342,7 +300,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
             </div>
           </div>
 
-          {/* Loading overlay */}
           {isGenerating && (
             <div className="absolute inset-0 bg-black/60 rounded-[20px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-sm">
@@ -387,12 +344,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
                 <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
-                <Checkbox 
-                  checked={showPace} 
-                  onChange={(e) => setShowPace(e.currentTarget.checked)} 
-                  label={speedOrPaceLabel} 
-                  disabled={isGenerating} 
-                />
+                <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isGenerating} />
                 <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
                 <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isGenerating} />
               </div>
@@ -400,20 +352,11 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
 
             <div className="flex gap-2">
               <div className="flex-1">
-                <Button 
-                  variant="primary" 
-                  block
-                  disabled={isGenerating || !readyFile}
-                  onClick={handleShare}
-                >
+                <Button variant="primary" block disabled={isGenerating || !readyFile} onClick={handleShare}>
                   {t("share.buttonShare")}
                 </Button>
               </div>
-              <Button 
-                variant="secondary"
-                disabled={isGenerating}
-                onClick={onClose}
-              >
+              <Button variant="secondary" disabled={isGenerating} onClick={onClose}>
                 {t("common.close")}
               </Button>
             </div>
