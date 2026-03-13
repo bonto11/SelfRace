@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku prepracovaný na "Float" systém (100% html2canvas kompatibilné)
+// Komponent pre metriku s ochranou proti orezávaniu fontov (Padding-bottom trik)
 function MetricItem({
   iconName,
   label,
@@ -36,86 +36,88 @@ function MetricItem({
   return (
     <div
       style={{
-        marginBottom: "24px",
+        marginBottom: "26px", // Jemne zväčšené pre lepšie dýchanie
         width: "100%",
-        display: "block",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: centered ? "center" : "flex-start",
+        boxSizing: "border-box"
       }}
     >
-      {/* 1. RIADOK: NADPIS (Úplne oddelený zhora) */}
+      {/* NADPIS */}
       {showLabel && (
         <div
           style={{
-            fontSize: "10px",
+            fontSize: "11px",
             textTransform: "uppercase",
             fontWeight: "bold",
             color: textColor,
             opacity: isDark ? 0.4 : 0.6,
-            marginBottom: "2px",
+            marginBottom: "6px",
             letterSpacing: "0.1em",
-            lineHeight: "12px",
-            display: "block",
-            textAlign: centered ? "center" : "left",
-            // Ak nie je centrovaný a máme ikonu, odsunieme text o 40px doprava (30px ikona + 10px medzera)
-            paddingLeft: showIcon && !centered ? "40px" : "0px",
+            lineHeight: "normal",
+            // Odsadenie presne o šírku ikony (32px) + medzeru (10px)
+            paddingLeft: showIcon && !centered ? "42px" : "0px",
           }}
         >
           {label}
         </div>
       )}
 
-      {/* 2. RIADOK: IKONA A HODNOTA (Uväznené v jednom pevnom bloku s float: left) */}
-      <div style={{ display: "block", textAlign: centered ? "center" : "left" }}>
+      {/* RIADOK: IKONA + HODNOTY (flex-end zaručí, že sú prilepené na rovnaký spodok) */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: centered ? "center" : "flex-start" }}>
         
-        {/* Tento vnútorný obal nám zaručí, že ikona a text držia pri sebe aj pri centrovaní */}
-        <div style={{ 
-          display: centered ? "inline-block" : "block", 
-          overflow: "hidden", // Clear fix pre plávajúce (float) prvky
-          margin: centered ? "0 auto" : "0" 
-        }}>
+        {/* IKONA */}
+        {showIcon && (
+          <img
+            src={iconUrl}
+            crossOrigin="anonymous"
+            style={{
+              width: "32px", // Zväčšená ikona
+              height: "32px",
+              objectFit: "contain",
+              marginRight: "10px",
+              flexShrink: 0,
+              display: "block"
+            }}
+            onError={() => setIconErr(true)}
+          />
+        )}
+
+        {/* HODNOTY (Zoskupené na rovnakú textovú základňu - baseline) */}
+        <div style={{ display: "flex", alignItems: "baseline", paddingBottom: "2px" }}>
           
-          {showIcon && (
-            <img
-              src={iconUrl}
-              crossOrigin="anonymous"
-              style={{
-                float: "left", // Ikona prilepená naľavo
-                width: "30px",
-                height: "30px",
-                objectFit: "contain",
-                marginRight: "10px",
-                display: "block"
-              }}
-              onError={() => setIconErr(true)}
-            />
+          {typeof value === "string" || typeof value === "number" ? (
+            <span style={{ 
+              fontSize: "30px", 
+              fontWeight: 900, 
+              color: textColor, 
+              lineHeight: "normal", // DÔLEŽITÉ: Zabraňuje zrezaniu zvrchu/zospodu
+              paddingBottom: "4px" // DÔLEŽITÉ: Zabraňuje zrezaniu chvostov čísel (9,3,5)
+            }}>
+              {value}
+            </span>
+          ) : (
+            value
           )}
-
-          {/* Text hodnoty prilepený k ikone */}
-          <div style={{ float: "left", lineHeight: "30px", height: "30px" }}>
-            {typeof value === "string" || typeof value === "number" ? (
-              <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "baseline" }}>
-                {value}
-              </span>
-            ) : (
-              value
-            )}
-            
-            {unit && (
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: "bold",
-                  color: textColor,
-                  opacity: 0.5,
-                  marginLeft: "4px",
-                  verticalAlign: "baseline"
-                }}
-              >
-                {unit}
-              </span>
-            )}
-          </div>
-
+          
+          {unit && (
+            <span
+              style={{
+                fontSize: "14px", // Zväčšená jednotka
+                fontWeight: "bold",
+                color: textColor,
+                opacity: 0.5,
+                marginLeft: "6px",
+                lineHeight: "normal",
+                paddingBottom: "4px"
+              }}
+            >
+              {unit}
+            </span>
+          )}
         </div>
+
       </div>
     </div>
   );
@@ -137,9 +139,7 @@ export default function ActivityShareModal({
   const [showTime, setShowTime] = useState(true);
 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">(
-    "both",
-  );
+  const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
@@ -165,32 +165,16 @@ export default function ActivityShareModal({
     if (!mounted) return;
     localStorage.setItem(
       "selfrace_share_prefs",
-      JSON.stringify({
-        showHr,
-        showPace,
-        showElev,
-        showTime,
-        theme,
-        displayMode,
-      }),
+      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode }),
     );
   }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
 
-  const rawSport =
-    summary?.sport_type_ovrd ??
-    summary?.sport_type_fe ??
-    summary?.sport_type ??
-    activity?.sport ??
-    "other";
+  const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
   const sport = String(rawSport).toLowerCase();
   const title = summary?.name || activity?.title || t("share.title");
-  const dateStr = summary?.date
-    ? new Date(summary.date).toLocaleDateString("sk-SK")
-    : "";
+  const dateStr = summary?.date ? new Date(summary.date).toLocaleDateString("sk-SK") : "";
 
-  function formatPaceSeconds(
-    totalSeconds: number | null | undefined,
-  ): string | null {
+  function formatPaceSeconds(totalSeconds: number | null | undefined): string | null {
     if (!totalSeconds || totalSeconds <= 0) return null;
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -200,72 +184,52 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Funkcia na vyrenderovanie času s malými jednotkami - tiež s inline-blockom
-  function renderTimeValue(
-    seconds: number | null | undefined,
-    textColor: string,
-  ) {
+  // Funkcia na vyrenderovanie času s ochrannými paddingami
+  function renderTimeValue(seconds: number | null | undefined, textColor: string) {
     if (!seconds || seconds <= 0) {
-      return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
+      return <span style={{ fontSize: "30px", fontWeight: 900, color: textColor, paddingBottom: "4px" }}>—</span>;
     }
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.round(seconds % 60);
 
-    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor, verticalAlign: "baseline" };
+    const valStyle = { fontSize: "30px", fontWeight: 900, color: textColor, lineHeight: "normal", paddingBottom: "4px" };
     const unitStyle = {
-      fontSize: "12px",
+      fontSize: "14px",
       fontWeight: "bold",
       color: textColor,
       opacity: 0.5,
       marginLeft: "2px",
       marginRight: "6px",
-      verticalAlign: "baseline"
+      lineHeight: "normal",
+      paddingBottom: "4px"
     };
 
     if (h > 0) {
       return (
-        <span style={{ display: "inline-block" }}>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
           <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
           <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </span>
+        </div>
       );
     }
     return (
-      <span style={{ display: "inline-block" }}>
+      <div style={{ display: "flex", alignItems: "baseline" }}>
         <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
         <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </span>
+      </div>
     );
   }
 
-  const isSpeedSport = [
-    "ride",
-    "ebikeride",
-    "virtualride",
-    "velomobile",
-    "inlineskate",
-    "skate",
-    "iceskate",
-    "alpineski",
-    "snowboard",
-  ].includes(sport);
-  
+  const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "skate", "iceskate", "alpineski", "snowboard"].includes(sport);
   let speedOrPaceVal = isSpeedSport
-    ? summary?.average_speed_mps
-      ? (parseFloat(summary.average_speed_mps) * 3.6).toFixed(1)
-      : null
+    ? summary?.average_speed_mps ? (parseFloat(summary.average_speed_mps) * 3.6).toFixed(1) : null
     : formatPaceSeconds(summary?.pace_seconds_per_km);
-  const speedOrPaceLabel = isSpeedSport
-    ? t("common.metrics.speed")
-    : t("common.metrics.pace");
-  const speedOrPaceUnit = isSpeedSport
-    ? `${t("common.units.km")}/${t("common.units.hour")}`
-    : `${t("common.units.min")}/${t("common.units.km")}`;
+  
+  const speedOrPaceLabel = isSpeedSport ? t("common.metrics.speed") : t("common.metrics.pace");
+  const speedOrPaceUnit = isSpeedSport ? `${t("common.units.km")}/${t("common.units.hour")}` : `${t("common.units.min")}/${t("common.units.km")}`;
 
-  const distStr = summary
-    ? formatDistance(summary.distance_m ?? null)
-    : (activity?.distanceStr ?? "—");
+  const distStr = summary ? formatDistance(summary.distance_m ?? null) : (activity?.distanceStr ?? "—");
   const distMatch = distStr.match(/^([\d.,]+)\s*(.*)$/);
   const distVal = distMatch ? distMatch[1] : distStr;
   const distUnit = distMatch ? distMatch[2] : "";
@@ -278,16 +242,13 @@ export default function ActivityShareModal({
   const iconSuffix = isDark ? "" : "_darkGreen";
   const logoSuffix = isDark ? "" : "_darkGreen";
 
-  useEffect(() => {
-    setLogoError(false);
-  }, [logoSuffix]);
+  useEffect(() => { setLogoError(false); }, [logoSuffix]);
 
   useEffect(() => {
     if (!isOpen || !mounted) return;
     let isCancelled = false;
     const generateImage = async () => {
-      setIsGenerating(true);
-      setReadyFile(null);
+      setIsGenerating(true); setReadyFile(null);
       await new Promise((r) => setTimeout(r, 800));
       if (!cardRef.current || isCancelled) return;
       try {
@@ -295,12 +256,10 @@ export default function ActivityShareModal({
           scale: 3,
           useCORS: true,
           backgroundColor: null,
+          logging: false
         });
         canvas.toBlob((blob) => {
-          if (blob && !isCancelled)
-            setReadyFile(
-              new File([blob], "selfrace-training.png", { type: "image/png" }),
-            );
+          if (blob && !isCancelled) setReadyFile(new File([blob], "selfrace-training.png", { type: "image/png" }));
           if (!isCancelled) setIsGenerating(false);
         }, "image/png");
       } catch (err) {
@@ -308,21 +267,8 @@ export default function ActivityShareModal({
       }
     };
     generateImage();
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    isOpen,
-    mounted,
-    showHr,
-    showPace,
-    showElev,
-    showTime,
-    theme,
-    displayMode,
-    activity,
-    summary,
-  ]);
+    return () => { isCancelled = true; };
+  }, [isOpen, mounted, showHr, showPace, showElev, showTime, theme, displayMode, activity, summary]);
 
   if (!isOpen || !mounted) return null;
 
@@ -331,11 +277,7 @@ export default function ActivityShareModal({
       toast.error(t("share.generatingWarning"));
       return;
     }
-    if (
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ files: [readyFile] })
-    ) {
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
       try {
         await navigator.share({ title: t("share.title"), files: [readyFile] });
         onClose();
@@ -344,101 +286,40 @@ export default function ActivityShareModal({
       }
     } else {
       const url = URL.createObjectURL(readyFile);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "selfrace-trening.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(t("share.successDownload"));
-      onClose();
+      const a = document.createElement("a"); a.href = url; a.download = "selfrace-trening.png";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast.success(t("share.successDownload")); onClose();
     }
   };
 
   const activeMetrics = [];
 
   activeMetrics.push(
-    <MetricItem
-      key="dist"
-      iconName="distance"
-      label={t("common.metrics.distance")}
-      value={distVal}
-      unit={distUnit || t("common.units.km")}
-      displayMode={displayMode}
-      textColor={textColor}
-      isDark={isDark}
-      iconSuffix={iconSuffix}
-      centered={false}
-    />,
+    <MetricItem key="dist" iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
   );
 
   if (showTime) {
     const timeSecs = summary?.moving_time_s ?? activity?.moving_time_s ?? 0;
     activeMetrics.push(
-      <MetricItem
-        key="time"
-        iconName="time"
-        label={t("common.metrics.time")}
-        value={renderTimeValue(timeSecs, textColor)}
-        unit=""
-        displayMode={displayMode}
-        textColor={textColor}
-        isDark={isDark}
-        iconSuffix={iconSuffix}
-        centered={false}
-      />,
+      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={renderTimeValue(timeSecs, textColor)} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showPace && speedOrPaceVal) {
     activeMetrics.push(
-      <MetricItem
-        key="pace"
-        iconName="speed"
-        label={speedOrPaceLabel}
-        value={speedOrPaceVal}
-        unit={speedOrPaceUnit}
-        displayMode={displayMode}
-        textColor={textColor}
-        isDark={isDark}
-        iconSuffix={iconSuffix}
-        centered={false}
-      />,
+      <MetricItem key="pace" iconName="speed" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showElev && elev && elev > 0) {
     activeMetrics.push(
-      <MetricItem
-        key="elev"
-        iconName="elevation"
-        label={t("common.metrics.elevation")}
-        value={elev}
-        unit={t("common.units.meter")}
-        displayMode={displayMode}
-        textColor={textColor}
-        isDark={isDark}
-        iconSuffix={iconSuffix}
-        centered={false}
-      />,
+      <MetricItem key="elev" iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showHr && avgHr && avgHr > 0) {
     activeMetrics.push(
-      <MetricItem
-        key="hr"
-        iconName="heartRate"
-        label={t("common.metrics.hr_avg")}
-        value={avgHr}
-        unit={t("common.units.hr")}
-        displayMode={displayMode}
-        textColor={textColor}
-        isDark={isDark}
-        iconSuffix={iconSuffix}
-        centered={false}
-      />,
+      <MetricItem key="hr" iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
@@ -451,94 +332,46 @@ export default function ActivityShareModal({
             className="w-full relative overflow-hidden rounded-[24px] shadow-2xl border border-white/5 transition-colors duration-300"
             style={{ backgroundColor: cardBg, fontFamily: "sans-serif" }}
           >
-            <div
-              style={{
-                height: "6px",
-                width: "100%",
-                backgroundColor: appColors.brandPrimary,
-              }}
-            />
+            <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div
-              style={{
-                padding: "32px",
-                display: "block", // Tiež block kvôli kompatibilite
-                textAlign: "center"
-              }}
-            >
+            <div style={{ padding: "36px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              
               <div style={{ marginBottom: "24px" }}>
                 {!logoError && (
                   <img
                     src={`/logo/actual/selfrace_logo${logoSuffix}.png`}
                     alt="SelfRace"
                     crossOrigin="anonymous"
-                    style={{
-                      height: "24px",
-                      width: "auto",
-                      objectFit: "contain",
-                      margin: "0 auto",
-                      display: "block"
-                    }}
+                    style={{ height: "24px", width: "auto", objectFit: "contain", display: "block" }}
                     onError={() => setLogoError(true)}
                   />
                 )}
               </div>
 
-              <div style={{ textAlign: "center", marginBottom: "32px", width: "100%" }}>
-                <h2
-                  style={{
-                    fontSize: "22px",
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    color: textColor,
-                    margin: 0,
-                    lineHeight: 1.2,
-                    letterSpacing: "0.02em",
-                  }}
-                >
+              <div style={{ textAlign: "center", marginBottom: "36px", width: "100%" }}>
+                <h2 style={{ fontSize: "24px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2, letterSpacing: "0.02em" }}>
                   {title}
                 </h2>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    fontWeight: "bold",
-                    color: textColor,
-                    opacity: 0.5,
-                    marginTop: "8px",
-                    letterSpacing: "0.15em",
-                  }}
-                >
+                <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>
                   {dateStr} • {t(`common.sports.${sport}` as any)}
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Použitý float: left */}
-              <div
-                style={{
-                  width: "100%",
-                  display: "block",
-                  overflow: "hidden", // Clearfix
-                  marginBottom: "0px",
-                }}
-              >
+              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Návrat k flexbox wrapu */}
+              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
-                  const isOddLast =
-                    activeMetrics.length % 2 !== 0 &&
-                    index === activeMetrics.length - 1;
+                  const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
 
                   return (
                     <div
                       key={item.key}
                       style={{
-                        float: "left",
                         width: isOddLast ? "100%" : "50%",
-                        display: "block",
+                        display: "flex",
+                        justifyContent: isOddLast ? "center" : "flex-start",
                         boxSizing: "border-box",
-                        paddingRight:
-                          !isOddLast && index % 2 === 0 ? "12px" : "0",
-                        paddingLeft:
-                          !isOddLast && index % 2 !== 0 ? "12px" : "0",
+                        paddingRight: !isOddLast && index % 2 === 0 ? "8px" : "0",
+                        paddingLeft: !isOddLast && index % 2 !== 0 ? "8px" : "0",
                       }}
                     >
                       {React.cloneElement(item, { centered: isOddLast })}
@@ -562,80 +395,24 @@ export default function ActivityShareModal({
           <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] uppercase text-white/50 font-bold px-1">
-                  {t("share.theme")}
-                </span>
-                <SegmentedControl
-                  options={[
-                    { label: t("share.themeDark"), value: "dark" },
-                    { label: t("share.themeLight"), value: "light" },
-                  ]}
-                  value={theme}
-                  onChange={(val: any) => setTheme(val)}
-                  disabled={isGenerating}
-                />
+                <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.theme")}</span>
+                <SegmentedControl options={[{ label: t("share.themeDark"), value: "dark" }, { label: t("share.themeLight"), value: "light" }]} value={theme} onChange={(val: any) => setTheme(val)} disabled={isGenerating} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] uppercase text-white/50 font-bold px-1">
-                  {t("share.displayMode")}
-                </span>
-                <SegmentedControl
-                  options={[
-                    { label: t("share.modeIcon"), value: "icon" },
-                    { label: t("share.modeText"), value: "text" },
-                    { label: t("share.modeBoth"), value: "both" },
-                  ]}
-                  value={displayMode}
-                  onChange={(val: any) => setDisplayMode(val)}
-                  disabled={isGenerating}
-                />
+                <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.displayMode")}</span>
+                <SegmentedControl options={[{ label: t("share.modeIcon"), value: "icon" }, { label: t("share.modeText"), value: "text" }, { label: t("share.modeBoth"), value: "both" }]} value={displayMode} onChange={(val: any) => setDisplayMode(val)} disabled={isGenerating} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
-              <Checkbox
-                checked={showHr}
-                onChange={(e) => setShowHr(e.currentTarget.checked)}
-                label={t("common.metrics.hr_avg")}
-                disabled={isGenerating}
-              />
-              <Checkbox
-                checked={showPace}
-                onChange={(e) => setShowPace(e.currentTarget.checked)}
-                label={speedOrPaceLabel}
-                disabled={isGenerating}
-              />
-              <Checkbox
-                checked={showTime}
-                onChange={(e) => setShowTime(e.currentTarget.checked)}
-                label={t("common.metrics.time")}
-                disabled={isGenerating}
-              />
-              <Checkbox
-                checked={showElev}
-                onChange={(e) => setShowElev(e.currentTarget.checked)}
-                label={t("common.metrics.elevation")}
-                disabled={isGenerating}
-              />
+              <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
+              <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isGenerating} />
+              <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
+              <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isGenerating} />
             </div>
           </div>
           <div className="flex gap-2">
-            <div className="flex-1">
-              <Button
-                variant="primary"
-                block
-                disabled={isGenerating || !readyFile}
-                onClick={handleShare}
-              >
-                {t("share.buttonShare")}
-              </Button>
-            </div>
-            <Button
-              variant="secondary"
-              disabled={isGenerating}
-              onClick={onClose}
-            >
-              {t("common.close")}
-            </Button>
+            <div className="flex-1"><Button variant="primary" block disabled={isGenerating || !readyFile} onClick={handleShare}>{t("share.buttonShare")}</Button></div>
+            <Button variant="secondary" disabled={isGenerating} onClick={onClose}>{t("common.close")}</Button>
           </div>
         </div>
       </div>
