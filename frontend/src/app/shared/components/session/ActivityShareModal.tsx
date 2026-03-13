@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku s ikonou zarovnanou na SPODNÝ okraj
+// Komponent pre metriku so zjednodušeným flexboxom
 function MetricItem({
   iconName,
   label,
@@ -35,12 +35,40 @@ function MetricItem({
       style={{
         marginBottom: "24px",
         display: "flex",
+        flexDirection: "column",
         justifyContent: centered ? "center" : "flex-start",
         width: "100%",
+        alignItems: centered ? "center" : "flex-start",
       }}
     >
-      {/* KĽÚČOVÁ ZMENA: alignItems: "flex-end" zarovná ikonu a textový blok podľa spodnej hrany */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}>
+      {/* Nadpis (Label) nad celým blokom */}
+      {displayMode !== "icon" && (
+        <div
+          style={{
+            fontSize: "10px",
+            textTransform: "uppercase",
+            fontWeight: "bold",
+            color: textColor,
+            opacity: isDark ? 0.4 : 0.6,
+            marginBottom: "4px",
+            letterSpacing: "0.1em",
+            lineHeight: 1,
+            marginLeft: displayMode !== "text" && !centered ? "40px" : "0px", // Odsadenie podľa šírky ikony + medzera
+          }}
+        >
+          {label}
+        </div>
+      )}
+
+      {/* Riadok s Ikonou a Hodnotou (vycentrované na spodok) */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end", // Zarovnanie na spodnú hranu
+          gap: "10px",
+        }}
+      >
+        {/* IKONA */}
         {displayMode !== "text" && !iconErr && (
           <img
             src={iconUrl}
@@ -55,61 +83,39 @@ function MetricItem({
           />
         )}
 
+        {/* HODNOTA A JEDNOTKA */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
+            alignItems: "flex-end", // Zarovnanie hodnoty a jednotky na spodnú hranu
+            lineHeight: 1,
+            paddingBottom: "2px", // Jemné doladenie kvôli výške písma
           }}
         >
-          {displayMode !== "icon" && (
-            <div
-              style={{
-                fontSize: "10px",
-                textTransform: "uppercase",
-                fontWeight: "bold",
-                color: textColor,
-                opacity: isDark ? 0.4 : 0.6,
-                marginBottom: "4px",
-                letterSpacing: "0.1em",
-                lineHeight: 1,
-              }}
-            >
-              {label}
-            </div>
-          )}
-
-          <div
+          <span
             style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: "4px",
-              lineHeight: 1,
+              fontSize: "28px",
+              fontWeight: 900,
+              color: textColor,
+              lineHeight: "28px", // Pevný riadok
             }}
           >
+            {value}
+          </span>
+          {unit && (
             <span
               style={{
-                fontSize: "28px",
-                fontWeight: 900,
+                fontSize: "12px",
+                fontWeight: "bold",
                 color: textColor,
-                lineHeight: 1,
+                opacity: 0.5,
+                marginLeft: "4px",
+                lineHeight: "16px", // Pevný riadok pre jednotku
               }}
             >
-              {value}
+              {unit}
             </span>
-            {unit && (
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: "bold",
-                  color: textColor,
-                  opacity: 0.5,
-                }}
-              >
-                {unit}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -212,25 +218,26 @@ export default function ActivityShareModal({
       opacity: 0.5,
       marginLeft: "2px",
       marginRight: "6px",
+      lineHeight: "16px", // Pevný riadok pre jednotku
     };
 
     if (h > 0) {
       return (
-        <>
+        <span style={{ display: "flex", alignItems: "flex-end" }}>
           {h}
           <span style={unitStyle}>h</span>
           {m}
-          <span style={unitStyle}>m</span>
-        </>
+          <span style={{ ...unitStyle, marginRight: 0 }}>m</span>
+        </span>
       );
     }
     return (
-      <>
+      <span style={{ display: "flex", alignItems: "flex-end" }}>
         {m}
         <span style={unitStyle}>m</span>
         {s}
-        <span style={unitStyle}>s</span>
-      </>
+        <span style={{ ...unitStyle, marginRight: 0 }}>s</span>
+      </span>
     );
   }
 
