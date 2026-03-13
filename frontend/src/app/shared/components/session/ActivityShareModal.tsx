@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Úplne prepracovaný MetricItem - stavia na prirodzenom HTML zarovnaní textu
+// Úplne prepracovaný MetricItem - využíva "Table" layout pre 100% zhodu na iOS
 function MetricItem({
   iconName,
   label,
@@ -38,12 +38,10 @@ function MetricItem({
       style={{
         marginBottom: "24px",
         width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: centered ? "center" : "flex-start",
+        textAlign: centered ? "center" : "left",
       }}
     >
-      {/* NADPIS (Label) - Úplne oddelený od ikony a hodnoty */}
+      {/* 1. NADPIS (Label) - Úplne oddelený */}
       {showLabel && (
         <div
           style={{
@@ -54,57 +52,58 @@ function MetricItem({
             opacity: isDark ? 0.4 : 0.6,
             marginBottom: "4px",
             letterSpacing: "0.1em",
-            // Odsadenie o veľkosť ikony(28px) + medzera(8px) = 36px, aby to lícovalo s textom hodnoty
-            marginLeft: showIcon && !centered ? "36px" : "0px",
+            // Odsadenie: šírka ikony(28px) + medzera(8px) = 36px (lícovanie s textom)
+            paddingLeft: showIcon && !centered ? "36px" : "0px",
           }}
         >
           {label}
         </div>
       )}
 
-      {/* RIADOK: IKONA + HODNOTA */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* 2. RIADOK: IKONA + HODNOTA (Starý dobrý Table Layout - iOS ho nevie rozbiť) */}
+      <div style={{ display: "inline-table", margin: centered ? "0 auto" : "0" }}>
         
-        {/* Ikona */}
+        {/* Bunka pre ikonu */}
         {showIcon && (
-          <img
-            src={iconUrl}
-            crossOrigin="anonymous"
-            style={{
-              width: "28px",
-              height: "28px",
-              objectFit: "contain",
-              flexShrink: 0,
-            }}
-            onError={() => setIconErr(true)}
-          />
+          <div style={{ display: "table-cell", verticalAlign: "bottom", paddingRight: "8px", paddingBottom: "2px" }}>
+            <img
+              src={iconUrl}
+              crossOrigin="anonymous"
+              style={{
+                width: "28px",
+                height: "28px",
+                display: "block",
+              }}
+              onError={() => setIconErr(true)}
+            />
+          </div>
         )}
 
-        {/* Hodnota a Jednotka - Ako prirodzený text (bez flexboxu vo vnútri!) */}
-        <div style={{ whiteSpace: "nowrap" }}>
-          
-          {typeof value === "string" || typeof value === "number" ? (
-            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
-              {value}
-            </span>
-          ) : (
-            value // V prípade, že je to čas (ktorý vráti pole spanov)
-          )}
-          
-          {unit && (
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: "bold",
-                color: textColor,
-                opacity: 0.5,
-                marginLeft: "4px",
-              }}
-            >
-              {unit}
-            </span>
-          )}
-          
+        {/* Bunka pre Hodnotu a Jednotku */}
+        <div style={{ display: "table-cell", verticalAlign: "bottom", paddingBottom: "2px" }}>
+          <span style={{ whiteSpace: "nowrap" }}>
+            {typeof value === "string" || typeof value === "number" ? (
+              <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
+                {value}
+              </span>
+            ) : (
+              value 
+            )}
+            
+            {unit && (
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  color: textColor,
+                  opacity: 0.5,
+                  marginLeft: "4px",
+                }}
+              >
+                {unit}
+              </span>
+            )}
+          </span>
         </div>
       </div>
     </div>
@@ -172,7 +171,7 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Primitívna štruktúra textu pre čas, aby to html2canvas nikdy nepokazil
+  // Prepracované pre HTML Table kompatibilitu
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
     if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
     const h = Math.floor(seconds / 3600);
@@ -191,17 +190,17 @@ export default function ActivityShareModal({
 
     if (h > 0) {
       return (
-        <>
+        <span style={{ whiteSpace: "nowrap" }}>
           <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
           <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </>
+        </span>
       );
     }
     return (
-      <>
+      <span style={{ whiteSpace: "nowrap" }}>
         <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
         <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </>
+      </span>
     );
   }
 
@@ -317,20 +316,15 @@ export default function ActivityShareModal({
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div style={{ 
-              padding: "36px 28px 46px 28px", // Pridaný extra spodný padding (z 32 na 46), aby sa fonty dole nikdy neorezali
-              display: "flex", 
-              flexDirection: "column", 
-              alignItems: "center" 
-            }}>
+            <div style={{ padding: "36px 28px 46px 28px", display: "block" }}>
               
-              <div style={{ marginBottom: "24px" }}>
+              <div style={{ marginBottom: "24px", textAlign: "center" }}>
                 {!logoError && (
                   <img
                     src={`/logo/actual/selfrace_logo${logoSuffix}.png`}
                     alt="SelfRace"
                     crossOrigin="anonymous"
-                    style={{ height: "24px", width: "auto", objectFit: "contain", display: "block" }}
+                    style={{ height: "24px", width: "auto", objectFit: "contain", display: "inline-block" }}
                     onError={() => setLogoError(true)}
                   />
                 )}
@@ -345,8 +339,8 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Návrat k bezpečnému flex-wrap (už bez overflow: hidden) */}
-              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
+              {/* JEDNOTNÁ KASKÁDA (Namiesto Flexboxu opäť Float systém pre 100% istotu) */}
+              <div style={{ width: "100%", display: "block", overflow: "hidden", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
 
@@ -354,9 +348,9 @@ export default function ActivityShareModal({
                     <div
                       key={item.key}
                       style={{
+                        float: "left",
                         width: isOddLast ? "100%" : "50%",
-                        display: "flex",
-                        justifyContent: isOddLast ? "center" : "flex-start",
+                        display: "block",
                         boxSizing: "border-box",
                         paddingRight: !isOddLast && index % 2 === 0 ? "8px" : "0",
                         paddingLeft: !isOddLast && index % 2 !== 0 ? "8px" : "0",
