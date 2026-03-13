@@ -5,14 +5,13 @@ import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";
 import { useT } from "@/app/shared/i18n/useT";
 import { formatDistance } from "@/app/shared/utils/distance";
-import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Vylepšený komponent pre metriku so striktným zarovnaním
+// Komponent pre metriku s ikonou zarovnanou na SPODNÝ okraj
 function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, textColor, isDark, centered = false }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
   const [iconErr, setIconErr] = useState(false);
@@ -23,15 +22,15 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
 
   return (
     <div style={{ 
-      marginBottom: "24px", // Jemne väčší margin pre lepšie dýchanie
+      marginBottom: "24px", 
       display: "flex", 
       justifyContent: centered ? "center" : "flex-start",
       width: "100%" 
     }}>
       
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* KĽÚČOVÁ ZMENA: alignItems: "flex-end" zarovná ikonu a textový blok podľa spodnej hrany */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}>
         
-        {/* IKONA */}
         {displayMode !== "text" && !iconErr && (
            <img 
              src={iconUrl} 
@@ -41,8 +40,7 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
            />
         )}
 
-        {/* TEXTOVÝ BLOK (Label a Hodnota lícujú vľavo) */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
           
           {displayMode !== "icon" && (
             <div style={{ 
@@ -51,7 +49,7 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
               fontWeight: "bold", 
               color: textColor, 
               opacity: isDark ? 0.4 : 0.6,
-              marginBottom: "2px",
+              marginBottom: "4px",
               letterSpacing: "0.1em",
               lineHeight: 1
             }}>
@@ -59,18 +57,12 @@ function MetricItem({ iconName, label, value, unit, iconSuffix, displayMode, tex
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "4px", lineHeight: 1 }}>
             <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
               {value}
             </span>
             {unit && (
-               <span style={{ 
-                 fontSize: "12px", // Zväčšené z 10 na 12 pre lepšiu čitateľnosť, 
-                 fontWeight: "bold", 
-                 // ODSTRÁNENÉ textTransform: "uppercase",
-                 color: textColor, 
-                 opacity: 0.5 
-               }}>
+               <span style={{ fontSize: "12px", fontWeight: "bold", color: textColor, opacity: 0.5 }}>
                  {unit}
                </span>
             )}
@@ -134,18 +126,36 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Prepracované formátovanie času (namiesto xh ym zs vrátime klasický formát MM:SS alebo HH:MM:SS)
-  function getRawTime(seconds: number | null | undefined) {
-      if (!seconds || seconds <= 0) return "—";
-      const h = Math.floor(seconds / 3600);
-      const m = Math.floor((seconds % 3600) / 60);
-      const s = Math.round(seconds % 60);
-      
-      const sStr = String(s).padStart(2, "0");
-      const mStr = String(m).padStart(2, "0");
+  // Funkcia na vyrenderovanie času s malými jednotkami
+  function renderTimeValue(seconds: number | null | undefined, textColor: string) {
+    if (!seconds || seconds <= 0) return "—";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.round(seconds % 60);
 
-      if (h > 0) return `${h}:${mStr}:${sStr}`;
-      return `${m}:${sStr}`;
+    const unitStyle = {
+      fontSize: "12px",
+      fontWeight: "bold",
+      color: textColor,
+      opacity: 0.5,
+      marginLeft: "2px",
+      marginRight: "6px"
+    };
+
+    if (h > 0) {
+      return (
+        <>
+          {h}<span style={unitStyle}>h</span>
+          {m}<span style={unitStyle}>m</span>
+        </>
+      );
+    }
+    return (
+      <>
+        {m}<span style={unitStyle}>m</span>
+        {s}<span style={unitStyle}>s</span>
+      </>
+    );
   }
 
   const isSpeedSport = ["ride", "ebikeride", "virtualride", "velomobile", "inlineskate", "skate", "iceskate", "alpineski", "snowboard"].includes(sport);
@@ -157,10 +167,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   const distMatch = distStr.match(/^([\d.,]+)\s*(.*)$/);
   const distVal = distMatch ? distMatch[1] : distStr;
   const distUnit = distMatch ? distMatch[2] : "";
-  
-  // Upravený čas (iba čísla)
-  const rawTimeVal = summary && summary.moving_time_s != null ? getRawTime(summary.moving_time_s) : activity?.timeStr ?? "—";
-  
   const avgHr = summary ? summary.average_heartrate_bpm : activity?.avgHr;
   const elev = summary?.elevation_gain_m;
 
@@ -206,7 +212,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     }
   };
 
-  // Dynamická príprava aktívnych metrík
+  // KĽÚČOVÁ ZMENA: Všetky metriky vrátane tepu v jednom kaskádovitom poli
   const activeMetrics = [];
   
   activeMetrics.push(
@@ -214,9 +220,9 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
   );
 
   if (showTime) {
-    // Čas už neposielame s jednotkou vnútri `value`, ale bez jednotky (iba 0:10:31)
+    const timeSecs = summary?.moving_time_s ?? activity?.moving_time_s ?? 0;
     activeMetrics.push(
-      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={rawTimeVal} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={renderTimeValue(timeSecs, textColor)} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
     );
   }
 
@@ -232,33 +238,38 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
     );
   }
 
+  // TEP vložený rovnako kaskádovito
+  if (showHr && avgHr && avgHr > 0) {
+    activeMetrics.push(
+       <MetricItem key="hr" iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       <div className="w-full max-w-sm flex flex-col gap-4 mt-auto mb-auto pt-6 pb-6">
         <div className="relative">
           <div ref={cardRef} className="w-full relative overflow-hidden rounded-[24px] shadow-2xl border border-white/5 transition-colors duration-300" style={{ backgroundColor: cardBg, fontFamily: "sans-serif" }}>
             
-            {/* Horný zelený pruh */}
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
             
             <div style={{ padding: "32px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
-              {/* LOGO NA STRED HORE */}
               <div style={{ marginBottom: "24px" }}>
                 {!logoError && (
                   <img src={`/logo/actual/selfrace_logo${logoSuffix}.png`} alt="SelfRace" crossOrigin="anonymous" style={{ height: "24px", width: "auto", objectFit: "contain" }} onError={() => setLogoError(true)} />
                 )}
               </div>
 
-              {/* TITULOK */}
               <div style={{ textAlign: "center", marginBottom: "32px" }}>
                 <h2 style={{ fontSize: "22px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2, letterSpacing: "0.02em" }}>{title}</h2>
                 <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>{dateStr} • {t(`common.sports.${sport}` as any)}</div>
               </div>
 
-              {/* METRIKY v Grid Mape - Zarovnané doľava */}
-              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "10px" }}>
+              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY */}
+              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                  {activeMetrics.map((item, index) => {
+                    // Ak je celkový počet nepárny a ideme vypísať posledný prvok, dáme ho na stred
                     const isOddLast = (activeMetrics.length % 2 !== 0) && (index === activeMetrics.length - 1);
                     
                     return (
@@ -267,7 +278,7 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                         display: "flex", 
                         justifyContent: isOddLast ? "center" : "flex-start",
                         boxSizing: "border-box",
-                        paddingRight: (!isOddLast && index % 2 === 0) ? "12px" : "0", // Zväčšený vnútorný padding
+                        paddingRight: (!isOddLast && index % 2 === 0) ? "12px" : "0", 
                         paddingLeft: (!isOddLast && index % 2 !== 0) ? "12px" : "0",
                       }}>
                          {React.cloneElement(item, { centered: isOddLast })}
@@ -275,13 +286,6 @@ export default function ActivityShareModal({ isOpen, onClose, activity, summary 
                     );
                  })}
               </div>
-
-              {/* TEP (Na stred, bez oddeľovacej čiary) */}
-              {showHr && avgHr && avgHr > 0 && (
-                <div style={{ width: "100%", display: "flex", justifyContent: "center", marginTop: "0px" }}>
-                  <MetricItem iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={true} />
-                </div>
-              )}
 
             </div>
           </div>
