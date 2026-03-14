@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku v JEDNOM RIADKU + Offset hack pri exporte
+// Komponent pre metriku v JEDNOM RIADKU + Zosilnený Offset hack pri exporte
 function MetricItem({
   iconName,
   label,
@@ -22,7 +22,7 @@ function MetricItem({
   textColor,
   isDark,
   centered = false,
-  isExporting = false, // Prijímame info, či sa práve fotí obrazovka
+  isExporting = false, 
 }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
   const [iconErr, setIconErr] = useState(false);
@@ -56,7 +56,6 @@ function MetricItem({
             marginBottom: "4px",
             letterSpacing: "0.1em",
             lineHeight: 1,
-            // Odsadenie aby lícoval s číslom: Šírka ikony (32) + medzera (10)
             marginLeft: showIcon && !centered ? "42px" : "0px",
           }}
         >
@@ -78,9 +77,9 @@ function MetricItem({
               objectFit: "contain",
               flexShrink: 0,
               position: "relative",
-              // TOTO JE TEN TRIK: Keď sa fotí, potlačíme ikonu o 8px dole. html2canvas ju posunie hore a vyrovná sa to.
-              top: isExporting ? "8px" : "0px", 
-              transition: "none", // Vypíname animáciu, aby to bolo okamžité
+              // ZVÄČŠENÝ OFFSET: Namiesto 8px použijeme 16px (alebo transform). Safari to vykopne hore, tak my to zatlačíme silnejšie dole.
+              transform: isExporting ? "translateY(16px)" : "translateY(0px)", 
+              transition: "none", 
             }}
             onError={() => setIconErr(true)}
           />
@@ -132,7 +131,6 @@ export default function ActivityShareModal({
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
 
-  // Nový state pre fotenie
   const [isExporting, setIsExporting] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
@@ -175,7 +173,6 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Primitívna štruktúra textu pre čas s malými jednotkami
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
     if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
     const h = Math.floor(seconds / 3600);
@@ -232,18 +229,15 @@ export default function ActivityShareModal({
 
   if (!isOpen || !mounted) return null;
 
-  // GENERÁTOR PO KLIKNUTÍ (Nové riešenie)
   const handleShare = async () => {
     if (!cardRef.current) return;
     
-    // 1. Zapneme Export mód (aplikuje sa CSS offset na ikony)
     setIsExporting(true);
 
-    // 2. Dáme Reactu a DOMu chvíľu na prekrekslenie tých 8px
-    await new Promise((r) => setTimeout(r, 150));
+    // Dáme prehliadaču trošku viac času na prepočítanie layoutu (zo 150 na 250)
+    await new Promise((r) => setTimeout(r, 250));
 
     try {
-      // 3. Spravíme fotku do Canvasu
       const canvas = await html2canvas(cardRef.current, {
         scale: 3,
         useCORS: true,
@@ -252,7 +246,6 @@ export default function ActivityShareModal({
       });
 
       canvas.toBlob(async (blob) => {
-        // 4. Hneď po odfotení vrátime ikony späť (vyzerá to ako blesknutie)
         setIsExporting(false);
 
         if (!blob) {
@@ -262,7 +255,6 @@ export default function ActivityShareModal({
 
         const file = new File([blob], "selfrace-training.png", { type: "image/png" });
 
-        // 5. Otvoríme zdieľací dialóg
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ title: t("share.title"), files: [file] });
@@ -271,7 +263,6 @@ export default function ActivityShareModal({
             if (e.name !== "AbortError") toast.error(t("share.errorFailed"));
           }
         } else {
-          // Fallback na stiahnutie súboru
           const url = URL.createObjectURL(file);
           const a = document.createElement("a"); 
           a.href = url; 
@@ -356,7 +347,6 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA */}
               <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
@@ -380,7 +370,6 @@ export default function ActivityShareModal({
               </div>
             </div>
           </div>
-          {/* Overlay sa zobrazí pri exporte */}
           {isExporting && (
             <div className="absolute inset-0 bg-black/60 rounded-[24px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-xs">
@@ -390,7 +379,6 @@ export default function ActivityShareModal({
           )}
         </div>
 
-        {/* OVLÁDANIE DOLE */}
         <div className="w-full flex flex-col gap-3">
           <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
             <div className="flex flex-col gap-3">
@@ -412,7 +400,6 @@ export default function ActivityShareModal({
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              {/* Zmenené tlačidlo na spúšťač exportu */}
               <Button variant="primary" block disabled={isExporting} onClick={handleShare}>
                 {isExporting ? t("share.generating") : t("share.buttonShare")}
               </Button>
