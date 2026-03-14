@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Úplne prepracovaný MetricItem - stavia na prirodzenom HTML zarovnaní textu
+// Komponent pre metriku - vrátil sa k čistej forme, hack sa robí externe
 function MetricItem({
   iconName,
   label,
@@ -36,14 +36,14 @@ function MetricItem({
   return (
     <div
       style={{
-        marginBottom: "24px",
+        marginBottom: "26px",
         width: "100%",
         display: "flex",
         flexDirection: "column",
         alignItems: centered ? "center" : "flex-start",
       }}
     >
-      {/* NADPIS (Label) - Úplne oddelený od ikony a hodnoty */}
+      {/* 1. NADPIS (Label) */}
       {showLabel && (
         <div
           style={{
@@ -54,41 +54,43 @@ function MetricItem({
             opacity: isDark ? 0.4 : 0.6,
             marginBottom: "4px",
             letterSpacing: "0.1em",
-            // Odsadenie o veľkosť ikony(28px) + medzera(8px) = 36px, aby to lícovalo s textom hodnoty
-            marginLeft: showIcon && !centered ? "36px" : "0px",
+            lineHeight: 1,
+            marginLeft: showIcon && !centered ? "42px" : "0px",
           }}
         >
           {label}
         </div>
       )}
 
-      {/* RIADOK: IKONA + HODNOTA */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* 2. RIADOK: IKONA + HODNOTA V JEDNOM RIADKU */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: centered ? "center" : "flex-start", gap: "10px" }}>
         
-        {/* Ikona */}
+        {/* IKONA - pridali sme class "selfrace-export-icon" kvôli detekcii pri exporte */}
         {showIcon && (
           <img
+            className="selfrace-export-icon"
             src={iconUrl}
             crossOrigin="anonymous"
             style={{
-              width: "28px",
-              height: "28px",
+              width: "32px",
+              height: "32px",
               objectFit: "contain",
               flexShrink: 0,
+              position: "relative",
+              display: "block"
             }}
             onError={() => setIconErr(true)}
           />
         )}
 
-        {/* Hodnota a Jednotka - Ako prirodzený text (bez flexboxu vo vnútri!) */}
-        <div style={{ whiteSpace: "nowrap" }}>
-          
+        {/* HODNOTA A JEDNOTKA */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
           {typeof value === "string" || typeof value === "number" ? (
-            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
+            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
               {value}
             </span>
           ) : (
-            value // V prípade, že je to čas (ktorý vráti pole spanov)
+            value
           )}
           
           {unit && (
@@ -98,13 +100,11 @@ function MetricItem({
                 fontWeight: "bold",
                 color: textColor,
                 opacity: 0.5,
-                marginLeft: "4px",
               }}
             >
               {unit}
             </span>
           )}
-          
         </div>
       </div>
     </div>
@@ -129,8 +129,7 @@ export default function ActivityShareModal({
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
 
-  const [isGenerating, setIsGenerating] = useState(true);
-  const [readyFile, setReadyFile] = useState<File | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
@@ -172,7 +171,6 @@ export default function ActivityShareModal({
       : `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Primitívna štruktúra textu pre čas, aby to html2canvas nikdy nepokazil
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
     if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
     const h = Math.floor(seconds / 3600);
@@ -191,17 +189,17 @@ export default function ActivityShareModal({
 
     if (h > 0) {
       return (
-        <>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
           <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
           <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </>
+        </div>
       );
     }
     return (
-      <>
+      <div style={{ display: "flex", alignItems: "baseline" }}>
         <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
         <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </>
+      </div>
     );
   }
 
@@ -227,51 +225,70 @@ export default function ActivityShareModal({
 
   useEffect(() => { setLogoError(false); }, [logoSuffix]);
 
-  useEffect(() => {
-    if (!isOpen || !mounted) return;
-    let isCancelled = false;
-    const generateImage = async () => {
-      setIsGenerating(true); setReadyFile(null);
-      await new Promise((r) => setTimeout(r, 800));
-      if (!cardRef.current || isCancelled) return;
-      try {
-        const canvas = await html2canvas(cardRef.current, {
-          scale: 3,
-          useCORS: true,
-          backgroundColor: null,
-          logging: false
-        });
-        canvas.toBlob((blob) => {
-          if (blob && !isCancelled) setReadyFile(new File([blob], "selfrace-training.png", { type: "image/png" }));
-          if (!isCancelled) setIsGenerating(false);
-        }, "image/png");
-      } catch (err) {
-        if (!isCancelled) setIsGenerating(false);
-      }
-    };
-    generateImage();
-    return () => { isCancelled = true; };
-  }, [isOpen, mounted, showHr, showPace, showElev, showTime, theme, displayMode, activity, summary]);
-
   if (!isOpen || !mounted) return null;
 
+  // GENERÁTOR S NEVIDITEĽNÝM HACKOM
   const handleShare = async () => {
-    if (!readyFile) {
-      toast.error(t("share.generatingWarning"));
-      return;
-    }
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
-      try {
-        await navigator.share({ title: t("share.title"), files: [readyFile] });
-        onClose();
-      } catch (e: any) {
-        if (e.name !== "AbortError") toast.error(t("share.errorFailed"));
-      }
-    } else {
-      const url = URL.createObjectURL(readyFile);
-      const a = document.createElement("a"); a.href = url; a.download = "selfrace-trening.png";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success(t("share.successDownload")); onClose();
+    if (!cardRef.current) return;
+    
+    setIsExporting(true);
+
+    // Iba malá pauza pre zobrazenie loading spinnera (žiadne blikanie komponentov)
+    await new Promise((r) => setTimeout(r, 50));
+
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null,
+        logging: false,
+        // TOTO JE MÁGIA: Kód sa spustí len nad klonovaným (neviditeľným) DOMom 
+        // tesne pred jeho odfotením. Originál na obrazovke zostáva nedotknutý!
+        onclone: (clonedDoc) => {
+          const icons = clonedDoc.querySelectorAll('.selfrace-export-icon');
+          Array.from(icons).forEach((icon) => {
+            if (icon instanceof HTMLElement) {
+              // Zmenili sme posun z 16px na 12px podľa tvojej požiadavky ("kúsok menej")
+              icon.style.transform = "translateY(12px)";
+            }
+          });
+        }
+      });
+
+      canvas.toBlob(async (blob) => {
+        setIsExporting(false);
+
+        if (!blob) {
+          toast.error(t("share.errorFailed"));
+          return;
+        }
+
+        const file = new File([blob], "selfrace-training.png", { type: "image/png" });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ title: t("share.title"), files: [file] });
+            onClose();
+          } catch (e: any) {
+            if (e.name !== "AbortError") toast.error(t("share.errorFailed"));
+          }
+        } else {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a"); 
+          a.href = url; 
+          a.download = "selfrace-trening.png";
+          document.body.appendChild(a); 
+          a.click(); 
+          document.body.removeChild(a); 
+          URL.revokeObjectURL(url);
+          toast.success(t("share.successDownload")); 
+          onClose();
+        }
+      }, "image/png");
+
+    } catch (e) {
+      setIsExporting(false);
+      toast.error(t("share.errorFailed"));
     }
   };
 
@@ -317,12 +334,7 @@ export default function ActivityShareModal({
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div style={{ 
-              padding: "36px 28px 46px 28px", // Pridaný extra spodný padding (z 32 na 46), aby sa fonty dole nikdy neorezali
-              display: "flex", 
-              flexDirection: "column", 
-              alignItems: "center" 
-            }}>
+            <div style={{ padding: "36px 28px 46px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
               <div style={{ marginBottom: "24px" }}>
                 {!logoError && (
@@ -345,7 +357,6 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA PRE VŠETKY METRIKY - Návrat k bezpečnému flex-wrap (už bez overflow: hidden) */}
               <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
@@ -369,7 +380,7 @@ export default function ActivityShareModal({
               </div>
             </div>
           </div>
-          {isGenerating && (
+          {isExporting && (
             <div className="absolute inset-0 bg-black/60 rounded-[24px] flex items-center justify-center z-50">
               <span className="text-white font-bold animate-pulse uppercase tracking-widest text-xs">
                 {t("share.generating")}
@@ -378,29 +389,32 @@ export default function ActivityShareModal({
           )}
         </div>
 
-        {/* OVLÁDANIE DOLE */}
         <div className="w-full flex flex-col gap-3">
           <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.theme")}</span>
-                <SegmentedControl options={[{ label: t("share.themeDark"), value: "dark" }, { label: t("share.themeLight"), value: "light" }]} value={theme} onChange={(val: any) => setTheme(val)} disabled={isGenerating} />
+                <SegmentedControl options={[{ label: t("share.themeDark"), value: "dark" }, { label: t("share.themeLight"), value: "light" }]} value={theme} onChange={(val: any) => setTheme(val)} disabled={isExporting} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.displayMode")}</span>
-                <SegmentedControl options={[{ label: t("share.modeIcon"), value: "icon" }, { label: t("share.modeText"), value: "text" }, { label: t("share.modeBoth"), value: "both" }]} value={displayMode} onChange={(val: any) => setDisplayMode(val)} disabled={isGenerating} />
+                <SegmentedControl options={[{ label: t("share.modeIcon"), value: "icon" }, { label: t("share.modeText"), value: "text" }, { label: t("share.modeBoth"), value: "both" }]} value={displayMode} onChange={(val: any) => setDisplayMode(val)} disabled={isExporting} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
-              <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isGenerating} />
-              <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isGenerating} />
-              <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isGenerating} />
-              <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isGenerating} />
+              <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isExporting} />
+              <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isExporting} />
+              <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isExporting} />
+              <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isExporting} />
             </div>
           </div>
           <div className="flex gap-2">
-            <div className="flex-1"><Button variant="primary" block disabled={isGenerating || !readyFile} onClick={handleShare}>{t("share.buttonShare")}</Button></div>
-            <Button variant="secondary" disabled={isGenerating} onClick={onClose}>{t("common.close")}</Button>
+            <div className="flex-1">
+              <Button variant="primary" block disabled={isExporting} onClick={handleShare}>
+                {isExporting ? t("share.generating") : t("share.buttonShare")}
+              </Button>
+            </div>
+            <Button variant="secondary" disabled={isExporting} onClick={onClose}>{t("common.close")}</Button>
           </div>
         </div>
       </div>
