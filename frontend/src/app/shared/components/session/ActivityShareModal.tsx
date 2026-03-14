@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent ukotvený pomocou ABSOLUTE POSITIONING - imúnny voči html2canvas bugom
+// Komponent pre metriku využíva Background-Image trik pre dokonalé zarovnanie
 function MetricItem({
   iconName,
   label,
@@ -24,13 +24,8 @@ function MetricItem({
   centered = false,
 }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
-  const [iconErr, setIconErr] = useState(false);
 
-  useEffect(() => {
-    setIconErr(false);
-  }, [iconSuffix]);
-
-  const showIcon = displayMode !== "text" && !iconErr;
+  const showIcon = displayMode !== "text";
   const showLabel = displayMode !== "icon";
 
   return (
@@ -38,81 +33,73 @@ function MetricItem({
       style={{
         marginBottom: "24px",
         width: "100%",
-        textAlign: centered ? "center" : "left",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: centered ? "center" : "flex-start",
       }}
     >
-      {/* Obal, ktorý drží veľkosť a umožňuje centrovanie celej skupiny */}
-      <div style={{ display: "inline-block", textAlign: "left", position: "relative" }}>
-        
-        {/* NADPIS */}
-        {showLabel && (
-          <div
-            style={{
-              fontSize: "11px",
-              textTransform: "uppercase",
-              fontWeight: "bold",
-              color: textColor,
-              opacity: isDark ? 0.4 : 0.6,
-              marginBottom: "2px",
-              letterSpacing: "0.1em",
-              // Ak máme ikonu, posunieme nadpis doprava (28px ikona + 10px medzera = 38px)
-              marginLeft: showIcon ? "38px" : "0px",
-            }}
-          >
-            {label}
-          </div>
-        )}
-
-        {/* BLOK HODNOTY S ABSOLÚTNOU IKONOU */}
+      {/* 1. NADPIS (Label) */}
+      {showLabel && (
         <div
           style={{
-            position: "relative", // Toto je kotva pre našu ikonu!
-            paddingLeft: showIcon ? "38px" : "0px",
-            paddingBottom: "4px", // Ochrana proti orezaniu čísel zospodu
+            fontSize: "11px",
+            textTransform: "uppercase",
+            fontWeight: "bold",
+            color: textColor,
+            opacity: isDark ? 0.4 : 0.6,
+            marginBottom: "4px",
+            letterSpacing: "0.1em",
+            lineHeight: 1,
+            marginLeft: showIcon && !centered ? "36px" : "0px",
           }}
         >
-          {/* IKONA - vytrhnutá z textu a natvrdo pribitá k ľavému spodnému rohu */}
-          {showIcon && (
-            <img
-              src={iconUrl}
-              crossOrigin="anonymous"
-              style={{
-                position: "absolute",
-                left: "0px",
-                bottom: "6px", // Presná pozícia odspodu (ignoruje text)
-                width: "28px",
-                height: "28px",
-                objectFit: "contain",
-                display: "block",
-              }}
-              onError={() => setIconErr(true)}
-            />
+          {label}
+        </div>
+      )}
+
+      {/* 2. RIADOK: IKONA + HODNOTA */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: centered ? "center" : "flex-start", gap: "8px" }}>
+        
+        {/* OUT OF THE BOX TRIK: Namiesto <img> tagu použijeme prázdny div s background-image. 
+            Týmto zabránime html2canvas-u zblázniť sa pri počítaní baseline. */}
+        {showIcon && (
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              backgroundImage: `url(${iconUrl})`,
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center bottom", // Natvrdo prilepené dole
+              flexShrink: 0,
+            }}
+          />
+        )}
+
+        {/* HODNOTA A JEDNOTKA */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+          
+          {typeof value === "string" || typeof value === "number" ? (
+            <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
+              {value}
+            </span>
+          ) : (
+            value
           )}
-
-          {/* HODNOTA A JEDNOTKA - čistý text */}
-          <div style={{ whiteSpace: "nowrap" }}>
-            {typeof value === "string" || typeof value === "number" ? (
-              <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>
-                {value}
-              </span>
-            ) : (
-              value
-            )}
-
-            {unit && (
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: "bold",
-                  color: textColor,
-                  opacity: 0.5,
-                  marginLeft: "4px",
-                }}
-              >
-                {unit}
-              </span>
-            )}
-          </div>
+          
+          {unit && (
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: "bold",
+                color: textColor,
+                opacity: 0.5,
+              }}
+            >
+              {unit}
+            </span>
+          )}
+          
         </div>
       </div>
     </div>
@@ -139,7 +126,6 @@ export default function ActivityShareModal({
 
   const [isGenerating, setIsGenerating] = useState(true);
   const [readyFile, setReadyFile] = useState<File | null>(null);
-  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -181,12 +167,12 @@ export default function ActivityShareModal({
   }
 
   function renderTimeValue(seconds: number | null | undefined, textColor: string) {
-    if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor }}>—</span>;
+    if (!seconds || seconds <= 0) return <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>—</span>;
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.round(seconds % 60);
 
-    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor };
+    const valStyle = { fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 };
     const unitStyle = {
       fontSize: "12px",
       fontWeight: "bold",
@@ -198,17 +184,17 @@ export default function ActivityShareModal({
 
     if (h > 0) {
       return (
-        <span style={{ whiteSpace: "nowrap" }}>
+        <>
           <span style={valStyle}>{h}</span><span style={unitStyle}>h</span>
           <span style={valStyle}>{m}</span><span style={{ ...unitStyle, marginRight: 0 }}>m</span>
-        </span>
+        </>
       );
     }
     return (
-      <span style={{ whiteSpace: "nowrap" }}>
+      <>
         <span style={valStyle}>{m}</span><span style={unitStyle}>m</span>
         <span style={valStyle}>{s}</span><span style={{ ...unitStyle, marginRight: 0 }}>s</span>
-      </span>
+      </>
     );
   }
 
@@ -232,15 +218,24 @@ export default function ActivityShareModal({
   const iconSuffix = isDark ? "" : "_darkGreen";
   const logoSuffix = isDark ? "" : "_darkGreen";
 
-  useEffect(() => { setLogoError(false); }, [logoSuffix]);
-
+  // GENEROVANIE - Kľúčová zmena načasovania (Timing fix)
   useEffect(() => {
     if (!isOpen || !mounted) return;
     let isCancelled = false;
+
     const generateImage = async () => {
       setIsGenerating(true); setReadyFile(null);
-      await new Promise((r) => setTimeout(r, 800));
+
+      // Čakáme, kým Safari potvrdí, že fonty sú 100% načítané a vyrenderované
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      
+      // Necháme modal dopadnúť na miesto (CSS animácia fade-in a podobne)
+      await new Promise((r) => setTimeout(r, 600));
+
       if (!cardRef.current || isCancelled) return;
+
       try {
         const canvas = await html2canvas(cardRef.current, {
           scale: 3,
@@ -248,6 +243,7 @@ export default function ActivityShareModal({
           backgroundColor: null,
           logging: false
         });
+        
         canvas.toBlob((blob) => {
           if (blob && !isCancelled) setReadyFile(new File([blob], "selfrace-training.png", { type: "image/png" }));
           if (!isCancelled) setIsGenerating(false);
@@ -256,6 +252,7 @@ export default function ActivityShareModal({
         if (!isCancelled) setIsGenerating(false);
       }
     };
+
     generateImage();
     return () => { isCancelled = true; };
   }, [isOpen, mounted, showHr, showPace, showElev, showTime, theme, displayMode, activity, summary]);
@@ -324,18 +321,20 @@ export default function ActivityShareModal({
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
-            <div style={{ padding: "36px 28px 56px 28px", display: "block" }}>
+            <div style={{ padding: "36px 28px 46px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
-              <div style={{ marginBottom: "24px", textAlign: "center" }}>
-                {!logoError && (
-                  <img
-                    src={`/logo/actual/selfrace_logo${logoSuffix}.png`}
-                    alt="SelfRace"
-                    crossOrigin="anonymous"
-                    style={{ height: "24px", width: "auto", objectFit: "contain", display: "inline-block" }}
-                    onError={() => setLogoError(true)}
-                  />
-                )}
+              <div style={{ marginBottom: "24px" }}>
+                <div
+                  style={{ 
+                    height: "24px", 
+                    width: "140px", 
+                    backgroundImage: `url(/logo/actual/selfrace_logo${logoSuffix}.png)`,
+                    backgroundSize: "contain",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center center",
+                    display: "block" 
+                  }}
+                />
               </div>
 
               <div style={{ textAlign: "center", marginBottom: "36px", width: "100%" }}>
@@ -347,8 +346,7 @@ export default function ActivityShareModal({
                 </div>
               </div>
 
-              {/* JEDNOTNÁ KASKÁDA - Float Grid */}
-              <div style={{ width: "100%", display: "block", overflow: "hidden", marginBottom: "0px" }}>
+              <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
                 {activeMetrics.map((item, index) => {
                   const isOddLast = activeMetrics.length % 2 !== 0 && index === activeMetrics.length - 1;
 
@@ -356,9 +354,9 @@ export default function ActivityShareModal({
                     <div
                       key={item.key}
                       style={{
-                        float: "left",
                         width: isOddLast ? "100%" : "50%",
-                        display: "block",
+                        display: "flex",
+                        justifyContent: isOddLast ? "center" : "flex-start",
                         boxSizing: "border-box",
                         paddingRight: !isOddLast && index % 2 === 0 ? "8px" : "0",
                         paddingLeft: !isOddLast && index % 2 !== 0 ? "8px" : "0",
@@ -380,7 +378,6 @@ export default function ActivityShareModal({
           )}
         </div>
 
-        {/* OVLÁDANIE DOLE */}
         <div className="w-full flex flex-col gap-3">
           <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
             <div className="flex flex-col gap-3">
