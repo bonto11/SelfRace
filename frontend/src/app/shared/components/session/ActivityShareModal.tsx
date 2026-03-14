@@ -11,7 +11,7 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku v JEDNOM RIADKU + Zosilnený Offset hack pri exporte
+// Komponent pre metriku - vrátil sa k čistej forme, hack sa robí externe
 function MetricItem({
   iconName,
   label,
@@ -22,7 +22,6 @@ function MetricItem({
   textColor,
   isDark,
   centered = false,
-  isExporting = false, 
 }: any) {
   const iconUrl = `/icons/${iconName}${iconSuffix}.png`;
   const [iconErr, setIconErr] = useState(false);
@@ -66,9 +65,10 @@ function MetricItem({
       {/* 2. RIADOK: IKONA + HODNOTA V JEDNOM RIADKU */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: centered ? "center" : "flex-start", gap: "10px" }}>
         
-        {/* IKONA S HACKOM PRE HTML2CANVAS */}
+        {/* IKONA - pridali sme class "selfrace-export-icon" kvôli detekcii pri exporte */}
         {showIcon && (
           <img
+            className="selfrace-export-icon"
             src={iconUrl}
             crossOrigin="anonymous"
             style={{
@@ -77,9 +77,7 @@ function MetricItem({
               objectFit: "contain",
               flexShrink: 0,
               position: "relative",
-              // ZVÄČŠENÝ OFFSET: Namiesto 8px použijeme 16px (alebo transform). Safari to vykopne hore, tak my to zatlačíme silnejšie dole.
-              transform: isExporting ? "translateY(16px)" : "translateY(0px)", 
-              transition: "none", 
+              display: "block"
             }}
             onError={() => setIconErr(true)}
           />
@@ -229,20 +227,32 @@ export default function ActivityShareModal({
 
   if (!isOpen || !mounted) return null;
 
+  // GENERÁTOR S NEVIDITEĽNÝM HACKOM
   const handleShare = async () => {
     if (!cardRef.current) return;
     
     setIsExporting(true);
 
-    // Dáme prehliadaču trošku viac času na prepočítanie layoutu (zo 150 na 250)
-    await new Promise((r) => setTimeout(r, 250));
+    // Iba malá pauza pre zobrazenie loading spinnera (žiadne blikanie komponentov)
+    await new Promise((r) => setTimeout(r, 50));
 
     try {
       const canvas = await html2canvas(cardRef.current, {
         scale: 3,
         useCORS: true,
         backgroundColor: null,
-        logging: false
+        logging: false,
+        // TOTO JE MÁGIA: Kód sa spustí len nad klonovaným (neviditeľným) DOMom 
+        // tesne pred jeho odfotením. Originál na obrazovke zostáva nedotknutý!
+        onclone: (clonedDoc) => {
+          const icons = clonedDoc.querySelectorAll('.selfrace-export-icon');
+          Array.from(icons).forEach((icon) => {
+            if (icon instanceof HTMLElement) {
+              // Zmenili sme posun z 16px na 12px podľa tvojej požiadavky ("kúsok menej")
+              icon.style.transform = "translateY(12px)";
+            }
+          });
+        }
       });
 
       canvas.toBlob(async (blob) => {
@@ -285,31 +295,31 @@ export default function ActivityShareModal({
   const activeMetrics = [];
 
   activeMetrics.push(
-    <MetricItem key="dist" iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} isExporting={isExporting} />,
+    <MetricItem key="dist" iconName="distance" label={t("common.metrics.distance")} value={distVal} unit={distUnit || t("common.units.km")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
   );
 
   if (showTime) {
     const timeSecs = summary?.moving_time_s ?? activity?.moving_time_s ?? 0;
     activeMetrics.push(
-      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={renderTimeValue(timeSecs, textColor)} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} isExporting={isExporting} />,
+      <MetricItem key="time" iconName="time" label={t("common.metrics.time")} value={renderTimeValue(timeSecs, textColor)} unit="" displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showPace && speedOrPaceVal) {
     activeMetrics.push(
-      <MetricItem key="pace" iconName="speed" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} isExporting={isExporting} />,
+      <MetricItem key="pace" iconName="speed" label={speedOrPaceLabel} value={speedOrPaceVal} unit={speedOrPaceUnit} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showElev && elev && elev > 0) {
     activeMetrics.push(
-      <MetricItem key="elev" iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} isExporting={isExporting} />,
+      <MetricItem key="elev" iconName="elevation" label={t("common.metrics.elevation")} value={elev} unit={t("common.units.meter")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
   if (showHr && avgHr && avgHr > 0) {
     activeMetrics.push(
-      <MetricItem key="hr" iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} isExporting={isExporting} />,
+      <MetricItem key="hr" iconName="heartRate" label={t("common.metrics.hr_avg")} value={avgHr} unit={t("common.units.hr")} displayMode={displayMode} textColor={textColor} isDark={isDark} iconSuffix={iconSuffix} centered={false} />,
     );
   }
 
