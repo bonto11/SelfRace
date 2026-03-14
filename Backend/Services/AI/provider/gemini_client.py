@@ -52,7 +52,8 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        unique = ["gemini-1.5-flash"]
+        # Odporúčam zmeniť fallback na najnovší bleskový model
+        unique = ["gemini-2.5-flash"]
 
     if explicit_model:
         em = _clean_model_name(explicit_model)
@@ -64,38 +65,31 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
 
 def _extract_usage(resp: Any) -> Optional[Dict[str, int]]:
     """
-    Best-effort: rôzne verzie SDK majú usage metadata inde.
+    Extrakcia tokenov z odpovede Gemini.
     """
     um = getattr(resp, "usage_metadata", None)
     if um is None:
-        um = getattr(resp, "usage", None)
-
-    # skúšame typické polia
-    def _g(obj: Any, name: str) -> int:
-        try:
-            return int(getattr(obj, name, 0) or 0)
-        except Exception:
-            return 0
-
-    if um is None:
         return None
 
-    prompt = _g(um, "prompt_token_count") or _g(um, "prompt_tokens")
-    completion = _g(um, "candidates_token_count") or _g(um, "completion_tokens")
-    total = _g(um, "total_token_count") or _g(um, "total_tokens")
+    try:
+        prompt = int(getattr(um, "prompt_token_count", 0) or 0)
+        completion = int(getattr(um, "candidates_token_count", 0) or 0)
+        total = int(getattr(um, "total_token_count", 0) or 0)
 
-    if prompt == 0 and completion == 0 and total == 0:
+        if prompt == 0 and completion == 0 and total == 0:
+            return None
+
+        if total == 0:
+            total = prompt + completion
+
+        return {
+            "prompt_tokens": prompt,
+            "completion_tokens": completion,
+            "total_tokens": total,
+            "reasoning_tokens": 0,
+        }
+    except Exception:
         return None
-
-    if total == 0:
-        total = prompt + completion
-
-    return {
-        "prompt_tokens": prompt,
-        "completion_tokens": completion,
-        "total_tokens": total,
-        "reasoning_tokens": 0,
-    }
 
 
 def gemini_call_json_model(
@@ -120,11 +114,12 @@ def gemini_call_json_model(
     }
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
-    full_prompt = (
-        f"SYSTEM INSTRUCTIONS:\n{system_prompt}\n\n"
+    
+    # 1. ZMENA: Čistý User Prompt (bez systémových inštrukcií a JSON upozornení, 
+    # to riešime natívne cez config nižšie)
+    full_user_prompt = (
         f"USER TASK:\n{user_instructions}\n\n"
-        f"CONTEXT DATA (JSON):\n{ctx_json}\n\n"
-        f"IMPORTANT: Respond ONLY with a valid JSON object. No markdown."
+        f"CONTEXT DATA (JSON):\n{ctx_json}"
     )
 
     last_err: Optional[str] = None
@@ -133,12 +128,15 @@ def gemini_call_json_model(
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
+                # 2. ZMENA: Plné využitie natívnych vlastností Gemini API
                 resp = client.models.generate_content(
                     model=m,
-                    contents=full_prompt,
+                    contents=full_user_prompt,
                     config=types.GenerateContentConfig(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
+                        system_instruction=system_prompt, # Natívny System Prompt
+                        response_mime_type="application/json", # Vynútený JSON mód
                         http_options=types.HttpOptions(timeout=60),
                     ),
                 )
