@@ -26,11 +26,10 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        # OPRAVA: Timeout (v milisekundách) a verziu API nastavujeme priamo na klientovi.
-        # Používame slovník (dict), čo je pre Pylance a lintery najbezpečnejší formát.
+        # OPRAVA: Pre modely rady 2.0 a 3.0 meníme api_version na "v1alpha"
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options={"api_version": "v1", "timeout": 60000},
+            http_options={"api_version": "v1alpha", "timeout": 60000},
         )
     return _CLIENT
 
