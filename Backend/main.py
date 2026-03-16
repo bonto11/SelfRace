@@ -35,7 +35,8 @@ app = FastAPI()
 
 # -------- CORS z ENV --------
 raw_origins = os.getenv("CORS_ORIGINS", "")
-origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+# Rozdelí podľa čiarky a odstráni nielen medzery, ale aj všetky zbytočné " a ' úvodzovky
+origins = [o.strip().strip('"').strip("'") for o in raw_origins.split(",") if o.strip()]
 
 # fallback pre lokálny dev, ak by ENV chýbalo
 if not origins:
