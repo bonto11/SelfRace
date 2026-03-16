@@ -13,6 +13,7 @@ from Configs.config import (
     LLM_RETRIES,
     GEMINI_DEFAULT_MODEL,
     GEMINI_MODEL_FALLBACKS,
+    LLM_TIMEOUT_S, # <-- Pridali sme import tvojho timeoutu z env
 )
 from Services.AI.utils.types import AiResult, AiError
 from Services.AI.utils.json_parse import parse_ai_json
@@ -26,10 +27,12 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        # OPRAVA: Pre modely rady 2.0 a 3.0 meníme api_version na "v1alpha"
+        # OPRAVA: Prečítame 90 sekúnd z tvojho env (90 * 1000 = 90000 ms)
+        timeout_ms = int(LLM_TIMEOUT_S or 90) * 1000
+        
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options={"api_version": "v1alpha", "timeout": 60000},
+            http_options={"api_version": "v1alpha", "timeout": timeout_ms},
         )
     return _CLIENT
 
@@ -113,7 +116,6 @@ def gemini_call_json_model(
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
     
-    # Posielame už len inštrukcie pre používateľa, System prompt riešime natívne nižšie
     full_user_prompt = (
         f"USER TASK:\n{user_instructions}\n\n"
         f"CONTEXT DATA (JSON):\n{ctx_json}"
@@ -125,22 +127,23 @@ def gemini_call_json_model(
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
-                # OPRAVA: Odstránený neplatný http_options. Zostal len čistý config.
                 resp = client.models.generate_content(
                     model=m,
                     contents=full_user_prompt,
                     config=types.GenerateContentConfig(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
-                        system_instruction=system_prompt, # Natívny System Prompt
-                        response_mime_type="application/json", # Vynútený JSON mód
+                        system_instruction=system_prompt,
+                        # OPRAVA: Vymazali sme response_mime_type, aby model neviazol na validácii
                     ),
                 )
 
                 raw = (getattr(resp, "text", None) or "").strip()
                 dur_ms = int((time.time() - started) * 1000)
 
+                # Pridaný ladiaci výpis priamo do konzoly servera pre istotu
                 if not raw:
+                    print(f"[GEMINI DEV] Model {m} returned empty text.")
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": "empty_text"})
                     continue
 
@@ -158,6 +161,7 @@ def gemini_call_json_model(
                 )
 
                 if not ok:
+                    print(f"[GEMINI DEV] Invalid JSON output z modelu {m}:\n{raw[:300]}...")
                     last_err = "Gemini returned invalid JSON"
                     continue
 
@@ -171,6 +175,7 @@ def gemini_call_json_model(
             except Exception as e:
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{e.__class__.__name__}: {e}"
+                print(f"[GEMINI DEV] Exception: {last_err}")
                 trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                 if "404" in last_err:
                     break
