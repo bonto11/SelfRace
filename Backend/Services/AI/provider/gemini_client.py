@@ -25,9 +25,12 @@ def _get_client() -> genai.Client:
     if _CLIENT is None:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
+        
+        # OPRAVA: Timeout (v milisekundách) a verziu API nastavujeme priamo na klientovi.
+        # Používame slovník (dict), čo je pre Pylance a lintery najbezpečnejší formát.
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options={"api_version": "v1", "timeout": 60},
+            http_options={"api_version": "v1", "timeout": 60000},
         )
     return _CLIENT
 
@@ -52,7 +55,6 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        # Odporúčam zmeniť fallback na najnovší bleskový model
         unique = ["gemini-2.5-flash"]
 
     if explicit_model:
@@ -64,9 +66,6 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
 
 
 def _extract_usage(resp: Any) -> Optional[Dict[str, int]]:
-    """
-    Extrakcia tokenov z odpovede Gemini.
-    """
     um = getattr(resp, "usage_metadata", None)
     if um is None:
         return None
@@ -115,8 +114,7 @@ def gemini_call_json_model(
 
     ctx_json = json.dumps(context_payload, ensure_ascii=False)
     
-    # 1. ZMENA: Čistý User Prompt (bez systémových inštrukcií a JSON upozornení, 
-    # to riešime natívne cez config nižšie)
+    # Posielame už len inštrukcie pre používateľa, System prompt riešime natívne nižšie
     full_user_prompt = (
         f"USER TASK:\n{user_instructions}\n\n"
         f"CONTEXT DATA (JSON):\n{ctx_json}"
@@ -128,7 +126,7 @@ def gemini_call_json_model(
         for attempt in range(1, retries + 1):
             started = time.time()
             try:
-                # 2. ZMENA: Plné využitie natívnych vlastností Gemini API
+                # OPRAVA: Odstránený neplatný http_options. Zostal len čistý config.
                 resp = client.models.generate_content(
                     model=m,
                     contents=full_user_prompt,
@@ -137,7 +135,6 @@ def gemini_call_json_model(
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt, # Natívny System Prompt
                         response_mime_type="application/json", # Vynútený JSON mód
-                        http_options=types.HttpOptions(timeout=60),
                     ),
                 )
 
