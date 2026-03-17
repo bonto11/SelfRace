@@ -13,7 +13,7 @@ from Configs.config import (
     LLM_RETRIES,
     GEMINI_DEFAULT_MODEL,
     GEMINI_MODEL_FALLBACKS,
-    LLM_TIMEOUT_S, # <-- Pridali sme import tvojho timeoutu z env
+    LLM_TIMEOUT_S,
 )
 from Services.AI.utils.types import AiResult, AiError
 from Services.AI.utils.json_parse import parse_ai_json
@@ -27,7 +27,6 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        # OPRAVA: Prečítame 90 sekúnd z tvojho env (90 * 1000 = 90000 ms)
         timeout_ms = int(LLM_TIMEOUT_S or 90) * 1000
         
         _CLIENT = genai.Client(
@@ -134,17 +133,17 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
-                        # OPRAVA: Vymazali sme response_mime_type, aby model neviazol na validácii
+                        # VRÁTENÉ SPÄŤ: Týmto model donútime napísať čisto iba JSON a žiadne iné reči.
+                        response_mime_type="application/json", 
                     ),
                 )
 
                 raw = (getattr(resp, "text", None) or "").strip()
                 dur_ms = int((time.time() - started) * 1000)
 
-                # Pridaný ladiaci výpis priamo do konzoly servera pre istotu
                 if not raw:
-                    print(f"[GEMINI DEV] Model {m} returned empty text.")
-                    trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": "empty_text"})
+                    last_err = "Gemini returned empty text"
+                    trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
@@ -161,8 +160,10 @@ def gemini_call_json_model(
                 )
 
                 if not ok:
-                    print(f"[GEMINI DEV] Invalid JSON output z modelu {m}:\n{raw[:300]}...")
-                    last_err = "Gemini returned invalid JSON"
+                    # SUPER DEBUG: Surový text od Gemini natlačíme priamo do Error správy pre teba
+                    safe_raw = raw[:500].replace('\n', ' ')
+                    last_err = f"Invalid JSON. Gemini output: {safe_raw}"
+                    print(f"[GEMINI DEV] {last_err}")
                     continue
 
                 trace["ok_model"] = m
