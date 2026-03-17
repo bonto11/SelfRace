@@ -20,29 +20,26 @@ from Services.AI.utils.json_parse import parse_ai_json
 
 _CLIENT: Optional[genai.Client] = None
 
-
 def _get_client() -> genai.Client:
     global _CLIENT
     if _CLIENT is None:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        timeout_ms = int(LLM_TIMEOUT_S or 90) * 1000
+        # OPRAVA PYLANCE: Prevedieme sekundy na milisekundy a natvrdo na celé číslo (int)
+        timeout_ms = int(float(LLM_TIMEOUT_S or 300.0) * 1000)
         
-        # Necháme SDK zvoliť správnu API verziu automaticky, nastavíme len predĺžený timeout
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
             http_options={"timeout": timeout_ms},
         )
     return _CLIENT
 
-
 def _clean_model_name(name: str) -> str:
     s = (name or "").strip()
     if s.lower().startswith("models/"):
         s = s.split("/", 1)[1]
     return s
-
 
 def _models_priority(explicit_model: Optional[str]) -> List[str]:
     base: List[str] = []
@@ -57,32 +54,26 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        unique = ["gemini-1.5-flash"]
+        unique = ["gemini-2.5-flash"]
 
     if explicit_model:
         em = _clean_model_name(explicit_model)
         if em:
             return [em] + [m for m in unique if m != em]
-
     return unique
-
 
 def _extract_usage(resp: Any) -> Optional[Dict[str, int]]:
     um = getattr(resp, "usage_metadata", None)
     if um is None:
         return None
-
     try:
         prompt = int(getattr(um, "prompt_token_count", 0) or 0)
         completion = int(getattr(um, "candidates_token_count", 0) or 0)
         total = int(getattr(um, "total_token_count", 0) or 0)
-
         if prompt == 0 and completion == 0 and total == 0:
             return None
-
         if total == 0:
             total = prompt + completion
-
         return {
             "prompt_tokens": prompt,
             "completion_tokens": completion,
@@ -91,7 +82,6 @@ def _extract_usage(resp: Any) -> Optional[Dict[str, int]]:
         }
     except Exception:
         return None
-
 
 def gemini_call_json_model(
     *,
@@ -134,6 +124,7 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
+                        response_mime_type="application/json", 
                     ),
                 )
 
@@ -144,6 +135,11 @@ def gemini_call_json_model(
                     last_err = "Gemini returned empty text"
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
+
+                # Bezpečné očistenie bez znakov, ktoré by rozbili chat
+                backticks = chr(96) * 3
+                if raw.startswith(backticks):
+                    raw = raw.replace(backticks + "json", "").replace(backticks, "").strip()
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
                 ok = isinstance(parsed, dict)
@@ -160,7 +156,7 @@ def gemini_call_json_model(
 
                 if not ok:
                     safe_raw = raw[:500].replace('\n', ' ')
-                    last_err = f"Invalid JSON. Gemini output: {safe_raw}"
+                    last_err = f"Invalid JSON. Output: {safe_raw}"
                     print(f"[GEMINI DEV] {last_err}")
                     continue
 
@@ -174,17 +170,19 @@ def gemini_call_json_model(
             except Exception as e:
                 dur_ms = int((time.time() - started) * 1000)
                 last_err = f"{e.__class__.__name__}: {e}"
-                print(f"[GEMINI DEV] Exception: {last_err}")
+                print(f"[GEMINI DEV] Attempt {attempt} failed on {m}: {last_err}")
                 trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
-                if "404" in last_err:
+                
+                if "404" in last_err or "429" in last_err:
                     break
-                time.sleep(0.6 * attempt)
+                
+                time.sleep(1.0 * attempt)
 
     return AiResult(
         ok=False,
         data=None,
         provider="gemini",
         model=(models[0] if models else "unknown"),
-        error=AiError(code="ai_gemini_failed", message=(last_err or "All models failed or timed out.")),
+        error=AiError(code="ai_gemini_failed", message=(last_err or "All models failed.")),
         trace=trace,
     )
