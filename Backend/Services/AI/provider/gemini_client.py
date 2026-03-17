@@ -29,9 +29,10 @@ def _get_client() -> genai.Client:
         
         timeout_ms = int(LLM_TIMEOUT_S or 90) * 1000
         
+        # Necháme SDK zvoliť správnu API verziu automaticky, nastavíme len predĺžený timeout
         _CLIENT = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options={"api_version": "v1alpha", "timeout": timeout_ms},
+            http_options={"timeout": timeout_ms},
         )
     return _CLIENT
 
@@ -56,7 +57,7 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        unique = ["gemini-2.5-flash"]
+        unique = ["gemini-1.5-flash"]
 
     if explicit_model:
         em = _clean_model_name(explicit_model)
@@ -133,8 +134,6 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
-                        # VRÁTENÉ SPÄŤ: Týmto model donútime napísať čisto iba JSON a žiadne iné reči.
-                        response_mime_type="application/json", 
                     ),
                 )
 
@@ -160,7 +159,6 @@ def gemini_call_json_model(
                 )
 
                 if not ok:
-                    # SUPER DEBUG: Surový text od Gemini natlačíme priamo do Error správy pre teba
                     safe_raw = raw[:500].replace('\n', ' ')
                     last_err = f"Invalid JSON. Gemini output: {safe_raw}"
                     print(f"[GEMINI DEV] {last_err}")
