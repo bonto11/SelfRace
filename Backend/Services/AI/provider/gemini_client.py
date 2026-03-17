@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import time
-import re
 from typing import Any, Dict, List, Optional
 
 from google import genai
@@ -54,7 +53,7 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        unique = ["gemini-flash-latest"]
+        unique = ["gemini-2.5-flash"]
 
     if explicit_model:
         em = _clean_model_name(explicit_model)
@@ -124,7 +123,7 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
-                        # ODSTRÁNILI SME BEZPEČNOSTNÚ CENZÚRU:
+                        # Vypnutá cenzúra, aby nás nestopol pri slove "zranenie"
                         safety_settings=[
                             types.SafetySetting(
                                 category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -150,13 +149,15 @@ def gemini_call_json_model(
                 dur_ms = int((time.time() - started) * 1000)
 
                 if not raw:
-                    last_err = "Gemini returned empty text (possibly blocked)"
+                    last_err = "Gemini returned empty text"
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
 
-                b_ticks = chr(96) * 3
-                if raw.startswith(b_ticks):
-                    raw = raw.replace(b_ticks + "json", "").replace(b_ticks, "").strip()
+                # MAGICKÝ TRIK: Vyrežeme presne len ten JSON, všetok chatty text sa zahodí
+                start_idx = raw.find('{')
+                end_idx = raw.rfind('}')
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    raw = raw[start_idx:end_idx+1]
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
                 ok = isinstance(parsed, dict)
@@ -172,9 +173,22 @@ def gemini_call_json_model(
                 )
 
                 if not ok:
-                    safe_raw = raw[:500].replace('\n', ' ')
-                    last_err = f"Invalid JSON. Output: {safe_raw}"
-                    print(f"[GEMINI DEV] {last_err}")
+                    # 1. Vypíšeme do logu absolútne všetko, bez orezania
+                    print("\n" + "="*50)
+                    print("[GEMINI DEV] FULL RAW OUTPUT START:")
+                    print(raw)
+                    print("[GEMINI DEV] FULL RAW OUTPUT END")
+                    print("="*50 + "\n")
+                    
+                    # 2. Uložíme to do fyzického súboru, aby si si to mohol v pokoji prečítať
+                    try:
+                        with open("gemini_debug_error.txt", "w", encoding="utf-8") as debug_file:
+                            debug_file.write(raw)
+                        print("[GEMINI DEV] Celá chybná odpoveď bola uložená do súboru 'gemini_debug_error.txt' v koreňovom adresári bežiaceho servera.")
+                    except Exception as fe:
+                        print(f"[GEMINI DEV] Nepodarilo sa uložiť debug súbor: {fe}")
+
+                    last_err = "Invalid JSON. Záznam nájdeš v logu alebo v súbore gemini_debug_error.txt"
                     continue
 
                 trace["ok_model"] = m
