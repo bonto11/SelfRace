@@ -100,8 +100,8 @@ function maxVersionsForTier(tier: string): number {
     const num = Number(val);
     return Number.isFinite(num) && num > 0 ? num : fallback;
   };
-
-  if (tier === "family") return parseSafe(MAX_VERSIONS_FAMILY, 4);
+  console.log("maxVersionsForTier", tier);
+  if (tier === "family") return parseSafe(MAX_VERSIONS_FAMILY, 10);
   if (tier === "pro") return parseSafe(MAX_VERSIONS_PRO, 3);
   if (tier === "classic") return parseSafe(MAX_VERSIONS_CLASSIC, 2);
   return parseSafe(MAX_VERSIONS_FREE, 1);
