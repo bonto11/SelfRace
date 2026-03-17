@@ -124,7 +124,9 @@ def service_request_activity_review_rerun(
         return {"ok": False, "code": "hard_limit_reached", "message": "Bol dosiahnutý absolútny systémový limit pregenerovaní."}
 
     # --- 2. LOGIKA TIERU + ZDRAVOTNÁ VÝNIMKA ---
-    if tier_code == "pro":
+    if tier_code == "family":
+        max_versions = 10
+    elif tier_code == "pro":
         max_versions = 3
     elif tier_code == "classic":
         max_versions = 2
