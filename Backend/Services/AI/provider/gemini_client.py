@@ -121,9 +121,8 @@ def gemini_call_json_model(
                     contents=full_user_prompt,
                     config=types.GenerateContentConfig(
                         temperature=float(temperature),
-                        max_output_tokens=int(max_tokens),
+                        max_output_tokens=8192, # MAGICKÁ OPRAVA: Tvrdý, obrovský limit, nech ho nič nezastaví!
                         system_instruction=system_prompt,
-                        # Vypnutá cenzúra, aby nás nestopol pri slove "zranenie"
                         safety_settings=[
                             types.SafetySetting(
                                 category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
@@ -147,13 +146,25 @@ def gemini_call_json_model(
 
                 raw = (getattr(resp, "text", None) or "").strip()
                 dur_ms = int((time.time() - started) * 1000)
+                
+                # Zistíme PREČO Google prestal písať
+                # Zistíme PREČO Google prestal písať
+                finish_reason = "UNKNOWN"
+                try:
+                    if resp.candidates and len(resp.candidates) > 0:
+                        finish_reason = str(resp.candidates[0].finish_reason)
+                except Exception:
+                    pass
 
                 if not raw:
-                    last_err = "Gemini returned empty text"
+                    last_err = f"Gemini returned empty text. Finish reason: {finish_reason}"
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
 
-                # MAGICKÝ TRIK: Vyrežeme presne len ten JSON, všetok chatty text sa zahodí
+                b_ticks = chr(96) * 3
+                if raw.startswith(b_ticks):
+                    raw = raw.replace(b_ticks + "json", "").replace(b_ticks, "").strip()
+
                 start_idx = raw.find('{')
                 end_idx = raw.rfind('}')
                 if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
@@ -173,22 +184,14 @@ def gemini_call_json_model(
                 )
 
                 if not ok:
-                    # 1. Vypíšeme do logu absolútne všetko, bez orezania
                     print("\n" + "="*50)
+                    print(f"[GEMINI DEV] GOOGLE FINISH REASON: {finish_reason}")
                     print("[GEMINI DEV] FULL RAW OUTPUT START:")
                     print(raw)
                     print("[GEMINI DEV] FULL RAW OUTPUT END")
                     print("="*50 + "\n")
-                    
-                    # 2. Uložíme to do fyzického súboru, aby si si to mohol v pokoji prečítať
-                    try:
-                        with open("gemini_debug_error.txt", "w", encoding="utf-8") as debug_file:
-                            debug_file.write(raw)
-                        print("[GEMINI DEV] Celá chybná odpoveď bola uložená do súboru 'gemini_debug_error.txt' v koreňovom adresári bežiaceho servera.")
-                    except Exception as fe:
-                        print(f"[GEMINI DEV] Nepodarilo sa uložiť debug súbor: {fe}")
 
-                    last_err = "Invalid JSON. Záznam nájdeš v logu alebo v súbore gemini_debug_error.txt"
+                    last_err = f"Invalid JSON. Google Finish Reason: {finish_reason}"
                     continue
 
                 trace["ok_model"] = m
