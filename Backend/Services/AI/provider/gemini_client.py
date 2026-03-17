@@ -26,7 +26,6 @@ def _get_client() -> genai.Client:
         if not GEMINI_API_KEY:
             raise RuntimeError("Missing GEMINI_API_KEY v Configs.config")
         
-        # OPRAVA PYLANCE: Prevedieme sekundy na milisekundy a natvrdo na celé číslo (int)
         timeout_ms = int(float(LLM_TIMEOUT_S or 300.0) * 1000)
         
         _CLIENT = genai.Client(
@@ -124,7 +123,6 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
-                        response_mime_type="application/json", 
                     ),
                 )
 
@@ -136,10 +134,10 @@ def gemini_call_json_model(
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
 
-                # Bezpečné očistenie bez znakov, ktoré by rozbili chat
-                backticks = chr(96) * 3
-                if raw.startswith(backticks):
-                    raw = raw.replace(backticks + "json", "").replace(backticks, "").strip()
+                # Bezpečné očistenie od Markdownu bez znakov, ktoré rúcajú chat
+                b_ticks = chr(96) * 3
+                if raw.startswith(b_ticks):
+                    raw = raw.replace(b_ticks + "json", "").replace(b_ticks, "").strip()
 
                 parsed, cleaned, raw_keep = parse_ai_json(raw)
                 ok = isinstance(parsed, dict)
@@ -150,7 +148,7 @@ def gemini_call_json_model(
                         "attempt": attempt,
                         "ok": ok,
                         "duration_ms": dur_ms,
-                        "raw_preview": raw[:600] + ("…[truncated]" if len(raw) > 600 else ""),
+                        "raw_preview": raw[:600] + ("...[truncated]" if len(raw) > 600 else ""),
                     }
                 )
 
