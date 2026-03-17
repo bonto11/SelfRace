@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+import re
 from typing import Any, Dict, List, Optional
 
 from google import genai
@@ -53,7 +54,7 @@ def _models_priority(explicit_model: Optional[str]) -> List[str]:
             unique.append(m)
 
     if not unique:
-        unique = ["gemini-2.5-flash"]
+        unique = ["gemini-flash-latest"]
 
     if explicit_model:
         em = _clean_model_name(explicit_model)
@@ -88,7 +89,7 @@ def gemini_call_json_model(
     system_prompt: str,
     user_instructions: str,
     model: Optional[str] = None,
-    max_tokens: int = 2000,
+    max_tokens: int = 4000,
     temperature: float = 0.2,
 ) -> AiResult[Dict[str, Any]]:
     client = _get_client()
@@ -123,6 +124,25 @@ def gemini_call_json_model(
                         temperature=float(temperature),
                         max_output_tokens=int(max_tokens),
                         system_instruction=system_prompt,
+                        # ODSTRÁNILI SME BEZPEČNOSTNÚ CENZÚRU:
+                        safety_settings=[
+                            types.SafetySetting(
+                                category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                            ),
+                            types.SafetySetting(
+                                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                            ),
+                            types.SafetySetting(
+                                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                            ),
+                            types.SafetySetting(
+                                category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                                threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                            ),
+                        ]
                     ),
                 )
 
@@ -130,11 +150,10 @@ def gemini_call_json_model(
                 dur_ms = int((time.time() - started) * 1000)
 
                 if not raw:
-                    last_err = "Gemini returned empty text"
+                    last_err = "Gemini returned empty text (possibly blocked)"
                     trace["attempts"].append({"model": m, "attempt": attempt, "ok": False, "duration_ms": dur_ms, "error": last_err})
                     continue
 
-                # Bezpečné očistenie od Markdownu bez znakov, ktoré rúcajú chat
                 b_ticks = chr(96) * 3
                 if raw.startswith(b_ticks):
                     raw = raw.replace(b_ticks + "json", "").replace(b_ticks, "").strip()
