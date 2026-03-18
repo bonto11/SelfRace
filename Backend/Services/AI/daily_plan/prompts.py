@@ -167,13 +167,11 @@ def build_prompts_for_daily(
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
     
-    # ✅ Dynamická detekcia: má používateľ reálne nastavené tepové/výkonové zóny v DB?
     zones_data = context_payload.get("zones") or {}
     has_zones = False
     if isinstance(zones_data, dict):
         for key, val in zones_data.items():
             if isinstance(val, dict):
-                # Skontrolujeme vnorenú štruktúru (napr. zones_data["run"]["z1_min"])
                 if val.get("z1_min") is not None or val.get("z1_max") is not None:
                     has_zones = True
                     break
@@ -181,7 +179,6 @@ def build_prompts_for_daily(
                 if isinstance(z_list, list) and len(z_list) > 0:
                     has_zones = True
                     break
-            # Pre prípad, že by to bol flat dict (priamo zones_data["z1_min"])
             elif key in ["z1_min", "z1_max"] and val is not None:
                 has_zones = True
                 break
@@ -255,7 +252,6 @@ def build_prompts_for_daily(
             )
 
     beginner_rule = ""
-    explanation_rule = "- NOTES: 2-3 short sentences for every session.\n\n"
     
     if is_returning_beginner:
         beginner_rule = (
@@ -269,7 +265,6 @@ def build_prompts_for_daily(
             "  - Emphasize WHY: 'Adaptation of joints and tendons takes more time than muscles.'\n"
             "  - In the output `meta` object, set `is_beginner_adaptation`: true.\n\n"
         )
-        explanation_rule = "- NOTES: 3-5 detailed, encouraging sentences. Explain exactly HOW it should feel (Talk/Sing test) and WHY.\n\n"
 
     system_txt = (
         "You are an endurance coaching assistant. "
@@ -338,7 +333,6 @@ def build_prompts_for_daily(
     
     latest_paces = context_payload.get("latest_paces") or {}
     if has_zones:
-        # Dynamická tvorba inštrukcií pre tempá z flat DB štruktúry
         pace_instructions = ""
         if isinstance(latest_paces, dict) and any(latest_paces.get(k) for k in ["z1_pace_s", "z2_pace_s", "z3_pace_s", "z4_pace_s", "z5_pace_s"]):
             pace_str_parts = []
@@ -354,7 +348,6 @@ def build_prompts_for_daily(
                     f"{', '.join(pace_str_parts)}. Do not deviate by more than 5-10 seconds per km unless the session is specifically hilly or trail-based.\n"
                 )
         else:
-            # Ak tabuľka temp ešte neobsahuje dáta
             pace_instructions = (
                 "CRITICAL: No specific pace history found. You must ESTIMATE realistic target paces based on the user's recent load, target race time, and athlete state capabilities. "
                 "Provide a realistic average pace (min/km) for the specific zone being targeted, not max pace. Keep it conservative.\n"
@@ -419,7 +412,10 @@ def build_prompts_for_daily(
         + blocks_rule
         + weekly_volume_line
         + back_to_back_rule
-        + explanation_rule
+        + "\n--- STRICT CONCISENESS RULE ---\n"
+        + "- KEEP 'notes' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
+        + "- DO NOT write long explanations or motivational paragraphs. Be punchy and direct.\n"
+        + "- DO NOT exceed 8000 tokens in output.\n"
         + "\nCONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
