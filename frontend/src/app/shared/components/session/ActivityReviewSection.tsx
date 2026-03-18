@@ -185,10 +185,10 @@ function InjuryReportModal({
 
   const getSeverityNote = (val: number) => {
     if (val <= 3)
-      return t("prefs.sections.injuriesSection.severityLevels.mild" as any);
+      return t("prefs.sections.injuriesSection.severityLevels.mild");
     if (val <= 6)
-      return t("prefs.sections.injuriesSection.severityLevels.moderate" as any);
-    return t("prefs.sections.injuriesSection.severityLevels.critical" as any);
+      return t("prefs.sections.injuriesSection.severityLevels.moderate");
+    return t("prefs.sections.injuriesSection.severityLevels.critical");
   };
 
   const handleAddDraftToList = () => {
@@ -233,7 +233,7 @@ function InjuryReportModal({
       >
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5 shrink-0">
           <h3 className="text-sm font-bold uppercase tracking-wider opacity-90 text-white">
-            {t("sessions.review.injuryModal.title" as any) || "Manage Injuries"}
+            {t("sessions.review.injuryModal.title")}
           </h3>
           <button
             onClick={onClose}
@@ -245,19 +245,18 @@ function InjuryReportModal({
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center py-10 opacity-50">
-            {t("common.loading" as any)}
+            {t("common.loading")}
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto pr-2 space-y-6">
             <div className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/5">
               <h4 className="text-xs font-bold uppercase text-white/60 mb-2">
-                {t("sessions.review.injuryModal.addNewTitle" as any) ||
-                  "Add new injury"}
+                {t("sessions.review.injuryModal.addNewTitle")}
               </h4>
 
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">
-                  {t("prefs.sections.injuriesSection.areaLabel" as any)}
+                  {t("prefs.sections.injuriesSection.areaLabel")}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {INJ_AREAS.map((a) => (
@@ -271,7 +270,7 @@ function InjuryReportModal({
                           : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
                       }`}
                     >
-                      {t(`prefs.sections.injuriesSection.areas.${a}` as any)}
+                      {t(`prefs.sections.injuriesSection.areas.${a}`)}
                     </button>
                   ))}
                 </div>
@@ -279,7 +278,7 @@ function InjuryReportModal({
 
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">
-                  {t("prefs.sections.injuriesSection.typeLabel" as any)}
+                  {t("prefs.sections.injuriesSection.typeLabel")}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {INJ_TYPES.map((ty) => (
@@ -293,7 +292,7 @@ function InjuryReportModal({
                           : "bg-black/30 text-white/70 border-white/10 hover:bg-white/10"
                       }`}
                     >
-                      {t(`prefs.sections.injuriesSection.types.${ty}` as any)}
+                      {t(`prefs.sections.injuriesSection.types.${ty}`)}
                     </button>
                   ))}
                 </div>
@@ -302,12 +301,10 @@ function InjuryReportModal({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[10px] uppercase font-bold opacity-50">
-                    {t("sessions.review.injuryModal.severityTitle" as any) ||
-                      "Severity (1-10)"}
+                    {t("sessions.review.injuryModal.severityTitle")}
                   </div>
                   <div className="text-[10px] opacity-40">
-                    {t("sessions.review.injuryModal.severityHint" as any) ||
-                      "1 = mild, 10 = extreme"}
+                    {t("sessions.review.injuryModal.severityHint")}
                   </div>
                 </div>
                 <div className="flex gap-1 mb-2">
@@ -346,14 +343,14 @@ function InjuryReportModal({
 
               <div>
                 <div className="text-[10px] uppercase font-bold opacity-50 mb-2">
-                  {t("prefs.sections.injuriesSection.noteLabel" as any)}
+                  {t("prefs.sections.injuriesSection.noteLabel")}
                 </div>
                 <TextField
                   label=""
                   placeholder={
                     t(
-                      "prefs.sections.injuriesSection.notePlaceholder" as any,
-                    ) || "e.g. sharp pain..."
+                      "prefs.sections.injuriesSection.notePlaceholder",
+                    )
                   }
                   value={draft.note ?? ""}
                   onChange={(e) =>
@@ -372,8 +369,7 @@ function InjuryReportModal({
                   size="sm"
                   onClick={handleAddDraftToList}
                 >
-                  {t("sessions.review.injuryModal.btnAddToList" as any) ||
-                    "+ Add to list"}
+                  {t("sessions.review.injuryModal.btnAddToList")}
                 </Button>
               </div>
             </div>
@@ -381,14 +377,12 @@ function InjuryReportModal({
             <div>
               <h4 className="text-xs font-bold uppercase text-white/60 mb-3 border-b border-white/5 pb-2">
                 {(
-                  t("sessions.review.injuryModal.currentStatus" as any) ||
-                  "Current status ({{count}})"
+                  t("sessions.review.injuryModal.currentStatus")
                 ).replace("{{count}}", String(activeInjuries.length))}
               </h4>
               {activeInjuries.length === 0 ? (
                 <div className="text-xs opacity-50 italic">
-                  {t("sessions.review.injuryModal.emptyStatus" as any) ||
-                    "No active injuries."}
+                  {t("sessions.review.injuryModal.emptyStatus")}
                 </div>
               ) : (
                 <ul className="space-y-2">
@@ -400,11 +394,11 @@ function InjuryReportModal({
                       <div>
                         <div className="text-sm font-semibold text-white/90">
                           {t(
-                            `prefs.sections.injuriesSection.areas.${inj.area}` as any,
+                            `prefs.sections.injuriesSection.areas.${inj.area}`,
                           )}{" "}
                           ·{" "}
                           {t(
-                            `prefs.sections.injuriesSection.types.${inj.type}` as any,
+                            `prefs.sections.injuriesSection.types.${inj.type}`,
                           )}
                         </div>
                         <div className="text-xs mt-1 flex items-center gap-2">
@@ -419,8 +413,8 @@ function InjuryReportModal({
                           >
                             {(
                               t(
-                                "sessions.review.injuryModal.severityLabel" as any,
-                              ) || "Severity: {{severity}}/10"
+                                "sessions.review.injuryModal.severityLabel",
+                              )
                             ).replace(
                               "{{severity}}",
                               String(inj.severity || "?"),
@@ -433,8 +427,7 @@ function InjuryReportModal({
                         onClick={() => handleRemoveFromList(idx)}
                         className="text-xs px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded border border-red-500/20"
                       >
-                        {t("sessions.review.injuryModal.btnRemove" as any) ||
-                          "Delete"}
+                        {t("sessions.review.injuryModal.btnRemove") }
                       </button>
                     </li>
                   ))}
@@ -452,7 +445,7 @@ function InjuryReportModal({
             onClick={onClose}
             disabled={isSaving}
           >
-            {t("common.cancel" as any)}
+            {t("common.cancel")}
           </Button>
           <Button
             type="button"
@@ -462,8 +455,8 @@ function InjuryReportModal({
             disabled={isSaving || isLoading}
           >
             {isSaving
-              ? t("common.saving" as any) || "Saving..."
-              : t("common.save" as any) || "Save changes"}
+              ? t("common.saving")
+              : t("common.save")}
           </Button>
         </div>
       </div>
@@ -492,7 +485,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
   const s: any | null =
-    activityId != null ? (getSummary(activityId) as any) || null : null;
+    activityId != null ? (getSummary(activityId)) || null : null;
   const startDt = parseDateSafe(s?.date) || null;
 
   const isEligible = useMemo(() => {
@@ -587,11 +580,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setApiNote(null);
 
     if (!isEligible) {
-      setUiError(t("sessions.review.errorTooOld" as any));
+      setUiError(t("sessions.review.errorTooOld"));
       return;
     }
     if (commentTooLong) {
-      setUiError(t("sessions.review.errorCommentLong" as any));
+      setUiError(t("sessions.review.errorCommentLong"));
       return;
     }
 
@@ -612,7 +605,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         },
       );
 
-      // ✅ Nový spôsob spracovania chýb a úspechu
+      //  Nový spôsob spracovania chýb a úspechu
       if (!out?.success) {
         const code = out?.error_code || "generic_error";
         const errorKey = `api.ai_errors.${code}`;
@@ -624,22 +617,22 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         } else {
             // BEZPEČNOSTNÝ FALLBACK: Žiadne surové errory z backendu! 
             // Použijeme peknú generickú správu.
-            setUiError(t("api.ai_errors.generic_error" as any));
+            setUiError(t("api.ai_errors.generic_error"));
         }
       } else {
         if (out.status === "SUCCESS")
-          setApiNote(t("sessions.review.api.success" as any));
+          setApiNote(t("sessions.review.api.success"));
         if (out.status === "PROCESSING")
-          setApiNote(t("sessions.review.api.processing" as any));
+          setApiNote(t("sessions.review.api.processing"));
         if (out.status === "QUEUED")
-          setApiNote(t("sessions.review.api.queued" as any));
+          setApiNote(t("sessions.review.api.queued"));
 
         await loadData(true);
         setJustAddedNewInjury(false);
       }
     } catch (e: any) {
-      const translatedError = t(e?.message as any);
-      setUiError(translatedError || t("sessions.review.errorGeneric" as any));
+      const translatedError = t(e?.message);
+      setUiError(translatedError || t("sessions.review.errorGeneric"));
     } finally {
       setBusyGen(false);
       setTimeout(() => {
@@ -650,7 +643,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   return (
     <ActivitySectionShell
-      title={t("sessions.review.title" as any)}
+      title={t("sessions.review.title")}
       defaultOpen={true}
       items={[]}
     >
@@ -659,15 +652,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           {!hasReview ? (
             !isEligible && startDt ? (
               <span className="text-yellow-500/80">
-                {t("sessions.review.statusTooOld" as any)}
+                {t("sessions.review.statusTooOld")}
               </span>
             ) : (
-              <span>{t("sessions.review.statusNoReview" as any)}</span>
+              <span>{t("sessions.review.statusNoReview")}</span>
             )
           ) : (
             <span>
               {(
-                t("sessions.review.statusReviewCount" as any) ||
+                t("sessions.review.statusReviewCount") ||
                 "Version {{version}} / {{max}}"
               )
                 .replace("{{version}}", String(aiReviewVersion))
@@ -686,8 +679,8 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             className={`opacity-80 hover:opacity-100 ${refreshLocked ? "cursor-not-allowed opacity-50" : ""}`}
           >
             {refreshLocked && !busyLoad
-              ? t("sessions.review.btnWait" as any)
-              : t("common.refresh" as any)}
+              ? t("sessions.review.btnWait")
+              : t("common.refresh")}
           </Button>
 
           {canRerun && (
@@ -699,10 +692,10 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               disabled={busyGen || refreshLocked}
             >
               {busyGen
-                ? t("sessions.review.btnGenerating" as any)
+                ? t("sessions.review.btnGenerating")
                 : hasReview
-                  ? t("sessions.review.btnRerun" as any)
-                  : t("sessions.review.btnGenerate" as any)}
+                  ? t("sessions.review.btnRerun")
+                  : t("sessions.review.btnGenerate")}
             </Button>
           )}
         </div>
@@ -715,7 +708,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={t("sessions.review.commentPlaceholder" as any)}
+            placeholder={t("sessions.review.commentPlaceholder")}
             disabled={busyGen}
           />
           {showCharCount && (
@@ -755,9 +748,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
                 )}
               </div>
               {hasActiveInjuries
-                ? t("sessions.review.injuryModal.alertActive" as any) ||
+                ? t("sessions.review.injuryModal.alertActive") ||
                   "Aktívne zranenie nahlásené"
-                : t("sessions.review.injuryModal.alertReport" as any) ||
+                : t("sessions.review.injuryModal.alertReport") ||
                   "Hlásim bolesť / zranenie"}
             </button>
 
@@ -771,7 +764,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               />
               <span className="flex items-center gap-1.5 font-semibold">
                 🏁{" "}
-                {t("sessions.review.raceEffortLabel" as any) ||
+                {t("sessions.review.raceEffortLabel") ||
                   "Závodné tempo (Race Effort / All-out)"}
               </span>
             </label>
@@ -780,7 +773,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               <div className="flex items-center gap-1.5 text-[11px] text-yellow-500/80">
                 <TooltipIcon
                   text={
-                    t("sessions.review.injuryModal.tooltipActive" as any) ||
+                    t("sessions.review.injuryModal.tooltipActive") ||
                     "⚠️ Zranenie je uložené v profile."
                   }
                   size={20}
@@ -804,7 +797,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
           {!hasReview && !comment && (
             <div className="text-[11px] opacity-40 mt-3 pl-1">
-              {t("sessions.review.commentTip" as any)}
+              {t("sessions.review.commentTip")}
             </div>
           )}
         </div>
@@ -825,7 +818,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
             <span className="text-sm">
-              {t("sessions.review.loading" as any)}
+              {t("sessions.review.loading")}
             </span>
           </div>
         ) : hasReview ? (
@@ -833,26 +826,26 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             <div className="flex flex-wrap gap-2">
               {sessionKind && (
                 <Chip
-                  label={t("sessions.review.tagFocus" as any)}
+                  label={t("sessions.review.tagFocus")}
                   value={sessionKind}
                 />
               )}
               {dominantZone && (
                 <Chip
-                  label={t("sessions.review.tagZone" as any)}
+                  label={t("sessions.review.tagZone")}
                   value={dominantZone}
                 />
               )}
               {needsCaution && (
                 <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
-                  ⚠️ {t("sessions.review.tagCaution" as any)}
+                  ⚠️ {t("sessions.review.tagCaution")}
                 </div>
               )}
             </div>
             {reviewText && (
               <div className="animate-in fade-in duration-500">
                 <SectionTitle>
-                  {t("sessions.review.sectionReview" as any)}
+                  {t("sessions.review.sectionReview")}
                 </SectionTitle>
                 <TextBlock>{reviewText}</TextBlock>
               </div>
@@ -860,7 +853,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
             {nextDayPlan && (
               <div className="animate-in fade-in duration-500 delay-100">
                 <SectionTitle>
-                  {t("sessions.review.sectionNextDay" as any)}
+                  {t("sessions.review.sectionNextDay")}
                 </SectionTitle>
                 <TextBlock>{nextDayPlan}</TextBlock>
               </div>
@@ -925,7 +918,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           !busyGen && (
             <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
               <p className="text-sm opacity-50">
-                {t("sessions.review.noReviewPlaceholder" as any)}
+                {t("sessions.review.noReviewPlaceholder")}
               </p>
             </div>
           )
