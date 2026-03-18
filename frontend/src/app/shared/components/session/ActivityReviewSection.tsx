@@ -601,7 +601,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     try {
       const c = comment.trim();
 
-      // ✅ Payload teraz obsahuje is_race_effort
       const out = await apiRerunActivityReview(
         Number(userId),
         Number(activityId),
@@ -613,22 +612,18 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         },
       );
 
-      if (!out?.ok) {
-        if (out?.code === "limit_reached") {
-          setUiError(t("api.activities.limitReached" as any));
-        } else if (out?.code === "activity_too_old") {
-          setUiError(t("api.activities.activityTooOld" as any));
-        } else if (out?.code === "only_one_for_free_tier") {
-          setUiError(t("api.activities.onlyOneForFreeTier" as any));
-        } else if (out?.code === "duplicate_content") {
-          setUiError(t("api.activities.duplicateContent" as any));
-        } else if (out?.code === "activity_not_found") {
-          setUiError(t("api.activities.activityNotFound" as any));
+      // ✅ Nový spôsob spracovania chýb a úspechu
+      if (!out?.success) {
+        const code = out?.error_code || "generic_error";
+        const errorKey = `api.ai_errors.${code}`;
+        const translatedError = t(errorKey as any);
+
+        // Ak existuje i18n preklad (čiže nevrátilo to len ten istý string), použijeme ho
+        if (translatedError && translatedError !== errorKey) {
+          setUiError(translatedError);
         } else {
-          setUiError(
-            t(out?.message as any) ||
-              t("sessions.review.errorRerunRejected" as any),
-          );
+          // Inak použijeme správu priamo z backendu alebo generický fallback
+          setUiError(out?.message || t("sessions.review.errorGeneric" as any));
         }
       } else {
         if (out.status === "SUCCESS")

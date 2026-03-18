@@ -8,8 +8,8 @@ import type {
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean } // ✅ Pridané is_race_effort
-): Promise<ActivityReviewRerunResponse | any> {
+  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean }
+): Promise<{ success: boolean; status?: string; error_code?: string; message?: string }> {
   if (!userId) throw new Error("api.activities.missingUserId");
 
   const requestPath = `/activities/enrichment/reviewRun/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
@@ -24,16 +24,22 @@ export async function apiRerunActivityReview(
     });
   } catch (e: any) {
     console.error("[AR] Enqueue Error", e);
-    throw new Error("api.activities.enqueueFailed");
+    return { success: false, error_code: "enqueue_failed", message: "Network error" };
   }
 
-  if (!enqueueJson?.ok) {
-    return enqueueJson;
+  // ✅ Úprava pre novú štruktúru z backendu
+  if (!enqueueJson?.success) {
+    return {
+      success: false,
+      error_code: enqueueJson?.error_code || "REQUEST_FAILED",
+      message: enqueueJson?.message || "Nepodarilo sa spustiť AI",
+    };
   }
 
-  const jobId = enqueueJson.job_id;
+  // Frontend pozerá do .data.job_id kvôli našej novej obálke
+  const jobId = enqueueJson.data?.job_id;
   if (!jobId) {
-    return { success: true, ok: true, status: "QUEUED" };
+    return { success: true, status: "QUEUED" };
   }
 
   const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
@@ -47,14 +53,14 @@ export async function apiRerunActivityReview(
 
     if (!runJson?.success) {
       console.warn("[AR] Sync Run Failed/Timeout", runJson);
-      return { success: true, ok: true, status: "PROCESSING" };
+      return { success: true, status: "PROCESSING" };
     }
 
-    return { success: true, ok: true, status: "SUCCESS" };
+    return { success: true, status: "SUCCESS" };
 
   } catch (e) {
     console.error("[AR] Sync Run Network Error", e);
-    return { success: true, ok: true, status: "QUEUED" };
+    return { success: true, status: "QUEUED" };
   }
 }
 

@@ -10,7 +10,6 @@ from Services.AI.provider.provider import ai_call_json_model
 from Services.AI.activity_review.prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
 
-
 def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
@@ -18,36 +17,8 @@ def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
     except Exception:
         return timezone.utc
 
-
 def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
     return datetime.now(tzinfo).isoformat()
-
-
-def _lang_from_settings(settings: Dict[str, Any]) -> str:
-    v = (settings.get("language") or "sk").strip().lower()
-    if v.startswith("en"):
-        return "en"
-    if v.startswith("cs"):
-        return "cs"
-    return "sk"
-
-
-def _fallback_copy(lang: str) -> Dict[str, Any]:
-    if lang == "en":
-        return {
-            "headline": "We couldn't generate the activity review.",
-            "bullets": ["Please try again later."],
-        }
-    if lang == "cs":
-        return {
-            "headline": "Nepodařilo se získat hodnocení aktivity.",
-            "bullets": ["Zkuste to později."],
-        }
-    return {
-        "headline": "Nepodarilo sa získať AI hodnotenie aktivity.",
-        "bullets": ["Skús to znova neskôr."],
-    }
-
 
 def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
     try:
@@ -58,7 +29,6 @@ def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
         return int(v) if v is not None else None
     except Exception:
         return None
-
 
 def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
     try:
@@ -73,7 +43,6 @@ def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
         return "other"
     except Exception:
         return "other"
-
 
 def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
     try:
@@ -97,7 +66,6 @@ def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
     except Exception:
         return False
 
-
 def _get_trace_from_result(res: Any) -> Dict[str, Any]:
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
@@ -114,7 +82,6 @@ def _get_trace_from_result(res: Any) -> Dict[str, Any]:
         "ok_model": str(getattr(res, "model", None) or "") or None,
     }
 
-
 def _extract_user_input(
     context_payload: Dict[str, Any],
 ) -> Tuple[Optional[str], Optional[str]]:
@@ -130,14 +97,14 @@ def _extract_user_input(
     except Exception:
         return None, None
 
-
+# ZMENA: Návratová hodnota teraz obsahuje aj chybovú hlášku (Optional[str])
 def generate_activity_review_json(
     *,
     context_payload: Dict[str, Any],
     model: str,
     user_id: Optional[int] = None,
     ctx: AuthCtx,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
 
     settings: Dict[str, Any] = {}
     if user_id is not None:
@@ -148,11 +115,8 @@ def generate_activity_review_json(
             settings = {}
 
     tzinfo = _tzinfo_from_settings(settings)
-    lang = _lang_from_settings(settings)
 
     user_comment, user_source = _extract_user_input(context_payload)
-
-    # Detekcia, či ide zranenie ďalej
     ui_block = context_payload.get("user_input") or {}
     has_injury = bool(ui_block.get("injury"))
 
@@ -196,27 +160,14 @@ def generate_activity_review_json(
         if isinstance(trace, dict) and not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]
 
-        return parsed, trace
+        # Všetko je OK
+        return parsed, trace, None
 
+    # AI ZLYHALO - vytiahneme chybovú hlášku a vrátime None namiesto fallbacku
     err_msg: Optional[str] = None
     try:
         err_msg = getattr(getattr(res, "error", None), "message", None)
     except Exception:
         err_msg = None
 
-    fallback: Dict[str, Any] = {
-        "schema_version": 6,
-        "generated_at": _now_local_iso(tzinfo),
-        "model": "activity-review-fallback",
-        "activity_id": _safe_activity_id(context_payload),
-        "sport": sport or "other",
-        "summary": _fallback_copy(lang),
-        "error": err_msg or "AI provider call failed",
-        "meta": {
-            "user_comment_present": bool(user_comment),
-            "injury_reported": has_injury,
-            "source": user_source or None,
-        },
-    }
-
-    return fallback, trace
+    return None, trace, err_msg or "AI provider call failed"

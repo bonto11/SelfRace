@@ -37,9 +37,19 @@ def rerun_activity_review(
     )
 
     if not out.get("ok"):
-        return {"success": False, **out}
+        return {
+            "success": False, 
+            "data": None, 
+            "error_code": out.get("code") or "REQUEST_FAILED",
+            "message": out.get("message")
+        }
 
-    return {"success": True, **out}
+    return {
+        "success": True, 
+        "data": out, 
+        "error_code": None,
+        "message": None
+    }
 
 @router.get("/{user_id}/{activity_id}")
 def get_activity_enrichment(
@@ -51,4 +61,18 @@ def get_activity_enrichment(
     data = service_get_activity_enrichment(
         user_id=user_id, activity_id=activity_id, ctx=ctx
     )
-    return {"success": True, "data": data}
+    
+    if not data:
+        return {
+            "success": False, 
+            "data": None, 
+            "error_code": "NOT_FOUND",
+            "message": "Enrichment data not found."
+        }
+        
+    return {
+        "success": True, 
+        "data": data, 
+        "error_code": None,
+        "message": None
+    }

@@ -172,18 +172,17 @@ def service_request_activity_review_rerun(
 
     return {"ok": True, "job_id": out["job"].get("id"), "tier": tier_code, "next_version": next_version, "comment_used": bool(comment_from_user)}
 
-# (service_activity_review ostáva z generátora pod tým - zjednotil som to už minule, aby Worker volal review engine)
 def service_activity_review(
     user_id: int, activity_id: int, *, ctx: AuthCtx, model: Optional[str] = None, source: Optional[str] = None, comment: Optional[str] = None
 ) -> Dict[str, Any]:
-    # ... Worker execution volá build_review_input -> generate_activity_review_json ...
+    
     model_to_use = (model or _default_ai_model()).strip()
     src = (source or "").strip().lower() or "auto" 
     safe_comment = _norm_comment(comment)
 
     if src == "user" and is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
-        return {"ok": False, "error": {"code": "ai_quota_exceeded", "used_tokens_this_month": used}}
+        return {"ok": False, "code": "ai_quota_exceeded", "used_tokens_this_month": used}
 
     input_data = build_review_input(user_id=user_id, activity_id=activity_id, ctx=ctx, source=src, user_comment=safe_comment)
     context_for_ai = _minify_context_for_ai(input_data)
@@ -191,24 +190,27 @@ def service_activity_review(
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
     metrics = act.get("metrics") if isinstance(act, dict) else None
     if not isinstance(metrics, dict) or not metrics:
-        return {"ok": False, "error": {"code": "missing_activity_data"}}
+        return {"ok": False, "code": "missing_activity_data"}
 
-    print("service_activity_review context_for_ai" ,context_for_ai)
+    # Voláme generate - očakávame 3 premenné
+    review, trace, err_msg = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
 
-    review, trace = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
+    # OCHRANA: Ak AI zlyhalo (review je None), rovno končíme. Žiadny zápis do DB!
+    if not review:
+        print(f"[AR] AI Generation failed: {err_msg}")
+        return {
+            "ok": False,
+            "code": "ai_generation_failed",
+            "message": err_msg
+        }
 
-    print("service_activity_review review",review)
-
-    # --- LOGIKA PRE THRESHOLDY A ZÓNY ---
+    # --- LOGIKA PRE THRESHOLDY A ZÓNY (Zostáva nezmenená) ---
     if isinstance(review, dict) and review.get("suggested_thresholds"):
         sug = review["suggested_thresholds"]
         new_lthr = sug.get("hr_bpm")
-        
-        # 1. OPRAVA: Šport necháme tak, ako ho posiela AI/DB (v tvojom prípade "running")
         sport = sug.get("sport") or "running"
         
         if new_lthr:
-            # Upsert thresholdu (ostáva rovnaký)
             threshold_row = {
                 "sport": sport,
                 "threshold_type": sug.get("threshold_type") or "LT2",
@@ -226,23 +228,15 @@ def service_activity_review(
                 calc_mode = prefs_val.get("preferences", {}).get("hr_zone_calc_mode", "manual")
 
                 if calc_mode == "percent_lthr":
-                    # Skúsime nájsť posledné zóny pre tento šport
                     latest_zones = db_user_zones_fetch_latest(user_id=user_id, sport_raw=sport, ctx=ctx)
-                    
-                    # 2. OPRAVA: Ak nájdeme staré zóny, zachováme tvoj HR Max (napr. 206)
-                    # Ak nie, pozrieme sa do aktuálnej aktivity (z logu vidím 202)
                     if latest_zones:
                         hr_max = int(latest_zones.get("hr_max_bpm") or 206)
-                        print(f"[DEBUG-AR] Found existing zones. Keeping HRmax: {hr_max}")
                     else:
-                        # Ak úplne chýbajú zóny, skúsime vytiahnuť max_hr_bpm z aktivity v context_for_ai
                         act_metrics = context_for_ai.get("activity", {}).get("metrics", {})
                         hr_max = int(act_metrics.get("max_hr_bpm") or 200)
-                        print(f"[DEBUG-AR] Existing zones not found. Using activity HRmax: {hr_max}")
 
                     z_vals = _calculate_zones_from_lthr(int(new_lthr), hr_max)
 
-                    # 3. OPRAVA: Doplnený chýbajúci z5_min_bpm stĺpec
                     new_zone_row = {
                         "user_id": user_id,
                         "sport": sport,
@@ -254,23 +248,14 @@ def service_activity_review(
                         "z3_max_bpm": z_vals["z3_max"],
                         "z4_min_bpm": z_vals["z4_min"],
                         "z4_max_bpm": z_vals["z4_max"],
-                        "z5_min_bpm": z_vals["z5_min"], # ✅ Toto chýbalo a spôsobovalo crash
+                        "z5_min_bpm": z_vals["z5_min"], 
                     }
-                    
                     db_user_zones_insert_row(new_zone_row, ctx=ctx)
-                    print(f"[AR] Zones successfully updated for {sport}. New LTHR: {new_lthr}")
-            
             except Exception as e:
                 print(f"[AR] Zone recalculation error: {repr(e)}")
-
                 
-    if not isinstance(review, dict): review = {}
-    review.setdefault("schema_version", 6)
-    review.setdefault("generated_at", _now_iso())
-    review["model"] = str(review.get("model") or trace.get("ok_model") or model_to_use)
-    review.setdefault("activity_id", activity_id)
-
-    usage = extract_usage_from_trace(trace, model_fallback=review["model"])
+    # Ukladáme Billing
+    usage = extract_usage_from_trace(trace, model_fallback=review.get("model"))
     if usage:
         try:
             log_ai_usage_for_user(
@@ -280,8 +265,9 @@ def service_activity_review(
             )
         except Exception as e: print("[AI_BILLING] error:", repr(e))
 
+    # Až teraz, keď je všetko na 100% OK, ukladáme AI review a komentár do databázy
     try:
         db_upsert_ai_review_one(user_id=user_id, activity_id=activity_id, ai_review=review, ctx=ctx, source=src, user_comment=safe_comment)
     except Exception as e: print("[AR] db_upsert_ai_review_one error:", repr(e))
 
-    return {"ok": True, "review": review}
+    return {"ok": True, "data": review}
