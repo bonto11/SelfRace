@@ -174,7 +174,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
           }
         }
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coachDaily.widget.errorFetch"));
+        if (alive) setError(t(e?.message as any) || t("coachDaily.widget.errorFetch" as any));
       } finally {
         if (alive) setLoading(false);
       }

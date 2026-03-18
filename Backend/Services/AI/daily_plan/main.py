@@ -30,7 +30,6 @@ from Services.AI.daily_plan.builders import (
 from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
-
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(daily_plan, dict):
         return daily_plan
@@ -51,7 +50,6 @@ def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
 
     return daily_plan
 
-
 def service_generate_daily_week(
     user_id: int,
     *,
@@ -66,29 +64,15 @@ def service_generate_daily_week(
 
     daily_model = model
 
-    if is_user_over_token_quota(
-        user_id,
-        ctx=ctx,
-    ):
+    if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
-            "daily_plan": None,
-            "week_index": week_index,
-            "week_start": None,
-            "week_end": None,
-            "state_id": None,
-            "model": daily_model,
-            "overwrite": True,
-            "inserted_rows": 0,
-            "deleted_rows": 0,
-            "error": {
-                "code": "ai_quota_exceeded",
-                "message": "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
-                "used_tokens_this_month": used,
-            },
+            "ok": False,
+            "code": "ai_quota_exceeded",
+            "message": "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
+            "used_tokens_this_month": used,
         }
 
-    # Zostavenie kontextu (teraz už obsahuje aj silové menu od Mappera)
     contex = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
@@ -99,16 +83,20 @@ def service_generate_daily_week(
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
 
- 
-    ai_plan, trace = generate_daily_week_json(
+    # ✅ OPRAVA: Chytáme 3 premenné
+    ai_plan, trace, err_msg = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
     )
 
-    if not isinstance(ai_plan, dict):
-        ai_plan = {}
-    if not isinstance(trace, dict):
-        trace = {}
+    # ✅ OCHRANA: Ak AI zlyhalo, vrátime chybu a nebudeme mazať DB
+    if not ai_plan:
+        print(f"[DAILY-PLAN] AI Generation failed: {err_msg}")
+        return {
+            "ok": False,
+            "code": trace.get("error_code") or "ai_generation_failed",
+            "message": err_msg
+        }
 
     week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
     week_end = str(week_meta.get("week_end") or ai_plan.get("week_end") or "") or None
@@ -123,24 +111,10 @@ def service_generate_daily_week(
 
     days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
     if days_n == 0:
-        usage = extract_usage_from_trace(trace)
-        if usage:
-            used_model = str(daily_plan.get("model") or getattr(usage, "model", None) or daily_model or "")
-            if used_model: usage["model"] = used_model
-            try:
-                log_ai_usage_for_user(
-                    user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
-                    source="user", billed_via="internal", charge_wallet=False,
-                    meta={"week_index": week_index}, ctx=ctx,
-                )
-            except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
-
         return {
-            "daily_plan": daily_plan, "week_index": week_index,
-            "week_start": week_start, "week_end": week_end, "state_id": (state_row or {}).get("id"),
-            "model": daily_model, "overwrite": True, "inserted_rows": 0, "deleted_rows": 0,
-            "error": {"code": "daily_plan_empty", "message": "AI vrátil prázdny plán pre týždeň."},
-            "warnings": ["daily_plan_empty"],
+            "ok": False,
+            "code": "daily_plan_empty",
+            "message": "AI vrátil prázdny plán pre týždeň."
         }
 
     # Billing
@@ -158,7 +132,6 @@ def service_generate_daily_week(
 
     daily_plan = _reindex_sessions_per_day(daily_plan)
 
-    # --- NEW: Extract and Save AI generated Strength Exercises to History ---
     try:
         extract_and_save_ai_strength_history(
             user_id=user_id,
@@ -201,6 +174,7 @@ def service_generate_daily_week(
     inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
 
     resp: Dict[str, Any] = {
+        "ok": True,
         "daily_plan": daily_plan,
         "week_index": week_index,
         "week_start": daily_plan.get("week_start") or week_meta.get("week_start"),
@@ -213,9 +187,6 @@ def service_generate_daily_week(
         "error": None,
     }
 
-    resp["context_payload"] = context_payload
-    resp["ai_plan_raw"] = ai_plan
-
     return resp
 
 def service_get_daily_overview(
@@ -226,13 +197,6 @@ def service_get_daily_overview(
 ) -> Dict[str, Any]:
     if horizon_days <= 0:
         horizon_days = 7
-
-    meta = db_get_active_plan_meta_for_user(
-        ctx=ctx, user_id=user_id
-    ) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
 
     rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
@@ -292,6 +256,7 @@ def service_get_daily_overview(
 
     return {"horizon_days": horizon_days, "days": days_out}
 
+
 def service_auto_extend_daily_plan(
     user_id: int,
     *,
@@ -303,14 +268,6 @@ def service_auto_extend_daily_plan(
         min_horizon_days = 6
 
     today = date.today()
-
-    meta = db_get_active_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    ) or db_get_latest_plan_meta_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
 
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
@@ -395,13 +352,17 @@ def service_auto_extend_daily_plan(
     for w in future_weeks:
         week_idx = int(w.get("week_index") or 0)
 
-        _ = service_generate_daily_week(
+        # Aj auto extension by mal odchytit pripadne errory
+        res = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
             model=None,
             ctx=ctx,
         )
-        generated.append(week_idx)
+        
+        # Ignorujeme errory na auto-extend (je to background), len to preskocime
+        if res.get("ok"):
+            generated.append(week_idx)
 
         daily_rows = (
             db_list_daily_for_user_horizon(
@@ -428,5 +389,3 @@ def service_auto_extend_daily_plan(
         "final_days_left": days_left,
         "last_daily_date": current_last_str,
     }
-
-

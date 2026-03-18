@@ -28,39 +28,7 @@ from Routes_DB.coach_plan_weekly import (
 from Routes_DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
 )
-
 from Modules.Supabase.auth import AuthCtx
-
-
-def _safe_error_payload(
-    code: str, message: str, extra: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"code": code, "message": message}
-    if isinstance(extra, dict):
-        out.update(extra)
-    return out
-
-
-def _normalize_weekly_error(err: Any) -> Optional[Dict[str, Any]]:
-    """
-    Normalize weekly_plan["error"] to a stable dict:
-      - None -> None
-      - str  -> {code:"ai_failed", message:...}
-      - dict -> keep (ensure code/message exist)
-    """
-    if err is None:
-        return None
-    if isinstance(err, str):
-        return {"code": "ai_failed", "message": err}
-    if isinstance(err, dict):
-        code = err.get("code") or "ai_failed"
-        msg = err.get("message") or err.get("detail") or "AI failed"
-        out = dict(err)
-        out["code"] = code
-        out["message"] = msg
-        return out
-    return {"code": "ai_failed", "message": str(err)}
-
 
 def service_generate_weekly_plan(
     user_id: int,
@@ -72,32 +40,16 @@ def service_generate_weekly_plan(
     model: Optional[str] = None,
     override_start_date: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Hlavná service pre weekly plán.
 
-    Aktuálne: vraciame aj weekly_plan + trace + usage (na FE tuning).
-    Neskôr to môžeš stripnúť pred odoslaním do FE.
-    """
-
-    # --- quota (len user-trigger) ---
-    if is_user_over_token_quota(
-        user_id,
-        ctx=ctx,
-    ):
+    if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
-            "state_id": None,
-            "model": (model or "auto"),
-            "overwrite": overwrite,
-            "weeks": weeks,
-            "error": _safe_error_payload(
-                "ai_quota_exceeded",
-                "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
-                {"used_tokens_this_month": used},
-            ),
+            "ok": False,
+            "code": "ai_quota_exceeded",
+            "message": "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
+            "used_tokens_this_month": used,
         }
 
-    # --- build context ---
     context = build_weekly_context_from_db(
         user_id=user_id,
         ctx=ctx,
@@ -115,27 +67,30 @@ def service_generate_weekly_plan(
             context_payload["prefs"]["plan_start_date"] = override_start_date
             context_payload["replan_trigger"] = "critical_injury_override"
 
-    # --- AI call ---
-    weekly_plan, trace = generate_weekly_plan_json(
+    # ✅ OPRAVA: Chytáme 3 premenné
+    weekly_plan, trace, err_msg = generate_weekly_plan_json(
         context_payload=context_payload,
         model=model,  
         ctx=ctx,
     )
 
-    if not isinstance(weekly_plan, dict):
-        weekly_plan = {}
-    if not isinstance(trace, dict):
-        trace = {}
+    # ✅ OCHRANA: Ak AI zlyhalo, rovno končíme. Žiadne mazanie DB ani fallbacky.
+    if not weekly_plan:
+        print(f"[WEEKLY-PLAN] AI Generation failed: {err_msg}")
+        return {
+            "ok": False,
+            "code": trace.get("error_code") or "ai_generation_failed",
+            "message": err_msg
+        }
 
     model_used = str(weekly_plan.get("model") or model or "auto")
 
     # --- billing (best effort) ---
     usage = extract_usage_from_trace(trace)
-    billing_result: Optional[Dict[str, Any]] = None
     if usage:
         usage["model"] = model_used
         try:
-            billing_result = log_ai_usage_for_user(
+            log_ai_usage_for_user(
                 user_id=user_id,
                 usage=usage,
                 job_type="coach.generate_weekly_plan",
@@ -149,7 +104,7 @@ def service_generate_weekly_plan(
                 },
                 ctx=ctx,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print("[AI_BILLING] weekly_plan billing error:", repr(e))
 
     # --- overwrite: archive + clear previous weekly rows ---
@@ -167,18 +122,10 @@ def service_generate_weekly_plan(
         weeks_list=weeks_list,
     )
 
-    inserted_rows = db_insert_weekly_rows(
-        rows,
-        ctx=ctx,
-    )
+    inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
 
     # --- plan_meta row (DB) ---
-    plan_meta_dict = (
-        weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}
-    ) or {}
-    if not isinstance(plan_meta_dict, dict):
-        plan_meta_dict = {}
-
+    plan_meta_dict = (weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}) or {}
     start_date: Optional[str] = plan_meta_dict.get("start_date") or None
     end_date: Optional[str] = plan_meta_dict.get("end_date") or None
 
@@ -196,22 +143,19 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # --- RESPONSE ---
-    error_norm = _normalize_weekly_error(weekly_plan.get("error"))
-
     resp: Dict[str, Any] = {
+        "ok": True,
         "state_id": used_state_id,
         "model": model_used,
         "overwrite": True,
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
-        "error": error_norm,
+        "weekly_plan": weekly_plan,
+        "error": None,
     }
     if meta_row is not None:
         resp["plan_meta"] = meta_row
-
-    resp["weekly_plan"] = weekly_plan
 
     return resp
 
@@ -221,15 +165,7 @@ def service_get_latest_weekly_plan(
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Vráti najnovší weekly plán pre daného usera (vrátane listu týždňov).
-    Čisto RLS/FE.
-    """
-
-    rows = db_get_weekly_for_user_plan(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
     if not rows:
         return None
 
@@ -256,17 +192,12 @@ def service_get_latest_weekly_plan(
 # =========================================================================
 # Weekly Volume Sync
 # =========================================================================
-
 def service_sync_weekly_volume_for_date(
     user_id: int,
     target_date: str,
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Nájde týždeň pre zadaný dátum, stiahne aktivity a prepočíta actual_stats.
-    """
-    # 1. Získaj riadok pre daný týždeň z DB
     week_row = db_get_weekly_row_by_date(user_id=user_id, target_date_iso=target_date, ctx=ctx)
     
     if not week_row:
@@ -276,8 +207,6 @@ def service_sync_weekly_volume_for_date(
     week_end = week_row["week_end"]
     row_id = week_row["id"]
     
-    # 2. Vytiahni aktivity v tomto rozsahu (využívame tvoju existujúcu DB funkciu!)
-    # Potrebujeme formát na timestampz, takže pridáme T00:00:00Z a T23:59:59Z
     activities = db_get_activities_in_range_basic(
         ctx=ctx,
         user_id=user_id,
@@ -285,7 +214,6 @@ def service_sync_weekly_volume_for_date(
         end_ts_iso=f"{week_end}T23:59:59Z"
     )
     
-    # 3. Roztrieď a spočítaj
     stats = {
         "run_distance_km": 0.0,
         "run_time_min": 0,
@@ -317,12 +245,10 @@ def service_sync_weekly_volume_for_date(
         else:
             stats["other_time_min"] += time_min
             
-    # Zaokrúhlenie
     stats["run_distance_km"] = round(stats["run_distance_km"], 2)
     stats["bike_distance_km"] = round(stats["bike_distance_km"], 2)
     stats["swim_distance_m"] = round(stats["swim_distance_m"], 2)
 
-    # 4. Ulož do DB
     success = db_update_weekly_actual_stats(row_id=row_id, actual_stats=stats, ctx=ctx)
     
     return {

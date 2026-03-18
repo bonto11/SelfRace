@@ -126,7 +126,7 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         const r = await apiGetLatestWeeklyPlan(userId);
         if (alive) setPlan(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coachWeekly.widget.errorFetch"));
+        if (alive) setError(t(e?.message as any) || t("coachWeekly.widget.errorFetch" as any));
       } finally {
         if (alive) setLoading(false);
       }

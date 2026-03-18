@@ -1,3 +1,4 @@
+// src/app/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -78,18 +79,17 @@ function RowAction({
       className={cx(
         WIDGET_ACTION_ROW,
         WIDGET_ACTION_ROW_SURFACE,
-        "rounded-xl border overflow-hidden transition-all bg-opacity-10" // Vrátené na pôvodné
+        "rounded-xl border overflow-hidden transition-all bg-opacity-10"
       )}
       style={{
-        background: appColors.backgroundAlt, // Vrátené na pôvodné, už to nepodfarbuje celý riadok
-        borderColor: appColors.surfaceCardBorder, // Vrátené na pôvodné
+        background: appColors.backgroundAlt, 
+        borderColor: appColors.surfaceCardBorder, 
       }}
       title={title}
     >
       <div className={cx(WIDGET_ACTION_ROW_INNER, "flex items-center justify-between gap-2")}>
         <Button
           size="xs"
-          // ✅ Tlačidlo zostáva "kričať" (primary), ak je to krok, ktorý nasleduje
           variant={highlight ? "primary" : "secondary"}
           disabled={disabled}
           onClick={onPrimary}
@@ -153,13 +153,20 @@ export default function WidgetCoachPlan() {
 
   const isMedicalSuspend = maxInjurySeverity >= 7;
 
-  const formatAiError = useCallback((e: any): string => {
-    const code = e?.code ?? (e as any)?.code;
-    if (code === "ai_quota_exceeded") {
-      const used = (e as any).usedTokensThisMonth;
-      return t("coachPlan.errors.aiQuota").replace("{{tokens}}", used?.toLocaleString("sk-SK") || "0");
+  // ✅ Vylepšený formatAiError - pozerá priamo do i18n
+  const formatAiError = useCallback((out: any): string => {
+    if (!out) return t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
+    
+    // Niekedy to hádže plný JS Error, niekedy len náš response object
+    const code = out?.error_code || out?.code || "generic_error";
+    const errorKey = `api.ai_errors.${code}`;
+    const translatedError = t(errorKey as any);
+
+    if (translatedError && translatedError !== errorKey) {
+        return translatedError;
     }
-    return e?.message || String(e);
+    
+    return out?.message || t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
   }, [t]);
 
   // 1. Load Prefs
@@ -202,15 +209,21 @@ export default function WidgetCoachPlan() {
     setError(null);
     setLoadingKind("analyze");
     try {
-      const json = await apiAnalyzeAthleteState(userId, userUuid, {
+      const out = await apiAnalyzeAthleteState(userId, userUuid, {
         debugRaw: false,
         explicitModel: "coach-analyze-stub",
       });
-      const sid = (json as any).state_id ?? (json as any).state?.id ?? null;
+      
+      // ✅ Kontrola success
+      if (!out?.success) {
+          setError(formatAiError(out));
+          return;
+      }
+      
+      // Vyťahujeme ID (môže byť vnorené podľa toho, ako to vráti backend)
+      const sid = (out as any).data?.state_id ?? (out as any).state_id ?? (out as any).state?.id ?? null;
       if (typeof sid === "number") {
           setLatestStateId(sid);
-          // Po novej analýze, ak boli staré plány, tak už zrejme nesedia s analýzou, 
-          // ale necháme to na užívateľovi, či dá Cancel. Zatiaľ len updatneme UI.
       }
     } catch (e: any) {
       setError(formatAiError(e));
@@ -225,13 +238,19 @@ export default function WidgetCoachPlan() {
     setLoadingKind("weekly");
     try {
       await apiEnsureCoachPlanStartFuture(userId);
-      await apiGenerateWeeklyPlan(userId, userUuid, {
+      const out = await apiGenerateWeeklyPlan(userId, userUuid, {
         overwrite: true,
         weeks: (prefs as any)?.weeks ?? 8,
         state_id: latestStateId,
       });
+
+      // ✅ Kontrola success
+      if (!out?.success) {
+          setError(formatAiError(out));
+          return;
+      }
+
       setHasWeekly(true);
-      // Ak pregenerujeme weekly, daily už nesedí, malo by sa logicky pregenerovať tiež
       setHasDaily(false); 
     } catch (e: any) {
       setError(formatAiError(e));
@@ -246,7 +265,14 @@ export default function WidgetCoachPlan() {
     setLoadingKind("daily");
     try {
       await apiEnsureCoachPlanStartFuture(userId);
-      await apiGenerateDailyForWeek(userId, userUuid, { week_index: 1, overwrite: true });
+      const out = await apiGenerateDailyForWeek(userId, userUuid, { week_index: 1, overwrite: true });
+      
+      // ✅ Kontrola success
+      if (!out?.success) {
+          setError(formatAiError(out));
+          return;
+      }
+
       setHasDaily(true);
     } catch (e: any) {
       setError(formatAiError(e));
@@ -272,10 +298,10 @@ export default function WidgetCoachPlan() {
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
     const ok = await confirm({
-      title: t("coachPlan.confirmCancel.title"),
-      message: t("coachPlan.confirmCancel.message"),
-      okText: t("coachPlan.confirmCancel.ok"),
-      cancelText: t("coachPlan.confirmCancel.cancel"),
+      title: t("coachPlan.confirmCancel.title" as any),
+      message: t("coachPlan.confirmCancel.message" as any),
+      okText: t("coachPlan.confirmCancel.ok" as any),
+      cancelText: t("coachPlan.confirmCancel.cancel" as any),
       tone: "danger",
     });
     if (!ok) return;
@@ -283,11 +309,9 @@ export default function WidgetCoachPlan() {
     setLoadingKind("cancel");
     try {
       await apiActivePlanCancel(userId);
-      // Zhodíme celý frontend state do KROKU 0
       setIsPlanActive(false);
       setHasWeekly(false);
       setHasDaily(false);
-      // Analyzu (latestStateId) si môže nechať, tá sa mazať nemusí, len plán
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -298,29 +322,22 @@ export default function WidgetCoachPlan() {
   // ✅ LOGIKA KROKOV (STATE MACHINE)
   const isGlobalLoading = loading;
 
-  // KROK 0: Ešte nemáme nič.
   const isStep0 = !latestStateId && !hasWeekly && !hasDaily;
-  // KROK 1: Máme len analýzu, čakáme na Weekly.
   const isStep1 = !!latestStateId && !hasWeekly && !hasDaily;
-  // KROK 2: Máme Weekly, čakáme na Daily.
   const isStep2 = !!latestStateId && hasWeekly && !hasDaily;
-  // KROK 3: Máme všetko, čakáme len na Štart.
   const isStep3 = !!latestStateId && hasWeekly && hasDaily && !isPlanActive;
 
-  // Ak je plán už aktívny, zablokujeme všetky generátory.
   const generatorsBlockedGlobally = isPlanActive || isMedicalSuspend || isGlobalLoading;
 
-  // Highlight logiky (Ktoré tlačidlo má "kričať")
   const highlightAnalyze = isStep0;
   const highlightWeekly = isStep1;
   const highlightDaily = isStep2;
 
-  // Môžeme zrušiť plán, ak sa začal generovať (máme aspoň Weekly) ALEBO ak je už aktívny.
   const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
     if (isMedicalSuspend) return "Kritické zranenie: Tréning pozastavený.";
-    if (isPlanActive) return t("coachPlan.errors.alreadyActive");
+    if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
     if (!latestStateId) return "Najskôr vykonaj analýzu stavu.";
     if (!hasWeekly) return "Chýba vygenerovaný týždenný plán.";
     if (!hasDaily) return "Chýba vygenerovaný denný plán.";
@@ -329,9 +346,9 @@ export default function WidgetCoachPlan() {
 
   return (
     <WidgetCard
-      title={t("coachPlan.widget.title")}
+      title={t("coachPlan.widget.title" as any)}
       accent={isMedicalSuspend ? "danger" : "none"}
-      note={t("coachPlan.widget.note")}
+      note={t("coachPlan.widget.note" as any)}
       minH={210}
     >
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
@@ -341,9 +358,8 @@ export default function WidgetCoachPlan() {
         {/* KROK 1: Analýza */}
         <RowAction
           onPrimary={handleAnalyze}
-          primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing") : t("coachPlan.actions.analyze")}
+          primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing" as any) : t("coachPlan.actions.analyze" as any)}
           loading={loadingKind === "analyze"}
-          // Je to ghost tlačidlo, ak sme ďalej. Ale nedovolíme klikať na analýzu, ak je plán aktívny, alebo ak sa niečo nahráva.
           disabled={generatorsBlockedGlobally}
           status={!!latestStateId}
           highlight={highlightAnalyze}
@@ -352,9 +368,8 @@ export default function WidgetCoachPlan() {
         {/* KROK 2: Weekly */}
         <RowAction
           onPrimary={handleGenerateWeekly}
-          primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly") : t("coachPlan.actions.generateWeekly")}
+          primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly" as any) : t("coachPlan.actions.generateWeekly" as any)}
           loading={loadingKind === "weekly"}
-          // Zakážeme, ak ešte nie je hotová analýza (KROK 0), alebo globálny blok.
           disabled={isStep0 || generatorsBlockedGlobally}
           status={hasWeekly}
           highlight={highlightWeekly}
@@ -363,9 +378,8 @@ export default function WidgetCoachPlan() {
         {/* KROK 3: Daily */}
         <RowAction
           onPrimary={handleGenerateDaily}
-          primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily") : t("coachPlan.actions.generateDaily")}
+          primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily" as any) : t("coachPlan.actions.generateDaily" as any)}
           loading={loadingKind === "daily"}
-          // Zakážeme, ak ešte nie je Weekly (KROKY 0 a 1), alebo globálny blok.
           disabled={isStep0 || isStep1 || generatorsBlockedGlobally}
           status={hasDaily}
           highlight={highlightDaily}
@@ -384,12 +398,12 @@ export default function WidgetCoachPlan() {
           {isPlanActive ? (
             <Button
               size="xs"
-              variant="primary" // Aktívny plán bude svietiť ako hlavná akcia
+              variant="primary" 
               onClick={() => router.push("/coach/ai/dailyPlan")}
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPlan.actions.openPlan")}
+              {t("coachPlan.actions.openPlan" as any)}
             </Button>
           ) : (
             <Button
@@ -400,7 +414,7 @@ export default function WidgetCoachPlan() {
               title={startDisabledReason ?? undefined}
               className="flex-1"
             >
-              {loadingKind === "start" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.startPlan")}
+              {loadingKind === "start" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.startPlan" as any)}
             </Button>
           )}
 
@@ -412,7 +426,7 @@ export default function WidgetCoachPlan() {
             onClick={handleCancelPlan}
             className="flex-1"
           >
-            {loadingKind === "cancel" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.cancelPlan")}
+            {loadingKind === "cancel" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.cancelPlan" as any)}
           </Button>
 
           {/* TRETIE TLAČIDLO: História plánov */}
@@ -420,10 +434,10 @@ export default function WidgetCoachPlan() {
             size="xs"
             variant="secondary"
             disabled={isGlobalLoading}
-            onClick={() => router.push("/coach/history")} // Uprav si URL podľa seba
+            onClick={() => router.push("/coach/history")} 
             className="flex-1"
           >
-            {t("coachPlan.actions.history")}
+            {t("coachPlan.actions.history" as any)}
           </Button>
         </div>
       </div>
@@ -433,14 +447,14 @@ export default function WidgetCoachPlan() {
         <span className="shrink-0 text-base leading-none">💡</span>
         <div className="text-xs leading-relaxed">
           <strong className="font-semibold text-amber-400">
-            {t("coachPlan.widget.tokenWarning.title")}
+            {t("coachPlan.widget.tokenWarning.title" as any)}
           </strong>{" "}
-          {t("coachPlan.widget.tokenWarning.text")}
+          {t("coachPlan.widget.tokenWarning.text" as any)}
           <Link 
             href="/subscription" 
             className="underline decoration-amber-500/30 underline-offset-2 hover:text-amber-100 transition-colors"
           >
-            {t("coachPlan.widget.tokenWarning.link")}
+            {t("coachPlan.widget.tokenWarning.link" as any)}
           </Link>.
         </div>
       </div>

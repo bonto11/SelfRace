@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -250,7 +251,6 @@ function Subcard({
   );
 }
 
-// ✅ OPRAVA: Prijíma priamo farbu z appColors
 function Bar({
   value01,
   labelLeft,

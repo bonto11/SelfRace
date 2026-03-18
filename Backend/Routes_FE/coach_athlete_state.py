@@ -1,3 +1,4 @@
+# (Tvoj router súbor pre coach_athlete)
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, HTTPException, Depends, Request
@@ -9,7 +10,6 @@ from Services.AI.athlete_state.main import (
     service_get_latest_athlete_progress,
 )
 from Schemas.coach_athlete_state import AnalyzeConfig
-
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
@@ -23,53 +23,57 @@ def analyze_athlete(
     user_id: int,
     payload: AnalyzeConfig | None = Body(None),
 ):
-    """
-    Spustí AI analýzu formy pre daného užívateľa.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
-        if payload and payload.model:
-            model = payload.model
+        model = payload.model if payload and payload.model else None
 
         result = service_analyze_athlete(
             user_id=user_id,
             ctx=ctx,
             model=model,
         )
-        return {"success": True, **result}
+        
+        # ✅ Skontrolujeme vnútorné "ok"
+        if not result.get("ok"):
+             return {
+                 "success": False, 
+                 "data": None, 
+                 "error_code": result.get("code") or "REQUEST_FAILED",
+                 "message": result.get("message")
+             }
+
+        return {"success": True, "data": result, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/state/latest/{user_id}")
 def get_latest_athlete_state(
     req: Request,
     user_id: int,
 ):
-    """
-    Vráti najnovší uložený AI stav atleta pre daného užívateľa.
-    Ide cez RLS/JWT.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
         row = service_get_latest_athlete_state(
             user_id=user_id,
             ctx=ctx,
             version=1,
         )
-        return {
-            "success": True,
-            "state": row,
-        }
+        
+        if not row:
+             return {
+                 "success": False, 
+                 "data": None, 
+                 "error_code": "NOT_FOUND",
+                 "message": "Nepodarilo sa nájsť žiadny uložený stav."
+             }
+             
+        return {"success": True, "data": row, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/state/history/{user_id}")
 def list_athlete_states_meta(
@@ -77,45 +81,42 @@ def list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
 ):
-    """
-    História AI stavov – len meta info (bez state_json).
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
         rows = service_list_athlete_states_meta(
             user_id=user_id,
             limit=limit,
             ctx=ctx,
         )
-        return {"success": True, "items": rows}
+        return {"success": True, "data": rows, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/state/latest-progress/{user_id}")
 def get_latest_athlete_progress(
     req: Request,
     user_id: int,
 ):
-    """
-    Vráti najnovší AI progress report (porovnanie posledných dvoch stavov).
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
         row = service_get_latest_athlete_progress(
             user_id=user_id,
             version=1,
             ctx=ctx,
         )
-        return {
-            "success": True,
-            "item": row,  # <- presne to, čo čaká FE apiGetLatestAthleteProgress
-        }
+        
+        if not row:
+             return {
+                 "success": False, 
+                 "data": None, 
+                 "error_code": "NOT_FOUND",
+                 "message": "Nenašiel sa žiadny progress report."
+             }
+             
+        return {"success": True, "data": row, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))

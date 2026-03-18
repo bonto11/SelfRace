@@ -12,7 +12,6 @@ from Services.AI.athlete_state.generate import (
 
 from Routes_DB.user_metrics import db_insert_metrics
 from Routes_DB.user_pace_history import db_insert_pace_row
-
 from Routes_DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
@@ -42,25 +41,16 @@ from Configs.config import (
 
 from Services.notifications import service_notify_athlete_state_progress
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 def _default_ai_model() -> str:
-    """
-    Default model podľa aktuálneho providera.
-    """
     p = (AI_PROVIDER or "openai").strip().lower()
     if p == "gemini":
         return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash-latest").strip()
     return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
 
-
 def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
-    """
-    Vytiahne estimated_vo2max z analýzy a uloží ho do profile_metrics.
-    """
     try:
         ai_state = analysis.get("ai_state") or {}
         metrics = ai_state.get("metrics") or {}
@@ -69,23 +59,18 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
         if vo2_val and isinstance(vo2_val, (int, float)):
             metric_row = {
                 "user_id": user_id,
-                "metric": "vo2max_estimated", # Pre istotu lowercase ako v DB
+                "metric": "vo2max_estimated", 
                 "value_num": float(vo2_val),
                 "unit": "ml/kg/min",
                 "measured_at": analysis.get("generated_at") or _now_iso(),
                 "source": "system",
                 "note": f"AI Estimate (model: {analysis.get('model')})",
             }
-            # ✅ Nová funkcia z user_metrics
             db_insert_metrics([metric_row], ctx=ctx)
-
     except Exception as e:
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
 
 def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
-    """
-    Vytiahne odhadnuté tempá a odhady pretekov (v sekundách) z analýzy a uloží ich ako flat riadok.
-    """
     try:
         ai_state = analysis.get("ai_state") or {}
         paces = ai_state.get("estimated_paces") or {}
@@ -118,15 +103,13 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
         }
 
         has_data = any(v is not None for k, v in row_to_insert.items() if k not in ["user_id", "measured_at"])
-
         if has_data:
-            # ✅ Nová funkcia z pace_history
             db_insert_pace_row(row_to_insert, ctx=ctx)
 
     except Exception as e:
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
-# -------------------- STORAGE --------------------
 
+# -------------------- STORAGE --------------------
 
 def service_save_state_to_db(
     user_id: int,
@@ -134,10 +117,6 @@ def service_save_state_to_db(
       *,
     ctx: AuthCtx,
 ) -> Optional[int]:
-    """
-    Uloží AI stav atleta do coach_athlete_state.
-    """
-
     model = str(analysis.get("model"))
     version = int(analysis.get("schema_version") or 1)
     return db_insert_athlete_state(
@@ -148,22 +127,15 @@ def service_save_state_to_db(
         ctx=ctx,
     )
 
-
 def service_get_athlete_state_by_id(
     state_id: int,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-
-    row = db_get_state_by_id(
-        state_id,
-        ctx=ctx,
-    )
+    row = db_get_state_by_id(state_id, ctx=ctx)
     if not row:
         return None
-
     state_json = row.get("state_json") or {}
-
     return {
         "id": row.get("id"),
         "user_id": row.get("user_id"),
@@ -174,32 +146,23 @@ def service_get_athlete_state_by_id(
         "compare_previous": row.get("compare_previous"),
     }
 
-
 def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-
-    row = db_get_latest_state_for_user(
-        user_id=user_id,
-        version=version,
-        ctx=ctx,
-    )
+    row = db_get_latest_state_for_user(user_id=user_id, version=version, ctx=ctx)
     if not row:
         return None
-
     full_state_json = row.get("state_json") or {}
     
-    # ✅ OREZANIE (CUT): Pre FE nepotrebujeme input ani debug_trace
     clean_state = {}
     if "analysis" in full_state_json:
         clean_state = full_state_json["analysis"]
     else:
         clean_state = full_state_json
 
-    # Poistka proti balastu
     clean_state.pop("input", None)
     clean_state.pop("debug_trace", None)
 
@@ -209,10 +172,9 @@ def service_get_latest_athlete_state(
         "model": row.get("model"),
         "version": row.get("version"),
         "created_at": row.get("created_at"),
-        "state": clean_state, # Vraciame čistý stav
+        "state": clean_state,
         "compare_previous": row.get("compare_previous"),
     }
-
 
 def service_list_athlete_states_meta(
     user_id: int,
@@ -220,12 +182,7 @@ def service_list_athlete_states_meta(
     *,
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-
-    rows = db_list_states_for_user(
-        user_id=user_id,
-        limit=limit,
-        ctx=ctx,
-    )
+    rows = db_list_states_for_user(user_id=user_id, limit=limit, ctx=ctx)
     return [
         {
             "id": r.get("id"),
@@ -237,9 +194,7 @@ def service_list_athlete_states_meta(
         for r in rows or []
     ]
 
-
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
-
 
 def service_analyze_athlete(
     user_id: int,
@@ -247,40 +202,19 @@ def service_analyze_athlete(
     ctx: AuthCtx,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Hlavná service funkcia pre AI analýzu atleta.
-    """
 
     model_to_use = (model or _default_ai_model()).strip()
 
-    # 0) QUOTA CHECK – len user-trigger
-    if is_user_over_token_quota(
-        user_id,
-        ctx=ctx,
-    ):
+    if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
-            "state_id": None,
-            "model": model_to_use,
-            "analysis": None,
-            "input": None,
-            "error": {
-                "code": "ai_quota_exceeded",
-                "message": (
-                    "Mesačný limit AI analýz bol vyčerpaný. "
-                    "Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj."
-                ),
-                "used_tokens_this_month": used,
-            },
+            "ok": False,
+            "code": "ai_quota_exceeded",
+            "message": "Mesačný limit AI analýz bol vyčerpaný.",
+            "used_tokens_this_month": used,
         }
 
-    # 1) INPUT
-    input_data = build_input_from_db(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
-    # 1b) Kontext pre AI – deep copy + drop interných polí
+    input_data = build_input_from_db(user_id=user_id, ctx=ctx)
     context_for_ai = json.loads(json.dumps(input_data, default=str))
 
     try:
@@ -300,41 +234,37 @@ def service_analyze_athlete(
     except Exception:
         pass
 
-    # 2) AI CALL
-    analysis, trace = generate_athlete_state_json(
+    # ✅ OPRAVA: Chytáme 3 premenné a ak AI zlyhá, rovno končíme!
+    analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
-        model=model_to_use,ctx=ctx,
+        model=model_to_use,
+        ctx=ctx,
     )
-    if not isinstance(trace, dict):
-        trace = {}
-
-    if not isinstance(analysis, dict):
-        analysis = {}
+    
+    if not analysis:
+        return {
+            "ok": False,
+            "code": "ai_generation_failed",
+            "message": err_msg
+        }
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
     analysis["model"] = str(analysis.get("model") or model_to_use)
 
-    # === AI BILLING – usage za ANALYZE =====================
+    # === AI BILLING ===
     usage = extract_usage_from_trace(trace)
     if usage:
         usage["model"] = str(analysis.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.analyze_state",
-                source="user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={},
-                ctx=ctx,
+                user_id=user_id, usage=usage, job_type="coach.analyze_state",
+                source="user", billed_via="internal", charge_wallet=False,
+                meta={}, ctx=ctx,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e: 
             print("[AI_BILLING] analyze_state billing error:", repr(e))
-    # =======================================================
 
-    # 2b) deterministic plan_adjustment (heuristics)
     try:
         signals = compute_plan_adjustment_signals(
             analyze_input=input_data,
@@ -351,9 +281,7 @@ def service_analyze_athlete(
     ai_state = analysis.setdefault("ai_state", {})
     ai_state["plan_adjustment"] = {
         "soften_next_days": {
-            "should_soften": bool(
-                (signals.get("soften_next_days") or {}).get("should_soften")
-            ),
+            "should_soften": bool((signals.get("soften_next_days") or {}).get("should_soften")),
             "days": (signals.get("soften_next_days") or {}).get("days"),
             "reason": (signals.get("soften_next_days") or {}).get("reason"),
         },
@@ -361,21 +289,13 @@ def service_analyze_athlete(
         "weekly_replan_reason": signals.get("weekly_replan_reason"),
     }
 
-    # 3) STORAGE + progress report
-    state_id: Optional[int] = None
+    # 3) STORAGE
+    state_id = service_save_state_to_db(user_id=user_id, analysis=analysis, ctx=ctx)
+
+    _maybe_save_estimated_vo2max(user_id, analysis, ctx)
+    _maybe_save_estimated_paces(user_id, analysis, ctx)
+
     compare_previous: Optional[Dict[str, Any]] = None
-
-    state_id = service_save_state_to_db(
-        user_id=user_id,
-        analysis=analysis,
-        ctx=ctx,
-    )
-
-    # ✅ NOVINKA: Ak analýza prebehla úspešne, extrahujeme metriky a tempá do DB
-    if analysis and not analysis.get("error"):
-        _maybe_save_estimated_vo2max(user_id, analysis, ctx)
-        _maybe_save_estimated_paces(user_id, analysis, ctx) # <--- ZÁPIS DO DB
-
     try:
         progress_result = service_compare_latest_athlete_states(
             user_id=user_id,
@@ -385,22 +305,18 @@ def service_analyze_athlete(
         )
         if progress_result.get("ok") and progress_result.get("report"):
             compare_previous = progress_result.get("report")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e: 
         print("[service_analyze_athlete] compare_previous error:", repr(e))
 
     resp: Dict[str, Any] = {
+        "ok": True,
         "state_id": state_id,
         "model": str(analysis.get("model") or model_to_use),
         "analysis": analysis,
-        # "input": input_data,  <-- OREZANÉ (už netreba vracať veľký input)
         "error": None,
     }
     if compare_previous is not None:
         resp["compare_previous"] = compare_previous
-
-    # ✅ OREZANIE: Usage a Trace sme už zalogovali, neposielame ich späť
-    # resp["debug_trace"] = trace
-    # resp["ai_usage"] = usage
 
     return resp
 
@@ -412,38 +328,25 @@ def service_compare_latest_athlete_states(
     ctx: AuthCtx,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Zoberie posledné dva uložené stavy atleta a spraví AI progress report.
-    """
 
     model_to_use = (model or _default_ai_model()).strip()
 
-    if is_user_over_token_quota(
-        user_id,
-        ctx=ctx,
-    ):
+    if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
         return {
             "ok": False,
-            "error": "ai_quota_exceeded",
+            "code": "ai_quota_exceeded",
             "message": "Mesačný limit AI analýz bol vyčerpaný.",
-            "user_id": user_id,
             "used_tokens_this_month": used,
         }
 
-    rows = db_get_latest_states_for_user(
-        user_id=user_id,
-        limit=2,
-        version=version,
-        ctx=ctx,
-    )
+    rows = db_get_latest_states_for_user(user_id=user_id, limit=2, version=version, ctx=ctx)
 
     if len(rows or []) < 2:
         return {
             "ok": False,
-            "error": "not_enough_states",
+            "code": "not_enough_states",
             "message": "Na porovnanie sú potrebné aspoň dve AI analýzy.",
-            "user_id": user_id,
         }
 
     current = rows[0]
@@ -452,41 +355,38 @@ def service_compare_latest_athlete_states(
     current_state = current.get("state_json") or {}
     previous_state = previous.get("state_json") or {}
 
-    report, trace = generate_athlete_progress_report(
+    # ✅ OPRAVA: Chytáme 3 premenné a chránime DB pre Progress Reportom
+    report, trace, err_msg = generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
         model=model_to_use,
         user_id=user_id,
         ctx=ctx,
     )
-    if not isinstance(trace, dict):
-        trace = {}
-
-    if not isinstance(report, dict):
-        report = {}
+    
+    if not report:
+        return {
+            "ok": False,
+            "code": "ai_generation_failed",
+            "message": err_msg
+        }
 
     report.setdefault("schema_version", 1)
     report.setdefault("generated_at", _now_iso())
     report["model"] = str(report.get("model") or model_to_use)
 
-    # === AI BILLING – usage za PROGRESS REPORT ============
+    # === AI BILLING ===
     usage = extract_usage_from_trace(trace)
     if usage:
         usage["model"] = str(report.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
-                user_id=user_id,
-                usage=usage,
-                job_type="coach.progress_report",
-                source="user",
-                billed_via="internal",
-                charge_wallet=False,
-                meta={},
-                ctx=ctx,
+                user_id=user_id, usage=usage, job_type="coach.progress_report",
+                source="user", billed_via="internal", charge_wallet=False,
+                meta={}, ctx=ctx,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e: 
             print("[AI_BILLING] progress_report billing error:", repr(e))
-    # ======================================================
 
     # uložíme report do compare_previous na aktuálnom zázname
     try:
@@ -504,17 +404,11 @@ def service_compare_latest_athlete_states(
 
         if sid is not None:
             db_update_state_compare_previous(
-                state_id=sid,
-                compare_previous=report,
-                ctx=ctx,
+                state_id=sid, compare_previous=report, ctx=ctx,
             )
-    except Exception as e:  # noqa: BLE001
-        print(
-            "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
-            repr(e),
-        )
+    except Exception as e: 
+        print("[service_compare_latest_athlete_states] db_update_state_compare_previous error:", repr(e))
 
-    # ✅ ODPÁLENIE PUSH NOTIFIKÁCIE O NOVOM PROGRESE
     try:
         service_notify_athlete_state_progress(user_id=user_id, ctx=ctx)
     except Exception as e:
@@ -531,11 +425,6 @@ def service_compare_latest_athlete_states(
         "report": report,
         "source": "generated",
     }
-
-    # ✅ OREZANIE: Usage a Trace sme už zalogovali, neposielame ich späť
-    # resp["debug_trace"] = trace
-    # resp["ai_usage"] = usage
-
     return resp
 
 
@@ -546,11 +435,7 @@ def service_get_latest_athlete_progress(
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
 
-    row = db_get_latest_athlete_progress(
-        user_id=user_id,
-        version=version,
-        ctx=ctx,
-    )
+    row = db_get_latest_athlete_progress(user_id=user_id, version=version, ctx=ctx)
     if not row:
         return None
 

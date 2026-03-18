@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";

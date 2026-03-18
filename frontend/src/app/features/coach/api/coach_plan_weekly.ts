@@ -1,34 +1,5 @@
 // src/features/coach/api/coach_plan_weekly.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
-import { maybeThrowAiQuotaError } from "@/app/features/coach/api/coach_athlete_state";
-
-type AsyncJobRow = {
-  id: number;
-  user_id: number;
-  job_type: string;
-  status: string;
-  progress: number;
-  error: string | null;
-  result: any | null;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-};
-
-type EnqueueJobResponse = {
-  success: boolean;
-  job: AsyncJobRow | null;
-  note?: string | null;
-  detail?: string | null;
-  error?: string | null;
-};
-
-type RunJobResponse = {
-  success: boolean;
-  job: AsyncJobRow | null;
-  detail?: string | null;
-  error?: string | null;
-};
 
 export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
@@ -36,11 +7,12 @@ export type WeeklyPlanGenerateOptions = {
   weeks?: number | null; 
 };
 
+// ✅ OPRAVA: Konzistentný Response Type
 export async function apiGenerateWeeklyPlan(
   userId: number,
   userUuid: string,
   opts: WeeklyPlanGenerateOptions = {}
-): Promise<any> {
+): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const payload = {
@@ -50,7 +22,6 @@ export async function apiGenerateWeeklyPlan(
   };
 
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
-
   const enqueueBody = {
     job_type: "weekly_generate",
     payload,
@@ -59,9 +30,9 @@ export async function apiGenerateWeeklyPlan(
     dedupe_key: "weekly_generate_latest",
   };
 
-  let enqueueJson: EnqueueJobResponse;
+  let enqueueJson: any;
   try {
-    enqueueJson = await callBackend<EnqueueJobResponse>(enqueuePath, {
+    enqueueJson = await callBackend(enqueuePath, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
@@ -69,43 +40,64 @@ export async function apiGenerateWeeklyPlan(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateWeeklyPlan][enqueue] ERROR", err);
-    throw new Error("api.coach.enqueueFailed");
+    return { success: false, error_code: "enqueue_failed", message: "Network error" };
   }
 
-  if (!enqueueJson?.success || !enqueueJson.job) {
-    throw new Error("api.coach.enqueueFailed");
+  if (!enqueueJson?.success) {
+    return {
+      success: false,
+      error_code: enqueueJson?.error_code || "REQUEST_FAILED",
+      message: enqueueJson?.message || "Nepodarilo sa zaradiť požiadavku.",
+    };
   }
 
-  const jobId = enqueueJson.job.id;
+  const jobId = enqueueJson.job?.id || enqueueJson.data?.job_id;
+  if (!jobId) {
+    return { success: true, status: "QUEUED" };
+  }
 
   const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
 
-  let runJson: RunJobResponse;
+  let runJson: any;
   try {
-    runJson = await callBackend<RunJobResponse>(runPath, {
+    runJson = await callBackend(runPath, {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateWeeklyPlan][run] ERROR", err);
-    throw new Error("api.coach.runFailed");
+    return { success: false, error_code: "REQUEST_FAILED", message: "Network error" };
   }
 
-  if (!runJson?.success || !runJson.job) {
-    throw new Error("api.coach.runFailed");
+  if (!runJson?.success) {
+    return { success: true, status: "PROCESSING" };
   }
 
-  const result = runJson.job.result;
-  maybeThrowAiQuotaError(result);
+  // ✅ NOVÉ: Skontrolujeme vnútorný výsledok
+  const innerResult = runJson.job?.result || runJson.data?.result || runJson.result;
+  
+  if (innerResult && innerResult.ok === false) {
+    return {
+      success: false,
+      error_code: innerResult.code || "ai_generation_failed",
+      message: innerResult.message
+    };
+  }
 
-  if (!result || typeof result !== "object") {
-    throw new Error("api.coach.invalidResult");
+  const jobStatus = runJson.job?.status || runJson.data?.status || runJson.status;
+  if (jobStatus === "failed" || jobStatus === "error") {
+    return {
+      success: false,
+      error_code: "ai_generation_failed",
+      message: "Úloha na pozadí zlyhala."
+    };
   }
 
   return {
     success: true,
-    ...(result as any),
+    status: "SUCCESS",
+    data: innerResult
   };
 }
 
@@ -116,8 +108,8 @@ export type WeeklyPlanWeek = {
   goal?: string | null;
   focus?: string | null;
   load_phase?: string | null;
-  planned_stats?: Record<string, number> | null; // ✅ Nahradené
-  actual_stats?: Record<string, number> | null;  // ✅ Nahradené
+  planned_stats?: Record<string, number> | null; 
+  actual_stats?: Record<string, number> | null;  
   notes?: string | null;
   raw_json?: any;
 };
@@ -126,32 +118,23 @@ export type WeeklyPlanLatest = {
   weeks: WeeklyPlanWeek[];
 };
 
-type WeeklyPlanLatestResponse = {
-  success: boolean;
-  plan: WeeklyPlanLatest | null;
-  detail?: string | null;
-  error?: string | null;
-};
-
-export async function apiGetLatestWeeklyPlan(
-  userId: number
-): Promise<WeeklyPlanLatest | null> {
+export async function apiGetLatestWeeklyPlan(userId: number): Promise<WeeklyPlanLatest | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-weekly/latest/${encodeURIComponent(String(userId))}`;
 
   try {
-    const json = await callBackend<WeeklyPlanLatestResponse>(path, {
+    const json = await callBackend<any>(path, {
       method: "GET",
       headers: { "content-type": "application/json" },
       cache: "no-store",
     });
 
     if (!json?.success) {
-      throw new Error("api.coach.weeklyLoadFailed");
+      return null;
     }
 
-    return json.plan ?? null;
+    return json.data || json.plan || null;
   } catch (err: any) {
     console.error("[Coach][apiGetLatestWeeklyPlan] ERROR", err);
     throw new Error("api.coach.weeklyLoadFailed");

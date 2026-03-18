@@ -119,7 +119,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteState(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? t("coachAthleteState.widget.errorFailedLoad"));
+        if (alive) setError(t(e?.message as any) || t("coachAthleteState.widget.errorFailedLoad" as any));
       } finally {
         if (alive) setLoading(false);
       }

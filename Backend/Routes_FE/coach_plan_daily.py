@@ -22,16 +22,12 @@ router = APIRouter(
     tags=["coach-plan-daily"],
 )
 
-
 @router.post("/generate/{user_id}")
 def generate_daily_for_week(
     req: Request,
     user_id: int,
     payload: DailyWeekGenerateConfig,
 ) -> Dict[str, Any]:
-    """
-    Vygeneruje / prepíše daily plán pre konkrétny týždeň.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
 
@@ -41,23 +37,29 @@ def generate_daily_for_week(
             model=payload.model,
             ctx=ctx,
         )
-        return {"success": True, **result}
+        
+        # ✅ Skontrolujeme vnútorné "ok" z workera
+        if not result.get("ok"):
+             return {
+                 "success": False, 
+                 "data": None, 
+                 "error_code": result.get("code") or "REQUEST_FAILED",
+                 "message": result.get("message")
+             }
+
+        return {"success": True, "data": result, "error_code": None, "message": None}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/overview/{user_id}")
 def get_daily_overview(
     req: Request,
     user_id: int,
 ) -> Dict[str, Any]:
-    """
-    Vráti jednoduchý prehľad daily plánu pre najbližšie dni.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
 
@@ -67,26 +69,19 @@ def get_daily_overview(
             ctx=ctx,
         )
 
-        return {
-            "success": True,
-            "overview": overview,
-        }
+        return {"success": True, "data": overview, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
-
-
 
 class DailyRescheduleMove(BaseModel):
     id: int = Field(..., description="PK id z coach_plan_daily")
     from_date: str = Field(..., description="YYYY-MM-DD (len pre audit/validáciu)")
     to_date: str = Field(..., description="YYYY-MM-DD")
 
-
 class DailyReschedulePayload(BaseModel):
     moves: list[DailyRescheduleMove] = Field(default_factory=list)
-
 
 @router.post("/reschedule/{user_id}")
 def reschedule_daily_plan(
@@ -94,10 +89,6 @@ def reschedule_daily_plan(
     user_id: int,
     payload: DailyReschedulePayload,
 ) -> Dict[str, Any]:
-    """
-    Presunie konkrétne daily sessions (podľa PK) na iné dni.
-    Update: plan_date (+ session_index auto na koniec cieľového dňa).
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
 
@@ -108,10 +99,10 @@ def reschedule_daily_plan(
             ctx=ctx,
         )
 
-        return {"success": True, "overview": overview}
+        return {"success": True, "data": overview, "error_code": None, "message": None}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))

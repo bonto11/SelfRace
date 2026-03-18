@@ -10,17 +10,7 @@ from Services.AI.daily_plan.prompts import build_prompts_for_daily
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 
-
-# -----------------------------------------------------------------------------
-# BASIC shape sanitize (NO planning constraints)
-# -----------------------------------------------------------------------------
 def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Minimal sanity only (NO planning constraints):
-    - ensure days is list
-    - ensure each day has date and sessions list
-    - drop obviously broken day entries
-    """
     if not isinstance(parsed, dict):
         return {}
 
@@ -46,10 +36,6 @@ def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     parsed["days"] = out_days
     return parsed
 
-
-# -----------------------------------------------------------------------------
-# HARD integrity helpers (NOT planning constraints)
-# -----------------------------------------------------------------------------
 def _parse_iso_date(s: Any) -> Optional[date]:
     if not isinstance(s, str) or not s:
         return None
@@ -58,21 +44,16 @@ def _parse_iso_date(s: Any) -> Optional[date]:
     except Exception:
         return None
 
-
 def _validate_dates_in_range(
     plan: Dict[str, Any],
     *,
     week_start: Optional[str],
     week_end: Optional[str],
 ) -> Tuple[bool, List[str]]:
-    """
-    Hard safety: do not accept dates outside [week_start..week_end].
-    This prevents garbage inserts into DB. Not "planning".
-    """
     ws = _parse_iso_date(week_start)
     we = _parse_iso_date(week_end)
     if not ws or not we:
-        return True, []  # can't validate if range missing
+        return True, [] 
 
     bad: List[str] = []
     for d in plan.get("days") or []:
@@ -87,34 +68,22 @@ def _validate_dates_in_range(
 
     return (len(bad) == 0), bad
 
-
 def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Expected shape (from daily builder):
-      context_payload["external_events"]["occurrences"] = [{date,title,sport_raw,duration_min,...}]
-    """
     ext = context_payload.get("external_events") or {}
     if not isinstance(ext, dict):
         return []
     occ = ext.get("occurrences") or []
     return occ if isinstance(occ, list) else []
 
-
 def _norm_title(v: Any) -> str:
     return str(v or "").strip().lower()
-
 
 def _norm_sport_raw(v: Any) -> str:
     return str(v or "").strip().lower()
 
-
 def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]) -> bool:
-    """
-    Match external occurrence by payload.external_event first (preferred).
-    Fallback: date + title must match and session_type must be external_event.
-    """
     if not isinstance(plan, dict) or not isinstance(occ, dict):
-        return True  # don't block on garbage
+        return True 
 
     occ_date = str(occ.get("date") or "")[:10]
     if not occ_date:
@@ -160,7 +129,6 @@ def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]
                         continue
                     return True
 
-            # fallback (no payload): must be explicitly marked external
             s_title = _norm_title(s.get("title"))
             s_type = str(s.get("session_type") or "").strip().lower()
             s_dur = s.get("duration_min")
@@ -172,7 +140,6 @@ def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]
                 return True
 
     return False
-
 
 def _validate_external_events_included(
     parsed: Dict[str, Any],
@@ -193,19 +160,14 @@ def _validate_external_events_included(
 
     return (len(missing) == 0), missing
 
-
-# -----------------------------------------------------------------------------
-# Trace helpers (ALWAYS ON)
-# -----------------------------------------------------------------------------
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     return {
         "provider": provider,
         "models_tried": [],
         "attempts": [],
-        "usage": None,  # {prompt_tokens, completion_tokens, total_tokens, reasoning_tokens, model}
+        "usage": None,  
         "ok_model": model,
     }
-
 
 def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[str, Any]:
     provider = str(getattr(res, "provider", None) or "unknown")
@@ -232,7 +194,6 @@ def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[
 
     return _trace_fallback(provider=provider, model=used_model)
 
-
 def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not isinstance(a, dict) and not isinstance(b, dict):
         return None
@@ -240,7 +201,6 @@ def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Opti
     aa = a if isinstance(a, dict) else {}
     bb = b if isinstance(b, dict) else {}
 
-    # model: keep last non-empty
     out["model"] = str(bb.get("model") or aa.get("model") or "")
 
     def _i(x: Any) -> int:
@@ -258,28 +218,20 @@ def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Opti
         tot = out["prompt_tokens"] + out["completion_tokens"] + out["reasoning_tokens"]
     out["total_tokens"] = tot
 
-    # if all zero -> None
     if out["prompt_tokens"] == 0 and out["completion_tokens"] == 0 and out["reasoning_tokens"] == 0 and out["total_tokens"] == 0:
         return None
 
     return out
 
-# -----------------------------------------------------------------------------
-# Provider-agnostic generator (TRACE ALWAYS)
-# -----------------------------------------------------------------------------
+# ✅ OPRAVA: Vraciame Tuple 3 premenných (Parsed, Trace, ErrorMessage)
 def generate_daily_week_json(
     context_payload: dict,
     model: Optional[str],
     *,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
-) -> Tuple[dict, Dict[str, Any]]:
-    """
-    Provider-agnostic daily generator:
-      - ai_call_json_model()
-      - max 2 attempts when hard validation fails (dates/ext events)
-      - ✅ ALWAYS returns (parsed_or_fallback, trace)
-    """
+) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
+    
     ctx: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
 
     raw_settings = ctx.get("user_settings") or {}
@@ -312,8 +264,8 @@ def generate_daily_week_json(
         "provider": None,
         "models_tried": [],
         "attempts": [],
-        "usage": None,       # last usage wins (billing expects trace["usage"])
-        "usage_sum": None,   # optional sum across attempts
+        "usage": None,       
+        "usage_sum": None,   
         "ok_model": None,
         "timezone": str(tz_name),
         "week_index": week_index,
@@ -327,35 +279,27 @@ def generate_daily_week_json(
     last_err_msg: Optional[str] = None
     usage_sum: Optional[Dict[str, Any]] = None
 
-    print("generate_daily_week_json context_payload",ctx)
-    print("generate_daily_week_json system_prompt",system_txt)
-    print("generate_daily_week_json user_instructions",user_txt)
-
     for attempt in range(1, attempts + 1):
         res = ai_call_json_model(
             context_payload=ctx,
             system_prompt=system_txt,
             user_instructions=user_txt,
-            model=requested_model,  # None => provider default
+            model=requested_model,  
             max_tokens=resolved_max_tokens,
             temperature=resolved_temperature,
         )
 
-        # --- safe error fields ---
         err = getattr(res, "error", None)
         err_code = getattr(err, "code", None) if err is not None else None
         err_msg = getattr(err, "message", None) if err is not None else None
 
-        # --- normalize provider trace (may live on res.trace or res.error.trace) ---
         tr = _get_trace_from_result(res, requested_model=requested_model)
 
-        # update top-level trace meta (keep last)
         trace["provider"] = tr.get("provider") or getattr(res, "provider", None)
         trace["ok_model"] = tr.get("ok_model") or getattr(res, "model", None)
         if isinstance(tr.get("models_tried"), list) and tr.get("models_tried"):
             trace["models_tried"] = tr.get("models_tried")
 
-        # usage accumulation
         this_usage = tr.get("usage") if isinstance(tr, dict) else None
         if isinstance(this_usage, dict):
             usage_sum = _sum_usage(usage_sum, this_usage)
@@ -374,7 +318,6 @@ def generate_daily_week_json(
             }
         )
 
-        # --- hard success gate (Pylance-safe) ---
         if not bool(getattr(res, "ok", False)):
             last_err_code = err_code or "ai_failed"
             last_err_msg = err_msg or "AI provider failed"
@@ -413,30 +356,13 @@ def generate_daily_week_json(
             last_err_msg = f"AI omitted external events: {missing[:12]}"
             continue
 
-        # success: stamp ok_model if missing
         if not trace.get("ok_model"):
             trace["ok_model"] = parsed.get("model")
 
-        return parsed, trace
+        return parsed, trace, None
 
-    # fallback
-    now_fallback = datetime.now(tzinfo).isoformat()
-    fallback: Dict[str, Any] = {
-        "schema_version": 2,
-        "generated_at": now_fallback,
-        "model": "daily-fallback",
-        "week_index": week_index,
-        "week_start": week_start,
-        "week_end": week_end,
-        "days": [],
-        "error": last_err_msg or "daily_generation_failed",
-        "error_code": last_err_code or "daily_generation_failed",
-        "warnings": ["daily_generation_failed"],
-    }
-
+    # --- Failure path (Bez fallbacku, len cisty error) ---
     trace["error_code"] = last_err_code or "daily_generation_failed"
     trace["error_message"] = last_err_msg or "daily_generation_failed"
 
-    return fallback, trace
-
-
+    return None, trace, last_err_msg or "daily_generation_failed"

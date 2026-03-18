@@ -74,7 +74,6 @@ function MiniBar({
 }) {
   if (planned === 0 && actual === 0) return null;
 
-  // Percento výplne (zastaví sa na 100%, aj keby spravil viac)
   const pct =
     planned > 0
       ? Math.min(100, (actual / planned) * 100)
@@ -82,7 +81,6 @@ function MiniBar({
         ? 100
         : 0;
 
-  // Ak spravil viac ako plán (napr. 50/40), môžeme jemne zvýrazniť
   const isOver = planned > 0 && actual > planned;
 
   return (
@@ -93,12 +91,10 @@ function MiniBar({
           {actual} / {planned} {unit}
         </span>
       </div>
-      {/* Track = Plan (opacity-20) */}
       <div
         className="h-1.5 w-full rounded-full overflow-hidden"
         style={{ backgroundColor: `${colorHex}33` }}
       >
-        {/* Fill = Actual (solid) */}
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: colorHex }}
@@ -261,7 +257,7 @@ export default function DetailWeeklyPlan() {
                 style={PANEL_PHASE_PILL_STYLE[k]}
               >
                 <span className="opacity-90">
-                  {t(`coach.weekly.phases.${k}`)}
+                  {t(`coach.weekly.phases.${k}` as any)}
                 </span>
                 <span className="font-semibold tabular-nums">
                   {view.phaseCounts[k]}×
@@ -281,7 +277,6 @@ export default function DetailWeeklyPlan() {
             const ps = w.planned_stats || {};
             const as = w.actual_stats || {};
 
-            // Helper na spočítanie celkového času
             const totalPMin =
               (ps.run_time_min || 0) +
               (ps.bike_time_min || 0) +
@@ -302,7 +297,6 @@ export default function DetailWeeklyPlan() {
                 style={SESSION_SUBCARD_STYLE}
               >
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-                  {/* Hlavička týždňa */}
                   <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-sm font-bold uppercase opacity-90">
@@ -320,7 +314,6 @@ export default function DetailWeeklyPlan() {
                     </div>
                   </div>
 
-                  {/* Ciele a Notes */}
                   <div className="text-sm font-semibold">
                     {w.goal || w.focus || t("coach.weekly.noGoalShort")}
                   </div>
@@ -330,9 +323,7 @@ export default function DetailWeeklyPlan() {
                     </div>
                   )}
 
-                  {/* MINI BARS PRE ŠPORTY */}
                   <div className="flex flex-col gap-1 mt-2">
-                    {/* BEH */}
                     <MiniBar
                       label={`${t("common.sports.run")} (${t("common.metrics.distance")})`}
                       actual={as.run_distance_km || 0}
@@ -348,7 +339,6 @@ export default function DetailWeeklyPlan() {
                       colorHex={appColors.chartRun}
                     />
 
-                    {/* BICYKEL */}
                     <MiniBar
                       label={`${t("common.sports.bike")} (${t("common.metrics.distance")})`}
                       actual={as.bike_distance_km || 0}
@@ -364,7 +354,6 @@ export default function DetailWeeklyPlan() {
                       colorHex={appColors.chartBike}
                     />
 
-                    {/* PLÁVANIE */}
                     <MiniBar
                       label={`${t("common.sports.swim")} (${t("common.metrics.distance")})`}
                       actual={(as.swim_distance_m || 0) / 1000}
@@ -373,16 +362,14 @@ export default function DetailWeeklyPlan() {
                       colorHex={appColors.chartSwim}
                     />
 
-                    {/* SILA */}
                     <MiniBar
-                      label={t("common.sports.strength")}
+                      label={t("common.sports.strength" as any)}
                       actual={formatHrs(as.strength_time_min || 0)}
                       planned={formatHrs(ps.strength_time_min || 0)}
                       unit={t("common.units.hour")}
                       colorHex={appColors.chartStrength}
                     />
 
-                    {/* SPOLU ČAS */}
                     <div className="mt-2 pt-2 border-t border-white/5">
                       <MiniBar
                         label={`${t("common.together")} (${t("common.metrics.time")})`}
