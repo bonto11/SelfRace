@@ -1,7 +1,6 @@
 // src/app/features/activities/api/activities_enrichment.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type {
-  ActivityReviewRerunResponse,
   ActivityEnrichment
 } from "@/app/features/activities/types/activities_enrichment";
 
@@ -27,7 +26,6 @@ export async function apiRerunActivityReview(
     return { success: false, error_code: "enqueue_failed", message: "Network error" };
   }
 
-  // ✅ Úprava pre novú štruktúru z backendu
   if (!enqueueJson?.success) {
     return {
       success: false,
@@ -36,8 +34,7 @@ export async function apiRerunActivityReview(
     };
   }
 
-  // Frontend pozerá do .data.job_id kvôli našej novej obálke
-  const jobId = enqueueJson.data?.job_id;
+  const jobId = enqueueJson.data?.job_id || enqueueJson.job_id;
   if (!jobId) {
     return { success: true, status: "QUEUED" };
   }
@@ -52,8 +49,28 @@ export async function apiRerunActivityReview(
     });
 
     if (!runJson?.success) {
-      console.warn("[AR] Sync Run Failed/Timeout", runJson);
+      console.warn("[AR] Sync Run HTTP Failed", runJson);
       return { success: true, status: "PROCESSING" };
+    }
+
+    // ✅ NOVÉ: Pozrieme sa dovnútra Jobu, či AI worker nevrátil chybu
+    const innerResult = runJson?.data?.result || runJson?.job?.result || runJson?.result;
+    if (innerResult && innerResult.ok === false) {
+      return {
+        success: false,
+        error_code: innerResult.code || "ai_generation_failed",
+        message: innerResult.message
+      };
+    }
+
+    // Skontrolujeme, či samotný status Jobu neskončil chybou
+    const jobStatus = runJson?.data?.status || runJson?.job?.status || runJson?.status;
+    if (jobStatus === "failed" || jobStatus === "error") {
+      return {
+        success: false,
+        error_code: "ai_generation_failed",
+        message: "Úloha na pozadí zlyhala."
+      };
     }
 
     return { success: true, status: "SUCCESS" };
