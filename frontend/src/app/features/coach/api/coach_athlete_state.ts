@@ -1,6 +1,6 @@
 // src/features/coach/api/coach_athlete_state.ts
-import { callBackend } from "@/app/shared/utils/callBackend";
-import type { AnalyzeOptions, AnalyzeAthleteStateResponse } from "@/app/features/coach/types/coachApiTypes";
+import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBackend";
+import type { AnalyzeOptions } from "@/app/features/coach/types/coachApiTypes";
 
 export type AthleteProgressRecord = {
   id: number;
@@ -20,7 +20,9 @@ export type AthleteStateRecord = {
   state: any; 
 };
 
-// ✅ OPRAVA: Prechádzame na konzistentný response
+
+// (Vymazal som tie tvoje dlhé typy pre JobRecord, už ich netreba vďaka utils)
+
 export async function apiAnalyzeAthleteState(
   userId: number,
   userUuid: string,
@@ -67,51 +69,10 @@ export async function apiAnalyzeAthleteState(
     return { success: true, status: "QUEUED" };
   }
 
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
-
-  let runJson: any;
-  try {
-    runJson = await callBackend(runPath, {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (e: any) {
-    console.error("[Coach][apiAnalyzeAthleteState] run ERROR", e);
-    return { success: false, error_code: "REQUEST_FAILED", message: "Network error" };
-  }
-
-  if (!runJson?.success) {
-    return { success: true, status: "PROCESSING" };
-  }
-
-  // ✅ NOVÉ: Kontrola Worker výsledku
-  const innerResult = runJson.job?.result || runJson.data?.result || runJson.result;
-  
-  if (innerResult && innerResult.ok === false) {
-    return {
-      success: false,
-      error_code: innerResult.code || "ai_generation_failed",
-      message: innerResult.message
-    };
-  }
-
-  const jobStatus = runJson.job?.status || runJson.data?.status || runJson.status;
-  if (jobStatus === "failed" || jobStatus === "error") {
-    return {
-      success: false,
-      error_code: "ai_generation_failed",
-      message: "Úloha na pozadí zlyhala."
-    };
-  }
-
-  return {
-    success: true,
-    status: "SUCCESS",
-    data: innerResult
-  };
+  return await runAsyncJobWithPolling(userId, jobId);
 }
 
+// ... (Zvyšok súboru ako apiGetLatestAthleteState a apiGetLatestAthleteProgress nechaj rovnako) ...
 export async function apiGetLatestAthleteState(userId: number): Promise<AthleteStateRecord | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 

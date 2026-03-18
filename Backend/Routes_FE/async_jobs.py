@@ -149,3 +149,25 @@ def run_job(
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/status/{user_id}/{job_id}")
+def get_job_status(req: Request, user_id: int, job_id: int):
+    """
+    Vráti aktuálny stav asynchrónneho jobu. Používa sa na frontend polling, 
+    ak hlavný /jobs/run request spadne na timeoute.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        
+        job = db_get_job_by_id(ctx=ctx, user_id=user_id, job_id=job_id)
+        if not job:
+            return {"success": False, "error_code": "NOT_FOUND", "message": "Job not found"}
+        
+        # Očistíme sensitive dáta ak treba, alebo len vrátime job
+        from Services.async_jobs import _scrub_dict
+        clean_job = _scrub_dict(job)
+        
+        return {"success": True, "job": clean_job}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

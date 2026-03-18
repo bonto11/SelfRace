@@ -1,12 +1,11 @@
 // src/features/coach/api/coach_plan_daily.ts
-import { callBackend } from "@/app/shared/utils/callBackend";
+import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBackend";
 
 export type DailyWeekGenerateOptions = {
   week_index: number;
   overwrite?: boolean;
 };
 
-// ✅ OPRAVA: Konzistentný Response Type
 export async function apiGenerateDailyForWeek(
   userId: number,
   userUuid: string,
@@ -14,16 +13,14 @@ export async function apiGenerateDailyForWeek(
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const payload = {
-    week_index: opts.week_index,
-    overwrite: opts.overwrite ?? true,
-    debug: true,
-  };
-
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
   const enqueueBody = {
     job_type: "daily_generate",
-    payload,
+    payload: {
+      week_index: opts.week_index,
+      overwrite: opts.overwrite ?? true,
+      debug: true,
+    },
     priority: 100,
     max_attempts: 1,
     dedupe_key: `daily_generate_week_${opts.week_index}`,
@@ -55,50 +52,8 @@ export async function apiGenerateDailyForWeek(
     return { success: true, status: "QUEUED" };
   }
 
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
-
-  let runJson: any;
-  try {
-    runJson = await callBackend(runPath, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      cache: "no-store",
-    });
-  } catch (err: any) {
-    console.error("[Coach][apiGenerateDailyForWeek][run] ERROR", err);
-    return { success: false, error_code: "REQUEST_FAILED", message: "Network error" };
-  }
-
-  if (!runJson?.success) {
-    console.warn("[Coach] Sync Run HTTP Failed", runJson);
-    return { success: true, status: "PROCESSING" };
-  }
-
-  // ✅ NOVÉ: Pozrieme sa dovnútra Jobu (výsledok z Workera)
-  const innerResult = runJson.job?.result || runJson.data?.result || runJson.result;
-  
-  if (innerResult && innerResult.ok === false) {
-    return {
-      success: false,
-      error_code: innerResult.code || "ai_generation_failed",
-      message: innerResult.message
-    };
-  }
-
-  const jobStatus = runJson.job?.status || runJson.data?.status || runJson.status;
-  if (jobStatus === "failed" || jobStatus === "error") {
-    return {
-      success: false,
-      error_code: "ai_generation_failed",
-      message: "Úloha na pozadí zlyhala."
-    };
-  }
-
-  return {
-    success: true,
-    status: "SUCCESS",
-    data: innerResult
-  };
+  // Vráti už pekne zabalený výsledok priamo v tvare pre frontend
+  return await runAsyncJobWithPolling(userId, jobId);
 }
 
 export type DailyPlanStructure = {
