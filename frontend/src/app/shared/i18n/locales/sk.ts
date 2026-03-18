@@ -149,23 +149,7 @@ export const sk = {
       checkLogin: "Skontroluj si prosím prihlásenie.",
     },
   },
-  ai_errors: {
-    activity_not_found: "Aktivita nebola nájdená.",
-    activity_too_old: "Analýzu je možné vyžiadať len pre aktivity do 7 dní.",
-    hard_limit_reached: "Bol dosiahnutý absolútny systémový limit generovaní.",
-    limit_reached: "Dosiahli ste limit pregenerovaní pre váš aktuálny účet.",
-    only_one_for_free_tier:
-      "Vo free verzii máte nárok len na jedno hodnotenie.",
-    duplicate_content:
-      "Tento komentár ste už použili pri poslednom generovaní.",
-    enqueue_failed: "Nepodarilo sa zaradiť požiadavku, skúste to znova.",
-    ai_quota_exceeded: "Vyčerpali ste mesačný limit na využívanie AI funkcií.",
-    ai_generation_failed:
-      "Služba AI je momentálne preťažená alebo zlyhala. Skúste to prosím neskôr.",
-    missing_activity_data: "Chýbajú potrebné dáta aktivity pre analýzu.",
-    REQUEST_FAILED: "Požiadavka na server zlyhala.",
-    generic_error: "Vyskytla sa neočakávaná chyba pri generovaní.",
-  },
+
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase. ",
     p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky a reagovať podľa tvojích komentárov, regenerácie a únavy.",
@@ -2347,6 +2331,27 @@ export const sk = {
         queued: "Požiadavka bola odoslaná na spracovanie.",
         errorEnqueue: "Nepodarilo sa vytvoriť požiadavku na analýzu.",
         limitReached: "Dosiahli ste limit prepočtov pre túto aktivitu.",
+        ai_errors: {
+          activity_not_found: "Aktivita nebola nájdená.",
+          activity_too_old:
+            "Analýzu je možné vyžiadať len pre aktivity do 7 dní.",
+          hard_limit_reached:
+            "Bol dosiahnutý absolútny systémový limit generovaní.",
+          limit_reached:
+            "Dosiahli ste limit pregenerovaní pre váš aktuálny účet.",
+          only_one_for_free_tier:
+            "Vo free verzii máte nárok len na jedno hodnotenie.",
+          duplicate_content:
+            "Tento komentár ste už použili pri poslednom generovaní.",
+          enqueue_failed: "Nepodarilo sa zaradiť požiadavku, skúste to znova.",
+          ai_quota_exceeded:
+            "Vyčerpali ste mesačný limit na využívanie AI funkcií.",
+          ai_generation_failed:
+            "Služba AI je momentálne preťažená alebo zlyhala. Skúste to prosím neskôr.",
+          missing_activity_data: "Chýbajú potrebné dáta aktivity pre analýzu.",
+          REQUEST_FAILED: "Požiadavka na server zlyhala.",
+          generic_error: "Vyskytla sa neočakávaná chyba pri generovaní.",
+        },
       },
       injuryModal: {
         title: "Správa zranení a bolestí",

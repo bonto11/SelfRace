@@ -148,25 +148,7 @@ export const en = {
       checkLogin: "Please check your login status.",
     },
   },
-  ai_errors: {
-    activity_not_found: "Activity not found.",
-    activity_too_old:
-      "Analysis can only be requested for activities up to 7 days old.",
-    hard_limit_reached:
-      "The absolute system limit for regenerations has been reached.",
-    limit_reached:
-      "You have reached the regeneration limit for your current tier.",
-    only_one_for_free_tier: "Free tier allows only one review per activity.",
-    duplicate_content:
-      "You have already used this exact comment in the last generation.",
-    enqueue_failed: "Failed to enqueue the request, please try again.",
-    ai_quota_exceeded: "You have exceeded your monthly AI token quota.",
-    ai_generation_failed:
-      "The AI service is currently overloaded or failed. Please try again later.",
-    missing_activity_data: "Required activity data is missing for analysis.",
-    REQUEST_FAILED: "The server request failed.",
-    generic_error: "An unexpected error occurred during generation.",
-  },
+
   landing: {
     h1: "Your personal coach reacting to your state in real-time.",
     p1: "Connect Strava, set a goal, and the app will build training blocks and adapt based on your comments, recovery, and fatigue.",
@@ -2348,6 +2330,27 @@ export const en = {
         errorEnqueue: "Failed to create the analysis request.",
         limitReached:
           "You have reached the recalculation limit for this activity.",
+        ai_errors: {
+          activity_not_found: "Activity not found.",
+          activity_too_old:
+            "Analysis can only be requested for activities up to 7 days old.",
+          hard_limit_reached:
+            "The absolute system limit for regenerations has been reached.",
+          limit_reached:
+            "You have reached the regeneration limit for your current tier.",
+          only_one_for_free_tier:
+            "Free tier allows only one review per activity.",
+          duplicate_content:
+            "You have already used this exact comment in the last generation.",
+          enqueue_failed: "Failed to enqueue the request, please try again.",
+          ai_quota_exceeded: "You have exceeded your monthly AI token quota.",
+          ai_generation_failed:
+            "The AI service is currently overloaded or failed. Please try again later.",
+          missing_activity_data:
+            "Required activity data is missing for analysis.",
+          REQUEST_FAILED: "The server request failed.",
+          generic_error: "An unexpected error occurred during generation.",
+        },
       },
       injuryModal: {
         title: "Injury and Pain Management",

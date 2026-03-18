@@ -617,13 +617,14 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         const code = out?.error_code || "generic_error";
         const errorKey = `api.ai_errors.${code}`;
         const translatedError = t(errorKey as any);
-
-        // Ak existuje i18n preklad (čiže nevrátilo to len ten istý string), použijeme ho
+        
+        // Ak existuje i18n preklad (čiže funkcia nevrátila len ten istý kľúč), použijeme ho
         if (translatedError && translatedError !== errorKey) {
-          setUiError(translatedError);
+            setUiError(translatedError);
         } else {
-          // Inak použijeme správu priamo z backendu alebo generický fallback
-          setUiError(out?.message || t("sessions.review.errorGeneric" as any));
+            // BEZPEČNOSTNÝ FALLBACK: Žiadne surové errory z backendu! 
+            // Použijeme peknú generickú správu.
+            setUiError(t("api.ai_errors.generic_error" as any));
         }
       } else {
         if (out.status === "SUCCESS")
