@@ -36,12 +36,10 @@ import {
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 import Link from "next/link";
-import type { CoachPrefs, Injury } from "@/app/features/prefs/types/prefs";
+import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useT } from "@/app/shared/i18n/useT";
 import { cx } from "@/app/shared/ui/utils/inputs";
-
-/* ---------- helpers ---------- */
 
 type LoadingKind = "analyze" | "weekly" | "daily" | "start" | "cancel" | "status" | null;
 
@@ -79,7 +77,7 @@ function RowAction({
       className={cx(
         WIDGET_ACTION_ROW,
         WIDGET_ACTION_ROW_SURFACE,
-        "rounded-xl border overflow-hidden transition-all bg-opacity-10"
+        "rounded-xl border overflow-hidden transition-all bg-opacity-10" 
       )}
       style={{
         background: appColors.backgroundAlt, 
@@ -119,8 +117,6 @@ function RowAction({
   );
 }
 
-/* ---------- main widget ---------- */
-
 export default function WidgetCoachPlan() {
   const router = useRouter();
   const { userId, userUuid } = useUserId();
@@ -139,7 +135,6 @@ export default function WidgetCoachPlan() {
 
   const loading = loadingKind !== null && loadingKind !== "status";
 
-  // Animácia načítavania
   useEffect(() => {
     if (loading) {
       setLoadingMsgIdx(Math.floor(Math.random() * 4) + 1);
@@ -153,11 +148,9 @@ export default function WidgetCoachPlan() {
 
   const isMedicalSuspend = maxInjurySeverity >= 7;
 
-  // ✅ Vylepšený formatAiError - pozerá priamo do i18n
   const formatAiError = useCallback((out: any): string => {
     if (!out) return t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
     
-    // Niekedy to hádže plný JS Error, niekedy len náš response object
     const code = out?.error_code || out?.code || "generic_error";
     const errorKey = `api.ai_errors.${code}`;
     const translatedError = t(errorKey as any);
@@ -169,7 +162,6 @@ export default function WidgetCoachPlan() {
     return out?.message || t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
   }, [t]);
 
-  // 1. Load Prefs
   useEffect(() => {
     if (!userId) return;
     (async () => {
@@ -178,7 +170,6 @@ export default function WidgetCoachPlan() {
     })();
   }, [userId]);
 
-  // 2. Load Status (Zjednotené volanie)
   const fetchStatus = useCallback(async () => {
     if (!userId) return;
     setLoadingKind("status");
@@ -214,13 +205,11 @@ export default function WidgetCoachPlan() {
         explicitModel: "coach-analyze-stub",
       });
       
-      // ✅ Kontrola success
       if (!out?.success) {
           setError(formatAiError(out));
           return;
       }
       
-      // Vyťahujeme ID (môže byť vnorené podľa toho, ako to vráti backend)
       const sid = (out as any).data?.state_id ?? (out as any).state_id ?? (out as any).state?.id ?? null;
       if (typeof sid === "number") {
           setLatestStateId(sid);
@@ -244,7 +233,6 @@ export default function WidgetCoachPlan() {
         state_id: latestStateId,
       });
 
-      // ✅ Kontrola success
       if (!out?.success) {
           setError(formatAiError(out));
           return;
@@ -267,7 +255,6 @@ export default function WidgetCoachPlan() {
       await apiEnsureCoachPlanStartFuture(userId);
       const out = await apiGenerateDailyForWeek(userId, userUuid, { week_index: 1, overwrite: true });
       
-      // ✅ Kontrola success
       if (!out?.success) {
           setError(formatAiError(out));
           return;
@@ -281,20 +268,26 @@ export default function WidgetCoachPlan() {
     }
   }, [userId, userUuid, formatAiError, isMedicalSuspend]);
 
+  // ✅ OPRAVA: Po úspešnom uložení stiahneme reálny status z DB
   const handleStartPlan = useCallback(async () => {
     if (!userId || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("start");
     try {
       const res = await apiActivePlanSave(userId, {});
-      if (res.success) setIsPlanActive(true);
+      if (res.success) {
+        await fetchStatus(); 
+      } else {
+        setError(res.error || "Nepodarilo sa spustiť plán.");
+      }
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, isMedicalSuspend]);
+  }, [userId, isMedicalSuspend, fetchStatus]);
 
+  // ✅ OPRAVA: Po úspešnom zrušení stiahneme reálny status z DB
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
     const ok = await confirm({
@@ -309,17 +302,14 @@ export default function WidgetCoachPlan() {
     setLoadingKind("cancel");
     try {
       await apiActivePlanCancel(userId);
-      setIsPlanActive(false);
-      setHasWeekly(false);
-      setHasDaily(false);
+      await fetchStatus();
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, t]);
+  }, [userId, t, fetchStatus]);
 
-  // ✅ LOGIKA KROKOV (STATE MACHINE)
   const isGlobalLoading = loading;
 
   const isStep0 = !latestStateId && !hasWeekly && !hasDaily;
@@ -355,7 +345,6 @@ export default function WidgetCoachPlan() {
 
       <div className={WIDGET_ACTIONS_WRAP}>
         
-        {/* KROK 1: Analýza */}
         <RowAction
           onPrimary={handleAnalyze}
           primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing" as any) : t("coachPlan.actions.analyze" as any)}
@@ -365,7 +354,6 @@ export default function WidgetCoachPlan() {
           highlight={highlightAnalyze}
         />
 
-        {/* KROK 2: Weekly */}
         <RowAction
           onPrimary={handleGenerateWeekly}
           primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly" as any) : t("coachPlan.actions.generateWeekly" as any)}
@@ -375,7 +363,6 @@ export default function WidgetCoachPlan() {
           highlight={highlightWeekly}
         />
 
-        {/* KROK 3: Daily */}
         <RowAction
           onPrimary={handleGenerateDaily}
           primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily" as any) : t("coachPlan.actions.generateDaily" as any)}
@@ -394,7 +381,6 @@ export default function WidgetCoachPlan() {
         )}
 
                 <div className={WIDGET_CTA_ROW}>
-          {/* PRVÉ TLAČIDLO: Štart / Otvoriť aktívny plán */}
           {isPlanActive ? (
             <Button
               size="xs"
@@ -418,7 +404,6 @@ export default function WidgetCoachPlan() {
             </Button>
           )}
 
-          {/* DRUHÉ TLAČIDLO: Zrušiť (Cancel) */}
           <Button
             size="xs"
             variant="danger"
@@ -429,7 +414,6 @@ export default function WidgetCoachPlan() {
             {loadingKind === "cancel" ? <LoadingSpinner size="button" /> : t("coachPlan.actions.cancelPlan" as any)}
           </Button>
 
-          {/* TRETIE TLAČIDLO: História plánov */}
           <Button
             size="xs"
             variant="secondary"
@@ -442,7 +426,6 @@ export default function WidgetCoachPlan() {
         </div>
       </div>
 
-      {/* Upozornenie na tokeny */}
       <div className="mt-2 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200/90">
         <span className="shrink-0 text-base leading-none">💡</span>
         <div className="text-xs leading-relaxed">

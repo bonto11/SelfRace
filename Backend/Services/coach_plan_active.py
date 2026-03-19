@@ -41,61 +41,51 @@ def _ensure_latest_plan_meta(
         raise ValueError("No generated plan meta found for this user.")
     return meta
 
-
+# ✅ OPRAVA: Posielame meta_id
 def service_save_active_plan(
     user_id: int,
     payload: Dict[str, Any],
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Aktivuje najnovší vygenerovaný plán.
-    """
     meta = _ensure_latest_plan_meta(user_id=user_id, ctx=ctx)
+    meta_id = meta.get("id")
+    
+    if not meta_id:
+        raise ValueError("Cannot activate plan without a valid ID.")
 
-    updated = (
-        db_update_plan_status(
-            user_id=user_id,
-            new_status="active",
-            ctx=ctx,
-        )
-        or meta
+    updated = db_update_plan_status(
+        user_id=user_id,
+        meta_id=meta_id,
+        new_status="active",
+        ctx=ctx,
     )
+    
+    final_meta = updated if updated else meta
 
     return {
-        "plan_start": updated.get("start_date"),
-        "plan_end": updated.get("end_date"),
-        "weeks": updated.get("weeks_total"),
-        "meta": updated,
+        "plan_start": final_meta.get("start_date"),
+        "plan_end": final_meta.get("end_date"),
+        "weeks": final_meta.get("weeks_total"),
+        "meta": final_meta,
     }
 
 
 def service_cancel_active_plan(
     user_id: int,
-    target_status: str, # "canceled" alebo "completed"
+    target_status: str, 
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Ukončí plán. 
-    Ak bol len vygenerovaný -> Hard delete (nezostal v histórii).
-    Ak bol aktívny -> Zosumarizuje weekly dáta, uloží ich do meta ako snapshot,
-                      nastaví status na canceled/completed a vymaže daily/weekly tabuľky.
-    """
     meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-    
-    if not meta:
-        return {"meta": None, "archived": False, "deleted": False}
+    if not meta: return {"meta": None, "archived": False, "deleted": False}
 
     current_status = meta.get("status")
     meta_id = meta.get("id")
-    
-    if not meta_id:
-        return {"meta": None, "archived": False, "deleted": False}
+    if not meta_id: return {"meta": None, "archived": False, "deleted": False}
         
     meta_id = int(meta_id)
 
-    # 1. Ak plán ešte ani nezačal, len ho celý bez stopy vymažeme
     if current_status == "generated":
         db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
@@ -103,14 +93,12 @@ def service_cancel_active_plan(
         db_delete_plan_meta(user_id=user_id, ctx=ctx, meta_id=meta_id)
         return {"meta": None, "archived": False, "deleted": True}
 
-    # 2. Ak bol aktívny, urobíme Snapshot
     if current_status == "active":
         weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
         
         final_planned = {}
         final_actual = {}
 
-        # Sčítanie všetkých hodnôt v JSONB objektoch naprieč všetkými týždňami
         for w in weeks:
             ps = w.get("planned_stats") or {}
             as_ = w.get("actual_stats") or {}
@@ -120,13 +108,10 @@ def service_cancel_active_plan(
             for k, v in as_.items():
                 final_actual[k] = final_actual.get(k, 0) + (v or 0)
 
-        # Zaokrúhlenie pre pekné JSONy (ak sú to km s desatinnými miestami)
         for k in final_planned:
-            if isinstance(final_planned[k], float): 
-                final_planned[k] = round(final_planned[k], 2)
+            if isinstance(final_planned[k], float): final_planned[k] = round(final_planned[k], 2)
         for k in final_actual:
-            if isinstance(final_actual[k], float): 
-                final_actual[k] = round(final_actual[k], 2)
+            if isinstance(final_actual[k], float): final_actual[k] = round(final_actual[k], 2)
 
         final_stats = {
             "weeks_tracked": len(weeks),
@@ -137,7 +122,6 @@ def service_cancel_active_plan(
 
         ended_at = datetime.now(timezone.utc).isoformat()
 
-        # Uložíme zmenu do databázy
         archived = db_archive_plan_meta(
             user_id=user_id,
             meta_id=meta_id,
@@ -147,7 +131,6 @@ def service_cancel_active_plan(
             ctx=ctx
         )
 
-        # Vyčistíme staré data, ktoré už nepotrebujeme
         db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
         db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
@@ -179,9 +162,6 @@ def service_get_active_plan_status(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Zistí, či má user aktívny (alebo vygenerovaný) plán a skontroluje dáta.
-    """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     has_active = True
 
@@ -208,22 +188,14 @@ def service_get_active_plan_status(
     }
 
 def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Hromadne nájde všetky aktívne plány, ktorých end_date je menší ako dnešný dátum,
-    a zavolá na ne funkciu service_cancel_active_plan(target_status="completed").
-    """
     today_iso = datetime.now(timezone.utc).date().isoformat()
-    
-    # 1. Nájdi všetky user_id, ktorým vypršal čas (čistý call na DB vrstvu)
     users_to_complete = db_get_due_active_plans(today_iso=today_iso, ctx=ctx)
 
     processed = 0
     errors = 0
 
-    # 2. Prejdi ich a ukonči s príznakom "completed"
     for uid in users_to_complete:
         try:
-            # Voláme tvoju funkciu (už premenovanú a upravenú na soft/hard cancel)
             service_cancel_active_plan(user_id=uid, target_status="completed", ctx=ctx)
             processed += 1
         except Exception as e:
@@ -241,8 +213,4 @@ def service_get_plan_history(
     *,
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    """
-    Načíta históriu ukončených a zrušených plánov.
-    """
     return db_get_plan_history_for_user(user_id=user_id, ctx=ctx)
-
