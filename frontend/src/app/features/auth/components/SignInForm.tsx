@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,39 +31,8 @@ export default function SignInForm() {
   const t = useT();
   const router = useRouter();
 
-  // ✅ 1. NATVRDÉ PREČISTENIE PRED INICIALIZÁCIOU
-  // Spustí sa iba raz pri načítaní komponentu na klientovi.
-  // Nájdeme všetky kľúče v localStorage, ktoré obsahujú 'supabase', 'auth' alebo tvoje vlastné,
-  // a odstránime ich. Týmto zabránime cykleniu tokenov, kedy si klient myslí, že je prihlásený.
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (
-            key &&
-            (key.includes("supabase") ||
-             key.includes("auth") ||
-             key === "selfrace_numeric_id")
-          ) {
-            keysToRemove.push(key);
-          }
-        }
-        
-        keysToRemove.forEach((key) => {
-          window.localStorage.removeItem(key);
-        });
-        
-        console.log("Zvyšky predchádzajúcich session (Supabase/SelfRace) boli úspešne vymazané, aby sa zabránilo cykleniu.");
-      } catch (e) {
-        console.error("Nepodarilo sa vyčistiť localStorage:", e);
-      }
-    }
-  }, []);
-
-  // Inicializácia klienta po prečistení. Vzhľadom k tomu, že getSupabaseBrowser
-  // interne pozerá do cookies/storage, malo by už nájsť "čistý stôl".
+  // Supabase sa teraz vďaka správnej `remove` funkcii na cookies 
+  // bez problémov zbaví akýchkoľvek starých mŕtvych sessions samo.
   const sb = useMemo(() => getSupabaseBrowser(), []);
 
   const [email, setEmail] = useState("");
