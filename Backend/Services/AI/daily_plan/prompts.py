@@ -381,6 +381,7 @@ def build_prompts_for_daily(
             "- DO NOT schedule any VO2Max, Threshold or heavy Sprint intervals.\n"
             "- ALL sessions MUST be easy (Z1/Z2 or RPE 2-4/10) or active recovery.\n"
             "- Add extra REST days if the load seems heavy.\n"
+            "- CRITICAL: Cap ALL session durations to a maximum of 40-50 minutes. NO long runs! \n" # <--- TOTO PRIDAŤ
         )
     elif reason == "manual_review":
         special_reason_rule = (
