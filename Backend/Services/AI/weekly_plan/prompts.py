@@ -5,18 +5,14 @@ import json
 from typing import Any, Dict, List, Optional, Tuple
 from Modules.Supabase.auth import AuthCtx
 
-
 def _as_dict(v: Any) -> Dict[str, Any]:
     return v if isinstance(v, dict) else {}
-
 
 def _as_list(v: Any) -> List[Any]:
     return v if isinstance(v, list) else []
 
-
 def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
     return _as_dict(d.get(key))
-
 
 def _safe_date_yyyy_mm_dd(v: Any) -> Optional[str]:
     if not v:
@@ -25,7 +21,6 @@ def _safe_date_yyyy_mm_dd(v: Any) -> Optional[str]:
     if not s:
         return None
     return s[:10]
-
 
 def _derive_key_slots_from_weekly_template(
     wt: Dict[str, Any],
@@ -57,7 +52,6 @@ def _derive_key_slots_from_weekly_template(
 
     return out
 
-
 def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
     analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
     prefs_any = analyze_src.get("prefs")
@@ -70,7 +64,6 @@ def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
 
     return {}
 
-
 def _remove_empty(d: Any) -> Any:
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
@@ -80,12 +73,10 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-
 def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
 
-    # --- prefs (flatten + trim) ---
     raw_prefs = _extract_prefs_source(context)
     prefs_val = raw_prefs.get("value")
     prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else _as_dict(raw_prefs)
@@ -242,6 +233,10 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         ctx2["overwrite"] = bool(context.get("overwrite"))
     if "replan_trigger" in context:
         ctx2["replan_trigger"] = context.get("replan_trigger")
+        
+    # --- NOVÉ: Zachováme aj generate_reason v minifikovanom kontexte ---
+    if "generate_reason" in context:
+        ctx2["generate_reason"] = context.get("generate_reason")
 
     return _remove_empty(ctx2)
 
@@ -373,7 +368,38 @@ def build_prompts_for_weekly(
             "  - Emphasize that walking during a run is a success, not a failure.\n\n"
         )
 
-    # ✅ ZMENA: Striktné upozornenie na obmedzenie športov
+    # --- NOVÉ: Detekcia špeciálnych zdravotných dôvodov zjemnenia / návratu ---
+    reason = context_for_ai.get("generate_reason")
+    special_reason_rule = ""
+    
+    if reason == "health_resolved_return":
+        special_reason_rule = (
+            "\n--- HEALTH RECOVERY (RETURN TO PLAY) ---\n"
+            "- The athlete has just fully recovered from an illness or injury.\n"
+            "- Design a safe 'Ramp-Up' / Return to Play plan for the upcoming weeks.\n"
+            "- The first week MUST be very low volume and low intensity (Z1/Z2).\n"
+            "- Gradually build up the volume in the following weeks.\n"
+            "- Avoid high-intensity intervals (VO2Max/Anaerobic) entirely in the first week back.\n"
+        )
+    elif reason == "health_recovery_mild":
+        special_reason_rule = (
+            "\n--- MILD HEALTH RESTRICTION (TAIL END OF ILLNESS/INJURY) ---\n"
+            "- The athlete is at the tail end of a mild illness or injury, but not 100% fit yet.\n"
+            "- The very FIRST week of this plan MUST BE ultra-light.\n"
+            "- Instruct the daily generator (via 'notes') to schedule 1 to 2 extra complete REST days at the very beginning of the week.\n"
+            "- For the rest of the first week, prescribe ONLY very light, easy activities (Z1/Z2 or RPE 2-4/10).\n"
+            "- From the second week onward, you can start building back up normally.\n"
+        )
+    elif reason == "health_critical":
+        # Len pre istotu (hoci by sme sem nemali padnúť, lebo kalendár zmažeme)
+        special_reason_rule = (
+            "\n--- CRITICAL MEDICAL LEAVE ---\n"
+            "- The athlete has a severe injury or illness.\n"
+            "- ALL planned stats and minutes MUST BE 0.\n"
+            "- Goal and Focus should state 'Rest and Recovery'.\n"
+            "- Advise the athlete to consult a doctor and rest.\n"
+        )
+
     sports_restriction_hint = (
         f"- ALLOWED SPORTS FROM PREFS: {', '.join(final_sports_list)}.\n"
         "- IMPORTANT: Inside 'planned_stats', ONLY populate data for the sports explicitly listed above. "
@@ -397,6 +423,7 @@ def build_prompts_for_weekly(
         + sports_restriction_hint + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
+        + special_reason_rule # <--- PRIDANÉ ZDRAVOTNÉ PRAVIDLÁ
         + "\n- If recovery/fatigue is poor, start with a light week.\n"
     )
 

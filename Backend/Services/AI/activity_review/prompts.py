@@ -18,20 +18,15 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict): return {}
     out = json.loads(json.dumps(context, default=str))
     
-    # 1. Čistenie používateľa - NEVYMAZÁVAME 'name' (zmeníme na first_name) a nechávame gender
     u = out.get("user")
     if isinstance(u, dict):
         for k in ("id", "email"): u.pop(k, None) 
-        # Meno nechávame, ale ak je to celé meno, môžeme ho tu rozdeliť, 
-        # alebo predpokladať, že sa to spracuje vonku.
     out.pop("_debug", None)
     
-    # 2. Čistenie hlavnej aktivity
     act = out.get("activity")
     if isinstance(act, dict):
         for k in ("name", "external_id", "activity_id"): act.pop(k, None)
     
-    # 3. MASÍVNE ŠETRENIE: Odstránime history staršiu ako 7 dní
     history = out.get("history", {})
     if isinstance(history, dict):
         history.pop("days_8_14", None)
@@ -39,7 +34,6 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         for day in days_0_7:
             day.pop("activity_id", None)
     
-    # 4. MASÍVNE ŠETRENIE 2: Vyhodíme recent_load a duplicitné zóny
     ctx_block = out.get("context", {})
     if isinstance(ctx_block, dict):
         ctx_block.pop("recent_load", None)
@@ -47,23 +41,27 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     
     return _remove_empty(out)
 
-def _lang_notes(settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
+# ZMENA: Návratová hodnota má teraz 3 stringy (pridaná hláška o zdravotnej karte)
+def _lang_notes(settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = None) -> Tuple[str, str, str]:
     lang = (settings.get("language") or "sk").lower()
     user_data = user_data or {}
     
     first_name = user_data.get("first_name")
     gender = user_data.get("gender")
     address_rule = ""
+    health_reminder = ""
     
     if lang.startswith("en"): 
         lang_label = "English"
         address_rule = "Use second person ('you'). "
+        health_reminder = "Don't forget to log this health issue in the Health Log on your Dashboard so I can properly adjust your training plan."
         if first_name:
             address_rule += f"Address the athlete by their first name: '{first_name}'. "
             
     elif lang.startswith("cs"): 
         lang_label = "Czech"
         address_rule = "Používej 2. osobu (tykání) a mluv přímo k atletovi. "
+        health_reminder = "Nezapomeň si tento zdravotní problém zaevidovat ve Zdravotní kartě na Nástěnce, abych ti mohl přizpůsobit tréninkový plán."
         if first_name:
             address_rule += f"Oslovuj atlete jménem: '{first_name}'. "
         if gender == "female":
@@ -74,6 +72,7 @@ def _lang_notes(settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = 
     else: # Slovak fallback
         lang_label = "Slovak"
         address_rule = "Používaj 2. osobu (tykanie) a hovor priamo k atlétovi. "
+        health_reminder = "Nezabudni si tento zdravotný problém zaevidovať v Zdravotnej karte na Nástenke, aby som ti mohol prispôsobiť tréningový plán."
         if first_name:
             address_rule += f"Oslovuj atléta menom: '{first_name}'. "
         if gender == "female":
@@ -81,7 +80,7 @@ def _lang_notes(settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = 
         elif gender == "male":
             address_rule += "Atlét je MUŽ. Používaj mužský rod slovies a prídavných mien (napr. 'bežal si', 'zvládol si', 'bol si'). "
 
-    return lang_label, address_rule
+    return lang_label, address_rule, health_reminder
 
 def _canonical_sport(s: Any) -> str:
     if not s: return "other"
@@ -185,26 +184,21 @@ def build_prompts_for_activity_review(
 
     settings = settings or {}
     
-    # Vytiahneme údaje o používateľovi z pôvodného kontextu (pred minifikáciou)
     user_data = context_payload.get("user", {})
     
-    lang_label, second_person_note = _lang_notes(settings, user_data=user_data)
+    # ZMENA: Rozbalujeme 3 hodnoty
+    lang_label, second_person_note, health_reminder = _lang_notes(settings, user_data=user_data)
 
     user_input_data = context_payload.get("user_input") or {}
     actually_is_race = is_race or bool(user_input_data.get("is_race_effort"))
 
     resolved_sport = _canonical_sport(context_payload.get("sport") or sport or "other")
-
-    if actually_is_race:
-        sport_key = f"{resolved_sport}_race"
-    else:
-        sport_key = resolved_sport
+    sport_key = f"{resolved_sport}_race" if actually_is_race else resolved_sport
 
     context_for_llm = minify_activity_context_for_ai(context_payload)
 
     system_txt = _system_prompt(resolved_sport, is_race=actually_is_race)
 
-    # Špeciálna analýza pre Race Effort (Audit prahu)
     race_logic = ""
     if actually_is_race:
         race_logic = (
@@ -226,7 +220,9 @@ def build_prompts_for_activity_review(
         + "\n\nRULES:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        + _sport_rules(sport_key, is_race=actually_is_race) # Pridaný parameter is_race
+        # ZMENA: Prísne pravidlo na použitie hlášky o Zdravotnej karte
+        f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
+        + _sport_rules(sport_key, is_race=actually_is_race) 
         + race_logic
         + "\n- Return ONLY raw JSON."
     )

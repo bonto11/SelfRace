@@ -248,6 +248,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 state_id=payload.get("state_id"),
                 weeks=payload.get("weeks"),
                 model=payload.get("model"),
+                reason=payload.get("reason"),
             )
 
         elif job_type == "daily_generate":
@@ -256,6 +257,8 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 ctx=ctx,
                 week_index=int(payload["week_index"]),
                 model=payload.get("model"),
+                drop_past_days=bool(payload.get("drop_past_days", False)),
+                reason=payload.get("reason"), # <--- ZMENA: PRIDANÉ
             )
 
         elif job_type == "plan_match":
@@ -295,16 +298,14 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             )
 
             source = payload.get("source")
-            has_injury = payload.get("has_new_injury")
-
-            if source == "user" or has_injury:
-                print(f"[WORKER] Manual review or Injury detected for user {user_id}. Enqueuing autoadjust.")
-                reason = "new_injury" if has_injury else "manual_review"
+            
+            if source == "user":
+                print(f"[WORKER] Manual review detected for user {user_id}. Enqueuing autoadjust.")
                 _enqueue_autoadjust_debounced(
                     ctx=ctx,
                     user_id=user_id,
                     delay_sec=5,
-                    force_reason=reason 
+                    force_reason="manual_review" 
                 )
 
         elif job_type == "sync":

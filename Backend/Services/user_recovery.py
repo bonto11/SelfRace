@@ -1,3 +1,4 @@
+# Services/user_recovery.py
 from __future__ import annotations
 
 from typing import List, Dict, Any
@@ -11,9 +12,69 @@ from Routes_DB.user_recovery import (
 )
 
 from Modules.Supabase.auth import AuthCtx
+from Services.async_jobs import service_enqueue_job
 
 # kľúče ktoré nikdy nesmú ísť do update patchu
 _ID_KEYS = {"id", "user_id", "date", "created_at", "updated_at"}
+
+
+def service_check_recovery_and_adjust(user_id: int, ctx: AuthCtx) -> bool:
+    """
+    Skontroluje ranné merania (HRV a RHR) a porovná ich s baseline (posledných 14 dní).
+    Ak deteguje výrazný prepad HRV alebo nárast RHR, spustí Auto-Recovery job.
+    """
+    # Načítame históriu za posledných 14 dní
+    rows = db_get_recent_recovery(user_id=user_id, days=14, ctx=ctx)
+    
+    # Potrebujeme aspoň 4 dni histórie, aby sme vedeli urobiť zmysluplný priemer
+    if not rows or len(rows) < 4:
+        return False
+
+    latest = rows[0]
+    past_rows = rows[1:] # Všetko okrem dnešného dňa
+
+    # Vytiahneme hodnoty pre baseline (s typovou kontrolou)
+    past_hrv = [float(r["HRV_avg_ms"]) for r in past_rows if isinstance(r.get("HRV_avg_ms"), (int, float, str))]
+    past_rhr = [float(r["RHR_bpm"]) for r in past_rows if isinstance(r.get("RHR_bpm"), (int, float, str))]
+
+    raw_hrv = latest.get("HRV_avg_ms")
+    latest_hrv = float(raw_hrv) if isinstance(raw_hrv, (int, float, str)) and raw_hrv else None
+
+    raw_rhr = latest.get("RHR_bpm")
+    latest_rhr = float(raw_rhr) if isinstance(raw_rhr, (int, float, str)) and raw_rhr else None
+
+    needs_recovery = False
+
+    # 1. Kontrola HRV (Prepad o viac ako 15% voči baseline je zlý)
+    if latest_hrv and past_hrv:
+        baseline_hrv = sum(past_hrv) / len(past_hrv)
+        if latest_hrv < (baseline_hrv * 0.85):
+            needs_recovery = True
+
+    # 2. Kontrola RHR (Nárast o viac ako 10% voči baseline je zlý)
+    if not needs_recovery and latest_rhr and past_rhr:
+        baseline_rhr = sum(past_rhr) / len(past_rhr)
+        if latest_rhr > (baseline_rhr * 1.10):
+            needs_recovery = True
+
+    # Ak je to zlé, odpálime expresný Auto-Recovery job (ktorý prepíše dnešný tréning)
+    if needs_recovery:
+        latest_date = str(latest.get("date"))[:10]
+        try:
+            service_enqueue_job(
+                user_id=user_id,
+                job_type="coach_autoadjust",
+                payload={"force_reason": "autorecovery"},
+                priority=150, # Vyššia priorita, lebo sa to týka dnešného dňa
+                dedupe_key=f"autorecovery_{user_id}_{latest_date}", # Len raz za deň
+                ctx=ctx
+            )
+            print(f"[RECOVERY] Auto-recovery triggered for user {user_id} on {latest_date}")
+            return True
+        except Exception as e:
+            print(f"[RECOVERY] Failed to trigger auto-recovery: {repr(e)}")
+            
+    return False
 
 
 def service_insert_or_update_recovery(
@@ -53,18 +114,29 @@ def service_insert_or_update_recovery(
         if not patch:
             return {"updated": True, "row": {"id": rec_id, "user_id": user_id, "date": date_iso}}
 
+        updated_row = db_update_recovery(rec_id, patch, ctx=ctx)
+        
+        # NOVÉ: Po úspešnom update skontrolujeme, či nepotrebuje zmeniť dnešný tréning
+        service_check_recovery_and_adjust(user_id=user_id, ctx=ctx)
+        
         return {
             "updated": True,
-            "row": db_update_recovery(rec_id, patch, ctx=ctx),
+            "row": updated_row,
         }
 
     # insert: musí obsahovať identity + patch (aj keby bol prázdny)
     insert_row: Dict[str, Any] = {"user_id": user_id, "date": date_iso, **patch}
+    inserted_row = db_insert_recovery(insert_row, ctx=ctx)
+    
+    # NOVÉ: Po úspešnom inserte skontrolujeme, či nepotrebuje zmeniť dnešný tréning
+    service_check_recovery_and_adjust(user_id=user_id, ctx=ctx)
 
     return {
         "updated": False,
-        "row": db_insert_recovery(insert_row, ctx=ctx),
+        "row": inserted_row,
     }
+
+
 def service_get_recovery(
     user_id: int,
     ctx: AuthCtx,

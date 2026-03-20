@@ -172,4 +172,28 @@ def db_update_weekly_actual_stats(
         print("[DB-COACH-WEEKLY] update_actual_stats error:", repr(e))
         return False
 
-# Tú starú funkciu db_update_weekly_completed_km môžeš kľudne zmazať, už ju nebudeme potrebovať.
+def db_delete_future_weekly_plans(
+    user_id: int, 
+    from_date_iso: str, 
+    *, 
+    ctx: AuthCtx
+) -> bool:
+    """
+    Vymaže všetky týždenné riadky, ktoré ZAČÍNAJÚ po zadanom dátume.
+    Aktuálny týždeň nechá nedotknutý (aby zostala história už odtrénovaných dní v tomto týždni).
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_delete_future_weekly_plans")
+    date_only = from_date_iso[:10]
+    
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .delete()
+            .eq("user_id", user_id)
+            .gt("week_start", date_only)  # Zmaže iba týždne, čo začínajú v budúcnosti
+            .execute()
+        )
+        return True
+    except Exception as e:
+        print("[DB-COACH-WEEKLY] delete future error:", repr(e))
+        return False

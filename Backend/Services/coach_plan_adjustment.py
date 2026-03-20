@@ -10,6 +10,7 @@ from Routes_DB.coach_plan_daily import (
     db_clear_daily_for_user_range
 )
 from Modules.Supabase.auth import AuthCtx
+from Modules.Supabase.client import get_sb
 
 from Services.AI.athlete_state.main import service_analyze_athlete
 from Services.AI.weekly_plan.main import service_generate_weekly_plan
@@ -25,9 +26,12 @@ from Routes_DB.coach_plan_meta import (
 )
 from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Routes_DB.user_recovery import db_get_recent_recovery
-from Routes_DB.user_prefs import db_get_pref_single
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
+
+# --- NOVÉ: Import notifikácií ---
+from Services.notifications import service_notify_autorecovery_applied
+
 
 def _to_date(val: Any) -> Optional[date]:
     if isinstance(val, date) and not isinstance(val, datetime): return val
@@ -105,49 +109,75 @@ def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Op
     }
 
 
+def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    sb = get_sb(ctx, caller="coach_plan_adjustment._apply_autorecovery")
+    today_iso = date.today().isoformat()
+    
+    try:
+        res = sb.table("coach_plan_daily").select("*").eq("user_id", user_id).eq("plan_date", today_iso).execute()
+        sessions = res.data or []
+        
+        if not sessions:
+            return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_rest_day"}
+        
+        first_session = sessions[0]
+        title = str(first_session.get("title") or "").lower()
+        session_type = str(first_session.get("session_type") or "").lower()
+        
+        if session_type == "recovery" or "regen" in title or "recovery" in title:
+            return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_recovery"}
+        
+        sport = first_session.get("sport") or "run"
+        sport_label = "beh" if sport == "run" else "jazda" if sport in ("ride", "cycling") else "tréning"
+        
+        payload = first_session.get("payload") or {}
+        payload["structure"] = {
+            "warmup": {"minutes": 5, "notes": "Z1 - veľmi pomaly"},
+            "main_part": {"minutes": 25, "notes": "Z1/Z2 - regeneračné tempo, čisto na uvoľnenie nôh"},
+            "cooldown": {"minutes": 5, "notes": "Z1 / Chôdza"}
+        }
+        
+        update_data = {
+            "title": f"Regeneračný {sport_label} (Auto-Recovery)",
+            "duration_min": 35,
+            "intensity": "Z1/Z2",
+            "session_type": "recovery",
+            "notes": "Systém automaticky upravil dnešný tréning na ľahký kvôli tvojim horším dátam z nočnej regenerácie.",
+            "payload": payload
+        }
+        
+        sb.table("coach_plan_daily").update(update_data).eq("id", first_session["id"]).execute()
+        
+        for extra_session in sessions[1:]:
+            sb.table("coach_plan_daily").delete().eq("id", extra_session["id"]).execute()
+            
+        # ZMENA: Tréning sme prepísali, odosielame notifikáciu používateľovi
+        try:
+            service_notify_autorecovery_applied(user_id=user_id, ctx=ctx)
+        except Exception as e:
+            print(f"[AUTORECOVERY] Failed to send push notification: {repr(e)}")
+            
+        return {"changed": True, "mode": "autorecovery", "reason": "today_changed_to_recovery"}
+        
+    except Exception as e:
+        print(f"[AUTORECOVERY] DB Update Error for user {user_id}: {repr(e)}")
+        return {"changed": False, "mode": "autorecovery", "reason": "db_error"}
+
+
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
     force_reason: Optional[str] = None, 
 ) -> Dict[str, Any]:
+    
+    if force_reason == "autorecovery":
+        return _apply_autorecovery_to_today(user_id=user_id, ctx=ctx)
+
     today = date.today()
 
     be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
     recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
-
-    is_critical_injury = False
-    has_any_injury = False
-    new_plan_start_date = None
-
-    if force_reason == "new_injury":
-        be_flags["should_trigger_ai"] = True
-        be_flags["action"] = "injury_replan"
-        be_flags["reason"] = "active_injury_reported_forcing_replan"
-        
-        try:
-            prefs_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
-            if isinstance(prefs_row, dict):
-                val = prefs_row.get("value")
-                data = val if isinstance(val, dict) else prefs_row
-                injuries = data.get("injuries", [])
-                
-                if isinstance(injuries, list) and len(injuries) > 0:
-                    has_any_injury = True
-                    max_sev = max((_safe_int(i.get("severity")) for i in injuries if isinstance(i, dict)), default=0)
-                    
-                    if max_sev >= 7:
-                        is_critical_injury = True
-                        new_plan_start_date = (today + timedelta(days=1)).isoformat()
-        except Exception as e:
-            print("[COACH_AUTOADJUST] Error fetching injury severity", repr(e))
-
-    if not be_flags.get("should_trigger_ai"):
-        return {
-            "changed": False,
-            "mode": "no_adjustment_needed",
-            "reason": be_flags.get("reason", "load_within_normal_range"),
-        }
 
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
@@ -160,17 +190,22 @@ def service_coach_autoadjust_after_update(
     plan_adjustment = {}
     weekly_replan_should = False
     soften_should = False
+    soften_reason = ""
+    weekly_replan_reason = ""
 
-    if force_reason == "new_injury":
-        if is_critical_injury:
-            weekly_replan_should = True 
-            weekly_replan_reason = "Critical injury reported - forcing hard replan."
-            plan_adjustment = {"reason": "forced_critical_injury_override"}
-        else:
-            soften_should = True 
-            soften_days = 7
-            soften_reason = "Mild/Moderate injury reported - softening current week."
-            plan_adjustment = {"reason": "mild_injury_soften"}
+    if force_reason in ["health_mild_restriction", "manual_review"]:
+        soften_should = True 
+        soften_days = 7 
+        soften_reason = f"Health or Review triggered soften. Reason: {force_reason}"
+        plan_adjustment = {"reason": force_reason}
+        be_flags["should_trigger_ai"] = True
+        
+    elif force_reason == "health_critical":
+        weekly_replan_should = True 
+        weekly_replan_reason = "Critical health issue reported."
+        plan_adjustment = {"reason": "forced_critical_health"}
+        be_flags["should_trigger_ai"] = True
+
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -184,19 +219,25 @@ def service_coach_autoadjust_after_update(
         weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
         weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
+    if not be_flags.get("should_trigger_ai") and not soften_should and not weekly_replan_should:
+        return {
+            "changed": False,
+            "mode": "no_adjustment_needed",
+            "reason": be_flags.get("reason", "load_within_normal_range"),
+        }
+
     if weekly_replan_should:
-        if force_reason != "new_injury" and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
+        if force_reason not in ["health_mild_restriction", "health_critical"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
         else:
-            # ✅ ČISTKA: Keďže starý plán ide do koša, zmažeme jeho budúce tréningy v kalendári
             db_clear_daily_for_user_range(
                 user_id=user_id,
                 date_from=today.isoformat(),
-                date_to=(today + timedelta(days=100)).isoformat(), # Zabezpečíme, že zmažeme celú budúcnosť
+                date_to=(today + timedelta(days=100)).isoformat(),
                 ctx=ctx,
-                global_user_clear=True # <----- PRIDAJ TOTO!!!
+                global_user_clear=True
             )
 
             weekly_resp = service_generate_weekly_plan(
@@ -205,7 +246,7 @@ def service_coach_autoadjust_after_update(
                 state_id=state_id,
                 weeks=None,
                 model=None,
-                override_start_date=new_plan_start_date if is_critical_injury else None,
+                override_start_date=None, 
                 ctx=ctx,
             )
             
@@ -247,6 +288,7 @@ def service_coach_autoadjust_after_update(
             week_index=cur_idx, 
             model=None, 
             drop_past_days=True, 
+            reason=force_reason or "soften",
             ctx=ctx
         )
         

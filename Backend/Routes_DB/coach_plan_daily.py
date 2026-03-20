@@ -237,3 +237,22 @@ def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     except Exception as e:
         print("[DB-COACH-DAILY] check_exists error:", repr(e))
         return False
+    
+def db_delete_future_daily_plans(user_id: int, from_date: str, *, ctx: AuthCtx) -> bool:
+    """
+    Vymaže všetky plánované denné tréningy od zadaného dátumu (vrátane) do budúcna.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_delete_future")
+
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .delete()
+            .eq("user_id", user_id)
+            .gte("plan_date", from_date)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print("[DB-COACH-DAILY] delete future error:", repr(e))
+        return False

@@ -8,7 +8,8 @@ from Services.user_health_log import (
     service_get_health_history,
     service_save_health_logs,
     service_resolve_health_log,
-    service_delete_health_log
+    service_delete_health_log,
+    service_adapt_plan_for_health
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
@@ -76,5 +77,14 @@ def delete_health_log(req: Request, user_id: int, log_id: int):
         ctx = require_user(get_auth_ctx(req))
         success = service_delete_health_log(user_id=user_id, log_id=log_id, ctx=ctx)
         return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/adapt-plan/{user_id}")
+def adapt_plan_for_health(req: Request, user_id: int):
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        action_result = service_adapt_plan_for_health(user_id=user_id, ctx=ctx)
+        return {"success": True, "data": action_result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

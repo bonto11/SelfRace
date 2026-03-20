@@ -117,3 +117,24 @@ export async function apiDeleteHealthLog(userId: number, logId: number): Promise
     throw e;
   }
 }
+
+/** POST: Spustenie adaptácie plánu na základe aktuálnych zdravotných dát */
+export async function apiAdaptPlanForHealth(userId: number): Promise<any> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+  const path = `/health-log/adapt-plan/${encodeURIComponent(String(userId))}`;
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "POST",
+      cache: "no-store",
+    });
+
+    if (!json || json.success === false) {
+      throw new Error(json.message || "Failed to trigger plan adaptation");
+    }
+    return json.data;
+  } catch (e) {
+    console.error("[HealthLog][POST adapt plan] error", e);
+    throw e;
+  }
+}

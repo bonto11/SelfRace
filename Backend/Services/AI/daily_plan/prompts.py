@@ -38,7 +38,6 @@ def _remove_empty(d: Any) -> Any:
 def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context2: Dict[str, Any] = {}
     
-    # Pridané latest_paces do minifikovaného payloadu
     for k in ("week", "zones", "thresholds", "external_events", "latest_paces"):
         if k in context:
             context2[k] = context[k]
@@ -70,7 +69,7 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "training_blocks": training_blocks,
         },
         "strength_settings": prefs.get("strength_settings") or {},
-        "injuries": prefs.get("injuries") or [], 
+        # Odstránili sme export zranení z prefs
     }
 
     athlete_state = context.get("athlete_state") or {}
@@ -229,30 +228,9 @@ def build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     
-    active_injuries = prefs.get("injuries") or []
-    injury_rule = ""
-    if isinstance(active_injuries, list) and len(active_injuries) > 0:
-        inj_details = []
-        max_severity = 0
-        for inj in active_injuries:
-            if isinstance(inj, dict):
-                sev = _safe_int(inj.get("severity"), 0)
-                if sev > max_severity: max_severity = sev
-                inj_details.append(f"{inj.get('area')} ({inj.get('type')}, sev: {sev})")
-        
-        inj_str = ", ".join(inj_details)
-        if max_severity >= 7:
-            injury_rule = (
-                f"- CRITICAL MEDICAL RULE (HARD): SEVERE INJURY ({inj_str}). "
-                "DO NOT SCHEDULE TRAINING. All days must be REST. Title: 'Lekárske voľno'.\n\n"
-            )
-        else:
-            injury_rule = (
-                f"- ACTIVE INJURY ({inj_str}): Adjust for recovery. No high intensity. Safe mode.\n\n"
-            )
-
-    beginner_rule = ""
+    # Odstránili sme logic s active_injuries z prefs
     
+    beginner_rule = ""
     if is_returning_beginner:
         beginner_rule = (
             "- BEGINNER / RETURNING ATHLETE PROTOCOL (CRITICAL):\n"
@@ -391,6 +369,33 @@ def build_prompts_for_daily(
     safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
     context_for_ai["user_settings"] = safe_settings
 
+    # --- NOVÉ: Detekcia dôvodu zjemnenia (Soften) ---
+    reason = context_payload.get("generate_reason")
+    special_reason_rule = ""
+    
+    if reason == "health_mild_restriction":
+        special_reason_rule = (
+            "\n--- CRITICAL HEALTH RESTRICTION (MILD INJURY / ILLNESS) ---\n"
+            "- The athlete reported a mild health issue or is recovering.\n"
+            "- YOU MUST SIGNIFICANTLY REDUCE INTENSITY AND VOLUME for this week.\n"
+            "- DO NOT schedule any VO2Max, Threshold or heavy Sprint intervals.\n"
+            "- ALL sessions MUST be easy (Z1/Z2 or RPE 2-4/10) or active recovery.\n"
+            "- Add extra REST days if the load seems heavy.\n"
+        )
+    elif reason == "manual_review":
+        special_reason_rule = (
+            "\n--- ATHLETE REQUESTED ADJUSTMENT ---\n"
+            "- The athlete requested a manual plan evaluation via Activity Review.\n"
+            "- Look at their latest Activity Review comments in 'athlete_state' to see what they struggled with and adjust the upcoming sessions accordingly.\n"
+        )
+    elif reason == "soften":
+         special_reason_rule = (
+            "\n--- FATIGUE / SOFTEN REQUEST ---\n"
+            "- The athlete's recent load is too high, or they are fatigued.\n"
+            "- YOU MUST soften the remaining days of this week.\n"
+            "- Replace hard intervals with easy endurance rides/runs or active recovery.\n"
+        )
+
     user_txt = (
         "Generate a weekly plan.\n"
         f"Week: {week_index} ({week_start} .. {week_end})\n"
@@ -399,7 +404,6 @@ def build_prompts_for_daily(
         f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
-        + injury_rule 
         + beginner_rule
         + two_a_day_rule
         + long_run_rule
@@ -412,6 +416,7 @@ def build_prompts_for_daily(
         + blocks_rule
         + weekly_volume_line
         + back_to_back_rule
+        + special_reason_rule # <--- PRIDANÉ ŠPECIÁLNE PRAVIDLO Z REASONU
         + "\n--- STRICT CONCISENESS RULE ---\n"
         + "- KEEP 'notes' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
         + "- DO NOT write long explanations or motivational paragraphs. Be punchy and direct.\n"

@@ -56,6 +56,7 @@ def service_generate_daily_week(
     week_index: int,
     model: Optional[str] = None,
     drop_past_days: bool = False,
+    reason: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
 
@@ -80,10 +81,11 @@ def service_generate_daily_week(
     )
 
     context_payload = contex["context_payload"]
+    if reason:
+            context_payload["generate_reason"] = reason
+
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
-
-    # ✅ OPRAVA: Chytáme 3 premenné
     ai_plan, trace, err_msg = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,

@@ -36,7 +36,9 @@ PUSH_TRANSLATIONS = {
         "progress_title": "Nová Analýza Výkonnosti 📈",
         "progress_body": "Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
         "test_title": "Test Notifikácie 🚀",
-        "test_body": "Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku."
+        "test_body": "Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
+        "autorecovery_applied_title": "Úprava dnešného tréningu 🧘",
+        "autorecovery_applied_body": "Dnes si mal horšiu noc. Zmenili sme tvoj tréning na ľahkú regeneráciu."
     },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
@@ -48,10 +50,11 @@ PUSH_TRANSLATIONS = {
         "progress_title": "New Performance Analysis 📈",
         "progress_body": "Your Athlete State was just updated. Check out your progress!",
         "test_title": "Test Notification 🚀",
-        "test_body": "Everything works! The PWA is ready and routing you to the home screen."
+        "test_body": "Everything works! The PWA is ready and routing you to the home screen.",
+        "autorecovery_applied_title": "Today's training adjusted 🧘",
+        "autorecovery_applied_body": "You had a rough night. We changed today's training to a light recovery session."
     }
 }
-
 # =====================================================================
 # POMOCNÉ FUNKCIE (DRY)
 # =====================================================================
@@ -265,7 +268,20 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
     
     
 # --- EVENT NOTIFIKÁCIE (Udalosti) ---
+
+def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Volané po tom, čo systém bleskovo zmení dnešný tréning kvôli horšej regenerácii."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
     
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["autorecovery_applied_title"],
+        body=t["autorecovery_applied_body"],
+        url="/coach/ai/dailyPlan",
+        ctx=ctx
+    )
+
 def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Volané priamo z AI service po prepočte nového Athlete State."""
     lang = _get_user_language(user_id, ctx)

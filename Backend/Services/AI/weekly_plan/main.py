@@ -1,4 +1,5 @@
 # Services/AI/weekly_plan/main.py
+# Services/AI/weekly_plan/main.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -39,6 +40,7 @@ def service_generate_weekly_plan(
     weeks: Optional[int] = None,
     model: Optional[str] = None,
     override_start_date: Optional[str] = None,
+    reason: Optional[str] = None, # <--- NOVÝ PARAMETER
 ) -> Dict[str, Any]:
 
     if is_user_over_token_quota(user_id, ctx=ctx):
@@ -58,6 +60,11 @@ def service_generate_weekly_plan(
     )
 
     context_payload = context["context_payload"]
+    
+    # --- NOVÉ: Posúvame dôvod priamo pre generátor promptov ---
+    if reason:
+        context_payload["generate_reason"] = reason
+
     state_bundle = context["state_bundle"]
     horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
@@ -74,7 +81,6 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # ✅ OCHRANA: Ak AI zlyhalo, rovno končíme. Žiadne mazanie DB ani fallbacky.
     if not weekly_plan:
         print(f"[WEEKLY-PLAN] AI Generation failed: {err_msg}")
         return {
@@ -158,7 +164,6 @@ def service_generate_weekly_plan(
         resp["plan_meta"] = meta_row
 
     return resp
-
 
 def service_get_latest_weekly_plan(
     user_id: int,
