@@ -2067,7 +2067,7 @@ export const en = {
     types: {
       injury: "Injury",
       illness: "Illness",
-      fatigue: "Extreme Fatigue / Overtraining",
+      fatigue: "Overtraining / Fatigue",
     },
     addTitle: "Report an Issue",
     addSubtitle: "The AI coach will immediately adjust your training plan.",

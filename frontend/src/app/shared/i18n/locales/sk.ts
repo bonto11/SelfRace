@@ -2067,7 +2067,7 @@ export const sk = {
     types: {
       injury: "Zranenie",
       illness: "Choroba",
-      fatigue: "Extrémna únava / Pretrénovanie"
+      fatigue: "Pretrénovanie / únava"
     },
     addTitle: "Nahlásiť problém",
     addSubtitle: "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",

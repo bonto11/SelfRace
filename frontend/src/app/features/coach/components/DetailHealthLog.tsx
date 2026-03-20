@@ -236,24 +236,25 @@ export default function DetailHealthLog() {
       
       {/* 1. PRIDANIE ZÁZNAMU A DRAFTY */}
       <Card title={t("healthLog.addTitle")} subtitle={t("healthLog.addSubtitle")}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* ĽAVÝ STĹPEC: Typ udalosti a špecifikácie */}
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.typeLabel")}</div>
-              <div className="flex gap-2">
+              {/* ZMENA 1: flex-col namiesto flex-row pre hlavné kategórie */}
+              <div className="flex flex-col gap-2">
                 {EVENT_TYPES.map((type) => (
                   <Button
                     key={type}
                     type="button"
-                    size="xs"
+                    size="sm"
                     variant="prefs"
                     active={form.event_type === type}
                     onClick={() => setForm({ ...form, event_type: type })}
-                    className="flex-1 justify-center capitalize"
+                    className="w-full justify-start capitalize"
                   >
-                    <span className="mr-1">{type === "illness" ? "🦠" : type === "fatigue" ? "🔋" : "🩹"}</span>
+                    <span className="mr-2 text-lg">{type === "illness" ? "🦠" : type === "fatigue" ? "🔋" : "🩹"}</span>
                     {t(`healthLog.types.${type}` as any)}
                   </Button>
                 ))}
@@ -264,7 +265,8 @@ export default function DetailHealthLog() {
               <>
                 <div className="rounded-xl border border-white/10 bg-black/10 p-3">
                   <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.areaLabel")}</div>
-                  <div className="flex flex-wrap gap-2">
+                  {/* ZMENA 2: mriežka 2-stĺpcová, menšie custom paddingy a text */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {INJ_AREAS.map((a) => (
                       <Button
                         key={a}
@@ -273,7 +275,7 @@ export default function DetailHealthLog() {
                         variant="prefs"
                         active={form.area === a}
                         onClick={() => setForm({ ...form, area: a })}
-                        className="text-xs"
+                        className="w-full justify-start text-[11px] !py-1.5 px-2 font-normal"
                       >
                         {t(`healthLog.injAreas.${a}` as any)}
                       </Button>
@@ -283,7 +285,8 @@ export default function DetailHealthLog() {
 
                 <div className="rounded-xl border border-white/10 bg-black/10 p-3">
                   <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.injuryTypeLabel")}</div>
-                  <div className="flex flex-wrap gap-2">
+                  {/* ZMENA 3: mriežka 2-stĺpcová */}
+                  <div className="grid grid-cols-2 gap-1.5">
                     {INJ_TYPES.map((ty) => (
                       <Button
                         key={ty}
@@ -292,7 +295,7 @@ export default function DetailHealthLog() {
                         variant="prefs"
                         active={form.type === ty}
                         onClick={() => setForm({ ...form, type: ty })}
-                        className="text-xs"
+                        className="w-full justify-start text-[11px] !py-1.5 px-2 font-normal"
                       >
                         {t(`healthLog.injTypes.${ty}` as any)}
                       </Button>
@@ -341,7 +344,8 @@ export default function DetailHealthLog() {
               />
             </div>
 
-            <Button size="md" variant="secondary" onClick={handleAddDraft}>
+            {/* ZMENA 4: Primary variant pre pridanie */}
+            <Button size="md" variant="primary" onClick={handleAddDraft}>
               {t("healthLog.form.addDraftBtn")}
             </Button>
           </div>
