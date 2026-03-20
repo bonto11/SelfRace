@@ -1,7 +1,7 @@
 // src/app/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -141,13 +141,6 @@ export default function WidgetCoachPlan() {
     }
   }, [loading]);
 
-  const maxInjurySeverity = useMemo(() => {
-    if (!prefs?.injuries || !Array.isArray(prefs.injuries)) return 0;
-    return Math.max(...prefs.injuries.map((i: any) => i.severity || 0), 0);
-  }, [prefs]);
-
-  const isMedicalSuspend = maxInjurySeverity >= 7;
-
   const formatAiError = useCallback((out: any): string => {
     if (!out) return t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
     
@@ -196,7 +189,7 @@ export default function WidgetCoachPlan() {
   }, [fetchStatus]);
 
   const handleAnalyze = useCallback(async () => {
-    if (!userId || !userUuid || isMedicalSuspend) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("analyze");
     try {
@@ -219,10 +212,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, formatAiError, isMedicalSuspend]);
+  }, [userId, userUuid, formatAiError]);
 
   const handleGenerateWeekly = useCallback(async () => {
-    if (!userId || !userUuid || isMedicalSuspend) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("weekly");
     try {
@@ -245,10 +238,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, latestStateId, formatAiError, isMedicalSuspend]);
+  }, [userId, userUuid, prefs, latestStateId, formatAiError]);
 
   const handleGenerateDaily = useCallback(async () => {
-    if (!userId || !userUuid || isMedicalSuspend) return;
+    if (!userId || !userUuid) return;
     setError(null);
     setLoadingKind("daily");
     try {
@@ -266,11 +259,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, formatAiError, isMedicalSuspend]);
+  }, [userId, userUuid, formatAiError]);
 
-  // ✅ OPRAVA: Po úspešnom uložení stiahneme reálny status z DB
   const handleStartPlan = useCallback(async () => {
-    if (!userId || isMedicalSuspend) return;
+    if (!userId) return;
     setError(null);
     setLoadingKind("start");
     try {
@@ -285,9 +277,8 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, isMedicalSuspend, fetchStatus]);
+  }, [userId, fetchStatus]);
 
-  // ✅ OPRAVA: Po úspešnom zrušení stiahneme reálny status z DB
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
     const ok = await confirm({
@@ -317,7 +308,7 @@ export default function WidgetCoachPlan() {
   const isStep2 = !!latestStateId && hasWeekly && !hasDaily;
   const isStep3 = !!latestStateId && hasWeekly && hasDaily && !isPlanActive;
 
-  const generatorsBlockedGlobally = isPlanActive || isMedicalSuspend || isGlobalLoading;
+  const generatorsBlockedGlobally = isPlanActive || isGlobalLoading;
 
   const highlightAnalyze = isStep0;
   const highlightWeekly = isStep1;
@@ -326,18 +317,17 @@ export default function WidgetCoachPlan() {
   const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
-    if (isMedicalSuspend) return "Kritické zranenie: Tréning pozastavený.";
     if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
     if (!latestStateId) return "Najskôr vykonaj analýzu stavu.";
     if (!hasWeekly) return "Chýba vygenerovaný týždenný plán.";
     if (!hasDaily) return "Chýba vygenerovaný denný plán.";
     return null;
-  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
+  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, t]);
 
   return (
     <WidgetCard
       title={t("coachPlan.widget.title" as any)}
-      accent={isMedicalSuspend ? "danger" : "none"}
+      accent="none"
       note={t("coachPlan.widget.note" as any)}
       minH={210}
     >
