@@ -2073,12 +2073,22 @@ export const sk = {
     addSubtitle: "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
     form: {
       typeLabel: "Čo sa deje?",
+      areaLabel: "Lokalita problému",
+      injuryTypeLabel: "Typ zranenia",
       severityLabel: "Vážnosť (1 = ľahké obmedzenie, 10 = kritické)",
       severityMildHint: "Mierne obmedzenie. AI zjemní tréning alebo navrhne iný šport.",
       severityCriticalHint: "Tréning nie je možný. AI nariadi lekárske voľno a oddych.",
       notesLabel: "Detail problému (voliteľné)",
       notesPlaceholder: "Napr. horúčka 38.5°C, bolesť pravého kolena pri zbehu...",
+      addDraftBtn: "+ Pridať do zoznamu",
+      draftsTitle: "Pripravené na uloženie (Zatiaľ neuložené):",
       saveButton: "Uložiť a nahlásiť koučovi"
+    },
+    injAreas: {
+      foot: "Chodidlo", ankle: "Členok", achilles: "Achilovka", shin: "Holeň", calf: "Lýtko", knee: "Koleno", quad: "Kvadriceps", hamstring: "Zadný stehenný sval", glute: "Sedací sval", hip: "Bedro", psoas: "Psoas / Slabina", groin: "Slabiny", abdomen: "Brucho", back: "Chrbát", neck: "Krk", shoulder: "Rameno", arm_wrist: "Ruka / Zápästie", other: "Iné"
+    },
+    injTypes: {
+      overuse: "Z preťaženia", acute: "Akútne (náraz, pád)", muscle_strain: "Natiahnutý sval", tendon: "Zápal šľachy", stress: "Únavová zlomenina", shin_splints: "Zápal okostice", plantar: "Plantar fasciitis", itb: "IT Band syndróm", other: "Iné"
     },
     activeTitle: "Aktuálny stav",
     activeSubtitle: "Záznamy, ktoré ťa momentálne obmedzujú v tréningu.",
@@ -2101,6 +2111,7 @@ export const sk = {
     errorSave: "Chyba pri ukladaní záznamu.",
     errorResolve: "Chyba pri úprave záznamu.",
     errorDelete: "Chyba pri mazaní záznamu.",
+    planAdapting: "Plán sa prepočítava...",
     deleteConfirm: {
       title: "Vymazať záznam?",
       message: "Naozaj chceš tento záznam vymazať? Rob to len v prípade, že si ho zadal omylom, inak stratíš históriu.",
