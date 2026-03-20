@@ -2055,6 +2055,62 @@ export const en = {
       },
     },
   },
+
+  healthLog: {
+    pageTitle: "Health Log",
+    widget: {
+      title: "Health Status",
+      tooltip: "Current injuries, illnesses and fatigue affecting your plan.",
+      allGood: "All good. You are 100% Fit.",
+      errorFailedLoad: "Failed to load health status.",
+    },
+    types: {
+      injury: "Injury",
+      illness: "Illness",
+      fatigue: "Extreme Fatigue / Overtraining",
+    },
+    addTitle: "Report an Issue",
+    addSubtitle: "The AI coach will immediately adjust your training plan.",
+    form: {
+      typeLabel: "What is happening?",
+      severityLabel: "Severity (1 = mild restriction, 10 = critical)",
+      severityMildHint:
+        "Mild restriction. AI will ease the training or suggest cross-training.",
+      severityCriticalHint:
+        "Training impossible. AI will prescribe medical leave and rest.",
+      notesLabel: "Details (optional)",
+      notesPlaceholder:
+        "E.g. fever 38.5°C, sharp pain in the right knee downhill...",
+      saveButton: "Save & Report to Coach",
+    },
+    activeTitle: "Current Status",
+    activeSubtitle: "Records that are currently limiting your training.",
+    startDate: "Started",
+    today: "Today",
+    actions: {
+      resolve: "Mark as resolved",
+      delete: "Delete mistakenly added record",
+    },
+    replanAlert: {
+      title: "Plan needs an adjustment.",
+      text: "Don't forget to let AI recalculate your program after health status changes.",
+      button: "Re-evaluate Program (Dashboard)",
+    },
+    historyTitle: "Health History",
+    saveSuccess: "Record successfully added to your health log.",
+    resolveSuccess: "Issue marked as resolved. Welcome back to the game!",
+    deleteSuccess: "Record deleted.",
+    errorLoad: "Failed to load health data.",
+    errorSave: "Error saving record.",
+    errorResolve: "Error updating record.",
+    errorDelete: "Error deleting record.",
+    deleteConfirm: {
+      title: "Delete record?",
+      message:
+        "Are you sure you want to delete this record? Do this only if it was added by mistake, otherwise you'll lose history.",
+      ok: "Delete",
+    },
+  },
   calendar: {
     title: "Calendar",
     widget: {
@@ -2330,7 +2386,6 @@ export const en = {
         errorEnqueue: "Failed to create the analysis request.",
         limitReached:
           "You have reached the recalculation limit for this activity.",
-        
       },
       injuryModal: {
         title: "Injury and Pain Management",
@@ -2461,26 +2516,24 @@ export const en = {
       saveFailed: "Failed to save.",
     },
     ai_errors: {
-          activity_not_found: "Activity not found.",
-          activity_too_old:
-            "Analysis can only be requested for activities up to 7 days old.",
-          hard_limit_reached:
-            "The absolute system limit for regenerations has been reached.",
-          limit_reached:
-            "You have reached the regeneration limit for your current tier.",
-          only_one_for_free_tier:
-            "Free tier allows only one review per activity.",
-          duplicate_content:
-            "You have already used this exact comment in the last generation.",
-          enqueue_failed: "Failed to enqueue the request, please try again.",
-          ai_quota_exceeded: "You have exceeded your monthly AI token quota.",
-          ai_generation_failed:
-            "The AI service is currently overloaded or failed. Please try again later.",
-          missing_activity_data:
-            "Required activity data is missing for analysis.",
-          REQUEST_FAILED: "The server request failed.",
-          generic_error: "An unexpected error occurred during generation.",
-        },
+      activity_not_found: "Activity not found.",
+      activity_too_old:
+        "Analysis can only be requested for activities up to 7 days old.",
+      hard_limit_reached:
+        "The absolute system limit for regenerations has been reached.",
+      limit_reached:
+        "You have reached the regeneration limit for your current tier.",
+      only_one_for_free_tier: "Free tier allows only one review per activity.",
+      duplicate_content:
+        "You have already used this exact comment in the last generation.",
+      enqueue_failed: "Failed to enqueue the request, please try again.",
+      ai_quota_exceeded: "You have exceeded your monthly AI token quota.",
+      ai_generation_failed:
+        "The AI service is currently overloaded or failed. Please try again later.",
+      missing_activity_data: "Required activity data is missing for analysis.",
+      REQUEST_FAILED: "The server request failed.",
+      generic_error: "An unexpected error occurred during generation.",
+    },
     billing: {
       missingTier: "No plan selected.",
       checkoutSessionFailed: "Failed to create checkout session. Try again.",
