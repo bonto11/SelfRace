@@ -12,7 +12,6 @@ from Routes_DB.user_recovery import (
 )
 
 from Modules.Supabase.auth import AuthCtx
-from Services.async_jobs import service_enqueue_job
 
 # kľúče ktoré nikdy nesmú ísť do update patchu
 _ID_KEYS = {"id", "user_id", "date", "created_at", "updated_at"}
@@ -23,6 +22,8 @@ def service_check_recovery_and_adjust(user_id: int, ctx: AuthCtx) -> bool:
     Skontroluje ranné merania (HRV a RHR) a porovná ich s baseline (posledných 14 dní).
     Ak deteguje výrazný prepad HRV alebo nárast RHR, spustí Auto-Recovery job.
     """
+    from Services.async_jobs import service_enqueue_job
+    
     # Načítame históriu za posledných 14 dní
     rows = db_get_recent_recovery(user_id=user_id, days=14, ctx=ctx)
     
