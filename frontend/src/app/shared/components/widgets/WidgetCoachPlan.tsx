@@ -1,7 +1,8 @@
 // src/app/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
