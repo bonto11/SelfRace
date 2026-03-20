@@ -1,4 +1,3 @@
-// src/features/coach/components/prefs/CoachPreferencies.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -38,7 +37,6 @@ import { DaysSection } from "@/app/features/prefs/components/sections/DaysSectio
 import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
 import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
 import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
-import { InjuriesSection } from "@/app/features/prefs/components/sections/InjuriesSection";
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
@@ -112,7 +110,6 @@ export default function CoachPreferencies() {
 
         if (!dirtyRef.current) setLocal(next);
       } catch (e: any) {
-        // Tiché logovanie prekladu
         console.error("[CoachPrefs]init error", t(e?.message as any));
       }
     })();
@@ -163,7 +160,6 @@ export default function CoachPreferencies() {
       two_a_day: { enabled, max_days_per_week: max },
       intensity_model,
       training_blocks,
-      // ✅ PRIDANÉ:
       hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
     };
   };
@@ -186,7 +182,6 @@ export default function CoachPreferencies() {
     setLocal((prev) => {
       const next: CoachPrefsExtended = { ...prev };
 
-      // Rozbijeme cestu (napr. "preferences.hr_zone_calc_mode")
       const parts = path.split(".");
       if (parts[0] === "preferences") {
         const key = parts[1];
@@ -333,14 +328,10 @@ export default function CoachPreferencies() {
   const handleSaveZonesToDB = async (z: any) => {
     if (!userId) return;
     try {
-      // 1. Uložíme zóny
       const savedZones = await apiSaveUserZones(userId, z ?? {});
-
-      // 2. Synchronizácia módu výpočtu
       const freshPrefsFromDB = await refreshCoachPrefsFromDB(userId);
       const currentModeInUI = local.preferences?.hr_zone_calc_mode ?? "manual";
 
-      // Použijeme prefDefaults na normalizáciu dát z DB (vyrieši tie "undefined" errory)
       const normalizedPrefs = {
         ...freshPrefsFromDB,
         preferences: {
@@ -351,7 +342,6 @@ export default function CoachPreferencies() {
 
       await saveCoachPrefs(userId, normalizedPrefs);
 
-      // 3. Aktualizujeme lokálny stav (Typovo bezpečne)
       setLocal((prev) => ({
         ...prev,
         zones: savedZones ?? z,
@@ -469,7 +459,6 @@ export default function CoachPreferencies() {
 
       {showAdv && (
         <>
-          <InjuriesSection local={local} setLocal={setLocal} />
           <FocusAvoidSection
             local={local}
             setPref={setPref}

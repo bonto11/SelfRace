@@ -69,8 +69,6 @@ function broadcast(prefs: CoachPrefs) {
 }
 
 function normalizeTwoADay(incomingPrefs: any, anyIn: any) {
-  // NEW: preferences.two_a_day: { enabled, max_days_per_week }
-  // OLD: avoid_two_a_day: boolean  (true => disable 2-a-day)
   const legacyAvoidTwoA: boolean =
     !!incomingPrefs?.avoid_two_a_day || !!anyIn?.avoid_two_a_day || false;
 
@@ -99,11 +97,9 @@ function normalizeIntensityModel(
   incomingPrefs: any,
   anyIn: any,
 ): IntensityModel {
-  // NEW: preferences.intensity_model
   if (incomingPrefs?.intensity_model === "pyramidal") return "pyramidal";
   if (incomingPrefs?.intensity_model === "polarized") return "polarized";
 
-  // OLD: top-level polarized_model/pyramidal_model
   const oldPyr = !!anyIn?.pyramidal_model;
   if (oldPyr) return "pyramidal";
   return "polarized";
@@ -113,7 +109,6 @@ function normalizeTrainingBlocks(
   incomingPrefs: any,
   anyIn: any,
 ): TrainingBlocks {
-  // NEW: preferences.training_blocks
   const b = incomingPrefs?.training_blocks;
   if (b && typeof b === "object") {
     return {
@@ -123,7 +118,6 @@ function normalizeTrainingBlocks(
     };
   }
 
-  // OLD: top-level vo2max_training/ftp_training/threshold_focus
   return {
     vo2max: !!anyIn?.vo2max_training,
     ftp: !!anyIn?.ftp_training,
@@ -145,7 +139,6 @@ export async function refreshCoachPrefsFromDB(
 
   let value: any = raw;
 
-  // niekedy API vráti wrapper { success, key, value }
   if (
     value &&
     typeof value === "object" &&
@@ -165,7 +158,6 @@ export async function saveCoachPrefs(
   userId: number,
   prefs: CoachPrefs,
 ): Promise<void> {
-  // Chyba prebublá hore, kde si ju CoachPreferencies.tsx odchytí a vypíše preklad.
   await apiUpsertUserPref(userId, KEY, prefs);
   lsSet(prefs);
   broadcast(prefs);
@@ -176,17 +168,13 @@ export function clearCoachPrefsCache() {
 }
 
 /**
- * Normalization:
- * - supports new schema (main_sport + add_on_sports + preferences.two_a_day + strength_settings)
- * - migrates old fields (avoid_two_a_day boolean, preferred_long_run_days, old intensity + blocks)
- * - supports legacy loose schema (CoachPrefsLegacyLoose)
+ * Normalization
  */
 export function normalizeCoachPrefs(
   input: CoachPrefs | CoachPrefsLegacyLoose | null | undefined,
 ): CoachPrefs {
   if (!input) return DEFAULT_PREFS;
 
-  // allow string payloads
   let anyIn: any = input;
   if (typeof anyIn === "string") {
     try {
@@ -237,7 +225,6 @@ export function normalizeCoachPrefs(
         DEFAULT_PREFS.preferences!.hr_zone_calc_mode,
     };
 
-    // sanitize sports
     const mainSport: SportKind | null =
       anyIn.main_sport && SPORT_SET.has(anyIn.main_sport)
         ? (anyIn.main_sport as SportKind)
@@ -255,29 +242,24 @@ export function normalizeCoachPrefs(
       ...DEFAULT_PREFS,
       ...(anyIn as any),
 
-      // enforce canonical sports fields
       main_sport: mainSport,
       add_on_sports: addOns,
 
-      // enforce prefs
       preferences: prefs,
     };
 
-    // Drop old garbage / deprecated
     if ("external_activities" in (result as any))
       delete (result as any).external_activities;
 
-    // drop old top-level intensity fields
     delete (result as any).polarized_model;
     delete (result as any).pyramidal_model;
     delete (result as any).vo2max_training;
     delete (result as any).ftp_training;
     delete (result as any).threshold_focus;
 
-    // drop old weekly_template if it leaked
     delete (result as any).weekly_template;
+    delete (result as any).injuries;
 
-    // drop include_strides if it leaked (was old preference)
     if (
       (result as any)?.preferences &&
       "include_strides" in (result as any).preferences
@@ -288,7 +270,6 @@ export function normalizeCoachPrefs(
     return result;
   }
 
-  // ---- legacy loose → canonical ----
   const l = anyIn as CoachPrefsLegacyLoose;
 
   const legacyPrefs: Preferences = {
@@ -303,7 +284,6 @@ export function normalizeCoachPrefs(
     preferences: legacyPrefs,
   };
 
-  // legacy “sports” -> main_sport + add_on_sports
   const sports = clampSports((l as any).sports);
   if (sports && sports.length) {
     result.main_sport = sports[0] ?? result.main_sport ?? "run";
@@ -314,8 +294,6 @@ export function normalizeCoachPrefs(
 
   return result;
 }
-
-/* -------------------- live hook helpers -------------------- */
 
 export function subscribeCoachPrefs(
   cb: (prefs: CoachPrefs) => void,
@@ -338,7 +316,6 @@ export function subscribeCoachPrefs(
   window.addEventListener(EVT, onEvt);
   window.addEventListener("storage", onStorage);
 
-  // initial push
   const cur = readCoachPrefsFromStorage();
   setTimeout(() => cb(cur), 0);
 

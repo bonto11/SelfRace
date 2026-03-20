@@ -1,4 +1,3 @@
-// src/features/prefs/types/prefs.ts
 import type { DayAbbrev } from "@/app/shared/types/day";
 
 /** Hlavné ciele plánu / tréningu */
@@ -134,52 +133,6 @@ export interface SwimTargets {
   sessions_per_week?: number | null;
 }
 
-/* -------- injuries -------- */
-
-export type InjuryArea =
-  | "foot"
-  | "ankle"
-  | "achilles"
-  | "shin"
-  | "calf"
-  | "knee"
-  | "quad"
-  | "hamstring"
-  | "glute"
-  | "hip"
-  | "psoas"
-  | "groin"
-  | "abdomen"
-  | "back"
-  | "neck"
-  | "shoulder"
-  | "arm_wrist"
-  | "other";
-
-export type InjuryType =
-  | "overuse"
-  | "acute"
-  | "muscle_strain"
-  | "tendon"
-  | "stress"
-  | "shin_splints"
-  | "plantar"
-  | "itb"
-  | "other";
-
-export type Injury = {
-  area: InjuryArea;
-  type: InjuryType;
-  note?: string;
-  severity?: number; // 1-10
-};
-
-export type RehabFocus = {
-  stretching: boolean;
-  mobility: boolean;
-  balance: boolean;
-  recovery_protocol?: string | null;
-};
 
 /* -------- strength settings -------- */
 
@@ -232,6 +185,13 @@ export interface Preferences {
   hr_zone_calc_mode?: ZoneCalcMode;
 }
 
+export type RehabFocus = {
+  stretching: boolean;
+  mobility: boolean;
+  balance: boolean;
+  recovery_protocol?: string | null;
+};
+
 /* -------- Main prefs -------- */
 
 export type CoachPrefs = {
@@ -256,7 +216,6 @@ export type CoachPrefs = {
 
   zones?: Zones;
   thresholds?: Thresholds;
-  injuries?: Injury[]; // Pole zranení
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {

@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import Any, Dict
 
 from Schemas.synchronization import (
-    SyncActivitiesRequest,
     SyncActivitiesResponse,
 )
 from Services.synchronization_bulk import service_sync_activities
