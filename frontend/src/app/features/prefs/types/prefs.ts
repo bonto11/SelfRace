@@ -192,6 +192,46 @@ export type RehabFocus = {
   recovery_protocol?: string | null;
 };
 
+/* -------- injuries (Ponechané typy pre DetailHealthLog) -------- */
+
+export type InjuryArea =
+  | "foot"
+  | "ankle"
+  | "achilles"
+  | "shin"
+  | "calf"
+  | "knee"
+  | "quad"
+  | "hamstring"
+  | "glute"
+  | "hip"
+  | "psoas"
+  | "groin"
+  | "abdomen"
+  | "back"
+  | "neck"
+  | "shoulder"
+  | "arm_wrist"
+  | "other";
+
+export type InjuryType =
+  | "overuse"
+  | "acute"
+  | "muscle_strain"
+  | "tendon"
+  | "stress"
+  | "shin_splints"
+  | "plantar"
+  | "itb"
+  | "other";
+
+export type Injury = {
+  area: InjuryArea;
+  type: InjuryType;
+  note?: string;
+  severity?: number; // 1-10
+};
+
 /* -------- Main prefs -------- */
 
 export type CoachPrefs = {
