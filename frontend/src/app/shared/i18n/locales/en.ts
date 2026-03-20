@@ -2055,7 +2055,6 @@ export const en = {
       },
     },
   },
-
   healthLog: {
     pageTitle: "Health Log",
     widget: {
@@ -2067,7 +2066,7 @@ export const en = {
     types: {
       injury: "Injury",
       illness: "Illness",
-      fatigue: "Overtraining / Fatigue",
+      fatigue: "Fatigue",
     },
     addTitle: "Report an Issue",
     addSubtitle: "The AI coach will immediately adjust your training plan.",
@@ -2075,7 +2074,15 @@ export const en = {
       typeLabel: "What is happening?",
       areaLabel: "Problem Area",
       injuryTypeLabel: "Injury Type",
-      severityLabel: "Severity (1 = mild restriction, 10 = critical)",
+      symptomsLabel: "Select your symptoms",
+      symptomsIllnessHint:
+        "Based on the 'Neck Rule', AI will determine if you need complete medical leave.",
+      symptomsFatigueHint:
+        "This helps AI adjust volume and intensity for upcoming sessions.",
+      autoSeverityTitle: "Auto-evaluated Severity",
+      autoSeverityText:
+        "Severity will be automatically calculated based on selected symptoms.",
+      severityLabel: "Severity (1 = mild, 10 = critical)",
       severityMildHint:
         "Mild restriction. AI will ease the training or suggest cross-training.",
       severityCriticalHint:
@@ -2085,6 +2092,7 @@ export const en = {
         "E.g. fever 38.5°C, sharp pain in the right knee downhill...",
       addDraftBtn: "+ Add to List",
       draftsTitle: "Ready to Save (Not yet saved):",
+      errorNoSymptoms: "Please select at least one symptom.",
       saveButton: "Save & Report to Coach",
     },
     injAreas: {
@@ -2104,12 +2112,12 @@ export const en = {
       back: "Back",
       neck: "Neck",
       shoulder: "Shoulder",
-      arm_wrist: "Arm / Wrist",
+      arm_wrist: "Wrist",
       other: "Other",
     },
     injTypes: {
       overuse: "Overuse",
-      acute: "Acute (impact, fall)",
+      acute: "Acute (fall)",
       muscle_strain: "Muscle Strain",
       tendon: "Tendinitis",
       stress: "Stress Fracture",
@@ -2118,13 +2126,26 @@ export const en = {
       itb: "IT Band Syndrome",
       other: "Other",
     },
+    symptoms: {
+      fever: "Fever / Chills",
+      chest_cough: "Chest Cough",
+      muscle_aches: "Muscle Aches",
+      nausea: "Nausea / Vomiting",
+      runny_nose: "Runny / Stuffy Nose",
+      sore_throat: "Sore Throat",
+      headache: "Headache",
+      exhaustion: "Complete Exhaustion (Battery 0%)",
+      high_hr: "High Morning HR / Low HRV",
+      heavy_legs: "Extremely Heavy Legs",
+      poor_sleep: "Prolonged Poor Sleep",
+    },
     activeTitle: "Current Status",
     activeSubtitle: "Records that are currently limiting your training.",
     startDate: "Started",
     today: "Today",
     actions: {
-      resolve: "Mark as resolved",
-      delete: "Delete mistakenly added record",
+      resolve: "Resolved",
+      delete: "Delete",
     },
     replanAlert: {
       title: "Plan needs an adjustment.",
@@ -2133,7 +2154,7 @@ export const en = {
     },
     historyTitle: "Health History",
     saveSuccess: "Record successfully added to your health log.",
-    resolveSuccess: "Issue marked as resolved. Welcome back to the game!",
+    resolveSuccess: "Issue marked as resolved. Welcome back!",
     deleteSuccess: "Record deleted.",
     errorLoad: "Failed to load health data.",
     errorSave: "Error saving record.",
@@ -2143,7 +2164,7 @@ export const en = {
     deleteConfirm: {
       title: "Delete record?",
       message:
-        "Are you sure you want to delete this record? Do this only if it was added by mistake, otherwise you'll lose history.",
+        "Are you sure you want to delete this record? Do this only if it was added by mistake.",
       ok: "Delete",
     },
   },

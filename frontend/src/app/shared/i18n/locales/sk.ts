@@ -2060,48 +2060,100 @@ export const sk = {
     pageTitle: "Zdravotná karta",
     widget: {
       title: "Zdravotný stav",
-      tooltip: "Aktuálne zranenia, choroby a únava, ktoré ovplyvňujú tvoj plán.",
+      tooltip:
+        "Aktuálne zranenia, choroby a únava, ktoré ovplyvňujú tvoj plán.",
       allGood: "Všetko je v poriadku. Si 100% Fit.",
-      errorFailedLoad: "Nepodarilo sa načítať zdravotný stav."
+      errorFailedLoad: "Nepodarilo sa načítať zdravotný stav.",
     },
     types: {
       injury: "Zranenie",
       illness: "Choroba",
-      fatigue: "Pretrénovanie / únava"
+      fatigue: "Únava",
     },
     addTitle: "Nahlásiť problém",
-    addSubtitle: "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
+    addSubtitle:
+      "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
     form: {
       typeLabel: "Čo sa deje?",
       areaLabel: "Lokalita problému",
       injuryTypeLabel: "Typ zranenia",
+      symptomsLabel: "Vyber, čo presne pociťuješ",
+      symptomsIllnessHint:
+        "Podľa 'Pravidla krku' (symptómy nad krkom vs pod krkom) AI vyhodnotí, či dostaneš úplné voľno.",
+      symptomsFatigueHint:
+        "Tieto informácie pomôžu AI upraviť objem a intenzitu najbližších tréningov.",
+      autoSeverityTitle: "Automatické vyhodnotenie",
+      autoSeverityText:
+        "Vážnosť problému bude vypočítaná automaticky na základe vybraných symptómov.",
       severityLabel: "Vážnosť (1 = ľahké obmedzenie, 10 = kritické)",
-      severityMildHint: "Mierne obmedzenie. AI zjemní tréning alebo navrhne iný šport.",
-      severityCriticalHint: "Tréning nie je možný. AI nariadi lekárske voľno a oddych.",
+      severityMildHint:
+        "Mierne obmedzenie. AI zjemní tréning alebo navrhne iný šport.",
+      severityCriticalHint:
+        "Tréning nie je možný. AI nariadi lekárske voľno a oddych.",
       notesLabel: "Detail problému (voliteľné)",
-      notesPlaceholder: "Napr. horúčka 38.5°C, bolesť pravého kolena pri zbehu...",
+      notesPlaceholder:
+        "Napr. horúčka 38.5°C, bolesť pravého kolena pri zbehu...",
       addDraftBtn: "+ Pridať do zoznamu",
       draftsTitle: "Pripravené na uloženie (Zatiaľ neuložené):",
-      saveButton: "Uložiť a nahlásiť koučovi"
+      errorNoSymptoms: "Musíš vybrať aspoň jeden symptóm.",
+      saveButton: "Uložiť a nahlásiť koučovi",
     },
     injAreas: {
-      foot: "Chodidlo", ankle: "Členok", achilles: "Achilovka", shin: "Holeň", calf: "Lýtko", knee: "Koleno", quad: "Kvadriceps", hamstring: "Zadný stehenný sval", glute: "Sedací sval", hip: "Bedro", psoas: "Psoas / Slabina", groin: "Slabiny", abdomen: "Brucho", back: "Chrbát", neck: "Krk", shoulder: "Rameno", arm_wrist: "Ruka / Zápästie", other: "Iné"
+      foot: "Chodidlo",
+      ankle: "Členok",
+      achilles: "Achilovka",
+      shin: "Holeň",
+      calf: "Lýtko",
+      knee: "Koleno",
+      quad: "Kvadriceps",
+      hamstring: "Zadný stehenný",
+      glute: "Sedací sval",
+      hip: "Bedro",
+      psoas: "Psoas / Slabina",
+      groin: "Slabiny",
+      abdomen: "Brucho",
+      back: "Chrbát",
+      neck: "Krk",
+      shoulder: "Rameno",
+      arm_wrist: "Zápästie",
+      other: "Iné",
     },
     injTypes: {
-      overuse: "Z preťaženia", acute: "Akútne (náraz, pád)", muscle_strain: "Natiahnutý sval", tendon: "Zápal šľachy", stress: "Únavová zlomenina", shin_splints: "Zápal okostice", plantar: "Plantar fasciitis", itb: "IT Band syndróm", other: "Iné"
+      overuse: "Preťaženie",
+      acute: "Akútne (pád)",
+      muscle_strain: "Natiahnutý sval",
+      tendon: "Zápal šľachy",
+      stress: "Únavová zlomenina",
+      shin_splints: "Zápal okostice",
+      plantar: "Plantar fasciitis",
+      itb: "IT Band syndróm",
+      other: "Iné",
+    },
+    symptoms: {
+      fever: "Horúčka / Zimnica",
+      chest_cough: "Dusený kašeľ (hrudník)",
+      muscle_aches: "Bolesť svalov a kĺbov",
+      nausea: "Nevoľnosť / Zvracanie",
+      runny_nose: "Nádcha / Upchatý nos",
+      sore_throat: "Bolesť hrdla",
+      headache: "Bolesť hlavy",
+      exhaustion: "Úplné vyčerpanie (Baterka na 0%)",
+      high_hr: "Vysoký ranný tep / Nízke HRV",
+      heavy_legs: "Extrémne ťažké nohy",
+      poor_sleep: "Dlhodobo zlý spánok",
     },
     activeTitle: "Aktuálny stav",
     activeSubtitle: "Záznamy, ktoré ťa momentálne obmedzujú v tréningu.",
     startDate: "Začiatok",
     today: "Dnes",
     actions: {
-      resolve: "Ukončiť problém",
-      delete: "Zmazať omylom pridaný záznam"
+      resolve: "Vyriešené",
+      delete: "Zmazať",
     },
     replanAlert: {
       title: "Plán sa musí prispôsobiť.",
       text: "Nezabudni nechať AI zvážiť tvoj program po každej zmene zdravotného stavu.",
-      button: "Zvážiť program (Na nástenku)"
+      button: "Zvážiť program (Na nástenku)",
     },
     historyTitle: "História zdravotnej karty",
     saveSuccess: "Záznam bol úspešne uložený do tvojej karty.",
@@ -2114,9 +2166,10 @@ export const sk = {
     planAdapting: "Plán sa prepočítava...",
     deleteConfirm: {
       title: "Vymazať záznam?",
-      message: "Naozaj chceš tento záznam vymazať? Rob to len v prípade, že si ho zadal omylom, inak stratíš históriu.",
-      ok: "Vymazať"
-    }
+      message:
+        "Naozaj chceš tento záznam vymazať? Rob to len v prípade, že si ho zadal omylom, inak stratíš históriu.",
+      ok: "Vymazať",
+    },
   },
   calendar: {
     title: "Kalendár",

@@ -53,15 +53,24 @@ const INJ_TYPES: InjuryType[] = [
   "plantar", "itb", "other",
 ];
 
-function Card({
-  title,
-  subtitle,
-  children,
-}: {
-  title?: React.ReactNode;
-  subtitle?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+const ILLNESS_SYMPTOMS = [
+  { id: "fever", isSevere: true },
+  { id: "chest_cough", isSevere: true },
+  { id: "muscle_aches", isSevere: true },
+  { id: "nausea", isSevere: true },
+  { id: "runny_nose", isSevere: false },
+  { id: "sore_throat", isSevere: false },
+  { id: "headache", isSevere: false }
+];
+
+const FATIGUE_SYMPTOMS = [
+  { id: "exhaustion", isSevere: true },
+  { id: "high_hr", isSevere: true },
+  { id: "heavy_legs", isSevere: false },
+  { id: "poor_sleep", isSevere: false }
+];
+
+function Card({ title, subtitle, children }: { title?: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; }) {
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
       {(title || subtitle) && (
@@ -83,6 +92,7 @@ type DraftForm = {
   area: InjuryArea;
   type: InjuryType;
   severity: number;
+  symptoms: string[];
   notes: string;
 };
 
@@ -96,7 +106,6 @@ export default function DetailHealthLog() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Drafty pre hromadné ukladanie
   const [drafts, setDrafts] = useState<HealthLogRecord[]>([]);
 
   const [form, setForm] = useState<DraftForm>({
@@ -104,6 +113,7 @@ export default function DetailHealthLog() {
     area: "knee",
     type: "overuse",
     severity: 3,
+    symptoms: [],
     notes: "",
   });
 
@@ -118,8 +128,7 @@ export default function DetailHealthLog() {
       setActiveLogs(active ?? []);
       setHistoryLogs(history ?? []);
     } catch (e) {
-      console.error(e);
-      toast.error(t("healthLog.errorLoad"));
+      toast.error(t("healthLog.errorLoad" as any));
     } finally {
       setLoading(false);
     }
@@ -136,17 +145,38 @@ export default function DetailHealthLog() {
     return "bg-red-500 border-red-500 text-white";
   };
 
+  const toggleSymptom = (symId: string) => {
+    setForm(prev => ({
+      ...prev,
+      symptoms: prev.symptoms.includes(symId) 
+        ? prev.symptoms.filter(s => s !== symId) 
+        : [...prev.symptoms, symId]
+    }));
+  };
+
   const handleAddDraft = () => {
-    if (!form.event_type || !form.severity) return;
+    if (!form.event_type) return;
     
-    // Zostavenie JSONu detailov iba ak ide o zranenie
-    const details = form.event_type === "injury" 
-      ? { area: form.area, type: form.type } 
-      : {};
+    let computedSeverity = form.severity;
+    let details: any = {};
+
+    if (form.event_type === "injury") {
+      details = { area: form.area, type: form.type };
+    } else if (form.event_type === "illness") {
+      if (form.symptoms.length === 0) return toast.error(t("healthLog.form.errorNoSymptoms" as any));
+      const hasSevere = form.symptoms.some(s => ILLNESS_SYMPTOMS.find(x => x.id === s)?.isSevere);
+      computedSeverity = hasSevere ? 8 : 3;
+      details = { symptoms: form.symptoms };
+    } else if (form.event_type === "fatigue") {
+      if (form.symptoms.length === 0) return toast.error(t("healthLog.form.errorNoSymptoms" as any));
+      const hasSevere = form.symptoms.some(s => FATIGUE_SYMPTOMS.find(x => x.id === s)?.isSevere);
+      computedSeverity = hasSevere ? 7 : 4;
+      details = { symptoms: form.symptoms };
+    }
 
     const newDraft: HealthLogRecord = {
       event_type: form.event_type,
-      severity: form.severity,
+      severity: computedSeverity,
       notes: form.notes.trim() || undefined,
       status: "active",
       details: details
@@ -154,12 +184,12 @@ export default function DetailHealthLog() {
 
     setDrafts((prev) => [...prev, newDraft]);
     
-    // Reset form
     setForm({
       event_type: form.event_type,
       area: "knee",
       type: "overuse",
       severity: 3,
+      symptoms: [],
       notes: "",
     });
   };
@@ -173,12 +203,11 @@ export default function DetailHealthLog() {
     setSaving(true);
     try {
       await apiSaveHealthLogs(userId, drafts);
-      toast.success(t("healthLog.saveSuccess"));
-      
+      toast.success(t("healthLog.saveSuccess" as any));
       setDrafts([]);
       await fetchData();
     } catch (e: any) {
-      toast.error(e?.message || t("healthLog.errorSave"));
+      toast.error(e?.message || t("healthLog.errorSave" as any));
     } finally {
       setSaving(false);
     }
@@ -188,61 +217,60 @@ export default function DetailHealthLog() {
     if (!userId) return;
     try {
       await apiResolveHealthLog(userId, logId);
-      toast.success(t("healthLog.resolveSuccess"));
+      toast.success(t("healthLog.resolveSuccess" as any));
       await fetchData();
     } catch (e: any) {
-      toast.error(e?.message || t("healthLog.errorResolve"));
+      toast.error(e?.message || t("healthLog.errorResolve" as any));
     }
   };
 
   const handleDelete = async (logId: number) => {
     if (!userId) return;
     const ok = await confirm({
-      title: t("healthLog.deleteConfirm.title"),
-      message: t("healthLog.deleteConfirm.message"),
-      okText: t("healthLog.deleteConfirm.ok"),
-      cancelText: t("common.cancel"),
+      title: t("healthLog.deleteConfirm.title" as any),
+      message: t("healthLog.deleteConfirm.message" as any),
+      okText: t("healthLog.deleteConfirm.ok" as any),
+      cancelText: t("common.cancel" as any),
       tone: "danger"
     });
     if (!ok) return;
 
     try {
       await apiDeleteHealthLog(userId, logId);
-      toast.success(t("healthLog.deleteSuccess"));
+      toast.success(t("healthLog.deleteSuccess" as any));
       await fetchData();
     } catch (e: any) {
-      toast.error(t("healthLog.errorDelete"));
+      toast.error(t("healthLog.errorDelete" as any));
     }
   };
 
   const handleAdaptPlan = async () => {
     // TODO: Zavolať API pre prepočet plánu
-    console.log("Adapt plan clicked");
-    toast.success(t("healthLog.planAdapting"));
+    toast.success(t("healthLog.planAdapting" as any));
   };
 
   if (!userId) {
     return (
-      <Card title={t("healthLog.pageTitle")} subtitle={t("common.errors.missingUserAuth")}>
-        <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
+      <Card title={t("healthLog.pageTitle" as any)} subtitle={t("common.errors.missingUserAuth" as any)}>
+        <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin" as any)}</div>
       </Card>
     );
   }
 
   const isInjury = form.event_type === "injury";
+  const isIllness = form.event_type === "illness";
+  const isFatigue = form.event_type === "fatigue";
 
   return (
     <div className={PANEL_STACK}>
       
-      {/* 1. PRIDANIE ZÁZNAMU A DRAFTY */}
-      <Card title={t("healthLog.addTitle")} subtitle={t("healthLog.addSubtitle")}>
+      {/* 1. PRIDANIE ZÁZNAMU */}
+      <Card title={t("healthLog.addTitle" as any)} subtitle={t("healthLog.addSubtitle" as any)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* ĽAVÝ STĹPEC: Typ udalosti a špecifikácie */}
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.typeLabel")}</div>
-              {/* ZMENA 1: flex-col namiesto flex-row pre hlavné kategórie */}
+              <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.typeLabel" as any)}</div>
               <div className="flex flex-col gap-2">
                 {EVENT_TYPES.map((type) => (
                   <Button
@@ -251,7 +279,7 @@ export default function DetailHealthLog() {
                     size="sm"
                     variant="prefs"
                     active={form.event_type === type}
-                    onClick={() => setForm({ ...form, event_type: type })}
+                    onClick={() => setForm({ ...form, event_type: type, symptoms: [] })}
                     className="w-full justify-start capitalize"
                   >
                     <span className="mr-2 text-lg">{type === "illness" ? "🦠" : type === "fatigue" ? "🔋" : "🩹"}</span>
@@ -261,11 +289,11 @@ export default function DetailHealthLog() {
               </div>
             </div>
 
+            {/* SEKCIA: ZRANENIE */}
             {isInjury && (
               <>
                 <div className="rounded-xl border border-white/10 bg-black/10 p-3">
-                  <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.areaLabel")}</div>
-                  {/* ZMENA 2: mriežka 2-stĺpcová, menšie custom paddingy a text */}
+                  <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.areaLabel" as any)}</div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     {INJ_AREAS.map((a) => (
                       <Button
@@ -284,8 +312,7 @@ export default function DetailHealthLog() {
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-black/10 p-3">
-                  <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.injuryTypeLabel")}</div>
-                  {/* ZMENA 3: mriežka 2-stĺpcová */}
+                  <div className="text-xs font-medium opacity-80 mb-2">{t("healthLog.form.injuryTypeLabel" as any)}</div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {INJ_TYPES.map((ty) => (
                       <Button
@@ -304,104 +331,181 @@ export default function DetailHealthLog() {
                 </div>
               </>
             )}
+
+            {/* SEKCIA: CHOROBA */}
+            {isIllness && (
+              <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                <div className="text-xs font-medium opacity-80 mb-1">{t("healthLog.form.symptomsLabel" as any)}</div>
+                <div className="text-[10px] text-white/50 mb-3">{t("healthLog.form.symptomsIllnessHint" as any)}</div>
+                <div className="flex flex-col gap-1.5">
+                  {ILLNESS_SYMPTOMS.map((sym) => {
+                    const isActive = form.symptoms.includes(sym.id);
+                    return (
+                      <Button
+                        key={sym.id}
+                        type="button"
+                        size="xs"
+                        variant="prefs"
+                        active={isActive}
+                        onClick={() => toggleSymptom(sym.id)}
+                        className={`w-full justify-start text-xs !py-2 font-normal ${isActive && sym.isSevere ? "!border-red-500/50 !text-red-200" : ""}`}
+                      >
+                        <span className="mr-2 opacity-50">{isActive ? "☑" : "☐"}</span>
+                        {t(`healthLog.symptoms.${sym.id}` as any)}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* SEKCIA: ÚNAVA */}
+            {isFatigue && (
+              <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+                <div className="text-xs font-medium opacity-80 mb-1">{t("healthLog.form.symptomsLabel" as any)}</div>
+                <div className="text-[10px] text-white/50 mb-3">{t("healthLog.form.symptomsFatigueHint" as any)}</div>
+                <div className="flex flex-col gap-1.5">
+                  {FATIGUE_SYMPTOMS.map((sym) => {
+                    const isActive = form.symptoms.includes(sym.id);
+                    return (
+                      <Button
+                        key={sym.id}
+                        type="button"
+                        size="xs"
+                        variant="prefs"
+                        active={isActive}
+                        onClick={() => toggleSymptom(sym.id)}
+                        className={`w-full justify-start text-xs !py-2 font-normal ${isActive && sym.isSevere ? "!border-red-500/50 !text-red-200" : ""}`}
+                      >
+                        <span className="mr-2 opacity-50">{isActive ? "☑" : "☐"}</span>
+                        {t(`healthLog.symptoms.${sym.id}` as any)}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* PRAVÝ STĹPEC: Závažnosť a poznámka */}
           <div className="flex flex-col gap-4">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium opacity-80">{t("healthLog.form.severityLabel")}</div>
+            
+            {isInjury && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium opacity-80">{t("healthLog.form.severityLabel" as any)}</div>
+                </div>
+                <div className="flex gap-1 mb-2">
+                  {SEVERITY_SCALE.map((num) => {
+                    const isActive = form.severity === num;
+                    const colorClass = isActive ? getSeverityColor(num) : "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setForm({ ...form, severity: num })}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${colorClass}`}
+                      >
+                        {num}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[10px] text-white/50 italic px-1">
+                  {form.severity && form.severity >= 7 
+                    ? t("healthLog.form.severityCriticalHint" as any)
+                    : t("healthLog.form.severityMildHint" as any)}
+                </div>
               </div>
-              <div className="flex gap-1 mb-2">
-                {SEVERITY_SCALE.map((num) => {
-                  const isActive = form.severity === num;
-                  const colorClass = isActive ? getSeverityColor(num) : "bg-black/30 border-white/10 text-white/70 hover:bg-white/10";
-                  return (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setForm({ ...form, severity: num })}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${colorClass}`}
-                    >
-                      {num}
-                    </button>
-                  );
-                })}
+            )}
+
+            {!isInjury && (
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4 flex flex-col items-center justify-center text-center">
+                <span className="text-2xl mb-2">🤖</span>
+                <div className="text-sm text-white/80 font-medium">
+                  {t("healthLog.form.autoSeverityTitle" as any)}
+                </div>
+                <div className="text-xs text-white/50 mt-1">
+                  {t("healthLog.form.autoSeverityText" as any)}
+                </div>
               </div>
-              <div className="text-[10px] text-white/50 italic px-1">
-                {form.severity && form.severity >= 7 
-                  ? t("healthLog.form.severityCriticalHint")
-                  : t("healthLog.form.severityMildHint")}
-              </div>
-            </div>
+            )}
 
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
               <TextField
-                label={t("healthLog.form.notesLabel")}
-                placeholder={t("healthLog.form.notesPlaceholder")}
+                label={t("healthLog.form.notesLabel" as any) as string}
+                placeholder={t("healthLog.form.notesPlaceholder" as any) as string}
                 value={form.notes ?? ""}
                 onChange={(e) => setForm({ ...form, notes: (e.target as HTMLInputElement).value })}
               />
             </div>
 
-            {/* ZMENA 4: Primary variant pre pridanie */}
-            <Button size="md" variant="primary" onClick={handleAddDraft}>
-              {t("healthLog.form.addDraftBtn")}
+            <Button size="md" variant="primary" onClick={handleAddDraft} className="w-full mt-2">
+              {t("healthLog.form.addDraftBtn" as any)}
             </Button>
           </div>
         </div>
 
-        {/* ZOZNAM DRAFTOV (Neuložené zmeny) */}
+        {/* ZOZNAM DRAFTOV */}
         {drafts.length > 0 && (
           <div className="mt-4 p-3 border border-yellow-500/20 bg-yellow-500/10 rounded-xl">
-            <div className="text-xs font-bold text-yellow-400 mb-3">{t("healthLog.form.draftsTitle")}</div>
+            <div className="text-xs font-bold text-yellow-400 mb-3">{t("healthLog.form.draftsTitle" as any)}</div>
             <ul className="space-y-2 mb-4">
               {drafts.map((d, idx) => {
                 const isInj = d.event_type === "injury";
-                const eventName = isInj && d.details?.area && d.details?.type
-                  ? `${t(`healthLog.injAreas.${d.details.area}` as any)} · ${t(`healthLog.injTypes.${d.details.type}` as any)}`
-                  : t(`healthLog.types.${d.event_type}` as any);
+                const isIllOrFat = d.event_type === "illness" || d.event_type === "fatigue";
+                
+                let eventName = t(`healthLog.types.${d.event_type}` as any);
+                if (isInj && d.details?.area && d.details?.type) {
+                  eventName = `${t(`healthLog.injAreas.${d.details.area}` as any)} · ${t(`healthLog.injTypes.${d.details.type}` as any)}`;
+                } else if (isIllOrFat && d.details?.symptoms?.length) {
+                  eventName = d.details.symptoms.map((s: string) => t(`healthLog.symptoms.${s}` as any)).join(", ");
+                }
 
                 return (
                   <li key={idx} className="flex justify-between items-center text-sm bg-black/30 border border-white/5 px-3 py-2 rounded-lg">
                     <div className="flex flex-col">
                       <span className="font-semibold text-white/90">
-                        {eventName} <span className="opacity-60 font-normal">({d.severity}/10)</span>
+                        {eventName} <span className="opacity-60 font-normal text-xs ml-1">(Závažnosť: {d.severity}/10)</span>
                       </span>
                       {d.notes && <span className="text-xs text-white/60">{d.notes}</span>}
                     </div>
                     <button onClick={() => handleRemoveDraft(idx)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1">
-                      {t("common.delete")}
+                      {t("common.delete" as any)}
                     </button>
                   </li>
                 );
               })}
             </ul>
             <Button size="md" variant="primary" onClick={handleSaveDrafts} disabled={saving} className="w-full">
-              {saving ? <LoadingSpinner size="button" /> : t("healthLog.form.saveButton")}
+              {saving ? <LoadingSpinner size="button" /> : t("healthLog.form.saveButton" as any)}
             </Button>
           </div>
         )}
       </Card>
 
       {/* 2. AKTÍVNE PROBLÉMY A PRISPÔSOBENIE PLÁNU */}
-      <Card title={t("healthLog.activeTitle")} subtitle={t("healthLog.activeSubtitle")}>
+      <Card title={t("healthLog.activeTitle" as any)} subtitle={t("healthLog.activeSubtitle" as any)}>
         {loading ? (
           <div className="flex justify-center p-4"><LoadingSpinner size="button" /></div>
         ) : activeLogs.length === 0 ? (
           <div className={PANEL_PREVIEW}>
-            <span className="text-emerald-400 font-bold">✅ {t("healthLog.widget.allGood")}</span>
+            <span className="text-emerald-400 font-bold">✅ {t("healthLog.widget.allGood" as any)}</span>
           </div>
         ) : (
           <div className="space-y-4">
             <ul className="space-y-2">
               {activeLogs.map((log) => {
                 const isIllness = log.event_type === "illness";
+                const isFatigue = log.event_type === "fatigue";
                 const isCritical = log.severity >= 7;
                 
-                const eventName = log.event_type === "injury" && log.details?.area && log.details?.type
-                  ? `${t(`healthLog.injAreas.${log.details.area}` as any)} · ${t(`healthLog.injTypes.${log.details.type}` as any)}`
-                  : t(`healthLog.types.${log.event_type}` as any);
+                let eventName = t(`healthLog.types.${log.event_type}` as any);
+                if (log.event_type === "injury" && log.details?.area && log.details?.type) {
+                  eventName = `${t(`healthLog.injAreas.${log.details.area}` as any)} · ${t(`healthLog.injTypes.${log.details.type}` as any)}`;
+                } else if ((isIllness || isFatigue) && log.details?.symptoms?.length) {
+                  eventName = log.details.symptoms.map((s: string) => t(`healthLog.symptoms.${s}` as any)).join(", ");
+                }
 
                 return (
                   <li key={log.id} className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 ${
@@ -409,21 +513,21 @@ export default function DetailHealthLog() {
                   }`}>
                     <div>
                       <div className={`text-sm font-bold ${isCritical ? "text-red-300" : "text-yellow-300"}`}>
-                        <span className="mr-1">{isIllness ? "🦠" : log.event_type === "fatigue" ? "🔋" : "🩹"}</span>
+                        <span className="mr-1">{isIllness ? "🦠" : isFatigue ? "🔋" : "🩹"}</span>
                         {eventName}
                         <span className="opacity-70 ml-2 font-normal">({log.severity}/10)</span>
                       </div>
                       <div className="text-xs opacity-70 mt-1">
-                        {t("healthLog.startDate")}: {formatDate(log.start_date)}
+                        {t("healthLog.startDate" as any)}: {formatDate(log.start_date)}
                       </div>
                       {log.notes && <div className="text-sm mt-1 opacity-90">{log.notes}</div>}
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <Button size="xs" variant="secondary" onClick={() => handleResolve(log.id!)}>
-                        ✓ {t("healthLog.actions.resolve")}
+                        ✓ {t("healthLog.actions.resolve" as any)}
                       </Button>
-                      <Button size="xs" variant="danger" onClick={() => handleDelete(log.id!)} title={t("healthLog.actions.delete")}>
+                      <Button size="xs" variant="danger" onClick={() => handleDelete(log.id!)} title={t("healthLog.actions.delete" as any) as string}>
                         🗑️
                       </Button>
                     </div>
@@ -432,14 +536,13 @@ export default function DetailHealthLog() {
               })}
             </ul>
 
-            {/* AKCIA: Prispôsobiť plán */}
             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="text-sm text-blue-100/90 leading-snug">
-                <strong>{t("healthLog.replanAlert.title")}</strong><br/>
-                {t("healthLog.replanAlert.text")}
+                <strong>{t("healthLog.replanAlert.title" as any)}</strong><br/>
+                {t("healthLog.replanAlert.text" as any)}
               </div>
               <Button size="md" variant="primary" onClick={handleAdaptPlan} className="whitespace-nowrap">
-                {t("healthLog.replanAlert.button")}
+                {t("healthLog.replanAlert.button" as any)}
               </Button>
             </div>
           </div>
@@ -448,12 +551,18 @@ export default function DetailHealthLog() {
 
       {/* 3. HISTÓRIA */}
       {historyLogs.length > 0 && (
-        <Card title={t("healthLog.historyTitle")}>
+        <Card title={t("healthLog.historyTitle" as any)}>
           <ul className="space-y-2 opacity-80">
             {historyLogs.map((log) => {
-              const eventName = log.event_type === "injury" && log.details?.area && log.details?.type
-                ? `${t(`healthLog.injAreas.${log.details.area}` as any)} · ${t(`healthLog.injTypes.${log.details.type}` as any)}`
-                : t(`healthLog.types.${log.event_type}` as any);
+              const isIllness = log.event_type === "illness";
+              const isFatigue = log.event_type === "fatigue";
+
+              let eventName = t(`healthLog.types.${log.event_type}` as any);
+              if (log.event_type === "injury" && log.details?.area && log.details?.type) {
+                eventName = `${t(`healthLog.injAreas.${log.details.area}` as any)} · ${t(`healthLog.injTypes.${log.details.type}` as any)}`;
+              } else if ((isIllness || isFatigue) && log.details?.symptoms?.length) {
+                eventName = log.details.symptoms.map((s: string) => t(`healthLog.symptoms.${s}` as any)).join(", ");
+              }
 
               return (
                 <li key={log.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -464,7 +573,7 @@ export default function DetailHealthLog() {
                     {log.notes && <div className="text-xs text-white/60 mt-0.5">{log.notes}</div>}
                   </div>
                   <div className="text-xs text-white/50 whitespace-nowrap">
-                    {formatDate(log.start_date)} – {log.end_date ? formatDate(log.end_date) : t("healthLog.today")}
+                    {formatDate(log.start_date)} – {log.end_date ? formatDate(log.end_date) : t("healthLog.today" as any)}
                   </div>
                 </li>
               );
