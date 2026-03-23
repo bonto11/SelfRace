@@ -244,21 +244,23 @@ def build_prompts_for_daily(
         )
     else:
         rest_days_rule = (
-            "- REST DAYS (CRITICAL): Even though the user did not select explicit days off, you MUST forcefully keep AT LEAST 1 DAY completely free of any training! "
-            "Pick a logical rest day (e.g., Monday or Friday). On this rest day, provide exactly one session with sport='other', session_type='rest', duration_min=0, and title='Rest Day'. "
-            "NEVER schedule active training on all 7 days of the week. The Central Nervous System needs a break.\n\n"
+            "- REST DAYS & SPACING (CRITICAL): The user did NOT select explicit days off. "
+            "You MUST forcefully keep AT LEAST 1 DAY (ideally 2) completely free of any training! "
+            "On a rest day, provide exactly one session with sport='other', session_type='rest', duration_min=0, and title='Rest Day'. "
+            "CRITICAL SPACING: DO NOT schedule more than 3 consecutive days of training without a rest day! "
+            "Spread the rest days logically. Avoid putting a rest day on the very first day if it means training 6 days in a row afterwards. Break the week up!\n\n"
         )
 
     if two_enabled and two_cap > 0:
         two_a_day_rule = (
             f"- TWO-A-DAY / GROUPING: Max {two_cap} days/week can have 2 sessions. "
-            "Use this capability specifically to group sessions (e.g., Run + Strength on the same day) so you can free up complete rest days!\n\n"
+            "You MUST use this capability to group sessions (e.g. Run + Strength on the same day) to free up days for complete rest and respect the 'max 3 consecutive days' rule.\n\n"
         )
     else:
         two_a_day_rule = (
             "- TWO-A-DAY / GROUPING (CRITICAL): Max 0 days/week can have 2 sessions. "
             "You are FORBIDDEN from scheduling 2 sessions on the same day. "
-            "If you have more requested workouts than available training days (remember, at least 1 day MUST be complete Rest), "
+            "If you have more requested workouts than available training days (remember, max 3 consecutive days rule), "
             "you MUST DROP or REDUCE some training sessions (e.g., drop a strength or add-on sport session). NEVER schedule training on all 7 days!\n\n"
         )
     
