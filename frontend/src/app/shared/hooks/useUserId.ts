@@ -1,4 +1,3 @@
-// src/app/shared/hooks/useUserId.ts
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -29,7 +28,6 @@ export function useUserId() {
         if (!isMounted) return;
 
         if (!sessionUser) {
-            // Strava / Stripe flow protection
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
                 return; 
@@ -46,7 +44,6 @@ export function useUserId() {
             return;
         }
 
-        // Získanie ID s deduplikáciou
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -60,7 +57,8 @@ export function useUserId() {
             }
             
             try {
-                const res = await sharedResolvePromise;
+                // ✅ OPRAVA PRE VERCEL: Pridaný výkričník (Non-null assertion), aby TS nepanikáril
+                const res = await sharedResolvePromise!;
                 if (res?.success && res.user_id) {
                     numId = res.user_id;
                     window.localStorage.setItem("selfrace_numeric_id", String(numId));
@@ -76,18 +74,18 @@ export function useUserId() {
         }
     };
 
-    // Inicializácia (iba jeden Supabase call pre všetkých 20 widgetov)
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
     }
 
-    sharedSessionPromise.then(({ data }: any) => {
+    // ✅ OPRAVA PRE VERCEL: Pridaný otáznik (Optional Chaining)
+    sharedSessionPromise?.then(({ data }: any) => {
         handleUser(data?.session?.user);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === "INITIAL_SESSION") return; // Ignorujeme, spracovali sme cez getSession
+        if (event === "INITIAL_SESSION") return; 
         if (event === "SIGNED_OUT") {
             handleUser(null);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
