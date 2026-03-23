@@ -2164,7 +2164,7 @@ export const en = {
     errorSave: "Error saving record.",
     errorResolve: "Error updating record.",
     errorDelete: "Error deleting record.",
-    planAdapting: "Plan is being recalculated...",
+    planAdapting: "Recalculating plan... This may take a few minutes. Go grab a glass of water in the meantime.",
     deleteConfirm: {
       title: "Delete record?",
       message:

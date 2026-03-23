@@ -2166,7 +2166,7 @@ export const sk = {
     errorSave: "Chyba pri ukladaní záznamu.",
     errorResolve: "Chyba pri úprave záznamu.",
     errorDelete: "Chyba pri mazaní záznamu.",
-    planAdapting: "Plán sa prepočítava...",
+    planAdapting: "Plán sa prepočítava... Môže to trvať pár minút. Choď sa zatiaľ napiť vody.",
     deleteConfirm: {
       title: "Vymazať záznam?",
       message:

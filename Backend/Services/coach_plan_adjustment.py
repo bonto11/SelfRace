@@ -29,7 +29,7 @@ from Routes_DB.user_recovery import db_get_recent_recovery
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 
-# --- NOVÉ: Import notifikácií ---
+# --- Import notifikácií ---
 from Services.notifications import service_notify_autorecovery_applied
 
 
@@ -151,7 +151,6 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         for extra_session in sessions[1:]:
             sb.table("coach_plan_daily").delete().eq("id", extra_session["id"]).execute()
             
-        # ZMENA: Tréning sme prepísali, odosielame notifikáciu používateľovi
         try:
             service_notify_autorecovery_applied(user_id=user_id, ctx=ctx)
         except Exception as e:
@@ -193,6 +192,7 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
+    # ✅ 1. Skontrolujeme dôvody, kedy chceme len zjemniť (Soften)
     if force_reason in ["health_mild_restriction", "manual_review"]:
         soften_should = True 
         soften_days = 7 
@@ -200,12 +200,14 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    elif force_reason == "health_critical":
+    # ✅ 2. Skontrolujeme dôvody, kedy chceme KOMPLETNÝ REPLAN (aj po vyliečení!)
+    elif force_reason in ["health_critical", "health_resolved", "return_to_training"]:
         weekly_replan_should = True 
-        weekly_replan_reason = "Critical health issue reported."
-        plan_adjustment = {"reason": "forced_critical_health"}
+        weekly_replan_reason = f"Health status changed significantly (Reason: {force_reason})."
+        plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
+    # 3. Ak to neprišlo z health logu, pýtame sa AI
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -227,7 +229,8 @@ def service_coach_autoadjust_after_update(
         }
 
     if weekly_replan_should:
-        if force_reason not in ["health_mild_restriction", "health_critical"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
+        # ✅ Dôležitá zmena: Ak sa používateľ vracia po chorobe, ignorujeme Cooldown!
+        if force_reason not in ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
@@ -250,12 +253,17 @@ def service_coach_autoadjust_after_update(
                 ctx=ctx,
             )
             
-            cur_idx = 1
+            weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
+            cur_idx = _find_current_week_index(weekly_rows, today=today)
+            if cur_idx is None:
+                cur_idx = 1
             
             service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
                 model=None,
+                drop_past_days=True, 
+                reason=force_reason or "weekly_replan",
                 ctx=ctx,
             )
 
