@@ -26,14 +26,16 @@ type Props = {
 };
 
 export default function WidgetAthleteHealth({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
+  // ✅ 1. Vytiahneme aj isChecking
+  const { userId, isChecking } = useUserId();
   const t = useT();
   const [logs, setLogs] = useState<HealthLogRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    // ✅ 2. Neštartujeme fetch, kým sa ešte overuje token
+    if (!userId || isChecking) return;
     let alive = true;
     (async () => {
       setLoading(true);
@@ -48,7 +50,7 @@ export default function WidgetAthleteHealth({ onOpenDetail }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, [userId, t]);
+  }, [userId, t, isChecking]); // ✅ 3. Pridáme isChecking do dependencies
 
   const maxSeverity = useMemo(() => {
     if (!logs.length) return 0;
@@ -69,7 +71,8 @@ export default function WidgetAthleteHealth({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={160}
     >
-      {loading ? (
+      {/* ✅ 4. Zobrazíme loading aj vtedy, keď sa ešte len overuje user */}
+      {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>

@@ -53,7 +53,6 @@ function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
     };
   }
 
-  // Support pre orezaný aj plný formát
   const s: any = row.state.ai_state ? row.state : (row.state.analysis || row.state);
   const generatedAt: string | undefined = s.generated_at || row.created_at;
 
@@ -68,8 +67,6 @@ function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
   const fatigueLabel = aiState.fatigue_level || null;
   const injuryLabel = aiState.injury_risk || null;
 
-  // ✅ Nájdeme najrelevantnejšiu schopnosť na zobrazenie vo widgete
-  // Priorita: Run -> Ride -> Strength
   let capabilityLabel: string | null = null;
   let capabilityKey: string | null = null;
 
@@ -101,7 +98,8 @@ function pickAccent(ui: UiState) {
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
+  // ✅ Vytiahneme isChecking
+  const { userId, isChecking } = useUserId();
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +108,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const { lang } = useSettings();
 
   useEffect(() => {
-    if (!userId) return;
+    // ✅ Neštartujeme API call počas overovania
+    if (!userId || isChecking) return;
     let alive = true;
     (async () => {
       setLoading(true);
@@ -125,7 +124,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, [userId, t]);
+  }, [userId, t, isChecking]); // ✅ isChecking do závislostí
 
   const ui = useMemo(() => extractUiState(row, lang), [row, lang]);
   const accent = useMemo(() => pickAccent(ui), [ui]);
@@ -147,7 +146,8 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={180}
     >
-      {loading ? (
+      {/* ✅ Pridaný loader pre isChecking */}
+      {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
@@ -178,7 +178,6 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
             
-            {/* ✅ Dynamický label podľa toho, čo je dostupné */}
             {ui.capabilityLabel && ui.capabilityKey && (
               <>
                  <div className={WIDGET_KV_LABEL}>{t(`common.sports.${ui.capabilityKey}` as any)}</div>

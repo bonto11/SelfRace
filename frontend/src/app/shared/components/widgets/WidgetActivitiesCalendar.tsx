@@ -83,7 +83,8 @@ export default function WidgetActivitiesCalendar({
   perDayLimit = 6,
 }: Props) {
   const router = useRouter();
-  const { userId } = useUserId();
+  // ✅ 1. Získame aj isChecking
+  const { userId, isChecking } = useUserId();
   const { selectByRange } = useActivityData();
   const t = useT();
   const { plan } = useCoachData();
@@ -108,14 +109,14 @@ export default function WidgetActivitiesCalendar({
   const [externalRows, setExternalRows] = React.useState<ExternalEvent[]>([]);
   const [extErr, setExtErr] = React.useState<string | null>(null);
 
-  // ✅ Pridaný stav pre zranenie do kalendára
   const [activeInjury, setActiveInjury] = React.useState<{
     severity: number;
     text: string;
   } | null>(null);
 
   React.useEffect(() => {
-    if (!userId) return;
+    // ✅ 2. Ak nemáme userId, alebo hook stále overuje platnosť tokenu, nerobíme API cally
+    if (!userId || isChecking) return;
     (async () => {
       try {
         const prefs = await apiFetchUserPref(userId, "coach.prefs");
@@ -130,16 +131,16 @@ export default function WidgetActivitiesCalendar({
         console.warn("[CalendarWidget] Failed to check injury state", err);
       }
     })();
-  }, [userId]);
+  }, [userId, isChecking]); // ✅ Pridali sme isChecking do závislostí
 
   React.useEffect(() => {
-    if (!userId) return;
+    // ✅ 3. To isté tu: neštartujeme fetch, kým isChecking neskončí
+    if (!userId || isChecking) return;
     let alive = true;
 
     (async () => {
       setExtErr(null);
       try {
-        // ✅ Paralelné volanie udalostí aj zranení pre rýchlejší render
         const [rows, prefsRes] = await Promise.all([
           apiGetExternalEventsWindow(userId, startIso, endIso).catch((e) => {
             throw e;
@@ -150,7 +151,6 @@ export default function WidgetActivitiesCalendar({
         if (!alive) return;
         setExternalRows(Array.isArray(rows) ? rows : []);
 
-        // Vyhodnotenie zranenia
         if (
           prefsRes &&
           Array.isArray(prefsRes.injuries) &&
@@ -184,7 +184,7 @@ export default function WidgetActivitiesCalendar({
     return () => {
       alive = false;
     };
-  }, [userId, startIso, endIso, t]);
+  }, [userId, startIso, endIso, t, isChecking]); // ✅ isChecking v poli závislostí
 
   const byDay = React.useMemo(() => {
     const map = new Map<string, DayItem[]>();
@@ -288,10 +288,6 @@ export default function WidgetActivitiesCalendar({
     externalRows,
   ]);
 
-  const weekLabel =
-    `${monday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })} – ` +
-    `${sunday.toLocaleDateString("sk-SK", { month: "short", day: "2-digit" })}`;
-
   const handleOpen = () => router.push(openHref);
 
   const todayStr = new Date().toDateString();
@@ -307,7 +303,7 @@ export default function WidgetActivitiesCalendar({
 
   return (
     <WidgetCard
-      title={t("calendar.widget.title")} // ✅ Odstránený weekLabel z nadpisu
+      title={t("calendar.widget.title")}
       tooltip={t("calendar.widget.tooltip" as any)}
       onOpen={handleOpen}
       accent={isMedicalSuspend ? "danger" : "none"}
@@ -319,7 +315,6 @@ export default function WidgetActivitiesCalendar({
         <div className="flex-1">
           {extErr && <div className={WIDGET_ERROR_LINE}>{extErr}</div>}
 
-          {/* ✅ Jasné varovanie pre používateľa nad mriežkou kalendára */}
           {activeInjury && (
             <div
               className={`mb-3 px-3 py-2 rounded-md border text-xs flex items-center gap-2 ${

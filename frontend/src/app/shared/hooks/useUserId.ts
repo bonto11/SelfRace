@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-let globalResolvePromise: Promise<any> | null = null;
+// 🛡️ GLOBÁLNE ZÁMKY (Deduplikácia pre všetkých 20 widgetov)
+// Ak sa 20 widgetov pýta naraz, vytvorí sa len JEDEN request. Ostatní čakajú na ten istý.
+let sharedSessionPromise: Promise<any> | null = null;
+let sharedResolvePromise: Promise<any> | null = null;
 
 export function useUserId() {
   const router = useRouter();
@@ -18,31 +21,22 @@ export function useUserId() {
       uuid: null 
   });
   const [isChecking, setIsChecking] = useState(true);
-  
-  // Zabraňuje double-renderu
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
     let isMounted = true;
     const supabase = getSupabaseBrowser();
 
     const handleUser = async (sessionUser: any) => {
         if (!isMounted) return;
 
+        // 1. Ak nie sme prihlásení
         if (!sessionUser) {
-            // Sme si 100% istí, že user nemá session (LocalStorage bol naozaj prázdny)
-            
-            // Ochrana pred zmazaním počas návratu zo Stravy/Stripe
+            // Ochrana Stravy / Stripe
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
-                console.log("⏳ [AUTH] Zistil som návrat zo Stravy/Stripe! Trpezlivo čakám...");
-                return;
+                return; // Sme v OAuth procese, nič nemažeme
             }
 
-            console.log("🔴 [AUTH] Naozaj žiadna session, mažem dáta a odhlasujem.");
             window.localStorage.removeItem("selfrace_numeric_id");
             setState({ id: null, uuid: null });
             setIsChecking(false);
@@ -54,28 +48,30 @@ export function useUserId() {
             return;
         }
 
-        // ✅ Máme usera! (Token prežil F5)
-        console.log("🟢 [AUTH] Úspešné prihlásenie. UUID:", sessionUser.id);
+        // 2. Sme prihlásení, ideme získať naše číselné ID (s deduplikáciou!)
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
-            if (!globalResolvePromise) {
-                globalResolvePromise = callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
+            // Ak sa 20 widgetov dostane sem, len PRVÝ vytvorí backend request
+            if (!sharedResolvePromise) {
+                sharedResolvePromise = callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ auth_uid: sessionUser.id })
                 });
+
+                // Vyčistíme zámok po sekunde, aby neskoršie refreshe nebrali starú cache
+                setTimeout(() => { sharedResolvePromise = null; }, 1000);
             }
+            
             try {
-                const res = await globalResolvePromise;
+                const res = await sharedResolvePromise; // Všetci čakajú na 1 request
                 if (res?.success && res.user_id) {
                     numId = res.user_id;
                     window.localStorage.setItem("selfrace_numeric_id", String(numId));
                 }
             } catch (e) {
                 console.error("[AUTH] Backend resolve error:", e);
-            } finally {
-                globalResolvePromise = null;
             }
         }
 
@@ -85,15 +81,23 @@ export function useUserId() {
         }
     };
 
-    // ✅ TOTO JE TA MAGICKÁ OPRAVA:
-    // Už sa nepýtame cez getSession(). Iba čakáme, kým nám Supabase sám povie, že prečítal storage.
+    // ✅ DEDUPLIKOVANÁ KONTROLA SUPABASE SESSION (Riešenie tvojho nápadu)
+    // Miesto toho aby sa 20 widgetov pýtalo Supabase disku, spýta sa len prvý.
+    if (!sharedSessionPromise) {
+        sharedSessionPromise = supabase.auth.getSession();
+        setTimeout(() => { sharedSessionPromise = null; }, 1000); // Reset zámku
+    }
+
+    // Všetkých 20 widgetov čaká na jeden spoločný výsledok z disku
+    sharedSessionPromise.then(({ data }) => {
+        handleUser(data.session?.user);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        console.log(`🔵 [AUTH EVENT] ${event}`, "Session exists?", !!session);
-        
+        if (event === "INITIAL_SESSION") return; // Ignorujeme, toto už rieši náš zámok vyššie
         if (event === "SIGNED_OUT") {
             handleUser(null);
-        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
-            // INITIAL_SESSION vystrelí raz, hneď ako Supabase bezpečne načíta token z LocalStorage.
+        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
             handleUser(session?.user);
         }
     });
@@ -110,7 +114,7 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        getSupabaseBrowser().auth.getSession().then(() => {
+        getSupabaseBrowser().auth.getSession().then(({ data }) => {
             setTimeout(() => setIsChecking(false), 500);
         });
     }

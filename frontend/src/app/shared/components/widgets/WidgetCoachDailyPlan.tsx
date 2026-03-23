@@ -1,4 +1,3 @@
-// src/app/features/coach/components/WidgetCoachDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -73,17 +72,14 @@ function buildUiState(
   const days = overview.days;
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // Spočítame budúce aktívne tréningy (vrátane dneška)
   let futureActiveDaysCount = 0;
   let futureSessionsCount = 0;
 
   for (const d of days) {
-    // Ignorujeme dni v minulosti
     if (d.date < todayStr) continue;
 
     const sessionCountForDay = d.sessions?.length ?? 0;
     if (sessionCountForDay > 0) {
-      // Overíme, či to nie je len "rest" deň
       const hasRealWorkout = d.sessions!.some(
         (s) => s.session_type?.toLowerCase() !== "rest",
       );
@@ -108,7 +104,8 @@ function buildUiState(
 }
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
+  // ✅ isChecking v akcii
+  const { userId, isChecking } = useUserId();
   const t = useT();
   const { lang } = useSettings();
 
@@ -124,7 +121,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    // ✅ Nezaťažujeme backend predčasne
+    if (!userId || isChecking) return;
 
     let alive = true;
     (async () => {
@@ -155,7 +153,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
             if (maxInjury && maxInjury.severity > 0) {
               setInjurySeverity(maxInjury.severity);
-              // Zostavíme text: Oblasť (N/10)
               const areaKey = `prefs.sections.injuriesSection.areas.${maxInjury.area}`;
               const areaTrans = (t as any)(areaKey);
               const areaLabel = areaTrans === areaKey ? maxInjury.area : areaTrans;
@@ -183,7 +180,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId, t]);
+  }, [userId, t, isChecking]); // ✅ Pridali sme dependency
 
   const ui = useMemo(
     () => buildUiState(overview, injurySeverity),
@@ -199,7 +196,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={190}
     >
-      {loading ? (
+      {/* ✅ isChecking zablokuje render, kým nie je overené */}
+      {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
