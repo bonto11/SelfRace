@@ -153,7 +153,6 @@ def build_prompts_for_daily(
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
 
-    # --- VYŤAHOVANIE DŇOV VOĽNA ---
     days_off = pref_obj.get("days_off") or []
     if isinstance(days_off, list):
         days_off = [str(d) for d in days_off if isinstance(d, str) and d.strip()]
@@ -234,18 +233,41 @@ def build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     
-    # --- TVRDÉ PRAVIDLÁ PRE CNS A DNI VOĽNA ---
+    # =========================================================================
+    # --- TVRDÉ PRAVIDLÁ PRE CNS, DNI VOĽNA A ZHLUKOVANIE ---
+    # =========================================================================
     days_off_str = ", ".join(days_off) if days_off else ""
     if days_off_str:
-        rest_days_rule = f"- REST DAYS (CRITICAL): The user explicitly requested these days off: {days_off_str}. You MUST schedule ONLY complete 'rest' on these days.\n\n"
+        rest_days_rule = (
+            f"- REST DAYS (CRITICAL): The user explicitly requested these days off: {days_off_str}. "
+            "You MUST schedule ONLY a complete 'rest' on these days (sport='other', session_type='rest', duration_min=0). No exceptions.\n\n"
+        )
     else:
-        rest_days_rule = "- REST DAYS (CRITICAL): Even though the user did not explicitly specify days off, you MUST forcefully schedule at least 1 (preferably 2) days of COMPLETE REST (session_type='rest'). The Central Nervous System needs recovery.\n\n"
+        rest_days_rule = (
+            "- REST DAYS (CRITICAL): Even though the user did not select explicit days off, you MUST forcefully keep AT LEAST 1 DAY completely free of any training! "
+            "Pick a logical rest day (e.g., Monday or Friday). On this rest day, provide exactly one session with sport='other', session_type='rest', duration_min=0, and title='Rest Day'. "
+            "NEVER schedule active training on all 7 days of the week. The Central Nervous System needs a break.\n\n"
+        )
 
-    two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Use this capability specifically to group sessions (e.g., Run + Strength on the same day) so you can free up complete rest days!\n\n"
+    if two_enabled and two_cap > 0:
+        two_a_day_rule = (
+            f"- TWO-A-DAY / GROUPING: Max {two_cap} days/week can have 2 sessions. "
+            "Use this capability specifically to group sessions (e.g., Run + Strength on the same day) so you can free up complete rest days!\n\n"
+        )
+    else:
+        two_a_day_rule = (
+            "- TWO-A-DAY / GROUPING (CRITICAL): Max 0 days/week can have 2 sessions. "
+            "You are FORBIDDEN from scheduling 2 sessions on the same day. "
+            "If you have more requested workouts than available training days (remember, at least 1 day MUST be complete Rest), "
+            "you MUST DROP or REDUCE some training sessions (e.g., drop a strength or add-on sport session). NEVER schedule training on all 7 days!\n\n"
+        )
     
-    strength_rule = f"- STRENGTH: Target {strength_str}, but DO NOT sacrifice complete rest days to achieve this. Combine strength with another sport on the same day if needed.\n\n"
+    strength_rule = (
+        f"- STRENGTH: Target {strength_str}. Use sport='strength'. "
+        "CRITICAL: If 'two_a_day' is disabled and you lack days to fit all sessions, REDUCE the number of strength sessions. DO NOT sacrifice complete rest days to achieve the strength target.\n\n"
+    )
+    # =========================================================================
 
-    # --- DOPLNENÉ: Pravidlo pre Dlhý beh ---
     long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
 
     multi_sport_rule = ""
@@ -382,7 +404,6 @@ def build_prompts_for_daily(
     safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
     context_for_ai["user_settings"] = safe_settings
 
-    # --- NOVÉ: Detekcia dôvodu zjemnenia (Soften) ---
     reason = context_payload.get("generate_reason")
     special_reason_rule = ""
     
@@ -418,12 +439,12 @@ def build_prompts_for_daily(
         f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
-        + rest_days_rule     # <--- NOVÉ: PRAVIDLO PRE DNI VOĽNA
-        + two_a_day_rule     # <--- UPRAVENÉ: INŠTRUKCIA NA ZHLUKOVANIE TRÉNINGOV
+        + rest_days_rule     
+        + two_a_day_rule     
         + beginner_rule
-        + long_run_rule      # <--- OPRAVA: Vrátený LONG RUN RULE
+        + long_run_rule      
         + multi_sport_rule
-        + strength_rule      # <--- UPRAVENÉ: SILA NESMIE ZABIŤ DEŇ VOĽNA
+        + strength_rule      
         + intensity_format_rule
         + endurance_structure_rule 
         + strength_structure_rule
