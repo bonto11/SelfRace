@@ -432,6 +432,18 @@ def build_prompts_for_daily(
             "- YOU MUST soften the remaining days of this week.\n"
             "- Replace hard intervals with easy endurance rides/runs or active recovery.\n"
         )
+    # ✅ NOVÉ: Extrémne prísne pravidlo pre "Return to Play" po vyliečení
+    elif reason in ["health_resolved", "health_resolved_return", "return_to_training"]:
+        special_reason_rule = (
+            "\n--- ⚠️ RETURN TO TRAINING (RECOVERED) ⚠️ ---\n"
+            "- The athlete HAS JUST RECOVERED from a significant illness or injury.\n"
+            "- CRITICAL: DO NOT schedule ANY high intensity (No VO2Max, No Threshold, No Sprints, No Z4/Z5).\n"
+            "- CRITICAL: ONLY schedule Z1/Z2 (Aerobic / Recovery) sessions for the ENTIRE week.\n"
+            "- Provide EXTRA REST DAYS (e.g. 3 rest days instead of 1).\n"
+            "- Ignore their usual Strength training goals if needed to keep the overall load very light.\n"
+            "- Regarding EXTERNAL EVENTS (like Football): You MUST still include them on their scheduled dates, BUT add a strong warning in the `notes` that the athlete should participate ONLY at a very low intensity (Zone 1/2) or skip it completely if they don't feel 100% recovered.\n"
+            "- Their body is still fragile. A 'Threshold run' right after being sick is a terrible coaching mistake.\n"
+        )
 
     user_txt = (
         "Generate a weekly plan.\n"
