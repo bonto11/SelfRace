@@ -1,29 +1,41 @@
+// src/app/shared/utils/supabaseBrowser.ts
 "use client";
 
-import { createClient } from "@supabase/supabase-js"; 
+import { createBrowserClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-let _client: ReturnType<typeof createClient> | null = null;
+let _client: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseBrowser() {
-  // 🚨 1. SSR OCHRANA: Ak bežíme na serveri, vrátime len dočasnú prázdnu atrapu.
-  // HLAVNE ju neuložíme do globálnej premennej _client!
-  if (typeof window === "undefined") {
-    return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      auth: { persistSession: false }
-    });
-  }
-
-  // ✅ 2. SME V PREHLIADAČI: Tu už window existuje. Bezpečne pripojíme LocalStorage.
   if (!_client) {
-    _client = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage, // Tu už s istotou vie, že má použiť disk!
+    _client = createBrowserClient(
+      SUPABASE_URL!,
+      SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+        cookies: {
+          get(name: string) {
+            if (typeof document === 'undefined') return '';
+            const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+            return match ? decodeURIComponent(match[3]) : '';
+          },
+          set(name: string, value: string, options: any) {
+            if (typeof document === 'undefined') return;
+            // 🚨 NATVRDO: Cookie platí 1 rok. Pri F5 sa nestratí.
+            document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
+          },
+          remove(name: string, options: any) {
+            if (typeof document === 'undefined') return;
+            // 🚨 NATVRDO: Správne zmazanie pre celú appku
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+          }
+        }
       }
-    });
+    );
   }
   return _client;
 }
