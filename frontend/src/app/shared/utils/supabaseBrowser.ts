@@ -1,13 +1,14 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+// ✅ ZMENA: Používame základný klient, ktorý je stavaný na LocalStorage
+import { createClient } from "@supabase/supabase-js"; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-let _client: ReturnType<typeof createBrowserClient> | null = null;
+let _client: ReturnType<typeof createClient> | null = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    _client = createBrowserClient(
+    _client = createClient(
       SUPABASE_URL!,
       SUPABASE_ANON_KEY!,
       {
@@ -15,23 +16,8 @@ export function getSupabaseBrowser() {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-        },
-        cookies: {
-          get(name: string) {
-            if (typeof document === 'undefined') return '';
-            const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
-            return match ? decodeURIComponent(match[3]) : '';
-          },
-          set(name: string, value: string, options: any) {
-            if (typeof document === 'undefined') return;
-            // Natvrdo 1 rok pamäte
-            document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
-          },
-          remove(name: string, options: any) {
-            if (typeof document === 'undefined') return;
-            // Bezpečné zmazanie
-            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-          }
+          // ✅ TOTO JE ZÁCHRANA: Natvrdo povieme Supabase, nech použije spoľahlivý LocalStorage
+          storage: typeof window !== "undefined" ? window.localStorage : undefined,
         }
       }
     );
