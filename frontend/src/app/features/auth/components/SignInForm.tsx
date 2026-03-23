@@ -1,4 +1,3 @@
-// src/app/features/auth/components/SignInForm.tsx
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -39,16 +38,16 @@ export default function SignInForm() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // ✅ Blokovanie formulára počas úvodného čistenia
+  // ✅ Blokovanie formulára počas úvodného čistenia (požiadavka)
   const [isClearing, setIsClearing] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // ✅ TVOJA POŽIADAVKA: Spustí sa len raz pri inite, zmaže všetko staré
+  // ✅ ČISTENIE PRI INITE: Zmaže cookies aj localStorage, a až po úspechu odomkne UI
   useEffect(() => {
     let isMounted = true;
-    const cleanup = async () => {
+    const cleanup = () => {
       try {
         if (typeof document !== "undefined") {
           // Zmažeme cookies
@@ -56,7 +55,7 @@ export default function SignInForm() {
           for (let i = 0; i < cookies.length; i++) {
             const name = cookies[i].split("=")[0].trim();
             if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id") {
-               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+               document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
             }
           }
           // Zmažeme LocalStorage
@@ -71,9 +70,10 @@ export default function SignInForm() {
       } catch (e) {
         console.warn("Cleanup failed", e);
       } finally {
-        if (isMounted) setIsClearing(false); // Povolíme UI
+        if (isMounted) setIsClearing(false); // Odomkneme tlačidlá!
       }
     };
+    
     cleanup();
     return () => { isMounted = false; };
   }, []);
