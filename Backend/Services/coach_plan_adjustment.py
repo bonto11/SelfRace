@@ -197,7 +197,23 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ 1. Skontrolujeme dôvody, kedy chceme len zjemniť (Soften)
+    # ✅ KRITICKÉ ZRANENIE (9/10): Neskúšame adaptovať, len zmažeme budúcnosť
+    if force_reason == "health_critical":
+        print("[AUTOADJUST DEBUG] Critical health reported! Suspending plan.")
+        db_clear_daily_for_user_range(
+            user_id=user_id,
+            date_from=(today + timedelta(days=1)).isoformat(), # Zmažeme všetko od zajtra. Dnešok môžeme nechať tak alebo zmazať. Pre istotu mažeme od zajtra, užívateľ to tam aj tak uvidí červené vo widgete.
+            date_to=(today + timedelta(days=100)).isoformat(),
+            ctx=ctx,
+            global_user_clear=True
+        )
+        return {
+            "changed": True,
+            "mode": "plan_suspended",
+            "reason": "critical_injury_reported_future_deleted"
+        }
+
+    # 1. Zjemniť (Soften)
     if force_reason in ["health_mild_restriction", "manual_review"]:
         soften_should = True 
         soften_days = 7 
@@ -205,14 +221,14 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    # ✅ 2. Skontrolujeme dôvody, kedy chceme KOMPLETNÝ REPLAN (aj po vyliečení!)
-    elif force_reason in ["health_critical", "health_resolved", "return_to_training"]:
+    # 2. KOMPLETNÝ REPLAN (po vyliečení!)
+    elif force_reason in ["health_resolved", "return_to_training"]:
         weekly_replan_should = True 
-        weekly_replan_reason = f"Health status changed significantly (Reason: {force_reason})."
+        weekly_replan_reason = f"Health status resolved, initiating Return to Play. (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Ak to neprišlo z health logu, pýtame sa AI
+    # 3. Ak to neprišlo z health logu, pýtame sa AI na klasický auto-adjust
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -265,7 +281,6 @@ def service_coach_autoadjust_after_update(
             
             weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
             
-            # Detekcia týždňa
             cur_idx = _find_current_week_index(weekly_rows, today=today)
             if cur_idx is None and weekly_rows:
                 weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
@@ -298,7 +313,7 @@ def service_coach_autoadjust_after_update(
                 "reason": weekly_replan_reason or "weekly plan re-generated",
                 "plan_adjustment": plan_adjustment,
                 "daily_extend": daily_extend,
-                "daily_result_debug": daily_res # Pridané pre náš debug
+                "daily_result_debug": daily_res
             }
 
     if soften_should:
