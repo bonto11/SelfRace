@@ -26,7 +26,10 @@ from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
 )
-from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
+from Routes_DB.coach_plan_weekly import (
+    db_get_weekly_for_user_plan,
+    db_delete_future_weekly_plans # ✅ NOVÝ IMPORT NA ZMAZANIE WEEKLY!
+)
 from Routes_DB.user_recovery import db_get_recent_recovery
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
@@ -200,13 +203,23 @@ def service_coach_autoadjust_after_update(
     # ✅ KRITICKÉ ZRANENIE (9/10): Neskúšame adaptovať, len zmažeme budúcnosť
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending plan.")
+        
+        # 1. Zmažeme daily plán
         db_clear_daily_for_user_range(
             user_id=user_id,
-            date_from=(today + timedelta(days=1)).isoformat(), # Zmažeme všetko od zajtra. Dnešok môžeme nechať tak alebo zmazať. Pre istotu mažeme od zajtra, užívateľ to tam aj tak uvidí červené vo widgete.
+            date_from=(today + timedelta(days=1)).isoformat(), 
             date_to=(today + timedelta(days=100)).isoformat(),
             ctx=ctx,
             global_user_clear=True
         )
+        
+        # 2. Zmažeme weekly plán! ✅ TOTO TU CHÝBALO!
+        db_delete_future_weekly_plans(
+             user_id=user_id,
+             from_date_iso=(today + timedelta(days=1)).isoformat(),
+             ctx=ctx
+        )
+
         return {
             "changed": True,
             "mode": "plan_suspended",
