@@ -1,17 +1,25 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+// ✅ ZMENA: Namiesto @supabase/ssr použijeme štandardný klientský balíček
+import { createClient } from "@supabase/supabase-js"; 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-let _client: ReturnType<typeof createBrowserClient> | null = null;
+let _client: ReturnType<typeof createClient> | null = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    _client = createBrowserClient(
+    _client = createClient(
       SUPABASE_URL!,
-      SUPABASE_ANON_KEY!
-      // Zásadné: Žiadny objekt "cookies: {...}". 
-      // Supabase sa sám rozhodne, či použije cookie chunking alebo localStorage.
+      SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          // ✅ TOTO JE ZÁCHRANA: Natvrdo povieme Supabase, nech použije spoľahlivý LocalStorage
+          storage: typeof window !== "undefined" ? window.localStorage : undefined,
+        }
+      }
     );
   }
   return _client;
