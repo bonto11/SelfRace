@@ -1,3 +1,4 @@
+// src/app/features/auth/components/SignInForm.tsx
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -37,9 +38,45 @@ export default function SignInForm() {
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // ✅ Blokovanie formulára počas úvodného čistenia
+  const [isClearing, setIsClearing] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
+
+  // ✅ TVOJA POŽIADAVKA: Spustí sa len raz pri inite, zmaže všetko staré
+  useEffect(() => {
+    let isMounted = true;
+    const cleanup = async () => {
+      try {
+        if (typeof document !== "undefined") {
+          // Zmažeme cookies
+          const cookies = document.cookie.split(";");
+          for (let i = 0; i < cookies.length; i++) {
+            const name = cookies[i].split("=")[0].trim();
+            if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id") {
+               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+            }
+          }
+          // Zmažeme LocalStorage
+          const keys = Object.keys(window.localStorage);
+          for (const key of keys) {
+            if (key.startsWith("sb-") || key.startsWith("selfrace")) {
+              window.localStorage.removeItem(key);
+            }
+          }
+          window.sessionStorage.clear();
+        }
+      } catch (e) {
+        console.warn("Cleanup failed", e);
+      } finally {
+        if (isMounted) setIsClearing(false); // Povolíme UI
+      }
+    };
+    cleanup();
+    return () => { isMounted = false; };
+  }, []);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,6 +100,9 @@ export default function SignInForm() {
     router.replace("/activities");
   }
 
+  // Tlačidlo je aktívne až keď: sa nečistí, nenačítava API, a máme vypísané obe polia.
+  const isSubmitDisabled = isClearing || loading || !email.trim() || !pwd.trim();
+
   return (
     <AuthShell
       title={t("signIn.loginTitle")}
@@ -83,6 +123,7 @@ export default function SignInForm() {
             onChange={(e) => setEmail(e.currentTarget.value)}
             required
             autoComplete="email"
+            disabled={isClearing}
           />
         </div>
 
@@ -94,6 +135,7 @@ export default function SignInForm() {
             onChange={(e) => setPwd(e.currentTarget.value)}
             required
             autoComplete="current-password"
+            disabled={isClearing}
           />
         </div>
 
@@ -103,8 +145,8 @@ export default function SignInForm() {
           </div>
         ) : null}
 
-        <Button type="submit" variant="primary" block disabled={loading}>
-          {loading ? t("signIn.logingIn") : t("signIn.logIn")}
+        <Button type="submit" variant="primary" block disabled={isSubmitDisabled}>
+          {isClearing ? t("common.loading") : loading ? t("signIn.logingIn") : t("signIn.logIn")}
         </Button>
 
         <div className={AUTH_LINK_ROW}>
@@ -128,7 +170,6 @@ export default function SignInForm() {
           </span>
         </div>
 
-        {/* Strava branding */}
         <div className="mt-6 flex justify-center">
           <Image
             src={STRAVA_ASSETS.poweredBySvg_white}
