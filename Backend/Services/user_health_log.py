@@ -89,14 +89,14 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     active_logs = db_get_active_health_logs(user_id=user_id, ctx=ctx)
     today_iso = datetime.now(timezone.utc).date().isoformat()
 
-    # SCENÁR 1: Všetko vyriešené (0 aktívnych problémov)
+    # SCENÁR 1: Všetko vyriešené (0 aktívnych problémov) -> Návrat k tréningu
     if not active_logs:
         service_enqueue_job(
             user_id=user_id,
-            job_type="weekly_generate",
-            payload={"overwrite": True, "reason": "health_resolved_return"},
+            job_type="coach_autoadjust", # ZMENA: Voláme náš hlavný dirigent
+            payload={"force_reason": "health_resolved"},
             priority=90,
-            dedupe_key=f"weekly_gen_health_resolved_{user_id}",
+            dedupe_key=f"coach_autoadjust_health_resolved_{user_id}",
             ctx=ctx
         )
         return {"action": "regenerate", "message": "Záznamy sú vyriešené. AI pripravuje návratový plán."}
@@ -106,41 +106,27 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
 
     # SCENÁR 2: Kritický stav (Vážnosť 7 - 10)
     if max_severity >= 7:
-        # Lekárske voľno -> Vymazať budúcnosť
-        db_delete_future_daily_plans(user_id=user_id, from_date=today_iso, ctx=ctx)
-        db_delete_future_weekly_plans(user_id=user_id, from_date_iso=today_iso, ctx=ctx)
-        
+        service_enqueue_job(
+            user_id=user_id,
+            job_type="coach_autoadjust",
+            payload={"force_reason": "health_critical"},
+            priority=100,
+            dedupe_key=f"coach_autoadjust_health_critical_{user_id}",
+            ctx=ctx
+        )
         return {
-            "action": "cleared", 
-            "message": "Nariadené lekárske voľno. Budúce tréningy a týždne boli zmazané, oddychuj."
+            "action": "suspend", 
+            "message": "Nariadené lekárske voľno. Budúce tréningy boli pozastavené."
         }
 
-    # SCENÁR 3: Mierny stav (Vážnosť 1 - 6)
+    # SCENÁR 3: Mierny stav (Vážnosť 1 - 6) -> Soften (Zjemnenie)
     else:
-        # Zistíme, či kalendár nebol predtým vymazaný (napr. prechod z ťažkej choroby na ľahkú)
-        has_weekly = db_check_weekly_data_exists(user_id=user_id, ctx=ctx)
-        
-        if not has_weekly:
-            # Plán bol zmazaný, užívateľ sa zotavuje.
-            # Musíme VYGENEROVAŤ nový plán s pokynom na extra 1-2 dni voľna a ľahký štart.
-            service_enqueue_job(
-                user_id=user_id,
-                job_type="weekly_generate",
-                payload={"overwrite": True, "reason": "health_recovery_mild"},
-                priority=90,
-                dedupe_key=f"weekly_gen_health_rec_{user_id}",
-                ctx=ctx
-            )
-            return {"action": "regenerate", "message": "Zlepšenie stavu! AI pripravuje pozvoľný návrat (s extra dňami na doliečenie)."}
-        
-        else:
-            # Plán existuje (nový soplík počas inak zdravého tréningu) -> Iba zjemníme aktuálny plán
-            service_enqueue_job(
-                user_id=user_id,
-                job_type="coach_autoadjust",
-                payload={"force_reason": "health_mild_restriction"},
-                priority=100,
-                dedupe_key=f"daily_autoadjust_health_{user_id}",
-                ctx=ctx
-            )
-            return {"action": "autoadjust", "message": "AI zjemňuje najbližšie tréningy podľa tvojho stavu."}
+        service_enqueue_job(
+            user_id=user_id,
+            job_type="coach_autoadjust",
+            payload={"force_reason": "health_mild_restriction"},
+            priority=100,
+            dedupe_key=f"coach_autoadjust_health_mild_{user_id}",
+            ctx=ctx
+        )
+        return {"action": "autoadjust", "message": "AI zjemňuje najbližšie tréningy podľa tvojho stavu."}
