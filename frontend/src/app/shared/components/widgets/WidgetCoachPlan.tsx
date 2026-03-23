@@ -35,7 +35,6 @@ import {
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 
-// ✅ NOVÝ IMPORT: Health logs pre kontrolu zranení
 import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_log";
 
 import Link from "next/link";
@@ -134,9 +133,7 @@ export default function WidgetCoachPlan() {
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
   
-  // ✅ NOVÝ STATE PRE ZDRAVIE
   const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
-
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
 
   const loading = loadingKind !== null && loadingKind !== "status";
@@ -150,7 +147,7 @@ export default function WidgetCoachPlan() {
   const isMedicalSuspend = maxInjurySeverity >= 7;
 
   const formatAiError = useCallback((out: any): string => {
-    if (!out) return t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
+    if (!out) return t("api.ai_errors.generic_error" as any);
     
     const code = out?.error_code || out?.code || "generic_error";
     const errorKey = `api.ai_errors.${code}`;
@@ -160,7 +157,7 @@ export default function WidgetCoachPlan() {
         return translatedError;
     }
     
-    return out?.message || t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
+    return out?.message || t("api.ai_errors.generic_error" as any);
   }, [t]);
 
   useEffect(() => {
@@ -175,7 +172,6 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     setLoadingKind("status");
     try {
-      // ✅ Pridali sme dotaz na aktívne zranenia/choroby z Health Logu
       const [state, planStatus, healthLogs] = await Promise.all([
         apiGetLatestAthleteState(userId).catch(() => null),
         apiActivePlanStatus(userId).catch(() => null),
@@ -288,14 +284,14 @@ export default function WidgetCoachPlan() {
       if (res.success) {
         await fetchStatus(); 
       } else {
-        setError(res.error || "Nepodarilo sa spustiť plán.");
+        setError(res.error || t("coachPlan.errors.genericStart" as any));
       }
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, isMedicalSuspend, fetchStatus]);
+  }, [userId, isMedicalSuspend, fetchStatus, t]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
@@ -335,11 +331,11 @@ export default function WidgetCoachPlan() {
   const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
-    if (isMedicalSuspend) return "Kritické zranenie: Generovanie a spustenie zablokované.";
+    if (isMedicalSuspend) return t("coachPlan.errors.medicalBlocked" as any);
     if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
-    if (!latestStateId) return "Najskôr vykonaj analýzu stavu.";
-    if (!hasWeekly) return "Chýba vygenerovaný týždenný plán.";
-    if (!hasDaily) return "Chýba vygenerovaný denný plán.";
+    if (!latestStateId) return t("coachPlan.errors.needAnalyze" as any);
+    if (!hasWeekly) return t("coachPlan.errors.needWeekly" as any);
+    if (!hasDaily) return t("coachPlan.errors.needDaily" as any);
     return null;
   }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
@@ -354,19 +350,24 @@ export default function WidgetCoachPlan() {
 
       <div className={WIDGET_ACTIONS_WRAP}>
 
-        {/* ✅ OZNÁMENIE O ZRANENÍ - Presmeruje do Health Logu */}
         {isMedicalSuspend && (
-          <div className="mb-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-200">
+          <div 
+            className="mb-2 p-3 rounded-xl border"
+            style={{
+              backgroundColor: `${appColors.statusError}1A`, // 10% opacity
+              borderColor: `${appColors.statusError}33`,     // 20% opacity
+              color: appColors.statusError
+            }}
+          >
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl">🛑</span>
-              <strong className="text-sm">Tréningový stop-stav!</strong>
+              <strong className="text-sm">{t("coachPlan.widget.medicalSuspendBanner.title" as any)}</strong>
             </div>
             <p className="text-xs opacity-90 leading-relaxed mb-3">
-              Tvoj plán je zablokovaný kvôli nahlásenému vážnemu zraneniu alebo chorobe ({maxInjurySeverity}/10).
-              Ak si už v poriadku, <strong>vyrieš tento stav v Health Logu</strong> a následne daj "Navrhnúť návrat k tréningu". Plán si zbytočne neukončuj.
+              {(t("coachPlan.widget.medicalSuspendBanner.text" as any) as string).replace('{{severity}}', String(maxInjurySeverity))}
             </p>
             <Button size="sm" variant="danger" onClick={() => router.push("/coach/health")} className="w-full">
-              Prejsť do Health Logu
+              {t("coachPlan.widget.medicalSuspendBanner.action")}
             </Button>
           </div>
         )}
@@ -456,15 +457,24 @@ export default function WidgetCoachPlan() {
         </div>
       </div>
 
-      {/* ✅ KRÁTKA VERZIA PRE TOKENY (Zvyšok je v tooltip-e) */}
       {!isMedicalSuspend && (
-        <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200/90">
+        <div 
+          className="mt-2 flex items-center gap-2 p-2 rounded-lg border"
+          style={{
+            backgroundColor: `${appColors.statusWarning}1A`, 
+            borderColor: `${appColors.statusWarning}33`,     
+            color: appColors.textPrimary
+          }}
+        >
           <span className="shrink-0 text-base leading-none">💡</span>
-          <div className="text-[11px] leading-tight">
-            <strong className="font-semibold text-amber-400">
+          <div className="text-[11px] leading-tight opacity-90">
+            <strong 
+              className="font-semibold" 
+              style={{ color: appColors.statusWarning }}
+            >
               {t("coachPlan.widget.tokenWarning.title" as any)}
             </strong>{" "}
-            {t("coachPlan.widget.tokenWarning.shortText" as any) || "Zbytočne nepregeneruj plán. Podrobný postup nájdeš v info (ℹ) ikonke hore."}
+            {t("coachPlan.widget.tokenWarning.shortText" as any)}
           </div>
         </div>
       )}
