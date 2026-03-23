@@ -1,5 +1,6 @@
 # Services/users_health_log.py
 from __future__ import annotations
+import time # ✅ PRIDANÝ IMPORT
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -26,17 +27,12 @@ def service_get_health_history(user_id: int, ctx: AuthCtx) -> List[Dict[str, Any
     return db_get_all_health_logs(user_id, ctx=ctx)
 
 def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], ctx: AuthCtx) -> List[Dict[str, Any]]:
-    """
-    Spracuje a uloží jeden alebo viac záznamov naraz. 
-    Očakáva payload v tvare zoznamu objektov.
-    """
     rows_to_insert = []
     
     for item in logs_payload:
         event_type = str(item.get("event_type", "")).strip().lower()
         severity = int(item.get("severity", 5))
         
-        # Validácia
         if event_type not in ["injury", "illness", "fatigue"]:
             raise ValueError(f"Invalid event_type: {event_type}")
         if severity < 1 or severity > 10:
@@ -60,9 +56,6 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
     return db_insert_health_logs(rows_to_insert, ctx=ctx)
 
 def service_resolve_health_log(user_id: int, log_id: int, end_date: Optional[str], ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Označí záznam za vyriešený. Ak nedostane end_date, použije dnešný dátum.
-    """
     updates = {
         "status": "resolved",
         "end_date": end_date or datetime.now(timezone.utc).date().isoformat(),
@@ -76,42 +69,33 @@ def service_resolve_health_log(user_id: int, log_id: int, end_date: Optional[str
     return updated_row
 
 def service_delete_health_log(user_id: int, log_id: int, ctx: AuthCtx) -> bool:
-    """
-    Vymaže záznam (napríklad pridaný omylom).
-    """
     return db_delete_health_log(log_id=log_id, user_id=user_id, ctx=ctx)
 
 
 def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Rozhodne o osude plánu na základe aktuálnych aktívnych chorôb a zranení.
-    """
     active_logs = db_get_active_health_logs(user_id=user_id, ctx=ctx)
-    today_iso = datetime.now(timezone.utc).date().isoformat()
+    ts = int(time.time()) # ✅ UNIKÁTNY TIMESTAMP
 
-    # SCENÁR 1: Všetko vyriešené (0 aktívnych problémov) -> Návrat k tréningu
     if not active_logs:
         service_enqueue_job(
             user_id=user_id,
-            job_type="coach_autoadjust", # ZMENA: Voláme náš hlavný dirigent
+            job_type="coach_autoadjust",
             payload={"force_reason": "health_resolved"},
             priority=90,
-            dedupe_key=f"coach_autoadjust_health_resolved_{user_id}",
+            dedupe_key=f"coach_autoadjust_health_resolved_{user_id}_{ts}", # ✅ PRIDANÉ ts
             ctx=ctx
         )
         return {"action": "regenerate", "message": "Záznamy sú vyriešené. AI pripravuje návratový plán."}
 
-    # Nájdi najhorší aktuálny problém
     max_severity = max(log.get("severity", 0) for log in active_logs)
 
-    # SCENÁR 2: Kritický stav (Vážnosť 7 - 10)
     if max_severity >= 7:
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",
             payload={"force_reason": "health_critical"},
             priority=100,
-            dedupe_key=f"coach_autoadjust_health_critical_{user_id}",
+            dedupe_key=f"coach_autoadjust_health_critical_{user_id}_{ts}", # ✅ PRIDANÉ ts
             ctx=ctx
         )
         return {
@@ -119,14 +103,13 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             "message": "Nariadené lekárske voľno. Budúce tréningy boli pozastavené."
         }
 
-    # SCENÁR 3: Mierny stav (Vážnosť 1 - 6) -> Soften (Zjemnenie)
     else:
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",
             payload={"force_reason": "health_mild_restriction"},
             priority=100,
-            dedupe_key=f"coach_autoadjust_health_mild_{user_id}",
+            dedupe_key=f"coach_autoadjust_health_mild_{user_id}_{ts}", # ✅ PRIDANÉ ts
             ctx=ctx
         )
         return {"action": "autoadjust", "message": "AI zjemňuje najbližšie tréningy podľa tvojho stavu."}
