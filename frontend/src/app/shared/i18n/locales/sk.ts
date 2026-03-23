@@ -2096,7 +2096,8 @@ export const sk = {
       addDraftBtn: "+ Pridať do zoznamu",
       draftsTitle: "Pripravené na uloženie (Zatiaľ neuložené):",
       errorNoSymptoms: "Musíš vybrať aspoň jeden symptóm.",
-      saveButton: "Uložiť a nahlásiť koučovi",
+      saveButton: "Uložiť",
+      severity: "Závažnosť",
     },
     injAreas: {
       foot: "Chodidlo",
@@ -2153,7 +2154,7 @@ export const sk = {
     replanAlert: {
       title: "Plán sa musí prispôsobiť.",
       text: "Nezabudni nechať AI zvážiť tvoj program po každej zmene zdravotného stavu.",
-      button: "Zvážiť program (Na nástenku)",
+      button: "Prispôsobiť tréningy",
     },
     historyTitle: "História zdravotnej karty",
     saveSuccess: "Záznam bol úspešne uložený do tvojej karty.",

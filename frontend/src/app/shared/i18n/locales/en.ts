@@ -2093,7 +2093,8 @@ export const en = {
       addDraftBtn: "+ Add to List",
       draftsTitle: "Ready to Save (Not yet saved):",
       errorNoSymptoms: "Please select at least one symptom.",
-      saveButton: "Save & Report to Coach",
+      saveButton: "Save",
+      severity: "Severity",
     },
     injAreas: {
       foot: "Foot",
@@ -2150,7 +2151,7 @@ export const en = {
     replanAlert: {
       title: "Plan needs an adjustment.",
       text: "Don't forget to let AI recalculate your program after health status changes.",
-      button: "Re-evaluate Program (Dashboard)",
+      button: "Adjust trainings",
     },
     historyTitle: "Health History",
     saveSuccess: "Record successfully added to your health log.",

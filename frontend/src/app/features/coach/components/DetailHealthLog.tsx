@@ -288,7 +288,9 @@ export default function DetailHealthLog() {
     setAdapting(true);
     try {
       await apiAdaptPlanForHealth(userId);
-      toast.success(t("healthLog.planAdapting" as any));
+      toast.success(
+        t("healthLog.planAdapting" as any) || "Plán sa prispôsobuje...",
+      );
 
       // Keďže sa job zaradil do poradia a beží na pozadí,
       // môžeme užívateľa presmerovať späť na Nástenku (Dashboard),
@@ -508,7 +510,6 @@ export default function DetailHealthLog() {
 
             {!isInjury && (
               <div className="rounded-xl border border-white/10 bg-black/20 p-4 flex flex-col items-center justify-center text-center">
-                <span className="text-2xl mb-2">🤖</span>
                 <div className="text-sm text-white/80 font-medium">
                   {t("healthLog.form.autoSeverityTitle" as any)}
                 </div>
@@ -575,7 +576,8 @@ export default function DetailHealthLog() {
                       <span className="font-semibold text-white/90">
                         {eventName}{" "}
                         <span className="opacity-60 font-normal text-xs ml-1">
-                          (Závažnosť: {d.severity}/10)
+                          ({t("healthLog.form.severity" as any)}: {d.severity}
+                          /10)
                         </span>
                       </span>
                       {d.notes && (
@@ -619,10 +621,29 @@ export default function DetailHealthLog() {
             <LoadingSpinner size="button" />
           </div>
         ) : activeLogs.length === 0 ? (
-          <div className={PANEL_PREVIEW}>
-            <span className="text-emerald-400 font-bold">
+          // ✅ NOVÁ SEKCIA: Zelený stav, ale s možnosťou "Návrat k tréningu"
+          <div className="flex flex-col items-center justify-center p-6 text-center bg-emerald-500/10 border border-emerald-500/20 rounded-xl gap-3">
+            <span className="text-emerald-400 font-bold text-lg">
               ✅ {t("healthLog.widget.allGood" as any)}
             </span>
+            <span className="text-xs text-emerald-200/70 max-w-sm">
+              {t("healthLog.returnToTrainingDesc" as any) ||
+                "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu."}
+            </span>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleAdaptPlan}
+              disabled={adapting}
+              className="mt-2"
+            >
+              {adapting ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                t("healthLog.returnToTrainingBtn" as any) ||
+                "Navrhnúť návrat k tréningu"
+              )}
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
