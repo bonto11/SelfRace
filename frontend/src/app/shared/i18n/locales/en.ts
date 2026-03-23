@@ -2070,6 +2070,9 @@ export const en = {
     },
     addTitle: "Report an Issue",
     addSubtitle: "The AI coach will immediately adjust your training plan.",
+    returnToTrainingDesc:
+      "If you have just recovered from an injury or illness and your current plan is still reduced, ask the coach for a new plan for a safe return to training.",
+    returnToTrainingBtn: "Plan return to training",
     form: {
       typeLabel: "What is happening?",
       areaLabel: "Problem Area",

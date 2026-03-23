@@ -2073,6 +2073,8 @@ export const sk = {
     addTitle: "Nahlásiť problém",
     addSubtitle:
       "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
+    returnToTrainingDesc: "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu.",
+    returnToTrainingBtn: "Navrhnúť návrat k tréningu",
     form: {
       typeLabel: "Čo sa deje?",
       areaLabel: "Lokalita problému",

@@ -627,8 +627,7 @@ export default function DetailHealthLog() {
               ✅ {t("healthLog.widget.allGood" as any)}
             </span>
             <span className="text-xs text-emerald-200/70 max-w-sm">
-              {t("healthLog.returnToTrainingDesc" as any) ||
-                "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu."}
+              {t("healthLog.returnToTrainingDesc" as any)}
             </span>
             <Button
               size="sm"
@@ -640,8 +639,7 @@ export default function DetailHealthLog() {
               {adapting ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("healthLog.returnToTrainingBtn" as any) ||
-                "Navrhnúť návrat k tréningu"
+                t("healthLog.returnToTrainingBtn" as any)
               )}
             </Button>
           </div>
