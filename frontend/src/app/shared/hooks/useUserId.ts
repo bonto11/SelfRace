@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { supabase } from "@/app/shared/utils/supabaseBrowser";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
@@ -10,57 +10,63 @@ type WhoAmI = { id: number | null; uuid: string | null };
 let globalResolvePromise: Promise<any> | null = null;
 
 export function useUserId() {
-  const [state, setState] = useState<WhoAmI>({ id: null, uuid: null });
-  const [isChecking, setIsChecking] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   
-  // Ochrana proti double-renderu v Next.js
+  const [state, setState] = useState<WhoAmI>({ 
+      id: typeof window !== "undefined" ? Number(window.localStorage.getItem("selfrace_numeric_id")) || null : null, 
+      uuid: null 
+  });
+  const [isChecking, setIsChecking] = useState(true);
+  
+  // Zabraňuje double-renderu
   const initialized = useRef(false);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
 
-    const supabase = getSupabaseBrowser();
+    let isMounted = true;
 
-    const resolveUser = async (session: any) => {
-        // 1. Zlyhala session (napr. po F5 alebo pri prvom načítaní)?
-        if (!session) {
-            // 🚨 ZÁCHRANNÁ BRZDA PRE STRAVU A STRIPE 🚨
-            // Ak je v URL kód, znamená to, že sa vraciame z externej služby.
-            // Nesmieme presmerovať na /signin, musíme počkať na event 'SIGNED_IN' zo Supabase!
-            const isAuthRedirect = window.location.hash.includes("access_token") || window.location.search.includes("code=");
-            if (isAuthRedirect) {
-                console.log("⏳ [AUTH] Návrat zo Stravy/Stripe! Čakám na spracovanie...");
-                return; 
+    const handleUser = async (sessionUser: any) => {
+        if (!isMounted) return;
+
+        if (!sessionUser) {
+            // 🚨 ZÁCHRANNÝ ŠTÍT PRE STRAVU A STRIPE 🚨
+            // Ak máme v URL OAuth parametre, Supabase ich práve teraz na pozadí spracováva.
+            // NESMIEME používateľa presmerovať preč, inak ten proces zabijeme!
+            const url = window.location.href;
+            const isProcessingOAuth = url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=");
+            
+            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
+
+            if (isProcessingOAuth) {
+                console.log("⏳ [AUTH] Zistil som návrat zo Stravy/Stripe! Trpezlivo čakám...");
+                return; // Neurobíme NIČ. Čakáme na event 'SIGNED_IN'.
             }
 
-            console.log("❌ [AUTH] Žiadna session. Odhlasujem.");
+            // Až tu si môžeme byť istí, že user naozaj nie je prihlásený
+            console.log("🔴 [AUTH] Žiadna session, mažem dáta a odhlasujem.");
             window.localStorage.removeItem("selfrace_numeric_id");
             setState({ id: null, uuid: null });
             setIsChecking(false);
-
-            // Odhlásenie bez cyklenia
-            const isPublic = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
-            if (!isPublic) {
+            
+            if (!isPublicPage) {
                 router.replace("/signin");
             }
             return;
         }
 
-        // 2. MÁME SESSION!
-        console.log("✅ [AUTH] Session existuje pre UUID:", session.user.id);
-        const uuid = session.user.id;
-        let numId = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
+        // ✅ Máme usera!
+        console.log("🟢 [AUTH] Úspešné prihlásenie. UUID:", sessionUser.id);
+        let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
-        // Vypýtame si ID z nášho Python backendu
         if (!numId) {
             if (!globalResolvePromise) {
                 globalResolvePromise = callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ auth_uid: uuid })
+                    body: JSON.stringify({ auth_uid: sessionUser.id })
                 });
             }
             try {
@@ -76,29 +82,31 @@ export function useUserId() {
             }
         }
 
-        setState({ id: numId, uuid });
-        setIsChecking(false);
+        if (isMounted) {
+            setState({ id: numId, uuid: sessionUser.id });
+            setIsChecking(false);
+        }
     };
 
-    // A. Kontrola pri naštartovaní aplikácie (alebo po F5)
+    // 1. Získame počiatočný stav pri štarte (alebo po F5)
     supabase.auth.getSession().then(({ data }) => {
-        resolveUser(data.session);
+        handleUser(data.session?.user);
     });
 
-    // B. Listener, ktorý čaká na prihlásenie (napr. keď Strava vráti token)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log("🔔 [AUTH EVENT]", event);
+    // 2. Event Listener - Toto chytí Stravu, keď sa kód úspešne vymení za session!
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+        console.log("🔵 [AUTH EVENT]", event);
         if (event === "SIGNED_OUT") {
-            window.localStorage.removeItem("selfrace_numeric_id");
-            setState({ id: null, uuid: null });
-            setIsChecking(false);
-            router.replace("/signin");
+            handleUser(null);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-            resolveUser(session);
+            handleUser(session?.user);
         }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+        isMounted = false;
+        subscription.unsubscribe();
+    };
   }, [pathname, router]);
 
   return useMemo(() => ({
@@ -107,9 +115,8 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        getSupabaseBrowser().auth.getSession().then(({ data }) => {
-            // Len vizuálny reset načítavania
-            setTimeout(() => setIsChecking(false), 500);
+        supabase.auth.getSession().then(() => {
+            setTimeout(() => setIsChecking(false), 500); // Soft refresh UI
         });
     }
   }), [state.id, state.uuid, isChecking]);
