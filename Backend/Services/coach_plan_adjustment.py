@@ -28,7 +28,7 @@ from Routes_DB.coach_plan_meta import (
 )
 from Routes_DB.coach_plan_weekly import (
     db_get_weekly_for_user_plan,
-    db_delete_future_weekly_plans # ✅ NOVÝ IMPORT NA ZMAZANIE WEEKLY!
+    db_delete_future_weekly_plans
 )
 from Routes_DB.user_recovery import db_get_recent_recovery
 
@@ -200,11 +200,17 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ KRITICKÉ ZRANENIE (9/10): Neskúšame adaptovať, len zmažeme budúcnosť
+    # ✅ KRITICKÉ ZRANENIE (7-10/10): Zmažeme BUDÚCNOSŤ, aktuálny týždeň necháme
     if force_reason == "health_critical":
-        print("[AUTOADJUST DEBUG] Critical health reported! Suspending plan.")
+        print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
         
-        # 1. Zmažeme daily plán
+        # Vypočítame začiatok BUDÚCEHO týždňa (najbližší pondelok)
+        days_to_monday = (7 - today.weekday()) % 7
+        if days_to_monday == 0: 
+            days_to_monday = 7 # Ak je dnes pondelok, mažeme aj tak až od ďalšieho týždňa
+        next_monday = today + timedelta(days=days_to_monday)
+        
+        # 1. Zmažeme future daily (aby sme nemali daily sessions už zajtra)
         db_clear_daily_for_user_range(
             user_id=user_id,
             date_from=(today + timedelta(days=1)).isoformat(), 
@@ -213,17 +219,17 @@ def service_coach_autoadjust_after_update(
             global_user_clear=True
         )
         
-        # 2. Zmažeme weekly plán! ✅ TOTO TU CHÝBALO!
+        # 2. Zmažeme future weekly (aby zmizli z kalendára a prehľadov, ale aktuálny zostane)
         db_delete_future_weekly_plans(
              user_id=user_id,
-             from_date_iso=(today + timedelta(days=1)).isoformat(),
+             from_date_iso=next_monday.isoformat(),
              ctx=ctx
         )
 
         return {
             "changed": True,
             "mode": "plan_suspended",
-            "reason": "critical_injury_reported_future_deleted"
+            "reason": f"critical_injury_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
     # 1. Zjemniť (Soften)
