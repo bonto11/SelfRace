@@ -41,32 +41,6 @@ export default function SignInForm() {
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // ✅ NOVÉ: Pri zobrazení SignInForm potichu vyčistíme staré sessions, aby neboli problémy s loginom
-  useEffect(() => {
-    try {
-      if (typeof document !== "undefined") {
-        const cookies = document.cookie.split(";");
-        const domain = window.location.hostname === 'localhost' ? '' : `domain=${window.location.hostname};`;
-        for (let i = 0; i < cookies.length; i++) {
-          const name = cookies[i].split("=")[0].trim();
-          if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id") {
-             document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; ${domain}`;
-          }
-        }
-        
-        const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_"];
-        const keys = Object.keys(window.localStorage);
-        for (const key of keys) {
-          if (LS_PREFIXES.some((p) => key.startsWith(p))) {
-            window.localStorage.removeItem(key);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Silent cleanup on mount failed", e);
-    }
-  }, []);
-
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
