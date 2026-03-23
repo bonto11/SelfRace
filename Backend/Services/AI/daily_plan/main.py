@@ -1,4 +1,4 @@
-# Services/AI/daily_plan/daily_plan.py
+# Services/AI/daily_plan/main.py
 from __future__ import annotations
 
 from datetime import date, timedelta

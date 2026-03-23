@@ -14,11 +14,13 @@ from Modules.Supabase.client import get_sb
 
 from Services.AI.athlete_state.main import service_analyze_athlete
 from Services.AI.weekly_plan.main import service_generate_weekly_plan
+
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_auto_extend_daily_plan,
     service_get_daily_overview,
 )
+
 from Services.analytics_RecentLoad import service_build_recent_load_raw
 from Routes_DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
@@ -170,6 +172,8 @@ def service_coach_autoadjust_after_update(
     force_reason: Optional[str] = None, 
 ) -> Dict[str, Any]:
     
+    print(f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}")
+
     if force_reason == "autorecovery":
         return _apply_autorecovery_to_today(user_id=user_id, ctx=ctx)
 
@@ -180,6 +184,7 @@ def service_coach_autoadjust_after_update(
 
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
+        print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
         return {"changed": False, "mode": "no_plan"}
 
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
@@ -192,6 +197,7 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
+    # ✅ 1. Skontrolujeme dôvody, kedy chceme len zjemniť (Soften)
     if force_reason in ["health_mild_restriction", "manual_review"]:
         soften_should = True 
         soften_days = 7 
@@ -199,12 +205,14 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
+    # ✅ 2. Skontrolujeme dôvody, kedy chceme KOMPLETNÝ REPLAN (aj po vyliečení!)
     elif force_reason in ["health_critical", "health_resolved", "return_to_training"]:
         weekly_replan_should = True 
         weekly_replan_reason = f"Health status changed significantly (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
+    # 3. Ak to neprišlo z health logu, pýtame sa AI
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -218,6 +226,8 @@ def service_coach_autoadjust_after_update(
         weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
         weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
+    print(f"[AUTOADJUST DEBUG] Evaluation complete. soften_should={soften_should}, weekly_replan_should={weekly_replan_should}")
+
     if not be_flags.get("should_trigger_ai") and not soften_should and not weekly_replan_should:
         return {
             "changed": False,
@@ -226,7 +236,9 @@ def service_coach_autoadjust_after_update(
         }
 
     if weekly_replan_should:
+        print("[AUTOADJUST DEBUG] Starting Weekly Replan...")
         if force_reason not in ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
+            print("[AUTOADJUST DEBUG] Weekly replan on cooldown, converting to soften.")
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
@@ -238,6 +250,7 @@ def service_coach_autoadjust_after_update(
                 ctx=ctx,
                 global_user_clear=True
             )
+            print("[AUTOADJUST DEBUG] Cleared future daily plan rows.")
 
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
@@ -248,28 +261,30 @@ def service_coach_autoadjust_after_update(
                 override_start_date=None, 
                 ctx=ctx,
             )
+            print(f"[AUTOADJUST DEBUG] Weekly generator finished. Success: {weekly_resp.get('success')}")
             
             weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
             
-            # ✅ ROBUSTNEJŠIA DETEKCIA TÝŽDŇA
+            # Detekcia týždňa
             cur_idx = _find_current_week_index(weekly_rows, today=today)
-            
-            # Ak sme nenašli aktuálny týždeň (napr. plán začína až zajtra), vezmeme prvý dostupný týždeň
             if cur_idx is None and weekly_rows:
                 weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
                 cur_idx = int(weekly_sorted[0].get("week_index") or 1)
             elif cur_idx is None:
-                cur_idx = 1 # Absolútny fallback
+                cur_idx = 1
+                
+            print(f"[AUTOADJUST DEBUG] Decided to generate daily plan for week_index={cur_idx}")
             
-            # ✅ VOLÁME GENEROVANIE DENNÉHO PLÁNU a NESMIEME droppnúť minulé dni, ak by to zmazalo dnešok
-            service_generate_daily_week(
+            daily_res = service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
                 model=None,
-                drop_past_days=False, # ZMENA: Necháme AI vygenerovať celý týždeň, aby náhodou nezmazal všetko
+                drop_past_days=False, 
                 reason=force_reason or "weekly_replan",
                 ctx=ctx,
             )
+            
+            print(f"[AUTOADJUST DEBUG] Daily generator finished. Output: {daily_res}")
 
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
@@ -283,9 +298,11 @@ def service_coach_autoadjust_after_update(
                 "reason": weekly_replan_reason or "weekly plan re-generated",
                 "plan_adjustment": plan_adjustment,
                 "daily_extend": daily_extend,
+                "daily_result_debug": daily_res # Pridané pre náš debug
             }
 
     if soften_should:
+        print("[AUTOADJUST DEBUG] Starting Daily Soften...")
         weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
         if not isinstance(weekly_rows, list):
             weekly_rows = []
@@ -295,21 +312,23 @@ def service_coach_autoadjust_after_update(
         cur_idx = _find_current_week_index(weekly_rows, today=today)
         if cur_idx is None: return {"changed": False, "mode": "cannot_determine_current_week"}
 
+        print(f"[AUTOADJUST DEBUG] Daily Soften running for week_index={cur_idx}")
         daily_resp = service_generate_daily_week(
             user_id=user_id, 
             week_index=cur_idx, 
             model=None, 
-            drop_past_days=False, # ZMENA: Pre istotu tiež false, nech to vygeneruje celistvo
+            drop_past_days=False, 
             reason=force_reason or "soften",
             ctx=ctx
         )
+        print(f"[AUTOADJUST DEBUG] Daily soften finished. Output: {daily_resp}")
         
         return {
             "changed": True,
             "mode": "daily_soften",
             "reason": soften_reason,
             "affected_week_index": cur_idx,
-            "daily_result": {"week_index": daily_resp.get("week_index")}
+            "daily_result": {"week_index": daily_resp.get("week_index"), "debug": daily_resp}
         }
 
     return {"changed": False, "mode": "no_adjustment", "reason": "No changes requested"}
