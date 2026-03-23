@@ -7,8 +7,7 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-// 🛡️ GLOBÁLNE ZÁMKY (Deduplikácia pre všetkých 20 widgetov)
-// Ak sa 20 widgetov pýta naraz, vytvorí sa len JEDEN request. Ostatní čakajú na ten istý.
+// Zámky na zabránenie strieľania 20 backend requestov po F5
 let sharedSessionPromise: Promise<any> | null = null;
 let sharedResolvePromise: Promise<any> | null = null;
 
@@ -29,12 +28,11 @@ export function useUserId() {
     const handleUser = async (sessionUser: any) => {
         if (!isMounted) return;
 
-        // 1. Ak nie sme prihlásení
         if (!sessionUser) {
-            // Ochrana Stravy / Stripe
+            // Sme naozaj odhlásení? Počkáme, či to nie je Strava/Stripe návrat.
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
-                return; // Sme v OAuth procese, nič nemažeme
+                return; // Sme v OAuth procese, čakáme.
             }
 
             window.localStorage.removeItem("selfrace_numeric_id");
@@ -48,30 +46,27 @@ export function useUserId() {
             return;
         }
 
-        // 2. Sme prihlásení, ideme získať naše číselné ID (s deduplikáciou!)
+        // Máme Token z LocalStorage! Získame ID.
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
-            // Ak sa 20 widgetov dostane sem, len PRVÝ vytvorí backend request
             if (!sharedResolvePromise) {
                 sharedResolvePromise = callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ auth_uid: sessionUser.id })
                 });
-
-                // Vyčistíme zámok po sekunde, aby neskoršie refreshe nebrali starú cache
                 setTimeout(() => { sharedResolvePromise = null; }, 1000);
             }
             
             try {
-                const res = await sharedResolvePromise; // Všetci čakajú na 1 request
+                const res = await sharedResolvePromise;
                 if (res?.success && res.user_id) {
                     numId = res.user_id;
                     window.localStorage.setItem("selfrace_numeric_id", String(numId));
                 }
             } catch (e) {
-                console.error("[AUTH] Backend resolve error:", e);
+                console.error("[AUTH] Backend error:", e);
             }
         }
 
@@ -81,20 +76,19 @@ export function useUserId() {
         }
     };
 
-    // ✅ DEDUPLIKOVANÁ KONTROLA SUPABASE SESSION (Riešenie tvojho nápadu)
-    // Miesto toho aby sa 20 widgetov pýtalo Supabase disku, spýta sa len prvý.
+    // 1. Spoločné načítanie Session z LocalStorage (jeden request pre celú appku)
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
-        setTimeout(() => { sharedSessionPromise = null; }, 1000); // Reset zámku
+        setTimeout(() => { sharedSessionPromise = null; }, 1000);
     }
 
-    // Všetkých 20 widgetov čaká na jeden spoločný výsledok z disku
     sharedSessionPromise.then(({ data }) => {
         handleUser(data.session?.user);
     });
 
+    // 2. Počúvame zmeny (napríklad úspešný návrat zo Stravy)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === "INITIAL_SESSION") return; // Ignorujeme, toto už rieši náš zámok vyššie
+        if (event === "INITIAL_SESSION") return; 
         if (event === "SIGNED_OUT") {
             handleUser(null);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
