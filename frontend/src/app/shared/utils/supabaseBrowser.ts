@@ -1,4 +1,3 @@
-// src/app/shared/utils/supabaseBrowser.ts
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
@@ -25,13 +24,13 @@ export function getSupabaseBrowser() {
           },
           set(name: string, value: string, options: any) {
             if (typeof document === 'undefined') return;
-            // 🚨 NATVRDO: Cookie platí 1 rok. Pri F5 sa nestratí.
+            // 🚨 NATVRDO: max-age=31536000 (1 rok). Toto zabráni strate session pri redirecte.
             document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
           },
           remove(name: string, options: any) {
             if (typeof document === 'undefined') return;
-            // 🚨 NATVRDO: Správne zmazanie pre celú appku
-            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+            // 🚨 NATVRDO: Okamžité zmazanie pre celú doménu
+            document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
           }
         }
       }
