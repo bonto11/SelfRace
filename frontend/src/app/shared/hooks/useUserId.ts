@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/app/shared/utils/supabaseBrowser";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
@@ -27,37 +27,34 @@ export function useUserId() {
     initialized.current = true;
 
     let isMounted = true;
+    const supabase = getSupabaseBrowser();
 
     const handleUser = async (sessionUser: any) => {
         if (!isMounted) return;
 
         if (!sessionUser) {
-            // 🚨 ZÁCHRANNÝ ŠTÍT PRE STRAVU A STRIPE 🚨
-            // Ak máme v URL OAuth parametre, Supabase ich práve teraz na pozadí spracováva.
-            // NESMIEME používateľa presmerovať preč, inak ten proces zabijeme!
-            const url = window.location.href;
-            const isProcessingOAuth = url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=");
+            // Sme si 100% istí, že user nemá session (LocalStorage bol naozaj prázdny)
             
-            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
-
-            if (isProcessingOAuth) {
+            // Ochrana pred zmazaním počas návratu zo Stravy/Stripe
+            const url = window.location.href;
+            if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
                 console.log("⏳ [AUTH] Zistil som návrat zo Stravy/Stripe! Trpezlivo čakám...");
-                return; // Neurobíme NIČ. Čakáme na event 'SIGNED_IN'.
+                return;
             }
 
-            // Až tu si môžeme byť istí, že user naozaj nie je prihlásený
-            console.log("🔴 [AUTH] Žiadna session, mažem dáta a odhlasujem.");
+            console.log("🔴 [AUTH] Naozaj žiadna session, mažem dáta a odhlasujem.");
             window.localStorage.removeItem("selfrace_numeric_id");
             setState({ id: null, uuid: null });
             setIsChecking(false);
             
+            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
             if (!isPublicPage) {
                 router.replace("/signin");
             }
             return;
         }
 
-        // ✅ Máme usera!
+        // ✅ Máme usera! (Token prežil F5)
         console.log("🟢 [AUTH] Úspešné prihlásenie. UUID:", sessionUser.id);
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
@@ -88,17 +85,15 @@ export function useUserId() {
         }
     };
 
-    // 1. Získame počiatočný stav pri štarte (alebo po F5)
-    supabase.auth.getSession().then(({ data }) => {
-        handleUser(data.session?.user);
-    });
-
-    // 2. Event Listener - Toto chytí Stravu, keď sa kód úspešne vymení za session!
+    // ✅ TOTO JE TA MAGICKÁ OPRAVA:
+    // Už sa nepýtame cez getSession(). Iba čakáme, kým nám Supabase sám povie, že prečítal storage.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        console.log("🔵 [AUTH EVENT]", event);
+        console.log(`🔵 [AUTH EVENT] ${event}`, "Session exists?", !!session);
+        
         if (event === "SIGNED_OUT") {
             handleUser(null);
-        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+            // INITIAL_SESSION vystrelí raz, hneď ako Supabase bezpečne načíta token z LocalStorage.
             handleUser(session?.user);
         }
     });
@@ -115,8 +110,8 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        supabase.auth.getSession().then(() => {
-            setTimeout(() => setIsChecking(false), 500); // Soft refresh UI
+        getSupabaseBrowser().auth.getSession().then(() => {
+            setTimeout(() => setIsChecking(false), 500);
         });
     }
   }), [state.id, state.uuid, isChecking]);
