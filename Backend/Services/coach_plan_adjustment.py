@@ -192,7 +192,6 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ 1. Skontrolujeme dôvody, kedy chceme len zjemniť (Soften)
     if force_reason in ["health_mild_restriction", "manual_review"]:
         soften_should = True 
         soften_days = 7 
@@ -200,14 +199,12 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    # ✅ 2. Skontrolujeme dôvody, kedy chceme KOMPLETNÝ REPLAN (aj po vyliečení!)
     elif force_reason in ["health_critical", "health_resolved", "return_to_training"]:
         weekly_replan_should = True 
         weekly_replan_reason = f"Health status changed significantly (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Ak to neprišlo z health logu, pýtame sa AI
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -229,7 +226,6 @@ def service_coach_autoadjust_after_update(
         }
 
     if weekly_replan_should:
-        # ✅ Dôležitá zmena: Ak sa používateľ vracia po chorobe, ignorujeme Cooldown!
         if force_reason not in ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             soften_should = True
             soften_days = 3
@@ -254,15 +250,23 @@ def service_coach_autoadjust_after_update(
             )
             
             weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
-            cur_idx = _find_current_week_index(weekly_rows, today=today)
-            if cur_idx is None:
-                cur_idx = 1
             
+            # ✅ ROBUSTNEJŠIA DETEKCIA TÝŽDŇA
+            cur_idx = _find_current_week_index(weekly_rows, today=today)
+            
+            # Ak sme nenašli aktuálny týždeň (napr. plán začína až zajtra), vezmeme prvý dostupný týždeň
+            if cur_idx is None and weekly_rows:
+                weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
+                cur_idx = int(weekly_sorted[0].get("week_index") or 1)
+            elif cur_idx is None:
+                cur_idx = 1 # Absolútny fallback
+            
+            # ✅ VOLÁME GENEROVANIE DENNÉHO PLÁNU a NESMIEME droppnúť minulé dni, ak by to zmazalo dnešok
             service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
                 model=None,
-                drop_past_days=True, 
+                drop_past_days=False, # ZMENA: Necháme AI vygenerovať celý týždeň, aby náhodou nezmazal všetko
                 reason=force_reason or "weekly_replan",
                 ctx=ctx,
             )
@@ -295,7 +299,7 @@ def service_coach_autoadjust_after_update(
             user_id=user_id, 
             week_index=cur_idx, 
             model=None, 
-            drop_past_days=True, 
+            drop_past_days=False, # ZMENA: Pre istotu tiež false, nech to vygeneruje celistvo
             reason=force_reason or "soften",
             ctx=ctx
         )
