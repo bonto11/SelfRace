@@ -1,3 +1,4 @@
+// src/app/shared/hooks/useUserId.ts
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -7,7 +8,6 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-// Zámky na zabránenie strieľania 20 backend requestov po F5
 let sharedSessionPromise: Promise<any> | null = null;
 let sharedResolvePromise: Promise<any> | null = null;
 
@@ -29,10 +29,10 @@ export function useUserId() {
         if (!isMounted) return;
 
         if (!sessionUser) {
-            // Sme naozaj odhlásení? Počkáme, či to nie je Strava/Stripe návrat.
+            // Strava / Stripe flow protection
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
-                return; // Sme v OAuth procese, čakáme.
+                return; 
             }
 
             window.localStorage.removeItem("selfrace_numeric_id");
@@ -46,7 +46,7 @@ export function useUserId() {
             return;
         }
 
-        // Máme Token z LocalStorage! Získame ID.
+        // Získanie ID s deduplikáciou
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -66,7 +66,7 @@ export function useUserId() {
                     window.localStorage.setItem("selfrace_numeric_id", String(numId));
                 }
             } catch (e) {
-                console.error("[AUTH] Backend error:", e);
+                console.error("[AUTH] Backend resolve error:", e);
             }
         }
 
@@ -76,19 +76,18 @@ export function useUserId() {
         }
     };
 
-    // 1. Spoločné načítanie Session z LocalStorage (jeden request pre celú appku)
+    // Inicializácia (iba jeden Supabase call pre všetkých 20 widgetov)
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
     }
 
-    sharedSessionPromise.then(({ data }) => {
-        handleUser(data.session?.user);
+    sharedSessionPromise.then(({ data }: any) => {
+        handleUser(data?.session?.user);
     });
 
-    // 2. Počúvame zmeny (napríklad úspešný návrat zo Stravy)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === "INITIAL_SESSION") return; 
+        if (event === "INITIAL_SESSION") return; // Ignorujeme, spracovali sme cez getSession
         if (event === "SIGNED_OUT") {
             handleUser(null);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
@@ -108,7 +107,7 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        getSupabaseBrowser().auth.getSession().then(({ data }) => {
+        getSupabaseBrowser().auth.getSession().then(() => {
             setTimeout(() => setIsChecking(false), 500);
         });
     }
