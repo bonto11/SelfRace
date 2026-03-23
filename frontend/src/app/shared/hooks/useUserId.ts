@@ -17,13 +17,17 @@ function getStoredId(): number | null {
 
 export function useUserId() {
   const [state, setState] = useState<WhoAmI>({ id: getStoredId(), uuid: null });
-  const [isChecking, setIsChecking] = useState(true); // ✅ Zastaví paniku po refreshi
+  const [isChecking, setIsChecking] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const hasFetched = useRef(false);
 
-  const resolveUser = useCallback(async (sessionUser: any, force = false) => {
+  // Všimni si: pridal som explicitné typovanie (any), aby TypeScript neplakal
+  const resolveUser = useCallback(async (sessionUser: any, force: boolean = false) => {
+    console.log("[AUTH DEBUG] ResolveUser zavolany. User existuje?", !!sessionUser);
+
     if (!sessionUser) {
+      console.warn("[AUTH DEBUG] Ziadny user nenajdeny! Mazem ID a presmeruvavam...");
       if (typeof window !== "undefined") window.localStorage.removeItem("selfrace_numeric_id");
       setState({ id: null, uuid: null });
       setIsChecking(false);
@@ -35,6 +39,7 @@ export function useUserId() {
     }
 
     if (!force && state.id && state.uuid === sessionUser.id) {
+       console.log("[AUTH DEBUG] ID uz mame v state, preskakujem backend.");
        setIsChecking(false);
        return;
     }
@@ -59,6 +64,7 @@ export function useUserId() {
          setState(s => ({ ...s, uuid: sessionUser.id }));
       }
     } catch (e) {
+      console.error("[AUTH DEBUG] CallBackend chyba:", e);
       globalResolvePromise = null;
       setState(s => ({ ...s, uuid: "error" }));
     } finally {
@@ -70,13 +76,19 @@ export function useUserId() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
+    console.log("[AUTH DEBUG] Startujem kontrolu pri nacitani...");
     const supabase = getSupabaseBrowser();
     
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // ✅ OPRAVA TYPESCRIPTU: Definovali sme explicitne (response: any)
+    supabase.auth.getSession().then((response: any) => {
+       const session = response?.data?.session;
+       console.log("[AUTH DEBUG] GetSession vysledok:", session ? "OK" : "NULL");
        resolveUser(session?.user);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // ✅ OPRAVA TYPESCRIPTU: Pridali sme (event: string, session: any)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+       console.log("[AUTH DEBUG] Zachyteny event:", event);
        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
            resolveUser(session?.user);
        }
@@ -88,11 +100,13 @@ export function useUserId() {
   return useMemo(() => ({ 
     userId: state.id, 
     userUuid: state.uuid === "error" ? null : state.uuid, 
-    isChecking, // Exportujeme info, či ešte len načítavame
+    isChecking,
     refresh: () => {
       setIsChecking(true);
       const supabase = getSupabaseBrowser();
-      supabase.auth.getSession().then(({ data: { session } }) => resolveUser(session?.user, true));
+      supabase.auth.getSession().then((response: any) => {
+          resolveUser(response?.data?.session?.user, true);
+      });
     }
   }), [state.id, state.uuid, isChecking, resolveUser]);
 }
