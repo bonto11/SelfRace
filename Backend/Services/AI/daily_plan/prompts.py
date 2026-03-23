@@ -69,7 +69,6 @@ def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "training_blocks": training_blocks,
         },
         "strength_settings": prefs.get("strength_settings") or {},
-        # Odstránili sme export zranení z prefs
     }
 
     athlete_state = context.get("athlete_state") or {}
@@ -154,6 +153,13 @@ def build_prompts_for_daily(
     pref_obj = prefs.get("preferences") or {}
     if not isinstance(pref_obj, dict): pref_obj = {}
 
+    # --- VYŤAHOVANIE DŇOV VOĽNA ---
+    days_off = pref_obj.get("days_off") or []
+    if isinstance(days_off, list):
+        days_off = [str(d) for d in days_off if isinstance(d, str) and d.strip()]
+    else:
+        days_off = []
+
     two = pref_obj.get("two_a_day") or {}
     two_enabled = bool(two.get("enabled")) if isinstance(two, dict) else False
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
@@ -228,8 +234,29 @@ def build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     
-    # Odstránili sme logic s active_injuries z prefs
+    # --- TVRDÉ PRAVIDLÁ PRE CNS A DNI VOĽNA ---
+    days_off_str = ", ".join(days_off) if days_off else ""
+    if days_off_str:
+        rest_days_rule = f"- REST DAYS (CRITICAL): The user explicitly requested these days off: {days_off_str}. You MUST schedule ONLY complete 'rest' on these days.\n\n"
+    else:
+        rest_days_rule = "- REST DAYS (CRITICAL): Even though the user did not explicitly specify days off, you MUST forcefully schedule at least 1 (preferably 2) days of COMPLETE REST (session_type='rest'). The Central Nervous System needs recovery.\n\n"
+
+    two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Use this capability specifically to group sessions (e.g., Run + Strength on the same day) so you can free up complete rest days!\n\n"
     
+    strength_rule = f"- STRENGTH: Target {strength_str}, but DO NOT sacrifice complete rest days to achieve this. Combine strength with another sport on the same day if needed.\n\n"
+
+    # --- DOPLNENÉ: Pravidlo pre Dlhý beh ---
+    long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
+
+    multi_sport_rule = ""
+    if len(final_sports_list) > 1:
+        other_sports = [s for s in final_sports_list if s != main_sport and s != "strength"]
+        if other_sports:
+            multi_sport_rule = (
+                f"- MULTI-SPORT: Athlete sports: {', '.join(final_sports_list)}. "
+                f"Schedule {', '.join(other_sports)} sessions too. Balanced plan.\n\n"
+            )
+            
     beginner_rule = ""
     if is_returning_beginner:
         beginner_rule = (
@@ -295,20 +322,6 @@ def build_prompts_for_daily(
         "For these events, you MUST set `session_type: \"external_event\"`.\n\n"
     )
 
-    two_a_day_rule = f"- TWO-A-DAY: Max {two_cap} days/week. Prefer 1 session/day.\n\n"
-    long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
-
-    multi_sport_rule = ""
-    if len(final_sports_list) > 1:
-        other_sports = [s for s in final_sports_list if s != main_sport and s != "strength"]
-        if other_sports:
-            multi_sport_rule = (
-                f"- MULTI-SPORT: Athlete sports: {', '.join(final_sports_list)}. "
-                f"Schedule {', '.join(other_sports)} sessions too. Balanced plan.\n\n"
-            )
-
-    strength_rule = f"- STRENGTH: Aim for {strength_str}. Use sport='strength'.\n\n"
-    
     latest_paces = context_payload.get("latest_paces") or {}
     if has_zones:
         pace_instructions = ""
@@ -381,7 +394,7 @@ def build_prompts_for_daily(
             "- DO NOT schedule any VO2Max, Threshold or heavy Sprint intervals.\n"
             "- ALL sessions MUST be easy (Z1/Z2 or RPE 2-4/10) or active recovery.\n"
             "- Add extra REST days if the load seems heavy.\n"
-            "- CRITICAL: Cap ALL session durations to a maximum of 40-50 minutes. NO long runs! \n" # <--- TOTO PRIDAŤ
+            "- CRITICAL: Cap ALL session durations to a maximum of 40-50 minutes. NO long runs! \n" 
         )
     elif reason == "manual_review":
         special_reason_rule = (
@@ -405,11 +418,12 @@ def build_prompts_for_daily(
         f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
+        + rest_days_rule     # <--- NOVÉ: PRAVIDLO PRE DNI VOĽNA
+        + two_a_day_rule     # <--- UPRAVENÉ: INŠTRUKCIA NA ZHLUKOVANIE TRÉNINGOV
         + beginner_rule
-        + two_a_day_rule
-        + long_run_rule
+        + long_run_rule      # <--- OPRAVA: Vrátený LONG RUN RULE
         + multi_sport_rule
-        + strength_rule
+        + strength_rule      # <--- UPRAVENÉ: SILA NESMIE ZABIŤ DEŇ VOĽNA
         + intensity_format_rule
         + endurance_structure_rule 
         + strength_structure_rule
@@ -417,7 +431,7 @@ def build_prompts_for_daily(
         + blocks_rule
         + weekly_volume_line
         + back_to_back_rule
-        + special_reason_rule # <--- PRIDANÉ ŠPECIÁLNE PRAVIDLO Z REASONU
+        + special_reason_rule 
         + "\n--- STRICT CONCISENESS RULE ---\n"
         + "- KEEP 'notes' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
         + "- DO NOT write long explanations or motivational paragraphs. Be punchy and direct.\n"
