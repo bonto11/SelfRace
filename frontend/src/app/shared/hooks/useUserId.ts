@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
@@ -18,18 +19,26 @@ function getStoredId(): number | null {
 
 export function useUserId() {
   const [state, setState] = useState<WhoAmI>({ id: getStoredId(), uuid: null });
+  const router = useRouter();
+  const pathname = usePathname();
   
-  // Zabraňuje slučke: Zaručí, že fetchUser sa v rámci tohto komponentu spustí sám od seba len RAZ
+  // Zabraňuje slučke: Zaručí, že fetchUser sa v rámci tohto komponentu spustí len RAZ
   const hasFetched = useRef(false);
 
   const fetchUser = useCallback(async (force = false) => {
     try {
       const supabase = getSupabaseBrowser();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!session?.user) {
+      // 1. KONTROLA: Máme vôbec platný token v prehliadači?
+      if (sessionError || !session?.user) {
         if (typeof window !== "undefined") window.localStorage.removeItem("selfrace_numeric_id");
         setState({ id: null, uuid: null });
+        
+        // Kompromis: Ak nie sme na prihlasovacej stránke, presmerujeme. Zabraňuje cykleniu!
+        if (pathname && !pathname.startsWith("/signin") && !pathname.startsWith("/signup") && !pathname.startsWith("/forgot-password")) {
+            router.replace("/signin");
+        }
         return;
       }
 
@@ -58,16 +67,15 @@ export function useUserId() {
          window.localStorage.setItem("selfrace_numeric_id", numId.toString());
          setState({ id: numId, uuid: session.user.id });
       } else {
-         // Ak backend vráti chybu (nie je success), uložíme aspoň uuid, nech vieme, že sme overení voči Supabase
+         // Backend vrátil chybu (napr. databáza spadla), ale token máme dobrý
          setState(s => ({ ...s, uuid: session.user.id }));
       }
     } catch (e) {
       console.error("[AUTH: useUserId] 💥 Error in fetchUser:", e);
       globalResolvePromise = null;
-      // Aj v prípade fatálneho sieťového erroru (Failed to fetch) necyklíme, ale označíme stav
       setState(s => ({ ...s, uuid: "error" }));
     }
-  }, [state.id, state.uuid]);
+  }, [state.id, state.uuid, router, pathname]);
 
   useEffect(() => { 
     if (!hasFetched.current) {
