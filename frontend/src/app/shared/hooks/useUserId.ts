@@ -28,6 +28,7 @@ export function useUserId() {
         if (!isMounted) return;
 
         if (!sessionUser) {
+            // Ochrana Stravy / Stripe / OAuth Redirectov
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
                 return; 
@@ -44,6 +45,7 @@ export function useUserId() {
             return;
         }
 
+        // Token existuje. Získame ID s deduplikáciou pre widgety
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -57,7 +59,7 @@ export function useUserId() {
             }
             
             try {
-                // ✅ OPRAVA PRE VERCEL: Pridaný výkričník (Non-null assertion), aby TS nepanikáril
+                // Vercel TS Fix
                 const res = await sharedResolvePromise!;
                 if (res?.success && res.user_id) {
                     numId = res.user_id;
@@ -74,12 +76,13 @@ export function useUserId() {
         }
     };
 
+    // Deduplikované načítanie Session
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
     }
 
-    // ✅ OPRAVA PRE VERCEL: Pridaný otáznik (Optional Chaining)
+    // Vercel TS Fix
     sharedSessionPromise?.then(({ data }: any) => {
         handleUser(data?.session?.user);
     });
