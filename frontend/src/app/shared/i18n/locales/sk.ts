@@ -1207,8 +1207,10 @@ export const sk = {
       },
       tokenWarning: {
         title: "Šetri si tokeny:",
-        text: "Každé vygenerovanie nového plánu spotrebúva AI tokeny z tvojho mesačného limitu. Vyhni sa zbytočnému pregenerovaniu. Viac detailov o svojom limite nájdeš v sekcii ",
+        text: "Každé vygenerovanie nového plánu spotrebúva AI tokeny z tvojho mesačného limitu. Vyhni sa zbytočnému pregenerovaniu. Viac detailov o svojom limite nájdeš v sekcii",
         link: "Predplatné",
+        shortText:
+          "Zbytočne nepregeneruj plán. Podrobný postup ako funguje AI tréner nájdeš v info (ℹ) ikonke hore.",
       },
 
       status: {
@@ -2073,7 +2075,8 @@ export const sk = {
     addTitle: "Nahlásiť problém",
     addSubtitle:
       "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
-    returnToTrainingDesc: "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu.",
+    returnToTrainingDesc:
+      "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu.",
     returnToTrainingBtn: "Navrhnúť návrat k tréningu",
     form: {
       typeLabel: "Čo sa deje?",
@@ -2166,7 +2169,8 @@ export const sk = {
     errorSave: "Chyba pri ukladaní záznamu.",
     errorResolve: "Chyba pri úprave záznamu.",
     errorDelete: "Chyba pri mazaní záznamu.",
-    planAdapting: "Plán sa prepočítava... Môže to trvať pár minút. Choď sa zatiaľ napiť vody.",
+    planAdapting:
+      "Plán sa prepočítava... Môže to trvať pár minút. Choď sa zatiaľ napiť vody.",
     deleteConfirm: {
       title: "Vymazať záznam?",
       message:

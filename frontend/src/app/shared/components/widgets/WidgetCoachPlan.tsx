@@ -1,8 +1,6 @@
-// src/app/features/coach/components/WidgetCoachPlan.tsx
 "use client";
 
 import { useCallback, useEffect, useState, useMemo } from "react";
-
 import { useRouter } from "next/navigation";
 
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
@@ -36,6 +34,10 @@ import {
 } from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
+
+// ✅ NOVÝ IMPORT: Health logs pre kontrolu zranení
+import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_log";
+
 import Link from "next/link";
 import type { CoachPrefs } from "@/app/features/prefs/types/prefs";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -131,6 +133,9 @@ export default function WidgetCoachPlan() {
   const [isPlanActive, setIsPlanActive] = useState(false);
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
+  
+  // ✅ NOVÝ STATE PRE ZDRAVIE
+  const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
 
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
 
@@ -141,6 +146,8 @@ export default function WidgetCoachPlan() {
       setLoadingMsgIdx(Math.floor(Math.random() * 4) + 1);
     }
   }, [loading]);
+
+  const isMedicalSuspend = maxInjurySeverity >= 7;
 
   const formatAiError = useCallback((out: any): string => {
     if (!out) return t("api.ai_errors.generic_error" as any) || "Neznáma chyba";
@@ -168,9 +175,11 @@ export default function WidgetCoachPlan() {
     if (!userId) return;
     setLoadingKind("status");
     try {
-      const [state, planStatus] = await Promise.all([
+      // ✅ Pridali sme dotaz na aktívne zranenia/choroby z Health Logu
+      const [state, planStatus, healthLogs] = await Promise.all([
         apiGetLatestAthleteState(userId).catch(() => null),
-        apiActivePlanStatus(userId).catch(() => null)
+        apiActivePlanStatus(userId).catch(() => null),
+        apiGetActiveHealthLogs(userId).catch(() => [])
       ]);
 
       if (state && typeof state.id === "number") setLatestStateId(state.id);
@@ -180,6 +189,14 @@ export default function WidgetCoachPlan() {
         setHasWeekly(!!planStatus.has_weekly_data);
         setHasDaily(!!planStatus.has_daily_data);
       }
+
+      if (healthLogs && healthLogs.length > 0) {
+        const maxSev = Math.max(...healthLogs.map((l: any) => l.severity || 0));
+        setMaxInjurySeverity(maxSev);
+      } else {
+        setMaxInjurySeverity(0);
+      }
+
     } finally {
       setLoadingKind(null);
     }
@@ -190,7 +207,7 @@ export default function WidgetCoachPlan() {
   }, [fetchStatus]);
 
   const handleAnalyze = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("analyze");
     try {
@@ -213,10 +230,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, formatAiError]);
+  }, [userId, userUuid, formatAiError, isMedicalSuspend]);
 
   const handleGenerateWeekly = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("weekly");
     try {
@@ -239,10 +256,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, prefs, latestStateId, formatAiError]);
+  }, [userId, userUuid, prefs, latestStateId, formatAiError, isMedicalSuspend]);
 
   const handleGenerateDaily = useCallback(async () => {
-    if (!userId || !userUuid) return;
+    if (!userId || !userUuid || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("daily");
     try {
@@ -260,10 +277,10 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, userUuid, formatAiError]);
+  }, [userId, userUuid, formatAiError, isMedicalSuspend]);
 
   const handleStartPlan = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || isMedicalSuspend) return;
     setError(null);
     setLoadingKind("start");
     try {
@@ -278,7 +295,7 @@ export default function WidgetCoachPlan() {
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, fetchStatus]);
+  }, [userId, isMedicalSuspend, fetchStatus]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
@@ -309,7 +326,7 @@ export default function WidgetCoachPlan() {
   const isStep2 = !!latestStateId && hasWeekly && !hasDaily;
   const isStep3 = !!latestStateId && hasWeekly && hasDaily && !isPlanActive;
 
-  const generatorsBlockedGlobally = isPlanActive || isGlobalLoading;
+  const generatorsBlockedGlobally = isPlanActive || isGlobalLoading || isMedicalSuspend;
 
   const highlightAnalyze = isStep0;
   const highlightWeekly = isStep1;
@@ -318,52 +335,74 @@ export default function WidgetCoachPlan() {
   const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
+    if (isMedicalSuspend) return "Kritické zranenie: Generovanie a spustenie zablokované.";
     if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
     if (!latestStateId) return "Najskôr vykonaj analýzu stavu.";
     if (!hasWeekly) return "Chýba vygenerovaný týždenný plán.";
     if (!hasDaily) return "Chýba vygenerovaný denný plán.";
     return null;
-  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, t]);
+  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
   return (
     <WidgetCard
       title={t("coachPlan.widget.title" as any)}
-      accent="none"
-      note={t("coachPlan.widget.note" as any)}
+      tooltip={t("coachPlan.widget.tooltip" as any)}
+      accent={isMedicalSuspend ? "danger" : "none"}
       minH={210}
     >
       {error && <div className={WIDGET_ERROR_LINE_COLORED}>{error}</div>}
 
       <div className={WIDGET_ACTIONS_WRAP}>
+
+        {/* ✅ OZNÁMENIE O ZRANENÍ - Presmeruje do Health Logu */}
+        {isMedicalSuspend && (
+          <div className="mb-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-200">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl">🛑</span>
+              <strong className="text-sm">Tréningový stop-stav!</strong>
+            </div>
+            <p className="text-xs opacity-90 leading-relaxed mb-3">
+              Tvoj plán je zablokovaný kvôli nahlásenému vážnemu zraneniu alebo chorobe ({maxInjurySeverity}/10).
+              Ak si už v poriadku, <strong>vyrieš tento stav v Health Logu</strong> a následne daj "Navrhnúť návrat k tréningu". Plán si zbytočne neukončuj.
+            </p>
+            <Button size="sm" variant="danger" onClick={() => router.push("/coach/health")} className="w-full">
+              Prejsť do Health Logu
+            </Button>
+          </div>
+        )}
         
-        <RowAction
-          onPrimary={handleAnalyze}
-          primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing" as any) : t("coachPlan.actions.analyze" as any)}
-          loading={loadingKind === "analyze"}
-          disabled={generatorsBlockedGlobally}
-          status={!!latestStateId}
-          highlight={highlightAnalyze}
-        />
+        {!isMedicalSuspend && (
+          <>
+            <RowAction
+              onPrimary={handleAnalyze}
+              primaryLabel={loadingKind === "analyze" ? t("coachPlan.actions.analyzing" as any) : t("coachPlan.actions.analyze" as any)}
+              loading={loadingKind === "analyze"}
+              disabled={generatorsBlockedGlobally}
+              status={!!latestStateId}
+              highlight={highlightAnalyze}
+            />
 
-        <RowAction
-          onPrimary={handleGenerateWeekly}
-          primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly" as any) : t("coachPlan.actions.generateWeekly" as any)}
-          loading={loadingKind === "weekly"}
-          disabled={isStep0 || generatorsBlockedGlobally}
-          status={hasWeekly}
-          highlight={highlightWeekly}
-        />
+            <RowAction
+              onPrimary={handleGenerateWeekly}
+              primaryLabel={loadingKind === "weekly" ? t("coachPlan.actions.generatingWeekly" as any) : t("coachPlan.actions.generateWeekly" as any)}
+              loading={loadingKind === "weekly"}
+              disabled={isStep0 || generatorsBlockedGlobally}
+              status={hasWeekly}
+              highlight={highlightWeekly}
+            />
 
-        <RowAction
-          onPrimary={handleGenerateDaily}
-          primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily" as any) : t("coachPlan.actions.generateDaily" as any)}
-          loading={loadingKind === "daily"}
-          disabled={isStep0 || isStep1 || generatorsBlockedGlobally}
-          status={hasDaily}
-          highlight={highlightDaily}
-        />
+            <RowAction
+              onPrimary={handleGenerateDaily}
+              primaryLabel={loadingKind === "daily" ? t("coachPlan.actions.generatingDaily" as any) : t("coachPlan.actions.generateDaily" as any)}
+              loading={loadingKind === "daily"}
+              disabled={isStep0 || isStep1 || generatorsBlockedGlobally}
+              status={hasDaily}
+              highlight={highlightDaily}
+            />
+          </>
+        )}
 
-        {loading && (
+        {loading && !isMedicalSuspend && (
           <div className="text-[10px] text-center opacity-60 italic py-1">
             <span className="animate-pulse block text-white/80">
               {(t as any)(`coachPlan.widget.loading.msg${loadingMsgIdx}`)}
@@ -371,7 +410,7 @@ export default function WidgetCoachPlan() {
           </div>
         )}
 
-                <div className={WIDGET_CTA_ROW}>
+        <div className={WIDGET_CTA_ROW}>
           {isPlanActive ? (
             <Button
               size="xs"
@@ -417,21 +456,18 @@ export default function WidgetCoachPlan() {
         </div>
       </div>
 
-      <div className="mt-2 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200/90">
-        <span className="shrink-0 text-base leading-none">💡</span>
-        <div className="text-xs leading-relaxed">
-          <strong className="font-semibold text-amber-400">
-            {t("coachPlan.widget.tokenWarning.title" as any)}
-          </strong>{" "}
-          {t("coachPlan.widget.tokenWarning.text" as any)}
-          <Link 
-            href="/subscription" 
-            className="underline decoration-amber-500/30 underline-offset-2 hover:text-amber-100 transition-colors"
-          >
-            {t("coachPlan.widget.tokenWarning.link" as any)}
-          </Link>.
+      {/* ✅ KRÁTKA VERZIA PRE TOKENY (Zvyšok je v tooltip-e) */}
+      {!isMedicalSuspend && (
+        <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-200/90">
+          <span className="shrink-0 text-base leading-none">💡</span>
+          <div className="text-[11px] leading-tight">
+            <strong className="font-semibold text-amber-400">
+              {t("coachPlan.widget.tokenWarning.title" as any)}
+            </strong>{" "}
+            {t("coachPlan.widget.tokenWarning.shortText" as any) || "Zbytočne nepregeneruj plán. Podrobný postup nájdeš v info (ℹ) ikonke hore."}
+          </div>
         </div>
-      </div>
+      )}
     </WidgetCard>
   );
 }

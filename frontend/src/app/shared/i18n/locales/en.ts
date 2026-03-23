@@ -1206,8 +1206,10 @@ export const en = {
       },
       tokenWarning: {
         title: "Save your tokens:",
-        text: "Generating a new plan consumes AI tokens from your monthly limit. Avoid unnecessary regenerations. You can find more details about your limits under ",
+        text: "Every new plan generation consumes AI tokens from your monthly limit. Avoid unnecessary regeneration. You can find more details about your limit in the ",
         link: "Subscription",
+        shortText:
+          "Do not regenerate the plan unnecessarily. Detailed instructions on how the AI coach works can be found in the info (ℹ) icon above.",
       },
 
       status: {
@@ -2164,7 +2166,8 @@ export const en = {
     errorSave: "Error saving record.",
     errorResolve: "Error updating record.",
     errorDelete: "Error deleting record.",
-    planAdapting: "Recalculating plan... This may take a few minutes. Go grab a glass of water in the meantime.",
+    planAdapting:
+      "Recalculating plan... This may take a few minutes. Go grab a glass of water in the meantime.",
     deleteConfirm: {
       title: "Delete record?",
       message:
