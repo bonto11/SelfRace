@@ -23,7 +23,7 @@ export async function signOut(redirectTo: string = "/signin") {
   } catch (e) {}
 
   try {
-    // 🚀 OBYDENIE PASCE: Použijeme Storage.prototype.removeItem priamo z jadra prehliadača
+    // OBIDENIE PASCE: Použijeme Storage.prototype.removeItem priamo z jadra prehliadača
     const originalRemoveItem = Storage.prototype.removeItem;
     const originalClear = Storage.prototype.clear;
 

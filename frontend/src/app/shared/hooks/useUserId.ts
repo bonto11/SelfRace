@@ -37,7 +37,7 @@ export function useUserId() {
 
             // 🚀 HACK: Ak je to falošný SIGNED_OUT event, ale my MÁME token, ignorujeme to!
             if (isFromSignOutEvent && window.localStorage.getItem("selfrace-auth-token")) {
-                console.log("🛡️ [HACK] Supabase hlási SIGNED_OUT, ale token máme. Ignorujem falošné odhlásenie.");
+                //console.log("🛡️ [HACK] Supabase hlási SIGNED_OUT, ale token máme. Ignorujem falošné odhlásenie.");
                 return;
             }
 

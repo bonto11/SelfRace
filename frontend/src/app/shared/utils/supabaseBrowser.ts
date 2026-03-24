@@ -22,7 +22,7 @@ const indestructibleAdapter = {
     // TOTO JE TEN HACK! Ak sa Supabase (alebo nejaký iný tvoj kód) pokúsi zmazať
     // kľúče auth-token alebo numeric_id, jednoducho tento príkaz odignorujeme.
     if (key === "selfrace-auth-token" || key === "selfrace_numeric_id" || key === "selfrace_uuid") {
-      console.log(`🛡️ Blokujem pokus o zmazanie ${key}! Token zostáva v bezpečí.`);
+      //console.log(`🛡️ Blokujem pokus o zmazanie ${key}! Token zostáva v bezpečí.`);
       return; 
     }
     

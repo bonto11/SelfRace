@@ -55,7 +55,7 @@ export async function callBackend<T = any>(
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
         return response.data?.session?.access_token ?? null;
-      }).catch((err: any) => { // ✅ OPRAVA TYPESCRIPTU 2: Pridané (err: any)
+      }).catch((err: any) => { // OPRAVA TYPESCRIPTU 2: Pridané (err: any)
         console.warn("[AUTH: callBackend] refreshSession zlyhal:", err);
         return null;
       }).finally(() => { refreshPromise = null; });

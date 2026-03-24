@@ -31,29 +31,6 @@ import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-// 🚨 HACKER TRAP: Sme v Client komponente, toto sa zaručene naštartuje v prehliadači!
-if (typeof window !== "undefined") {
-  // Ochrana, aby sme to neprepísali dvakrát pri re-renderoch
-  if (!(window as any).__trapSet) {
-    const originalRemove = window.localStorage.removeItem;
-    window.localStorage.removeItem = function (key) {
-      if (key && key.includes("selfrace")) {
-        console.error(`🚨 CHYTIL SOM HO! Niekto práve zmazal kľúč: ${key}`);
-        console.trace(); // Ukáže presný súbor a riadok
-      }
-      originalRemove.apply(this, arguments as any);
-    };
-
-    const originalClear = window.localStorage.clear;
-    window.localStorage.clear = function () {
-      console.error("🚨 CHYTIL SOM HO! Niekto práve zmazal CELÝ LocalStorage!");
-      console.trace();
-      originalClear.apply(this, arguments as any);
-    };
-    (window as any).__trapSet = true;
-  }
-}
-
 export default function ClientProtectedShell({
   children,
 }: {
