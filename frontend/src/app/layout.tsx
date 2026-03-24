@@ -7,6 +7,24 @@ import AppFooter from "@/app/shared/ui/components/AppFooter";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 
+if (typeof window !== "undefined") {
+  const originalRemove = window.localStorage.removeItem;
+  window.localStorage.removeItem = function (key) {
+    if (key.includes("selfrace")) {
+      console.error(`🚨 CHYTIL SOM HO! Niekto práve zmazal: ${key}`);
+      console.trace(); // TOTO TI V KONZOLE UKÁŽE PRESNÝ SÚBOR A RIADOK!
+    }
+    originalRemove.apply(this, arguments as any);
+  };
+
+  const originalClear = window.localStorage.clear;
+  window.localStorage.clear = function () {
+    console.error("🚨 CHYTIL SOM HO! Niekto práve zmazal CELÝ LocalStorage!");
+    console.trace();
+    originalClear.apply(this, arguments as any);
+  };
+}
+
 export const metadata: Metadata = {
   title: "SelfRace",
   description: "Training and recovery insights with help of AI",
