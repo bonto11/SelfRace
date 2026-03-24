@@ -10,22 +10,21 @@ export async function signOut(redirectTo: string = "/signin") {
     console.warn("[signOut] error:", e);
   }
 
-  // Zmazanie Cookies (poistka)
   try {
     if (typeof document !== "undefined") {
       const cookies = document.cookie.split(";");
       for (let i = 0; i < cookies.length; i++) {
         const name = cookies[i].split("=")[0].trim();
-        if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id") {
+        if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id" || name.startsWith("selfrace-")) {
            document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
         }
       }
     }
   } catch (e) {}
 
-  // Zmazanie LocalStorage
   try {
-    const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_"];
+    // ✅ Pridané "selfrace-" aby sme zmazali aj náš nový Supabase kľúč
+    const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_", "selfrace-"];
     const keys = Object.keys(window.localStorage);
     for (const key of keys) {
       if (LS_PREFIXES.some((p) => key.startsWith(p))) {

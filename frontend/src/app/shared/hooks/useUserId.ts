@@ -18,7 +18,7 @@ export function useUserId() {
   const storedUuid = typeof window !== "undefined" ? window.localStorage.getItem("selfrace_uuid") : null;
 
   const [state, setState] = useState<WhoAmI>({ id: storedId, uuid: storedUuid });
-  const [isChecking, setIsChecking] = useState(storedId === null);
+  const [isChecking, setIsChecking] = useState(true); // Na začiatku vždy overujeme
 
   useEffect(() => {
     let isMounted = true;
@@ -33,13 +33,8 @@ export function useUserId() {
                 return; 
             }
 
-            // Náš HACK: Veríme LS.
-            if (window.localStorage.getItem("selfrace_numeric_id")) {
-                console.log("🛡️ [HACK] Supabase hlási null, ale v LS máme ID. Ignorujem odhlásenie.");
-                return;
-            }
-
             window.localStorage.removeItem("selfrace_numeric_id");
+            window.localStorage.removeItem("selfrace_uuid");
             setState({ id: null, uuid: null });
             setIsChecking(false);
             
@@ -70,7 +65,7 @@ export function useUserId() {
                     window.localStorage.setItem("selfrace_uuid", sessionUser.id);
                 }
             } catch (e) {
-                console.warn("[AUTH] Backend resolve error:", e);
+                console.error("[AUTH] Backend resolve error:", e);
             }
         } else {
             window.localStorage.setItem("selfrace_uuid", sessionUser.id);
@@ -112,7 +107,6 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        // ✅ Opravená TypeScript chyba - zmazali sme unused "{ data }"
         getSupabaseBrowser().auth.getSession().then(() => {
             setTimeout(() => setIsChecking(false), 500);
         });

@@ -1,11 +1,11 @@
-// src/app/shared/utils/callBackend.ts
 "use client";
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import type { AuthResponse } from "@supabase/supabase-js";
+import type { AuthResponse, Session } from "@supabase/supabase-js";
 
 let refreshPromise: Promise<string | null> | null = null;
+let sharedGetSessionPromise: Promise<{ data: { session: Session | null }, error: any }> | null = null;
 
 export async function callBackend<T = any>(
   path: string,
@@ -13,9 +13,34 @@ export async function callBackend<T = any>(
   _retry = false
 ): Promise<T> {
 
-  const supabase = getSupabaseBrowser();
-  const { data: { session } } = await supabase.auth.getSession();
-  let token = session?.access_token ?? null;
+  let token: string | null = null;
+
+  // 🚀 HACK: Vytiahneme token priamo z LocalStorage, obídeme Supabase getSession!
+  // Týmto zabránime tomu, aby sa po F5 Supabase zbláznil a zmazal ho.
+  if (typeof window !== "undefined") {
+    try {
+      const storedStr = window.localStorage.getItem("selfrace-auth-token");
+      if (storedStr) {
+        const parsed = JSON.parse(storedStr);
+        token = parsed.access_token || null;
+      }
+    } catch (e) {
+      console.warn("[callBackend] Nepodarilo sa prečítať token priamo z LS", e);
+    }
+  }
+
+  // Ak to v LS nie je, použijeme deduplikovaný Supabase call ako zálohu
+  if (!token) {
+    const supabase = getSupabaseBrowser();
+    if (!sharedGetSessionPromise) {
+      sharedGetSessionPromise = supabase.auth.getSession();
+      setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
+    }
+    
+    // ✅ OPRAVA TYPESCRIPTU 1: Pridaný výkričník (!)
+    const { data: { session } } = await sharedGetSessionPromise!;
+    token = session?.access_token ?? null;
+  }
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -23,11 +48,16 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
+  // Ak token expiroval, skúsime refresh
   if (res.status === 401 && !_retry) {
+    const supabase = getSupabaseBrowser();
+    
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        const newToken = response.data?.session?.access_token ?? null;
-        return newToken;
+        return response.data?.session?.access_token ?? null;
+      }).catch((err: any) => { // ✅ OPRAVA TYPESCRIPTU 2: Pridané (err: any)
+        console.warn("[AUTH: callBackend] refreshSession zlyhal:", err);
+        return null;
       }).finally(() => { refreshPromise = null; });
     }
 
@@ -79,7 +109,6 @@ export async function runAsyncJobWithPolling(
     needsPolling = true;
   }
 
-  // Ak to padlo na sieti, alebo server priamo vrátil že ešte pracuje (nepodarilo sa to na prvýkrát synchrónne)
   if (needsPolling || !runJson?.success) {
     for (let i = 0; i < maxPollAttempts; i++) {
       await new Promise((res) => setTimeout(res, pollIntervalMs));
@@ -94,18 +123,16 @@ export async function runAsyncJobWithPolling(
         
         const jobStatus = pollRes?.job?.status || pollRes?.data?.status;
         
-        // Ak už nie je 'running' ani 'queued', vrátime výsledok
         if (jobStatus && jobStatus !== "running" && jobStatus !== "queued") {
           runJson = pollRes;
           needsPolling = false;
-          break; // Vyskakujeme z loopu
+          break; 
         }
       } catch (pollErr) {
         console.warn(`[JobRunner] Chyba pri pollingu:`, pollErr);
       }
     }
     
-    // Ak to prejde celý loop a stále nič (stále je to needsPolling)
     if (needsPolling) {
       return { 
         success: false, 
@@ -115,7 +142,6 @@ export async function runAsyncJobWithPolling(
     }
   }
 
-  // Extrakcia a zjednotenie výsledkov z úspešne dobehnutého Jobu
   const innerResult = runJson?.job?.result || runJson?.data?.result || runJson?.result;
   
   if (innerResult && innerResult.ok === false) {

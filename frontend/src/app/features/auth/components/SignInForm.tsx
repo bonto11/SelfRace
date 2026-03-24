@@ -37,28 +37,25 @@ export default function SignInForm() {
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  // Blokovanie formulára počas úvodného čistenia
   const [isClearing, setIsClearing] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // Čistenie všetkého starého odpadu
   useEffect(() => {
     let isMounted = true;
     const cleanup = () => {
       try {
         if (typeof document !== "undefined") {
-          // Zmažeme pre istotu aj staré cookies
+          // Mažeme pre istotu aj staré cookies
           const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             const name = cookies[i].split("=")[0].trim();
-            if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id") {
+            if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id" || name.startsWith("selfrace-")) {
                document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
             }
           }
-          // Zmažeme LocalStorage
+          // Mažeme LS
           const keys = Object.keys(window.localStorage);
           for (const key of keys) {
             if (key.startsWith("sb-") || key.startsWith("selfrace")) {
