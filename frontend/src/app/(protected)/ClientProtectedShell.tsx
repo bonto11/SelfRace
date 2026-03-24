@@ -29,8 +29,30 @@ import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 
-// ✅ Pridaný import pre získanie ID používateľa
 import { useUserId } from "@/app/shared/hooks/useUserId";
+
+// 🚨 HACKER TRAP: Sme v Client komponente, toto sa zaručene naštartuje v prehliadači!
+if (typeof window !== "undefined") {
+  // Ochrana, aby sme to neprepísali dvakrát pri re-renderoch
+  if (!(window as any).__trapSet) {
+    const originalRemove = window.localStorage.removeItem;
+    window.localStorage.removeItem = function (key) {
+      if (key && key.includes("selfrace")) {
+        console.error(`🚨 CHYTIL SOM HO! Niekto práve zmazal kľúč: ${key}`);
+        console.trace(); // Ukáže presný súbor a riadok
+      }
+      originalRemove.apply(this, arguments as any);
+    };
+
+    const originalClear = window.localStorage.clear;
+    window.localStorage.clear = function () {
+      console.error("🚨 CHYTIL SOM HO! Niekto práve zmazal CELÝ LocalStorage!");
+      console.trace();
+      originalClear.apply(this, arguments as any);
+    };
+    (window as any).__trapSet = true;
+  }
+}
 
 export default function ClientProtectedShell({
   children,
@@ -38,8 +60,6 @@ export default function ClientProtectedShell({
   children: ReactNode;
 }) {
   const t = useT();
-  
-  // ✅ Vytiahnutie userId pomocou tvojho hooku
   const { userId } = useUserId();
 
   return (
@@ -53,7 +73,6 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
               
-              {/* ✅ Spustíme OnboardingWizard, len ak už máme userId */}
               {userId && <OnboardingWizard userId={userId} />}
 
               <div
@@ -63,14 +82,11 @@ export default function ClientProtectedShell({
                   color: appColors.textPrimary,
                 }}
               >
-                {/* BACKDROP cez celý viewport */}
                 <div className="fixed inset-0 z-0 pointer-events-none">
                   <AppBackdrop />
                 </div>
 
-                {/* obsah nad backdropom */}
                 <div className="relative z-10 min-h-dvh flex flex-col">
-                  {/* TOPBAR */}
                   <header
                     className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
@@ -101,9 +117,7 @@ export default function ClientProtectedShell({
                     </div>
                   </header>
 
-                  {/* CONTENT */}
                   <div className="flex-1">
-                    {/* Desktop */}
                     <div
                       className={["hidden lg:grid h-full", SHELL_GRID].join(
                         " ",
@@ -114,17 +128,12 @@ export default function ClientProtectedShell({
                         <main className="flex-1 p-3 lg:p-4 pb-4">
                           {children}
                         </main>
-
-                        {/* ✅ footer aj pre prihlásených (desktop) */}
                         <AppFooter />
                       </div>
                     </div>
 
-                    {/* Mobile */}
                     <div className="lg:hidden min-h-dvh flex flex-col">
                       <main className="flex-1 p-3 pb-20">{children}</main>
-
-                      {/* ✅ footer aj pre prihlásených (mobile) */}
                       <div className="pb-20">
                         <AppFooter />
                       </div>
