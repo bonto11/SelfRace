@@ -3,7 +3,6 @@
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export async function signOut(redirectTo: string = "/signin") {
-  // 1. Povieme Supabase, že končíme
   try {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
@@ -11,7 +10,7 @@ export async function signOut(redirectTo: string = "/signin") {
     console.warn("[signOut] error:", e);
   }
 
-  // 2. Brutálne a nekompromisné vymazanie Cookies
+  // Zmazanie Cookies (poistka)
   try {
     if (typeof document !== "undefined") {
       const cookies = document.cookie.split(";");
@@ -22,11 +21,9 @@ export async function signOut(redirectTo: string = "/signin") {
         }
       }
     }
-  } catch (e) {
-    console.warn("[signOut] cookie cleanup failed:", e);
-  }
+  } catch (e) {}
 
-  // 3. Brutálne a nekompromisné vymazanie LocalStorage
+  // Zmazanie LocalStorage
   try {
     const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_"];
     const keys = Object.keys(window.localStorage);
@@ -36,11 +33,8 @@ export async function signOut(redirectTo: string = "/signin") {
       }
     }
     window.sessionStorage.clear();
-  } catch (e) {
-    console.warn("[signOut] storage cleanup failed:", e);
-  }
+  } catch (e) {}
 
-  // 4. Bezpečné presmerovanie (zabraňuje cykleniu)
   if (typeof window !== "undefined") {
     window.location.replace(redirectTo);
   }

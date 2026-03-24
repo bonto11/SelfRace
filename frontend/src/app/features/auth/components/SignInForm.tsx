@@ -38,19 +38,19 @@ export default function SignInForm() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // ✅ Blokovanie formulára počas úvodného čistenia
+  // Blokovanie formulára počas úvodného čistenia
   const [isClearing, setIsClearing] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // ✅ ČISTENIE PRI INITE: Zmaže cookies aj localStorage, a až potom odomkne UI
+  // Čistenie všetkého starého odpadu
   useEffect(() => {
     let isMounted = true;
     const cleanup = () => {
       try {
         if (typeof document !== "undefined") {
-          // Zmažeme cookies
+          // Zmažeme pre istotu aj staré cookies
           const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             const name = cookies[i].split("=")[0].trim();
@@ -70,7 +70,7 @@ export default function SignInForm() {
       } catch (e) {
         console.warn("Cleanup failed", e);
       } finally {
-        if (isMounted) setIsClearing(false); // Povolíme UI
+        if (isMounted) setIsClearing(false); 
       }
     };
     cleanup();
@@ -96,7 +96,6 @@ export default function SignInForm() {
       return;
     }
 
-    // 🚀 Pri úspešnom logine ho pustíme dnu. LocalStorage si už Supabase aktualizoval sám.
     router.replace("/activities");
   }
 

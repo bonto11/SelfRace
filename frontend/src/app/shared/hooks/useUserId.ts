@@ -28,13 +28,17 @@ export function useUserId() {
         if (!isMounted) return;
 
         if (!sessionUser) {
-            // Ochrana Stravy / Stripe / OAuth Redirectov
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
                 return; 
             }
 
-            // 🚨 Naozaj nemáme token. Musíme presmerovať na login, inak by sme dostávali len 401 errory.
+            // Náš HACK: Veríme LS.
+            if (window.localStorage.getItem("selfrace_numeric_id")) {
+                console.log("🛡️ [HACK] Supabase hlási null, ale v LS máme ID. Ignorujem odhlásenie.");
+                return;
+            }
+
             window.localStorage.removeItem("selfrace_numeric_id");
             setState({ id: null, uuid: null });
             setIsChecking(false);
@@ -46,7 +50,6 @@ export function useUserId() {
             return;
         }
 
-        // Token existuje. Získame ID s deduplikáciou pre widgety
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -67,10 +70,9 @@ export function useUserId() {
                     window.localStorage.setItem("selfrace_uuid", sessionUser.id);
                 }
             } catch (e) {
-                console.error("[AUTH] Backend resolve error:", e);
+                console.warn("[AUTH] Backend resolve error:", e);
             }
         } else {
-            // Poistka: zapíšeme aj UUID pre rýchlejšie ďalšie načítania
             window.localStorage.setItem("selfrace_uuid", sessionUser.id);
         }
 
@@ -80,7 +82,6 @@ export function useUserId() {
         }
     };
 
-    // Deduplikované načítanie Session
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
@@ -111,6 +112,7 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
+        // ✅ Opravená TypeScript chyba - zmazali sme unused "{ data }"
         getSupabaseBrowser().auth.getSession().then(() => {
             setTimeout(() => setIsChecking(false), 500);
         });
