@@ -7,18 +7,21 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-let sharedSessionPromise: Promise<any> | null = null;
 let sharedResolvePromise: Promise<any> | null = null;
+let sharedSessionPromise: Promise<any> | null = null; // Pridané pre deduplikáciu 20 widgetov!
 
 export function useUserId() {
   const router = useRouter();
   const pathname = usePathname();
   
-  const [state, setState] = useState<WhoAmI>({ 
-      id: typeof window !== "undefined" ? Number(window.localStorage.getItem("selfrace_numeric_id")) || null : null, 
-      uuid: null 
-  });
-  const [isChecking, setIsChecking] = useState(true);
+  // 🚀 HACK: Vytiahneme ID z LocalStorage HNEĎ a veríme mu.
+  const storedId = typeof window !== "undefined" ? Number(window.localStorage.getItem("selfrace_numeric_id")) || null : null;
+  const storedUuid = typeof window !== "undefined" ? window.localStorage.getItem("selfrace_uuid") : null;
+
+  const [state, setState] = useState<WhoAmI>({ id: storedId, uuid: storedUuid });
+  
+  // Ak máme ID v LocalStorage, isChecking je okamžite false -> apka sa hneď vykreslí!
+  const [isChecking, setIsChecking] = useState(storedId === null);
 
   useEffect(() => {
     let isMounted = true;
@@ -28,24 +31,23 @@ export function useUserId() {
         if (!isMounted) return;
 
         if (!sessionUser) {
-            // Ochrana Stravy / Stripe / OAuth Redirectov
-            const url = window.location.href;
-            if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
-                return; 
+            // 🚨 TU JE TEN HACK: Ak nemáme sessionUser, ale máme LS, NEROBÍME NIČ!
+            // Ignorujeme to. Supabase len nestihol načítať cookies/URL po redirecte.
+            if (window.localStorage.getItem("selfrace_numeric_id")) {
+                console.log("🛡️ [HACK] Supabase hlási null, ale v LS máme ID. Ignorujem odhlásenie.");
+                return;
             }
 
-            window.localStorage.removeItem("selfrace_numeric_id");
-            setState({ id: null, uuid: null });
-            setIsChecking(false);
-            
+            // Ak naozaj nemáme nič nikde, až vtedy presmerujeme
             const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
             if (!isPublicPage) {
                 router.replace("/signin");
             }
+            setIsChecking(false);
             return;
         }
 
-        // Token existuje. Získame ID s deduplikáciou pre widgety
+        // Ak Supabase našiel usera, zapíšeme si ho (alebo overíme na backende)
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -59,15 +61,18 @@ export function useUserId() {
             }
             
             try {
-                // Vercel TS Fix
                 const res = await sharedResolvePromise!;
                 if (res?.success && res.user_id) {
                     numId = res.user_id;
                     window.localStorage.setItem("selfrace_numeric_id", String(numId));
+                    window.localStorage.setItem("selfrace_uuid", sessionUser.id);
                 }
             } catch (e) {
-                console.error("[AUTH] Backend resolve error:", e);
+                console.warn("[AUTH] Backend resolve error:", e);
             }
+        } else {
+            // Poistka: zapíšeme aj UUID pre rýchlejšie ďalšie načítania
+            window.localStorage.setItem("selfrace_uuid", sessionUser.id);
         }
 
         if (isMounted) {
@@ -76,22 +81,22 @@ export function useUserId() {
         }
     };
 
-    // Deduplikované načítanie Session
+    // Deduplikované pýtanie si session, aby 20 widgetov nezabilo pamäť
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
     }
 
-    // Vercel TS Fix
     sharedSessionPromise?.then(({ data }: any) => {
         handleUser(data?.session?.user);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === "INITIAL_SESSION") return; 
-        if (event === "SIGNED_OUT") {
-            handleUser(null);
-        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // Ignorujeme INITIAL_SESSION, to sme si vyriešili cez deduplikované getSession hore
+        if (event === "INITIAL_SESSION") return;
+        
+        // Tieto eventy len updatujú stav do plusu, nikdy nás nasilu neodhlasujú z hacku
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
             handleUser(session?.user);
         }
     });
@@ -107,10 +112,7 @@ export function useUserId() {
     userUuid: state.uuid,
     isChecking,
     refresh: () => {
-        setIsChecking(true);
-        getSupabaseBrowser().auth.getSession().then(() => {
-            setTimeout(() => setIsChecking(false), 500);
-        });
+        setIsChecking(false);
     }
   }), [state.id, state.uuid, isChecking]);
 }

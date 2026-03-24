@@ -38,13 +38,13 @@ export default function SignInForm() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // ✅ Blokovanie formulára počas úvodného čistenia (požiadavka)
+  // ✅ Blokovanie formulára počas úvodného čistenia
   const [isClearing, setIsClearing] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // ✅ ČISTENIE PRI INITE: Zmaže cookies aj localStorage, a až po úspechu odomkne UI
+  // ✅ ČISTENIE PRI INITE: Zmaže cookies aj localStorage, a až potom odomkne UI
   useEffect(() => {
     let isMounted = true;
     const cleanup = () => {
@@ -70,10 +70,9 @@ export default function SignInForm() {
       } catch (e) {
         console.warn("Cleanup failed", e);
       } finally {
-        if (isMounted) setIsClearing(false); // Odomkneme tlačidlá!
+        if (isMounted) setIsClearing(false); // Povolíme UI
       }
     };
-    
     cleanup();
     return () => { isMounted = false; };
   }, []);
@@ -83,7 +82,7 @@ export default function SignInForm() {
     setLoading(true);
     setErr(null);
 
-    const { data, error } = await sb.auth.signInWithPassword({
+    const { error } = await sb.auth.signInWithPassword({
       email,
       password: pwd,
     });
@@ -97,10 +96,10 @@ export default function SignInForm() {
       return;
     }
 
+    // 🚀 Pri úspešnom logine ho pustíme dnu. LocalStorage si už Supabase aktualizoval sám.
     router.replace("/activities");
   }
 
-  // Tlačidlo je aktívne až keď: sa nečistí, nenačítava API, a máme vypísané obe polia.
   const isSubmitDisabled = isClearing || loading || !email.trim() || !pwd.trim();
 
   return (
