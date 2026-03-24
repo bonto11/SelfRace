@@ -23,16 +23,22 @@ export async function signOut(redirectTo: string = "/signin") {
   } catch (e) {}
 
   try {
-    // ✅ Pridané "selfrace-" aby sme zmazali aj náš nový Supabase kľúč
+    // 🚀 OBYDENIE PASCE: Použijeme Storage.prototype.removeItem priamo z jadra prehliadača
+    const originalRemoveItem = Storage.prototype.removeItem;
+    const originalClear = Storage.prototype.clear;
+
     const LS_PREFIXES = ["sb-", "up:", "coach.", "selfrace:", "selfrace_", "selfrace-"];
     const keys = Object.keys(window.localStorage);
+    
     for (const key of keys) {
       if (LS_PREFIXES.some((p) => key.startsWith(p))) {
-        window.localStorage.removeItem(key);
+        originalRemoveItem.call(window.localStorage, key);
       }
     }
-    window.sessionStorage.clear();
-  } catch (e) {}
+    originalClear.call(window.sessionStorage);
+  } catch (e) {
+      console.warn("[signOut] Hard cleanup failed", e);
+  }
 
   if (typeof window !== "undefined") {
     window.location.replace(redirectTo);
