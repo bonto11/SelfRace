@@ -1,28 +1,19 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/app/shared/config";
 
-let _client: any = null;
+let _client: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseBrowser() {
-  if (typeof window === "undefined") {
-    // Ak sme na serveri (Next.js SSR), vrátime len atrapu, aby to nepadlo
-    return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      auth: { persistSession: false },
-    });
-  }
-
-  // Ak sme v prehliadači, natvrdo použijeme LocalStorage
   if (!_client) {
-    _client = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage, // 🚀 Ultimátna záchrana pred redirectami
-      },
-    });
+    _client = createBrowserClient(
+      SUPABASE_URL!,
+      SUPABASE_ANON_KEY!
+      // 🚨 VYMAZANÉ: Naše ručné zapisovanie cookies.
+      // Dôvod: JWT token je príliš veľký (>4KB). Ak to necháme na @supabase/ssr,
+      // knižnica si ho sama bezpečne "rozseká" (chunking) a prehliadač ho už nezahodí!
+    );
   }
   return _client;
 }
