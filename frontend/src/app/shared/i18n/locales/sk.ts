@@ -304,6 +304,7 @@ export const sk = {
     background: "Pozadie",
     bgSolid: "Plné",
     bgTransparent: "Priehľadné",
+    showDate: "Zobraziť dátum",
   },
   prefs: {
     title: "Tréningové preferencie",

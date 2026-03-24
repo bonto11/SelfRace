@@ -303,6 +303,7 @@ export const en = {
     background: "Background",
     bgSolid: "Solid",
     bgTransparent: "Transparent",
+    showDate: "Show date",
   },
   prefs: {
     title: "Training Preferences",

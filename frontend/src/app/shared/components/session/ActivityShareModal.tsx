@@ -119,6 +119,7 @@ export default function ActivityShareModal({
   const [showPace, setShowPace] = useState(true);
   const [showElev, setShowElev] = useState(true);
   const [showTime, setShowTime] = useState(true);
+  const [showDate, setShowDate] = useState(true); // ✅ Nový state pre dátum
 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
@@ -137,6 +138,7 @@ export default function ActivityShareModal({
         setShowPace(p.showPace ?? true);
         setShowElev(p.showElev ?? true);
         setShowTime(p.showTime ?? true);
+        setShowDate(p.showDate ?? true); // ✅ Načítanie preferencie dátumu
         setTheme(p.theme ?? "dark");
         setDisplayMode(p.displayMode ?? "both");
         setBgMode(p.bgMode ?? "solid");
@@ -148,9 +150,9 @@ export default function ActivityShareModal({
     if (!mounted) return;
     localStorage.setItem(
       "selfrace_share_prefs",
-      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode, bgMode })
+      JSON.stringify({ showHr, showPace, showElev, showTime, showDate, theme, displayMode, bgMode }) // ✅ Uloženie preferencie
     );
-  }, [showHr, showPace, showElev, showTime, theme, displayMode, bgMode, mounted]);
+  }, [showHr, showPace, showElev, showTime, showDate, theme, displayMode, bgMode, mounted]);
 
   const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
   const sport = String(rawSport).toLowerCase();
@@ -325,7 +327,8 @@ export default function ActivityShareModal({
               fontFamily: "sans-serif" 
             }}
           >
-            <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
+            {/* ✅ Zelený pásik zmizne, ak je pozadie transparentné */}
+            {bgMode !== "transparent" && <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />}
 
             <div style={{ padding: "36px 28px 46px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
               
@@ -345,9 +348,12 @@ export default function ActivityShareModal({
                 <h2 style={{ fontSize: "24px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2, letterSpacing: "0.02em" }}>
                   {title}
                 </h2>
-                <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>
-                  {dateStr} • {t(`common.sports.${sport}` as any)}
-                </div>
+                {/* ✅ Odstránená "Chôdza" a pridaný prepínač pre zobrazenie dátumu */}
+                {showDate && dateStr && (
+                  <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>
+                    {dateStr}
+                  </div>
+                )}
               </div>
 
               <div style={{ width: "100%", display: "flex", flexWrap: "wrap", marginBottom: "0px" }}>
@@ -383,7 +389,6 @@ export default function ActivityShareModal({
         </div>
 
         <div className="w-full flex flex-col gap-3">
-          {/* ✅ Opravený panel pre prepínače, používa appColors miesto hex kódov */}
           <div 
             className="p-4 rounded-[24px] shadow-xl flex flex-col gap-4 border"
             style={{ backgroundColor: appColors.backgroundAlt, borderColor: appColors.divider }}
@@ -397,7 +402,6 @@ export default function ActivityShareModal({
                 <span className="text-[10px] uppercase font-bold px-1" style={{ color: appColors.textMuted }}>{t("share.displayMode")}</span>
                 <SegmentedControl options={[{ label: t("share.modeIcon"), value: "icon" }, { label: t("share.modeText"), value: "text" }, { label: t("share.modeBoth"), value: "both" }]} value={displayMode} onChange={(val: any) => setDisplayMode(val)} disabled={isExporting} />
               </div>
-              {/* ✅ Opravený prepínač na transparentné pozadie so slovníkom */}
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] uppercase font-bold px-1" style={{ color: appColors.textMuted }}>{t("share.background" as any)}</span>
                 <SegmentedControl 
@@ -414,6 +418,8 @@ export default function ActivityShareModal({
               <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isExporting} />
               <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isExporting} />
               <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isExporting} />
+              {/* ✅ Nový prepínač pre dátum */}
+              <Checkbox checked={showDate} onChange={(e) => setShowDate(e.currentTarget.checked)} label={t("share.showDate" as any)} disabled={isExporting} />
             </div>
           </div>
           
