@@ -11,7 +11,6 @@ import Button from "@/app/shared/ui/components/Button";
 import SegmentedControl from "@/app/shared/ui/components/SegmentedControl";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Komponent pre metriku - vrátil sa k čistej forme, hack sa robí externe
 function MetricItem({
   iconName,
   label,
@@ -43,7 +42,6 @@ function MetricItem({
         alignItems: centered ? "center" : "flex-start",
       }}
     >
-      {/* 1. NADPIS (Label) */}
       {showLabel && (
         <div
           style={{
@@ -62,10 +60,7 @@ function MetricItem({
         </div>
       )}
 
-      {/* 2. RIADOK: IKONA + HODNOTA V JEDNOM RIADKU */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: centered ? "center" : "flex-start", gap: "10px" }}>
-        
-        {/* IKONA - pridali sme class "selfrace-export-icon" kvôli detekcii pri exporte */}
         {showIcon && (
           <img
             className="selfrace-export-icon"
@@ -83,7 +78,6 @@ function MetricItem({
           />
         )}
 
-        {/* HODNOTA A JEDNOTKA */}
         <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
           {typeof value === "string" || typeof value === "number" ? (
             <span style={{ fontSize: "28px", fontWeight: 900, color: textColor, lineHeight: 1 }}>
@@ -128,6 +122,7 @@ export default function ActivityShareModal({
 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
+  const [bgMode, setBgMode] = useState<"solid" | "transparent">("solid");
 
   const [isExporting, setIsExporting] = useState(false);
   const [logoError, setLogoError] = useState(false);
@@ -144,6 +139,7 @@ export default function ActivityShareModal({
         setShowTime(p.showTime ?? true);
         setTheme(p.theme ?? "dark");
         setDisplayMode(p.displayMode ?? "both");
+        setBgMode(p.bgMode ?? "solid");
       } catch (e) {}
     }
   }, []);
@@ -152,9 +148,9 @@ export default function ActivityShareModal({
     if (!mounted) return;
     localStorage.setItem(
       "selfrace_share_prefs",
-      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode })
+      JSON.stringify({ showHr, showPace, showElev, showTime, theme, displayMode, bgMode })
     );
-  }, [showHr, showPace, showElev, showTime, theme, displayMode, mounted]);
+  }, [showHr, showPace, showElev, showTime, theme, displayMode, bgMode, mounted]);
 
   const rawSport = summary?.sport_type_ovrd ?? summary?.sport_type_fe ?? summary?.sport_type ?? activity?.sport ?? "other";
   const sport = String(rawSport).toLowerCase();
@@ -227,28 +223,22 @@ export default function ActivityShareModal({
 
   if (!isOpen || !mounted) return null;
 
-  // GENERÁTOR S NEVIDITEĽNÝM HACKOM
   const handleShare = async () => {
     if (!cardRef.current) return;
     
     setIsExporting(true);
-
-    // Iba malá pauza pre zobrazenie loading spinnera (žiadne blikanie komponentov)
     await new Promise((r) => setTimeout(r, 50));
 
     try {
       const canvas = await html2canvas(cardRef.current, {
         scale: 3,
         useCORS: true,
-        backgroundColor: null,
+        backgroundColor: null, 
         logging: false,
-        // TOTO JE MÁGIA: Kód sa spustí len nad klonovaným (neviditeľným) DOMom 
-        // tesne pred jeho odfotením. Originál na obrazovke zostáva nedotknutý!
         onclone: (clonedDoc) => {
           const icons = clonedDoc.querySelectorAll('.selfrace-export-icon');
           Array.from(icons).forEach((icon) => {
             if (icon instanceof HTMLElement) {
-              // Zmenili sme posun z 16px na 12px podľa tvojej požiadavky ("kúsok menej")
               icon.style.transform = "translateY(12px)";
             }
           });
@@ -329,8 +319,11 @@ export default function ActivityShareModal({
         <div className="relative">
           <div
             ref={cardRef}
-            className="w-full relative overflow-hidden rounded-[24px] shadow-2xl border border-white/5 transition-colors duration-300"
-            style={{ backgroundColor: cardBg, fontFamily: "sans-serif" }}
+            className={`w-full relative overflow-hidden rounded-[24px] transition-colors duration-300 ${bgMode === "transparent" ? "" : "shadow-2xl border border-white/5"}`}
+            style={{ 
+              backgroundColor: bgMode === "transparent" ? "transparent" : cardBg, 
+              fontFamily: "sans-serif" 
+            }}
           >
             <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />
 
@@ -369,8 +362,8 @@ export default function ActivityShareModal({
                         display: "flex",
                         justifyContent: isOddLast ? "center" : "flex-start",
                         boxSizing: "border-box",
-                        paddingRight: !isOddLast && index % 2 === 0 ? "8px" : "0",
-                        paddingLeft: !isOddLast && index % 2 !== 0 ? "8px" : "0",
+                        paddingRight: !isOddLast && index % 2 === 0 ? "20px" : "0",
+                        paddingLeft: !isOddLast && index % 2 !== 0 ? "20px" : "0",
                       }}
                     >
                       {React.cloneElement(item, { centered: isOddLast })}
@@ -390,24 +383,40 @@ export default function ActivityShareModal({
         </div>
 
         <div className="w-full flex flex-col gap-3">
-          <div className="p-4 bg-[#141414] rounded-[24px] border border-white/5 shadow-xl flex flex-col gap-4">
+          {/* ✅ Opravený panel pre prepínače, používa appColors miesto hex kódov */}
+          <div 
+            className="p-4 rounded-[24px] shadow-xl flex flex-col gap-4 border"
+            style={{ backgroundColor: appColors.backgroundAlt, borderColor: appColors.divider }}
+          >
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.theme")}</span>
+                <span className="text-[10px] uppercase font-bold px-1" style={{ color: appColors.textMuted }}>{t("share.theme")}</span>
                 <SegmentedControl options={[{ label: t("share.themeDark"), value: "dark" }, { label: t("share.themeLight"), value: "light" }]} value={theme} onChange={(val: any) => setTheme(val)} disabled={isExporting} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] uppercase text-white/50 font-bold px-1">{t("share.displayMode")}</span>
+                <span className="text-[10px] uppercase font-bold px-1" style={{ color: appColors.textMuted }}>{t("share.displayMode")}</span>
                 <SegmentedControl options={[{ label: t("share.modeIcon"), value: "icon" }, { label: t("share.modeText"), value: "text" }, { label: t("share.modeBoth"), value: "both" }]} value={displayMode} onChange={(val: any) => setDisplayMode(val)} disabled={isExporting} />
               </div>
+              {/* ✅ Opravený prepínač na transparentné pozadie so slovníkom */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] uppercase font-bold px-1" style={{ color: appColors.textMuted }}>{t("share.background" as any)}</span>
+                <SegmentedControl 
+                  options={[{ label: t("share.bgSolid" as any), value: "solid" }, { label: t("share.bgTransparent" as any), value: "transparent" }]} 
+                  value={bgMode} 
+                  onChange={(val: any) => setBgMode(val)} 
+                  disabled={isExporting} 
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t border-white/5">
+            
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-4 border-t" style={{ borderColor: appColors.divider }}>
               <Checkbox checked={showHr} onChange={(e) => setShowHr(e.currentTarget.checked)} label={t("common.metrics.hr_avg")} disabled={isExporting} />
               <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isExporting} />
               <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isExporting} />
               <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isExporting} />
             </div>
           </div>
+          
           <div className="flex gap-2">
             <div className="flex-1">
               <Button variant="primary" block disabled={isExporting} onClick={handleShare}>

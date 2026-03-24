@@ -286,7 +286,7 @@ export const sk = {
     logoff: "Odhlásiť sa",
     showTutorial: "Zobraziť sprievodcu",
   },
-  share: {
+ share: {
     generating: "Generujem fotku...",
     generatingWarning: "Obrázok sa ešte generuje, sekundu strpenia.",
     title: "Môj tréning",
@@ -301,6 +301,9 @@ export const sk = {
     modeIcon: "Ikony",
     modeText: "Text",
     modeBoth: "Oboje",
+    background: "Pozadie",
+    bgSolid: "Plné",
+    bgTransparent: "Priehľadné",
   },
   prefs: {
     title: "Tréningové preferencie",

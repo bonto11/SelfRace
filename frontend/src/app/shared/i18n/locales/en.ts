@@ -288,9 +288,9 @@ export const en = {
   share: {
     generating: "Generating photo...",
     generatingWarning: "Image is still generating, please wait a second.",
-    title: "My workout",
+    title: "My training",
     errorFailed: "Sharing failed.",
-    errorNotSupported: "Device does not support image sharing.",
+    errorNotSupported: "Device doesn't support image sharing.",
     successDownload: "Image downloaded.",
     buttonShare: "Share photo",
     theme: "Theme",
@@ -300,6 +300,9 @@ export const en = {
     modeIcon: "Icons",
     modeText: "Text",
     modeBoth: "Both",
+    background: "Background",
+    bgSolid: "Solid",
+    bgTransparent: "Transparent",
   },
   prefs: {
     title: "Training Preferences",
