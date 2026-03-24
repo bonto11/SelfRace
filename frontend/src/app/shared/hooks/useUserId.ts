@@ -18,33 +18,47 @@ export function useUserId() {
   const storedUuid = typeof window !== "undefined" ? window.localStorage.getItem("selfrace_uuid") : null;
 
   const [state, setState] = useState<WhoAmI>({ id: storedId, uuid: storedUuid });
-  const [isChecking, setIsChecking] = useState(true); // Na začiatku vždy overujeme
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = getSupabaseBrowser();
 
-    const handleUser = async (sessionUser: any) => {
+    const handleUser = async (sessionUser: any, isFromSignOutEvent = false) => {
         if (!isMounted) return;
 
+        // Ak nemáme sessionUser, overíme, či náhodou Supabase len nepanikári
         if (!sessionUser) {
+            // Ochrana Stravy / Stripe
             const url = window.location.href;
             if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
                 return; 
             }
 
-            window.localStorage.removeItem("selfrace_numeric_id");
-            window.localStorage.removeItem("selfrace_uuid");
-            setState({ id: null, uuid: null });
-            setIsChecking(false);
-            
-            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
-            if (!isPublicPage) {
-                router.replace("/signin");
+            // 🚀 HACK: Ak je to falošný SIGNED_OUT event, ale my MÁME token, ignorujeme to!
+            if (isFromSignOutEvent && window.localStorage.getItem("selfrace-auth-token")) {
+                console.log("🛡️ [HACK] Supabase hlási SIGNED_OUT, ale token máme. Ignorujem falošné odhlásenie.");
+                return;
+            }
+
+            // Ak naozaj nemáme nič, tak odhlasujeme
+            if (!window.localStorage.getItem("selfrace-auth-token")) {
+                window.localStorage.removeItem("selfrace_numeric_id");
+                window.localStorage.removeItem("selfrace_uuid");
+                setState({ id: null, uuid: null });
+                setIsChecking(false);
+                
+                const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
+                if (!isPublicPage) {
+                    router.replace("/signin");
+                }
+            } else {
+                setIsChecking(false); // Token máme, ale sessionUser je null? Počkáme.
             }
             return;
         }
 
+        // Token a User existujú, získame naše číselné ID z backendu
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -89,7 +103,8 @@ export function useUserId() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
         if (event === "INITIAL_SESSION") return; 
         if (event === "SIGNED_OUT") {
-            handleUser(null);
+            // Označíme si, že to prišlo z eventu, aby sme vedeli blokovať paniku
+            handleUser(null, true);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
             handleUser(session?.user);
         }
