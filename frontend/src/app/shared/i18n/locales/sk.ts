@@ -1743,12 +1743,12 @@ export const sk = {
     noData: "Žiadne dáta VO₂Max.",
     detailTitle: "Detail – VO₂Max",
     chart: {
-      estLevel: "Odhadovaná VO₂Max – úroveň",
-      estLabel: "Odhadovaná VO₂Max",
-      measLevel: "Nameraná VO₂Max – úroveň",
-      measLabel: "Nameraná VO₂Max",
-      estimated: "Odhadovaná",
-      measured: "Nameraná",
+      estLevel: "Odhad VO₂Max – úroveň",
+      estLabel: "Odhad VO₂Max",
+      measLevel: "Meranie VO₂Max – úroveň",
+      measLabel: "Meranie VO₂Max",
+      estimated: "Odhad",
+      measured: "Meranie",
     },
     widget: {
       title: "VO₂Max",
