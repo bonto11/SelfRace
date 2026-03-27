@@ -44,20 +44,40 @@ export default function TrendBodyFat() {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - weeks * 7);
     
-    console.log(`[BodyFatTrend] Cutoff date for ${weeks} weeks:`, cutoff.toISOString());
-    console.log("[BodyFatTrend] Raw data.bodyFatTrend:", data.bodyFatTrend);
+    // 1. Získame všetky dáta a zotriedime ich chronologicky
+    const raw = [...(data.bodyFatTrend || [])]
+      .filter(r => r.measured_at)
+      .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
 
-    const filteredAndSorted = (data.bodyFatTrend || [])
-      .filter(r => r.measured_at && new Date(r.measured_at) >= cutoff)
-      // Zásadná oprava: Zotriediť chronologicky
-      .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime())
+    // 2. Najprv vyberieme len tie, čo patria do nášho časového okna
+    let filtered = raw
+      .filter(r => new Date(r.measured_at) >= cutoff)
       .map(r => ({
         label: new Date(r.measured_at).toLocaleDateString("sk-SK"),
         value: r.value_num,
       }));
 
-    console.log("[BodyFatTrend] Final chartData:", filteredAndSorted);
-    return filteredAndSorted;
+    // 3. SMART FALLBACK: Ak okno zíva prázdnotou, ale niekedy v minulosti sme mali záznam
+    if (filtered.length === 0 && raw.length > 0) {
+      const lastVal = raw[raw.length - 1].value_num; // Zoberieme poslednú známu hodnotu
+      filtered = [
+        { label: new Date(cutoff).toLocaleDateString("sk-SK"), value: lastVal },
+        { label: new Date().toLocaleDateString("sk-SK"), value: lastVal }
+      ];
+    } 
+    // 4. Ak máme len 1 bod (či už z okna, alebo celkovo), Recharts nespraví čiaru, ale len bodku.
+    // Takže hodnotu potiahneme až do dneška, aby sa vytvorila rovná trendová línia.
+    else if (filtered.length === 1) {
+      const todayStr = new Date().toLocaleDateString("sk-SK");
+      if (filtered[0].label !== todayStr) {
+        filtered.push({ label: todayStr, value: filtered[0].value });
+      } else {
+        // Ak ten jeden záznam je náhodou z dneška, natiahneme čiaru od cutoffu
+        filtered.unshift({ label: new Date(cutoff).toLocaleDateString("sk-SK"), value: filtered[0].value });
+      }
+    }
+
+    return filtered;
   }, [data.bodyFatTrend, weeks]);
 
   const sex = data.bodyFatLatest?.sex || "M";
@@ -108,7 +128,6 @@ export default function TrendBodyFat() {
               <YAxis domain={[0, suggestedTop]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
-              {/* Pridané connectNulls rovnako ako vo VO2Max */}
               <Line type="monotone" dataKey="value" name={t("bodyFat.title")} stroke={appColors.chartLine1} strokeWidth={3} dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
