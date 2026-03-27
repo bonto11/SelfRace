@@ -60,6 +60,25 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
   return h * 60 + m;
 }
 
+// ✅ Komponent pre odznak "AI"
+const AiBadge = () => (
+  <span
+    style={{
+      marginLeft: "6px",
+      color: appColors.brandPrimary,
+      fontSize: "9px",
+      fontWeight: 900,
+      letterSpacing: "0.05em",
+      verticalAlign: "middle",
+      backgroundColor: `${appColors.brandPrimary}20`,
+      padding: "2px 4px",
+      borderRadius: "4px",
+    }}
+  >
+    ⚡ AI
+  </span>
+);
+
 export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
@@ -203,32 +222,19 @@ export default function RecoveryInputs() {
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
-          {/* HLAVNÉ UKAZOVATELE */}
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.hrvAvgLabel")}
-            </div>
-            <TextField
-              type="number"
-              value={hrvAvg}
-              onChange={(e) => {
-                setHrvAvg(e.target.value);
-                markDirty("HRV_avg_ms");
-              }}
-              placeholder="ms"
-              disabled={saving}
-            />
-          </section>
+          
+          {/* LEGENDA PRE AI ODZNAK */}
+          <div className="md:col-span-2 mb-1" style={{ fontSize: "11px", color: appColors.textMuted }}>
+            Značka <AiBadge /> označuje metriky, ktoré priamo upravujú tvoj tréningový plán.
+          </div>
 
+          {/* 1. RHR */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("recovery.inputs.rhrLabel")}
+              {t("recovery.inputs.rhrLabel")} <AiBadge />
             </div>
             <TextField
               type="number"
@@ -242,12 +248,53 @@ export default function RecoveryInputs() {
             />
           </section>
 
-          <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
+          {/* 2. HRV AVG */}
+          <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("recovery.inputs.sleepDurationLabel")}
+              {t("recovery.inputs.hrvAvgLabel")} <AiBadge />
+            </div>
+            <TextField
+              type="number"
+              value={hrvAvg}
+              onChange={(e) => {
+                setHrvAvg(e.target.value);
+                markDirty("HRV_avg_ms");
+              }}
+              placeholder="ms"
+              disabled={saving}
+            />
+          </section>
+
+          {/* 3. HRV MAX */}
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("recovery.inputs.hrvMaxLabel")}
+            </div>
+            <TextField
+              type="number"
+              value={hrvMax}
+              onChange={(e) => {
+                setHrvMax(e.target.value);
+                markDirty("HRV_max_ms");
+              }}
+              placeholder="ms"
+              disabled={saving}
+            />
+          </section>
+
+          {/* 4. SLEEP DURATION */}
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("recovery.inputs.sleepDurationLabel")} <AiBadge />
             </div>
             <TextField
               type="text"
@@ -262,8 +309,29 @@ export default function RecoveryInputs() {
             />
           </section>
 
+          {/* 5. SLEEP START */}
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div
+              className={INPUTS_CARD_LABEL_SM_1}
+              style={{ color: appColors.textMuted }}
+            >
+              {t("recovery.inputs.sleepStartLabel")}
+            </div>
+            <TextField
+              type="text"
+              placeholder="HH:MM"
+              value={sleepStart}
+              onChange={(e) => {
+                handleTimeInput(e, setSleepStart);
+                markDirty("sleep_start_time");
+              }}
+              inputMode="numeric"
+              disabled={saving}
+            />
+          </section>
+
           {/* OVPLYVŇUJÚCE FAKTORY */}
-          <section className={SECTION + " md:col-span-2"} style={SECTION_STYLE}>
+          <section className={SECTION + " md:col-span-2 mt-2"} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_2}
               style={{ color: appColors.textMuted }}
@@ -343,46 +411,6 @@ export default function RecoveryInputs() {
                 disabled={saving}
               />
             </div>
-          </section>
-
-          {/* DOPLNKY */}
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.hrvMaxLabel")}
-            </div>
-            <TextField
-              type="number"
-              value={hrvMax}
-              onChange={(e) => {
-                setHrvMax(e.target.value);
-                markDirty("HRV_max_ms");
-              }}
-              placeholder="ms"
-              disabled={saving}
-            />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div
-              className={INPUTS_CARD_LABEL_SM_1}
-              style={{ color: appColors.textMuted }}
-            >
-              {t("recovery.inputs.sleepStartLabel")}
-            </div>
-            <TextField
-              type="text"
-              placeholder="HH:MM"
-              value={sleepStart}
-              onChange={(e) => {
-                handleTimeInput(e, setSleepStart);
-                markDirty("sleep_start_time");
-              }}
-              inputMode="numeric"
-              disabled={saving}
-            />
           </section>
         </div>
       </div>

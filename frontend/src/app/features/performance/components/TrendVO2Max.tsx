@@ -57,7 +57,11 @@ export default function TrendVO2Max() {
       if (new Date(d) >= cutoff) measMap.set(d, r.value_num);
     });
 
-    const allDays = Array.from(new Set([...Array.from(estMap.keys()), ...Array.from(measMap.keys())])).sort();
+    // Create a set of all unique dates within the timeframe
+    const allDaysSet = new Set([...Array.from(estMap.keys()), ...Array.from(measMap.keys())]);
+    
+    // Sort dates chronologically
+    const allDays = Array.from(allDaysSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     
     return allDays.map(dISO => ({
       label: new Date(dISO).toLocaleDateString("sk-SK"),
@@ -74,8 +78,17 @@ export default function TrendVO2Max() {
   const ranges = group?.ranges?.map(r => ({ ...r, color: colorForVo2RangeLabel(r.label) })) ?? [];
 
   const allVals = chartData.flatMap(d => [d.est, d.meas].filter(v => v !== null)) as number[];
-  const yMin = Math.max(10, Math.floor((Math.min(...allVals, 35) - 3) / 5) * 5);
-  const yMax = Math.max(60, Math.ceil((Math.max(...allVals, 55) + 3) / 5) * 5);
+  
+  // Calculate dynamic Y-axis bounds based on available data
+  let yMin = 10;
+  let yMax = 60;
+  
+  if (allVals.length > 0) {
+      const minVal = Math.min(...allVals);
+      const maxVal = Math.max(...allVals);
+      yMin = Math.max(10, Math.floor((minVal - 3) / 5) * 5);
+      yMax = Math.max(60, Math.ceil((maxVal + 3) / 5) * 5);
+  }
 
   return (
     <div className={`${CARD} relative overflow-hidden`} style={SURFACE_CARD_STYLE}>
