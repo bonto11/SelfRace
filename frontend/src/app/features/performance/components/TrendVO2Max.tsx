@@ -41,21 +41,10 @@ export default function TrendVO2Max() {
   const { data, loading } = usePerformanceData();
   const [weeks, setWeeks] = React.useState<number>(4);
 
-  // LOG 1: Čo nám vlastne prišlo do komponentu?
-  React.useEffect(() => {
-      console.log("[VO2MaxTrend] Incoming raw data:", { 
-          estTrend: data?.vo2EstimatedTrend, 
-          measTrend: data?.vo2MeasuredTrend,
-          loading
-      });
-  }, [data, loading]);
-
   const chartData = React.useMemo(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - weeks * 7);
     
-    console.log(`[VO2MaxTrend] Cutoff date for ${weeks} weeks:`, cutoff.toISOString());
-
     const estMap = new Map();
     (data.vo2EstimatedTrend || []).forEach(r => {
       if (!r.measured_at) return;
@@ -70,29 +59,17 @@ export default function TrendVO2Max() {
       if (new Date(d) >= cutoff) measMap.set(d, r.value_num);
     });
 
-    // LOG 2: Čo sme vyfiltrovali?
-    console.log("[VO2MaxTrend] Filtered Maps:", {
-        estMap: Object.fromEntries(estMap),
-        measMap: Object.fromEntries(measMap)
-    });
-
     // Create a set of all unique dates within the timeframe
     const allDaysSet = new Set([...Array.from(estMap.keys()), ...Array.from(measMap.keys())]);
     
     // Sort dates chronologically
     const allDays = Array.from(allDaysSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     
-    // LOG 3: Zotriedené dni
-    console.log("[VO2MaxTrend] Sorted unique days:", allDays);
-
     const finalChartData = allDays.map(dISO => ({
       label: new Date(dISO).toLocaleDateString("sk-SK"),
       est: estMap.get(dISO) ?? null,
       meas: measMap.get(dISO) ?? null,
     }));
-
-    // LOG 4: Finálny formát pre Recharts
-    console.log("[VO2MaxTrend] Final chartData:", finalChartData);
 
     return finalChartData;
   }, [data.vo2EstimatedTrend, data.vo2MeasuredTrend, weeks]);
@@ -116,12 +93,6 @@ export default function TrendVO2Max() {
       yMin = Math.max(10, Math.floor((minVal - 3) / 5) * 5);
       yMax = Math.max(60, Math.ceil((maxVal + 3) / 5) * 5);
   }
-
-  // LOG 5: Os Y a rozsahy
-  React.useEffect(() => {
-    console.log("[VO2MaxTrend] Y-Axis Bounds:", { yMin, yMax, allValsCount: allVals.length });
-  }, [yMin, yMax, allVals.length]);
-
 
   return (
     <div className={`${CARD} relative overflow-hidden`} style={SURFACE_CARD_STYLE}>

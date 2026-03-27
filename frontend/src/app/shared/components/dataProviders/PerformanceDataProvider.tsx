@@ -144,19 +144,14 @@ export function PerformanceDataProvider({
         apiGetBodyFatTrend(uid, d),
       ]);
 
-      console.log("[PerformanceProvider] RAW vo2 Estimated Trend:", vo2ETrend);
-      console.log("[PerformanceProvider] RAW vo2 Measured Trend:", vo2MTrend);
-
       return {
         latestZones,
         zoneTrends: zoneTrends || [],
         latestPace: (latestPaceRes as any)?.data || null,
         paceTrends: (paceTrendRes as any)?.trends || (paceTrendRes as any)?.data || [],
         vo2MeasuredLatest: vo2MLatest?.data || null,
-        // ✅ POISTKA: Ak to nie je v .trends, hľadáme v .data
         vo2MeasuredTrend: vo2MTrend?.trends || vo2MTrend?.data || [], 
         vo2EstimatedLatest: vo2ELatest?.data || null,
-        // ✅ POISTKA: Ak to nie je v .trends, hľadáme v .data
         vo2EstimatedTrend: vo2ETrend?.trends || vo2ETrend?.data || [],
         bodyFatLatest: fatLatest?.data || null,
         bodyFatTrend: fatTrend?.trends || fatTrend?.data || [],
@@ -173,13 +168,11 @@ export function PerformanceDataProvider({
         if (!force) {
           const cached = loadCache(userIdStr);
           if (cached) {
-            console.log("[PerformanceProvider] Loading from cache:", cached);
             setData(cached);
             setLoading(false);
           }
           fetchAllData(userId, days)
             .then((fresh) => {
-              console.log("[PerformanceProvider] Fetched fresh data (background):", fresh);
               setData(fresh);
               saveCache(userIdStr, fresh);
             })
@@ -187,7 +180,6 @@ export function PerformanceDataProvider({
           return;
         }
         const fresh = await fetchAllData(userId, days);
-        console.log("[PerformanceProvider] Fetched fresh data (forced):", fresh);
         setData(fresh);
         saveCache(userIdStr, fresh);
       } finally {
