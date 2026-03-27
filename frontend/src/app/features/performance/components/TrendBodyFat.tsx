@@ -44,12 +44,20 @@ export default function TrendBodyFat() {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - weeks * 7);
     
-    return (data.bodyFatTrend || [])
-      .filter(r => new Date(r.measured_at) >= cutoff)
+    console.log(`[BodyFatTrend] Cutoff date for ${weeks} weeks:`, cutoff.toISOString());
+    console.log("[BodyFatTrend] Raw data.bodyFatTrend:", data.bodyFatTrend);
+
+    const filteredAndSorted = (data.bodyFatTrend || [])
+      .filter(r => r.measured_at && new Date(r.measured_at) >= cutoff)
+      // Zásadná oprava: Zotriediť chronologicky
+      .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime())
       .map(r => ({
         label: new Date(r.measured_at).toLocaleDateString("sk-SK"),
         value: r.value_num,
       }));
+
+    console.log("[BodyFatTrend] Final chartData:", filteredAndSorted);
+    return filteredAndSorted;
   }, [data.bodyFatTrend, weeks]);
 
   const sex = data.bodyFatLatest?.sex || "M";
@@ -100,7 +108,8 @@ export default function TrendBodyFat() {
               <YAxis domain={[0, suggestedTop]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />
-              <Line type="monotone" dataKey="value" name={t("bodyFat.title")} stroke={appColors.chartLine1} strokeWidth={3} dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }} />
+              {/* Pridané connectNulls rovnako ako vo VO2Max */}
+              <Line type="monotone" dataKey="value" name={t("bodyFat.title")} stroke={appColors.chartLine1} strokeWidth={3} dot={{ r: 3, fill: appColors.chartLine1, strokeWidth: 0 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         )}
