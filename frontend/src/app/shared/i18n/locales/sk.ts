@@ -2019,6 +2019,7 @@ export const sk = {
       notePlaceholder: "Stres, choroba, cestovanie, neskorý tréning...",
       hrvMaxLabel: "HRV (maximum)",
       sleepStartLabel: "Čas zaspatia",
+      importantMark: "Označenie metriky, ktoré priamo ovplyvňujú tvoj tréningový plán."
     },
     trends: {
       common: {

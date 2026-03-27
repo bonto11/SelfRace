@@ -12,7 +12,6 @@ import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import { apiSaveRecoveryPatch } from "@/app/features/recovery/api/recovery";
-// ✅ IMPORT HOOKU PRE REFRESH DÁT
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 
 import {
@@ -60,13 +59,12 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
   return h * 60 + m;
 }
 
-// ✅ Komponent pre odznak "AI"
 const AiBadge = () => (
   <span
     style={{
       marginLeft: "6px",
       color: appColors.brandPrimary,
-      fontSize: "9px",
+      fontSize: "11px",
       fontWeight: 900,
       letterSpacing: "0.05em",
       verticalAlign: "middle",
@@ -75,15 +73,13 @@ const AiBadge = () => (
       borderRadius: "4px",
     }}
   >
-    ⚡ AI
+    ⚡
   </span>
 );
 
 export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
-  
-  // ✅ VYTIAHNUTIE FUNKCIE REFRESH Z PROVIDERA
   const { refresh } = useRecoveryData();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -225,7 +221,7 @@ export default function RecoveryInputs() {
           
           {/* LEGENDA PRE AI ODZNAK */}
           <div className="md:col-span-2 mb-1" style={{ fontSize: "11px", color: appColors.textMuted }}>
-            Značka <AiBadge /> označuje metriky, ktoré priamo upravujú tvoj tréningový plán.
+            <AiBadge /> {t("recovery.inputs.importantMark")}
           </div>
 
           {/* 1. RHR */}

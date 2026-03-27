@@ -2017,6 +2017,7 @@ export const en = {
       notePlaceholder: "Stress, illness, travel, late workout...",
       hrvMaxLabel: "HRV (Maximum)",
       sleepStartLabel: "Time fallen asleep",
+      importantMark: "Identifying metrics that directly impact your training plan."
     },
     trends: {
       common: {
