@@ -7,98 +7,91 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 type WhoAmI = { id: number | null; uuid: string | null };
 
-let sharedResolvePromise: Promise<any> | null = null;
-let sharedSessionPromise: Promise<any> | null = null;
-
 export function useUserId() {
   const router = useRouter();
   const pathname = usePathname();
-  
-  const storedId = typeof window !== "undefined" ? Number(window.localStorage.getItem("selfrace_numeric_id")) || null : null;
-  const storedUuid = typeof window !== "undefined" ? window.localStorage.getItem("selfrace_uuid") : null;
 
-  const [state, setState] = useState<WhoAmI>({ id: storedId, uuid: storedUuid });
+  const [state, setState] = useState<WhoAmI>({
+    id: typeof window !== "undefined" ? Number(window.localStorage.getItem("selfrace_numeric_id")) || null : null,
+    uuid: typeof window !== "undefined" ? window.localStorage.getItem("selfrace_uuid") : null
+  });
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = getSupabaseBrowser();
 
-    const handleUser = async (sessionUser: any) => {
-        if (!isMounted) return;
+    const resolveUser = async () => {
+      try {
+        console.log("[AUTH] Kontrolujem session...");
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (!sessionUser) {
-            // Unauthenticated state
-            window.localStorage.removeItem("selfrace_numeric_id");
-            window.localStorage.removeItem("selfrace_uuid");
+        if (error) console.error("[AUTH] Chyba session:", error);
+
+        const user = session?.user;
+
+        if (!user) {
+          console.log("[AUTH] Užívateľ nenájdený. Mažem lokálne dáta.");
+          window.localStorage.removeItem("selfrace_numeric_id");
+          window.localStorage.removeItem("selfrace_uuid");
+          if (isMounted) {
             setState({ id: null, uuid: null });
             setIsChecking(false);
-            
-            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
-            
-            // Allow code redirects for auth flows (like Strava) to proceed before redirecting
-            const url = window.location.href;
-            const isAuthCallback = url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=");
+          }
 
-            if (!isPublicPage && !isAuthCallback) {
-                router.replace("/signin");
-            }
-            return;
+          const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
+          if (!isPublicPage) {
+              console.log("[AUTH] Presmerovávam na /signin");
+              router.replace("/signin");
+          }
+          return;
         }
 
-        // Authenticated state - resolve numeric ID if missing
-        let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
+        console.log("[AUTH] Supabase User UUID:", user.id);
+        let numId = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
-            if (!sharedResolvePromise) {
-                sharedResolvePromise = callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ auth_uid: sessionUser.id })
-                });
-                // Simple cache to prevent duplicate rapid calls
-                setTimeout(() => { sharedResolvePromise = null; }, 1000); 
+          console.log("[AUTH] Chýba numeric_id, volám backend na /users/resolve...");
+          try {
+            const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ auth_uid: user.id })
+            });
+            console.log("[AUTH] Odpoveď z resolve:", res);
+
+            if (res?.success && res.user_id) {
+                numId = res.user_id;
+                window.localStorage.setItem("selfrace_numeric_id", String(numId));
+                window.localStorage.setItem("selfrace_uuid", user.id);
+            } else {
+                console.warn("[AUTH] Backend nevrátil user_id!");
             }
-            
-            try {
-                const res = await sharedResolvePromise!;
-                if (res?.success && res.user_id) {
-                    numId = res.user_id;
-                    window.localStorage.setItem("selfrace_numeric_id", String(numId));
-                    window.localStorage.setItem("selfrace_uuid", sessionUser.id);
-                }
-            } catch (e) {
-                console.error("[AUTH] Backend resolve error:", e);
-            }
+          } catch (e) {
+            console.error("[AUTH] Zlyhal request na resolve:", e);
+          }
         } else {
-             // Ensure UUID is synced if numeric ID existed
-            window.localStorage.setItem("selfrace_uuid", sessionUser.id);
+           window.localStorage.setItem("selfrace_uuid", user.id);
         }
 
         if (isMounted) {
-            setState({ id: numId, uuid: sessionUser.id });
-            setIsChecking(false);
+          console.log("[AUTH] Finálny stav -> numeric_id:", numId);
+          setState({ id: numId, uuid: user.id });
+          setIsChecking(false);
         }
+
+      } catch (e) {
+         console.error("[AUTH] Nečakaná chyba v resolveUser:", e);
+         if (isMounted) setIsChecking(false);
+      }
     };
 
-    // Initial check
-    if (!sharedSessionPromise) {
-        sharedSessionPromise = supabase.auth.getSession();
-        setTimeout(() => { sharedSessionPromise = null; }, 1000);
-    }
+    resolveUser();
 
-    sharedSessionPromise?.then(({ data }: any) => {
-        handleUser(data?.session?.user);
-    });
-
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === "INITIAL_SESSION") return; 
-        
-        if (event === "SIGNED_OUT") {
-           handleUser(null);
-        } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-            handleUser(session?.user);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log(`[AUTH] Event zmeny stavu: ${event}`);
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
+            resolveUser();
         }
     });
 
@@ -114,9 +107,7 @@ export function useUserId() {
     isChecking,
     refresh: () => {
         setIsChecking(true);
-        getSupabaseBrowser().auth.getSession().then(() => {
-            setTimeout(() => setIsChecking(false), 500);
-        });
+        getSupabaseBrowser().auth.getSession().then(() => setIsChecking(false));
     }
   }), [state.id, state.uuid, isChecking]);
 }
