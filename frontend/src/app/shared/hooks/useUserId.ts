@@ -24,41 +24,29 @@ export function useUserId() {
     let isMounted = true;
     const supabase = getSupabaseBrowser();
 
-    const handleUser = async (sessionUser: any, isFromSignOutEvent = false) => {
+    const handleUser = async (sessionUser: any) => {
         if (!isMounted) return;
 
-        // Ak nemáme sessionUser, overíme, či náhodou Supabase len nepanikári
         if (!sessionUser) {
-            // Ochrana Stravy / Stripe
+            // Unauthenticated state
+            window.localStorage.removeItem("selfrace_numeric_id");
+            window.localStorage.removeItem("selfrace_uuid");
+            setState({ id: null, uuid: null });
+            setIsChecking(false);
+            
+            const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
+            
+            // Allow code redirects for auth flows (like Strava) to proceed before redirecting
             const url = window.location.href;
-            if (url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=")) {
-                return; 
-            }
+            const isAuthCallback = url.includes("code=") || url.includes("access_token=") || url.includes("refresh_token=");
 
-            // 🚀 HACK: Ak je to falošný SIGNED_OUT event, ale my MÁME token, ignorujeme to!
-            if (isFromSignOutEvent && window.localStorage.getItem("selfrace-auth-token")) {
-                //console.log("🛡️ [HACK] Supabase hlási SIGNED_OUT, ale token máme. Ignorujem falošné odhlásenie.");
-                return;
-            }
-
-            // Ak naozaj nemáme nič, tak odhlasujeme
-            if (!window.localStorage.getItem("selfrace-auth-token")) {
-                window.localStorage.removeItem("selfrace_numeric_id");
-                window.localStorage.removeItem("selfrace_uuid");
-                setState({ id: null, uuid: null });
-                setIsChecking(false);
-                
-                const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
-                if (!isPublicPage) {
-                    router.replace("/signin");
-                }
-            } else {
-                setIsChecking(false); // Token máme, ale sessionUser je null? Počkáme.
+            if (!isPublicPage && !isAuthCallback) {
+                router.replace("/signin");
             }
             return;
         }
 
-        // Token a User existujú, získame naše číselné ID z backendu
+        // Authenticated state - resolve numeric ID if missing
         let numId: number | null = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
@@ -68,7 +56,8 @@ export function useUserId() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ auth_uid: sessionUser.id })
                 });
-                setTimeout(() => { sharedResolvePromise = null; }, 1000);
+                // Simple cache to prevent duplicate rapid calls
+                setTimeout(() => { sharedResolvePromise = null; }, 1000); 
             }
             
             try {
@@ -82,6 +71,7 @@ export function useUserId() {
                 console.error("[AUTH] Backend resolve error:", e);
             }
         } else {
+             // Ensure UUID is synced if numeric ID existed
             window.localStorage.setItem("selfrace_uuid", sessionUser.id);
         }
 
@@ -91,6 +81,7 @@ export function useUserId() {
         }
     };
 
+    // Initial check
     if (!sharedSessionPromise) {
         sharedSessionPromise = supabase.auth.getSession();
         setTimeout(() => { sharedSessionPromise = null; }, 1000);
@@ -100,11 +91,12 @@ export function useUserId() {
         handleUser(data?.session?.user);
     });
 
+    // Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
         if (event === "INITIAL_SESSION") return; 
+        
         if (event === "SIGNED_OUT") {
-            // Označíme si, že to prišlo z eventu, aby sme vedeli blokovať paniku
-            handleUser(null, true);
+           handleUser(null);
         } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
             handleUser(session?.user);
         }
