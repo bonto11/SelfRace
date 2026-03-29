@@ -1,3 +1,4 @@
+// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -27,14 +28,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Toto je to kúzlo: Zistí, či si prihlásený. Ak ti expiroval access token, 
-  // ale máš platný refresh token, Supabase ti ho tu automaticky a potichu obnoví.
+  // This triggers a refresh if the access token is expired but the refresh token is valid.
   await supabase.auth.getUser();
 
   return supabaseResponse;
 }
 
-// Middleware sa nespúšťa pre obrázky, CSS a statické súbory (kvôli rýchlosti)
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
