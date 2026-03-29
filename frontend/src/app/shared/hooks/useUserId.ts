@@ -23,17 +23,38 @@ export function useUserId() {
 
     const resolveUser = async () => {
       try {
-        console.log("[AUTH] Kontrolujem session...");
-        const { data: { session }, error } = await supabase.auth.getSession();
+        let { data: { session }, error } = await supabase.auth.getSession();
 
-        if (error) console.error("[AUTH] Chyba session:", error);
+        // 🔥 PARTIZÁNSKY HACK: Ak session neexistuje, ideme resuscitovať!
+        if (!session) {
+          const backupAccess = window.localStorage.getItem("sr_backup_access");
+          const backupRefresh = window.localStorage.getItem("sr_backup_refresh");
+
+          if (backupAccess && backupRefresh) {
+            console.log("🧟 [AUTH] PWA zmazala session! Oživujem token zo zálohy...");
+            const res = await supabase.auth.setSession({
+              access_token: backupAccess,
+              refresh_token: backupRefresh
+            });
+            session = res.data?.session;
+            
+            if (session) {
+                console.log("✅ [AUTH] Oživenie úspešné!");
+            } else {
+                console.warn("❌ [AUTH] Oživenie zlyhalo, token už asi úplne expiroval.");
+            }
+          }
+        }
 
         const user = session?.user;
 
         if (!user) {
-          console.log("[AUTH] Užívateľ nenájdený. Mažem lokálne dáta.");
+          // Ak zlyhalo všetko, až teraz reálne odhlasujeme
           window.localStorage.removeItem("selfrace_numeric_id");
           window.localStorage.removeItem("selfrace_uuid");
+          window.localStorage.removeItem("sr_backup_access");
+          window.localStorage.removeItem("sr_backup_refresh");
+          
           if (isMounted) {
             setState({ id: null, uuid: null });
             setIsChecking(false);
@@ -41,31 +62,29 @@ export function useUserId() {
 
           const isPublicPage = pathname?.startsWith("/signin") || pathname?.startsWith("/signup") || pathname?.startsWith("/forgot-password");
           if (!isPublicPage) {
-              console.log("[AUTH] Presmerovávam na /signin");
               router.replace("/signin");
           }
           return;
         }
 
-        console.log("[AUTH] Supabase User UUID:", user.id);
+        // 💾 Robíme zálohu pre prípad, že nás apka zasa vyswajpne
+        window.localStorage.setItem("sr_backup_access", session.access_token);
+        window.localStorage.setItem("sr_backup_refresh", session.refresh_token);
+
         let numId = Number(window.localStorage.getItem("selfrace_numeric_id")) || null;
 
         if (!numId) {
-          console.log("[AUTH] Chýba numeric_id, volám backend na /users/resolve...");
           try {
             const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ auth_uid: user.id })
             });
-            console.log("[AUTH] Odpoveď z resolve:", res);
 
             if (res?.success && res.user_id) {
                 numId = res.user_id;
                 window.localStorage.setItem("selfrace_numeric_id", String(numId));
                 window.localStorage.setItem("selfrace_uuid", user.id);
-            } else {
-                console.warn("[AUTH] Backend nevrátil user_id!");
             }
           } catch (e) {
             console.error("[AUTH] Zlyhal request na resolve:", e);
@@ -75,22 +94,18 @@ export function useUserId() {
         }
 
         if (isMounted) {
-          console.log("[AUTH] Finálny stav -> numeric_id:", numId);
           setState({ id: numId, uuid: user.id });
           setIsChecking(false);
         }
 
       } catch (e) {
-         console.error("[AUTH] Nečakaná chyba v resolveUser:", e);
          if (isMounted) setIsChecking(false);
       }
     };
 
     resolveUser();
 
-    // ✅ OPRAVA: Pridané typy (event: string, session: any)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        console.log(`[AUTH] Event zmeny stavu: ${event}`);
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
             resolveUser();
         }
