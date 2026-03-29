@@ -1,4 +1,3 @@
-// src/app/shared/utils/supabaseBrowser.ts (or wherever it is located)
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
@@ -8,7 +7,14 @@ let _client: any = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+    _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      // 🚀 TOTO JE TEN KĽÚČ: Vynútime trvalú cookie platnú 1 rok
+      cookieOptions: {
+        maxAge: 31536000, 
+        path: "/",
+        sameSite: "lax",
+      }
+    });
   }
   return _client;
 }
