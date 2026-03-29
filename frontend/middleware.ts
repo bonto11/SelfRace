@@ -1,4 +1,3 @@
-// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -16,19 +15,27 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          // 1. Prečítame prichádzajúce cookies
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          
           supabaseResponse = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          
+          // 2. 🚀 OBRANNÝ HACK: Pri ukladaní nových cookies natvrdo prebíjame ich platnosť
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              maxAge: 31536000, // 1 rok v sekundách (aby prežili swajpnutie)
+              path: "/",
+              sameSite: "lax", // 'lax' je dôležité kvôli redirectom zo Stravy/Stripe!
+            });
+          });
         },
       },
     }
   );
 
-  // This triggers a refresh if the access token is expired but the refresh token is valid.
   await supabase.auth.getUser();
 
   return supabaseResponse;
