@@ -88,7 +88,8 @@ export function useUserId() {
 
     resolveUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // ✅ OPRAVA: Pridané typy (event: string, session: any)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
         console.log(`[AUTH] Event zmeny stavu: ${event}`);
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
             resolveUser();
