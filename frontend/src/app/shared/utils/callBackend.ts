@@ -15,14 +15,14 @@ export async function callBackend<T = any>(
 
   const supabase = getSupabaseBrowser();
 
-  // ✅ Čisté získavanie tokenu priamo zo Supabase (ktorý ho už číta z Cookies).
-  // Používame deduplikáciu, aby sme pri viacerých naraz spustených requestoch nezaťažovali DB.
+  // Deduplikácia volaní
   if (!sharedGetSessionPromise) {
     sharedGetSessionPromise = supabase.auth.getSession();
     setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
   }
   
-  const { data: { session } } = await sharedGetSessionPromise;
+  // ✅ OPRAVA: Pridaný výkričník (!), ktorý upokojí TypeScript
+  const { data: { session } } = await sharedGetSessionPromise!;
   let token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
