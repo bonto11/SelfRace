@@ -1,3 +1,4 @@
+// src/app/shared/utils/supabaseBrowser.ts (or wherever it is located)
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
