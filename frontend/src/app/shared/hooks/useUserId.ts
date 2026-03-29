@@ -23,33 +23,34 @@ export function useUserId() {
 
     const resolveUser = async () => {
       try {
-        let { data: { session }, error } = await supabase.auth.getSession();
+        let { data: { session } } = await supabase.auth.getSession();
 
-        // 🔥 PARTIZÁNSKY HACK: Ak session neexistuje, ideme resuscitovať!
-        if (!session) {
+        // 🔥 PARTIZÁNSKY HACK: Oživenie
+        if (!session && typeof window !== "undefined") {
           const backupAccess = window.localStorage.getItem("sr_backup_access");
           const backupRefresh = window.localStorage.getItem("sr_backup_refresh");
 
           if (backupAccess && backupRefresh) {
             console.log("🧟 [AUTH] PWA zmazala session! Oživujem token zo zálohy...");
-            const res = await supabase.auth.setSession({
+            let res = await supabase.auth.setSession({
               access_token: backupAccess,
               refresh_token: backupRefresh
             });
-            session = res.data?.session;
-            
-            if (session) {
-                console.log("✅ [AUTH] Oživenie úspešné!");
-            } else {
-                console.warn("❌ [AUTH] Oživenie zlyhalo, token už asi úplne expiroval.");
+
+            // Ak bol token expirovaný, setSession zlyhá. Vynútime tvrdý refresh.
+            if (res.error) {
+                console.log("⚠️ [AUTH] setSession zlyhalo, vynucujem refreshSession...");
+                res = await supabase.auth.refreshSession({ refresh_token: backupRefresh });
             }
+
+            session = res.data?.session ?? null;
+            if (session) console.log("✅ [AUTH] Oživenie úspešné!");
           }
         }
 
         const user = session?.user;
 
         if (!user) {
-          // Ak zlyhalo všetko, až teraz reálne odhlasujeme
           window.localStorage.removeItem("selfrace_numeric_id");
           window.localStorage.removeItem("selfrace_uuid");
           window.localStorage.removeItem("sr_backup_access");
@@ -67,7 +68,7 @@ export function useUserId() {
           return;
         }
 
-        // 💾 Robíme zálohu pre prípad, že nás apka zasa vyswajpne
+        // 💾 Robíme / Aktualizujeme zálohu
         window.localStorage.setItem("sr_backup_access", session.access_token);
         window.localStorage.setItem("sr_backup_refresh", session.refresh_token);
 
