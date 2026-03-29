@@ -27,7 +27,8 @@ export function useUser(redirectToLogin: boolean = false) {
 
     loadUser();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    // ✅ OPRAVA: Pridané explicitné typy (_event: any, session: any)
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
       setUser(session?.user ?? null);
       if (redirectToLogin && !session?.user) router.push("/signin");
