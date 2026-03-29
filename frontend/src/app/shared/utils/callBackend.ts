@@ -13,34 +13,17 @@ export async function callBackend<T = any>(
   _retry = false
 ): Promise<T> {
 
-  let token: string | null = null;
+  const supabase = getSupabaseBrowser();
 
-  // 🚀 HACK: Vytiahneme token priamo z LocalStorage, obídeme Supabase getSession!
-  // Týmto zabránime tomu, aby sa po F5 Supabase zbláznil a zmazal ho.
-  if (typeof window !== "undefined") {
-    try {
-      const storedStr = window.localStorage.getItem("selfrace-auth-token");
-      if (storedStr) {
-        const parsed = JSON.parse(storedStr);
-        token = parsed.access_token || null;
-      }
-    } catch (e) {
-      console.warn("[callBackend] Nepodarilo sa prečítať token priamo z LS", e);
-    }
+  // ✅ Čisté získavanie tokenu priamo zo Supabase (ktorý ho už číta z Cookies).
+  // Používame deduplikáciu, aby sme pri viacerých naraz spustených requestoch nezaťažovali DB.
+  if (!sharedGetSessionPromise) {
+    sharedGetSessionPromise = supabase.auth.getSession();
+    setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
   }
-
-  // Ak to v LS nie je, použijeme deduplikovaný Supabase call ako zálohu
-  if (!token) {
-    const supabase = getSupabaseBrowser();
-    if (!sharedGetSessionPromise) {
-      sharedGetSessionPromise = supabase.auth.getSession();
-      setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
-    }
-    
-    // ✅ OPRAVA TYPESCRIPTU 1: Pridaný výkričník (!)
-    const { data: { session } } = await sharedGetSessionPromise!;
-    token = session?.access_token ?? null;
-  }
+  
+  const { data: { session } } = await sharedGetSessionPromise;
+  let token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -48,14 +31,13 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  // Ak token expiroval, skúsime refresh
+  // Ak token expiroval a backend nás vyhodil (401), skúsime refresh session
   if (res.status === 401 && !_retry) {
-    const supabase = getSupabaseBrowser();
     
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
         return response.data?.session?.access_token ?? null;
-      }).catch((err: any) => { // OPRAVA TYPESCRIPTU 2: Pridané (err: any)
+      }).catch((err: any) => {
         console.warn("[AUTH: callBackend] refreshSession zlyhal:", err);
         return null;
       }).finally(() => { refreshPromise = null; });
@@ -63,6 +45,7 @@ export async function callBackend<T = any>(
 
     const newToken = await refreshPromise;
     
+    // Ak sa nám podarilo získať nový token, opakujeme pôvodný request
     if (newToken) {
       headers.set("Authorization", `Bearer ${newToken}`);
       const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
