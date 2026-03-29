@@ -15,15 +15,18 @@ export async function callBackend<T = any>(
 
   const supabase = getSupabaseBrowser();
 
-  // Deduplikácia volaní
   if (!sharedGetSessionPromise) {
     sharedGetSessionPromise = supabase.auth.getSession();
     setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
   }
   
-  // ✅ OPRAVA: Pridaný výkričník (!), ktorý upokojí TypeScript
   const { data: { session } } = await sharedGetSessionPromise!;
   let token = session?.access_token ?? null;
+
+  // 🔥 PARTIZÁNSKY HACK: Ak session neexistuje, zoberieme token zo zálohy v localStorage
+  if (!token && typeof window !== "undefined") {
+    token = window.localStorage.getItem("sr_backup_access");
+  }
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -31,29 +34,32 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  // Ak token expiroval a backend nás vyhodil (401), skúsime refresh session
   if (res.status === 401 && !_retry) {
-    
     if (!refreshPromise) {
       refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        return response.data?.session?.access_token ?? null;
+        const newAccess = response.data?.session?.access_token ?? null;
+        const newRefresh = response.data?.session?.refresh_token ?? null;
+        
+        // Ak sa podaril refresh, hneď aktualizujeme aj naše zálohy
+        if (newAccess && typeof window !== "undefined") {
+            window.localStorage.setItem("sr_backup_access", newAccess);
+            if (newRefresh) window.localStorage.setItem("sr_backup_refresh", newRefresh);
+        }
+        
+        return newAccess;
       }).catch((err: any) => {
-        console.warn("[AUTH: callBackend] refreshSession zlyhal:", err);
         return null;
       }).finally(() => { refreshPromise = null; });
     }
 
     const newToken = await refreshPromise;
     
-    // Ak sa nám podarilo získať nový token, opakujeme pôvodný request
     if (newToken) {
       headers.set("Authorization", `Bearer ${newToken}`);
       const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
       
       if (!retryRes.ok) {
-        const errText = await retryRes.text();
-        console.error(`[AUTH: callBackend] ❌ Retry failed with status ${retryRes.status}: ${errText}`);
-        throw new Error(`HTTP ${retryRes.status}: ${errText}`);
+        throw new Error(`HTTP ${retryRes.status}`);
       }
       
       const retryText = await retryRes.text();
@@ -62,14 +68,13 @@ export async function callBackend<T = any>(
   }
 
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`[AUTH: callBackend] ❌ HTTP Error ${res.status} on ${path}. Detail: ${text}`);
-    throw new Error(`HTTP ${res.status}: ${text}`);
+    throw new Error(`HTTP ${res.status}`);
   }
 
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
+
 
 export async function runAsyncJobWithPolling(
   userId: number | string,
