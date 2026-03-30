@@ -13,26 +13,21 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Nastavíme nové cookies pre aktuálny request
+          // Najprv aktualizujeme prichádzajúci request
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           
           supabaseResponse = NextResponse.next({ request });
           
-          // 🚀 FORCEME 1 ROK PLATNOSTI PRE KAŽDÚ NOVÚ COOKIE!
-          cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, {
-              ...options,
-              maxAge: 31536000, // 365 dní v sekundách (Apple ju už nezmaže)
-              path: "/",
-              sameSite: "lax",
-            });
-          });
+          // Potom čisto aplikujeme options priamo od Supabase (žiadne naše zásahy)
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  // Toto zavolá refresh tokenu na pozadí, ak expiroval
+  // Toto overí používateľa a v prípade potreby bezpečne obnoví token
   await supabase.auth.getUser();
 
   return supabaseResponse;
