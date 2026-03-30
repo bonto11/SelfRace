@@ -55,6 +55,9 @@ export default function ActivitiesPage() {
         <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
         <WidgetActivitiesCalendar />
       </div>
+      <a href="/debug" className="text-xs text-gray-500 mt-4 block text-center">
+        Diagnostika PWA
+      </a>
     </PageShell>
   );
 }

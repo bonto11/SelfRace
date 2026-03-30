@@ -8,25 +8,10 @@ export async function callBackend<T = any>(
   init: RequestInit = {},
   _retry = false
 ): Promise<T> {
-  let token: string | null = null;
-
-  if (typeof window !== "undefined") {
-    try {
-      let storedStr = window.localStorage.getItem("sr_vault_session");
-      if (!storedStr) storedStr = window.localStorage.getItem("sr_vault_session_backup");
-      
-      // 🚀 Ak to iOS po swajpnutí zmazal, siahame po Cookie
-      if (!storedStr) {
-         const match = document.cookie.match(new RegExp('(^| )sr_vault_cookie=([^;]+)'));
-         if (match) storedStr = decodeURIComponent(match[2]);
-      }
-      
-      if (storedStr) {
-        const parsed = JSON.parse(storedStr);
-        token = parsed.access_token || null;
-      }
-    } catch (e) {}
-  }
+  
+  const supabase = getSupabaseBrowser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -35,9 +20,7 @@ export async function callBackend<T = any>(
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
   if (res.status === 401 && !_retry) {
-    const supabase = getSupabaseBrowser();
     const { data } = await supabase.auth.refreshSession();
-    
     if (data?.session?.access_token) {
       headers.set("Authorization", `Bearer ${data.session.access_token}`);
       const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });

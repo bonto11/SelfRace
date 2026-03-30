@@ -14,48 +14,23 @@ export function useUser(redirectToLogin: boolean = false) {
     let mounted = true;
 
     async function loadUser() {
-      let currentUser = null;
-
-      // 1. Skúsime cez Supabase (automaticky volá async IndexedDB adaptér)
       const { data: { session } } = await supabase.auth.getSession();
-      currentUser = session?.user ?? null;
-
-      // 2. Ak Supabase blbne, na pozadí ho predbehneme nukleárnym čítaním priamo z DB
-      if (!currentUser && typeof window !== "undefined") {
-         try {
-            const idbKeyval = await import('idb-keyval'); // Dynamic import pre menší bundle
-            const stored = await idbKeyval.get("sr_vault_stable"); // Async hľadanie v DB
-            if (stored) {
-               const parsed = JSON.parse(stored);
-               if (parsed?.user) currentUser = parsed.user;
-            }
-         } catch (e) {}
-      }
-
       if (!mounted) return;
 
-      setUser(currentUser);
+      setUser(session?.user ?? null);
       setLoading(false);
 
-      if (redirectToLogin && !currentUser) {
-        router.push("/signin"); 
+      if (redirectToLogin && !session?.user) {
+        router.push("/signin");
       }
     }
 
     loadUser();
 
-    // ✅ Zmrazené odhlasovanie: Ak sa stav zmení na null bez logout flagu, nič nerobíme
     const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
-      
-      if (session?.user) {
-        setUser(session.user);
-      } else if (_event === "SIGNED_OUT") {
-        if (typeof window !== "undefined" && window.sessionStorage.getItem("explicit_logout") === "true") {
-           setUser(null);
-           if (redirectToLogin) router.push("/signin");
-        }
-      }
+      setUser(session?.user ?? null);
+      if (redirectToLogin && !session?.user) router.push("/signin");
     });
 
     return () => {
