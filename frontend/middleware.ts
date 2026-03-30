@@ -8,43 +8,27 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookieOptions: {
-        name: 'selfrace-token', // 🚀 NUKLEÁRNE RIEŠENIE: Úplne nový názov cookie
-        maxAge: 31536000,
-        path: '/',
-        sameSite: 'lax',
-      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Nastavíme prichádzajúce cookies
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           
           supabaseResponse = NextResponse.next({ request });
           
-          cookiesToSet.forEach(({ name, value, options }) => {
-            // 🛡️ OCHRANNÝ ŠTÍT + DETEKTÍV
-            if (!value || value === "") {
-              console.warn(`[Middleware Detektív] 🛡️ Zablokovaný pokus o zmazanie cookie: ${name}`);
-              return; 
-            }
-            supabaseResponse.cookies.set(name, value, { 
-                ...options, 
-                maxAge: 31536000 
-            });
-          });
+          // Posunieme originálne options priamo od Supabase
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  // Znovu sme ZAPLI overovanie používateľa, nech server plní svoju funkciu
-  try {
-    await supabase.auth.getUser();
-  } catch (err) {
-    console.warn("[Middleware Detektív] Chyba pri overovaní používateľa:", err);
-  }
+  // Overenie používateľa
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
