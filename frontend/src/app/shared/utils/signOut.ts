@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 export async function signOut(redirectTo: string = "/signin") {
   try {
     if (typeof window !== "undefined") {
-      // Odomkneme trezor, aby Supabase mohol zmazať kľúče
+      // Odomkneme trezor pre async adapter
       window.sessionStorage.setItem("explicit_logout", "true"); 
     }
     const supabase = getSupabaseBrowser();
@@ -18,9 +18,10 @@ export async function signOut(redirectTo: string = "/signin") {
     // 1. Zmažeme úplne všetko v LocalStorage
     window.localStorage.clear(); 
     
-    // 2. 🍏 Zmažeme "Kryptonit" Cookie
+    // 2. 🧟 Zmažeme "Nukleárny Trezor" z IndexedDB
     try {
-        document.cookie = "sr_vault_cookie=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        const idbKeyval = await import('idb-keyval');
+        await idbKeyval.clear(); // Nukleárna voľba - zmaže všetky dáta z helper databázy
     } catch(e) {}
 
     window.location.replace(redirectTo);

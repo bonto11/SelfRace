@@ -16,26 +16,15 @@ export function useUser(redirectToLogin: boolean = false) {
     async function loadUser() {
       let currentUser = null;
 
+      // 1. Skúsime cez Supabase (automaticky volá async IndexedDB adaptér)
       const { data: { session } } = await supabase.auth.getSession();
       currentUser = session?.user ?? null;
 
-      if (!currentUser) {
-         const { data } = await supabase.auth.getUser();
-         currentUser = data?.user ?? null;
-      }
-
-      // 🚀 NUKLEÁRNE ČÍTANIE (LocalStorage + Cookie pre Apple PWA)
+      // 2. Ak Supabase blbne, na pozadí ho predbehneme nukleárnym čítaním priamo z DB
       if (!currentUser && typeof window !== "undefined") {
          try {
-            let stored = window.localStorage.getItem("sr_vault_session");
-            if (!stored) stored = window.localStorage.getItem("sr_vault_session_backup");
-            
-            // 🍏 Kryptonit na Apple: Ak LS zlyhá, hľadáme v Cookie
-            if (!stored) {
-               const match = document.cookie.match(new RegExp('(^| )sr_vault_cookie=([^;]+)'));
-               if (match) stored = decodeURIComponent(match[2]);
-            }
-
+            const idbKeyval = await import('idb-keyval'); // Dynamic import pre menší bundle
+            const stored = await idbKeyval.get("sr_vault_stable"); // Async hľadanie v DB
             if (stored) {
                const parsed = JSON.parse(stored);
                if (parsed?.user) currentUser = parsed.user;
@@ -49,12 +38,13 @@ export function useUser(redirectToLogin: boolean = false) {
       setLoading(false);
 
       if (redirectToLogin && !currentUser) {
-        router.push("/signin");
+        router.push("/signin"); 
       }
     }
 
     loadUser();
 
+    // ✅ Zmrazené odhlasovanie: Ak sa stav zmení na null bez logout flagu, nič nerobíme
     const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
       
