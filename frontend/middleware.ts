@@ -13,22 +13,32 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Najprv aktualizujeme prichádzajúci request
+          // 1. Nastavíme prichádzajúce cookies
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           
           supabaseResponse = NextResponse.next({ request });
           
-          // Potom čisto aplikujeme options priamo od Supabase (žiadne naše zásahy)
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          // 2. Aplikujeme upravené cookies do odpovede
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // 🛡️ OCHRANNÝ ŠTÍT: Ak sa Supabase snaží zmazať cookie (value je prázdna)
+            // tak to jednoducho ZABLOKUJEME a príkaz odignorujeme.
+            if (!value || value === "") {
+              console.warn(`[Middleware] 🛡️ Zablokovaný pokus o zmazanie cookie: ${name}`);
+              return; 
+            }
+            supabaseResponse.cookies.set(name, value, options);
+          });
         },
       },
     }
   );
 
-  // Toto overí používateľa a v prípade potreby bezpečne obnoví token
-  await supabase.auth.getUser();
+  // Zabalíme overenie do try-catch, aby chyba na serveri nezhodila celý proces
+  try {
+    await supabase.auth.getUser();
+  } catch (err) {
+    console.warn("[Middleware] Chyba pri overovaní používateľa:", err);
+  }
 
   return supabaseResponse;
 }
