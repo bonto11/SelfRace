@@ -13,22 +13,31 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Nastavíme prichádzajúce cookies
+          // 🕵️ SERVER DETEKTÍV 1: Čo chce server urobiť s cookies?
+          console.log("\n[SERVER DETEKTÍV] Supabase upravuje cookies:", JSON.stringify(cookiesToSet));
+
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          
           supabaseResponse = NextResponse.next({ request });
           
-          // Posunieme originálne options priamo od Supabase
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            if (!value || value === "") {
+               console.log(`[SERVER DETEKTÍV] 🛑 SMRTEĽNÝ PRÍKAZ: Server posiela do prehliadača príkaz ZMAZAŤ cookie: ${name}`);
+            }
+            supabaseResponse.cookies.set(name, value, options);
+          });
         },
       },
     }
   );
 
-  // Overenie používateľa
-  await supabase.auth.getUser();
+  // 🕵️ SERVER DETEKTÍV 2: Zistíme presný dôvod zlyhania
+  const { data, error } = await supabase.auth.getUser();
+  
+  if (error) {
+     console.error("[SERVER DETEKTÍV] ❌ getUser() ZLYHAL PRI REFERSHI! Dôvod:", error.message);
+  } else {
+     console.log("[SERVER DETEKTÍV] ✅ getUser() je úspešný. User ID:", data?.user?.id);
+  }
 
   return supabaseResponse;
 }
