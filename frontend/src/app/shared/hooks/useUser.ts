@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export function useUser(redirectToLogin: boolean = false) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = getSupabaseBrowser();
 
   useEffect(() => {
@@ -21,24 +22,27 @@ export function useUser(redirectToLogin: boolean = false) {
       setLoading(false);
 
       if (redirectToLogin && !session?.user) {
-        router.push("/signin");
+        const hasBackup = window.localStorage.getItem("sr_vault_session_backup");
+        if (!hasBackup && pathname !== "/signin") router.push("/signin");
       }
     }
 
     loadUser();
 
-    // ✅ OPRAVA: Pridané explicitné typy (_event: any, session: any)
     const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
       setUser(session?.user ?? null);
-      if (redirectToLogin && !session?.user) router.push("/signin");
+      if (redirectToLogin && !session?.user) {
+         const hasBackup = window.localStorage.getItem("sr_vault_session_backup");
+         if (!hasBackup && pathname !== "/signin") router.push("/signin");
+      }
     });
 
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [redirectToLogin, router, supabase]);
+  }, [redirectToLogin, router, pathname, supabase]);
 
   return { user, loading };
 }

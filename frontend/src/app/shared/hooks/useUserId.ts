@@ -44,7 +44,9 @@ export function useUserId() {
               numId = res.user_id;
               window.localStorage.setItem("selfrace_numeric_id", String(numId));
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("[AUTH] Chyba pri resolvingu user_id", e);
+        }
       }
 
       window.localStorage.setItem("selfrace_uuid", user.id);
