@@ -18,15 +18,39 @@ export function useUserId() {
     const supabase = getSupabaseBrowser();
 
     const resolveUser = async () => {
+      let currentUser = null;
+      
       const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      currentUser = session?.user ?? null;
 
-      if (!user) {
-        window.localStorage.removeItem("selfrace_numeric_id");
-        window.localStorage.removeItem("selfrace_uuid");
-        if (isMounted) {
-          setState({ id: null, uuid: null });
-          setIsChecking(false);
+      if (!currentUser) {
+         const { data } = await supabase.auth.getUser();
+         currentUser = data?.user ?? null;
+      }
+
+      // 🚀 NUKLEÁRNE ČÍTANIE aj pre IDs
+      if (!currentUser && typeof window !== "undefined") {
+         try {
+            let stored = window.localStorage.getItem("sr_vault_session");
+            if (!stored) stored = window.localStorage.getItem("sr_vault_session_backup");
+            if (stored) {
+               const parsed = JSON.parse(stored);
+               if (parsed?.user) currentUser = parsed.user;
+            }
+         } catch (e) {}
+      }
+
+      if (!currentUser) {
+        // Skutočné odhlásenie iba cez explicitný flag
+        if (typeof window !== "undefined" && window.sessionStorage.getItem("explicit_logout") === "true") {
+            window.localStorage.removeItem("selfrace_numeric_id");
+            window.localStorage.removeItem("selfrace_uuid");
+            if (isMounted) {
+              setState({ id: null, uuid: null });
+              setIsChecking(false);
+            }
+        } else {
+            if (isMounted) setIsChecking(false);
         }
         return;
       }
@@ -38,7 +62,7 @@ export function useUserId() {
           const res = await callBackend<{ success: boolean; user_id?: number }>("/users/resolve", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ auth_uid: user.id })
+              body: JSON.stringify({ auth_uid: currentUser.id })
           });
           if (res?.success && res.user_id) {
               numId = res.user_id;
@@ -49,16 +73,20 @@ export function useUserId() {
         }
       }
 
-      window.localStorage.setItem("selfrace_uuid", user.id);
+      window.localStorage.setItem("selfrace_uuid", currentUser.id);
 
       if (isMounted) {
-        setState({ id: numId, uuid: user.id });
+        setState({ id: numId, uuid: currentUser.id });
         setIsChecking(false);
       }
     };
 
     resolveUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => resolveUser());
+    
+    // ✅ OPRAVA TYPESCRIPTU: Pridané (_event: any)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any) => {
+       if (_event !== "INITIAL_SESSION") resolveUser();
+    });
 
     return () => {
         isMounted = false;
