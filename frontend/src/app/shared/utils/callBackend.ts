@@ -5,11 +5,12 @@ import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export async function callBackend<T = any>(
   path: string,
-  init: RequestInit = {},
-  _retry = false
+  init: RequestInit = {}
 ): Promise<T> {
   
   const supabase = getSupabaseBrowser();
+  
+  // getSession() sa automaticky postará o to, aby bol token čerstvý (ak treba, na pozadí ho sám obnoví)
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? null;
 
@@ -19,18 +20,12 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  if (res.status === 401 && !_retry) {
-    const { data } = await supabase.auth.refreshSession();
-    if (data?.session?.access_token) {
-      headers.set("Authorization", `Bearer ${data.session.access_token}`);
-      const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
-      if (!retryRes.ok) throw new Error(`HTTP ${retryRes.status}`);
-      const retryText = await retryRes.text();
-      return retryText ? (JSON.parse(retryText) as T) : ({} as T);
-    }
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[API Error] HTTP ${res.status} na ${path}: ${text}`);
+    throw new Error(`HTTP ${res.status}`);
   }
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
