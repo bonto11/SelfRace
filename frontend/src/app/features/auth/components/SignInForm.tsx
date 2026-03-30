@@ -108,7 +108,12 @@ export default function SignInForm() {
           </div>
         ) : null}
 
-        <Button type="submit" variant="primary" block disabled={isSubmitDisabled}>
+        <Button
+          type="submit"
+          variant="primary"
+          block
+          disabled={isSubmitDisabled}
+        >
           {loading ? t("signIn.logingIn") : t("signIn.logIn")}
         </Button>
 
@@ -154,6 +159,13 @@ export default function SignInForm() {
         >
           {t("signIn.footer")}
         </p>
+
+        <a
+          href="/debug"
+          className="text-xs text-gray-500 mt-4 block text-center"
+        >
+          Diagnostika PWA
+        </a>
       </form>
     </AuthShell>
   );
