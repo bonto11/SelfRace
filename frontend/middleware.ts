@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  let deathSentence = false; // Flag pre zmazanie cookie
+  let debugMessage = "N/A"; // Správa od servera
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,15 +15,14 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // 🕵️ SERVER DETEKTÍV 1: Čo chce server urobiť s cookies?
-          console.log("\n[SERVER DETEKTÍV] Supabase upravuje cookies:", JSON.stringify(cookiesToSet));
-
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
             if (!value || value === "") {
-               console.log(`[SERVER DETEKTÍV] 🛑 SMRTEĽNÝ PRÍKAZ: Server posiela do prehliadača príkaz ZMAZAŤ cookie: ${name}`);
+               // 🚨 Server chce zmazať cookie!
+               deathSentence = true;
+               debugMessage = `SMRTEĽNÝ PRÍKAZ: Zmazanie cookie ${name}`;
             }
             supabaseResponse.cookies.set(name, value, options);
           });
@@ -30,14 +31,17 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 🕵️ SERVER DETEKTÍV 2: Zistíme presný dôvod zlyhania
   const { data, error } = await supabase.auth.getUser();
   
   if (error) {
-     console.error("[SERVER DETEKTÍV] ❌ getUser() ZLYHAL PRI REFERSHI! Dôvod:", error.message);
-  } else {
-     console.log("[SERVER DETEKTÍV] ✅ getUser() je úspešný. User ID:", data?.user?.id);
+     debugMessage = `getUser() ZLYHAL: ${error.message}`;
+  } else if (!deathSentence) {
+     debugMessage = `getUser() OK. ID: ${data?.user?.id}`;
   }
+
+  // 🕵️ Vložíme naše zistenia do hlavičiek odpovede, aby sme to videli v F12!
+  supabaseResponse.headers.set('X-Debug-Death-Sentence', deathSentence ? "YES" : "NO");
+  supabaseResponse.headers.set('X-Debug-Message', encodeURIComponent(debugMessage));
 
   return supabaseResponse;
 }
