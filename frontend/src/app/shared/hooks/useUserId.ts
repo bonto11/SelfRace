@@ -28,11 +28,18 @@ export function useUserId() {
          currentUser = data?.user ?? null;
       }
 
-      // 🚀 NUKLEÁRNE ČÍTANIE aj pre IDs
+      // 🚀 NUKLEÁRNE ČÍTANIE (LocalStorage + Cookie pre Apple PWA)
       if (!currentUser && typeof window !== "undefined") {
          try {
             let stored = window.localStorage.getItem("sr_vault_session");
             if (!stored) stored = window.localStorage.getItem("sr_vault_session_backup");
+            
+            // 🍏 Kryptonit na Apple: Ak LS zlyhá, hľadáme v Cookie
+            if (!stored) {
+               const match = document.cookie.match(new RegExp('(^| )sr_vault_cookie=([^;]+)'));
+               if (match) stored = decodeURIComponent(match[2]);
+            }
+
             if (stored) {
                const parsed = JSON.parse(stored);
                if (parsed?.user) currentUser = parsed.user;
@@ -41,7 +48,6 @@ export function useUserId() {
       }
 
       if (!currentUser) {
-        // Skutočné odhlásenie iba cez explicitný flag
         if (typeof window !== "undefined" && window.sessionStorage.getItem("explicit_logout") === "true") {
             window.localStorage.removeItem("selfrace_numeric_id");
             window.localStorage.removeItem("selfrace_uuid");
@@ -83,7 +89,6 @@ export function useUserId() {
 
     resolveUser();
     
-    // ✅ OPRAVA TYPESCRIPTU: Pridané (_event: any)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any) => {
        if (_event !== "INITIAL_SESSION") resolveUser();
     });

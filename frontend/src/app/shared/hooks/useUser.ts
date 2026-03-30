@@ -16,24 +16,28 @@ export function useUser(redirectToLogin: boolean = false) {
     async function loadUser() {
       let currentUser = null;
 
-      // 1. Skúsime slušne cez Supabase getSession
       const { data: { session } } = await supabase.auth.getSession();
       currentUser = session?.user ?? null;
 
-      // 2. Ak nevyšlo, skúsime priamy getUser dotaz
       if (!currentUser) {
          const { data } = await supabase.auth.getUser();
          currentUser = data?.user ?? null;
       }
 
-      // 3. 🚀 NUKLEÁRNE ČÍTANIE: Ak Supabase blbne, vytrhneme si profil priamo z nášho Trezoru!
+      // 🚀 NUKLEÁRNE ČÍTANIE (LocalStorage + Cookie pre Apple PWA)
       if (!currentUser && typeof window !== "undefined") {
          try {
             let stored = window.localStorage.getItem("sr_vault_session");
             if (!stored) stored = window.localStorage.getItem("sr_vault_session_backup");
+            
+            // 🍏 Kryptonit na Apple: Ak LS zlyhá, hľadáme v Cookie
+            if (!stored) {
+               const match = document.cookie.match(new RegExp('(^| )sr_vault_cookie=([^;]+)'));
+               if (match) stored = decodeURIComponent(match[2]);
+            }
+
             if (stored) {
                const parsed = JSON.parse(stored);
-               // Z tohto Supabase JSONu si priamo vytiahneme celé tvoje používateľské dáta (aj s menom)
                if (parsed?.user) currentUser = parsed.user;
             }
          } catch (e) {}
@@ -57,7 +61,6 @@ export function useUser(redirectToLogin: boolean = false) {
       if (session?.user) {
         setUser(session.user);
       } else if (_event === "SIGNED_OUT") {
-        // Zmažeme stav IBO V PRÍPADE, že si naozaj ty klikol na tlačidlo Odhlásiť
         if (typeof window !== "undefined" && window.sessionStorage.getItem("explicit_logout") === "true") {
            setUser(null);
            if (redirectToLogin) router.push("/signin");

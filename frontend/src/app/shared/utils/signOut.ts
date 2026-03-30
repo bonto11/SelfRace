@@ -15,7 +15,14 @@ export async function signOut(redirectTo: string = "/signin") {
   }
 
   if (typeof window !== "undefined") {
-    window.localStorage.clear(); // Nukleárna voľba - zmaže všetko
+    // 1. Zmažeme úplne všetko v LocalStorage
+    window.localStorage.clear(); 
+    
+    // 2. 🍏 Zmažeme "Kryptonit" Cookie
+    try {
+        document.cookie = "sr_vault_cookie=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    } catch(e) {}
+
     window.location.replace(redirectTo);
   }
 }
