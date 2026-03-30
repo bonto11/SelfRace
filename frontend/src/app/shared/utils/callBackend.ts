@@ -10,11 +10,16 @@ export async function callBackend<T = any>(
 ): Promise<T> {
   let token: string | null = null;
 
-  // 🚀 BERIEME TOKEN PRIAMO Z TREZORU (okamžite a bezpečne)
   if (typeof window !== "undefined") {
     try {
       let storedStr = window.localStorage.getItem("sr_vault_session");
       if (!storedStr) storedStr = window.localStorage.getItem("sr_vault_session_backup");
+      
+      // 🚀 Ak to iOS po swajpnutí zmazal, siahame po Cookie
+      if (!storedStr) {
+         const match = document.cookie.match(new RegExp('(^| )sr_vault_cookie=([^;]+)'));
+         if (match) storedStr = decodeURIComponent(match[2]);
+      }
       
       if (storedStr) {
         const parsed = JSON.parse(storedStr);
