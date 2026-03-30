@@ -20,8 +20,7 @@ export async function middleware(request: NextRequest) {
           
           // 2. Aplikujeme upravené cookies do odpovede
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 🛡️ OCHRANNÝ ŠTÍT: Ak sa Supabase snaží zmazať cookie (value je prázdna)
-            // tak to jednoducho ZABLOKUJEME a príkaz odignorujeme.
+            // 🛡️ OCHRANNÝ ŠTÍT
             if (!value || value === "") {
               console.warn(`[Middleware] 🛡️ Zablokovaný pokus o zmazanie cookie: ${name}`);
               return; 
@@ -33,12 +32,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Zabalíme overenie do try-catch, aby chyba na serveri nezhodila celý proces
-  try {
-    await supabase.auth.getUser();
-  } catch (err) {
-    console.warn("[Middleware] Chyba pri overovaní používateľa:", err);
-  }
+  // 🛑 SERVEROVÉ OVERENIE ÚMYSELNE VYPNUTÉ PRE TEST!
+  // try {
+  //   await supabase.auth.getUser();
+  // } catch (err) {}
 
   return supabaseResponse;
 }
