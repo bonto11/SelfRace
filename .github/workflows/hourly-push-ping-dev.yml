@@ -1,0 +1,41 @@
+name: Hourly Push Ping Test (DEV)
+
+on:
+  workflow_dispatch: # Aby si si to vedel kedykoľvek odkliknúť aj manuálne
+  schedule:
+    - cron: "0 * * * *" # Každú hodinu
+
+jobs:
+  run-hourly-ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Global Push Endpoint with Timestamp
+        env:
+          MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
+          API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
+        run: |
+          set -e
+          
+          # Získame presný čas priamo z bežiaceho GitHub runnera v našom pásme
+          CURRENT_TIME=$(TZ='Europe/Bratislava' date +"%H:%M")
+          echo "Spúšťam ping pre čas: $CURRENT_TIME"
+
+          # Použijeme tvoj /global endpoint, ktorý vďaka embed=True očakáva objekt "messages"
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $MAINTENANCE_API_KEY" \
+            -d '{
+              "messages": {
+                "sk": {
+                  "title": "Test spojenia ⏱️",
+                  "body": "PWA žije! Tento cron bol na GitHube spustený o '"$CURRENT_TIME"'",
+                  "url": "/activities"
+                },
+                "en": {
+                  "title": "Connection Test ⏱️",
+                  "body": "PWA is alive! Cron triggered on GitHub at '"$CURRENT_TIME"'",
+                  "url": "/activities"
+                }
+              }
+            }' \
+            $API_BASE_URL_GITHUB/notifications-timed/global
