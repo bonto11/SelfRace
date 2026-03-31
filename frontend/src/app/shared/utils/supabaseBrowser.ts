@@ -7,10 +7,9 @@ let _client: any = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    // Čisté volanie bez akéhokoľvek zasahovania do cookieOptions
     _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
-    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA PRESNE AKO SI CHCEL
+    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA V PLNEJ SILE
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
@@ -20,7 +19,7 @@ export function getSupabaseBrowser() {
         if (!value) {
             console.log(`[SPY] ⚠️ Nenašiel som cookie: ${key} (Ak je to verifier, ignoruj to, je to normálne)`);
         } else {
-            if (key.includes('auth-token')) {
+            if (key.includes('auth-token') && !key.includes('verifier')) {
                 try {
                     JSON.parse(value);
                     console.log(`[SPY] ✅ Cookie ${key} je platný JSON!`);
@@ -33,8 +32,18 @@ export function getSupabaseBrowser() {
     };
 
     storage.removeItem = async (key: string) => {
-        console.error(`[SPY] 🛑 SMRTEĽNÝ ÚDER! Supabase fyzicky maže cookie: ${key}`);
-        console.trace("[SPY] Kto vydal tento príkaz?");
+        // 🛑 TOTO JE KĽÚČOVÉ: Ak sa pokúsi zmazať HLAVNÝ token, zablokujeme ho!
+        if (key.includes('auth-token') && !key.includes('verifier')) {
+            console.error(`[SPY] 🛡️ ZABRÁNIL SOM SMRTEĽNÉMU ÚDERU NA HLAVNÝ TOKEN: ${key}`);
+            console.trace("[SPY] Kto sa o to pokúsil?");
+            
+            // Predstierame, že sme ho zmazali, aby Supabase pokračoval,
+            // ale v skutočnosti ho NEVYMAŽEME (nezavoláme originalRemove).
+            return; 
+        }
+
+        // Ak maže niečo iné (napr. verifier), necháme ho tak
+        console.warn(`[SPY] Supabase úspešne zmazal nepotrebnú cookie: ${key}`);
         return originalRemove(key);
     };
 
