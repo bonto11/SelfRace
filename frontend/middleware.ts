@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  let serverMessage = "N/A";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,17 +18,22 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Jediný náš zásah: Zabezpečíme prežitie v PWA
-            supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
+            // ŽIADNE VNUCOVANIE 1 ROKU. Iba čistý prenos toho, čo chce Supabase.
+            supabaseResponse.cookies.set(name, value, options);
           });
         },
       },
     }
   );
 
-  // Toto je kľúčové - musíme ho nechať overiť, inak klient spanikári
-  await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+     serverMessage = `CHYBA: ${error.message}`;
+  } else {
+     serverMessage = `OK: User ${data?.user?.id}`;
+  }
 
+  supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
   return supabaseResponse;
 }
 
