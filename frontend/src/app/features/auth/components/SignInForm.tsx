@@ -30,49 +30,29 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function SignInForm() {
   const t = useT();
   const router = useRouter();
-
   const sb = useMemo(() => getSupabaseBrowser(), []);
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isClearing, setIsClearing] = useState(true);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
+  // 🛡️ Klientská poistka: Ak sem príde a je už prihlásený, ukážeme Splash Screen a teleportujeme ho
   useEffect(() => {
-    let isMounted = true;
-    const cleanup = () => {
-      try {
-        if (typeof document !== "undefined") {
-          // Mažeme pre istotu aj staré cookies
-          const cookies = document.cookie.split(";");
-          for (let i = 0; i < cookies.length; i++) {
-            const name = cookies[i].split("=")[0].trim();
-            if (name.startsWith("sb-") || name.startsWith("sr_") || name === "selfrace_numeric_id" || name.startsWith("selfrace-")) {
-               document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-            }
-          }
-          // Mažeme LS
-          const keys = Object.keys(window.localStorage);
-          for (const key of keys) {
-            if (key.startsWith("sb-") || key.startsWith("selfrace")) {
-              window.localStorage.removeItem(key);
-            }
-          }
-          window.sessionStorage.clear();
-        }
-      } catch (e) {
-        console.warn("Cleanup failed", e);
-      } finally {
-        if (isMounted) setIsClearing(false); 
+    const checkAuth = async () => {
+      const { data } = await sb.auth.getSession();
+      if (data.session?.user) {
+        router.replace("/activities");
+      } else {
+        setIsAuthChecking(false);
       }
     };
-    cleanup();
-    return () => { isMounted = false; };
-  }, []);
+    checkAuth();
+  }, [router, sb]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -96,7 +76,12 @@ export default function SignInForm() {
     router.replace("/activities");
   }
 
-  const isSubmitDisabled = isClearing || loading || !email.trim() || !pwd.trim();
+  // 🛡️ Splash screen vo farbách aplikácie
+  if (isAuthChecking) {
+    return <div style={{ minHeight: "100dvh", background: appColors.backgroundMain }} />;
+  }
+
+  const isSubmitDisabled = loading || !email.trim() || !pwd.trim();
 
   return (
     <AuthShell
@@ -118,7 +103,7 @@ export default function SignInForm() {
             onChange={(e) => setEmail(e.currentTarget.value)}
             required
             autoComplete="email"
-            disabled={isClearing}
+            disabled={loading}
           />
         </div>
 
@@ -130,7 +115,7 @@ export default function SignInForm() {
             onChange={(e) => setPwd(e.currentTarget.value)}
             required
             autoComplete="current-password"
-            disabled={isClearing}
+            disabled={loading}
           />
         </div>
 
@@ -140,8 +125,13 @@ export default function SignInForm() {
           </div>
         ) : null}
 
-        <Button type="submit" variant="primary" block disabled={isSubmitDisabled}>
-          {isClearing ? t("common.loading") : loading ? t("signIn.logingIn") : t("signIn.logIn")}
+        <Button
+          type="submit"
+          variant="primary"
+          block
+          disabled={isSubmitDisabled}
+        >
+          {loading ? t("signIn.logingIn") : t("signIn.logIn")}
         </Button>
 
         <div className={AUTH_LINK_ROW}>
@@ -186,6 +176,13 @@ export default function SignInForm() {
         >
           {t("signIn.footer")}
         </p>
+
+        <a
+          href="/debug"
+          className="text-xs text-gray-500 mt-4 block text-center"
+        >
+          Diagnostika PWA
+        </a>
       </form>
     </AuthShell>
   );

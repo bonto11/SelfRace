@@ -2,45 +2,17 @@
 
 import { API_URL } from "@/app/shared/config";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import type { AuthResponse, Session } from "@supabase/supabase-js";
-
-let refreshPromise: Promise<string | null> | null = null;
-let sharedGetSessionPromise: Promise<{ data: { session: Session | null }, error: any }> | null = null;
 
 export async function callBackend<T = any>(
   path: string,
-  init: RequestInit = {},
-  _retry = false
+  init: RequestInit = {}
 ): Promise<T> {
-
-  let token: string | null = null;
-
-  // 🚀 HACK: Vytiahneme token priamo z LocalStorage, obídeme Supabase getSession!
-  // Týmto zabránime tomu, aby sa po F5 Supabase zbláznil a zmazal ho.
-  if (typeof window !== "undefined") {
-    try {
-      const storedStr = window.localStorage.getItem("selfrace-auth-token");
-      if (storedStr) {
-        const parsed = JSON.parse(storedStr);
-        token = parsed.access_token || null;
-      }
-    } catch (e) {
-      console.warn("[callBackend] Nepodarilo sa prečítať token priamo z LS", e);
-    }
-  }
-
-  // Ak to v LS nie je, použijeme deduplikovaný Supabase call ako zálohu
-  if (!token) {
-    const supabase = getSupabaseBrowser();
-    if (!sharedGetSessionPromise) {
-      sharedGetSessionPromise = supabase.auth.getSession();
-      setTimeout(() => { sharedGetSessionPromise = null; }, 500); 
-    }
-    
-    // ✅ OPRAVA TYPESCRIPTU 1: Pridaný výkričník (!)
-    const { data: { session } } = await sharedGetSessionPromise!;
-    token = session?.access_token ?? null;
-  }
+  
+  const supabase = getSupabaseBrowser();
+  
+  // getSession() sa automaticky postará o to, aby bol token čerstvý (ak treba, na pozadí ho sám obnoví)
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? null;
 
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
@@ -48,40 +20,10 @@ export async function callBackend<T = any>(
 
   let res = await fetch(`${API_URL}${path}`, { ...init, headers });
 
-  // Ak token expiroval, skúsime refresh
-  if (res.status === 401 && !_retry) {
-    const supabase = getSupabaseBrowser();
-    
-    if (!refreshPromise) {
-      refreshPromise = supabase.auth.refreshSession().then((response: AuthResponse) => {
-        return response.data?.session?.access_token ?? null;
-      }).catch((err: any) => { // OPRAVA TYPESCRIPTU 2: Pridané (err: any)
-        console.warn("[AUTH: callBackend] refreshSession zlyhal:", err);
-        return null;
-      }).finally(() => { refreshPromise = null; });
-    }
-
-    const newToken = await refreshPromise;
-    
-    if (newToken) {
-      headers.set("Authorization", `Bearer ${newToken}`);
-      const retryRes = await fetch(`${API_URL}${path}`, { ...init, headers });
-      
-      if (!retryRes.ok) {
-        const errText = await retryRes.text();
-        console.error(`[AUTH: callBackend] ❌ Retry failed with status ${retryRes.status}: ${errText}`);
-        throw new Error(`HTTP ${retryRes.status}: ${errText}`);
-      }
-      
-      const retryText = await retryRes.text();
-      return retryText ? (JSON.parse(retryText) as T) : ({} as T);
-    }
-  }
-
   if (!res.ok) {
     const text = await res.text();
-    console.error(`[AUTH: callBackend] ❌ HTTP Error ${res.status} on ${path}. Detail: ${text}`);
-    throw new Error(`HTTP ${res.status}: ${text}`);
+    console.error(`[API Error] HTTP ${res.status} na ${path}: ${text}`);
+    throw new Error(`HTTP ${res.status}`);
   }
 
   const text = await res.text();

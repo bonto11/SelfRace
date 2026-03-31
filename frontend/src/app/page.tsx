@@ -1,15 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
+import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 export default function LandingPage() {
   const t = useT();
+  const router = useRouter();
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const sb = getSupabaseBrowser();
+      const { data } = await sb.auth.getSession();
+      if (data.session?.user) {
+        // Ak má token, ani mu Landing page neukážeme a pošleme ho dnu
+        router.replace("/activities");
+      } else {
+        // Ak token nemá, odhalíme mu Landing page
+        setIsAuthChecking(false);
+      }
+    };
+    checkAuth();
+  }, [router]);
+
+  // 🛡️ Klientská poistka: Splash Screen
+  // Ak sa to ešte len overuje, ukážeme peknú čistú obrazovku vo farbe pozadia
+  if (isAuthChecking) {
+    return <div style={{ minHeight: "100dvh", background: appColors.backgroundMain }} />;
+  }
 
   return (
     <AppBackdrop>
@@ -45,7 +71,6 @@ export default function LandingPage() {
               {t("landing.p1")}
             </p>
 
-            {/* ✅ Nový "Trust building" odsek s preklikom na Our Story */}
             <p
               className="text-sm sm:text-base max-w-xl mx-auto mt-2 leading-relaxed"
               style={{ color: appColors.textSecondary }}
