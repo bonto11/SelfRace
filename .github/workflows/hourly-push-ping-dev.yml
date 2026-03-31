@@ -1,39 +1,42 @@
 name: Hourly Push Ping Test (DEV)
 
 on:
-  workflow_dispatch: # Aby si si to vedel kedykoľvek odkliknúť aj manuálne
+  workflow_dispatch:
   schedule:
-    - cron: "0 * * * *" # Každú hodinu
+    - cron: "0 * * * *"
 
 jobs:
   run-hourly-ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Global Push Endpoint with Timestamp
+      - name: Call Global Push Endpoint with Scheduled Time
         env:
           MAINTENANCE_API_KEY: ${{ secrets.MAINTENANCE_API_KEY_GITHUB }}
           API_BASE_URL_GITHUB: ${{ vars.API_BASE_URL_DEV_GITHUB }}
         run: |
           set -e
           
-          # Získame presný čas priamo z bežiaceho GitHub runnera v našom pásme
-          CURRENT_TIME=$(TZ='Europe/Bratislava' date +"%H:%M")
-          echo "Spúšťam ping pre čas: $CURRENT_TIME"
+          # Získame len hodinu a minúty dáme natvrdo na :00
+          # Aj keby sa to spustilo 10:58, tento príkaz vráti "10:00"
+          SCHEDULED_TIME=$(TZ='Europe/Bratislava' date +"%H:00")
+          
+          # Pomocný log pre teba v GitHub Actions konzole
+          REAL_TIME=$(TZ='Europe/Bratislava' date +"%H:%M:%S")
+          echo "Plánovaný čas: $SCHEDULED_TIME (Reálny čas spustenia: $REAL_TIME)"
 
-          # Použijeme tvoj /global endpoint, ktorý vďaka embed=True očakáva objekt "messages"
           curl -sS -X POST \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $MAINTENANCE_API_KEY" \
             -d '{
               "messages": {
                 "sk": {
-                  "title": "Test spojenia ⏱️",
-                  "body": "PWA žije! Tento cron bol na GitHube spustený o '"$CURRENT_TIME"'",
+                  "title": "Hodinový report ('"$SCHEDULED_TIME"') ⏱️",
+                  "body": "PWA Heartbeat: Notifikácia pre slot '"$SCHEDULED_TIME"'. Všetko funguje.",
                   "url": "/activities"
                 },
                 "en": {
-                  "title": "Connection Test ⏱️",
-                  "body": "PWA is alive! Cron triggered on GitHub at '"$CURRENT_TIME"'",
+                  "title": "Hourly Report ('"$SCHEDULED_TIME"') ⏱️",
+                  "body": "PWA Heartbeat: Notification for slot '"$SCHEDULED_TIME"'. All systems go.",
                   "url": "/activities"
                 }
               }
