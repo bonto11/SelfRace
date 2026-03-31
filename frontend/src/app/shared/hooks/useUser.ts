@@ -12,9 +12,18 @@ export function useUser(redirectToLogin: boolean = false) {
 
   useEffect(() => {
     let mounted = true;
+    let redirectTimer: NodeJS.Timeout;
 
     async function loadUser() {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      
+      // 🛡️ ANTI-PANIKOVÝ HACK PRI ŠTARTE: Počkáme 200ms
+      if (!session?.user) {
+        await new Promise((res) => setTimeout(res, 200));
+        const retry = await supabase.auth.getSession();
+        session = retry.data.session;
+      }
+
       if (!mounted) return;
 
       setUser(session?.user ?? null);
@@ -29,12 +38,30 @@ export function useUser(redirectToLogin: boolean = false) {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return;
-      setUser(session?.user ?? null);
-      if (redirectToLogin && !session?.user) router.push("/signin");
+
+      if (redirectToLogin && !session?.user) {
+        // 🛡️ ANTI-PANIKOVÝ HACK PRI ZMENE STAVU: Neodhlásime ťa hneď, najprv overíme
+        redirectTimer = setTimeout(async () => {
+          const { data } = await supabase.auth.getSession();
+          if (!mounted) return;
+          
+          if (!data.session?.user) {
+            setUser(null);
+            router.push("/signin");
+          } else {
+            console.log("[HACK] Falošný poplach ignorovaný, token prežil!");
+            setUser(data.session.user);
+          }
+        }, 200);
+      } else {
+        clearTimeout(redirectTimer);
+        setUser(session?.user ?? null);
+      }
     });
 
     return () => {
       mounted = false;
+      clearTimeout(redirectTimer);
       listener.subscription.unsubscribe();
     };
   }, [redirectToLogin, router, supabase]);

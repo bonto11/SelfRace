@@ -15,7 +15,15 @@ export function useUserId() {
     const supabase = getSupabaseBrowser();
 
     const resolveUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      
+      // 🛡️ ANTI-PANIKOVÝ HACK: Ak je session null, počkáme 200ms a skúsime znova
+      if (!session?.user) {
+        await new Promise((res) => setTimeout(res, 200));
+        const retry = await supabase.auth.getSession();
+        session = retry.data.session;
+      }
+
       const currentUser = session?.user ?? null;
 
       if (!currentUser) {

@@ -61,6 +61,7 @@ export default function SignInForm() {
     }
 
     // Next.js router handles the navigation, and the new cookie should be picked up
+    router.refresh();
     router.replace("/activities");
   }
 
