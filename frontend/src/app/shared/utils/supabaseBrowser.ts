@@ -8,7 +8,6 @@ let _client: any = null;
 export function getSupabaseBrowser() {
   if (!_client) {
     _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      // Žiadne sr-token! Necháme ho použiť default, len mu prikážeme 1 rok.
       cookieOptions: {
         maxAge: 31536000,
         path: '/',
@@ -16,21 +15,32 @@ export function getSupabaseBrowser() {
       }
     });
 
-    // 🕵️ ULTIMÁTNY ŠPIÓN ÚLOŽISKA ZOSTÁVA!
+    // 🕵️ ULTIMÁTNY ŠPIÓN ÚLOŽISKA
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
 
     storage.getItem = async (key: string) => {
         const value = await originalGet(key);
-        if (!value) console.log(`[SPY] ⚠️ Supabase chcel prečítať cookie "${key}", ale nenašiel ju!`);
+        if (!value) {
+            console.log(`[SPY] ⚠️ Nenašiel som cookie: ${key}`);
+        } else {
+            // Skontrolujeme, či náhodou nečíta poškodený token
+            if (key.includes('auth-token')) {
+                try {
+                    JSON.parse(value);
+                    console.log(`[SPY] ✅ Cookie ${key} je platný JSON!`);
+                } catch (e) {
+                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON! Preto to Supabase o sekundu zmaže! Hodnota bola:`, value);
+                }
+            }
+        }
         return value;
     };
 
     storage.removeItem = async (key: string) => {
         console.error(`[SPY] 🛑 SMRTEĽNÝ ÚDER! Supabase fyzicky maže cookie: ${key}`);
         console.trace("[SPY] Kto vydal tento príkaz?");
-        // Alert priamo do tváre!
         alert(`POZOR: Supabase práve zmazal tvoju cookie! Dôvod hľadaj v F12 Konzoli.`);
         return originalRemove(key);
     };

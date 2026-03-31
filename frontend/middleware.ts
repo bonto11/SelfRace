@@ -23,12 +23,14 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 🛡️ OCHRANNÝ ŠTÍT ZOSTÁVA AKTÍVNY!
+            // 🕵️ VYLEPŠENÝ ŠTÍT: Musíme povoliť mazanie starých chunkov, inak sa poškodí JSON!
             if (!value || value === "") {
-               console.warn(`[SERVER SPY] Zablokované zmazanie cookie: ${name}`);
-               return; 
+               console.warn(`[SERVER SPY] Povolil som zmazať starý kúsok/cookie: ${name}`);
+               supabaseResponse.cookies.set(name, value, options);
+            } else {
+               // Platným dátam natlačíme 1 rok
+               supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
             }
-            supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
           });
         },
       },
@@ -36,16 +38,13 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data, error } = await supabase.auth.getUser();
-  
   if (error) {
      serverMessage = `CHYBA: ${error.message}`;
   } else {
      serverMessage = `OK: User ${data?.user?.id}`;
   }
 
-  // 🕵️ HLAVIČKY DO F12 ZOSTÁVAJÚ!
   supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
-
   return supabaseResponse;
 }
 
