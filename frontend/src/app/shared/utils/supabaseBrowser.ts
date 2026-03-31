@@ -15,7 +15,6 @@ export function getSupabaseBrowser() {
       }
     });
 
-    // 🕵️ ULTIMÁTNY ŠPIÓN ÚLOŽISKA
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
@@ -25,13 +24,12 @@ export function getSupabaseBrowser() {
         if (!value) {
             console.log(`[SPY] ⚠️ Nenašiel som cookie: ${key}`);
         } else {
-            // Skontrolujeme, či náhodou nečíta poškodený token
             if (key.includes('auth-token')) {
                 try {
                     JSON.parse(value);
                     console.log(`[SPY] ✅ Cookie ${key} je platný JSON!`);
                 } catch (e) {
-                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON! Preto to Supabase o sekundu zmaže! Hodnota bola:`, value);
+                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON! Hodnota bola:`, value);
                 }
             }
         }

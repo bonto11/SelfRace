@@ -23,28 +23,24 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 🕵️ VYLEPŠENÝ ŠTÍT: Musíme povoliť mazanie starých chunkov, inak sa poškodí JSON!
+            // 🛑 ABSOLÚTNY ZÁKAZ MAZANIA COOKIES PRE SERVER
             if (!value || value === "") {
-               console.warn(`[SERVER SPY] Povolil som zmazať starý kúsok/cookie: ${name}`);
-               supabaseResponse.cookies.set(name, value, options);
-            } else {
-               // Platným dátam natlačíme 1 rok
-               supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
-            }
+               console.warn(`[SERVER SPY] ZABLOKOVAL SOM SERVERU POKUS ZMAZAŤ COOKIE: ${name}`);
+               return; // Koniec. Nedovolíme mu to aplikovať do prehliadača.
+            } 
+            
+            // Ak je token platný, predĺžime mu život na 1 rok
+            supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
           });
         },
       },
     }
   );
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error) {
-     serverMessage = `CHYBA: ${error.message}`;
-  } else {
-     serverMessage = `OK: User ${data?.user?.id}`;
-  }
+  // 🛑 ÚMYSELNE VYPNUTÉ: Aby sme zistili, či to bola táto funkcia, ktorá to ničila
+  // const { data, error } = await supabase.auth.getUser();
 
-  supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
+  supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent("Overovanie na serveri je DOČASNE VYPNUTÉ"));
   return supabaseResponse;
 }
 
