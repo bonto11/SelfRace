@@ -17,9 +17,9 @@ export function useUser(redirectToLogin: boolean = false) {
     async function loadUser() {
       let { data: { session } } = await supabase.auth.getSession();
       
-      // 🛡️ ANTI-PANIKOVÝ HACK PRI ŠTARTE: Počkáme 200ms
+      // 🛡️ ANTI-PANIKOVÝ HACK PRI ŠTARTE: Počkáme 800ms (čas pre iPhone)
       if (!session?.user) {
-        await new Promise((res) => setTimeout(res, 200));
+        await new Promise((res) => setTimeout(res, 800));
         const retry = await supabase.auth.getSession();
         session = retry.data.session;
       }
@@ -49,10 +49,10 @@ export function useUser(redirectToLogin: boolean = false) {
             setUser(null);
             router.push("/signin");
           } else {
-            console.log("[HACK] Falošný poplach ignorovaný, token prežil!");
+            console.log("[HACK] Falošný poplach ignorovaný, token na iPhone prežil!");
             setUser(data.session.user);
           }
-        }, 200);
+        }, 800);
       } else {
         clearTimeout(redirectTimer);
         setUser(session?.user ?? null);

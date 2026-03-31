@@ -17,9 +17,9 @@ export function useUserId() {
     const resolveUser = async () => {
       let { data: { session } } = await supabase.auth.getSession();
       
-      // 🛡️ ANTI-PANIKOVÝ HACK: Ak je session null, počkáme 200ms a skúsime znova
+      // 🛡️ ANTI-PANIKOVÝ HACK: Ak je session null, počkáme 800ms a skúsime znova
       if (!session?.user) {
-        await new Promise((res) => setTimeout(res, 200));
+        await new Promise((res) => setTimeout(res, 800));
         const retry = await supabase.auth.getSession();
         session = retry.data.session;
       }
