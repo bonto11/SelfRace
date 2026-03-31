@@ -17,7 +17,7 @@ export function useUser(redirectToLogin: boolean = false) {
     async function loadUser() {
       let { data: { session } } = await supabase.auth.getSession();
       
-      // 🛡️ ANTI-PANIKOVÝ HACK PRI ŠTARTE: Počkáme 800ms (čas pre iPhone)
+      // HACK PRI ŠTARTE: Počkáme 800ms (čas pre iPhone)
       if (!session?.user) {
         await new Promise((res) => setTimeout(res, 800));
         const retry = await supabase.auth.getSession();
@@ -40,7 +40,7 @@ export function useUser(redirectToLogin: boolean = false) {
       if (!mounted) return;
 
       if (redirectToLogin && !session?.user) {
-        // 🛡️ ANTI-PANIKOVÝ HACK PRI ZMENE STAVU: Neodhlásime ťa hneď, najprv overíme
+        // HACK PRI ZMENE STAVU: Neodhlásime ťa hneď, najprv overíme
         redirectTimer = setTimeout(async () => {
           const { data } = await supabase.auth.getSession();
           if (!mounted) return;

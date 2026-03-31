@@ -1,130 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
-import LangSelector from "@/app/shared/i18n/LangSelector";
-import { useT } from "@/app/shared/i18n/useT";
-import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import { useState, useEffect } from "react";
 
-export default function LandingPage() {
-  const t = useT();
-  const router = useRouter();
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
+export default function DebugPage() {
+  const [storages, setStorages] = useState({
+    ls: "Načítavam...",
+    ss: "Načítavam...",
+    cookies: "Načítavam...",
+  });
+
+  const loadEverything = () => {
+    // 1. LocalStorage
+    const lsData = { ...window.localStorage };
+    
+    // 2. SessionStorage
+    const ssData = { ...window.sessionStorage };
+    
+    // 3. Cookies
+    const cookiesData = document.cookie.split('; ').reduce((acc: any, current) => {
+      const [name, ...value] = current.split('=');
+      if (name) acc[name] = decodeURIComponent(value.join('='));
+      return acc;
+    }, {});
+
+    setStorages({
+      ls: JSON.stringify(lsData, null, 2),
+      ss: JSON.stringify(ssData, null, 2),
+      cookies: JSON.stringify(cookiesData, null, 2),
+    });
+  };
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const sb = getSupabaseBrowser();
-      const { data } = await sb.auth.getSession();
-      if (data.session?.user) {
-        // Ak má token, ani mu Landing page neukážeme a pošleme ho dnu
-        router.replace("/activities");
-      } else {
-        // Ak token nemá, odhalíme mu Landing page
-        setIsAuthChecking(false);
-      }
-    };
-    checkAuth();
-  }, [router]);
-
-  // 🛡️ Klientská poistka: Splash Screen
-  // Ak sa to ešte len overuje, ukážeme peknú čistú obrazovku vo farbe pozadia
-  if (isAuthChecking) {
-    return <div style={{ minHeight: "100dvh", background: appColors.backgroundMain }} />;
-  }
+    loadEverything();
+  }, []);
 
   return (
-    <AppBackdrop>
-      <main className="min-h-dvh flex items-center justify-center px-4 py-12">
-        <div className="max-w-2xl w-full text-center">
-          <div
-            className="rounded-3xl px-6 sm:px-8 py-10 sm:py-12 backdrop-blur-xl"
-            style={{
-              background: appColors.surfaceCard,
-              border: `1px solid ${appColors.surfaceCardBorder}`,
-              boxShadow: appColors.shadowCard,
-            }}
-          >
-            <div className="flex justify-center mb-6">
-              <Image
-                src="/logo/actual/selfrace_logo.svg"
-                alt="SelfRace"
-                width={520}
-                height={140}
-                priority
-                className="h-auto w-[260px] sm:w-[340px] md:w-[420px]"
-              />
-            </div>
+    <div className="p-8 max-w-2xl mx-auto text-white">
+      <h1 className="text-2xl font-bold mb-4">PWA Scanner pamäte</h1>
+      <button onClick={loadEverything} className="bg-blue-600 px-4 py-2 rounded font-bold mb-6">
+        Obnoviť (Refresh)
+      </button>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight">
-              {t("landing.h1")}
-            </h1>
-
-            <p
-              className="text-sm sm:text-base max-w-xl mx-auto mt-4 leading-relaxed"
-              style={{ color: appColors.textSecondary }}
-            >
-              {t("landing.p1")}
-            </p>
-
-            <p
-              className="text-sm sm:text-base max-w-xl mx-auto mt-2 leading-relaxed"
-              style={{ color: appColors.textSecondary }}
-            >
-              <Link 
-                href="/ourStory" 
-                className="font-medium hover:underline transition-all"
-                style={{ color: appColors.textPrimary }}
-              >
-                {t("landing.p2Link")}
-              </Link>
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-7">
-              <Link
-                href="/signup"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-full text-sm font-semibold transition-colors"
-                style={{
-                  background: appColors.buttonPrimaryBg,
-                  color: appColors.buttonPrimaryText,
-                  border: `1px solid ${appColors.surfaceCardBorder}`,
-                }}
-              >
-                {t("landing.ctaStart")}
-              </Link>
-
-              <Link
-                href="/signin"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-full text-sm font-semibold transition-colors"
-                style={{
-                  background: appColors.buttonGhostBg,
-                  color: appColors.textPrimary,
-                  border: `1px solid ${appColors.surfaceCardBorder}`,
-                }}
-              >
-                {t("landing.ctaSignIn")}
-              </Link>
-
-              <LangSelector variant="editable" size="md" />
-            </div>
-
-            <div className="mt-7 flex justify-center">
-              <Image
-                src={STRAVA_ASSETS.poweredBySvg_white}
-                alt="Powered by Strava"
-                width={220}
-                height={28}
-                style={{ height: 18, width: "auto", opacity: 0.9 }}
-                priority={false}
-              />
-            </div>
-          </div>
+      <div className="space-y-6">
+        <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+          <h2 className="text-blue-400 font-bold mb-2">Cookies (Základ pre Supabase):</h2>
+          <pre className="text-xs overflow-auto text-green-400">{storages.cookies}</pre>
         </div>
-      </main>
-    </AppBackdrop>
+        
+        <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+          <h2 className="text-blue-400 font-bold mb-2">LocalStorage:</h2>
+          <pre className="text-xs overflow-auto text-gray-300">{storages.ls}</pre>
+        </div>
+      </div>
+    </div>
   );
 }

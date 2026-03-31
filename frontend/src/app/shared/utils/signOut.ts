@@ -15,7 +15,7 @@ export async function signOut(redirectTo: string = "/signin") {
     window.localStorage.clear(); 
     window.sessionStorage.clear();
 
-    // 2. 💣 NUKLEÁRNY ÚDER NA COOKIES: 
+    // 2. NUKLEÁRNY ÚDER NA COOKIES: 
     // Natvrdo vymažeme všetky Supabase cookies (aby sme obišli náš štít)
     document.cookie.split(";").forEach((c) => {
       const cookieName = c.split("=")[0].trim();
