@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react"; // Removed useEffect
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -30,16 +30,29 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function SignInForm() {
   const t = useT();
   const router = useRouter();
-
   const sb = useMemo(() => getSupabaseBrowser(), []);
 
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
+
+  // 🛡️ Klientská poistka: Ak sem príde a je už prihlásený, ukážeme Splash Screen a teleportujeme ho
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await sb.auth.getSession();
+      if (data.session?.user) {
+        router.replace("/activities");
+      } else {
+        setIsAuthChecking(false);
+      }
+    };
+    checkAuth();
+  }, [router, sb]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,8 +73,12 @@ export default function SignInForm() {
       return;
     }
 
-    // Next.js router handles the navigation, and the new cookie should be picked up
-    router.push("/activities");
+    router.replace("/activities");
+  }
+
+  // 🛡️ Splash screen vo farbách aplikácie
+  if (isAuthChecking) {
+    return <div style={{ minHeight: "100dvh", background: appColors.backgroundMain }} />;
   }
 
   const isSubmitDisabled = loading || !email.trim() || !pwd.trim();
@@ -86,7 +103,7 @@ export default function SignInForm() {
             onChange={(e) => setEmail(e.currentTarget.value)}
             required
             autoComplete="email"
-            disabled={loading} // Changed from isClearing
+            disabled={loading}
           />
         </div>
 
@@ -98,7 +115,7 @@ export default function SignInForm() {
             onChange={(e) => setPwd(e.currentTarget.value)}
             required
             autoComplete="current-password"
-            disabled={loading} // Changed from isClearing
+            disabled={loading}
           />
         </div>
 

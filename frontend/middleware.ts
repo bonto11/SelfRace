@@ -18,8 +18,13 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // ŽIADNE VNUCOVANIE 1 ROKU. Iba čistý prenos toho, čo chce Supabase.
-            supabaseResponse.cookies.set(name, value, options);
+            // 🛡️ 1. PWA ZÁCHRANA (Session Fix)
+            // Dáme 1 rok života IBA platnému tokenu, aby ho iOS nezmazal po swajpe.
+            if (name.includes('auth-token') && !name.includes('verifier')) {
+              supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
+            } else {
+              supabaseResponse.cookies.set(name, value, options);
+            }
           });
         },
       },
@@ -31,6 +36,15 @@ export async function middleware(request: NextRequest) {
      serverMessage = `CHYBA: ${error.message}`;
   } else {
      serverMessage = `OK: User ${data?.user?.id}`;
+  }
+
+  // 🚀 2. TVOJA POISTKA (Server-side Teleport)
+  const path = request.nextUrl.pathname;
+  // Ak sa snaží načítať Landing Page alebo Prihlásenie a my vieme, že je prihlásený...
+  if ((path === '/' || path === '/signin' || path === '/signup') && data?.user) {
+      // Okamžite ho teleportujeme do aplikácie, aby nevidel prebliknutie!
+      const redirectUrl = new URL('/activities', request.url);
+      return NextResponse.redirect(redirectUrl);
   }
 
   supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
