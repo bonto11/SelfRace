@@ -7,9 +7,11 @@ let _client: any = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
+    // 🛑 ODSTRÁNENÝ MÔJ BUG: Už tu nevnucujeme cookieOptions.
+    // Dovolíme Supabase, aby si po sebe zmazal verifier.
     _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
-    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA NEDOTKNUTÝ
+    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA NEDOTKNUTÝ NA 100%
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);

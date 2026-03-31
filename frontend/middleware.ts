@@ -18,18 +18,22 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 🕵️ ŠPIÓN ZOSTÁVA: Len logujeme, už neblokujeme upratovanie!
-            if (!value || value === "") {
-               console.log(`[SERVER SPY] Supabase upratal/zmazal cookie: ${name}`);
+            // 🕵️ INTELIGENTNÉ PRAVIDLO: 
+            // Ak je hodnota prázdna, alebo Supabase žiada o zmazanie (maxAge <= 0), nesmieme to blokovať!
+            if (!value || value === "" || (options && options.maxAge !== undefined && options.maxAge <= 0)) {
+               console.log(`[SERVER SPY] Upratal som nepotrebnú cookie: ${name}`);
+               supabaseResponse.cookies.set(name, value, options); 
+            } else {
+               // Až tu, ak sú to platné dáta, chránime PWA tým, že im dáme 1 rok
+               supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
             }
-            // Aplikujeme presne to, čo chce Supabase
-            supabaseResponse.cookies.set(name, value, options);
           });
         },
       },
     }
   );
 
+  // ZAPNUTÉ OVEROVANIE (Teraz už bude úspešné)
   const { data, error } = await supabase.auth.getUser();
   if (error) {
      serverMessage = `CHYBA: ${error.message}`;
