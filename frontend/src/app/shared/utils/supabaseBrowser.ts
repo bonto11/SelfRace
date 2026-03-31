@@ -8,15 +8,15 @@ let _client: any = null;
 export function getSupabaseBrowser() {
   if (!_client) {
     _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      // Žiadne sr-token! Necháme ho použiť default, len mu prikážeme 1 rok.
       cookieOptions: {
-        name: 'sr-token', // 🚀 Náš nový, čistý názov
         maxAge: 31536000,
         path: '/',
         sameSite: 'lax',
       }
     });
 
-    // 🕵️ ULTIMÁTNY ŠPIÓN ÚLOŽISKA
+    // 🕵️ ULTIMÁTNY ŠPIÓN ÚLOŽISKA ZOSTÁVA!
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
@@ -30,7 +30,7 @@ export function getSupabaseBrowser() {
     storage.removeItem = async (key: string) => {
         console.error(`[SPY] 🛑 SMRTEĽNÝ ÚDER! Supabase fyzicky maže cookie: ${key}`);
         console.trace("[SPY] Kto vydal tento príkaz?");
-        // Natvrdý alert priamo do tváre
+        // Alert priamo do tváre!
         alert(`POZOR: Supabase práve zmazal tvoju cookie! Dôvod hľadaj v F12 Konzoli.`);
         return originalRemove(key);
     };

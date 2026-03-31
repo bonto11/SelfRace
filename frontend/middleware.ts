@@ -10,7 +10,6 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: {
-        name: 'sr-token', // 🚀 Musí sedieť s prehliadačom
         maxAge: 31536000,
         path: '/',
         sameSite: 'lax',
@@ -24,7 +23,7 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 🛡️ OCHRANNÝ ŠTÍT: Ak ju chce zmazať, zablokujeme to
+            // 🛡️ OCHRANNÝ ŠTÍT ZOSTÁVA AKTÍVNY!
             if (!value || value === "") {
                console.warn(`[SERVER SPY] Zablokované zmazanie cookie: ${name}`);
                return; 
@@ -44,7 +43,7 @@ export async function middleware(request: NextRequest) {
      serverMessage = `OK: User ${data?.user?.id}`;
   }
 
-  // 🕵️ Zápis do HTTP hlavičiek pre tvoju kontrolu v F12
+  // 🕵️ HLAVIČKY DO F12 ZOSTÁVAJÚ!
   supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
 
   return supabaseResponse;
