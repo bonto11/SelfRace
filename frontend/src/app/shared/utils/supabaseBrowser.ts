@@ -7,14 +7,9 @@ let _client: any = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
-      cookieOptions: {
-        maxAge: 31536000,
-        path: '/',
-        sameSite: 'lax',
-      }
-    });
+    _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
+    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA NEDOTKNUTÝ
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
@@ -29,7 +24,7 @@ export function getSupabaseBrowser() {
                     JSON.parse(value);
                     console.log(`[SPY] ✅ Cookie ${key} je platný JSON!`);
                 } catch (e) {
-                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON! Hodnota bola:`, value);
+                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON!`);
                 }
             }
         }
