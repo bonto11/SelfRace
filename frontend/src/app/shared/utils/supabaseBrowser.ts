@@ -7,42 +7,24 @@ let _client: any = null;
 
 export function getSupabaseBrowser() {
   if (!_client) {
-    // 🛑 ODSTRÁNENÝ MÔJ BUG: Už tu nevnucujeme cookieOptions.
-    // Dovolíme Supabase, aby si po sebe zmazal verifier.
     _client = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
-    // 🕵️ TVOJ ŠPIÓN ÚLOŽISKA ZOSTÁVA NEDOTKNUTÝ NA 100%
+    // 🕵️ ŠPIÓN ZOSTÁVA
     const storage = _client.auth.storage;
     const originalRemove = storage.removeItem.bind(storage);
     const originalGet = storage.getItem.bind(storage);
 
     storage.getItem = async (key: string) => {
         const value = await originalGet(key);
-        if (!value) {
-            console.log(`[SPY] ⚠️ Nenašiel som cookie: ${key}`);
-        } else {
-            if (key.includes('auth-token')) {
-                try {
-                    JSON.parse(value);
-                    console.log(`[SPY] ✅ Cookie ${key} je platný JSON!`);
-                } catch (e) {
-                    console.error(`[SPY] 🚨 KATASTROFA! Hodnota v ${key} NIE JE platný JSON!`);
-                }
-            }
-        }
+        if (!value) console.log(`[SPY] Nenašiel som: ${key}`); // Toto je v poriadku
         return value;
     };
 
     storage.removeItem = async (key: string) => {
-        console.error(`[SPY] 🛑 SMRTEĽNÝ ÚDER! Supabase fyzicky maže cookie: ${key}`);
+        console.error(`[SPY] 🛑 ZMAZANIE COOKIE: ${key}`);
         console.trace("[SPY] Kto vydal tento príkaz?");
-        alert(`POZOR: Supabase práve zmazal tvoju cookie! Dôvod hľadaj v F12 Konzoli.`);
         return originalRemove(key);
     };
-
-    _client.auth.onAuthStateChange((event: string) => {
-      console.log(`[KLIENT DETEKTÍV] Udalosť: ${event}`);
-    });
   }
   return _client;
 }
