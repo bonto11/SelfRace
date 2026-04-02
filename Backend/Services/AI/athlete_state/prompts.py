@@ -15,11 +15,9 @@ def _remove_empty(d: Any) -> Any:
     return d
 
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    if not isinstance(context, dict):
-        return {}
-
+    if not isinstance(context, dict): return {}
     out: Dict[str, Any] = json.loads(json.dumps(context, default=str))
-
+    
     u = out.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
@@ -42,73 +40,51 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     def _parse_date_yyyy_mm_dd(s: str) -> Optional[datetime]:
         try:
-            if not s:
-                return None
+            if not s: return None
             return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        except Exception:
-            return None
+        except Exception: return None
 
     def _rel_day_label(date_str: Optional[str]) -> Optional[str]:
         dt = _parse_date_yyyy_mm_dd(date_str or "")
-        if not dt:
-            return date_str
+        if not dt: return date_str
         today = datetime.now(timezone.utc).date()
         d = (today - dt.date()).days
-        if d <= 0:
-            return "today"
+        if d <= 0: return "today"
         return f"today-{int(d)}"
 
     la = out.get("last_activities")
     if isinstance(la, list):
         cleaned = []
         for it in la:
-            if not isinstance(it, dict):
-                continue
+            if not isinstance(it, dict): continue
             it2 = dict(it)
             it2.pop("activity_id", None)
             it2.pop("name", None)
-            if "date" in it2:
-                it2["date"] = _rel_day_label(it2.get("date"))
+            if "date" in it2: it2["date"] = _rel_day_label(it2.get("date"))
             cleaned.append(it2)
-            if len(cleaned) >= 20:
-                break
+            if len(cleaned) >= 20: break
         out["last_activities"] = cleaned
 
     us = out.get("user_settings")
     if isinstance(us, dict):
-        out["user_settings"] = {
-            "language": us.get("language"),
-            "timezone": us.get("timezone"),
-        }
+        out["user_settings"] = {"language": us.get("language"), "timezone": us.get("timezone")}
 
     return _remove_empty(out)
 
+
 def _minify_state_for_progress(state: dict) -> dict:
-    if not isinstance(state, dict):
-        return {}
-    minified = {
-        "ai_state": state.get("ai_state"),
-        "user_summary": state.get("user_summary")
-    }
+    if not isinstance(state, dict): return {}
+    minified = {"ai_state": state.get("ai_state"), "user_summary": state.get("user_summary")}
     return _remove_empty(minified)
 
-def build_prompts_for_progress(
-    previous_state: dict,
-    current_state: dict,
-    *,
-    settings: Optional[Dict[str, Any]] = None,
-    ctx: AuthCtx,
-) -> Tuple[str, str]:
+def build_prompts_for_progress(previous_state: dict, current_state: dict, *, settings: Optional[Dict[str, Any]] = None, ctx: AuthCtx) -> Tuple[str, str]:
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
     context_for_llm = {
         "previous_state": _minify_state_for_progress(previous_state),
         "current_state": _minify_state_for_progress(current_state),
-        "user_settings": {
-            "language": settings.get("language"),
-            "timezone": settings.get("timezone"),
-        },
+        "user_settings": {"language": settings.get("language"), "timezone": settings.get("timezone")},
     }
 
     system_txt = (
@@ -120,41 +96,16 @@ def build_prompts_for_progress(
     schema_text = f"""
 {{
   "summary": {{
-    "headline": "1 short sentence in {lang_label}, 2nd person",
-    "bullets": ["max 3 short bullet points"]
+    "headline": "1 short punchy sentence in {lang_label}, 2nd person",
+    "bullets": ["max 3 short points"]
   }},
   "comparisons": {{
-    "fatigue_level": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "injury_risk": {{
-      "previous": "low" | "moderate" | "high" | null,
-      "current": "low" | "moderate" | "high" | null,
-      "comment": string | null
-    }},
-    "block_kind": {{
-      "previous": string | null,
-      "current": string | null,
-      "comment": string | null
-    }},
-    "vo2max": {{
-      "previous": number | null,
-      "current": number | null,
-      "comment": string | null
-    }} | null,
-    "volume_tolerance": {{
-      "previous_weekly_minutes_min": number | null,
-      "previous_weekly_minutes_max": number | null,
-      "current_weekly_minutes_min": number | null,
-      "current_weekly_minutes_max": number | null,
-      "comment": string | null
-    }},
-    "plan_adjustment": {{
-      "soften_change": string | null,
-      "weekly_replan_change": string | null
-    }}
+    "fatigue_level": {{ "previous": "low" | "moderate" | "high" | null, "current": "low" | "moderate" | "high" | null, "comment": "max 1 sentence" }},
+    "injury_risk": {{ "previous": "low" | "moderate" | "high" | null, "current": "low" | "moderate" | "high" | null, "comment": "max 1 sentence" }},
+    "block_kind": {{ "previous": string | null, "current": string | null, "comment": "max 1 sentence" }},
+    "vo2max": {{ "previous": number | null, "current": number | null, "comment": "max 1 sentence" }} | null,
+    "volume_tolerance": {{ "previous_weekly_minutes_min": number | null, "previous_weekly_minutes_max": number | null, "current_weekly_minutes_min": number | null, "current_weekly_minutes_max": number | null, "comment": "max 1 sentence" }},
+    "plan_adjustment": {{ "soften_change": string | null, "weekly_replan_change": string | null }}
   }},
   "recommendations": {{
     "celebrations": ["max 2 short points"],
@@ -171,49 +122,36 @@ def build_prompts_for_progress(
         + "\n\nSCHEMA_AND_INSTRUCTIONS:\n"
         + schema_text
         + "\n\nHard requirements:\n"
+        "- NO PARROTING. Do NOT parrot back fields if they haven't changed meaningfully.\n"
         "- Always return exactly one JSON object matching the schema.\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Keep string arrays short and impactful.\n"
         "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
-
     return system_txt, user_txt
 
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     lang_code = (settings.get("language") or "sk").lower()
-    if lang_code.startswith("en"):
-        return "English", "Use 'you' to talk directly to the athlete."
-    if lang_code.startswith("cs"):
-        return "Czech", "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
+    if lang_code.startswith("en"): return "English", "Use 'you' to talk directly to the athlete."
+    if lang_code.startswith("cs"): return "Czech", "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
     return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
-def build_prompts_for_analyze(
-    context_payload: dict,
-    *,
-    settings: Optional[Dict[str, Any]] = None,
-    ctx: AuthCtx,
-) -> Tuple[str, str]:
+def build_prompts_for_analyze(context_payload: dict, *, settings: Optional[Dict[str, Any]] = None, ctx: AuthCtx) -> Tuple[str, str]:
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
 
     context2 = dict(context_payload) if isinstance(context_payload, dict) else {}
-    context2["user_settings"] = {
-        "language": settings.get("language"),
-        "timezone": settings.get("timezone"),
-    }
+    context2["user_settings"] = {"language": settings.get("language"), "timezone": settings.get("timezone")}
 
     context_for_llm = minify_analyze_context_for_ai(context2)
 
     prefs = (context_for_llm.get("prefs") or {})
-    if isinstance(prefs, dict) and isinstance(prefs.get("value"), dict):
-        prefs2 = prefs["value"]
-    else:
-        prefs2 = prefs if isinstance(prefs, dict) else {}
+    if isinstance(prefs, dict) and isinstance(prefs.get("value"), dict): prefs2 = prefs["value"]
+    else: prefs2 = prefs if isinstance(prefs, dict) else {}
 
     weeks = int(prefs2.get("weeks") or 4)
     main_sport = prefs2.get("main_sport") or "run"
-    
     is_beginner = context_for_llm.get("is_returning_beginner")
 
     last_acts = context_for_llm.get("last_activities") or []
@@ -226,33 +164,21 @@ def build_prompts_for_analyze(
                 days_since_last_run = 0
                 break
             elif date_label.startswith("today-"):
-                try:
-                    days_since_last_run = int(date_label.split("-")[1])
-                except ValueError:
-                    pass
+                try: days_since_last_run = int(date_label.split("-")[1])
+                except ValueError: pass
                 break
 
     detraining_hint = ""
     if 0 < days_since_last_run <= 10:
-        detraining_hint = (
-            "\n- RECOVERY/DELOAD DETECTED (no runs for 1-10 days): Fitness is maintained. "
-            "Do NOT degrade paces or race estimates. Return the exact same 'estimated_paces' as 'latest_paces'.\n"
-        )
+        detraining_hint = "\n- RECOVERY/DELOAD DETECTED: Fitness is maintained. Do NOT degrade paces or race estimates.\n"
     elif 10 < days_since_last_run <= 21:
-        detraining_hint = (
-            "\n- MILD DETRAINING DETECTED (no runs for 11-21 days): Aerobic fitness is slightly dropping. "
-            "Slightly degrade intensive paces (Z4, Z5) by 2-5 sec/km and add some time to race estimates compared to 'latest_paces'.\n"
-        )
+        detraining_hint = "\n- MILD DETRAINING DETECTED: Slightly degrade intensive paces (Z4, Z5) by 2-5 sec/km and add some time to race estimates.\n"
     elif days_since_last_run > 21:
-        detraining_hint = (
-            "\n- SIGNIFICANT DETRAINING DETECTED (no runs for >21 days): Noticeable loss of fitness. "
-            "Degrade all paces by 10-20 sec/km, significantly increase race estimates, and lower VO2max.\n"
-        )
+        detraining_hint = "\n- SIGNIFICANT DETRAINING DETECTED: Noticeable loss of fitness. Degrade all paces by 10-20 sec/km, significantly increase race estimates, and lower VO2max.\n"
 
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
-        "You receive structured JSON about an athlete (profile, zones, thresholds, personal bests, "
-        "recent load, recovery, preferences including volume, external events, last activities, and latest_paces). "
+        "You receive structured JSON about an athlete. "
         "Your task is to analyze the current training state and return a SINGLE valid JSON object. "
         "Do NOT output prose or code fences, only JSON."
     )
@@ -260,39 +186,28 @@ def build_prompts_for_analyze(
     schema_text = f"""
 {{
   "user_summary": {{
-    "headline": "short summary in {lang_label} (1 short sentence, 2nd person)",
+    "headline": "1 punchy sentence in {lang_label}, 2nd person",
     "bullets": ["max 3 short points"],
     "risks": ["max 2 short points"],
     "suggestions_short": ["max 3 short points"]
   }},
   "ai_state": {{
     "capabilities": {{
-      "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }},
-      "ride":     {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }} | null,
-      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": string | null }} | null
+      "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }},
+      "ride":     {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }} | null,
+      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }} | null
     }},
     "fatigue_level": "low" | "moderate" | "high",
     "injury_risk": "low" | "moderate" | "high",
-    "volume_tolerance": {{
-      "weekly_minutes_min": number | null,
-      "weekly_minutes_max": number | null,
-      "note": string | null
-    }},
-    "intensity_tolerance": {{
-      "hard_sessions_per_week_max": number | null,
-      "comment": string | null
-    }},
+    "volume_tolerance": {{ "weekly_minutes_min": number | null, "weekly_minutes_max": number | null, "note": "max 1 sentence" }},
+    "intensity_tolerance": {{ "hard_sessions_per_week_max": number | null, "comment": "max 1 sentence" }},
     "suggested_block_kind": "base_aerobic" | "base_long" | "threshold_speed" | "regeneration" | "race_specific" | string,
-    "key_limitations": string[],
-    "key_strengths": string[],
     "metrics": {{
       "estimated_vo2max": number | null,
       "estimated_5k_time_s": number | null,
       "estimated_10k_time_s": number | null,
       "estimated_half_marathon_time_s": number | null,
-      "estimated_marathon_time_s": number | null,
-      "chronic_load_score": number | null,
-      "acute_load_score": number | null
+      "estimated_marathon_time_s": number | null
     }},
     "estimated_paces": {{
       "z1_pace_s": number | null,
@@ -303,23 +218,18 @@ def build_prompts_for_analyze(
       "best_1k_s": number | null
     }},
     "plan_adjustment": {{
-      "soften_next_days": {{
-        "should_soften": boolean,
-        "days": number | null,
-        "reason": string | null
-      }},
+      "soften_next_days": {{ "should_soften": boolean, "days": number | null, "reason": "max 1 sentence" }},
       "should_replan_weekly": boolean,
-      "weekly_replan_reason": string | null,
+      "weekly_replan_reason": "max 1 sentence" | null,
       "should_notify_user": boolean,
-      "notify_message": string | null
+      "notify_message": "max 1 sentence" | null
     }}
   }}
 }}
 """.strip()
 
     beginner_hint = ""
-    if is_beginner:
-        beginner_hint = "- USER IS DETECTED AS BEGINNER/RETURNING (no recent activities). Assign capabilities.run.level_1_to_5 = 1 (Beginner).\n"
+    if is_beginner: beginner_hint = "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
 
     user_txt = (
         "Analyze the athlete context JSON and fill the schema.\n"
@@ -331,24 +241,18 @@ def build_prompts_for_analyze(
         + schema_text
         + "\n\nHard requirements:\n"
         "- Always return a single JSON object exactly matching the schema.\n"
+        "- NO PARROTING: Do NOT output acute_load_score or chronic_load_score in the schema.\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         + beginner_hint
         + detraining_hint
-        + "- 'capabilities' (1-5 scale):\n"
-        "  1 = Beginner (Začiatočník): Starts from zero or returning. < 6 months exp. Run/walk.\n"
-        "  2 = Hobby (Rekreačný): Regular activity 1-2x week, unstructured.\n"
-        "  3 = Intermediate (Pokročilý): Structured training, can run 10k continuous, has distinct paces.\n"
-        "  4 = Performance (Výkonnostný): High volume, competitive times, specific thresholds.\n"
-        "  5 = Elite (Elitný): Top tier performance.\n"
-        "- Estimate 'estimated_vo2max' based on biometrics and performance.\n"
-        "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces' & RACE ESTIMATES (EMPIRICAL METHOD):\n"
-        "1. NO RUNS = NO UPDATE (UNLESS DETRAINING): If 'last_activities' contains NO 'run' activities recently, follow the detraining rules provided above to either keep paces the same or degrade them.\n"
-        "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS: Overall 'avg_pace_s' includes walk/rest breaks. Always look at the 'segments' array (laps/splits) inside the activity.\n"
-        "3. EVALUATE SEGMENTS: The 'segments' array provides distance (d in meters), pace (p in sec/km), and heart rate (hr in bpm). Use these segments to empirically judge the athlete's true speed at specific heart rates. (e.g. if they ran 400m segments at 210 sec/km pace with HR 175, that is their true high-intensity capability).\n"
-        "4. EVOLUTION, NOT REVOLUTION: Compare current segment performance against 'latest_paces' and 'bests'. Improve estimated times by a few seconds ONLY if empirical segment data proves the athlete is faster at a given HR. Do not jump by minutes.\n"
-        "5. REALITY CHECK: If the athlete is capable of running a 5K under 25 minutes, their Z1 pace should never exceed 7:30 min/km (450 sec/km). Do not output walking paces for running zones.\n"
+        + "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
+        "1. NO RUNS = NO UPDATE (UNLESS DETRAINING).\n"
+        "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS.\n"
+        "3. EVALUATE SEGMENTS: Use distance, pace and HR to judge capability.\n"
+        "4. EVOLUTION, NOT REVOLUTION.\n"
+        "5. REALITY CHECK: Z1 pace should never exceed 7:30 min/km if 5K is < 25 min.\n"
     )
 
     return system_txt, user_txt
