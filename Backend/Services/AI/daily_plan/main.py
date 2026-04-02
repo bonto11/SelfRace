@@ -1,4 +1,3 @@
-# Services/AI/daily_plan/main.py
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -82,16 +81,16 @@ def service_generate_daily_week(
 
     context_payload = contex["context_payload"]
     if reason:
-            context_payload["generate_reason"] = reason
+        context_payload["generate_reason"] = reason
 
     week_meta: Dict[str, Any] = contex["week_meta"]
     state_row: Optional[Dict[str, Any]] = contex["state_row"]
+    
     ai_plan, trace, err_msg = generate_daily_week_json(
         context_payload=context_payload,
         model=daily_model,
     )
 
-    # ✅ OCHRANA: Ak AI zlyhalo, vrátime chybu a nebudeme mazať DB
     if not ai_plan:
         print(f"[DAILY-PLAN] AI Generation failed: {err_msg}")
         return {
@@ -149,8 +148,8 @@ def service_generate_daily_week(
     dates: List[str] = []
     for d in days:
         if not isinstance(d, dict): continue
-        v = d.get("date")
-        if isinstance(v, str) and v: dates.append(v)
+        v = d.get("date") or d.get("plan_date")
+        if isinstance(v, str) and v: dates.append(v[:10])
 
     date_from = min(dates) if dates else None
     date_to = max(dates) if dates else None
@@ -173,7 +172,9 @@ def service_generate_daily_week(
     if drop_past_days:
         rows_to_insert = [r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso]
 
-    inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx) if rows_to_insert else 0
+    inserted_rows = 0
+    if rows_to_insert:
+        inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx)
 
     resp: Dict[str, Any] = {
         "ok": True,
@@ -257,7 +258,6 @@ def service_get_daily_overview(
         d += timedelta(days=1)
 
     return {"horizon_days": horizon_days, "days": days_out}
-
 
 def service_auto_extend_daily_plan(
     user_id: int,
@@ -354,7 +354,6 @@ def service_auto_extend_daily_plan(
     for w in future_weeks:
         week_idx = int(w.get("week_index") or 0)
 
-        # Aj auto extension by mal odchytit pripadne errory
         res = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
@@ -362,7 +361,6 @@ def service_auto_extend_daily_plan(
             ctx=ctx,
         )
         
-        # Ignorujeme errory na auto-extend (je to background), len to preskocime
         if res.get("ok"):
             generated.append(week_idx)
 
@@ -375,14 +373,15 @@ def service_auto_extend_daily_plan(
             or []
         )
 
-        current_last_str = max(
-            str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
-        )
-        current_last_date = date.fromisoformat(current_last_str)
-        days_left = (current_last_date - today).days
+        if daily_rows:
+            current_last_str = max(
+                str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
+            )
+            current_last_date = date.fromisoformat(current_last_str)
+            days_left = (current_last_date - today).days
 
-        if days_left >= min_horizon_days:
-            break
+            if days_left >= min_horizon_days:
+                break
 
     return {
         "changed": bool(generated),
