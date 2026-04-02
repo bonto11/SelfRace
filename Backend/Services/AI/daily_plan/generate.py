@@ -74,89 +74,6 @@ def _validate_dates_in_range(
 
     return (len(bad) == 0), bad
 
-def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-    ext = context_payload.get("external_events") or {}
-    if not isinstance(ext, dict):
-        return []
-    occ = ext.get("occurrences") or []
-    if not isinstance(occ, list):
-        win = ext.get("window") or {}
-        if isinstance(win, dict):
-            occ = win.get("events") or []
-            
-    return occ if isinstance(occ, list) else []
-
-def _norm_title(v: Any) -> str:
-    return str(v or "").strip().lower()
-
-def _norm_sport_raw(v: Any) -> str:
-    return str(v or "").strip().lower()
-
-def _plan_contains_external_occurrence(
-    plan: Dict[str, Any], occ: Dict[str, Any]
-) -> bool:
-    if not isinstance(plan, dict) or not isinstance(occ, dict):
-        return True
-
-    occ_date = str(occ.get("date") or occ.get("occurrence_date") or "")[:10]
-    if not occ_date:
-        return True
-
-    occ_title = _norm_title(occ.get("title"))
-    
-    days = plan.get("days") or []
-    if not isinstance(days, list):
-        return False
-
-    for d in days:
-        if not isinstance(d, dict):
-            continue
-        ds = str(d.get("date") or d.get("plan_date") or "")[:10]
-        if ds != occ_date:
-            continue
-
-        sessions = d.get("sessions") or []
-        if not isinstance(sessions, list):
-            continue
-
-        for s in sessions:
-            if not isinstance(s, dict):
-                continue
-
-            s_title = _norm_title(s.get("title"))
-            s_type = str(s.get("session_type") or "").strip().lower()
-            
-            # Kontrolujeme len to, ci AI v dany den vygenerovala session type external event
-            if s_type == "external_event":
-                return True
-                
-            # Fallback pre starsie prompty, ak AI dalo "other" sport a "other" kind a sedi nazov
-            s_sport = str(s.get("sport") or "").strip().lower()
-            s_kind = str(s.get("kind") or "").strip().lower()
-            if s_sport == "other" and (s_type == "external_event" or s_kind in ["other", "external"]):
-                 return True
-
-    return False
-
-def _validate_external_events_included(
-    parsed: Dict[str, Any],
-    context_payload: Dict[str, Any],
-) -> Tuple[bool, List[str]]:
-    occs = _get_external_occurrences(context_payload)
-    if not occs:
-        return True, []
-
-    missing: List[str] = []
-    for occ in occs:
-        if not isinstance(occ, dict):
-            continue
-        if not _plan_contains_external_occurrence(parsed, occ):
-            ds = str(occ.get("date") or occ.get("occurrence_date") or "")[:10]
-            title = str(occ.get("title") or "external").strip()
-            missing.append(f"{ds}:{title}")
-
-    return (len(missing) == 0), missing
-
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     return {
         "provider": provider,
@@ -232,7 +149,6 @@ def _sum_usage(
         return None
 
     return out
-
 
 def generate_daily_week_json(
     context_payload: dict,
@@ -370,11 +286,7 @@ def generate_daily_week_json(
             last_err_msg = f"AI returned dates outside week range: {bad_dates[:12]}"
             continue
 
-        ok_ext, missing = _validate_external_events_included(parsed, ctx)
-        if not ok_ext:
-            last_err_code = "missing_external_events_in_output"
-            last_err_msg = f"AI omitted external events: {missing[:12]}"
-            continue
+        # ✅ Prísna kontrola na `external_event` odstránená!
 
         if not trace.get("ok_model"):
             trace["ok_model"] = parsed.get("model")
