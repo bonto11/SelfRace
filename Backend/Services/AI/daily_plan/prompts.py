@@ -1,12 +1,17 @@
-# Services/AI/daily_plan/prompts.py
 from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
-def _safe_int(
-    v: Any, default: int = 0, *, min_v: Optional[int] = None, max_v: Optional[int] = None
-) -> int:
+def _as_dict(v: Any) -> Dict[str, Any]:
+    """Bezpečne vráti dictionary, inak prázdny dictionary."""
+    return v if isinstance(v, dict) else {}
+
+def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
+    """Bezpečne vytiahne vnorený dictionary bez rizika NoneType."""
+    return _as_dict(d.get(key))
+
+def _safe_int(v: Any, default: int = 0, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
     try:
         if v is None: out = default
         elif isinstance(v, (int, float)): out = int(v)
@@ -35,69 +40,109 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
-def _minify_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    context2: Dict[str, Any] = {}
+def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
+    context = dict(context) if isinstance(context, dict) else {}
+    ctx2: Dict[str, Any] = {}
     
     for k in ("week", "zones", "thresholds", "external_events", "latest_paces"):
         if k in context:
-            context2[k] = context[k]
+            ctx2[k] = context[k]
 
-    prefs = _flatten_prefs(context.get("prefs") or {})
-    pref_obj = prefs.get("preferences") or {}
-    if not isinstance(pref_obj, dict): pref_obj = {}
+    raw_prefs = context.get("prefs") or {}
+    prefs_val = raw_prefs.get("value")
+    prefs = dict(prefs_val) if isinstance(prefs_val, dict) else dict(raw_prefs) if isinstance(raw_prefs, dict) else {}
 
-    intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
+    preferences = _get_dict(prefs, "preferences")
+    volume = _get_dict(prefs, "volume")
+    targets = _get_dict(prefs, "targets")
 
-    tb = pref_obj.get("training_blocks") or {}
-    if not isinstance(tb, dict): tb = {}
-    training_blocks = {
-        "vo2max": bool(tb.get("vo2max")),
-        "ftp": bool(tb.get("ftp")),
-        "threshold": bool(tb.get("threshold")),
-    }
+    run_t = _get_dict(targets, "run")
+    strength_t = _get_dict(targets, "strength")
 
-    context2["prefs"] = {
-        "weeks": prefs.get("weeks"),
+    ctx2["prefs"] = {
         "main_sport": prefs.get("main_sport"),
-        "add_on_sports": prefs.get("add_on_sports"), 
-        "included_sports": prefs.get("included_sports"), 
+        "add_on_sports": prefs.get("add_on_sports"),
+        "included_sports": prefs.get("included_sports"),
         "goal_kind": prefs.get("goal_kind"),
-        "volume": prefs.get("volume"),
+        "volume": {"mode": volume.get("mode"), "value": volume.get("value")} if volume else {},
         "preferences": {
-            **pref_obj,
-            "intensity_model": intensity_model,
-            "training_blocks": training_blocks,
-        },
-        "strength_settings": prefs.get("strength_settings") or {},
+            "days_off": preferences.get("days_off"),
+            "long_run_days": preferences.get("long_run_days"),
+            "avoid_two_a_day": preferences.get("avoid_two_a_day"),
+            "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
+        } if preferences else {},
+        "targets": {
+            "run": {
+                "race_goal": run_t.get("race_goal"),
+                "race_type": run_t.get("race_type"),
+                "target_time": run_t.get("target_time"),
+            } if run_t else {},
+            "strength": {
+                "focus": strength_t.get("focus"),
+                "sessions_per_week": strength_t.get("sessions_per_week"),
+            } if strength_t else {},
+        } if targets else {},
     }
 
-    athlete_state = context.get("athlete_state") or {}
-    is_beginner = athlete_state.get("is_returning_beginner") 
+    athlete_state = context.get("athlete_state")
+    if isinstance(athlete_state, dict):
+        is_beginner = athlete_state.get("is_returning_beginner")
+        ai_state = athlete_state.get("ai_state") or {}
+        if isinstance(ai_state, dict):
+            ai_state_clean = dict(ai_state)
+            ai_state_clean.pop("metrics", None)
+            ctx2["athlete_state"] = {
+                "ai_state": ai_state_clean,
+                "is_returning_beginner": is_beginner
+            }
 
-    ai_state = athlete_state.get("ai_state") or {}
-    if isinstance(ai_state, dict):
-        ai_state_clean = dict(ai_state)
-        ai_state_clean.pop("metrics", None)
-        context2["athlete_state"] = {
-            "ai_state": ai_state_clean,
-            "is_returning_beginner": is_beginner
-        }
+    ext = context.get("external_events")
+    if isinstance(ext, dict):
+        events: List[Dict[str, Any]] = []
+        if isinstance(ext.get("events"), list):
+            events = [e for e in ext.get("events", []) if isinstance(e, dict)]
+        else:
+            win = ext.get("window")
+            if isinstance(win, dict) and isinstance(win.get("events"), list):
+                events = [e for e in win.get("events", []) if isinstance(e, dict)]
 
-    us = context.get("user_settings") or {}
-    if isinstance(us, dict):
-        context2["user_settings"] = {
-            "language": us.get("language"),
-            "timezone": us.get("timezone"),
-        }
-    
-    pc = context.get("planning_constraints")
-    if isinstance(pc, dict):
-        context2["planning_constraints"] = pc
+        cleaned_events: List[Dict[str, Any]] = []
+        for e in events:
+            dt = e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date") or e.get("start_date_iso")
+            dt_ymd = str(dt)[:10] if dt else None
+            dft = e.get("days_from_today")
+            
+            if dt_ymd is None and isinstance(dft, (int, float)):
+                cleaned_events.append({
+                    "days_from_today": int(dft), "sport": e.get("sport"), "duration_min": e.get("duration_min"),
+                    "priority": e.get("priority"), "title": e.get("title"),
+                })
+                continue
+            if not dt_ymd: continue
+            cleaned_events.append({
+                "occurrence_date": dt_ymd, "sport": e.get("sport"), "duration_min": e.get("duration_min"),
+                "priority": e.get("priority"), "title": e.get("title"),
+            })
 
-    return _remove_empty(context2)
+        win2 = ext.get("window")
+        if isinstance(win2, dict):
+            ctx2["external_events"] = {
+                "window": {
+                    "from": str(win2.get("from"))[:10] if win2.get("from") else None,
+                    "to": str(win2.get("to"))[:10] if win2.get("to") else None,
+                    "events": cleaned_events,
+                }
+            }
+        else:
+            ctx2["external_events"] = {"events": cleaned_events}
+
+    for k in ("week_meta", "replan_trigger", "generate_reason", "is_replan", "planning_constraints"):
+        if k in context: ctx2[k] = context[k]
+
+    return _remove_empty(ctx2)
+
 
 def _format_pace(seconds_per_km: int) -> str:
-    """Konvertuje sekundy na format mm:ss pre prompt."""
     if not isinstance(seconds_per_km, (int, float)) or seconds_per_km <= 0:
         return ""
     minutes = int(seconds_per_km) // 60
@@ -233,42 +278,36 @@ def build_prompts_for_daily(
     long_run_days_str = ", ".join(long_run_days) if long_run_days else "none"
     strength_str = f"{strength_target_int}× per week" if strength_target_int is not None else "not specified"
     
-    # =========================================================================
-    # --- TVRDÉ PRAVIDLÁ PRE CNS, DNI VOĽNA A ZHLUKOVANIE ---
-    # =========================================================================
     days_off_str = ", ".join(days_off) if days_off else ""
     if days_off_str:
         rest_days_rule = (
             f"- REST DAYS (CRITICAL): The user explicitly requested these days off: {days_off_str}. "
-            "You MUST schedule ONLY a complete 'rest' on these days (sport='other', session_type='rest', duration_min=0). No exceptions.\n\n"
+            "You MUST schedule ONLY a complete 'rest' on these days (sport='other', kind='rest', duration_min=0). No exceptions.\n\n"
         )
     else:
         rest_days_rule = (
             "- REST DAYS & SPACING (CRITICAL): The user did NOT select explicit days off. "
-            "You MUST forcefully keep AT LEAST 1 DAY (ideally 2) completely free of any training! "
-            "On a rest day, provide exactly one session with sport='other', session_type='rest', duration_min=0, and title='Rest Day'. "
-            "CRITICAL SPACING: DO NOT schedule more than 3 consecutive days of training without a rest day! "
-            "Spread the rest days logically. Avoid putting a rest day on the very first day if it means training 6 days in a row afterwards. Break the week up!\n\n"
+            "You MUST forcefully keep AT LEAST 1 DAY completely free of any training! "
+            "On a rest day, provide exactly one session with sport='other', kind='rest', duration_min=0. "
+            "CRITICAL SPACING: DO NOT schedule more than 3 consecutive days of training without a rest day! Spread the rest days logically.\n\n"
         )
 
     if two_enabled and two_cap > 0:
         two_a_day_rule = (
             f"- TWO-A-DAY / GROUPING: Max {two_cap} days/week can have 2 sessions. "
-            "You MUST use this capability to group sessions (e.g. Run + Strength on the same day) to free up days for complete rest and respect the 'max 3 consecutive days' rule.\n\n"
+            "Use this capability to group sessions (e.g. Run + Strength) to free up days for complete rest.\n\n"
         )
     else:
         two_a_day_rule = (
             "- TWO-A-DAY / GROUPING (CRITICAL): Max 0 days/week can have 2 sessions. "
             "You are FORBIDDEN from scheduling 2 sessions on the same day. "
-            "If you have more requested workouts than available training days (remember, max 3 consecutive days rule), "
-            "you MUST DROP or REDUCE some training sessions (e.g., drop a strength or add-on sport session). NEVER schedule training on all 7 days!\n\n"
+            "If you have more requested workouts than available training days, you MUST DROP some sessions. NEVER train 7 days a week!\n\n"
         )
     
     strength_rule = (
         f"- STRENGTH: Target {strength_str}. Use sport='strength'. "
-        "CRITICAL: If 'two_a_day' is disabled and you lack days to fit all sessions, REDUCE the number of strength sessions. DO NOT sacrifice complete rest days to achieve the strength target.\n\n"
+        "CRITICAL: If 'two_a_day' is disabled and you lack days to fit all sessions, REDUCE the number of strength sessions. DO NOT sacrifice rest days.\n\n"
     )
-    # =========================================================================
 
     long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
 
@@ -291,8 +330,7 @@ def build_prompts_for_daily(
             "    * 'Talk Test': You should be able to speak in full sentences without gasping.\n"
             "    * 'Sing Test': If you can hum or sing, the pace is perfect.\n"
             "  - FOR BIKE: Emphasize 'Cadence over Power' (keep pedaling easy).\n"
-            "  - Emphasize WHY: 'Adaptation of joints and tendons takes more time than muscles.'\n"
-            "  - In the output `meta` object, set `is_beginner_adaptation`: true.\n\n"
+            "  - Emphasize WHY: 'Adaptation of joints and tendons takes more time than muscles.'\n\n"
         )
 
     system_txt = (
@@ -301,49 +339,44 @@ def build_prompts_for_daily(
         "Return ONE valid JSON object."
     )
 
-    schema_text = """
-    {
-    "schema_version": 3,
-    "meta": {
-        "is_beginner_adaptation": boolean,
-        "msg": "Explanation for the user if beginner mode is active"
-    },
+    schema_text = f"""
+    {{
+    "schema_version": 2,
     "days": [
-        {
-        "date": "YYYY-MM-DD",
+        {{
+        "plan_date": "YYYY-MM-DD",
+        "weekday": "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun",
         "sessions": [
-            {
-            "sport": "run" | "ride" | "swim" | "strength" | "other",
-            "title": string,
+            {{
+            "sport": "run" | "ride" | "swim" | "strength" | "other" | "rest",
+            "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest",
+            "title": "Short title in {lang_label}",
             "duration_min": number,
-            "intensity": string | null,
-            "session_type": string | null,
-            "notes": string | null,
-            "structure": {
-                "warmup": { "minutes": number, "notes": string },
-                
-                "main_part": [ { "minutes": number, "notes": string, "target": string } ] | { "minutes": number, "notes": string },
-                
-                "cooldown": { "minutes": number, "notes": string },
-                
-                "activation": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null,
-                "strength_main_part": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null,
-                "add_ons": [ { "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": string } ] | null
-            } | null,
-            "payload"?: object | null
-            }
+            "distance_km": number, // OMIT if null
+            "tss_estimate": number, // OMIT if null
+            "warmup_min": number, // OMIT if null
+            "cooldown_min": number, // OMIT if null
+            "description": "max 1 short sentence in {lang_label}",
+            "structure": {{ // Omit if basic rest or other
+                "warmup": {{ "minutes": number, "notes": "max 1 sentence" }},
+                "main_part": [ {{ "minutes": number, "notes": "max 1 sentence", "target": string }} ] | {{ "minutes": number, "notes": "max 1 sentence" }},
+                "cooldown": {{ "minutes": number, "notes": "max 1 sentence" }},
+                "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
+                "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
+                "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ] // Strength only
+            }}
+            }}
         ]
-        }
-    ],
-    "warnings"?: [string]
-    }
+        }}
+    ]
+    }}
     """.strip()
 
     date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
     
     external_rules = (
         "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date. "
-        "For these events, you MUST set `session_type: \"external_event\"`.\n\n"
+        "For these events, you MUST set `kind: \"other\"`.\n\n"
     )
 
     latest_paces = context_payload.get("latest_paces") or {}
@@ -402,9 +435,7 @@ def build_prompts_for_daily(
     intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
     blocks_rule = f"- TRAINING BLOCKS: {', '.join([k for k,v in blocks.items() if v]) or 'none'}.\n\n"
 
-    context_for_ai = _minify_context_for_ai(context_payload)
-    safe_settings = {"language": settings.get("language"), "timezone": settings.get("timezone")}
-    context_for_ai["user_settings"] = safe_settings
+    context_for_ai = minify_daily_context_for_ai(context_payload)
 
     reason = context_payload.get("generate_reason")
     special_reason_rule = ""
@@ -432,7 +463,6 @@ def build_prompts_for_daily(
             "- YOU MUST soften the remaining days of this week.\n"
             "- Replace hard intervals with easy endurance rides/runs or active recovery.\n"
         )
-    # ✅ NOVÉ: Extrémne prísne pravidlo pre "Return to Play" po vyliečení
     elif reason in ["health_resolved", "health_resolved_return", "return_to_training"]:
         special_reason_rule = (
             "\n--- ⚠️ RETURN TO TRAINING (RECOVERED) ⚠️ ---\n"
@@ -468,8 +498,10 @@ def build_prompts_for_daily(
         + back_to_back_rule
         + special_reason_rule 
         + "\n--- STRICT CONCISENESS RULE ---\n"
-        + "- KEEP 'notes' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
-        + "- DO NOT write long explanations or motivational paragraphs. Be punchy and direct.\n"
+        + "- EXTREME EFFICIENCY: OMIT any optional fields (distance_km, tss_estimate, warmup_min, cooldown_min) if their value would be null. Do NOT output keys with null values.\n"
+        + "- Keep 'description' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
+        + "- Keep strength notes to max 5 words.\n"
+        + "- DO NOT write long explanations. Be punchy and direct.\n"
         + "- DO NOT exceed 8000 tokens in output.\n"
         + "\nCONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)

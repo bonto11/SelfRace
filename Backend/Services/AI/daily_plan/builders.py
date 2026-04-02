@@ -1,27 +1,37 @@
-# Services/AI/daily_plan/builders.py
 from __future__ import annotations
 
-import copy  # <-- Pridané pre bezpečné kopírovanie slovníka
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+import copy
+from datetime import date, datetime, timezone, timedelta
+from typing import Any, Dict, Optional, List
 
-from Routes_DB.coach_athlete_state import db_get_latest_state_for_user
-from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
-from Routes_DB.user_pace_history import db_get_latest_paces
-from Services.AI.athlete_state.builders import build_input_from_db
+from Services.user_thresholds import service_build_thresholds_block_for_analysis
+from Services.user_zones import service_build_zones_block_for_analysis
+from Services.user_bests import service_build_bests_block_for_analysis
+from Services.user_recovery import service_build_recovery_block_for_analysis
+from Services.user_prefs import service_load_coach_prefs_for_analysis
+from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.coach_external_events import service_list_external_events_window
 from Services.coach_strength_mapper import prepare_strength_context_for_ai
+
+from Routes_DB.activities_summary import db_get_summary_for_activities
+from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
+from Routes_DB.user_pace_history import db_get_latest_paces
+from Routes_DB.activities_laps import db_get_activity_laps
+from Routes_DB.activities_splits import db_get_activity_splits
+from Routes_DB.profile_static import db_fetch_static_basic
+from Routes_DB.user_metrics import db_get_latest_metric
+from Routes_DB.coach_athlete_state import db_get_latest_state_for_user, db_get_state_by_id
+from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
+
+from Services.AI.athlete_state.builders import build_input_from_db
+
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import WEEKDAY_TO_ABBR
-
 
 _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
 _ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
 
-
-def _safe_int(
-    v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None
-) -> int:
+def _safe_int(v: Any, default: int, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
     try:
         if v is None: out = default
         elif isinstance(v, (int, float)): out = int(v)
@@ -36,6 +46,17 @@ def _safe_int(
     if max_v is not None and out > max_v: out = max_v
     return out
 
+def _to_float(x: Any) -> Optional[float]:
+    try:
+        if x is None or x == "": return None
+        return float(x)
+    except Exception: return None
+
+def _to_int(x: Any) -> Optional[int]:
+    try:
+        if x is None or x == "": return None
+        return int(x)
+    except Exception: return None
 
 def _weekday_abbr_from_iso(d: str) -> Optional[str]:
     if not isinstance(d, str) or not d: return None
@@ -44,12 +65,10 @@ def _weekday_abbr_from_iso(d: str) -> Optional[str]:
         return WEEKDAY_TO_ABBR.get(dd.weekday())
     except Exception: return None
 
-
 def _weekday_abbr_from_int(v: Any) -> Optional[str]:
     try: n = int(v)
     except Exception: return None
     return {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}.get(n)
-
 
 def _coerce_session_sport(raw_sport: Any) -> str:
     s = str(raw_sport or "").strip().lower()
@@ -60,7 +79,6 @@ def _coerce_session_sport(raw_sport: Any) -> str:
     if s in {"swim", "swimming"}: return "swim"
     return "other"
 
-
 def _normalize_external_intensity(v: Any) -> Optional[str]:
     s = str(v or "").strip().lower()
     if not s: return None
@@ -69,27 +87,20 @@ def _normalize_external_intensity(v: Any) -> Optional[str]:
     if s in {"low", "easy", "light"}: return "easy"
     return s if s in _ALLOWED_EXTERNAL_INTENSITIES else None
 
-
-def build_daily_rows_from_ai(
-    user_id: int,
-    daily_plan: Dict[str, Any],
-) -> List[Dict[str, Any]]:
+def build_daily_rows_from_ai(user_id: int, daily_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
-
     if not isinstance(days, list): return rows
 
     for day in days:
         if not isinstance(day, dict): continue
-
-        date_str = day.get("date")
+        date_str = day.get("date") or day.get("plan_date")
         sessions = day.get("sessions") or []
         if not isinstance(date_str, str) or not date_str: continue
         if not isinstance(sessions, list): continue
 
         for idx, s in enumerate(sessions):
             if not isinstance(s, dict): continue
-
             sport_safe = _coerce_session_sport(s.get("sport") or "other")
 
             row: Dict[str, Any] = {
@@ -102,7 +113,7 @@ def build_daily_rows_from_ai(
                 "structure": s.get("structure"),
                 "notes": s.get("notes"),
                 "source": "ai_daily_v2",
-                "session_type": s.get("session_type"),
+                "session_type": s.get("session_type") or s.get("kind"),
                 "session_index": int(s.get("session_index") or idx),
                 "payload": s.get("payload"),
                 "activity_id": None,
@@ -110,23 +121,17 @@ def build_daily_rows_from_ai(
             rows.append(row)
     return rows
 
-
 def flatten_prefs_for_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
     raw = analyze_input.get("prefs") or {}
-    
-    # Pridané bezpečné skopírovanie, aby sme nemenili originál v analyze_input
     if isinstance(raw, dict) and "value" in raw and isinstance(raw["value"], dict):
         result = copy.deepcopy(raw["value"])
     else:
         result = copy.deepcopy(raw) if isinstance(raw, dict) else {}
-        
     return result
-
 
 def extract_targets_from_prefs(prefs: Dict[str, Any]) -> Dict[str, Any]:
     t = prefs.get("targets")
     return t if isinstance(t, dict) else {}
-
 
 def _two_a_day_cap_from_prefs(prefs: Dict[str, Any]) -> int:
     pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
@@ -135,14 +140,12 @@ def _two_a_day_cap_from_prefs(prefs: Dict[str, Any]) -> int:
     if not isinstance(two, dict) or not bool(two.get("enabled")): return 0
     return _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2)
 
-
 def _long_run_days_from_prefs(prefs: Dict[str, Any]) -> List[str]:
     pref_obj = prefs.get("preferences") if isinstance(prefs, dict) else None
     if not isinstance(pref_obj, dict): return []
     days = pref_obj.get("long_run_days") or []
     if not isinstance(days, list): return []
     return [d.strip() for d in days if isinstance(d, str) and d.strip()]
-
 
 def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]:
     strength_settings = prefs.get("strength_settings")
@@ -152,15 +155,12 @@ def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]
             try: return int(raw)
             except Exception: return None
 
-    # Fallback to legacy
     targets = prefs.get("targets")
     legacy = ((targets.get("strength") or {}).get("sessions_per_week") if isinstance(targets, dict) else None)
     if isinstance(legacy, (int, float, str)):
         try: return int(legacy)
         except Exception: return None
-
     return None
-
 
 def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not isinstance(ext_window, dict): return []
@@ -184,8 +184,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         if not wd: continue
 
         sport_raw = e.get("sport") or e.get("sport_raw")
-        
-        # ✅ OPRAVA: Uložíme do premennej, aby linter chápal typovú kontrolu
         raw_dur = e.get("duration_min")
         dur_int = int(raw_dur) if isinstance(raw_dur, (int, float)) else None
         
@@ -205,7 +203,6 @@ def _normalize_external_occurrences_from_service(ext_window: Dict[str, Any]) -> 
         })
     return out
 
-
 def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, week_end: Any) -> Dict[str, Any]:
     return {
         "schema_version": 1,
@@ -213,13 +210,11 @@ def _build_external_block(occurrences: List[Dict[str, Any]], week_start: Any, we
         "window": {"from": week_start, "to": week_end},
     }
 
-# ✅ Helper na zistenie, či je user začiatočník/navrátilec
 def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     last_activities = analyze_input.get("last_activities") or []
     if not last_activities:
-        return True # Žiadna história = začiatočník
+        return True 
     
-    # Nájdeme najnovšiu aktivitu
     latest_date_str = None
     for act in last_activities:
         d = act.get("start_date_local") or act.get("start_date") or act.get("date")
@@ -230,7 +225,6 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     if not latest_date_str:
         return True
 
-    # Ak je posledná aktivita staršia ako 6 týždňov (42 dní), považujeme ho za začiatočníka
     try:
         latest_dt = date.fromisoformat(latest_date_str[:10])
         diff = (date.today() - latest_dt).days
@@ -248,28 +242,21 @@ def build_daily_context_from_db(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     
-
-    # 2) analyze input
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
     
     prefs_ai = flatten_prefs_for_ai(analyze_input)
     targets_ai = extract_targets_from_prefs(prefs_ai)
 
-    # Zistíme status začiatočníka
     is_returning_beginner = _check_is_returning_beginner(analyze_input)
 
     recent_load = analyze_input.get("recent_load") or {}
     zones = analyze_input.get("zones") or {}
     thresholds = analyze_input.get("thresholds") or {}
 
-    # NEW: Vytiahnutie aktuálnych temp z databázy (1 riadok/slovník)
     latest_paces = db_get_latest_paces(user_id=user_id, ctx=ctx)
 
-    # 3) week meta from DB
     week_row: Optional[Dict[str, Any]] = None
-    week_row = db_get_week_row_for_plan(
-        user_id=user_id,  week_index=week_index, ctx=ctx
-    )
+    week_row = db_get_week_row_for_plan(user_id=user_id, week_index=week_index, ctx=ctx)
 
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
@@ -282,7 +269,6 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # 4) external occurrences
     external_block: Optional[Dict[str, Any]] = None
     external_fetch_error: Optional[str] = None
 
@@ -301,21 +287,18 @@ def build_daily_context_from_db(
         except Exception as e:
             external_fetch_error = repr(e)
 
-    # 5) athlete_state
     state_row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
     athlete_state_json = (state_row or {}).get("state_json") or {}
     
     if isinstance(athlete_state_json, dict):
         athlete_state_json["is_returning_beginner"] = is_returning_beginner
 
-    # --- NEW: 5.5) Strength Mapper Context ---
     strength_settings = (prefs_ai.get("strength_settings") or {}) if isinstance(prefs_ai, dict) else {}
     available_eq = strength_settings.get("available") or []
     if not isinstance(available_eq, list): available_eq = []
     eq_mode = strength_settings.get("equipment_mode") or strength_settings.get("location")
     
     active_injuries = prefs_ai.get("injuries") or []
-    # Placeholder na hated cviky (ak pridas do fe, mapuj sem)
     disliked_ex = [] 
     
     strength_ai_menu = prepare_strength_context_for_ai(
@@ -327,7 +310,6 @@ def build_daily_context_from_db(
         ctx=ctx
     )
 
-    # 6) context payload
     context_payload: Dict[str, Any] = {
         "schema_version": 2,
         "user_id": user_id,
@@ -340,14 +322,14 @@ def build_daily_context_from_db(
         "recent_load": recent_load,
         "zones": zones,
         "thresholds": thresholds,
-        "latest_paces": latest_paces, # Pridáme flat dict priamo do payloadu pre AI
+        "latest_paces": latest_paces,
         "planning_constraints": {
             "two_a_day_max_days_per_week": int(_two_a_day_cap_from_prefs(prefs_ai)),
             "long_run_days": _long_run_days_from_prefs(prefs_ai),
             "strength_sessions_per_week_target": _strength_sessions_target_from_prefs(prefs_ai),
             "external_events_must_be_included": True,
             "is_returning_beginner": is_returning_beginner,
-            "strength_ai_menu": strength_ai_menu # <--- Pridané menu pre AI!
+            "strength_ai_menu": strength_ai_menu
         },
     }
 
