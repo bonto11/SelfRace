@@ -1,4 +1,3 @@
-# Services/AI/daily_plan/generate.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, date
@@ -9,7 +8,6 @@ from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Services.AI.daily_plan.prompts import build_prompts_for_daily
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
-
 
 def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(parsed, dict):
@@ -24,7 +22,7 @@ def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     for d in days:
         if not isinstance(d, dict):
             continue
-        ds = str(d.get("date") or "")[:10]
+        ds = str(d.get("date") or d.get("plan_date") or "")[:10]
         if not ds:
             continue
         sessions = d.get("sessions")
@@ -32,13 +30,17 @@ def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
             sessions = []
         if not isinstance(sessions, list):
             sessions = []
-        out_days.append(
-            {"date": ds, "sessions": [s for s in sessions if isinstance(s, dict)]}
-        )
+            
+        # Zabezpečenie, aby aspoň date bolo prítomné priamo na úrovni day
+        out_days.append({
+            "date": ds,
+            "plan_date": ds,
+            "weekday": d.get("weekday"),
+            "sessions": [s for s in sessions if isinstance(s, dict)]
+        })
 
     parsed["days"] = out_days
     return parsed
-
 
 def _parse_iso_date(s: Any) -> Optional[date]:
     if not isinstance(s, str) or not s:
@@ -47,7 +49,6 @@ def _parse_iso_date(s: Any) -> Optional[date]:
         return date.fromisoformat(s[:10])
     except Exception:
         return None
-
 
 def _validate_dates_in_range(
     plan: Dict[str, Any],
@@ -64,7 +65,7 @@ def _validate_dates_in_range(
     for d in plan.get("days") or []:
         if not isinstance(d, dict):
             continue
-        ds = str(d.get("date") or "")[:10]
+        ds = str(d.get("date") or d.get("plan_date") or "")[:10]
         dd = _parse_iso_date(ds)
         if not dd:
             continue
@@ -73,22 +74,23 @@ def _validate_dates_in_range(
 
     return (len(bad) == 0), bad
 
-
 def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     ext = context_payload.get("external_events") or {}
     if not isinstance(ext, dict):
         return []
     occ = ext.get("occurrences") or []
+    if not isinstance(occ, list):
+        win = ext.get("window") or {}
+        if isinstance(win, dict):
+            occ = win.get("events") or []
+            
     return occ if isinstance(occ, list) else []
-
 
 def _norm_title(v: Any) -> str:
     return str(v or "").strip().lower()
 
-
 def _norm_sport_raw(v: Any) -> str:
     return str(v or "").strip().lower()
-
 
 def _plan_contains_external_occurrence(
     plan: Dict[str, Any], occ: Dict[str, Any]
@@ -96,15 +98,12 @@ def _plan_contains_external_occurrence(
     if not isinstance(plan, dict) or not isinstance(occ, dict):
         return True
 
-    occ_date = str(occ.get("date") or "")[:10]
+    occ_date = str(occ.get("date") or occ.get("occurrence_date") or "")[:10]
     if not occ_date:
         return True
 
     occ_title = _norm_title(occ.get("title"))
-    occ_sport_raw = _norm_sport_raw(occ.get("sport_raw"))
-    occ_dur = occ.get("duration_min")
-    occ_dur_int = int(occ_dur) if isinstance(occ_dur, (int, float)) else None
-
+    
     days = plan.get("days") or []
     if not isinstance(days, list):
         return False
@@ -112,7 +111,7 @@ def _plan_contains_external_occurrence(
     for d in days:
         if not isinstance(d, dict):
             continue
-        ds = str(d.get("date") or "")[:10]
+        ds = str(d.get("date") or d.get("plan_date") or "")[:10]
         if ds != occ_date:
             continue
 
@@ -124,44 +123,20 @@ def _plan_contains_external_occurrence(
             if not isinstance(s, dict):
                 continue
 
-            payload = s.get("payload")
-            if isinstance(payload, dict) and isinstance(
-                payload.get("external_event"), dict
-            ):
-                ev = payload["external_event"]
-                ev_date = str(ev.get("date") or "")[:10]
-                ev_title = _norm_title(ev.get("title"))
-                ev_sport_raw = _norm_sport_raw(ev.get("sport_raw"))
-                ev_dur = ev.get("duration_min")
-                ev_dur_int = int(ev_dur) if isinstance(ev_dur, (int, float)) else None
-
-                if ev_date == occ_date and ev_title == occ_title:
-                    if occ_sport_raw and ev_sport_raw and occ_sport_raw != ev_sport_raw:
-                        continue
-                    if (
-                        occ_dur_int is not None
-                        and ev_dur_int is not None
-                        and occ_dur_int != ev_dur_int
-                    ):
-                        continue
-                    return True
-
             s_title = _norm_title(s.get("title"))
             s_type = str(s.get("session_type") or "").strip().lower()
-            s_dur = s.get("duration_min")
-            s_dur_int = int(s_dur) if isinstance(s_dur, (int, float)) else None
-
-            if s_type == "external_event" and s_title == occ_title:
-                if (
-                    occ_dur_int is not None
-                    and s_dur_int is not None
-                    and occ_dur_int != s_dur_int
-                ):
-                    continue
+            
+            # Kontrolujeme len to, ci AI v dany den vygenerovala session type external event
+            if s_type == "external_event":
                 return True
+                
+            # Fallback pre starsie prompty, ak AI dalo "other" sport a "other" kind a sedi nazov
+            s_sport = str(s.get("sport") or "").strip().lower()
+            s_kind = str(s.get("kind") or "").strip().lower()
+            if s_sport == "other" and (s_type == "external_event" or s_kind in ["other", "external"]):
+                 return True
 
     return False
-
 
 def _validate_external_events_included(
     parsed: Dict[str, Any],
@@ -176,12 +151,11 @@ def _validate_external_events_included(
         if not isinstance(occ, dict):
             continue
         if not _plan_contains_external_occurrence(parsed, occ):
-            ds = str(occ.get("date") or "")[:10]
+            ds = str(occ.get("date") or occ.get("occurrence_date") or "")[:10]
             title = str(occ.get("title") or "external").strip()
             missing.append(f"{ds}:{title}")
 
     return (len(missing) == 0), missing
-
 
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     return {
@@ -191,7 +165,6 @@ def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
         "usage": None,
         "ok_model": model,
     }
-
 
 def _get_trace_from_result(
     res: Any, *, requested_model: Optional[str]
@@ -219,7 +192,6 @@ def _get_trace_from_result(
         return tr2
 
     return _trace_fallback(provider=provider, model=used_model)
-
 
 def _sum_usage(
     a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]
@@ -325,13 +297,6 @@ def generate_daily_week_json(
     last_err_msg: Optional[str] = None
     usage_sum: Optional[Dict[str, Any]] = None
 
-    print(
-        "generate_daily_week_json - context_payload, system_txt, user_txt",
-        context_payload,
-        system_txt,
-        user_txt,
-    )
-
     for attempt in range(1, attempts + 1):
         res = ai_call_json_model(
             context_payload=ctx,
@@ -341,8 +306,6 @@ def generate_daily_week_json(
             max_tokens=resolved_max_tokens,
             temperature=resolved_temperature,
         )
-
-        print("generate_daily_week_json - res", res)
 
         err = getattr(res, "error", None)
         err_code = getattr(err, "code", None) if err is not None else None
@@ -418,7 +381,6 @@ def generate_daily_week_json(
 
         return parsed, trace, None
 
-    # --- Failure path (Bez fallbacku, len cisty error) ---
     trace["error_code"] = last_err_code or "daily_generation_failed"
     trace["error_message"] = last_err_msg or "daily_generation_failed"
 
