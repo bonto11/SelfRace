@@ -2,6 +2,8 @@ export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.selfr
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://www.selfrace.com";
+export const CRON_SECRET = process.env.CRON_SECRET;
+export const MAINTENANCE_API_KEY = process.env.MAINTENANCE_API_KEY;
 
 // Tiers max limits for AI Review versioning
 export const MAX_VERSIONS_FREE = Number(process.env.NEXT_PUBLIC_MAX_VERSIONS_FREE || 1);
