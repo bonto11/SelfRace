@@ -1,6 +1,5 @@
 // src/features/coach/api/coach_athlete_state.ts
 import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBackend";
-import type { AnalyzeOptions } from "@/app/features/coach/types/coachApiTypes";
 
 export type AthleteProgressRecord = {
   id: number;
@@ -20,24 +19,16 @@ export type AthleteStateRecord = {
   state: any; 
 };
 
-
-// (Vymazal som tie tvoje dlhé typy pre JobRecord, už ich netreba vďaka utils)
-
 export async function apiAnalyzeAthleteState(
   userId: number,
-  userUuid: string,
-  opts: AnalyzeOptions = {}
+  userUuid: string
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
   if (!userId || !userUuid) throw new Error("api.common.missingUserAuth");
 
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
   const enqueueBody = {
     job_type: "ai_analyze",
-    payload: {
-      debug: !!opts.debugRaw,
-      save_to_db: true,
-      model: opts.explicitModel ?? "coach-analyze-stub",
-    },
+    payload: {}, // Úplne čisté, backend preberá plnú kontrolu nad konfiguráciou
     priority: 100,
     max_attempts: 1,
     dedupe_key: "ai_analyze_latest",
@@ -72,7 +63,6 @@ export async function apiAnalyzeAthleteState(
   return await runAsyncJobWithPolling(userId, jobId);
 }
 
-// ... (Zvyšok súboru ako apiGetLatestAthleteState a apiGetLatestAthleteProgress nechaj rovnako) ...
 export async function apiGetLatestAthleteState(userId: number): Promise<AthleteStateRecord | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 

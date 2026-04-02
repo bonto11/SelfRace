@@ -130,16 +130,12 @@ def generate_activity_review_json(
         is_race=is_race,
     )
 
-    print("generate_activity_review_json - context_payload, system_txt, user_txt",context_payload, system_txt, user_txt)
-
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=str(model),
     )
-
-    print("generate_activity_review_json - res",res)
 
     trace = _get_trace_from_result(res)
 

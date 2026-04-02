@@ -1,7 +1,6 @@
-# (Tvoj router súbor pre coach_athlete)
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from Services.AI.athlete_state.main import (
     service_analyze_athlete,
@@ -9,7 +8,7 @@ from Services.AI.athlete_state.main import (
     service_list_athlete_states_meta,
     service_get_latest_athlete_progress,
 )
-from Schemas.coach_athlete_state import AnalyzeConfig
+
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
@@ -21,19 +20,18 @@ router = APIRouter(
 def analyze_athlete(
     req: Request,
     user_id: int,
-    payload: AnalyzeConfig | None = Body(None),
 ):
     try:
         ctx = require_user(get_auth_ctx(req))
-        model = payload.model if payload and payload.model else None
 
+        # Frontend už neposiela model, takže natvrdo posúvame None
+        # Vďaka tomu sa spustí tvoja funkcia _default_ai_model() a potiahne sa .env
         result = service_analyze_athlete(
             user_id=user_id,
             ctx=ctx,
-            model=model,
+            model=None, 
         )
         
-        # ✅ Skontrolujeme vnútorné "ok"
         if not result.get("ok"):
              return {
                  "success": False, 
