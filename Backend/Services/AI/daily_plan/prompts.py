@@ -3,14 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
-def _as_dict(v: Any) -> Dict[str, Any]:
-    """Bezpečne vráti dictionary, inak prázdny dictionary."""
-    return v if isinstance(v, dict) else {}
-
-def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
-    """Bezpečne vytiahne vnorený dictionary bez rizika NoneType."""
-    return _as_dict(d.get(key))
-
 def _safe_int(v: Any, default: int = 0, *, min_v: Optional[int] = None, max_v: Optional[int] = None) -> int:
     try:
         if v is None: out = default
@@ -25,6 +17,13 @@ def _safe_int(v: Any, default: int = 0, *, min_v: Optional[int] = None, max_v: O
     if min_v is not None and out < min_v: out = min_v
     if max_v is not None and out > max_v: out = max_v
     return out
+
+def _as_dict(v: Any) -> Dict[str, Any]:
+    return v if isinstance(v, dict) else {}
+
+def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
+    val = d.get(key)
+    return val if isinstance(val, dict) else {}
 
 def _flatten_prefs(raw_prefs: Any) -> Dict[str, Any]:
     if isinstance(raw_prefs, dict) and isinstance(raw_prefs.get("value"), dict):
@@ -156,7 +155,7 @@ def build_prompts_for_daily(
 ) -> Tuple[str, str, List[Dict[str, Any]], Optional[int]]:
     
     settings = settings or {}
-    lang_code = (settings.get("language") or "sk").lower()
+    lang_code = str(settings.get("language") or "sk").lower()
     
     if lang_code.startswith("en"):
         lang_label = "English"
@@ -168,10 +167,10 @@ def build_prompts_for_daily(
         lang_label = "Slovak"
         second_person_note = "Vždy hovor priamo k atlétovi a používej 2. osobu."
 
-    week = context_payload.get("week") or {}
+    week = _get_dict(context_payload, "week")
     prefs = _flatten_prefs(context_payload.get("prefs") or {})
     
-    constraints = context_payload.get("planning_constraints") or {}
+    constraints = _get_dict(context_payload, "planning_constraints")
     is_returning_beginner = bool(constraints.get("is_returning_beginner"))
 
     week_index = int(week.get("week_index") or context_payload.get("week_index") or 1)
@@ -183,9 +182,7 @@ def build_prompts_for_daily(
     add_on = prefs.get("add_on_sports")
     included = prefs.get("included_sports")
 
-    sports_set = set()
-    sports_set.add(main_sport)
-
+    sports_set = {main_sport}
     if isinstance(add_on, list):
         for s in add_on:
             if isinstance(s, str) and s: sports_set.add(s.lower())
@@ -195,8 +192,7 @@ def build_prompts_for_daily(
 
     final_sports_list = list(sports_set)
 
-    pref_obj = prefs.get("preferences") or {}
-    if not isinstance(pref_obj, dict): pref_obj = {}
+    pref_obj = _get_dict(prefs, "preferences")
 
     days_off = pref_obj.get("days_off") or []
     if isinstance(days_off, list):
@@ -204,8 +200,8 @@ def build_prompts_for_daily(
     else:
         days_off = []
 
-    two = pref_obj.get("two_a_day") or {}
-    two_enabled = bool(two.get("enabled")) if isinstance(two, dict) else False
+    two = _get_dict(pref_obj, "two_a_day")
+    two_enabled = bool(two.get("enabled"))
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
 
     long_run_days = pref_obj.get("long_run_days") or []
@@ -216,49 +212,45 @@ def build_prompts_for_daily(
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
     intensity_model = "pyramidal" if str(pref_obj.get("intensity_model") or "").lower() == "pyramidal" else "polarized"
     
-    zones_data = context_payload.get("zones") or {}
+    zones_data = _as_dict(context_payload.get("zones"))
     has_zones = False
-    if isinstance(zones_data, dict):
-        for key, val in zones_data.items():
-            if isinstance(val, dict):
-                if val.get("z1_min") is not None or val.get("z1_max") is not None:
-                    has_zones = True
-                    break
-                z_list = val.get("zones")
-                if isinstance(z_list, list) and len(z_list) > 0:
-                    has_zones = True
-                    break
-            elif key in ["z1_min", "z1_max"] and val is not None:
+    for key, val in zones_data.items():
+        if isinstance(val, dict):
+            if val.get("z1_min") is not None or val.get("z1_max") is not None:
                 has_zones = True
                 break
+            z_list = val.get("zones")
+            if isinstance(z_list, list) and len(z_list) > 0:
+                has_zones = True
+                break
+        elif key in ["z1_min", "z1_max"] and val is not None:
+            has_zones = True
+            break
 
-    tb = pref_obj.get("training_blocks") or {}
+    tb = _get_dict(pref_obj, "training_blocks")
 
-    if not isinstance(tb, dict): tb = {}
     blocks = {
         "vo2max": bool(tb.get("vo2max")),
         "ftp": bool(tb.get("ftp")),
         "threshold": bool(tb.get("threshold")),
     }
 
-    strength_settings = prefs.get("strength_settings")
-    if not isinstance(strength_settings, dict): strength_settings = {}
-    
+    strength_settings = _get_dict(prefs, "strength_settings")
     strength_target_int: Optional[int] = None
     ss_raw = strength_settings.get("sessions_per_week")
     if isinstance(ss_raw, (int, float, str)):
         try: strength_target_int = int(ss_raw)
         except Exception: pass
     
-    ext = context_payload.get("external_events") or {}
-    ext_occ = ext.get("occurrences") if isinstance(ext, dict) else []
+    ext = _as_dict(context_payload.get("external_events"))
+    ext_occ = ext.get("occurrences")
     if not isinstance(ext_occ, list): ext_occ = []
     ext_count = len(ext_occ)
     ext_minutes_total = sum(_safe_int(e.get("duration_min"), 0) for e in ext_occ if isinstance(e, dict))
 
-    volume_prefs = prefs.get("volume") or {}
-    volume_mode = volume_prefs.get("mode") if isinstance(volume_prefs, dict) else None
-    volume_value = volume_prefs.get("value") if isinstance(volume_prefs, dict) else None
+    volume_prefs = _get_dict(prefs, "volume")
+    volume_mode = volume_prefs.get("mode")
+    volume_value = volume_prefs.get("value")
 
     if isinstance(planned_minutes, (int, float)):
         rem = max(0, int(planned_minutes) - ext_minutes_total)
@@ -334,55 +326,59 @@ def build_prompts_for_daily(
         )
 
     system_txt = (
-        "You are an endurance coaching assistant. "
-        "Design a daily workout schedule for ONE week based on the JSON context. "
-        "Return ONE valid JSON object."
+        "You are an elite endurance coaching assistant. "
+        "Your task is to design a detailed DAILY training plan for the current week. "
+        "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
     schema_text = f"""
+{{
+  "schema_version": 2,
+  "days": [
     {{
-    "schema_version": 2,
-    "days": [
+      "plan_date": "YYYY-MM-DD",
+      "weekday": "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun",
+      "sessions": [
         {{
-        "plan_date": "YYYY-MM-DD",
-        "weekday": "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun",
-        "sessions": [
-            {{
-            "sport": "run" | "ride" | "swim" | "strength" | "other" | "rest",
-            "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest",
-            "title": "Short title in {lang_label}",
-            "duration_min": number,
-            "distance_km": number, // OMIT if null
-            "tss_estimate": number, // OMIT if null
-            "warmup_min": number, // OMIT if null
-            "cooldown_min": number, // OMIT if null
-            "description": "max 1 short sentence in {lang_label}",
-            "structure": {{ // Omit if basic rest or other
-                "warmup": {{ "minutes": number, "notes": "max 1 sentence" }},
-                "main_part": [ {{ "minutes": number, "notes": "max 1 sentence", "target": string }} ] | {{ "minutes": number, "notes": "max 1 sentence" }},
-                "cooldown": {{ "minutes": number, "notes": "max 1 sentence" }},
-                "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
-                "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
-                "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ] // Strength only
-            }}
-            }}
-        ]
+          "sport": "run" | "ride" | "swim" | "strength" | "other" | "rest",
+          "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest",
+          "title": "Short title in {lang_label}",
+          "duration_min": number,
+          "description": "max 1 short sentence in {lang_label}",
+          "structure": {{ // Omit if basic rest or other
+            "warmup": {{ "minutes": number, "notes": "max 1 sentence" }},
+            "steps": [
+                {{
+                    "type": "warmup" | "active" | "recovery" | "rest" | "cooldown",
+                    "duration": "e.g. 10 min, 5 km, 8x400m",
+                    "intensity": "e.g. Z1, Z2, Z4, easy, hard",
+                    "instruction": "Short instruction in {lang_label}"
+                }}
+            ],
+            "cooldown": {{ "minutes": number, "notes": "max 1 sentence" }},
+            "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
+            "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
+            "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ] // Strength only
+          }}
         }}
-    ]
+      ]
     }}
-    """.strip()
+  ]
+}}
+""".strip()
 
     date_integrity_rule = "- DATE INTEGRITY: Use only dates inside the given Week range.\n\n"
     
     external_rules = (
-        "- EXTERNAL EVENTS (HARD): Include EVERY external event from context EXACTLY once on the correct date. "
-        "For these events, you MUST set `kind: \"other\"`.\n\n"
+        "- EXTERNAL EVENTS (CRITICAL PRIORITY - OVERRIDE EVERYTHING ELSE): You MUST check the `external_events` object in the context. "
+        "If there are any events (e.g. Football on Wednesday), YOU MUST schedule a session on that exact date with `sport` = `other` and `kind` = `other`. "
+        "DO NOT IGNORE EXTERNAL EVENTS under any circumstances. If the external event makes the day too crowded, drop other scheduled workouts, but NEVER drop the external event.\n\n"
     )
 
-    latest_paces = context_payload.get("latest_paces") or {}
+    latest_paces = _as_dict(context_payload.get("latest_paces"))
     if has_zones:
         pace_instructions = ""
-        if isinstance(latest_paces, dict) and any(latest_paces.get(k) for k in ["z1_pace_s", "z2_pace_s", "z3_pace_s", "z4_pace_s", "z5_pace_s"]):
+        if any(latest_paces.get(k) for k in ["z1_pace_s", "z2_pace_s", "z3_pace_s", "z4_pace_s", "z5_pace_s"]):
             pace_str_parts = []
             for i in range(1, 6):
                 key = f"z{i}_pace_s"
@@ -402,28 +398,26 @@ def build_prompts_for_daily(
             )
 
         intensity_format_rule = (
-            "- INTENSITY FORMATTING (HAS ZONES): Main `intensity` field MUST be 'Z1'-'Z5'. "
-            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
+            "- INTENSITY FORMATTING (HAS ZONES): "
+            "In `notes` and `instruction` fields, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
             "CRITICAL INSTRUCTION FOR HEART RATE: The zones in context_payload.zones are your absolute BOUNDARIES for zones. "
             "DO NOT output the entire width of the zone (e.g., if Z1 is 0-154 bpm, do NOT write '0-154 bpm'). "
             "Instead, prescribe a narrower, realistic target range (e.g., a 10-15 bpm window like '135-150 bpm') that fits strictly WITHIN the user's specific zone limits. "
             "NEVER use generic human heart rates; strictly respect the user's minimum and maximum bounds for each zone. "
             "Example Format: 'Z2 (145-155 bpm) @ [insert pace] min/km'. "
-            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown.\n"
             f"{pace_instructions}\n"
         )
     else:
         intensity_format_rule = (
-            "- INTENSITY FORMATTING (NO ZONES): Main `intensity` field MUST be 'RPE X/10'. "
-            "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
+            "- INTENSITY FORMATTING (NO ZONES): "
+            "In `notes` and `instruction` fields, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
             "Example Format: 'RPE 3/10 @ 6:00-6:30 min/km'. "
-            "MANDATORY: You MUST provide Pace for ALL parts, including warmup and cooldown. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
-        "provide a detailed `structure` object using `warmup`, `main_part`, and `cooldown`.\n\n"
+        "provide a detailed `structure` object using `warmup`, `steps` (for the main part), and `cooldown`.\n\n"
     )
 
     strength_structure_rule = (

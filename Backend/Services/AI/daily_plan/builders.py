@@ -13,7 +13,7 @@ from Services.analytics_RecentLoad import service_build_recent_load_block_for_an
 from Services.coach_external_events import service_list_external_events_window
 from Services.coach_strength_mapper import prepare_strength_context_for_ai
 
-from Routes_DB.activities_summary import db_get_summary_for_activities
+from Routes_DB.activities_summary import db_get_summary_for_activities, db_get_recent_activity_ids
 from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
 from Routes_DB.user_pace_history import db_get_latest_paces
 from Routes_DB.activities_laps import db_get_activity_laps
@@ -111,7 +111,7 @@ def build_daily_rows_from_ai(user_id: int, daily_plan: Dict[str, Any]) -> List[D
                 "duration_min": s.get("duration_min"),
                 "intensity": s.get("intensity"),
                 "structure": s.get("structure"),
-                "notes": s.get("notes"),
+                "notes": s.get("notes") or s.get("description"),
                 "source": "ai_daily_v2",
                 "session_type": s.get("session_type") or s.get("kind"),
                 "session_index": int(s.get("session_index") or idx),
@@ -329,7 +329,7 @@ def build_daily_context_from_db(
             "strength_sessions_per_week_target": _strength_sessions_target_from_prefs(prefs_ai),
             "external_events_must_be_included": True,
             "is_returning_beginner": is_returning_beginner,
-            "strength_ai_menu": strength_ai_menu
+            "strength_ai_menu": strength_ai_menu 
         },
     }
 
