@@ -346,24 +346,15 @@ def build_prompts_for_daily(
           "duration_min": number,
           "distance_km": number, // OMIT if null
           "tss_estimate": number, // OMIT if null
-          "warmup_min": number, // OMIT if null
-          "cooldown_min": number, // OMIT if null
           "description": "max 1 short sentence in {lang_label}",
-          "session_type": "external_event" | null, // <--- PRIDANÉ PRE KONTROLU DATABÁZY
+          "session_type": "external_event" | null,
           "structure": {{ // Omit if basic rest or other
-            "warmup": {{ "minutes": number, "notes": "max 1 sentence" }},
-            "steps": [
-                {{
-                    "type": "warmup" | "active" | "recovery" | "rest" | "cooldown",
-                    "duration": "e.g. 10 min, 5 km, 8x400m",
-                    "intensity": "e.g. Z1, Z2, Z4, easy, hard",
-                    "instruction": "Short instruction in {lang_label}"
-                }}
-            ],
-            "cooldown": {{ "minutes": number, "notes": "max 1 sentence" }},
-            "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
-            "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
-            "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ] // Strength only
+            "warmup": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
+            "main_part": [ {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }} ],
+            "cooldown": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
+            "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
+            "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
+            "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ] // Strength only
           }}
         }}
       ]
@@ -405,7 +396,7 @@ def build_prompts_for_daily(
 
         intensity_format_rule = (
             "- INTENSITY FORMATTING (HAS ZONES): "
-            "In `notes` and `instruction` fields, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
+            "In `notes` fields for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
             "CRITICAL INSTRUCTION FOR HEART RATE: The zones in context_payload.zones are your absolute BOUNDARIES for zones. "
             "DO NOT output the entire width of the zone (e.g., if Z1 is 0-154 bpm, do NOT write '0-154 bpm'). "
             "Instead, prescribe a narrower, realistic target range (e.g., a 10-15 bpm window like '135-150 bpm') that fits strictly WITHIN the user's specific zone limits. "
@@ -416,14 +407,14 @@ def build_prompts_for_daily(
     else:
         intensity_format_rule = (
             "- INTENSITY FORMATTING (NO ZONES): "
-            "In `notes` and `instruction` fields, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
+            "In `notes` fields for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
             "Example Format: 'RPE 3/10 @ 6:00-6:30 min/km'. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
-        "provide a detailed `structure` object using `warmup`, `steps` (for the main part), and `cooldown`.\n\n"
+        "provide a detailed `structure` object using `warmup`, `main_part` (must be an array of steps), and `cooldown`.\n\n"
     )
 
     strength_structure_rule = (
