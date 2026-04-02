@@ -341,10 +341,15 @@ def build_prompts_for_daily(
       "sessions": [
         {{
           "sport": "run" | "ride" | "swim" | "strength" | "other" | "rest",
-          "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest",
+          "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest" | "other",
           "title": "Short title in {lang_label}",
           "duration_min": number,
+          "distance_km": number, // OMIT if null
+          "tss_estimate": number, // OMIT if null
+          "warmup_min": number, // OMIT if null
+          "cooldown_min": number, // OMIT if null
           "description": "max 1 short sentence in {lang_label}",
+          "session_type": "external_event" | null, // <--- PRIDANÉ PRE KONTROLU DATABÁZY
           "structure": {{ // Omit if basic rest or other
             "warmup": {{ "minutes": number, "notes": "max 1 sentence" }},
             "steps": [
@@ -371,7 +376,8 @@ def build_prompts_for_daily(
     
     external_rules = (
         "- EXTERNAL EVENTS (CRITICAL PRIORITY - OVERRIDE EVERYTHING ELSE): You MUST check the `external_events` object in the context. "
-        "If there are any events (e.g. Football on Wednesday), YOU MUST schedule a session on that exact date with `sport` = `other` and `kind` = `other`. "
+        "If there are any events (e.g. Football on Wednesday), YOU MUST schedule a session on that exact date. "
+        "For these events, you MUST set `sport`=\"other\", `kind`=\"other\" AND `session_type`=\"external_event\". "
         "DO NOT IGNORE EXTERNAL EVENTS under any circumstances. If the external event makes the day too crowded, drop other scheduled workouts, but NEVER drop the external event.\n\n"
     )
 
