@@ -1,6 +1,4 @@
-# Services/AI/athlete_state/builders.py
 from __future__ import annotations
-
 
 from datetime import datetime, timezone, timedelta, date
 from typing import Any, Dict, Optional, List
@@ -23,6 +21,7 @@ from Routes_DB.profile_static import db_fetch_static_basic
 from Routes_DB.user_metrics import db_get_latest_metric
 
 from Modules.Supabase.auth import AuthCtx
+
 
 def _to_float(x: Any) -> Optional[float]:
     try:
@@ -72,15 +71,10 @@ def _days_ago(date_str: Any) -> Optional[int]:
         return None
     today = datetime.now(timezone.utc).date()
     d = (today - dt.date()).days
-    return int(d) if d >= 0 else 0  # budúcnosť clamp na 0
+    return int(d) if d >= 0 else 0
 
 
 def _days_from_today(date_str: Any) -> Optional[int]:
-    """
-    + => event je v budúcnosti (za X dní)
-    0 => dnes
-    - => v minulosti
-    """
     dt = _parse_yyyy_mm_dd(date_str)
     if not dt:
         return None
@@ -89,10 +83,6 @@ def _days_from_today(date_str: Any) -> Optional[int]:
 
 
 def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Pre každý PB zamení 'date'/'start_date'/'performed_at' za 'days_ago' (int).
-    Absolútne dátumy vyhodí.
-    """
     if not isinstance(bests, dict):
         return bests
 
@@ -123,13 +113,10 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
 
     return out
 
+
 def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Kombinuje static profile (vek, pohlavie, výška) a najnovšiu váhu z user_metrics.
-    """
     stat = db_fetch_static_basic(user_id=user_id, ctx=ctx) or {}
     
-    # Vek z birth_date
     age = None
     birth_date = stat.get("birth_date")
     if birth_date:
@@ -140,7 +127,6 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
         except Exception:
             pass
 
-    # Váha z novej tabuľky
     w_row = db_get_latest_metric(user_id, "weight_kg", ctx=ctx)
     weight_kg = float(w_row["value_num"]) if w_row and w_row.get("value_num") else None
 
@@ -152,11 +138,8 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
         "weight_kg": weight_kg,
     }
 
+
 def _minify_external_events_for_ai(ext: Any) -> Any:
-    """
-    External events: odstráni absolútne dátumy, nahradí ich days_from_today.
-    Zachová weekday/priority/sport/title/duration_min.
-    """
     if not isinstance(ext, dict):
         return ext
 
@@ -204,14 +187,10 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
 
 def _get_minified_segments(user_id: int, activity_id: int, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    """
-    Vyberie laps (alebo splits), a minifikuje ich pre AI.
-    d = distance_m, p = pace_s_per_km, hr = avg_hr_bpm
-    """
     segments = []
-    # 1. Skús Laps
+    
     laps = db_get_activity_laps(user_id, activity_id, ctx=ctx)
-    if laps and len(laps) > 1: # Ignorujeme ak má aktivita len 1 lap (to je v podstate celá aktivita)
+    if laps and len(laps) > 1:
         for lap in laps:
             dist = _to_float(lap.get("distance_m"))
             time_s = _to_float(lap.get("moving_time_s")) or _to_float(lap.get("elapsed_time_s"))
@@ -222,7 +201,6 @@ def _get_minified_segments(user_id: int, activity_id: int, ctx: AuthCtx) -> List
                 segments.append({"d": round(dist), "p": pace, "hr": hr})
         return segments
 
-    # 2. Skús Splits (ak nie sú laps)
     splits = db_get_activity_splits(user_id, activity_id, ctx=ctx)
     if splits and len(splits) > 1:
         for sp in splits:
@@ -243,9 +221,6 @@ def build_last_activities_block_for_analysis(
     ctx: AuthCtx,
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
-    """
-    Posledných N aktivít (summary + zóny z enrichment + segments) pre AI.
-    """
 
     if limit <= 0:
         limit = 4
@@ -343,18 +318,15 @@ def build_last_activities_block_for_analysis(
             "intensity": intensity,
         }
 
-        # ✅ Pridáme empirické segmenty (laps/splits) len pre beh a bike
         if sport in ["run", "ride"]:
             segments = _get_minified_segments(user_id, aid, ctx)
             if segments:
                 act_obj["segments"] = segments
-            else:
-                # PRIDANÝ LOG PRE DEBUG:
-                print(f"DEBUG: Ziadne splits a laps pre aktivitu {aid} ({sport}) z datumu {date_str}")
 
         out.append(act_obj)
 
     return out
+
 
 def build_base_input(user_id: int) -> Dict[str, Any]:
     return {
@@ -404,12 +376,10 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         },
         "external_events": None,
         "last_activities": [],
-        "latest_paces": None, # ✅ Nové pole pre zachovanie histórie
+        "latest_paces": None,
         "is_returning_beginner": False,
     }
 
-
-# --- UPRAVENÁ HLAVNÁ FUNKCIA ---
 
 def build_input_from_db(
     user_id: int,

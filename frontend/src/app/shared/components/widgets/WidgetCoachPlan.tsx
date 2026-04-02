@@ -207,10 +207,7 @@ export default function WidgetCoachPlan() {
     setError(null);
     setLoadingKind("analyze");
     try {
-      const out = await apiAnalyzeAthleteState(userId, userUuid, {
-        debugRaw: false,
-        explicitModel: "coach-analyze-stub",
-      });
+      const out = await apiAnalyzeAthleteState(userId, userUuid);
       
       if (!out?.success) {
           setError(formatAiError(out));

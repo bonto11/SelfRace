@@ -1,4 +1,3 @@
-# Services/AI/athlete_state/generate.py
 from __future__ import annotations
 
 from zoneinfo import ZoneInfo
@@ -28,39 +27,22 @@ def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
 def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
     return datetime.now(tzinfo).isoformat()
 
-def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
-    return {
-        "provider": provider,
-        "models_tried": [],
-        "attempts": [],
-        "usage": None,
-        "ok_model": model,
-    }
-
-def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
-    provider = str(getattr(res, "provider", None) or "unknown")
-    used_model = str(getattr(res, "model", None) or requested_model)
-
-    tr = getattr(res, "trace", None)
-    if isinstance(tr, dict):
-        tr.setdefault("provider", provider)
-        tr.setdefault("models_tried", [])
-        tr.setdefault("attempts", [])
-        tr.setdefault("usage", None)
-        tr.setdefault("ok_model", used_model)
-        return tr
-
+def _get_trace_from_result(res: Any, requested_model: str) -> Dict[str, Any]:
+    tr = getattr(res, "trace", None) or {}
     err = getattr(res, "error", None)
-    tr2 = getattr(err, "trace", None) if err is not None else None
-    if isinstance(tr2, dict):
-        tr2.setdefault("provider", provider)
-        tr2.setdefault("models_tried", [])
-        tr2.setdefault("attempts", [])
-        tr2.setdefault("usage", None)
-        tr2.setdefault("ok_model", used_model)
-        return tr2
+    
+    if not tr and err:
+        tr = getattr(err, "trace", None) or {}
 
-    return _trace_fallback(provider=provider, model=used_model)
+    if not isinstance(tr, dict):
+        tr = {}
+
+    provider = str(getattr(res, "provider", None) or getattr(err, "provider", None) or "unknown")
+    used_model = str(getattr(res, "model", None) or getattr(err, "model", None) or requested_model)
+
+    tr.setdefault("provider", provider)
+    tr.setdefault("ok_model", used_model)
+    return tr
 
 def generate_athlete_state_json(
     context_payload: dict,
@@ -88,19 +70,17 @@ def generate_athlete_state_json(
 
     trace = _get_trace_from_result(res, requested_model=model)
 
-    # --- Success path ---
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
         parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
-        parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+        parsed["schema_version"] = 1
         parsed["generated_at"] = _now_local_iso(tzinfo)
         parsed["model"] = str(getattr(res, "model", None) or model) 
         
-        if isinstance(trace, dict) and not trace.get("ok_model"):
+        if not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]
 
         return parsed, trace, None
 
-    # --- Failure path (Žiadny fallback, len čistý error) ---
     provider_name = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or model)
 
@@ -119,7 +99,6 @@ def generate_athlete_state_json(
     return None, trace, last_err
 
 
-# ✅ OPRAVA: Pre Progress Report
 def generate_athlete_progress_report(
     *,
     previous_state: dict,
@@ -151,8 +130,6 @@ def generate_athlete_progress_report(
         "settings": settings,
     }
 
-    print("generate_athlete_progress_report - context_payload, system_txt, user_txt",context_payload, system_txt, user_txt)
-
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
@@ -160,17 +137,15 @@ def generate_athlete_progress_report(
         model=model,
     )
 
-    print("generate_athlete_progress_report - res",res)
-
     trace = _get_trace_from_result(res, requested_model=model)
 
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
         parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
-        parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+        parsed["schema_version"] = 1
         parsed["generated_at"] = _now_local_iso(tzinfo)
-        parsed["model"] = str(parsed.get("model") or getattr(res, "model", None) or model)
+        parsed["model"] = str(getattr(res, "model", None) or model)
 
-        if isinstance(trace, dict) and not trace.get("ok_model"):
+        if not trace.get("ok_model"):
             trace["ok_model"] = parsed["model"]
 
         return parsed, trace, None

@@ -1,4 +1,3 @@
-# Services/AI/athlete_state/prompts.py
 from __future__ import annotations
 
 import json
@@ -6,8 +5,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from Modules.Supabase.auth import AuthCtx
 
+
 def _remove_empty(d: Any) -> Any:
-    """Rekurzívne vymaže None, [], {} pre extrémnu úsporu AI tokenov."""
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
         return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
@@ -21,11 +20,10 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict):
         return {}
 
-    out: Dict[str, Any] = json.loads(json.dumps(context, default=str))  # deep-ish copy
+    out: Dict[str, Any] = json.loads(json.dumps(context, default=str))
 
     u = out.get("user")
     if isinstance(u, dict):
-        # Odstránime PII, ale necháme bio dáta
         u.pop("id", None)
         u.pop("email", None)
         u.pop("name", None)
@@ -103,7 +101,7 @@ def build_prompts_for_progress(
     current_state: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Tuple[str, str]:
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -125,12 +123,9 @@ def build_prompts_for_progress(
 
     schema_text = f"""
 {{
-  "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name)",
   "summary": {{
-    "headline": "1 sentence in {lang_label}, 2nd person",
-    "bullets": string[]
+    "headline": "1 short sentence in {lang_label}, 2nd person",
+    "bullets": ["max 3 short bullet points"]
   }},
   "comparisons": {{
     "fatigue_level": {{
@@ -166,9 +161,9 @@ def build_prompts_for_progress(
     }}
   }},
   "recommendations": {{
-    "celebrations": string[],
-    "risks_to_watch": string[],
-    "focus_next_weeks": string[]
+    "celebrations": ["max 2 short points"],
+    "risks_to_watch": ["max 2 short points"],
+    "focus_next_weeks": ["max 2 short points"]
   }}
 }}
 """.strip()
@@ -183,6 +178,7 @@ def build_prompts_for_progress(
         "- Always return exactly one JSON object matching the schema.\n"
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
+        "- Keep string arrays short and impactful.\n"
         "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
@@ -202,7 +198,7 @@ def build_prompts_for_analyze(
     context_payload: dict,
     *,
     settings: Optional[Dict[str, Any]] = None,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Tuple[str, str]:
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -226,7 +222,6 @@ def build_prompts_for_analyze(
     
     is_beginner = context_for_llm.get("is_returning_beginner")
 
-    # ✅ Vypocet dni od posledneho behu pre dynamicky detraining hint
     last_acts = context_for_llm.get("last_activities") or []
     days_since_last_run = 999
     
@@ -243,7 +238,6 @@ def build_prompts_for_analyze(
                     pass
                 break
 
-    # Dynamicka detraining logika (stratifikovana podla dlzky neaktivity)
     detraining_hint = ""
     if 0 < days_since_last_run <= 10:
         detraining_hint = (
@@ -271,14 +265,11 @@ def build_prompts_for_analyze(
 
     schema_text = f"""
 {{
-  "schema_version": 1,
-  "generated_at": "ISO-8601 timestamp with timezone offset",
-  "model": "string (your model name)",
   "user_summary": {{
-    "headline": "short summary in {lang_label} (1 sentence, 2nd person)",
-    "bullets": string[],
-    "risks": string[],
-    "suggestions_short": string[]
+    "headline": "short summary in {lang_label} (1 short sentence, 2nd person)",
+    "bullets": ["max 3 short points"],
+    "risks": ["max 2 short points"],
+    "suggestions_short": ["max 3 short points"]
   }},
   "ai_state": {{
     "capabilities": {{
@@ -350,7 +341,7 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         + beginner_hint
-        + detraining_hint # ✅ Injectovanie dynamickej logiky pre dlzku neaktivity
+        + detraining_hint
         + "- 'capabilities' (1-5 scale):\n"
         "  1 = Beginner (Začiatočník): Starts from zero or returning. < 6 months exp. Run/walk.\n"
         "  2 = Hobby (Rekreačný): Regular activity 1-2x week, unstructured.\n"

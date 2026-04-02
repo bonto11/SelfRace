@@ -1,4 +1,3 @@
-# Services/AI/athlete_state/main.py
 from __future__ import annotations
 
 import json
@@ -38,7 +37,6 @@ from Services.AI.athlete_state.generate import (
     generate_athlete_progress_report,
 )
 
-
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -47,10 +45,9 @@ def _now_iso() -> str:
 
 
 def _default_ai_model() -> str:
-    p = (AI_PROVIDER or "openai").strip().lower()
-    if p == "gemini":
-        return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash-latest").strip()
-    return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
+    if str(AI_PROVIDER).strip().lower() == "gemini":
+        return str(GEMINI_DEFAULT_MODEL).strip()
+    return str(OPENAI_DEFAULT_MODEL).strip()
 
 
 def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
@@ -118,9 +115,6 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
 
     except Exception as e:
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
-
-
-# -------------------- STORAGE --------------------
 
 
 def service_save_state_to_db(
@@ -210,9 +204,6 @@ def service_list_athlete_states_meta(
     ]
 
 
-# -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
-
-
 def service_analyze_athlete(
     user_id: int,
     *,
@@ -264,7 +255,6 @@ def service_analyze_athlete(
     analysis.setdefault("generated_at", _now_iso())
     analysis["model"] = str(analysis.get("model") or model_to_use)
 
-    # === AI BILLING ===
     usage = extract_usage_from_trace(trace)
     if usage:
         usage["model"] = str(analysis.get("model") or model_to_use)
@@ -308,7 +298,6 @@ def service_analyze_athlete(
         "weekly_replan_reason": signals.get("weekly_replan_reason"),
     }
 
-    # 3) STORAGE
     state_id = service_save_state_to_db(user_id=user_id, analysis=analysis, ctx=ctx)
 
     _maybe_save_estimated_vo2max(user_id, analysis, ctx)
@@ -376,7 +365,6 @@ def service_compare_latest_athlete_states(
     current_state = current.get("state_json") or {}
     previous_state = previous.get("state_json") or {}
 
-    # ✅ OPRAVA: Chytáme 3 premenné a chránime DB pre Progress Reportom
     report, trace, err_msg = generate_athlete_progress_report(
         previous_state=previous_state,
         current_state=current_state,
@@ -392,7 +380,6 @@ def service_compare_latest_athlete_states(
     report.setdefault("generated_at", _now_iso())
     report["model"] = str(report.get("model") or model_to_use)
 
-    # === AI BILLING ===
     usage = extract_usage_from_trace(trace)
     if usage:
         usage["model"] = str(report.get("model") or model_to_use)
@@ -410,7 +397,6 @@ def service_compare_latest_athlete_states(
         except Exception as e:
             print("[AI_BILLING] progress_report billing error:", repr(e))
 
-    # uložíme report do compare_previous na aktuálnom zázname
     try:
         sid_raw = current.get("id")
         sid: Optional[int]
@@ -479,9 +465,6 @@ def service_get_latest_athlete_progress(
 
 
 def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Volané z týždenného cronu. Spustí AI analýzu atleta.
-    """
     users = db_list_users_for_athlete_state(
         ctx=ctx,
         limit=max_users or 1000,
@@ -515,7 +498,7 @@ def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, 
                 {"user_id": uid, "state_id": state_id, "ok": bool(state_id is not None)}
             )
             processed += 1
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             results.append(
                 {"user_id": uid, "state_id": None, "ok": False, "error": str(e)}
             )
