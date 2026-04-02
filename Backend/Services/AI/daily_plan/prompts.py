@@ -43,7 +43,8 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     context = dict(context) if isinstance(context, dict) else {}
     ctx2: Dict[str, Any] = {}
     
-    for k in ("week", "zones", "thresholds", "external_events", "latest_paces"):
+    # OPRAVA: Vraciame recent_load a recovery späť AIčku, aby videlo históriu a únavu!
+    for k in ("week", "zones", "thresholds", "external_events", "latest_paces", "recent_load", "recovery"):
         if k in context:
             ctx2[k] = context[k]
 
@@ -90,8 +91,11 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(ai_state, dict):
             ai_state_clean = dict(ai_state)
             ai_state_clean.pop("metrics", None)
+            
+            # OPRAVA: Ponechávame user_summary, kde sú varovania o výpadku a riziku zranenia!
             ctx2["athlete_state"] = {
                 "ai_state": ai_state_clean,
+                "user_summary": athlete_state.get("user_summary"),
                 "is_returning_beginner": is_beginner
             }
 
@@ -252,15 +256,16 @@ def build_prompts_for_daily(
     volume_mode = volume_prefs.get("mode")
     volume_value = volume_prefs.get("value")
 
+    # OPRAVA: Pevne prikážeme AI rešpektovať volume_tolerance pred akýmkoľvek vysneným cieľom.
     if isinstance(planned_minutes, (int, float)):
         rem = max(0, int(planned_minutes) - ext_minutes_total)
-        weekly_volume_line = f"- WEEKLY VOLUME: Target {planned_minutes} min. External events: {ext_minutes_total} min. Schedule approx {rem} min NEW training.\n"
+        weekly_volume_line = f"- WEEKLY VOLUME: The ultimate plan target is {planned_minutes} min. External events: {ext_minutes_total} min. HOWEVER, CRITICAL: You MUST strictly respect the safe upper limit defined in `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. Do NOT exceed this safe limit under any circumstances!\n"
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         tgt = int(volume_value * 60)
         rem = max(0, tgt - ext_minutes_total)
-        weekly_volume_line = f"- WEEKLY VOLUME: Target {tgt} min. External events: {ext_minutes_total} min. Schedule approx {rem} min NEW training.\n"
+        weekly_volume_line = f"- WEEKLY VOLUME: The athlete's long-term goal is {tgt} min/week. External events: {ext_minutes_total} min. HOWEVER, CRITICAL: You MUST strictly respect the safe upper limit defined in `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. Do NOT exceed this safe limit under any circumstances! Check their recent_load to avoid dangerous volume spikes.\n"
     else:
-        weekly_volume_line = "- Weekly intent: infer from recent_load, count external events.\n"
+        weekly_volume_line = "- WEEKLY VOLUME: Infer from recent_load, count external events, and DO NOT exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
 
     back_to_back_rule = (
         "- AVOID BACK-TO-BACK HARD: YES (Strict).\n" if avoid_back_to_back
@@ -350,7 +355,14 @@ def build_prompts_for_daily(
           "session_type": "external_event" | null,
           "structure": {{ // Omit if basic rest or other
             "warmup": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
-            "main_part": [ {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }} ],
+            "steps": [
+                {{
+                    "type": "warmup" | "active" | "recovery" | "rest" | "cooldown",
+                    "duration": "e.g. 10 min, 5 km, 8x400m",
+                    "intensity": "e.g. Z1, Z2, Z4, easy, hard",
+                    "instruction": "Short instruction in {lang_label}"
+                }}
+            ],
             "cooldown": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
             "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
             "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 5 words" }} ], // Strength only
@@ -396,7 +408,7 @@ def build_prompts_for_daily(
 
         intensity_format_rule = (
             "- INTENSITY FORMATTING (HAS ZONES): "
-            "In `notes` fields for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
+            "In `notes` and `instruction` fields, ALWAYS include BOTH a specific Target Heart Rate range (use 'bpm') AND Pace (min/km) or Power (W). "
             "CRITICAL INSTRUCTION FOR HEART RATE: The zones in context_payload.zones are your absolute BOUNDARIES for zones. "
             "DO NOT output the entire width of the zone (e.g., if Z1 is 0-154 bpm, do NOT write '0-154 bpm'). "
             "Instead, prescribe a narrower, realistic target range (e.g., a 10-15 bpm window like '135-150 bpm') that fits strictly WITHIN the user's specific zone limits. "
@@ -407,14 +419,14 @@ def build_prompts_for_daily(
     else:
         intensity_format_rule = (
             "- INTENSITY FORMATTING (NO ZONES): "
-            "In `notes` fields for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
+            "In `notes` and `instruction` fields, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
             "Example Format: 'RPE 3/10 @ 6:00-6:30 min/km'. "
             "CRITICAL: Keep paces realistic and lean towards SLOWER, more conservative paces for easy runs, warmups, and cooldowns.\n\n"
         )
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): For every running and cycling session, "
-        "provide a detailed `structure` object using `warmup`, `main_part` (must be an array of steps), and `cooldown`.\n\n"
+        "provide a detailed `structure` object using `warmup`, `steps` (for the main part), and `cooldown`.\n\n"
     )
 
     strength_structure_rule = (
@@ -501,7 +513,7 @@ def build_prompts_for_daily(
         + "\n\nRequirements:\n"
         + "- Single valid JSON matching schema.\n"
         + f"- Language: {lang_label}, address user as 'you' ({second_person_note}).\n"
-        + "- Do NOT invent extreme workloads.\n"
+        + "- Do NOT invent extreme workloads. ALWAYS check recent_load to avoid huge volume spikes!\n"
         + "- OUTPUT FORMATTING: Return ONLY valid JSON. Do not output any markdown formatting like ```json, and absolutely NO conversational text, explanations, or lists before or after the JSON.\n"
     )
 
