@@ -22,7 +22,6 @@ from Routes_DB.user_metrics import db_get_latest_metric
 
 from Modules.Supabase.auth import AuthCtx
 
-
 def _to_float(x: Any) -> Optional[float]:
     try:
         if x is None or x == "":
@@ -31,7 +30,6 @@ def _to_float(x: Any) -> Optional[float]:
     except Exception:
         return None
 
-
 def _to_int(x: Any) -> Optional[int]:
     try:
         if x is None or x == "":
@@ -39,7 +37,6 @@ def _to_int(x: Any) -> Optional[int]:
         return int(x)
     except Exception:
         return None
-
 
 def _canonical_sport(s: Any) -> str:
     if not s:
@@ -55,7 +52,6 @@ def _canonical_sport(s: Any) -> str:
         return "swim"
     return "other"
 
-
 def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
     try:
         if not s:
@@ -63,7 +59,6 @@ def _parse_yyyy_mm_dd(s: Any) -> Optional[datetime]:
         return datetime.strptime(str(s)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
     except Exception:
         return None
-
 
 def _days_ago(date_str: Any) -> Optional[int]:
     dt = _parse_yyyy_mm_dd(date_str)
@@ -73,14 +68,12 @@ def _days_ago(date_str: Any) -> Optional[int]:
     d = (today - dt.date()).days
     return int(d) if d >= 0 else 0
 
-
 def _days_from_today(date_str: Any) -> Optional[int]:
     dt = _parse_yyyy_mm_dd(date_str)
     if not dt:
         return None
     today = datetime.now(timezone.utc).date()
     return int((dt.date() - today).days)
-
 
 def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(bests, dict):
@@ -113,7 +106,6 @@ def _bests_dates_to_days_ago(bests: Dict[str, Any]) -> Dict[str, Any]:
 
     return out
 
-
 def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     stat = db_fetch_static_basic(user_id=user_id, ctx=ctx) or {}
     
@@ -137,7 +129,6 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
         "height_cm": stat.get("height_cm"),
         "weight_kg": weight_kg,
     }
-
 
 def _minify_external_events_for_ai(ext: Any) -> Any:
     if not isinstance(ext, dict):
@@ -185,7 +176,6 @@ def _minify_external_events_for_ai(ext: Any) -> Any:
 
     return out
 
-
 def _get_minified_segments(user_id: int, activity_id: int, ctx: AuthCtx) -> List[Dict[str, Any]]:
     segments = []
     
@@ -213,7 +203,6 @@ def _get_minified_segments(user_id: int, activity_id: int, ctx: AuthCtx) -> List
                 segments.append({"d": round(dist), "p": pace, "hr": hr})
     
     return segments
-
 
 def build_last_activities_block_for_analysis(
     user_id: int,
@@ -327,7 +316,6 @@ def build_last_activities_block_for_analysis(
 
     return out
 
-
 def build_base_input(user_id: int) -> Dict[str, Any]:
     return {
         "schema_version": 1,
@@ -379,7 +367,6 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         "latest_paces": None,
         "is_returning_beginner": False,
     }
-
 
 def build_input_from_db(
     user_id: int,

@@ -39,16 +39,13 @@ from Services.AI.athlete_state.generate import (
 
 from Modules.Supabase.auth import AuthCtx
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _default_ai_model() -> str:
     if str(AI_PROVIDER).strip().lower() == "gemini":
         return str(GEMINI_DEFAULT_MODEL).strip()
     return str(OPENAI_DEFAULT_MODEL).strip()
-
 
 def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     try:
@@ -69,7 +66,6 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
             db_insert_metrics([metric_row], ctx=ctx)
     except Exception as e:
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
-
 
 def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     try:
@@ -116,7 +112,6 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
     except Exception as e:
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
 
-
 def service_save_state_to_db(
     user_id: int,
     analysis: Dict[str, Any],
@@ -132,7 +127,6 @@ def service_save_state_to_db(
         version=version,
         ctx=ctx,
     )
-
 
 def service_get_athlete_state_by_id(
     state_id: int,
@@ -152,7 +146,6 @@ def service_get_athlete_state_by_id(
         "state": state_json,
         "compare_previous": row.get("compare_previous"),
     }
-
 
 def service_get_latest_athlete_state(
     user_id: int,
@@ -184,7 +177,6 @@ def service_get_latest_athlete_state(
         "compare_previous": row.get("compare_previous"),
     }
 
-
 def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
@@ -202,7 +194,6 @@ def service_list_athlete_states_meta(
         }
         for r in rows or []
     ]
-
 
 def service_analyze_athlete(
     user_id: int,
@@ -442,7 +433,6 @@ def service_compare_latest_athlete_states(
     }
     return resp
 
-
 def service_get_latest_athlete_progress(
     user_id: int,
     *,
@@ -462,7 +452,6 @@ def service_get_latest_athlete_progress(
         "created_at": row.get("created_at"),
         "report": row.get("compare_previous") or None,
     }
-
 
 def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, Any]:
     users = db_list_users_for_athlete_state(

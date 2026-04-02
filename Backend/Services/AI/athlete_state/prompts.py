@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from Modules.Supabase.auth import AuthCtx
 
-
 def _remove_empty(d: Any) -> Any:
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
@@ -14,7 +13,6 @@ def _remove_empty(d: Any) -> Any:
         cleaned = [_remove_empty(v) for v in d]
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
-
 
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(context, dict):
@@ -85,7 +83,6 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     return _remove_empty(out)
 
-
 def _minify_state_for_progress(state: dict) -> dict:
     if not isinstance(state, dict):
         return {}
@@ -94,7 +91,6 @@ def _minify_state_for_progress(state: dict) -> dict:
         "user_summary": state.get("user_summary")
     }
     return _remove_empty(minified)
-
 
 def build_prompts_for_progress(
     previous_state: dict,
@@ -184,7 +180,6 @@ def build_prompts_for_progress(
 
     return system_txt, user_txt
 
-
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     lang_code = (settings.get("language") or "sk").lower()
     if lang_code.startswith("en"):
@@ -192,7 +187,6 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     if lang_code.startswith("cs"):
         return "Czech", "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
     return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
-
 
 def build_prompts_for_analyze(
     context_payload: dict,
