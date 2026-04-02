@@ -5,9 +5,10 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
-from Services.AI.athlete_state.generate import (
-    generate_athlete_state_json,
-    generate_athlete_progress_report,
+from Configs.config import (
+    AI_PROVIDER,
+    OPENAI_DEFAULT_MODEL,
+    GEMINI_DEFAULT_MODEL,
 )
 
 from Routes_DB.user_metrics import db_insert_metrics
@@ -22,9 +23,7 @@ from Routes_DB.coach_athlete_state import (
     db_get_latest_athlete_progress,
 )
 from Routes_DB.users import db_list_users_for_athlete_state
-from Modules.Supabase.auth import AuthCtx
-from Services.AI.athlete_state.builders import build_input_from_db
-from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
+from Services.notifications import service_notify_athlete_state_progress
 
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -32,23 +31,27 @@ from Services.AI.utils.billing import (
     get_user_monthly_usage_tokens,
     is_user_over_token_quota,
 )
-
-from Configs.config import (
-    AI_PROVIDER,
-    OPENAI_DEFAULT_MODEL,
-    GEMINI_DEFAULT_MODEL,
+from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
+from Services.AI.athlete_state.builders import build_input_from_db
+from Services.AI.athlete_state.generate import (
+    generate_athlete_state_json,
+    generate_athlete_progress_report,
 )
 
-from Services.notifications import service_notify_athlete_state_progress
+
+from Modules.Supabase.auth import AuthCtx
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def _default_ai_model() -> str:
     p = (AI_PROVIDER or "openai").strip().lower()
     if p == "gemini":
         return (GEMINI_DEFAULT_MODEL or "gemini-1.5-flash-latest").strip()
     return (OPENAI_DEFAULT_MODEL or "gpt-4o-mini").strip()
+
 
 def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     try:
@@ -59,7 +62,7 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
         if vo2_val and isinstance(vo2_val, (int, float)):
             metric_row = {
                 "user_id": user_id,
-                "metric": "vo2max_estimated", 
+                "metric": "vo2max_estimated",
                 "value_num": float(vo2_val),
                 "unit": "ml/kg/min",
                 "measured_at": analysis.get("generated_at") or _now_iso(),
@@ -70,12 +73,13 @@ def _maybe_save_estimated_vo2max(user_id: int, analysis: Dict[str, Any], ctx: Au
     except Exception as e:
         print(f"[AI-STATE] Error saving VO2Max metric: {repr(e)}")
 
+
 def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: AuthCtx):
     try:
         ai_state = analysis.get("ai_state") or {}
         paces = ai_state.get("estimated_paces") or {}
         metrics = ai_state.get("metrics") or {}
-        
+
         if not paces and not metrics:
             return
 
@@ -98,23 +102,31 @@ def _maybe_save_estimated_paces(user_id: int, analysis: Dict[str, Any], ctx: Aut
             "best_1k_s": _get_int(paces, "best_1k_s"),
             "est_5k_time_s": _get_int(metrics, "estimated_5k_time_s"),
             "est_10k_time_s": _get_int(metrics, "estimated_10k_time_s"),
-            "est_half_marathon_time_s": _get_int(metrics, "estimated_half_marathon_time_s"),
+            "est_half_marathon_time_s": _get_int(
+                metrics, "estimated_half_marathon_time_s"
+            ),
             "est_marathon_time_s": _get_int(metrics, "estimated_marathon_time_s"),
         }
 
-        has_data = any(v is not None for k, v in row_to_insert.items() if k not in ["user_id", "measured_at"])
+        has_data = any(
+            v is not None
+            for k, v in row_to_insert.items()
+            if k not in ["user_id", "measured_at"]
+        )
         if has_data:
             db_insert_pace_row(row_to_insert, ctx=ctx)
 
     except Exception as e:
         print(f"[AI-STATE] Error saving estimated paces and races: {repr(e)}")
 
+
 # -------------------- STORAGE --------------------
+
 
 def service_save_state_to_db(
     user_id: int,
     analysis: Dict[str, Any],
-      *,
+    *,
     ctx: AuthCtx,
 ) -> Optional[int]:
     model = str(analysis.get("model"))
@@ -126,6 +138,7 @@ def service_save_state_to_db(
         version=version,
         ctx=ctx,
     )
+
 
 def service_get_athlete_state_by_id(
     state_id: int,
@@ -146,6 +159,7 @@ def service_get_athlete_state_by_id(
         "compare_previous": row.get("compare_previous"),
     }
 
+
 def service_get_latest_athlete_state(
     user_id: int,
     version: Optional[int] = 1,
@@ -156,7 +170,7 @@ def service_get_latest_athlete_state(
     if not row:
         return None
     full_state_json = row.get("state_json") or {}
-    
+
     clean_state = {}
     if "analysis" in full_state_json:
         clean_state = full_state_json["analysis"]
@@ -176,6 +190,7 @@ def service_get_latest_athlete_state(
         "compare_previous": row.get("compare_previous"),
     }
 
+
 def service_list_athlete_states_meta(
     user_id: int,
     limit: int = 20,
@@ -194,7 +209,9 @@ def service_list_athlete_states_meta(
         for r in rows or []
     ]
 
+
 # -------------------- PUBLIC SERVICE: DB → AI → DB/FE --------------------
+
 
 def service_analyze_athlete(
     user_id: int,
@@ -206,7 +223,7 @@ def service_analyze_athlete(
     model_to_use = (model or _default_ai_model()).strip()
 
     if is_user_over_token_quota(user_id, ctx=ctx):
-        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
+        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "ok": False,
             "code": "ai_quota_exceeded",
@@ -234,19 +251,14 @@ def service_analyze_athlete(
     except Exception:
         pass
 
-    # ✅ OPRAVA: Chytáme 3 premenné a ak AI zlyhá, rovno končíme!
     analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model_to_use,
         ctx=ctx,
     )
-    
+
     if not analysis:
-        return {
-            "ok": False,
-            "code": "ai_generation_failed",
-            "message": err_msg
-        }
+        return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
@@ -258,11 +270,16 @@ def service_analyze_athlete(
         usage["model"] = str(analysis.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
-                user_id=user_id, usage=usage, job_type="coach.analyze_state",
-                source="user", billed_via="internal", charge_wallet=False,
-                meta={}, ctx=ctx,
+                user_id=user_id,
+                usage=usage,
+                job_type="coach.analyze_state",
+                source="user",
+                billed_via="internal",
+                charge_wallet=False,
+                meta={},
+                ctx=ctx,
             )
-        except Exception as e: 
+        except Exception as e:
             print("[AI_BILLING] analyze_state billing error:", repr(e))
 
     try:
@@ -281,7 +298,9 @@ def service_analyze_athlete(
     ai_state = analysis.setdefault("ai_state", {})
     ai_state["plan_adjustment"] = {
         "soften_next_days": {
-            "should_soften": bool((signals.get("soften_next_days") or {}).get("should_soften")),
+            "should_soften": bool(
+                (signals.get("soften_next_days") or {}).get("should_soften")
+            ),
             "days": (signals.get("soften_next_days") or {}).get("days"),
             "reason": (signals.get("soften_next_days") or {}).get("reason"),
         },
@@ -305,7 +324,7 @@ def service_analyze_athlete(
         )
         if progress_result.get("ok") and progress_result.get("report"):
             compare_previous = progress_result.get("report")
-    except Exception as e: 
+    except Exception as e:
         print("[service_analyze_athlete] compare_previous error:", repr(e))
 
     resp: Dict[str, Any] = {
@@ -332,7 +351,7 @@ def service_compare_latest_athlete_states(
     model_to_use = (model or _default_ai_model()).strip()
 
     if is_user_over_token_quota(user_id, ctx=ctx):
-        used = get_user_monthly_usage_tokens(ctx=ctx,user_id=user_id)
+        used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "ok": False,
             "code": "ai_quota_exceeded",
@@ -340,7 +359,9 @@ def service_compare_latest_athlete_states(
             "used_tokens_this_month": used,
         }
 
-    rows = db_get_latest_states_for_user(user_id=user_id, limit=2, version=version, ctx=ctx)
+    rows = db_get_latest_states_for_user(
+        user_id=user_id, limit=2, version=version, ctx=ctx
+    )
 
     if len(rows or []) < 2:
         return {
@@ -363,13 +384,9 @@ def service_compare_latest_athlete_states(
         user_id=user_id,
         ctx=ctx,
     )
-    
+
     if not report:
-        return {
-            "ok": False,
-            "code": "ai_generation_failed",
-            "message": err_msg
-        }
+        return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
 
     report.setdefault("schema_version", 1)
     report.setdefault("generated_at", _now_iso())
@@ -381,11 +398,16 @@ def service_compare_latest_athlete_states(
         usage["model"] = str(report.get("model") or model_to_use)
         try:
             log_ai_usage_for_user(
-                user_id=user_id, usage=usage, job_type="coach.progress_report",
-                source="user", billed_via="internal", charge_wallet=False,
-                meta={}, ctx=ctx,
+                user_id=user_id,
+                usage=usage,
+                job_type="coach.progress_report",
+                source="user",
+                billed_via="internal",
+                charge_wallet=False,
+                meta={},
+                ctx=ctx,
             )
-        except Exception as e: 
+        except Exception as e:
             print("[AI_BILLING] progress_report billing error:", repr(e))
 
     # uložíme report do compare_previous na aktuálnom zázname
@@ -404,15 +426,22 @@ def service_compare_latest_athlete_states(
 
         if sid is not None:
             db_update_state_compare_previous(
-                state_id=sid, compare_previous=report, ctx=ctx,
+                state_id=sid,
+                compare_previous=report,
+                ctx=ctx,
             )
-    except Exception as e: 
-        print("[service_compare_latest_athlete_states] db_update_state_compare_previous error:", repr(e))
+    except Exception as e:
+        print(
+            "[service_compare_latest_athlete_states] db_update_state_compare_previous error:",
+            repr(e),
+        )
 
     try:
         service_notify_athlete_state_progress(user_id=user_id, ctx=ctx)
     except Exception as e:
-        print("[service_compare_latest_athlete_states] push notification error:", repr(e))
+        print(
+            "[service_compare_latest_athlete_states] push notification error:", repr(e)
+        )
 
     resp: Dict[str, Any] = {
         "ok": True,
@@ -448,6 +477,7 @@ def service_get_latest_athlete_progress(
         "report": row.get("compare_previous") or None,
     }
 
+
 def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Volané z týždenného cronu. Spustí AI analýzu atleta.
@@ -458,7 +488,12 @@ def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, 
     )
 
     if not users:
-        return {"success": True, "processed": 0, "results": [], "message": "no users found"}
+        return {
+            "success": True,
+            "processed": 0,
+            "results": [],
+            "message": "no users found",
+        }
 
     results = []
     processed = 0

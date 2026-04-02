@@ -7,8 +7,9 @@ from typing import Any, Dict, Optional, Tuple
 
 from Services.user_prefs import service_load_user_settings
 from Services.AI.athlete_state.prompts import build_prompts_for_analyze, build_prompts_for_progress
-from Modules.Supabase.auth import AuthCtx
 from Services.AI.provider.provider import ai_call_json_model
+
+from Modules.Supabase.auth import AuthCtx
 
 def _safe_user_id_from_context(context_payload: dict) -> Optional[int]:
     try:
@@ -61,7 +62,6 @@ def _get_trace_from_result(res: Any, *, requested_model: str) -> Dict[str, Any]:
 
     return _trace_fallback(provider=provider, model=used_model)
 
-# ✅ OPRAVA: Vraciame Tuple 3 premenných: (data, trace, error_message)
 def generate_athlete_state_json(
     context_payload: dict,
     model: str,
@@ -151,12 +151,16 @@ def generate_athlete_progress_report(
         "settings": settings,
     }
 
+    print("generate_athlete_progress_report - context_payload, system_txt, user_txt",context_payload, system_txt, user_txt)
+
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
+
+    print("generate_athlete_progress_report - res",res)
 
     trace = _get_trace_from_result(res, requested_model=model)
 

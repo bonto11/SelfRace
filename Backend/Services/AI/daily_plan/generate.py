@@ -10,6 +10,7 @@ from Services.AI.daily_plan.prompts import build_prompts_for_daily
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 
+
 def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(parsed, dict):
         return {}
@@ -31,10 +32,13 @@ def _basic_shape_sanitize(parsed: Dict[str, Any]) -> Dict[str, Any]:
             sessions = []
         if not isinstance(sessions, list):
             sessions = []
-        out_days.append({"date": ds, "sessions": [s for s in sessions if isinstance(s, dict)]})
+        out_days.append(
+            {"date": ds, "sessions": [s for s in sessions if isinstance(s, dict)]}
+        )
 
     parsed["days"] = out_days
     return parsed
+
 
 def _parse_iso_date(s: Any) -> Optional[date]:
     if not isinstance(s, str) or not s:
@@ -43,6 +47,7 @@ def _parse_iso_date(s: Any) -> Optional[date]:
         return date.fromisoformat(s[:10])
     except Exception:
         return None
+
 
 def _validate_dates_in_range(
     plan: Dict[str, Any],
@@ -53,7 +58,7 @@ def _validate_dates_in_range(
     ws = _parse_iso_date(week_start)
     we = _parse_iso_date(week_end)
     if not ws or not we:
-        return True, [] 
+        return True, []
 
     bad: List[str] = []
     for d in plan.get("days") or []:
@@ -68,6 +73,7 @@ def _validate_dates_in_range(
 
     return (len(bad) == 0), bad
 
+
 def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     ext = context_payload.get("external_events") or {}
     if not isinstance(ext, dict):
@@ -75,15 +81,20 @@ def _get_external_occurrences(context_payload: Dict[str, Any]) -> List[Dict[str,
     occ = ext.get("occurrences") or []
     return occ if isinstance(occ, list) else []
 
+
 def _norm_title(v: Any) -> str:
     return str(v or "").strip().lower()
+
 
 def _norm_sport_raw(v: Any) -> str:
     return str(v or "").strip().lower()
 
-def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]) -> bool:
+
+def _plan_contains_external_occurrence(
+    plan: Dict[str, Any], occ: Dict[str, Any]
+) -> bool:
     if not isinstance(plan, dict) or not isinstance(occ, dict):
-        return True 
+        return True
 
     occ_date = str(occ.get("date") or "")[:10]
     if not occ_date:
@@ -114,7 +125,9 @@ def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]
                 continue
 
             payload = s.get("payload")
-            if isinstance(payload, dict) and isinstance(payload.get("external_event"), dict):
+            if isinstance(payload, dict) and isinstance(
+                payload.get("external_event"), dict
+            ):
                 ev = payload["external_event"]
                 ev_date = str(ev.get("date") or "")[:10]
                 ev_title = _norm_title(ev.get("title"))
@@ -125,7 +138,11 @@ def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]
                 if ev_date == occ_date and ev_title == occ_title:
                     if occ_sport_raw and ev_sport_raw and occ_sport_raw != ev_sport_raw:
                         continue
-                    if occ_dur_int is not None and ev_dur_int is not None and occ_dur_int != ev_dur_int:
+                    if (
+                        occ_dur_int is not None
+                        and ev_dur_int is not None
+                        and occ_dur_int != ev_dur_int
+                    ):
                         continue
                     return True
 
@@ -135,11 +152,16 @@ def _plan_contains_external_occurrence(plan: Dict[str, Any], occ: Dict[str, Any]
             s_dur_int = int(s_dur) if isinstance(s_dur, (int, float)) else None
 
             if s_type == "external_event" and s_title == occ_title:
-                if occ_dur_int is not None and s_dur_int is not None and occ_dur_int != s_dur_int:
+                if (
+                    occ_dur_int is not None
+                    and s_dur_int is not None
+                    and occ_dur_int != s_dur_int
+                ):
                     continue
                 return True
 
     return False
+
 
 def _validate_external_events_included(
     parsed: Dict[str, Any],
@@ -160,16 +182,20 @@ def _validate_external_events_included(
 
     return (len(missing) == 0), missing
 
+
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     return {
         "provider": provider,
         "models_tried": [],
         "attempts": [],
-        "usage": None,  
+        "usage": None,
         "ok_model": model,
     }
 
-def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[str, Any]:
+
+def _get_trace_from_result(
+    res: Any, *, requested_model: Optional[str]
+) -> Dict[str, Any]:
     provider = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or requested_model or "unknown")
 
@@ -194,7 +220,10 @@ def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[
 
     return _trace_fallback(provider=provider, model=used_model)
 
-def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+
+def _sum_usage(
+    a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
     if not isinstance(a, dict) and not isinstance(b, dict):
         return None
     out: Dict[str, Any] = {}
@@ -210,20 +239,29 @@ def _sum_usage(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Opti
             return 0
 
     out["prompt_tokens"] = _i(aa.get("prompt_tokens")) + _i(bb.get("prompt_tokens"))
-    out["completion_tokens"] = _i(aa.get("completion_tokens")) + _i(bb.get("completion_tokens"))
-    out["reasoning_tokens"] = _i(aa.get("reasoning_tokens")) + _i(bb.get("reasoning_tokens"))
+    out["completion_tokens"] = _i(aa.get("completion_tokens")) + _i(
+        bb.get("completion_tokens")
+    )
+    out["reasoning_tokens"] = _i(aa.get("reasoning_tokens")) + _i(
+        bb.get("reasoning_tokens")
+    )
 
     tot = _i(aa.get("total_tokens")) + _i(bb.get("total_tokens"))
     if tot <= 0:
         tot = out["prompt_tokens"] + out["completion_tokens"] + out["reasoning_tokens"]
     out["total_tokens"] = tot
 
-    if out["prompt_tokens"] == 0 and out["completion_tokens"] == 0 and out["reasoning_tokens"] == 0 and out["total_tokens"] == 0:
+    if (
+        out["prompt_tokens"] == 0
+        and out["completion_tokens"] == 0
+        and out["reasoning_tokens"] == 0
+        and out["total_tokens"] == 0
+    ):
         return None
 
     return out
 
-# ✅ OPRAVA: Vraciame Tuple 3 premenných (Parsed, Trace, ErrorMessage)
+
 def generate_daily_week_json(
     context_payload: dict,
     model: Optional[str],
@@ -231,15 +269,17 @@ def generate_daily_week_json(
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
-    
+
     ctx: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
 
     raw_settings = ctx.get("user_settings") or {}
     settings: Dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
 
-    system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = build_prompts_for_daily(
-        ctx,
-        settings=settings,
+    system_txt, user_txt, _fixed_slots_unused, _strength_target_unused = (
+        build_prompts_for_daily(
+            ctx,
+            settings=settings,
+        )
     )
 
     week = ctx.get("week") or {}
@@ -253,10 +293,16 @@ def generate_daily_week_json(
     except Exception:
         tzinfo = timezone.utc
 
-    resolved_max_tokens = int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2500))
-    resolved_temperature = float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2))
+    resolved_max_tokens = int(
+        max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2500)
+    )
+    resolved_temperature = float(
+        temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)
+    )
 
-    requested_model = model.strip() if isinstance(model, str) and model.strip() else None
+    requested_model = (
+        model.strip() if isinstance(model, str) and model.strip() else None
+    )
 
     attempts = 2
 
@@ -264,8 +310,8 @@ def generate_daily_week_json(
         "provider": None,
         "models_tried": [],
         "attempts": [],
-        "usage": None,       
-        "usage_sum": None,   
+        "usage": None,
+        "usage_sum": None,
         "ok_model": None,
         "timezone": str(tz_name),
         "week_index": week_index,
@@ -279,15 +325,24 @@ def generate_daily_week_json(
     last_err_msg: Optional[str] = None
     usage_sum: Optional[Dict[str, Any]] = None
 
+    print(
+        "generate_daily_week_json - context_payload, system_txt, user_txt",
+        context_payload,
+        system_txt,
+        user_txt,
+    )
+
     for attempt in range(1, attempts + 1):
         res = ai_call_json_model(
             context_payload=ctx,
             system_prompt=system_txt,
             user_instructions=user_txt,
-            model=requested_model,  
+            model=requested_model,
             max_tokens=resolved_max_tokens,
             temperature=resolved_temperature,
         )
+
+        print("generate_daily_week_json - res", res)
 
         err = getattr(res, "error", None)
         err_code = getattr(err, "code", None) if err is not None else None
@@ -344,7 +399,9 @@ def generate_daily_week_json(
 
         parsed = _basic_shape_sanitize(parsed)
 
-        ok_dates, bad_dates = _validate_dates_in_range(parsed, week_start=week_start, week_end=week_end)
+        ok_dates, bad_dates = _validate_dates_in_range(
+            parsed, week_start=week_start, week_end=week_end
+        )
         if not ok_dates:
             last_err_code = "dates_out_of_week_range"
             last_err_msg = f"AI returned dates outside week range: {bad_dates[:12]}"

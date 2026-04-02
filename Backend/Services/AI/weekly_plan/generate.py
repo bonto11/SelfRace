@@ -11,6 +11,7 @@ from Services.AI.weekly_plan.prompts import build_prompts_for_weekly
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 
+
 def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
     return {
         "provider": provider,
@@ -20,7 +21,10 @@ def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
         "ok_model": model,
     }
 
-def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[str, Any]:
+
+def _get_trace_from_result(
+    res: Any, *, requested_model: Optional[str]
+) -> Dict[str, Any]:
     provider = str(getattr(res, "provider", None) or "unknown")
     used_model = str(getattr(res, "model", None) or requested_model or "unknown")
 
@@ -45,7 +49,7 @@ def _get_trace_from_result(res: Any, *, requested_model: Optional[str]) -> Dict[
 
     return _trace_fallback(provider=provider, model=used_model)
 
-# ✅ OPRAVA: Vraciame Tuple 3 premenných a žiadny fallback
+
 def generate_weekly_plan_json(
     context_payload: dict,
     ctx: AuthCtx,
@@ -54,8 +58,10 @@ def generate_weekly_plan_json(
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
-    
-    context: Dict[str, Any] = context_payload if isinstance(context_payload, dict) else {}
+
+    context: Dict[str, Any] = (
+        context_payload if isinstance(context_payload, dict) else {}
+    )
 
     user_id: Optional[int] = None
     try:
@@ -78,15 +84,32 @@ def generate_weekly_plan_json(
     except Exception:
         horizon_weeks = 6
 
-    tz_name = (settings.get("timezone") or "Europe/Bratislava") if isinstance(settings, dict) else "Europe/Bratislava"
+    tz_name = (
+        (settings.get("timezone") or "Europe/Bratislava")
+        if isinstance(settings, dict)
+        else "Europe/Bratislava"
+    )
     try:
         tzinfo = ZoneInfo(str(tz_name))
     except Exception:
         tzinfo = timezone.utc
 
-    resolved_max_tokens = int(max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000))
-    resolved_temperature = float(temperature if temperature is not None else (LLM_TEMPERATURE or 0.2))
-    requested_model = model.strip() if isinstance(model, str) and model.strip() else None
+    resolved_max_tokens = int(
+        max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000)
+    )
+    resolved_temperature = float(
+        temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)
+    )
+    requested_model = (
+        model.strip() if isinstance(model, str) and model.strip() else None
+    )
+
+    print(
+        "generate_weekly_plan_json - context_payload, system_txt, user_txt",
+        context_payload,
+        system_txt,
+        user_txt,
+    )
 
     res = ai_call_json_model(
         context_payload=context,
@@ -96,6 +119,8 @@ def generate_weekly_plan_json(
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )
+
+    print("generate_weekly_plan_json - res", res)
 
     trace: Dict[str, Any] = _get_trace_from_result(res, requested_model=requested_model)
     trace.setdefault("max_tokens", resolved_max_tokens)
