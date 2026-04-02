@@ -17,7 +17,6 @@ from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_pus
 from Routes_DB.user_recovery import db_get_recovery_record
 from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
 from Routes_DB.users import db_list_users_for_cron
-
 from Routes_DB.user_prefs import db_get_pref_single
 
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL

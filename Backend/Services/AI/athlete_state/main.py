@@ -21,7 +21,7 @@ from Routes_DB.coach_athlete_state import (
     db_update_state_compare_previous,
     db_get_latest_athlete_progress,
 )
-
+from Routes_DB.users import db_list_users_for_athlete_state
 from Modules.Supabase.auth import AuthCtx
 from Services.AI.athlete_state.builders import build_input_from_db
 from Services.AI.utils.athlete_state_signals import compute_plan_adjustment_signals
@@ -447,3 +447,42 @@ def service_get_latest_athlete_progress(
         "created_at": row.get("created_at"),
         "report": row.get("compare_previous") or None,
     }
+
+def service_run_weekly_athlete_state(max_users: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Volané z týždenného cronu. Spustí AI analýzu atleta.
+    """
+    users = db_list_users_for_athlete_state(
+        ctx=ctx,
+        limit=max_users or 1000,
+    )
+
+    if not users:
+        return {"success": True, "processed": 0, "results": [], "message": "no users found"}
+
+    results = []
+    processed = 0
+
+    for row in users:
+        uid = row.get("id")
+        if not uid:
+            continue
+
+        try:
+            resp = service_analyze_athlete(
+                ctx=ctx,
+                user_id=int(uid),
+                model=None,
+            )
+
+            state_id = resp.get("state_id")
+            results.append(
+                {"user_id": uid, "state_id": state_id, "ok": bool(state_id is not None)}
+            )
+            processed += 1
+        except Exception as e:  # noqa: BLE001
+            results.append(
+                {"user_id": uid, "state_id": None, "ok": False, "error": str(e)}
+            )
+
+    return {"success": True, "processed": processed, "results": results}
