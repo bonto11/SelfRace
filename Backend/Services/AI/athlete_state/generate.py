@@ -75,21 +75,13 @@ def generate_athlete_state_json(
         context_payload, settings=settings, ctx=ctx
     )
 
-    print(
-        "generate_athlete_state_json- context_payload, system_txt, user_txt",
-        context_payload,
-        system_txt,
-        user_txt,
-    )
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
         model=model,
     )
-
-    print("generate_athlete_state_json- res", res)
-
+ 
     trace = _get_trace_from_result(res, requested_model=model)
 
     if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):

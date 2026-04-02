@@ -1,9 +1,7 @@
-# Services/AI/weekly_plan/prompts.py
 from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
-from Modules.Supabase.auth import AuthCtx
 
 def _as_dict(v: Any) -> Dict[str, Any]:
     return v if isinstance(v, dict) else {}
@@ -15,17 +13,11 @@ def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
     return _as_dict(d.get(key))
 
 def _safe_date_yyyy_mm_dd(v: Any) -> Optional[str]:
-    if not v:
-        return None
+    if not v: return None
     s = str(v).strip()
-    if not s:
-        return None
-    return s[:10]
+    return s[:10] if s else None
 
-def _derive_key_slots_from_weekly_template(
-    wt: Dict[str, Any],
-    max_fixed: int = 10,
-) -> List[Dict[str, Any]]:
+def _derive_key_slots_from_weekly_template(wt: Dict[str, Any], max_fixed: int = 10) -> List[Dict[str, Any]]:
     wt = _as_dict(wt)
     days = _as_list(wt.get("days"))
     out: List[Dict[str, Any]] = []
@@ -34,34 +26,26 @@ def _derive_key_slots_from_weekly_template(
         d2 = _as_dict(d)
         day = d2.get("day")
         slots = _as_list(d2.get("slots"))
-        if not isinstance(day, str):
-            continue
+        if not isinstance(day, str): continue
 
         for s in slots:
             s2 = _as_dict(s)
-            if s2.get("priority") != "key":
-                continue
+            if s2.get("priority") != "key": continue
             sport = s2.get("sport")
             kind = s2.get("kind")
-            if not (isinstance(sport, str) and isinstance(kind, str)):
-                continue
+            if not (isinstance(sport, str) and isinstance(kind, str)): continue
 
             out.append({"weekday": day, "sport": sport, "kind": kind})
-            if len(out) >= max_fixed:
-                return out
-
+            if len(out) >= max_fixed: return out
     return out
 
 def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
     analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
     prefs_any = analyze_src.get("prefs")
-    if isinstance(prefs_any, dict):
-        return prefs_any
+    if isinstance(prefs_any, dict): return prefs_any
 
     prefs_any = context.get("prefs")
-    if isinstance(prefs_any, dict):
-        return prefs_any
-
+    if isinstance(prefs_any, dict): return prefs_any
     return {}
 
 def _remove_empty(d: Any) -> Any:
@@ -94,26 +78,18 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         races_min = []
         for r in races_raw:
             r2 = _as_dict(r)
-            if not r2:
-                continue
-            races_min.append(
-                {
-                    "date": _safe_date_yyyy_mm_dd(
-                        r2.get("date") or r2.get("start_date") or r2.get("race_date")
-                    ),
-                    "name": r2.get("name") or r2.get("title"),
-                    "type": r2.get("type") or r2.get("race_type"),
-                }
-            )
-            if len(races_min) >= 10:
-                break
+            if not r2: continue
+            races_min.append({
+                "date": _safe_date_yyyy_mm_dd(r2.get("date") or r2.get("start_date") or r2.get("race_date")),
+                "name": r2.get("name") or r2.get("title"),
+                "type": r2.get("type") or r2.get("race_type"),
+            })
+            if len(races_min) >= 10: break
 
     prefs2: Dict[str, Any] = {
         "main_sport": prefs.get("main_sport"),
         "add_on_sports": prefs.get("add_on_sports"),
         "included_sports": prefs.get("included_sports"),
-        "weeks": prefs.get("weeks"),
-        "start_date": _safe_date_yyyy_mm_dd(prefs.get("start_date") or prefs.get("plan_start_date")),
         "goal_kind": prefs.get("goal_kind"),
         "volume": {"mode": volume.get("mode"), "value": volume.get("value")} if volume else {},
         "preferences": {
@@ -121,27 +97,19 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "long_run_days": preferences.get("long_run_days"),
             "avoid_two_a_day": preferences.get("avoid_two_a_day"),
             "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
-        }
-        if preferences
-        else {},
+        } if preferences else {},
         "targets": {
             "run": {
                 "race_goal": run_t.get("race_goal"),
                 "race_type": run_t.get("race_type"),
                 "target_time": run_t.get("target_time"),
                 "races": races_min,
-            }
-            if run_t
-            else {},
+            } if run_t else {},
             "strength": {
                 "focus": strength_t.get("focus"),
                 "sessions_per_week": strength_t.get("sessions_per_week"),
-            }
-            if strength_t
-            else {},
-        }
-        if targets
-        else {},
+            } if strength_t else {},
+        } if targets else {},
     }
 
     wt = _as_dict(prefs.get("weekly_template"))
@@ -159,15 +127,11 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if athlete_state:
         ai_state = _as_dict(athlete_state.get("ai_state"))
         ai_state.pop("metrics", None)
-        ctx2["athlete_state"] = {
-            "ai_state": ai_state,
-            "is_returning_beginner": is_beginner
-        }
+        ctx2["athlete_state"] = {"ai_state": ai_state, "is_returning_beginner": is_beginner}
 
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
-
         if isinstance(ext.get("events"), list):
             events = [_as_dict(e) for e in ext.get("events", []) if isinstance(e, dict)]
         else:
@@ -177,36 +141,21 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
         cleaned_events: List[Dict[str, Any]] = []
         for e in events:
-            dt = (
-                e.get("occurrence_date")
-                or e.get("date")
-                or e.get("start_date_local")
-                or e.get("start_date")
-                or e.get("start_date_iso")
-            )
+            dt = e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date") or e.get("start_date_iso")
             dt_ymd = _safe_date_yyyy_mm_dd(dt)
-
             dft = e.get("days_from_today")
+            
             if dt_ymd is None and isinstance(dft, (int, float)):
                 cleaned_events.append({
-                        "days_from_today": int(dft),
-                        "sport": e.get("sport"),
-                        "duration_min": e.get("duration_min"),
-                        "priority": e.get("priority"),
-                        "title": e.get("title"),
-                    })
-                continue
-
-            if not dt_ymd:
-                continue
-
-            cleaned_events.append({
-                    "occurrence_date": dt_ymd,
-                    "sport": e.get("sport"),
-                    "duration_min": e.get("duration_min"),
-                    "priority": e.get("priority"),
-                    "title": e.get("title"),
+                    "days_from_today": int(dft), "sport": e.get("sport"), "duration_min": e.get("duration_min"),
+                    "priority": e.get("priority"), "title": e.get("title"),
                 })
+                continue
+            if not dt_ymd: continue
+            cleaned_events.append({
+                "occurrence_date": dt_ymd, "sport": e.get("sport"), "duration_min": e.get("duration_min"),
+                "priority": e.get("priority"), "title": e.get("title"),
+            })
 
         win2 = _as_dict(ext.get("window"))
         if win2:
@@ -220,32 +169,15 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         else:
             ctx2["external_events"] = {"events": cleaned_events}
 
-    settings = _as_dict(context.get("user_settings"))
-    if settings:
-        ctx2["user_settings"] = {
-            "language": settings.get("language"),
-            "timezone": settings.get("timezone"),
-        }
+    if "weeks" in context: ctx2["weeks"] = context.get("weeks")
+    if "replan_trigger" in context: ctx2["replan_trigger"] = context.get("replan_trigger")
+    if "generate_reason" in context: ctx2["generate_reason"] = context.get("generate_reason")
 
-    if "weeks" in context:
-        ctx2["weeks"] = context.get("weeks")
-    if "overwrite" in context:
-        ctx2["overwrite"] = bool(context.get("overwrite"))
-    if "replan_trigger" in context:
-        ctx2["replan_trigger"] = context.get("replan_trigger")
-        
-    # --- NOVÉ: Zachováme aj generate_reason v minifikovanom kontexte ---
-    if "generate_reason" in context:
-        ctx2["generate_reason"] = context.get("generate_reason")
-
+    # Prenesieme user_settings len do LLM configu, nebudú zavadzať v JSON kontexte
     return _remove_empty(ctx2)
 
 
-def build_prompts_for_weekly(
-    context_payload: dict,
-    *,
-    settings: Optional[Dict[str, Any]] = None,
-) -> Tuple[str, str]:
+def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
     settings = _as_dict(settings or {})
     lang_code = str(settings.get("language") or "sk").lower()
 
@@ -261,54 +193,36 @@ def build_prompts_for_weekly(
 
     ctx = _as_dict(context_payload)
     analyze_input = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
-
     raw_prefs = _as_dict(analyze_input.get("prefs") or ctx.get("prefs") or {})
     prefs_val = raw_prefs.get("value")
     prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else raw_prefs
 
     weeks = int(prefs.get("weeks") or ctx.get("weeks") or 6)
-    start_date = _safe_date_yyyy_mm_dd(
-        prefs.get("start_date")
-        or prefs.get("plan_start_date")
-        or _as_dict(ctx.get("plan_meta")).get("start_date")
-        or ""
-    )
+    start_date = _safe_date_yyyy_mm_dd(prefs.get("start_date") or prefs.get("plan_start_date") or _as_dict(ctx.get("plan_meta")).get("start_date") or "")
     main_sport = prefs.get("main_sport") or "run"
-    goal_kind = prefs.get("goal_kind") or "improve_overall"
 
     add_on = prefs.get("add_on_sports")
     included = prefs.get("included_sports")
-    sports_set = set()
-    sports_set.add(main_sport)
+    sports_set = {main_sport}
     if isinstance(add_on, list):
-        for s in add_on:
-            if isinstance(s, str) and s: sports_set.add(s.lower())
+        sports_set.update([s.lower() for s in add_on if isinstance(s, str) and s])
     elif isinstance(included, list):
-        for s in included:
-            if isinstance(s, str) and s: sports_set.add(s.lower())
+        sports_set.update([s.lower() for s in included if isinstance(s, str) and s])
     final_sports_list = list(sports_set)
 
     athlete_state = _as_dict(ctx.get("athlete_state"))
     is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
 
-    safe_settings = {
-        "language": settings.get("language"),
-        "timezone": settings.get("timezone"),
-    }
-    ctx2 = dict(ctx)
-    ctx2["user_settings"] = safe_settings
-
-    context_for_ai = minify_weekly_context_for_ai(ctx2)
-
+    context_for_ai = minify_weekly_context_for_ai(ctx)
     prefs_min = _as_dict(context_for_ai.get("prefs"))
     vol = _get_dict(prefs_min, "volume")
     volume_mode = vol.get("mode")
     volume_value = vol.get("value")
 
     system_txt = (
-        "You are an endurance coaching assistant. "
-        "Your goal is to design a high-level WEEKLY meta training plan. "
-        "Return ONE valid JSON object only."
+        "You are an elite endurance coaching assistant. "
+        "Your task is to design a high-level WEEKLY meta training plan. "
+        "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
     schema_text = f"""
@@ -320,9 +234,9 @@ def build_prompts_for_weekly(
       "week_index": number,
       "week_start": "YYYY-MM-DD",
       "week_end": "YYYY-MM-DD",
-      "goal": string (Focus of the week in human language),
-      "focus": string (Short technical tag or secondary focus),
-      "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | etc,
+      "goal": "1 punchy sentence",
+      "focus": "Short technical tag",
+      "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | "Taper" | "Race",
       "planned_stats": {{
           "run_distance_km": number,
           "run_time_min": number,
@@ -330,21 +244,18 @@ def build_prompts_for_weekly(
           "strength_time_min": number,
           "other_time_min": number
       }},
-      "notes": string (Detailed coaching advice for the week)
+      "notes": "string (If athlete is a beginner/returning, provide encouraging educational details. If advanced, provide max 2 short, direct sentences.)"
     }}
   ]
 }}
 """.strip()
 
     volume_hint_lines: List[str] = []
-    
     if is_returning_beginner:
         volume_hint_lines.append(
             "- ATHLETE IS A BEGINNER (LEVEL 1): Start VERY light (e.g. 40-90 min total/week). "
-            "Focus on adaptation of bones and tendons, not fitness. "
-            "Planned minutes in planned_stats must reflect a safe, low-impact return."
+            "Focus on adaptation of bones and tendons. Keep planned_stats very low."
         )
-
     if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
         volume_hint_lines.append(f"- Baseline target: {volume_value * 60} total minutes per week across all sports.")
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
@@ -354,77 +265,54 @@ def build_prompts_for_weekly(
 
     volume_hint_lines.append("- athlete_state.ai_state.volume_tolerance is your safety guard. Stay mostly within min/max.")
     volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
-
     volume_hint = "\n".join(volume_hint_lines)
     
     beginner_protocol = ""
     if is_returning_beginner:
         beginner_protocol = (
-            "- BEGINNER COACHING PROTOCOL (META-LEVEL):\n"
+            "\n- BEGINNER COACHING PROTOCOL:\n"
             "  - Tone: Encouraging, educational, protective.\n"
-            "  - 'goal' and 'focus' fields: Use descriptive titles like 'Building consistency' or 'Joint adaptation' instead of just 'Base'.\n"
-            "  - 'notes' field: Every week MUST explain the theme. Remind the athlete that 'Easy means Easy'.\n"
-            "  - Mention the 'Talk Test' or 'Sing Test' as the primary way to measure intensity this week.\n"
-            "  - Emphasize that walking during a run is a success, not a failure.\n\n"
+            "  - 'notes' field MUST explain the theme. Remind the athlete that 'Easy means Easy' (Talk Test).\n"
+            "  - Emphasize that walking during a run is a success, not a failure.\n"
         )
 
-    # --- NOVÉ: Detekcia špeciálnych zdravotných dôvodov zjemnenia / návratu ---
     reason = context_for_ai.get("generate_reason")
     special_reason_rule = ""
-    
     if reason == "health_resolved_return":
         special_reason_rule = (
             "\n--- HEALTH RECOVERY (RETURN TO PLAY) ---\n"
             "- The athlete has just fully recovered from an illness or injury.\n"
-            "- Design a safe 'Ramp-Up' / Return to Play plan for the upcoming weeks.\n"
             "- The first week MUST be very low volume and low intensity (Z1/Z2).\n"
-            "- Gradually build up the volume in the following weeks.\n"
-            "- Avoid high-intensity intervals (VO2Max/Anaerobic) entirely in the first week back.\n"
+            "- Avoid high-intensity intervals entirely in the first week back.\n"
         )
     elif reason == "health_recovery_mild":
         special_reason_rule = (
-            "\n--- MILD HEALTH RESTRICTION (TAIL END OF ILLNESS/INJURY) ---\n"
-            "- The athlete is at the tail end of a mild illness or injury, but not 100% fit yet.\n"
-            "- The very FIRST week of this plan MUST BE ultra-light.\n"
-            "- Instruct the daily generator (via 'notes') to schedule 1 to 2 extra complete REST days at the very beginning of the week.\n"
-            "- For the rest of the first week, prescribe ONLY very light, easy activities (Z1/Z2 or RPE 2-4/10).\n"
-            "- From the second week onward, you can start building back up normally.\n"
-        )
-    elif reason == "health_critical":
-        # Len pre istotu (hoci by sme sem nemali padnúť, lebo kalendár zmažeme)
-        special_reason_rule = (
-            "\n--- CRITICAL MEDICAL LEAVE ---\n"
-            "- The athlete has a severe injury or illness.\n"
-            "- ALL planned stats and minutes MUST BE 0.\n"
-            "- Goal and Focus should state 'Rest and Recovery'.\n"
-            "- Advise the athlete to consult a doctor and rest.\n"
+            "\n--- MILD HEALTH RESTRICTION (TAIL END OF ILLNESS) ---\n"
+            "- The athlete is not 100% fit yet.\n"
+            "- The very FIRST week MUST BE ultra-light. Instruct the daily generator to schedule extra rest days.\n"
         )
 
     sports_restriction_hint = (
         f"- ALLOWED SPORTS FROM PREFS: {', '.join(final_sports_list)}.\n"
-        "- IMPORTANT: Inside 'planned_stats', ONLY populate data for the sports explicitly listed above. "
-        "Do NOT invent or schedule sports the athlete hasn't selected. Omit unselected sports or set them to 0."
+        "- ONLY populate data for sports explicitly listed above in 'planned_stats'. "
+        "Omit unselected sports or set them to 0."
     )
 
     user_txt = (
         "Design a WEEKLY meta plan.\n"
         f"Main sport: {main_sport}\n"
-        f"Sports involved: {', '.join(final_sports_list)}\n"
-        f"Horizon: {weeks} weeks starting {start_date or 'ASAP'}.\n"
-        f"Language: {lang_label}.\n\n"
-        + beginner_protocol
-        + "CONTEXT_JSON:\n"
+        f"Horizon: {weeks} weeks starting {start_date or 'ASAP'}.\n\n"
+        "CONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA & REQUIREMENTS:\n"
         + schema_text
         + "\n"
-        + f"- All text fields (goal, notes) must be in {lang_label} and use 2nd person ('you'). {second_person_note}\n"
-        + "- week_index starts at 1.\n"
+        + f"- All text fields (goal, notes) must be in {lang_label}. {second_person_note}\n"
         + sports_restriction_hint + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
-        + special_reason_rule # <--- PRIDANÉ ZDRAVOTNÉ PRAVIDLÁ
-        + "\n- If recovery/fatigue is poor, start with a light week.\n"
+        + beginner_protocol
+        + special_reason_rule
     )
 
     return system_txt, user_txt

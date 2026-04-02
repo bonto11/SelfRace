@@ -1,4 +1,3 @@
-# Services/AI/weekly_plan/builders.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
@@ -20,35 +19,19 @@ from Services.coach_external_events import (
 )
 from Modules.Supabase.auth import AuthCtx
 
-
 def load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Nájde vhodný coach_athlete_state pre plánovanie.
-
-    Priority:
-      1) explicitný state_id (ak existuje),
-      2) najnovší stav pre usera (version=1).
-    """
-
     row: Optional[Dict[str, Any]] = None
 
     if state_id is not None:
-        row = db_get_state_by_id(
-            state_id,
-            ctx=ctx,
-        )
+        row = db_get_state_by_id(state_id, ctx=ctx)
 
     if not row:
-        row = db_get_latest_state_for_user(
-            user_id=user_id,
-            version=1,
-            ctx=ctx,
-        )
+        row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
 
     if not row:
         raise ValueError(
@@ -70,13 +53,6 @@ def load_athlete_state_for_plan(
 
 
 def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
-    """
-    Z AI výstupu vytiahne list týždňov.
-    Podporujeme:
-      - {"weeks": [ ... ]}
-      - {"plan":  [ ... ]}
-      - [ { ... }, { ... } ]
-    """
     if isinstance(weekly_plan, dict):
         weeks = weekly_plan.get("weeks")
         if isinstance(weeks, list):
@@ -100,14 +76,8 @@ def _extract_prefs_ai(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Jemná minifikácia už na úrovni buildera (SAFE):
-    - odstráni citlivé/ťažké veci
-    - necháva štruktúru podobnú analyze_input
-    """
     ai: Dict[str, Any] = dict(analyze_input) if isinstance(analyze_input, dict) else {}
 
-    # user: drop id + meno/email ak by sa niekedy objavili
     u = ai.get("user")
     if isinstance(u, dict):
         u2 = dict(u)
@@ -116,40 +86,34 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
         u2.pop("name", None)
         ai["user"] = u2
 
-    # last_activities: nechaj len agregácie, bez názvov/id
     la = ai.get("last_activities")
     if isinstance(la, list):
         trimmed: List[Dict[str, Any]] = []
         for a in la:
-            if not isinstance(a, dict):
-                continue
-
-            dur_min = (
-                a.get("duration_min")
-                or a.get("moving_time_min")
-                or a.get("moving_time")  # legacy
-            )
-
-            trimmed.append(
-                {
-                    "sport": a.get("sport") or a.get("type"),
-                    "distance_km": a.get("distance_km") or a.get("distance"),
-                    "duration_min": dur_min,
-                    "avg_hr": a.get("avg_hr"),
-                    "load": a.get("load") or a.get("trimp"),
-                    "day_offset": a.get("day_offset"),
-                    "date": a.get("date"),
-                    "z1_min": a.get("z1_min"),
-                    "z2_min": a.get("z2_min"),
-                    "z3_min": a.get("z3_min"),
-                    "z4_min": a.get("z4_min"),
-                    "z5_min": a.get("z5_min"),
-                }
-            )
-
-            if len(trimmed) >= 20:
-                break
+            if not isinstance(a, dict): continue
+            dur_min = a.get("duration_min") or a.get("moving_time_min") or a.get("moving_time")
+            trimmed.append({
+                "sport": a.get("sport") or a.get("type"),
+                "distance_km": a.get("distance_km") or a.get("distance"),
+                "duration_min": dur_min,
+                "avg_hr": a.get("avg_hr"),
+                "load": a.get("load") or a.get("trimp"),
+                "day_offset": a.get("day_offset"),
+                "date": a.get("date"),
+                "z1_min": a.get("z1_min"),
+                "z2_min": a.get("z2_min"),
+                "z3_min": a.get("z3_min"),
+                "z4_min": a.get("z4_min"),
+                "z5_min": a.get("z5_min"),
+            })
+            if len(trimmed) >= 20: break
         ai["last_activities"] = trimmed
+
+    # ✂️ EXTRÉMNA ÚSPORA: Zmažeme redundantné bloky, ktoré posielame vyššie v JSON štruktúre!
+    ai.pop("prefs", None) 
+    ai.pop("thresholds", None)
+    ai.pop("zones", None)
+    ai.pop("bests", None)
 
     ai.pop("streams", None)
     ai.pop("laps", None)
@@ -157,13 +121,12 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 
     return ai
 
-# Helper na zistenie, či je user začiatočník/navrátilec (skopírované z daily pre konzistenciu)
+
 def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     last_activities = analyze_input.get("last_activities") or []
     if not last_activities:
-        return True # Žiadna história = začiatočník
+        return True
     
-    # Nájdeme najnovšiu aktivitu
     latest_date_str = None
     for act in last_activities:
         d = act.get("start_date_local") or act.get("start_date") or act.get("date")
@@ -174,7 +137,6 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     if not latest_date_str:
         return True
 
-    # Ak je posledná aktivita staršia ako 6 týždňov (42 dní), považujeme ho za začiatočníka
     try:
         latest_dt = date.fromisoformat(latest_date_str[:10])
         diff = (date.today() - latest_dt).days
@@ -185,6 +147,7 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
         
     return False
 
+
 def build_weekly_context_from_db(
     user_id: int,
     *,
@@ -192,39 +155,28 @@ def build_weekly_context_from_db(
     state_id: Optional[int],
     weeks: Optional[int],
 ) -> Dict[str, Any]:
-    """
-    Poskladá context_payload pre weekly plán z DB + meta info.
-    """
-    analyze_input = build_input_from_db(
-        user_id=user_id,
-        ctx=ctx,
-    )
+    analyze_input = build_input_from_db(user_id=user_id, ctx=ctx)
     if not isinstance(analyze_input, dict):
         analyze_input = {}
 
     prefs_ai = _extract_prefs_ai(analyze_input)
 
-    # external events: prefer priamo z analyze_input, inak dopočítaj
     external_events_block = analyze_input.get("external_events")
     if external_events_block is None:
         try:
             external_events_block = service_build_external_events_block_for_analysis(
-                user_id=user_id,
-                ctx=ctx,
+                user_id=user_id, ctx=ctx
             )
         except Exception:
             external_events_block = None
 
     state_bundle = load_athlete_state_for_plan(
-        user_id=user_id,
-        state_id=state_id,
-        ctx=ctx,
+        user_id=user_id, state_id=state_id, ctx=ctx
     )
 
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    # Zistíme status začiatočníka a vložíme do state (len v pamäti pre AI)
     is_returning_beginner = _check_is_returning_beginner(analyze_input)
     if isinstance(athlete_state, dict):
         athlete_state["is_returning_beginner"] = is_returning_beginner
@@ -267,9 +219,6 @@ def build_weekly_rows_from_ai(
     user_id: int,
     weeks_list: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """
-    Preklopí weekly AI výstup na rows pre coach_plan_weekly.
-    """
     rows: List[Dict[str, Any]] = []
 
     for idx, w in enumerate(weeks_list, start=1):
@@ -278,20 +227,18 @@ def build_weekly_rows_from_ai(
 
         week_index = int(w.get("week_index") or idx)
 
-        rows.append(
-            {
-                "user_id": user_id,
-                "week_index": week_index,
-                "week_start": w.get("week_start"),
-                "week_end": w.get("week_end"),
-                "goal": w.get("goal"),
-                "focus": w.get("focus"),
-                "load_phase": w.get("load_phase"),
-                "planned_stats": w.get("planned_stats") or {},
-                "actual_stats": {},
-                "notes": w.get("notes"),
-                "raw_json": w,
-            }
-        )
+        rows.append({
+            "user_id": user_id,
+            "week_index": week_index,
+            "week_start": w.get("week_start"),
+            "week_end": w.get("week_end"),
+            "goal": w.get("goal"),
+            "focus": w.get("focus"),
+            "load_phase": w.get("load_phase"),
+            "planned_stats": w.get("planned_stats") or {},
+            "actual_stats": {},
+            "notes": w.get("notes"),
+            "raw_json": w,
+        })
 
     return rows
