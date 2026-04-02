@@ -55,6 +55,9 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     volume = _get_dict(prefs, "volume")
     targets = _get_dict(prefs, "targets")
 
+    run_t = _get_dict(targets, "run")
+    strength_t = _get_dict(targets, "strength")
+
     ctx2["prefs"] = {
         "main_sport": prefs.get("main_sport"),
         "add_on_sports": prefs.get("add_on_sports"),
@@ -69,14 +72,14 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         } if preferences else {},
         "targets": {
             "run": {
-                "race_goal": _get_dict(targets, "run").get("race_goal"),
-                "race_type": _get_dict(targets, "run").get("race_type"),
-                "target_time": _get_dict(targets, "run").get("target_time"),
-            } if "run" in targets else {},
+                "race_goal": run_t.get("race_goal"),
+                "race_type": run_t.get("race_type"),
+                "target_time": run_t.get("target_time"),
+            } if run_t else {},
             "strength": {
-                "focus": _get_dict(targets, "strength").get("focus"),
-                "sessions_per_week": _get_dict(targets, "strength").get("sessions_per_week"),
-            } if "strength" in targets else {},
+                "focus": strength_t.get("focus"),
+                "sessions_per_week": strength_t.get("sessions_per_week"),
+            } if strength_t else {},
         } if targets else {},
     }
 
@@ -87,7 +90,6 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(ai_state, dict):
             ai_state_clean = dict(ai_state)
             ai_state_clean.pop("metrics", None)
-            
             ctx2["athlete_state"] = {
                 "ai_state": ai_state_clean,
                 "user_summary": athlete_state.get("user_summary"),
@@ -297,8 +299,7 @@ def build_prompts_for_daily(
     
     strength_rule = (
         f"- STRENGTH: Target {strength_str}. Use sport='strength'. "
-        "CRITICAL: If 'two_a_day' is disabled and you lack days to fit all sessions, REDUCE the number of strength sessions. DO NOT sacrifice rest days.\n"
-        "STRENGTH EXERCISE RULES: EXACTLY 2 exercises in 'activation', 3-5 in 'strength_main_part', EXACTLY 2 in 'add_ons'. Use ONLY 'id' from strength_ai_menu.\n\n"
+        "CRITICAL: If 'two_a_day' is disabled and you lack days to fit all sessions, REDUCE the number of strength sessions. DO NOT sacrifice rest days.\n\n"
     )
 
     long_run_rule = f"- LONG RUN: If run is main sport, 1 long run (pref: {long_run_days_str}).\n\n"
@@ -331,7 +332,6 @@ def build_prompts_for_daily(
         "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
-    # Vrátené `main_part` pre frontend, pridaný `interval_block`
     schema_text = f"""
 {{
   "schema_version": 2,
@@ -343,14 +343,14 @@ def build_prompts_for_daily(
         {{
           "sport": "run" | "ride" | "swim" | "strength" | "other" | "rest",
           "kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "mobility" | "rest" | "other",
-          "title": "Short title in {lang_label}",
+          "title": "Descriptive title in {lang_label} (e.g. 'Silový tréning - Nohy a Core', 'Prahový beh')",
           "duration_min": number,
           "distance_km": number, // OMIT if null
           "tss_estimate": number, // OMIT if null
-          "description": "max 1 short sentence in {lang_label}",
+          "notes": "REQUIRED. 1-2 short sentences in {lang_label} describing the main purpose of this session.",
           "session_type": "external_event" | null,
           "structure": {{ // Omit if basic rest or other
-            "warmup": {{ "minutes": number, "notes": "Target HR + Pace/Power. max 2 sentences." }},
+            "warmup": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
             
             // Use this object inside the array for steady endurance/tempo runs:
             // {{"minutes": number, "notes": "Target HR + Pace/Power"}}
@@ -358,7 +358,8 @@ def build_prompts_for_daily(
             // {{"kind": "interval_block", "repeats": number, "work": {{"minutes": number, "notes": "Target HR + Pace"}}, "rest": {{"minutes": number, "notes": "Recovery HR + Pace"}}}}
             "main_part": [ object ], 
             
-            "cooldown": {{ "minutes": number, "notes": "Target HR + Pace/Power. max 2 sentences." }},
+            "cooldown": {{ "minutes": number, "notes": "MUST INCLUDE Target HR (bpm) AND Pace/Power. max 2 sentences." }},
+            
             "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
             "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ], // Strength only
             "add_ons": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ] // Strength only
@@ -426,6 +427,13 @@ def build_prompts_for_daily(
         "  - If it is an interval session, use the `interval_block` format inside the `main_part` array.\n\n"
     )
 
+    strength_structure_rule = (
+        "- STRENGTH STRUCTURE: When creating a 'strength' session, use the provided 'strength_ai_menu'. "
+        "Use ONLY the specific 'exercise_id' values. Distribute the exercises into 'activation' (1-2 exercises), "
+        "'strength_main_part' (3-5 heavy exercises), and 'add_ons' (1-3 core/accessory exercises).\n"
+        "  - MUST include a descriptive 'title' reflecting the focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+    )
+
     intensity_model_rule = f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
     blocks_rule = f"- TRAINING BLOCKS: {', '.join([k for k,v in blocks.items() if v]) or 'none'}.\n\n"
 
@@ -485,6 +493,7 @@ def build_prompts_for_daily(
         + strength_rule      
         + intensity_format_rule
         + endurance_structure_rule 
+        + strength_structure_rule
         + intensity_model_rule
         + blocks_rule
         + weekly_volume_line
@@ -492,8 +501,8 @@ def build_prompts_for_daily(
         + special_reason_rule 
         + "\n--- STRICT CONCISENESS RULE ---\n"
         + "- EXTREME EFFICIENCY: OMIT any optional fields (distance_km, tss_estimate, warmup_min, cooldown_min) if their value would be null. Do NOT output keys with null values.\n"
-        + "- Keep 'description' and text fields EXTREMELY SHORT! Maximum 1 or 2 short sentences per session.\n"
-        + "- Keep strength notes to max 5 words.\n"
+        + "- Session 'title' and 'notes' are REQUIRED for every session. Make titles descriptive.\n"
+        + "- Keep strength exercise notes to max 5 words.\n"
         + "- DO NOT write long explanations. Be punchy and direct.\n"
         + "- DO NOT exceed 8000 tokens in output.\n"
         + "\nCONTEXT_JSON:\n"
