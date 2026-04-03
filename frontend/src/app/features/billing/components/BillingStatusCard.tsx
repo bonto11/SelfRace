@@ -3,26 +3,10 @@
 
 import React from "react";
 import { useT } from "@/app/shared/i18n/useT";
-import type { AppSubscriptionStatus } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import BillingUsageBar from "./BillingUsageBar";
 import Button from "@/app/shared/ui/components/Button";
-
-type PlannedChange = {
-  kind: "cancel" | "downgrade" | "upgrade";
-  to_tier_code: string | null;
-  effective_from: string | null;
-} | null;
-
-type Props = {
-  status: AppSubscriptionStatus | null;
-  activeTierCode: string;
-  plannedChange: PlannedChange;
-  loadingStatus: boolean;
-  loadingAny: boolean;
-  error: string | null;
-  onCancelPlannedChange: () => void;
-};
+import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
 
 export default function BillingStatusCard({
   status,
@@ -32,7 +16,7 @@ export default function BillingStatusCard({
   loadingAny,
   error,
   onCancelPlannedChange,
-}: Props) {
+}: BillingStatusCardProps) {
   const t = useT();
 
   if (loadingStatus) {
@@ -108,9 +92,9 @@ export default function BillingStatusCard({
           </div>
         </div>
 
-        {/* OPRAVA: Pridané ?? undefined, aby sme vyhoveli TypeScriptu */}
         <div className="w-full lg:max-w-[400px] mt-2 lg:mt-0">
-           <BillingUsageBar aiQuota={status?.ai_quota ?? undefined} />
+           {/* Teraz to funguje čisto, pretože obaja poznajú ten istý typ z types/billing.ts */}
+           <BillingUsageBar aiQuota={status?.ai_quota} />
         </div>
       </div>
 
