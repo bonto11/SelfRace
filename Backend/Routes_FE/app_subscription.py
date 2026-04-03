@@ -51,7 +51,6 @@ def get_app_subscription_status(
             ctx=ctx,
         )
 
-        # doplníme ai_quota pre FE (usage bar)
         try:
             quota = get_user_ai_quota_status_for_current_tier(
                 user_id=user_id,
@@ -63,10 +62,10 @@ def get_app_subscription_status(
 
         if isinstance(status, dict) and isinstance(quota, dict):
             status["ai_quota"] = {
-                "monthly_limit_tokens": quota.get("limit_tokens"),
-                "used_tokens_this_month": quota.get("used_tokens"),
-                "remaining_tokens": quota.get("remaining_tokens"),
-                "is_over": quota.get("is_over"),
+                "limits": quota.get("limits", {}),
+                "usage": quota.get("usage", {}),
+                "remaining": quota.get("remaining", {}),
+                "is_over": quota.get("is_over", False),
                 "reset_at": quota.get("reset_at"),
             }
 
