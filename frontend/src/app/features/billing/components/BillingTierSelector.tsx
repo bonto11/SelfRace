@@ -1,3 +1,4 @@
+// src/features/billing/components/BillingTierSelector.tsx
 "use client";
 
 import React from "react";
@@ -40,14 +41,19 @@ export default function BillingTierSelector({
     }
   };
 
-  // Ľudsky čitateľné limity (namiesto čísla tokenov)
+  // Ľudsky čitateľné limity a psychologický upsell
   const getHumanDescription = (code: string) => {
     switch (code.toLowerCase()) {
-      case "free": return "Základný plán (Bez hĺbkových AI analýz)";
-      case "classic": return "Plná AI automatizácia + cca 10 podrobných AI analýz tréningov / mesiac";
-      case "pro": return "Nekonečné preplánovanie a neobmedzené detailné AI analýzy";
-      case "family": return "Všetko z verzie Pro pre 4 členov rodiny";
-      default: return "Základné funkcie";
+      case "free": 
+        return "Základný plán na skúšku. Bez hĺbkových AI analýz a pokročilého plánovania.";
+      case "classic": 
+        return "Pokryje denné a týždenné plány na celý mesiac. Obsahuje však obmedzený počet AI analýz po tréningu (max. 10/mesiac).";
+      case "pro": 
+        return "Vyššia sloboda a maximálna variabilita. Umožňuje časté preplánovanie, hĺbkovú analýzu formy a detailný rozbor po každom tréningu.";
+      case "family": 
+        return "Plný výkon verzie Pro pre teba a ďalších 3 členov rodiny.";
+      default: 
+        return "Základné funkcie";
     }
   };
 
@@ -86,7 +92,7 @@ export default function BillingTierSelector({
             }}
           >
             {/* ĽAVÁ ČASŤ - Info */}
-            <div className="flex flex-col flex-1 pr-3 overflow-hidden">
+            <div className="flex flex-col flex-1 pr-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold uppercase tracking-wide" style={{ color: isActive ? appColors.brandPrimary : theme.color }}>
                   {tierName}
@@ -98,7 +104,7 @@ export default function BillingTierSelector({
                   {(tier.monthly_price_cents / 100).toFixed(2)} € / mes
                 </span>
               </div>
-              <div className="text-[10px] opacity-70 mt-0.5 truncate sm:whitespace-normal">
+              <div className="text-[10px] opacity-70 mt-1 whitespace-normal leading-snug">
                 {getHumanDescription(tier.code)}
               </div>
             </div>
