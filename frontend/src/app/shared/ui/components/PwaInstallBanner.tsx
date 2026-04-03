@@ -21,37 +21,29 @@ export default function PwaInstallBanner({ userId }: Props) {
 
     let alive = true;
 
-    // 1. Zistenie, či už je appka nainštalovaná (standalone režim)
     const isStandalone = 
       window.matchMedia("(display-mode: standalone)").matches || 
       (window.navigator as any).standalone === true;
     
     if (isStandalone) return;
 
-    // 2. Zistenie iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIos(isIosDevice);
 
-    // 3. Zachytenie Android inštalačného eventu
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // 4. Kontrola v DB a zobrazenie
     const checkAndShow = async () => {
       try {
         const currentSettings = (await apiFetchUserPref(userId, "user.settings")) || {};
         
-        // Ak ešte nevidel Onboarding, necháme ho tak
         if (!currentSettings.onboarding_seen) return;
-        
-        // Ak už PWA inštaláciu odmietol alebo vykonal
         if (currentSettings.pwa_prompt_dismissed) return;
 
-        // Dáme tomu 6 sekúnd delay, aby to nekolidovalo s Push Notifikáciami
         setTimeout(() => {
           if (alive) setShowPrompt(true);
         }, 6000);
@@ -86,12 +78,10 @@ export default function PwaInstallBanner({ userId }: Props) {
   const handleInstall = async () => {
     if (!deferredPrompt) return;
     
-    // Vyvolanie natívneho Android inštalačného dialógu
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     
     if (outcome === "accepted") {
-      console.log("Užívateľ nainštaloval PWA");
       markAsDismissed();
     }
     
@@ -102,11 +92,11 @@ export default function PwaInstallBanner({ userId }: Props) {
     markAsDismissed();
   };
 
-  // Zobrazíme iba v prípade, že je to iOS, ALEBO máme pripravený Android event
   if (!showPrompt || (!isIos && !deferredPrompt)) return null;
 
   return (
-    <div className="fixed inset-0 z-[99997] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+    // ZMENA: bg-black/85 a silnejší blur pre menšiu priehľadnosť
+    <div className="fixed inset-0 z-[99997] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
         className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-6 flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
@@ -118,60 +108,55 @@ export default function PwaInstallBanner({ userId }: Props) {
         </div>
         
         <h3 className="text-xl font-bold text-white mb-2">
-          Stiahni si SelfRace
+          {t("pwaPrompt.title") as string}
         </h3>
 
-        {/* --- ANDROID VERZIA --- */}
         {!isIos && (
           <>
             <p className="text-sm opacity-80 mb-6 leading-relaxed">
-              Pridaj si aplikáciu priamo na plochu telefónu pre rýchlejší prístup, lepšie notifikácie a plný zážitok.
+              {t("pwaPrompt.androidDesc") as string}
             </p>
             <div className="flex gap-3 justify-end mt-auto">
               <Button onClick={handleDismiss} variant="ghost" className="btn-sm text-gray-400">
-                Neskôr
+                {t("pwaPrompt.later") as string}
               </Button>
               <Button onClick={handleInstall} variant="primary" className="btn-sm">
-                Inštalovať aplikáciu
+                {t("pwaPrompt.install") as string}
               </Button>
             </div>
           </>
         )}
 
-        {/* --- iOS VERZIA --- */}
         {isIos && (
           <>
             <p className="text-sm opacity-80 mb-4 leading-relaxed">
-              Pridaj si aplikáciu na plochu iPhonu. Postupuj podľa tohto návodu:
+              {t("pwaPrompt.iosDesc") as string}
             </p>
             
             <div className="bg-white/5 rounded-lg p-4 mb-6 flex flex-col items-center border border-white/10">
               <ol className="text-sm opacity-90 text-left space-y-3 w-full mb-4">
                 <li className="flex items-center gap-2">
-                  <span className="font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span> 
-                  Klikni na ikonu <b>Zdieľať</b> dole v lište
+                  <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span> 
+                  <span dangerouslySetInnerHTML={{ __html: t("pwaPrompt.step1") as string }} />
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span> 
-                  Vyber <b>Pridať na plochu</b> (Add to Home Screen)
+                  <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span> 
+                  <span dangerouslySetInnerHTML={{ __html: t("pwaPrompt.step2") as string }} />
                 </li>
               </ol>
               
-              {/* Nahraď obrázkom (napr. screenshot z iOS Safari). Pre teraz pekný placeholder. */}
               <div className="w-full h-24 bg-base-200 rounded flex items-center justify-center border border-dashed border-gray-600">
                 <span className="text-xs opacity-50">Tvoj ilustračný iOS obrázok</span>
-                {/* <img src="/images/ios-pwa-guide.png" alt="iOS Guide" className="max-h-full" /> */}
               </div>
             </div>
 
             <div className="flex gap-3 justify-end mt-auto">
               <Button onClick={handleDismiss} variant="ghost" className="btn-sm text-gray-400 w-full">
-                Rozumiem, zavrieť
+                {t("pwaPrompt.close") as string}
               </Button>
             </div>
           </>
         )}
-
       </div>
     </div>
   );
