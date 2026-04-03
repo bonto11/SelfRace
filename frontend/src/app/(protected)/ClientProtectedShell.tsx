@@ -1,4 +1,3 @@
-// src/app/(protected)/ClientProtectedShell.tsx
 "use client";
 
 import type { ReactNode } from "react";
@@ -27,7 +26,11 @@ import AppBackdrop from "@/app/shared/ui/components/AppBackdrop";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
+
+// --- Naše UX Komponenty ---
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
+import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
+// import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner"; // <-- Predpríprava pre inštaláciu aplikácie
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -50,7 +53,14 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
               
-              {userId && <OnboardingWizard userId={userId} />}
+              {/* Sekvencia vyskakovacích okien riadená z DB statusov */}
+              {userId && (
+                <>
+                  <OnboardingWizard userId={userId} />
+                  <PushNotificationPrompt userId={userId} />
+                  {/* <PwaInstallBanner userId={userId} /> */}
+                </>
+              )}
 
               <div
                 className="min-h-dvh flex flex-col relative overflow-hidden"
