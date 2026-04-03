@@ -64,7 +64,8 @@ def db_upsert_app_subscription_tier(
     name: str,
     description: Optional[str],
     monthly_price_cents: int,
-    ai_monthly_tokens_limit: int,
+    ai_monthly_input_tokens_limit: int,    # ZMENA: Input limit
+    ai_monthly_output_tokens_limit: int,   # ZMENA: Output limit
     is_active: bool = True,
     sort_order: int = 0,
     ctx: AuthCtx,
@@ -79,7 +80,8 @@ def db_upsert_app_subscription_tier(
         "name": name,
         "description": description,
         "monthly_price_cents": monthly_price_cents,
-        "ai_monthly_tokens_limit": ai_monthly_tokens_limit,
+        "ai_monthly_input_tokens_limit": ai_monthly_input_tokens_limit,
+        "ai_monthly_output_tokens_limit": ai_monthly_output_tokens_limit,
         "is_active": is_active,
         "sort_order": sort_order,
     }

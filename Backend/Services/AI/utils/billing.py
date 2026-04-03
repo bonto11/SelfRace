@@ -1,3 +1,4 @@
+# Services/AI/billing.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -186,23 +187,27 @@ def get_user_ai_quota_status_for_current_tier(
 
     tier_code = str((status or {}).get("tier_code") or "free").lower()
     active_sub = (status or {}).get("active_subscription") or None
+    tiers = (status or {}).get("tiers") or []
 
     limit_input = 0
     limit_output = 0
     
-    if tier_code == "free":
-        limit_input = 35_000
-        limit_output = 6_000
-    elif tier_code == "classic":
-        limit_input = 300_000
-        limit_output = 50_000
-    elif tier_code == "pro":
-        limit_input = 1_000_000
-        limit_output = 150_000
-    elif tier_code in ["family", "admin", "super_user"]:
+    # 1. Pokúsime sa načítať limity priamo z databázy
+    for t in tiers:
+        if str(t.get("code")).lower() == tier_code:
+            try:
+                limit_input = int(t.get("ai_monthly_input_tokens_limit") or 0)
+                limit_output = int(t.get("ai_monthly_output_tokens_limit") or 0)
+            except Exception:
+                pass
+            break
+
+    # 2. Hardcodovaný VIP Bypass
+    if tier_code in ["family", "admin", "super_user"]:
         limit_input = 50_000_000
         limit_output = 10_000_000
-
+    
+    # 3. Záchranná sieť (Fallback), ak DB zlyhá, alebo tabuľka bola prázdna
     if limit_input == 0 or limit_output == 0:
         limit_input = 35_000
         limit_output = 6_000
