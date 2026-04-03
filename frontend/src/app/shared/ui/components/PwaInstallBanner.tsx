@@ -1,3 +1,4 @@
+// src/components/PwaInstallBanner.tsx (alebo kde to máš umiestnené)
 "use client";
 
 import { useState, useEffect } from "react";
@@ -94,11 +95,18 @@ export default function PwaInstallBanner({ userId }: Props) {
 
   if (!showPrompt || (!isIos && !deferredPrompt)) return null;
 
+  // Dáta pre iOS kroky
+  const iosSteps = [
+    { text: "Klikni na ponuku (3 bodky) v spodnej lište.", img: "/pwa_tutorial/step1.png" },
+    { text: "V zozname nájdi a vyber možnosť Zdieľať.", img: "/pwa_tutorial/step2.png" },
+    { text: "Potiahni nižšie a zvoľ Pridať na plochu.", img: "/pwa_tutorial/step3.png" },
+    { text: "Skontroluj názov apky a klikni na Pridať.", img: "/pwa_tutorial/step4.png" }
+  ];
+
   return (
-    // ZMENA: bg-black/85 a silnejší blur pre menšiu priehľadnosť
     <div className="fixed inset-0 z-[99997] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
-        className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-6 flex flex-col transform transition-all"
+        className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
         <div className="flex items-center justify-center w-12 h-12 rounded-xl mb-4" style={{ backgroundColor: `${appColors.brandPrimary}20`, color: appColors.brandPrimary }}>
@@ -108,20 +116,20 @@ export default function PwaInstallBanner({ userId }: Props) {
         </div>
         
         <h3 className="text-xl font-bold text-white mb-2">
-          {t("pwaPrompt.title") as string}
+          {t("pwaPrompt.title") as string || "Inštalácia aplikácie"}
         </h3>
 
         {!isIos && (
           <>
             <p className="text-sm opacity-80 mb-6 leading-relaxed">
-              {t("pwaPrompt.androidDesc") as string}
+              {t("pwaPrompt.androidDesc") as string || "Pridaj si aplikáciu na plochu pre najlepší zážitok z používania."}
             </p>
             <div className="flex gap-3 justify-end mt-auto">
               <Button onClick={handleDismiss} variant="ghost" className="btn-sm text-gray-400">
-                {t("pwaPrompt.later") as string}
+                {t("pwaPrompt.later") as string || "Neskôr"}
               </Button>
               <Button onClick={handleInstall} variant="primary" className="btn-sm">
-                {t("pwaPrompt.install") as string}
+                {t("pwaPrompt.install") as string || "Nainštalovať"}
               </Button>
             </div>
           </>
@@ -130,29 +138,31 @@ export default function PwaInstallBanner({ userId }: Props) {
         {isIos && (
           <>
             <p className="text-sm opacity-80 mb-4 leading-relaxed">
-              {t("pwaPrompt.iosDesc") as string}
+              {t("pwaPrompt.iosDesc") as string || "Pridaj si aplikáciu na plochu pre rýchly prístup."}
             </p>
             
-            <div className="bg-white/5 rounded-lg p-4 mb-6 flex flex-col items-center border border-white/10">
-              <ol className="text-sm opacity-90 text-left space-y-3 w-full mb-4">
-                <li className="flex items-center gap-2">
-                  <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span> 
-                  <span dangerouslySetInnerHTML={{ __html: t("pwaPrompt.step1") as string }} />
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span> 
-                  <span dangerouslySetInnerHTML={{ __html: t("pwaPrompt.step2") as string }} />
-                </li>
-              </ol>
-              
-              <div className="w-full h-24 bg-base-200 rounded flex items-center justify-center border border-dashed border-gray-600">
-                <span className="text-xs opacity-50">Tvoj ilustračný iOS obrázok</span>
-              </div>
+            {/* Vylepšený Carousel pre iOS návod */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 pb-4 mb-2 -mx-1 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {iosSteps.map((step, i) => (
+                <div key={i} className="shrink-0 w-[85%] snap-center flex flex-col bg-white/5 border border-white/10 rounded-xl p-3">
+                  <div className="flex items-start gap-2 mb-3">
+                    <span className="shrink-0 font-bold bg-white/20 rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">{i + 1}</span>
+                    <span className="text-xs sm:text-sm font-medium leading-tight opacity-90">{step.text}</span>
+                  </div>
+                  <div className="w-full flex-1 bg-black/40 rounded-lg flex items-center justify-center p-2 overflow-hidden shadow-inner">
+                    <img 
+                      src={step.img} 
+                      alt={`Návod krok ${i + 1}`} 
+                      className="max-h-40 w-auto object-contain rounded-md" 
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="flex gap-3 justify-end mt-auto">
               <Button onClick={handleDismiss} variant="ghost" className="btn-sm text-gray-400 w-full">
-                {t("pwaPrompt.close") as string}
+                {t("pwaPrompt.close") as string || "Zavrieť"}
               </Button>
             </div>
           </>
