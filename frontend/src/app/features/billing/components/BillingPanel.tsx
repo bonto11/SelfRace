@@ -1,4 +1,3 @@
-// src/features/billing/components/BillingPanel.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -72,10 +71,10 @@ export default function BillingPanel() {
     if (!isMounted) return;
     const paymentStatus = searchParams.get("status");
     if (paymentStatus === "success") {
-      toast.success(t("subscription.toasts.paymentSuccess"));
+      toast.success(t("subscription.toasts.paymentSuccess" as any) || "Platba prebehla úspešne.");
       router.replace(pathname, { scroll: false });
     } else if (paymentStatus === "canceled") {
-      toast.error(t("subscription.toasts.paymentCanceled"));
+      toast.error(t("subscription.toasts.paymentCanceled" as any) || "Platba bola zrušená.");
       router.replace(pathname, { scroll: false });
     }
   }, [isMounted, searchParams, pathname, router, t]);
@@ -191,7 +190,7 @@ export default function BillingPanel() {
   }
 
   return (
-    <div className={PANEL_STACK}>
+    <div className="flex flex-col gap-4 max-w-4xl mx-auto">
       {!userId ? (
         <div className="text-sm opacity-80">{t("subscription.notLoggedInDesc")}</div>
       ) : (
@@ -206,43 +205,20 @@ export default function BillingPanel() {
             onCancelPlannedChange={handleCancelPlannedChange}
           />
 
-          <div className={PANEL_STACK}>
-            <section className="space-y-6">
-              
-              {activeTierCode === "free" && !isStatusLoading && (
-                <div 
-                  className="p-6 rounded-2xl border-l-4 shadow-sm bg-gradient-to-r from-white/5 to-transparent"
-                  style={{
-                    backgroundColor: appColors.surfaceCard,
-                    borderColor: appColors.brandPrimary,
-                  }}
-                >
-                  <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>
-                    {t("subscription.pitch.title")}
-                  </h3>
-                  <p className="text-sm leading-relaxed" style={{ color: appColors.textSecondary }}>
-                    {t("subscription.pitch.body")}
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <div className="text-sm font-semibold mb-3 tracking-wide uppercase opacity-70">
-                  {t("subscription.sections.tiers")}
-                </div>
-                <BillingTierSelector
-                  tiers={visibleTiers}
-                  activeTierCode={activeTierCode}
-                  plannedChange={plannedChange}
-                  isBusy={isAnyActionLoading}
-                  onSetTier={handleSetTier}
-                />
-              </div>
+          <div className="flex flex-col gap-4">
+            <section>
+              <BillingTierSelector
+                tiers={visibleTiers}
+                activeTierCode={activeTierCode}
+                plannedChange={plannedChange}
+                isBusy={isAnyActionLoading}
+                onSetTier={handleSetTier}
+              />
             </section>
 
-            <section className="pt-4">
-              <div className="text-sm font-semibold mb-3 tracking-wide uppercase opacity-70">
-                {t("subscription.sections.history")}
+            <section className="pt-2">
+              <div className="text-[11px] font-bold mb-2 tracking-wide uppercase opacity-50">
+                {t("subscription.sections.history" as any) || "História platieb"}
               </div>
               <BillingHistory history={history} />
             </section>
