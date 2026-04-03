@@ -27,10 +27,9 @@ import AppFooter from "@/app/shared/ui/components/AppFooter";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 
-// --- Naše UX Komponenty ---
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
-import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner"; // <-- Predpríprava pre inštaláciu aplikácie
+import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -53,7 +52,6 @@ export default function ClientProtectedShell({
             <RecoveryDataProvider days={90}>
               <PerformanceDataProvider days={90}>
               
-              {/* Sekvencia vyskakovacích okien riadená z DB statusov */}
               {userId && (
                 <>
                   <OnboardingWizard userId={userId} />
@@ -62,18 +60,19 @@ export default function ClientProtectedShell({
                 </>
               )}
 
+              {/* OPRAVA 1: Z hlavného obalu sme dali preč overflow-hidden pre istotu kvôli fixed lište */}
               <div
-                className="min-h-dvh flex flex-col relative overflow-hidden"
+                className="min-h-dvh flex flex-col relative"
                 style={{
                   background: appColors.backgroundMain,
                   color: appColors.textPrimary,
                 }}
               >
-                <div className="fixed inset-0 z-0 pointer-events-none">
+                <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                   <AppBackdrop />
                 </div>
 
-                <div className="relative z-10 min-h-dvh flex flex-col">
+                <div className="relative z-10 flex flex-col min-h-dvh">
                   <header
                     className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
@@ -104,11 +103,9 @@ export default function ClientProtectedShell({
                     </div>
                   </header>
 
-                  <div className="flex-1">
+                  <div className="flex-1 flex flex-col relative">
                     <div
-                      className={["hidden lg:grid h-full", SHELL_GRID].join(
-                        " ",
-                      )}
+                      className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}
                     >
                       <Sidebar />
                       <div className="min-h-dvh flex flex-col">
@@ -119,17 +116,20 @@ export default function ClientProtectedShell({
                       </div>
                     </div>
 
-                    <div className="lg:hidden min-h-dvh flex flex-col">
-                      <main className="flex-1 p-3 pb-20">{children}</main>
-                      <div className="pb-20">
+                    {/* OPRAVA 2: Odstránené min-h-dvh z mobilného obalu, pridaný čistý flex-1 */}
+                    <div className="lg:hidden flex-1 flex flex-col">
+                      <main className="flex-1 p-3 pb-24">{children}</main>
+                      <div className="pb-28">
                         <AppFooter />
                       </div>
                     </div>
                   </div>
-
-                  <MobileBottomBar />
                 </div>
               </div>
+              
+              {/* OPRAVA 3: Bottom Bar je úplne na root úrovni, mimo akéhokoľvek relative obalu */}
+              <MobileBottomBar />
+
               </PerformanceDataProvider>
             </RecoveryDataProvider>
           </ActivityDataProvider>
