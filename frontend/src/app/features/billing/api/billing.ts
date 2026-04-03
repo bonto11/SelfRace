@@ -1,37 +1,16 @@
 // src/app/features/billing/api/billing.ts
 
 import { callBackend } from "@/app/shared/utils/callBackend";
-
 import type {
   CancelPlannedResponse,
   AppSubscriptionTier,
   HistoryResponse,
   ListTiersResponse,
+  AppSubscriptionStatus,
   AppUserSubscription,
   StatusResponse,
   SetTierResponse,
-  // Naimportujeme tvoj originálny typ a dáme mu alias
-  AppSubscriptionStatus as BaseAppSubscriptionStatus,
 } from "@/app/features/billing/types/billing";
-
-export type TokenMetrics = {
-  input: number;
-  output: number;
-  total?: number;
-};
-
-export type AiQuotaStatus = {
-  limits: TokenMetrics;
-  usage: TokenMetrics;
-  remaining: TokenMetrics;
-  is_over: boolean;
-  reset_at: string | null;
-};
-
-// Vytvoríme finálny typ tak, že zlúčime tvoj originál (s user_id atď.) a naše ai_quota
-export type AppSubscriptionStatus = BaseAppSubscriptionStatus & {
-  ai_quota?: AiQuotaStatus;
-};
 
 /* ---------- STRIPE API helpers ---------- */
 
@@ -135,7 +114,7 @@ export async function apiGetAppSubscriptionStatus(
       throw new Error("api.common.fetchFailed");
     }
 
-    return (json.status as AppSubscriptionStatus) ?? null;
+    return json.status ?? null;
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
     throw new Error("api.common.fetchFailed");
