@@ -71,8 +71,8 @@ export default function BillingStatusCard({
 
   return (
     <div className="rounded-xl border-2 p-5 space-y-4 shadow-sm transition-all" style={{ borderColor: appColors.brandPrimary, background: appColors.surfaceCard }}>
-      <div className="flex flex-wrap gap-6 items-start justify-between">
-        <div>
+      <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+        <div className="flex-shrink-0">
           <div className="text-sm font-medium opacity-70 mb-1">
             {t("subscription.statusCard.tierPrefix")}
           </div>
@@ -108,12 +108,9 @@ export default function BillingStatusCard({
           </div>
         </div>
 
-        <div className="w-full max-w-[320px]">
-           <BillingUsageBar 
-             limitTokens={status?.ai_quota?.monthly_limit_tokens ?? undefined} 
-             usedTokens={status?.ai_quota?.used_tokens_this_month ?? undefined}
-             resetAt={null} 
-           />
+        {/* TU SA POSIELA CELÝ OBJEKT ai_quota */}
+        <div className="w-full lg:max-w-[400px] mt-2 lg:mt-0">
+           <BillingUsageBar aiQuota={status?.ai_quota} />
         </div>
       </div>
 
