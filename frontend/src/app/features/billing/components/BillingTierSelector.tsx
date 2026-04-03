@@ -38,117 +38,134 @@ export default function BillingTierSelector({
     );
   }
 
-  const getTierColor = (code: string) => {
-    switch (code) {
-      case "family": return appColors.brandFamily;
-      case "pro": return appColors.brandPro;
-      case "classic": return appColors.brandClassic;
-      default: return appColors.brandFree;
+  // Definovanie farieb pre jednotlivé plány (fallback na hex, ak by chýbali v appColors)
+  const getTierTheme = (code: string) => {
+    switch (code.toLowerCase()) {
+      case "family": 
+        return { color: appColors.brandFamily || "#a855f7", bg: "rgba(168, 85, 247, 0.05)" }; // Fialová
+      case "pro": 
+        return { color: appColors.brandPro || "#eab308", bg: "rgba(234, 179, 8, 0.05)" }; // Zlatá
+      case "classic": 
+        return { color: appColors.brandClassic || "#94a3b8", bg: "rgba(148, 163, 184, 0.05)" }; // Strieborná/Šedá
+      default: 
+        return { color: appColors.brandFree || "#6b7280", bg: "rgba(107, 114, 128, 0.05)" }; // Default
     }
   };
 
-  // Helper na odhadnutie limitov podľa tier_code pre UI (kým si nepridáš stĺpce do DB)
-  const getLimitsForUI = (code: string) => {
-    if (code === "classic") return "300k IN / 50k OUT";
-    if (code === "pro") return "1M IN / 150k OUT";
-    if (code === "family") return "Neobmedzené";
-    return "Základné limity";
+  // Preklad tokenov do ľudskej reči
+  const getHumanLimits = (code: string) => {
+    switch (code.toLowerCase()) {
+      case "free":
+        return ["Základný plán", "Bez hĺbkových AI analýz"];
+      case "classic":
+        return ["Plná AI automatizácia", "~10 AI analýz tréningov / mesiac"];
+      case "pro":
+        return ["Nekonečné preplánovanie", "Neobmedzené AI analýzy tréningov"];
+      case "family":
+        return ["Pre 4 členov rodiny", "Neobmedzené AI analýzy pre všetkých"];
+      default:
+        return ["Základné funkcie"];
+    }
   };
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex flex-col gap-3">
       {tiers.map((tier) => {
         const isActive = activeTierCode === tier.code;
         const isPlannedTarget = plannedChange?.to_tier_code === tier.code;
-        const tierColor = getTierColor(tier.code);
+        const theme = getTierTheme(tier.code);
         
-        let cardStyle: React.CSSProperties = {
-          borderColor: appColors.surfaceCardBorder,
-          background: appColors.surfaceCard,
-        };
+        let borderStyle = `1px solid ${appColors.surfaceCardBorder}`;
+        let leftBorder = `4px solid ${theme.color}`;
 
         if (isActive) {
-          cardStyle = {
-            borderColor: appColors.brandPrimary,
-            background: appColors.surfaceCardHover,
-            boxShadow: `0 0 15px -3px ${appColors.brandPrimary}20`,
-          };
+          borderStyle = `1px solid ${appColors.brandPrimary}`;
+          leftBorder = `4px solid ${appColors.brandPrimary}`;
         } else if (isPlannedTarget) {
-          cardStyle = {
-            borderColor: appColors.statusWarning,
-            borderStyle: "dashed",
-            background: appColors.surfaceCard,
-          };
+          borderStyle = `1px dashed ${appColors.statusWarning}`;
+          leftBorder = `4px solid ${appColors.statusWarning}`;
         }
 
         const tierName = tier.name || tier.code.toUpperCase();
         
+        // Nastavenie tlačidla
         let btnText = "";
-        let btnVariant: "primary" | "danger" = "primary";
+        let btnVariant: "primary" | "danger" | "ghost" | "outline" = "outline";
         let btnDisabled = isBusy;
 
         if (isActive) {
           if (plannedChange) {
-            btnText = t("subscription.tiers.btnCurrentTemp");
+            btnText = t("subscription.tiers.btnCurrentTemp" as any) || "Aktuálny (Dočasne)";
             btnDisabled = true;
+            btnVariant = "ghost";
           } else if (tier.code === "free") {
-            btnText = t("subscription.tiers.btnBasic");
+            btnText = t("subscription.tiers.btnBasic" as any) || "Základný";
             btnDisabled = true;
+            btnVariant = "ghost";
           } else {
-            btnText = t("subscription.tiers.btnManage");
+            btnText = t("subscription.tiers.btnManage" as any) || "Spravovať";
+            btnVariant = "primary";
           }
         } else if (isPlannedTarget) {
-          btnText = t("subscription.tiers.btnPlanned");
+          btnText = t("subscription.tiers.btnPlanned" as any) || "Naplánované";
           btnDisabled = true;
+          btnVariant = "ghost";
         } else {
           if (tier.code === "free") {
-            btnText = t("subscription.tiers.btnCancel");
+            btnText = t("subscription.tiers.btnCancel" as any) || "Zrušiť predplatné";
             btnVariant = "danger";
           } else {
-            btnText = t("subscription.tiers.btnActivate").replace("{{tier}}", tierName);
+            btnText = t("subscription.tiers.btnActivate" as any)?.replace("{{tier}}", tierName) || "Aktivovať";
+            btnVariant = "primary";
           }
         }
 
         return (
-          <div key={tier.code} className="card transition-all rounded-xl border-2" style={cardStyle}>
-            <div className="card-body p-6 gap-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="card-title text-xl flex items-center gap-2" style={{ color: isActive ? tierColor : appColors.textPrimary }}>
-                    {tierName}
-                    {isActive && !plannedChange && (
-                      <span className="text-sm font-normal opacity-80 flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        {t("common.set")}
-                      </span>
-                    )}
-                  </h3>
-                  
-                  {/* NOVÝ ZÁZNAM PRE LIMITY */}
-                  <div className="text-xs opacity-60 uppercase tracking-widest mt-1 font-semibold">
-                    {getLimitsForUI(tier.code)}
-                  </div>
-                  
-                </div>
+          <div 
+            key={tier.code} 
+            className="flex items-center justify-between p-3 sm:p-4 rounded-xl transition-all"
+            style={{ 
+              border: borderStyle,
+              borderLeft: leftBorder,
+              background: isActive ? appColors.surfaceCardHover : theme.bg,
+              boxShadow: isActive ? `0 0 10px -3px ${appColors.brandPrimary}20` : 'none',
+            }}
+          >
+            {/* Ľavá strana: Názov a Limity */}
+            <div className="flex flex-col gap-1 pr-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold" style={{ color: isActive ? appColors.brandPrimary : theme.color }}>
+                  {tierName}
+                </h3>
+                {isActive && !plannedChange && (
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    {t("common.set" as any) || "Aktívny"}
+                  </span>
+                )}
               </div>
+              
+              <div className="text-xs sm:text-sm opacity-70 leading-snug flex flex-col gap-0.5" style={{ color: appColors.textPrimary }}>
+                {getHumanLimits(tier.code).map((limit, idx) => (
+                  <span key={idx}>• {limit}</span>
+                ))}
+              </div>
+            </div>
 
-              <div className="text-sm opacity-80 leading-relaxed min-h-[48px]">
-                {tier.description}
-              </div>
-
-              <div className="card-actions justify-end mt-4">
-                <Button
-                  variant={btnVariant}
-                  disabled={btnDisabled}
-                  onClick={() => onSetTier(tier.code)}
-                  className="w-full sm:w-auto"
-                >
-                  {isBusy && !isActive && <span className="loading loading-spinner loading-xs mr-2"></span>}
-                  {btnText}
-                </Button>
-              </div>
+            {/* Pravá strana: Tlačidlo */}
+            <div className="flex-shrink-0">
+              <Button
+                variant={btnVariant}
+                disabled={btnDisabled}
+                onClick={() => onSetTier(tier.code)}
+                className="btn-sm min-w-[90px]"
+                style={{
+                  borderColor: btnVariant === "outline" ? theme.color : undefined,
+                  color: btnVariant === "outline" ? theme.color : undefined,
+                }}
+              >
+                {isBusy && !isActive && <span className="loading loading-spinner loading-xs mr-2"></span>}
+                {btnText}
+              </Button>
             </div>
           </div>
         );
