@@ -1,4 +1,3 @@
-// src/features/billing/components/BillingUsageBar.tsx
 "use client";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -6,8 +5,8 @@ import { useT } from "@/app/shared/i18n/useT";
 import type { BillingUsageBarProps } from "@/app/features/billing/types/billing";
 
 function pickColor(pct: number) {
-  if (pct >= 90) return appColors.statusError;
-  if (pct >= 75) return appColors.statusWarning;
+  if (pct >= 90) return appColors.statusError || "#ef4444";
+  if (pct >= 75) return appColors.statusWarning || "#f59e0b";
   return appColors.brandPrimary; 
 }
 
@@ -16,81 +15,48 @@ export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
 
   if (!aiQuota || !aiQuota.limits) {
     return (
-      <div className="text-[11px] mt-1 opacity-50 italic">
-        {/* Tu vieme, že tento kľúč existuje */}
-        {t("subscription.usage.noLimitDefined" as any)}
+      <div className="text-[10px] opacity-50 italic text-center sm:text-right">
+        {t("subscription.usage.noLimitDefined" as any) || "Limity nie sú definované"}
       </div>
     );
   }
 
-  const { limits, usage, reset_at } = aiQuota;
+  const { limits, usage } = aiQuota;
 
-  // Bezpečnostná poistka proti nekonečným (VIP) limitom
   const isVipInput = limits.input > 10_000_000;
   const isVipOutput = limits.output > 2_000_000;
 
-  // Výpočty pre INPUT
   const inputUsed = Math.max(0, usage.input ?? 0);
   const inputLimit = Math.max(0, limits.input ?? 0);
   const inputPct = inputLimit > 0 && !isVipInput ? Math.min(100, Math.round((inputUsed / inputLimit) * 100)) : 0;
 
-  // Výpočty pre OUTPUT
   const outputUsed = Math.max(0, usage.output ?? 0);
   const outputLimit = Math.max(0, limits.output ?? 0);
   const outputPct = outputLimit > 0 && !isVipOutput ? Math.min(100, Math.round((outputUsed / outputLimit) * 100)) : 0;
 
   return (
-    <div className="w-full flex flex-col gap-4">
-      
-      {/* 1. BAR: INPUT (Analýza a čítanie) */}
+    <div className="w-full flex flex-col gap-2">
+      {/* INPUT */}
       <div>
-        <div className="flex justify-between items-end mb-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1" style={{ color: appColors.textPrimary }}>
-            {/* Oklamanie strict typingu kým kľúč nepridáš do locales */}
-            {t("subscription.usage.inputLabel" as any) || "Analýza Dát (Input)"}
-          </span>
-
-          <span className="text-[10px] font-mono opacity-60" style={{ color: appColors.textMuted }}>
-            {inputUsed.toLocaleString("sk-SK")} / {isVipInput ? "∞" : inputLimit.toLocaleString("sk-SK")}
-          </span>
+        <div className="flex justify-between items-end mb-0.5">
+          <span className="text-[9px] font-bold uppercase opacity-60">Analýza dát</span>
+          <span className="text-[9px] font-mono opacity-50">{isVipInput ? "∞" : `${inputPct}%`}</span>
         </div>
-        
-        <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: appColors.buttonGhostBgHover }}>
-          <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${isVipInput ? 100 : inputPct}%`, background: pickColor(inputPct) }}
-          />
+        <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${isVipInput ? 100 : inputPct}%`, background: pickColor(inputPct) }} />
         </div>
       </div>
 
-      {/* 2. BAR: OUTPUT (Generovanie) */}
+      {/* OUTPUT */}
       <div>
-        <div className="flex justify-between items-end mb-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1" style={{ color: appColors.textPrimary }}>
-             {/* Oklamanie strict typingu kým kľúč nepridáš do locales */}
-             {t("subscription.usage.outputLabel" as any) || "Tvorba Plánov (Output)"}
-          </span>
-
-          <span className="text-[10px] font-mono opacity-60" style={{ color: appColors.textMuted }}>
-            {outputUsed.toLocaleString("sk-SK")} / {isVipOutput ? "∞" : outputLimit.toLocaleString("sk-SK")}
-          </span>
+        <div className="flex justify-between items-end mb-0.5">
+          <span className="text-[9px] font-bold uppercase opacity-60">Tvorba plánov</span>
+          <span className="text-[9px] font-mono opacity-50">{isVipOutput ? "∞" : `${outputPct}%`}</span>
         </div>
-        
-        <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: appColors.buttonGhostBgHover }}>
-          <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${isVipOutput ? 100 : outputPct}%`, background: pickColor(outputPct) }}
-          />
+        <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${isVipOutput ? 100 : outputPct}%`, background: pickColor(outputPct) }} />
         </div>
       </div>
-
-      {/* Spoločný reset footer */}
-      {reset_at && (
-        <div className="text-[10px] opacity-50 italic text-right mt-[-4px]">
-          {t("subscription.usage.reset" as any)}: {new Date(reset_at).toLocaleDateString("sk-SK")}
-        </div>
-      )}
-
     </div>
   );
 }
