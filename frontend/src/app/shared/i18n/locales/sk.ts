@@ -148,24 +148,28 @@ export const sk = {
       missingUserAuth: "Chýba používateľ – prihlás sa prosím znova.",
       checkLogin: "Skontroluj si prosím prihlásenie.",
     },
-  },pushPrompt: {
-  title: "Nezmeškaj žiadny tréning",
-  desc: "Povoľ nám posielať upozornenia a tvoj AI tréner ti dá vedieť, keď bude pripravený tvoj nový denný plán.",
-  later: "Neskôr",
-  allow: "Povoliť upozornenia"
-},
-pwaPrompt: {
-  title: "Stiahni si SelfRace",
-  androidDesc: "Pridaj si aplikáciu priamo na plochu telefónu pre rýchlejší prístup, lepšie notifikácie a plný zážitok.",
-  iosDesc: "Pridaj si aplikáciu na plochu iPhonu. Postupuj podľa tohto návodu:",
-  step1: "Klikni na ikonu <b>Zdieľať</b> dole v lište",
-  step2: "Vyber <b>Pridať na plochu</b> (Add to Home Screen)",
-  later: "Neskôr",
-  install: "Inštalovať aplikáciu",
-  close: "Rozumiem, zavrieť"
-}
-,
-
+  },
+  pushPrompt: {
+    title: "Nezmeškaj žiadny tréning",
+    desc: "Povoľ nám posielať upozornenia a tvoj AI tréner ti dá vedieť, keď bude pripravený tvoj nový denný plán.",
+    later: "Neskôr",
+    allow: "Povoliť upozornenia",
+  },
+  pwaPrompt: {
+    title: "Stiahni si SelfRace",
+    androidDesc:
+      "Pridaj si aplikáciu priamo na plochu telefónu pre rýchlejší prístup, lepšie notifikácie a plný zážitok.",
+    iosDesc:
+      "Pridaj si aplikáciu na plochu iPhonu. Postupuj podľa tohto návodu:",
+    later: "Neskôr",
+    install: "Inštalovať aplikáciu",
+    close: "Rozumiem, zavrieť",
+    imgFolder: "images_sk",
+    step1: "Klikni na ponuku (3 bodky) v spodnej lište.",
+    step2: "V zozname nájdi a vyber možnosť Zdieľať.",
+    step3: "Potiahni nižšie a zvoľ Pridať na plochu.",
+    step4: "Skontroluj názov apky a klikni na Pridať.",
+  },
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase. ",
     p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky a reagovať podľa tvojích komentárov, regenerácie a únavy.",
@@ -302,7 +306,7 @@ pwaPrompt: {
     logoff: "Odhlásiť sa",
     showTutorial: "Zobraziť sprievodcu",
   },
- share: {
+  share: {
     generating: "Generujem fotku...",
     generatingWarning: "Obrázok sa ešte generuje, sekundu strpenia.",
     title: "Môj tréning",
@@ -2035,7 +2039,8 @@ pwaPrompt: {
       notePlaceholder: "Stres, choroba, cestovanie, neskorý tréning...",
       hrvMaxLabel: "HRV (maximum)",
       sleepStartLabel: "Čas zaspatia",
-      importantMark: "Označenie metriky, ktor8 priamo ovplyvňuje tvoj tréningový plán."
+      importantMark:
+        "Označenie metriky, ktor8 priamo ovplyvňuje tvoj tréningový plán.",
     },
     trends: {
       common: {

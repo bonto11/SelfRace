@@ -157,11 +157,14 @@ pwaPrompt: {
   title: "Download SelfRace",
   androidDesc: "Add the app directly to your home screen for faster access, better notifications, and the full experience.",
   iosDesc: "Add the app to your iPhone home screen. Follow these steps:",
-  step1: "Tap the <b>Share</b> icon in the bottom bar",
-  step2: "Select <b>Add to Home Screen</b>",
   later: "Later",
   install: "Install app",
-  close: "Got it, close"
+  close: "Got it, close",
+  imgFolder : "images_en",
+  step1 : "Tap the menu (3 dots) in the bottom bar.",
+  step2 : "Find and select the Share option.",
+  step3 : "Scroll down and select Add to Home Screen.",
+  step4 : "Check the app name and tap Add."
 },
 
   landing: {
