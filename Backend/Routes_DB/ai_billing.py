@@ -103,25 +103,26 @@ def db_get_monthly_usage_tokens(
     ctx: AuthCtx,
     year: int,
     month: int,
-) -> int:
+) -> Dict[str, int]:
     """
-    Spočíta total_tokens z ai_usage_events pre daného usera
-    v danom mesiaci (UTC).
+    Spočíta input_tokens a output_tokens z ai_usage_events pre daného usera
+    v danom mesiaci (UTC). Vracia dictionary.
     """
     sb = get_sb(ctx, caller="billing.db_get_monthly_usage_tokens")
 
-    # začiatok mesiaca
     start = datetime(year, month, 1, tzinfo=timezone.utc)
-    # prvý deň ďalšieho mesiaca
     if month == 12:
         end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     else:
         end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 
+    result = {"input_tokens": 0, "output_tokens": 0}
+
     try:
+        # Zmenené z "total_tokens" na stiahnutie "input_tokens, output_tokens"
         res = (
             sb.table(TABLE_AI_USAGE_EVENTS)
-            .select("total_tokens")
+            .select("input_tokens, output_tokens")
             .eq("user_id", user_id)
             .gte("created_at", start.isoformat())
             .lt("created_at", end.isoformat())
@@ -129,13 +130,20 @@ def db_get_monthly_usage_tokens(
         )
     except Exception as e:  # noqa: BLE001
         print("[AI_BILLING][db_get_monthly_usage_tokens] error:", repr(e))
-        return 0
+        return result
 
     rows = res.data or []
-    total = 0
+    
+    total_input = 0
+    total_output = 0
     for r in rows:
         try:
-            total += int(r.get("total_tokens") or 0)
+            total_input += int(r.get("input_tokens") or 0)
+            total_output += int(r.get("output_tokens") or 0)
         except Exception:
             continue
-    return total
+            
+    result["input_tokens"] = total_input
+    result["output_tokens"] = total_output
+    
+    return result
