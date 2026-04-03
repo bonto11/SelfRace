@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from Routes_DB.ai_billing import (
     db_insert_ai_usage_event,
-    db_get_monthly_usage_tokens,  # Očakávame, že toto teraz vráti Dict!
+    db_get_monthly_usage_tokens,
 )
 from Configs.config_ai_pricing import (
     AI_MONTHLY_FREE_TOKENS,
@@ -158,28 +158,18 @@ def get_user_monthly_usage_tokens(
     ctx: AuthCtx,
 ) -> Dict[str, int]:
     """
-    Vráti presnú spotrebu za daný mesiac rozdelenú na Input, Output a Total.
-    Predpokladá sa, že db_get_monthly_usage_tokens vracia Dict.
+    Vráti len input a output spotrebu za daný mesiac.
     """
     now = datetime.now(timezone.utc)
     y = year or now.year
     m = month or now.month
     
-    # Predpoklad: db funkcia vracia napr: {"input_tokens": 15000, "output_tokens": 2000, "total_tokens": 17000}
     db_result = db_get_monthly_usage_tokens(ctx=ctx, user_id=user_id, year=y, month=m)
     
-    if isinstance(db_result, dict):
-        return {
-            "input": int(db_result.get("input_tokens") or 0),
-            "output": int(db_result.get("output_tokens") or 0),
-            "total": int(db_result.get("total_tokens") or 0),
-        }
-    
-    # Fallback, ak by DB funkcia zatiaľ vracala len číslo (int)
-    if isinstance(db_result, (int, float)):
-        return {"input": 0, "output": 0, "total": int(db_result)}
-        
-    return {"input": 0, "output": 0, "total": 0}
+    return {
+        "input": int(db_result.get("input_tokens", 0)),
+        "output": int(db_result.get("output_tokens", 0)),
+    }
 
 
 # ---------------------- quota podľa tieru --------------------
@@ -197,46 +187,36 @@ def get_user_ai_quota_status_for_current_tier(
     tier_code = str((status or {}).get("tier_code") or "free").lower()
     active_sub = (status or {}).get("active_subscription") or None
 
-    # 1. HARDCODED LIMITY PRE TIER (Podľa prepočtov z Gemini 2.5 Flash)
     limit_input = 0
     limit_output = 0
     
     if tier_code == "free":
-        # Len základ (1x analyze, 1x report, 1x weekly, 1x daily, 1x review)
         limit_input = 35_000
         limit_output = 6_000
     elif tier_code == "classic":
-        # Plná automatizácia + 10 recenzií
         limit_input = 300_000
         limit_output = 50_000
     elif tier_code == "pro":
-        # Geek mód (časté reviews)
         limit_input = 1_000_000
         limit_output = 150_000
     elif tier_code in ["family", "admin", "super_user"]:
-        # Astronomický limit (50 miliónov)
         limit_input = 50_000_000
         limit_output = 10_000_000
 
-    # Ak by nejaký tier vypadol, dáme záchranný free limit
     if limit_input == 0 or limit_output == 0:
         limit_input = 35_000
         limit_output = 6_000
 
-    # 2. ZISTENIE AKTUÁLNEJ SPOTREBY
     usage = get_user_monthly_usage_tokens(user_id=user_id, ctx=ctx)
     used_input = usage["input"]
     used_output = usage["output"]
-    used_total = usage["total"]
 
-    # 3. VÝPOČTY ZVYŠKOV
     remaining_input = max(limit_input - used_input, 0)
     remaining_output = max(limit_output - used_output, 0)
     
-    # 4. KONTROLA PREKROČENIA (Ak vyčerpá hoci len jeden limit, je Over Quota)
+    # Over quota ak vyčerpá JEDEN z limitov
     is_over = (used_input >= limit_input) or (used_output >= limit_output)
 
-    # VIP Bypass pre UI
     is_vip = tier_code in ["family", "admin", "super_user"]
 
     reset_at: Optional[str] = None
@@ -253,7 +233,6 @@ def get_user_ai_quota_status_for_current_tier(
         "usage": {
             "input": used_input,
             "output": used_output,
-            "total": used_total,
         },
         "remaining": {
             "input": remaining_input,
@@ -269,10 +248,6 @@ def is_user_over_token_quota(
     user_id: int,
     ctx: AuthCtx,
 ) -> bool:
-    """
-    Zjednodušená kontrola: Vypočíta všetky limity a vráti True, ak je niektorý vyčerpaný.
-    Odstránený ručný `limit_tokens` argument, pretože teraz máme dva oddelené limity.
-    """
     quota = get_user_ai_quota_status_for_current_tier(
         user_id=user_id,
         ctx=ctx,
