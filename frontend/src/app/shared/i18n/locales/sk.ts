@@ -148,7 +148,23 @@ export const sk = {
       missingUserAuth: "Chýba používateľ – prihlás sa prosím znova.",
       checkLogin: "Skontroluj si prosím prihlásenie.",
     },
-  },
+  },pushPrompt: {
+  title: "Nezmeškaj žiadny tréning",
+  desc: "Povoľ nám posielať upozornenia a tvoj AI tréner ti dá vedieť, keď bude pripravený tvoj nový denný plán.",
+  later: "Neskôr",
+  allow: "Povoliť upozornenia"
+},
+pwaPrompt: {
+  title: "Stiahni si SelfRace",
+  androidDesc: "Pridaj si aplikáciu priamo na plochu telefónu pre rýchlejší prístup, lepšie notifikácie a plný zážitok.",
+  iosDesc: "Pridaj si aplikáciu na plochu iPhonu. Postupuj podľa tohto návodu:",
+  step1: "Klikni na ikonu <b>Zdieľať</b> dole v lište",
+  step2: "Vyber <b>Pridať na plochu</b> (Add to Home Screen)",
+  later: "Neskôr",
+  install: "Inštalovať aplikáciu",
+  close: "Rozumiem, zavrieť"
+}
+,
 
   landing: {
     h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase. ",
