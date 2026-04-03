@@ -1,4 +1,5 @@
-export type CancelPlannedResponse = SetTierResponse; // rovnaký shape
+export type CancelPlannedResponse = SetTierResponse; 
+
 export type AppSubscriptionTier = {
   id: number;
   code: string; // "free", "classic", "pro"
@@ -32,13 +33,21 @@ export type AppSubscriptionScheduledChange = {
   effective_from: string | null;
 };
 
+// --- NOVÉ TYPY PRE ROZDELENÉ TOKENY ---
+export type TokenMetrics = {
+  input: number;
+  output: number;
+  total?: number;
+};
+
 export type AppSubscriptionAiQuota = {
-  monthly_limit_tokens: number | null;
-  used_tokens_this_month: number | null;
-  remaining_tokens: number | null;
-  is_over: boolean | null;
+  limits: TokenMetrics;
+  usage: TokenMetrics;
+  remaining: TokenMetrics;
+  is_over: boolean;
   reset_at: string | null;
 };
+// --------------------------------------
 
 export type AppSubscriptionStatus = {
   user_id: number;
@@ -46,7 +55,7 @@ export type AppSubscriptionStatus = {
   active_subscription: AppUserSubscription | null;
   tiers: AppSubscriptionTier[];
   scheduled_change?: AppSubscriptionScheduledChange | null;
-  ai_quota?: AppSubscriptionAiQuota | null; // <-- usage info pre progress bar
+  ai_quota?: AppSubscriptionAiQuota | null; // <-- usage info pre progress bary
 };
 
 export type ListTiersResponse = {
@@ -104,8 +113,7 @@ export type BillingTierSelectorProps = {
   onSetTier: (tierCode: string) => void | Promise<void>;
 };
 
+// UPRAVENÉ PROPS PRE USAGE BAR
 export type BillingUsageBarProps = {
-  limitTokens?: number;
-  usedTokens?: number;
-  resetAt?: string | null;
+  aiQuota?: AppSubscriptionAiQuota | null;
 };
