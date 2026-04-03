@@ -88,9 +88,8 @@ export default function BillingTierSelector({
 
         const tierName = tier.name || tier.code.toUpperCase();
         
-        // Nastavenie tlačidla (presný strict typing)
         let btnText = "";
-        let btnVariant: "primary" | "danger" | "ghost" = "primary";
+        let btnVariant: "primary" | "danger" | "ghost" | "outline" | "secondary" = "outline";
         let btnDisabled = isBusy;
 
         if (isActive) {
@@ -119,6 +118,10 @@ export default function BillingTierSelector({
             btnVariant = "primary";
           }
         }
+
+        // --- HACK PRE TYPESCRIPT ERROR ---
+        // Naše `Button` nepodporuje prop `variant="outline"`, tak to obídeme cez `secondary` a manuálne CSS
+        const actualVariant = btnVariant === "outline" ? "secondary" : btnVariant;
 
         return (
           <div 
@@ -154,10 +157,16 @@ export default function BillingTierSelector({
             {/* Pravá strana: Tlačidlo */}
             <div className="flex-shrink-0">
               <Button
-                variant={btnVariant}
+                variant={actualVariant as any} // Pretypovanie pre istotu
                 disabled={btnDisabled}
                 onClick={() => onSetTier(tier.code)}
                 className="btn-sm min-w-[90px]"
+                style={{
+                  // Manuálny "outline" look, ak to bola pôvodná intencia
+                  borderColor: btnVariant === "outline" ? theme.color : undefined,
+                  color: btnVariant === "outline" ? theme.color : undefined,
+                  backgroundColor: btnVariant === "outline" ? "transparent" : undefined
+                }}
               >
                 {isBusy && !isActive && <span className="loading loading-spinner loading-xs mr-2"></span>}
                 {btnText}
