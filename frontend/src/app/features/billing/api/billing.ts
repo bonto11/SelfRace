@@ -2,6 +2,18 @@
 
 import { callBackend } from "@/app/shared/utils/callBackend";
 
+import type {
+  CancelPlannedResponse,
+  AppSubscriptionTier,
+  HistoryResponse,
+  ListTiersResponse,
+  AppUserSubscription,
+  StatusResponse,
+  SetTierResponse,
+  // Naimportujeme tvoj originálny typ a dáme mu alias
+  AppSubscriptionStatus as BaseAppSubscriptionStatus,
+} from "@/app/features/billing/types/billing";
+
 export type TokenMetrics = {
   input: number;
   output: number;
@@ -16,25 +28,10 @@ export type AiQuotaStatus = {
   reset_at: string | null;
 };
 
-// OPRAVA: Pridané otázniky (?), aby TS vedel, že tieto polia nemusia vždy existovať,
-// presne tak, ako to máš v originálnom types/billing.ts
-export interface AppSubscriptionStatus {
-  tier_code?: string;
-  scheduled_change?: any;
-  active_subscription?: any;
-  tiers?: any[];
+// Vytvoríme finálny typ tak, že zlúčime tvoj originál (s user_id atď.) a naše ai_quota
+export type AppSubscriptionStatus = BaseAppSubscriptionStatus & {
   ai_quota?: AiQuotaStatus;
-}
-
-import type {
-  CancelPlannedResponse,
-  AppSubscriptionTier,
-  HistoryResponse,
-  ListTiersResponse,
-  AppUserSubscription,
-  StatusResponse,
-  SetTierResponse,
-} from "@/app/features/billing/types/billing";
+};
 
 /* ---------- STRIPE API helpers ---------- */
 
@@ -138,7 +135,6 @@ export async function apiGetAppSubscriptionStatus(
       throw new Error("api.common.fetchFailed");
     }
 
-    // Tu už TS nebude protestovať
     return (json.status as AppSubscriptionStatus) ?? null;
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
