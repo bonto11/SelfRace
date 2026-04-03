@@ -1,12 +1,36 @@
 // src/app/features/billing/api/billing.ts
 
 import { callBackend } from "@/app/shared/utils/callBackend";
+
+// POZNÁMKA PRE TEBA: Ak máš tieto typy v inom súbore (types/billing.ts),
+// musíš ich tam upraviť na túto štruktúru:
+export type TokenMetrics = {
+  input: number;
+  output: number;
+  total?: number; // total už nevyužívame, ale API ho vracia
+};
+
+export type AiQuotaStatus = {
+  limits: TokenMetrics;
+  usage: TokenMetrics;
+  remaining: TokenMetrics;
+  is_over: boolean;
+  reset_at: string | null;
+};
+
+export interface AppSubscriptionStatus {
+  tier_code: string;
+  scheduled_change: any;
+  active_subscription: any;
+  tiers: any[];
+  ai_quota?: AiQuotaStatus; // <--- TOTO JE NOVÉ
+}
+
 import type {
   CancelPlannedResponse,
   AppSubscriptionTier,
   HistoryResponse,
   ListTiersResponse,
-  AppSubscriptionStatus,
   AppUserSubscription,
   StatusResponse,
   SetTierResponse,
@@ -147,9 +171,6 @@ export async function apiGetAppSubscriptionHistory(
   }
 }
 
-/**
- * DEV helper – manuálne prepnutie tieru
- */
 export async function apiSetAppSubscriptionTierManual(
   userId: number,
   tierCode: string,
@@ -178,9 +199,6 @@ export async function apiSetAppSubscriptionTierManual(
   }
 }
 
-/**
- * DEV helper - zrušenie zmeny.
- */
 export async function apiCancelPlannedSubscriptionChange(
   userId: number,
 ): Promise<CancelPlannedResponse> {
