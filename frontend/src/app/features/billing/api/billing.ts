@@ -2,12 +2,10 @@
 
 import { callBackend } from "@/app/shared/utils/callBackend";
 
-// POZNÁMKA PRE TEBA: Ak máš tieto typy v inom súbore (types/billing.ts),
-// musíš ich tam upraviť na túto štruktúru:
 export type TokenMetrics = {
   input: number;
   output: number;
-  total?: number; // total už nevyužívame, ale API ho vracia
+  total?: number;
 };
 
 export type AiQuotaStatus = {
@@ -18,12 +16,14 @@ export type AiQuotaStatus = {
   reset_at: string | null;
 };
 
+// OPRAVA: Pridané otázniky (?), aby TS vedel, že tieto polia nemusia vždy existovať,
+// presne tak, ako to máš v originálnom types/billing.ts
 export interface AppSubscriptionStatus {
-  tier_code: string;
-  scheduled_change: any;
-  active_subscription: any;
-  tiers: any[];
-  ai_quota?: AiQuotaStatus; // <--- TOTO JE NOVÉ
+  tier_code?: string;
+  scheduled_change?: any;
+  active_subscription?: any;
+  tiers?: any[];
+  ai_quota?: AiQuotaStatus;
 }
 
 import type {
@@ -138,7 +138,8 @@ export async function apiGetAppSubscriptionStatus(
       throw new Error("api.common.fetchFailed");
     }
 
-    return json.status ?? null;
+    // Tu už TS nebude protestovať
+    return (json.status as AppSubscriptionStatus) ?? null;
   } catch (err: any) {
     console.error("[Billing][apiGetAppSubscriptionStatus] ERROR", err);
     throw new Error("api.common.fetchFailed");
