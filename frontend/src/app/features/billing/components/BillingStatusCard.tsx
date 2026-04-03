@@ -108,9 +108,9 @@ export default function BillingStatusCard({
           </div>
         </div>
 
-        {/* TU SA POSIELA CELÝ OBJEKT ai_quota */}
+        {/* OPRAVA: Pridané ?? undefined, aby sme vyhoveli TypeScriptu */}
         <div className="w-full lg:max-w-[400px] mt-2 lg:mt-0">
-           <BillingUsageBar aiQuota={status?.ai_quota} />
+           <BillingUsageBar aiQuota={status?.ai_quota ?? undefined} />
         </div>
       </div>
 
