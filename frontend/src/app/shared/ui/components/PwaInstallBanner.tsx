@@ -113,7 +113,7 @@ export default function PwaInstallBanner({ userId }: Props) {
     },
     {
       text: t("pwaPrompt.step2") as string,
-      img: `/${imgFolder}/pwa_tutorial/step2.jpg`,
+      img: `/${imgFolder}/pwa_tutorial/step2.png`,
     },
     {
       text: t("pwaPrompt.step3") as string,
