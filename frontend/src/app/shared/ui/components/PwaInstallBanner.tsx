@@ -103,25 +103,25 @@ export default function PwaInstallBanner({ userId }: Props) {
 
   if (!showPrompt || (!isIos && !deferredPrompt)) return null;
 
-  // Dynamická zložka podľa jazyka (fallback na images_sk)
+  // Dynamická zložka podľa jazyka
   const imgFolder = t("pwaPrompt.imgFolder") as string;
 
   const iosSteps = [
     {
       text: t("pwaPrompt.step1") as string,
-      img: `/pwa_tutorial/${imgFolder}/step1.png`,
+      img: `/${imgFolder}/pwa_tutorial/step1.png`,
     },
     {
       text: t("pwaPrompt.step2") as string,
-      img: `/pwa_tutorial/${imgFolder}/step2.jpg`,
+      img: `/${imgFolder}/pwa_tutorial/step2.jpg`,
     },
     {
       text: t("pwaPrompt.step3") as string,
-      img: `/pwa_tutorial/${imgFolder}/step3.png`,
+      img: `/${imgFolder}/pwa_tutorial/step3.png`,
     },
     {
       text: t("pwaPrompt.step4") as string,
-      img: `/pwa_tutorial/${imgFolder}/step4.png`,
+      img: `/${imgFolder}/pwa_tutorial/step4.png`,
     },
   ];
 
