@@ -47,6 +47,14 @@ export default function BillingTierSelector({
     }
   };
 
+  // Helper na odhadnutie limitov podľa tier_code pre UI (kým si nepridáš stĺpce do DB)
+  const getLimitsForUI = (code: string) => {
+    if (code === "classic") return "300k IN / 50k OUT";
+    if (code === "pro") return "1M IN / 150k OUT";
+    if (code === "family") return "Neobmedzené";
+    return "Základné limity";
+  };
+
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {tiers.map((tier) => {
@@ -117,11 +125,12 @@ export default function BillingTierSelector({
                       </span>
                     )}
                   </h3>
+                  
+                  {/* NOVÝ ZÁZNAM PRE LIMITY */}
                   <div className="text-xs opacity-60 uppercase tracking-widest mt-1 font-semibold">
-                    {tier.ai_monthly_tokens_limit > 0
-                      ? `${(tier.ai_monthly_tokens_limit / 1000).toFixed(0)}k ${t("subscription.tiers.tokensPerMonth")}`
-                      : t("subscription.tiers.limitBasic")}
+                    {getLimitsForUI(tier.code)}
                   </div>
+                  
                 </div>
               </div>
 
