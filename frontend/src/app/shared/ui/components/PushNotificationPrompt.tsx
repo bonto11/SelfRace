@@ -21,22 +21,19 @@ export default function PushNotificationPrompt({ userId }: Props) {
 
     const checkAndShow = async () => {
       try {
-        // 1. Kontrola či prehliadač vôbec podporuje notifikácie
-        if (!("Notification" in window)) return;
+        const isStandalone = 
+          window.matchMedia("(display-mode: standalone)").matches || 
+          (window.navigator as any).standalone === true;
         
-        // Ak už užívateľ niekedy dal "Block" alebo "Allow", systém sa nás už nebude pýtať.
+        if (!isStandalone) return;
+        if (!("Notification" in window)) return;
         if (Notification.permission !== "default") return;
 
-        // 2. Kontrola v databáze
         const currentSettings = (await apiFetchUserPref(userId, "user.settings")) || {};
         
-        // Ak ešte nevidel Onboarding, nechceme ho bombardovať.
         if (!currentSettings.onboarding_seen) return;
-        
-        // Ak už tento náš vlastný prompt niekedy videl a dal "Neskôr" (zapísali sme si to)
         if (currentSettings.push_prompt_dismissed) return;
 
-        // 3. Počkáme 3 sekundy, aby mu to nevybehlo agresívne hneď po zobrazení obrazovky
         setTimeout(() => {
           if (alive) setShowPrompt(true);
         }, 3000);
@@ -53,15 +50,10 @@ export default function PushNotificationPrompt({ userId }: Props) {
   }, [userId]);
 
   const handleAllow = async () => {
-    // 1. Zavoláme natívny popup prehliadača (teraz to prejde, lebo to bolo vyvolané kliknutím!)
     const permission = await Notification.requestPermission();
-    
     if (permission === "granted") {
       console.log("Notifikácie povolené! Tu neskôr zaregistrujeme service workera a token.");
-      // TODO: Register Service Worker & send push token to backend
     }
-    
-    // 2. Zapíšeme do DB, že sme sa ho už pýtali, aby sme ho s tým neotravovali znova
     markAsDismissed();
   };
 
@@ -80,47 +72,47 @@ export default function PushNotificationPrompt({ userId }: Props) {
       };
       await apiUpsertUserPref(userId, "user.settings", updatedSettings);
     } catch (e) {
-      console.error("Nepodarilo sa uložiť status push_prompt_dismissed", e);
+      console.error("Nepodarilo sa uložiť status", e);
     }
   };
 
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+    // ZMENA: bg-black/85 a silnejší blur pre menšiu priehľadnosť
+    <div className="fixed inset-0 z-[99998] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
         className="w-full max-w-sm bg-base-100 rounded-2xl shadow-2xl p-6 flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
         <div className="flex items-center justify-center w-12 h-12 rounded-full mb-4" style={{ backgroundColor: `${appColors.brandPrimary}20`, color: appColors.brandPrimary }}>
-          {/* Ikonka zvončeka (Heroicons/Lucide) */}
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         </div>
         
         <h3 className="text-xl font-bold text-white mb-2">
-          {/* Tu môžeš použiť t(), zatiaľ dávam hardcoded pre ukážku */}
-          Nezmeškaj žiadny tréning
+          {t("pushPrompt.title") as string}
         </h3>
         
         <p className="text-sm opacity-80 mb-6 leading-relaxed">
-          Povoľ nám posielať upozornenia a tvoj AI tréner ti dá vedieť, keď bude pripravený tvoj nový denný plán.
+          {t("pushPrompt.desc") as string}
         </p>
 
         <div className="flex gap-3 justify-end mt-auto">
-          <button
+          <Button
             onClick={handleDismiss}
-            className="btn btn-sm btn-ghost text-gray-400 hover:text-white"
+            variant="ghost"
+            className="btn-sm text-gray-400 hover:text-white"
           >
-            Neskôr
-          </button>
+            {t("pushPrompt.later") as string}
+          </Button>
           <Button
             onClick={handleAllow}
             variant="primary"
             className="btn-sm"
           >
-            Povoliť upozornenia
+            {t("pushPrompt.allow") as string}
           </Button>
         </div>
       </div>
