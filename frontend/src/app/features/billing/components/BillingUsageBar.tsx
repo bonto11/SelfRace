@@ -3,23 +3,7 @@
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-
-type TokenMetrics = {
-  input: number;
-  output: number;
-};
-
-type AiQuotaStatus = {
-  limits: TokenMetrics;
-  usage: TokenMetrics;
-  remaining: TokenMetrics;
-  is_over: boolean;
-  reset_at: string | null;
-};
-
-type Props = {
-  aiQuota?: AiQuotaStatus;
-};
+import type { BillingUsageBarProps } from "@/app/features/billing/types/billing";
 
 function pickColor(pct: number) {
   if (pct >= 90) return appColors.statusError;
@@ -27,7 +11,7 @@ function pickColor(pct: number) {
   return appColors.brandPrimary; 
 }
 
-export default function BillingUsageBar({ aiQuota }: Props) {
+export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
   const t = useT();
 
   if (!aiQuota || !aiQuota.limits) {
@@ -61,7 +45,6 @@ export default function BillingUsageBar({ aiQuota }: Props) {
       <div>
         <div className="flex justify-between items-end mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1" style={{ color: appColors.textPrimary }}>
-            {/* Tieto label by si mal pridať do SK prekladov, nateraz fallback */}
             {t("subscription.usage.inputLabel") || "Analýza Dát (Input)"}
           </span>
 
