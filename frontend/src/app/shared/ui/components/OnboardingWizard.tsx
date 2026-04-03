@@ -198,11 +198,12 @@ export default function OnboardingWizard({
   const isLastTab = activeTab === CHAPTERS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md transition-opacity">
       <div
         className="w-full max-w-md bg-base-100 rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all"
         style={{ border: `1px solid ${appColors.surfaceCardBorder}` }}
       >
+        {/* Taby - Krok za krokom */}
         <div
           className="flex overflow-x-auto border-b hide-scrollbar"
           style={{ borderColor: appColors.surfaceCardBorder }}
@@ -228,6 +229,7 @@ export default function OnboardingWizard({
           })}
         </div>
 
+        {/* Hlavný obsah kroku */}
         <div className="p-6 sm:p-8 min-h-[260px] flex flex-col justify-start relative">
           <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white">
             {currentChapter.title}
@@ -237,39 +239,29 @@ export default function OnboardingWizard({
           </div>
         </div>
 
+        {/* Ovládací panel (Footer) */}
         <div
           className="p-4 sm:p-6 bg-base-200/30 flex justify-between items-center"
           style={{ borderTop: `1px solid ${appColors.surfaceCardBorder}` }}
         >
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex gap-2">
-              {activeTab > 0 && (
-                <button
-                  onClick={() => setActiveTab((prev) => prev - 1)}
-                  className="btn btn-sm btn-ghost text-xs"
-                >
-                  {t("onboarding.back")}
-                </button>
-              )}
-              {!isLastTab && (
-                <button
-                  onClick={() => setActiveTab((prev) => prev + 1)}
-                  className="btn btn-sm btn-outline text-xs"
-                  style={{
-                    borderColor: appColors.brandPrimary,
-                    color: appColors.brandPrimary,
-                  }}
-                >
-                  {t("onboarding.next")}
-                </button>
-              )}
-            </div>
-
-            {isLastTab && (
-              <div className="hidden sm:block">
+          {/* ĽAVÁ STRANA: Nenápadné Preskočiť (zobrazí sa len ak NIE SME na poslednom tabe) */}
+          <div className="flex-shrink-0">
+            {!isLastTab && (
+              <Button
+                onClick={handleDismiss}
+                variant="ghost"
+                className="btn-sm text-gray-500 hover:text-gray-300 font-normal px-2"
+              >
+                {t("onboarding.skip")}
+              </Button>
+            )}
+            
+            {/* Ak sme na poslednom tabe, naľavo zobrazíme checkbox (iba pre desktop) */}
+             {isLastTab && (
+              <div className="hidden sm:block mt-1">
                 <Checkbox
                   label={
-                    <span className="text-xs font-medium">
+                    <span className="text-xs font-medium text-gray-400">
                       {t("onboarding.dontShowAgain")}
                     </span>
                   }
@@ -280,20 +272,44 @@ export default function OnboardingWizard({
             )}
           </div>
 
-          <Button
-            onClick={handleDismiss}
-            variant="primary"
-            className="btn-sm sm:btn-md shrink-0"
-          >
-            {isLastTab ? t("onboarding.finish") : t("onboarding.skip")}
-          </Button>
+          {/* PRAVÁ STRANA: Hlavná navigácia (Späť, Ďalej, Dokončiť) */}
+          <div className="flex items-center gap-2">
+             {activeTab > 0 && (
+                <Button
+                  onClick={() => setActiveTab((prev) => prev - 1)}
+                  variant="ghost"
+                  className="btn-sm"
+                >
+                  {t("onboarding.back")}
+                </Button>
+              )}
+
+              {!isLastTab ? (
+                <Button
+                  onClick={() => setActiveTab((prev) => prev + 1)}
+                  variant="primary"
+                  className="btn-sm sm:btn-md"
+                >
+                  {t("onboarding.next")}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleDismiss}
+                  variant="primary"
+                  className="btn-sm sm:btn-md"
+                >
+                   {t("onboarding.finish")}
+                </Button>
+              )}
+          </div>
         </div>
 
+        {/* Mobilný checkbox pre posledný tab (na úzkych obrazovkách je dole pod tlačidlami) */}
         {isLastTab && (
           <div className="sm:hidden px-4 pb-4 bg-base-200/30">
             <Checkbox
               label={
-                <span className="text-xs font-medium">
+                <span className="text-xs font-medium text-gray-400">
                   {t("onboarding.dontShowAgain")}
                 </span>
               }
