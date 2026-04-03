@@ -38,7 +38,7 @@ export default function BillingTierSelector({
     );
   }
 
-  // Definovanie farieb pre jednotlivé plány (fallback na hex, ak by chýbali v appColors)
+  // Definovanie farieb pre jednotlivé plány
   const getTierTheme = (code: string) => {
     switch (code.toLowerCase()) {
       case "family": 
@@ -88,9 +88,9 @@ export default function BillingTierSelector({
 
         const tierName = tier.name || tier.code.toUpperCase();
         
-        // Nastavenie tlačidla
+        // Nastavenie tlačidla (presný strict typing)
         let btnText = "";
-        let btnVariant: "primary" | "danger" | "ghost" | "outline" = "outline";
+        let btnVariant: "primary" | "danger" | "ghost" = "primary";
         let btnDisabled = isBusy;
 
         if (isActive) {
@@ -158,10 +158,6 @@ export default function BillingTierSelector({
                 disabled={btnDisabled}
                 onClick={() => onSetTier(tier.code)}
                 className="btn-sm min-w-[90px]"
-                style={{
-                  borderColor: btnVariant === "outline" ? theme.color : undefined,
-                  color: btnVariant === "outline" ? theme.color : undefined,
-                }}
               >
                 {isBusy && !isActive && <span className="loading loading-spinner loading-xs mr-2"></span>}
                 {btnText}
