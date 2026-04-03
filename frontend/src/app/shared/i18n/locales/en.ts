@@ -147,7 +147,22 @@ export const en = {
       missingUserAuth: "User missing – please log in again.",
       checkLogin: "Please check your login status.",
     },
-  },
+  },pushPrompt: {
+  title: "Never miss a workout",
+  desc: "Allow notifications so your AI coach can let you know when your new daily plan is ready.",
+  later: "Later",
+  allow: "Allow notifications"
+},
+pwaPrompt: {
+  title: "Download SelfRace",
+  androidDesc: "Add the app directly to your home screen for faster access, better notifications, and the full experience.",
+  iosDesc: "Add the app to your iPhone home screen. Follow these steps:",
+  step1: "Tap the <b>Share</b> icon in the bottom bar",
+  step2: "Select <b>Add to Home Screen</b>",
+  later: "Later",
+  install: "Install app",
+  close: "Got it, close"
+},
 
   landing: {
     h1: "Your personal coach reacting to your state in real-time.",
