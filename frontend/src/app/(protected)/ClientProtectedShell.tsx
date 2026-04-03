@@ -30,7 +30,7 @@ import { useT } from "@/app/shared/i18n/useT";
 // --- Naše UX Komponenty ---
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
-// import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner"; // <-- Predpríprava pre inštaláciu aplikácie
+import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner"; // <-- Predpríprava pre inštaláciu aplikácie
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -58,7 +58,7 @@ export default function ClientProtectedShell({
                 <>
                   <OnboardingWizard userId={userId} />
                   <PushNotificationPrompt userId={userId} />
-                  {/* <PwaInstallBanner userId={userId} /> */}
+                  <PwaInstallBanner userId={userId} />
                 </>
               )}
 
