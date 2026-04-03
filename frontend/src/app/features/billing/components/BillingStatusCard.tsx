@@ -1,12 +1,11 @@
-// src/features/billing/components/BillingStatusCard.tsx
 "use client";
 
 import React from "react";
 import { useT } from "@/app/shared/i18n/useT";
+import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import BillingUsageBar from "./BillingUsageBar";
 import Button from "@/app/shared/ui/components/Button";
-import type { BillingStatusCardProps } from "@/app/features/billing/types/billing";
 
 export default function BillingStatusCard({
   status,
@@ -21,18 +20,15 @@ export default function BillingStatusCard({
 
   if (loadingStatus) {
     return (
-      <div className="flex justify-center p-6 rounded-xl border" style={{ borderColor: appColors.surfaceCardBorder, background: appColors.surfaceCard }}>
-        <span className="loading loading-spinner text-primary"></span>
+      <div className="flex justify-center p-4 rounded-xl border" style={{ borderColor: appColors.surfaceCardBorder, background: appColors.surfaceCard }}>
+        <span className="loading loading-spinner loading-sm text-primary"></span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="alert alert-error text-sm rounded-xl">
-        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+      <div className="alert alert-error text-xs rounded-xl p-3">
         <span>{error}</span>
       </div>
     );
@@ -44,100 +40,69 @@ export default function BillingStatusCard({
 
   const getTierColor = (code: string) => {
     switch (code.toLowerCase()) {
-      case "family": return appColors.brandFamily;
-      case "pro": return appColors.brandPro;
-      case "classic": return appColors.brandClassic;
-      default: return appColors.brandFree;
+      case "family": return appColors.brandFamily || "#a855f7";
+      case "pro": return appColors.brandPro || "#eab308";
+      case "classic": return appColors.brandClassic || "#94a3b8";
+      default: return appColors.brandFree || "#6b7280";
     }
   };
 
   const activeColor = getTierColor(activeTierCode);
 
   return (
-    <div className="rounded-xl border-2 p-5 space-y-4 shadow-sm transition-all" style={{ borderColor: appColors.brandPrimary, background: appColors.surfaceCard }}>
-      <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
-        <div className="flex-shrink-0">
-          <div className="text-sm font-medium opacity-70 mb-1">
-            {t("subscription.statusCard.tierPrefix")}
+    <div className="rounded-xl border p-4 shadow-sm" style={{ borderColor: appColors.surfaceCardBorder, background: appColors.surfaceCard }}>
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        
+        {/* TIER INFO */}
+        <div className="flex-shrink-0 text-center sm:text-left w-full sm:w-auto">
+          <div className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-0.5">
+            {t("subscription.statusCard.tierPrefix" as any) || "Aktuálny plán"}
           </div>
-          <div className="text-2xl font-bold flex items-center gap-3 bg-transparent">
+          <div className="text-xl font-bold flex items-center justify-center sm:justify-start gap-2">
             <span style={{ color: activeColor }}>
               {activeTierCode.toUpperCase()}
             </span>
             
             {subStatus === "active" && !isCanceled && (
-              <span 
-                className="text-xs font-semibold px-2 py-1 rounded border tracking-wide uppercase"
-                style={{ 
-                  borderColor: appColors.brandPrimary, 
-                  color: appColors.brandPrimary,
-                  backgroundColor: "transparent"
-                }}
-              >
-                {t("subscription.statusCard.active")}
+              <span className="text-[9px] px-1.5 py-0.5 rounded border uppercase" style={{ borderColor: appColors.brandPrimary, color: appColors.brandPrimary }}>
+                {t("subscription.statusCard.active" as any) || "Aktívny"}
               </span>
             )}
             {subStatus === "active" && isCanceled && (
-              <span 
-                className="text-xs font-semibold px-2 py-1 rounded border tracking-wide uppercase"
-                style={{ 
-                  borderColor: appColors.statusWarning || "#eab308", 
-                  color: appColors.statusWarning || "#eab308",
-                  backgroundColor: "transparent"
-                }}
-              >
-                {t("subscription.statusCard.canceling")}
+              <span className="text-[9px] px-1.5 py-0.5 rounded border uppercase" style={{ borderColor: appColors.statusWarning || "#eab308", color: appColors.statusWarning || "#eab308" }}>
+                {t("subscription.statusCard.canceling" as any) || "Ruší sa"}
               </span>
             )}
           </div>
+          
+          {currentEnd && (
+            <div className="text-[10px] opacity-60 mt-1">
+              Obnova: {new Date(currentEnd).toLocaleDateString()}
+            </div>
+          )}
         </div>
 
-        <div className="w-full lg:max-w-[400px] mt-2 lg:mt-0">
-           {/* Teraz to funguje čisto, pretože obaja poznajú ten istý typ z types/billing.ts */}
+        {/* USAGE BARS (Kompaktné) */}
+        <div className="w-full sm:max-w-[280px]">
            <BillingUsageBar aiQuota={status?.ai_quota} />
         </div>
       </div>
 
-      {(currentEnd || plannedChange) && (
-        <div className="pt-4 border-t text-sm space-y-3" style={{ borderColor: appColors.divider }}>
-          {currentEnd && (
-            <div className="flex justify-between items-center text-white/80">
-              <span className="opacity-70">{t("subscription.statusCard.periodEnds")}</span>
-              <span className="font-medium">
-                {new Date(currentEnd).toLocaleDateString()}
-              </span>
-            </div>
-          )}
-
-          {plannedChange && (
-            <div className="flex flex-col gap-3 p-4 rounded-lg border bg-yellow-500/5 border-yellow-500/20">
-              <div className="flex justify-between items-center">
-                <span className="text-yellow-400 font-semibold">
-                  ⚠️ {t("subscription.planned.previewLabel")} ({t(`subscription.planned.kinds.${plannedChange.kind}`)}):
-                </span>
-                <span className="font-bold bg-transparent" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
-                  {plannedChange.to_tier_code?.toUpperCase() || "FREE"}
-                </span>
-              </div>
-              {plannedChange.effective_from && (
-                <div className="text-xs text-yellow-400/70">
-                  {t("subscription.statusCard.changeEffective")}{" "}
-                  {new Date(plannedChange.effective_from).toLocaleDateString()}
-                </div>
-              )}
-
-              <div className="mt-1 flex justify-end">
-                <Button
-                  variant="danger"
-                  onClick={onCancelPlannedChange}
-                  disabled={loadingAny}
-                >
-                  {loadingAny && <span className="loading loading-spinner loading-xs mr-2"></span>}
-                  {t("subscription.statusCard.cancelChangeBtn")}
-                </Button>
-              </div>
-            </div>
-          )}
+      {/* PLANNED CHANGE (Kompaktné) */}
+      {plannedChange && (
+        <div className="mt-3 flex items-center justify-between p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+          <div className="text-xs">
+            <span className="text-yellow-500 font-bold mr-2">Zmena plánu:</span>
+            <span className="font-bold uppercase" style={{ color: getTierColor(plannedChange.to_tier_code || "free") }}>
+              {plannedChange.to_tier_code || "FREE"}
+            </span>
+            {plannedChange.effective_from && (
+              <span className="opacity-70 ml-2">od {new Date(plannedChange.effective_from).toLocaleDateString()}</span>
+            )}
+          </div>
+          <Button variant="ghost" onClick={onCancelPlannedChange} disabled={loadingAny} className="btn-xs text-red-400">
+            {loadingAny ? "..." : "Zrušiť zmenu"}
+          </Button>
         </div>
       )}
     </div>
