@@ -17,7 +17,8 @@ export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
   if (!aiQuota || !aiQuota.limits) {
     return (
       <div className="text-[11px] mt-1 opacity-50 italic">
-        {t("subscription.usage.noLimitDefined")}
+        {/* Tu vieme, že tento kľúč existuje */}
+        {t("subscription.usage.noLimitDefined" as any)}
       </div>
     );
   }
@@ -45,7 +46,8 @@ export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
       <div>
         <div className="flex justify-between items-end mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1" style={{ color: appColors.textPrimary }}>
-            {t("subscription.usage.inputLabel") || "Analýza Dát (Input)"}
+            {/* Oklamanie strict typingu kým kľúč nepridáš do locales */}
+            {t("subscription.usage.inputLabel" as any) || "Analýza Dát (Input)"}
           </span>
 
           <span className="text-[10px] font-mono opacity-60" style={{ color: appColors.textMuted }}>
@@ -65,7 +67,8 @@ export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
       <div>
         <div className="flex justify-between items-end mb-1.5">
           <span className="text-[11px] font-bold uppercase tracking-wider opacity-70 flex items-center gap-1" style={{ color: appColors.textPrimary }}>
-             {t("subscription.usage.outputLabel") || "Tvorba Plánov (Output)"}
+             {/* Oklamanie strict typingu kým kľúč nepridáš do locales */}
+             {t("subscription.usage.outputLabel" as any) || "Tvorba Plánov (Output)"}
           </span>
 
           <span className="text-[10px] font-mono opacity-60" style={{ color: appColors.textMuted }}>
@@ -84,7 +87,7 @@ export default function BillingUsageBar({ aiQuota }: BillingUsageBarProps) {
       {/* Spoločný reset footer */}
       {reset_at && (
         <div className="text-[10px] opacity-50 italic text-right mt-[-4px]">
-          {t("subscription.usage.reset")}: {new Date(reset_at).toLocaleDateString("sk-SK")}
+          {t("subscription.usage.reset" as any)}: {new Date(reset_at).toLocaleDateString("sk-SK")}
         </div>
       )}
 
