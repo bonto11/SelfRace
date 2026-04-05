@@ -6,7 +6,7 @@ type ApiFail = { success: false; detail?: string; error_code?: string; message?:
 export type HealthLogRecord = {
   id?: number;
   user_id?: number;
-  event_type: "injury" | "illness" | "fatigue";
+  event_type: "injury" | "illness" | "fatigue" | "menstruation";
   status?: "active" | "resolved";
   severity: number; // 1-10
   start_date?: string;
