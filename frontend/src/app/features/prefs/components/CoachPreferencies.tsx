@@ -146,7 +146,7 @@ setIsFemale(true);
     });
   }, []);
 
-  const prefDefaults = (p: CoachPrefsExtended): any => {
+    const prefDefaults = (p: CoachPrefsExtended): any => {
     const incoming = (p?.preferences ?? {}) as any;
     const two = incoming.two_a_day;
     const enabled = !!(two && typeof two === "object" ? two.enabled : false);
@@ -175,8 +175,12 @@ setIsFemale(true);
       intensity_model,
       training_blocks,
       hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
+      
+      // 👇 TOTO SME ZABUDLI PRIDAŤ:
+      womens_health: incoming.womens_health, 
     };
   };
+
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
     (arr ?? []).includes(v)
