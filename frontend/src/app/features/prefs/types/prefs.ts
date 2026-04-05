@@ -14,6 +14,12 @@ export type SecondaryMix = {
   share_pct: number;
 };
 
+export interface WomensHealth {
+  sync_enabled: boolean;
+  cycle_length_days?: number;
+  next_cycle_start?: string | null;
+}
+
 export type VolumeMode = "weekly_hours" | "daily_minutes";
 
 export type VolumePrefs = {
@@ -183,6 +189,7 @@ export interface Preferences {
   intensity_model?: IntensityModel; 
   training_blocks?: TrainingBlocks;
   hr_zone_calc_mode?: ZoneCalcMode;
+  womens_health?: WomensHealth;
 }
 
 export type RehabFocus = {
@@ -289,6 +296,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     intensity_model: "polarized",
     training_blocks: {},
     hr_zone_calc_mode: "manual",
+    womens_health: { sync_enabled: false, cycle_length_days: 28, next_cycle_start: null },
   },
 
   strength_settings: {

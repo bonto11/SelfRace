@@ -12,6 +12,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { formatDate } from "@/app/shared/utils/time";
 
+import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+
 import {
   PANEL_STACK,
   PANEL_PAD,
@@ -136,6 +138,8 @@ export default function DetailHealthLog() {
 
   const [activeLogs, setActiveLogs] = useState<HealthLogRecord[]>([]);
   const [historyLogs, setHistoryLogs] = useState<HealthLogRecord[]>([]);
+  const [isFemale, setIsFemale] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [adapting, setAdapting] = useState(false);
@@ -154,12 +158,16 @@ export default function DetailHealthLog() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [active, history] = await Promise.all([
+      const [active, history, profile] = await Promise.all([
         apiGetActiveHealthLogs(userId),
         apiGetHealthHistory(userId),
+        apiFetchUserPref(userId, "user.profile")
       ]);
       setActiveLogs(active ?? []);
       setHistoryLogs(history ?? []);
+      
+      const gender = profile?.gender?.toLowerCase() || "";
+      setIsFemale(gender === "female" || gender === "f" || gender === "žena");
     } catch (e) {
       toast.error(t("healthLog.errorLoad" as any));
     } finally {
@@ -171,6 +179,36 @@ export default function DetailHealthLog() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  const activeMenstruationLog = activeLogs.find((l) => (l.event_type as string) === "menstruation");
+  const isMenstruatingActive = !!activeMenstruationLog;
+
+  const handleMenstruationToggle = async (checked: boolean) => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      if (checked) {
+        const newLog: HealthLogRecord = {
+          event_type: "menstruation" as any,
+          severity: 3, // Stredné obmedzenie pre AI
+          status: "active",
+          notes: (t("limitations.menstruationNote" as any) as string) || "Menštruačný cyklus - fáza s upravenou záťažou.",
+        };
+        await apiSaveHealthLogs(userId, [newLog]);
+        toast.success(t("limitations.menstruationStarted" as any));
+      } else {
+        if (activeMenstruationLog?.id) {
+          await apiResolveHealthLog(userId, activeMenstruationLog.id);
+          toast.success(t("healthLog.resolveSuccess" as any));
+        }
+      }
+      await fetchData();
+    } catch (e: any) {
+      toast.error(e?.message || t("healthLog.errorSave" as any));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const getSeverityColor = (val: number) => {
     if (val <= 3) return "bg-emerald-500 border-emerald-500 text-black";
@@ -291,10 +329,6 @@ export default function DetailHealthLog() {
       toast.success(
         t("healthLog.planAdapting" as any) || "Plán sa prispôsobuje...",
       );
-
-      // Keďže sa job zaradil do poradia a beží na pozadí,
-      // môžeme užívateľa presmerovať späť na Nástenku (Dashboard),
-      // kde uvidí "Točiace sa koliesko" generovania plánu.
       router.push("/coach");
     } catch (e: any) {
       toast.error(e?.message || "Chyba pri prispôsobovaní plánu.");
@@ -322,11 +356,35 @@ export default function DetailHealthLog() {
 
   return (
     <div className={PANEL_STACK}>
+      
       {/* 1. PRIDANIE ZÁZNAMU */}
       <Card
         title={t("healthLog.addTitle" as any)}
         subtitle={t("healthLog.addSubtitle" as any)}
       >
+        {/* Rýchla voľba pre ženy - Menštruácia */}
+        {isFemale && (
+          <div className="mb-6">
+            <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${isMenstruatingActive ? "bg-pink-500/10 border-pink-500/40" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+              <div className="flex flex-col pr-4">
+                <span className={`text-sm font-bold ${isMenstruatingActive ? "text-pink-400" : "text-white/90"}`}>
+                  🌸 {t("limitations.menstruation" as any) || "Začiatok cyklu (ľahší režim)"}
+                </span>
+                <span className="text-xs opacity-70 mt-1">
+                  {t("limitations.menstruationDesc" as any) || "AI automaticky upraví tréningovú záťaž a prioritizuje regeneráciu na nasledujúcich 7 dní."}
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                className="checkbox checkbox-sm sm:checkbox-md border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white]"
+                checked={isMenstruatingActive}
+                onChange={(e) => handleMenstruationToggle(e.target.checked)}
+                disabled={saving || loading}
+              />
+            </label>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -621,7 +679,6 @@ export default function DetailHealthLog() {
             <LoadingSpinner size="button" />
           </div>
         ) : activeLogs.length === 0 ? (
-          // ✅ NOVÁ SEKCIA: Zelený stav, ale s možnosťou "Návrat k tréningu"
           <div className="flex flex-col items-center justify-center p-6 text-center bg-emerald-500/10 border border-emerald-500/20 rounded-xl gap-3">
             <span className="text-emerald-400 font-bold text-lg">
               ✅ {t("healthLog.widget.allGood" as any)}
@@ -649,6 +706,7 @@ export default function DetailHealthLog() {
               {activeLogs.map((log) => {
                 const isIllness = log.event_type === "illness";
                 const isFatigue = log.event_type === "fatigue";
+                const isMenstruation = (log.event_type as string) === "menstruation";
                 const isCritical = log.severity >= 7;
 
                 let eventName = t(`healthLog.types.${log.event_type}` as any);
@@ -671,22 +729,30 @@ export default function DetailHealthLog() {
                   <li
                     key={log.id}
                     className={`rounded-xl border px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                      isCritical
-                        ? "border-red-500/30 bg-red-500/10"
-                        : "border-yellow-500/30 bg-yellow-500/10"
+                      isMenstruation 
+                        ? "border-pink-500/40 bg-pink-500/10"
+                        : isCritical
+                          ? "border-red-500/30 bg-red-500/10"
+                          : "border-yellow-500/30 bg-yellow-500/10"
                     }`}
                   >
                     <div>
                       <div
-                        className={`text-sm font-bold ${isCritical ? "text-red-300" : "text-yellow-300"}`}
+                        className={`text-sm font-bold ${
+                          isMenstruation 
+                            ? "text-pink-400" 
+                            : isCritical ? "text-red-300" : "text-yellow-300"
+                        }`}
                       >
                         <span className="mr-1">
-                          {isIllness ? "🦠" : isFatigue ? "🔋" : "🩹"}
+                          {isIllness ? "🦠" : isFatigue ? "🔋" : isMenstruation ? "🌸" : "🩹"}
                         </span>
                         {eventName}
-                        <span className="opacity-70 ml-2 font-normal">
-                          ({log.severity}/10)
-                        </span>
+                        {!isMenstruation && (
+                          <span className="opacity-70 ml-2 font-normal">
+                            ({log.severity}/10)
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs opacity-70 mt-1">
                         {t("healthLog.startDate" as any)}:{" "}
@@ -752,6 +818,7 @@ export default function DetailHealthLog() {
             {historyLogs.map((log) => {
               const isIllness = log.event_type === "illness";
               const isFatigue = log.event_type === "fatigue";
+              const isMenstruation = (log.event_type as string) === "menstruation";
 
               let eventName = t(`healthLog.types.${log.event_type}` as any);
               if (
@@ -776,10 +843,15 @@ export default function DetailHealthLog() {
                 >
                   <div>
                     <div className="text-sm font-semibold text-white/80">
-                      {eventName}{" "}
-                      <span className="font-normal opacity-60">
-                        ({log.severity}/10)
+                      <span className="mr-1">
+                        {isIllness ? "🦠" : isFatigue ? "🔋" : isMenstruation ? "🌸" : "🩹"}
                       </span>
+                      {eventName}{" "}
+                      {!isMenstruation && (
+                        <span className="font-normal opacity-60">
+                          ({log.severity}/10)
+                        </span>
+                      )}
                     </div>
                     {log.notes && (
                       <div className="text-xs text-white/60 mt-0.5">

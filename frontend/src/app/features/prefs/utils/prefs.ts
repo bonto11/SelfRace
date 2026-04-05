@@ -223,6 +223,7 @@ export function normalizeCoachPrefs(
       hr_zone_calc_mode:
         incomingPrefs.hr_zone_calc_mode ??
         DEFAULT_PREFS.preferences!.hr_zone_calc_mode,
+      womens_health: incomingPrefs.womens_health ?? DEFAULT_PREFS.preferences!.womens_health,
     };
 
     const mainSport: SportKind | null =

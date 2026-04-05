@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
+import TextField from "@/app/shared/ui/components/TextField"; // Importujeme TextField
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -11,19 +12,30 @@ import { useT } from "@/app/shared/i18n/useT";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Doplňujem typ WomensHealth (ak to máš importované inak, zmeň)
+type WomensHealth = {
+  sync_enabled: boolean;
+  cycle_length_days?: number;
+  next_cycle_start?: string | null;
+};
+
 type Props = {
   daysOff: DayAbbrev[] | undefined;
   longRunDays: DayAbbrev[] | undefined;
+  womensHealth?: WomensHealth; // Nový prop
+  isFemale?: boolean;          // Nový prop
   toggleInArray: <T>(arr: T[] | undefined, v: T) => T[];
   setPrefNested: (
-    path: "preferences.days_off" | "preferences.long_run_days",
-    v: DayAbbrev[],
+    path: "preferences.days_off" | "preferences.long_run_days" | "preferences.womens_health",
+    v: any,
   ) => void;
 };
 
 export function DaysSection({
   daysOff,
   longRunDays,
+  womensHealth,
+  isFemale,
   toggleInArray,
   setPrefNested,
 }: Props) {
@@ -32,10 +44,12 @@ export function DaysSection({
 
   const selectedOff = (daysOff ?? []) as DayAbbrev[];
   const selectedLong = (longRunDays ?? []) as DayAbbrev[];
+  
+  // Bezpečný fallback ak by to v DB chýbalo
+  const healthData = womensHealth || { sync_enabled: false, cycle_length_days: 28, next_cycle_start: "" };
 
-  // Pomocná funkcia na získanie skratky dňa z katalógu
   const getDayLabel = (d: DayAbbrev) => {
-    const key = d.toLowerCase() as keyof typeof t; // mon, tue...
+    const key = d.toLowerCase() as keyof typeof t;
     return t(`common.weeksShort.${key}`);
   };
 
@@ -48,8 +62,19 @@ export function DaysSection({
       ? selectedLong.map(getDayLabel).join(" · ") 
       : noneTxt;
       
-    return `${t("prefs.sections.daysSection.previewDaysOff")}: ${offTxt} | ${t("prefs.sections.daysSection.previewLongRun")}: ${longTxt}`;
-  }, [selectedOff, selectedLong, t]);
+    let preview = `${t("prefs.sections.daysSection.previewDaysOff")}: ${offTxt} | ${t("prefs.sections.daysSection.previewLongRun")}: ${longTxt}`;
+    
+    // Pridáme do prehľadu aj zmienku o cykle, ak je zapnutá
+    if (isFemale && healthData.sync_enabled) {
+      preview += " | 🌸 AI Cyklus: Zapnutý";
+    }
+    
+    return preview;
+  }, [selectedOff, selectedLong, isFemale, healthData.sync_enabled, t]);
+
+  const updateWomensHealth = (patch: Partial<WomensHealth>) => {
+    setPrefNested("preferences.womens_health", { ...healthData, ...patch });
+  };
 
   return (
     <InputsCard
@@ -70,7 +95,53 @@ export function DaysSection({
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* Days off */}
+        
+        {/* === SEKCIA: ŽENSKÉ ZDRAVIE (Viditeľná len pre ženy) === */}
+        {isFemale && (
+          <div className={`rounded-xl border p-4 ${healthData.sync_enabled ? "bg-pink-500/10 border-pink-500/40" : "bg-white/5 border-white/10"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col">
+                <span className={`text-sm font-bold ${healthData.sync_enabled ? "text-pink-400" : "text-white/90"}`}>
+                  🌸 Ženské zdravie
+                </span>
+                <span className="text-[11px] opacity-70 mt-1 max-w-[250px]">
+                  Zohľadňovať menštruačný cyklus pri plánovaní. AI automaticky naplánuje Taper (oddychový) týždeň počas tvojich dní.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                className="checkbox checkbox-sm border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white]"
+                checked={healthData.sync_enabled}
+                onChange={(e) => updateWomensHealth({ sync_enabled: e.target.checked })}
+              />
+            </div>
+
+            {/* Rozbalia sa nastavenia dĺžky cyklu a začiatku */}
+            {healthData.sync_enabled && (
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-pink-500/20">
+                <TextField
+                  label="Dĺžka cyklu (dni)"
+                  type="number"
+                  min={20}
+                  max={45}
+                  value={healthData.cycle_length_days ?? 28}
+                  onChange={(e) => updateWomensHealth({ cycle_length_days: parseInt(e.target.value) || 28 })}
+                  className="bg-black/30"
+                />
+                
+                <TextField
+                  label="Ďalší cyklus (Odhad)"
+                  type="date"
+                  value={healthData.next_cycle_start ?? ""}
+                  onChange={(e) => updateWomensHealth({ next_cycle_start: e.target.value })}
+                  className="bg-black/30"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* === Pôvodné: Days off === */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-medium opacity-80">
@@ -107,7 +178,7 @@ export function DaysSection({
           </div>
         </div>
 
-        {/* Long run days */}
+        {/* === Pôvodné: Long run days === */}
         <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-medium opacity-80">

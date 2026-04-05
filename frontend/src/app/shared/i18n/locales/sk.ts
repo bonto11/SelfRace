@@ -2084,51 +2084,51 @@ export const sk = {
       },
     },
   },
+
+  limitations: {
+    title: "Obmedzenia a zranenia",
+    menstruation: "Začiatok cyklu (ľahší režim)",
+    menstruationDesc: "AI automaticky upraví tréningovú záťaž a prioritizuje regeneráciu na najbližšie dni.",
+    menstruationStarted: "Cyklus bol zaznamenaný. Nezabudni prispôsobiť plán nižšie.",
+    menstruationNote: "Menštruačný cyklus - fáza s upravenou záťažou."
+  },
   healthLog: {
-    pageTitle: "Zdravotná karta",
+    pageTitle: "Obmedzenia a zranenia",
     widget: {
-      title: "Zdravotný stav",
-      tooltip:
-        "Aktuálne zranenia, choroby a únava, ktoré ovplyvňujú tvoj plán.",
+      title: "Obmedzenia a zranenia",
+      tooltip: "Aktuálne zranenia, choroby, únava alebo fázy cyklu, ktoré ovplyvňujú tvoj plán.",
       allGood: "Všetko je v poriadku. Si 100% Fit.",
-      errorFailedLoad: "Nepodarilo sa načítať zdravotný stav.",
+      errorFailedLoad: "Nepodarilo sa načítať zdravotný stav."
     },
     types: {
       injury: "Zranenie",
       illness: "Choroba",
       fatigue: "Únava",
+      menstruation: "Fáza cyklu"
     },
     addTitle: "Nahlásiť problém",
-    addSubtitle:
-      "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
-    returnToTrainingDesc:
-      "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu.",
+    addSubtitle: "AI kouč okamžite upraví tvoj tréningový plán a zohľadní tvoj stav.",
+    returnToTrainingDesc: "Ak si sa práve zotavil zo zranenia alebo choroby a tvoj aktuálny plán je stále zredukovaný, požiadaj trénera o nový plán pre bezpečný návrat k tréningu.",
     returnToTrainingBtn: "Navrhnúť návrat k tréningu",
     form: {
       typeLabel: "Čo sa deje?",
       areaLabel: "Lokalita problému",
       injuryTypeLabel: "Typ zranenia",
       symptomsLabel: "Vyber, čo presne pociťuješ",
-      symptomsIllnessHint:
-        "Podľa 'Pravidla krku' (symptómy nad krkom vs pod krkom) AI vyhodnotí, či dostaneš úplné voľno.",
-      symptomsFatigueHint:
-        "Tieto informácie pomôžu AI upraviť objem a intenzitu najbližších tréningov.",
+      symptomsIllnessHint: "Podľa 'Pravidla krku' (symptómy nad krkom vs pod krkom) AI vyhodnotí, či dostaneš úplné voľno.",
+      symptomsFatigueHint: "Tieto informácie pomôžu AI upraviť objem a intenzitu najbližších tréningov.",
       autoSeverityTitle: "Automatické vyhodnotenie",
-      autoSeverityText:
-        "Vážnosť problému bude vypočítaná automaticky na základe vybraných symptómov.",
+      autoSeverityText: "Vážnosť problému bude vypočítaná automaticky na základe vybraných symptómov.",
       severityLabel: "Vážnosť (1 = ľahké obmedzenie, 10 = kritické)",
-      severityMildHint:
-        "Mierne obmedzenie. AI zjemní tréning alebo navrhne iný šport.",
-      severityCriticalHint:
-        "Tréning nie je možný. AI nariadi lekárske voľno a oddych.",
+      severityMildHint: "Mierne obmedzenie. AI zjemní tréning alebo navrhne iný šport.",
+      severityCriticalHint: "Tréning nie je možný. AI nariadi lekárske voľno a oddych.",
       notesLabel: "Detail problému (voliteľné)",
-      notesPlaceholder:
-        "Napr. horúčka 38.5°C, bolesť pravého kolena pri zbehu...",
+      notesPlaceholder: "Napr. horúčka 38.5°C, bolesť pravého kolena pri zbehu...",
       addDraftBtn: "+ Pridať do zoznamu",
       draftsTitle: "Pripravené na uloženie (Zatiaľ neuložené):",
       errorNoSymptoms: "Musíš vybrať aspoň jeden symptóm.",
       saveButton: "Uložiť",
-      severity: "Závažnosť",
+      severity: "Závažnosť"
     },
     injAreas: {
       foot: "Chodidlo",
@@ -2148,7 +2148,7 @@ export const sk = {
       neck: "Krk",
       shoulder: "Rameno",
       arm_wrist: "Zápästie",
-      other: "Iné",
+      other: "Iné"
     },
     injTypes: {
       overuse: "Preťaženie",
@@ -2159,7 +2159,7 @@ export const sk = {
       shin_splints: "Zápal okostice",
       plantar: "Plantar fasciitis",
       itb: "IT Band syndróm",
-      other: "Iné",
+      other: "Iné"
     },
     symptoms: {
       fever: "Horúčka / Zimnica",
@@ -2172,7 +2172,7 @@ export const sk = {
       exhaustion: "Úplné vyčerpanie (Baterka na 0%)",
       high_hr: "Vysoký ranný tep / Nízke HRV",
       heavy_legs: "Extrémne ťažké nohy",
-      poor_sleep: "Dlhodobo zlý spánok",
+      poor_sleep: "Dlhodobo zlý spánok"
     },
     activeTitle: "Aktuálny stav",
     activeSubtitle: "Záznamy, ktoré ťa momentálne obmedzujú v tréningu.",
@@ -2180,12 +2180,12 @@ export const sk = {
     today: "Dnes",
     actions: {
       resolve: "Vyriešené",
-      delete: "Zmazať",
+      delete: "Zmazať"
     },
     replanAlert: {
       title: "Plán sa musí prispôsobiť.",
       text: "Nezabudni nechať AI zvážiť tvoj program po každej zmene zdravotného stavu.",
-      button: "Prispôsobiť tréningy",
+      button: "Prispôsobiť tréningy"
     },
     historyTitle: "História zdravotnej karty",
     saveSuccess: "Záznam bol úspešne uložený do tvojej karty.",
@@ -2195,14 +2195,12 @@ export const sk = {
     errorSave: "Chyba pri ukladaní záznamu.",
     errorResolve: "Chyba pri úprave záznamu.",
     errorDelete: "Chyba pri mazaní záznamu.",
-    planAdapting:
-      "Plán sa prepočítava... Môže to trvať pár minút. Choď sa zatiaľ napiť vody.",
+    planAdapting: "Plán sa prepočítava... Môže to trvať pár minút. Choď sa zatiaľ napiť vody.",
     deleteConfirm: {
       title: "Vymazať záznam?",
-      message:
-        "Naozaj chceš tento záznam vymazať? Rob to len v prípade, že si ho zadal omylom, inak stratíš históriu.",
-      ok: "Vymazať",
-    },
+      message: "Naozaj chceš tento záznam vymazať? Rob to len v prípade, že si ho zadal omylom, inak stratíš históriu.",
+      ok: "Vymazať"
+    }
   },
   calendar: {
     title: "Kalendár",

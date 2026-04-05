@@ -21,6 +21,10 @@ import Button from "@/app/shared/ui/components/Button";
 import { NO_X } from "@/app/shared/ui/tokens";
 
 import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
+import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
 } from "@/app/features/performance/api/zones";
@@ -78,16 +82,19 @@ export default function CoachPreferencies() {
     {} as CoachPrefsExtended,
   );
 
+  const [isFemale, setIsFemale] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
 
     (async () => {
       try {
-        const [pRaw, zonesRaw, thrRowsRaw] = await Promise.all([
+        const [pRaw, zonesRaw, thrRowsRaw, profileRaw] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           apiFetchUserZonesLatest(userId),
           apiFetchUserThresholdsLatest(userId),
+          apiFetchUserPref(userId, "user.profile"),
         ]);
         if (!alive) return;
 
@@ -95,6 +102,10 @@ export default function CoachPreferencies() {
         const { external_activities: _ext, ...p } = pAny;
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
+
+        // Zistenie pohlavia
+        const gender = profileRaw?.gender?.toLowerCase() || "";
+        setIsFemale(gender === "female" || gender === "f" || gender === "žena");
 
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
@@ -423,6 +434,8 @@ export default function CoachPreferencies() {
       <DaysSection
         daysOff={pref.days_off}
         longRunDays={pref.long_run_days}
+        womensHealth={pref.womens_health}
+        isFemale={isFemale}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
