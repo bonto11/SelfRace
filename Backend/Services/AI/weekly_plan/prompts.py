@@ -97,6 +97,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "long_run_days": preferences.get("long_run_days"),
             "avoid_two_a_day": preferences.get("avoid_two_a_day"),
             "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
+            "womens_health": preferences.get("womens_health"), # ✅ PRIDANÉ PRE AI
         } if preferences else {},
         "targets": {
             "run": {
@@ -173,9 +174,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     if "replan_trigger" in context: ctx2["replan_trigger"] = context.get("replan_trigger")
     if "generate_reason" in context: ctx2["generate_reason"] = context.get("generate_reason")
 
-    # Prenesieme user_settings len do LLM configu, nebudú zavadzať v JSON kontexte
     return _remove_empty(ctx2)
-
 
 def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
     settings = _as_dict(settings or {})
@@ -218,6 +217,36 @@ def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[s
     vol = _get_dict(prefs_min, "volume")
     volume_mode = vol.get("mode")
     volume_value = vol.get("value")
+
+    # ✅ Vytiahnutie ženských preferencií
+    preferences_obj = _get_dict(prefs, "preferences")
+    womens_health = _get_dict(preferences_obj, "womens_health")
+    sync_enabled = womens_health.get("sync_enabled")
+    next_cycle_start_str = womens_health.get("next_cycle_start")
+    cycle_length = int(womens_health.get("cycle_length_days") or 28)
+    
+    womens_health_rule = ""
+    if sync_enabled and next_cycle_start_str:
+        try:
+            from datetime import date
+            plan_start_dt = date.fromisoformat(start_date) if start_date else date.today()
+            cycle_start_dt = date.fromisoformat(next_cycle_start_str[:10])
+            
+            # Výpočet cyklu (% modulo nám umožní trafiť to aj po 3 mesiacoch)
+            diff_days = (plan_start_dt - cycle_start_dt).days
+            days_into_cycle = diff_days % cycle_length
+            
+            # Ak sa generovaný týždeň trafí do prvých 7 dní cyklu, nariadime voľnejší režim
+            if 0 <= days_into_cycle <= 7:
+                womens_health_rule = (
+                    "\n--- WOMEN'S HEALTH (CYCLE SYNC) ---\n"
+                    "- The athlete's menstrual cycle starts this week.\n"
+                    "- You MUST respect her physiology. Make this week a TAPER / RECOVERY week.\n"
+                    "- Lower the total volume by 20-30%, prioritize Z1/Z2, and avoid max intensity intervals.\n"
+                    "- Remind her gently in the 'notes' that this is an expected lighter week due to her cycle phase.\n"
+                )
+        except Exception as e:
+            pass
 
     system_txt = (
         "You are an elite endurance coaching assistant. "
@@ -313,6 +342,7 @@ def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[s
         + volume_hint
         + beginner_protocol
         + special_reason_rule
+        + womens_health_rule # ✅ PRIDANÉ PRAVIDLO PRE ŽENY (aktivuje sa len ak sedí dátum)
     )
 
     return system_txt, user_txt

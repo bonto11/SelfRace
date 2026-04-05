@@ -103,7 +103,7 @@ def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Op
     for r in rows[7:21]:
         v = r.get("HRV_avg_ms")
         if isinstance(v, (int, float)) and v > 0:
-            prev_vals.append(float(v))
+            recent_vals.append(float(v))
 
     return {
         "latest_date": latest.get("date"),
@@ -200,17 +200,15 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ KRITICKÉ ZRANENIE (7-10/10): Zmažeme BUDÚCNOSŤ, aktuálny týždeň necháme
+    # ✅ KRITICKÉ ZRANENIE
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
         
-        # Vypočítame začiatok BUDÚCEHO týždňa (najbližší pondelok)
         days_to_monday = (7 - today.weekday()) % 7
         if days_to_monday == 0: 
-            days_to_monday = 7 # Ak je dnes pondelok, mažeme aj tak až od ďalšieho týždňa
+            days_to_monday = 7 
         next_monday = today + timedelta(days=days_to_monday)
         
-        # 1. Zmažeme future daily (aby sme nemali daily sessions už zajtra)
         db_clear_daily_for_user_range(
             user_id=user_id,
             date_from=(today + timedelta(days=1)).isoformat(), 
@@ -219,7 +217,6 @@ def service_coach_autoadjust_after_update(
             global_user_clear=True
         )
         
-        # 2. Zmažeme future weekly (aby zmizli z kalendára a prehľadov, ale aktuálny zostane)
         db_delete_future_weekly_plans(
              user_id=user_id,
              from_date_iso=next_monday.isoformat(),
@@ -232,22 +229,22 @@ def service_coach_autoadjust_after_update(
             "reason": f"critical_injury_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
-    # 1. Zjemniť (Soften)
-    if force_reason in ["health_mild_restriction", "manual_review"]:
+    # ✅ 1. Zjemniť (Soften) vrátane ŽENSKÉHO ZDRAVIA
+    if force_reason in ["health_mild_restriction", "manual_review", "health_menstruation"]:
         soften_should = True 
         soften_days = 7 
-        soften_reason = f"Health or Review triggered soften. Reason: {force_reason}"
+        soften_reason = f"Health, Cycle or Review triggered soften. Reason: {force_reason}"
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    # 2. KOMPLETNÝ REPLAN (po vyliečení!)
+    # 2. KOMPLETNÝ REPLAN
     elif force_reason in ["health_resolved", "return_to_training"]:
         weekly_replan_should = True 
         weekly_replan_reason = f"Health status resolved, initiating Return to Play. (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Ak to neprišlo z health logu, pýtame sa AI na klasický auto-adjust
+    # 3. Klasický auto-adjust (žiadny force)
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -272,7 +269,11 @@ def service_coach_autoadjust_after_update(
 
     if weekly_replan_should:
         print("[AUTOADJUST DEBUG] Starting Weekly Replan...")
-        if force_reason not in ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training"] and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
+        
+        # ✅ Pridanie health_menstruation do výnimiek (aby sa mu vyhol cooldown, ak by bolo treba)
+        health_bypass = ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training", "health_menstruation"]
+        
+        if force_reason not in health_bypass and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
             print("[AUTOADJUST DEBUG] Weekly replan on cooldown, converting to soften.")
             soften_should = True
             soften_days = 3

@@ -60,7 +60,7 @@ def save_health_logs(req: Request, user_id: int, payload: HealthLogBatchPayload)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/resolve/{user_id}/{log_id}")
-def resolve_health_log(req: Request, user_id: int, log_id: int, end_date: Optional[str] = None): # <--- TU JE ZMENA
+def resolve_health_log(req: Request, user_id: int, log_id: int, end_date: Optional[str] = None): 
     try:
         ctx = require_user(get_auth_ctx(req))
         data = service_resolve_health_log(user_id=user_id, log_id=log_id, end_date=end_date, ctx=ctx)

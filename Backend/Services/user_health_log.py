@@ -1,6 +1,6 @@
 # Services/users_health_log.py
 from __future__ import annotations
-import time # ✅ PRIDANÝ IMPORT
+import time 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -33,7 +33,8 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
         event_type = str(item.get("event_type", "")).strip().lower()
         severity = int(item.get("severity", 5))
         
-        if event_type not in ["injury", "illness", "fatigue"]:
+        # ✅ Pridaná menštruácia medzi povolené typy
+        if event_type not in ["injury", "illness", "fatigue", "menstruation"]:
             raise ValueError(f"Invalid event_type: {event_type}")
         if severity < 1 or severity > 10:
             raise ValueError(f"Severity must be between 1 and 10. Got: {severity}")
@@ -74,7 +75,7 @@ def service_delete_health_log(user_id: int, log_id: int, ctx: AuthCtx) -> bool:
 
 def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     active_logs = db_get_active_health_logs(user_id=user_id, ctx=ctx)
-    ts = int(time.time()) # ✅ UNIKÁTNY TIMESTAMP
+    ts = int(time.time())
 
     if not active_logs:
         service_enqueue_job(
@@ -82,12 +83,15 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             job_type="coach_autoadjust",
             payload={"force_reason": "health_resolved"},
             priority=90,
-            dedupe_key=f"coach_autoadjust_health_resolved_{user_id}_{ts}", # ✅ PRIDANÉ ts
+            dedupe_key=f"coach_autoadjust_health_resolved_{user_id}_{ts}",
             ctx=ctx
         )
         return {"action": "regenerate", "message": "Záznamy sú vyriešené. AI pripravuje návratový plán."}
 
     max_severity = max(log.get("severity", 0) for log in active_logs)
+    
+    # ✅ Nová kontrola pre menštruačný cyklus
+    has_menstruation = any(log.get("event_type") == "menstruation" for log in active_logs)
 
     if max_severity >= 7:
         service_enqueue_job(
@@ -95,7 +99,7 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             job_type="coach_autoadjust",
             payload={"force_reason": "health_critical"},
             priority=100,
-            dedupe_key=f"coach_autoadjust_health_critical_{user_id}_{ts}", # ✅ PRIDANÉ ts
+            dedupe_key=f"coach_autoadjust_health_critical_{user_id}_{ts}",
             ctx=ctx
         )
         return {
@@ -103,13 +107,24 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             "message": "Nariadené lekárske voľno. Budúce tréningy boli pozastavené."
         }
 
+    elif has_menstruation:
+        service_enqueue_job(
+            user_id=user_id,
+            job_type="coach_autoadjust",
+            payload={"force_reason": "health_menstruation"}, # Nový flag
+            priority=100,
+            dedupe_key=f"coach_autoadjust_health_menstruation_{user_id}_{ts}",
+            ctx=ctx
+        )
+        return {"action": "autoadjust", "message": "AI aplikuje ľahký režim pre menštruačnú fázu."}
+
     else:
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",
             payload={"force_reason": "health_mild_restriction"},
             priority=100,
-            dedupe_key=f"coach_autoadjust_health_mild_{user_id}_{ts}", # ✅ PRIDANÉ ts
+            dedupe_key=f"coach_autoadjust_health_mild_{user_id}_{ts}",
             ctx=ctx
         )
         return {"action": "autoadjust", "message": "AI zjemňuje najbližšie tréningy podľa tvojho stavu."}

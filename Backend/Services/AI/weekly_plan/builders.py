@@ -19,6 +19,7 @@ from Services.coach_external_events import (
 )
 from Modules.Supabase.auth import AuthCtx
 
+
 def load_athlete_state_for_plan(
     user_id: int,
     state_id: Optional[int],
@@ -90,27 +91,35 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
     if isinstance(la, list):
         trimmed: List[Dict[str, Any]] = []
         for a in la:
-            if not isinstance(a, dict): continue
-            dur_min = a.get("duration_min") or a.get("moving_time_min") or a.get("moving_time")
-            trimmed.append({
-                "sport": a.get("sport") or a.get("type"),
-                "distance_km": a.get("distance_km") or a.get("distance"),
-                "duration_min": dur_min,
-                "avg_hr": a.get("avg_hr"),
-                "load": a.get("load") or a.get("trimp"),
-                "day_offset": a.get("day_offset"),
-                "date": a.get("date"),
-                "z1_min": a.get("z1_min"),
-                "z2_min": a.get("z2_min"),
-                "z3_min": a.get("z3_min"),
-                "z4_min": a.get("z4_min"),
-                "z5_min": a.get("z5_min"),
-            })
-            if len(trimmed) >= 20: break
+            if not isinstance(a, dict):
+                continue
+            dur_min = (
+                a.get("duration_min")
+                or a.get("moving_time_min")
+                or a.get("moving_time")
+            )
+            trimmed.append(
+                {
+                    "sport": a.get("sport") or a.get("type"),
+                    "distance_km": a.get("distance_km") or a.get("distance"),
+                    "duration_min": dur_min,
+                    "avg_hr": a.get("avg_hr"),
+                    "load": a.get("load") or a.get("trimp"),
+                    "day_offset": a.get("day_offset"),
+                    "date": a.get("date"),
+                    "z1_min": a.get("z1_min"),
+                    "z2_min": a.get("z2_min"),
+                    "z3_min": a.get("z3_min"),
+                    "z4_min": a.get("z4_min"),
+                    "z5_min": a.get("z5_min"),
+                }
+            )
+            if len(trimmed) >= 20:
+                break
         ai["last_activities"] = trimmed
 
     # ✂️ EXTRÉMNA ÚSPORA: Zmažeme redundantné bloky, ktoré posielame vyššie v JSON štruktúre!
-    ai.pop("prefs", None) 
+    ai.pop("prefs", None)
     ai.pop("thresholds", None)
     ai.pop("zones", None)
     ai.pop("bests", None)
@@ -126,14 +135,14 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     last_activities = analyze_input.get("last_activities") or []
     if not last_activities:
         return True
-    
+
     latest_date_str = None
     for act in last_activities:
         d = act.get("start_date_local") or act.get("start_date") or act.get("date")
         if d:
             if latest_date_str is None or d > latest_date_str:
                 latest_date_str = d
-    
+
     if not latest_date_str:
         return True
 
@@ -144,7 +153,7 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
             return True
     except Exception:
         pass
-        
+
     return False
 
 
@@ -227,18 +236,20 @@ def build_weekly_rows_from_ai(
 
         week_index = int(w.get("week_index") or idx)
 
-        rows.append({
-            "user_id": user_id,
-            "week_index": week_index,
-            "week_start": w.get("week_start"),
-            "week_end": w.get("week_end"),
-            "goal": w.get("goal"),
-            "focus": w.get("focus"),
-            "load_phase": w.get("load_phase"),
-            "planned_stats": w.get("planned_stats") or {},
-            "actual_stats": {},
-            "notes": w.get("notes"),
-            "raw_json": w,
-        })
+        rows.append(
+            {
+                "user_id": user_id,
+                "week_index": week_index,
+                "week_start": w.get("week_start"),
+                "week_end": w.get("week_end"),
+                "goal": w.get("goal"),
+                "focus": w.get("focus"),
+                "load_phase": w.get("load_phase"),
+                "planned_stats": w.get("planned_stats") or {},
+                "actual_stats": {},
+                "notes": w.get("notes"),
+                "raw_json": w,
+            }
+        )
 
     return rows
