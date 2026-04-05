@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField"; 
 import SelectField from "@/app/shared/ui/components/SelectField"; 
@@ -10,10 +10,6 @@ import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-
-// Import pre zistenie statického profilu (aby sme vedeli, či je to žena)
-import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 const ALL_DAYS: DayAbbrev[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -27,6 +23,7 @@ type Props = {
   daysOff: DayAbbrev[] | undefined;
   longRunDays: DayAbbrev[] | undefined;
   womensHealth?: WomensHealth; 
+  isFemale?: boolean;
   toggleInArray: <T>(arr: T[] | undefined, v: T) => T[];
   setPrefNested: (
     path: "preferences.days_off" | "preferences.long_run_days" | "preferences.womens_health",
@@ -44,33 +41,12 @@ export function DaysSection({
   daysOff,
   longRunDays,
   womensHealth,
+  isFemale,
   toggleInArray,
   setPrefNested,
 }: Props) {
-  const { userId } = useUserId();
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [isFemale, setIsFemale] = useState(false);
-
-  // Načítanie pohlavia pri zobrazení komponentu
-  useEffect(() => {
-    if (!userId) return;
-    
-    let isMounted = true;
-    const fetchProfile = async () => {
-      try {
-        const staticProfile = await apiGetStaticProfile(userId);
-        if (isMounted && staticProfile?.sex?.toUpperCase() === "F") {
-          setIsFemale(true);
-        }
-      } catch (e) {
-        // Ignorujeme, ak sa nepodarí načítať
-      }
-    };
-    
-    fetchProfile();
-    return () => { isMounted = false; };
-  }, [userId]);
 
   const selectedOff = (daysOff ?? []) as DayAbbrev[];
   const selectedLong = (longRunDays ?? []) as DayAbbrev[];
