@@ -120,9 +120,9 @@ export function DaysSection({
               />
             </div>
 
-            {/* Vizuálna úprava: grid-cols, rovnaká štruktúra ako GoalSection */}
+            {/* Vizuálna úprava: Presne ako v GoalSection (nápisy nad prvkami) */}
             {healthData.sync_enabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-4 border-t border-pink-500/20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 pt-4 border-t border-pink-500/20">
                 <div>
                   <div className="text-xs opacity-70 mb-1">
                     Dĺžka cyklu
@@ -138,7 +138,6 @@ export function DaysSection({
                   <div className="text-xs opacity-70 mb-1">
                     Začiatok (Odhad)
                   </div>
-                  {/* Používame váš vlastný DateField */}
                   <DateField
                     value={healthData.next_cycle_start ?? null}
                     onChange={(v: string | null) => updateWomensHealth({ next_cycle_start: v })}
