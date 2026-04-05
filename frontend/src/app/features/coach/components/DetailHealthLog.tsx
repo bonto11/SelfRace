@@ -12,7 +12,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { formatDate } from "@/app/shared/utils/time";
 
-import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+// ✅ Nový import pre Static Profile namiesto prefs
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 import {
   PANEL_STACK,
@@ -158,20 +159,18 @@ export default function DetailHealthLog() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [active, history, profile] = await Promise.all([
+      // ✅ Sťahujeme apiGetStaticProfile namiesto apiFetchUserPref
+      const [active, history, staticProfile] = await Promise.all([
         apiGetActiveHealthLogs(userId),
         apiGetHealthHistory(userId),
-        apiFetchUserPref(userId, "user.profile")
+        apiGetStaticProfile(userId)
       ]);
       setActiveLogs(active ?? []);
       setHistoryLogs(history ?? []);
       
-      const gender = profile?.gender?.toLowerCase() || "";
-      
-      // 👇 TOTO SI DOČASNE ZAPNI PRE TESTOVANIE:
-      setIsFemale(true); 
-      // (Toto je originálny kód, ktorý tam vrátiš, keď to pôjde do produkcie)
-      // setIsFemale(gender === "female" || gender === "f" || gender === "žena" || gender === "zena");
+      // ✅ Vyhodnocujeme na základe "sex" ("M" alebo "F")
+      const sex = staticProfile?.sex?.toUpperCase() || "";
+      setIsFemale(sex === "F");
 
     } catch (e) {
       toast.error(t("healthLog.errorLoad" as any));
