@@ -200,7 +200,7 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ KRITICKÉ ZRANENIE
+    # ✅ KRITICKÉ ZRANENIE / CHOROBA / MENŠTRUÁCIA (Severity >= 7 posiela tento flag)
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
         
@@ -226,18 +226,18 @@ def service_coach_autoadjust_after_update(
         return {
             "changed": True,
             "mode": "plan_suspended",
-            "reason": f"critical_injury_reported_future_deleted_from_{next_monday.isoformat()}"
+            "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
-    # ✅ 1. Zjemniť (Soften) vrátane ŽENSKÉHO ZDRAVIA
+    # ✅ 1. Zjemniť (Soften) pre obmedzenia a fázy cyklu so Severity < 7
     if force_reason in ["health_mild_restriction", "manual_review", "health_menstruation"]:
         soften_should = True 
         soften_days = 7 
-        soften_reason = f"Health, Cycle or Review triggered soften. Reason: {force_reason}"
+        soften_reason = f"Health limitation or Cycle phase triggered soften. Reason: {force_reason}"
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    # 2. KOMPLETNÝ REPLAN
+    # 2. KOMPLETNÝ REPLAN (Návrat do tréningu)
     elif force_reason in ["health_resolved", "return_to_training"]:
         weekly_replan_should = True 
         weekly_replan_reason = f"Health status resolved, initiating Return to Play. (Reason: {force_reason})."
