@@ -167,7 +167,12 @@ export default function DetailHealthLog() {
       setHistoryLogs(history ?? []);
       
       const gender = profile?.gender?.toLowerCase() || "";
-      setIsFemale(gender === "female" || gender === "f" || gender === "žena");
+      
+      // 👇 TOTO SI DOČASNE ZAPNI PRE TESTOVANIE:
+      setIsFemale(true); 
+      // (Toto je originálny kód, ktorý tam vrátiš, keď to pôjde do produkcie)
+      // setIsFemale(gender === "female" || gender === "f" || gender === "žena" || gender === "zena");
+
     } catch (e) {
       toast.error(t("healthLog.errorLoad" as any));
     } finally {
