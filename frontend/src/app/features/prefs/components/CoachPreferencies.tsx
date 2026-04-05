@@ -8,6 +8,7 @@ import type {
   RunTargets,
   SecondaryMix,
 } from "@/app/features/prefs/types/prefs";
+import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -20,6 +21,10 @@ import Button from "@/app/shared/ui/components/Button";
 import { NO_X } from "@/app/shared/ui/tokens";
 
 import {
+  apiFetchUserPref,
+  apiUpsertUserPref,
+} from "@/app/features/prefs/api/prefs";
+import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
 } from "@/app/features/performance/api/zones";
@@ -27,6 +32,7 @@ import {
   apiFetchUserThresholdsLatest,
   apiSaveUserThresholds,
 } from "@/app/features/performance/api/thresholds";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
 import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
@@ -77,16 +83,19 @@ export default function CoachPreferencies() {
     {} as CoachPrefsExtended,
   );
 
+  const [isFemale, setIsFemale] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
 
     (async () => {
       try {
-        const [pRaw, zonesRaw, thrRowsRaw] = await Promise.all([
+        const [pRaw, zonesRaw, thrRowsRaw, staticProfile] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           apiFetchUserZonesLatest(userId),
           apiFetchUserThresholdsLatest(userId),
+          apiGetStaticProfile(userId),
         ]);
         if (!alive) return;
 
@@ -94,6 +103,10 @@ export default function CoachPreferencies() {
         const { external_activities: _ext, ...p } = pAny;
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
+
+        // Vyhodnotenie pohlavia zo Static Profilu
+        const sex = staticProfile?.sex?.toUpperCase() || "";
+        setIsFemale(sex === "F");
 
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
@@ -284,10 +297,11 @@ export default function CoachPreferencies() {
   const onRefresh = async () => {
     if (!userId) return;
     try {
-      const [fresh, zonesRaw, thrRowsRaw] = await Promise.all([
+      const [fresh, zonesRaw, thrRowsRaw, staticProfile] = await Promise.all([
         refreshCoachPrefsFromDB(userId),
         apiFetchUserZonesLatest(userId),
         apiFetchUserThresholdsLatest(userId),
+        apiGetStaticProfile(userId),
       ]);
       const pAny = (fresh || {}) as any;
       const { external_activities: _ext, ...p } = pAny;
@@ -297,6 +311,9 @@ export default function CoachPreferencies() {
         Array.isArray(thrRows) && thrRows.length > 0
           ? { ...thrRows[0] }
           : undefined;
+
+      const sex = staticProfile?.sex?.toUpperCase() || "";
+      setIsFemale(sex === "F");
 
       const next: CoachPrefsExtended = {
         ...p,
@@ -424,6 +441,7 @@ export default function CoachPreferencies() {
         daysOff={pref.days_off}
         longRunDays={pref.long_run_days}
         womensHealth={pref.womens_health}
+        isFemale={isFemale}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
