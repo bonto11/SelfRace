@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
-import TextField from "@/app/shared/ui/components/TextField"; 
 import SelectField from "@/app/shared/ui/components/SelectField"; 
+import DateField from "@/app/shared/ui/components/DateField";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -103,41 +103,46 @@ export function DaysSection({
         {/* === SEKCIA: ŽENSKÉ ZDRAVIE === */}
         {isFemale && (
           <div className={`rounded-xl border p-4 ${healthData.sync_enabled ? "bg-pink-500/10 border-pink-500/40" : "bg-white/5 border-white/10"}`}>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-start justify-between mb-2">
               <div className="flex flex-col pr-3">
                 <span className={`text-sm font-bold ${healthData.sync_enabled ? "text-pink-400" : "text-white/90"}`}>
                   🌸 Ženské zdravie
                 </span>
-                <span className="text-[11px] opacity-70 mt-1">
+                <span className="text-[11px] opacity-70 mt-1 leading-snug">
                   Zohľadňovať menštruačný cyklus pri plánovaní. AI automaticky naplánuje Taper (oddychový) týždeň počas tvojich dní.
                 </span>
               </div>
               <input
                 type="checkbox"
-                className="checkbox checkbox-sm border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white] shrink-0"
+                className="checkbox checkbox-sm border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white] shrink-0 mt-1"
                 checked={healthData.sync_enabled}
                 onChange={(e) => updateWomensHealth({ sync_enabled: e.target.checked })}
               />
             </div>
 
-            {/* Správne zarovnané prvky pod seba na mobile (flex-col), vedľa seba na PC (sm:flex-row) */}
+            {/* Vizuálna úprava: grid-cols, rovnaká štruktúra ako GoalSection */}
             {healthData.sync_enabled && (
-              <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-4 border-t border-pink-500/20">
-                <div className="flex-1 min-w-0 bg-black/30 rounded-md">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-4 border-t border-pink-500/20">
+                <div>
+                  <div className="text-xs opacity-70 mb-1">
+                    Dĺžka cyklu
+                  </div>
                   <SelectField
-                    label="Dĺžka cyklu"
-                    options={CYCLE_LENGTH_OPTIONS}
                     value={String(healthData.cycle_length_days ?? 28)}
                     onChange={(e: any) => updateWomensHealth({ cycle_length_days: parseInt(e.target.value) || 28 })}
+                    options={CYCLE_LENGTH_OPTIONS}
                   />
                 </div>
                 
-                <div className="flex-1 min-w-0 bg-black/30 rounded-md">
-                  <TextField
-                    label="Začiatok (Odhad)"
-                    type="date"
-                    value={healthData.next_cycle_start ?? ""}
-                    onChange={(e: any) => updateWomensHealth({ next_cycle_start: e.target.value })}
+                <div>
+                  <div className="text-xs opacity-70 mb-1">
+                    Začiatok (Odhad)
+                  </div>
+                  {/* Používame váš vlastný DateField */}
+                  <DateField
+                    value={healthData.next_cycle_start ?? null}
+                    onChange={(v: string | null) => updateWomensHealth({ next_cycle_start: v })}
+                    variant="editable"
                   />
                 </div>
               </div>
