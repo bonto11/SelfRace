@@ -376,7 +376,7 @@ export default function DetailHealthLog() {
               </div>
               <input
                 type="checkbox"
-                className="checkbox checkbox-sm sm:checkbox-md border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white]"
+                className="checkbox checkbox-sm sm:checkbox-md border-white/20 checked:border-pink-500 checked:bg-pink-500 [--chkbg:theme(colors.pink.500)] [--chkfg:white] shrink-0"
                 checked={isMenstruatingActive}
                 onChange={(e) => handleMenstruationToggle(e.target.checked)}
                 disabled={saving || loading}
