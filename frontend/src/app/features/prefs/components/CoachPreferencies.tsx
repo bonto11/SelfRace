@@ -8,7 +8,6 @@ import type {
   RunTargets,
   SecondaryMix,
 } from "@/app/features/prefs/types/prefs";
-import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -20,10 +19,6 @@ import {
 import Button from "@/app/shared/ui/components/Button";
 import { NO_X } from "@/app/shared/ui/tokens";
 
-import {
-  apiFetchUserPref,
-  apiUpsertUserPref,
-} from "@/app/features/prefs/api/prefs";
 import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
@@ -82,19 +77,16 @@ export default function CoachPreferencies() {
     {} as CoachPrefsExtended,
   );
 
-  const [isFemale, setIsFemale] = useState(false);
-
   useEffect(() => {
     if (!userId) return;
     let alive = true;
 
     (async () => {
       try {
-        const [pRaw, zonesRaw, thrRowsRaw, profileRaw] = await Promise.all([
+        const [pRaw, zonesRaw, thrRowsRaw] = await Promise.all([
           refreshCoachPrefsFromDB(userId),
           apiFetchUserZonesLatest(userId),
           apiFetchUserThresholdsLatest(userId),
-          apiFetchUserPref(userId, "user.profile"),
         ]);
         if (!alive) return;
 
@@ -102,13 +94,6 @@ export default function CoachPreferencies() {
         const { external_activities: _ext, ...p } = pAny;
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
-
-        // Zistenie pohlavia
-const gender = profileRaw?.gender?.toLowerCase() || "";
-// Zmeň to dočasne na true pre test:
-setIsFemale(true); 
-// setIsFemale(gender === "female" || gender === "f" || gender === "žena");
-
 
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
@@ -146,7 +131,7 @@ setIsFemale(true);
     });
   }, []);
 
-    const prefDefaults = (p: CoachPrefsExtended): any => {
+  const prefDefaults = (p: CoachPrefsExtended): any => {
     const incoming = (p?.preferences ?? {}) as any;
     const two = incoming.two_a_day;
     const enabled = !!(two && typeof two === "object" ? two.enabled : false);
@@ -175,12 +160,9 @@ setIsFemale(true);
       intensity_model,
       training_blocks,
       hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
-      
-      // 👇 TOTO SME ZABUDLI PRIDAŤ:
       womens_health: incoming.womens_health, 
     };
   };
-
 
   const toggleInArray = <T,>(arr: T[] | undefined, v: T): T[] =>
     (arr ?? []).includes(v)
@@ -442,7 +424,6 @@ setIsFemale(true);
         daysOff={pref.days_off}
         longRunDays={pref.long_run_days}
         womensHealth={pref.womens_health}
-        isFemale={isFemale}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
