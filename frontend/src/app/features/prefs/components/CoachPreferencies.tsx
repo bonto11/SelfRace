@@ -104,8 +104,11 @@ export default function CoachPreferencies() {
         const thrRows = (thrRowsRaw ?? []) as any[];
 
         // Zistenie pohlavia
-        const gender = profileRaw?.gender?.toLowerCase() || "";
-        setIsFemale(gender === "female" || gender === "f" || gender === "žena");
+const gender = profileRaw?.gender?.toLowerCase() || "";
+// Zmeň to dočasne na true pre test:
+setIsFemale(true); 
+// setIsFemale(gender === "female" || gender === "f" || gender === "žena");
+
 
         const draftThr =
           Array.isArray(thrRows) && thrRows.length > 0
