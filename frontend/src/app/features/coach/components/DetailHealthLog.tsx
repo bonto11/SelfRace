@@ -201,7 +201,6 @@ export default function DetailHealthLog() {
   const handleAddDraft = () => {
     if (!form.event_type) return;
 
-    // Pridaná kontrola pre istotu, ak by mala žena už jeden aktívny cyklus
     if (form.event_type === "menstruation" && activeMenstruationLog) {
       return toast.error("Menštruačný cyklus už máš aktívne zaznamenaný. Najprv starý označ za vyriešený.");
     }
@@ -228,12 +227,11 @@ export default function DetailHealthLog() {
       computedSeverity = hasSevere ? 7 : 4;
       details = { symptoms: form.symptoms };
     } else if (form.event_type === "menstruation") {
-      // ✅ Pridaná podmienka pre menštruáciu (nemá symptómy ani area, len berieme manuálnu závažnosť)
       details = {}; 
     }
 
     const newDraft: HealthLogRecord = {
-      event_type: form.event_type,
+      event_type: form.event_type as any, // ⬅️ Oklamanie TS compileru
       severity: computedSeverity,
       notes: form.notes.trim() || undefined,
       status: "active",
@@ -336,8 +334,8 @@ export default function DetailHealthLog() {
   const isFatigue = form.event_type === "fatigue";
   const isMenstruationForm = form.event_type === "menstruation";
 
-  // Spojíme bežné typy a ak je to žena, pridáme menštruáciu ako ďalší plnohodnotný event_type
-  const currentEventTypes = isFemale ? [...EVENT_TYPES, "menstruation"] : EVENT_TYPES;
+  // Ak je žena, ukazujeme všetky 4 typy
+  const currentEventTypes = isFemale ? EVENT_TYPES : ["injury", "illness", "fatigue"];
 
   return (
     <div className={PANEL_STACK}>
@@ -492,20 +490,6 @@ export default function DetailHealthLog() {
                   })}
                 </div>
               </div>
-            )}
-            
-            {/* SEKCIA: MENŠTRUÁCIA (Žiadne špecifické doplnky, iba vysvetlenie) */}
-            {isMenstruationForm && (
-               <div className="rounded-xl border border-pink-500/30 bg-pink-500/10 p-4 text-center">
-                 <div className="text-sm font-bold text-pink-300 mb-1">
-                   Začiatok cyklu
-                 </div>
-                 <div className="text-xs text-pink-200/70">
-                   Nastav si vážnosť obmedzenia napravo. AI upraví tvoje najbližšie tréningy – 
-                   pri nižšej vážnosti len zjemní intervaly a ťažké váhy v posilňovni, 
-                   pri vysokej vážnosti ti naordinuje pokojný režim alebo ľahkú prechádzku.
-                 </div>
-               </div>
             )}
           </div>
 
