@@ -33,7 +33,7 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
         event_type = str(item.get("event_type", "")).strip().lower()
         severity = int(item.get("severity", 5))
         
-        # ✅ Pridaná menštruácia medzi povolené typy
+        # ✅ Pridaná menštruácia medzi povolené typy, aby to nepadlo na 400/500
         if event_type not in ["injury", "illness", "fatigue", "menstruation"]:
             raise ValueError(f"Invalid event_type: {event_type}")
         if severity < 1 or severity > 10:
@@ -90,9 +90,10 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
 
     max_severity = max(log.get("severity", 0) for log in active_logs)
     
-    # ✅ Nová kontrola pre menštruačný cyklus
+    # Detekujeme, či je menštruácia aktívna (bez ohľadu na závažnosť, ale prioritu má kritická závažnosť)
     has_menstruation = any(log.get("event_type") == "menstruation" for log in active_logs)
 
+    # 1. AK JE ZÁVAŽNOSŤ >= 7 (Nezáleží, či je to menštruácia, choroba, zranenie)
     if max_severity >= 7:
         service_enqueue_job(
             user_id=user_id,
@@ -104,20 +105,22 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         )
         return {
             "action": "suspend", 
-            "message": "Nariadené lekárske voľno. Budúce tréningy boli pozastavené."
+            "message": "Nariadené voľno kvôli vysokej závažnosti. Budúce tréningy boli pozastavené."
         }
 
+    # 2. Ak je to miernejšia závažnosť (< 7) a je to kvôli menštruácii
     elif has_menstruation:
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",
-            payload={"force_reason": "health_menstruation"}, # Nový flag
+            payload={"force_reason": "health_menstruation"}, 
             priority=100,
             dedupe_key=f"coach_autoadjust_health_menstruation_{user_id}_{ts}",
             ctx=ctx
         )
-        return {"action": "autoadjust", "message": "AI aplikuje ľahký režim pre menštruačnú fázu."}
+        return {"action": "autoadjust", "message": "AI aplikuje ľahší tréningový režim pre tvoju fázu cyklu."}
 
+    # 3. Ak je to miernejšia závažnosť (< 7) a je to choroba/zranenie
     else:
         service_enqueue_job(
             user_id=user_id,
