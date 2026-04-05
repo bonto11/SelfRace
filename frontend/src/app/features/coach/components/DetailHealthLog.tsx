@@ -12,7 +12,6 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { formatDate } from "@/app/shared/utils/time";
 
-// ✅ Static Profile pre určenie, či máme zobraziť voľbu pre ženy
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 import {
@@ -43,7 +42,7 @@ import {
 
 import type { InjuryArea, InjuryType } from "@/app/features/prefs/types/prefs";
 
-const EVENT_TYPES = ["injury", "illness", "fatigue"] as const;
+const EVENT_TYPES = ["injury", "illness", "fatigue", "menstruation"] as const;
 const SEVERITY_SCALE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const INJ_AREAS: InjuryArea[] = [
