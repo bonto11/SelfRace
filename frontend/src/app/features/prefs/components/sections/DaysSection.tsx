@@ -4,9 +4,6 @@ import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField"; 
 import SelectField from "@/app/shared/ui/components/SelectField"; 
-// Ak máte aj DateField, môžeš odkomentovať:
-// import DateField from "@/app/shared/ui/components/DateField";
-
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -126,24 +123,21 @@ export function DaysSection({
             {/* Správne zarovnané prvky pod seba na mobile (flex-col), vedľa seba na PC (sm:flex-row) */}
             {healthData.sync_enabled && (
               <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-4 border-t border-pink-500/20">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 bg-black/30 rounded-md">
                   <SelectField
                     label="Dĺžka cyklu"
                     options={CYCLE_LENGTH_OPTIONS}
                     value={String(healthData.cycle_length_days ?? 28)}
-                    onChange={(e) => updateWomensHealth({ cycle_length_days: parseInt(e.target.value) || 28 })}
-                    className="bg-black/30 w-full"
+                    onChange={(e: any) => updateWomensHealth({ cycle_length_days: parseInt(e.target.value) || 28 })}
                   />
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  {/* Ak máte <DateField>, zmeň TextField na DateField */}
+                <div className="flex-1 min-w-0 bg-black/30 rounded-md">
                   <TextField
                     label="Začiatok (Odhad)"
                     type="date"
                     value={healthData.next_cycle_start ?? ""}
-                    onChange={(e) => updateWomensHealth({ next_cycle_start: e.target.value })}
-                    className="bg-black/30 w-full"
+                    onChange={(e: any) => updateWomensHealth({ next_cycle_start: e.target.value })}
                   />
                 </div>
               </div>
