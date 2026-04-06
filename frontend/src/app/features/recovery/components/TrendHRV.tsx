@@ -15,11 +15,7 @@ import {
 } from "recharts";
 
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import {
-  rollingMean,
-  bandsAround,
-  wrapToLines,
-} from "@/app/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -36,7 +32,9 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-// 1. BEZPEČNÁ FUNKCIA NA ISO LOKÁLNEHO DÁTUMU (zabraňuje posunu o 1 deň dozadu kvôli UTC)
+// Import našich nových komponentov! Zmeň cestu, ak si súbor uložil inam.
+import { EventsIcon, TooltipEvents } from "@/app/shared/charts/RecoveryEvents";
+
 function getLocalISODate(d: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -46,9 +44,8 @@ function getLocalISODate(d: Date): string {
 
 function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
-  const start = new Date(startISO + "T00:00:00"); // T00:00:00 zaručí zhodu s lokálnou polnocou
+  const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  
   for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
     out.push(getLocalISODate(d));
   }
@@ -90,6 +87,8 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
            </div>
         )}
 
+        <TooltipEvents payload={payload[0].payload} />
+
         {comments && (
           <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
              {wrapToLines(comments, 44).join("\n")}
@@ -106,13 +105,9 @@ export default function TrendHRV() {
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
-
-  // 2. OCHRANA PRED HYDRATION MISMATCH
-  // Na serveri vyrenderujeme dnešný dátum bezpečne až po client-side hydratácii
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  
+  useEffect(() => setIsMounted(true), []);
 
   const COLOR = {
     main: appColors.chartLine1,
@@ -128,13 +123,11 @@ export default function TrendHRV() {
   }, [weeks, all]);
 
   const days = weeks * 7;
-  
-  // Dnešný dátum vo formáte YYYY-MM-DD vygenerujeme priamo, až keď sme na klientoch
   const endISO = useMemo(() => isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]); 
   
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
-    d.setDate(d.getDate() - (days - 1)); // Používame lokálny setDate namiesto setUTCDate
+    d.setDate(d.getDate() - (days - 1));
     return getLocalISODate(d);
   }, [endISO, days]);
 
@@ -146,13 +139,11 @@ export default function TrendHRV() {
 
   const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
-  // Vytiahneme AVG
   const hrv = useMemo(() => labelsISO.map((d) => {
     const rec = byDate.get(d);
     return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
   }), [labelsISO, byDate]);
 
-  // Vytiahneme MAX
   const hrvMax = useMemo(() => labelsISO.map((d) => {
     const rec = byDate.get(d);
     return typeof rec?.HRV_max_ms === "number" ? rec.HRV_max_ms : NaN;
@@ -196,18 +187,28 @@ export default function TrendHRV() {
       const isMissing = !Number.isFinite(v);
       const hasBand = lower[i] != null && upper[i] != null;
       
+      const rec = byDate.get(d);
+      const hasAlcohol = !!rec?.alcohol_consumed;
+      const hasFood = !!rec?.food_2h_before;
+      const hasCaffeine = !!rec?.caffeine_8h;
+      const hasAnyEvent = hasAlcohol || hasFood || hasCaffeine;
+      const eventsYPos = isMissing ? missingY[i] : v;
+
       return {
         date: d,
         val: isMissing ? null : v,
         maxVal: !Number.isFinite(maxV) ? null : maxV, 
         bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
-        comments: byDate.get(d)?.comments,
+        comments: rec?.comments,
+        hasAlcohol,
+        hasFood,
+        hasCaffeine,
+        eventsY: hasAnyEvent ? eventsYPos : null,
       };
     });
   }, [labelsISO, hrv, hrvMax, lower, upper, missingY, byDate]);
 
-  // Vyčkáme s renderovaním, aby server a klient boli zladení (Hydration error fix)
   if (!isMounted) return null;
 
   const validValues = [
@@ -219,7 +220,7 @@ export default function TrendHRV() {
   
   const minValue = validValues.length ? Math.min(...validValues) : 0;
   const maxValue = validValues.length ? Math.max(...validValues) : 100;
-  const yMin = Math.max(0, Math.floor((minValue - 10) / 10) * 10);
+  const yMin = Math.max(0, Math.floor((minValue - 20) / 10) * 10);
   const yMax = Math.ceil((maxValue + 10) / 10) * 10;
 
   const yAxisLabel = `[${t("common.units.ms")}]`;
@@ -256,7 +257,7 @@ export default function TrendHRV() {
           )}
           
            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 35 }}>
               
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               
@@ -280,23 +281,14 @@ export default function TrendHRV() {
               <Tooltip content={<RecoveryTooltip t={t} />} cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
 
-              <Area 
-                type="monotone" 
-                dataKey="bandRange" 
-                stroke="none" 
-                fill={COLOR.bandFill} 
-                fillOpacity={1} 
-                legendType="none" 
-                connectNulls 
-              />
+              <Area type="monotone" dataKey="bandRange" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" connectNulls />
 
-              {/* Hlavná krivka (AVG) */}
               <Line type="monotone" dataKey="val" name={t("recovery.trends.hrv.hrvLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-              
-              {/* Pridaná nová krivka (MAX) */}
               <Line type="monotone" dataKey="maxVal" name={t("recovery.trends.hrv.hrvMaxLabel") as string} stroke={COLOR.maxLine} strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2, fill: COLOR.maxLine, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
-              
               <Scatter dataKey="missingY" name={t("recovery.trends.hrv.missingLabel") as string} fill={COLOR.missing} r={4} />
+
+              <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
+
             </ComposedChart>
           </ResponsiveContainer>
         </div>

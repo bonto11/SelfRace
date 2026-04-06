@@ -1,4 +1,3 @@
-// src/features/recovery/api/recovery.ts
 import { isoDate } from "@/app/shared/utils/time";
 import {
   RecoveryRow,
@@ -6,10 +5,6 @@ import {
 } from "@/app/features/recovery/types/recovery";
 import { callBackend } from "@/app/shared/utils/callBackend";
 
-/**
- * Čistý BE fetch + normalizácia na RecoveryRow[]
- * Žiadna cache, žiadne React veci.
- */
 export async function apiFetchRecovery(
   userId: string | number,
   days: number = 90,
@@ -27,15 +22,25 @@ export async function apiFetchRecovery(
     const arr: any[] = Array.isArray(json?.data) ? json.data : [];
 
     const normalized: RecoveryRow[] = arr
-      .map((r) => ({
-        date: isoDate(r?.date),
-        RHR_bpm: r?.RHR_bpm ?? null,
-        HRV_avg_ms: r?.HRV_avg_ms ?? null,
-        HRV_max_ms: r?.HRV_max_ms ?? null,
-        sleep_start_time: r?.sleep_start_time ?? null,
-        sleep_duration_min: r?.sleep_duration_min ?? null,
-        comments: r?.comments ?? null,
-      }))
+      .map((r) => {
+        // Vyhodnotenie alkoholu: Ak existuje nejaký objem > 0, rátame to ako konzumáciu
+        const alcoholVolume = Number(r?.alcohol_volume_ml);
+        const consumedAlcohol = Number.isFinite(alcoholVolume) && alcoholVolume > 0;
+
+        return {
+          date: isoDate(r?.date),
+          RHR_bpm: r?.RHR_bpm ?? null,
+          HRV_avg_ms: r?.HRV_avg_ms ?? null,
+          HRV_max_ms: r?.HRV_max_ms ?? null,
+          sleep_start_time: r?.sleep_start_time ?? null,
+          sleep_duration_min: r?.sleep_duration_min ?? null,
+          comments: r?.comments ?? null,
+          
+          caffeine_8h: !!r?.caffeine_8h,
+          food_2h_before: !!r?.food_2h_before,
+          alcohol_consumed: consumedAlcohol,
+        };
+      })
       .sort((a, b) => a.date.localeCompare(b.date));
 
     return normalized;
@@ -75,7 +80,7 @@ export async function apiSaveRecoveryPatch(
 
   try {
     await callBackend<any>(path, {
-      method: "POST", // môže zostať POST, dôležité je BE správanie (exclude_unset)
+      method: "POST", 
       cache: "no-store",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

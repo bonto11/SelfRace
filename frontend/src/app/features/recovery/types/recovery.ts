@@ -6,6 +6,11 @@ export type RecoveryRow = {
   sleep_start_time: string | null;
   sleep_duration_min: number | null;
   comments: string | null;
+  
+  // ✅ Nové pole pre grafy
+  caffeine_8h: boolean;
+  food_2h_before: boolean;
+  alcohol_consumed: boolean;
 };
 
 export type RecoveryPatch = {
