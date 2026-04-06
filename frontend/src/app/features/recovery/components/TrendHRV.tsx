@@ -37,8 +37,10 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 function iso(d: Date) {
-  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  return z.toISOString().slice(0, 10);
+  // Posun voči lokálnej zóne, aby to sedelo na "dnešok" presne tam, kde si
+  const offset = d.getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(d.getTime() - offset)).toISOString().slice(0, -1);
+  return localISOTime.slice(0, 10);
 }
 
 function dateSeq(startISO: string, endISO: string): string[] {
@@ -53,6 +55,7 @@ function dateSeq(startISO: string, endISO: string): string[] {
 const RecoveryTooltip = ({ active, payload, label, t }: any) => {
   if (active && payload && payload.length) {
     const mainData = payload.find((p: any) => p.dataKey === "val");
+    const maxData = payload.find((p: any) => p.dataKey === "maxVal");
     const missingData = payload.find((p: any) => p.dataKey === "missingY");
     const comments = payload[0].payload.comments;
 
@@ -66,7 +69,7 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
         {mainData && mainData.value != null ? (
           <div className="flex items-center gap-2 text-sm" style={{ color: mainData.color }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: mainData.color }}></span>
-            <span className="opacity-90">HRV:</span>
+            <span className="opacity-90">HRV (Avg):</span>
             <span className="font-bold">{Math.round(mainData.value)} {t("common.units.ms")}</span>
           </div>
         ) : missingData ? (
@@ -75,6 +78,14 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
              <span className="opacity-90">{t("recovery.trends.hrv.noRecord")}</span>
           </div>
         ) : null}
+
+        {maxData && maxData.value != null && (
+           <div className="flex items-center gap-2 text-sm mt-1" style={{ color: maxData.color }}>
+             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: maxData.color }}></span>
+             <span className="opacity-90">HRV (Max):</span>
+             <span className="font-bold">{Math.round(maxData.value)} {t("common.units.ms")}</span>
+           </div>
+        )}
 
         {comments && (
           <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
@@ -95,6 +106,7 @@ export default function TrendHRV() {
 
   const COLOR = {
     main: appColors.chartLine1,
+    maxLine: appColors.chartLine2,
     bandFill: appColors.chartBandFill,
     missing: appColors.stateBad,
   };
@@ -106,7 +118,11 @@ export default function TrendHRV() {
   }, [weeks, all]);
 
   const days = weeks * 7;
-  const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
+  
+  // ZMENA: Namiesto pozerania na posledný záznam v DB ('all.at(-1)?.date'), 
+  // graf sa vždy vyrenderuje až do DNEŠNÉHO reálneho dátumu!
+  const endISO = useMemo(() => iso(new Date()), []); 
+  
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
     d.setUTCDate(d.getUTCDate() - (days - 1));
@@ -121,9 +137,16 @@ export default function TrendHRV() {
 
   const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
+  // Vytiahneme AVG
   const hrv = useMemo(() => labelsISO.map((d) => {
     const rec = byDate.get(d);
     return typeof rec?.HRV_avg_ms === "number" ? rec.HRV_avg_ms : NaN;
+  }), [labelsISO, byDate]);
+
+  // Vytiahneme MAX
+  const hrvMax = useMemo(() => labelsISO.map((d) => {
+    const rec = byDate.get(d);
+    return typeof rec?.HRV_max_ms === "number" ? rec.HRV_max_ms : NaN;
   }), [labelsISO, byDate]);
 
   const baselineArr = useMemo(() => rollingMean(hrv.map((v) => (Number.isFinite(v) ? (v as number) : null)), 14), [hrv]);
@@ -160,20 +183,28 @@ export default function TrendHRV() {
   const chartData = useMemo(() => {
     return labelsISO.map((d, i) => {
       const v = hrv[i];
+      const maxV = hrvMax[i];
       const isMissing = !Number.isFinite(v);
       const hasBand = lower[i] != null && upper[i] != null;
       
       return {
         date: d,
         val: isMissing ? null : v,
+        maxVal: !Number.isFinite(maxV) ? null : maxV, // Pridáme do dát grafu
         bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
     });
-  }, [labelsISO, hrv, lower, upper, missingY, byDate]);
+  }, [labelsISO, hrv, hrvMax, lower, upper, missingY, byDate]);
 
-  const validValues = [...hrv.filter(Number.isFinite), ...lower.filter((v): v is number => v !== null), ...upper.filter((v): v is number => v !== null)];
+  const validValues = [
+      ...hrv.filter(Number.isFinite), 
+      ...hrvMax.filter(Number.isFinite), 
+      ...lower.filter((v): v is number => v !== null), 
+      ...upper.filter((v): v is number => v !== null)
+  ];
+  
   const minValue = validValues.length ? Math.min(...validValues) : 0;
   const maxValue = validValues.length ? Math.max(...validValues) : 100;
   const yMin = Math.max(0, Math.floor((minValue - 10) / 10) * 10);
@@ -213,7 +244,6 @@ export default function TrendHRV() {
           )}
           
            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-            {/* Zmenšený left margin na 0 */}
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
@@ -232,7 +262,6 @@ export default function TrendHRV() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }} 
                 axisLine={false} 
                 tickLine={false}
-                // ✅ Pridaná jednotka osi
                 label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
               
@@ -249,7 +278,12 @@ export default function TrendHRV() {
                 connectNulls 
               />
 
+              {/* Hlavná krivka (AVG) */}
               <Line type="monotone" dataKey="val" name={t("recovery.trends.hrv.hrvLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
+              
+              {/* Pridaná nová krivka (MAX) */}
+              <Line type="monotone" dataKey="maxVal" name={t("recovery.trends.hrv.hrvMaxLabel") as string} stroke={COLOR.maxLine} strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2, fill: COLOR.maxLine, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
+              
               <Scatter dataKey="missingY" name={t("recovery.trends.hrv.missingLabel") as string} fill={COLOR.missing} r={4} />
             </ComposedChart>
           </ResponsiveContainer>
