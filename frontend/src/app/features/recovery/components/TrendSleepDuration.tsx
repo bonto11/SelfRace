@@ -33,16 +33,20 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-function iso(d: Date) {
-  const z = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  return z.toISOString().slice(0, 10);
+function getLocalISODate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
+
 function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const start = new Date(startISO + "T00:00:00");
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
-    out.push(iso(d));
+  for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
+    out.push(getLocalISODate(d));
+  }
   return out;
 }
 
@@ -117,6 +121,11 @@ export default function TrendSleepDuration() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const COLOR = {
     main: appColors.chartLine1,
     bandFill: appColors.chartBandFill,
@@ -130,11 +139,12 @@ export default function TrendSleepDuration() {
   }, [weeks, all]);
 
   const days = weeks * 7;
-  const endISO = useMemo(() => all.at(-1)?.date ?? iso(new Date()), [all]);
+  const endISO = useMemo(() => isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]);
+  
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
-    d.setUTCDate(d.getUTCDate() - (days - 1));
-    return iso(d);
+    d.setDate(d.getDate() - (days - 1));
+    return getLocalISODate(d);
   }, [endISO, days]);
 
   const byDate = useMemo(() => {
@@ -191,12 +201,14 @@ export default function TrendSleepDuration() {
       return {
         date: d,
         val: isMissing ? null : v,
-        bandRange: [420, 540], // ✅ POUŽITIE ROZSAHU PRE SPÁNOK
+        bandRange: [420, 540], 
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
     });
   }, [labelsISO, sleepMin, missingY, byDate]);
+
+  if (!isMounted) return null;
 
   const validValues = sleepMin.filter(Number.isFinite);
   const minValue = validValues.length ? Math.min(...validValues) : 360; 
@@ -246,7 +258,7 @@ export default function TrendSleepDuration() {
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -274,7 +286,6 @@ export default function TrendSleepDuration() {
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(val) => `${Math.floor(Number(val) / 60)}`}
-                // ✅ Pridaná jednotka osi [h]
                 label={{ value: `${t("common.units.hour")}`, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
               />
 
