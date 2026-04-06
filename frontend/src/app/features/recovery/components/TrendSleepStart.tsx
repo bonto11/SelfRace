@@ -34,6 +34,8 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
+import { EventsIcon, TooltipEvents, EventsLegend } from "@/app/shared/charts/RecoveryEvents";
+
 function getLocalISODate(d: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -116,6 +118,8 @@ const SleepStartTooltip = ({ active, payload, label, t }: any) => {
             </span>
           </div>
         ) : null}
+
+        <TooltipEvents payload={payload[0].payload} t={t} />
 
         {comments && (
           <div
@@ -218,12 +222,24 @@ export default function TrendSleepStart() {
     return labelsISO.map((d, i) => {
       const v = startMin[i];
       const isMissing = !Number.isFinite(v);
+      
+      const rec = byDate.get(d);
+      const hasAlcohol = !!rec?.alcohol_consumed;
+      const hasFood = !!rec?.food_2h_before;
+      const hasCaffeine = !!rec?.caffeine_8h;
+      const hasAnyEvent = hasAlcohol || hasFood || hasCaffeine;
+      const eventsYPos = isMissing ? missingY[i] : v;
+
       return {
         date: d,
         val: isMissing ? null : v,
         bandRange: [22 * 60, 23 * 60], 
         missingY: isMissing ? missingY[i] : null,
-        comments: byDate.get(d)?.comments,
+        comments: rec?.comments,
+        hasAlcohol,
+        hasFood,
+        hasCaffeine,
+        eventsY: hasAnyEvent ? eventsYPos : null,
       };
     });
   }, [labelsISO, startMin, missingY, byDate]);
@@ -235,7 +251,7 @@ export default function TrendSleepStart() {
   const maxY = Math.ceil(Math.max(...allY) / 60) * 60 + 60; 
 
   return (
-    <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
+    <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
       <div
         className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}
       >
@@ -276,7 +292,7 @@ export default function TrendSleepStart() {
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 35 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -346,10 +362,15 @@ export default function TrendSleepStart() {
                 fill={COLOR.missing}
                 r={4}
               />
+
+              <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
+
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      <EventsLegend t={t} />
     </section>
   );
 }

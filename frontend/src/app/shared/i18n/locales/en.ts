@@ -147,25 +147,27 @@ export const en = {
       missingUserAuth: "User missing – please log in again.",
       checkLogin: "Please check your login status.",
     },
-  },pushPrompt: {
-  title: "Never miss a workout",
-  desc: "Allow notifications so your AI coach can let you know when your new daily plan is ready.",
-  later: "Later",
-  allow: "Allow notifications"
-},
-pwaPrompt: {
-  title: "Download SelfRace",
-  androidDesc: "Add the app directly to your home screen for faster access, better notifications, and the full experience.",
-  iosDesc: "Add the app to your iPhone home screen. Follow these steps:",
-  later: "Later",
-  install: "Install app",
-  close: "Got it, close",
-  imgFolder : "images_en",
-  step1 : "Tap the menu (3 dots) in the bottom bar.",
-  step2 : "Find and select the Share option.",
-  step3 : "Scroll down and select Add to Home Screen.",
-  step4 : "Check the app name and tap Add."
-},
+  },
+  pushPrompt: {
+    title: "Never miss a workout",
+    desc: "Allow notifications so your AI coach can let you know when your new daily plan is ready.",
+    later: "Later",
+    allow: "Allow notifications",
+  },
+  pwaPrompt: {
+    title: "Download SelfRace",
+    androidDesc:
+      "Add the app directly to your home screen for faster access, better notifications, and the full experience.",
+    iosDesc: "Add the app to your iPhone home screen. Follow these steps:",
+    later: "Later",
+    install: "Install app",
+    close: "Got it, close",
+    imgFolder: "images_en",
+    step1: "Tap the menu (3 dots) in the bottom bar.",
+    step2: "Find and select the Share option.",
+    step3: "Scroll down and select Add to Home Screen.",
+    step4: "Check the app name and tap Add.",
+  },
 
   landing: {
     h1: "Your personal coach reacting to your state in real-time.",
@@ -2035,9 +2037,15 @@ pwaPrompt: {
       notePlaceholder: "Stress, illness, travel, late workout...",
       hrvMaxLabel: "HRV (Maximum)",
       sleepStartLabel: "Time fallen asleep",
-      importantMark: "Identifying metrics that directly impact your training plan."
+      importantMark:
+        "Identifying metrics that directly impact your training plan.",
     },
     trends: {
+      events: {
+        alcohol: "Alcohol consumed",
+        food: "Heavy/late meal",
+        caffeine: "Late caffeine",
+      },
       common: {
         missingLabel: "Missing record",
         noRecord: "No record",
@@ -2084,47 +2092,58 @@ pwaPrompt: {
   limitations: {
     title: "Limitations & Injuries",
     menstruation: "Cycle Start (Lighter phase)",
-    menstruationDesc: "AI will automatically adjust the training load and prioritize recovery for the upcoming days.",
-    menstruationStarted: "Cycle recorded. Do not forget to adapt your plan below.",
-    menstruationNote: "Menstrual cycle - training load adjusted."
+    menstruationDesc:
+      "AI will automatically adjust the training load and prioritize recovery for the upcoming days.",
+    menstruationStarted:
+      "Cycle recorded. Do not forget to adapt your plan below.",
+    menstruationNote: "Menstrual cycle - training load adjusted.",
   },
   healthLog: {
     pageTitle: "Limitations & Injuries",
     widget: {
       title: "Limitations & Injuries",
-      tooltip: "Current injuries, illnesses, fatigue, or cycle phases affecting your plan.",
+      tooltip:
+        "Current injuries, illnesses, fatigue, or cycle phases affecting your plan.",
       allGood: "Everything looks good. You are 100% Fit.",
-      errorFailedLoad: "Failed to load health status."
+      errorFailedLoad: "Failed to load health status.",
     },
     types: {
       injury: "Injury",
       illness: "Illness",
       fatigue: "Fatigue",
-      menstruation: "Cycle Phase"
+      menstruation: "Cycle Phase",
     },
     addTitle: "Report an issue",
-    addSubtitle: "AI coach will instantly adjust your training plan to accommodate your current state.",
-    returnToTrainingDesc: "If you have just recovered from an injury or illness and your current plan is still reduced, ask the coach for a new plan to return to training safely.",
+    addSubtitle:
+      "AI coach will instantly adjust your training plan to accommodate your current state.",
+    returnToTrainingDesc:
+      "If you have just recovered from an injury or illness and your current plan is still reduced, ask the coach for a new plan to return to training safely.",
     returnToTrainingBtn: "Suggest return to training",
     form: {
       typeLabel: "What's going on?",
       areaLabel: "Problem area",
       injuryTypeLabel: "Type of injury",
       symptomsLabel: "Select what you feel exactly",
-      symptomsIllnessHint: "According to the 'Neck Rule' (symptoms above vs below the neck), AI will evaluate if you need complete rest.",
-      symptomsFatigueHint: "This information will help AI adjust the volume and intensity of upcoming workouts.",
+      symptomsIllnessHint:
+        "According to the 'Neck Rule' (symptoms above vs below the neck), AI will evaluate if you need complete rest.",
+      symptomsFatigueHint:
+        "This information will help AI adjust the volume and intensity of upcoming workouts.",
       autoSeverityTitle: "Automatic evaluation",
-      autoSeverityText: "The severity of the problem will be calculated automatically based on the selected symptoms.",
+      autoSeverityText:
+        "The severity of the problem will be calculated automatically based on the selected symptoms.",
       severityLabel: "Severity (1 = mild limitation, 10 = critical)",
-      severityMildHint: "Mild limitation. AI will ease the training or suggest cross-training.",
-      severityCriticalHint: "Training is not possible. AI will prescribe medical leave and rest.",
+      severityMildHint:
+        "Mild limitation. AI will ease the training or suggest cross-training.",
+      severityCriticalHint:
+        "Training is not possible. AI will prescribe medical leave and rest.",
       notesLabel: "Issue details (optional)",
-      notesPlaceholder: "E.g. fever 38.5°C, right knee pain during downhills...",
+      notesPlaceholder:
+        "E.g. fever 38.5°C, right knee pain during downhills...",
       addDraftBtn: "+ Add to list",
       draftsTitle: "Ready to save (Not saved yet):",
       errorNoSymptoms: "You must select at least one symptom.",
       saveButton: "Save",
-      severity: "Severity"
+      severity: "Severity",
     },
     injAreas: {
       foot: "Foot",
@@ -2144,7 +2163,7 @@ pwaPrompt: {
       neck: "Neck",
       shoulder: "Shoulder",
       arm_wrist: "Arm / Wrist",
-      other: "Other"
+      other: "Other",
     },
     injTypes: {
       overuse: "Overuse",
@@ -2155,7 +2174,7 @@ pwaPrompt: {
       shin_splints: "Shin splints",
       plantar: "Plantar fasciitis",
       itb: "IT Band syndrome",
-      other: "Other"
+      other: "Other",
     },
     symptoms: {
       fever: "Fever / Chills",
@@ -2168,7 +2187,7 @@ pwaPrompt: {
       exhaustion: "Complete exhaustion (Battery at 0%)",
       high_hr: "High morning HR / Low HRV",
       heavy_legs: "Extremely heavy legs",
-      poor_sleep: "Long-term poor sleep"
+      poor_sleep: "Long-term poor sleep",
     },
     activeTitle: "Current status",
     activeSubtitle: "Records currently limiting your training.",
@@ -2176,12 +2195,12 @@ pwaPrompt: {
     today: "Today",
     actions: {
       resolve: "Resolved",
-      delete: "Delete"
+      delete: "Delete",
     },
     replanAlert: {
       title: "Plan needs to be adjusted.",
       text: "Don't forget to let AI evaluate your schedule after every health status change.",
-      button: "Adapt workouts"
+      button: "Adapt workouts",
     },
     historyTitle: "Health log history",
     saveSuccess: "Record successfully saved to your log.",
@@ -2191,12 +2210,14 @@ pwaPrompt: {
     errorSave: "Error saving the record.",
     errorResolve: "Error updating the record.",
     errorDelete: "Error deleting the record.",
-    planAdapting: "Recalculating plan... This might take a few minutes. Go grab some water.",
+    planAdapting:
+      "Recalculating plan... This might take a few minutes. Go grab some water.",
     deleteConfirm: {
       title: "Delete record?",
-      message: "Are you sure you want to delete this record? Only do this if you entered it by mistake, otherwise you will lose the history.",
-      ok: "Delete"
-    }
+      message:
+        "Are you sure you want to delete this record? Only do this if you entered it by mistake, otherwise you will lose the history.",
+      ok: "Delete",
+    },
   },
   calendar: {
     title: "Calendar",
