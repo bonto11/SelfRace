@@ -15,11 +15,7 @@ import {
 } from "recharts";
 
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import {
-  rollingMean,
-  bandsAround,
-  wrapToLines,
-} from "@/app/shared/utils/recovery";
+import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -35,6 +31,8 @@ import {
   PANEL_SECTION_SUBTITLE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+
+import { EventsIcon, TooltipEvents, EventsLegend } from "@/app/shared/charts/RecoveryEvents";
 
 function getLocalISODate(d: Date): string {
   const year = d.getFullYear();
@@ -94,6 +92,8 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
             </span>
           </div>
         ) : null}
+
+        <TooltipEvents payload={payload[0].payload} t={t} />
 
         {comments && (
           <div
@@ -208,12 +208,23 @@ export default function TrendRHR() {
       const isMissing = !Number.isFinite(v);
       const hasBand = lower[i] != null && upper[i] != null;
       
+      const rec = byDate.get(d);
+      const hasAlcohol = !!rec?.alcohol_consumed;
+      const hasFood = !!rec?.food_2h_before;
+      const hasCaffeine = !!rec?.caffeine_8h;
+      const hasAnyEvent = hasAlcohol || hasFood || hasCaffeine;
+      const eventsYPos = isMissing ? missingY[i] : v;
+
       return {
         date: d,
         val: isMissing ? null : v,
         bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
-        comments: byDate.get(d)?.comments,
+        comments: rec?.comments,
+        hasAlcohol,
+        hasFood,
+        hasCaffeine,
+        eventsY: hasAnyEvent ? eventsYPos : null,
       };
     });
   }, [labelsISO, rhr, lower, upper, missingY, byDate]);
@@ -228,13 +239,13 @@ export default function TrendRHR() {
   const minValue = validValues.length ? Math.min(...validValues) : 40;
   const maxValue = validValues.length ? Math.max(...validValues) : 80;
 
-  const yMin = Math.max(30, Math.floor((minValue - 5) / 5) * 5);
+  const yMin = Math.max(30, Math.floor((minValue - 10) / 5) * 5);
   const yMax = Math.ceil((maxValue + 5) / 5) * 5;
 
   const yAxisLabel = `[${t("common.units.hr")}]`;
 
   return (
-    <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
+    <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
       <div
         className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}
       >
@@ -275,7 +286,7 @@ export default function TrendRHR() {
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 35 }}
             >
               
               <CartesianGrid
@@ -345,10 +356,15 @@ export default function TrendRHR() {
                 fill={COLOR.missing}
                 r={4}
               />
+              
+              <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
+              
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      <EventsLegend t={t} />
     </section>
   );
 }

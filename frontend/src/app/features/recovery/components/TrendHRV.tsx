@@ -32,8 +32,7 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-// Import našich nových komponentov! Zmeň cestu, ak si súbor uložil inam.
-import { EventsIcon, TooltipEvents } from "@/app/shared/charts/RecoveryEvents";
+import { EventsIcon, TooltipEvents, EventsLegend } from "@/app/shared/charts/RecoveryEvents";
 
 function getLocalISODate(d: Date): string {
   const year = d.getFullYear();
@@ -87,7 +86,7 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
            </div>
         )}
 
-        <TooltipEvents payload={payload[0].payload} />
+        <TooltipEvents payload={payload[0].payload} t={t} />
 
         {comments && (
           <div className="mt-2 pt-2 border-t text-[11px] opacity-70 italic whitespace-pre-wrap" style={{ borderColor: appColors.divider }}>
@@ -226,7 +225,7 @@ export default function TrendHRV() {
   const yAxisLabel = `[${t("common.units.ms")}]`;
 
   return (
-    <section className={CARD + " relative"} style={SURFACE_CARD_STYLE}>
+    <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} flex-wrap gap-4`}>
         <div className="min-w-0">
           <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
@@ -293,6 +292,9 @@ export default function TrendHRV() {
           </ResponsiveContainer>
         </div>
       </div>
+      
+      {/* Nová legenda ikoniek dole */}
+      <EventsLegend t={t} />
     </section>
   );
 }
