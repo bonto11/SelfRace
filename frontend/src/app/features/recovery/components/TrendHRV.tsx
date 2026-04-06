@@ -36,19 +36,22 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-function iso(d: Date) {
-  // Posun voči lokálnej zóne, aby to sedelo na "dnešok" presne tam, kde si
-  const offset = d.getTimezoneOffset() * 60000;
-  const localISOTime = (new Date(d.getTime() - offset)).toISOString().slice(0, -1);
-  return localISOTime.slice(0, 10);
+// 1. BEZPEČNÁ FUNKCIA NA ISO LOKÁLNEHO DÁTUMU (zabraňuje posunu o 1 deň dozadu kvôli UTC)
+function getLocalISODate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
-  const start = new Date(startISO + "T00:00:00");
+  const start = new Date(startISO + "T00:00:00"); // T00:00:00 zaručí zhodu s lokálnou polnocou
   const end = new Date(endISO + "T00:00:00");
-  for (let d = start; d <= end; d.setUTCDate(d.getUTCDate() + 1))
-    out.push(iso(d));
+  
+  for (let d = start; d <= end; d.setDate(d.getDate() + 1)) {
+    out.push(getLocalISODate(d));
+  }
   return out;
 }
 
@@ -104,6 +107,13 @@ export default function TrendHRV() {
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // 2. OCHRANA PRED HYDRATION MISMATCH
+  // Na serveri vyrenderujeme dnešný dátum bezpečne až po client-side hydratácii
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const COLOR = {
     main: appColors.chartLine1,
     maxLine: appColors.chartLine2,
@@ -119,14 +129,13 @@ export default function TrendHRV() {
 
   const days = weeks * 7;
   
-  // ZMENA: Namiesto pozerania na posledný záznam v DB ('all.at(-1)?.date'), 
-  // graf sa vždy vyrenderuje až do DNEŠNÉHO reálneho dátumu!
-  const endISO = useMemo(() => iso(new Date()), []); 
+  // Dnešný dátum vo formáte YYYY-MM-DD vygenerujeme priamo, až keď sme na klientoch
+  const endISO = useMemo(() => isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]); 
   
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
-    d.setUTCDate(d.getUTCDate() - (days - 1));
-    return iso(d);
+    d.setDate(d.getDate() - (days - 1)); // Používame lokálny setDate namiesto setUTCDate
+    return getLocalISODate(d);
   }, [endISO, days]);
 
   const byDate = useMemo(() => {
@@ -190,13 +199,16 @@ export default function TrendHRV() {
       return {
         date: d,
         val: isMissing ? null : v,
-        maxVal: !Number.isFinite(maxV) ? null : maxV, // Pridáme do dát grafu
+        maxVal: !Number.isFinite(maxV) ? null : maxV, 
         bandRange: hasBand ? [lower[i], upper[i]] : null,
         missingY: isMissing ? missingY[i] : null,
         comments: byDate.get(d)?.comments,
       };
     });
   }, [labelsISO, hrv, hrvMax, lower, upper, missingY, byDate]);
+
+  // Vyčkáme s renderovaním, aby server a klient boli zladení (Hydration error fix)
+  if (!isMounted) return null;
 
   const validValues = [
       ...hrv.filter(Number.isFinite), 
