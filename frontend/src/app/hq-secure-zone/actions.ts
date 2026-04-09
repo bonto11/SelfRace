@@ -109,31 +109,53 @@ export async function getSystemDiagnostics() {
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
-  // Spustíme všetky dotazy súbežne pre maximálnu rýchlosť
+  // Stiahneme reálne dáta, nielen "počty", aby sme vedeli spraviť zoznam
   const [
-    { count: totalUsers },
-    { count: pushSubscribers },
-    { count: stravaConnected },
+    { data: users },
+    { data: pushSubs },
+    { data: stravaAccounts },
     { data: activeSubs }
   ] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }),
-    supabase.from('push_notifications').select('*', { count: 'exact', head: true }),
-    supabase.from('strava_account').select('*', { count: 'exact', head: true }).is('deauthorized_at', null),
-    supabase.from('app_user_subscriptions').select('tier_code').eq('status', 'active')
+    supabase.from('users').select('*'), // Vezmeme všetko, nech máme email alebo aspoň user_uid
+    supabase.from('push_notifications').select('user_id'),
+    supabase.from('strava_account').select('user_id, athlete_id').not('athlete_id', 'is', null),
+    supabase.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
   ]);
 
-  // Zosumarizujeme aktívne predplatné podľa "tier_code" (napr. { classic: 10, pro: 5 })
-  const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
+  const activeSubsList = activeSubs || [];
+  const tiers = activeSubsList.reduce((acc: Record<string, number>, sub) => {
     acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
     return acc;
   }, {});
 
+  // Namapujeme si to do pamäte pre bleskové vyhľadávanie
+  const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
+  const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
+  const subsUsers = new Map(activeSubsList.map(s => [s.user_id, s.tier_code]));
+
+  // Vytvoríme konkrétny prehľad používateľov
+  const userDetails = (users || []).map((u: any) => ({
+    id: u.id,
+    email: u.email || u.user_uid || `Neznámy (User #${u.id})`,
+    hasPush: pushUserIds.has(u.id),
+    stravaId: stravaUsers.get(u.id) || null,
+    tier: subsUsers.get(u.id) || "free"
+  })).sort((a, b) => {
+    // Zoradenie: Platiaci idú prví, potom tí čo majú Stravu, potom podľa ID
+    if (a.tier !== 'free' && b.tier === 'free') return -1;
+    if (a.tier === 'free' && b.tier !== 'free') return 1;
+    if (a.stravaId && !b.stravaId) return -1;
+    if (!a.stravaId && b.stravaId) return 1;
+    return b.id - a.id;
+  });
+
   return {
-    totalUsers: totalUsers || 0,
-    pushSubscribers: pushSubscribers || 0,
-    stravaConnected: stravaConnected || 0,
-    activeSubsTotal: activeSubs?.length || 0,
+    totalUsers: users?.length || 0,
+    pushSubscribers: pushUserIds.size, // Počet unikátnych používateľov s notifikáciami
+    stravaConnected: stravaAccounts?.length || 0,
+    activeSubsTotal: activeSubsList.length,
     tiers,
+    userDetails,
     serverTime: new Date().toISOString(),
   };
 }
