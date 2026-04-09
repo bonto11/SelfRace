@@ -74,18 +74,16 @@ export default function ProvidersPanel() {
 
       {/* ROZBALENÝ OBSAH */}
       <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-        <div className="p-6 md:p-8">
+        <div className="p-6 md:p-8 space-y-6">
           
-          {/* TLAČIDLO NA NAČÍTANIE (Teraz vo vnútri) */}
-          <div className="mb-6 flex justify-end">
-             <button 
-                onClick={handleLoadModels} 
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase tracking-widest px-4 py-3 rounded-lg transition-all disabled:opacity-50 shadow-lg shadow-green-900/20"
-              >
-                {loading ? "Komunikujem s API..." : "Načítať zoznam a overiť modely"}
-              </button>
-          </div>
+          {/* TLAČIDLO NA NAČÍTANIE (Na celú šírku ako pri ostatných paneloch) */}
+          <button 
+            onClick={handleLoadModels} 
+            disabled={loading}
+            className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all disabled:opacity-50 shadow-lg shadow-green-900/20"
+          >
+            {loading ? "Komunikujem s API..." : "Načítať zoznam a overiť modely"}
+          </button>
 
           {!models && !loading && (
             <div className="text-center p-8 border border-gray-800 border-dashed rounded-xl text-gray-500 text-xs font-bold uppercase tracking-widest bg-black/50">
