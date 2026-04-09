@@ -77,9 +77,9 @@ def _extract_user_input(context_payload: Dict[str, Any]) -> Tuple[Optional[str],
 def generate_activity_review_json(
     *,
     context_payload: Dict[str, Any],
+    ctx: AuthCtx,
     model: Optional[str] = None, # Teraz voliteľné, provider použije fallbacky
     user_id: Optional[int] = None,
-    ctx: AuthCtx,
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
     """
     Hlavná funkcia na generovanie review. 
