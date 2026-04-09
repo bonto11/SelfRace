@@ -19,6 +19,7 @@ export default function DiagnosticPanel() {
       }
     }
     loadStats();
+    // Auto-refresh každých 30 sekúnd
     const interval = setInterval(loadStats, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -80,6 +81,7 @@ export default function DiagnosticPanel() {
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Active Plans</p>
               <p className="text-3xl font-black text-green-500">{data?.activeSubsTotal || 0}</p>
               
+              {/* Tiers labels */}
               {data?.tiers && Object.keys(data.tiers).length > 0 && (
                 <div className="flex flex-wrap justify-center gap-1 mt-1">
                   {Object.entries(data.tiers).map(([tier, count]) => (
@@ -103,47 +105,49 @@ export default function DiagnosticPanel() {
           {data?.userDetails && data.userDetails.length > 0 && (
             <div className="pt-8 border-t border-gray-800">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
-                👥 Konkrétni používatelia
+                👥 User Registry (Internal ID Link)
               </h3>
               
               <div className="overflow-x-auto rounded-xl border border-gray-800">
                 <table className="w-full text-left text-xs font-mono whitespace-nowrap">
                   <thead className="bg-gray-800 text-gray-400 uppercase tracking-widest text-[10px]">
                     <tr>
-                      <th className="p-3 pl-4">ID</th>
-                      <th className="p-3">Identifikátor (Email/UID)</th>
-                      <th className="p-3 text-center">Strava ID</th>
-                      <th className="p-3 text-center">Push Subs</th>
+                      <th className="p-3 pl-4">INT ID</th>
+                      <th className="p-3">Email / Identity</th>
+                      <th className="p-3 text-center">Strava (Athlete)</th>
+                      <th className="p-3 text-center">Push</th>
                       <th className="p-3 text-center pr-4">Tier</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800 bg-black/30">
                     {data.userDetails.map((u: any) => (
                       <tr key={u.id} className="hover:bg-gray-800/40 transition-colors">
-                        <td className="p-3 pl-4 text-gray-500">#{u.id}</td>
+                        <td className="p-3 pl-4 text-purple-500 font-bold">#{u.id}</td>
                         <td className="p-3 text-gray-300">{u.email}</td>
                         <td className="p-3 text-center">
                           {u.stravaId ? (
-                            <span className="text-[#FC4C02] font-bold bg-[#FC4C02]/10 px-2 py-1 rounded">✅ {u.stravaId}</span>
+                            <span className="text-[#FC4C02] font-bold bg-[#FC4C02]/10 px-2 py-1 rounded border border-[#FC4C02]/20">
+                              🧡 {u.stravaId}
+                            </span>
                           ) : (
-                            <span className="text-gray-700">❌</span>
+                            <span className="text-gray-700 opacity-30 italic">Not linked</span>
                           )}
                         </td>
                         <td className="p-3 text-center">
                           {u.hasPush ? (
-                            <span className="text-blue-500 text-sm">✅</span>
+                            <span className="text-blue-500 font-bold">YES</span>
                           ) : (
-                            <span className="text-gray-700 text-sm">❌</span>
+                            <span className="text-gray-700">NO</span>
                           )}
                         </td>
                         <td className="p-3 text-center pr-4">
-                          {u.tier === 'free' ? (
-                            <span className="text-gray-600 uppercase text-[10px] tracking-widest font-black">Free</span>
-                          ) : (
-                            <span className="bg-green-900/30 text-green-400 px-2 py-1 rounded text-[10px] uppercase tracking-widest font-black border border-green-900/50">
-                              {u.tier}
-                            </span>
-                          )}
+                          <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${
+                            u.tier !== 'free' 
+                            ? 'bg-green-900/30 text-green-400 border-green-900/50' 
+                            : 'bg-gray-800 text-gray-600 border-gray-700'
+                          }`}>
+                            {u.tier}
+                          </span>
                         </td>
                       </tr>
                     ))}
