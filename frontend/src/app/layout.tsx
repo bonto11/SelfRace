@@ -6,6 +6,7 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import AppFooter from "@/app/shared/ui/components/AppFooter";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
+import SessionGuard from "@/app/shared/ui/components/SessionGuard"; // 👈 Importujeme strážcu
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -46,6 +47,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           color: appColors.textPrimary,
         }}
       >
+        {/* 🛡️ SessionGuard beží na pozadí a počúva na signál k odhláseniu */}
+        <SessionGuard />
+
         <SettingsProvider>
           <TooltipProvider>
             <div

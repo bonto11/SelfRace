@@ -3,15 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import { updateMaintenanceMode, sendGlobalNotification } from "./actions";
+import { updateMaintenanceMode, sendGlobalNotification, triggerMaintenanceTask } from "./actions";
 
 export default function AdminDashboard() {
-  // --- State pre Údržbu ---
   const [isActive, setIsActive] = useState(false);
   const [msgSk, setMsgSk] = useState("");
   const [msgEn, setMsgEn] = useState("");
   
-  // --- State pre Notifikácie ---
   const [notifTitleSk, setNotifTitleSk] = useState("");
   const [notifBodySk, setNotifBodySk] = useState("");
   const [notifTitleEn, setNotifTitleEn] = useState("");
@@ -20,6 +18,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [taskRunning, setTaskRunning] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadStatus() {
@@ -46,8 +45,7 @@ export default function AdminDashboard() {
   };
 
   const handleSendNotification = async (type: 'custom' | 'maintenance') => {
-    if (!confirm("Naozaj chcete odoslať PUSH notifikáciu všetkým používateľom?")) return;
-    
+    if (!confirm("Odoslať PUSH notifikáciu všetkým?")) return;
     setSending(true);
     try {
       const payload = type === 'maintenance' ? {
@@ -61,121 +59,142 @@ export default function AdminDashboard() {
           en: { title: notifTitleEn, body: notifBodyEn, url: "/activities" }
         }
       };
-
       await sendGlobalNotification(payload);
-      alert("🚀 Notifikácia úspešne odoslaná!");
+      alert("🚀 Notifikácia odoslaná!");
     } catch (err: any) { alert("❌ Chyba: " + err.message); }
     finally { setSending(false); }
   };
 
-  if (loading) return <div className="p-8 text-gray-400">Načítavam riadiace centrum...</div>;
+  const runTask = async (taskName: string, label: string) => {
+    if (!confirm(`Naozaj spustiť úlohu: ${label}?`)) return;
+    setTaskRunning(taskName);
+    try {
+      const res = await triggerMaintenanceTask(taskName);
+      alert(`✅ Úloha úspešne dokončená. Odpoveď backendu: ${res.message || "OK"}`);
+    } catch (err: any) { alert(`❌ Chyba: ${err.message}`); }
+    finally { setTaskRunning(null); }
+  };
+
+  // Zoznam VŠETKÝCH dostupných cron úloh
+  const allCronTasks = [
+    { id: 'training', label: 'Push: Morning Training', group: 'Notifications' },
+    { id: 'recovery', label: 'Push: Recovery Tips', group: 'Notifications' },
+    { id: 'review', label: 'Push: Evening Review', group: 'Notifications' },
+    { id: 'hourly-ping', label: 'Test Hourly Ping', group: 'Notifications' },
+    
+    { id: 'weekly-athlete-state', label: 'Force AI Refresh (50 users)', group: 'AI & Plans' },
+    { id: 'daily-plan-completion', label: 'Auto-Complete Plans', group: 'AI & Plans' },
+    
+    { id: 'apply-subscriptions', label: 'Sync Subscriptions', group: 'System' },
+    { id: 'cleanup-expired-activities', label: 'Clean Expired Files', group: 'System' },
+    { id: 'cleanup-deleted-activities', label: 'Purge Deleted Data', group: 'System' },
+    { id: 'account-hard-delete', label: 'Hard Delete Accounts', group: 'Danger' }
+  ];
+
+  if (loading) return <div className="p-8 text-gray-400 font-mono animate-pulse">Initializing Secure Protocol...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-10 pb-20">
+    <div className="max-w-5xl mx-auto space-y-10 pb-20">
       
-      {/* NAVIGÁCIA SPÄŤ */}
-      <div className="flex justify-between items-center">
-        <Link href="/activities" className="text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-all">
-          ← Späť do aplikácie
+      <div className="flex justify-between items-center bg-gray-900/50 p-4 rounded-xl border border-white/5">
+        <Link href="/activities" className="text-blue-400 hover:text-blue-200 font-bold flex items-center gap-2 transition-all">
+          ← Exit to App
         </Link>
-        <span className="text-xs text-gray-600 bg-gray-900 px-3 py-1 rounded-full border border-gray-800">
-          Environment: Production
-        </span>
+        <div className="flex gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-ping" />
+          <span className="text-[10px] font-black uppercase text-green-500 tracking-tighter">System Online</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* SEKCIÁ 1: ÚDRŽBA */}
-        <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-xl space-y-6">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-yellow-500">⚙️</span> Režim Údržby
+        {/* ÚDRŽBA */}
+        <div className="bg-gray-900 border-t-4 border-yellow-500 p-8 rounded-b-2xl shadow-2xl space-y-6">
+          <h2 className="text-2xl font-black text-white flex items-center gap-3 uppercase italic">
+            <span className="text-yellow-500">🚧</span> Maintenance Mode
           </h2>
           
-          <form onSubmit={handleSaveMaintenance} className="space-y-4">
-            <label className="flex items-center space-x-3 p-3 bg-gray-800/50 rounded-lg cursor-pointer hover:bg-gray-800 transition-colors">
-              <input 
-                type="checkbox" 
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="w-5 h-5 accent-red-600"
-              />
-              <span className="text-gray-200 font-medium">Aktívny režim údržby</span>
-            </label>
-
-            <div className="space-y-3">
-              <textarea 
-                value={msgSk} onChange={(e) => setMsgSk(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-white"
-                placeholder="Správa SK..." rows={2}
-              />
-              <textarea 
-                value={msgEn} onChange={(e) => setMsgEn(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-white"
-                placeholder="Správa EN..." rows={2}
-              />
+          <form onSubmit={handleSaveMaintenance} className="space-y-6">
+            <div className={`p-4 rounded-xl border-2 transition-all ${isActive ? 'bg-red-900/20 border-red-500' : 'bg-gray-800 border-gray-700'}`}>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-6 h-6 accent-red-600" />
+                <span className="text-lg font-bold text-white uppercase">Aktivovať údržbu</span>
+              </label>
             </div>
 
-            <button type="submit" disabled={saving} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-all disabled:opacity-50">
-              {saving ? "Ukladám..." : "Uložiť a aktivovať"}
+            <div className="space-y-4">
+              <textarea value={msgSk} onChange={(e) => setMsgSk(e.target.value)} className="w-full bg-black border border-gray-800 rounded-xl p-4 text-white focus:ring-2 ring-yellow-500 outline-none transition-all" placeholder="Správa pre Slovákov..." rows={2} />
+              <textarea value={msgEn} onChange={(e) => setMsgEn(e.target.value)} className="w-full bg-black border border-gray-800 rounded-xl p-4 text-white focus:ring-2 ring-yellow-500 outline-none transition-all" placeholder="Message for Internationals..." rows={2} />
+            </div>
+
+            <button type="submit" disabled={saving} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 rounded-xl uppercase tracking-widest transition-all disabled:opacity-50">
+              {saving ? "Ukladám..." : "Uložiť zmeny"}
             </button>
           </form>
 
-          <button 
-            onClick={() => handleSendNotification('maintenance')}
-            className="w-full border border-red-900/50 text-red-400 hover:bg-red-950/30 py-2 rounded-lg text-sm transition-all"
-          >
-            ⚠️ Poslať info o údržbe (Push)
+          <button onClick={() => handleSendNotification('maintenance')} className="w-full border-2 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/10 py-3 rounded-xl font-bold transition-all">
+            Poslať Info Notifikáciu
           </button>
         </div>
 
-        {/* SEKCIA 2: NOTIFIKÁCIE */}
-        <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-xl space-y-6">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-blue-500">📢</span> Globálna Notifikácia
+        {/* NOTIFIKÁCIE */}
+        <div className="bg-gray-900 border-t-4 border-blue-500 p-8 rounded-b-2xl shadow-2xl space-y-6">
+          <h2 className="text-2xl font-black text-white flex items-center gap-3 uppercase italic">
+            <span className="text-blue-500">📢</span> Broadcast
           </h2>
 
-          <div className="space-y-4">
-            <div className="p-3 bg-blue-900/10 border border-blue-900/30 rounded-lg">
-              <p className="text-[10px] uppercase tracking-widest text-blue-400 mb-2 font-bold">Slovenčina</p>
-              <input value={notifTitleSk} onChange={e => setNotifTitleSk(e.target.value)} className="w-full bg-transparent border-b border-gray-700 mb-2 p-1 text-white outline-none focus:border-blue-500" placeholder="Nadpis správy..." />
-              <textarea value={notifBodySk} onChange={e => setNotifBodySk(e.target.value)} className="w-full bg-transparent text-sm text-gray-400 outline-none" placeholder="Telo správy..." rows={2} />
+          <div className="space-y-6">
+            <div className="space-y-3 p-4 bg-blue-900/10 rounded-xl border border-blue-900/20">
+              <p className="text-[10px] font-black uppercase text-blue-400">Slovenčina</p>
+              <input value={notifTitleSk} onChange={e => setNotifTitleSk(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-white outline-none" placeholder="Titulok..." />
+              <textarea value={notifBodySk} onChange={e => setNotifBodySk(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm text-gray-400 outline-none" placeholder="Obsah správy..." rows={2} />
             </div>
 
-            <div className="p-3 bg-purple-900/10 border border-purple-900/30 rounded-lg">
-              <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-2 font-bold">English</p>
-              <input value={notifTitleEn} onChange={e => setNotifTitleEn(e.target.value)} className="w-full bg-transparent border-b border-gray-700 mb-2 p-1 text-white outline-none focus:border-purple-500" placeholder="Message title..." />
-              <textarea value={notifBodyEn} onChange={e => setNotifBodyEn(e.target.value)} className="w-full bg-transparent text-sm text-gray-400 outline-none" placeholder="Message body..." rows={2} />
+            <div className="space-y-3 p-4 bg-purple-900/10 rounded-xl border border-purple-900/20">
+              <p className="text-[10px] font-black uppercase text-purple-400">English</p>
+              <input value={notifTitleEn} onChange={e => setNotifTitleEn(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-white outline-none" placeholder="Title..." />
+              <textarea value={notifBodyEn} onChange={e => setNotifBodyEn(e.target.value)} className="w-full bg-black border border-gray-800 p-3 rounded-lg text-sm text-gray-400 outline-none" placeholder="Body content..." rows={2} />
             </div>
 
-            <button 
-              onClick={() => handleSendNotification('custom')}
-              disabled={sending || !notifTitleSk}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-blue-900/20 disabled:opacity-30"
-            >
-              {sending ? "Odosielam..." : "Odoslať všetkým používateľom"}
+            <button onClick={() => handleSendNotification('custom')} disabled={sending || !notifTitleSk} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl uppercase tracking-widest transition-all disabled:opacity-30 shadow-lg shadow-blue-500/20">
+              {sending ? "Odosielam..." : "Vyslať do sveta"}
             </button>
           </div>
         </div>
-
       </div>
 
-      {/* DANGER ZONE */}
-      <div className="p-6 border border-red-900/30 bg-red-950/10 rounded-2xl">
-        <h3 className="text-red-500 font-bold mb-3 flex items-center gap-2">
-          <span>⚠️</span> Systémová zóna
+      {/* CRON MASTER / CRITICAL OPERATIONS */}
+      <div className="bg-black border-2 border-red-900/30 p-8 rounded-3xl shadow-2xl">
+        <h3 className="text-red-600 font-black mb-6 flex items-center gap-3 uppercase tracking-tighter text-xl italic">
+          <span className="animate-pulse">🔴</span> Cron Master Operations
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <button className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg text-xs text-gray-300 border border-gray-700 transition-colors">
-            Logy Systému
-          </button>
-          <button className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg text-xs text-gray-300 border border-gray-700 transition-colors">
-            DB Health
-          </button>
-          <button className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg text-xs text-gray-300 border border-gray-700 transition-colors">
-            Clear Cache
-          </button>
-          <button className="bg-red-900/20 hover:bg-red-900/40 p-3 rounded-lg text-xs text-red-400 border border-red-900/50 transition-colors">
-            Force Logout All
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {allCronTasks.map((task) => (
+            <button 
+              key={task.id}
+              onClick={() => runTask(task.id, task.label)}
+              disabled={!!taskRunning}
+              className={`group flex flex-col items-start p-4 bg-gray-900 hover:bg-red-950/20 border transition-all disabled:opacity-20 rounded-2xl ${
+                task.group === 'Danger' ? 'border-red-900/50 hover:border-red-600' : 'border-gray-800 hover:border-gray-500'
+              }`}
+            >
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{task.group}</span>
+              <span className="text-xs font-black text-white uppercase tracking-tight">
+                {taskRunning === task.id ? "⚡ Running..." : task.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Tlačidlo na Global Logout */}
+        <div className="mt-10 pt-8 border-t border-red-900/30">
+          <button 
+            onClick={() => runTask('force-logout-all', 'GLOBAL FORCE LOGOUT')}
+            disabled={!!taskRunning}
+            className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-6 rounded-2xl uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-all active:scale-[0.98]"
+          >
+            🚨 Global Force Logout (Kicks everyone) 🚨
           </button>
         </div>
       </div>

@@ -6,18 +6,13 @@ export default async function SecureZoneLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // TU JE ZMENA: Pridaný 'await'
   const supabase = await getSupabaseServer();
-
-  // 1. Zistenie používateľa
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Ak nie je vôbec prihlásený, pošleme ho na bežný login
   if (!user) {
     redirect("/signin");
   }
 
-  // 2. Overenie ROLY v databáze (Kľúčový bezpečnostný krok)
   const { data: profile } = await supabase
     .from("users")
     .select("role")
@@ -25,26 +20,25 @@ export default async function SecureZoneLayout({
     .single();
 
   if (profile?.role !== "ADMIN") {
-    // Ak bežný používateľ uhádne URL, ukážeme mu 404 (tvárime sa, že stránka neexistuje)
     redirect("/404"); 
   }
 
-  // Ak prešiel všetkými kontrolami, vyrendrujeme mu Admin rozhranie
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
-      <header className="bg-red-900 border-b border-red-700 px-6 py-3 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🛡️</span>
-          <h1 className="font-bold tracking-widest text-red-100">
-            SELFRACE COMMAND CENTER
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans">
+      <header className="bg-red-900 border-b-4 border-black px-6 py-4 flex items-center justify-between shadow-2xl">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🛡️</span>
+          <h1 className="font-black text-2xl tracking-tighter text-white uppercase">
+            SelfRace Command Center
           </h1>
         </div>
-        <div className="text-xs text-red-300">
-          Admin ID: {user.id.substring(0, 8)}...
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] uppercase font-bold text-red-300 tracking-widest">Administrator Access</span>
+          <span className="text-xs font-mono text-white opacity-70">{user.id.substring(0, 12)}...</span>
         </div>
       </header>
       
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-6 md:p-10 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-gray-900 to-black">
         {children}
       </main>
     </div>

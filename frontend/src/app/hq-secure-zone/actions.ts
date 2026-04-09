@@ -2,9 +2,8 @@
 
 import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
 import { revalidatePath } from "next/cache";
-import { API_URL, MAINTENANCE_API_KEY } from "@/app/shared/config"; 
+import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL } from "@/app/shared/config"; 
 
-// Pomocná funkcia na overenie ADMINA (aby sme to nepísali duplicitne)
 async function verifyAdmin() {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -13,7 +12,7 @@ async function verifyAdmin() {
   const { data: profile } = await supabase
     .from("users")
     .select("role")
-    .eq("user_uid", user.id) // Opravené na tvoj názov stĺpca
+    .eq("user_uid", user.id)
     .single();
 
   if (profile?.role !== "ADMIN") throw new Error("Zakázané: Nie ste admin");
@@ -39,11 +38,9 @@ export async function updateMaintenanceMode(active: boolean, msgSk: string, msgE
   return { success: true };
 }
 
-// NOVÁ AKCIA: Poslanie notifikácie cez tvoj Backend
 export async function sendGlobalNotification(payload: any) {
   await verifyAdmin();
 
-  // Voláme tvoj Backend (FastAPI) priamo z Next.js servera
   const response = await fetch(`${API_URL}/scheduled-events/global`, {
     method: 'POST',
     headers: {
@@ -57,4 +54,32 @@ export async function sendGlobalNotification(payload: any) {
   if (!response.ok) throw new Error(result.detail || "Chyba pri odosielaní");
   
   return { success: true, result };
+}
+
+export async function triggerMaintenanceTask(task: string) {
+  await verifyAdmin();
+
+  // URL musí presne kopírovať štruktúru v src/app/api/...
+  // Keďže máš api/cron/trigger/route.ts, cesta je /api/cron/trigger
+  const response = await fetch(`${FRONTEND_URL}/api/cron/trigger?task=${task}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${CRON_SECRET}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Úloha zlyhala");
+  }
+
+  return await response.json();
+}
+
+export async function forceLogoutAll() {
+  await verifyAdmin();
+  // Vynútenie premazania cache na serveri
+  revalidatePath("/", "layout");
+  return { success: true };
 }
