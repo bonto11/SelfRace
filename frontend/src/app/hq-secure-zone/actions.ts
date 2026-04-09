@@ -109,51 +109,52 @@ export async function getSystemDiagnostics() {
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
-  // Stiahneme reálne dáta, nielen "počty", aby sme vedeli spraviť zoznam
+  // Stiahneme všetky potrebné dáta súbežne
   const [
     { data: users },
     { data: pushSubs },
     { data: stravaAccounts },
     { data: activeSubs }
   ] = await Promise.all([
-    supabase.from('users').select('*'), // Vezmeme všetko, nech máme email alebo aspoň user_uid
+    supabase.from('users').select('id, email, user_uid'), 
     supabase.from('push_notifications').select('user_id'),
-    supabase.from('strava_account').select('user_id, athlete_id').not('athlete_id', 'is', null),
+    // Pozeráme len na záznamy, kde je reálne athlete_id (nie null a nie 0)
+    supabase.from('strava_account').select('user_id, athlete_id').gt('athlete_id', 0),
     supabase.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
   ]);
 
-  const activeSubsList = activeSubs || [];
-  const tiers = activeSubsList.reduce((acc: Record<string, number>, sub) => {
+  // 1. Mapovanie notifikácií podľa interného číselného id
+  const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
+
+  // 2. Mapovanie Stravy podľa interného číselného id
+  const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
+
+  // 3. Mapovanie predplatného podľa interného číselného id
+  const subsUsers = new Map((activeSubs || []).map(s => [s.user_id, s.tier_code]));
+
+  // 4. Sumár pre tiery
+  const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
     acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
     return acc;
   }, {});
 
-  // Namapujeme si to do pamäte pre bleskové vyhľadávanie
-  const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
-  const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
-  const subsUsers = new Map(activeSubsList.map(s => [s.user_id, s.tier_code]));
-
-  // Vytvoríme konkrétny prehľad používateľov
+  // 5. Zostavenie zoznamu užívateľov s prepojením cez integer ID
   const userDetails = (users || []).map((u: any) => ({
-    id: u.id,
-    email: u.email || u.user_uid || `Neznámy (User #${u.id})`,
+    id: u.id, // Naše interné ID (číslo)
+    email: u.email || `User #${u.id}`,
     hasPush: pushUserIds.has(u.id),
     stravaId: stravaUsers.get(u.id) || null,
     tier: subsUsers.get(u.id) || "free"
   })).sort((a, b) => {
-    // Zoradenie: Platiaci idú prví, potom tí čo majú Stravu, potom podľa ID
-    if (a.tier !== 'free' && b.tier === 'free') return -1;
-    if (a.tier === 'free' && b.tier !== 'free') return 1;
-    if (a.stravaId && !b.stravaId) return -1;
-    if (!a.stravaId && b.stravaId) return 1;
+    // Zoradenie: Najnovší registrovaní (najvyššie ID) idú hore
     return b.id - a.id;
   });
 
   return {
     totalUsers: users?.length || 0,
-    pushSubscribers: pushUserIds.size, // Počet unikátnych používateľov s notifikáciami
-    stravaConnected: stravaAccounts?.length || 0,
-    activeSubsTotal: activeSubsList.length,
+    pushSubscribers: pushUserIds.size,
+    stravaConnected: stravaUsers.size,
+    activeSubsTotal: activeSubs?.length || 0,
     tiers,
     userDetails,
     serverTime: new Date().toISOString(),
