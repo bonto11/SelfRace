@@ -104,3 +104,24 @@ export async function forceGlobalLogout() {
 
   return { success: true, message: "Signál na odhlásenie bol odoslaný všetkým klientom!" };
 }
+
+export async function getSystemDiagnostics() {
+  await verifyAdmin();
+  const supabase = await getSupabaseServer();
+
+  // Zistenie počtu všetkých používateľov
+  const { count: totalUsers } = await supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true });
+
+  // Zistenie počtu aktívnych tokenov pre PUSH notifikácie
+  const { count: pushSubscribers } = await supabase
+    .from('push_notifications')
+    .select('*', { count: 'exact', head: true });
+
+  return {
+    totalUsers: totalUsers || 0,
+    pushSubscribers: pushSubscribers || 0,
+    serverTime: new Date().toISOString(),
+  };
+}
