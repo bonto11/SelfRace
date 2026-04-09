@@ -21,7 +21,7 @@ export default async function SecureZoneLayout({
   const { data: profile } = await supabase
     .from("users")
     .select("role")
-    .eq("id", user.id)
+    .eq("user_uid", user.id)
     .single();
 
   if (profile?.role !== "ADMIN") {

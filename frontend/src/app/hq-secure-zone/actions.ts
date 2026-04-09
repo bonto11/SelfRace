@@ -14,7 +14,7 @@ export async function updateMaintenanceMode(active: boolean, msgSk: string, msgE
   const { data: profile } = await supabase
     .from("users")
     .select("role")
-    .eq("id", user.id)
+    .eq("user_uid", user.id)
     .single();
 
   if (profile?.role !== "ADMIN") {
