@@ -2493,8 +2493,7 @@ export const sk = {
       zonesAutoUpdated: "Nové zóny boli automaticky uložené do tvojho profilu.",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
-      noReviewPlaceholder:
-        "Zatiaľ žiadne hodnotenie. Klikni na tlačidlo hore pre spustenie analýzy.",
+      noReviewPlaceholder: "Zatiaľ žiadne hodnotenie. Pridať komentár a spustiť analýzu je možné len k aktivitám, ktoré nie sú staršie ako 7 dní.",
       api: {
         success: "Analýza tréningu je hotová.",
         processing: "Analýza prebieha, o malú chvíľu sa zobrazí...",

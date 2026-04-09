@@ -2491,7 +2491,7 @@ export const en = {
       sectionReview: "Workout Review",
       sectionNextDay: "Recommendation for Tomorrow",
       noReviewPlaceholder:
-        "No review yet. Click the button above to start the analysis.",
+        "No rating yet. Adding a comment and running the analysis is only possible for activities under 7 days old.",
       api: {
         success: "Workout analysis is complete.",
         processing: "Analysis in progress, it will appear shortly...",
