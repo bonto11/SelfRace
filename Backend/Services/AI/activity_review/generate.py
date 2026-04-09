@@ -23,99 +23,76 @@ def _now_local_iso(tzinfo: timezone | ZoneInfo) -> str:
 def _safe_activity_id(context_payload: Dict[str, Any]) -> Optional[int]:
     try:
         act = context_payload.get("activity")
-        if not isinstance(act, dict):
-            return None
+        if not isinstance(act, dict): return None
         v = act.get("activity_id")
         return int(v) if v is not None else None
-    except Exception:
-        return None
+    except Exception: return None
 
 def _safe_root_sport(context_payload: Dict[str, Any]) -> str:
     try:
         s = context_payload.get("sport")
-        if isinstance(s, str) and s.strip():
-            return s.strip()
+        if isinstance(s, str) and s.strip(): return s.strip()
         act = context_payload.get("activity")
         if isinstance(act, dict):
             s2 = act.get("sport")
-            if isinstance(s2, str) and s2.strip():
-                return s2.strip()
+            if isinstance(s2, str) and s2.strip(): return s2.strip()
         return "other"
-    except Exception:
-        return "other"
+    except Exception: return "other"
 
 def _safe_is_race(context_payload: Dict[str, Any]) -> bool:
     try:
         act = context_payload.get("activity")
-        if not isinstance(act, dict):
-            return False
+        if not isinstance(act, dict): return False
         flags = act.get("flags")
-        if isinstance(flags, dict) and flags.get("is_race") is True:
-            return True
+        if isinstance(flags, dict) and flags.get("is_race") is True: return True
         name = None
         m = act.get("metrics")
-        if isinstance(m, dict):
-            name = m.get("name") or m.get("title")
-        if name is None:
-            name = act.get("name")
+        if isinstance(m, dict): name = m.get("name") or m.get("title")
+        if name is None: name = act.get("name")
         if isinstance(name, str):
             n = name.lower()
-            if ("race" in n) or ("závod" in n) or ("pretek" in n) or ("preteky" in n):
-                return True
+            if any(x in n for x in ["race", "závod", "pretek", "preteky"]): return True
         return False
-    except Exception:
-        return False
+    except Exception: return False
 
 def _get_trace_from_result(res: Any) -> Dict[str, Any]:
+    """Pomocná funkcia na vytiahnutie trace dát z výsledku AI."""
     tr = getattr(res, "trace", None)
-    if isinstance(tr, dict):
-        return tr
-    err = getattr(res, "error", None)
-    tr2 = getattr(err, "trace", None) if err is not None else None
-    if isinstance(tr2, dict):
-        return tr2
+    if isinstance(tr, dict): return tr
     return {
         "provider": str(getattr(res, "provider", None) or "unknown"),
-        "models_tried": [],
-        "attempts": [],
-        "usage": None,
         "ok_model": str(getattr(res, "model", None) or "") or None,
     }
 
-def _extract_user_input(
-    context_payload: Dict[str, Any],
-) -> Tuple[Optional[str], Optional[str]]:
+def _extract_user_input(context_payload: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
     try:
         ui = context_payload.get("user_input")
-        if not isinstance(ui, dict):
-            return None, None
-        c = ui.get("comment")
-        s = ui.get("source")
+        if not isinstance(ui, dict): return None, None
+        c, s = ui.get("comment"), ui.get("source")
         comment = str(c).strip() if isinstance(c, str) and c.strip() else None
         source = str(s).strip().lower() if isinstance(s, str) and s.strip() else None
         return comment, source
-    except Exception:
-        return None, None
+    except Exception: return None, None
 
-# ZMENA: Návratová hodnota teraz obsahuje aj chybovú hlášku (Optional[str])
 def generate_activity_review_json(
     *,
     context_payload: Dict[str, Any],
-    model: str,
+    model: Optional[str] = None, # Teraz voliteľné, provider použije fallbacky
     user_id: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
-
+    """
+    Hlavná funkcia na generovanie review. 
+    Vracia (data, trace, error_message).
+    """
     settings: Dict[str, Any] = {}
     if user_id is not None:
         try:
             settings = service_load_user_settings(user_id=int(user_id), ctx=ctx) or {}
         except Exception as e:
             print("[AR][generate] settings load error:", repr(e))
-            settings = {}
 
     tzinfo = _tzinfo_from_settings(settings)
-
     user_comment, user_source = _extract_user_input(context_payload)
     ui_block = context_payload.get("user_input") or {}
     has_injury = bool(ui_block.get("injury"))
@@ -123,6 +100,7 @@ def generate_activity_review_json(
     sport = _safe_root_sport(context_payload)
     is_race = _safe_is_race(context_payload)
 
+    # Zostavenie promptov
     system_txt, user_txt = build_prompts_for_activity_review(
         context_payload=context_payload,
         settings=settings,
@@ -130,22 +108,23 @@ def generate_activity_review_json(
         is_race=is_race,
     )
 
+    # Volanie providera (ten už sám rieši fallbacky)
     res = ai_call_json_model(
         context_payload=context_payload,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=str(model),
+        model=model,
     )
 
     trace = _get_trace_from_result(res)
 
-    if getattr(res, "ok", False) and isinstance(getattr(res, "data", None), dict):
-        parsed: Dict[str, Any] = dict(getattr(res, "data") or {})
-
+    if res.ok and isinstance(res.data, dict):
+        parsed = dict(res.data)
         parsed.setdefault("schema_version", 6)
         parsed.setdefault("generated_at", _now_local_iso(tzinfo))
 
-        ok_model = str(getattr(res, "model", None) or model)
+        # Zapíšeme model, ktorý reálne odpovedal (mohol to byť fallback)
+        ok_model = str(res.model or model or "unknown")
         parsed["model"] = str(parsed.get("model") or ok_model)
 
         parsed.setdefault("activity_id", _safe_activity_id(context_payload))
@@ -157,17 +136,8 @@ def generate_activity_review_json(
             parsed["meta"]["injury_reported"] = has_injury
             parsed["meta"]["source"] = user_source or None
 
-        if isinstance(trace, dict) and not trace.get("ok_model"):
-            trace["ok_model"] = parsed["model"]
-
-        # Všetko je OK
         return parsed, trace, None
 
-    # AI ZLYHALO - vytiahneme chybovú hlášku a vrátime None namiesto fallbacku
-    err_msg: Optional[str] = None
-    try:
-        err_msg = getattr(getattr(res, "error", None), "message", None)
-    except Exception:
-        err_msg = None
-
-    return None, trace, err_msg or "AI provider call failed"
+    # Ak všetko zlyhalo (aj fallbacky)
+    error_msg = res.error.message if res.error else "AI fallback system failed"
+    return None, trace, error_msg
