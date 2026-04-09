@@ -110,10 +110,9 @@ export async function getSystemDiagnostics() {
   await verifyAdmin();
   
   if (!SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.");
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  // 1. Inicializácia Admin klienta so SERVICE kľúčom (obchádza RLS)
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(
     SUPABASE_URL!,
@@ -121,43 +120,51 @@ export async function getSystemDiagnostics() {
   );
 
   try {
-    // 2. Stiahnutie dát (teraz uvidíme VŠETKO)
     const [
-      { data: users },
-      { data: pushSubs },
-      { data: stravaAccounts },
-      { data: activeSubs }
+      resUsers,
+      resPush,
+      resStrava,
+      resSubs
     ] = await Promise.all([
-      supabaseAdmin.from('users').select('id, email, user_uid'), 
+      // Ak sa tvoj stĺpec volá user_id, musíme ho tak aj vyžiadať
+      supabaseAdmin.from('users').select('user_id, email, user_uid'), 
       supabaseAdmin.from('push_notifications').select('user_id'),
-      // Athlete_id musí existovať (prepojená strava)
-      supabaseAdmin.from('strava_account').select('user_id, athlete_id').not('athlete_id', 'is', null),
+      supabaseAdmin.from('strava_account').select('user_id, athlete_id').gt('athlete_id', 0),
       supabaseAdmin.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
     ]);
 
-    // 3. Logika prepojenia cez INT ID
-    const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
-    const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
-    const subsUsers = new Map((activeSubs || []).map(s => [s.user_id, s.tier_code]));
+    // DEBUG: Ak je niekde chyba, vypíš ju do logov (uvidíš v Railway/Vercel logoch)
+    if (resUsers.error) console.error("Users Error:", resUsers.error);
+    if (resStrava.error) console.error("Strava Error:", resStrava.error);
 
-    const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
+    const users = resUsers.data || [];
+    const pushSubs = resPush.data || [];
+    const stravaAccounts = resStrava.data || [];
+    const activeSubs = resSubs.data || [];
+
+    const pushUserIds = new Set(pushSubs.map(p => p.user_id));
+    const stravaUsers = new Map(stravaAccounts.map(s => [s.user_id, s.athlete_id]));
+    const subsUsers = new Map(activeSubs.map(s => [s.user_id, s.tier_code]));
+
+    const tiers = activeSubs.reduce((acc: Record<string, number>, sub) => {
       acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
       return acc;
     }, {});
 
-    const userDetails = (users || []).map((u: any) => ({
-      id: u.id, 
-      email: u.email || u.user_uid || `User #${u.id}`,
-      hasPush: pushUserIds.has(u.id),
-      stravaId: stravaUsers.get(u.id) || null,
-      tier: subsUsers.get(u.id) || "free"
+    const userDetails = users.map((u: any) => ({
+      // TU JE ZMENA: Používame u.user_id namiesto u.id
+      id: u.user_id, 
+      email: u.email || u.user_uid || `User #${u.user_id}`,
+      hasPush: pushUserIds.has(u.user_id),
+      stravaId: stravaUsers.get(u.user_id) || null,
+      tier: subsUsers.get(u.user_id) || "free"
     })).sort((a, b) => b.id - a.id);
 
     return {
-      totalUsers: users?.length || 0,
+      totalUsers: users.length,
       pushSubscribers: pushUserIds.size,
       stravaConnected: stravaUsers.size,
-      activeSubsTotal: activeSubs?.length || 0,
+      activeSubsTotal: activeSubs.length,
       tiers,
       userDetails,
       serverTime: new Date().toISOString(),
