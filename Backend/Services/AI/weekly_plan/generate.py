@@ -11,54 +11,37 @@ from Services.AI.weekly_plan.prompts import build_prompts_for_weekly
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
 
-
-def _trace_fallback(*, provider: str, model: str) -> Dict[str, Any]:
-    return {
-        "provider": provider,
-        "models_tried": [],
-        "attempts": [],
-        "usage": None,
-        "ok_model": model,
-    }
-
-
-def _get_trace_from_result(
-    res: Any, *, requested_model: Optional[str]
-) -> Dict[str, Any]:
-    provider = str(getattr(res, "provider", None) or "unknown")
-    used_model = str(getattr(res, "model", None) or requested_model or "unknown")
-
+def _get_trace_from_result(res: Any) -> Dict[str, Any]:
+    """
+    Vytiahne trace dáta z výsledku AI volania.
+    Provider teraz vracia detailné informácie o všetkých pokusoch.
+    """
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
-        tr.setdefault("provider", provider)
-        tr.setdefault("models_tried", [])
-        tr.setdefault("attempts", [])
-        tr.setdefault("usage", None)
-        tr.setdefault("ok_model", used_model)
         return tr
-
+    
+    # Základný fallback pre štruktúru trace
     err = getattr(res, "error", None)
-    tr2 = getattr(err, "trace", None) if err is not None else None
-    if isinstance(tr2, dict):
-        tr2.setdefault("provider", provider)
-        tr2.setdefault("models_tried", [])
-        tr2.setdefault("attempts", [])
-        tr2.setdefault("usage", None)
-        tr2.setdefault("ok_model", used_model)
-        return tr2
-
-    return _trace_fallback(provider=provider, model=used_model)
-
+    return {
+        "provider": str(getattr(res, "provider", None) or "unknown"),
+        "ok_model": str(getattr(res, "model", None) or "") or None,
+        "models_tried": [],
+        "attempts": [],
+        "error": getattr(err, "message", None) if err else None
+    }
 
 def generate_weekly_plan_json(
     context_payload: dict,
     ctx: AuthCtx,
-    model: Optional[str] = None,
+    model: Optional[str] = None, # ZMENA: Model je teraz voliteľný
     *,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
-
+    """
+    Generuje makro-cyklus (dlhodobý plán) na niekoľko týždňov.
+    Využíva centrálnu logiku fallbackov v provider.py.
+    """
     context: Dict[str, Any] = (
         context_payload if isinstance(context_payload, dict) else {}
     )
@@ -70,6 +53,7 @@ def generate_weekly_plan_json(
     except Exception:
         pass
 
+    # Načítanie preferencií používateľa
     settings: Dict[str, Any] = {}
     if user_id:
         try:
@@ -77,6 +61,7 @@ def generate_weekly_plan_json(
         except Exception:
             pass
 
+    # Zostavenie systémového a používateľského promptu
     system_txt, user_txt = build_prompts_for_weekly(context, settings=settings)
 
     try:
@@ -84,11 +69,8 @@ def generate_weekly_plan_json(
     except Exception:
         horizon_weeks = 6
 
-    tz_name = (
-        (settings.get("timezone") or "Europe/Bratislava")
-        if isinstance(settings, dict)
-        else "Europe/Bratislava"
-    )
+    # Určenie časovej zóny pre správny timestamp generovania
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
     try:
         tzinfo = ZoneInfo(str(tz_name))
     except Exception:
@@ -100,54 +82,54 @@ def generate_weekly_plan_json(
     resolved_temperature = float(
         temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)
     )
-    requested_model = (
-        model.strip() if isinstance(model, str) and model.strip() else None
-    )
 
+    # Hlavné volanie AI. Ak model zlyhá, provider skúsi fallbacky z configu.
     res = ai_call_json_model(
         context_payload=context,
         system_prompt=system_txt,
         user_instructions=user_txt,
-        model=requested_model,
+        model=model,
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )
 
-    trace: Dict[str, Any] = _get_trace_from_result(res, requested_model=requested_model)
-    trace.setdefault("max_tokens", resolved_max_tokens)
-    trace.setdefault("temperature", resolved_temperature)
-    trace.setdefault("timezone", str(tz_name))
-    trace["ok"] = bool(getattr(res, "ok", False))
+    # Získanie trace dát (obsahujú info o tom, či sme museli použiť fallback)
+    trace: Dict[str, Any] = _get_trace_from_result(res)
+    trace.update({
+        "max_tokens": resolved_max_tokens,
+        "temperature": resolved_temperature,
+        "timezone": str(tz_name),
+        "ok": bool(res.ok)
+    })
 
-    # --- Success path ---
-    if bool(getattr(res, "ok", False)):
-        data = getattr(res, "data", None)
-        if isinstance(data, dict):
-            parsed: Dict[str, Any] = dict(data)
+    # --- Cesta úspechu ---
+    if res.ok and isinstance(res.data, dict):
+        parsed: Dict[str, Any] = dict(res.data)
 
-            now_local = datetime.now(tzinfo)
-            parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-            parsed["generated_at"] = now_local.isoformat()
-            parsed["model"] = str(getattr(res, "model", None) or requested_model)
+        now_local = datetime.now(tzinfo)
+        parsed["schema_version"] = int(parsed.get("schema_version") or 1)
+        parsed["generated_at"] = now_local.isoformat()
+        
+        # Zapíšeme model, ktorý reálne odpovedal (mohol to byť fallback)
+        ok_model = str(res.model or model or "unknown")
+        parsed["model"] = str(parsed.get("model") or ok_model)
 
-            plan_meta = parsed.get("plan_meta")
-            if not isinstance(plan_meta, dict):
-                plan_meta = {}
+        plan_meta = parsed.get("plan_meta")
+        if not isinstance(plan_meta, dict):
+            plan_meta = {}
 
-            plan_meta["weeks"] = int(horizon_weeks)
-            parsed["plan_meta"] = plan_meta
+        plan_meta["weeks"] = int(horizon_weeks)
+        parsed["plan_meta"] = plan_meta
 
-            if not trace.get("ok_model"):
-                trace["ok_model"] = parsed["model"]
+        if not trace.get("ok_model"):
+            trace["ok_model"] = parsed["model"]
 
-            return parsed, trace, None
+        return parsed, trace, None
 
-    # --- Failure path (Bez fallbacku, len cisty error) ---
-    err = getattr(res, "error", None)
-    err_code = getattr(err, "code", None) if err is not None else "ai_failed"
-    err_msg = getattr(err, "message", None) if err is not None else "AI provider failed"
-
-    trace["error_code"] = err_code
+    # --- Cesta zlyhania (všetky modely v reťazci zlyhali) ---
+    err_msg = res.error.message if res.error else "AI provider failed after all fallback attempts"
+    
+    trace["error_code"] = res.error.code if res.error else "ai_failed"
     trace["error_message"] = err_msg
 
     return None, trace, err_msg
