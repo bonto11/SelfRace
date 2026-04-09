@@ -11,7 +11,9 @@ export default function CronMasterPanel() {
     setTaskRunning(taskName);
     try {
       const res = await triggerMaintenanceTask(taskName);
-      alert(`✅ Úloha úspešne dokončená. Odpoveď backendu: ${res.message || "OK"}`);
+      alert(
+        `✅ Úloha úspešne dokončená. Odpoveď backendu: ${res.message || "OK"}`
+      );
     } catch (err: any) {
       alert(`❌ Chyba: ${err.message}`);
     } finally {
@@ -20,7 +22,8 @@ export default function CronMasterPanel() {
   };
 
   const handleForceLogout = async () => {
-    if (!confirm("🚨 Naozaj chcete okamžite odhlásiť VŠETKÝCH používateľov?")) return;
+    if (!confirm("🚨 Naozaj chcete okamžite odhlásiť VŠETKÝCH používateľov?"))
+      return;
     setTaskRunning("force-logout");
     try {
       const res = await forceGlobalLogout();
@@ -37,21 +40,45 @@ export default function CronMasterPanel() {
     { id: "recovery", label: "Push: Recovery Tips", group: "Notifications" },
     { id: "review", label: "Push: Evening Review", group: "Notifications" },
     { id: "hourly-ping", label: "Test Hourly Ping", group: "Notifications" },
-    { id: "weekly-athlete-state", label: "Force AI Refresh (50)", group: "AI & Plans" },
-    { id: "daily-plan-completion", label: "Auto-Complete Plans", group: "AI & Plans" },
+    {
+      id: "weekly-athlete-state",
+      label: "Force AI Refresh (50)",
+      group: "AI & Plans",
+    },
+    {
+      id: "daily-plan-completion",
+      label: "Auto-Complete Plans",
+      group: "AI & Plans",
+    },
     { id: "apply-subscriptions", label: "Sync Subscriptions", group: "System" },
-    { id: "cleanup-expired-activities", label: "Clean Expired Files", group: "System" },
-    { id: "cleanup-deleted-activities", label: "Purge Deleted Data", group: "System" },
-    { id: "account-hard-delete", label: "Hard Delete Accounts", group: "Danger" },
-    { id: "check-ai-models", label: "Monitor AI Models Health", group: "AI & Plans" },
+    {
+      id: "cleanup-expired-activities",
+      label: "Clean Expired Files",
+      group: "System",
+    },
+    {
+      id: "cleanup-deleted-activities",
+      label: "Purge Deleted Data",
+      group: "System",
+    },
+    {
+      id: "account-hard-delete",
+      label: "Hard Delete Accounts",
+      group: "Danger",
+    },
+    {
+      id: "check-ai-models",
+      label: "Monitor AI Models Health",
+      group: "AI & Plans",
+    },
   ];
 
   return (
-    <div className="bg-black border-2 border-red-900/30 rounded-3xl shadow-2xl overflow-hidden transition-all duration-300">
+    <div className="bg-gray-900 border-t-4 border-red-600 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       {/* HLAVIČKA */}
       <div 
-        className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-red-950/20 transition-colors"
+        className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <h3 className="text-red-600 font-black flex items-center gap-3 uppercase tracking-tighter text-xl italic">
@@ -66,7 +93,7 @@ export default function CronMasterPanel() {
       </div>
 
       {/* ROZBALENÝ OBSAH */}
-      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100 border-t border-red-900/30' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
         <div className="p-6 md:p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCronTasks.map((task) => (
@@ -74,10 +101,10 @@ export default function CronMasterPanel() {
                 key={task.id}
                 onClick={() => runTask(task.id, task.label)}
                 disabled={!!taskRunning}
-                className={`group flex flex-col items-start p-4 bg-gray-900 hover:bg-red-950/20 border transition-all disabled:opacity-20 rounded-2xl ${
+                className={`group flex flex-col items-start p-4 bg-black hover:bg-red-950/40 border transition-all disabled:opacity-20 rounded-2xl ${
                   task.group === "Danger"
                     ? "border-red-900/50 hover:border-red-600"
-                    : "border-gray-800 hover:border-gray-500"
+                    : "border-gray-800 hover:border-red-900/50"
                 }`}
               >
                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
@@ -90,7 +117,7 @@ export default function CronMasterPanel() {
             ))}
           </div>
           
-          <div className="mt-10 pt-8 border-t border-red-900/30">
+          <div className="mt-10 pt-8 border-t border-gray-800">
             <button
               onClick={handleForceLogout}
               disabled={!!taskRunning}
