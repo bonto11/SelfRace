@@ -121,10 +121,10 @@ export const sk = {
       hPerWeek: "h / týždeň",
       weeksAbbrev: "t", // t = týždne v náhľade
       ms: "ms",
-      hr: "úde./min",
+      hr: "úderov/min",
       pace: "s/km",
       pct: "%",
-      kadenceRun: "krok/min",
+      kadenceRun: "krokov/min",
       kadenceBike: "ot/min",
     },
     metrics: {
@@ -2045,7 +2045,7 @@ export const sk = {
       hrvMaxLabel: "HRV (maximum)",
       sleepStartLabel: "Čas zaspatia",
       importantMark:
-        "Označenie metriky, ktor8 priamo ovplyvňuje tvoj tréningový plán.",
+        "Označenie metriky, ktorá priamo ovplyvňuje tvoj tréningový plán.",
     },
     trends: {
       events: {
