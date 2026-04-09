@@ -5,14 +5,10 @@ import { apiFetchAiModels, type AiModelsData } from "../api/ai_providers";
 export default function ProvidersPanel() {
   const [models, setModels] = useState<AiModelsData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false); // Stav pre zbalenie/rozbalenie panela
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleLoadModels = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Aby kliknutie na tlačidlo nezatvorilo panel
+  const handleLoadModels = async () => {
     setLoading(true);
-    // Keď klikneme na stiahnutie, panel sa automaticky rozbalí, ak bol zavretý
-    if (!isOpen) setIsOpen(true); 
-    
     try {
       const data = await apiFetchAiModels();
       setModels(data);
@@ -23,7 +19,6 @@ export default function ProvidersPanel() {
     }
   };
 
-  // Pomocná funkcia na renderovanie konfigurácie s overením
   const renderConfiguredModels = (configured: string[], available: string[]) => {
     if (!configured || configured.length === 0) {
       return <div className="text-gray-600 text-xs italic mb-4">Žiadne modely v konfigurácii.</div>;
@@ -53,16 +48,16 @@ export default function ProvidersPanel() {
   return (
     <div className="bg-gray-900 border-t-4 border-green-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
-      {/* KLIKATEĽNÁ HLAVIČKA (Rozbaľovač) */}
+      {/* HLAVIČKA */}
       <div 
-        className="p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
+        className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
             <span className="text-green-500 mr-3">🧠</span> AI Providers
           </h2>
-          {/* Počet načítaných modelov - ukáže sa len ak je zbalený panel a už sme ich stiahli */}
+          {/* Rýchly indikátor v zbalenom stave */}
           {!isOpen && models && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-green-900/30 text-green-500">
               {models.openai.length + models.gemini.length} Modulov
@@ -70,32 +65,31 @@ export default function ProvidersPanel() {
           )}
         </div>
 
-        <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
-          <button 
-            onClick={handleLoadModels} 
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase tracking-widest px-4 py-3 rounded-lg transition-all disabled:opacity-50 shadow-lg shadow-green-900/20"
-          >
-            {loading ? "Komunikujem s API..." : "Načítať zoznam a overiť modely"}
-          </button>
-          
-          {/* Ikonka Šípky (Chevron) */}
-          <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
+        <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
       </div>
 
-      {/* ROZBAĽOVACIE TELO PANELA */}
-      <div 
-        className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}
-      >
+      {/* ROZBALENÝ OBSAH */}
+      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
         <div className="p-6 md:p-8">
+          
+          {/* TLAČIDLO NA NAČÍTANIE (Teraz vo vnútri) */}
+          <div className="mb-6 flex justify-end">
+             <button 
+                onClick={handleLoadModels} 
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-500 text-white text-xs font-black uppercase tracking-widest px-4 py-3 rounded-lg transition-all disabled:opacity-50 shadow-lg shadow-green-900/20"
+              >
+                {loading ? "Komunikujem s API..." : "Načítať zoznam a overiť modely"}
+              </button>
+          </div>
+
           {!models && !loading && (
             <div className="text-center p-8 border border-gray-800 border-dashed rounded-xl text-gray-500 text-xs font-bold uppercase tracking-widest bg-black/50">
-              Zoznam je prázdny. Klikni na tlačidlo pre overenie kľúčov a stiahnutie.
+              Zoznam je prázdny. Klikni na tlačidlo vyššie pre overenie kľúčov a stiahnutie.
             </div>
           )}
 
@@ -152,7 +146,7 @@ export default function ProvidersPanel() {
                 </div>
               </div>
 
-              {/* CHYBY PRI SPOJENÍ S API */}
+              {/* CHYBY */}
               {models.errors.length > 0 && (
                 <div className="col-span-1 md:col-span-2 bg-red-950/20 border border-red-900/50 p-5 rounded-2xl">
                   <h4 className="text-red-500 font-black uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -167,7 +161,6 @@ export default function ProvidersPanel() {
           )}
         </div>
       </div>
-
     </div>
   );
 }
