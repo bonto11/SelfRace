@@ -8,6 +8,7 @@ import DiagnosticPanel from "./components/DiagnosticPanel";
 import MaintenancePanel from "./components/MaintenancePanel";
 import NotificationPanel from "./components/NotificationPanel";
 import CronMasterPanel from "./components/CronMasterPanel";
+import ProvidersPanel from "./components/ProvidersPanel";
 
 export default function AdminDashboard() {
   const [dbStatus, setDbStatus] = useState<any>(null);
@@ -66,6 +67,8 @@ export default function AdminDashboard() {
 
       {/* MODULY */}
       <DiagnosticPanel />
+
+      <ProvidersPanel />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <MaintenancePanel dbStatus={dbStatus} onUpdate={loadDbStatus} />

@@ -220,3 +220,19 @@ def gemini_call_json_model(
         error=AiError(code="ai_gemini_failed", message=(last_err or "All models failed.")),
         trace=trace,
     )
+
+def get_gemini_models() -> List[str]:
+    """Vráti zoznam dostupných Gemini modelov."""
+    client = _get_client() # Toto nám zaručí, že máme API kľúč aj timeout
+    
+    models = client.models.list()
+    # Zaujímajú nás len modely schopné generovať obsah (text)
+    # Prefix 'models/' rovno odstránime pre čistejší výpis
+    valid_models = []
+    for m in models:
+        # V novom SDK sú metódy dostupné cez m.supported_generation_methods
+        if hasattr(m, "supported_generation_methods") and "generateContent" in getattr(m, "supported_generation_methods", []):
+            name = m.name.replace("models/", "") if m.name else "unknown"
+            valid_models.append(name)
+            
+    return sorted(valid_models)

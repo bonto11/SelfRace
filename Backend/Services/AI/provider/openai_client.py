@@ -176,3 +176,15 @@ def openai_call_json_model(
         model=(models[0] if models else "unknown"),
         trace=trace,
     )
+
+def get_openai_models() -> List[str]:
+    """Vráti zoznam dostupných OpenAI modelov."""
+    if not OPENAI_API_KEY:
+        raise ValueError("Chýba OPENAI_API_KEY")
+    
+    timeout_s = int(LLM_TIMEOUT_S or 30)
+    client = OpenAI(api_key=OPENAI_API_KEY).with_options(timeout=timeout_s)
+    
+    models = client.models.list()
+    # Vyfiltrujeme len textové modely a zoradíme ich
+    return sorted([m.id for m in models.data if "gpt" in m.id or "o1" in m.id or "o3" in m.id])

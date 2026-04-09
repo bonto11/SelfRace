@@ -13,7 +13,8 @@ from Configs.config import (
     OPENAI_API_KEY, # Pridaný import pre kontrolu kľúča
 )
 from Services.AI.utils.types import AiResult, AiError
-
+from Services.AI.provider.openai_client import get_openai_models, openai_call_json_model
+from Services.AI.provider.gemini_client import get_gemini_models, gemini_call_json_model
 
 def _provider() -> str:
     """Zistí aktuálne nastaveného primárneho providera."""
@@ -89,7 +90,6 @@ def ai_call_json_model(
             
             # Volanie konkrétneho klienta
             if p == "openai":
-                from Services.AI.provider.openai_client import openai_call_json_model
                 res = openai_call_json_model(
                     context_payload=context_payload,
                     system_prompt=system_prompt,
@@ -99,7 +99,6 @@ def ai_call_json_model(
                     temperature=temperature,
                 )
             elif p == "gemini":
-                from Services.AI.provider.gemini_client import gemini_call_json_model
                 res = gemini_call_json_model(
                     context_payload=context_payload,
                     system_prompt=system_prompt,
@@ -145,3 +144,28 @@ def ai_call_json_model(
             "ok_model": None
         },
     )
+
+def get_available_ai_models() -> Dict[str, Any]:
+    """
+    Združí dostupné modely z OpenAI aj Gemini.
+    Zlyhania jedného nezablokujú druhého.
+    """
+    result: Dict[str, Any] = {
+        "openai": [],
+        "gemini": [],
+        "errors": []
+    }
+
+    # 1. OpenAI
+    try:
+        result["openai"] = get_openai_models()
+    except Exception as e:
+        result["errors"].append(f"OpenAI: {str(e)}")
+
+    # 2. Gemini
+    try:
+        result["gemini"] = get_gemini_models()
+    except Exception as e:
+        result["errors"].append(f"Gemini: {str(e)}")
+
+    return result

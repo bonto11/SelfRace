@@ -13,6 +13,7 @@ from Services.maintenance import (
 
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
+from Services.AI.provider.provider import get_available_ai_models
 
 from Configs.config import MAINTENANCE_API_KEY
 from Modules.Supabase.auth import service_ctx
@@ -128,3 +129,15 @@ async def coach_plan_complete_due_endpoint(
         return JSONResponse({"ok": True, "result": result})
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@router.get("/ai-models")
+async def get_ai_models():
+    """
+    Endpoint pre Admin Dashboard.
+    Vráti aktuálny zoznam dostupných modelov z AI API.
+    """
+    try:
+        models_data = get_available_ai_models()
+        return JSONResponse(models_data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
