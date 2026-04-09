@@ -19,7 +19,6 @@ export default function DiagnosticPanel() {
       }
     }
     loadStats();
-    // Auto-refresh každých 30 sekúnd
     const interval = setInterval(loadStats, 30000);
     return () => clearInterval(interval);
   }, []);
