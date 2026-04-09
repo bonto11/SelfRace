@@ -1,115 +1,82 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import { updateMaintenanceMode } from "./actions";
-// Tu si naimportuj váš vlastný <Button> a <TextField> ak chcete, použil som čistý HTML/Tailwind pre ukážku
+
+// Import našich modulov
+import DiagnosticPanel from "./components/DiagnosticPanel";
+import MaintenancePanel from "./components/MaintenancePanel";
+import NotificationPanel from "./components/NotificationPanel";
+import CronMasterPanel from "./components/CronMasterPanel";
+import ProvidersPanel from "./components/ProvidersPanel";
 
 export default function AdminDashboard() {
-  const [isActive, setIsActive] = useState(false);
-  const [msgSk, setMsgSk] = useState("");
-  const [msgEn, setMsgEn] = useState("");
+  const [dbStatus, setDbStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    // Načítanie aktuálneho stavu pri otvorení stránky
-    async function loadStatus() {
-      const sb = getSupabaseBrowser();
-      const { data } = await sb
-        .from("app_settings")
-        .select("value")
-        .eq("key", "maintenance_mode")
-        .single();
-
-      if (data?.value) {
-        setIsActive(data.value.active);
-        setMsgSk(data.value.message?.sk || "");
-        setMsgEn(data.value.message?.en || "");
-      }
-      setLoading(false);
+  // Zadefinované ako useCallback, aby sme to mohli poslať do MaintenancePanelu
+  const loadDbStatus = useCallback(async () => {
+    const sb = getSupabaseBrowser();
+    const { data } = await sb.from("app_settings").select("value").eq("key", "maintenance_mode").single();
+    if (data?.value) {
+      setDbStatus(data.value);
     }
-    loadStatus();
+    setLoading(false);
   }, []);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      // Zavolanie zabezpečenej serverovej akcie z kroku 1
-      await updateMaintenanceMode(isActive, msgSk, msgEn);
-      alert("✅ Nastavenia údržby boli úspešne uložené!");
-    } catch (err: any) {
-      alert("❌ Chyba: " + err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  useEffect(() => {
+    loadDbStatus();
+  }, [loadDbStatus]);
 
-  if (loading) return <div className="p-4">Načítavam dáta...</div>;
+  if (loading) return <div className="p-8 text-gray-400 font-mono animate-pulse">Initializing Secure Protocol...</div>;
+
+  const isMaintenanceActive = dbStatus?.active === true;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl">
-        <h2 className="text-xl font-bold text-white mb-4">Režim Údržby</h2>
+    <div className="max-w-5xl mx-auto space-y-8 pb-20">
+      
+      {/* HLAVNÁ NAVIGÁCIA A STATUS */}
+      <div className="flex justify-between items-center bg-gray-900/50 p-4 rounded-xl border border-white/5">
+        <Link href="/activities" className="text-blue-400 hover:text-blue-200 font-bold flex items-center gap-2 transition-all">
+          ← Exit to App
+        </Link>
         
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* Prepínač ON / OFF */}
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-              className="w-6 h-6 text-red-600 bg-gray-800 border-gray-700 rounded focus:ring-red-600 focus:ring-2"
-            />
-            <span className="text-gray-200 font-medium text-lg">
-              Zapnúť presmerovanie na údržbu
-            </span>
-          </label>
-
-          {/* Texty pre používateľov */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Správa (Slovenčina)</label>
-              <textarea 
-                value={msgSk}
-                onChange={(e) => setMsgSk(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-red-500 outline-none"
-                rows={2}
-                placeholder="Práve vylepšujeme aplikáciu..."
-              />
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] font-mono text-gray-500 border border-gray-800 px-2 py-1 rounded bg-black">ENV: PROD</span>
+          {/* Tu je indikátor vedľa seba ako si chcel */}
+          {isMaintenanceActive ? (
+            <div className="flex items-center gap-2 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-black uppercase text-yellow-500 tracking-tighter">Maintenance</span>
             </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Správa (Angličtina)</label>
-              <textarea 
-                value={msgEn}
-                onChange={(e) => setMsgEn(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-red-500 outline-none"
-                rows={2}
-                placeholder="We are upgrading the app..."
-              />
+          ) : (
+            <div className="flex items-center gap-2 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/30">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+              <span className="text-[10px] font-black uppercase text-green-500 tracking-tighter">System Online</span>
             </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={saving}
-            className={`px-6 py-3 rounded font-bold transition-all ${
-              isActive 
-                ? "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]" 
-                : "bg-gray-700 hover:bg-gray-600 text-gray-200"
-            }`}
-          >
-            {saving ? "Ukladám..." : "Uložiť nastavenia"}
-          </button>
-        </form>
+          )}
+        </div>
       </div>
 
-      {/* Tlačidlo na odhlásenie všetkých si pridáme neskôr (vyžaduje Admin API kľúč) */}
-      <div className="p-4 border border-red-900/50 bg-red-950/20 rounded-xl">
-        <h3 className="text-red-400 font-bold mb-2">Danger Zone</h3>
-        <p className="text-sm text-gray-500">Ďalšie funkcie ako hromadné odhlásenie a spúšťanie jobov pridáme neskôr.</p>
+      {/* VAROVNÝ BANNER (Teraz plne naviazaný na DB, nie na checkbox) */}
+      {isMaintenanceActive && (
+        <div className="bg-yellow-500 text-black p-4 rounded-xl font-black text-center uppercase tracking-widest animate-pulse border-4 border-yellow-600 shadow-[0_0_20px_rgba(234,179,8,0.4)]">
+          ⚠️ Pozor: Aplikácia je momentálne v režime údržby! Zákazníci nemajú prístup. ⚠️
+        </div>
+      )}
+
+      {/* MODULY */}
+      <DiagnosticPanel />
+
+      <ProvidersPanel />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MaintenancePanel dbStatus={dbStatus} onUpdate={loadDbStatus} />
+        <NotificationPanel />
       </div>
+
+      <CronMasterPanel />
+      
     </div>
   );
 }

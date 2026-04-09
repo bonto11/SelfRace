@@ -220,3 +220,29 @@ def gemini_call_json_model(
         error=AiError(code="ai_gemini_failed", message=(last_err or "All models failed.")),
         trace=trace,
     )
+
+def get_gemini_models() -> List[str]:
+    """Vráti zoznam dostupných Gemini modelov."""
+    client = _get_client() # Toto nám zaručí, že máme API kľúč aj timeout
+    
+    try:
+        models = client.models.list()
+    except Exception as e:
+        raise e
+        
+    valid_models = []
+    
+    for m in models:
+        raw_name = getattr(m, "name", "")
+        if not raw_name:
+            continue
+            
+        name = raw_name.replace("models/", "")
+        
+        methods = getattr(m, "supported_generation_methods", [])
+        if methods and "generateContent" in methods:
+            valid_models.append(name)
+        elif "gemini" in name.lower():
+            valid_models.append(name)
+            
+    return sorted(list(set(valid_models)))

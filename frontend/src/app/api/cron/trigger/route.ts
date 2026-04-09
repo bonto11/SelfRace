@@ -71,6 +71,11 @@ export async function POST(request: Request) {
       backendPath = "/scheduled-events/weekly-athlete-state-refresh";
       payload = { max_users: 5 };
       break;
+    case "check-ai-models":
+      backendPath = "/scheduled-events/check-ai-models";
+      // Sem napíš e-mail, ktorý máš v databáze ako Admin
+      payload = { admin_email: "patrikmbontar@gmail.com" }; 
+      break;
     
     
     // --- 3. MAINTENANCE (Zostávajú bez zmeny) ---
@@ -93,6 +98,21 @@ export async function POST(request: Request) {
     case "daily-plan-completion":
       backendPath = "/maintenance/coach-plan-complete-due";
       break;
+
+    
+
+      // NOVÉ: Force Logout Logic
+    case "force-logout-all":
+      // Tu nevoláme backend, ale priamo Supabase cez Cron Mastera
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE!);
+      
+      // Načítame staré nastavenia a pridáme timestamp odhlásenia
+      const { data: current } = await supabaseAdmin.from("app_settings").select("value").eq("key", "maintenance_mode").single();
+      const updatedValue = { ...current?.value, force_logout_at: new Date().toISOString() };
+      
+      await supabaseAdmin.from("app_settings").update({ value: updatedValue }).eq("key", "maintenance_mode");
+      return NextResponse.json({ success: true, message: "Signal for global logout sent." });
 
     default:
       return NextResponse.json({ success: false, error: `Neznáma úloha: ${task}` }, { status: 400 });
