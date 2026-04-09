@@ -12,6 +12,7 @@ from Configs.config import (
     GEMINI_API_KEY,
     OPENAI_API_KEY, # Pridaný import pre kontrolu kľúča
 )
+
 from Services.AI.utils.types import AiResult, AiError
 from Services.AI.provider.openai_client import get_openai_models, openai_call_json_model
 from Services.AI.provider.gemini_client import get_gemini_models, gemini_call_json_model
@@ -169,3 +170,30 @@ def get_available_ai_models() -> Dict[str, Any]:
         result["errors"].append(f"Gemini: {str(e)}")
 
     return result
+
+def check_configured_models_health() -> Dict[str, Any]:
+    """
+    Porovná modely nastavené v Configu s reálne dostupnými modelmi z API.
+    Vráti report, ak nejaký nakonfigurovaný model chýba.
+    """
+    
+    # Získame reálne dostupné modely (funkciu už máme)
+    available = get_available_ai_models()
+
+    # Zozbierame všetky naše nastavené modely a odstránime duplicity/prázdne
+    cfg_openai = list(set([m for m in [OPENAI_DEFAULT_MODEL] + OPENAI_MODEL_FALLBACKS if m]))
+    cfg_gemini = list(set([m for m in [GEMINI_DEFAULT_MODEL] + GEMINI_MODEL_FALLBACKS if m]))
+
+    # Ktoré z našich modelov sa NENACHÁDZAJÚ v zozname od providera?
+    missing_openai = [m for m in cfg_openai if m not in available.get("openai", [])]
+    missing_gemini = [m for m in cfg_gemini if m not in available.get("gemini", [])]
+    api_errors = available.get("errors", [])
+
+    is_ok = not missing_openai and not missing_gemini and not api_errors
+
+    return {
+        "ok": is_ok,
+        "missing_openai": missing_openai,
+        "missing_gemini": missing_gemini,
+        "api_errors": api_errors
+    }

@@ -94,6 +94,12 @@ export async function POST(request: Request) {
       backendPath = "/maintenance/coach-plan-complete-due";
       break;
 
+    case "check-ai-models":
+      backendPath = "/scheduled-events/check-ai-models";
+      // Sem napíš e-mail, ktorý máš v databáze ako Admin
+      payload = { admin_email: "patrikmbontar@gmail.com" }; 
+      break;
+
       // NOVÉ: Force Logout Logic
     case "force-logout-all":
       // Tu nevoláme backend, ale priamo Supabase cez Cron Mastera
