@@ -1,4 +1,5 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
+import { API_URL } from "@/app/shared/config";
 
 export type StravaStatus = {
   connected: boolean;
@@ -115,7 +116,7 @@ export async function apiDisconnectStrava(
 }
 
 export function getStravaConnectUrl(userId: number): string {
-  return `/api/strava/oauth/start?user_id=${enc(userId)}`;
+  return `${API_URL}/api/strava/oauth/start?user_id=${enc(userId)}`;
 }
 
 export function canConnectStravaNow(status: StravaStatus | null, nowIso?: string): boolean {
