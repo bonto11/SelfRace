@@ -71,6 +71,11 @@ export async function POST(request: Request) {
       backendPath = "/scheduled-events/weekly-athlete-state-refresh";
       payload = { max_users: 5 };
       break;
+    case "check-ai-models":
+      backendPath = "/scheduled-events/check-ai-models";
+      // Sem napíš e-mail, ktorý máš v databáze ako Admin
+      payload = { admin_email: "patrikmbontar@gmail.com" }; 
+      break;
     
     
     // --- 3. MAINTENANCE (Zostávajú bez zmeny) ---
@@ -94,11 +99,7 @@ export async function POST(request: Request) {
       backendPath = "/maintenance/coach-plan-complete-due";
       break;
 
-    case "check-ai-models":
-      backendPath = "/scheduled-events/check-ai-models";
-      // Sem napíš e-mail, ktorý máš v databáze ako Admin
-      payload = { admin_email: "patrikmbontar@gmail.com" }; 
-      break;
+    
 
       // NOVÉ: Force Logout Logic
     case "force-logout-all":
