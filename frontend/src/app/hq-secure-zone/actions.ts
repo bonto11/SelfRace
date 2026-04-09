@@ -2,7 +2,7 @@
 
 import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
 import { revalidatePath } from "next/cache";
-import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL } from "@/app/shared/config"; 
+import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY} from "@/app/shared/config"; 
 
 async function verifyAdmin() {
   const supabase = await getSupabaseServer();
@@ -105,19 +105,23 @@ export async function forceGlobalLogout() {
   return { success: true, message: "Signál na odhlásenie bol odoslaný všetkým klientom!" };
 }
 
+
 export async function getSystemDiagnostics() {
   await verifyAdmin();
   
-  // 1. Použijeme Admin klienta na prekonanie RLS (Row Level Security)
-  // Inak by nám Supabase vrátil len dáta nášho vlastného účtu.
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.");
+  }
+
+  // 1. Inicializácia Admin klienta so SERVICE kľúčom (obchádza RLS)
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE!
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY
   );
 
   try {
-    // 2. Stiahneme všetky dáta súbežne cez administrátorský prístup
+    // 2. Stiahnutie dát (teraz uvidíme VŠETKO)
     const [
       { data: users },
       { data: pushSubs },
@@ -126,11 +130,12 @@ export async function getSystemDiagnostics() {
     ] = await Promise.all([
       supabaseAdmin.from('users').select('id, email, user_uid'), 
       supabaseAdmin.from('push_notifications').select('user_id'),
+      // Athlete_id musí existovať (prepojená strava)
       supabaseAdmin.from('strava_account').select('user_id, athlete_id').not('athlete_id', 'is', null),
       supabaseAdmin.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
     ]);
 
-    // 3. Zmapujeme vzťahy na základe interného číselného `id` (user_id)
+    // 3. Logika prepojenia cez INT ID
     const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
     const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
     const subsUsers = new Map((activeSubs || []).map(s => [s.user_id, s.tier_code]));
@@ -140,14 +145,13 @@ export async function getSystemDiagnostics() {
       return acc;
     }, {});
 
-    // 4. Zostavíme detailný zoznam s prepojeniami
     const userDetails = (users || []).map((u: any) => ({
-      id: u.id, // INT ID z databázy
+      id: u.id, 
       email: u.email || u.user_uid || `User #${u.id}`,
       hasPush: pushUserIds.has(u.id),
       stravaId: stravaUsers.get(u.id) || null,
       tier: subsUsers.get(u.id) || "free"
-    })).sort((a, b) => b.id - a.id); // Najnovší (najvyššie ID) idú prví
+    })).sort((a, b) => b.id - a.id);
 
     return {
       totalUsers: users?.length || 0,
@@ -160,6 +164,6 @@ export async function getSystemDiagnostics() {
     };
   } catch (error: any) {
     console.error("[Diagnostics Error]:", error);
-    throw new Error("Nepodarilo sa načítať diagnostiku: " + error.message);
+    throw new Error("Chyba diagnostiky: " + error.message);
   }
 }
