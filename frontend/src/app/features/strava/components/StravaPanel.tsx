@@ -11,7 +11,6 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { apiSyncActivities } from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
-import { API_URL } from "@/app/shared/config";
 
 import {
   apiGetStravaStatus,
@@ -63,10 +62,11 @@ export default function StravaPanel() {
   const pathname = usePathname();
   const router = useRouter();
 
+  // ✅ Zjednodušené - nepotrebujeme riešiť API_URL
   const stravaConnectUrl = useMemo(() => {
-    if (!userId || !API_URL) return null;
-    return getStravaConnectUrl(userId, API_URL);
-  }, [userId, API_URL]);
+    if (!userId) return null;
+    return getStravaConnectUrl(userId);
+  }, [userId]);
 
   const connected = !!status?.connected;
   const syncDays = status?.sync_import_window_days ?? null;
@@ -147,7 +147,6 @@ export default function StravaPanel() {
       const upd = stats.updated ?? 0;
       const skp = stats.skipped ?? 0;
 
-      // UX: Preložený súhrn importu
       toast.success(
         `${t("strava.toasts.importOk")} • ${t("strava.import.new")}: ${imp} • ${t("strava.import.updated")}: ${upd} • ${t("strava.import.skipped")}: ${skp}`,
       );
@@ -228,7 +227,6 @@ export default function StravaPanel() {
 
   const canConnect = canConnectStravaNow(status);
 
-  // Tlačidlo už nebude zablokované len preto, že stravaConnectUrl bolo null pre "undefined" ENV.
   const connectDisabled =
     disabled || !stravaConnectUrl || connected || statusLoading || !canConnect;
 

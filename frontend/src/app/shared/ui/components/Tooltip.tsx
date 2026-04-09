@@ -58,11 +58,20 @@ function TooltipHost({
   React.useEffect(() => {
     if (!state.open) return;
 
+    // ✅ Zablokujeme scrollovanie stránky pod tooltipom
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // ✅ Po zatvorení tooltipu scrollovanie vrátime späť
+      document.body.style.overflow = originalOverflow;
+    };
   }, [state.open, onClose]);
 
   if (!mounted || !state.open) return null;
@@ -89,6 +98,9 @@ function TooltipHost({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(520px, 92vw)",
+          maxHeight: "90vh", // ✅ Maximálna výška tooltipu
+          display: "flex", // ✅ Flex layout
+          flexDirection: "column", // ✅ Pod sebou
           borderRadius: 18,
           background: appColors.surfaceCard,
           border: `1px solid ${appColors.surfaceCardBorder}`,
@@ -102,16 +114,20 @@ function TooltipHost({
             fontSize: 14,
             lineHeight: 1.45,
             whiteSpace: "pre-wrap",
+            overflowY: "auto", // ✅ Povolenie scrollu pre dlhý text
+            overscrollBehavior: "contain", // ✅ Zabráni potiahnutiu stránky na iOS
+            paddingRight: 4, // Drobná medzera pre scrollbar
           }}
         >
           {state.text}
         </div>
 
-        <div className="mt-3 flex justify-end">
+        {/* ✅ shrink-0 zabezpečí, že OK tlačidlo text nikdy nevytlačí von */}
+        <div className="mt-3 flex justify-end shrink-0 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs px-3 py-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+            className="text-xs px-4 py-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors font-medium"
             style={{ color: appColors.textPrimary }}
           >
             OK
@@ -167,6 +183,7 @@ export function TooltipIcon({
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer", // ✅ Pridaný kurzor, aby to vizuálne pôsobilo ako button
+        flexShrink: 0, // ✅ Zabezpečí, že sa "i" ikona nestlačí ak je vedľa dlhšieho textu
       }}
     >
       <span

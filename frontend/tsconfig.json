@@ -14,9 +14,8 @@
     "jsx": "react-jsx",
     "incremental": true,
     "types": ["@types/node", "@types/react", "@types/react-dom"],
-    "baseUrl": "src",
     "paths": {
-      "@/*": ["*"],
+      "@/*": ["./src/*"]
     },
     "plugins": [
       {
