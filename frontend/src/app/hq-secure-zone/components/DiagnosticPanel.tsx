@@ -26,7 +26,6 @@ export default function DiagnosticPanel() {
   return (
     <div className="bg-gray-900 border-t-4 border-purple-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
-      {/* HLAVIČKA */}
       <div 
         className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
@@ -35,7 +34,6 @@ export default function DiagnosticPanel() {
           <h2 className="text-2xl font-black text-white uppercase italic">
             <span className="text-purple-500 mr-3">📊</span> Diagnostics & Users
           </h2>
-          {/* Rýchly indikátor v zbalenom stave */}
           {!isOpen && data && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-purple-900/30 text-purple-500 hidden sm:inline-block">
               {data.totalUsers} Reg / {data.stravaConnected} Strava
@@ -55,11 +53,9 @@ export default function DiagnosticPanel() {
         </div>
       </div>
 
-      {/* ROZBALENÝ OBSAH */}
       <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[3000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
         <div className="p-6 md:p-8 space-y-10">
           
-          {/* SUMÁR (Grid) */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 items-start justify-items-center">
             <div className="text-center w-full">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Total Users</p>
@@ -79,8 +75,6 @@ export default function DiagnosticPanel() {
             <div className="text-center w-full flex flex-col items-center">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Active Plans</p>
               <p className="text-3xl font-black text-green-500">{data?.activeSubsTotal || 0}</p>
-              
-              {/* Tiers labels */}
               {data?.tiers && Object.keys(data.tiers).length > 0 && (
                 <div className="flex flex-wrap justify-center gap-1 mt-1">
                   {Object.entries(data.tiers).map(([tier, count]) => (
@@ -100,7 +94,6 @@ export default function DiagnosticPanel() {
             </div>
           </div>
 
-          {/* DETAILNÁ TABUĽKA POUŽÍVATEĽOV */}
           {data?.userDetails && data.userDetails.length > 0 && (
             <div className="pt-8 border-t border-gray-800">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
