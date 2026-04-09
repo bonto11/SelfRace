@@ -1,7 +1,7 @@
 export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.selfrace.com";
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY"
+export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://www.selfrace.com";
 export const CRON_SECRET = process.env.CRON_SECRET;
 export const MAINTENANCE_API_KEY = process.env.MAINTENANCE_API_KEY;
