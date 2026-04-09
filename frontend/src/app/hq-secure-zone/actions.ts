@@ -109,19 +109,31 @@ export async function getSystemDiagnostics() {
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
-  // Zistenie počtu všetkých používateľov
-  const { count: totalUsers } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true });
+  // Spustíme všetky dotazy súbežne pre maximálnu rýchlosť
+  const [
+    { count: totalUsers },
+    { count: pushSubscribers },
+    { count: stravaConnected },
+    { data: activeSubs }
+  ] = await Promise.all([
+    supabase.from('users').select('*', { count: 'exact', head: true }),
+    supabase.from('push_notifications').select('*', { count: 'exact', head: true }),
+    supabase.from('strava_account').select('*', { count: 'exact', head: true }).is('deauthorized_at', null),
+    supabase.from('app_user_subscriptions').select('tier_code').eq('status', 'active')
+  ]);
 
-  // Zistenie počtu aktívnych tokenov pre PUSH notifikácie
-  const { count: pushSubscribers } = await supabase
-    .from('push_notifications')
-    .select('*', { count: 'exact', head: true });
+  // Zosumarizujeme aktívne predplatné podľa "tier_code" (napr. { classic: 10, pro: 5 })
+  const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
+    acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
+    return acc;
+  }, {});
 
   return {
     totalUsers: totalUsers || 0,
     pushSubscribers: pushSubscribers || 0,
+    stravaConnected: stravaConnected || 0,
+    activeSubsTotal: activeSubs?.length || 0,
+    tiers,
     serverTime: new Date().toISOString(),
   };
 }
