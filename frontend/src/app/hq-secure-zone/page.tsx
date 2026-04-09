@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
-import { updateMaintenanceMode, sendGlobalNotification, triggerMaintenanceTask } from "./actions";
+import { updateMaintenanceMode, sendGlobalNotification, triggerMaintenanceTask, forceGlobalLogout } from "./actions";
 
 export default function AdminDashboard() {
   const [isActive, setIsActive] = useState(false);
@@ -75,6 +75,19 @@ export default function AdminDashboard() {
     finally { setTaskRunning(null); }
   };
 
+  const handleForceLogout = async () => {
+    if (!confirm("🚨 Naozaj chcete okamžite odhlásiť VŠETKÝCH používateľov?")) return;
+    setTaskRunning('force-logout');
+    try {
+      const res = await forceGlobalLogout();
+      alert(`✅ ${res.message}`);
+    } catch (err: any) { 
+      alert(`❌ Chyba: ${err.message}`); 
+    } finally { 
+      setTaskRunning(null); 
+    }
+  };
+
   // Zoznam VŠETKÝCH dostupných cron úloh
   const allCronTasks = [
     { id: 'training', label: 'Push: Morning Training', group: 'Notifications' },
@@ -94,19 +107,38 @@ export default function AdminDashboard() {
   if (loading) return <div className="p-8 text-gray-400 font-mono animate-pulse">Initializing Secure Protocol...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-20">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20">
       
+      {/* HLAVNÁ NAVIGÁCIA A STATUS */}
       <div className="flex justify-between items-center bg-gray-900/50 p-4 rounded-xl border border-white/5">
         <Link href="/activities" className="text-blue-400 hover:text-blue-200 font-bold flex items-center gap-2 transition-all">
           ← Exit to App
         </Link>
-        <div className="flex gap-2">
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-ping" />
-          <span className="text-[10px] font-black uppercase text-green-500 tracking-tighter">System Online</span>
+        
+        {/* DYNAMICKÝ STATUS */}
+        <div className="flex items-center gap-2">
+          {isActive ? (
+            <>
+              <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.8)]" />
+              <span className="text-[10px] font-black uppercase text-yellow-500 tracking-tighter">Maintenance Active</span>
+            </>
+          ) : (
+            <>
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-ping" />
+              <span className="text-[10px] font-black uppercase text-green-500 tracking-tighter">System Online</span>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* VAROVNÝ BANNER (Zobrazí sa len ak je údržba aktívna) */}
+      {isActive && (
+        <div className="bg-yellow-500 text-black p-4 rounded-xl font-black text-center uppercase tracking-widest animate-pulse border-4 border-yellow-600 shadow-xl">
+          ⚠️ Pozor: Aplikácia je momentálne v režime údržby! Zákazníci nemajú prístup. ⚠️
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
         
         {/* ÚDRŽBA */}
         <div className="bg-gray-900 border-t-4 border-yellow-500 p-8 rounded-b-2xl shadow-2xl space-y-6">
@@ -190,7 +222,7 @@ export default function AdminDashboard() {
         {/* Tlačidlo na Global Logout */}
         <div className="mt-10 pt-8 border-t border-red-900/30">
           <button 
-            onClick={() => runTask('force-logout-all', 'GLOBAL FORCE LOGOUT')}
+            onClick={handleForceLogout}
             disabled={!!taskRunning}
             className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-6 rounded-2xl uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-all active:scale-[0.98]"
           >

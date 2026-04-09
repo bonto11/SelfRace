@@ -77,9 +77,30 @@ export async function triggerMaintenanceTask(task: string) {
   return await response.json();
 }
 
-export async function forceLogoutAll() {
-  await verifyAdmin();
-  // Vynútenie premazania cache na serveri
-  revalidatePath("/", "layout");
-  return { success: true };
+export async function forceGlobalLogout() {
+  await verifyAdmin(); // Bezpečnostná poistka
+  const supabase = await getSupabaseServer();
+
+  // 1. Získame aktuálne nastavenia údržby
+  const { data: current } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "maintenance_mode")
+    .single();
+
+  // 2. Pridáme k nim aktuálny čas (toto spustí SessionGuard u všetkých klientov)
+  const updatedValue = {
+    ...current?.value,
+    force_logout_at: new Date().toISOString()
+  };
+
+  // 3. Uložíme späť do databázy
+  const { error } = await supabase
+    .from("app_settings")
+    .update({ value: updatedValue })
+    .eq("key", "maintenance_mode");
+
+  if (error) throw new Error(error.message);
+
+  return { success: true, message: "Signál na odhlásenie bol odoslaný všetkým klientom!" };
 }
