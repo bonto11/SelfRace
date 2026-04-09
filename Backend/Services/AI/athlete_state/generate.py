@@ -58,8 +58,8 @@ def _get_trace_from_result(res: Any) -> Dict[str, Any]:
 
 def generate_athlete_state_json(
     context_payload: dict,
-    model: Optional[str] = None, # ZMENA: model je teraz voliteľný
     ctx: AuthCtx,
+    model: Optional[str] = None, # ZMENA: model je teraz voliteľný
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
     """Generuje analýzu aktuálneho stavu športovca."""
 
