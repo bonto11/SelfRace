@@ -116,8 +116,8 @@ export async function getSystemDiagnostics() {
   // 1. Inicializácia Admin klienta so SERVICE kľúčom (obchádza RLS)
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY
+    SUPABASE_URL!,
+    SUPABASE_SERVICE_ROLE_KEY!
   );
 
   try {
