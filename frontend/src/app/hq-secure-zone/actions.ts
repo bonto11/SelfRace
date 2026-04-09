@@ -107,56 +107,59 @@ export async function forceGlobalLogout() {
 
 export async function getSystemDiagnostics() {
   await verifyAdmin();
-  const supabase = await getSupabaseServer();
+  
+  // 1. Použijeme Admin klienta na prekonanie RLS (Row Level Security)
+  // Inak by nám Supabase vrátil len dáta nášho vlastného účtu.
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE!
+  );
 
-  // Stiahneme všetky potrebné dáta súbežne
-  const [
-    { data: users },
-    { data: pushSubs },
-    { data: stravaAccounts },
-    { data: activeSubs }
-  ] = await Promise.all([
-    supabase.from('users').select('id, email, user_uid'), 
-    supabase.from('push_notifications').select('user_id'),
-    // Pozeráme len na záznamy, kde je reálne athlete_id (nie null a nie 0)
-    supabase.from('strava_account').select('user_id, athlete_id').gt('athlete_id', 0),
-    supabase.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
-  ]);
+  try {
+    // 2. Stiahneme všetky dáta súbežne cez administrátorský prístup
+    const [
+      { data: users },
+      { data: pushSubs },
+      { data: stravaAccounts },
+      { data: activeSubs }
+    ] = await Promise.all([
+      supabaseAdmin.from('users').select('id, email, user_uid'), 
+      supabaseAdmin.from('push_notifications').select('user_id'),
+      supabaseAdmin.from('strava_account').select('user_id, athlete_id').not('athlete_id', 'is', null),
+      supabaseAdmin.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
+    ]);
 
-  // 1. Mapovanie notifikácií podľa interného číselného id
-  const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
+    // 3. Zmapujeme vzťahy na základe interného číselného `id` (user_id)
+    const pushUserIds = new Set((pushSubs || []).map(p => p.user_id));
+    const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
+    const subsUsers = new Map((activeSubs || []).map(s => [s.user_id, s.tier_code]));
 
-  // 2. Mapovanie Stravy podľa interného číselného id
-  const stravaUsers = new Map((stravaAccounts || []).map(s => [s.user_id, s.athlete_id]));
+    const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
+      acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
+      return acc;
+    }, {});
 
-  // 3. Mapovanie predplatného podľa interného číselného id
-  const subsUsers = new Map((activeSubs || []).map(s => [s.user_id, s.tier_code]));
+    // 4. Zostavíme detailný zoznam s prepojeniami
+    const userDetails = (users || []).map((u: any) => ({
+      id: u.id, // INT ID z databázy
+      email: u.email || u.user_uid || `User #${u.id}`,
+      hasPush: pushUserIds.has(u.id),
+      stravaId: stravaUsers.get(u.id) || null,
+      tier: subsUsers.get(u.id) || "free"
+    })).sort((a, b) => b.id - a.id); // Najnovší (najvyššie ID) idú prví
 
-  // 4. Sumár pre tiery
-  const tiers = (activeSubs || []).reduce((acc: Record<string, number>, sub) => {
-    acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
-    return acc;
-  }, {});
-
-  // 5. Zostavenie zoznamu užívateľov s prepojením cez integer ID
-  const userDetails = (users || []).map((u: any) => ({
-    id: u.id, // Naše interné ID (číslo)
-    email: u.email || `User #${u.id}`,
-    hasPush: pushUserIds.has(u.id),
-    stravaId: stravaUsers.get(u.id) || null,
-    tier: subsUsers.get(u.id) || "free"
-  })).sort((a, b) => {
-    // Zoradenie: Najnovší registrovaní (najvyššie ID) idú hore
-    return b.id - a.id;
-  });
-
-  return {
-    totalUsers: users?.length || 0,
-    pushSubscribers: pushUserIds.size,
-    stravaConnected: stravaUsers.size,
-    activeSubsTotal: activeSubs?.length || 0,
-    tiers,
-    userDetails,
-    serverTime: new Date().toISOString(),
-  };
+    return {
+      totalUsers: users?.length || 0,
+      pushSubscribers: pushUserIds.size,
+      stravaConnected: stravaUsers.size,
+      activeSubsTotal: activeSubs?.length || 0,
+      tiers,
+      userDetails,
+      serverTime: new Date().toISOString(),
+    };
+  } catch (error: any) {
+    console.error("[Diagnostics Error]:", error);
+    throw new Error("Nepodarilo sa načítať diagnostiku: " + error.message);
+  }
 }
