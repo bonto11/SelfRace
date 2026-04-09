@@ -121,10 +121,10 @@ export const sk = {
       hPerWeek: "h / týždeň",
       weeksAbbrev: "t", // t = týždne v náhľade
       ms: "ms",
-      hr: "úde./min",
+      hr: "úderov/min",
       pace: "s/km",
       pct: "%",
-      kadenceRun: "krok/min",
+      kadenceRun: "krokov/min",
       kadenceBike: "ot/min",
     },
     metrics: {
@@ -925,7 +925,7 @@ export const sk = {
       iosDesc: "Klikni dole na ikonu zdieľania a zvoľ 'Pridať na plochu'.",
       androidTitle: "Android (Chrome):",
       androidDesc:
-        "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na domovskú obrazovku'.",
+        "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na plochu'.",
       ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v Užívateľskom menu (tvoj avatar vpravo hore).",
     },
     notifications: {
@@ -935,7 +935,7 @@ export const sk = {
         "SelfRace ťa vie upozorniť na ranné merania, zhodnotenie aktivity, zmeškaný tréning či iné novinky. Na to však potrebuje tvoj súhlas.",
       iosTitle: "Apple (iOS):",
       iosDesc:
-        "Najprv si musíš apku pridať na Domovskú obrazovku (ikonka zdieľania -> Pridať na plochu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
+        "Najprv si musíš apku pridať na plochu (ikonka zdieľania -> Pridať na plochu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
       androidTitle: "Android:",
       androidDesc:
         "Nainštaluj si aplikáciu na plochu (vyskakovacie okno zospodu). Následne v Nastaveniach v user menu povoľ odosielanie upozornení.",
@@ -1203,23 +1203,28 @@ export const sk = {
         "Tento widget je „ovládací panel“ pre AI trénera – 3 kroky:",
         "",
         "1) Analyzuj stav trénovanosti",
-        "• AI zoberie tvoje dáta (tréningy + regeneráciu) a vytvorí aktuálny odhad stavu (únava, riziko zranenia, tolerancia objemu…).",
-        "• Výstup sa uloží a používa sa ako vstup do generovania plánu (state_id).",
+        "• Tréner zoberie tvoje dáta (tréningy + regeneráciu) a vytvorí aktuálny odhad stavu (únava, riziko zranenia, tolerancia objemu…).",
+        "• Výstup sa uloží a používa sa ako vstup do generovania plánu.",
         "",
-        "2) Vygeneruj týždenný plan",
+        "2) Vygeneruj týždenný plán",
         "• Vytvorí štruktúru týždňov (zameranie, fázy, záťaž).",
         "• Toto je „kostra“ – bez toho denný plán nemá na čom stáť.",
         "",
-        "3) Vygeneruj denný plan",
+        "3) Vygeneruj denný plán",
         "• Rozpíše konkrétny týždeň na dni (tréningové jednotky).",
         "• Typicky generujeme aspoň 1. týždeň, aby bolo čo spustiť a ukázať.",
         "",
         "Spusti plán:",
-        "• Plán môžeš spustiť až keď máš: analýzu ✓ + týždenný ✓ + denný ✓.",
-        "• Po spustení sa plán „zamkne“ a uloží. To je zámer: aby si omylom negeneroval nové verzie a nerozbil konzistenciu toho, čo práve bežíš.",
+        "• Plán môžeš spustiť, až keď máš: analýzu ✓ + týždenný ✓ + denný ✓.",
+        "• Po spustení sa plán „zamkne“ a uloží. To je zámer: aby si omylom negeneroval nové verzie a nerozbil konzistenciu toho, čo práve trénuješ.",
         "",
         "Ukonči plán:",
-        "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť novú analýzu/týždenný/denný a spustiť nový plán.",
+        "• Ukončí aktívny plán (presunie medzi ukončené). Potom vieš spraviť novú analýzu a spustiť nový plán.",
+        "",
+        "⚠️ Kapacita tvojho trénera:",
+        "• Tak ako živý tréner, aj naša AI má na teba vyhradený obmedzený čas (podľa predplatného), aby sa stíhala venovať aj iným.",
+        "• Neustále spúšťanie a rušenie plánov trénera vyčerpáva. Ak to budeš robiť zbytočne, môže si ťa do konca mesiaca zablokovať.",
+        "• Generuj preto nový plán len vtedy, keď to naozaj potrebuješ."
       ].join("\n"),
       note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
       timeNote: "Generovanie môže trvať až 3 minúty.",
@@ -1230,11 +1235,11 @@ export const sk = {
         msg4: "Analyzujem dáta. Trvá to dlhšie, lebo mi na tvojom progresu záleží.",
       },
       tokenWarning: {
-        title: "Šetri si tokeny:",
-        text: "Každé vygenerovanie nového plánu spotrebúva AI tokeny z tvojho mesačného limitu. Vyhni sa zbytočnému pregenerovaniu. Viac detailov o svojom limite nájdeš v sekcii",
+        title: "Šetri čas svojho trénera:",
+        text: "Každý nový plán stojí trénera čas z tvojho mesačného predplatného. Vyhni sa zbytočnému pregenerovávaniu. Svoj aktuálny zostatok nájdeš v sekcii",
         link: "Predplatné",
         shortText:
-          "Zbytočne nepregeneruj plán. Podrobný postup ako funguje AI tréner nájdeš v info (ℹ) ikonke hore.",
+          "Zbytočne nepregeneruj plány, tréner má na teba obmedzený čas. Ako s ním správne spolupracovať zistíš v info (ℹ) ikonke hore.",
       },
 
       status: {
@@ -2040,7 +2045,7 @@ export const sk = {
       hrvMaxLabel: "HRV (maximum)",
       sleepStartLabel: "Čas zaspatia",
       importantMark:
-        "Označenie metriky, ktor8 priamo ovplyvňuje tvoj tréningový plán.",
+        "Označenie metriky, ktorá priamo ovplyvňuje tvoj tréningový plán.",
     },
     trends: {
       events: {

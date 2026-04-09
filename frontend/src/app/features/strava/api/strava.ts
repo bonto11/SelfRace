@@ -1,4 +1,3 @@
-// app/features/strava/api/strava.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type StravaStatus = {
@@ -38,12 +37,10 @@ function enc(v: any) {
   return encodeURIComponent(String(v));
 }
 
-const STRAVA_BASE = "/api/strava";
-
 export async function apiGetStravaStatus(userId: number): Promise<StravaStatus> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
-  const path = `${STRAVA_BASE}/status?user_id=${enc(userId)}`;
+  const path = `/api/strava/status?user_id=${enc(userId)}`;
 
   try {
     const json = await callBackend<any>(path, {
@@ -89,7 +86,7 @@ export async function apiDisconnectStrava(
   qs.set("user_id", String(userId));
   if (opts?.dryRun) qs.set("dry_run", "1");
 
-  const path = `${STRAVA_BASE}/disconnect?${qs.toString()}`;
+  const path = `/api/strava/disconnect?${qs.toString()}`;
 
   try {
     const json = await callBackend<any>(path, {
@@ -117,8 +114,8 @@ export async function apiDisconnectStrava(
   }
 }
 
-export function getStravaConnectUrl(userId: number, apiUrl: string): string {
-  return `${apiUrl}/api/strava/oauth/start?user_id=${enc(userId)}`;
+export function getStravaConnectUrl(userId: number): string {
+  return `/api/strava/oauth/start?user_id=${enc(userId)}`;
 }
 
 export function canConnectStravaNow(status: StravaStatus | null, nowIso?: string): boolean {
