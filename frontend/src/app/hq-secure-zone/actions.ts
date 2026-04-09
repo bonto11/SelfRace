@@ -2,7 +2,7 @@
 
 import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
 import { revalidatePath } from "next/cache";
-import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL } from "@/app/shared/config"; 
+import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY} from "@/app/shared/config"; 
 
 async function verifyAdmin() {
   const supabase = await getSupabaseServer();
@@ -105,23 +105,72 @@ export async function forceGlobalLogout() {
   return { success: true, message: "Signál na odhlásenie bol odoslaný všetkým klientom!" };
 }
 
+
 export async function getSystemDiagnostics() {
   await verifyAdmin();
-  const supabase = await getSupabaseServer();
+  
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
 
-  // Zistenie počtu všetkých používateľov
-  const { count: totalUsers } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true });
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    SUPABASE_URL!,
+    SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-  // Zistenie počtu aktívnych tokenov pre PUSH notifikácie
-  const { count: pushSubscribers } = await supabase
-    .from('push_notifications')
-    .select('*', { count: 'exact', head: true });
+  try {
+    const [
+      resUsers,
+      resPush,
+      resStrava,
+      resSubs
+    ] = await Promise.all([
+      // Ak sa tvoj stĺpec volá user_id, musíme ho tak aj vyžiadať
+      supabaseAdmin.from('users').select('user_id, email, user_uid'), 
+      supabaseAdmin.from('push_notifications').select('user_id'),
+      supabaseAdmin.from('strava_account').select('user_id, athlete_id').gt('athlete_id', 0),
+      supabaseAdmin.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
+    ]);
 
-  return {
-    totalUsers: totalUsers || 0,
-    pushSubscribers: pushSubscribers || 0,
-    serverTime: new Date().toISOString(),
-  };
+    // DEBUG: Ak je niekde chyba, vypíš ju do logov (uvidíš v Railway/Vercel logoch)
+    if (resUsers.error) console.error("Users Error:", resUsers.error);
+    if (resStrava.error) console.error("Strava Error:", resStrava.error);
+
+    const users = resUsers.data || [];
+    const pushSubs = resPush.data || [];
+    const stravaAccounts = resStrava.data || [];
+    const activeSubs = resSubs.data || [];
+
+    const pushUserIds = new Set(pushSubs.map(p => p.user_id));
+    const stravaUsers = new Map(stravaAccounts.map(s => [s.user_id, s.athlete_id]));
+    const subsUsers = new Map(activeSubs.map(s => [s.user_id, s.tier_code]));
+
+    const tiers = activeSubs.reduce((acc: Record<string, number>, sub) => {
+      acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
+      return acc;
+    }, {});
+
+    const userDetails = users.map((u: any) => ({
+      // TU JE ZMENA: Používame u.user_id namiesto u.id
+      id: u.user_id, 
+      email: u.email || u.user_uid || `User #${u.user_id}`,
+      hasPush: pushUserIds.has(u.user_id),
+      stravaId: stravaUsers.get(u.user_id) || null,
+      tier: subsUsers.get(u.user_id) || "free"
+    })).sort((a, b) => b.id - a.id);
+
+    return {
+      totalUsers: users.length,
+      pushSubscribers: pushUserIds.size,
+      stravaConnected: stravaUsers.size,
+      activeSubsTotal: activeSubs.length,
+      tiers,
+      userDetails,
+      serverTime: new Date().toISOString(),
+    };
+  } catch (error: any) {
+    console.error("[Diagnostics Error]:", error);
+    throw new Error("Chyba diagnostiky: " + error.message);
+  }
 }
