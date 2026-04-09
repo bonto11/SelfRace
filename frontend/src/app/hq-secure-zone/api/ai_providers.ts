@@ -3,14 +3,16 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 export interface AiModelsData {
   openai: string[];
   gemini: string[];
+  configured: {
+    openai: string[];
+    gemini: string[];
+  };
   errors: string[];
 }
 
 export async function apiFetchAiModels(): Promise<AiModelsData> {
-  // callBackend sa postará o base URL aj o pripojenie Auth hlavičiek (užívateľského tokenu)
-  // Backend si overí, či je to ADMIN.
   try {
-    const json = await callBackend<AiModelsData>("/maintenance/ai-models", {
+    const json = await callBackend<any>("/maintenance/ai-models", {
       method: "GET",
       cache: "no-store",
     });
@@ -22,6 +24,7 @@ export async function apiFetchAiModels(): Promise<AiModelsData> {
     return {
       openai: Array.isArray(json.openai) ? json.openai : [],
       gemini: Array.isArray(json.gemini) ? json.gemini : [],
+      configured: json.configured || { openai: [], gemini: [] },
       errors: Array.isArray(json.errors) ? json.errors : [],
     };
   } catch (err: any) {

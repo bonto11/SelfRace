@@ -148,22 +148,37 @@ def ai_call_json_model(
 
 def get_available_ai_models() -> Dict[str, Any]:
     """
-    Združí dostupné modely z OpenAI aj Gemini.
-    Zlyhania jedného nezablokujú druhého.
+    Združí dostupné modely z OpenAI aj Gemini a pripojí aktuálnu konfiguráciu.
     """
+    from Configs.config import (
+        OPENAI_DEFAULT_MODEL, OPENAI_MODEL_FALLBACKS,
+        GEMINI_DEFAULT_MODEL, GEMINI_MODEL_FALLBACKS
+    )
+
     result: Dict[str, Any] = {
         "openai": [],
         "gemini": [],
+        "configured": {
+            "openai": [],
+            "gemini": []
+        },
         "errors": []
     }
 
-    # 1. OpenAI
+    # 1. Zostavenie zoznamu nastavených modelov (odstránenie duplicít)
+    cfg_openai = [OPENAI_DEFAULT_MODEL] + (OPENAI_MODEL_FALLBACKS or [])
+    cfg_gemini = [GEMINI_DEFAULT_MODEL] + (GEMINI_MODEL_FALLBACKS or [])
+    
+    result["configured"]["openai"] = list(dict.fromkeys([str(m).strip() for m in cfg_openai if m]))
+    result["configured"]["gemini"] = list(dict.fromkeys([str(m).strip() for m in cfg_gemini if m]))
+
+    # 2. OpenAI Modely z API
     try:
         result["openai"] = get_openai_models()
     except Exception as e:
         result["errors"].append(f"OpenAI: {str(e)}")
 
-    # 2. Gemini
+    # 3. Gemini Modely z API
     try:
         result["gemini"] = get_gemini_models()
     except Exception as e:

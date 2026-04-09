@@ -222,50 +222,27 @@ def gemini_call_json_model(
     )
 
 def get_gemini_models() -> List[str]:
-    """Vráti zoznam dostupných Gemini modelov s pridaným debuggovaním."""
+    """Vráti zoznam dostupných Gemini modelov."""
     client = _get_client() # Toto nám zaručí, že máme API kľúč aj timeout
-    
-    print("\n[GEMINI DEV] Spúšťam request na list_models()...")
     
     try:
         models = client.models.list()
     except Exception as e:
-        print(f"[GEMINI DEV] ❌ CRITICAL ERROR pri listovaní modelov: {str(e)}")
         raise e
         
     valid_models = []
     
-    print("[GEMINI DEV] --- DUMP PRVÝCH 3 MODELOV Z API PRE ANALÝZU ---")
-    
-    count = 0
     for m in models:
-        # Vypíšeme si do logov kompletnú štruktúru prvých 3 modelov, aby sme videli, čo tam reálne je
-        if count < 3:
-            print(f"Model {count}:")
-            print(f" - name: {getattr(m, 'name', 'N/A')}")
-            print(f" - display_name: {getattr(m, 'display_name', 'N/A')}")
-            print(f" - supported_generation_methods: {getattr(m, 'supported_generation_methods', 'N/A')}")
-            print(f" - DIR: {dir(m)}") # Zobrazí všetky dostupné atribúty objektu
-            count += 1
-            
-        # Získanie mena s orezaním 'models/' (ak tam je)
         raw_name = getattr(m, "name", "")
         if not raw_name:
             continue
             
         name = raw_name.replace("models/", "")
         
-        # Ochrana pre rôzne verzie SDK:
-        # 1. Ak má supported_generation_methods, skontrolujeme 'generateContent'
         methods = getattr(m, "supported_generation_methods", [])
-        if methods:
-            if "generateContent" in methods:
-                valid_models.append(name)
-        # 2. Ak ten atribút chýba, berieme všetky modely, ktoré majú v názve "gemini"
+        if methods and "generateContent" in methods:
+            valid_models.append(name)
         elif "gemini" in name.lower():
-             valid_models.append(name)
-
-    print(f"[GEMINI DEV] Celkový počet nájdených 'generateContent' / 'gemini' modelov: {len(valid_models)}")
-    print("[GEMINI DEV] " + "="*50 + "\n")
-    
-    return sorted(list(set(valid_models))) # Zabezpečíme unikátnosť a zoradenie
+            valid_models.append(name)
+            
+    return sorted(list(set(valid_models)))
