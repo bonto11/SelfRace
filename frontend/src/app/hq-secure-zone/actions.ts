@@ -136,15 +136,13 @@ export async function getSystemDiagnostics() {
 
   try {
     const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
-      supabaseAdmin.from("users").select("user_id, email, user_uid"),
+      // 1. OPRAVA: V tabuľke users sa stĺpec volá s najväčšou pravdepodobnosťou "id", nie "user_id"
+      supabaseAdmin.from("users").select("id, mail_address, user_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
-      supabaseAdmin.from("strava_account").select("user_id, athlete_id").gt("athlete_id", 0),
+      // 2. OPRAVA: Pre istotu nepoužívame > 0 (ak by to bol text, padne to), ale pozeráme či to nie je null
+      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
       supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),
     ]);
-
-    // Vypíše sa na VERCEL serveri
-    if (resUsers.error) console.error("Users Error:", resUsers.error);
-    if (resStrava.error) console.error("Strava Error:", resStrava.error);
 
     const users = resUsers.data || [];
     const pushSubs = resPush.data || [];
@@ -162,11 +160,11 @@ export async function getSystemDiagnostics() {
 
     const userDetails = users
       .map((u: any) => ({
-        id: u.user_id,
-        email: u.email || u.user_uid || `User #${u.user_id}`,
-        hasPush: pushUserIds.has(u.user_id),
-        stravaId: stravaUsers.get(u.user_id) || null,
-        tier: subsUsers.get(u.user_id) || "free",
+        id: u.id, // Berieme "id" z tabuľky users
+        email: u.email || u.user_uid || `User #${u.id}`,
+        hasPush: pushUserIds.has(u.id),
+        stravaId: stravaUsers.get(u.id) || null,
+        tier: subsUsers.get(u.id) || "free",
       }))
       .sort((a, b) => b.id - a.id);
 
@@ -178,12 +176,19 @@ export async function getSystemDiagnostics() {
       tiers,
       userDetails,
       serverTime: new Date().toISOString(),
-      // Pridané: Posielame raw dáta na frontend pre debugovanie
+      
+      // 3. OPRAVA: Posielame na klienta aj CHYBY, nech vieme čo sa deje
       debugRaw: {
-        users,
-        pushSubs,
-        stravaAccounts,
-        activeSubs
+        usersCount: users.length,
+        usersError: resUsers.error,
+        stravaCount: stravaAccounts.length,
+        stravaError: resStrava.error,
+        pushCount: pushSubs.length,
+        pushError: resPush.error,
+        subsCount: activeSubs.length,
+        subsError: resSubs.error,
+        rawUsers: users,
+        rawStrava: stravaAccounts
       }
     };
   } catch (error: any) {
