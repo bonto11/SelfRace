@@ -136,10 +136,10 @@ export async function getSystemDiagnostics() {
 
   try {
     const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
-      // 1. OPRAVA: V tabuľke users sa stĺpec volá s najväčšou pravdepodobnosťou "id", nie "user_id"
+      // Správne názvy stĺpcov podľa tvojej DB
       supabaseAdmin.from("users").select("id, mail_address, user_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
-      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id"),
+      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
       supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),
     ]);
 
@@ -159,8 +159,9 @@ export async function getSystemDiagnostics() {
 
     const userDetails = users
       .map((u: any) => ({
-        id: u.id, // Berieme "id" z tabuľky users
-        email: u.email || u.user_uid || `User #${u.id}`,
+        id: u.id, 
+        // OPRAVA: Berieme vyslovene u.mail_address. Ak nie je, vyhodíme user_uid preč a necháme to čisté.
+        email: u.mail_address || `Neznámy mail (ID: #${u.id})`,
         hasPush: pushUserIds.has(u.id),
         stravaId: stravaUsers.get(u.id) || null,
         tier: subsUsers.get(u.id) || "free",
@@ -176,7 +177,6 @@ export async function getSystemDiagnostics() {
       userDetails,
       serverTime: new Date().toISOString(),
       
-      // 3. OPRAVA: Posielame na klienta aj CHYBY, nech vieme čo sa deje
       debugRaw: {
         usersCount: users.length,
         usersError: resUsers.error,
