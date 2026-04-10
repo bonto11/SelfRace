@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const path = request.nextUrl.pathname;
+  let isAdminBypassing = false;
 
   // --- KONTROLA REŽIMU ÚDRŽBY S VÝNIMKOU PRE ADMINA ---
   if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH)) {
@@ -58,11 +59,12 @@ export async function middleware(request: NextRequest) {
               const { data: profile } = await supabase
                   .from('users')
                   .select('role')
-                  .eq('auth_uid', data.user.id) // Používame auth_uid podľa posledného upratovania
+                  .eq('auth_uid', data.user.id) // Používame auth_uid
                   .single();
 
               if (profile?.role === 'ADMIN') {
                   isAdmin = true;
+                  isAdminBypassing = true; // Značka, že admin ide do apky
               }
           }
 
@@ -73,6 +75,19 @@ export async function middleware(request: NextRequest) {
               return NextResponse.redirect(url);
           }
       }
+  }
+
+  // --- ZÁPIS COOKIE PRE VIZUÁL (AppBackdrop) ---
+  if (isAdminBypassing) {
+      // Dôležité: httpOnly musí byť false, inak to frontend neprečíta!
+      supabaseResponse.cookies.set('admin_maintenance_bypass', 'true', { 
+        path: '/', 
+        maxAge: 3600, 
+        httpOnly: false, 
+        sameSite: 'lax' 
+      });
+  } else {
+      supabaseResponse.cookies.delete('admin_maintenance_bypass');
   }
   // -----------------------------------------
 
