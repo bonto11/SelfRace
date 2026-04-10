@@ -289,7 +289,6 @@ def normalize_summary(user_id: int, a: Dict[str, Any]) -> Dict[str, Any]:
         "achievement_count": to_int(a.get("achievement_count")),
         "pr_count": to_int(a.get("pr_count")),
         "calories_kcal": calories_kcal,
-        "user_uid": None,
     }
 
 

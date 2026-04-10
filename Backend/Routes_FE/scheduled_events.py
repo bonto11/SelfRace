@@ -152,7 +152,7 @@ async def timed_check_ai_models(
         sb = get_service_client()
         
         # Pozor: tvoja funkcia 'service_send_push_notification' očakáva 'user_id' (integer), 
-        # takže hľadáme stĺpec 'id', nie 'user_uid' (uuid)
+        # takže hľadáme stĺpec 'id'
         user_resp = sb.table("users").select("id").eq("email", admin_email).single().execute()
         admin_id = user_resp.data.get("id") if user_resp.data else None
 

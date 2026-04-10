@@ -26,7 +26,7 @@ def db_get_user_by_auth_uid(
     return (res.data or [None])[0]
 
 
-def db_get_user_uid(
+def db_get_auth_uid(
     user_id: int,
     *,
     ctx: AuthCtx,
@@ -34,7 +34,7 @@ def db_get_user_uid(
     """
     Vráti auth_uid podľa interného user_id, alebo None.
     """
-    sb = get_sb(ctx, caller="users.db_get_user_uid")
+    sb = get_sb(ctx, caller="users.db_get_auth_uid")
     res = sb.table(TABLE_USERS).select("auth_uid").eq("id", user_id).limit(1).execute()
     row = (res.data or [None])[0]
     if not row or not row.get("auth_uid"):

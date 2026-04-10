@@ -6,28 +6,25 @@ from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_PROFILE_STATIC
 
-def _apply_user_filter(q, user_id: int, user_uid: Optional[str]):
+def _apply_user_filter(q, user_id: int):
     """
-    Pomocná funkcia na filtrovanie podľa user_id / user_uid.
+    Pomocná funkcia na filtrovanie podľa user_id
     """
-    if user_uid:
-        return q.eq("user_uid", user_uid)
     return q.eq("user_id", user_id)
 
 
 def db_fetch_static(
     user_id: int,
-    user_uid: Optional[str] = None,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
-    Vytiahne static profil – preferuje user_uid, inak user_id.
+    Vytiahne static profil – user_id.
     """
     sb = get_sb(ctx, caller="profile_static.db_fetch_static")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("*").limit(1)
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q = _apply_user_filter(q, user_id=user_id)
 
     res = q.execute()
     data = res.data or []
@@ -57,14 +54,13 @@ def db_upsert_static(
 
 def db_fetch_static_basic(
     user_id: int,
-    user_uid: Optional[str] = None,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     sb = get_sb(ctx, caller="profile_static.db_fetch_static_basic")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date,height_cm").limit(1)
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q = _apply_user_filter(q, user_id=user_id)
     res = q.execute()
     data = res.data or []
     return data[0] if data else None
@@ -72,14 +68,13 @@ def db_fetch_static_basic(
 
 def db_get_static_sex_birth(
     user_id: int,
-    user_uid: Optional[str] = None,
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     sb = get_sb(ctx, caller="profile_static.db_get_static_sex_birth")
 
     q = sb.table(TABLE_PROFILE_STATIC).select("sex,birth_date").limit(1)
-    q = _apply_user_filter(q, user_id=user_id, user_uid=user_uid)
+    q = _apply_user_filter(q, user_id=user_id)
     res = q.execute()
     data = res.data or []
     return data[0] if data else None

@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from Routes_DB.users import (
     db_get_user_by_auth_uid,
-    db_get_user_uid,
+    db_get_auth_uid,
     db_get_user_by_email,
     db_insert_user,
     db_update_user_by_email,
@@ -30,7 +30,7 @@ def service_resolve_user(
     return int(row["id"])
 
 
-def service_get_user_uid(
+def service_get_auth_uid(
     user_id: int,
     ctx:AuthCtx,
 ) -> str:
@@ -41,7 +41,7 @@ def service_get_user_uid(
       - service=False (default): RLS klient → require_jwt
       - service=True: service klient → user_jwt sa len forwarduje (môže byť aj None)
     """
-    uid = db_get_user_uid(
+    uid = db_get_auth_uid(
         user_id=user_id,
         ctx=ctx
     )

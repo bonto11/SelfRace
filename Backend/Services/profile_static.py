@@ -33,19 +33,17 @@ def service_upsert_static_profile(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Upsert static profilu podľa user_id / user_uid (pod RLS).
+    Upsert static profilu podľa user_id (pod RLS).
     """
 
     data: Dict[str, Any] = {
-        # ak FE pošle user_uid, použijeme ho (v RLS musí sedieť na auth.uid())
-        "user_id": user_id if not payload.user_uid else None,
-        "user_uid": payload.user_uid or None,
+        "user_id": user_id,
         "sex": payload.sex,
         "birth_date": birth_to_iso_date(payload.birth_date),
         "height_cm": payload.height_cm,
         "updated_at": iso_now(),
     }
-    conflict_col = "user_uid" if data.get("user_uid") else "user_id"
+    conflict_col = "user_id"
 
     try:
         row = db_upsert_static(

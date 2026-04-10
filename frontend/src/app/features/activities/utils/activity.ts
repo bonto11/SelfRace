@@ -97,9 +97,6 @@ export function normalizeActivityRow(r: any): ActivityRow | null {
 
   // nové polia z DB – aby mal SessionCard úplný obraz
   const user_id = numOrNull(r?.user_id);
-  const user_uid =
-    typeof r?.user_uid === "string" ? r.user_uid : r?.user_uid ?? null;
-
   const description =
     typeof r?.description === "string" ? r.description : null;
   const comment = typeof r?.comment === "string" ? r.comment : null;
@@ -153,7 +150,6 @@ export function normalizeActivityRow(r: any): ActivityRow | null {
     utc_offset_s,
 
     user_id,
-    user_uid,
     description,
     comment,
     pace_seconds_per_km,

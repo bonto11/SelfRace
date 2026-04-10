@@ -21,7 +21,7 @@ async function verifyAdmin() {
   const { data: profile } = await supabase
     .from("users")
     .select("role")
-    .eq("user_uid", user.id)
+    .eq("auth_uid", user.id)
     .single();
 
   if (profile?.role !== "ADMIN") throw new Error("Zakázané: Nie ste admin");
@@ -131,7 +131,7 @@ export async function getSystemDiagnostics() {
 
   try {
     const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
-      supabaseAdmin.from("users").select("id, mail_address, user_uid"),
+      supabaseAdmin.from("users").select("id, mail_address, auth_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
       supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
       supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),

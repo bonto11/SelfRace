@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from datetime import datetime, timezone, date
-from typing import Any, Dict, List, Optional, Literal
+from datetime import datetime
+from typing import List, Optional, Literal
 
 MetricKey = Literal[
     "weight_kg",
@@ -25,4 +25,3 @@ class MetricEntry(BaseModel):
 class BatchMetricsPayload(BaseModel):
     entries: List[MetricEntry] = Field(default_factory=list)
     # voliteľne – ak príde, uloží sa spolu s každým riadkom
-    user_uid: Optional[str] = None
