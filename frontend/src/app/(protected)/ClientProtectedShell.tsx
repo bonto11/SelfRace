@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+// 👇 1. PRIDALI SME useState a useEffect
+import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -41,6 +42,15 @@ export default function ClientProtectedShell({
   const t = useT();
   const { userId } = useUserId();
 
+  // 👇 2. LOGIKA NA ZISTENIE ADMIN BYPASSU Z COOKIES PREHLIADAČA
+  const [isBypass, setIsBypass] = useState(false);
+  useEffect(() => {
+    // Ak sa v prehliadači nachádza naša tajná cookie z middlewaru, zapneme pruh
+    if (document.cookie.includes("admin_maintenance_bypass=true")) {
+      setIsBypass(true);
+    }
+  }, []);
+
   return (
     <>
       <UserPrefsBootstrapper />
@@ -60,7 +70,6 @@ export default function ClientProtectedShell({
                 </>
               )}
 
-              {/* OPRAVA 1: Z hlavného obalu sme dali preč overflow-hidden pre istotu kvôli fixed lište */}
               <div
                 className="min-h-dvh flex flex-col relative"
                 style={{
@@ -73,12 +82,28 @@ export default function ClientProtectedShell({
                 </div>
 
                 <div className="relative z-10 flex flex-col min-h-dvh">
+                  
+                  {/* 👇 3. VÝSTRAŽNÝ ŽLTÝ PRUH PRE ADMINA 🚧 */}
+                  {isBypass && (
+                    <div 
+                      className="w-full bg-yellow-500 text-black text-center px-2 py-1.5 flex justify-center items-center gap-2 z-50 shadow-md"
+                      style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+                    >
+                      <span className="animate-pulse text-[10px] md:text-sm">🚧</span>
+                      <span className="text-[9px] md:text-xs font-black uppercase tracking-widest truncate">
+                        System is in Maintenance Mode - Admin Bypass Active
+                      </span>
+                      <span className="animate-pulse text-[10px] md:text-sm">🚧</span>
+                    </div>
+                  )}
+
                   <header
                     className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
                       background: appColors.backgroundAlt,
                       borderBottom: `1px solid ${appColors.divider}`,
-                      paddingTop: "env(safe-area-inset-top)" as any,
+                      // Ak je zapnutý pruh, odstránime safe-area padding z hlavičky, lebo ho už má pruh
+                      paddingTop: isBypass ? "0" : ("env(safe-area-inset-top)" as any),
                     }}
                   >
                     <Link
@@ -116,7 +141,6 @@ export default function ClientProtectedShell({
                       </div>
                     </div>
 
-                    {/* OPRAVA 2: Odstránené min-h-dvh z mobilného obalu, pridaný čistý flex-1 */}
                     <div className="lg:hidden flex-1 flex flex-col">
                       <main className="flex-1 p-3 pb-24">{children}</main>
                       <div className="pb-28">
@@ -127,7 +151,6 @@ export default function ClientProtectedShell({
                 </div>
               </div>
               
-              {/* OPRAVA 3: Bottom Bar je úplne na root úrovni, mimo akéhokoľvek relative obalu */}
               <MobileBottomBar />
 
               </PerformanceDataProvider>
