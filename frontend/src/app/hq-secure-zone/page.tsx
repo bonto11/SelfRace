@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link"; // Nezabudni na import Linku
 import DiagnosticPanel from "./components/DiagnosticPanel";
 import ProvidersPanel from "./components/ProvidersPanel";
 import ClientMemoryPanel from "./components/ClientMemoryPanel";
@@ -9,13 +10,9 @@ import NotificationPanel from "./components/NotificationPanel";
 import CronMasterPanel from "./components/CronMasterPanel";
 
 export default function AdminCommandCenterPage() {
-  // Pridali sme späť state, ktorý MaintenancePanel potrebuje
   const [dbStatus, setDbStatus] = useState<any>(null);
 
-  // Funkcia, ktorú MaintenancePanel zavolá po kliknutí na "Update"
   const loadDbStatus = async () => {
-    // Ak si mal predtým logiku na načítanie statusu z DB, patrí sem.
-    // Zatiaľ tu necháme bezpečný fallback, aby prešiel build.
     console.log("🔄 Požiadavka na obnovenie Maintenance statusu");
   };
 
@@ -23,15 +20,47 @@ export default function AdminCommandCenterPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-8 pb-20">
         
-        {/* HLAVIČKA STRÁNKY */}
-        <header className="mb-10">
-          <h1 className="text-4xl font-black uppercase tracking-tighter italic text-gray-300">
-            Command <span className="text-red-600">Center</span>
-          </h1>
-          <p className="text-gray-500 text-sm font-mono mt-2">
-            System Administration & Diagnostics
-          </p>
-        </header>
+        {/* NAVIGÁCIA A HLAVIČKA */}
+        <div className="space-y-6 mb-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-4xl font-black uppercase tracking-tighter italic text-gray-300">
+                SELFRACE <span className="text-red-600 font-black">COMMAND CENTER</span>
+              </h1>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest bg-gray-900 px-2 py-1 rounded border border-gray-800">
+                  ADMINISTRATOR ACCESS
+                </span>
+              </div>
+            </div>
+
+            {/* NAVIGAČNÁ LIŠTA (TLAČIDLO SPÄŤ) */}
+            <div className="flex items-center gap-3 bg-gray-900/50 p-2 rounded-2xl border border-gray-800/50 w-full md:w-auto">
+              <Link 
+                href="/activities"
+                className="flex items-center gap-2 text-blue-400 hover:text-blue-300 font-bold text-sm px-4 py-2 transition-all active:scale-95"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Exit to App
+              </Link>
+              
+              <div className="h-6 w-px bg-gray-800 hidden md:block"></div>
+              
+              <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded-lg border border-gray-800">
+                <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest">ENV:</span>
+                <span className="text-[9px] text-green-500 font-black uppercase tracking-widest">PROD</span>
+              </div>
+              
+              <div className="flex items-center gap-2 bg-green-900/10 px-3 py-1.5 rounded-lg border border-green-900/30">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-[9px] text-green-500 font-black uppercase tracking-widest">SYSTEM ONLINE</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* 1. DIAGNOSTIKA A POUŽÍVATELIA */}
         <DiagnosticPanel />
@@ -44,9 +73,7 @@ export default function AdminCommandCenterPage() {
 
         {/* 4. ÚDRŽBA A NOTIFIKÁCIE */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Tu sme vrátili chýbajúce props! */}
           <MaintenancePanel dbStatus={dbStatus} onUpdate={loadDbStatus} />
-          
           <NotificationPanel />
         </div>
 
