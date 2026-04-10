@@ -148,7 +148,7 @@ export default function DiagnosticPanel() {
                           )}
                         </td>
                         <td className="p-3 text-center pr-4">
-                          <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${
+                          <span className={`${
                             u.tier !== 'free' 
                             ? 'text-green-400' 
                             : 'text-[#FC4C02]'
