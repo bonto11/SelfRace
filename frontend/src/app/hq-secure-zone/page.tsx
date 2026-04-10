@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link"; // Nezabudni na import Linku
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import DiagnosticPanel from "./components/DiagnosticPanel";
 import ProvidersPanel from "./components/ProvidersPanel";
 import ClientMemoryPanel from "./components/ClientMemoryPanel";
@@ -9,12 +9,28 @@ import MaintenancePanel from "./components/MaintenancePanel";
 import NotificationPanel from "./components/NotificationPanel";
 import CronMasterPanel from "./components/CronMasterPanel";
 
+// IMPORTUJEME NOVÚ FUNKCIU!
+import { getMaintenanceSettings } from "./actions";
+
 export default function AdminCommandCenterPage() {
   const [dbStatus, setDbStatus] = useState<any>(null);
 
+  // Reálna funkcia, ktorá stiahne dáta z databázy
   const loadDbStatus = async () => {
-    console.log("🔄 Požiadavka na obnovenie Maintenance statusu");
+    try {
+      const status = await getMaintenanceSettings();
+      if (status) {
+        setDbStatus(status);
+      }
+    } catch (e) {
+      console.error("Nepodarilo sa načítať stav údržby", e);
+    }
   };
+
+  // Načíta stav okamžite po otvorení stránky
+  useEffect(() => {
+    loadDbStatus();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">

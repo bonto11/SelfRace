@@ -175,3 +175,21 @@ export async function getSystemDiagnostics() {
     throw new Error("Chyba diagnostiky: " + error.message);
   }
 }
+
+export async function getMaintenanceSettings() {
+  await verifyAdmin();
+  const supabase = await getSupabaseServer();
+  
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "maintenance_mode")
+    .single();
+
+  if (error) {
+    console.error("Chyba pri načítaní maintenance statusu:", error);
+    return null;
+  }
+  
+  return data?.value || null;
+}
