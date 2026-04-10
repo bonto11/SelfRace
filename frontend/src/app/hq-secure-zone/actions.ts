@@ -136,27 +136,15 @@ export async function getSystemDiagnostics() {
 
   try {
     const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
-      // Ak sa tvoj stĺpec volá user_id, musíme ho tak aj vyžiadať
       supabaseAdmin.from("users").select("user_id, email, user_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
-      supabaseAdmin
-        .from("strava_account")
-        .select("user_id, athlete_id")
-        .gt("athlete_id", 0),
-      supabaseAdmin
-        .from("app_user_subscriptions")
-        .select("user_id, tier_code")
-        .eq("status", "active"),
+      supabaseAdmin.from("strava_account").select("user_id, athlete_id").gt("athlete_id", 0),
+      supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),
     ]);
 
-    // DEBUG: Ak je niekde chyba, vypíš ju do logov (uvidíš v Railway/Vercel logoch)
+    // Vypíše sa na VERCEL serveri
     if (resUsers.error) console.error("Users Error:", resUsers.error);
     if (resStrava.error) console.error("Strava Error:", resStrava.error);
-
-    console.log("resUsers", resUsers);
-    console.log("resPush", resPush);
-    console.log("resStrava", resStrava);
-    console.log("resSubs", resSubs);
 
     const users = resUsers.data || [];
     const pushSubs = resPush.data || [];
@@ -164,9 +152,7 @@ export async function getSystemDiagnostics() {
     const activeSubs = resSubs.data || [];
 
     const pushUserIds = new Set(pushSubs.map((p) => p.user_id));
-    const stravaUsers = new Map(
-      stravaAccounts.map((s) => [s.user_id, s.athlete_id]),
-    );
+    const stravaUsers = new Map(stravaAccounts.map((s) => [s.user_id, s.athlete_id]));
     const subsUsers = new Map(activeSubs.map((s) => [s.user_id, s.tier_code]));
 
     const tiers = activeSubs.reduce((acc: Record<string, number>, sub) => {
@@ -176,7 +162,6 @@ export async function getSystemDiagnostics() {
 
     const userDetails = users
       .map((u: any) => ({
-        // TU JE ZMENA: Používame u.user_id namiesto u.id
         id: u.user_id,
         email: u.email || u.user_uid || `User #${u.user_id}`,
         hasPush: pushUserIds.has(u.user_id),
@@ -193,6 +178,13 @@ export async function getSystemDiagnostics() {
       tiers,
       userDetails,
       serverTime: new Date().toISOString(),
+      // Pridané: Posielame raw dáta na frontend pre debugovanie
+      debugRaw: {
+        users,
+        pushSubs,
+        stravaAccounts,
+        activeSubs
+      }
     };
   } catch (error: any) {
     console.error("[Diagnostics Error]:", error);
