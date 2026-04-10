@@ -72,8 +72,6 @@ export async function sendGlobalNotification(payload: any) {
 export async function triggerMaintenanceTask(task: string) {
   await verifyAdmin();
 
-  // URL musí presne kopírovať štruktúru v src/app/api/...
-  // Keďže máš api/cron/trigger/route.ts, cesta je /api/cron/trigger
   const response = await fetch(
     `${FRONTEND_URL}/api/cron/trigger?task=${task}`,
     {
@@ -82,7 +80,7 @@ export async function triggerMaintenanceTask(task: string) {
         Authorization: `Bearer ${CRON_SECRET}`,
         "Content-Type": "application/json",
       },
-    },
+    }
   );
 
   if (!response.ok) {
@@ -94,23 +92,20 @@ export async function triggerMaintenanceTask(task: string) {
 }
 
 export async function forceGlobalLogout() {
-  await verifyAdmin(); // Bezpečnostná poistka
+  await verifyAdmin();
   const supabase = await getSupabaseServer();
 
-  // 1. Získame aktuálne nastavenia údržby
   const { data: current } = await supabase
     .from("app_settings")
     .select("value")
     .eq("key", "maintenance_mode")
     .single();
 
-  // 2. Pridáme k nim aktuálny čas (toto spustí SessionGuard u všetkých klientov)
   const updatedValue = {
     ...current?.value,
     force_logout_at: new Date().toISOString(),
   };
 
-  // 3. Uložíme späť do databázy
   const { error } = await supabase
     .from("app_settings")
     .update({ value: updatedValue })
@@ -136,7 +131,6 @@ export async function getSystemDiagnostics() {
 
   try {
     const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
-      // Správne názvy stĺpcov podľa tvojej DB
       supabaseAdmin.from("users").select("id, mail_address, user_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
       supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
@@ -160,7 +154,6 @@ export async function getSystemDiagnostics() {
     const userDetails = users
       .map((u: any) => ({
         id: u.id, 
-        // OPRAVA: Berieme vyslovene u.mail_address. Ak nie je, vyhodíme user_uid preč a necháme to čisté.
         email: u.mail_address || `Neznámy mail (ID: #${u.id})`,
         hasPush: pushUserIds.has(u.id),
         stravaId: stravaUsers.get(u.id) || null,
@@ -175,20 +168,7 @@ export async function getSystemDiagnostics() {
       activeSubsTotal: activeSubs.length,
       tiers,
       userDetails,
-      serverTime: new Date().toISOString(),
-      
-      debugRaw: {
-        usersCount: users.length,
-        usersError: resUsers.error,
-        stravaCount: stravaAccounts.length,
-        stravaError: resStrava.error,
-        pushCount: pushSubs.length,
-        pushError: resPush.error,
-        subsCount: activeSubs.length,
-        subsError: resSubs.error,
-        rawUsers: users,
-        rawStrava: stravaAccounts
-      }
+      serverTime: new Date().toISOString()
     };
   } catch (error: any) {
     console.error("[Diagnostics Error]:", error);
