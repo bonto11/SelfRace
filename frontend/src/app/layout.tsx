@@ -33,9 +33,9 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-  // 👇 SKONTROLUJEME, ČI SME V ADMIN BYPASS REŽIME
-  const cookieStore = cookies();
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  
+  const cookieStore = await cookies();
   const isMaintenanceBypass = cookieStore.get("admin_maintenance_bypass")?.value === "true";
 
   return (
