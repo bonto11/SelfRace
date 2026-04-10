@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({ request });
           
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 1. PWA ZÁCHRANA (Session Fix) - PONECHANÉ
+            // 1. PWA ZÁCHRANA (Session Fix)
             if (name.includes('auth-token') && !name.includes('verifier')) {
               supabaseResponse.cookies.set(name, value, { ...options, maxAge: 31536000 });
             } else {
@@ -42,10 +42,8 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // --- NOVÁ ČASŤ: KONTROLA REŽIMU ÚDRŽBY ---
-  // Musíme predísť zacykleniu, ak už sme na stránke /maintenance
+  // --- KONTROLA REŽIMU ÚDRŽBY S VÝNIMKOU PRE ADMINA ---
   if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH)) {
-      // Skontrolujeme stav údržby z databázy (odporúča sa časom pridať Vercel Edge Config pre rýchlosť)
       const { data: settings } = await supabase
           .from('app_settings')
           .select('value')
@@ -53,23 +51,37 @@ export async function middleware(request: NextRequest) {
           .single();
           
       if (settings?.value?.active) {
-          // Ak je zapnutá, presmerujeme všetkých okrem admina (na tajnej ceste) na maintenance obrazovku
-          const url = request.nextUrl.clone();
-          url.pathname = '/maintenance';
-          return NextResponse.redirect(url);
+          let isAdmin = false;
+
+          // Ak je zapnutá údržba a niekto je prihlásený, overíme, či to nie je Admin
+          if (data?.user) {
+              const { data: profile } = await supabase
+                  .from('users')
+                  .select('role')
+                  .eq('auth_uid', data.user.id) // Používame auth_uid podľa posledného upratovania
+                  .single();
+
+              if (profile?.role === 'ADMIN') {
+                  isAdmin = true;
+              }
+          }
+
+          // Ak údržba beží a používateľ NIE JE admin, presmerujeme ho preč
+          if (!isAdmin) {
+              const url = request.nextUrl.clone();
+              url.pathname = '/maintenance';
+              return NextResponse.redirect(url);
+          }
       }
   }
   // -----------------------------------------
 
-  // 2. TVOJA POISTKA (Server-side Teleport) - PONECHANÉ
-  // Ak sa snaží načítať Landing Page alebo Prihlásenie a my vieme, že je prihlásený...
+  // 2. TVOJA POISTKA (Server-side Teleport)
   if ((path === '/' || path === '/signin' || path === '/signup') && data?.user) {
-      // Okamžite ho teleportujeme do aplikácie, aby nevidel prebliknutie!
       const redirectUrl = new URL('/activities', request.url);
       return NextResponse.redirect(redirectUrl);
   }
 
-  // Pôvodné debugovacie hlavičky - PONECHANÉ
   supabaseResponse.headers.set('X-Server-Debug-Status', encodeURIComponent(serverMessage));
   return supabaseResponse;
 }
