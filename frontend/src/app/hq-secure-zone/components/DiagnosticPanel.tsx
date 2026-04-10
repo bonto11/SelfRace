@@ -39,7 +39,7 @@ export default function DiagnosticPanel() {
           </h2>
           {!isOpen && data && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-purple-900/30 text-purple-500 hidden sm:inline-block">
-              {data.totalUsers} Reg / {data.stravaConnected} Strava
+              Active {data.activeSubsTotal} / {data.totalUsers} Total Users
             </span>
           )}
         </div>
@@ -79,21 +79,21 @@ export default function DiagnosticPanel() {
             
             <div className="text-center w-full">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Strava</p>
-              <p className="text-3xl font-black text-[#FC4C02]">{data?.stravaConnected || 0}</p>
+              <p className="text-3xl font-black text-white">{data?.stravaConnected || 0}</p>
             </div>
             
             <div className="text-center w-full">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Notify</p>
-              <p className="text-3xl font-black text-blue-500">{data?.pushSubscribers || 0}</p>
+              <p className="text-3xl font-black text-white">{data?.pushSubscribers || 0}</p>
             </div>
             
             <div className="text-center w-full flex flex-col items-center">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Tier</p>
-              <p className="text-3xl font-black text-green-500">{data?.activeSubsTotal || 0}</p>
+              <p className="text-3xl font-black text-white">{data?.activeSubsTotal || 0}</p>
               {data?.tiers && Object.keys(data.tiers).length > 0 && (
                 <div className="flex flex-wrap justify-center gap-1 mt-1">
                   {Object.entries(data.tiers).map(([tier, count]) => (
-                    <span key={tier} className="bg-green-900/30 text-green-400 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border border-green-900/50">
+                    <span key={tier} className="bg-green-900/30 text-white px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border border-green-900/50">
                       {tier}: {count as number}
                     </span>
                   ))}
@@ -129,15 +129,15 @@ export default function DiagnosticPanel() {
                   <tbody className="divide-y divide-gray-800 bg-black/30">
                     {data.userDetails.map((u: any) => (
                       <tr key={u.id} className="hover:bg-gray-800/40 transition-colors">
-                        <td className="p-3 pl-4 text-purple-500 font-bold">{u.id}</td>
+                        <td className="p-3 pl-4 text-white font-bold">{u.id}</td>
                         <td className="p-3 text-gray-300">{u.email}</td>
                         <td className="p-3 text-center">
                           {u.stravaId ? (
-                            <span className=" text-green-400 font-bold bg-[#FC4C02]/10 px-2 py-1 rounded border border-[#FC4C02]/20">
+                            <span className=" text-green-400 font-bold">
                               {u.stravaId}
                             </span>
                           ) : (
-                            <span className="text-[#FC4C02] opacity-30 italic">Not linked</span>
+                            <span className="text-[#FC4C02]">Not linked</span>
                           )}
                         </td>
                         <td className="p-3 text-center">
@@ -150,8 +150,8 @@ export default function DiagnosticPanel() {
                         <td className="p-3 text-center pr-4">
                           <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${
                             u.tier !== 'free' 
-                            ? 'bg-green-900/30 text-green-400 border-green-900/50' 
-                            : 'bg-gray-800 text-[#FC4C02] border-gray-700'
+                            ? 'text-green-400' 
+                            : 'text-[#FC4C02]'
                           }`}>
                             {u.tier}
                           </span>
