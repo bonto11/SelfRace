@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -41,14 +41,6 @@ export default function ClientProtectedShell({
   const t = useT();
   const { userId } = useUserId();
 
-  // 👇 Zistenie admin bypassu
-  const [isBypass, setIsBypass] = useState(false);
-  useEffect(() => {
-    if (document.cookie.includes("admin_maintenance_bypass=true")) {
-      setIsBypass(true);
-    }
-  }, []);
-
   return (
     <>
       <UserPrefsBootstrapper />
@@ -68,29 +60,24 @@ export default function ClientProtectedShell({
                 </>
               )}
 
-              {/* 👇 ZMENA FARBY POZADIA PODĽA REŽIMU */}
+              {/* OPRAVA 1: Z hlavného obalu sme dali preč overflow-hidden pre istotu kvôli fixed lište */}
               <div
-                className="min-h-dvh flex flex-col relative transition-colors duration-700"
+                className="min-h-dvh flex flex-col relative"
                 style={{
-                  // Ak je bypass, dáme tmavo-žltú/zlatú (aby sa dalo čítať), inak klasické pozadie
-                  background: isBypass ? "#3f2f00" : appColors.backgroundMain,
+                  background: appColors.backgroundMain,
                   color: appColors.textPrimary,
                 }}
               >
-                {/* AppBackdrop schováme, ak je bypass, aby nám neprekrýval našu výstražnú žltú */}
-                {!isBypass && (
-                  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                    <AppBackdrop />
-                  </div>
-                )}
+                <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                  <AppBackdrop />
+                </div>
 
                 <div className="relative z-10 flex flex-col min-h-dvh">
                   <header
-                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur transition-colors duration-700"
+                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
-                      // Hlavička bude mierne priehľadná žltá, aby ladila so zvyškom, alebo klasická
-                      background: isBypass ? "rgba(63, 47, 0, 0.8)" : appColors.backgroundAlt,
-                      borderBottom: `1px solid ${isBypass ? "#856404" : appColors.divider}`,
+                      background: appColors.backgroundAlt,
+                      borderBottom: `1px solid ${appColors.divider}`,
                       paddingTop: "env(safe-area-inset-top)" as any,
                     }}
                   >
@@ -129,6 +116,7 @@ export default function ClientProtectedShell({
                       </div>
                     </div>
 
+                    {/* OPRAVA 2: Odstránené min-h-dvh z mobilného obalu, pridaný čistý flex-1 */}
                     <div className="lg:hidden flex-1 flex flex-col">
                       <main className="flex-1 p-3 pb-24">{children}</main>
                       <div className="pb-28">
@@ -139,6 +127,7 @@ export default function ClientProtectedShell({
                 </div>
               </div>
               
+              {/* OPRAVA 3: Bottom Bar je úplne na root úrovni, mimo akéhokoľvek relative obalu */}
               <MobileBottomBar />
 
               </PerformanceDataProvider>
