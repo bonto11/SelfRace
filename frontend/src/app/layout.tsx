@@ -7,8 +7,6 @@ import AppFooter from "@/app/shared/ui/components/AppFooter";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 import SessionGuard from "@/app/shared/ui/components/SessionGuard";
-// 👇 IMPORTUJEME FUNKCIU NA ČÍTANIE COOKIES
-import { cookies } from "next/headers"; 
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -33,11 +31,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  
-  const cookieStore = await cookies();
-  const isMaintenanceBypass = cookieStore.get("admin_maintenance_bypass")?.value === "true";
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
@@ -55,28 +49,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       >
         {/* 🛡️ SessionGuard beží na pozadí a počúva na signál k odhláseniu */}
         <SessionGuard />
-
-        {/* 🚧 VÝSTRAŽNÝ ŽLTÝ PRUH PRE ADMINA V MAINTENANCE REŽIME 🚧 */}
-        {isMaintenanceBypass && (
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 9999,
-              backgroundColor: "#eab308", // Výrazná žltá
-              color: "#000", // Čierny text
-              textAlign: "center",
-              padding: "8px",
-              fontWeight: 900,
-              fontSize: "12px",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.5)",
-            }}
-          >
-            🚧 SYSTEM IS IN MAINTENANCE MODE - ADMIN BYPASS ACTIVE 🚧
-          </div>
-        )}
 
         <SettingsProvider>
           <TooltipProvider>
