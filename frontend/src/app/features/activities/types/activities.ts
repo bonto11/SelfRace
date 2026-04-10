@@ -94,7 +94,6 @@ export type ActivityRow = {
 
   // extra polia z DB (aby mal SessionCard všetko)
   user_id: number | null;
-  user_uid: string | null;
   description: string | null;
   comment: string | null;
   pace_seconds_per_km: number | null;

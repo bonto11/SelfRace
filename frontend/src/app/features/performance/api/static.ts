@@ -42,7 +42,6 @@ export async function apiGetStaticProfile(
 /**
  * POST /profile/static/:user_id
  * - telo = čisté StaticProfile
- * - user_uid už neposielame, BE si usera nájde z JWT
  */
 export async function apiSaveStaticProfile(
   userId: number,
