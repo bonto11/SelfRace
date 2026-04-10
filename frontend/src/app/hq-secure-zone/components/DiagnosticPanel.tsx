@@ -13,8 +13,6 @@ export default function DiagnosticPanel() {
     try {
       const stats = await getSystemDiagnostics();
       setData(stats);
-      // TOTO sa ti vypíše v prehliadači (F12 -> Console)
-      console.log("🚀 [FRONTEND] RAW DIAGNOSTICS DATA:", stats.debugRaw);
     } catch (e) {
       console.error(e);
     } finally {
