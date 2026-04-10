@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getSystemDiagnostics } from "../actions";
+import { getSystemDiagnostics } from "./actions";
 
 export default function DiagnosticPanel() {
   const [data, setData] = useState<any>(null);
