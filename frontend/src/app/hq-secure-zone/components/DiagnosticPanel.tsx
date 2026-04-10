@@ -73,22 +73,22 @@ export default function DiagnosticPanel() {
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 items-start justify-items-center">
             <div className="text-center w-full">
-              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Total Users</p>
+              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Users</p>
               <p className="text-3xl font-black text-white">{data?.totalUsers || 0}</p>
             </div>
             
             <div className="text-center w-full">
-              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Strava Connected</p>
+              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Strava</p>
               <p className="text-3xl font-black text-[#FC4C02]">{data?.stravaConnected || 0}</p>
             </div>
             
             <div className="text-center w-full">
-              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Push Subs (Users)</p>
+              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Notify</p>
               <p className="text-3xl font-black text-blue-500">{data?.pushSubscribers || 0}</p>
             </div>
             
             <div className="text-center w-full flex flex-col items-center">
-              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Active Plans</p>
+              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Tier</p>
               <p className="text-3xl font-black text-green-500">{data?.activeSubsTotal || 0}</p>
               {data?.tiers && Object.keys(data.tiers).length > 0 && (
                 <div className="flex flex-wrap justify-center gap-1 mt-1">
@@ -112,46 +112,46 @@ export default function DiagnosticPanel() {
           {data?.userDetails && data.userDetails.length > 0 && (
             <div className="pt-8 border-t border-gray-800">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
-                👥 User Registry (Internal ID Link)
+                👥 User Registry
               </h3>
               
               <div className="overflow-x-auto rounded-xl border border-gray-800">
                 <table className="w-full text-left text-xs font-mono whitespace-nowrap">
                   <thead className="bg-gray-800 text-gray-400 uppercase tracking-widest text-[10px]">
                     <tr>
-                      <th className="p-3 pl-4">INT ID</th>
-                      <th className="p-3">Email / Identity</th>
-                      <th className="p-3 text-center">Strava (Athlete)</th>
-                      <th className="p-3 text-center">Push</th>
+                      <th className="p-3 pl-4">ID</th>
+                      <th className="p-3">Email</th>
+                      <th className="p-3 text-center">Strava ID</th>
+                      <th className="p-3 text-center">Notify</th>
                       <th className="p-3 text-center pr-4">Tier</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800 bg-black/30">
                     {data.userDetails.map((u: any) => (
                       <tr key={u.id} className="hover:bg-gray-800/40 transition-colors">
-                        <td className="p-3 pl-4 text-purple-500 font-bold">#{u.id}</td>
+                        <td className="p-3 pl-4 text-purple-500 font-bold">{u.id}</td>
                         <td className="p-3 text-gray-300">{u.email}</td>
                         <td className="p-3 text-center">
                           {u.stravaId ? (
-                            <span className="text-[#FC4C02] font-bold bg-[#FC4C02]/10 px-2 py-1 rounded border border-[#FC4C02]/20">
-                              🧡 {u.stravaId}
+                            <span className=" text-green-400 font-bold bg-[#FC4C02]/10 px-2 py-1 rounded border border-[#FC4C02]/20">
+                              {u.stravaId}
                             </span>
                           ) : (
-                            <span className="text-gray-700 opacity-30 italic">Not linked</span>
+                            <span className="text-[#FC4C02] opacity-30 italic">Not linked</span>
                           )}
                         </td>
                         <td className="p-3 text-center">
                           {u.hasPush ? (
-                            <span className="text-blue-500 font-bold">YES</span>
+                            <span className="text-green-400 font-bold">YES</span>
                           ) : (
-                            <span className="text-gray-700">NO</span>
+                            <span className="text-[#FC4C02]">NO</span>
                           )}
                         </td>
                         <td className="p-3 text-center pr-4">
                           <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter border ${
                             u.tier !== 'free' 
                             ? 'bg-green-900/30 text-green-400 border-green-900/50' 
-                            : 'bg-gray-800 text-gray-600 border-gray-700'
+                            : 'bg-gray-800 text-[#FC4C02] border-gray-700'
                           }`}>
                             {u.tier}
                           </span>
