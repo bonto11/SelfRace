@@ -1,6 +1,5 @@
 "use client";
 
-// 👇 1. PRIDALI SME useState a useEffect
 import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -42,10 +41,9 @@ export default function ClientProtectedShell({
   const t = useT();
   const { userId } = useUserId();
 
-  // 👇 2. LOGIKA NA ZISTENIE ADMIN BYPASSU Z COOKIES PREHLIADAČA
+  // 👇 Zistenie admin bypassu
   const [isBypass, setIsBypass] = useState(false);
   useEffect(() => {
-    // Ak sa v prehliadači nachádza naša tajná cookie z middlewaru, zapneme pruh
     if (document.cookie.includes("admin_maintenance_bypass=true")) {
       setIsBypass(true);
     }
@@ -70,40 +68,30 @@ export default function ClientProtectedShell({
                 </>
               )}
 
+              {/* 👇 ZMENA FARBY POZADIA PODĽA REŽIMU */}
               <div
-                className="min-h-dvh flex flex-col relative"
+                className="min-h-dvh flex flex-col relative transition-colors duration-700"
                 style={{
-                  background: appColors.backgroundMain,
+                  // Ak je bypass, dáme tmavo-žltú/zlatú (aby sa dalo čítať), inak klasické pozadie
+                  background: isBypass ? "#3f2f00" : appColors.backgroundMain,
                   color: appColors.textPrimary,
                 }}
               >
-                <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                  <AppBackdrop />
-                </div>
+                {/* AppBackdrop schováme, ak je bypass, aby nám neprekrýval našu výstražnú žltú */}
+                {!isBypass && (
+                  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                    <AppBackdrop />
+                  </div>
+                )}
 
                 <div className="relative z-10 flex flex-col min-h-dvh">
-                  
-                  {/* 👇 3. VÝSTRAŽNÝ ŽLTÝ PRUH PRE ADMINA 🚧 */}
-                  {isBypass && (
-                    <div 
-                      className="w-full bg-yellow-500 text-black text-center px-2 py-1.5 flex justify-center items-center gap-2 z-50 shadow-md"
-                      style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
-                    >
-                      <span className="animate-pulse text-[10px] md:text-sm">🚧</span>
-                      <span className="text-[9px] md:text-xs font-black uppercase tracking-widest truncate">
-                        System is in Maintenance Mode - Admin Bypass Active
-                      </span>
-                      <span className="animate-pulse text-[10px] md:text-sm">🚧</span>
-                    </div>
-                  )}
-
                   <header
-                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
+                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur transition-colors duration-700"
                     style={{
-                      background: appColors.backgroundAlt,
-                      borderBottom: `1px solid ${appColors.divider}`,
-                      // Ak je zapnutý pruh, odstránime safe-area padding z hlavičky, lebo ho už má pruh
-                      paddingTop: isBypass ? "0" : ("env(safe-area-inset-top)" as any),
+                      // Hlavička bude mierne priehľadná žltá, aby ladila so zvyškom, alebo klasická
+                      background: isBypass ? "rgba(63, 47, 0, 0.8)" : appColors.backgroundAlt,
+                      borderBottom: `1px solid ${isBypass ? "#856404" : appColors.divider}`,
+                      paddingTop: "env(safe-area-inset-top)" as any,
                     }}
                   >
                     <Link
