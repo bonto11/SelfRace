@@ -18,6 +18,8 @@ from Routes_DB.user_recovery import db_get_recovery_record
 from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
 from Routes_DB.users import db_list_users_for_cron
 from Routes_DB.user_prefs import db_get_pref_single
+from Services.AI.provider.provider import get_ai_health_status
+from Modules.Supabase.client import get_service_client
 
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
@@ -306,6 +308,40 @@ def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         url="/activities",
         ctx=ctx
     )
+
+
+def service_cron_notify_check_ai(admin_email: str, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Prijme status od Providera. Ak je chyba (False), len odošle push notifikáciu adminovi.
+    """
+    # 1. Spýtame sa providera, či je všetko OK a či má pre nás nejakú správu
+    is_ok, warning_message = get_ai_health_status()
+
+    if is_ok:
+        return {"success": True, "message": "Všetky AI modely sú dostupné."}
+
+    # 2. Ak to nie je OK, ideme odosielať notifikáciu (čistá notifikačná logika)
+    sb = get_service_client()
+    user_resp = sb.table("users").select("id").eq("mail_address", admin_email).single().execute()
+    admin_id = user_resp.data.get("id") if user_resp.data else None
+
+    if not admin_id:
+        raise ValueError(f"Admin email {admin_email} nenájdený v DB.")
+
+    # 3. Odoslanie už hotovej správy
+    push_result = service_send_push_notification(
+        user_id=int(admin_id),
+        title="⚠️ AI Model Výpadok",
+        body=warning_message, # Tu vložíme správu priamo z providera
+        url="/hq-secure-zone", 
+        ctx=ctx
+    )
+
+    return {
+        "success": True, 
+        "message": "Problém detegovaný. Notifikácia odoslaná.",
+        "push_details": push_result
+    }
 
 # --- GLOBÁLNE / HROMADNÉ OZNÁMENIA ---
 

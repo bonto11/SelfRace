@@ -212,3 +212,25 @@ def check_configured_models_health() -> Dict[str, Any]:
         "missing_gemini": missing_gemini,
         "api_errors": api_errors
     }
+
+def get_ai_health_status() -> tuple[bool, str]:
+    """
+    Vyhodnotí zdravie modelov a vráti jednoduchý výsledok pre externé služby.
+    Návratová hodnota: (is_ok, error_message)
+    """
+    health = check_configured_models_health()
+    
+    if health["ok"]:
+        return True, ""
+        
+    # Ak niečo chýba, tu (priamo v AI doméne) vygenerujeme textový report
+    alerts = []
+    if health["missing_openai"]:
+        alerts.append(f"Chýba OpenAI: {', '.join(health['missing_openai'])}")
+    if health["missing_gemini"]:
+        alerts.append(f"Chýba Gemini: {', '.join(health['missing_gemini'])}")
+    if health["api_errors"]:
+        alerts.append(f"API Chyby: {', '.join(health['api_errors'])}")
+        
+    warning_message = " | ".join(alerts)
+    return False, warning_message
