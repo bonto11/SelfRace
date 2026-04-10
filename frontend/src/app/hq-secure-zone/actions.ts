@@ -36,20 +36,59 @@ export async function updateMaintenanceMode(
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
+  // 1. NAJPRV ZISTÍME AKTUÁLNY STAV (pred zmenou)
+  const { data: currentSettings } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "maintenance_mode")
+    .single();
+
+  const wasActive = currentSettings?.value?.active === true;
+
+  // 2. PRIPRAVÍME NOVÉ NASTAVENIA
   const newValue = {
     active,
     message: { sk: msgSk, en: msgEn },
+    // Zachováme aj force_logout, ak tam bol
+    force_logout_at: currentSettings?.value?.force_logout_at || null 
   };
 
+  // 3. ULOŽÍME DO DATABÁZY
   const { error } = await supabase
     .from("app_settings")
     .update({ value: newValue })
     .eq("key", "maintenance_mode");
 
   if (error) throw new Error(error.message);
+
+  // 🚀 4. AUTOMATICKÁ NOTIFIKÁCIA PRI VYPNUTÍ
+  // Ak bol predtým režim aktívny a teraz ho vypíname (active je false)
+  if (wasActive && !active) {
+    try {
+      await sendGlobalNotification({
+        messages: {
+          sk: { 
+            title: "Sme späť! 🚀", 
+            body: "Údržba bola úspešne ukončená. Aplikácia je opäť plne funkčná.", 
+            url: "/activities" 
+          },
+          en: { 
+            title: "We are back! 🚀", 
+            body: "Maintenance is complete. The app is fully functional again.", 
+            url: "/activities" 
+          }
+        }
+      });
+    } catch (notificationError) {
+      console.error("Notifikácia po údržbe zlyhala, ale stav bol zmenený:", notificationError);
+      // Tu nevyhadzujeme Error, aby sa nezrušila celá akcia, ak len notifikácia zlyhá
+    }
+  }
+
   revalidatePath("/", "layout");
   return { success: true };
 }
+
 
 export async function sendGlobalNotification(payload: any) {
   await verifyAdmin();
