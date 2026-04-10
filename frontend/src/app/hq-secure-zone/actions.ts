@@ -139,8 +139,7 @@ export async function getSystemDiagnostics() {
       // 1. OPRAVA: V tabuľke users sa stĺpec volá s najväčšou pravdepodobnosťou "id", nie "user_id"
       supabaseAdmin.from("users").select("id, mail_address, user_uid"),
       supabaseAdmin.from("push_notifications").select("user_id"),
-      // 2. OPRAVA: Pre istotu nepoužívame > 0 (ak by to bol text, padne to), ale pozeráme či to nie je null
-      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
+      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id"),
       supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),
     ]);
 
