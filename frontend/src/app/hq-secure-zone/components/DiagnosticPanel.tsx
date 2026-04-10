@@ -7,7 +7,6 @@ export default function DiagnosticPanel() {
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Vytiahnuté von, aby sme to mohli volať aj manuálne cez tlačidlo
   const loadStats = async () => {
     setLoading(true);
     try {
@@ -29,8 +28,9 @@ export default function DiagnosticPanel() {
   return (
     <div className="bg-gray-900 border-t-4 border-purple-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
+      {/* HLAVIČKA (Teraz opäť čistá) */}
       <div 
-        className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
+        className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
@@ -44,19 +44,10 @@ export default function DiagnosticPanel() {
           )}
         </div>
 
-        <div className="flex items-center gap-4 w-full md:w-auto justify-end">
-          {/* TLAČIDLO NA REFRESH A LOGOVANIE */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation(); // Aby kliknutie nezatvorilo panel
-              loadStats();
-            }}
-            disabled={loading}
-            className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded transition-all disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "Force Refresh & Log"}
-          </button>
-
+        <div className="flex items-center gap-4">
+          {loading && !data && (
+            <span className="text-purple-500 text-xs font-black uppercase animate-pulse">Sťahujem...</span>
+          )}
           <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
@@ -65,9 +56,21 @@ export default function DiagnosticPanel() {
         </div>
       </div>
 
+      {/* ROZBALENÝ OBSAH */}
       <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[3000px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
         <div className="p-6 md:p-8 space-y-10">
           
+          {/* TLAČIDLO PRESUNUTÉ DNU */}
+          <div className="flex justify-start">
+            <button 
+              onClick={loadStats}
+              disabled={loading}
+              className="bg-purple-600/20 border border-purple-600/50 hover:bg-purple-600/40 text-purple-400 text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+            >
+              {loading ? "🔄 Načítavam..." : "🔄 Aktualizovať dáta"}
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 items-start justify-items-center">
             <div className="text-center w-full">
               <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Total Users</p>
