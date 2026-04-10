@@ -2,11 +2,20 @@
 
 import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
 import { revalidatePath } from "next/cache";
-import { API_URL, MAINTENANCE_API_KEY, CRON_SECRET, FRONTEND_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY} from "@/app/shared/config"; 
+import {
+  API_URL,
+  MAINTENANCE_API_KEY,
+  CRON_SECRET,
+  FRONTEND_URL,
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
+} from "@/app/shared/config";
 
 async function verifyAdmin() {
   const supabase = await getSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Neautorizovaný prístup");
 
   const { data: profile } = await supabase
@@ -19,13 +28,17 @@ async function verifyAdmin() {
   return user;
 }
 
-export async function updateMaintenanceMode(active: boolean, msgSk: string, msgEn: string) {
+export async function updateMaintenanceMode(
+  active: boolean,
+  msgSk: string,
+  msgEn: string,
+) {
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
   const newValue = {
     active,
-    message: { sk: msgSk, en: msgEn }
+    message: { sk: msgSk, en: msgEn },
   };
 
   const { error } = await supabase
@@ -42,17 +55,17 @@ export async function sendGlobalNotification(payload: any) {
   await verifyAdmin();
 
   const response = await fetch(`${API_URL}/scheduled-events/global`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': MAINTENANCE_API_KEY as string,
+      "Content-Type": "application/json",
+      "X-API-Key": MAINTENANCE_API_KEY as string,
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 
   const result = await response.json();
   if (!response.ok) throw new Error(result.detail || "Chyba pri odosielaní");
-  
+
   return { success: true, result };
 }
 
@@ -61,13 +74,16 @@ export async function triggerMaintenanceTask(task: string) {
 
   // URL musí presne kopírovať štruktúru v src/app/api/...
   // Keďže máš api/cron/trigger/route.ts, cesta je /api/cron/trigger
-  const response = await fetch(`${FRONTEND_URL}/api/cron/trigger?task=${task}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${CRON_SECRET}`,
-      'Content-Type': 'application/json',
+  const response = await fetch(
+    `${FRONTEND_URL}/api/cron/trigger?task=${task}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${CRON_SECRET}`,
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -91,7 +107,7 @@ export async function forceGlobalLogout() {
   // 2. Pridáme k nim aktuálny čas (toto spustí SessionGuard u všetkých klientov)
   const updatedValue = {
     ...current?.value,
-    force_logout_at: new Date().toISOString()
+    force_logout_at: new Date().toISOString(),
   };
 
   // 3. Uložíme späť do databázy
@@ -102,63 +118,55 @@ export async function forceGlobalLogout() {
 
   if (error) throw new Error(error.message);
 
-  return { success: true, message: "Signál na odhlásenie bol odoslaný všetkým klientom!" };
+  return {
+    success: true,
+    message: "Signál na odhlásenie bol odoslaný všetkým klientom!",
+  };
 }
-
 
 export async function getSystemDiagnostics() {
   await verifyAdmin();
-  
+
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  const { createClient } = await import('@supabase/supabase-js');
-  const supabaseAdmin = createClient(
-    SUPABASE_URL!,
-    SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
   try {
-    const [
-      resUsers,
-      resPush,
-      resStrava,
-      resSubs
-    ] = await Promise.all([
-      // Ak sa tvoj stĺpec volá user_id, musíme ho tak aj vyžiadať
-      supabaseAdmin.from('users').select('user_id, email, user_uid'), 
-      supabaseAdmin.from('push_notifications').select('user_id'),
-      supabaseAdmin.from('strava_account').select('user_id, athlete_id').gt('athlete_id', 0),
-      supabaseAdmin.from('app_user_subscriptions').select('user_id, tier_code').eq('status', 'active')
+    const [resUsers, resPush, resStrava, resSubs] = await Promise.all([
+      // Správne názvy stĺpcov podľa tvojej DB
+      supabaseAdmin.from("users").select("id, mail_address, user_uid"),
+      supabaseAdmin.from("push_notifications").select("user_id"),
+      supabaseAdmin.from("strava_accounts").select("user_id, athlete_id").not("athlete_id", "is", null),
+      supabaseAdmin.from("app_user_subscriptions").select("user_id, tier_code").eq("status", "active"),
     ]);
-
-    // DEBUG: Ak je niekde chyba, vypíš ju do logov (uvidíš v Railway/Vercel logoch)
-    if (resUsers.error) console.error("Users Error:", resUsers.error);
-    if (resStrava.error) console.error("Strava Error:", resStrava.error);
 
     const users = resUsers.data || [];
     const pushSubs = resPush.data || [];
     const stravaAccounts = resStrava.data || [];
     const activeSubs = resSubs.data || [];
 
-    const pushUserIds = new Set(pushSubs.map(p => p.user_id));
-    const stravaUsers = new Map(stravaAccounts.map(s => [s.user_id, s.athlete_id]));
-    const subsUsers = new Map(activeSubs.map(s => [s.user_id, s.tier_code]));
+    const pushUserIds = new Set(pushSubs.map((p) => p.user_id));
+    const stravaUsers = new Map(stravaAccounts.map((s) => [s.user_id, s.athlete_id]));
+    const subsUsers = new Map(activeSubs.map((s) => [s.user_id, s.tier_code]));
 
     const tiers = activeSubs.reduce((acc: Record<string, number>, sub) => {
       acc[sub.tier_code] = (acc[sub.tier_code] || 0) + 1;
       return acc;
     }, {});
 
-    const userDetails = users.map((u: any) => ({
-      // TU JE ZMENA: Používame u.user_id namiesto u.id
-      id: u.user_id, 
-      email: u.email || u.user_uid || `User #${u.user_id}`,
-      hasPush: pushUserIds.has(u.user_id),
-      stravaId: stravaUsers.get(u.user_id) || null,
-      tier: subsUsers.get(u.user_id) || "free"
-    })).sort((a, b) => b.id - a.id);
+    const userDetails = users
+      .map((u: any) => ({
+        id: u.id, 
+        // OPRAVA: Berieme vyslovene u.mail_address. Ak nie je, vyhodíme user_uid preč a necháme to čisté.
+        email: u.mail_address || `Neznámy mail (ID: #${u.id})`,
+        hasPush: pushUserIds.has(u.id),
+        stravaId: stravaUsers.get(u.id) || null,
+        tier: subsUsers.get(u.id) || "free",
+      }))
+      .sort((a, b) => b.id - a.id);
 
     return {
       totalUsers: users.length,
@@ -168,6 +176,19 @@ export async function getSystemDiagnostics() {
       tiers,
       userDetails,
       serverTime: new Date().toISOString(),
+      
+      debugRaw: {
+        usersCount: users.length,
+        usersError: resUsers.error,
+        stravaCount: stravaAccounts.length,
+        stravaError: resStrava.error,
+        pushCount: pushSubs.length,
+        pushError: resPush.error,
+        subsCount: activeSubs.length,
+        subsError: resSubs.error,
+        rawUsers: users,
+        rawStrava: stravaAccounts
+      }
     };
   } catch (error: any) {
     console.error("[Diagnostics Error]:", error);

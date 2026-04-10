@@ -7,17 +7,22 @@ export default function DiagnosticPanel() {
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const stats = await getSystemDiagnostics();
-        setData(stats);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+  // Vytiahnuté von, aby sme to mohli volať aj manuálne cez tlačidlo
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const stats = await getSystemDiagnostics();
+      setData(stats);
+      // TOTO sa ti vypíše v prehliadači (F12 -> Console)
+      console.log("🚀 [FRONTEND] RAW DIAGNOSTICS DATA:", stats.debugRaw);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadStats();
     const interval = setInterval(loadStats, 30000);
     return () => clearInterval(interval);
@@ -27,7 +32,7 @@ export default function DiagnosticPanel() {
     <div className="bg-gray-900 border-t-4 border-purple-500 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
       
       <div 
-        className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
+        className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-3">
@@ -41,10 +46,19 @@ export default function DiagnosticPanel() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
-          {loading && !data && (
-            <span className="text-purple-500 text-xs font-black uppercase animate-pulse">Sťahujem...</span>
-          )}
+        <div className="flex items-center gap-4 w-full md:w-auto justify-end">
+          {/* TLAČIDLO NA REFRESH A LOGOVANIE */}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation(); // Aby kliknutie nezatvorilo panel
+              loadStats();
+            }}
+            disabled={loading}
+            className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded transition-all disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Force Refresh & Log"}
+          </button>
+
           <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
