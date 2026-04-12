@@ -7,7 +7,10 @@ from statistics import mean
 
 from Routes_DB.coach_plan_daily import (
     db_reschedule_daily_sessions_bulk,
-    db_clear_daily_for_user_range
+    db_clear_daily_for_user_range,
+    db_get_planned_range_rows,
+    db_update_daily_session_data,
+    db_delete_daily_session
 )
 from Modules.Supabase.auth import AuthCtx
 from Modules.Supabase.client import get_sb
@@ -113,14 +116,12 @@ def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Op
         "hrv_prev_7_21d_avg": mean(prev_vals) if prev_vals else None,
     }
 
-
 def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    sb = get_sb(ctx, caller="coach_plan_adjustment._apply_autorecovery")
     today_iso = date.today().isoformat()
     
     try:
-        res = sb.table("coach_plan_daily").select("*").eq("user_id", user_id).eq("plan_date", today_iso).execute()
-        sessions = res.data or []
+        # ČÍTANIE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
+        sessions = db_get_planned_range_rows(user_id=user_id, date_from=today_iso, date_to=today_iso, ctx=ctx)
         
         if not sessions:
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_rest_day"}
@@ -130,12 +131,10 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         session_type = str(first_session.get("session_type") or "").lower()
         kind = str(first_session.get("kind") or "").lower()
         
-        # 1. Kontrola, či to už nie je regenerácia
         if session_type == "recovery" or kind == "recovery" or "regen" in title or "recovery" in title:
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_recovery"}
             
-        # 2. NOVÉ: Ochrana pretekov a externých udalostí! 🛡️
-        # Ak je deň preteku, ignorujeme zlé HRV, pretože nervozita je normálna.
+        # Ochrana pretekov a externých udalostí
         if kind == "race" or session_type == "external_event" or "pretek" in title or "race" in title:
             print(f"[AUTORECOVERY] Skipped: User {user_id} has a RACE today. Ignoring bad HRV.")
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_race_day"}
@@ -145,7 +144,7 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         
         payload = first_session.get("payload") or {}
         
-        # 3. OPRAVA FORMATOVANIA: main_part MUSÍ byť pole (list) objektov!
+        # Oprava štruktúry (pole)
         payload["structure"] = {
             "warmup": {"minutes": 5, "notes": "Z1 - veľmi pomaly"},
             "main_part": [
@@ -163,10 +162,12 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             "payload": payload
         }
         
-        sb.table("coach_plan_daily").update(update_data).eq("id", first_session["id"]).execute()
+        # UPDATE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
+        db_update_daily_session_data(user_id=user_id, session_id=int(first_session["id"]), update_data=update_data, ctx=ctx)
         
+        # VYMAZANIE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
         for extra_session in sessions[1:]:
-            sb.table("coach_plan_daily").delete().eq("id", extra_session["id"]).execute()
+            db_delete_daily_session(user_id=user_id, session_id=int(extra_session["id"]), ctx=ctx)
             
         try:
             service_notify_autorecovery_applied(user_id=user_id, ctx=ctx)
@@ -176,8 +177,8 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         return {"changed": True, "mode": "autorecovery", "reason": "today_changed_to_recovery"}
         
     except Exception as e:
-        print(f"[AUTORECOVERY] DB Update Error for user {user_id}: {repr(e)}")
-        return {"changed": False, "mode": "autorecovery", "reason": "db_error"}
+        print(f"[AUTORECOVERY] Error for user {user_id}: {repr(e)}")
+        return {"changed": False, "mode": "autorecovery", "reason": "internal_error"}
 
 def service_coach_autoadjust_after_update(
     user_id: int,
