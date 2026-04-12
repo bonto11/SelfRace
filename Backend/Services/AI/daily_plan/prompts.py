@@ -75,6 +75,8 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 "race_goal": run_t.get("race_goal"),
                 "race_type": run_t.get("race_type"),
                 "target_time": run_t.get("target_time"),
+                # 👇 OPRAVA: Pridali sme 'races', aby AI konečne videlo tvoje reálne preteky z DB
+                "races": run_t.get("races")
             } if run_t else {},
             "strength": {
                 "focus": strength_t.get("focus"),
@@ -380,6 +382,14 @@ def build_prompts_for_daily(
         "DO NOT IGNORE EXTERNAL EVENTS under any circumstances. If the external event makes the day too crowded, drop other scheduled workouts, but NEVER drop the external event.\n\n"
     )
 
+    # 👇 OPRAVA: Prísne pravidlo na vyhodnotenie pretekov z 'prefs' alebo 'external_events'
+    race_scheduling_rule = (
+        "- RACE SCHEDULING (CRITICAL):\n"
+        "  1. Check `external_events` AND `prefs.targets.run.races`. If there is a real race with an exact date in THIS current week, you MUST schedule it on that exact date.\n"
+        "  2. If there are NO exact-date races scheduled for this week in the context, you are STRICTLY FORBIDDEN from inventing random race days (`kind`='race').\n"
+        "  3. EXCEPTION: If there are NO exact-date races defined in `prefs` at all, but the user has a race goal, you may schedule a 'Virtual Race' (Virtuálny pretek) ONLY at the end of the final week of the entire training macrocycle. In any other regular training week, NO FAKE RACES.\n\n"
+    )
+
     latest_paces = _as_dict(context_payload.get("latest_paces"))
     if has_zones:
         pace_instructions = ""
@@ -485,6 +495,7 @@ def build_prompts_for_daily(
         f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
+        + race_scheduling_rule # 👈 ZAPNUTE PRAVIDLO PRE PRETEKY
         + rest_days_rule     
         + two_a_day_rule     
         + beginner_rule
