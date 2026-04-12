@@ -55,8 +55,25 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     volume = _get_dict(prefs, "volume")
     targets = _get_dict(prefs, "targets")
 
-    run_t = _get_dict(targets, "run")
-    strength_t = _get_dict(targets, "strength")
+    # 👇 OPRAVA: Dynamické vytiahnutie cieľov a pretekov pre AKÝKOĽVEK šport (run, bike, swim, atď.)
+    ctx_targets = {}
+    for sport_key, sport_val in targets.items():
+        if not isinstance(sport_val, dict):
+            continue
+        
+        if sport_key == "strength":
+            ctx_targets["strength"] = {
+                "focus": sport_val.get("focus"),
+                "sessions_per_week": sport_val.get("sessions_per_week"),
+            }
+        else:
+            # Tu sa zachytí run, bike, swim, triathlon a všetko ostatné
+            ctx_targets[sport_key] = {
+                "race_goal": sport_val.get("race_goal"),
+                "race_type": sport_val.get("race_type"),
+                "target_time": sport_val.get("target_time"),
+                "races": sport_val.get("races") # Presunie races pre daný šport
+            }
 
     ctx2["prefs"] = {
         "main_sport": prefs.get("main_sport"),
@@ -70,19 +87,7 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "avoid_two_a_day": preferences.get("avoid_two_a_day"),
             "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
         } if preferences else {},
-        "targets": {
-            "run": {
-                "race_goal": run_t.get("race_goal"),
-                "race_type": run_t.get("race_type"),
-                "target_time": run_t.get("target_time"),
-                # 👇 OPRAVA: Pridali sme 'races', aby AI konečne videlo tvoje reálne preteky z DB
-                "races": run_t.get("races")
-            } if run_t else {},
-            "strength": {
-                "focus": strength_t.get("focus"),
-                "sessions_per_week": strength_t.get("sessions_per_week"),
-            } if strength_t else {},
-        } if targets else {},
+        "targets": ctx_targets if targets else {},
     }
 
     athlete_state = context.get("athlete_state")
@@ -382,10 +387,10 @@ def build_prompts_for_daily(
         "DO NOT IGNORE EXTERNAL EVENTS under any circumstances. If the external event makes the day too crowded, drop other scheduled workouts, but NEVER drop the external event.\n\n"
     )
 
-    # 👇 OPRAVA: Prísne pravidlo na vyhodnotenie pretekov z 'prefs' alebo 'external_events'
+    # 👇 UPRAVENÉ PRAVIDLO PRE PRETEKY: Zvládne kontrolu vo VŠETKÝCH športoch!
     race_scheduling_rule = (
         "- RACE SCHEDULING (CRITICAL):\n"
-        "  1. Check `external_events` AND `prefs.targets.run.races`. If there is a real race with an exact date in THIS current week, you MUST schedule it on that exact date.\n"
+        "  1. Check `external_events` AND any `races` arrays inside `prefs.targets` (e.g., `prefs.targets.run.races`, `prefs.targets.bike.races`, etc.). If there is a real race with an exact date in THIS current week, you MUST schedule it on that exact date.\n"
         "  2. If there are NO exact-date races scheduled for this week in the context, you are STRICTLY FORBIDDEN from inventing random race days (`kind`='race').\n"
         "  3. EXCEPTION: If there are NO exact-date races defined in `prefs` at all, but the user has a race goal, you may schedule a 'Virtual Race' (Virtuálny pretek) ONLY at the end of the final week of the entire training macrocycle. In any other regular training week, NO FAKE RACES.\n\n"
     )
@@ -495,7 +500,7 @@ def build_prompts_for_daily(
         f"External events: {ext_count}\n\n"
         + date_integrity_rule
         + external_rules
-        + race_scheduling_rule # 👈 ZAPNUTE PRAVIDLO PRE PRETEKY
+        + race_scheduling_rule
         + rest_days_rule     
         + two_a_day_rule     
         + beginner_rule
