@@ -256,3 +256,42 @@ def db_delete_future_daily_plans(user_id: int, from_date: str, *, ctx: AuthCtx) 
     except Exception as e:
         print("[DB-COACH-DAILY] delete future error:", repr(e))
         return False
+        
+def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """
+    Vykoná univerzálny update jedného denného tréningu.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_update_daily_session_data")
+    try:
+        payload = dict(update_data)
+        payload["updated_at"] = _now_iso()
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .update(payload)
+            .eq("id", int(session_id))
+            .eq("user_id", int(user_id))
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print(f"[DB-COACH-DAILY] update_daily_session_data error: {repr(e)}")
+        return None
+
+def db_delete_daily_session(user_id: int, session_id: int, *, ctx: AuthCtx) -> bool:
+    """
+    Vymaže jeden konkrétny denný tréning.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_delete_daily_session")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .delete()
+            .eq("id", int(session_id))
+            .eq("user_id", int(user_id))
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print(f"[DB-COACH-DAILY] delete_daily_session error: {repr(e)}")
+        return False
