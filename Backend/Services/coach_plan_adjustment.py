@@ -128,17 +128,29 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         first_session = sessions[0]
         title = str(first_session.get("title") or "").lower()
         session_type = str(first_session.get("session_type") or "").lower()
+        kind = str(first_session.get("kind") or "").lower()
         
-        if session_type == "recovery" or "regen" in title or "recovery" in title:
+        # 1. Kontrola, či to už nie je regenerácia
+        if session_type == "recovery" or kind == "recovery" or "regen" in title or "recovery" in title:
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_recovery"}
+            
+        # 2. NOVÉ: Ochrana pretekov a externých udalostí! 🛡️
+        # Ak je deň preteku, ignorujeme zlé HRV, pretože nervozita je normálna.
+        if kind == "race" or session_type == "external_event" or "pretek" in title or "race" in title:
+            print(f"[AUTORECOVERY] Skipped: User {user_id} has a RACE today. Ignoring bad HRV.")
+            return {"changed": False, "mode": "autorecovery", "reason": "today_is_race_day"}
         
         sport = first_session.get("sport") or "run"
         sport_label = "beh" if sport == "run" else "jazda" if sport in ("ride", "cycling") else "tréning"
         
         payload = first_session.get("payload") or {}
+        
+        # 3. OPRAVA FORMATOVANIA: main_part MUSÍ byť pole (list) objektov!
         payload["structure"] = {
             "warmup": {"minutes": 5, "notes": "Z1 - veľmi pomaly"},
-            "main_part": {"minutes": 25, "notes": "Z1/Z2 - regeneračné tempo, čisto na uvoľnenie nôh"},
+            "main_part": [
+                {"minutes": 25, "notes": "Z1/Z2 - regeneračné tempo, čisto na uvoľnenie nôh"}
+            ],
             "cooldown": {"minutes": 5, "notes": "Z1 / Chôdza"}
         }
         
@@ -166,7 +178,6 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     except Exception as e:
         print(f"[AUTORECOVERY] DB Update Error for user {user_id}: {repr(e)}")
         return {"changed": False, "mode": "autorecovery", "reason": "db_error"}
-
 
 def service_coach_autoadjust_after_update(
     user_id: int,
