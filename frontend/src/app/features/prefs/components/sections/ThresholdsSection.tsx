@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
@@ -50,8 +51,8 @@ function secToPace(n: any): string {
 
 /* ---------- types ---------- */
 type Props = {
-  thresholds: any | undefined; 
-  latestList?: any[]; 
+  thresholds: any | undefined;
+  latestList?: any[];
   onChange: (t: any) => void;
   onSaveToDB?: (t: any) => Promise<void>;
 };
@@ -65,7 +66,14 @@ const normalizeSportKey = (s: any): string => {
 const makeComboKey = (sport: any, thrType: any): string =>
   `${normalizeSportKey(sport)}|${String(thrType || "").toLowerCase()}`;
 
-const THR_SPORTS_VALUES = ["running", "ride", "swimming", "rowing", "strength", "other"] as const;
+const THR_SPORTS_VALUES = [
+  "running",
+  "ride",
+  "swimming",
+  "rowing",
+  "strength",
+  "other",
+] as const;
 
 export default function ThresholdsSection({
   thresholds,
@@ -92,11 +100,14 @@ export default function ThresholdsSection({
   }, [latestList]);
 
   const preview = useMemo(() => {
-    const key = makeComboKey(thr.sport ?? "running", thr.threshold_type ?? "LT2");
+    const key = makeComboKey(
+      thr.sport ?? "running",
+      thr.threshold_type ?? "LT2",
+    );
     const fromLatest = latestByCombo.find(
       (r) => makeComboKey(r.sport, r.threshold_type) === key,
     );
-    const src = { ...(fromLatest ?? {}), ...thr }; 
+    const src = { ...(fromLatest ?? {}), ...thr };
     return {
       sport: src.sport ?? "running",
       type: src.threshold_type ?? "LT2",
@@ -106,16 +117,23 @@ export default function ThresholdsSection({
     };
   }, [thr, latestByCombo]);
 
-  const getSportLabel = (s: string) => (t as any)(`common.sports.${s === "running" ? "run" : s === "ride" ? "bike" : s}`);
+  const getSportLabel = (s: string) =>
+    (t as any)(
+      `common.sports.${s === "running" ? "run" : s === "ride" ? "bike" : s}`,
+    );
 
   const previewNode = (
     <div className="flex flex-wrap gap-4 text-xs">
       <div>
-        <span className="opacity-70 mr-1">{t("prefs.sections.thresholdsSection.sportLabel")}:</span>
+        <span className="opacity-70 mr-1">
+          {t("prefs.sections.thresholdsSection.sportLabel")}:
+        </span>
         <span className="font-semibold">{getSportLabel(preview.sport)}</span>
       </div>
       <div>
-        <span className="opacity-70 mr-1">{t("prefs.sections.thresholdsSection.typeLabel")}:</span>
+        <span className="opacity-70 mr-1">
+          {t("prefs.sections.thresholdsSection.typeLabel")}:
+        </span>
         <span className="font-semibold">{preview.type}</span>
       </div>
       {preview.hr != null && (
@@ -143,8 +161,12 @@ export default function ThresholdsSection({
     if (!onSaveToDB) return;
 
     const hrOk = thr.hr_bpm == null || Number.isFinite(Number(thr.hr_bpm));
-    const paceOk = thr.pace_sec_km == null || (Number.isFinite(Number(thr.pace_sec_km)) && Number(thr.pace_sec_km) > 0);
-    const powOk = thr.power_watt == null || (Number.isFinite(Number(thr.power_watt)) && Number(thr.power_watt) > 0);
+    const paceOk =
+      thr.pace_sec_km == null ||
+      (Number.isFinite(Number(thr.pace_sec_km)) && Number(thr.pace_sec_km) > 0);
+    const powOk =
+      thr.power_watt == null ||
+      (Number.isFinite(Number(thr.power_watt)) && Number(thr.power_watt) > 0);
 
     if (!hrOk || !paceOk || !powOk) {
       toast.error(t("prefs.sections.thresholdsSection.errors.invalidValues"));
@@ -159,7 +181,9 @@ export default function ThresholdsSection({
       title={
         <div className="flex items-center gap-2">
           <span>{t("prefs.sections.thresholdsSection.widget.title")}</span>
-          <TooltipIcon text={t("prefs.sections.thresholdsSection.widget.tooltip")} />
+          <TooltipIcon
+            text={t("prefs.sections.thresholdsSection.widget.tooltip")}
+          />
         </div>
       }
       subtitle={t("prefs.sections.thresholdsSection.subtitle")}
@@ -182,16 +206,23 @@ export default function ThresholdsSection({
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.sportLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.sportLabel")}
+            </div>
             <SelectField
               value={thr.sport ?? "running"}
               onChange={(e) => onChange({ ...thr, sport: e.target.value })}
-              options={THR_SPORTS_VALUES.map(v => ({ value: v, label: getSportLabel(v) }))}
+              options={THR_SPORTS_VALUES.map((v) => ({
+                value: v,
+                label: getSportLabel(v),
+              }))}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.typeLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.typeLabel")}
+            </div>
             <SelectField
               value={thr.threshold_type ?? "LT2"}
               onChange={(e) =>
@@ -208,10 +239,14 @@ export default function ThresholdsSection({
 
         <div className={FORM_GRID_TWO}>
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.hrLabel")}</div>
-            <TextField
-              type="number"
-              inputMode="numeric"
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.hrLabel")}
+            </div>
+            <NumberWheelField
+              min={40}
+              max={220}
+              step={1}
+              suffix="bpm"
               value={thr.hr_bpm ?? ""}
               onChange={(e) =>
                 onChange({
@@ -219,12 +254,13 @@ export default function ThresholdsSection({
                   hr_bpm: e.target.value === "" ? null : Number(e.target.value),
                 })
               }
-              placeholder="bpm"
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.paceLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.paceLabel")}
+            </div>
             <TextField
               value={paceStr}
               placeholder="04:55"
@@ -238,7 +274,9 @@ export default function ThresholdsSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.powerLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.powerLabel")}
+            </div>
             <TextField
               type="number"
               inputMode="numeric"
@@ -255,18 +293,35 @@ export default function ThresholdsSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.measurementLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.measurementLabel")}
+            </div>
             <SelectField
               value={thr.measurement_type ?? "estimate garmin"}
               onChange={(e) =>
                 onChange({ ...thr, measurement_type: e.target.value })
               }
               options={[
-                { value: "lab test", label: t("prefs.sections.thresholdsSection.enums.measure.lab") },
-                { value: "field test", label: t("prefs.sections.thresholdsSection.enums.measure.field") },
+                {
+                  value: "lab test",
+                  label: t(
+                    "prefs.sections.thresholdsSection.enums.measure.lab",
+                  ),
+                },
+                {
+                  value: "field test",
+                  label: t(
+                    "prefs.sections.thresholdsSection.enums.measure.field",
+                  ),
+                },
                 { value: "estimate garmin", label: "Estimate – Garmin" },
                 { value: "estimate strava", label: "Estimate – Strava" },
-                { value: "coach estimate", label: t("prefs.sections.thresholdsSection.enums.measure.coach") },
+                {
+                  value: "coach estimate",
+                  label: t(
+                    "prefs.sections.thresholdsSection.enums.measure.coach",
+                  ),
+                },
                 { value: "other", label: t("common.sports.other") },
               ]}
             />
@@ -276,8 +331,12 @@ export default function ThresholdsSection({
         {latestByCombo.length > 0 && (
           <div className="mt-1">
             <div className="flex items-center gap-2">
-              <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.thresholdsSection.dbTitle")}</div>
-              <TooltipIcon text={t("prefs.sections.thresholdsSection.dbTooltip")} />
+              <div className={INPUTS_CARD_LABEL_SM_1}>
+                {t("prefs.sections.thresholdsSection.dbTitle")}
+              </div>
+              <TooltipIcon
+                text={t("prefs.sections.thresholdsSection.dbTooltip")}
+              />
             </div>
 
             <ul className="mt-2 flex flex-wrap gap-2">
