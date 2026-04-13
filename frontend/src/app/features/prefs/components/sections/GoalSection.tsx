@@ -365,7 +365,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
                     <NumberWheelField
                       // ✅ Jednotka pridaná priamo do labelu
-                      label={`${t("prefs.sections.goalSection.elevationGainLabel")} (m)`}
+                      label={`${t("prefs.sections.goalSection.elevationGainLabel")}`}
                       min={0}
                       max={10000}
                       step={50}

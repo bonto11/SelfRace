@@ -473,6 +473,7 @@ export const en = {
             track: "Track",
             cross: "Cross",
             ocr: "OCR",
+            hyrox: "Hyrox",
             other: "Other",
           },
           terrain: {

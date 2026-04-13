@@ -474,6 +474,7 @@ export const sk = {
             track: "Dráha",
             cross: "Kros",
             ocr: "OCR",
+            hyrox: "Hyrox",
             other: "Iné",
           },
           terrain: {
