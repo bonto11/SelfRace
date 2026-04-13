@@ -6,9 +6,10 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
+// ✅ Import nášho točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
-// Importujeme len čisté API funkcie
 import {
   apiGetVo2MeasuredLatest,
   apiGetVo2EstimatedLatest,
@@ -66,7 +67,6 @@ export default function ProfileMetricInputs() {
     VO2Max_estimated: false,
   });
 
-  // Načítanie dát cez sémantické API funkcie
   const loadAllLatest = useCallback(async (uid: number) => {
     try {
       setLoading(true);
@@ -99,9 +99,9 @@ export default function ProfileMetricInputs() {
   const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
 
-  function onChangeNumber<K extends EditableMetricKey>(key: K, raw: string) {
+  function onChangeNumber<K extends EditableMetricKey>(key: K, val: number | "") {
     setDirty((d) => ({ ...d, [key]: true }));
-    setM((s) => ({ ...s, [key]: raw === "" ? null : Number(raw) }));
+    setM((s) => ({ ...s, [key]: val === "" ? null : val }));
   }
 
   async function handleSave() {
@@ -121,7 +121,6 @@ export default function ProfileMetricInputs() {
 
     setLoading(true);
     try {
-      // Ukladáme každú zmenenú metriku cez apiSaveMetric
       await Promise.all(
         toSave.map((k) => apiSaveMetric(userId, k, Number(m[k])))
       );
@@ -130,7 +129,6 @@ export default function ProfileMetricInputs() {
       
       await loadAllLatest(userId);
 
-      // Reset
       setM({
         weight_kg: null,
         body_fat_pct: null,
@@ -178,13 +176,15 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.weightLabel")}
             </div>
-            <TextField
-              type="number"
-              inputMode="decimal"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={30}
+              max={200}
+              step={0.5}
+              hint={t("common.units.kg")}
               value={m.weight_kg ?? ""}
-              placeholder={ph.weight_kg || t("common.units.kg")}
-              onChange={(e) => onChangeNumber("weight_kg", e.target.value)}
               disabled={loading}
+              onChange={(val) => onChangeNumber("weight_kg", val)}
             />
           </section>
 
@@ -193,13 +193,15 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.fatLabel")}
             </div>
-            <TextField
-              type="number"
-              inputMode="decimal"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={3}
+              max={50}
+              step={0.5}
+              hint="%"
               value={m.body_fat_pct ?? ""}
-              placeholder={ph.body_fat_pct || "%"}
-              onChange={(e) => onChangeNumber("body_fat_pct", e.target.value)}
               disabled={loading}
+              onChange={(val) => onChangeNumber("body_fat_pct", val)}
             />
           </section>
 
@@ -208,13 +210,15 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.hrMaxLabel")}
             </div>
-            <TextField
-              type="number"
-              inputMode="numeric"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={100}
+              max={250}
+              step={1}
+              hint="bpm"
               value={m.HR_max ?? ""}
-              placeholder={ph.HR_max || "bpm"}
-              onChange={(e) => onChangeNumber("HR_max", e.target.value)}
               disabled={loading}
+              onChange={(val) => onChangeNumber("HR_max", val)}
             />
           </section>
 
@@ -224,26 +228,30 @@ export default function ProfileMetricInputs() {
               {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
-              <TextField
-                type="number"
-                inputMode="decimal"
+              {/* ✅ Nahradené za NumberWheelField pre AI Odhad */}
+              <NumberWheelField
+                min={20}
+                max={90}
+                step={1}
+                hint="AI"
                 value={m.VO2Max_estimated ?? ""}
-                placeholder={ph.VO2Max_estimated || "AI"}
-                onChange={(e) => onChangeNumber("VO2Max_estimated", e.target.value)}
                 disabled={loading}
+                onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
               />
-              <TextField
-                type="number"
-                inputMode="decimal"
+              {/* ✅ Nahradené za NumberWheelField pre Hodinky */}
+              <NumberWheelField
+                min={20}
+                max={90}
+                step={1}
+                hint="Watch"
                 value={m.VO2Max_measured ?? ""}
-                placeholder={ph.VO2Max_measured || "Watch"}
-                onChange={(e) => onChangeNumber("VO2Max_measured", e.target.value)}
                 disabled={loading}
+                onChange={(val) => onChangeNumber("VO2Max_measured", val)}
               />
             </div>
           </section>
 
-          {/* BMI */}
+          {/* BMI (Zostáva obyčajný TextField lebo je len na čítanie) */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.bmiLabel")}

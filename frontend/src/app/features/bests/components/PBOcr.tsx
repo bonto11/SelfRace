@@ -19,7 +19,7 @@ import type {
 } from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
-import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
+import { useFavoritePBOcr } from "@/app/features/bests/hooks/useFavoritePBOcr";
 import ActivitySelector from "@/app/shared/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -70,7 +70,7 @@ const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 
 export default function PBRun() {
   const { userId } = useUserId();
-  const { favM, setFavM } = useFavoritePBRun();
+  const { favM, setFavM } = useFavoritePBOcr();
   const favoriteM = favM ?? 5000;
   const isTouch = useIsTouch();
   const t = useT();

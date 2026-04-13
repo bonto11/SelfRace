@@ -5,8 +5,9 @@ import { useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
-import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
+// ✅ Import nášho točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -124,15 +125,14 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     });
   };
 
-  const applyWeeks = (raw: string) => {
+  const applyWeeks = (val: number) => {
     markDirty();
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return;
+    if (!Number.isFinite(val) || val <= 0) return;
     setLocal((prev) => ({
       ...prev,
-      weeks: Math.round(n),
+      weeks: Math.round(val),
       end_date: prev.start_date
-        ? addWeeksISO(prev.start_date, Math.round(n))
+        ? addWeeksISO(prev.start_date, Math.round(val))
         : prev.end_date,
     }));
   };
@@ -192,14 +192,14 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.planStartSection.horizonLabel")}
             </div>
-            <TextField
-              type="number"
+            {/* ✅ Nahradené za NumberWheelField pre výber počtu týždňov */}
+            <NumberWheelField
               min={1}
+              max={52}
               step={1}
-              inputMode="numeric"
-              value={weeksVal}
-              onChange={(e) => applyWeeks(e.target.value)}
-              placeholder={t("prefs.sections.planStartSection.horizonPlaceholder")}
+              hint={t("common.units.weeksAbbrev")}
+              value={local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : ""}
+              onChange={(val) => applyWeeks(val)}
             />
           </section>
 

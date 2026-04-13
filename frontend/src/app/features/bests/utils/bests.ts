@@ -1,8 +1,8 @@
+// src/app/features/bests/utils/bests.ts
+
 import { Sport, UserBest } from "@/app/features/bests/types/bests";
 import type { typePB, PBRow, DistanceOption } from "@/app/features/bests/types/bests";
 
-
-// objekt typovaný podľa Sport
 export const DISTANCE_OPTIONS_BY_SPORT: Record<Sport, readonly DistanceOption[]> = {
   run: [
     { m: 400, label: "400 m" },
@@ -15,10 +15,54 @@ export const DISTANCE_OPTIONS_BY_SPORT: Record<Sport, readonly DistanceOption[]>
     { m: 42195, label: "Marathon" },
     { m: 50000, label: "50 km" },
   ],
-  ride: [] as readonly DistanceOption[],
-  strength: [] as readonly DistanceOption[],
+  ride: [
+    { m: 10000, label: "10 km" },
+    { m: 20000, label: "20 km" },
+    { m: 40000, label: "40 km" },
+    { m: 50000, label: "50 km" },
+    { m: 90000, label: "90 km" },
+    { m: 100000, label: "100 km" },
+    { m: 160934, label: "100 miles" },
+    { m: 180000, label: "180 km (Ironman)" },
+  ],
+  swim: [
+    { m: 100, label: "100 m" },
+    { m: 400, label: "400 m" },
+    { m: 750, label: "750 m (Sprint)" },
+    { m: 1000, label: "1 km" },
+    { m: 1500, label: "1500 m (Olympic)" },
+    { m: 1900, label: "1900 m (Half IM)" },
+    { m: 3800, label: "3800 m (Ironman)" },
+    { m: 5000, label: "5 km" },
+  ],
+  triathlon: [
+    { m: 25750, label: "Sprint (750m+20k+5k)" },
+    { m: 51500, label: "Olympic (1.5k+40k+10k)" },
+    { m: 113000, label: "Half Ironman (1.9k+90k+21k)" },
+    { m: 226000, label: "Ironman (3.8k+180k+42k)" },
+  ],
+  strength: [
+    { m: 1, label: "Bench Press (1RM)" },
+    { m: 2, label: "Squat / Drep (1RM)" },
+    { m: 3, label: "Deadlift / Mŕtvy ťah (1RM)" },
+    { m: 4, label: "Overhead Press (1RM)" },
+    { m: 5, label: "Pull-ups / Zhyby (Max Reps)" },
+    { m: 6, label: "Clean & Jerk (1RM)" },
+    { m: 7, label: "Snatch (1RM)" },
+  ],
+  ocr: [
+    { m: 5000, label: "Spartan Sprint (5k)" },
+    { m: 10000, label: "Spartan Super (10k)" },
+    { m: 21000, label: "Spartan Beast (21k)" },
+    { m: 50000, label: "Spartan Ultra (50k)" },
+  ],
+  hyrox: [
+    { m: 1, label: "Hyrox Open" },
+    { m: 2, label: "Hyrox Pro" },
+    { m: 3, label: "Hyrox Doubles" },
+    { m: 4, label: "Hyrox Relay" },
+  ],
   skate: [] as readonly DistanceOption[],
-  swim: [] as readonly DistanceOption[], // MUSÍ tu byť, keďže Sport obsahuje "swim"
 } as const;
 
 export const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;
@@ -26,7 +70,6 @@ export const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;
 export const RUN_DISTANCE_OPTIONS = DISTANCE_OPTIONS_BY_SPORT.run;
 export const RUN_DISTANCES_M = RUN_DISTANCE_OPTIONS.map((d) => d.m) as readonly number[];
 
-// vždy vráti pole DistanceOption, žiadne any, žiadne undefined
 export function distanceOptions(sport: Sport = "run"): readonly DistanceOption[] {
   return DISTANCE_OPTIONS_BY_SPORT[sport];
 }
@@ -69,7 +112,6 @@ export function sortBySportOrder(sport: Sport) {
     (order.get(b.distance_m) ?? Number.POSITIVE_INFINITY);
 }
 
-/** DB/BE typPB → PBRow pre UI. */
 export const bestToPBRow = (b: typePB): PBRow => ({
   distanceKm: Math.round((b.distance_m / 1000) * 10) / 10,
   best:
@@ -79,7 +121,6 @@ export const bestToPBRow = (b: typePB): PBRow => ({
   date: b.date ?? null,
 });
 
-/** PBRow z UI späť na typPB (napr. pri save). */
 export const pbRowToBest = (row: PBRow): typePB => ({
   distance_m: Math.round(row.distanceKm * 1000),
   best_time_s: hmsToSeconds(row.best) ?? undefined,

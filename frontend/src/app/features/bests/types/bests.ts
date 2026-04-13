@@ -1,4 +1,6 @@
-export type Sport = "run" | "ride" | "strength" | "skate" | "swim";
+// src/app/features/bests/types/bests.ts
+
+export type Sport = "run" | "ride" | "strength" | "skate" | "swim" | "triathlon" | "ocr" | "hyrox";
 
 export type UserBest = {
   sport?: Sport;
@@ -27,7 +29,6 @@ export type PBRow = {
   date?: string | null;
 };
 
-// jeden typ pre položku
 export type DistanceOption = { m: number; label: string };
 
 export type PBRunFormState = {

@@ -992,6 +992,7 @@ export const en = {
   PB: {
     title: "Personal Bests",
     chooseDist: "choose distance",
+    chooseExercise: "choose exercise",
     saved: "Record saved",
     deleted: "Record deleted",
     removeTitle: "Delete record?",
@@ -999,30 +1000,32 @@ export const en = {
     removeConfirm: "Delete",
     removeCancel: "Cancel",
     favorite: "Favorite record",
+    favoriteExercise: "Favorite exercise",
     noRecords: "No records yet",
     totalDistKm: "Total distance (km)",
     totalTime: "Total time",
+    recordValue: "Value (e.g. 120)",
     widget: {
       title: "Personal Bests",
       tooltip: [
-        "This widget displays your personal best (PB) for your selected/favorite distance.",
+        "This widget displays your Personal Best (PB) for your selected / favorite distance.",
         "",
         "How does it work?",
-        "• you select your preferred distance (e.g., 5k, 10k, Half Marathon)",
-        "• the best recorded time for this distance is displayed",
+        "• selects your preferred distance (e.g., 5k, 10k, half marathon)",
+        "• displays the best recorded time for this distance",
         "",
-        "Why is it useful?",
-        "• PB is a reference point for long-term progress – not every improvement has to be a PB",
+        "Why is this useful?",
+        "• PB is a reference point for long-term progress – not every improvement needs to be a PB",
         "• helps with setting pace (race pace, threshold, intervals)",
         "• provides context: training doesn't have to aim for a PB every month",
         "",
         "Tip:",
-        "• if your PB hasn't dropped for a while but you feel stronger → you are often improving in consistency, resilience, and form",
-        "• PB should be evaluated in the context of a season, not in isolation",
+        "• if a PB hasn't been broken for a while, but you feel stronger → consistency, resilience, and fitness are often improving",
+        "• it makes sense to evaluate a PB in the context of a season, not in isolation",
       ].join("\n"),
       distanceLabel: "Distance",
       empty:
-        "You don't have a saved record for your favorite distance yet. Open details and add your first achievement.",
+        "You don't have a saved record for your favorite distance yet. Open the details and add your first effort.",
     },
     run: {
       title: "Running Personal Bests",
@@ -1033,8 +1036,26 @@ export const en = {
     swim: {
       title: "Swimming Personal Bests",
     },
+    triathlon: {
+      title: "Triathlon Personal Bests",
+    },
+    ocr: {
+      title: "OCR (Spartan) Personal Bests",
+    },
+    hyrox: {
+      title: "Hyrox Personal Bests",
+    },
     strength: {
-      title: "Strength Personal Bests",
+      title: "Strength Training Personal Bests",
+    },
+    exercises: {
+      bench: "Bench Press (1RM)",
+      squat: "Squat (1RM)",
+      deadlift: "Deadlift (1RM)",
+      ohp: "Overhead Press (1RM)",
+      pullups: "Pull-ups (Max Reps)",
+      clean: "Clean & Jerk (1RM)",
+      snatch: "Snatch (1RM)",
     },
   },
   estTopPaces: {

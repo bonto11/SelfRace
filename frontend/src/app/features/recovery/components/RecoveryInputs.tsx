@@ -1,3 +1,4 @@
+// src/features/coach/components/prefs/RecoveryInputs.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -7,6 +8,10 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
+// ✅ Import našich točiacich bubnov
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -46,14 +51,14 @@ type DirtyKey =
 
 type DirtyMap = Partial<Record<DirtyKey, boolean>>;
 
-function toNumberOrNull(s: string): number | null {
-  if (!s) return null;
-  const n = Number(s);
+function toNumberOrNull(val: number | string | null | undefined): number | null {
+  if (val === "" || val === null || val === undefined) return null;
+  const n = Number(val);
   return Number.isFinite(n) ? n : null;
 }
 
 function sleepHHMMToMinutesOrNull(s: string): number | null {
-  if (!s) return null;
+  if (!s || s === "00:00") return null;
   const [h, m] = s.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
   return h * 60 + m;
@@ -89,19 +94,19 @@ export default function RecoveryInputs() {
   const [date, setDate] = useState<string>(todayIso);
 
   // main indicators
-  const [rhr, setRhr] = useState("");
-  const [hrvAvg, setHrvAvg] = useState("");
+  const [rhr, setRhr] = useState<number | "">("");
+  const [hrvAvg, setHrvAvg] = useState<number | "">("");
   const [sleepDuration, setSleepDuration] = useState("");
 
   // “influence” factors
   const [lateFood, setLateFood] = useState(false);
   const [lateCaffeine, setLateCaffeine] = useState(false);
-  const [alcoholVolume, setAlcoholVolume] = useState("");
-  const [alcoholType, setAlcoholType] = useState("");
+  const [alcoholVolume, setAlcoholVolume] = useState<number | "">("");
+  const [alcoholType, setAlcoholType] = useState<number | "">("");
   const [comments, setComments] = useState("");
 
   // add-ons
-  const [hrvMax, setHrvMax] = useState("");
+  const [hrvMax, setHrvMax] = useState<number | "">("");
   const [sleepStart, setSleepStart] = useState("");
 
   const [dirty, setDirty] = useState<DirtyMap>({});
@@ -137,7 +142,7 @@ export default function RecoveryInputs() {
 
     if (dirty.HRV_max_ms) patch.HRV_max_ms = toNumberOrNull(hrvMax);
     if (dirty.sleep_start_time)
-      patch.sleep_start_time = sleepStart ? sleepStart : null;
+      patch.sleep_start_time = sleepStart && sleepStart !== "00:00" ? sleepStart : null;
 
     const keys = Object.keys(patch).filter(
       (k) => k !== "date" && k !== "user_id",
@@ -152,7 +157,6 @@ export default function RecoveryInputs() {
       await apiSaveRecoveryPatch(userId, patch);
       toast.success(t("recovery.inputs.saveSuccess"));
       
-      // ✅ ZATVORENIE, VYČISTENIE A REFRESH CELÉHO PROVIDERA
       setOpen(false);
       setDirty({});
       refresh(true); 
@@ -219,7 +223,6 @@ export default function RecoveryInputs() {
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
           
-          {/* LEGENDA PRE AI ODZNAK */}
           <div className="md:col-span-2 mb-1" style={{ fontSize: "11px", color: appColors.textMuted }}>
             <AiBadge /> {t("recovery.inputs.importantMark")}
           </div>
@@ -232,15 +235,18 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.rhrLabel")} <AiBadge />
             </div>
-            <TextField
-              type="number"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={30}
+              max={150}
+              step={1}
+              hint="bpm"
               value={rhr}
-              onChange={(e) => {
-                setRhr(e.target.value);
+              disabled={saving}
+              onChange={(val) => {
+                setRhr(val);
                 markDirty("RHR_bpm");
               }}
-              placeholder="bpm"
-              disabled={saving}
             />
           </section>
 
@@ -252,15 +258,18 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.hrvAvgLabel")} <AiBadge />
             </div>
-            <TextField
-              type="number"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={10}
+              max={250}
+              step={1}
+              hint="ms"
               value={hrvAvg}
-              onChange={(e) => {
-                setHrvAvg(e.target.value);
+              disabled={saving}
+              onChange={(val) => {
+                setHrvAvg(val);
                 markDirty("HRV_avg_ms");
               }}
-              placeholder="ms"
-              disabled={saving}
             />
           </section>
 
@@ -272,15 +281,18 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.hrvMaxLabel")}
             </div>
-            <TextField
-              type="number"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={10}
+              max={300}
+              step={1}
+              hint="ms"
               value={hrvMax}
-              onChange={(e) => {
-                setHrvMax(e.target.value);
+              disabled={saving}
+              onChange={(val) => {
+                setHrvMax(val);
                 markDirty("HRV_max_ms");
               }}
-              placeholder="ms"
-              disabled={saving}
             />
           </section>
 
@@ -292,16 +304,17 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.sleepDurationLabel")} <AiBadge />
             </div>
-            <TextField
-              type="text"
-              placeholder="HH:MM"
-              value={sleepDuration}
-              onChange={(e) => {
-                handleTimeInput(e, setSleepDuration);
+            {/* ✅ Nahradené za TimeSelectorField */}
+            <TimeSelectorField
+              hh={true}
+              mm={true}
+              ss={false}
+              value={sleepDuration || "00:00"}
+              disabled={saving}
+              onChange={(val) => {
+                setSleepDuration(val);
                 markDirty("sleep_duration_min");
               }}
-              inputMode="numeric"
-              disabled={saving}
             />
           </section>
 
@@ -313,16 +326,17 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.sleepStartLabel")}
             </div>
-            <TextField
-              type="text"
-              placeholder="HH:MM"
-              value={sleepStart}
-              onChange={(e) => {
-                handleTimeInput(e, setSleepStart);
+            {/* ✅ Nahradené za TimeSelectorField */}
+            <TimeSelectorField
+              hh={true}
+              mm={true}
+              ss={false}
+              value={sleepStart || "00:00"}
+              disabled={saving}
+              onChange={(val) => {
+                setSleepStart(val);
                 markDirty("sleep_start_time");
               }}
-              inputMode="numeric"
-              disabled={saving}
             />
           </section>
 
@@ -367,25 +381,31 @@ export default function RecoveryInputs() {
                 {t("recovery.inputs.alcoholLabel")}
               </div>
               <div className={FORM_GRID_SPLIT}>
-                <TextField
-                  type="number"
+                {/* ✅ Nahradené za NumberWheelField pre Objem (ml) */}
+                <NumberWheelField
+                  min={0}
+                  max={2000}
+                  step={50}
+                  hint="ml"
                   value={alcoholVolume}
-                  onChange={(e) => {
-                    setAlcoholVolume(e.target.value);
+                  disabled={saving}
+                  onChange={(val) => {
+                    setAlcoholVolume(val);
                     markDirty("alcohol_volume_ml");
                   }}
-                  placeholder="ml"
-                  disabled={saving}
                 />
-                <TextField
-                  type="number"
+                {/* ✅ Nahradené za NumberWheelField pre Percentá (%) */}
+                <NumberWheelField
+                  min={0}
+                  max={80}
+                  step={1}
+                  hint="%"
                   value={alcoholType}
-                  onChange={(e) => {
-                    setAlcoholType(e.target.value);
+                  disabled={saving}
+                  onChange={(val) => {
+                    setAlcoholType(val);
                     markDirty("alcohol_type_pct");
                   }}
-                  placeholder="%"
-                  disabled={saving}
                 />
               </div>
             </div>

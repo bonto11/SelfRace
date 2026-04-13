@@ -7,6 +7,9 @@ import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
+// ✅ Import našich nových inteligentných bubnov
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -339,34 +342,33 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       ]}
                     />
 
-                    <TextField
+                    {/* ✅ Nahradené za TimeSelectorField pre Cieľový čas */}
+                    <TimeSelectorField
                       label={t("prefs.sections.goalSection.targetTimeLabel")}
-                      placeholder={t(
-                        "prefs.sections.goalSection.targetTimePlaceholder",
-                      )}
-                      value={race.target_time ?? ""}
-                      onChange={(e) =>
+                      hh={true}
+                      mm={true}
+                      ss={true}
+                      value={race.target_time ?? "00:00:00"}
+                      onChange={(v) =>
                         updateRaceAt(index, {
-                          target_time: e.currentTarget.value || null,
+                          target_time: v !== "00:00:00" ? v : null,
                         })
                       }
                     />
 
-                    <TextField
+                    {/* ✅ Nahradené za NumberWheelField pre Prevýšenie */}
+                    <NumberWheelField
                       label={t("prefs.sections.goalSection.elevationGainLabel")}
-                      placeholder="e.g. 1200"
-                      value={
-                        race.elevation_gain_m != null
-                          ? String(race.elevation_gain_m)
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const v = e.currentTarget.value.trim();
+                      min={0}
+                      max={10000}
+                      step={50}
+                      hint="m"
+                      value={race.elevation_gain_m ?? ""}
+                      onChange={(val) =>
                         updateRaceAt(index, {
-                          elevation_gain_m: v ? Number(v) || null : null,
-                        });
-                      }}
-                      inputMode="decimal"
+                          elevation_gain_m: val,
+                        })
+                      }
                     />
                   </div>
 
@@ -404,25 +406,21 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
                         {showCustom && (
                           <div className="mt-2">
-                            <TextField
+                            {/* ✅ Nahradené za NumberWheelField pre Vlastnú vzdialenosť */}
+                            <NumberWheelField
                               label={t(
                                 "prefs.sections.goalSection.customDistLabel",
                               )}
-                              placeholder="e.g. 7, 25, 50"
-                              value={
-                                race.custom_distance_km != null
-                                  ? String(race.custom_distance_km)
-                                  : ""
-                              }
-                              onChange={(e) => {
-                                const v = e.currentTarget.value.trim();
+                              min={1}
+                              max={300}
+                              step={1}
+                              hint="km"
+                              value={race.custom_distance_km ?? ""}
+                              onChange={(val) =>
                                 updateRaceAt(index, {
-                                  custom_distance_km: v
-                                    ? Number(v) || null
-                                    : null,
-                                });
-                              }}
-                              inputMode="decimal"
+                                  custom_distance_km: val,
+                                })
+                              }
                             />
                           </div>
                         )}

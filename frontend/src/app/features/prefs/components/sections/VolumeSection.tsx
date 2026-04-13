@@ -5,7 +5,8 @@ import { useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import TextField from "@/app/shared/ui/components/TextField";
+// ✅ Import nášho točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -62,20 +63,14 @@ export function VolumeSection({ volume, setPref }: Props) {
     setPref("volume", { mode: nextMode, value: volume?.value ?? null });
   };
 
-  const handleValueChange = (v: string) => {
-    const raw = (v ?? "").trim();
-    if (!raw) {
-      setPref("volume", { mode, value: null });
-      return;
-    }
-    const num = Number(raw.replace(",", "."));
-    if (Number.isNaN(num) || num < 0) return;
-    setPref("volume", { mode, value: num });
-  };
-
   const valueLabel = mode === "weekly_hours" 
     ? t("prefs.sections.volumeSection.valueWeekly") 
     : t("prefs.sections.volumeSection.valueDaily");
+
+  // Dynamické nastavenie pre náš bubon na základe módu
+  const wheelConfig = mode === "weekly_hours" 
+    ? { min: 1, max: 40, step: 0.5, hint: "h" }
+    : { min: 15, max: 300, step: 5, hint: "min" };
 
   return (
     <InputsCard
@@ -106,12 +101,14 @@ export function VolumeSection({ volume, setPref }: Props) {
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>{valueLabel}</div>
-            <TextField
-              type="number"
-              min={0}
-              step={mode === "weekly_hours" ? 0.5 : 5}
-              value={Number.isFinite(safeVal) ? String(safeVal) : ""}
-              onChange={(e) => handleValueChange(e.currentTarget.value)}
+            {/* ✅ Nahradené za NumberWheelField s dynamickými parametrami */}
+            <NumberWheelField
+              min={wheelConfig.min}
+              max={wheelConfig.max}
+              step={wheelConfig.step}
+              hint={wheelConfig.hint}
+              value={Number.isFinite(safeVal) ? safeVal : ""}
+              onChange={(val) => setPref("volume", { mode, value: val })}
             />
           </section>
         </div>

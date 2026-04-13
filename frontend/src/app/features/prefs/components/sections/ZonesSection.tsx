@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
+// ✅ Pridaný import nášho nového točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
@@ -116,7 +118,6 @@ export default function ZonesSection({
 
   useEffect(() => {
     if (!zones) return;
-    // Pri zmene módu alebo LTHR okamžite prepočítame náhľad zón
     onZonesChange(recalc(calcMode, { ...(zones ?? {}), sport: z.sport }, lthrBpm));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calcMode, zones?.hr_max, lthrBpm, z.sport]);
@@ -138,7 +139,6 @@ export default function ZonesSection({
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className="flex items-center gap-2"><div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.zonesSection.calcLabel")}</div><TooltipIcon text={t("prefs.sections.zonesSection.calcTooltip")} /></div>
-            {/* ✅ Teraz voláme onCalcModeChange */}
             <SelectField 
               value={calcMode} 
               onChange={(e) => onCalcModeChange(e.target.value as ZoneCalcMode)} 
@@ -152,11 +152,18 @@ export default function ZonesSection({
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>HRmax (bpm)</div>
-            <TextField label="" type="number" value={z.hr_max ?? ""} onChange={(e) => {
-                const val = e.target.value ? Number(e.target.value) : null;
+            {/* ✅ Nahradené NumberWheelField pre HR max */}
+            <NumberWheelField
+              min={100}
+              max={250}
+              step={1}
+              hint="bpm"
+              value={z.hr_max ?? ""}
+              onChange={(val) => {
                 const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
                 onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
-            }} />
+              }}
+            />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
@@ -172,9 +179,28 @@ export default function ZonesSection({
             <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <div className="text-[10px] opacity-70 uppercase mb-1">{key}</div>
               <div className="flex items-center gap-2">
-                <TextField label="" type="number" disabled={zonesLocked} className="w-20 disabled:opacity-40" value={(z as any)[`${key}_min`] ?? ""} onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_min`]: e.target.value ? Number(e.target.value) : null })} />
+                {/* ✅ Nahradené NumberWheelField pre MIN a MAX zónu */}
+                <NumberWheelField 
+                  min={30} 
+                  max={250} 
+                  step={1} 
+                  disabled={zonesLocked} 
+                  containerClassName="flex-1"
+                  className={zonesLocked ? "opacity-40" : ""}
+                  value={(z as any)[`${key}_min`] ?? ""} 
+                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_min`]: val })} 
+                />
                 <span className="opacity-60">–</span>
-                <TextField label="" type="number" disabled={zonesLocked} className="w-20 disabled:opacity-40" value={(z as any)[`${key}_max`] ?? ""} onChange={(e) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_max`]: e.target.value ? Number(e.target.value) : null })} />
+                <NumberWheelField 
+                  min={30} 
+                  max={250} 
+                  step={1} 
+                  disabled={zonesLocked} 
+                  containerClassName="flex-1"
+                  className={zonesLocked ? "opacity-40" : ""}
+                  value={(z as any)[`${key}_max`] ?? ""} 
+                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_max`]: val })} 
+                />
               </div>
             </div>
           ))}

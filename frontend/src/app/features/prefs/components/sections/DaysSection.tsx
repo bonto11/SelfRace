@@ -1,8 +1,10 @@
+// src/features/coach/components/prefs/DaysSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
-import SelectField from "@/app/shared/ui/components/SelectField"; 
+// ✅ Import nášho nového točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField"; 
 import DateField from "@/app/shared/ui/components/DateField";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -30,12 +32,6 @@ type Props = {
     v: any,
   ) => void;
 };
-
-// Možnosti pre SelectField (od 20 do 45 dní)
-const CYCLE_LENGTH_OPTIONS = Array.from({ length: 26 }, (_, i) => ({
-  value: String(i + 20),
-  label: `${i + 20} dní`
-}));
 
 export function DaysSection({
   daysOff,
@@ -120,17 +116,19 @@ export function DaysSection({
               />
             </div>
 
-            {/* Vizuálna úprava: Presne ako v GoalSection (nápisy nad prvkami) */}
             {healthData.sync_enabled && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 pt-4 border-t border-pink-500/20">
                 <div>
                   <div className="text-xs opacity-70 mb-1">
                     Dĺžka cyklu
                   </div>
-                  <SelectField
-                    value={String(healthData.cycle_length_days ?? 28)}
-                    onChange={(e: any) => updateWomensHealth({ cycle_length_days: parseInt(e.target.value) || 28 })}
-                    options={CYCLE_LENGTH_OPTIONS}
+                  {/* ✅ Nahradené za NumberWheelField */}
+                  <NumberWheelField
+                    min={20}
+                    max={45}
+                    step={1}
+                    value={healthData.cycle_length_days ?? 28}
+                    onChange={(val) => updateWomensHealth({ cycle_length_days: val })}
                   />
                 </div>
                 

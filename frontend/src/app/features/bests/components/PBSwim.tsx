@@ -19,7 +19,8 @@ import type {
 } from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
-import { useFavoritePBRun } from "@/app/features/bests/hooks/useFavoritePBRun";
+// Uisti sa, že tento hook existuje, inak ho premenuj podľa seba
+import { useFavoritePBSwim} from "@/app/features/bests/hooks/useFavoritePBSwim"; 
 import ActivitySelector from "@/app/shared/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -28,7 +29,6 @@ import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 
-// ✅ Import našich nových komponentov
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 
@@ -68,10 +68,10 @@ const EMPTY: PBRunFormState = {
 
 const isoDateOnly = (s?: string | null) => (s ? s.slice(0, 10) : "");
 
-export default function PBRun() {
+export default function PBSwim() {
   const { userId } = useUserId();
-  const { favM, setFavM } = useFavoritePBRun();
-  const favoriteM = favM ?? 5000;
+  const { favM, setFavM } = useFavoritePBSwim();
+  const favoriteM = favM ?? 1000; // Default 1km pre Plávanie
   const isTouch = useIsTouch();
   const t = useT();
 
@@ -84,7 +84,7 @@ export default function PBRun() {
     if (!userId) return;
     setLoading(true);
     try {
-      setRows(await apiGetBests(userId, "run"));
+      setRows(await apiGetBests(userId, "swim"));
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.bests.loadFailed"));
     } finally {
@@ -93,12 +93,12 @@ export default function PBRun() {
   };
 
   useEffect(() => {
-    if (userId) refresh(); /* eslint-disable-line */
+    if (userId) refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const canSave = useMemo(() => {
     const m = Number(form.distance_m);
-    // Overíme, či časový string nie je prázdny a či neobsahuje len nuly
     const validTime = form.time_str.trim() !== "" && form.time_str !== "00:00:00" && form.time_str !== "00:00";
     return Number.isFinite(m) && m > 0 && validTime && !saving;
   }, [form.distance_m, form.time_str, saving]);
@@ -106,7 +106,7 @@ export default function PBRun() {
   const distanceSelectOptions = useMemo(() => {
     return [
       { value: "", label: `— ${t("PB.chooseDist")}  —` },
-      ...distanceOptions("run").map((o) => ({
+      ...distanceOptions("swim").map((o) => ({
         value: String(o.m),
         label: o.label,
       })),
@@ -120,7 +120,7 @@ export default function PBRun() {
       const m = Number(form.distance_m);
       const sec = hhmmssToSec(form.time_str.trim());
       const payload: any = {
-        sport: "run",
+        sport: "swimming",
         distance_m: m,
         ...(Number.isFinite(sec)
           ? { time_sec: sec }
@@ -131,7 +131,6 @@ export default function PBRun() {
       if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
       if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
-      // Pripravíme voliteľné total fields pre payload
       if (form.total_distance_km) {
         payload.total_distance_m = Math.round(parseFloat(form.total_distance_km.replace(",", ".")) * 1000);
       }
@@ -154,7 +153,7 @@ export default function PBRun() {
   const handleDelete = async (m: number) => {
     const ok = await confirm({
       title: t("PB.removeTitle"),
-      message: `${t("PB.removeMessage")}\n(${distanceLabel(m, "run")})`,
+      message: `${t("PB.removeMessage")}\n(${distanceLabel(m, "swim")})`,
       okText: t("PB.removeConfirm"),
       cancelText: t("PB.removeCancel"),
       tone: "danger",
@@ -162,7 +161,7 @@ export default function PBRun() {
     if (!ok || !userId) return;
 
     try {
-      await apiDeleteBest(userId, m, "run");
+      await apiDeleteBest(userId, m, "swim");
       toast.success(t("PB.deleted"));
       await refresh();
     } catch (e: any) {
@@ -175,11 +174,10 @@ export default function PBRun() {
       <div className={PANEL_SECTION}>
         <div className={PANEL_SECTION_LABEL}>{t("PB.favorite")}</div>
         <div className={PANEL_SECTION_TEXT}>
-          <strong>{distanceLabel(favoriteM, "run")}</strong>
+          <strong>{distanceLabel(favoriteM, "swim")}</strong>
         </div>
       </div>
 
-      {/* FORM */}
       <div
         className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
         style={SESSION_INLINE_STYLE}
@@ -199,7 +197,6 @@ export default function PBRun() {
           </div>
 
           <div className="sm:col-span-3">
-             {/* ✅ Nahradené za TimeSelectorField */}
             <TimeSelectorField
               hh={true}
               mm={true}
@@ -225,7 +222,7 @@ export default function PBRun() {
             <ActivitySelector
               userId={userId ?? null}
               dateIso={form.achieved_at}
-              sports={["run", "mixed"]}
+              sports={["swimming", "mixed"]}
               value={form.activity_id ? Number(form.activity_id) : ""}
               onChange={(v) =>
                 setForm((f) => ({
@@ -239,11 +236,10 @@ export default function PBRun() {
             />
           </div>
 
-          {/* VOLITEĽNÉ CELKOVÉ DÁTA */}
           <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
              <NumberWheelField
                 min={0}
-                max={200}
+                max={50} // Plávanie zriedka prekročí 50 km
                 step={0.1}
                 hint="km"
                 value={form.total_distance_km ? Number(form.total_distance_km.replace(",", ".")) : ""}
@@ -275,51 +271,33 @@ export default function PBRun() {
             >
               {saving ? t("common.saving") : t("common.save")}
             </Button>
-
-            <Button
-              variant="secondary"
-              onClick={() => setForm(EMPTY)}
-              size="xs"
-            >
+            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">
               {t("common.undo") || "Clear"}
             </Button>
-
-            <Button
-              variant="ghost"
-              onClick={refresh}
-              disabled={loading}
-              size="xs"
-            >
+            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">
               {loading ? t("common.loading") : t("common.refresh")}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* LIST */}
       <ul className={PANEL_LIST}>
         {rows
           .slice()
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
-            const timeDB =
-              b.best_time_s != null
-                ? secToHHMMSS(b.best_time_s)
-                : (b.time_str ?? "—");
-            const dist = distanceLabel(b.distance_m, "run");
+            const timeDB = b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—");
+            const dist = distanceLabel(b.distance_m, "swim");
             const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
-                time_str:
-                  b.time_str ??
-                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
-                // Natiahneme aj total dáta do formulára
                 total_distance_km: b.total_distance_m ? (b.total_distance_m / 1000).toFixed(2) : "",
                 total_time_str: b.total_time_s ? secToHHMMSS(b.total_time_s) : "",
               });
@@ -344,7 +322,7 @@ export default function PBRun() {
                   kind: "bests", 
                   title: dist,
                   dateIso: isoDateOnly(b.achieved_at),
-                  sport: "run",
+                  sport: "swimming",
                   activityId: actId ?? 0,
                   timeStr: timeDB,
                   distanceStr: dist.replace("— ", ""),
@@ -359,17 +337,11 @@ export default function PBRun() {
 
             if (isTouch) {
               return (
-                <SwipeRow
-                  key={b.distance_m}
-                  enableSwipe
-                  onEdit={doEdit}
-                  onDelete={doDelete}
-                >
+                <SwipeRow key={b.distance_m} enableSwipe onEdit={doEdit} onDelete={doDelete}>
                   {card}
                 </SwipeRow>
               );
             }
-
             return <li key={b.distance_m}>{card}</li>;
           })}
 
@@ -381,6 +353,7 @@ export default function PBRun() {
   );
 }
 
+// ... SwipeRow identický s prvým príkladom ...
 function SwipeRow({
   children,
   onEdit,
@@ -436,14 +409,7 @@ function SwipeRow({
       onTouchCancel={onTouchEnd}
     >
       <div className={SWIPE_ACTIONS}>
-        <Button
-          size="xs"
-          variant="secondary"
-          onClick={() => {
-            setTx(SNAP_CLOSED);
-            onEdit();
-          }}
-        >
+        <Button size="xs" variant="secondary" onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}>
           {t("common.edit")}
         </Button>
         <Button size="xs" variant="danger" onClick={onDelete}>
@@ -452,10 +418,7 @@ function SwipeRow({
       </div>
 
       <div
-        className={[
-          SWIPE_CONTENT,
-          "transition-transform duration-150 ease-out",
-        ].join(" ")}
+        className={[SWIPE_CONTENT, "transition-transform duration-150 ease-out"].join(" ")}
         style={{ transform: `translateX(${tx}px)` }}
       >
         {children}

@@ -991,9 +991,10 @@ export const sk = {
     errorLoad: "Nepodarilo sa načítať dáta",
     missingUserId: "Chýbajúce ID používateľa",
   },
-  PB: {
+ PB: {
     title: "Osobné rekordy",
     chooseDist: "vyber vzdialenosť",
+    chooseExercise: "vyber cvik",
     saved: "Rekord uložený",
     deleted: "Rekord vymazaný",
     removeTitle: "Vymazať rekord?",
@@ -1001,9 +1002,11 @@ export const sk = {
     removeConfirm: "Vymazať",
     removeCancel: "Zrušiť",
     favorite: "Obľúbený rekord",
+    favoriteExercise: "Obľúbený cvik",
     noRecords: "Zatiaľ žiadne rekordy",
     totalDistKm: "Celk. vzdialenosť (km)",
     totalTime: "Celk. čas",
+    recordValue: "Hodnota (napr. 120)",
     widget: {
       title: "Osobné rekordy",
       tooltip: [
@@ -1023,8 +1026,7 @@ export const sk = {
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
       distanceLabel: "Vzdialenosť",
-      empty:
-        "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
+      empty: "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
     },
     run: {
       title: "Osobné rekordy pre beh",
@@ -1035,8 +1037,26 @@ export const sk = {
     swim: {
       title: "Osobné rekordy pre plávanie",
     },
+    triathlon: {
+      title: "Osobné rekordy pre triatlon",
+    },
+    ocr: {
+      title: "Osobné rekordy pre OCR (Spartan)",
+    },
+    hyrox: {
+      title: "Osobné rekordy pre Hyrox",
+    },
     strength: {
       title: "Osobné rekordy pre silový tréning",
+    },
+    exercises: {
+      bench: "Tlak na lavičke (1RM)",
+      squat: "Drep (1RM)",
+      deadlift: "Mŕtvy ťah (1RM)",
+      ohp: "Tlak nad hlavu (1RM)",
+      pullups: "Zhyby (Max opakovaní)",
+      clean: "Nadhod / Clean & Jerk (1RM)",
+      snatch: "Trh / Snatch (1RM)",
     },
   },
   estTopPaces: {

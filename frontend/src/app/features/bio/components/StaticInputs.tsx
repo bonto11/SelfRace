@@ -5,9 +5,10 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
-import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import SelectField from "@/app/shared/ui/components/SelectField";
+// ✅ Import nášho točiaceho bubna
+import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
@@ -66,7 +67,6 @@ export default function ProfileStaticInputs() {
     
     try {
       setLoading(true);
-      // apiSaveStaticProfile ukladá sex, birth_date a height_cm do profile_static
       const saved = await apiSaveStaticProfile(userId, data);
       setData(saved);
       toast.success(t("performance.static.saveSuccess"));
@@ -129,12 +129,15 @@ export default function ProfileStaticInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.static.height")}
             </div>
-            <TextField
-              type="number"
+            {/* ✅ Nahradené za NumberWheelField */}
+            <NumberWheelField
+              min={100}
+              max={250}
+              step={1}
+              hint="cm"
               value={data.height_cm ?? ""}
-              onChange={(e) => setData(s => ({ ...s, height_cm: e.target.value ? Number(e.target.value) : null }))}
-              placeholder="cm"
               disabled={loading}
+              onChange={(val) => setData(s => ({ ...s, height_cm: val }))}
             />
           </section>
         </div>
