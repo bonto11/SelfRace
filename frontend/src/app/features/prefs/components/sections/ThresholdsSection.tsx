@@ -1,12 +1,12 @@
-// src/features/coach/components/prefs/ThresholdsSection.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import TextField from "@/app/shared/ui/components/TextField";
+// Importujeme naše nové bubny
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
@@ -46,7 +46,7 @@ function secToPace(n: any): string {
   if (!Number.isFinite(s) || s <= 0) return "";
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${String(m).padStart(1, "0")}:${String(r).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 }
 
 /* ---------- types ---------- */
@@ -85,9 +85,13 @@ export default function ThresholdsSection({
   const thr = thresholds ?? {};
   const [open, setOpen] = useState(false);
 
-  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km));
+  // Fallback pre čas, ak neexistuje sekúndová hodnota z DB, dáme "00:00"
+  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km) || "00:00");
+  
   useEffect(() => {
-    setPaceStr(secToPace(thr.pace_sec_km));
+    if (thr.pace_sec_km) {
+      setPaceStr(secToPace(thr.pace_sec_km));
+    }
   }, [thr.pace_sec_km]);
 
   const latestByCombo = useMemo(() => {
@@ -248,12 +252,7 @@ export default function ThresholdsSection({
               step={1}
               suffix="bpm"
               value={thr.hr_bpm ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...thr,
-                  hr_bpm: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
+              onChange={(val) => onChange({ ...thr, hr_bpm: val })}
             />
           </section>
 
@@ -261,12 +260,13 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.thresholdsSection.paceLabel")}
             </div>
-            <TextField
+            <TimeSelectorField
+              hh={false}
+              mm={true}
+              ss={true}
               value={paceStr}
-              placeholder="04:55"
               hint="mm:ss /km"
-              onChange={(e) => {
-                const v = normalizePaceInput(e.target.value);
+              onChange={(v) => {
                 setPaceStr(v);
                 onChange({ ...thr, pace_sec_km: paceToSec(v) });
               }}
@@ -277,18 +277,13 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.thresholdsSection.powerLabel")}
             </div>
-            <TextField
-              type="number"
-              inputMode="numeric"
+            <NumberWheelField
+              min={0}
+              max={1000}
+              step={1}
+              suffix="W"
               value={thr.power_watt ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...thr,
-                  power_watt:
-                    e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              placeholder="W"
+              onChange={(val) => onChange({ ...thr, power_watt: val })}
             />
           </section>
 
@@ -304,23 +299,17 @@ export default function ThresholdsSection({
               options={[
                 {
                   value: "lab test",
-                  label: t(
-                    "prefs.sections.thresholdsSection.enums.measure.lab",
-                  ),
+                  label: t("prefs.sections.thresholdsSection.enums.measure.lab"),
                 },
                 {
                   value: "field test",
-                  label: t(
-                    "prefs.sections.thresholdsSection.enums.measure.field",
-                  ),
+                  label: t("prefs.sections.thresholdsSection.enums.measure.field"),
                 },
                 { value: "estimate garmin", label: "Estimate – Garmin" },
                 { value: "estimate strava", label: "Estimate – Strava" },
                 {
                   value: "coach estimate",
-                  label: t(
-                    "prefs.sections.thresholdsSection.enums.measure.coach",
-                  ),
+                  label: t("prefs.sections.thresholdsSection.enums.measure.coach"),
                 },
                 { value: "other", label: t("common.sports.other") },
               ]}
