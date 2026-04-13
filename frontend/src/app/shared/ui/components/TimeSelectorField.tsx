@@ -79,7 +79,6 @@ function SnapColumn({
 
   return (
     <div className="relative h-full flex-1 group/col">
-      {/* Šípka HORE */}
       <button
         type="button"
         onClick={(e) => stepValue(-1, e)}
@@ -114,7 +113,6 @@ function SnapColumn({
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
       </div>
 
-      {/* Šípka DOLE */}
       <button
         type="button"
         onClick={(e) => stepValue(1, e)}
@@ -187,7 +185,7 @@ export default function TimeSelectorField({
   };
 
   return (
-    <div className={cx("space-y-1", containerClassName)} style={style} ref={containerRef}>
+    <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       {!expanded ? (
@@ -196,7 +194,8 @@ export default function TimeSelectorField({
           className={cx(
             baseClass,
             error && FIELD_ERROR,
-            "flex items-center px-3 h-10 cursor-pointer text-black transition-colors"
+            // Pridávame fixnú výšku, aby lícoval s TextField a SelectField
+            "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors"
           )}
         >
           <span>{safeValue}</span>
@@ -229,7 +228,11 @@ export default function TimeSelectorField({
         </div>
       )}
 
-      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : hint ? <div className={FIELD_HINT}>{hint}</div> : null}
+      {error ? (
+        <div className={FIELD_ERROR_TEXT}>{error}</div>
+      ) : hint ? (
+        <div className={FIELD_HINT}>{hint}</div>
+      ) : null}
     </div>
   );
 }

@@ -107,7 +107,6 @@ export default function NumberWheelField({
     }
   };
 
-  // Funkcia pre šípky na PC
   const stepValue = (direction: -1 | 1, e: React.MouseEvent) => {
     e.stopPropagation();
     if (effectiveDisabled) return;
@@ -117,7 +116,7 @@ export default function NumberWheelField({
   };
 
   return (
-    <div className={cx("space-y-1", containerClassName)} style={style} ref={containerRef}>
+    <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       {!expanded ? (
@@ -127,7 +126,8 @@ export default function NumberWheelField({
             baseClass,
             error && FIELD_ERROR,
             className,
-            "flex items-center px-3 h-10 cursor-pointer text-black transition-colors"
+            // Pridávame fixnú výšku, aby lícoval s TextField a SelectField
+            "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors" 
           )}
         >
           {value === "" || value === null ? (
@@ -145,7 +145,6 @@ export default function NumberWheelField({
             "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group"
           )}
         >
-          {/* Šípka HORE (len na PC pri hoveri) */}
           <button
             type="button"
             onClick={(e) => stepValue(-1, e)}
@@ -186,7 +185,6 @@ export default function NumberWheelField({
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
           </div>
 
-          {/* Šípka DOLE (len na PC pri hoveri) */}
           <button
             type="button"
             onClick={(e) => stepValue(1, e)}
@@ -200,7 +198,11 @@ export default function NumberWheelField({
         </div>
       )}
 
-      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : hint ? <div className={FIELD_HINT}>{hint}</div> : null}
+      {error ? (
+        <div className={FIELD_ERROR_TEXT}>{error}</div>
+      ) : hint ? (
+        <div className={FIELD_HINT}>{hint}</div>
+      ) : null}
     </div>
   );
 }
