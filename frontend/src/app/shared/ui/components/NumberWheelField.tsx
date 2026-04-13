@@ -78,19 +78,22 @@ export default function NumberWheelField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
-  // Zamknutie scrollovania stránky, keď je bubon otvorený
+  // Ultimátny zámok scrollovania (iOS fix)
   useEffect(() => {
     if (expanded) {
+      document.documentElement.style.overflow = "hidden";
       document.body.style.overflow = "hidden";
     } else {
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     }
     return () => {
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     };
   }, [expanded]);
 
-  // Vycentrovanie na správne číslo pri otvorení
+  // Vycentrovanie po otvorení
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
       const idx = options.indexOf(safeValue);
@@ -122,29 +125,39 @@ export default function NumberWheelField({
   };
 
   return (
-    <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
+    <div 
+      className={cx("space-y-1 w-full", expanded ? "relative z-50" : "", containerClassName)} 
+      style={style} 
+      ref={containerRef}
+    >
+      {/* Ochranná neviditeľná vrstva (zastaví posun mimo bubna) */}
+      {expanded && (
+        <div 
+          className="fixed inset-0 z-40" 
+          style={{ touchAction: "none" }} 
+          onClick={() => setExpanded(false)} 
+        />
+      )}
+
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
+      
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(
-            baseClass,
-            error && FIELD_ERROR,
-            className,
-            "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors"
-          )}
+          className={cx(baseClass, error && FIELD_ERROR, className, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors")}
         >
           {value === "" || value === null ? <span className="opacity-50">—</span> : <span>{safeValue}</span>}
         </div>
       ) : (
-        <div className={cx(baseClass, error && FIELD_ERROR, className, "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group")}>
+        <div className={cx(baseClass, error && FIELD_ERROR, className, "relative z-50 h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group")}>
           <button type="button" onClick={(e) => stepValue(-1, e)} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
           </button>
+          
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
           
-          {/* ✅ Pridaný overscroll-contain na zabránenie prenosu scrollu */}
-          <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-contain snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
+          {/* overscroll-y-none zabráni "gumenému" ťahaniu stránky */}
+          <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
             {options.map((val) => (
               <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === safeValue ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
