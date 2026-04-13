@@ -245,7 +245,6 @@ export default function PBRun() {
                 min={0}
                 max={200}
                 step={0.1}
-                hint="km"
                 value={form.total_distance_km ? Number(form.total_distance_km.replace(",", ".")) : ""}
                 onChange={(val) =>
                   setForm((f) => ({ ...f, total_distance_km: String(val) }))

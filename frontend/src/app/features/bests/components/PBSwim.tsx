@@ -241,7 +241,6 @@ export default function PBSwim() {
                 min={0}
                 max={50} // Plávanie zriedka prekročí 50 km
                 step={0.1}
-                hint="km"
                 value={form.total_distance_km ? Number(form.total_distance_km.replace(",", ".")) : ""}
                 onChange={(val) =>
                   setForm((f) => ({ ...f, total_distance_km: String(val) }))

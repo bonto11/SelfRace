@@ -134,7 +134,6 @@ export default function ProfileStaticInputs() {
               min={100}
               max={250}
               step={1}
-              hint="cm"
               value={data.height_cm ?? ""}
               disabled={loading}
               onChange={(val) => setData(s => ({ ...s, height_cm: val }))}

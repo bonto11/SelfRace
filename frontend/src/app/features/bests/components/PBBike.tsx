@@ -241,7 +241,6 @@ export default function PBBike() {
                 min={0}
                 max={500} // Bicykel znesie viac km
                 step={0.1}
-                hint="km"
                 value={form.total_distance_km ? Number(form.total_distance_km.replace(",", ".")) : ""}
                 onChange={(val) =>
                   setForm((f) => ({ ...f, total_distance_km: String(val) }))

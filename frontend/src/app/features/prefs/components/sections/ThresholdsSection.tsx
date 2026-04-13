@@ -248,7 +248,6 @@ export default function ThresholdsSection({
               min={40}
               max={220}
               step={1}
-              hint="bpm"
               value={thr.hr_bpm ?? ""}
               onChange={(val) => onChange({ ...thr, hr_bpm: val })}
             />
@@ -263,7 +262,6 @@ export default function ThresholdsSection({
               mm={true}
               ss={true}
               value={paceStr}
-              hint="mm:ss /km"
               onChange={(v) => {
                 setPaceStr(v);
                 onChange({ ...thr, pace_sec_km: paceToSec(v) });
@@ -279,7 +277,6 @@ export default function ThresholdsSection({
               min={0}
               max={1000}
               step={1}
-              hint="W"
               value={thr.power_watt ?? ""}
               onChange={(val) => onChange({ ...thr, power_watt: val })}
             />
