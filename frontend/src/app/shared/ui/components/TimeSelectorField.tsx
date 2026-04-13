@@ -186,6 +186,7 @@ export default function TimeSelectorField({
 
   return (
     <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
+      {/* Čistý label presne ako v SelectField */}
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       {!expanded ? (
@@ -194,7 +195,6 @@ export default function TimeSelectorField({
           className={cx(
             baseClass,
             error && FIELD_ERROR,
-            // Pridávame fixnú výšku, aby lícoval s TextField a SelectField
             "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors"
           )}
         >
@@ -228,6 +228,7 @@ export default function TimeSelectorField({
         </div>
       )}
 
+      {/* Identický spodok ako v SelectField */}
       {error ? (
         <div className={FIELD_ERROR_TEXT}>{error}</div>
       ) : hint ? (
