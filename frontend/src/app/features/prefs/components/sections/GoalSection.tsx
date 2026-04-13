@@ -27,7 +27,15 @@ const OVERALL_GOALS = [
 
 const RACE_GOALS = ["5k", "10k", "half", "marathon", "ultra", "other"] as const;
 const PRIORITIES = ["A", "B", "C"] as const;
-const RACE_TYPES = ["road", "trail", "track", "cross", "hyrox","ocr", "other"] as const;
+const RACE_TYPES = [
+  "road",
+  "trail",
+  "track",
+  "cross",
+  "hyrox",
+  "ocr",
+  "other",
+] as const;
 const TERRAIN = ["flat", "rolling", "hilly", "mountain"] as const;
 const ELEVATION = ["low", "moderate", "high"] as const;
 
@@ -342,7 +350,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       ]}
                     />
 
-                    {/* ✅ Nahradené za TimeSelectorField pre Cieľový čas */}
                     <TimeSelectorField
                       label={t("prefs.sections.goalSection.targetTimeLabel")}
                       hh={true}
@@ -356,9 +363,9 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       }
                     />
 
-                    {/* ✅ Nahradené za NumberWheelField pre Prevýšenie */}
                     <NumberWheelField
-                      label={t("prefs.sections.goalSection.elevationGainLabel")}
+                      // ✅ Jednotka pridaná priamo do labelu
+                      label={`${t("prefs.sections.goalSection.elevationGainLabel")} (m)`}
                       min={0}
                       max={10000}
                       step={50}

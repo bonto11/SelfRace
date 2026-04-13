@@ -240,7 +240,6 @@ export default function RecoveryInputs() {
               min={30}
               max={150}
               step={1}
-              hint="bpm"
               value={rhr}
               disabled={saving}
               onChange={(val) => {
@@ -263,7 +262,6 @@ export default function RecoveryInputs() {
               min={10}
               max={250}
               step={1}
-              hint="ms"
               value={hrvAvg}
               disabled={saving}
               onChange={(val) => {
@@ -286,7 +284,6 @@ export default function RecoveryInputs() {
               min={10}
               max={300}
               step={1}
-              hint="ms"
               value={hrvMax}
               disabled={saving}
               onChange={(val) => {
@@ -386,7 +383,6 @@ export default function RecoveryInputs() {
                   min={0}
                   max={2000}
                   step={50}
-                  hint="ml"
                   value={alcoholVolume}
                   disabled={saving}
                   onChange={(val) => {
@@ -399,7 +395,6 @@ export default function RecoveryInputs() {
                   min={0}
                   max={80}
                   step={1}
-                  hint="%"
                   value={alcoholType}
                   disabled={saving}
                   onChange={(val) => {

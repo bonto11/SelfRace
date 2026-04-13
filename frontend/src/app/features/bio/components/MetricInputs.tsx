@@ -181,7 +181,6 @@ export default function ProfileMetricInputs() {
               min={30}
               max={200}
               step={0.5}
-              hint={t("common.units.kg")}
               value={m.weight_kg ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("weight_kg", val)}
@@ -198,7 +197,6 @@ export default function ProfileMetricInputs() {
               min={3}
               max={50}
               step={0.5}
-              hint="%"
               value={m.body_fat_pct ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("body_fat_pct", val)}
@@ -215,7 +213,6 @@ export default function ProfileMetricInputs() {
               min={100}
               max={250}
               step={1}
-              hint="bpm"
               value={m.HR_max ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("HR_max", val)}
@@ -233,7 +230,6 @@ export default function ProfileMetricInputs() {
                 min={20}
                 max={90}
                 step={1}
-                hint="AI"
                 value={m.VO2Max_estimated ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
@@ -243,7 +239,6 @@ export default function ProfileMetricInputs() {
                 min={20}
                 max={90}
                 step={1}
-                hint="Watch"
                 value={m.VO2Max_measured ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_measured", val)}

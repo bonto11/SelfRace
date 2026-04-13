@@ -10,14 +10,12 @@ import {
   FIELD_ERROR,
   FIELD_ERROR_STYLE,
   FIELD_LABEL,
-  FIELD_HINT,
   FIELD_ERROR_TEXT,
   FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
   label?: string;
-  hint?: string;
   error?: string;
   containerClassName?: string;
   className?: string;
@@ -27,14 +25,13 @@ type Props = {
   max: number;
   step?: number;
   value: number | null | "";
-  onChange: (val: number) => void;
+  onChange: (val: number) => void; // ✅ Opravený typ na number
 };
 
 const ITEM_HEIGHT = 40;
 
 export default function NumberWheelField({
   label,
-  hint,
   error,
   containerClassName,
   className,
@@ -91,17 +88,12 @@ export default function NumberWheelField({
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (effectiveDisabled) return;
-    
     isScrolling.current = true;
     clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      isScrolling.current = false;
-    }, 150);
-
+    scrollTimeout.current = setTimeout(() => { isScrolling.current = false; }, 150);
     const y = e.currentTarget.scrollTop;
     const idx = Math.max(0, Math.min(options.length - 1, Math.round(y / ITEM_HEIGHT)));
     const val = options[idx];
-    
     if (val !== undefined && val !== value) {
       onChange(val);
     }
@@ -117,9 +109,7 @@ export default function NumberWheelField({
 
   return (
     <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
-      {/* Čistý label presne ako v SelectField */}
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
-
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
@@ -127,83 +117,32 @@ export default function NumberWheelField({
             baseClass,
             error && FIELD_ERROR,
             className,
-            "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors" 
+            "flex items-center px-3 h-[38px] cursor-pointer text-black"
           )}
         >
-          {value === "" || value === null ? (
-            <span className="opacity-50">Vyberte...</span>
-          ) : (
-            <span>{safeValue}</span>
-          )}
+          {value === "" || value === null ? <span className="opacity-50">—</span> : <span>{safeValue}</span>}
         </div>
       ) : (
-        <div
-          className={cx(
-            baseClass,
-            error && FIELD_ERROR,
-            className,
-            "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group"
-          )}
-        >
-          <button
-            type="button"
-            onClick={(e) => stepValue(-1, e)}
-            disabled={safeValue === options[0]}
-            className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-gray-100 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-            </svg>
+        <div className={cx(baseClass, error && FIELD_ERROR, className, "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group")}>
+          <button type="button" onClick={(e) => stepValue(-1, e)} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
           </button>
-
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
-
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
-            style={{ touchAction: "pan-y" }}
-          >
+          <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
-            
-            {options.map((val) => {
-              const isSelected = val === safeValue;
-              return (
-                <div
-                  key={val}
-                  style={{ height: `${ITEM_HEIGHT}px` }}
-                  className={cx(
-                    "snap-center flex items-center justify-center transition-all duration-200 select-none",
-                    isSelected ? "text-lg text-black font-bold" : "text-sm text-black/30 font-medium"
-                  )}
-                >
-                  {val}
-                </div>
-              );
-            })}
-            
+            {options.map((val) => (
+              <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === safeValue ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
+                {val}
+              </div>
+            ))}
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
           </div>
-
-          <button
-            type="button"
-            onClick={(e) => stepValue(1, e)}
-            disabled={safeValue === options[options.length - 1]}
-            className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-gray-100 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+          <button type="button" onClick={(e) => stepValue(1, e)} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/20 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
           </button>
         </div>
       )}
-
-      {/* Identický spodok ako v SelectField */}
-      {error ? (
-        <div className={FIELD_ERROR_TEXT}>{error}</div>
-      ) : hint ? (
-        <div className={FIELD_HINT}>{hint}</div>
-      ) : null}
+      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : null}
     </div>
   );
 }

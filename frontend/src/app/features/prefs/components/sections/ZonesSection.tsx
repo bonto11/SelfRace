@@ -157,7 +157,6 @@ export default function ZonesSection({
               min={100}
               max={250}
               step={1}
-              hint="bpm"
               value={z.hr_max ?? ""}
               onChange={(val) => {
                 const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };

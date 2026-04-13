@@ -106,7 +106,6 @@ export function VolumeSection({ volume, setPref }: Props) {
               min={wheelConfig.min}
               max={wheelConfig.max}
               step={wheelConfig.step}
-              hint={wheelConfig.hint}
               value={Number.isFinite(safeVal) ? safeVal : ""}
               onChange={(val) => setPref("volume", { mode, value: val })}
             />

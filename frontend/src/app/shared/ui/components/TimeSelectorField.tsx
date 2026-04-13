@@ -10,14 +10,12 @@ import {
   FIELD_ERROR,
   FIELD_ERROR_STYLE,
   FIELD_LABEL,
-  FIELD_HINT,
   FIELD_ERROR_TEXT,
   FORM_TEXT_VARS,
 } from "@/app/shared/ui/tokens";
 
 type Props = {
   label?: string;
-  hint?: string;
   error?: string;
   containerClassName?: string;
   variant?: "readonly" | "editable";
@@ -59,10 +57,7 @@ function SnapColumn({
     if (disabled) return;
     isScrolling.current = true;
     clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      isScrolling.current = false;
-    }, 150);
-
+    scrollTimeout.current = setTimeout(() => { isScrolling.current = false; }, 150);
     const y = e.currentTarget.scrollTop;
     const idx = Math.max(0, Math.min(options.length - 1, Math.round(y / ITEM_HEIGHT)));
     if (options[idx] !== undefined && options[idx] !== value) {
@@ -79,47 +74,20 @@ function SnapColumn({
 
   return (
     <div className="relative h-full flex-1 group/col">
-      <button
-        type="button"
-        onClick={(e) => stepValue(-1, e)}
-        disabled={value === 0}
-        className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-gray-100 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
-      >
-        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+      <button type="button" onClick={(e) => stepValue(-1, e)} disabled={value === 0} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
+        <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
-
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
-        style={{ touchAction: "pan-y" }}
-      >
+      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
-        {options.map((val) => {
-          const isSelected = val === value;
-          return (
-            <div
-              key={val}
-              style={{ height: `${ITEM_HEIGHT}px` }}
-              className={cx(
-                "snap-center flex items-center justify-center transition-all duration-200 select-none",
-                isSelected ? "text-lg text-black font-bold" : "text-sm text-black/30 font-medium"
-              )}
-            >
-              {val.toString().padStart(2, "0")}
-            </div>
-          );
-        })}
+        {options.map((val) => (
+          <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === value ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
+            {val.toString().padStart(2, "0")}
+          </div>
+        ))}
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
       </div>
-
-      <button
-        type="button"
-        onClick={(e) => stepValue(1, e)}
-        disabled={value === max}
-        className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-gray-100 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
-      >
-        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      <button type="button" onClick={(e) => stepValue(1, e)} disabled={value === max} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
+        <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
       </button>
     </div>
   );
@@ -127,7 +95,6 @@ function SnapColumn({
 
 export default function TimeSelectorField({
   label,
-  hint,
   error,
   containerClassName,
   variant = "editable",
@@ -141,7 +108,6 @@ export default function TimeSelectorField({
   const editable = variant === "editable";
   const effectiveDisabled = disabled || !editable;
   const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
-
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -153,19 +119,13 @@ export default function TimeSelectorField({
 
   const safeValue = value || (hh ? "00:00:00" : "00:00");
   const parts = safeValue.split(":").map(n => isNaN(Number(n)) ? 0 : Number(n));
-  
   let initialH = 0, initialM = 0, initialS = 0;
-  if (parts.length === 3) {
-    [initialH, initialM, initialS] = parts;
-  } else if (parts.length === 2) {
-    [initialM, initialS] = parts;
-  }
+  if (parts.length === 3) [initialH, initialM, initialS] = parts;
+  else if (parts.length === 2) [initialM, initialS] = parts;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setExpanded(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setExpanded(false);
     };
     if (expanded) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -175,65 +135,34 @@ export default function TimeSelectorField({
     let newH = type === "h" ? newVal : initialH;
     let newM = type === "m" ? newVal : initialM;
     let newS = type === "s" ? newVal : initialS;
-
     const arr = [];
     if (hh) arr.push(newH.toString().padStart(2, "0"));
     if (mm) arr.push(newM.toString().padStart(2, "0"));
     if (ss) arr.push(newS.toString().padStart(2, "0"));
-
     onChange(arr.join(":"));
   };
 
   return (
     <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
-      {/* Čistý label presne ako v SelectField */}
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
-
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(
-            baseClass,
-            error && FIELD_ERROR,
-            "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors"
-          )}
+          className={cx(baseClass, error && FIELD_ERROR, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors")}
         >
           <span>{safeValue}</span>
         </div>
       ) : (
-        <div
-          className={cx(
-            baseClass,
-            error && FIELD_ERROR,
-            "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group"
-          )}
-        >
+        <div className={cx(baseClass, error && FIELD_ERROR, "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group")}>
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
-
-          {hh && (
-            <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />
-          )}
-          
+          {hh && <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />}
           {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1">:</span>}
-
-          {mm && (
-            <SnapColumn max={59} value={initialM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />
-          )}
-
+          {mm && <SnapColumn max={59} value={initialM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />}
           {mm && ss && <span className="text-black/40 z-10 -mx-1">:</span>}
-
-          {ss && (
-            <SnapColumn max={59} value={initialS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />
-          )}
+          {ss && <SnapColumn max={59} value={initialS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />}
         </div>
       )}
-
-      {/* Identický spodok ako v SelectField */}
-      {error ? (
-        <div className={FIELD_ERROR_TEXT}>{error}</div>
-      ) : hint ? (
-        <div className={FIELD_HINT}>{hint}</div>
-      ) : null}
+      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : null}
     </div>
   );
 }

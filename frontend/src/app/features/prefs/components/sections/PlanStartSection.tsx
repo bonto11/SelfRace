@@ -197,7 +197,6 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
               min={1}
               max={52}
               step={1}
-              hint={t("common.units.weeksAbbrev")}
               value={local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : ""}
               onChange={(val) => applyWeeks(val)}
             />
