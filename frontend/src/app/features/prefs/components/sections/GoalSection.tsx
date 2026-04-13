@@ -27,7 +27,7 @@ const OVERALL_GOALS = [
 
 const RACE_GOALS = ["5k", "10k", "half", "marathon", "ultra", "other"] as const;
 const PRIORITIES = ["A", "B", "C"] as const;
-const RACE_TYPES = ["road", "trail", "track", "cross", "ocr", "other"] as const;
+const RACE_TYPES = ["road", "trail", "track", "cross", "hyrox","ocr", "other"] as const;
 const TERRAIN = ["flat", "rolling", "hilly", "mountain"] as const;
 const ELEVATION = ["low", "moderate", "high"] as const;
 
@@ -362,7 +362,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       min={0}
                       max={10000}
                       step={50}
-                      hint="m"
                       value={race.elevation_gain_m ?? ""}
                       onChange={(val) =>
                         updateRaceAt(index, {
@@ -414,7 +413,6 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                               min={1}
                               max={300}
                               step={1}
-                              hint="km"
                               value={race.custom_distance_km ?? ""}
                               onChange={(val) =>
                                 updateRaceAt(index, {
