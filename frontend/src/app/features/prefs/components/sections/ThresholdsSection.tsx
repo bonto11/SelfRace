@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
-// Importujeme naše nové bubny
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 import Button from "@/app/shared/ui/components/Button";
@@ -85,7 +84,6 @@ export default function ThresholdsSection({
   const thr = thresholds ?? {};
   const [open, setOpen] = useState(false);
 
-  // Fallback pre čas, ak neexistuje sekúndová hodnota z DB, dáme "00:00"
   const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km) || "00:00");
   
   useEffect(() => {
@@ -250,7 +248,7 @@ export default function ThresholdsSection({
               min={40}
               max={220}
               step={1}
-              suffix="bpm"
+              hint="bpm"
               value={thr.hr_bpm ?? ""}
               onChange={(val) => onChange({ ...thr, hr_bpm: val })}
             />
@@ -281,7 +279,7 @@ export default function ThresholdsSection({
               min={0}
               max={1000}
               step={1}
-              suffix="W"
+              hint="W"
               value={thr.power_watt ?? ""}
               onChange={(val) => onChange({ ...thr, power_watt: val })}
             />

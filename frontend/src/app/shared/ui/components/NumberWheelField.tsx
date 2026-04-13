@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   FIELD_EDITABLE_BASE,
@@ -26,12 +26,11 @@ type Props = {
   min: number;
   max: number;
   step?: number;
-  suffix?: string;
   value: number | null | "";
   onChange: (val: number) => void;
 };
 
-const ITEM_HEIGHT = 40; // Výška jedného riadku
+const ITEM_HEIGHT = 40;
 
 export default function NumberWheelField({
   label,
@@ -44,7 +43,6 @@ export default function NumberWheelField({
   min,
   max,
   step = 1,
-  suffix = "",
   value,
   onChange,
 }: Props) {
@@ -52,6 +50,8 @@ export default function NumberWheelField({
   const effectiveDisabled = disabled || !editable;
   const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
 
+  const [expanded, setExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolling = useRef(false);
   const scrollTimeout = useRef<any>(null);
@@ -70,14 +70,26 @@ export default function NumberWheelField({
 
   const safeValue = typeof value === "number" ? value : min;
 
+  // Kliknutie mimo komponent zavrie bubon
   useEffect(() => {
-    if (!isScrolling.current && scrollRef.current) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+      }
+    };
+    if (expanded) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
+
+  // Vycentrovanie kolesa pri otvorení
+  useEffect(() => {
+    if (expanded && scrollRef.current && !isScrolling.current) {
       const idx = options.indexOf(safeValue);
       if (idx >= 0) {
         scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
       }
     }
-  }, [safeValue, options]);
+  }, [expanded, safeValue, options]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (effectiveDisabled) return;
@@ -98,55 +110,69 @@ export default function NumberWheelField({
   };
 
   return (
-    <div className={cx("space-y-1", containerClassName)} style={style}>
+    <div className={cx("space-y-1", containerClassName)} style={style} ref={containerRef}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
-      <div
-        className={cx(
-          baseClass,
-          error && FIELD_ERROR,
-          className,
-          "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border border-transparent"
-        )}
-      >
-        {/* Zvýrazňovací pásik v strede */}
-        <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-white/10 rounded-lg pointer-events-none" />
-
+      {!expanded ? (
+        // ZBALENÝ STAV (Vyzerá ako normálny input)
         <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
-          style={{ touchAction: "pan-y" }}
+          onClick={() => !effectiveDisabled && setExpanded(true)}
+          className={cx(
+            baseClass,
+            error && FIELD_ERROR,
+            className,
+            "flex items-center px-3 h-10 cursor-pointer text-black transition-colors"
+          )}
         >
-          <div style={{ height: `${ITEM_HEIGHT}px` }} />
-          
-          {options.map((val) => {
-            const isSelected = val === safeValue;
-            return (
-              <div
-                key={val}
-                style={{ height: `${ITEM_HEIGHT}px` }}
-                className={cx(
-                  "snap-center flex items-center justify-center transition-all duration-200 select-none",
-                  isSelected
-                    ? "text-2xl font-black text-white"
-                    : "text-sm font-medium text-white/30"
-                )}
-              >
-                {val}
-              </div>
-            );
-          })}
-          
-          <div style={{ height: `${ITEM_HEIGHT}px` }} />
+          {value === "" || value === null ? (
+            <span className="opacity-50">Vyberte...</span>
+          ) : (
+            <span>{safeValue}</span>
+          )}
         </div>
+      ) : (
+        // ROZBALENÝ STAV (Točiaci sa bubon)
+        <div
+          className={cx(
+            baseClass,
+            error && FIELD_ERROR,
+            className,
+            "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner"
+          )}
+        >
+          {/* Výberový obdĺžnik v strede */}
+          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
 
-        {suffix && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-widest text-white/50 pointer-events-none">
-            {suffix}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
+            style={{ touchAction: "pan-y" }}
+          >
+            <div style={{ height: `${ITEM_HEIGHT}px` }} />
+            
+            {options.map((val) => {
+              const isSelected = val === safeValue;
+              return (
+                <div
+                  key={val}
+                  style={{ height: `${ITEM_HEIGHT}px` }}
+                  className={cx(
+                    "snap-center flex items-center justify-center transition-all duration-200 select-none",
+                    isSelected
+                      ? "text-lg text-black"
+                      : "text-sm text-black/30"
+                  )}
+                >
+                  {val}
+                </div>
+              );
+            })}
+            
+            <div style={{ height: `${ITEM_HEIGHT}px` }} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {error ? (
         <div className={FIELD_ERROR_TEXT}>{error}</div>

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { cx } from "@/app/shared/ui/utils/inputs";
 import {
   FIELD_EDITABLE_BASE,
@@ -25,7 +25,7 @@ type Props = {
   hh?: boolean;
   mm?: boolean;
   ss?: boolean;
-  value: string; // "mm:ss" alebo "hh:mm:ss"
+  value: string;
   onChange: (val: string) => void;
 };
 
@@ -36,11 +36,13 @@ function SnapColumn({
   value,
   onChange,
   disabled,
+  expanded,
 }: {
   max: number;
   value: number;
   onChange: (v: number) => void;
   disabled: boolean;
+  expanded: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrolling = useRef(false);
@@ -48,10 +50,10 @@ function SnapColumn({
   const options = Array.from({ length: max + 1 }, (_, i) => i);
 
   useEffect(() => {
-    if (!isScrolling.current && scrollRef.current) {
+    if (expanded && scrollRef.current && !isScrolling.current) {
       scrollRef.current.scrollTop = value * ITEM_HEIGHT;
     }
-  }, [value]);
+  }, [value, expanded]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -86,8 +88,8 @@ function SnapColumn({
             className={cx(
               "snap-center flex items-center justify-center transition-all duration-200 select-none",
               isSelected
-                ? "text-2xl font-black text-white"
-                : "text-sm font-medium text-white/30"
+                ? "text-lg text-black"
+                : "text-sm text-black/30"
             )}
           >
             {val.toString().padStart(2, "0")}
@@ -116,13 +118,16 @@ export default function TimeSelectorField({
   const effectiveDisabled = disabled || !editable;
   const baseClass = editable ? FIELD_EDITABLE_BASE : FIELD_READONLY_BASE;
 
+  const [expanded, setExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const style = {
     ...(editable ? FIELD_EDITABLE_STYLE : FIELD_READONLY_STYLE),
     ...(error ? FIELD_ERROR_STYLE : null),
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  // Bezpečný fallback ak nie je zadaná hodnota
+  // Bezpečný fallback
   const safeValue = value || (hh ? "00:00:00" : "00:00");
   const parts = safeValue.split(":").map(n => isNaN(Number(n)) ? 0 : Number(n));
   
@@ -132,6 +137,16 @@ export default function TimeSelectorField({
   } else if (parts.length === 2) {
     [initialM, initialS] = parts;
   }
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+      }
+    };
+    if (expanded) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
 
   const handleColumnChange = (type: "h" | "m" | "s", newVal: number) => {
     let newH = type === "h" ? newVal : initialH;
@@ -147,34 +162,47 @@ export default function TimeSelectorField({
   };
 
   return (
-    <div className={cx("space-y-1", containerClassName)} style={style}>
+    <div className={cx("space-y-1", containerClassName)} style={style} ref={containerRef}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
-      <div
-        className={cx(
-          baseClass,
-          error && FIELD_ERROR,
-          "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border border-transparent"
-        )}
-      >
-        <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-white/10 rounded-lg pointer-events-none" />
+      {!expanded ? (
+        <div
+          onClick={() => !effectiveDisabled && setExpanded(true)}
+          className={cx(
+            baseClass,
+            error && FIELD_ERROR,
+            "flex items-center px-3 h-10 cursor-pointer text-black transition-colors"
+          )}
+        >
+          <span>{safeValue}</span>
+        </div>
+      ) : (
+        <div
+          className={cx(
+            baseClass,
+            error && FIELD_ERROR,
+            "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner"
+          )}
+        >
+          <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
 
-        {hh && (
-          <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} />
-        )}
-        
-        {hh && (mm || ss) && <span className="font-bold text-white/50 z-10 -mx-1">:</span>}
+          {hh && (
+            <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />
+          )}
+          
+          {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1">:</span>}
 
-        {mm && (
-          <SnapColumn max={59} value={initialM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} />
-        )}
+          {mm && (
+            <SnapColumn max={59} value={initialM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />
+          )}
 
-        {mm && ss && <span className="font-bold text-white/50 z-10 -mx-1">:</span>}
+          {mm && ss && <span className="text-black/40 z-10 -mx-1">:</span>}
 
-        {ss && (
-          <SnapColumn max={59} value={initialS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} />
-        )}
-      </div>
+          {ss && (
+            <SnapColumn max={59} value={initialS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />
+          )}
+        </div>
+      )}
 
       {error ? (
         <div className={FIELD_ERROR_TEXT}>{error}</div>
