@@ -70,7 +70,6 @@ export default function NumberWheelField({
 
   const safeValue = typeof value === "number" ? value : min;
 
-  // Kliknutie mimo komponent zavrie bubon
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -81,12 +80,11 @@ export default function NumberWheelField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
-  // Vycentrovanie kolesa pri otvorení
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
       const idx = options.indexOf(safeValue);
       if (idx >= 0) {
-        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
+        scrollRef.current.scrollTo({ top: idx * ITEM_HEIGHT, behavior: "smooth" });
       }
     }
   }, [expanded, safeValue, options]);
@@ -109,12 +107,20 @@ export default function NumberWheelField({
     }
   };
 
+  // Funkcia pre šípky na PC
+  const stepValue = (direction: -1 | 1, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (effectiveDisabled) return;
+    const currentIndex = options.indexOf(safeValue);
+    const newIndex = Math.max(0, Math.min(options.length - 1, currentIndex + direction));
+    onChange(options[newIndex]);
+  };
+
   return (
     <div className={cx("space-y-1", containerClassName)} style={style} ref={containerRef}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       {!expanded ? (
-        // ZBALENÝ STAV (Vyzerá ako normálny input)
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
           className={cx(
@@ -131,16 +137,26 @@ export default function NumberWheelField({
           )}
         </div>
       ) : (
-        // ROZBALENÝ STAV (Točiaci sa bubon)
         <div
           className={cx(
             baseClass,
             error && FIELD_ERROR,
             className,
-            "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner"
+            "relative h-[120px] p-0 overflow-hidden flex items-center rounded-xl border-gray-300 shadow-inner group"
           )}
         >
-          {/* Výberový obdĺžnik v strede */}
+          {/* Šípka HORE (len na PC pri hoveri) */}
+          <button
+            type="button"
+            onClick={(e) => stepValue(-1, e)}
+            disabled={safeValue === options[0]}
+            className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-gray-100 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
 
           <div
@@ -159,9 +175,7 @@ export default function NumberWheelField({
                   style={{ height: `${ITEM_HEIGHT}px` }}
                   className={cx(
                     "snap-center flex items-center justify-center transition-all duration-200 select-none",
-                    isSelected
-                      ? "text-lg text-black"
-                      : "text-sm text-black/30"
+                    isSelected ? "text-lg text-black font-bold" : "text-sm text-black/30 font-medium"
                   )}
                 >
                   {val}
@@ -171,14 +185,22 @@ export default function NumberWheelField({
             
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
           </div>
+
+          {/* Šípka DOLE (len na PC pri hoveri) */}
+          <button
+            type="button"
+            onClick={(e) => stepValue(1, e)}
+            disabled={safeValue === options[options.length - 1]}
+            className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-gray-100 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
       )}
 
-      {error ? (
-        <div className={FIELD_ERROR_TEXT}>{error}</div>
-      ) : hint ? (
-        <div className={FIELD_HINT}>{hint}</div>
-      ) : null}
+      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : hint ? <div className={FIELD_HINT}>{hint}</div> : null}
     </div>
   );
 }

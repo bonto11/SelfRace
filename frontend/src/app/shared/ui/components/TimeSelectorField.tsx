@@ -51,7 +51,7 @@ function SnapColumn({
 
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
-      scrollRef.current.scrollTop = value * ITEM_HEIGHT;
+      scrollRef.current.scrollTo({ top: value * ITEM_HEIGHT, behavior: "smooth" });
     }
   }, [value, expanded]);
 
@@ -65,38 +65,64 @@ function SnapColumn({
 
     const y = e.currentTarget.scrollTop;
     const idx = Math.max(0, Math.min(options.length - 1, Math.round(y / ITEM_HEIGHT)));
-    const val = options[idx];
-    if (val !== undefined && val !== value) {
-      onChange(val);
+    if (options[idx] !== undefined && options[idx] !== value) {
+      onChange(options[idx]);
     }
   };
 
+  const stepValue = (direction: -1 | 1, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (disabled) return;
+    const newVal = Math.max(0, Math.min(max, value + direction));
+    onChange(newVal);
+  };
+
   return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="h-full flex-1 overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
-      style={{ touchAction: "pan-y" }}
-    >
-      <div style={{ height: `${ITEM_HEIGHT}px` }} />
-      {options.map((val) => {
-        const isSelected = val === value;
-        return (
-          <div
-            key={val}
-            style={{ height: `${ITEM_HEIGHT}px` }}
-            className={cx(
-              "snap-center flex items-center justify-center transition-all duration-200 select-none",
-              isSelected
-                ? "text-lg text-black"
-                : "text-sm text-black/30"
-            )}
-          >
-            {val.toString().padStart(2, "0")}
-          </div>
-        );
-      })}
-      <div style={{ height: `${ITEM_HEIGHT}px` }} />
+    <div className="relative h-full flex-1 group/col">
+      {/* Šípka HORE */}
+      <button
+        type="button"
+        onClick={(e) => stepValue(-1, e)}
+        disabled={value === 0}
+        className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-gray-100 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
+      >
+        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+      </button>
+
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] outline-none"
+        style={{ touchAction: "pan-y" }}
+      >
+        <div style={{ height: `${ITEM_HEIGHT}px` }} />
+        {options.map((val) => {
+          const isSelected = val === value;
+          return (
+            <div
+              key={val}
+              style={{ height: `${ITEM_HEIGHT}px` }}
+              className={cx(
+                "snap-center flex items-center justify-center transition-all duration-200 select-none",
+                isSelected ? "text-lg text-black font-bold" : "text-sm text-black/30 font-medium"
+              )}
+            >
+              {val.toString().padStart(2, "0")}
+            </div>
+          );
+        })}
+        <div style={{ height: `${ITEM_HEIGHT}px` }} />
+      </div>
+
+      {/* Šípka DOLE */}
+      <button
+        type="button"
+        onClick={(e) => stepValue(1, e)}
+        disabled={value === max}
+        className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-gray-100 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity disabled:opacity-0 cursor-pointer"
+      >
+        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+      </button>
     </div>
   );
 }
@@ -127,7 +153,6 @@ export default function TimeSelectorField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  // Bezpečný fallback
   const safeValue = value || (hh ? "00:00:00" : "00:00");
   const parts = safeValue.split(":").map(n => isNaN(Number(n)) ? 0 : Number(n));
   
@@ -181,7 +206,7 @@ export default function TimeSelectorField({
           className={cx(
             baseClass,
             error && FIELD_ERROR,
-            "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner"
+            "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group"
           )}
         >
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
@@ -204,11 +229,7 @@ export default function TimeSelectorField({
         </div>
       )}
 
-      {error ? (
-        <div className={FIELD_ERROR_TEXT}>{error}</div>
-      ) : hint ? (
-        <div className={FIELD_HINT}>{hint}</div>
-      ) : null}
+      {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : hint ? <div className={FIELD_HINT}>{hint}</div> : null}
     </div>
   );
 }
