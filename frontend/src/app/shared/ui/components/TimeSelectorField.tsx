@@ -77,7 +77,9 @@ function SnapColumn({
       <button type="button" onClick={(e) => stepValue(-1, e)} disabled={value === 0} className="absolute top-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-b from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
         <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
-      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
+      
+      {/* ✅ Pridaný overscroll-contain na zabránenie prenosu scrollu zo stĺpca */}
+      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-contain snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
         {options.map((val) => (
           <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === value ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
@@ -86,6 +88,7 @@ function SnapColumn({
         ))}
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
       </div>
+      
       <button type="button" onClick={(e) => stepValue(1, e)} disabled={value === max} className="absolute bottom-0 left-0 right-0 h-8 z-20 flex items-center justify-center bg-gradient-to-t from-white/20 to-transparent opacity-0 sm:group-hover/col:opacity-100 transition-opacity">
         <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M19 9l-7 7-7-7" /></svg>
       </button>
@@ -123,12 +126,25 @@ export default function TimeSelectorField({
   if (parts.length === 3) [initialH, initialM, initialS] = parts;
   else if (parts.length === 2) [initialM, initialS] = parts;
 
+  // Kliknutie mimo zatvorí bubon
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setExpanded(false);
     };
     if (expanded) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
+
+  // ✅ Zamknutie scrollovania stránky, keď je časovač otvorený
+  useEffect(() => {
+    if (expanded) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [expanded]);
 
   const handleColumnChange = (type: "h" | "m" | "s", newVal: number) => {
