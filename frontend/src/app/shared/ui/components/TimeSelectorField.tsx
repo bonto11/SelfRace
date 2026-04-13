@@ -78,8 +78,8 @@ function SnapColumn({
         <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
       
-      {/* ✅ Pridaný overscroll-contain na zabránenie prenosu scrollu zo stĺpca */}
-      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-contain snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none">
+      {/* overscroll-y-none zabráni presunu ťahania na stránku */}
+      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
         {options.map((val) => (
           <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === value ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
@@ -126,7 +126,6 @@ export default function TimeSelectorField({
   if (parts.length === 3) [initialH, initialM, initialS] = parts;
   else if (parts.length === 2) [initialM, initialS] = parts;
 
-  // Kliknutie mimo zatvorí bubon
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setExpanded(false);
@@ -135,14 +134,17 @@ export default function TimeSelectorField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
-  // ✅ Zamknutie scrollovania stránky, keď je časovač otvorený
+  // Ultimátny zámok scrollovania aj pre TimeSelector
   useEffect(() => {
     if (expanded) {
+      document.documentElement.style.overflow = "hidden";
       document.body.style.overflow = "hidden";
     } else {
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     }
     return () => {
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
     };
   }, [expanded]);
@@ -159,8 +161,22 @@ export default function TimeSelectorField({
   };
 
   return (
-    <div className={cx("space-y-1 w-full", containerClassName)} style={style} ref={containerRef}>
+    <div 
+      className={cx("space-y-1 w-full", expanded ? "relative z-50" : "", containerClassName)} 
+      style={style} 
+      ref={containerRef}
+    >
+      {/* Neviditeľný backdrop */}
+      {expanded && (
+        <div 
+          className="fixed inset-0 z-40" 
+          style={{ touchAction: "none" }} 
+          onClick={() => setExpanded(false)} 
+        />
+      )}
+
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
+      
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
@@ -169,7 +185,7 @@ export default function TimeSelectorField({
           <span>{safeValue}</span>
         </div>
       ) : (
-        <div className={cx(baseClass, error && FIELD_ERROR, "relative h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group")}>
+        <div className={cx(baseClass, error && FIELD_ERROR, "relative z-50 h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group")}>
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
           {hh && <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />}
           {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1">:</span>}
