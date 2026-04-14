@@ -4,8 +4,9 @@ from typing import Any, Dict, Optional, List
 
 from Modules.Supabase.client import get_sb, get_service_client
 from Modules.Supabase.auth import AuthCtx
-from Configs.config import TABLE_USERS
-
+from Configs.config import TABLE_USERS, TABLE_APP_SETTINGS
+from typing import Any, Dict
+from datetime import datetime, timezone
 
 def db_get_user_by_auth_uid(
     auth_uid: str,
@@ -159,42 +160,30 @@ def db_get_user_display_name(
         return None
 
 # =========================================================================
-# NOVÁ FUNKCIA: HROMADNÉ ODHLÁSENIE
+# NOVÁ FUNKCIA: HROMADNÉ ODHLÁSENIE (Cez Timestamp Signál)
 # =========================================================================
 def db_force_logout_all_users(*, ctx: AuthCtx) -> Dict[str, Any]:
     """
-    Prejde všetkých používateľov a cez Admin API zneplatní ich tokeny
-    (odhlási ich zo všetkých zariadení).
-    Vyžaduje Service Role Client pre manipuláciu s cudzími Auth objektmi.
+    Vyšle signál všetkým aktívnym klientom na okamžité odhlásenie
+    aktualizáciou 'force_logout_at' v tabuľke TABLE_APP_SETTINGS.
     """
-    # 1. Vyžiadame si Admin klienta, ktorý má právo mazať sessions komukoľvek
+    # Použijeme service clienta, aby sme mohli bezpečne updatovať TABLE_APP_SETTINGS
     admin_sb = get_service_client()
     
-    success_count = 0
-    fail_count = 0
-
     try:
-        # 2. Zoznam užívateľov vytiahneme normálne
-        users = db_list_users_for_cron(limit=10000, ctx=ctx)
+        # 1. Načítame aktuálne hodnoty
+        res = admin_sb.table(TABLE_APP_SETTINGS).select("value").eq("key", "maintenance_mode").execute()
+        current_val = res.data[0].get("value", {}) if res.data else {}
         
-        for u in users:
-            auth_uid = u.get("auth_uid")
-            if not auth_uid:
-                continue
-                
-            try:
-                # 3. Použijeme ADMIN klienta na zneplatnenie session
-                admin_sb.auth.admin.sign_out(auth_uid)
-                success_count += 1
-            except Exception as e:
-                print(f"[FORCE LOGOUT] Zlyhalo pre {auth_uid}: {e}")
-                fail_count += 1
+        # 2. Vložíme aktuálny UTC čas
+        current_val["force_logout_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # 3. Uložíme to späť. Toto okamžite odpáli Realtime event do Frontendu!
+        admin_sb.table(TABLE_APP_SETTINGS).update({"value": current_val}).eq("key", "maintenance_mode").execute()
 
         return {
             "success": True, 
-            "success_count": success_count, 
-            "fail_count": fail_count,
-            "message": f"Odhlásených {success_count} užívateľov."
+            "message": "Signál na hromadné odhlásenie bol úspešne vyslaný."
         }
     except Exception as e:
         print(f"[FORCE LOGOUT CRITICAL] Zlyhanie celej funkcie: {e}")

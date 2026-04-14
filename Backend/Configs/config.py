@@ -107,6 +107,7 @@ TABLE_AI_WALLET_TRANSACTION = "ai_wallet_transactions"
 
 TABLE_APP_SUBSCRIPTION_TIERS = "app_subscription_tiers"
 TABLE_APP_USER_SUBSCRIPTIONS = "app_user_subscriptions"
+TABLE_APP_SETTINGS = "app_settings"
 
 TABLE_PUSH_NOTIFICATIONS = "push_notifications"
 

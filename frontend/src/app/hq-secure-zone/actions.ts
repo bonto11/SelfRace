@@ -1,6 +1,7 @@
 "use server";
 
 import { getSupabaseServer } from "@/app/shared/utils/supabaseServer";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import {
   API_URL,
@@ -194,4 +195,24 @@ export async function getMaintenanceSettings() {
   }
   
   return data?.value || null;
+}
+
+export async function forceServerSignOut() {
+  const supabase = await getSupabaseServer();
+  
+  // 1. Zneplatníme session cez štandardný Supabase proces
+  await supabase.auth.signOut();
+
+  // 2. NUKLEÁRNY ÚDER NA SERVERI (pretože JS na klientovi HttpOnly cookies nezmaže)
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  
+  allCookies.forEach((cookie) => {
+    // Ak cookie patrí Supabase auth systému (začína na sb-), natvrdo ju odstránime
+    if (cookie.name.startsWith("sb-")) {
+      cookieStore.delete(cookie.name);
+    }
+  });
+
+  return { success: true };
 }
