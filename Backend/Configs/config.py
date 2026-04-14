@@ -116,6 +116,7 @@ TABLE_PUSH_NOTIFICATIONS = "push_notifications"
 BACKEND_URL: str = env_required("BACKEND_URL")
 FRONTEND_URL: str = env_required("FRONTEND_URL")
 MAINTENANCE_API_KEY: str = env_required("MAINTENANCE_API_KEY")
+CRON_SECRET: str = env_required("CRON_SECRET")
 
 SUPABASE_URL: str = env_required("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE: str = env_required("SUPABASE_SERVICE_ROLE")
