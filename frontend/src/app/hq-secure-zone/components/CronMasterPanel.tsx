@@ -41,10 +41,9 @@ export default function CronMasterPanel() {
     { id: "notify-recovery", label: "Push: Recovery Tips", group: "Notifications" },
     { id: "notify-review", label: "Push: Evening Review", group: "Notifications" },
     // Tu môžeš pridať testovací ping, ak ho v backende naimplementuješ
-    { id: "hourly-ping", label: "Test Hourly Ping", group: "Notifications" },
     {
       id: "weekly-athlete-state",
-      label: "Force AI Refresh (50)",
+      label: "Weekly analyze athlete",
       group: "AI & Plans",
     },
     {
@@ -55,12 +54,12 @@ export default function CronMasterPanel() {
     { id: "app-subscriptions-apply", label: "Sync Subscriptions", group: "System" },
     {
       id: "cleanup-expired-activities",
-      label: "Clean Expired Files",
+      label: "Clean Expired Activities",
       group: "System",
     },
     {
       id: "cleanup-deleted-activities",
-      label: "Purge Deleted Data",
+      label: "Clean Deleted Data",
       group: "System",
     },
     {

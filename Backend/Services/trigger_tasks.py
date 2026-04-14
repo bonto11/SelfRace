@@ -52,7 +52,6 @@ def service_run_master_scheduler(
         # Databáza & Údržba
         if task == "cleanup-deleted-activities":
             service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30)
-        elif task == "cleanup-expired-activity-details":
             service_cleanup_expired_activity_details(ctx=ctx)
         elif task == "app-subscriptions-apply":
             service_apply_due_subscription_changes(ctx=ctx)
