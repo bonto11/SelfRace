@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { triggerMaintenanceTask, forceGlobalLogout } from "../actions";
+import { triggerMaintenanceTask } from "../actions";
 
 export default function CronMasterPanel() {
   const [taskRunning, setTaskRunning] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export default function CronMasterPanel() {
     try {
       const res = await triggerMaintenanceTask(taskName);
       alert(
-        `✅ Úloha úspešne dokončená. Odpoveď backendu: ${res.message || "OK"}`
+        `✅ Úloha úspešne dokončená. Odpoveď backendu: ${res.message || "OK"}`,
       );
     } catch (err: any) {
       alert(`❌ Chyba: ${err.message}`);
@@ -26,7 +26,7 @@ export default function CronMasterPanel() {
       return;
     setTaskRunning("force-logout-all");
     try {
-      // 🚀 ZMENA: Môžeš to riešiť priamo cez backend task rovnako ako ostatné
+      // Voláme to rovnako ako ostatné tasky, backend to vyrieši
       const res = await triggerMaintenanceTask("force-logout-all");
       alert(`✅ ${res.message || "Signál na odhlásenie bol odoslaný!"}`);
     } catch (err: any) {
@@ -37,10 +37,21 @@ export default function CronMasterPanel() {
   };
 
   const allCronTasks = [
-    { id: "notify-training", label: "Push: Morning Training", group: "Notifications" },
-    { id: "notify-recovery", label: "Push: Recovery Tips", group: "Notifications" },
-    { id: "notify-review", label: "Push: Evening Review", group: "Notifications" },
-    // Tu môžeš pridať testovací ping, ak ho v backende naimplementuješ
+    {
+      id: "notify-training",
+      label: "Push: Morning Training",
+      group: "Notifications",
+    },
+    {
+      id: "notify-recovery",
+      label: "Push: Recovery Tips",
+      group: "Notifications",
+    },
+    {
+      id: "notify-review",
+      label: "Push: Evening Review",
+      group: "Notifications",
+    },
     {
       id: "weekly-athlete-state",
       label: "Weekly analyze athlete",
@@ -51,7 +62,16 @@ export default function CronMasterPanel() {
       label: "Auto-Complete Plans",
       group: "AI & Plans",
     },
-    { id: "app-subscriptions-apply", label: "Sync Subscriptions", group: "System" },
+    {
+      id: "check-ai-models",
+      label: "Monitor AI Models Health",
+      group: "AI & Plans",
+    },
+    {
+      id: "app-subscriptions-apply",
+      label: "Sync Subscriptions",
+      group: "System",
+    },
     {
       id: "cleanup-expired-activities",
       label: "Clean Expired Activities",
@@ -67,34 +87,42 @@ export default function CronMasterPanel() {
       label: "Hard Delete Accounts",
       group: "Danger",
     },
-    {
-      id: "check-ai-models",
-      label: "Monitor AI Models Health",
-      group: "AI & Plans",
-    },
   ];
 
   return (
     <div className="bg-gray-900 border-t-4 border-red-600 rounded-b-2xl shadow-2xl overflow-hidden transition-all duration-300">
-      
       {/* HLAVIČKA */}
-      <div 
+      <div
         className="p-6 md:p-8 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <h3 className="text-red-600 font-black flex items-center gap-3 uppercase tracking-tighter text-xl italic">
           <span className="animate-pulse">🔴</span> Cron Master Operations
         </h3>
-        
-        <div className={`text-red-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+
+        <div
+          className={`text-red-500 transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </div>
       </div>
 
       {/* ROZBALENÝ OBSAH */}
-      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100 border-t border-gray-800' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+      <div
+        className={`transition-all duration-500 ease-in-out ${isOpen ? "max-h-[1500px] opacity-100 border-t border-gray-800" : "max-h-0 opacity-0 overflow-hidden"}`}
+      >
         <div className="p-6 md:p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCronTasks.map((task) => (
@@ -117,7 +145,7 @@ export default function CronMasterPanel() {
               </button>
             ))}
           </div>
-          
+
           <div className="mt-10 pt-8 border-t border-gray-800">
             <button
               onClick={handleForceLogout}

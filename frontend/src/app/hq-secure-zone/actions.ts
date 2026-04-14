@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import {
   API_URL,
   MAINTENANCE_API_KEY,
-  FRONTEND_URL,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
 } from "@/app/shared/config";
@@ -35,7 +34,6 @@ export async function updateMaintenanceMode(
   await verifyAdmin();
   const supabase = await getSupabaseServer();
 
-  // 1. NAJPRV ZISTÍME AKTUÁLNY STAV (pred zmenou)
   const { data: currentSettings } = await supabase
     .from("app_settings")
     .select("value")
@@ -44,15 +42,12 @@ export async function updateMaintenanceMode(
 
   const wasActive = currentSettings?.value?.active === true;
 
-  // 2. PRIPRAVÍME NOVÉ NASTAVENIA
   const newValue = {
     active,
     message: { sk: msgSk, en: msgEn },
-    // Zachováme aj force_logout, ak tam bol
     force_logout_at: currentSettings?.value?.force_logout_at || null 
   };
 
-  // 3. ULOŽÍME DO DATABÁZY
   const { error } = await supabase
     .from("app_settings")
     .update({ value: newValue })
@@ -60,7 +55,6 @@ export async function updateMaintenanceMode(
 
   if (error) throw new Error(error.message);
 
-  // 🚀 4. AUTOMATICKÁ NOTIFIKÁCIA PRI VYPNUTÍ
   if (wasActive && !active) {
     try {
       await sendGlobalNotification({
@@ -108,14 +102,14 @@ export async function triggerMaintenanceTask(task: string) {
   await verifyAdmin();
 
   const response = await fetch(
-    `${API_URL}/trigger/manual`,  // Len jedna URL!
+    `${API_URL}/trigger/manual`,
     {
       method: "POST",
       headers: {
         "x-api-key": MAINTENANCE_API_KEY as string,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ mode: "manual", task }), // Povieme mu, že to robíme manuálne
+      body: JSON.stringify({ mode: "manual", task }),
     }
   );
 
@@ -125,34 +119,6 @@ export async function triggerMaintenanceTask(task: string) {
   }
 
   return await response.json();
-}
-
-export async function forceGlobalLogout() {
-  await verifyAdmin();
-  const supabase = await getSupabaseServer();
-
-  const { data: current } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "maintenance_mode")
-    .single();
-
-  const updatedValue = {
-    ...current?.value,
-    force_logout_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase
-    .from("app_settings")
-    .update({ value: updatedValue })
-    .eq("key", "maintenance_mode");
-
-  if (error) throw new Error(error.message);
-
-  return {
-    success: true,
-    message: "Signál na odhlásenie bol odoslaný všetkým klientom!",
-  };
 }
 
 export async function getSystemDiagnostics() {
