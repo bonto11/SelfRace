@@ -74,29 +74,29 @@ export default function SessionGuard() {
     };
   }, [supabase]);
 
-  const handleGlobalLogout = async (logoutTimestamp: string) => {
-    // 1. Uložíme si čas odhlásenia ako prevenciu pred loopom
-    localStorage.setItem('last_force_logout', logoutTimestamp);
-
-    // 2. Štandardný pokus o odhlásenie zo Supabase session
+ const handleGlobalLogout = async (logoutTimestamp: string) => {
+    // 1. Štandardný pokus o odhlásenie zo Supabase session
     try {
       await supabase.auth.signOut();
     } catch (e) {
       console.warn("[SessionGuard] Error during client signOut:", e);
     }
 
-    // 3. Zavoláme Server Action, aby zmazal bezpečné HttpOnly cookies (DÔLEŽITÉ!)
+    // 2. Zavoláme Server Action, aby zmazal bezpečné HttpOnly cookies
     try {
       await forceServerSignOut();
     } catch (e) {
       console.warn("[SessionGuard] Serverové odhlásenie zlyhalo:", e);
     }
 
-    // 4. Nukleárny úder na lokálny stav klienta
+    // 3. Nukleárny úder na lokálny stav klienta
     if (typeof window !== "undefined") {
-      // Vyčistíme lokálne úložiská (všetky cacheované dáta)
+      // NAJPRV VŠETKO VYČISTÍME
       window.localStorage.clear(); 
       window.sessionStorage.clear();
+
+      // 🚨 AŽ POTOM ULOŽÍME ČAS ODHLÁSENIA AKO POISTKU! (Oprava slučky)
+      localStorage.setItem('last_force_logout', logoutTimestamp);
 
       // Natvrdo vymažeme všetky Supabase cookies z klientskej strany
       document.cookie.split(";").forEach((c) => {
@@ -106,7 +106,7 @@ export default function SessionGuard() {
         }
       });
 
-      // 5. Hard reload na úvodnú obrazovku (zahodí celú React pamäť)
+      // Hard reload na úvodnú obrazovku
       window.location.replace("/");
     }
   };
