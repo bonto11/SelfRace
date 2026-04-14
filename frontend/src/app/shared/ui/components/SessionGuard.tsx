@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import { RealtimePostgresUpdatePayload } from "@supabase/supabase-js";
 import { forceServerSignOut } from "@/app/hq-secure-zone/actions";
+import { usePathname } from "next/navigation";
 
-// Definujeme si štruktúru dát v app_settings, aby TS vedel, čo hľadať
 interface AppSettings {
   force_logout_at?: string;
   active?: boolean;
@@ -14,35 +14,98 @@ interface AppSettings {
 
 export default function SessionGuard() {
   const supabase = getSupabaseBrowser();
+  const pathname = usePathname();
+
+  // 🛡️ POMOCNÁ FUNKCIA: Má aktuálny používateľ imunitu (Admin)?
+  const checkIsAdmin = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('auth_uid', user.id)
+      .single();
+      
+    return profile?.role === 'ADMIN';
+  };
+
+  // 🧠 HLAVNÝ MOZOG: Spracovanie prijatých dát z databázy
+  const processSettings = async (settings?: AppSettings) => {
+    if (!settings) return;
+    
+    const forceLogoutAt = settings.force_logout_at;
+    const isMaintenanceActive = settings.active;
+    
+    const lastLogout = localStorage.getItem('last_force_logout');
+    const needsLogout = forceLogoutAt && lastLogout !== forceLogoutAt;
+
+    // 1. NÁVRAT Z ÚDRŽBY: Ak sme na maintenance stránke, ale údržba už nebeží
+    if (!isMaintenanceActive && pathname === '/maintenance') {
+      console.log("🟢 [SessionGuard] Údržba skončila! Presmerovávam do appky...");
+      window.location.assign('/'); // Hodíme ho späť (middleware už ho pustí na activities)
+      return;
+    }
+
+    // Ak sa nevyžaduje logout, nebeží údržba a nie sme na maintenance stránke, končíme
+    if (!needsLogout && !isMaintenanceActive) return;
+
+    // Skontrolujeme Admin Imunitu
+    const isAdmin = await checkIsAdmin();
+
+    if (isAdmin) {
+      // 👑 ADMIN IMUNITA
+      if (needsLogout) {
+        localStorage.setItem('last_force_logout', forceLogoutAt);
+        console.log("🛡️ [SessionGuard] Force Logout ignorovaný (Admin Imunita)");
+      }
+      return; 
+    }
+
+    // --- LOGIKA PRE BEŽNÝCH POUŽÍVATEĽOV ---
+
+    // 1. Zasiahol nás Nukleárny úder (Force Logout)
+    if (needsLogout) {
+      console.log("🚨 [SessionGuard] Prijatý signál na odhlásenie.");
+      await handleGlobalLogout(forceLogoutAt);
+      return; 
+    }
+
+    // 2. Bola zapnutá Údržba a používateľ ešte nie je na maintenance obrazovke
+    if (isMaintenanceActive && pathname !== '/maintenance') {
+      console.log("🚧 [SessionGuard] Údržba je aktívna! Presmerovávam...");
+      window.location.assign('/maintenance');
+    }
+  };
+
+  // 🔍 Agresívna kontrola (Pri zmene URL alebo vytiahnutí appky z pozadia)
+  const checkAggressively = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'maintenance_mode')
+        .single();
+      
+      await processSettings(data?.value);
+    } catch (e) {
+      console.warn("[SessionGuard] Aggressive check failed:", e);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
+    checkAggressively();
 
-    // 1. KONTROLA PRE OFFLINE POUŽÍVATEĽOV (Spustí sa hneď po načítaní)
-    const checkInitialStatus = async () => {
-      try {
-        const { data } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'maintenance_mode')
-          .single();
-          
-        const forceLogoutAt = data?.value?.force_logout_at;
-        if (forceLogoutAt && isMounted) {
-          const lastLogout = localStorage.getItem('last_force_logout');
-          if (lastLogout !== forceLogoutAt) {
-            console.log("🚨 [InitialCheck] Found unhandled force logout signal!");
-            handleGlobalLogout(forceLogoutAt);
-          }
-        }
-      } catch (e) {
-        console.warn("[SessionGuard] Initial check failed:", e);
-      }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") checkAggressively();
     };
-    
-    checkInitialStatus();
 
-    // 2. KONTROLA PRE ONLINE POUŽÍVATEĽOV (Realtime Listener)
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [pathname]);
+
+  // EFEKT 2: Realtime Listener
+  useEffect(() => {
     const channel = supabase
       .channel('global-session-checks')
       .on(
@@ -54,51 +117,26 @@ export default function SessionGuard() {
           filter: 'key=eq.maintenance_mode' 
         },
         (payload: RealtimePostgresUpdatePayload<{ value: AppSettings }>) => {
-          const forceLogoutAt = payload.new.value?.force_logout_at;
-          
-          if (forceLogoutAt) {
-            // Zamedzíme zacykleniu – ak sme už tento konkrétny signál spracovali, ignorujeme ho
-            const lastLogout = localStorage.getItem('last_force_logout');
-            if (lastLogout !== forceLogoutAt) {
-              console.log("🚨 [Realtime] Received global force logout signal.");
-              handleGlobalLogout(forceLogoutAt);
-            }
-          }
+          processSettings(payload.new.value);
         }
       )
       .subscribe();
 
     return () => {
-      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [supabase]);
 
- const handleGlobalLogout = async (logoutTimestamp: string) => {
-    // 1. Štandardný pokus o odhlásenie zo Supabase session
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.warn("[SessionGuard] Error during client signOut:", e);
-    }
+  const handleGlobalLogout = async (logoutTimestamp: string) => {
+    try { await supabase.auth.signOut(); } catch (e) {}
+    try { await forceServerSignOut(); } catch (e) {}
 
-    // 2. Zavoláme Server Action, aby zmazal bezpečné HttpOnly cookies
-    try {
-      await forceServerSignOut();
-    } catch (e) {
-      console.warn("[SessionGuard] Serverové odhlásenie zlyhalo:", e);
-    }
-
-    // 3. Nukleárny úder na lokálny stav klienta
     if (typeof window !== "undefined") {
-      // NAJPRV VŠETKO VYČISTÍME
       window.localStorage.clear(); 
       window.sessionStorage.clear();
-
-      // 🚨 AŽ POTOM ULOŽÍME ČAS ODHLÁSENIA AKO POISTKU! (Oprava slučky)
+      
       localStorage.setItem('last_force_logout', logoutTimestamp);
 
-      // Natvrdo vymažeme všetky Supabase cookies z klientskej strany
       document.cookie.split(";").forEach((c) => {
         const cookieName = c.split("=")[0].trim();
         if (cookieName.startsWith("sb-")) {
@@ -106,10 +144,9 @@ export default function SessionGuard() {
         }
       });
 
-      // Hard reload na úvodnú obrazovku
       window.location.replace("/");
     }
   };
 
-  return null; // Komponent nič nerenderuje
+  return null;
 }
