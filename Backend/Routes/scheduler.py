@@ -9,9 +9,11 @@ from Services.scheduler import service_run_master_scheduler
 
 router = APIRouter(prefix="/scheduler", tags=["scheduler"])
 
-def _verify_cron_auth(x_api_key: str | None) -> None:
-    """Overenie, že request prichádza z Google Schedulera (cez náš kľúč)."""
-    if not MAINTENANCE_API_KEY or x_api_key != MAINTENANCE_API_KEY:
+def _verify_cron_auth(authorization: str | None) -> None:
+    """Overenie, že request prichádza z Google Schedulera s Bearer tokenom."""
+    expected_header = f"Bearer {MAINTENANCE_API_KEY}"
+    
+    if not authorization or authorization != expected_header:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized scheduler access",
@@ -19,19 +21,18 @@ def _verify_cron_auth(x_api_key: str | None) -> None:
 
 @router.post("/trigger")
 async def scheduler_trigger_endpoint(
-    x_api_key: str | None = Header(default=None),
+    # Zmenili sme x_api_key na authorization
+    authorization: str | None = Header(default=None),
 ):
     """
     MASTER TRIGGER: Volaný Google Schedulerom každú hodinu.
-    Deleguje logiku do Services.scheduler.
     """
-    # 1. Kontrola autorizácie
-    _verify_cron_auth(x_api_key)
+    # 1. Kontrola autorizácie (Bearer token)
+    _verify_cron_auth(authorization)
     
-    # 2. Inicializácia kontextu
+    # ... (zvyšok kódu zostáva úplne rovnaký)
     ctx = service_ctx("scheduler.master_trigger")
-
-    # 3. Spustenie biznis logiky v Services
+    
     try:
         result_data = service_run_master_scheduler(ctx=ctx)
         return JSONResponse(result_data)

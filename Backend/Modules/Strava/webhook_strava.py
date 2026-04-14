@@ -24,7 +24,7 @@ from Configs.config import (
 )
 from Modules.Supabase.auth import service_ctx
 
-from Routes_DB.activities_summary import db_get_last_activity_start
+from DB.activities_summary import db_get_last_activity_start
 from Services.synchronization_utils import decide_sync_plan
 from Services.async_jobs import service_enqueue_job
 
