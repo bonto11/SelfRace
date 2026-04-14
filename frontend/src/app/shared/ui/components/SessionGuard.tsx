@@ -6,6 +6,7 @@ import { RealtimePostgresUpdatePayload } from "@supabase/supabase-js";
 import { forceServerSignOut } from "@/app/hq-secure-zone/actions";
 import { usePathname } from "next/navigation";
 
+// Definujeme si štruktúru dát v app_settings
 interface AppSettings {
   force_logout_at?: string;
   active?: boolean;
@@ -16,7 +17,7 @@ export default function SessionGuard() {
   const supabase = getSupabaseBrowser();
   const pathname = usePathname();
 
-  // 🛡️ POMOCNÁ FUNKCIA: Má aktuálny používateľ imunitu (Admin)?
+  // POMOCNÁ FUNKCIA: Má aktuálny používateľ imunitu (Admin)?
   const checkIsAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
@@ -30,7 +31,7 @@ export default function SessionGuard() {
     return profile?.role === 'ADMIN';
   };
 
-  // 🧠 HLAVNÝ MOZOG: Spracovanie prijatých dát z databázy
+  // Spracovanie prijatých dát z databázy
   const processSettings = async (settings?: AppSettings) => {
     if (!settings) return;
     
@@ -40,6 +41,13 @@ export default function SessionGuard() {
     const lastLogout = localStorage.getItem('last_force_logout');
     const needsLogout = forceLogoutAt && lastLogout !== forceLogoutAt;
 
+    // 🚀 ZMENA: Sledujeme zmenu stavu údržby pre vizuálny refresh Admina
+    const prevMaintenance = sessionStorage.getItem('was_maintenance_active') === 'true';
+    const changedMaintenance = prevMaintenance !== !!isMaintenanceActive;
+    
+    // Zapíšeme si aktuálny stav, aby sme ne-refreshovali donekonečna
+    sessionStorage.setItem('was_maintenance_active', String(!!isMaintenanceActive));
+
     // 1. NÁVRAT Z ÚDRŽBY: Ak sme na maintenance stránke, ale údržba už nebeží
     if (!isMaintenanceActive && pathname === '/maintenance') {
       console.log("🟢 [SessionGuard] Údržba skončila! Presmerovávam do appky...");
@@ -47,8 +55,8 @@ export default function SessionGuard() {
       return;
     }
 
-    // Ak sa nevyžaduje logout, nebeží údržba a nie sme na maintenance stránke, končíme
-    if (!needsLogout && !isMaintenanceActive) return;
+    // Ak sa nevyžaduje logout, nebeží údržba a nič sa nezmenilo, končíme
+    if (!needsLogout && !isMaintenanceActive && !changedMaintenance) return;
 
     // Skontrolujeme Admin Imunitu
     const isAdmin = await checkIsAdmin();
@@ -59,26 +67,33 @@ export default function SessionGuard() {
         localStorage.setItem('last_force_logout', forceLogoutAt);
         console.log("🛡️ [SessionGuard] Force Logout ignorovaný (Admin Imunita)");
       }
+      
+      // AUTOMATICKÝ REFRESH PRE ADMINA
+      // Ak si admin a zmenil sa stav údržby, prekreslíme appku, aby middleware nastavil/zmazal farby
+      if (changedMaintenance) {
+        console.log("🔄 [SessionGuard] Zmenil sa stav údržby. Refreshujem UI pre Admina...");
+        window.location.reload(); 
+      }
       return; 
     }
 
     // --- LOGIKA PRE BEŽNÝCH POUŽÍVATEĽOV ---
 
-    // 1. Zasiahol nás Nukleárny úder (Force Logout)
+    // 1. Force Logout
     if (needsLogout) {
       console.log("🚨 [SessionGuard] Prijatý signál na odhlásenie.");
       await handleGlobalLogout(forceLogoutAt);
       return; 
     }
 
-    // 2. Bola zapnutá Údržba a používateľ ešte nie je na maintenance obrazovke
+    // 2. Maintenance
     if (isMaintenanceActive && pathname !== '/maintenance') {
       console.log("🚧 [SessionGuard] Údržba je aktívna! Presmerovávam...");
       window.location.assign('/maintenance');
     }
   };
 
-  // 🔍 Agresívna kontrola (Pri zmene URL alebo vytiahnutí appky z pozadia)
+  // Agresívna kontrola (Pri zmene URL alebo vytiahnutí appky z pozadia)
   const checkAggressively = async () => {
     try {
       const { data } = await supabase

@@ -43,8 +43,11 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   let isAdminBypassing = false;
 
-  // --- KONTROLA REŽIMU ÚDRŽBY S VÝNIMKOU PRE ADMINA ---
-  if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH)) {
+  // 🚀 ZMENA: Zadefinujeme prihlasovacie cesty, ktoré nesmú byť nikdy blokované
+  const isAuthPath = path === '/signin' || path.startsWith('/auth');
+
+  // --- KONTROLA REŽIMU ÚDRŽBY S VÝNIMKOU PRE ADMINA A PRIHLÁSENIE ---
+  if (path !== '/maintenance' && !path.startsWith(SECRET_ADMIN_PATH) && !isAuthPath) {
       const { data: settings } = await supabase
           .from('app_settings')
           .select('value')
@@ -92,7 +95,7 @@ export async function middleware(request: NextRequest) {
   // -----------------------------------------
 
   // 2. TVOJA POISTKA (Server-side Teleport)
-  if ((path === '/' || path === '/signin' || path === '/signup') && data?.user) {
+  if ((path === '/' || path === '/signin') && data?.user) {
       const redirectUrl = new URL('/activities', request.url);
       return NextResponse.redirect(redirectUrl);
   }
