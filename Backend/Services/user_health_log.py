@@ -4,18 +4,18 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from Routes_DB.user_health_log import (
+from DB.user_health_log import (
     db_insert_health_logs,
     db_update_health_log,
     db_delete_health_log,
     db_get_active_health_logs,
     db_get_all_health_logs,
 )
-from Routes_DB.coach_plan_weekly import (
+from DB.coach_plan_weekly import (
     db_delete_future_weekly_plans,
     db_check_weekly_data_exists
 )
-from Routes_DB.coach_plan_daily import db_delete_future_daily_plans
+from DB.coach_plan_daily import db_delete_future_daily_plans
 from Services.async_jobs import service_enqueue_job
 
 from Modules.Supabase.auth import AuthCtx

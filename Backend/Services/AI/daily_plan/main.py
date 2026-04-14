@@ -5,16 +5,16 @@ from typing import Any, Dict, List, Optional
 
 from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
 from Services.AI.daily_plan.generate import generate_daily_week_json
-from Routes_DB.coach_plan_daily import (
+from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
     db_insert_daily_rows,
     db_list_daily_for_user_horizon,
 )
-from Routes_DB.coach_plan_meta import (
+from DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
 )
-from Routes_DB.coach_plan_weekly import db_get_weekly_for_user_plan
+from DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     get_user_monthly_usage_tokens,

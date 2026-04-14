@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 
 from fastapi import HTTPException
 
-from Routes_DB.profile_static import db_fetch_static, db_upsert_static
+from DB.profile_static import db_fetch_static, db_upsert_static
 from Services.time import iso_now, birth_to_iso_date
 from Schemas.profile_static import StaticPayload
 from Modules.Supabase.auth import AuthCtx

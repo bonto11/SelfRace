@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from Routes_DB.user_prefs import (
+from DB.user_prefs import (
     db_get_prefs_all,
     db_get_pref_single,
     db_upsert_pref_single,

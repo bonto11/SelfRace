@@ -9,15 +9,15 @@ import requests
 from Modules.Strava.activities import StravaActivitiesClient
 from Modules.Supabase.client import get_service_client
 
-from Routes_DB.activities_summary import (
+from DB.activities_summary import (
     db_upsert_activities_summary,
     db_get_activity_summary_one,
 )
-from Routes_DB.activities_laps import (
+from DB.activities_laps import (
     db_delete_laps_for_activity,
     db_upsert_lap,
 )
-from Routes_DB.activities_splits import (
+from DB.activities_splits import (
     db_delete_splits_for_activity,
     db_upsert_split,
 )
@@ -30,13 +30,12 @@ from Services.synchronization_utils import (
 )
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.account import mark_strava_ever_synced_now
+from DB.account import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
 from Configs.config import (
     TABLE_STRAVA_ACCOUNTS
 )
 
-# ✅ NOVÝ IMPORT: Zavoláme prepočítavanie priamo odtiaľto
 from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
 
 

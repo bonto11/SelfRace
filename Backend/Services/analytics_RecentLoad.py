@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from Routes_DB.activities_summary import db_fetch_summary_since
+from DB.activities_summary import db_fetch_summary_since
 from Modules.Supabase.auth import AuthCtx
 
 

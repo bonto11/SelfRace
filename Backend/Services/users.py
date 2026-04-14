@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from Routes_DB.users import (
+from DB.users import (
     db_get_user_by_auth_uid,
     db_get_auth_uid,
     db_get_user_by_email,
@@ -14,11 +14,9 @@ from Routes_DB.users import (
 from Modules.Supabase.auth import AuthCtx
 
 
-
-
 def service_resolve_user(
     auth_uid: str,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Optional[int]:
     """
     Resolve /users/resolve – nájde user_id podľa auth_uid.
@@ -32,7 +30,7 @@ def service_resolve_user(
 
 def service_get_auth_uid(
     user_id: int,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> str:
     """
     Vráti auth_uid pre dané user_id, alebo hodí RuntimeError ak chýba.
@@ -41,10 +39,7 @@ def service_get_auth_uid(
       - service=False (default): RLS klient → require_jwt
       - service=True: service klient → user_jwt sa len forwarduje (môže byť aj None)
     """
-    uid = db_get_auth_uid(
-        user_id=user_id,
-        ctx=ctx
-    )
+    uid = db_get_auth_uid(user_id=user_id, ctx=ctx)
     if not uid:
         raise RuntimeError(f"user_id={user_id} nemá auth_uid v public.users")
     return uid
@@ -54,10 +49,9 @@ def service_create_user(
     name: str,
     age: int,
     mail_address: str,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
     display_name: Optional[str] = None,
     auth_uid: Optional[str] = None,
-
 ) -> Dict[str, Any]:
     """
     Vytvorí usera, ak daný e-mail ešte v DB nie je.
@@ -83,7 +77,7 @@ def service_create_user(
 
 def service_get_user_by_email(
     mail_address: str,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
     """
     Wrapper na get by email.
@@ -93,7 +87,7 @@ def service_get_user_by_email(
 
 def service_update_user(
     mail_address: str,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
     **fields: Any,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -106,7 +100,7 @@ def service_update_user(
 
 def service_delete_user(
     mail_address: str,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> None:
     """
     Delete podľa mail_address.
@@ -120,7 +114,7 @@ def service_get_or_create_user_id(
     name: str = "New User",
     display_name: Optional[str] = None,
     auth_uid: Optional[str] = None,
-    ctx:AuthCtx,
+    ctx: AuthCtx,
 ) -> int:
     """
     get_or_create user podľa e-mailu – funguje aj pod RLS, aj pod service role.
@@ -133,7 +127,7 @@ def service_get_or_create_user_id(
             mail_address=email,
             display_name=display_name or name,
             auth_uid=auth_uid,
-            ctx=ctx
+            ctx=ctx,
         )
         user = db_get_user_by_email(email, ctx=ctx)
         if not user:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
-from Routes_DB.user_pace_history import db_get_latest_paces, db_get_pace_trend, db_insert_pace_row
+from DB.user_pace_history import db_get_latest_paces, db_get_pace_trend, db_insert_pace_row
 from Modules.Supabase.auth import AuthCtx
 
 def service_get_latest_paces(user_id: int, ctx: AuthCtx) -> Optional[Dict[str, Any]]:

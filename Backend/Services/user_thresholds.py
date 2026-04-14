@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from Routes_DB.user_thresholds import (
+from DB.user_thresholds import (
     db_list_user_thresholds_raw,
     db_get_user_threshold_latest,
     db_upsert_user_threshold,

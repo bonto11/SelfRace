@@ -13,15 +13,15 @@ from Services.analytics_RecentLoad import service_build_recent_load_block_for_an
 from Services.coach_external_events import service_list_external_events_window
 from Services.coach_strength_mapper import prepare_strength_context_for_ai
 
-from Routes_DB.activities_summary import db_get_summary_for_activities, db_get_recent_activity_ids
-from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-from Routes_DB.user_pace_history import db_get_latest_paces
-from Routes_DB.activities_laps import db_get_activity_laps
-from Routes_DB.activities_splits import db_get_activity_splits
-from Routes_DB.profile_static import db_fetch_static_basic
-from Routes_DB.user_metrics import db_get_latest_metric
-from Routes_DB.coach_athlete_state import db_get_latest_state_for_user, db_get_state_by_id
-from Routes_DB.coach_plan_weekly import db_get_week_row_for_plan
+from DB.activities_summary import db_get_summary_for_activities, db_get_recent_activity_ids
+from DB.activities_enrichment import db_get_enrichment_for_activities
+from DB.user_pace_history import db_get_latest_paces
+from DB.activities_laps import db_get_activity_laps
+from DB.activities_splits import db_get_activity_splits
+from DB.profile_static import db_fetch_static_basic
+from DB.user_metrics import db_get_latest_metric
+from DB.coach_athlete_state import db_get_latest_state_for_user, db_get_state_by_id
+from DB.coach_plan_weekly import db_get_week_row_for_plan
 
 from Services.AI.athlete_state.builders import build_input_from_db
 

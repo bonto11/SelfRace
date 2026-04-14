@@ -10,7 +10,7 @@ from Configs.config import (
 )
 
 from Services.AI.athlete_state.builders import build_input_from_db
-from Routes_DB.coach_athlete_state import (
+from DB.coach_athlete_state import (
     db_get_state_by_id,
     db_get_latest_state_for_user,
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Modules.Supabase.auth import AuthCtx
 
 

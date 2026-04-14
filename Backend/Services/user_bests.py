@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from Modules.Supabase.auth import AuthCtx
-from Routes_DB.activities_summary import db_get_activity_summary_one
+from DB.activities_summary import db_get_activity_summary_one
 from Services.time import hhmmss_to_seconds, seconds_to_hhmmss
-from Routes_DB.user_bests import (
+from DB.user_bests import (
     db_fetch_user_bests,
     db_upsert_user_best,
     db_delete_user_best,

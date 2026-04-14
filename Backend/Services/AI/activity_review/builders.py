@@ -8,17 +8,17 @@ import json
 from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
 from Services.user_recovery import service_build_recovery_block_for_analysis
 
-from Routes_DB.activities_summary import db_get_summary_for_activities, db_fetch_window_activity_ids
-from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
-from Routes_DB.activities_splits import db_get_activity_splits
-from Routes_DB.activities_laps import db_get_activity_laps
-from Routes_DB.activities_streams import db_get_streams_one
-from Routes_DB.user_zones import db_user_zones_fetch_latest
-from Routes_DB.users import db_get_user_display_name
+from DB.activities_summary import db_get_summary_for_activities, db_fetch_window_activity_ids
+from DB.activities_enrichment import db_get_enrichment_for_activities
+from DB.activities_splits import db_get_activity_splits
+from DB.activities_laps import db_get_activity_laps
+from DB.activities_streams import db_get_streams_one
+from DB.user_zones import db_user_zones_fetch_latest
+from DB.users import db_get_user_display_name
         
-from Routes_DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_get_latest_plan_meta_for_user
-from Routes_DB.coach_plan_daily import db_list_daily_for_user_horizon
-from Routes_DB.user_prefs import db_get_pref_single
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_get_latest_plan_meta_for_user
+from DB.coach_plan_daily import db_list_daily_for_user_horizon
+from DB.user_prefs import db_get_pref_single
 
 from Modules.Supabase.auth import AuthCtx
 

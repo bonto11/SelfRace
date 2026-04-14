@@ -5,12 +5,12 @@ from datetime import date, timedelta
 
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.coach_plan_daily import (
+from DB.coach_plan_daily import (
     db_get_planned_range_rows,
     db_link_session_to_activity,
 )
 
-from Routes_DB.activities_summary import db_get_summary_for_activities
+from DB.activities_summary import db_get_summary_for_activities
 
 
 # ───────────────────────────────────────── helpers: date / sport ─────────────────────────────────────────

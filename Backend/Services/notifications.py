@@ -6,18 +6,18 @@ from typing import Any, Dict
 from datetime import datetime, timezone
 
 from pywebpush import webpush, WebPushException
-from Routes_DB.notifications import (
+from DB.notifications import (
     db_upsert_push_subscription, 
     db_get_user_subscriptions, 
     db_delete_push_subscription
 )
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.activities_enrichment import db_get_unreviewed_activities_for_push
-from Routes_DB.user_recovery import db_get_recovery_record
-from Routes_DB.coach_plan_daily import db_has_uncompleted_daily_sessions
-from Routes_DB.users import db_list_users_for_cron
-from Routes_DB.user_prefs import db_get_pref_single
+from DB.activities_enrichment import db_get_unreviewed_activities_for_push
+from DB.user_recovery import db_get_recovery_record
+from DB.coach_plan_daily import db_has_uncompleted_daily_sessions
+from DB.users import db_list_users_for_cron
+from DB.user_prefs import db_get_pref_single
 from Services.AI.provider.provider import get_ai_health_status
 from Modules.Supabase.client import get_service_client
 

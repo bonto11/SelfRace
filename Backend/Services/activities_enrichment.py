@@ -22,13 +22,13 @@ from Configs.config import (
 
 from Services.AI.activity_review.builders import build_input_from_db as build_review_input
 from Services.AI.activity_review.generate import generate_activity_review_json
-from Routes_DB.activities_enrichment import db_upsert_ai_review_one
-from Routes_DB.activities_enrichment import db_get_enrichment_for_activity
-from Routes_DB.activities_summary import db_get_summary_for_activities
-from Routes_DB.app_subscription import db_get_active_app_subscription_for_user
-from Routes_DB.user_thresholds import db_upsert_user_threshold
-from Routes_DB.user_prefs import db_get_pref_single
-from Routes_DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
+from DB.activities_enrichment import db_upsert_ai_review_one
+from DB.activities_enrichment import db_get_enrichment_for_activity
+from DB.activities_summary import db_get_summary_for_activities
+from DB.app_subscription import db_get_active_app_subscription_for_user
+from DB.user_thresholds import db_upsert_user_threshold
+from DB.user_prefs import db_get_pref_single
+from DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
 
 def _calculate_zones_from_lthr(lthr: int, hr_max: int) -> Dict[str, int]:
     return {

@@ -9,7 +9,7 @@ from Services.AI.utils.billing import (
     is_user_over_token_quota,
     get_user_monthly_usage_tokens,
 )
-from Routes_DB.activities_summary import db_get_activities_in_range_basic
+from DB.activities_summary import db_get_activities_in_range_basic
 
 from Services.AI.weekly_plan.builders import (
     build_weekly_context_from_db,
@@ -19,14 +19,14 @@ from Services.AI.weekly_plan.builders import (
 
 from Services.AI.weekly_plan.generate import generate_weekly_plan_json
 
-from Routes_DB.coach_plan_weekly import (
+from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_get_weekly_for_user_plan,
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats
 )
-from Routes_DB.coach_plan_meta import (
+from DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
 )
 from Modules.Supabase.auth import AuthCtx

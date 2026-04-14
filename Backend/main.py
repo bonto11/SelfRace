@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from Modules.Strava import webhook_strava
 from Modules.Stripe import webhook_stripe, billing_stripe
-from Routes_FE import (
+from Routes import (
     users,
     activities_summary,
     activities_enrichment,
@@ -29,7 +29,8 @@ from Routes_FE import (
     app_subscription,
     account,
     notifications,
-    scheduled_events
+    scheduled_events,
+    scheduler
 )
 
 app = FastAPI()
@@ -85,6 +86,7 @@ app.include_router(app_subscription.router)
 app.include_router(account.router)
 app.include_router(notifications.router)
 app.include_router(scheduled_events.router)
+app.include_router(scheduler.router)
 
 
 app.include_router(webhook_strava.router)

@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import List, Dict, Any
 from fastapi import HTTPException
 
-from Routes_DB.user_recovery import (
+from DB.user_recovery import (
     db_get_recovery_record,
     db_insert_recovery,
     db_update_recovery,

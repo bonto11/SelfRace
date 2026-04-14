@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, Any, List, Optional
 
-from Routes_DB.users import db_list_users_for_cron
-from Routes_DB.maintenance import (
+from DB.users import db_list_users_for_cron
+from DB.maintenance import (
     db_cleanup_deleted_activities,
     db_account_hard_delete,
     db_cleanup_expired_activity_details,

@@ -13,10 +13,10 @@ from Services.analytics_MonoStrainTrimp import (
 )
 
 # --- UPRAVENÉ IMPORTY NA ZAČIATKU SÚBORU ---
-from Routes_DB.activities_summary import db_fetch_summary_since
-from Routes_DB.user_recovery import db_get_recent_recovery
-from Routes_DB.profile_static import db_fetch_user_sex
-from Routes_DB.user_metrics import db_get_latest_metric 
+from DB.activities_summary import db_fetch_summary_since
+from DB.user_recovery import db_get_recent_recovery
+from DB.profile_static import db_fetch_user_sex
+from DB.user_metrics import db_get_latest_metric 
 from Modules.Supabase.auth import AuthCtx
 
 """

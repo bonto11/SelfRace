@@ -11,7 +11,7 @@ from Services.activity_zones import (
     upsert_enrichment_minutes,
 )
 
-from Routes_DB.activities_summary import (
+from DB.activities_summary import (
     db_get_recent_activity_ids,
 )
 from Configs.config import (

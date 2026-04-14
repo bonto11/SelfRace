@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from Routes_DB.user_zones import (
+from DB.user_zones import (
     db_user_zones_fetch_all,
     db_user_zones_fetch_latest,
     db_user_zones_insert_row,

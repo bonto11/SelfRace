@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from Routes_DB.activities_summary import db_get_activity_summary_one
-from Routes_DB.activities_laps import db_get_activity_laps
-from Routes_DB.activities_splits import db_get_activity_splits
+from DB.activities_summary import db_get_activity_summary_one
+from DB.activities_laps import db_get_activity_laps
+from DB.activities_splits import db_get_activity_splits
 from Modules.Supabase.auth import AuthCtx
 
 # -------------------------------------------------------------------

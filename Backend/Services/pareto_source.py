@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple, Iterable, Optional
 
-from Routes_DB.activities_summary import (
+from DB.activities_summary import (
     db_select_activities_window_basic,
 )
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.activities_enrichment import (
+from DB.activities_enrichment import (
     db_get_enrichment_for_activities,
 )
 

@@ -10,9 +10,9 @@ from Configs.config import (
     GEMINI_DEFAULT_MODEL,
 )
 
-from Routes_DB.user_metrics import db_insert_metrics
-from Routes_DB.user_pace_history import db_insert_pace_row
-from Routes_DB.coach_athlete_state import (
+from DB.user_metrics import db_insert_metrics
+from DB.user_pace_history import db_insert_pace_row
+from DB.coach_athlete_state import (
     db_insert_athlete_state,
     db_get_state_by_id,
     db_get_latest_state_for_user,
@@ -21,7 +21,7 @@ from Routes_DB.coach_athlete_state import (
     db_update_state_compare_previous,
     db_get_latest_athlete_progress,
 )
-from Routes_DB.users import db_list_users_for_athlete_state
+from DB.users import db_list_users_for_athlete_state
 from Services.notifications import service_notify_athlete_state_progress
 
 from Services.AI.utils.billing import (

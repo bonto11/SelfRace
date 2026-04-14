@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional, List
 from statistics import mean
 
-from Routes_DB.coach_plan_daily import (
+from DB.coach_plan_daily import (
     db_reschedule_daily_sessions_bulk,
     db_clear_daily_for_user_range,
     db_get_planned_range_rows,
@@ -25,15 +25,15 @@ from Services.AI.daily_plan.main import (
 )
 
 from Services.analytics_RecentLoad import service_build_recent_load_raw
-from Routes_DB.coach_plan_meta import (
+from DB.coach_plan_meta import (
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
 )
-from Routes_DB.coach_plan_weekly import (
+from DB.coach_plan_weekly import (
     db_get_weekly_for_user_plan,
     db_delete_future_weekly_plans
 )
-from Routes_DB.user_recovery import db_get_recent_recovery
+from DB.user_recovery import db_get_recent_recovery
 
 from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_WEEKLY
 

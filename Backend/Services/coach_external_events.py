@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
-from Routes_DB.coach_external_events import (
+from DB.coach_external_events import (
     db_list_external_events_for_user,
     db_clear_external_events_for_user,
     db_insert_external_events,

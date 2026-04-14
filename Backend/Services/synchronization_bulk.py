@@ -6,7 +6,7 @@ from Modules.Supabase.auth import AuthCtx
 
 from Modules.Strava.activities import StravaActivitiesClient
 
-from Routes_DB.activities_summary import (
+from DB.activities_summary import (
     db_upsert_activities_summary,
     db_get_last_activity_start,
     db_get_existing_activity_ids_since,
@@ -19,7 +19,7 @@ from Services.synchronization_utils import (
 
 )
 
-from Routes_DB.account import mark_strava_ever_synced_now, get_strava_ever_synced_at_service
+from DB.account import mark_strava_ever_synced_now, get_strava_ever_synced_at_service
 from Services.synchronization_single import _get_access_token_for_user
 
 # -----------------------------------------------------------------------------

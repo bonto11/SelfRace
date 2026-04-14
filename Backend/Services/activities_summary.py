@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from Services.time import parse_date_ymd
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.activities_summary import (
+from DB.activities_summary import (
     db_get_activities_recent,
     db_get_activities_in_range_basic,
     db_select_activities_window_basic,

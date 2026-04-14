@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, Set, cast, List
 
 from Configs.config import COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
-from Routes_DB.async_jobs import (
+from DB.async_jobs import (
     db_insert_job,
     db_update_job_finished,
     db_get_active_jobs,

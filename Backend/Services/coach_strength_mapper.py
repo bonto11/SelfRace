@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Set
 
 from Modules.Supabase.auth import AuthCtx
-from Routes_DB.coach_strength_history import (
+from DB.coach_strength_history import (
     db_get_strength_history_for_user,
     db_insert_strength_history_rows
 )

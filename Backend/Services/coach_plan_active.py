@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from Modules.Supabase.auth import AuthCtx
 
-from Routes_DB.coach_plan_meta import (
+from DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
     db_get_active_plan_meta_for_user,
     db_update_plan_status,
@@ -15,17 +15,17 @@ from Routes_DB.coach_plan_meta import (
     db_get_due_active_plans,
     db_get_plan_history_for_user,
 )
-from Routes_DB.coach_plan_daily import (
+from DB.coach_plan_daily import (
     db_link_session_to_activity,
     db_clear_daily_for_user_plan,
     db_check_daily_data_exists,
 )
-from Routes_DB.coach_plan_weekly import (
+from DB.coach_plan_weekly import (
     db_clear_weekly_for_user_plan,
     db_check_weekly_data_exists,
     db_get_weekly_for_user_plan,
 )
-from Routes_DB.coach_strength_history import db_clear_strength_history_for_user
+from DB.coach_strength_history import db_clear_strength_history_for_user
 
 
 def _ensure_latest_plan_meta(

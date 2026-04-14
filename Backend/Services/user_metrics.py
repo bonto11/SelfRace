@@ -3,12 +3,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException
 
-from Routes_DB.user_metrics import (
+from DB.user_metrics import (
     db_insert_metrics,
     db_get_latest_metric,
     db_get_metric_trend
 )
-from Routes_DB.profile_static import db_get_static_sex_birth
+from DB.profile_static import db_get_static_sex_birth
 from Modules.Supabase.auth import AuthCtx
 
 # --- VO2 MAX MEASURED (z hodiniek/laboratória) ---

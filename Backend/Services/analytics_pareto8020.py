@@ -13,8 +13,8 @@ from Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
 )
-from Routes_DB.activities_summary import db_fetch_summary_since
-from Routes_DB.activities_enrichment import db_get_enrichment_for_activities
+from DB.activities_summary import db_fetch_summary_since
+from DB.activities_enrichment import db_get_enrichment_for_activities
 from Modules.Supabase.auth import AuthCtx
 
 
