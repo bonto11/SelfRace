@@ -47,9 +47,10 @@ function SnapColumn({
   const scrollTimeout = useRef<any>(null);
   const options = Array.from({ length: max + 1 }, (_, i) => i);
 
+  // Okamžité nastavenie scrollu (bez smooth, aby to nespôsobovalo bugy na iOS)
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
-      scrollRef.current.scrollTo({ top: value * ITEM_HEIGHT, behavior: "smooth" });
+      scrollRef.current.scrollTop = value * ITEM_HEIGHT;
     }
   }, [value, expanded]);
 
@@ -57,9 +58,14 @@ function SnapColumn({
     if (disabled) return;
     isScrolling.current = true;
     clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => { isScrolling.current = false; }, 150);
+    
+    scrollTimeout.current = setTimeout(() => { 
+      isScrolling.current = false; 
+    }, 150);
+    
     const y = e.currentTarget.scrollTop;
     const idx = Math.max(0, Math.min(options.length - 1, Math.round(y / ITEM_HEIGHT)));
+    
     if (options[idx] !== undefined && options[idx] !== value) {
       onChange(options[idx]);
     }
@@ -78,11 +84,18 @@ function SnapColumn({
         <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
       
-      {/* overscroll-y-none zabráni presunu ťahania na stránku */}
       <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
         {options.map((val) => (
-          <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === value ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
+          <div 
+            key={val} 
+            style={{ height: `${ITEM_HEIGHT}px` }} 
+            className={cx(
+              "snap-center flex items-center justify-center transition-all duration-200 select-none", 
+              // Výrazné zvýraznenie aktuálneho čísla
+              val === value ? "text-xl text-black font-bold scale-110" : "text-sm text-black/40 scale-100"
+            )}
+          >
             {val.toString().padStart(2, "0")}
           </div>
         ))}
@@ -120,11 +133,17 @@ export default function TimeSelectorField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  const safeValue = value || (hh ? "00:00:00" : "00:00");
+  // 1. BEZPEČNÝ FALLBACK
+  const activeColumnsCount = [hh, mm, ss].filter(Boolean).length;
+  const fallbackArr = Array(activeColumnsCount).fill("00");
+  const safeValue = value || fallbackArr.join(":");
+  
+  // 2. OPRAVENÁ LOGIKA PARSOVANIA
   const parts = safeValue.split(":").map(n => isNaN(Number(n)) ? 0 : Number(n));
-  let initialH = 0, initialM = 0, initialS = 0;
-  if (parts.length === 3) [initialH, initialM, initialS] = parts;
-  else if (parts.length === 2) [initialM, initialS] = parts;
+  let pIdx = 0;
+  const currentH = hh ? (parts[pIdx++] ?? 0) : 0;
+  const currentM = mm ? (parts[pIdx++] ?? 0) : 0;
+  const currentS = ss ? (parts[pIdx++] ?? 0) : 0;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -134,7 +153,6 @@ export default function TimeSelectorField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
-  // Ultimátny zámok scrollovania aj pre TimeSelector
   useEffect(() => {
     if (expanded) {
       document.documentElement.style.overflow = "hidden";
@@ -149,14 +167,17 @@ export default function TimeSelectorField({
     };
   }, [expanded]);
 
+  // 3. OPRAVENÁ LOGIKA UKLADANIA
   const handleColumnChange = (type: "h" | "m" | "s", newVal: number) => {
-    let newH = type === "h" ? newVal : initialH;
-    let newM = type === "m" ? newVal : initialM;
-    let newS = type === "s" ? newVal : initialS;
+    const newH = type === "h" ? newVal : currentH;
+    const newM = type === "m" ? newVal : currentM;
+    const newS = type === "s" ? newVal : currentS;
+    
     const arr = [];
     if (hh) arr.push(newH.toString().padStart(2, "0"));
     if (mm) arr.push(newM.toString().padStart(2, "0"));
     if (ss) arr.push(newS.toString().padStart(2, "0"));
+    
     onChange(arr.join(":"));
   };
 
@@ -166,7 +187,6 @@ export default function TimeSelectorField({
       style={style} 
       ref={containerRef}
     >
-      {/* Neviditeľný backdrop */}
       {expanded && (
         <div 
           className="fixed inset-0 z-40" 
@@ -180,18 +200,21 @@ export default function TimeSelectorField({
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(baseClass, error && FIELD_ERROR, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors")}
+          className={cx(baseClass, error && FIELD_ERROR, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors font-medium")}
         >
           <span>{safeValue}</span>
         </div>
       ) : (
         <div className={cx(baseClass, error && FIELD_ERROR, "relative z-50 h-[120px] p-0 flex items-center justify-center overflow-hidden rounded-xl border-gray-300 shadow-inner group")}>
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
-          {hh && <SnapColumn max={23} value={initialH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />}
-          {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1">:</span>}
-          {mm && <SnapColumn max={59} value={initialM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />}
-          {mm && ss && <span className="text-black/40 z-10 -mx-1">:</span>}
-          {ss && <SnapColumn max={59} value={initialS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />}
+          
+          {hh && <SnapColumn max={23} value={currentH} onChange={(v) => handleColumnChange("h", v)} disabled={effectiveDisabled} expanded={expanded} />}
+          {hh && (mm || ss) && <span className="text-black/40 z-10 -mx-1 font-bold">:</span>}
+          
+          {mm && <SnapColumn max={59} value={currentM} onChange={(v) => handleColumnChange("m", v)} disabled={effectiveDisabled} expanded={expanded} />}
+          {mm && ss && <span className="text-black/40 z-10 -mx-1 font-bold">:</span>}
+          
+          {ss && <SnapColumn max={59} value={currentS} onChange={(v) => handleColumnChange("s", v)} disabled={effectiveDisabled} expanded={expanded} />}
         </div>
       )}
       {error ? <div className={FIELD_ERROR_TEXT}>{error}</div> : null}
