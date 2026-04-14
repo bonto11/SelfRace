@@ -50,7 +50,6 @@ export default function SessionGuard() {
 
     // 1. NÁVRAT Z ÚDRŽBY: Ak sme na maintenance stránke, ale údržba už nebeží
     if (!isMaintenanceActive && pathname === '/maintenance') {
-      console.log("🟢 [SessionGuard] Údržba skončila! Presmerovávam do appky...");
       window.location.assign('/'); // Hodíme ho späť (middleware už ho pustí na activities)
       return;
     }
@@ -62,16 +61,14 @@ export default function SessionGuard() {
     const isAdmin = await checkIsAdmin();
 
     if (isAdmin) {
-      // 👑 ADMIN IMUNITA
+      // ADMIN IMUNITA
       if (needsLogout) {
         localStorage.setItem('last_force_logout', forceLogoutAt);
-        console.log("🛡️ [SessionGuard] Force Logout ignorovaný (Admin Imunita)");
       }
       
       // AUTOMATICKÝ REFRESH PRE ADMINA
       // Ak si admin a zmenil sa stav údržby, prekreslíme appku, aby middleware nastavil/zmazal farby
       if (changedMaintenance) {
-        console.log("🔄 [SessionGuard] Zmenil sa stav údržby. Refreshujem UI pre Admina...");
         window.location.reload(); 
       }
       return; 
@@ -81,14 +78,12 @@ export default function SessionGuard() {
 
     // 1. Force Logout
     if (needsLogout) {
-      console.log("🚨 [SessionGuard] Prijatý signál na odhlásenie.");
       await handleGlobalLogout(forceLogoutAt);
       return; 
     }
 
     // 2. Maintenance
     if (isMaintenanceActive && pathname !== '/maintenance') {
-      console.log("🚧 [SessionGuard] Údržba je aktívna! Presmerovávam...");
       window.location.assign('/maintenance');
     }
   };
