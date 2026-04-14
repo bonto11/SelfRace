@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import {
   API_URL,
   MAINTENANCE_API_KEY,
-  CRON_SECRET,
   FRONTEND_URL,
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
@@ -62,7 +61,6 @@ export async function updateMaintenanceMode(
   if (error) throw new Error(error.message);
 
   // 🚀 4. AUTOMATICKÁ NOTIFIKÁCIA PRI VYPNUTÍ
-  // Ak bol predtým režim aktívny a teraz ho vypíname (active je false)
   if (wasActive && !active) {
     try {
       await sendGlobalNotification({
@@ -81,7 +79,6 @@ export async function updateMaintenanceMode(
       });
     } catch (notificationError) {
       console.error("Notifikácia po údržbe zlyhala, ale stav bol zmenený:", notificationError);
-      // Tu nevyhadzujeme Error, aby sa nezrušila celá akcia, ak len notifikácia zlyhá
     }
   }
 
@@ -89,15 +86,14 @@ export async function updateMaintenanceMode(
   return { success: true };
 }
 
-
 export async function sendGlobalNotification(payload: any) {
   await verifyAdmin();
 
-  const response = await fetch(`${API_URL}/scheduled-events/global`, {
+  const response = await fetch(`${API_URL}/notifications/global`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": MAINTENANCE_API_KEY as string,
+      "x-api-key": MAINTENANCE_API_KEY as string,
     },
     body: JSON.stringify(payload),
   });
@@ -112,13 +108,14 @@ export async function triggerMaintenanceTask(task: string) {
   await verifyAdmin();
 
   const response = await fetch(
-    `${FRONTEND_URL}/api/cron/trigger?task=${task}`,
+    `${API_URL}/trigger/manual`,  // Len jedna URL!
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${CRON_SECRET}`,
+        "x-api-key": MAINTENANCE_API_KEY as string,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ mode: "manual", task }), // Povieme mu, že to robíme manuálne
     }
   );
 

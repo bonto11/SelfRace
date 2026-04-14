@@ -24,10 +24,11 @@ export default function CronMasterPanel() {
   const handleForceLogout = async () => {
     if (!confirm("🚨 Naozaj chcete okamžite odhlásiť VŠETKÝCH používateľov?"))
       return;
-    setTaskRunning("force-logout");
+    setTaskRunning("force-logout-all");
     try {
-      const res = await forceGlobalLogout();
-      alert(`✅ ${res.message}`);
+      // 🚀 ZMENA: Môžeš to riešiť priamo cez backend task rovnako ako ostatné
+      const res = await triggerMaintenanceTask("force-logout-all");
+      alert(`✅ ${res.message || "Signál na odhlásenie bol odoslaný!"}`);
     } catch (err: any) {
       alert(`❌ Chyba: ${err.message}`);
     } finally {
@@ -36,9 +37,10 @@ export default function CronMasterPanel() {
   };
 
   const allCronTasks = [
-    { id: "training", label: "Push: Morning Training", group: "Notifications" },
-    { id: "recovery", label: "Push: Recovery Tips", group: "Notifications" },
-    { id: "review", label: "Push: Evening Review", group: "Notifications" },
+    { id: "notify-training", label: "Push: Morning Training", group: "Notifications" },
+    { id: "notify-recovery", label: "Push: Recovery Tips", group: "Notifications" },
+    { id: "notify-review", label: "Push: Evening Review", group: "Notifications" },
+    // Tu môžeš pridať testovací ping, ak ho v backende naimplementuješ
     { id: "hourly-ping", label: "Test Hourly Ping", group: "Notifications" },
     {
       id: "weekly-athlete-state",
@@ -46,11 +48,11 @@ export default function CronMasterPanel() {
       group: "AI & Plans",
     },
     {
-      id: "daily-plan-completion",
+      id: "coach-plan-complete",
       label: "Auto-Complete Plans",
       group: "AI & Plans",
     },
-    { id: "apply-subscriptions", label: "Sync Subscriptions", group: "System" },
+    { id: "app-subscriptions-apply", label: "Sync Subscriptions", group: "System" },
     {
       id: "cleanup-expired-activities",
       label: "Clean Expired Files",

@@ -157,3 +157,43 @@ def db_get_user_display_name(
         return row.get("display_name") or row.get("name")
     except Exception:
         return None
+
+# =========================================================================
+# NOVÁ FUNKCIA: HROMADNÉ ODHLÁSENIE
+# =========================================================================
+def db_force_logout_all_users(*, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Prejde všetkých používateľov a cez Admin API zneplatní ich tokeny
+    (odhlási ich zo všetkých zariadení).
+    """
+    sb = get_sb(ctx, caller="users.db_force_logout_all_users")
+    success_count = 0
+    fail_count = 0
+
+    try:
+        # Získame auth_uids všetkých používateľov z našej tabuľky
+        users = db_list_users_for_cron(limit=10000, ctx=ctx)
+        
+        for u in users:
+            auth_uid = u.get("auth_uid")
+            if not auth_uid:
+                continue
+                
+            try:
+                # Zrušíme tokeny pre daného Supabase používateľa.
+                # V Python klientovi: admin.sign_out(user_id) zneplatní sessions.
+                sb.auth.admin.sign_out(auth_uid)
+                success_count += 1
+            except Exception as e:
+                print(f"[FORCE LOGOUT] Zlyhalo pre {auth_uid}: {e}")
+                fail_count += 1
+
+        return {
+            "success": True, 
+            "success_count": success_count, 
+            "fail_count": fail_count,
+            "message": f"Odhlásených {success_count} užívateľov."
+        }
+    except Exception as e:
+        print(f"[FORCE LOGOUT CRITICAL] Zlyhanie celej funkcie: {e}")
+        return {"success": False, "error": str(e)}

@@ -25,12 +25,10 @@ from Routes import (
     coach_external_events,
     profile_static,
     async_jobs,
-    maintenance,
     app_subscription,
     account,
     notifications,
-    scheduled_events,
-    scheduler
+    trigger,
 )
 
 app = FastAPI()
@@ -81,12 +79,10 @@ app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
 app.include_router(async_jobs.router)
-app.include_router(maintenance.router)
 app.include_router(app_subscription.router)
 app.include_router(account.router)
 app.include_router(notifications.router)
-app.include_router(scheduled_events.router)
-app.include_router(scheduler.router)
+app.include_router(trigger.router)
 
 
 app.include_router(webhook_strava.router)
