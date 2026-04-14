@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 
-from Modules.Supabase.client import get_sb
+from Modules.Supabase.client import get_sb, get_service_client
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS
 
@@ -165,13 +165,16 @@ def db_force_logout_all_users(*, ctx: AuthCtx) -> Dict[str, Any]:
     """
     Prejde všetkých používateľov a cez Admin API zneplatní ich tokeny
     (odhlási ich zo všetkých zariadení).
+    Vyžaduje Service Role Client pre manipuláciu s cudzími Auth objektmi.
     """
-    sb = get_sb(ctx, caller="users.db_force_logout_all_users")
+    # 1. Vyžiadame si Admin klienta, ktorý má právo mazať sessions komukoľvek
+    admin_sb = get_service_client()
+    
     success_count = 0
     fail_count = 0
 
     try:
-        # Získame auth_uids všetkých používateľov z našej tabuľky
+        # 2. Zoznam užívateľov vytiahneme normálne
         users = db_list_users_for_cron(limit=10000, ctx=ctx)
         
         for u in users:
@@ -180,9 +183,8 @@ def db_force_logout_all_users(*, ctx: AuthCtx) -> Dict[str, Any]:
                 continue
                 
             try:
-                # Zrušíme tokeny pre daného Supabase používateľa.
-                # V Python klientovi: admin.sign_out(user_id) zneplatní sessions.
-                sb.auth.admin.sign_out(auth_uid)
+                # 3. Použijeme ADMIN klienta na zneplatnenie session
+                admin_sb.auth.admin.sign_out(auth_uid)
                 success_count += 1
             except Exception as e:
                 print(f"[FORCE LOGOUT] Zlyhalo pre {auth_uid}: {e}")
