@@ -73,7 +73,7 @@ def _load_activity_ids_since(
     """
     IDs všetkých aktivít od daného dátumu.
 
-    Číta cez Routes_DB.activities_summary.db_fetch_summary_since:
+    Číta cez DB.activities_summary.db_fetch_summary_since:
       - ak user_jwt != None a service=False → RLS klient
       - ak service=True (typicky user_jwt=None) → service klient
     """
@@ -139,7 +139,7 @@ def _load_streams_row(
     Jedna row so streamami: očakáva shape:
       { "time_s": [...], "heartrate_bpm": [...] }
 
-    Číta cez Routes_DB.activities_streams.db_get_streams_one,
+    Číta cez DB.activities_streams.db_get_streams_one,
     ktorý už interne volí RLS / service klienta podľa user_jwt/service.
     """
     return db_get_streams_one(
@@ -306,7 +306,7 @@ def preview_zones_for_activities(
     """
     Hlavný výpočet minút v zónach pre daný zoznam aktivít.
 
-    - DB čítanie summary/streams → Routes_DB (ktoré rešpektuje user_jwt/service)
+    - DB čítanie summary/streams → DB (ktoré rešpektuje user_jwt/service)
     - zóny → Services.user_zones.service_load_user_zones
     - nepíše do DB; zápis rieši upsert_enrichment_minutes()
     """

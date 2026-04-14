@@ -13,7 +13,7 @@ from Services.coach_plan_active import (
     service_get_plan_history,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
-from Routes_DB.coach_plan_daily import db_get_planned_range_rows
+from DB.coach_plan_daily import db_get_planned_range_rows
 
 router = APIRouter()
 

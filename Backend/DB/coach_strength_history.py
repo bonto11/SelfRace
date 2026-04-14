@@ -1,4 +1,4 @@
-# Routes_DB/coach_strength_history.py
+# DB/coach_strength_history.py
 from __future__ import annotations
 
 from datetime import date, timedelta

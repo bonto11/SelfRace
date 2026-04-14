@@ -1,4 +1,4 @@
-# Routes_DB/user_thresholds.py
+# DB/user_thresholds.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional

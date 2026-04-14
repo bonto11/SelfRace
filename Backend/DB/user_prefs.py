@@ -1,4 +1,4 @@
-# Routes_DB/user_prefs.py
+# DB/user_prefs.py
 from __future__ import annotations
 
 from datetime import datetime

@@ -1,4 +1,4 @@
-# Routes_DB/user_recovery.py
+# DB/user_recovery.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List

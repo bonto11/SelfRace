@@ -1,4 +1,4 @@
-# Routes_DB/coach_plan_daily.py
+# DB/coach_plan_daily.py
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 from Modules.Supabase.client import get_sb

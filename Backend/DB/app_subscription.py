@@ -1,4 +1,4 @@
-# Routes_DB/app_subscription.py
+# DB/app_subscription.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional

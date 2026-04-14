@@ -1,4 +1,4 @@
-# Routes_DB/activities_summary.py
+# DB/activities_summary.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
