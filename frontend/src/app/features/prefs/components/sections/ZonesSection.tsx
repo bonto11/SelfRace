@@ -112,7 +112,7 @@ export default function ZonesSection({
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-xs">
       <div><span className="opacity-70 mr-1">{t("prefs.sections.zonesSection.previewAerobic")}:</span><span className="font-semibold">{fmtRange(z.z2_min, z.z2_max)}</span></div>
       <div><span className="opacity-70 mr-1">{t("prefs.sections.zonesSection.previewAnaerobic")}:</span><span className="font-semibold">{fmtRange(z.z4_min, z.z4_max)}</span></div>
-      <div><span className="opacity-70 mr-1">HRmax:</span><span className="font-semibold">{z.hr_max ? `${z.hr_max} bpm` : "—"}</span></div>
+      <div><span className="opacity-70 mr-1">{t("prefs.sections.zonesSection.HRmax")}:</span><span className="font-semibold">{z.hr_max ? `${z.hr_max} bpm` : "—"}</span></div>
     </div>
   );
 
@@ -151,7 +151,7 @@ export default function ZonesSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>HRmax (bpm)</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.zonesSection.HRmax")}</div>
             {/* ✅ Nahradené NumberWheelField pre HR max */}
             <NumberWheelField
               min={100}
@@ -166,7 +166,7 @@ export default function ZonesSection({
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className="flex items-center gap-2"><div className={INPUTS_CARD_LABEL_SM_1}>LTHR (bpm)</div><TooltipIcon text={t("prefs.sections.zonesSection.lthrTooltip")} /></div>
+            <div className="flex items-center gap-2"><div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.zonesSection.LTHR")}</div><TooltipIcon text={t("prefs.sections.zonesSection.lthrTooltip")} /></div>
             <TextField label="" value={Number.isFinite(Number(lthrBpm)) ? String(lthrBpm) : ""} disabled hint={t("prefs.sections.zonesSection.lthrSourceHint")} />
           </section>
         </div>

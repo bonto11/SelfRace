@@ -1,7 +1,7 @@
 // src/features/coach/components/prefs/RecoveryInputs.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
@@ -13,7 +13,7 @@ import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { addDaysIso, handleTimeInput } from "@/app/shared/utils/time";
+import { addDaysIso } from "@/app/shared/utils/time";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import { apiSaveRecoveryPatch } from "@/app/features/recovery/api/recovery";
@@ -64,6 +64,14 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
   return h * 60 + m;
 }
 
+// Pomocná funkcia na prevod z DB minút na HH:MM pre bubon
+function minutesToHHMM(mins: number | string | null | undefined): string {
+  if (typeof mins !== "number" || !Number.isFinite(mins)) return "";
+  const h = Math.floor(mins / 60).toString().padStart(2, "0");
+  const m = (mins % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 const AiBadge = () => (
   <span
     style={{
@@ -85,7 +93,9 @@ const AiBadge = () => (
 export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
-  const { refresh } = useRecoveryData();
+  
+  // ✅ Ťaháme z kontextu aj samotné dáta, nielen refresh funkciu
+  const { data, refresh } = useRecoveryData() as any;
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
@@ -110,6 +120,7 @@ export default function RecoveryInputs() {
   const [sleepStart, setSleepStart] = useState("");
 
   const [dirty, setDirty] = useState<DirtyMap>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
     setDirty((d) => (d[k] ? d : { ...d, [k]: true }));
@@ -117,6 +128,44 @@ export default function RecoveryInputs() {
 
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
+
+  // ✅ MAGICKÝ EFEKT: Predvyplnenie hodnôt z histórie
+  useEffect(() => {
+    if (data && Array.isArray(data) && data.length > 0 && !isInitialized) {
+      // Funkcia, ktorá nájde prvú dostupnú hodnotu z histórie (ak by bol včerajšok null, pozrie predvčerajšok)
+      const findLatest = (key: string) => {
+        const entry = data.find((d: any) => d && d[key] !== null && d[key] !== undefined && d[key] !== "");
+        return entry ? entry[key] : "";
+      };
+
+      setRhr(findLatest("RHR_bpm"));
+      setHrvAvg(findLatest("HRV_avg_ms"));
+      setHrvMax(findLatest("HRV_max_ms"));
+      
+      const latestAlcoholVolume = findLatest("alcohol_volume_ml");
+      if (latestAlcoholVolume !== "") setAlcoholVolume(latestAlcoholVolume);
+      
+      const latestAlcoholType = findLatest("alcohol_type_pct");
+      if (latestAlcoholType !== "") setAlcoholType(latestAlcoholType);
+
+      // Konverzia DB duration minút na HH:MM pre TimeSelector
+      const sd = findLatest("sleep_duration_min");
+      if (typeof sd === "number") {
+        setSleepDuration(minutesToHHMM(sd));
+      }
+
+      // Konverzia času na HH:MM formát (DB môže vracať HH:MM:SS)
+      const ss = findLatest("sleep_start_time");
+      if (typeof ss === "string") {
+        const parts = ss.split(":");
+        if (parts.length >= 2) {
+          setSleepStart(`${parts[0]}:${parts[1]}`);
+        }
+      }
+
+      setIsInitialized(true);
+    }
+  }, [data, isInitialized]);
 
   async function handleSave() {
     if (!userId) {
@@ -126,6 +175,7 @@ export default function RecoveryInputs() {
 
     const patch: any = { date, user_id: userId };
 
+    // Ukladáme iba to, čo používateľ REÁLNE upravil (zatočil kolesom)
     if (dirty.RHR_bpm) patch.RHR_bpm = toNumberOrNull(rhr);
     if (dirty.HRV_avg_ms) patch.HRV_avg_ms = toNumberOrNull(hrvAvg);
     if (dirty.sleep_duration_min)
@@ -235,7 +285,6 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.rhrLabel")} <AiBadge />
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
             <NumberWheelField
               min={30}
               max={150}
@@ -257,7 +306,6 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.hrvAvgLabel")} <AiBadge />
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
             <NumberWheelField
               min={10}
               max={250}
@@ -279,7 +327,6 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.hrvMaxLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
             <NumberWheelField
               min={10}
               max={300}
@@ -301,7 +348,6 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.sleepDurationLabel")} <AiBadge />
             </div>
-            {/* ✅ Nahradené za TimeSelectorField */}
             <TimeSelectorField
               hh={true}
               mm={true}
@@ -323,7 +369,6 @@ export default function RecoveryInputs() {
             >
               {t("recovery.inputs.sleepStartLabel")}
             </div>
-            {/* ✅ Nahradené za TimeSelectorField */}
             <TimeSelectorField
               hh={true}
               mm={true}
@@ -378,7 +423,6 @@ export default function RecoveryInputs() {
                 {t("recovery.inputs.alcoholLabel")}
               </div>
               <div className={FORM_GRID_SPLIT}>
-                {/* ✅ Nahradené za NumberWheelField pre Objem (ml) */}
                 <NumberWheelField
                   min={0}
                   max={2000}
@@ -390,7 +434,6 @@ export default function RecoveryInputs() {
                     markDirty("alcohol_volume_ml");
                   }}
                 />
-                {/* ✅ Nahradené za NumberWheelField pre Percentá (%) */}
                 <NumberWheelField
                   min={0}
                   max={80}

@@ -93,12 +93,12 @@ export default function NumberWheelField({
     };
   }, [expanded]);
 
-  // Vycentrovanie po otvorení
+  // Vycentrovanie po otvorení (opravené na okamžité bez smooth pre iOS)
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
       const idx = options.indexOf(safeValue);
       if (idx >= 0) {
-        scrollRef.current.scrollTo({ top: idx * ITEM_HEIGHT, behavior: "smooth" });
+        scrollRef.current.scrollTop = idx * ITEM_HEIGHT;
       }
     }
   }, [expanded, safeValue, options]);
@@ -144,7 +144,7 @@ export default function NumberWheelField({
       {!expanded ? (
         <div
           onClick={() => !effectiveDisabled && setExpanded(true)}
-          className={cx(baseClass, error && FIELD_ERROR, className, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors")}
+          className={cx(baseClass, error && FIELD_ERROR, className, "flex items-center px-3 h-[38px] cursor-pointer text-black transition-colors font-medium")}
         >
           {value === "" || value === null ? <span className="opacity-50">—</span> : <span>{safeValue}</span>}
         </div>
@@ -160,7 +160,14 @@ export default function NumberWheelField({
           <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
             {options.map((val) => (
-              <div key={val} style={{ height: `${ITEM_HEIGHT}px` }} className={cx("snap-center flex items-center justify-center transition-all duration-200 select-none", val === safeValue ? "text-lg text-black font-bold" : "text-sm text-black/30")}>
+              <div 
+                key={val} 
+                style={{ height: `${ITEM_HEIGHT}px` }} 
+                className={cx(
+                  "snap-center flex items-center justify-center transition-all duration-200 select-none", 
+                  val === safeValue ? "text-xl text-black font-bold scale-110" : "text-sm text-black/40 scale-100"
+                )}
+              >
                 {val}
               </div>
             ))}
