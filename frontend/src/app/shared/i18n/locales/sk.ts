@@ -1169,10 +1169,10 @@ export const sk = {
       lastAnalysis: "Posledná analýza",
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
+    },
 lastAnalysis: {
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
-    },
     },
   },
   coachDaily: {
