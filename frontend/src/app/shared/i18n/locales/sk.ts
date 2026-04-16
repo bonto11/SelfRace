@@ -2058,8 +2058,6 @@ lastAnalysis: {
       notePlaceholder: "Stres, choroba, cestovanie, neskorý tréning...",
       hrvMaxLabel: "HRV (maximum) [ms]",
       sleepStartLabel: "Čas zaspatia [hh:mm]",
-      importantMark:
-        "Označenie metriky, ktorá priamo ovplyvňuje tvoj tréningový plán.",
     },
     trends: {
       events: {
