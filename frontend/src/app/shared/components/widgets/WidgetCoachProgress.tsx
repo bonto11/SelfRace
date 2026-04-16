@@ -15,9 +15,6 @@ import {
   WIDGET_BULLET_LIST,
   WIDGET_BULLET_ROW,
   WIDGET_BULLET_DOT,
-  WIDGET_INFO_GRID_XS,
-  WIDGET_LABEL_MUTED_XS,
-  WIDGET_VALUE_STRONG_XS,
 } from "@/app/shared/ui/tokens";
 
 import {
@@ -31,13 +28,8 @@ type Props = {
 
 type UiState = {
   hasData: boolean;
-  comparedAt: string | null;
   headline: string | null;
   bullets: string[];
-  fatigueData: { previous: string | null; current: string | null };
-  injuryData: { previous: string | null; current: string | null };
-  blockData: { previous: string | null; current: string | null }; // ✅ Zmena z blockLabel stringu na objekt
-  volumeData: { from: number; to: number } | null;
 };
 
 function toStringArray(v: any): string[] {
@@ -52,13 +44,8 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
   if (!row || !payload) {
     return {
       hasData: false,
-      comparedAt: null,
       headline: null,
       bullets: [],
-      fatigueData: { previous: null, current: null },
-      injuryData: { previous: null, current: null },
-      blockData: { previous: null, current: null }, // ✅ Inicializácia na objekt
-      volumeData: null,
     };
   }
 
@@ -66,40 +53,10 @@ function buildUiState(row: AthleteProgressRecord | null): UiState {
   const headline: string | null = cp.summary?.headline || cp.headline || null;
   const bullets: string[] = toStringArray(cp.summary?.bullets) || toStringArray(cp.summary_bullets);
 
-  const comp = cp.comparisons || {};
-  const vol = comp.volume_tolerance || {};
-
-  let volumeData = null;
-  if (typeof vol.previous_weekly_minutes_min === "number" && typeof vol.current_weekly_minutes_min === "number") {
-    volumeData = {
-      from: Math.round(vol.previous_weekly_minutes_min / 60),
-      to: Math.round(vol.current_weekly_minutes_min / 60),
-    };
-  }
-
-  let comparedAt: string | null = cp.generated_at || (row as any).created_at || null;
-  if (comparedAt) {
-    try {
-      const d = new Date(comparedAt);
-      comparedAt = d.toLocaleString("sk-SK", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch { /* keep raw */ }
-  }
-
   return {
     hasData: true,
-    comparedAt,
     headline,
     bullets,
-    fatigueData: { previous: comp.fatigue_level?.previous, current: comp.fatigue_level?.current },
-    injuryData: { previous: comp.injury_risk?.previous, current: comp.injury_risk?.current },
-    blockData: { previous: comp.block_kind?.previous, current: comp.block_kind?.current }, // ✅ Vytiahnuté ako objekt
-    volumeData,
   };
 }
 
@@ -131,56 +88,11 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
 
   const ui = useMemo(() => buildUiState(row), [row]);
 
-// Pomocná funkcia na preklad úrovní (low/high/moderate...)
-  const getLvl = (lvl?: string | null) => {
-    if (!lvl) return "—";
-    // Zmena: replace medzery za podčiarkovník pre istotu (napr. "Very Poor" -> "very_poor")
-    const safeKey = lvl.toLowerCase().replace(/ /g, "_");
-    const key = `common.levels.${safeKey}`;
-    const translated = (t as any)(key);
-    return translated === key ? lvl : translated;
-  };
-
-  // Pomocná funkcia na preklad fáz
-  const getPhaseLabel = (phaseStr?: string | null) => {
-    if (!phaseStr) return "—";
-    const safeKey = phaseStr.toLowerCase().replace(/ /g, "_");
-    const key = `common.phases.${safeKey}`;
-    const translated = (t as any)(key);
-    return translated === key ? phaseStr : translated;
-  };
-
-  const fatigueLabel = ui.fatigueData.previous || ui.fatigueData.current
-    ? `${getLvl(ui.fatigueData.previous)} → ${getLvl(ui.fatigueData.current)}`
-    : "—";
-
-  const injuryLabel = ui.injuryData.previous || ui.injuryData.current
-    ? `${getLvl(ui.injuryData.previous)} → ${getLvl(ui.injuryData.current)}`
-    : "—";
-
-  // ✅ Spracovanie bloku úplne rovnako ako pri únave a zraneniach
-  const blockLabel = ui.blockData.previous || ui.blockData.current
-    ? `${getPhaseLabel(ui.blockData.previous)} → ${getPhaseLabel(ui.blockData.current)}`
-    : "—"; 
-
-  const volumeLabel = ui.volumeData
-    ? t("coachProgress.labels.volumeValue")
-        .replace("{{from}}", String(ui.volumeData.from))
-        .replace("{{to}}", String(ui.volumeData.to))
-    : "—";
-
-  const note = useMemo(() => {
-    if (!ui.hasData) return t("coachProgress.widget.noteMissing");
-    if (!ui.comparedAt) return t("coachProgress.widget.noteLastCompareGeneric");
-    return t("coachProgress.widget.noteLastCompare").replace("{{date}}", ui.comparedAt);
-  }, [ui, t]);
-
   return (
     <WidgetCard
       title={t("coachProgress.widget.title")}
       tooltip={t("coachProgress.widget.tooltip")}
       accent="none"
-      note={note}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={190}
@@ -216,20 +128,6 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
               ))}
             </ul>
           )}
-
-          <div className={WIDGET_INFO_GRID_XS}>
-            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachAthleteState.lastAnalysis.fatigue")}</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{fatigueLabel}</div>
-
-            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachAthleteState.lastAnalysis.injuryRisk")}</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{injuryLabel}</div>
-
-            <div className={WIDGET_LABEL_MUTED_XS}>{t("coach.weekly.phase")}</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{blockLabel}</div>
-
-            <div className={WIDGET_LABEL_MUTED_XS}>{t("coachProgress.labels.volume")}</div>
-            <div className={WIDGET_VALUE_STRONG_XS}>{volumeLabel}</div>
-          </div>
         </>
       )}
     </WidgetCard>
