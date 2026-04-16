@@ -1,3 +1,4 @@
+// src/app/features/coach/components/WidgetCoachDailyPlan.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -196,7 +197,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       interactive={!!onOpenDetail}
       minH={190}
     >
-      {/* ✅ isChecking zablokuje render, kým nie je overené */}
       {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
@@ -239,29 +239,18 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             <>
               <div className={WIDGET_KV_GRID}>
                 <div className={WIDGET_KV_LABEL}>
-                  {t("coachDaily.widget.labelDays")}
+                  {t("coachDaily.widget.labelDays")} / {t("common.metrics.sessions") || "Jednotky"}
                 </div>
-                <div className={WIDGET_KV_VALUE}>{ui.daysCount}</div>
-
-                <div className={WIDGET_KV_LABEL}>
-                  {t("coachDaily.widget.labelSessions")}
-                </div>
-                <div className={WIDGET_KV_VALUE}>{ui.sessionsCount}</div>
-
-                <div className={WIDGET_KV_LABEL}>
-                  {t("coachDaily.widget.todayLabel")}
-                </div>
-                <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
-                  {ui.todayLabel
-                    ? parseAndFormatPrettyDate(ui.todayLabel, lang)
-                    : "—"}
+                <div className={WIDGET_KV_VALUE}>
+                  {ui.daysCount} / {ui.sessionsCount}
                 </div>
               </div>
 
               {ui.todaySessions && ui.todaySessions.length > 0 && (
                 <div className={WIDGET_SUMMARY_WRAP}>
                   <div className={WIDGET_SUMMARY_HEAD}>
-                    {t("coachDaily.widget.summary")}
+                    {t("coachDaily.widget.summary")} 
+                    {ui.todayLabel && ` (${parseAndFormatPrettyDate(ui.todayLabel, lang)})`}
                   </div>
 
                   <ul className={WIDGET_LIST}>
