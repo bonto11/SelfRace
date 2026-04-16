@@ -23,6 +23,7 @@ export const sk = {
       planAdjusted: "Tréningy upravené pre zotavenie.",
     },
     optional: "Voliteľné",
+    showAdvanced: "Zobraziť detail",
     downloadPDF: "Stiahnuť PDF",
     showPDFError: "Váš prehliadač nedokáže zobraziť PDF. ",
     done: "Hotovo",
