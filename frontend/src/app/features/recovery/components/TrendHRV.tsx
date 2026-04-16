@@ -19,6 +19,8 @@ import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recove
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
@@ -101,6 +103,9 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
 
 export default function TrendHRV() {
   const t = useT(); 
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
+
   const { rows: all } = useRecoveryData();
   const [weeks, setWeeks] = useState<number>(2);
   const [loading, setLoading] = useState<boolean>(false);
@@ -212,7 +217,7 @@ export default function TrendHRV() {
 
   const validValues = [
       ...hrv.filter(Number.isFinite), 
-      ...hrvMax.filter(Number.isFinite), 
+      ...(showAdvanced ? hrvMax.filter(Number.isFinite) : []), 
       ...lower.filter((v): v is number => v !== null), 
       ...upper.filter((v): v is number => v !== null)
   ];
@@ -283,7 +288,11 @@ export default function TrendHRV() {
               <Area type="monotone" dataKey="bandRange" stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" connectNulls />
 
               <Line type="monotone" dataKey="val" name={t("recovery.trends.hrv.hrvLabel") as string} stroke={COLOR.main} strokeWidth={3} dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
-              <Line type="monotone" dataKey="maxVal" name={t("recovery.trends.hrv.hrvMaxLabel") as string} stroke={COLOR.maxLine} strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2, fill: COLOR.maxLine, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
+              
+              {showAdvanced && (
+                <Line type="monotone" dataKey="maxVal" name={t("recovery.trends.hrv.hrvMaxLabel") as string} stroke={COLOR.maxLine} strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2, fill: COLOR.maxLine, strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
+              )}
+              
               <Scatter dataKey="missingY" name={t("recovery.trends.hrv.missingLabel") as string} fill={COLOR.missing} r={4} />
 
               <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
@@ -293,7 +302,9 @@ export default function TrendHRV() {
         </div>
       </div>
       
-      {/* Nová legenda ikoniek dole */}
+      <div className="px-3 pt-2">
+        <ShowAdvancedToggle />
+      </div>
       <EventsLegend t={t} />
     </section>
   );
