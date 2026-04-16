@@ -142,6 +142,9 @@ export default function DetailWeeklyPlan() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🛡️ Náš MASTER stav pre Progressive Disclosure pre Týždenný plán
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -271,6 +274,34 @@ export default function DetailWeeklyPlan() {
         title={t("coach.weekly.weeksTitle")}
         subtitle={t("coach.weekly.volumeBars")}
       >
+        
+        {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM BARY 🌟 */}
+        <div
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-3 shadow-sm"
+          style={{
+            backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
+            borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
+          }}
+        >
+          <div>
+            <div className="text-sm font-semibold text-white/90">
+              {t("coach.weekly.advancedToggle")}
+            </div>
+          </div>
+          <div
+            className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
+              showAdvanced ? "bg-blue-500" : "bg-white/10"
+            }`}
+          >
+            <span
+              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+                showAdvanced ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </div>
+        </div>
+
         <div className={PANEL_STACK}>
           {view.weeksSorted.map((w: WeeklyPlanWeek) => {
             const pk = phaseKey(w.load_phase);
@@ -297,6 +328,7 @@ export default function DetailWeeklyPlan() {
                 style={SESSION_SUBCARD_STYLE}
               >
                 <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+                  {/* HLAVIČKA TÝŽDŇA (Vždy viditeľná) */}
                   <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-sm font-bold uppercase opacity-90">
@@ -314,6 +346,7 @@ export default function DetailWeeklyPlan() {
                     </div>
                   </div>
 
+                  {/* CIEĽ/FOCUS TÝŽDŇA (Vždy viditeľný) */}
                   <div className="text-sm font-semibold">
                     {w.goal || w.focus || t("coach.weekly.noGoalShort")}
                   </div>
@@ -323,63 +356,67 @@ export default function DetailWeeklyPlan() {
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-1 mt-2">
-                    <MiniBar
-                      label={`${t("common.sports.run")} (${t("common.metrics.distance")})`}
-                      actual={as.run_distance_km || 0}
-                      planned={ps.run_distance_km || 0}
-                      unit={t("common.units.km")}
-                      colorHex={appColors.chartRun}
-                    />
-                    <MiniBar
-                      label={`${t("common.sports.run")} (${t("common.metrics.time")})`}
-                      actual={formatHrs(as.run_time_min || 0)}
-                      planned={formatHrs(ps.run_time_min || 0)}
-                      unit={t("common.units.hour")}
-                      colorHex={appColors.chartRun}
-                    />
-
-                    <MiniBar
-                      label={`${t("common.sports.bike")} (${t("common.metrics.distance")})`}
-                      actual={as.bike_distance_km || 0}
-                      planned={ps.bike_distance_km || 0}
-                      unit={t("common.units.km")}
-                      colorHex={appColors.chartBike}
-                    />
-                    <MiniBar
-                      label={`${t("common.sports.bike")} (${t("common.metrics.time")})`}
-                      actual={formatHrs(as.bike_time_min || 0)}
-                      planned={formatHrs(ps.bike_time_min || 0)}
-                      unit={t("common.units.hour")}
-                      colorHex={appColors.chartBike}
-                    />
-
-                    <MiniBar
-                      label={`${t("common.sports.swim")} (${t("common.metrics.distance")})`}
-                      actual={(as.swim_distance_m || 0) / 1000}
-                      planned={(ps.swim_distance_m || 0) / 1000}
-                      unit={t("common.units.km")}
-                      colorHex={appColors.chartSwim}
-                    />
-
-                    <MiniBar
-                      label={t("common.sports.strength" as any)}
-                      actual={formatHrs(as.strength_time_min || 0)}
-                      planned={formatHrs(ps.strength_time_min || 0)}
-                      unit={t("common.units.hour")}
-                      colorHex={appColors.chartStrength}
-                    />
-
-                    <div className="mt-2 pt-2 border-t border-white/5">
+                  {/* 🔐 POKROČILÉ BARY OBJEMOV (Len po kliknutí na Toggle) */}
+                  {showAdvanced && (
+                    <div className="flex flex-col gap-1 mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <MiniBar
-                        label={`${t("common.together")} (${t("common.metrics.time")})`}
-                        actual={formatHrs(totalAMin)}
-                        planned={formatHrs(totalPMin)}
-                        unit={t("common.units.hour")}
-                        colorHex={appColors.chartOther}
+                        label={`${t("common.sports.run")} (${t("common.metrics.distance")})`}
+                        actual={as.run_distance_km || 0}
+                        planned={ps.run_distance_km || 0}
+                        unit={t("common.units.km")}
+                        colorHex={appColors.chartRun}
                       />
+                      <MiniBar
+                        label={`${t("common.sports.run")} (${t("common.metrics.time")})`}
+                        actual={formatHrs(as.run_time_min || 0)}
+                        planned={formatHrs(ps.run_time_min || 0)}
+                        unit={t("common.units.hour")}
+                        colorHex={appColors.chartRun}
+                      />
+
+                      <MiniBar
+                        label={`${t("common.sports.bike")} (${t("common.metrics.distance")})`}
+                        actual={as.bike_distance_km || 0}
+                        planned={ps.bike_distance_km || 0}
+                        unit={t("common.units.km")}
+                        colorHex={appColors.chartBike}
+                      />
+                      <MiniBar
+                        label={`${t("common.sports.bike")} (${t("common.metrics.time")})`}
+                        actual={formatHrs(as.bike_time_min || 0)}
+                        planned={formatHrs(ps.bike_time_min || 0)}
+                        unit={t("common.units.hour")}
+                        colorHex={appColors.chartBike}
+                      />
+
+                      <MiniBar
+                        label={`${t("common.sports.swim")} (${t("common.metrics.distance")})`}
+                        actual={(as.swim_distance_m || 0) / 1000}
+                        planned={(ps.swim_distance_m || 0) / 1000}
+                        unit={t("common.units.km")}
+                        colorHex={appColors.chartSwim}
+                      />
+
+                      <MiniBar
+                        label={t("common.sports.strength" as any)}
+                        actual={formatHrs(as.strength_time_min || 0)}
+                        planned={formatHrs(ps.strength_time_min || 0)}
+                        unit={t("common.units.hour")}
+                        colorHex={appColors.chartStrength}
+                      />
+
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <MiniBar
+                          label={`${t("common.together")} (${t("common.metrics.time")})`}
+                          actual={formatHrs(totalAMin)}
+                          planned={formatHrs(totalPMin)}
+                          unit={t("common.units.hour")}
+                          colorHex={appColors.chartOther}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {/* KONIEC 🔐 POKROČILÉ BARY */}
                 </div>
               </div>
             );

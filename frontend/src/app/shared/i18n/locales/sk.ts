@@ -2377,6 +2377,7 @@ export const sk = {
       weeksSubtitle:
         "Detailné ciele a zameranie pre každý blok. Pruh znázorňuje pomer objemu (km).",
       noGoalShort: "Bez konkrétneho cieľa",
+      advancedToggle: "Zobraziť detail",
       phases: {
         base: "Základná fáza (Base)",
         build: "Budovacia fáza (Build)",
@@ -2573,8 +2574,7 @@ export const sk = {
       unitReps: "opak.",
       unitSets: "série",
       unitRest: "oddych",
-      advancedToggle: "Detailná štruktúra",
-      advancedToggleDesc: "Presné intervaly, série a zloženie",
+      advancedToggle: "Zobraziť detail",
       plan: {
         target: "cieľ",
         work: "Záťaž",

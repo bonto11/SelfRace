@@ -2375,6 +2375,7 @@ export const en = {
       weeksSubtitle:
         "Detailed goals and focus for each block. The bar represents the volume ratio (km).",
       noGoalShort: "No specific goal",
+      advancedToggle: "Show detail",
       phases: {
         base: "Base",
         build: "Build",
@@ -2572,8 +2573,7 @@ export const en = {
       unitReps: "reps",
       unitSets: "sets",
       unitRest: "rest",
-      advancedToggle: "Detaile structure",
-      advancedToggleDesc:"Detail intervals and series",
+      advancedToggle: "Show detail",
       plan: {
         target: "target",
         work: "Work",

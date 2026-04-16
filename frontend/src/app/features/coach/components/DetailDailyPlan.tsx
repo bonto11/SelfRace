@@ -277,10 +277,7 @@ export default function DetailDailyPlan() {
         >
           <div>
             <div className="text-sm font-semibold text-white/90">
-              {t("sessions.detail.advancedToggle") || "Zobraziť detaily a inštrukcie k tréningom"}
-            </div>
-            <div className="text-[11px] text-white/50 mt-0.5 font-medium">
-              Zobrazia sa presné časy, série, opakovania a poznámky
+              {t("sessions.detail.advancedToggle")}
             </div>
           </div>
           <div
