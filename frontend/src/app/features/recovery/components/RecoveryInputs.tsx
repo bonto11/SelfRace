@@ -1,4 +1,17 @@
 // src/features/coach/components/prefs/RecoveryInputs.tsx
+
+/*
+  TODO: i18n katalóg texty pre tooltip/info blok:
+
+  SK: 
+  "recovery.inputs.infoTitle": "💡 Prečo toto vypĺňať?",
+  "recovery.inputs.infoText": "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán."
+
+  EN:
+  "recovery.inputs.infoTitle": "💡 Why track this?",
+  "recovery.inputs.infoText": "RHR (Resting Heart Rate) and HRV (Heart Rate Variability) are the ultimate mirrors of your recovery. Log them first thing in the morning. If your HRV drops (or RHR spikes) by more than 7–10% from your baseline, your body is signaling overload. This can be caused by hard training, stress, incoming sickness, or even late meals and alcohol. Based on this, the AI will adjust your daily plan and keep you safe."
+*/
+
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -8,7 +21,6 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
-// ✅ Import našich točiacich bubnov
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 
@@ -64,7 +76,6 @@ function sleepHHMMToMinutesOrNull(s: string): number | null {
   return h * 60 + m;
 }
 
-// Pomocná funkcia na prevod z DB minút na HH:MM pre bubon
 function minutesToHHMM(mins: number | string | null | undefined): string {
   if (typeof mins !== "number" || !Number.isFinite(mins)) return "";
   const h = Math.floor(mins / 60).toString().padStart(2, "0");
@@ -94,7 +105,6 @@ export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
   
-  // ✅ Ťaháme z kontextu aj samotné dáta, nielen refresh funkciu
   const { data, refresh } = useRecoveryData() as any;
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -103,19 +113,16 @@ export default function RecoveryInputs() {
 
   const [date, setDate] = useState<string>(todayIso);
 
-  // main indicators
   const [rhr, setRhr] = useState<number | "">("");
   const [hrvAvg, setHrvAvg] = useState<number | "">("");
   const [sleepDuration, setSleepDuration] = useState("");
 
-  // “influence” factors
   const [lateFood, setLateFood] = useState(false);
   const [lateCaffeine, setLateCaffeine] = useState(false);
   const [alcoholVolume, setAlcoholVolume] = useState<number | "">("");
   const [alcoholType, setAlcoholType] = useState<number | "">("");
   const [comments, setComments] = useState("");
 
-  // add-ons
   const [hrvMax, setHrvMax] = useState<number | "">("");
   const [sleepStart, setSleepStart] = useState("");
 
@@ -129,10 +136,8 @@ export default function RecoveryInputs() {
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
 
-  // ✅ MAGICKÝ EFEKT: Predvyplnenie hodnôt z histórie
   useEffect(() => {
     if (data && Array.isArray(data) && data.length > 0 && !isInitialized) {
-      // Funkcia, ktorá nájde prvú dostupnú hodnotu z histórie (ak by bol včerajšok null, pozrie predvčerajšok)
       const findLatest = (key: string) => {
         const entry = data.find((d: any) => d && d[key] !== null && d[key] !== undefined && d[key] !== "");
         return entry ? entry[key] : "";
@@ -148,13 +153,11 @@ export default function RecoveryInputs() {
       const latestAlcoholType = findLatest("alcohol_type_pct");
       if (latestAlcoholType !== "") setAlcoholType(latestAlcoholType);
 
-      // Konverzia DB duration minút na HH:MM pre TimeSelector
       const sd = findLatest("sleep_duration_min");
       if (typeof sd === "number") {
         setSleepDuration(minutesToHHMM(sd));
       }
 
-      // Konverzia času na HH:MM formát (DB môže vracať HH:MM:SS)
       const ss = findLatest("sleep_start_time");
       if (typeof ss === "string") {
         const parts = ss.split(":");
@@ -175,7 +178,6 @@ export default function RecoveryInputs() {
 
     const patch: any = { date, user_id: userId };
 
-    // Ukladáme iba to, čo používateľ REÁLNE upravil (zatočil kolesom)
     if (dirty.RHR_bpm) patch.RHR_bpm = toNumberOrNull(rhr);
     if (dirty.HRV_avg_ms) patch.HRV_avg_ms = toNumberOrNull(hrvAvg);
     if (dirty.sleep_duration_min)
@@ -271,6 +273,13 @@ export default function RecoveryInputs() {
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        
+        {/* 🌟 INFORMAČNÝ TOOLTIP BLOK 🌟 */}
+        <div className="mb-2 p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs leading-relaxed text-blue-100/90 text-pretty shadow-sm">
+           <strong className="text-blue-400 block mb-1">💡 Prečo toto vypĺňať?</strong> 
+           RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán.
+        </div>
+
         <div className={FORM_GRID_TWO}>
           
           <div className="md:col-span-2 mb-1" style={{ fontSize: "11px", color: appColors.textMuted }}>
