@@ -1,4 +1,4 @@
-// src/features/recovery/components/RecoveryInputs.tsx
+// src/features/coach/components/prefs/RecoveryInputs.tsx
 
 "use client";
 
@@ -72,24 +72,6 @@ function minutesToHHMM(mins: number | string | null | undefined): string {
   const m = (mins % 60).toString().padStart(2, "0");
   return `${h}:${m}`;
 }
-
-const AiBadge = () => (
-  <span
-    style={{
-      marginLeft: "6px",
-      color: appColors.brandPrimary,
-      fontSize: "11px",
-      fontWeight: 900,
-      letterSpacing: "0.05em",
-      verticalAlign: "middle",
-      backgroundColor: `${appColors.brandPrimary}20`,
-      padding: "2px 4px",
-      borderRadius: "4px",
-    }}
-  >
-    AI
-  </span>
-);
 
 export default function RecoveryInputs() {
   const { userId } = useUserId();
@@ -270,17 +252,13 @@ export default function RecoveryInputs() {
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className={FORM_GRID_TWO}>
-          
-          <div className="md:col-span-2 mb-1" style={{ fontSize: "11px", color: appColors.textMuted }}>
-            <AiBadge /> {t("recovery.inputs.importantMark")}
-          </div>
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("recovery.inputs.rhrLabel")} <AiBadge />
+              {t("recovery.inputs.rhrLabel")}
             </div>
             <NumberWheelField
               min={30}
@@ -300,7 +278,7 @@ export default function RecoveryInputs() {
               className={INPUTS_CARD_LABEL_SM_1}
               style={{ color: appColors.textMuted }}
             >
-              {t("recovery.inputs.hrvAvgLabel")} <AiBadge />
+              {t("recovery.inputs.hrvAvgLabel")}
             </div>
             <NumberWheelField
               min={10}
