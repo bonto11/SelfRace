@@ -1166,6 +1166,7 @@ export const sk = {
         "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
       summary:
         "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
+      lastAnalysis: "Posledná analýza",
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
