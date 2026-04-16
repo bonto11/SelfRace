@@ -239,7 +239,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
             <>
               <div className={WIDGET_KV_GRID}>
                 <div className={WIDGET_KV_LABEL}>
-                  {t("coachDaily.widget.labelDays")} / {t("common.metrics.sessions") || "Jednotky"}
+                  {t("coachDaily.widget.labelDays")}}
                 </div>
                 <div className={WIDGET_KV_VALUE}>
                   {ui.daysCount} / {ui.sessionsCount}
