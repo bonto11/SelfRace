@@ -1,18 +1,16 @@
 // src/app/shared/components/session/PlanSessionDetail.tsx
 "use client";
 
-import { useState } from "react"; // 👈 Pridali sme React State
+import { useState } from "react";
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
 import {
   fmtMin,
   safeText,
-  tgtToStr,
 } from "@/app/shared/components/session/sessionUtils";
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import { appColors } from "@/app/shared/ui/theme/app_colors"; // 👈 Na farbu prepínača
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -28,7 +26,6 @@ import {
   PLAN_MAIN_STACK,
   PLAN_MAIN_ITEM,
   PLAN_MAIN_ITEM_STYLE,
-  PLAN_MAIN_TGT,
   PLAN_MAIN_NOTE,
   PLAN_EX_LIST,
   PLAN_EX_ITEM,
@@ -38,6 +35,8 @@ import {
   PLAN_EX_NOTE,
   PLAN_DEBUG_PRE,
 } from "@/app/shared/ui/tokens";
+
+// --- Pomocné funkcie ---
 
 function getDuration(block: any): string | null {
   if (typeof block === "string") return null;
@@ -86,7 +85,7 @@ export default function PlanSessionDetail({
   const t = useT();
   const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
 
-  // 🛡️ Náš nový stav pre Progressive Disclosure (defaultne vypnuté / Simple)
+  // 🛡️ Náš stav pre Progressive Disclosure (defaultne Simple režim)
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const raw = item.planRaw ?? undefined;
@@ -113,8 +112,6 @@ export default function PlanSessionDetail({
   const cd = (structure as any)?.cooldown;
 
   const hasEnduranceStructure = wu || mainBlocks.length > 0 || cd;
-
-  // 3. Potrebujeme vôbec ukázať toggle prepínač?
   const hasAdvancedContent = hasEnduranceStructure || hasStrength || showPlanDebug;
 
   // Metriky pre MiniGrid
@@ -156,34 +153,45 @@ export default function PlanSessionDetail({
           formattedId ||
           `${fallbackLabel} ${i + 1}`;
 
+        // Oprava formátovania pre opakovania (ak to obsahuje "s" alebo "min", nedávame tam slovo "opak.")
+        const repsString = String(e?.reps || "");
+        const hasTimeFormat = repsString.includes("s") || repsString.includes("min");
+        const formattedReps = e?.reps 
+          ? (hasTimeFormat ? e.reps : `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`) 
+          : null;
+
         return (
           <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
             <div
               className={PLAN_EX_NAME}
-              style={{ textTransform: "capitalize" }}
+              style={{ textTransform: "capitalize", fontWeight: showAdvanced ? "600" : "400" }}
             >
               {displayName}
             </div>
-            <div className={PLAN_EX_LINE}>
-              {[
-                e?.sets
-                  ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}`
-                  : null,
-                e?.reps
-                  ? `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`
-                  : null,
-                e?.seconds
-                  ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}`
-                  : null,
-                e?.rest_sec || e?.rest_s
-                  ? `${t("sessions.detail.unitRest") || "Pauza"} ${e.rest_sec || e.rest_s}s`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || "—"}
-            </div>
-            {e?.notes && (
-              <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>
+            
+            {/* 🔐 UKÁŽE SA LEN V DETAILNOM REŽIME */}
+            {showAdvanced && (
+              <div className="mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className={PLAN_EX_LINE}>
+                  {[
+                    e?.sets
+                      ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}`
+                      : null,
+                    formattedReps,
+                    e?.seconds
+                      ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}`
+                      : null,
+                    e?.rest_sec || e?.rest_s
+                      ? `${t("sessions.detail.unitRest") || "Pauza"} ${e.rest_sec || e.rest_s}s`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </div>
+                {e?.notes && (
+                  <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>
+                )}
+              </div>
             )}
           </li>
         );
@@ -192,215 +200,190 @@ export default function PlanSessionDetail({
   );
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Vždy viditeľný jednoduchý základný panel (Pre ne-geekov) */}
       <MiniMetricGrid metrics={metrics} cols={3} />
 
-      {/* 🌟 TOGGLE PREPÍNAČ PRE POKROČILÝ REŽIM */}
+      {/* 🌟 TOGGLE PREPÍNAČ HNEĎ POD HLAVIČKOU */}
       {hasAdvancedContent && (
         <div
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="mt-4 flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border select-none"
+          className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all border select-none"
           style={{
-            backgroundColor: showAdvanced ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.15)",
+            backgroundColor: showAdvanced ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.15)",
             borderColor: showAdvanced ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
           }}
         >
-          <div>
-            <div className="text-sm font-semibold text-white/90 leading-tight">
-              {t("sessions.detail.advancedToggle")}
-            </div>
-            <div className="text-[11px] text-white/40 mt-0.5">
-              {t("sessions.detail.advancedToggleDesc")}
-            </div>
+          <div className="text-sm font-medium text-white/90">
+            {t("sessions.detail.advancedToggle") || "Zobraziť inštrukcie a detaily"}
           </div>
           <div
-            className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
-              showAdvanced ? "bg-blue-500" : "bg-white/10"
+            className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${
+              showAdvanced ? "bg-blue-500" : "bg-white/20"
             }`}
           >
             <span
-              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
-                showAdvanced ? "translate-x-5" : "translate-x-1"
+              className={`inline-block w-3.5 h-3.5 bg-white rounded-full transition-transform ${
+                showAdvanced ? "translate-x-4.5" : "translate-x-1"
               }`}
+              style={{ transform: showAdvanced ? "translateX(18px)" : "translateX(4px)" }}
             />
           </div>
         </div>
       )}
 
-      {/* 🔐 SKRYTÁ SEKCIA S DETAILMI (Ukáže sa len ak showAdvanced === true) */}
-      {showAdvanced && (
-        <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+      {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
+      {hasEnduranceStructure && (
+        <DetailSection title={t("sessions.detail.sectionStructure")}>
           
-          {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
-          {hasEnduranceStructure && (
-            <DetailSection title={t("sessions.detail.sectionStructure")}>
-              {(item.sport === "run" || item.sport === "ride") && (
-                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/80 italic">
-                  <strong>{t("common.note")}:</strong>{" "}
-                  {t("sessions.detail.plan.noteEndurance")}
+          {/* 🔐 Modrá poznámka sa ukáže len v detailoch */}
+          {showAdvanced && (item.sport === "run" || item.sport === "ride") && (
+            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/90 italic animate-in fade-in">
+              <strong>{t("common.note") || "Poznámka"}:</strong>{" "}
+              {t("sessions.detail.plan.noteEndurance") || "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom."}
+            </div>
+          )}
+          
+          <div className={PLAN_STRUCT_STACK}>
+            {wu && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.warmup")}
                 </div>
-              )}
-              <div className={PLAN_STRUCT_STACK}>
-                {wu && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.warmup")}
-                    </div>
-                    <div className={PLAN_BLOCK_TEXT}>
-                      {typeof wu === "string"
-                        ? wu
-                        : [getDuration(wu), getNote(wu)]
-                            .filter(Boolean)
-                            .join(" · ") || "—"}
-                    </div>
-                  </div>
+                <div className={PLAN_BLOCK_TEXT}>
+                  {typeof wu === "string" ? wu : getDuration(wu) || "—"}
+                </div>
+                {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
+                {showAdvanced && typeof wu !== "string" && getNote(wu) && (
+                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(getNote(wu))}</div>
                 )}
+              </div>
+            )}
 
-                {mainBlocks.length > 0 && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.main")}
-                    </div>
-                    <div className={PLAN_MAIN_STACK}>
-                      {mainBlocks.map((blk: any, idx: number) => {
-                        if (typeof blk === "string") {
-                          return (
-                            <div
-                              key={idx}
-                              className={PLAN_MAIN_ITEM}
-                              style={PLAN_MAIN_ITEM_STYLE}
-                            >
-                              <div className={PLAN_MAIN_NOTE}>{safeText(blk)}</div>
-                            </div>
-                          );
-                        }
+            {mainBlocks.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.main")}
+                </div>
+                <div className={PLAN_MAIN_STACK}>
+                  {mainBlocks.map((blk: any, idx: number) => {
+                    if (typeof blk === "string") {
+                      return (
+                        <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                          <div className={PLAN_MAIN_NOTE}>{safeText(blk)}</div>
+                        </div>
+                      );
+                    }
 
-                        const isInterval = blk.kind === "interval_block";
+                    const isInterval = blk.kind === "interval_block";
 
-                        if (isInterval) {
-                          const reps = blk.repeats || 1;
-                          const workDur = getDuration(blk.work);
-                          const restDur = getDuration(blk.rest);
-                          const workNote = getNote(blk.work);
+                    if (isInterval) {
+                      const reps = blk.repeats || 1;
+                      const workDur = getDuration(blk.work);
+                      const restDur = getDuration(blk.rest);
+                      const workNote = getNote(blk.work);
 
-                          return (
-                            <div
-                              key={idx}
-                              className={PLAN_MAIN_ITEM}
-                              style={PLAN_MAIN_ITEM_STYLE}
-                            >
-                              <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-white font-bold text-base">
-                                  {reps}×
-                                </span>
-                                <span className="opacity-90">
-                                  {workDur}{" "}
-                                  <span className="opacity-60 text-xs">
-                                    ({t("sessions.detail.plan.work")})
-                                  </span>
-                                </span>
-                                {restDur && (
-                                  <span className="opacity-60">
-                                    + {restDur}{" "}
-                                    <span className="text-xs">
-                                      ({t("sessions.detail.plan.recovery")})
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
-
-                              {workNote && (
-                                <div className={PLAN_MAIN_NOTE}>
-                                  {safeText(workNote)}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        const dur = getDuration(blk);
-                        const note = getNote(blk);
-
-                        return (
-                          <div
-                            key={idx}
-                            className={PLAN_MAIN_ITEM}
-                            style={PLAN_MAIN_ITEM_STYLE}
-                          >
-                            <div className="font-semibold text-white/90">
-                              {dur || "—"}
-                            </div>
-                            {note && (
-                              <div className={PLAN_MAIN_NOTE}>{safeText(note)}</div>
+                      return (
+                        <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="text-white font-bold text-base">
+                              {reps}×
+                            </span>
+                            <span className="opacity-90">
+                              {workDur}{" "}
+                              {showAdvanced && <span className="opacity-60 text-xs">({t("sessions.detail.plan.work")})</span>}
+                            </span>
+                            {restDur && (
+                              <span className="opacity-60">
+                                + {restDur}{" "}
+                                {showAdvanced && <span className="text-xs">({t("sessions.detail.plan.recovery")})</span>}
+                              </span>
                             )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                          {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
+                          {showAdvanced && workNote && (
+                            <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
+                              {safeText(workNote)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
 
-                {cd && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.cooldown")}
-                    </div>
-                    <div className={PLAN_BLOCK_TEXT}>
-                      {typeof cd === "string"
-                        ? cd
-                        : [getDuration(cd), getNote(cd)]
-                            .filter(Boolean)
-                            .join(" · ") || "—"}
-                    </div>
-                  </div>
+                    const dur = getDuration(blk);
+                    const note = getNote(blk);
+
+                    return (
+                      <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                        <div className="font-semibold text-white/90">
+                          {dur || "—"}
+                        </div>
+                        {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
+                        {showAdvanced && note && (
+                          <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(note)}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {cd && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.cooldown")}
+                </div>
+                <div className={PLAN_BLOCK_TEXT}>
+                  {typeof cd === "string" ? cd : getDuration(cd) || "—"}
+                </div>
+                {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
+                {showAdvanced && typeof cd !== "string" && getNote(cd) && (
+                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(getNote(cd))}</div>
                 )}
               </div>
-            </DetailSection>
-          )}
+            )}
+          </div>
+        </DetailSection>
+      )}
 
-          {/* --- SEKCIA: CVIKY (Strength) --- */}
-          {hasStrength && (
-            <DetailSection title={t("sessions.detail.sectionExercises")}>
-              <div className={PLAN_STRUCT_STACK}>
-                {strengthActivation.length > 0 && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.activation") || "Aktivácia"}
-                    </div>
-                    {renderExerciseList(strengthActivation, "Cvik")}
-                  </div>
-                )}
-                {strengthMainPart.length > 0 && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
-                    </div>
-                    {renderExerciseList(strengthMainPart, "Cvik")}
-                  </div>
-                )}
-                {strengthAddOns.length > 0 && (
-                  <div className={PLAN_BLOCK}>
-                    <div className={PLAN_BLOCK_LABEL}>
-                      {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
-                    </div>
-                    {renderExerciseList(strengthAddOns, "Cvik")}
-                  </div>
-                )}
+      {/* --- SEKCIA: CVIKY (Strength) --- */}
+      {hasStrength && (
+        <DetailSection title={t("sessions.detail.sectionExercises")}>
+          <div className={PLAN_STRUCT_STACK}>
+            {strengthActivation.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.activation") || "Aktivácia"}
+                </div>
+                {renderExerciseList(strengthActivation, "Cvik")}
               </div>
-            </DetailSection>
-          )}
+            )}
+            {strengthMainPart.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
+                </div>
+                {renderExerciseList(strengthMainPart, "Cvik")}
+              </div>
+            )}
+            {strengthAddOns.length > 0 && (
+              <div className={PLAN_BLOCK}>
+                <div className={PLAN_BLOCK_LABEL}>
+                  {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
+                </div>
+                {renderExerciseList(strengthAddOns, "Cvik")}
+              </div>
+            )}
+          </div>
+        </DetailSection>
+      )}
 
-          {/* --- DEBUG SEKCIA --- */}
-          {showPlanDebug && (
-            <DetailSection
-              title={t("sessions.detail.sectionDebug")}
-              defaultOpen={false}
-            >
-              <pre className={PLAN_DEBUG_PRE}>{safeText({ structure, raw })}</pre>
-            </DetailSection>
-          )}
-        </div>
+      {/* --- DEBUG SEKCIA --- */}
+      {showAdvanced && showPlanDebug && (
+        <DetailSection title={t("sessions.detail.sectionDebug")} defaultOpen={false}>
+          <pre className={PLAN_DEBUG_PRE + " animate-in fade-in"}>{safeText({ structure, raw })}</pre>
+        </DetailSection>
       )}
     </div>
   );
