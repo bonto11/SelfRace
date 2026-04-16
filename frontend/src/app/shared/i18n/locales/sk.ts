@@ -927,8 +927,7 @@ export const sk = {
       iosTitle: "Apple (iOS Safari):",
       iosDesc: "Klikni dole na ikonu zdieľania a zvoľ 'Pridať na plochu'.",
       androidTitle: "Android (Chrome):",
-      androidDesc:
-        "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na plochu'.",
+      androidDesc: "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na plochu'.",
       ps: "PS: Ak to teraz zatvoríš, tohto sprievodcu nájdeš kedykoľvek v Užívateľskom menu (tvoj avatar vpravo hore).",
     },
     notifications: {
@@ -994,7 +993,7 @@ export const sk = {
     errorLoad: "Nepodarilo sa načítať dáta",
     missingUserId: "Chýbajúce ID používateľa",
   },
- PB: {
+  PB: {
     title: "Osobné rekordy",
     chooseDist: "vyber vzdialenosť",
     chooseExercise: "vyber cvik",
@@ -1029,7 +1028,8 @@ export const sk = {
         "• PB má zmysel hodnotiť v kontexte sezóny, nie izolovane",
       ].join("\n"),
       distanceLabel: "Vzdialenosť",
-      empty: "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
+      empty:
+        "Zatiaľ nemáš uložený rekord pre obľúbenú vzdialenosť. Otvor detail a pridaj svoj prvý výkon.",
     },
     run: {
       title: "Osobné rekordy pre beh",
@@ -1247,7 +1247,7 @@ export const sk = {
         "⚠️ Kapacita tvojho trénera:",
         "• Tak ako živý tréner, aj naša AI má na teba vyhradený obmedzený čas (podľa predplatného), aby sa stíhala venovať aj iným.",
         "• Neustále spúšťanie a rušenie plánov trénera vyčerpáva. Ak to budeš robiť zbytočne, môže si ťa do konca mesiaca zablokovať.",
-        "• Generuj preto nový plán len vtedy, keď to naozaj potrebuješ."
+        "• Generuj preto nový plán len vtedy, keď to naozaj potrebuješ.",
       ].join("\n"),
       note: "Analyzuj stav, vygeneruj týždenný a denný rozpis a následne spusti aktívny plán.",
       timeNote: "Generovanie môže trvať až 3 minúty.",
@@ -2396,8 +2396,6 @@ export const sk = {
       errorSave: "Nepodarilo sa uložiť zmeny v pláne.",
       noPlan:
         "Zatiaľ nemáš vygenerovaný žiadny aktívny tréningový plán pre jednotlivé dni.",
-      rescheduleNotice:
-        "Tréningy môžeš presúvať medzi dňami priamo na kartách, ale mysli na to, že tým meníš pôvodnú stratégiu trénera.",
       scheduleTitle: "Rozpis tréningov",
       scheduleSubtitle:
         "Každá karta predstavuje jeden tréning. Presunom zmeníš termín v rámci aktuálneho cyklu.",
@@ -2516,7 +2514,8 @@ export const sk = {
       zonesAutoUpdated: "Nové zóny boli automaticky uložené do tvojho profilu.",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Odporúčanie na zajtra",
-      noReviewPlaceholder: "Zatiaľ žiadne hodnotenie. Pridať komentár a spustiť analýzu je možné len k aktivitám, ktoré nie sú staršie ako 7 dní.",
+      noReviewPlaceholder:
+        "Zatiaľ žiadne hodnotenie. Pridať komentár a spustiť analýzu je možné len k aktivitám, ktoré nie sú staršie ako 7 dní.",
       api: {
         success: "Analýza tréningu je hotová.",
         processing: "Analýza prebieha, o malú chvíľu sa zobrazí...",
@@ -2575,7 +2574,7 @@ export const sk = {
       unitSets: "série",
       unitRest: "oddych",
       advancedToggle: "Detailná štruktúra",
-      advancedToggleDesc:"Presné intervaly, série a zloženie",
+      advancedToggleDesc: "Presné intervaly, série a zloženie",
       plan: {
         target: "cieľ",
         work: "Záťaž",

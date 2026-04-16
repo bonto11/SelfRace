@@ -2393,8 +2393,6 @@ export const en = {
       errorLoadTitle: "Loading Error",
       errorSave: "Failed to save plan changes.",
       noPlan: "You don't have an active daily training plan generated yet.",
-      rescheduleNotice:
-        "You can move workouts between days directly on the cards, but keep in mind this alters the coach's original strategy.",
       scheduleTitle: "Workout Schedule",
       scheduleSubtitle:
         "Each card represents one workout. Moving it changes its date within the current cycle.",

@@ -236,7 +236,7 @@ export default function DetailDailyPlan() {
 
   if (!userId) {
     return (
-      <Card title={t("coach.daily.detailTitle")} subtitle={t("common.errors.missingUserAuth")}>
+      <Card title={t("coach.daily.scheduleTitle")} subtitle={t("common.errors.missingUserAuth")}>
         <div className={PANEL_PREVIEW}>{t("common.errors.checkLogin")}</div>
       </Card>
     );
@@ -256,7 +256,7 @@ export default function DetailDailyPlan() {
 
   if (error) {
     return (
-      <Card title={t("coach.daily.detailTitle")} subtitle={t("coach.daily.errorLoadTitle")}>
+      <Card title={t("coach.daily.scheduleTitle")} subtitle={t("coach.daily.errorLoadTitle")}>
         <div className={PANEL_PREVIEW}>{error}</div>
       </Card>
     );
@@ -265,7 +265,7 @@ export default function DetailDailyPlan() {
   return (
     <div className={PANEL_STACK}>
       
-      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Umiestnený samostatne úplne hore) 🌟 */}
+      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM 🌟 */}
       {hasPlan && (
         <div
           onClick={() => setShowAdvanced(!showAdvanced)}
@@ -304,7 +304,7 @@ export default function DetailDailyPlan() {
       >
         {hasPlan ? (
           <div className="flex flex-col gap-2 mb-2">
-            {/* Panel s akciami na ukladanie zmien (Pôvodný kód) */}
+            {/* Panel s akciami na ukladanie zmien */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs opacity-70">
@@ -348,12 +348,11 @@ export default function DetailDailyPlan() {
                 <div className="mt-1 text-[11px] text-red-300">{saveError}</div>
               ) : null}
             </div>
-
           </div>
         ) : null}
 
         {!hasPlan ? (
-          <div className={PANEL_PREVIEW}>—</div>
+          <div className={PANEL_PREVIEW}>{t("coach.daily.noPlan")}</div>
         ) : (
           <div className={PANEL_STACK}>
             {days.flatMap((d) => {
@@ -402,7 +401,7 @@ export default function DetailDailyPlan() {
                     key={item.id}
                     variant="calendar"
                     item={item}
-                    showAdvanced={showAdvanced} // 👈 POSIELAME STAV DO DETÍ
+                    showAdvanced={showAdvanced}
                     planReschedule={{
                       enabled: true,
                       dates: planDates,
