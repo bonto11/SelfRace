@@ -19,7 +19,6 @@ import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recove
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -301,10 +300,7 @@ export default function TrendHRV() {
           </ResponsiveContainer>
         </div>
       </div>
-      
-      <div className="px-3 pt-2">
-        <ShowAdvancedToggle />
-      </div>
+
       <EventsLegend t={t} />
     </section>
   );
