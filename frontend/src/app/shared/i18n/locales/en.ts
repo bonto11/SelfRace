@@ -1168,10 +1168,10 @@ export const en = {
       lastAnalysis: "Last analysis",
       fatigue: "Fatigue",
       injuryRisk: "Injury risk",
+    },
 lastAnalysis: {
       fatigue: "Fatigue",
       injuryRisk: "Injury risk",
-    },
     },
   },
   coachDaily: {
