@@ -10,7 +10,8 @@ import {
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import Toggle from "@/app/shared/ui/components/Toggle";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 Import nášho globálneho komponentu
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 Import providera
 
 import {
   PANEL_STACK,
@@ -302,8 +303,9 @@ export default function DetailAthleteProgress() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🛡️ Náš MASTER stav pre Progressive Disclosure
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // 🛡️ Náš MASTER stav pre Progressive Disclosure ťahaný z Providera
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
 
   useEffect(() => {
     if (!userId) return;
@@ -355,11 +357,7 @@ export default function DetailAthleteProgress() {
 
   return (
     <div className={PANEL_STACK}>
-      <Toggle 
-        label={t("coach.progress.advancedToggle")}
-        checked={showAdvanced}
-        onChange={setShowAdvanced}
-      />
+      <ShowAdvancedToggle />
       
       {/* 1. ZÁKLADNÝ SÚHRN (Vždy viditeľné) */}
       <Card
