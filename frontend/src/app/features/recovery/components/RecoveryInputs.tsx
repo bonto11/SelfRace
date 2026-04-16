@@ -11,7 +11,7 @@ import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import Toggle from "@/app/shared/ui/components/Toggle";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT NOVÉHO KOMPONENTU
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -37,6 +37,9 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+
+// 👈 1. Vytiahneme useSettings hook z providera
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; 
 
 type DirtyKey =
   | "RHR_bpm"
@@ -94,13 +97,16 @@ export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
   
+  // 👈 2. Získame settings
+  const { settings } = useSettings() as any; 
   const { data, refresh } = useRecoveryData() as any;
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  // 👈 3. Zmeníme na čítanie z Providera
+  const showAdvanced = settings?.show_advanced ?? false;
 
   const [date, setDate] = useState<string>(todayIso);
 
@@ -220,7 +226,7 @@ export default function RecoveryInputs() {
     <InputsCard
       title={t("recovery.title")}
       subtitle={t("recovery.inputs.subtitle")}
-      tooltip={tooltipContent} // 👈 Žiadne t(), iba čistá premenná
+      tooltip={tooltipContent}
       open={open}
       onOpenChange={setOpen}
       preview={previewText}
@@ -315,11 +321,9 @@ export default function RecoveryInputs() {
           </section>
 
           <div className="md:col-span-2 my-2">
-            <Toggle 
-              label="Zobraziť detaily spánku a faktory" // 👈 Natvrdo
-              description="Alkohol, kofeín, jedlo a presné časy spánku" // 👈 Natvrdo
-              checked={showAdvanced}
-              onChange={setShowAdvanced}
+            <ShowAdvancedToggle 
+              label="Zobraziť detaily spánku a faktory" // 👈 Natvrdo text
+              description="Alkohol, kofeín, jedlo a presné časy spánku" // 👈 Natvrdo text
             />
           </div>
 
