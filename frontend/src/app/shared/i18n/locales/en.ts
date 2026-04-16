@@ -1167,7 +1167,11 @@ export const en = {
         "A brief evaluation of fatigue, form, and risks will appear here after your next analysis.",
       lastAnalysis: "Last analysis",
       fatigue: "Fatigue",
-      injuryRisk: "Injury Risk",
+      injuryRisk: "Injury risk",
+lastAnalysis: {
+      fatigue: "Fatigue",
+      injuryRisk: "Injury risk",
+    },
     },
   },
   coachDaily: {
