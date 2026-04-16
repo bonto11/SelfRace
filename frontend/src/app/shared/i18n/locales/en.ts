@@ -23,6 +23,7 @@ export const en = {
       planAdjusted: "Training adjusted for recovery.",
     },
     optional: "Optional",
+    showAdvanced: "Show detail",
     downloadPDF: "Download PDF",
     showPDFError: "Your browser cannot display the PDF. ",
     done: "Done",
