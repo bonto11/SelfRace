@@ -3,6 +3,7 @@
 
 import dynamic from "next/dynamic";
 import PageShell from "@/app/shared/ui/components/PageShell";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import { useT } from "@/app/shared/i18n/useT";
 
 const HRVDetailClient = dynamic(
@@ -14,6 +15,9 @@ export default function Page() {
   const t = useT();
   return (
     <PageShell title={t("HRV.title")} showBack showPoweredByStrava={false}>
+      <div className="mb-4">
+        <ShowAdvancedToggle />
+      </div>
       <HRVDetailClient />
     </PageShell>
   );
