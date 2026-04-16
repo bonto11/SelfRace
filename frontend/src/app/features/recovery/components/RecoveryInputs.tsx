@@ -1,21 +1,5 @@
 // src/features/coach/components/prefs/RecoveryInputs.tsx
 
-/*
-  TODO: i18n katalóg texty pre tooltip/info blok a advanced toggle:
-
-  SK: 
-  "recovery.inputs.infoTitle": "💡 Prečo toto vypĺňať?",
-  "recovery.inputs.infoText": "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán."
-  "recovery.inputs.advancedToggle": "Zobraziť detaily spánku a faktory",
-  "recovery.inputs.advancedToggleDesc": "Alkohol, kofeín, jedlo a presné časy spánku"
-
-  EN:
-  "recovery.inputs.infoTitle": "💡 Why track this?",
-  "recovery.inputs.infoText": "RHR (Resting Heart Rate) and HRV (Heart Rate Variability) are the ultimate mirrors of your recovery. Log them first thing in the morning. If your HRV drops (or RHR spikes) by more than 7–10% from your baseline, your body is signaling overload. This can be caused by hard training, stress, incoming sickness, or even late meals and alcohol. Based on this, the AI will adjust your daily plan and keep you safe."
-  "recovery.inputs.advancedToggle": "Show sleep details & factors",
-  "recovery.inputs.advancedToggleDesc": "Alcohol, caffeine, meals and precise sleep times"
-*/
-
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -27,7 +11,7 @@ import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import Toggle from "@/app/shared/ui/components/Toggle"; // 👈 Náš nový Toggle komponent
+import Toggle from "@/app/shared/ui/components/Toggle";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -116,7 +100,6 @@ export default function RecoveryInputs() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // 🛡️ Náš MASTER stav pre Progressive Disclosure (defaultne Simple režim)
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [date, setDate] = useState<string>(todayIso);
@@ -230,14 +213,14 @@ export default function RecoveryInputs() {
 
   const previewText = `${t("recovery.inputs.dateLabel")}: ${date}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
-  // 🌟 Pripravený Tooltip text
+  // Natvrdo texty, aby prešiel build
   const tooltipContent = "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán.";
 
   return (
     <InputsCard
       title={t("recovery.title")}
       subtitle={t("recovery.inputs.subtitle")}
-      tooltip={t("recovery.inputs.infoText") || tooltipContent} // 👈 Text odovzdaný karte pre tooltip ikonu
+      tooltip={tooltipContent} // 👈 Žiadne t(), iba čistá premenná
       open={open}
       onOpenChange={setOpen}
       preview={previewText}
@@ -291,7 +274,6 @@ export default function RecoveryInputs() {
             <AiBadge /> {t("recovery.inputs.importantMark")}
           </div>
 
-          {/* 1. RHR (Vždy viditeľné) */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
@@ -312,7 +294,6 @@ export default function RecoveryInputs() {
             />
           </section>
 
-          {/* 2. HRV AVG (Vždy viditeľné) */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div
               className={INPUTS_CARD_LABEL_SM_1}
@@ -333,21 +314,18 @@ export default function RecoveryInputs() {
             />
           </section>
 
-          {/* 🌟 MASTER TOGGLE PRE ZVYŠNÉ DETAILNÉ HODNOTY 🌟 */}
           <div className="md:col-span-2 my-2">
             <Toggle 
-              label={t("recovery.inputs.advancedToggle") || "Zobraziť detaily spánku a faktory"}
-              description={t("recovery.inputs.advancedToggleDesc") || "Alkohol, kofeín, jedlo a presné časy spánku"}
+              label="Zobraziť detaily spánku a faktory" // 👈 Natvrdo
+              description="Alkohol, kofeín, jedlo a presné časy spánku" // 👈 Natvrdo
               checked={showAdvanced}
               onChange={setShowAdvanced}
             />
           </div>
 
-          {/* 🔐 POKROČILÉ HODNOTY (Ukážu sa len po zapnutí prepínača) */}
           {showAdvanced && (
             <div className="md:col-span-2 grid gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200">
               
-              {/* 3. HRV MAX */}
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
                   className={INPUTS_CARD_LABEL_SM_1}
@@ -368,7 +346,6 @@ export default function RecoveryInputs() {
                 />
               </section>
 
-              {/* 4. SLEEP DURATION */}
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
                   className={INPUTS_CARD_LABEL_SM_1}
@@ -389,7 +366,6 @@ export default function RecoveryInputs() {
                 />
               </section>
 
-              {/* 5. SLEEP START */}
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
                   className={INPUTS_CARD_LABEL_SM_1}
@@ -410,7 +386,6 @@ export default function RecoveryInputs() {
                 />
               </section>
 
-              {/* OVPLYVŇUJÚCE FAKTORY */}
               <section className={SECTION + " md:col-span-2 mt-2"} style={SECTION_STYLE}>
                 <div
                   className={INPUTS_CARD_LABEL_SM_2}
@@ -494,7 +469,6 @@ export default function RecoveryInputs() {
                   />
                 </div>
               </section>
-
             </div>
           )}
 
