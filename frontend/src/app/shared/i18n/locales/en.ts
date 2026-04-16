@@ -1168,10 +1168,6 @@ export const en = {
       fatigue: "Fatigue",
       injuryRisk: "Injury Risk",
     },
-    lastAnalysis: {
-      fatigue: "Fatigue",
-      injuryRisk: "Injury Risk",
-    },
   },
   coachDaily: {
     title: "Daily Training Plan",
@@ -1204,11 +1200,9 @@ export const en = {
       daysCount: "Days",
       sessionsCount: "Workouts",
       injuryRisk: "Injury Risk",
-      todayLabel: "Next training day",
       todaySessions: "more blocks",
       errorFetch: "Error loading the daily plan.",
       labelDays: "Scheduled days/trainigs",
-      labelSessions: "Training sessions",
       moreSessions: "more workouts",
       medicalTitle: "Plan Suspended",
       medicalText:
@@ -1394,17 +1388,11 @@ export const en = {
         "Why do we need at least 2 analyses?",
         "• Progress is a comparison. Without a 'before', you have neither 'improvement' nor 'deterioration'.",
       ].join("\n"),
-      noteLastCompare: "Last comparison: {{date}}",
-      noteLastCompareGeneric: "Last AI states comparison.",
       noteMissing: "We need at least two AI analyses to show progress.",
       errorTitle: "Failed to load progress report.",
       errorFetch: "Error loading the AI progress report.",
       empty:
         "You don't have any AI state comparisons saved yet. After two analyzed weeks, your progress overview will appear here.",
-    },
-    labels: {
-      volume: "Min. weekly volume",
-      volumeValue: "{{from}} h → {{to}} h / week",
     },
   },
   coachWeekly: {
@@ -2360,7 +2348,6 @@ export const en = {
       advancedToggle: "Show detail",
     },
     weekly: {
-      phase: "Phase",
       errorLoad: "Error loading the weekly plan.",
       noPlanTitle: "Plan not generated",
       noPlanDesc:
