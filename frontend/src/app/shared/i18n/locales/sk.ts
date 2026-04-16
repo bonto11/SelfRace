@@ -2042,7 +2042,7 @@ lastAnalysis: {
     title: "Regenerácia",
     inputs: {
       subtitle:
-        "Zadaj kľúčové metriky (HRV, RHR, spánok) a faktory, ktoré ovplyvnili tvoju noc.",
+        "Zadaj kľúčové metriky (HRV a RHR) a faktory, ktoré ovplyvnili tvoju noc.",
       dateLabel: "Dátum",
       notLoggedIn: "neprihlásený",
       errorNoChanges: "Nezistili sme žiadne zmeny na uloženie.",
