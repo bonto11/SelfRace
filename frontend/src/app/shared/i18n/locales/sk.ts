@@ -1207,7 +1207,7 @@ export const sk = {
       todayLabel: "Najbližší tréningový deň",
       todaySessions: "ďalších blokov",
       errorFetch: "Chyba pri načítaní daily plánu.",
-      labelDays: "Naplánované dni",
+      labelDays: "Naplánované dni/tréningy",
       labelSessions: "Tréningové jednotky",
       moreSessions: "ďalšie tréningy",
       medicalTitle: "Plán pozastavený",
