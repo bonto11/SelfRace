@@ -22,7 +22,9 @@ import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachPr
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; 
 
 function RefreshIconBtn() {
   const { refresh, loading } = useCoachData();
@@ -46,6 +48,10 @@ function RefreshIconBtn() {
 function ClientPage() {
   const router = useRouter();
   const t = useT();
+  
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
+
   return (
     <PageShell
       title={t("coach.title")}
@@ -53,9 +59,13 @@ function ClientPage() {
       showPoweredByStrava={false}
       rightSlot={<RefreshIconBtn />}
     >
+      
+      <div className="mb-4">
+        <ShowAdvancedToggle />
+      </div>
+
       <div className={PAGE_GRID_2}>
-        {/* existujúce widgety */}
-        <WidgetExternalEvents />
+        {showAdvanced && <WidgetExternalEvents />}
 
         <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
 
@@ -71,10 +81,15 @@ function ClientPage() {
         <WidgetCoachAIDaily
           onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
         />
-        <WidgetCoachPlan />
-        <WidgetCoachAIProgress
-          onOpenDetail={() => router.push("/coach/ai/progress")}
-        />
+        
+        {showAdvanced && <WidgetCoachPlan />}
+        
+        {/* Progress presunutý za showAdvanced podmienku */}
+        {showAdvanced && (
+          <WidgetCoachAIProgress
+            onOpenDetail={() => router.push("/coach/ai/progress")}
+          />
+        )}
       </div>
     </PageShell>
   );
