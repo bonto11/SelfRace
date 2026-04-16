@@ -1169,10 +1169,6 @@ export const sk = {
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
-    lastAnalysis: {
-      fatigue: "Únava",
-      injuryRisk: "Riziko zranenia",
-    },
   },
   coachDaily: {
     title: "Denný tréningový plán",
@@ -1204,11 +1200,9 @@ export const sk = {
       daysCount: "Počet dní",
       sessionsCount: "Počet tréningov",
       injuryRisk: "Riziko zranenia",
-      todayLabel: "Najbližší tréningový deň",
       todaySessions: "ďalších blokov",
       errorFetch: "Chyba pri načítaní daily plánu.",
       labelDays: "Naplánované dni/tréningy",
-      labelSessions: "Tréningové jednotky",
       moreSessions: "ďalšie tréningy",
       medicalTitle: "Plán pozastavený",
       medicalText:
@@ -1393,17 +1387,11 @@ export const sk = {
         "Prečo treba aspoň 2 analýzy?",
         "• progress je porovnanie. Bez „predtým“ nemáš „zlepšenie“ ani „zhoršenie“.",
       ].join("\n"),
-      noteLastCompare: "Posledné porovnanie: {{date}}",
-      noteLastCompareGeneric: "Posledné porovnanie AI stavov.",
       noteMissing: "Pre zobrazenie progresu potrebujeme aspoň dve AI analýzy.",
       errorTitle: "Nepodarilo sa načítať progress report.",
       errorFetch: "Chyba pri načítaní AI progress reportu.",
       empty:
         "Zatiaľ nemáš uložené žiadne AI porovnanie stavov. Po dvoch analyzovaných týždňoch sa tu zobrazí prehľad progresu.",
-    },
-    labels: {
-      volume: "Min. týždenný objem",
-      volumeValue: "{{from}} h → {{to}} h / týždeň",
     },
   },
   coachWeekly: {
@@ -2361,7 +2349,6 @@ export const sk = {
       advancedToggle: "Zobraziť detail",
     },
     weekly: {
-      phase: "Fáza",
       errorLoad: "Chyba pri načítaní týždenného plánu.",
       noPlanTitle: "Plán nie je vygenerovaný",
       noPlanDesc:
