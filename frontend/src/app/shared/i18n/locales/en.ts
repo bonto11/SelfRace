@@ -2041,7 +2041,7 @@ lastAnalysis: {
     title: "Recovery",
     inputs: {
       subtitle:
-        "Enter key metrics (HRV, RHR, sleep) and factors that affected your night.",
+        "Enter key metrics (HRV and RHR) and factors that affected your night.",
       dateLabel: "Date",
       notLoggedIn: "not logged in",
       errorNoChanges: "No changes detected to save.",
@@ -2057,8 +2057,6 @@ lastAnalysis: {
       notePlaceholder: "Stress, illness, travel, late workout...",
       hrvMaxLabel: "HRV (Maximum) [ms]",
       sleepStartLabel: "Time fallen asleep [hh:mm]",
-      importantMark:
-        "Identifying metrics that directly impact your training plan.",
     },
     trends: {
       events: {
