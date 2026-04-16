@@ -10,7 +10,8 @@ import {
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
 import { useT } from "@/app/shared/i18n/useT";
-import Toggle from "@/app/shared/ui/components/Toggle"; // 👈 IMPORT NOVÉHO KOMPONENTU
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT NOVÉHO KOMPONENTU
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 IMPORT SETTINGS PROVIDERA
 
 import {
   PANEL_STACK,
@@ -139,12 +140,13 @@ function Card({
 export default function DetailWeeklyPlan() {
   const { userId } = useUserId();
   const t = useT();
+  
+  const { settings } = useSettings() as any; // 👈 Načítanie settings
+  const showAdvanced = settings?.show_advanced ?? false; // 👈 Extrahovanie stavu
+
   const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 🛡️ Náš MASTER stav pre Progressive Disclosure pre Týždenný plán
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -231,13 +233,9 @@ export default function DetailWeeklyPlan() {
   return (
     <div className={PANEL_STACK}>
       
-      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Nad prvou kartou) 🌟 */}
+      {/* Nahradenie Toggle za globálny */}
       {view.weeksSorted.length > 0 && (
-        <Toggle 
-          label={t("coach.weekly.advancedToggle") || "Zobraziť detaily, poznámky a objemy"}
-          checked={showAdvanced}
-          onChange={setShowAdvanced}
-        />
+        <ShowAdvancedToggle />
       )}
 
       <Card
