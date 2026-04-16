@@ -10,6 +10,7 @@ import {
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import Toggle from "@/app/shared/ui/components/Toggle";
 
 import {
   PANEL_STACK,
@@ -224,7 +225,6 @@ function Card({
   );
 }
 
-// ✅ Vylepšený Subcard s dynamickou farbou zmeny
 function SubcardDynamic({
   title,
   prev,
@@ -355,6 +355,11 @@ export default function DetailAthleteProgress() {
 
   return (
     <div className={PANEL_STACK}>
+      <Toggle 
+        label={t("coach.progress.advancedToggle")}
+        checked={showAdvanced}
+        onChange={setShowAdvanced}
+      />
       
       {/* 1. ZÁKLADNÝ SÚHRN (Vždy viditeľné) */}
       <Card
@@ -370,31 +375,6 @@ export default function DetailAthleteProgress() {
           </ul>
         )}
       </Card>
-
-      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Čistý dizajn, bez podnadpisu) 🌟 */}
-      <div
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
-        style={{
-          backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
-          borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
-        }}
-      >
-        <div className="text-sm font-semibold text-white/90">
-          {t("coach.progress.advancedToggle")}
-        </div>
-        <div
-          className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
-            showAdvanced ? "bg-blue-500" : "bg-white/10"
-          }`}
-        >
-          <span
-            className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
-              showAdvanced ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </div>
-      </div>
 
       {/* 🔐 POKROČILÉ KARTY (Viditeľné iba v detailnom režime) */}
       {showAdvanced && (

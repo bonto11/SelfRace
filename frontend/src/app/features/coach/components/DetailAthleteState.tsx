@@ -10,6 +10,7 @@ import {
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import Toggle from "@/app/shared/ui/components/Toggle"; // 👈 IMPORT TOGGLE
 
 import {
   PANEL_SURFACE,
@@ -21,30 +22,13 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
-  PANEL_STATUS_COL,
-  PANEL_STATUS_PILL,
+  PANEL_GRID_3,
   PANEL_BAR_TRACK,
   PANEL_BAR_FILL,
   ACCORDION_FOOTER_BAR_MUTED,
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
-
-/* ---------- KONŠTANTY FARIEB ---------- */
-
-const UNIFORM_PILL_BASE: CSSProperties = {
-  width: "160px",
-  height: "42px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  lineHeight: "1.1",
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  padding: "4px 8px",
-  textTransform: "uppercase",
-};
 
 /* ---------- helper types ---------- */
 
@@ -128,43 +112,13 @@ function formatMinutesRange(
   return `${Math.round((min || 0) / 60)} ${unit}`;
 }
 
-function statusPillStyle(level?: string | null): CSSProperties {
+// 👈 Nový helper pre určenie farby podľa textovej hodnoty (low/high/moderate)
+function getStatusColor(level?: string | null, inverseLogic = false): string | undefined {
   const l = (level || "").toLowerCase();
-  let colors: CSSProperties = {
-    background: "rgba(0,0,0,0)",
-    borderColor: appColors.surfaceCardBorder,
-    color: appColors.textMuted,
-  };
-
-  if (l === "low")
-    colors = {
-      background: "rgba(16,185,129,0.10)",
-      borderColor: appColors.statusSuccess,
-      color: appColors.statusSuccess,
-    };
-  if (l === "moderate" || l === "medium")
-    colors = {
-      background: "rgba(245,158,11,0.10)",
-      borderColor: appColors.statusWarning,
-      color: appColors.statusWarning,
-    };
-  if (l === "high")
-    colors = {
-      background: "rgba(239,68,68,0.10)",
-      borderColor: appColors.statusError,
-      color: appColors.statusError,
-    };
-
-  return { ...UNIFORM_PILL_BASE, ...colors };
-}
-
-function blockPillStyle(): CSSProperties {
-  return {
-    ...UNIFORM_PILL_BASE,
-    background: "rgba(59,130,246,0.10)",
-    borderColor: appColors.statusInfo,
-    color: appColors.statusInfo,
-  };
+  if (l === "low") return inverseLogic ? appColors.statusSuccess : appColors.statusError;
+  if (l === "moderate" || l === "medium") return appColors.statusWarning;
+  if (l === "high") return inverseLogic ? appColors.statusError : appColors.statusSuccess;
+  return undefined;
 }
 
 /* ---------- building blocks ---------- */
@@ -197,12 +151,7 @@ function Card({
             )}
           </div>
           {topRight && (
-            <div
-              className={[
-                PANEL_STATUS_COL,
-                "flex flex-wrap justify-end gap-2",
-              ].join(" ")}
-            >
+            <div className="flex flex-wrap justify-end gap-2">
               {topRight}
             </div>
           )}
@@ -222,10 +171,12 @@ function Subcard({
   title,
   value,
   children,
+  valueColor, 
 }: {
   title: string;
   value?: React.ReactNode;
   children?: React.ReactNode;
+  valueColor?: string;
 }) {
   return (
     <div
@@ -240,7 +191,10 @@ function Subcard({
             {title}
           </div>
           {value != null && (
-            <div className={PANEL_SECTION_TITLE} style={{ fontSize: "0.9rem" }}>
+            <div 
+              className={PANEL_SECTION_TITLE} 
+              style={{ fontSize: "0.9rem", color: valueColor }}
+            >
               {value}
             </div>
           )}
@@ -295,8 +249,6 @@ export default function DetailAthleteState() {
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 🛡️ Náš MASTER stav pre Progressive Disclosure (defaultne Simple režim)
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -396,6 +348,13 @@ export default function DetailAthleteState() {
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
 
+  // 👈 Logika, či má zmysel zobraziť celé sekcie
+  const hasStrengthsOrLimits = (aiState.key_strengths && aiState.key_strengths.length > 0) || 
+                               (aiState.key_limitations && aiState.key_limitations.length > 0);
+                               
+  const hasRisksOrTips = (userSummary.risks && userSummary.risks.length > 0) || 
+                         (userSummary.suggestions_short && userSummary.suggestions_short.length > 0);
+
   if (!userId)
     return (
       <Card
@@ -427,33 +386,15 @@ export default function DetailAthleteState() {
       </Card>
     );
 
-  const statusPills = (
-    <>
-      <div
-        className={PANEL_STATUS_PILL}
-        style={statusPillStyle(aiState.fatigue_level)}
-      >
-        {t("coachAthleteState.lastAnalysis.fatigue" as any)}:{" "}
-        {formatLevelLabel(aiState.fatigue_level, t)}
-      </div>
-      <div
-        className={PANEL_STATUS_PILL}
-        style={statusPillStyle(aiState.injury_risk)}
-      >
-        {t("coachAthleteState.lastAnalysis.injuryRisk" as any)}:{" "}
-        {formatLevelLabel(aiState.injury_risk, t)}
-      </div>
-      {aiState.suggested_block_kind && (
-        <div className={PANEL_STATUS_PILL} style={blockPillStyle()}>
-          {t("coach.weekly.phase" as any)}: {t(`common.phases.${aiState.suggested_block_kind}` as any)}
-        </div>
-      )}
-    </>
-  );
-
   return (
     <div className={PANEL_STACK}>
       
+      <Toggle 
+        label={t("coach.state.advancedToggle")}
+        checked={showAdvanced}
+        onChange={setShowAdvanced}
+      />
+
       {/* 1. HLAVNÝ SÚHRN (Vždy viditeľné) */}
       <Card
         title={t("coach.state.mainTitle" as any)}
@@ -465,38 +406,35 @@ export default function DetailAthleteState() {
         ]
           .filter(Boolean)
           .join(" · ")}
-        topRight={statusPills}
         footer
       />
 
-      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Čistý dizajn, bez podnadpisu) 🌟 */}
-      <div
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
-        style={{
-          backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
-          borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
-        }}
-      >
-        <div className="text-sm font-semibold text-white/90">
-          {t("coach.state.advancedToggle")}
-        </div>
-        <div
-          className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
-            showAdvanced ? "bg-blue-500" : "bg-white/10"
-          }`}
-        >
-          <span
-            className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
-              showAdvanced ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </div>
-      </div>
-
-      {/* 🔐 2. ÚROVEŇ PRIPRAVENOSTI (Iba Advanced) */}
+      {/* 🔐 POKROČILÁ SEKCIA (Ukáže sa len po zakliknutí Toggle) */}
       {showAdvanced && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          
+          {/* Presunuté stavové ukazovatele (Únava, Zranenie, Fáza) - z veľkých tabletiek na grid */}
+          <Card title={t("coach.progress.indicatorsTitle") || "Aktuálny stav organizmu"}>
+            <div className={PANEL_GRID_3}>
+              <Subcard
+                title={t("coachAthleteState.lastAnalysis.fatigue" as any)}
+                value={formatLevelLabel(aiState.fatigue_level, t)}
+                valueColor={getStatusColor(aiState.fatigue_level, true)} // 👈 inverzná logika (high = červená)
+              />
+              <Subcard
+                title={t("coachAthleteState.lastAnalysis.injuryRisk" as any)}
+                value={formatLevelLabel(aiState.injury_risk, t)}
+                valueColor={getStatusColor(aiState.injury_risk, true)} // 👈 inverzná logika (high = červená)
+              />
+              <Subcard
+                title={t("coach.weekly.phase" as any)}
+                value={aiState.suggested_block_kind ? t(`common.phases.${aiState.suggested_block_kind}` as any) : "—"}
+                valueColor={appColors.statusInfo}
+              />
+            </div>
+          </Card>
+
+          {/* ÚROVEŇ PRIPRAVENOSTI */}
           <Card
             title={t("coach.state.capabilitiesTitle" as any)}
             subtitle={t("coach.state.capabilitiesSubtitle" as any)}
@@ -551,12 +489,8 @@ export default function DetailAthleteState() {
               )}
             </div>
           </Card>
-        </div>
-      )}
 
-      {/* 🔐 3. TOLERANCIA A ZÁŤAŽ (Iba Advanced) */}
-      {showAdvanced && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* TOLERANCIA A ZÁŤAŽ */}
           <Card
             title={t("coach.state.toleranceTitle" as any)}
             subtitle={t("coach.state.toleranceSubtitle" as any)}
@@ -620,78 +554,66 @@ export default function DetailAthleteState() {
           </Card>
         </div>
       )}
+      {/* 🔐 KONIEC POKROČILEJ SEKCIE */}
 
-      {/* 4. SILNÉ/SLABÉ STRÁNKY (Vždy viditeľné) */}
-      <Card title={t("coach.state.strengthsRisksTitle" as any)}>
-        <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard title={t("coach.state.strengths" as any)}>
-            {aiState.key_strengths?.length ? (
-              <ul className="list-disc list-inside text-sm space-y-1">
-                {aiState.key_strengths.map((s: string, i: number) => (
-                  <li key={i} className="text-pretty">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={PANEL_PREVIEW}>
-                {t("coach.state.noDataShort" as any)}
-              </div>
+      {/* 4. SILNÉ/SLABÉ STRÁNKY (Vždy viditeľné - ALE IBA AK NIE SÚ PRÁZDNE) */}
+      {hasStrengthsOrLimits && (
+        <Card title={t("coach.state.strengthsRisksTitle" as any)}>
+          <div className="grid gap-3 md:grid-cols-2 min-w-0">
+            {/* Ak sú silné stránky, ukáž box, ak nie, neukazuj vôbec */}
+            {aiState.key_strengths && aiState.key_strengths.length > 0 && (
+              <Subcard title={t("coach.state.strengths" as any)}>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  {aiState.key_strengths.map((s: string, i: number) => (
+                    <li key={i} className="text-pretty">{s}</li>
+                  ))}
+                </ul>
+              </Subcard>
             )}
-          </Subcard>
-          <Subcard title={t("coach.state.limitations" as any)}>
-            {aiState.key_limitations?.length ? (
-              <ul className="list-disc list-inside text-sm space-y-1">
-                {aiState.key_limitations.map((s: string, i: number) => (
-                  <li key={i} className="text-pretty">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={PANEL_PREVIEW}>
-                {t("coach.state.noDataShort" as any)}
-              </div>
+            
+            {/* Ak sú limitácie, ukáž box, ak nie, neukazuj vôbec */}
+            {aiState.key_limitations && aiState.key_limitations.length > 0 && (
+              <Subcard title={t("coach.state.limitations" as any)}>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  {aiState.key_limitations.map((s: string, i: number) => (
+                    <li key={i} className="text-pretty">{s}</li>
+                  ))}
+                </ul>
+              </Subcard>
             )}
-          </Subcard>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
 
-      {/* 5. RIZIKÁ / TIPY (Vždy viditeľné) */}
-      <Card title={t("coach.state.recsTitle" as any)}>
-        <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard title={t("coach.state.mainRisks" as any)}>
-            {userSummary.risks?.length ? (
-              <ul className="list-disc list-inside text-sm space-y-1">
-                {userSummary.risks.map((r: string, i: number) => (
-                  <li key={i} className="text-pretty">
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={PANEL_PREVIEW}>
-                {t("coach.state.noRisksDesc" as any)}
-              </div>
+      {/* 5. RIZIKÁ / TIPY (Vždy viditeľné - ALE IBA AK NIE SÚ PRÁZDNE) */}
+      {hasRisksOrTips && (
+        <Card title={t("coach.state.recsTitle" as any)}>
+          <div className="grid gap-3 md:grid-cols-2 min-w-0">
+            {/* Ak sú riziká, ukáž box */}
+            {userSummary.risks && userSummary.risks.length > 0 && (
+              <Subcard title={t("coach.state.mainRisks" as any)}>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  {userSummary.risks.map((r: string, i: number) => (
+                    <li key={i} className="text-pretty">{r}</li>
+                  ))}
+                </ul>
+              </Subcard>
             )}
-          </Subcard>
-          <Subcard title={t("coach.state.quickTips" as any)}>
-            {userSummary.suggestions_short?.length ? (
-              <ul className="list-disc list-inside text-sm space-y-1">
-                {userSummary.suggestions_short.map((s: string, i: number) => (
-                  <li key={i} className="text-pretty">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={PANEL_PREVIEW}>
-                {t("coach.state.noTipsDesc" as any)}
-              </div>
+            
+            {/* Ak sú tipy, ukáž box */}
+            {userSummary.suggestions_short && userSummary.suggestions_short.length > 0 && (
+              <Subcard title={t("coach.state.quickTips" as any)}>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  {userSummary.suggestions_short.map((s: string, i: number) => (
+                    <li key={i} className="text-pretty">{s}</li>
+                  ))}
+                </ul>
+              </Subcard>
             )}
-          </Subcard>
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
+
     </div>
   );
 }

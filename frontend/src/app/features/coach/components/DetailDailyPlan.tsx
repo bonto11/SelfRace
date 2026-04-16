@@ -7,6 +7,7 @@ import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
+import Toggle from "@/app/shared/ui/components/Toggle";
 
 import {
   apiGetDailyOverview,
@@ -106,8 +107,6 @@ export default function DetailDailyPlan() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
-
-  // 🛡️ Náš nový MASTER stav pre Progressive Disclosure (defaultne Simple režim)
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -265,33 +264,13 @@ export default function DetailDailyPlan() {
   return (
     <div className={PANEL_STACK}>
       
-      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM 🌟 */}
       {hasPlan && (
-        <div
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
-          style={{
-            backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
-            borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
-          }}
-        >
-          <div>
-            <div className="text-sm font-semibold text-white/90">
-              {t("sessions.detail.advancedToggle")}
-            </div>
-          </div>
-          <div
-            className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
-              showAdvanced ? "bg-blue-500" : "bg-white/10"
-            }`}
-          >
-            <span
-              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
-                showAdvanced ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </div>
-        </div>
+        <Toggle
+          label={t("sessions.detail.advancedToggle")}
+          description=""
+          checked={showAdvanced}
+          onChange={setShowAdvanced}
+        />
       )}
 
       {/* HLAVNÁ KARTA PRE ROZPIS (Jediný Card na stránke) */}
