@@ -264,53 +264,46 @@ export default function DetailDailyPlan() {
 
   return (
     <div className={PANEL_STACK}>
-      <Card
-        title={t("coach.daily.detailTitle")}
-      >
-        {!hasPlan ? (
-          <div className={PANEL_PREVIEW}>
-            {t("coach.daily.noPlan")}
+      
+      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Umiestnený samostatne úplne hore) 🌟 */}
+      {hasPlan && (
+        <div
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
+          style={{
+            backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
+            borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
+          }}
+        >
+          <div>
+            <div className="text-sm font-semibold text-white/90">
+              {t("sessions.detail.advancedToggle") || "Zobraziť detaily a inštrukcie k tréningom"}
+            </div>
+            <div className="text-[11px] text-white/50 mt-0.5 font-medium">
+              Zobrazia sa presné časy, série, opakovania a poznámky
+            </div>
           </div>
-        ) : (
-          <div className={PANEL_PREVIEW}>
-            {t("coach.daily.rescheduleNotice")}
+          <div
+            className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
+              showAdvanced ? "bg-blue-500" : "bg-white/10"
+            }`}
+          >
+            <span
+              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+                showAdvanced ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
           </div>
-        )}
-      </Card>
+        </div>
+      )}
 
+      {/* HLAVNÁ KARTA PRE ROZPIS (Jediný Card na stránke) */}
       <Card
         title={t("coach.daily.scheduleTitle")}
         subtitle={t("coach.daily.scheduleSubtitle")}
       >
         {hasPlan ? (
           <div className="flex flex-col gap-2 mb-2">
-            
-            {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM 🌟 */}
-            <div
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all border select-none"
-              style={{
-                backgroundColor: showAdvanced ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.15)",
-                borderColor: showAdvanced ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
-              }}
-            >
-              <div className="text-sm font-medium text-white/90">
-                {t("sessions.detail.advancedToggle") || "Zobraziť detaily a inštrukcie k tréningom"}
-              </div>
-              <div
-                className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${
-                  showAdvanced ? "bg-blue-500" : "bg-white/20"
-                }`}
-              >
-                <span
-                  className={`inline-block w-3.5 h-3.5 bg-white rounded-full transition-transform ${
-                    showAdvanced ? "translate-x-4.5" : "translate-x-1"
-                  }`}
-                  style={{ transform: showAdvanced ? "translateX(18px)" : "translateX(4px)" }}
-                />
-              </div>
-            </div>
-
             {/* Panel s akciami na ukladanie zmien (Pôvodný kód) */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
