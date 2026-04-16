@@ -47,14 +47,13 @@ export default function RecoveryPage() {
 
   return (
     <PageShell title={t("recovery.title")} showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
-      
-      {/* Formulár pre zadávanie dát (sám reaguje na showAdvanced stav) */}
-      <RecoveryInputs />
-
       {/* Globálny prepínač pre zobrazenie pokročilých informácií */}
       <div className="mt-4 mb-2">
         <ShowAdvancedToggle />
       </div>
+
+      {/* Formulár pre zadávanie dát (sám reaguje na showAdvanced stav) */}
+      <RecoveryInputs />
 
       {/* Grid s widgetmi */}
       <div className={PAGE_GRID_2}>
