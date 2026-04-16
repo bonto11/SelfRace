@@ -7,30 +7,24 @@ import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
 interface Props {
-  label?: string; // 👈 Urobíme label nepovinným
   description?: string;
 }
 
-export default function ShowAdvancedToggle({ label, description }: Props) {
+export default function ShowAdvancedToggle({ description }: Props) {
   const { settings, setSettings } = useSettings();
   const t = useT();
 
-  // Ak hodnota ešte neexistuje (init stav), bude defaultne false
   const isAdvanced = settings?.show_advanced ?? false;
 
   const handleChange = (checked: boolean) => {
     if (setSettings) {
-      // Toto sa automaticky uloží do LS a synchronizuje do DB
       setSettings({ show_advanced: checked });
     }
   };
 
-  // Ak nie je explicitne zadaný label, použijeme default z katalógu (alebo hardcoded fallback)
-  const finalLabel = label || (t("common.showAdvanced" as any) === "common.showAdvanced" ? "Zobraziť pokročilé možnosti" : t("common.showAdvanced" as any));
-
   return (
     <Toggle
-      label={finalLabel}
+      label={t("common.showAdvanced" as any)}
       description={description}
       checked={isAdvanced}
       onChange={handleChange}
