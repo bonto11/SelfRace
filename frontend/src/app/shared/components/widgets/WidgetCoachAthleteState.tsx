@@ -1,3 +1,4 @@
+// src/app/features/coach/components/WidgetCoachAthleteState.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,7 +17,6 @@ import {
   WIDGET_KV_LABEL,
   WIDGET_KV_VALUE,
   WIDGET_SUMMARY_TEXT,
-  WIDGET_TRUNCATE,
 } from "@/app/shared/ui/tokens";
 
 import {
@@ -25,65 +25,35 @@ import {
 } from "@/app/features/coach/api/coach_athlete_state";
 
 import { useT } from "@/app/shared/i18n/useT";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 
 type Props = {
   onOpenDetail?: () => void;
 };
 
 type UiState = {
-  lastAnalysisAt: string | null;
   fatigueLabel: string | null;
   injuryLabel: string | null;
   summary: string | null;
-  capabilityLabel: string | null;
-  capabilityKey: string | null; 
 };
 
-function extractUiState(row: AthleteStateRecord | null, lang: string): UiState {
+function extractUiState(row: AthleteStateRecord | null): UiState {
   if (!row || !row.state) {
     return {
-      lastAnalysisAt: null,
       fatigueLabel: null,
       injuryLabel: null,
       summary: null,
-      capabilityLabel: null,
-      capabilityKey: null,
     };
   }
 
   const s: any = row.state.ai_state ? row.state : (row.state.analysis || row.state);
-  const generatedAt: string | undefined = s.generated_at || row.created_at;
-
-  let lastAnalysisAt: string | null = null;
-  if (generatedAt) {
-    lastAnalysisAt = parseAndFormatPrettyDate(generatedAt, lang);
-  }
-
   const aiState = s.ai_state || {};
   const userSummary = s.user_summary || {};
 
   const fatigueLabel = aiState.fatigue_level || null;
   const injuryLabel = aiState.injury_risk || null;
-
-  let capabilityLabel: string | null = null;
-  let capabilityKey: string | null = null;
-
-  if (aiState.capabilities?.run?.label) {
-     capabilityLabel = aiState.capabilities.run.label;
-     capabilityKey = "run";
-  } else if (aiState.capabilities?.ride?.label) {
-     capabilityLabel = aiState.capabilities.ride.label;
-     capabilityKey = "ride";
-  } else if (aiState.capabilities?.strength?.label) {
-     capabilityLabel = aiState.capabilities.strength.label;
-     capabilityKey = "strength";
-  }
-
   const summary = userSummary.headline || userSummary.short || null;
 
-  return { lastAnalysisAt, fatigueLabel, injuryLabel, summary, capabilityLabel, capabilityKey };
+  return { fatigueLabel, injuryLabel, summary };
 }
 
 function pickAccent(ui: UiState) {
@@ -98,17 +68,14 @@ function pickAccent(ui: UiState) {
 }
 
 export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
-  // ✅ Vytiahneme isChecking
   const { userId, isChecking } = useUserId();
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const t = useT();
-  const { lang } = useSettings();
 
   useEffect(() => {
-    // ✅ Neštartujeme API call počas overovania
     if (!userId || isChecking) return;
     let alive = true;
     (async () => {
@@ -124,9 +91,9 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       }
     })();
     return () => { alive = false; };
-  }, [userId, t, isChecking]); // ✅ isChecking do závislostí
+  }, [userId, t, isChecking]);
 
-  const ui = useMemo(() => extractUiState(row, lang), [row, lang]);
+  const ui = useMemo(() => extractUiState(row), [row]);
   const accent = useMemo(() => pickAccent(ui), [ui]);
 
   const getLvl = (lvl?: string | null) => {
@@ -140,13 +107,11 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
     <WidgetCard
       title={t("coachAthleteState.widget.title")}
       tooltip={t("coachAthleteState.widget.tooltip")}
-      note={ui.lastAnalysisAt ? "" : t("coachAthleteState.widget.note")}
       accent={accent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}
     >
-      {/* ✅ Pridaný loader pre isChecking */}
       {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
@@ -167,29 +132,15 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
       ) : (
         <>
           <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.lastAnalysis")}</div>
-            <div className={[WIDGET_KV_VALUE, WIDGET_TRUNCATE].join(" ")}>
-              {ui.lastAnalysisAt ?? "—"}
-            </div>
-
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.fatigue")}</div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.fatigueLabel)}</div>
 
             <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
-            
-            {ui.capabilityLabel && ui.capabilityKey && (
-              <>
-                 <div className={WIDGET_KV_LABEL}>{t(`common.sports.${ui.capabilityKey}` as any)}</div>
-                 <div className={WIDGET_KV_VALUE}>{ui.capabilityLabel}</div>
-              </>
-            )}
           </div>
 
           <p className={WIDGET_SUMMARY_TEXT}>
-            {ui.summary
-              ? ui.summary
-              : t("coachAthleteState.widget.summary")}
+            {ui.summary ? ui.summary : t("coachAthleteState.widget.summary")}
           </p>
         </>
       )}

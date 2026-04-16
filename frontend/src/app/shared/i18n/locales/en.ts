@@ -1165,7 +1165,6 @@ export const en = {
         "You don't have any readiness assessments saved yet. Evaluate it in the coach section and the widget will populate automatically.",
       summary:
         "A brief evaluation of fatigue, form, and risks will appear here after your next analysis.",
-      lastAnalysis: "Last Analysis",
       fatigue: "Fatigue",
       injuryRisk: "Injury Risk",
     },
@@ -1430,7 +1429,6 @@ export const en = {
         "• Phase tells you whether to expect more fatigue (build/peak) or relief (deload).",
       ].join("\n"),
       weeksCount: "Number of weeks",
-      noteRange: "Plan range:",
       noteMissing: "Generate a weekly plan via AI.",
       errorTitle: "Failed to load weekly plan.",
       errorFetch: "Error loading weekly plan.",
@@ -1438,7 +1436,6 @@ export const en = {
         "You don't have an AI weekly plan saved yet. Run the plan generation and the widget will populate.",
       labelWeeksCount: "Number of weeks",
       labelCurrentWeek: "Current week",
-      labelFocus: "Focus",
       labelPhase: "Phase",
     },
   },

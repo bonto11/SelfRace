@@ -21,7 +21,7 @@ import {
   type WeeklyPlanLatest,
   type WeeklyPlanWeek,
 } from "@/app/features/coach/api/coach_plan_weekly";
-import { formatDate, toDate } from "@/app/shared/utils/time";
+import { toDate } from "@/app/shared/utils/time";
 
 type Props = { onOpenDetail?: () => void; };
 
@@ -33,9 +33,7 @@ type SportRow = {
 
 type UiState = {
   currentWeekLabel: string | null;
-  currentWeekFocus: string | null;
   currentWeekLoad: string | null;
-  lastPlanRange: string | null;
   sports: SportRow[];
 };
 
@@ -61,17 +59,13 @@ function findCurrentWeek(weeks: WeeklyPlanWeek[]): WeeklyPlanWeek | null {
 
 function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
   if (!plan || !plan.weeks?.length) {
-    return { currentWeekLabel: null, currentWeekFocus: null, currentWeekLoad: null, lastPlanRange: null, sports: [] };
+    return { currentWeekLabel: null, currentWeekLoad: null, sports: [] };
   }
 
   const weeks = [...plan.weeks].sort((a, b) => (a.week_index || 0) - (b.week_index || 0));
-  const firstStr = formatDate(weeks[0].week_start);
-  const lastStr = formatDate(weeks[weeks.length - 1].week_end);
-  const lastPlanRange = firstStr && lastStr ? `${firstStr} – ${lastStr}` : firstStr;
 
   const current = findCurrentWeek(weeks);
   const currentWeekLabel = current ? `${current.week_index} / ${weeks.length}` : null;
-  const currentWeekFocus = current?.focus ?? current?.goal ?? null;
   const currentWeekLoad = current?.load_phase ?? null;
 
   const ps = current?.planned_stats || {};
@@ -106,7 +100,7 @@ function buildUiState(plan: WeeklyPlanLatest | null, t: any): UiState {
     sports.push({ label: t("common.sports.strength"), actKm: 0, planKm: 0, actH: formatHours(strAMin), planH: formatHours(strPMin) });
   }
 
-  return { currentWeekLabel, currentWeekFocus, currentWeekLoad, lastPlanRange, sports };
+  return { currentWeekLabel, currentWeekLoad, sports };
 }
 
 export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
@@ -149,7 +143,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
       title={t("coachWeekly.widget.title")}
       tooltip={t("coachWeekly.widget.tooltip")}
       accent="none"
-      note={ui.lastPlanRange ? `${t("coachWeekly.widget.noteRange")} ${ui.lastPlanRange}` : t("coachWeekly.widget.noteMissing")}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
       minH={180}
@@ -166,9 +159,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
         <div className={WIDGET_INFO_GRID_SM}>
           <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelCurrentWeek")}</div>
           <div className={WIDGET_VALUE_STRONG_SM}>{ui.currentWeekLabel ?? "—"}</div>
-
-          <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelFocus")}</div>
-          <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{ui.currentWeekFocus ?? "—"}</div>
 
           <div className={WIDGET_LABEL_MUTED_SM}>{t("coachWeekly.widget.labelPhase")}</div>
           <div className={`${WIDGET_VALUE_STRONG_SM} truncate`}>{getPhaseLabel(ui.currentWeekLoad)}</div>

@@ -1166,7 +1166,6 @@ export const sk = {
         "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
       summary:
         "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
-      lastAnalysis: "Posledná analýza",
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
@@ -1429,7 +1428,6 @@ export const sk = {
         "• Fáza ti povie, či máš čakať viac únavy (build/peak) alebo úľavu (deload).",
       ].join("\n"),
       weeksCount: "Počet týždňov",
-      noteRange: "Rozsah plánu:",
       noteMissing: "Vygeneruj týždenný plán cez AI.",
       errorTitle: "Nepodarilo sa načítať týždenný plán.",
       errorFetch: "Chyba pri načítaní weekly plánu.",
@@ -1437,7 +1435,6 @@ export const sk = {
         "Zatiaľ nemáš uložený AI týždenný plán. Spusť generovanie plánu a widget sa naplní.",
       labelWeeksCount: "Počet týždňov",
       labelCurrentWeek: "Aktuálny týždeň",
-      labelFocus: "Zameranie",
       labelPhase: "Fáza",
     },
   },
@@ -2334,7 +2331,6 @@ export const sk = {
         "Spusti 'Analyze Athlete state' v sekcii Plán. AI prepočíta tvoju aktuálnu únavu a pripravenosť.",
       mainTitle: "Stav trénovanosti – AI analýza",
       lastAnalysis: "Posledný výpočet",
-      // ✅ Updated Capabilities & Fitness
       capabilitiesTitle: "Schopnosti & Fitness",
       capabilitiesSubtitle: "Odhadovaná úroveň na základe histórie",
       fitnessTitle: "Úroveň kondície",
