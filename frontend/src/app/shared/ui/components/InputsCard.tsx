@@ -1,9 +1,11 @@
+// src/app/shared/ui/components/InputsCard.tsx
 "use client";
 
 import * as React from "react";
 
 import DisclosureToggle from "@/app/shared/ui/components/DisclosureToggle";
 import CardBackdrop from "@/app/shared/ui/components/CardBackdrop";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip"; // 👈 Import tooltip ikony
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
@@ -25,6 +27,7 @@ import {
 type Props = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  tooltip?: string; // 👈 Pridaný parameter pre tooltip
 
   /** Always-visible block above preview/body (typicky date row, toolbar, atď.) */
   always?: React.ReactNode;
@@ -51,6 +54,7 @@ type Props = {
 export default function InputsCard({
   title,
   subtitle,
+  tooltip, // 👈 Prijímame parameter
   always,
   preview,
   children,
@@ -70,6 +74,9 @@ export default function InputsCard({
     onOpenChange?.(v);
   };
 
+  const tooltipText = (tooltip ?? "").trim();
+  const showTooltip = tooltipText.length > 0;
+
   return (
     <section
       className={[CARD, "relative overflow-hidden", className]
@@ -82,21 +89,26 @@ export default function InputsCard({
 
       {/* HEAD */}
       <div className={`${PANEL_SECTION_HEAD} ${CARD_HEAD_INSET} relative`}>
-        <div className="min-w-0">
-          <div
-            className={PANEL_SECTION_TITLE}
-            style={{ color: appColors.textPrimary }}
-          >
-            {title}
-          </div>
-          {subtitle ? (
+        <div className="flex items-center justify-between gap-2 w-full">
+          <div className="min-w-0">
             <div
-              className={PANEL_SECTION_SUBTITLE}
-              style={{ color: appColors.textMuted }}
+              className={PANEL_SECTION_TITLE}
+              style={{ color: appColors.textPrimary }}
             >
-              {subtitle}
+              {title}
             </div>
-          ) : null}
+            {subtitle ? (
+              <div
+                className={PANEL_SECTION_SUBTITLE}
+                style={{ color: appColors.textMuted }}
+              >
+                {subtitle}
+              </div>
+            ) : null}
+          </div>
+          
+          {/* 🌟 Vykreslenie tooltip ikony napravo v hlavičke */}
+          {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
         </div>
       </div>
 
