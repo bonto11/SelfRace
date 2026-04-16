@@ -10,7 +10,8 @@ import {
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import Toggle from "@/app/shared/ui/components/Toggle"; // 👈 IMPORT TOGGLE
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT GLOBÁLNEHO TOGGLE
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 IMPORT SETTINGS PROVIDERA
 
 import {
   PANEL_SURFACE,
@@ -112,7 +113,6 @@ function formatMinutesRange(
   return `${Math.round((min || 0) / 60)} ${unit}`;
 }
 
-// 👈 Nový helper pre určenie farby podľa textovej hodnoty (low/high/moderate)
 function getStatusColor(level?: string | null, inverseLogic = false): string | undefined {
   const l = (level || "").toLowerCase();
   if (l === "low") return inverseLogic ? appColors.statusSuccess : appColors.statusError;
@@ -249,7 +249,10 @@ export default function DetailAthleteState() {
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // 🛡️ Náš MASTER stav ťahaný z Providera
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
 
   useEffect(() => {
     if (!userId) return;
@@ -348,7 +351,6 @@ export default function DetailAthleteState() {
   const acute = aiState.metrics?.acute_load_score ?? null;
   const chronic = aiState.metrics?.chronic_load_score ?? null;
 
-  // 👈 Logika, či má zmysel zobraziť celé sekcie
   const hasStrengthsOrLimits = (aiState.key_strengths && aiState.key_strengths.length > 0) || 
                                (aiState.key_limitations && aiState.key_limitations.length > 0);
                                
@@ -389,11 +391,7 @@ export default function DetailAthleteState() {
   return (
     <div className={PANEL_STACK}>
       
-      <Toggle 
-        label={t("coach.state.advancedToggle")}
-        checked={showAdvanced}
-        onChange={setShowAdvanced}
-      />
+      <ShowAdvancedToggle />
 
       {/* 1. HLAVNÝ SÚHRN (Vždy viditeľné) */}
       <Card
@@ -419,12 +417,12 @@ export default function DetailAthleteState() {
               <Subcard
                 title={t("coachAthleteState.lastAnalysis.fatigue" as any)}
                 value={formatLevelLabel(aiState.fatigue_level, t)}
-                valueColor={getStatusColor(aiState.fatigue_level, true)} // 👈 inverzná logika (high = červená)
+                valueColor={getStatusColor(aiState.fatigue_level, true)}
               />
               <Subcard
                 title={t("coachAthleteState.lastAnalysis.injuryRisk" as any)}
                 value={formatLevelLabel(aiState.injury_risk, t)}
-                valueColor={getStatusColor(aiState.injury_risk, true)} // 👈 inverzná logika (high = červená)
+                valueColor={getStatusColor(aiState.injury_risk, true)}
               />
               <Subcard
                 title={t("coach.weekly.phase" as any)}
@@ -560,7 +558,6 @@ export default function DetailAthleteState() {
       {hasStrengthsOrLimits && (
         <Card title={t("coach.state.strengthsRisksTitle" as any)}>
           <div className="grid gap-3 md:grid-cols-2 min-w-0">
-            {/* Ak sú silné stránky, ukáž box, ak nie, neukazuj vôbec */}
             {aiState.key_strengths && aiState.key_strengths.length > 0 && (
               <Subcard title={t("coach.state.strengths" as any)}>
                 <ul className="list-disc list-inside text-sm space-y-1">
@@ -571,7 +568,6 @@ export default function DetailAthleteState() {
               </Subcard>
             )}
             
-            {/* Ak sú limitácie, ukáž box, ak nie, neukazuj vôbec */}
             {aiState.key_limitations && aiState.key_limitations.length > 0 && (
               <Subcard title={t("coach.state.limitations" as any)}>
                 <ul className="list-disc list-inside text-sm space-y-1">
@@ -589,7 +585,6 @@ export default function DetailAthleteState() {
       {hasRisksOrTips && (
         <Card title={t("coach.state.recsTitle" as any)}>
           <div className="grid gap-3 md:grid-cols-2 min-w-0">
-            {/* Ak sú riziká, ukáž box */}
             {userSummary.risks && userSummary.risks.length > 0 && (
               <Subcard title={t("coach.state.mainRisks" as any)}>
                 <ul className="list-disc list-inside text-sm space-y-1">
@@ -600,7 +595,6 @@ export default function DetailAthleteState() {
               </Subcard>
             )}
             
-            {/* Ak sú tipy, ukáž box */}
             {userSummary.suggestions_short && userSummary.suggestions_short.length > 0 && (
               <Subcard title={t("coach.state.quickTips" as any)}>
                 <ul className="list-disc list-inside text-sm space-y-1">
