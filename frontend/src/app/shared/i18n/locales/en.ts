@@ -1207,7 +1207,7 @@ export const en = {
       todayLabel: "Next training day",
       todaySessions: "more blocks",
       errorFetch: "Error loading the daily plan.",
-      labelDays: "Scheduled days",
+      labelDays: "Scheduled days/trainigs",
       labelSessions: "Training sessions",
       moreSessions: "more workouts",
       medicalTitle: "Plan Suspended",
