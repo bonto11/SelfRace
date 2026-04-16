@@ -1,3 +1,4 @@
+// src/app/shared/i18n/SettingsProvider.tsx
 "use client";
 
 import React, {
@@ -33,7 +34,7 @@ const SettingsContext = createContext<SettingsCtx | null>(null);
 // ✅ jediný LS key
 const LS_KEY = "sr.settings.v1";
 
-// ✅ defaulty (uprav si ak chceš)
+// ✅ defaulty (upravené)
 const DEFAULT_SETTINGS: UserSettingsV1 = {
   units: "metric",
   language: "en",
@@ -41,6 +42,7 @@ const DEFAULT_SETTINGS: UserSettingsV1 = {
   week_start: "Mon",
   date_format: "yyyy-MM-dd",
   time_format_24h: true,
+  show_advanced: false, // 👈 NAŠA NOVÁ GLOBÁLNA PREMENNÁ
 };
 
 function safeReadV1(): UserSettingsV1 | null {
@@ -156,9 +158,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   
     setSettingsState(merged);
     safeWriteV1(merged);
-  
-    // ❌ toto radšej vyhoď (inak vie spôsobiť race)
-    // void apiUpsertUserPref(userId, "user.settings", merged).catch(() => {});
   }, []);
 
   const value = useMemo<SettingsCtx>(
