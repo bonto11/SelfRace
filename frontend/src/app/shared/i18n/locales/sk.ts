@@ -2325,6 +2325,7 @@ export const sk = {
       focus: "Priorita na najbližšie dni",
       noFocus: "Drž sa nastaveného plánu.",
       debugRaw: "Debug – raw JSON progress report",
+      advancedToggle: "Zobraziť detail",
     },
     state: {
       errorLoad: "Chyba pri načítaní AI analýzy.",
@@ -2361,6 +2362,7 @@ export const sk = {
       // ✅ VO2 Max
       vo2maxDesc: "Odhadovaná hodnota na základe biometrie a výkonu.",
       noCapabilities: "Zatiaľ neboli vyhodnotené žiadne konkrétne schopnosti.",
+      advancedToggle: "Zobraziť detail",
     },
     weekly: {
       phase: "Fáza",

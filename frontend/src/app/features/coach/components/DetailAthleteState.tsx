@@ -296,6 +296,9 @@ export default function DetailAthleteState() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🛡️ Náš MASTER stav pre Progressive Disclosure (defaultne Simple režim)
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -450,6 +453,8 @@ export default function DetailAthleteState() {
 
   return (
     <div className={PANEL_STACK}>
+      
+      {/* 1. HLAVNÝ SÚHRN (Vždy viditeľné) */}
       <Card
         title={t("coach.state.mainTitle" as any)}
         subtitle={[
@@ -464,123 +469,159 @@ export default function DetailAthleteState() {
         footer
       />
 
-      <Card
-        title={t("coach.state.capabilitiesTitle" as any)}
-        subtitle={t("coach.state.capabilitiesSubtitle" as any)}
+      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Čistý dizajn, bez podnadpisu) 🌟 */}
+      <div
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
+        style={{
+          backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
+          borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
+        }}
       >
-        <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          {runInfo && (
-            <Subcard
-              title={t("common.sports.run" as any)}
-              value={runInfo.label || `${runInfo.level}/5`}
-            >
-              <Bar
-                value01={runInfo.level / 5}
-                fillColor={appColors.chartRun}
-                labelLeft={runInfo.comment}
-                labelRight={`${runInfo.level}/5`}
-              />
-            </Subcard>
-          )}
-
-          {strengthInfo && (
-            <Subcard
-              title={t("common.sports.strength" as any)}
-              value={strengthInfo.label || `${strengthInfo.level}/5`}
-            >
-              <Bar
-                value01={strengthInfo.level / 5}
-                fillColor={appColors.chartStrength}
-                labelLeft={strengthInfo.comment}
-                labelRight={`${strengthInfo.level}/5`}
-              />
-            </Subcard>
-          )}
-
-          {vo2max && (
-            <Subcard title="VO₂ Max (Est.)" value={vo2max}>
-              <div className="text-sm text-gray-500 mt-1 text-pretty">
-                {t("coach.state.vo2maxDesc")}
-              </div>
-              <div className="mt-2">
-                <Bar
-                  value01={(vo2max - 20) / 60}
-                  fillColor={appColors.chartLine3}
-                />
-              </div>
-            </Subcard>
-          )}
-
-          {!runInfo && !strengthInfo && !vo2max && (
-            <div className={PANEL_PREVIEW}>
-              {t("coach.state.noCapabilities" as any)}
-            </div>
-          )}
+        <div className="text-sm font-semibold text-white/90">
+          {t("coach.state.advancedToggle")}
         </div>
-      </Card>
-
-      <Card
-        title={t("coach.state.toleranceTitle" as any)}
-        subtitle={t("coach.state.toleranceSubtitle" as any)}
-      >
-        <div className="grid gap-3 md:grid-cols-2 min-w-0">
-          <Subcard
-            title={t("coach.state.weeklyVolume" as any)}
-            value={volumeRangeLabel}
-          >
-            <Bar
-              value01={0.7}
-              fillColor={appColors.chartLine1}
-              labelLeft={aiState.volume_tolerance?.note}
-            />
-          </Subcard>
-          <Subcard
-            title={t("coach.state.hardSessions" as any)}
-            value={
-              aiState.intensity_tolerance?.hard_sessions_per_week_max != null
-                ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}`
-                : "—"
-            }
-          >
-            <Bar
-              value01={0.5}
-              fillColor={appColors.chartLine2}
-              labelLeft={aiState.intensity_tolerance?.comment}
-            />
-          </Subcard>
+        <div
+          className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
+            showAdvanced ? "bg-blue-500" : "bg-white/10"
+          }`}
+        >
+          <span
+            className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+              showAdvanced ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
         </div>
+      </div>
 
-        {(acute != null || chronic != null) && (
-          <div
-            className={[SESSION_SUBCARD, "mt-3 min-w-0 w-full"].join(" ")}
-            style={SESSION_SUBCARD_STYLE}
+      {/* 🔐 2. ÚROVEŇ PRIPRAVENOSTI (Iba Advanced) */}
+      {showAdvanced && (
+        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+          <Card
+            title={t("coach.state.capabilitiesTitle" as any)}
+            subtitle={t("coach.state.capabilitiesSubtitle" as any)}
           >
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_TITLE}>
-                {t("coach.state.loadTitle" as any)}
-              </div>
-              <div className="grid gap-3 md:grid-cols-2 min-w-0">
-                <Bar
-                  value01={Math.min(1, (chronic ?? 0) / 400)}
-                  fillColor={appColors.statusSuccess}
-                  labelLeft={t("coach.state.chronicLoad" as any)}
-                  labelRight={chronic ?? "—"}
-                />
-                <Bar
-                  value01={Math.min(1, (acute ?? 0) / 400)}
-                  fillColor={appColors.statusError}
-                  labelLeft={t("coach.state.acuteLoad" as any)}
-                  labelRight={acute ?? "—"}
-                />
-              </div>
-              <div className={[PANEL_PREVIEW, "text-pretty"].join(" ")}>
-                {t("coach.state.loadDesc" as any)}
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
+            <div className="grid gap-3 md:grid-cols-2 min-w-0">
+              {runInfo && (
+                <Subcard
+                  title={t("common.sports.run" as any)}
+                  value={runInfo.label || `${runInfo.level}/5`}
+                >
+                  <Bar
+                    value01={runInfo.level / 5}
+                    fillColor={appColors.chartRun}
+                    labelLeft={runInfo.comment}
+                    labelRight={`${runInfo.level}/5`}
+                  />
+                </Subcard>
+              )}
 
+              {strengthInfo && (
+                <Subcard
+                  title={t("common.sports.strength" as any)}
+                  value={strengthInfo.label || `${strengthInfo.level}/5`}
+                >
+                  <Bar
+                    value01={strengthInfo.level / 5}
+                    fillColor={appColors.chartStrength}
+                    labelLeft={strengthInfo.comment}
+                    labelRight={`${strengthInfo.level}/5`}
+                  />
+                </Subcard>
+              )}
+
+              {vo2max && (
+                <Subcard title="VO₂ Max (Est.)" value={vo2max}>
+                  <div className="text-sm text-gray-500 mt-1 text-pretty">
+                    {t("coach.state.vo2maxDesc")}
+                  </div>
+                  <div className="mt-2">
+                    <Bar
+                      value01={(vo2max - 20) / 60}
+                      fillColor={appColors.chartLine3}
+                    />
+                  </div>
+                </Subcard>
+              )}
+
+              {!runInfo && !strengthInfo && !vo2max && (
+                <div className={PANEL_PREVIEW}>
+                  {t("coach.state.noCapabilities" as any)}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* 🔐 3. TOLERANCIA A ZÁŤAŽ (Iba Advanced) */}
+      {showAdvanced && (
+        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+          <Card
+            title={t("coach.state.toleranceTitle" as any)}
+            subtitle={t("coach.state.toleranceSubtitle" as any)}
+          >
+            <div className="grid gap-3 md:grid-cols-2 min-w-0">
+              <Subcard
+                title={t("coach.state.weeklyVolume" as any)}
+                value={volumeRangeLabel}
+              >
+                <Bar
+                  value01={0.7}
+                  fillColor={appColors.chartLine1}
+                  labelLeft={aiState.volume_tolerance?.note}
+                />
+              </Subcard>
+              <Subcard
+                title={t("coach.state.hardSessions" as any)}
+                value={
+                  aiState.intensity_tolerance?.hard_sessions_per_week_max != null
+                    ? `1–${aiState.intensity_tolerance.hard_sessions_per_week_max}`
+                    : "—"
+                }
+              >
+                <Bar
+                  value01={0.5}
+                  fillColor={appColors.chartLine2}
+                  labelLeft={aiState.intensity_tolerance?.comment}
+                />
+              </Subcard>
+            </div>
+
+            {(acute != null || chronic != null) && (
+              <div
+                className={[SESSION_SUBCARD, "mt-3 min-w-0 w-full"].join(" ")}
+                style={SESSION_SUBCARD_STYLE}
+              >
+                <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+                  <div className={PANEL_SECTION_TITLE}>
+                    {t("coach.state.loadTitle" as any)}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2 min-w-0">
+                    <Bar
+                      value01={Math.min(1, (chronic ?? 0) / 400)}
+                      fillColor={appColors.statusSuccess}
+                      labelLeft={t("coach.state.chronicLoad" as any)}
+                      labelRight={chronic ?? "—"}
+                    />
+                    <Bar
+                      value01={Math.min(1, (acute ?? 0) / 400)}
+                      fillColor={appColors.statusError}
+                      labelLeft={t("coach.state.acuteLoad" as any)}
+                      labelRight={acute ?? "—"}
+                    />
+                  </div>
+                  <div className={[PANEL_PREVIEW, "text-pretty"].join(" ")}>
+                    {t("coach.state.loadDesc" as any)}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* 4. SILNÉ/SLABÉ STRÁNKY (Vždy viditeľné) */}
       <Card title={t("coach.state.strengthsRisksTitle" as any)}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
           <Subcard title={t("coach.state.strengths" as any)}>
@@ -616,6 +657,7 @@ export default function DetailAthleteState() {
         </div>
       </Card>
 
+      {/* 5. RIZIKÁ / TIPY (Vždy viditeľné) */}
       <Card title={t("coach.state.recsTitle" as any)}>
         <div className="grid gap-3 md:grid-cols-2 min-w-0">
           <Subcard title={t("coach.state.mainRisks" as any)}>

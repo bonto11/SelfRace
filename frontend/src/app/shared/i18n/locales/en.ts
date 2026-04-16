@@ -2324,6 +2324,7 @@ export const en = {
       focus: "Priority for the next few days",
       noFocus: "Stick to the set plan.",
       debugRaw: "Debug – raw JSON progress report",
+      advancedToggle: "Show detail",
     },
     state: {
       errorLoad: "Error loading AI analysis.",
@@ -2359,6 +2360,7 @@ export const en = {
         "Specific recommendations will appear here after your next analysis.",
       vo2maxDesc: "Estimated value based on biometrics and performance.",
       noCapabilities: "No specific capabilities have been evaluated yet.",
+      advancedToggle: "Show detail",
     },
     weekly: {
       phase: "Phase",

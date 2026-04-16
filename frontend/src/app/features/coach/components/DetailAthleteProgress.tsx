@@ -1,3 +1,4 @@
+// src/app/features/coach/components/DetailAthleteProgress.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -223,13 +224,13 @@ function Card({
   );
 }
 
-// ✅ Vylepšený Subcard s dynamickou farbou zmeny (používa appColors)
+// ✅ Vylepšený Subcard s dynamickou farbou zmeny
 function SubcardDynamic({
   title,
   prev,
   curr,
   text,
-  inverseLogic = false, // Ak je TRUE, menšie číslo je lepšie (napr. Únava, Riziko zranenia)
+  inverseLogic = false, 
 }: {
   title: string;
   prev: number | string | null;
@@ -246,7 +247,6 @@ function SubcardDynamic({
       dynColor = inverseLogic ? appColors.statusSuccess : appColors.statusError;
     }
   } else if (typeof prev === "string" && typeof curr === "string" && prev !== curr) {
-     // Pre textové hodnoty skúsime aspoň nejaký jednoduchý odhad (napr. ak je aktuálny 'high', je to zlé)
      const l = curr.toLowerCase();
      if (l.includes("high") || l.includes("vysoké") || l.includes("vysoká")) dynColor = appColors.statusError;
      else if (l.includes("low") || l.includes("nízke") || l.includes("nízka")) dynColor = appColors.statusSuccess;
@@ -261,7 +261,6 @@ function SubcardDynamic({
             <>
               <span className="opacity-60 font-normal">{prev ?? "—"}</span>
               <span className="opacity-50 mx-2">→</span>
-              {/* Aplikácia farby z appColors */}
               <span style={dynColor ? { color: dynColor } : {}}>{curr ?? "—"}</span>
             </>
           ) : (
@@ -302,6 +301,9 @@ export default function DetailAthleteProgress() {
   const [row, setRow] = useState<AthleteProgressRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 🛡️ Náš MASTER stav pre Progressive Disclosure
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -353,6 +355,8 @@ export default function DetailAthleteProgress() {
 
   return (
     <div className={PANEL_STACK}>
+      
+      {/* 1. ZÁKLADNÝ SÚHRN (Vždy viditeľné) */}
       <Card
         title={t("coach.progress.summaryTitle")}
         subtitle={p.generatedAt ? `${t("coach.progress.createdAt")}: ${p.generatedAt}` : ""}
@@ -367,79 +371,112 @@ export default function DetailAthleteProgress() {
         )}
       </Card>
 
-      <Card title={t("coach.progress.indicatorsTitle")}>
-        <div className={PANEL_GRID_3}>
-          <SubcardDynamic
-            title={t("coachAthleteState.lastAnalysis.fatigue")}
-            prev={slovakLevel(p.fatiguePrev, t)}
-            curr={slovakLevel(p.fatigueCurr, t)}
-            text={p.fatigueComment || undefined}
-            inverseLogic={true} // Vyššia únava je horšia (červená)
-          />
-          <SubcardDynamic
-            title={t("coachAthleteState.lastAnalysis.injuryRisk")}
-            prev={slovakLevel(p.injuryPrev, t)}
-            curr={slovakLevel(p.injuryCurr, t)}
-            text={p.injuryComment || undefined}
-            inverseLogic={true} // Vyššie riziko je horšie (červená)
-          />
-          <Subcard
-            title={t("coach.progress.blockTitle")}
-            value={`${translatePhase(p.blockPrev, t)} → ${translatePhase(p.blockCurr, t)}`}
-            text={p.blockComment || undefined}
+      {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM (Čistý dizajn, bez podnadpisu) 🌟 */}
+      <div
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all border select-none mb-1 shadow-sm"
+        style={{
+          backgroundColor: showAdvanced ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
+          borderColor: showAdvanced ? "rgba(59, 130, 246, 0.15)" : "rgba(255, 255, 255, 0.05)",
+        }}
+      >
+        <div className="text-sm font-semibold text-white/90">
+          {t("coach.progress.advancedToggle")}
+        </div>
+        <div
+          className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
+            showAdvanced ? "bg-blue-500" : "bg-white/10"
+          }`}
+        >
+          <span
+            className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+              showAdvanced ? "translate-x-5" : "translate-x-1"
+            }`}
           />
         </div>
-      </Card>
+      </div>
 
-      <Card title={t("coach.state.capabilitiesTitle")}>
-        <div className={PANEL_GRID_3}>
-          <SubcardDynamic
-            title={t("common.sports.run")}
-            prev={p.capRunPrev}
-            curr={p.capRunCurr}
-            text={p.capRunLabel ? `Label: ${p.capRunLabel}` : undefined}
-          />
-          <SubcardDynamic
-            title={t("common.sports.strength")}
-            prev={p.capStrengthPrev}
-            curr={p.capStrengthCurr}
-          />
-          <SubcardDynamic
-            title="VO₂ Max"
-            prev={p.vo2maxPrev}
-            curr={p.vo2maxEstimate}
-          />
-        </div>
-      </Card>
-
-      <Card title={t("coach.progress.volumeTitle")}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Subcard
-            title={t("coach.state.weeklyVolume")}
-            value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax, t)} → ${formatMinutesRange(p.volCurrMin, p.volCurrMax, t)}`}
-            text={p.volComment || undefined}
-          />
-          <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
-            <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              <div className={PANEL_SECTION_SUBTITLE}>{t("coach.progress.planChanges")}</div>
-              {p.planSoften || p.planWeekly ? (
-                <div className="space-y-2">
-                  {p.planSoften && <div className={PANEL_PREVIEW}>{p.planSoften}</div>}
-                  {p.planWeekly && <div className={PANEL_PREVIEW}>{p.planWeekly}</div>}
-                </div>
-              ) : (
-                <div className={PANEL_PREVIEW}>{t("coach.progress.noPlanChanges")}</div>
-              )}
+      {/* 🔐 POKROČILÉ KARTY (Viditeľné iba v detailnom režime) */}
+      {showAdvanced && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          
+          <Card title={t("coach.progress.indicatorsTitle")}>
+            <div className={PANEL_GRID_3}>
+              <SubcardDynamic
+                title={t("coachAthleteState.lastAnalysis.fatigue")}
+                prev={slovakLevel(p.fatiguePrev, t)}
+                curr={slovakLevel(p.fatigueCurr, t)}
+                text={p.fatigueComment || undefined}
+                inverseLogic={true} 
+              />
+              <SubcardDynamic
+                title={t("coachAthleteState.lastAnalysis.injuryRisk")}
+                prev={slovakLevel(p.injuryPrev, t)}
+                curr={slovakLevel(p.injuryCurr, t)}
+                text={p.injuryComment || undefined}
+                inverseLogic={true} 
+              />
+              <Subcard
+                title={t("coach.progress.blockTitle")}
+                value={`${translatePhase(p.blockPrev, t)} → ${translatePhase(p.blockCurr, t)}`}
+                text={p.blockComment || undefined}
+              />
             </div>
-          </div>
-        </div>
-      </Card>
+          </Card>
 
+          <Card title={t("coach.state.capabilitiesTitle")}>
+            <div className={PANEL_GRID_3}>
+              <SubcardDynamic
+                title={t("common.sports.run")}
+                prev={p.capRunPrev}
+                curr={p.capRunCurr}
+                text={p.capRunLabel ? `Label: ${p.capRunLabel}` : undefined}
+              />
+              <SubcardDynamic
+                title={t("common.sports.strength")}
+                prev={p.capStrengthPrev}
+                curr={p.capStrengthCurr}
+              />
+              <SubcardDynamic
+                title="VO₂ Max"
+                prev={p.vo2maxPrev}
+                curr={p.vo2maxEstimate}
+              />
+            </div>
+          </Card>
+
+          <Card title={t("coach.progress.volumeTitle")}>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Subcard
+                title={t("coach.state.weeklyVolume")}
+                value={`${formatMinutesRange(p.volPrevMin, p.volPrevMax, t)} → ${formatMinutesRange(p.volCurrMin, p.volCurrMax, t)}`}
+                text={p.volComment || undefined}
+              />
+              <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
+                <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
+                  <div className={PANEL_SECTION_SUBTITLE}>{t("coach.progress.planChanges")}</div>
+                  {p.planSoften || p.planWeekly ? (
+                    <div className="space-y-2">
+                      {p.planSoften && <div className={PANEL_PREVIEW}>{p.planSoften}</div>}
+                      {p.planWeekly && <div className={PANEL_PREVIEW}>{p.planWeekly}</div>}
+                    </div>
+                  ) : (
+                    <div className={PANEL_PREVIEW}>{t("coach.progress.noPlanChanges")}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+        </div>
+      )}
+      {/* KONIEC 🔐 POKROČILÝCH KÁRT */}
+
+      {/* 2. RÝCHLE TIPY (Vždy viditeľné, na konci) */}
       <Card title={t("coach.progress.recsTitle")}>
         <div className={PANEL_GRID_3}>
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              {/*  Oslavy (Zelená) */}
               <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusSuccess }}>
                 {t("coach.progress.celebrate")}
               </div>
@@ -455,7 +492,6 @@ export default function DetailAthleteProgress() {
           
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              {/*  Riziká (Červená) */}
               <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusError }}>
                 {t("coach.progress.risks")}
               </div>
@@ -471,7 +507,6 @@ export default function DetailAthleteProgress() {
           
           <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-              {/*  Fokus (Modrá/Info) */}
               <div className={PANEL_SECTION_TITLE} style={{ color: appColors.statusInfo }}>
                 {t("coach.progress.focus")}
               </div>
@@ -486,6 +521,7 @@ export default function DetailAthleteProgress() {
           </div>
         </div>
       </Card>
+
     </div>
   );
 }
