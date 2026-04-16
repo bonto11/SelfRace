@@ -1,4 +1,4 @@
-// src/features/coach/components/prefs/RecoveryInputs.tsx
+// src/features/recovery/components/RecoveryInputs.tsx
 
 "use client";
 
@@ -11,7 +11,7 @@ import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT NOVÉHO KOMPONENTU
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -37,8 +37,6 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-
-// 👈 1. Vytiahneme useSettings hook z providera
 import { useSettings } from "@/app/shared/i18n/SettingsProvider"; 
 
 type DirtyKey =
@@ -89,7 +87,7 @@ const AiBadge = () => (
       borderRadius: "4px",
     }}
   >
-    ⚡
+    AI
   </span>
 );
 
@@ -97,7 +95,6 @@ export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
   
-  // 👈 2. Získame settings
   const { settings } = useSettings() as any; 
   const { data, refresh } = useRecoveryData() as any;
 
@@ -105,7 +102,6 @@ export default function RecoveryInputs() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // 👈 3. Zmeníme na čítanie z Providera
   const showAdvanced = settings?.show_advanced ?? false;
 
   const [date, setDate] = useState<string>(todayIso);
@@ -219,7 +215,6 @@ export default function RecoveryInputs() {
 
   const previewText = `${t("recovery.inputs.dateLabel")}: ${date}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
-  // Natvrdo texty, aby prešiel build
   const tooltipContent = "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán.";
 
   return (
@@ -322,8 +317,7 @@ export default function RecoveryInputs() {
 
           <div className="md:col-span-2 my-2">
             <ShowAdvancedToggle 
-              label="Zobraziť detaily spánku a faktory" // 👈 Natvrdo text
-              description="Alkohol, kofeín, jedlo a presné časy spánku" // 👈 Natvrdo text
+              description="Alkohol, kofeín, jedlo a presné časy spánku"
             />
           </div>
 
@@ -355,7 +349,7 @@ export default function RecoveryInputs() {
                   className={INPUTS_CARD_LABEL_SM_1}
                   style={{ color: appColors.textMuted }}
                 >
-                  {t("recovery.inputs.sleepDurationLabel")} <AiBadge />
+                  {t("recovery.inputs.sleepDurationLabel")}
                 </div>
                 <TimeSelectorField
                   hh={true}
