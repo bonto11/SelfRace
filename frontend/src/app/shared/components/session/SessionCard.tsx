@@ -110,7 +110,7 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
-  showAdvanced?: boolean; // 👈 NOVÝ PARAMETER OD MATKY
+  showAdvanced?: boolean; // 👈 PRIDANÉ: Nový parameter od Matky
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -160,7 +160,7 @@ export default function SessionCard({
   item,
   onOpenActivity,
   showPlanDebug = false,
-  showAdvanced = false, // 👈 DEFAULTNE FALSE
+  showAdvanced = false, // 👈 PRIDANÉ: Defaultná hodnota pre parameter od Matky
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -328,7 +328,7 @@ export default function SessionCard({
               item={item}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
-              showAdvanced={showAdvanced} // 👈 POSÚVAME ĎALEJ
+              showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do komponentu DetailBody
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -357,14 +357,14 @@ function DetailBody({
   item,
   onOpenActivity,
   showPlanDebug,
-  showAdvanced, // 👈 PRIJÍMAME Z MATKY
+  showAdvanced, // 👈 PRIDANÉ: Prijímame z komponentu SessionCard
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
-  showAdvanced: boolean;
+  showAdvanced: boolean; // 👈 PRIDANÉ: Deklarácia nového parametra
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -433,7 +433,7 @@ function DetailBody({
           variant={variant}
           item={item as any}
           showPlanDebug={showPlanDebug}
-          showAdvanced={showAdvanced} // 👈 POSÚVAME DO DETAILU
+          showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do PlanSessionDetail (kde to budeme reálne potrebovať)
         />
       </div>
     );
