@@ -123,7 +123,8 @@ export default function WidgetCoachProgress({ onOpenDetail }: Props) {
               {ui.bullets.slice(0, 3).map((b, i) => (
                 <li key={i} className={WIDGET_BULLET_ROW}>
                   <span className={WIDGET_BULLET_DOT} />
-                  <span className="truncate">{b}</span>
+                  {/* 👈 Tu som odstránil 'truncate' a pridal 'text-pretty' pre pekné zalamovanie */}
+                  <span className="text-pretty">{b}</span>
                 </li>
               ))}
             </ul>
