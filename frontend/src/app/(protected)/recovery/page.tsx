@@ -12,10 +12,12 @@ import WidgetSleepDuration from "@/app/shared/components/widgets/WidgetSleepDura
 import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 function RefreshIconBtn() {
   const t = useT();
@@ -38,21 +40,40 @@ function RefreshIconBtn() {
 export default function RecoveryPage() {
   const t = useT();
   const router = useRouter();
+  
+  // Načítanie globálneho stavu z Providera
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
 
   return (
     <PageShell title={t("recovery.title")} showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
+      
+      {/* Formulár pre zadávanie dát (sám reaguje na showAdvanced stav) */}
       <RecoveryInputs />
 
+      {/* Globálny prepínač pre zobrazenie pokročilých informácií */}
+      <div className="mt-4 mb-2">
+        <ShowAdvancedToggle />
+      </div>
+
+      {/* Grid s widgetmi */}
       <div className={PAGE_GRID_2}>
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-        <WidgetSleepDuration
-          onOpenDetail={() => router.push("/recovery/sleepDuration")}
-        />
-        <WidgetSleepStart
-          onOpenDetail={() => router.push("/recovery/sleepStart")}
-        />
+        
+        {/* Tieto widgety sa ukážu len v pokročilom režime */}
+        {showAdvanced && (
+          <>
+            <WidgetSleepDuration
+              onOpenDetail={() => router.push("/recovery/sleepDuration")}
+            />
+            <WidgetSleepStart
+              onOpenDetail={() => router.push("/recovery/sleepStart")}
+            />
+          </>
+        )}
       </div>
+
     </PageShell>
   );
 }
