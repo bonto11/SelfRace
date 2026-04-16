@@ -2574,6 +2574,8 @@ export const en = {
       unitReps: "reps",
       unitSets: "sets",
       unitRest: "rest",
+      advancedToggle: "Detaile structure",
+      advancedToggleDesc:"Detail intervals and series",
       plan: {
         target: "target",
         work: "Work",

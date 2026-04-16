@@ -40,8 +40,6 @@ import {
   SESSION_FLUSH_DETAIL_STYLE,
 } from "@/app/shared/ui/tokens";
 
-/** ========== Types ========== */
-
 export type SessionKind = "activity" | "plan" | "external" | "bests";
 export type PlanStatus = "planned" | "done" | "missed";
 
@@ -125,8 +123,6 @@ export type SessionCardProps = {
   };
 };
 
-/** ========== Helpers ========== */
-
 function prettySkDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -157,8 +153,6 @@ function parseKm(s?: string | null): number | null {
   if (!m) return null;
   return Number(String(m[1]).replace(",", "."));
 }
-
-/** ========== Component ========== */
 
 export default function SessionCard({
   variant = "activity",
@@ -191,7 +185,6 @@ export default function SessionCard({
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
     switch (item.kind) {
-
       case "activity": {
         const act = item as ActivitySession;
         const distKm = parseKm(act.distanceStr);
@@ -203,7 +196,6 @@ export default function SessionCard({
       }
       
       case "bests": {
-        // 🔥 ÚPLNE ODSTRÁNENÉ: Pre bests nechceme žiaden podtitulok, vrátime rovno null
         return null;
       }
 
@@ -281,7 +273,6 @@ export default function SessionCard({
       className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(" ")}
       style={SESSION_CARD_STYLE}
     >
-      {/* HEADER */}
       <div className={SESSION_HEAD}>
         <div className={SESSION_HEAD_ROW}>
           <div className={SESSION_HEAD_LEFT}>
@@ -327,7 +318,6 @@ export default function SessionCard({
         </div>
       </div>
 
-      {/* DETAIL */}
       {opened && (
         <div className={SESSION_FLUSH_DETAIL} style={SESSION_FLUSH_DETAIL_STYLE}>
           <div className={SESSION_BODY}>
@@ -358,8 +348,6 @@ export default function SessionCard({
     </section>
   );
 }
-
-/** ========== Detail router ========== */
 
 function DetailBody({
   variant,

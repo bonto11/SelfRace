@@ -1,6 +1,7 @@
 // src/app/shared/components/session/PlanSessionDetail.tsx
 "use client";
 
+import { useState } from "react"; // 👈 Pridali sme React State
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
 import {
@@ -11,6 +12,7 @@ import {
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import { appColors } from "@/app/shared/ui/theme/app_colors"; // 👈 Na farbu prepínača
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -36,8 +38,6 @@ import {
   PLAN_EX_NOTE,
   PLAN_DEBUG_PRE,
 } from "@/app/shared/ui/tokens";
-
-// --- Pomocné funkcie pre čítanie štruktúry ---
 
 function getDuration(block: any): string | null {
   if (typeof block === "string") return null;
@@ -84,14 +84,15 @@ export default function PlanSessionDetail({
   showPlanDebug: boolean;
 }) {
   const t = useT();
-  // Zistenie aktuálneho jazyka pre katalóg (fallback na slovenčinu ak useT nemá explicitný lang)
-  // Ak máš v projekte hook na jazyk (napr. useLocale()), kľudne ho použi namiesto tohto
   const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+
+  // 🛡️ Náš nový stav pre Progressive Disclosure (defaultne vypnuté / Simple)
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const raw = item.planRaw ?? undefined;
   const structure = item.planStructure ?? raw?.structure ?? undefined;
 
-  // 1. Spracovanie Cvikov (Strength) - IBA NOVÁ ŠTRUKTÚRA
+  // 1. Spracovanie Cvikov (Strength)
   const strengthActivation = (structure as any)?.activation || [];
   const strengthMainPart = (structure as any)?.strength_main_part || [];
   const strengthAddOns = (structure as any)?.add_ons || [];
@@ -112,6 +113,9 @@ export default function PlanSessionDetail({
   const cd = (structure as any)?.cooldown;
 
   const hasEnduranceStructure = wu || mainBlocks.length > 0 || cd;
+
+  // 3. Potrebujeme vôbec ukázať toggle prepínač?
+  const hasAdvancedContent = hasEnduranceStructure || hasStrength || showPlanDebug;
 
   // Metriky pre MiniGrid
   const metrics = (
@@ -136,12 +140,10 @@ export default function PlanSessionDetail({
         ]
   ).filter(Boolean);
 
-  // Helper na vykreslenie listu cvikov a preklad cez Katalóg
   const renderExerciseList = (exercises: any[], fallbackLabel: string) => (
     <ul className={PLAN_EX_LIST}>
       {exercises.map((e: any, i: number) => {
         const id = e?.exercise_id;
-        // Ak nájdeme ID v katalógu, použijeme lokalizovaný názov, inak formatujeme ID, inak fallback
         const catalogName =
           id && STRENGTH_CATALOG_FE[id]
             ? STRENGTH_CATALOG_FE[id][currentLang]
@@ -191,182 +193,214 @@ export default function PlanSessionDetail({
 
   return (
     <div>
+      {/* Vždy viditeľný jednoduchý základný panel (Pre ne-geekov) */}
       <MiniMetricGrid metrics={metrics} cols={3} />
 
-      {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
-      {hasEnduranceStructure && (
-        <DetailSection title={t("sessions.detail.sectionStructure")}>
-          {/* Pridaná poznámka pre Beh/Bike */}
-          {(item.sport === "run" || item.sport === "ride") && (
-            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/80 italic">
-              <strong>{t("common.note")}:</strong>{" "}
-              {t("sessions.detail.plan.noteEndurance")}
+      {/* 🌟 TOGGLE PREPÍNAČ PRE POKROČILÝ REŽIM */}
+      {hasAdvancedContent && (
+        <div
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="mt-4 flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border select-none"
+          style={{
+            backgroundColor: showAdvanced ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.15)",
+            borderColor: showAdvanced ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
+          }}
+        >
+          <div>
+            <div className="text-sm font-semibold text-white/90 leading-tight">
+              {t("sessions.detail.advancedToggle")}
             </div>
-          )}
-          <div className={PLAN_STRUCT_STACK}>
-            {/* WARMUP */}
-            {wu && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.warmup")}
+            <div className="text-[11px] text-white/40 mt-0.5">
+              {t("sessions.detail.advancedToggleDesc")}
+            </div>
+          </div>
+          <div
+            className={`relative inline-flex items-center h-[22px] rounded-full w-10 transition-colors ${
+              showAdvanced ? "bg-blue-500" : "bg-white/10"
+            }`}
+          >
+            <span
+              className={`inline-block w-4 h-4 bg-white rounded-full transition-transform ${
+                showAdvanced ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 🔐 SKRYTÁ SEKCIA S DETAILMI (Ukáže sa len ak showAdvanced === true) */}
+      {showAdvanced && (
+        <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          
+          {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
+          {hasEnduranceStructure && (
+            <DetailSection title={t("sessions.detail.sectionStructure")}>
+              {(item.sport === "run" || item.sport === "ride") && (
+                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/80 italic">
+                  <strong>{t("common.note")}:</strong>{" "}
+                  {t("sessions.detail.plan.noteEndurance")}
                 </div>
-                <div className={PLAN_BLOCK_TEXT}>
-                  {typeof wu === "string"
-                    ? wu
-                    : [getDuration(wu), getNote(wu)]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                </div>
-              </div>
-            )}
+              )}
+              <div className={PLAN_STRUCT_STACK}>
+                {wu && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.warmup")}
+                    </div>
+                    <div className={PLAN_BLOCK_TEXT}>
+                      {typeof wu === "string"
+                        ? wu
+                        : [getDuration(wu), getNote(wu)]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                    </div>
+                  </div>
+                )}
 
-            {/* MAIN PART */}
-            {mainBlocks.length > 0 && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.main")}
-                </div>
-                <div className={PLAN_MAIN_STACK}>
-                  {mainBlocks.map((blk: any, idx: number) => {
-                    if (typeof blk === "string") {
-                      return (
-                        <div
-                          key={idx}
-                          className={PLAN_MAIN_ITEM}
-                          style={PLAN_MAIN_ITEM_STYLE}
-                        >
-                          <div className={PLAN_MAIN_NOTE}>{safeText(blk)}</div>
-                        </div>
-                      );
-                    }
+                {mainBlocks.length > 0 && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.main")}
+                    </div>
+                    <div className={PLAN_MAIN_STACK}>
+                      {mainBlocks.map((blk: any, idx: number) => {
+                        if (typeof blk === "string") {
+                          return (
+                            <div
+                              key={idx}
+                              className={PLAN_MAIN_ITEM}
+                              style={PLAN_MAIN_ITEM_STYLE}
+                            >
+                              <div className={PLAN_MAIN_NOTE}>{safeText(blk)}</div>
+                            </div>
+                          );
+                        }
 
-                    const isInterval = blk.kind === "interval_block";
+                        const isInterval = blk.kind === "interval_block";
 
-                    // A) INTERVALY
-                    if (isInterval) {
-                      const reps = blk.repeats || 1;
-                      const workDur = getDuration(blk.work);
-                      const restDur = getDuration(blk.rest);
-                      const workNote = getNote(blk.work);
+                        if (isInterval) {
+                          const reps = blk.repeats || 1;
+                          const workDur = getDuration(blk.work);
+                          const restDur = getDuration(blk.rest);
+                          const workNote = getNote(blk.work);
 
-                      return (
-                        <div
-                          key={idx}
-                          className={PLAN_MAIN_ITEM}
-                          style={PLAN_MAIN_ITEM_STYLE}
-                        >
-                          <div className="flex items-baseline gap-2 mb-1">
-                            <span className="text-white font-bold text-base">
-                              {reps}×
-                            </span>
-                            <span className="opacity-90">
-                              {workDur}{" "}
-                              <span className="opacity-60 text-xs">
-                                ({t("sessions.detail.plan.work")})
-                              </span>
-                            </span>
-                            {restDur && (
-                              <span className="opacity-60">
-                                + {restDur}{" "}
-                                <span className="text-xs">
-                                  ({t("sessions.detail.plan.recovery")})
+                          return (
+                            <div
+                              key={idx}
+                              className={PLAN_MAIN_ITEM}
+                              style={PLAN_MAIN_ITEM_STYLE}
+                            >
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-white font-bold text-base">
+                                  {reps}×
                                 </span>
-                              </span>
+                                <span className="opacity-90">
+                                  {workDur}{" "}
+                                  <span className="opacity-60 text-xs">
+                                    ({t("sessions.detail.plan.work")})
+                                  </span>
+                                </span>
+                                {restDur && (
+                                  <span className="opacity-60">
+                                    + {restDur}{" "}
+                                    <span className="text-xs">
+                                      ({t("sessions.detail.plan.recovery")})
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {workNote && (
+                                <div className={PLAN_MAIN_NOTE}>
+                                  {safeText(workNote)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        const dur = getDuration(blk);
+                        const note = getNote(blk);
+
+                        return (
+                          <div
+                            key={idx}
+                            className={PLAN_MAIN_ITEM}
+                            style={PLAN_MAIN_ITEM_STYLE}
+                          >
+                            <div className="font-semibold text-white/90">
+                              {dur || "—"}
+                            </div>
+                            {note && (
+                              <div className={PLAN_MAIN_NOTE}>{safeText(note)}</div>
                             )}
                           </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-                          {/* Note/Instruction */}
-                          {workNote && (
-                            <div className={PLAN_MAIN_NOTE}>
-                              {safeText(workNote)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    // B) STEADY / SIMPLE BLOCK
-                    const dur = getDuration(blk);
-                    const note = getNote(blk);
-
-                    return (
-                      <div
-                        key={idx}
-                        className={PLAN_MAIN_ITEM}
-                        style={PLAN_MAIN_ITEM_STYLE}
-                      >
-                        <div className="font-semibold text-white/90">
-                          {dur || "—"}
-                        </div>
-                        {note && (
-                          <div className={PLAN_MAIN_NOTE}>{safeText(note)}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {cd && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.cooldown")}
+                    </div>
+                    <div className={PLAN_BLOCK_TEXT}>
+                      {typeof cd === "string"
+                        ? cd
+                        : [getDuration(cd), getNote(cd)]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </DetailSection>
+          )}
 
-            {/* COOLDOWN */}
-            {cd && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.cooldown")}
-                </div>
-                <div className={PLAN_BLOCK_TEXT}>
-                  {typeof cd === "string"
-                    ? cd
-                    : [getDuration(cd), getNote(cd)]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                </div>
+          {/* --- SEKCIA: CVIKY (Strength) --- */}
+          {hasStrength && (
+            <DetailSection title={t("sessions.detail.sectionExercises")}>
+              <div className={PLAN_STRUCT_STACK}>
+                {strengthActivation.length > 0 && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.activation") || "Aktivácia"}
+                    </div>
+                    {renderExerciseList(strengthActivation, "Cvik")}
+                  </div>
+                )}
+                {strengthMainPart.length > 0 && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
+                    </div>
+                    {renderExerciseList(strengthMainPart, "Cvik")}
+                  </div>
+                )}
+                {strengthAddOns.length > 0 && (
+                  <div className={PLAN_BLOCK}>
+                    <div className={PLAN_BLOCK_LABEL}>
+                      {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
+                    </div>
+                    {renderExerciseList(strengthAddOns, "Cvik")}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </DetailSection>
-      )}
+            </DetailSection>
+          )}
 
-      {/* --- SEKCIA: CVIKY (Strength) --- */}
-      {hasStrength && (
-        <DetailSection title={t("sessions.detail.sectionExercises")}>
-          <div className={PLAN_STRUCT_STACK}>
-            {strengthActivation.length > 0 && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.activation") || "Aktivácia"}
-                </div>
-                {renderExerciseList(strengthActivation, "Cvik")}
-              </div>
-            )}
-            {strengthMainPart.length > 0 && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
-                </div>
-                {renderExerciseList(strengthMainPart, "Cvik")}
-              </div>
-            )}
-            {strengthAddOns.length > 0 && (
-              <div className={PLAN_BLOCK}>
-                <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
-                </div>
-                {renderExerciseList(strengthAddOns, "Cvik")}
-              </div>
-            )}
-          </div>
-        </DetailSection>
-      )}
-
-      {/* --- DEBUG SEKCIA --- */}
-      {showPlanDebug && (
-        <DetailSection
-          title={t("sessions.detail.sectionDebug")}
-          defaultOpen={false}
-        >
-          <pre className={PLAN_DEBUG_PRE}>{safeText({ structure, raw })}</pre>
-        </DetailSection>
+          {/* --- DEBUG SEKCIA --- */}
+          {showPlanDebug && (
+            <DetailSection
+              title={t("sessions.detail.sectionDebug")}
+              defaultOpen={false}
+            >
+              <pre className={PLAN_DEBUG_PRE}>{safeText({ structure, raw })}</pre>
+            </DetailSection>
+          )}
+        </div>
       )}
     </div>
   );
