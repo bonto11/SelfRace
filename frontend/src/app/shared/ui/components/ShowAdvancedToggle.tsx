@@ -4,13 +4,11 @@
 import React from "react";
 import Toggle from "@/app/shared/ui/components/Toggle";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { useT } from "@/app/shared/i18n/useT";
 
-interface Props {
-  description?: string;
-}
-
-export default function ShowAdvancedToggle({ description }: Props) {
+export default function ShowAdvancedToggle() {
   const { settings, setSettings } = useSettings();
+  const t = useT();
 
   const isAdvanced = settings?.show_advanced ?? false;
 
@@ -20,11 +18,9 @@ export default function ShowAdvancedToggle({ description }: Props) {
     }
   };
 
-  // Názov vytiahnutý natvrdo bez t(), neskôr môžeš pridať t("common.showAdvanced")
   return (
     <Toggle
-      label="Zobraziť detaily a pokročilé možnosti"
-      description={description}
+      label={t("common.showAdvanced" as any)}
       checked={isAdvanced}
       onChange={handleChange}
     />
