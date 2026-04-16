@@ -11,7 +11,6 @@ import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -293,14 +292,8 @@ export default function RecoveryInputs() {
             />
           </section>
 
-          <div className="md:col-span-2 my-2">
-            <ShowAdvancedToggle 
-              description="Alkohol, kofeín, jedlo a presné časy spánku"
-            />
-          </div>
-
           {showAdvanced && (
-            <div className="md:col-span-2 grid gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200 mt-2">
               
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
