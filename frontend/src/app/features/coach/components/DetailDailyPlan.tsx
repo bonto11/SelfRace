@@ -7,7 +7,8 @@ import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
-import Toggle from "@/app/shared/ui/components/Toggle";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 Import globálneho Togglu
+import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 Import Settings Providera
 
 import {
   apiGetDailyOverview,
@@ -100,6 +101,9 @@ export default function DetailDailyPlan() {
   const { userId } = useUserId();
   const t = useT();
 
+  const { settings } = useSettings() as any; // 👈 Načítanie settings
+  const showAdvanced = settings?.show_advanced ?? false; // 👈 Extrahovanie stavu z providera
+
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -107,7 +111,6 @@ export default function DetailDailyPlan() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -264,13 +267,9 @@ export default function DetailDailyPlan() {
   return (
     <div className={PANEL_STACK}>
       
+      {/* Nahradený Toggle za globálny */}
       {hasPlan && (
-        <Toggle
-          label={t("sessions.detail.advancedToggle")}
-          description=""
-          checked={showAdvanced}
-          onChange={setShowAdvanced}
-        />
+        <ShowAdvancedToggle />
       )}
 
       {/* HLAVNÁ KARTA PRE ROZPIS (Jediný Card na stránke) */}
