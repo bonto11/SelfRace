@@ -1165,6 +1165,7 @@ export const en = {
         "You don't have any readiness assessments saved yet. Evaluate it in the coach section and the widget will populate automatically.",
       summary:
         "A brief evaluation of fatigue, form, and risks will appear here after your next analysis.",
+      lastAnalysis: "Last analysis",
       fatigue: "Fatigue",
       injuryRisk: "Injury Risk",
     },
