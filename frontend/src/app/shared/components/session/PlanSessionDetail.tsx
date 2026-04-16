@@ -1,7 +1,6 @@
 // src/app/shared/components/session/PlanSessionDetail.tsx
 "use client";
 
-import { useState } from "react";
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
 import DetailSection from "@/app/shared/components/session/DetailSection";
 import {
@@ -77,16 +76,15 @@ function MiniMetricGrid({
 export default function PlanSessionDetail({
   item,
   showPlanDebug,
+  showAdvanced = false, // 👈 PARAMETER Z MATKY
 }: {
   variant?: ComponentVariant;
   item: PlanSession;
   showPlanDebug: boolean;
+  showAdvanced?: boolean;
 }) {
   const t = useT();
   const currentLang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
-
-  // 🛡️ Náš stav pre Progressive Disclosure (defaultne Simple režim)
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const raw = item.planRaw ?? undefined;
   const structure = item.planStructure ?? raw?.structure ?? undefined;
@@ -112,7 +110,6 @@ export default function PlanSessionDetail({
   const cd = (structure as any)?.cooldown;
 
   const hasEnduranceStructure = wu || mainBlocks.length > 0 || cd;
-  const hasAdvancedContent = hasEnduranceStructure || hasStrength || showPlanDebug;
 
   // Metriky pre MiniGrid
   const metrics = (
@@ -201,36 +198,8 @@ export default function PlanSessionDetail({
 
   return (
     <div className="space-y-4">
-      {/* Vždy viditeľný jednoduchý základný panel (Pre ne-geekov) */}
+      {/* Vždy viditeľný jednoduchý základný panel */}
       <MiniMetricGrid metrics={metrics} cols={3} />
-
-      {/* 🌟 TOGGLE PREPÍNAČ HNEĎ POD HLAVIČKOU */}
-      {hasAdvancedContent && (
-        <div
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all border select-none"
-          style={{
-            backgroundColor: showAdvanced ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.15)",
-            borderColor: showAdvanced ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
-          }}
-        >
-          <div className="text-sm font-medium text-white/90">
-            {t("sessions.detail.advancedToggle") || "Zobraziť inštrukcie a detaily"}
-          </div>
-          <div
-            className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${
-              showAdvanced ? "bg-blue-500" : "bg-white/20"
-            }`}
-          >
-            <span
-              className={`inline-block w-3.5 h-3.5 bg-white rounded-full transition-transform ${
-                showAdvanced ? "translate-x-4.5" : "translate-x-1"
-              }`}
-              style={{ transform: showAdvanced ? "translateX(18px)" : "translateX(4px)" }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
@@ -354,7 +323,7 @@ export default function PlanSessionDetail({
             {strengthActivation.length > 0 && (
               <div className={PLAN_BLOCK}>
                 <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.activation") || "Aktivácia"}
+                  {t("sessions.detail.plan.activation")}
                 </div>
                 {renderExerciseList(strengthActivation, "Cvik")}
               </div>
@@ -362,7 +331,7 @@ export default function PlanSessionDetail({
             {strengthMainPart.length > 0 && (
               <div className={PLAN_BLOCK}>
                 <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.strengthMain") || "Hlavná časť"}
+                  {t("sessions.detail.plan.strengthMain")}
                 </div>
                 {renderExerciseList(strengthMainPart, "Cvik")}
               </div>
@@ -370,7 +339,7 @@ export default function PlanSessionDetail({
             {strengthAddOns.length > 0 && (
               <div className={PLAN_BLOCK}>
                 <div className={PLAN_BLOCK_LABEL}>
-                  {t("sessions.detail.plan.addOns") || "Doplnky a jadro"}
+                  {t("sessions.detail.plan.addOns")}
                 </div>
                 {renderExerciseList(strengthAddOns, "Cvik")}
               </div>

@@ -110,6 +110,7 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
+  showAdvanced?: boolean; // 👈 NOVÝ PARAMETER OD MATKY
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -159,6 +160,7 @@ export default function SessionCard({
   item,
   onOpenActivity,
   showPlanDebug = false,
+  showAdvanced = false, // 👈 DEFAULTNE FALSE
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -326,6 +328,7 @@ export default function SessionCard({
               item={item}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
+              showAdvanced={showAdvanced} // 👈 POSÚVAME ĎALEJ
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -354,12 +357,14 @@ function DetailBody({
   item,
   onOpenActivity,
   showPlanDebug,
+  showAdvanced, // 👈 PRIJÍMAME Z MATKY
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
+  showAdvanced: boolean;
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -428,6 +433,7 @@ function DetailBody({
           variant={variant}
           item={item as any}
           showPlanDebug={showPlanDebug}
+          showAdvanced={showAdvanced} // 👈 POSÚVAME DO DETAILU
         />
       </div>
     );
