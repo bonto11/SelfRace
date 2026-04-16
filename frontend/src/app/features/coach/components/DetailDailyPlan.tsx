@@ -107,6 +107,9 @@ export default function DetailDailyPlan() {
 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
+  // 🛡️ Náš nový MASTER stav pre Progressive Disclosure (defaultne Simple režim)
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
 
@@ -280,48 +283,79 @@ export default function DetailDailyPlan() {
         subtitle={t("coach.daily.scheduleSubtitle")}
       >
         {hasPlan ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs opacity-70">
-                {dirty 
-                  ? t("coach.daily.unsavedChanges").replace("{{count}}", String(moves.length)) 
-                  : t("coach.daily.allSaved")}
+          <div className="flex flex-col gap-2 mb-2">
+            
+            {/* 🌟 MASTER TOGGLE PRE POKROČILÝ REŽIM 🌟 */}
+            <div
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all border select-none"
+              style={{
+                backgroundColor: showAdvanced ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.15)",
+                borderColor: showAdvanced ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
+              }}
+            >
+              <div className="text-sm font-medium text-white/90">
+                {t("sessions.detail.advancedToggle") || "Zobraziť detaily a inštrukcie k tréningom"}
               </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  size="xs"
-                  variant="secondary"
-                  disabled={!dirty || saving}
-                  onClick={async () => {
-                    if (!dirty) return;
-                    const ok = await confirm({
-                      title: t("coach.daily.undoConfirmTitle"),
-                      message: t("coach.daily.undoConfirmMessage"),
-                      okText: t("common.undo"),
-                      cancelText: t("common.cancel"),
-                      tone: "danger",
-                    });
-                    if (ok) undoLast();
-                  }}
-                >
-                  {t("common.undo")}
-                </Button>
-
-                <Button
-                  size="xs"
-                  variant="primary"
-                  disabled={!dirty || saving}
-                  onClick={saveMoves}
-                >
-                  {saving ? t("common.saving") : t("common.save")}
-                </Button>
+              <div
+                className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${
+                  showAdvanced ? "bg-blue-500" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`inline-block w-3.5 h-3.5 bg-white rounded-full transition-transform ${
+                    showAdvanced ? "translate-x-4.5" : "translate-x-1"
+                  }`}
+                  style={{ transform: showAdvanced ? "translateX(18px)" : "translateX(4px)" }}
+                />
               </div>
             </div>
 
-            {saveError ? (
-              <div className="mt-1 text-[11px] text-red-300">{saveError}</div>
-            ) : null}
+            {/* Panel s akciami na ukladanie zmien (Pôvodný kód) */}
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs opacity-70">
+                  {dirty 
+                    ? t("coach.daily.unsavedChanges").replace("{{count}}", String(moves.length)) 
+                    : t("coach.daily.allSaved")}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    disabled={!dirty || saving}
+                    onClick={async () => {
+                      if (!dirty) return;
+                      const ok = await confirm({
+                        title: t("coach.daily.undoConfirmTitle"),
+                        message: t("coach.daily.undoConfirmMessage"),
+                        okText: t("common.undo"),
+                        cancelText: t("common.cancel"),
+                        tone: "danger",
+                      });
+                      if (ok) undoLast();
+                    }}
+                  >
+                    {t("common.undo")}
+                  </Button>
+
+                  <Button
+                    size="xs"
+                    variant="primary"
+                    disabled={!dirty || saving}
+                    onClick={saveMoves}
+                  >
+                    {saving ? t("common.saving") : t("common.save")}
+                  </Button>
+                </div>
+              </div>
+
+              {saveError ? (
+                <div className="mt-1 text-[11px] text-red-300">{saveError}</div>
+              ) : null}
+            </div>
+
           </div>
         ) : null}
 
@@ -375,6 +409,7 @@ export default function DetailDailyPlan() {
                     key={item.id}
                     variant="calendar"
                     item={item}
+                    showAdvanced={showAdvanced} // 👈 POSIELAME STAV DO DETÍ
                     planReschedule={{
                       enabled: true,
                       dates: planDates,
