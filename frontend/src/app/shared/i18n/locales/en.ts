@@ -1863,7 +1863,7 @@ export const en = {
     title: "Your Dashboard",
   },
   performance: {
-    title: "Your performance",
+    title: "Performance",
     static: {
       title: "Your basic data",
       subtitle: "Your gender, date of birth, and height.",
@@ -1895,7 +1895,7 @@ export const en = {
     },
   },
   recovery: {
-    title: "My recovery",
+    title: "Recovery",
     inputs: {
       subtitle:
         "Enter your morning metrics (HRV and heart rate) and factors that affected your night.",
@@ -2095,7 +2095,7 @@ export const en = {
     },
   },
   calendar: {
-    title: "Your calendar",
+    title: "Calendar",
     widget: {
       open: "Open calendar",
       title: "Your week at a glance",
@@ -2130,7 +2130,7 @@ export const en = {
     nextMonth: "Next month",
   },
   coach: {
-    title: "Your coach",
+    title: "Coach",
     plan: "Your schedule",
     wu: "Warm-up",
     cd: "Cool-down",
@@ -2243,7 +2243,7 @@ export const en = {
     },
   },
   activities: {
-    title: "My activities",
+    title: "Activities",
     goTo: "View all activities",
   },
   activityTable: {
