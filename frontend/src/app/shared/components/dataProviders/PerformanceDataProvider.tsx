@@ -27,6 +27,10 @@ import {
   apiGetVo2EstimatedTrend,
   apiGetBodyFatLatest,
   apiGetBodyFatTrend,
+  apiGetWeightLatest,     // 👈 PRIDANÉ
+  apiGetWeightTrend,      // 👈 PRIDANÉ
+  apiGetHrMaxLatest,      // 👈 PRIDANÉ
+  apiGetProfileStatic,    // 👈 PRIDANÉ
 } from "@/app/features/performance/api/userMetrics";
 
 /* Typy */
@@ -43,6 +47,11 @@ export type PerformanceDataState = {
   vo2EstimatedTrend: any[];
   bodyFatLatest: any | null;
   bodyFatTrend: any[];
+  // 👈 PRIDANÉ NOVÉ TYPY
+  weightLatest: any | null;
+  bodyWeightTrend: any[];
+  hrMaxLatest: any | null;
+  profileStatic: any | null;
 };
 
 type CtxValue = {
@@ -62,6 +71,11 @@ const EMPTY_DATA: PerformanceDataState = {
   vo2EstimatedTrend: [],
   bodyFatLatest: null,
   bodyFatTrend: [],
+  // 👈 PRIDANÉ DO INICIALIZÁCIE
+  weightLatest: null,
+  bodyWeightTrend: [],
+  hrMaxLatest: null,
+  profileStatic: null,
 };
 
 /* Cache Helpers */
@@ -118,10 +132,10 @@ export function PerformanceDataProvider({
 
   const fetchAllData = useCallback(
     async (uid: number, d: number): Promise<PerformanceDataState> => {
-      // 1. ZOHRIEVACÍ REQUEST: Odpálime len jeden, aby sa (ak treba) v kľude obnovil Supabase Auth Token
+      // 1. ZOHRIEVACÍ REQUEST
       const latestZones = await apiFetchUserZonesLatest(uid, "running");
 
-      // 2. Teraz je už session na 100% platná. Môžeme bezpečne odpáliť zvyšok naraz!
+      // 2. Hromadný fetch
       const [
         zoneTrends,
         latestPaceRes,
@@ -132,6 +146,10 @@ export function PerformanceDataProvider({
         vo2ETrend,
         fatLatest,
         fatTrend,
+        weightLat,   // 👈 PRIDANÉ
+        weightTrnd,  // 👈 PRIDANÉ
+        hrMaxLat,    // 👈 PRIDANÉ
+        profileStat, // 👈 PRIDANÉ
       ] = await Promise.all([
         apiFetchUserZoneTrends(uid, "running", d),
         apiGetLatestPaces(uid),
@@ -142,6 +160,10 @@ export function PerformanceDataProvider({
         apiGetVo2EstimatedTrend(uid, d),
         apiGetBodyFatLatest(uid),
         apiGetBodyFatTrend(uid, d),
+        apiGetWeightLatest(uid),    // 👈 PRIDANÉ
+        apiGetWeightTrend(uid, d),  // 👈 PRIDANÉ
+        apiGetHrMaxLatest(uid),     // 👈 PRIDANÉ
+        apiGetProfileStatic(uid),   // 👈 PRIDANÉ
       ]);
 
       return {
@@ -155,6 +177,11 @@ export function PerformanceDataProvider({
         vo2EstimatedTrend: vo2ETrend?.trends || vo2ETrend?.data || [],
         bodyFatLatest: fatLatest?.data || null,
         bodyFatTrend: fatTrend?.trends || fatTrend?.data || [],
+        // 👈 PRIDANÉ NAMAPOVANIE NA STATE
+        weightLatest: weightLat?.data || null,
+        bodyWeightTrend: weightTrnd?.trends || weightTrnd?.data || [],
+        hrMaxLatest: hrMaxLat?.data || null,
+        profileStatic: profileStat?.data || profileStat || null, 
       };
     },
     [],
