@@ -1166,7 +1166,6 @@ export const en = {
         "You don't have any readiness assessments saved yet. Evaluate it in the coach section and the widget will populate automatically.",
       summary:
         "A brief evaluation of fatigue, form, and risks will appear here after your next analysis.",
-      lastAnalysis: "Last analysis",
       fatigue: "Fatigue",
       injuryRisk: "Injury risk",
     },
@@ -2313,7 +2312,6 @@ lastAnalysis: {
       focus: "Priority for the next few days",
       noFocus: "Stick to the set plan.",
       debugRaw: "Debug – raw JSON progress report",
-      advancedToggle: "Show detail",
     },
     state: {
       errorLoad: "Error loading AI analysis.",
@@ -2349,7 +2347,6 @@ lastAnalysis: {
         "Specific recommendations will appear here after your next analysis.",
       vo2maxDesc: "Estimated value based on biometrics and performance.",
       noCapabilities: "No specific capabilities have been evaluated yet.",
-      advancedToggle: "Show detail",
     },
     weekly: {
       errorLoad: "Error loading the weekly plan.",
@@ -2365,7 +2362,6 @@ lastAnalysis: {
       weeksSubtitle:
         "Detailed goals and focus for each block. The bar represents the volume ratio (km).",
       noGoalShort: "No specific goal",
-      advancedToggle: "Show detail",
       phases: {
         base: "Base",
         build: "Build",
@@ -2563,7 +2559,6 @@ lastAnalysis: {
       unitReps: "reps",
       unitSets: "sets",
       unitRest: "rest",
-      advancedToggle: "Show detail",
       plan: {
         target: "target",
         work: "Work",

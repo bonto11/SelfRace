@@ -9,6 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import Button from "@/app/shared/ui/components/Button";
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT TOGGLE
 
 import {
   CALENDAR_CONTAINER,
@@ -209,6 +210,12 @@ export default function ActivitiesCalendar({
   return (
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
+        
+        {/* 🌟 Globálny prepínač hneď na vrchu */}
+        <div className="mb-4">
+          <ShowAdvancedToggle />
+        </div>
+
         <div className={CALENDAR_TITLE_ROW}>
           <h2 className={CALENDAR_TITLE}> </h2>
 

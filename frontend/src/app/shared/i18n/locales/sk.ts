@@ -1167,7 +1167,6 @@ export const sk = {
         "Zatiaľ nemáš žiadnu uložené zhodnotenie trénovanosti. Vyhodnoť ju v sekcii tréner a widget sa automaticky naplní.",
       summary:
         "Krátke vyhodnotenie únavy, formy a rizík sa zobrazí po najbližšej analýze.",
-      lastAnalysis: "Posledná analýza",
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
@@ -2314,7 +2313,6 @@ lastAnalysis: {
       focus: "Priorita na najbližšie dni",
       noFocus: "Drž sa nastaveného plánu.",
       debugRaw: "Debug – raw JSON progress report",
-      advancedToggle: "Zobraziť detail",
     },
     state: {
       errorLoad: "Chyba pri načítaní AI analýzy.",
@@ -2350,7 +2348,6 @@ lastAnalysis: {
       // ✅ VO2 Max
       vo2maxDesc: "Odhadovaná hodnota na základe biometrie a výkonu.",
       noCapabilities: "Zatiaľ neboli vyhodnotené žiadne konkrétne schopnosti.",
-      advancedToggle: "Zobraziť detail",
     },
     weekly: {
       errorLoad: "Chyba pri načítaní týždenného plánu.",
@@ -2366,7 +2363,6 @@ lastAnalysis: {
       weeksSubtitle:
         "Detailné ciele a zameranie pre každý blok. Pruh znázorňuje pomer objemu (km).",
       noGoalShort: "Bez konkrétneho cieľa",
-      advancedToggle: "Zobraziť detail",
       phases: {
         base: "Základná fáza (Base)",
         build: "Budovacia fáza (Build)",
@@ -2563,7 +2559,6 @@ lastAnalysis: {
       unitReps: "opak.",
       unitSets: "série",
       unitRest: "oddych",
-      advancedToggle: "Zobraziť detail",
       plan: {
         target: "cieľ",
         work: "Záťaž",
