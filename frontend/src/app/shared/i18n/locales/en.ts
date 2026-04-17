@@ -151,14 +151,13 @@ export const en = {
   },
   pushPrompt: {
     title: "Never miss a workout",
-    desc: "Allow notifications so your AI coach can let you know when your new daily plan is ready.",
+    desc: "Allow me to send notifications so you don't miss anything.",
     later: "Later",
     allow: "Allow notifications",
   },
   pwaPrompt: {
     title: "Download SelfRace",
-    androidDesc:
-      "Add the app directly to your home screen for faster access, better notifications, and the full experience.",
+    androidDesc: "Install the app on your phone for the full experience.",
     iosDesc: "Add the app to your iPhone home screen. Follow these steps:",
     later: "Later",
     install: "Install app",
@@ -172,7 +171,7 @@ export const en = {
 
   landing: {
     h1: "Your personal coach reacting to your state in real-time.",
-    p1: "Connect Strava, set a goal, and the app will build training blocks and adapt based on your comments, recovery, and fatigue.",
+    p1: "You connect Strava, set a goal, and the coach will build training blocks for you and respond based on your comments, recovery, and fatigue.",
     p2Link: "Read the story of why SelfRace was created.",
     ctaStart: "Try for free",
     ctaSignIn: "Sign in",
@@ -181,7 +180,7 @@ export const en = {
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     contact: "Contact",
-    ourStory: "Our Story",
+    ourStory: "My Story",
     shell: "SelfRace • Space for your personal growth",
   },
   nav: {
@@ -190,12 +189,12 @@ export const en = {
     closeMenu: "Close menu",
   },
   ourStory: {
-    title: "Our Story",
+    title: "My Story",
   },
   contact: {
     title: "Contact",
     message:
-      "If you have any questions regarding SelfRace, privacy, or Strava integration, contact us at: ",
+      "If you have any questions regarding SelfRace, privacy, or Strava integration, contact me at: ",
   },
   privacy: {
     title: "Privacy Policy",
@@ -215,7 +214,7 @@ export const en = {
     fillAgainNewPassword: "Enter new password again",
     confirmNewPassword: "Confirm new password",
     newPassword: "Change password",
-    waitForLogin: "We will log you in shortly and show the form...",
+    waitForLogin: "We will log you in shortly...",
     changedLoggingIn: "Password changed. Logging you in...",
     logAfterSave: "We will automatically log you in after saving.",
     showPassword: "Show password",
@@ -247,11 +246,11 @@ export const en = {
     tittle: "Forgot Password",
     fillValidMail: "Enter a valid email.",
     sentMail:
-      "If the account exists, we have sent you an email with a link to reset your password.",
+      "If the account exists, I have sent you an email with a link to reset your password.",
     errorSent: "Failed to send email.",
     forgotPassword: "Forgot password",
     fillYourMail:
-      "Enter the email address where we should send the reset link.",
+      "Enter the email address where I should send the reset link.",
     mail: "Email",
     yourMail: "your@email.com",
     sending: "Sending...",
@@ -1169,7 +1168,7 @@ export const en = {
       fatigue: "Fatigue",
       injuryRisk: "Injury risk",
     },
-lastAnalysis: {
+    lastAnalysis: {
       fatigue: "Fatigue",
       injuryRisk: "Injury risk",
     },

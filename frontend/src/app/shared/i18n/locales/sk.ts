@@ -120,7 +120,7 @@ export const sk = {
       kg: "kg",
       days: "dní",
       hPerWeek: "h / týždeň",
-      weeksAbbrev: "t", // t = týždne v náhľade
+      weeksAbbrev: "t",
       ms: "ms",
       hr: "úderov/min",
       pace: "s/km",
@@ -129,8 +129,8 @@ export const sk = {
       kadenceBike: "ot/min",
     },
     metrics: {
-      trimp: "trimp",
-      time: "čas",
+      trimp: "Trimp",
+      time: "Čas",
       duration: "Trvanie",
       intensity: "Intenzita",
       target: "Cieľ",
@@ -152,14 +152,13 @@ export const sk = {
   },
   pushPrompt: {
     title: "Nezmeškaj žiadny tréning",
-    desc: "Povoľ nám posielať upozornenia a tvoj AI tréner ti dá vedieť, keď bude pripravený tvoj nový denný plán.",
+    desc: "Povoľ mi posielať upozornenia aby ti nič neutieklo.",
     later: "Neskôr",
     allow: "Povoliť upozornenia",
   },
   pwaPrompt: {
     title: "Stiahni si SelfRace",
-    androidDesc:
-      "Pridaj si aplikáciu priamo na plochu telefónu pre rýchlejší prístup, lepšie notifikácie a plný zážitok.",
+    androidDesc: "Nainštaluj si aplikáciu do telefónu pre plný zážitok.",
     iosDesc:
       "Pridaj si aplikáciu na plochu iPhonu. Postupuj podľa tohto návodu:",
     later: "Neskôr",
@@ -172,8 +171,8 @@ export const sk = {
     step4: "Skontroluj názov apky a klikni na Pridať.",
   },
   landing: {
-    h1: "Tvoj osobný tréner, ktorý reaguje na váš stav v reálnom čase. ",
-    p1: "Prepojíš Stravu, nastavíš cieľ a aplikácia ti bude stavať tréningové bloky a reagovať podľa tvojích komentárov, regenerácie a únavy.",
+    h1: "Tvoj osobný tréner, ktorý reaguje na tvoj stav v reálnom čase. ",
+    p1: "Prepojíš Stravu, nastavíš cieľ a tréner ti bude stavať tréningové bloky a reagovať podľa tvojích komentárov, regenerácie a únavy.",
     p2Link: "Prečítaj si príbeh o tom, prečo SelfRace vznikol. ",
 
     ctaStart: "Vyskúšať zdarma",
@@ -183,7 +182,7 @@ export const sk = {
     privacy: "Zásady ochrany osobných údajov",
     terms: "Obchodné podmienky",
     contact: "Kontakt",
-    ourStory: "Náš príbeh",
+    ourStory: "Môj príbeh",
     shell: "SelfRace • Priestor pre tvoj osobný rast",
   },
   nav: {
@@ -192,12 +191,12 @@ export const sk = {
     closeMenu: "Zatvoriť menu",
   },
   ourStory: {
-    title: "Náš príbeh",
+    title: "Môj príbeh",
   },
   contact: {
     title: "Kontakt",
     message:
-      "Ak máte otázky týkajúce sa SelfRace, ochrany osobných údajov alebo integrácie so Stravou, kontaktujte nás: ",
+      "Ak máš otázky týkajúce sa SelfRace, ochrany osobných údajov alebo integrácie so Stravou, kontaktujte ma: ",
   },
   privacy: {
     title: "Zásady ochrany osobných údajov",
@@ -217,9 +216,9 @@ export const sk = {
     fillAgainNewPassword: "Zadaj nové heslo",
     confirmNewPassword: "Potvrdiť nové heslo",
     newPassword: "Zmeniť heslo",
-    waitForLogin: "O chvíľu ťa prihlásime a zobrazíme formulár…",
-    changedLoggingIn: "Heslo je zmenené. Prihlasujeme ťa…",
-    logAfterSave: "Po uložení ťa automaticky prihlásime.",
+    waitForLogin: "O chvíľu ťa prihlásim…",
+    changedLoggingIn: "Heslo je zmenené. Prihlasujem ťa…",
+    logAfterSave: "Po uložení ťa automaticky prihlásim.",
     showPassword: "Zobraziť heslo",
     hidePassword: "Skryť heslo",
     criteria: {
@@ -249,11 +248,11 @@ export const sk = {
     tittle: "",
     fillValidMail: "Zadaj platný e-mail.",
     sentMail:
-      "Ak účet existuje, poslali sme ti e-mail s odkazom na zmenu hesla.",
+      "Ak účet existuje, poslal som ti e-mail s odkazom na zmenu hesla.",
     errorSent: "Nepodarilo sa odoslať e-mail.",
     forgotPassword: "Zabudnuté heslo",
     fillYourMail:
-      "Zadaj e-mail, na ktorý ti pošleme odkaz na nastavenie nového hesla.",
+      "Zadaj e-mail, na ktorý ti pošlem odkaz na nastavenie nového hesla.",
     mail: "E-mail",
     yourMail: "tvoj@email.sk",
     sending: "Posielam…",
@@ -1170,7 +1169,7 @@ export const sk = {
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
-lastAnalysis: {
+    lastAnalysis: {
       fatigue: "Únava",
       injuryRisk: "Riziko zranenia",
     },
