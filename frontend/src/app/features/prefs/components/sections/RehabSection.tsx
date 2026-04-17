@@ -4,9 +4,7 @@
 import * as React from "react";
 
 import Button from "@/app/shared/ui/components/Button";
-import TextField from "@/app/shared/ui/components/TextField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 
 import type { RehabFocus } from "@/app/features/prefs/types/prefs";
@@ -27,18 +25,16 @@ export function RehabSection({ local, setPref }: Props) {
       stretching: !!rf.stretching,
       mobility: !!rf.mobility,
       balance: !!rf.balance,
-      recovery_protocol: rf.recovery_protocol ?? null,
       ...patch,
     } as RehabFocus);
 
   const toggle = (key: keyof RehabFocus) => {
-    if (key === "recovery_protocol") return;
     setRehab({ [key]: !Boolean((rf as any)[key]) } as Partial<RehabFocus>);
   };
 
   const preview = `${t("prefs.sections.rehabSection.previewFocus")}: ${
     (rf.stretching ? 1 : 0) + (rf.mobility ? 1 : 0) + (rf.balance ? 1 : 0)
-  } · ${t("prefs.sections.rehabSection.previewProtocol")}: ${rf.recovery_protocol ? t("common.set") : "—"}`;
+  }`;
 
   return (
     <InputsCard
@@ -87,22 +83,6 @@ export function RehabSection({ local, setPref }: Props) {
             {t("prefs.sections.rehabSection.enums.balance")}
           </Button>
         </div>
-
-        <div className="flex items-center gap-2 text-xs opacity-80">
-          <span>{t("prefs.sections.rehabSection.protocolLabel")}</span>
-          <TooltipIcon text={t("prefs.sections.rehabSection.protocolTooltip")} />
-        </div>
-
-        <TextField
-          label=""
-          placeholder={t("prefs.sections.rehabSection.protocolPlaceholder")}
-          value={rf.recovery_protocol ?? ""}
-          onChange={(e) =>
-            setRehab({
-              recovery_protocol: (e.target as HTMLInputElement).value || null,
-            })
-          }
-        />
       </div>
     </InputsCard>
   );
