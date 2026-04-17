@@ -1862,7 +1862,7 @@ export const sk = {
     title: "Tvoj Dashboard",
   },
   performance: {
-    title: "Tvoj výkon",
+    title: "Výkon",
     static: {
       title: "Tvoje základné údaje",
       subtitle: "Tvoje pohlavie, dátum narodenia a výška.",
@@ -1894,7 +1894,7 @@ export const sk = {
     },
   },
   recovery: {
-    title: "Moja regenerácia",
+    title: "Regenerácia",
     inputs: {
       subtitle:
         "Zadaj svoje ranné metriky (HRV a tep) a faktory, ktoré ti ovplyvnili noc.",
@@ -2094,7 +2094,7 @@ export const sk = {
     },
   },
   calendar: {
-    title: "Tvoj kalendár",
+    title: "Kalendár",
     widget: {
       open: "Otvoriť kalendár",
       title: "Tvoj týždeň v skratke",
@@ -2129,7 +2129,7 @@ export const sk = {
     nextMonth: "Budúci mesiac",
   },
   coach: {
-    title: "Tvoj tréner",
+    title: "Tréner",
     plan: "Tvoj rozpis",
     wu: "Rozcvička",
     cd: "Výklus",
@@ -2242,7 +2242,7 @@ export const sk = {
     },
   },
   activities: {
-    title: "Moje aktivity",
+    title: "Aktivity",
     goTo: "Pozrieť si všetky aktivity",
   },
   activityTable: {
