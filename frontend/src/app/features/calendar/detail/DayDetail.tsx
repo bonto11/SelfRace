@@ -9,10 +9,10 @@ import SessionCard from "@/app/shared/components/session/SessionCard";
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 type Props = {
   selectedIso: string;
-  // selectedLabel sme odstránili z Props
   actRows: any[];
   planRowsForDay: any[];
   externalRows: ExternalEvent[];
@@ -28,6 +28,9 @@ export default function DayDetail({
   safeSportKey,
 }: Props) {
   const t = useT();
+  
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
   
   // 1. Ochrana proti Hydration Error: Uistíme sa, že renderujeme až na klientovi
   const [isMounted, setIsMounted] = React.useState(false);
@@ -97,7 +100,11 @@ export default function DayDetail({
           <ul className="space-y-2">
             {past.map((it: any) => (
               <li key={it.id} className="px-0">
-                <SessionCard variant="calendar" item={it} />
+                <SessionCard 
+                  variant="calendar" 
+                  item={it} 
+                  showAdvanced={showAdvanced}
+                />
               </li>
             ))}
           </ul>
@@ -123,7 +130,11 @@ export default function DayDetail({
           <ul className="space-y-2">
             {planned.map((it: any) => (
               <li key={it.id} className="px-0">
-                <SessionCard variant="calendar" item={it} />
+                <SessionCard 
+                  variant="calendar" 
+                  item={it} 
+                  showAdvanced={showAdvanced}
+                />
               </li>
             ))}
           </ul>
