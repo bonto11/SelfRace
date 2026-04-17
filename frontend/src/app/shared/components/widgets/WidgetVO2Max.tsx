@@ -1,3 +1,4 @@
+// src/app/shared/components/widgets/WidgetVO2Max.tsx
 "use client";
 
 import * as React from "react";
@@ -20,12 +21,17 @@ import {
   WIDGET_VALUE_UNIT,
 } from "@/app/shared/ui/tokens";
 
-import type { Group, Range } from "@/app/features/performance/types/performance";
+import type { Group } from "@/app/features/performance/types/performance";
 import { levelColor } from "@/app/features/performance/utils/performance";
 
-type Props = { onOpen?: () => void; onOpenDetail?: () => void };
+// 👈 Pridaný showAdvanced do Props
+type Props = { 
+  onOpen?: () => void; 
+  onOpenDetail?: () => void;
+  showAdvanced?: boolean; 
+};
 
-export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
+export default function WidgetVO2Max({ onOpen, onOpenDetail, showAdvanced = false }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
   
@@ -75,12 +81,14 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
-      {loading && !vo2MeasuredLatest ? (
+      {loading && !vo2EstimatedLatest ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-4 md:gap-6">
+        <div className={showAdvanced ? "grid grid-cols-1 md:grid-cols-[1fr_1px_1fr] gap-4 md:gap-6" : "block"}>
+          
+          {/* SEKCIA: Odhad (Vždy viditeľná) */}
           <div className="min-w-0">
             <div className={WIDGET_META_LABEL}>
               {t("VO2Max.chart.estimated")}: {fmtDate(vo2EstimatedLatest?.measured_at ?? null)}
@@ -94,20 +102,26 @@ export default function WidgetVO2Max({ onOpen, onOpenDetail }: Props) {
             </div>
           </div>
 
-          <div className="hidden md:block w-px" style={{ background: appColors.surfaceCardBorder, opacity: 0.6 }} />
-
-          <div className="min-w-0">
-            <div className={WIDGET_META_LABEL}>
-              {t("VO2Max.chart.measured")}: {fmtDate(measuredDate)}
-            </div>
-            <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
-              <div className={WIDGET_VALUE_MAIN}>{mVO2 != null ? mVO2.toFixed(1) : "—"}</div>
-              <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
-              <div className="shrink-0">
-                {levelMeasured ? <Pill label={levelMeasured.label} color={levelMeasured.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
+          {/* SEKCIA: Meranie (Len v ADVANCED režime) */}
+          {showAdvanced && (
+            <>
+              <div className="hidden md:block w-px" style={{ background: appColors.surfaceCardBorder, opacity: 0.6 }} />
+              
+              <div className="min-w-0 mt-4 md:mt-0 border-t md:border-t-0 pt-4 md:pt-0" style={{ borderColor: appColors.surfaceCardBorder }}>
+                <div className={WIDGET_META_LABEL}>
+                  {t("VO2Max.chart.measured")}: {fmtDate(measuredDate)}
+                </div>
+                <div className={`${WIDGET_VALUE_ROW} flex flex-wrap items-center gap-2`}>
+                  <div className={WIDGET_VALUE_MAIN}>{mVO2 != null ? mVO2.toFixed(1) : "—"}</div>
+                  <span className={WIDGET_VALUE_UNIT}> {t("common.units.vo2max")}</span>
+                  <div className="shrink-0">
+                    {levelMeasured ? <Pill label={levelMeasured.label} color={levelMeasured.color} /> : <span className={WIDGET_PLACEHOLDER}>—</span>}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
+          
         </div>
       )}
     </WidgetCard>
