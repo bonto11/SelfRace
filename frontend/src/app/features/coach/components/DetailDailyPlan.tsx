@@ -7,8 +7,11 @@ import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 Import globálneho Togglu
-import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 Import Settings Providera
+
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
+import Toggle from "@/app/shared/ui/components/Toggle";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import MiniCalendar from "@/app/shared/ui/components/MiniCalendar"; 
 
 import {
   apiGetDailyOverview,
@@ -101,8 +104,10 @@ export default function DetailDailyPlan() {
   const { userId } = useUserId();
   const t = useT();
 
-  const { settings } = useSettings() as any; // 👈 Načítanie settings
-  const showAdvanced = settings?.show_advanced ?? false; // 👈 Extrahovanie stavu z providera
+  const { settings } = useSettings() as any; 
+  const showAdvanced = settings?.show_advanced ?? false; 
+
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [overview, setOverview] = useState<DailyOverview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -110,13 +115,14 @@ export default function DetailDailyPlan() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // 👈 Lokálne stavy pre kalendár
+  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
+  const [showAllDays, setShowAllDays] = useState(false); 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
   useEffect(() => {
     if (!userId) return;
-
     let alive = true;
-
     (async () => {
       setLoading(true);
       setError(null);
@@ -133,7 +139,6 @@ export default function DetailDailyPlan() {
         if (alive) setLoading(false);
       }
     })();
-
     return () => {
       alive = false;
     };
@@ -141,6 +146,12 @@ export default function DetailDailyPlan() {
 
   const days = overview?.days ?? [];
   const hasPlan = days.length > 0;
+
+  // 👈 Vypočítame dni, ktoré sa reálne vyrendrujú na základe Togglu a vybraného dátumu
+  const filteredDays = useMemo(() => {
+    if (showAllDays) return days;
+    return days.filter((d) => d.date === selectedDate);
+  }, [days, showAllDays, selectedDate]);
 
   const planDates = useMemo(() => {
     const h = overview?.horizon_days ?? 7;
@@ -165,22 +176,14 @@ export default function DetailDailyPlan() {
 
   const dirty = moves.length > 0;
 
-  const moveSessionLocal = (
-    fromDate: string,
-    toDate: string,
-    sessionId: number,
-  ) => {
+  const moveSessionLocal = (fromDate: string, toDate: string, sessionId: number) => {
     setOverview((prev) => {
       if (!prev) return prev;
-
       let moved: any = null;
-
       const daysNext: DailyPlanDay[] = prev.days.map((d) => {
         if (d.date === fromDate) {
           const next = [...(d.sessions ?? [])];
-          const i = next.findIndex(
-            (x: any) => Number(x?.id) === Number(sessionId),
-          );
+          const i = next.findIndex((x: any) => Number(x?.id) === Number(sessionId));
           if (i >= 0) {
             moved = next[i];
             next.splice(i, 1);
@@ -191,7 +194,6 @@ export default function DetailDailyPlan() {
       });
 
       if (!moved) return prev;
-
       const daysNext2: DailyPlanDay[] = daysNext.map((d) => {
         if (d.date === toDate) {
           const moved2 = { ...moved, plan_date: toDate };
@@ -199,14 +201,11 @@ export default function DetailDailyPlan() {
         }
         return d;
       });
-
       return { ...prev, days: daysNext2 };
     });
   };
 
-  const addMove = (m: DailyRescheduleMove) => {
-    setMoves((prev) => [...prev, m]);
-  };
+  const addMove = (m: DailyRescheduleMove) => setMoves((prev) => [...prev, m]);
 
   const undoLast = () => {
     setMoves((prev) => {
@@ -219,21 +218,23 @@ export default function DetailDailyPlan() {
 
   const saveMoves = async () => {
     if (!userId || !dirty || saving) return;
-
     setSaving(true);
     setSaveError(null);
-
     try {
       const next = await apiSaveDailyReschedule(userId, moves);
-      if (next) {
-        setOverview(next);
-      }
+      if (next) setOverview(next);
       setMoves([]);
     } catch (e: any) {
       setSaveError(t(e?.message as any) || t("coach.daily.errorSave"));
     } finally {
       setSaving(false);
     }
+  };
+
+  // 👈 Handler pri kliknutí na deň v kalendári
+  const handleSelectDate = (isoDate: string) => {
+    setSelectedDate(isoDate);
+    setShowAllDays(false); // Pri kliku sa automaticky prepneme do "zobraziť iba 1 deň"
   };
 
   if (!userId) {
@@ -267,34 +268,47 @@ export default function DetailDailyPlan() {
   return (
     <div className={PANEL_STACK}>
       
-      {/* Nahradený Toggle za globálny */}
+      {hasPlan && <ShowAdvancedToggle />}
+
+      {/* 🌟 Kalendár na samom vrchu */}
       {hasPlan && (
-        <ShowAdvancedToggle />
+        <div className="mb-2 space-y-2">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+             <MiniCalendar 
+               startFrom="today" 
+               content="plan" 
+               selectedDateIso={showAllDays ? undefined : selectedDate} 
+               onSelectDate={handleSelectDate} 
+             />
+          </div>
+          
+          {/* Lokálny prepínač pre filtrovanie dní */}
+          <Toggle 
+            label="Zobraziť plán na celý týždeň"
+            checked={showAllDays}
+            onChange={setShowAllDays}
+          />
+        </div>
       )}
 
-      {/* HLAVNÁ KARTA PRE ROZPIS (Jediný Card na stránke) */}
+      {/* HLAVNÁ KARTA PRE ROZPIS */}
       <Card
         title={t("coach.daily.scheduleTitle")}
         subtitle={t("coach.daily.scheduleSubtitle")}
       >
-        {hasPlan ? (
+        {hasPlan && dirty ? (
           <div className="flex flex-col gap-2 mb-2">
-            {/* Panel s akciami na ukladanie zmien */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs opacity-70">
-                  {dirty 
-                    ? t("coach.daily.unsavedChanges").replace("{{count}}", String(moves.length)) 
-                    : t("coach.daily.allSaved")}
+                  {t("coach.daily.unsavedChanges").replace("{{count}}", String(moves.length))}
                 </div>
-
                 <div className="flex items-center gap-2">
                   <Button
                     size="xs"
                     variant="secondary"
                     disabled={!dirty || saving}
                     onClick={async () => {
-                      if (!dirty) return;
                       const ok = await confirm({
                         title: t("coach.daily.undoConfirmTitle"),
                         message: t("coach.daily.undoConfirmMessage"),
@@ -307,7 +321,6 @@ export default function DetailDailyPlan() {
                   >
                     {t("common.undo")}
                   </Button>
-
                   <Button
                     size="xs"
                     variant="primary"
@@ -318,7 +331,6 @@ export default function DetailDailyPlan() {
                   </Button>
                 </div>
               </div>
-
               {saveError ? (
                 <div className="mt-1 text-[11px] text-red-300">{saveError}</div>
               ) : null}
@@ -328,28 +340,25 @@ export default function DetailDailyPlan() {
 
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>{t("coach.daily.noPlan")}</div>
+        ) : filteredDays.length === 0 || filteredDays.every(d => !d.sessions?.length) ? (
+          <div className={PANEL_PREVIEW}>
+            {/* Ak má užívateľ prázdny deň, vypíšeme fallback hlášku */}
+            Na tento deň nie je naplánovaný žiadny tréning.
+          </div>
         ) : (
           <div className={PANEL_STACK}>
-            {days.flatMap((d) => {
+            {filteredDays.flatMap((d) => {
               if (!d.date) return [];
               if (!d.sessions || d.sessions.length === 0) return [];
-
+              
               const dateIso = d.date;
               const dateLabel = formatDate(d.date) ?? d.date;
               const wd = weekdayLabel(d.date) ?? "";
 
               return d.sessions.map((s: any) => {
                 const kpis: KPI[] = [];
-                if (s.duration_min)
-                  kpis.push({
-                    label: t("common.metrics.duration").toUpperCase(),
-                    value: `${s.duration_min} ${t("common.units.min")}`,
-                  });
-                if (s.intensity)
-                  kpis.push({ 
-                    label: t("common.metrics.intensity").toUpperCase(), 
-                    value: String(s.intensity) 
-                  });
+                if (s.duration_min) kpis.push({ label: t("common.metrics.duration").toUpperCase(), value: `${s.duration_min} ${t("common.units.min")}` });
+                if (s.intensity) kpis.push({ label: t("common.metrics.intensity").toUpperCase(), value: String(s.intensity) });
 
                 const item: PlanSession = {
                   id: s.id,
@@ -361,11 +370,9 @@ export default function DetailDailyPlan() {
                   subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
                   kpis,
                   notes: s.notes ?? null,
-
                   planDur: s.duration_min ? `${s.duration_min} ${t("common.units.min")}` : null,
                   planIntensity: s.intensity ?? null,
                   planNotes: s.notes ?? null,
-
                   planRaw: s,
                   planStructure: s.structure ?? null,
                   planExercises: (s.structure?.strength_exercises as any[]) ?? [],
@@ -384,11 +391,7 @@ export default function DetailDailyPlan() {
                       maxPerDay: 2,
                       onChangeDate: ({ sessionId, fromDate, toDate }) => {
                         if (sessionId == null) return;
-                        addMove({
-                          id: sessionId,
-                          from_date: fromDate,
-                          to_date: toDate,
-                        });
+                        addMove({ id: sessionId, from_date: fromDate, to_date: toDate });
                         moveSessionLocal(fromDate, toDate, Number(sessionId));
                       },
                     }}
@@ -399,6 +402,7 @@ export default function DetailDailyPlan() {
           </div>
         )}
       </Card>
+      
     </div>
   );
 }
