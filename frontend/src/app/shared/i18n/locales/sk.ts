@@ -1552,18 +1552,18 @@ export const sk = {
       outRange: "Pomer je mimo ideálneho pásma",
     },
   },
-  weeklyLoad: {
+    weeklyLoad: {
     title: "Týždenná záťaž",
     widget: {
       title: "Týždenná záťaž",
       tooltip: [
-        "Toto je súčet tréningovej námahy za posledných 7 dní.",
+        "Toto je súčet tréningovej záťaže za posledných 7 dní.",
         "",
         "Prečo práve 7 dní?",
-        "• Najrýchlejší spôsob, ako vidieť aktuálne zaťaženie bez ohľadu na to, aký je dnes deň v kalendári.",
+        "• Je to najrýchlejší spôsob, ako vidieť aktuálne zaťaženie bez ohľadu na to, aký je dnes deň v kalendári.",
         "",
         "Ako rozumieť porovnaniu s predošlým týždňom?",
-        "• +20 % a viac: Skokové pridanie. Pozor na únavu, ak to bude trvať príliš dlho.",
+        "• +20 % a viac: Skokové pridanie záťaže. Pozor na únavu, ak to bude trvať príliš dlho.",
         "• -20 % a menej: Výrazné ubranie. V poriadku pri regeneračnom týždni alebo voľne.",
         "• Okolo 0 %: Stabilita. Skvelé pre budovanie poctivej vytrvalosti.",
         "",
@@ -1572,9 +1572,10 @@ export const sk = {
       ].join("\n"),
     },
     status: {
-      muchMore: "↑ Výrazne viac ako predošlý týždeň",
-      muchLess: "↓ Objem výrazne klesol oproti predošlému týždňu",
-      similar: "≈ Podobná úroveň ako minulý týždeň",
+      muchMore: "Výrazný nárast",
+      muchLess: "Výrazný pokles",
+      similar: "Stabilná úroveň",
+      compareText: "{{sign}}{{pct}} % oproti predošlým 7 dňom",
     },
   },
   HRV: {
