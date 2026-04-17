@@ -116,7 +116,7 @@ export async function apiGetBodyFatTrend(userId: number, days = 90) {
   }
 }
 
-/** Weight (Latest) - Pridané pre čistotu komponentu */
+/** Weight (Latest) */
 export async function apiGetWeightLatest(userId: number) {
   if (!userId) return null;
   const path = `/user-metrics/latest/${encodeURIComponent(String(userId))}?metric=weight_kg`;
@@ -135,7 +135,26 @@ export async function apiGetWeightLatest(userId: number) {
   }
 }
 
-/** HR Max (Latest) - Pridané pre čistotu komponentu */
+/** Weight (Trend) */
+export async function apiGetWeightTrend(userId: number, days = 90) {
+  if (!userId) return null;
+  const path = `/user-metrics/trend/${encodeURIComponent(String(userId))}?metric=weight_kg&days=${days}`;
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!json || (json as ApiFail).success === false) return null;
+    return json;
+  } catch (e) {
+    console.error("[userMetrics][GET weight trend] error", e);
+    return null;
+  }
+}
+
+/** HR Max (Latest) */
 export async function apiGetHrMaxLatest(userId: number) {
   if (!userId) return null;
   const path = `/user-metrics/latest/${encodeURIComponent(String(userId))}?metric=HR_max`;
@@ -150,6 +169,25 @@ export async function apiGetHrMaxLatest(userId: number) {
     return json;
   } catch (e) {
     console.error("[userMetrics][GET hrmax latest] error", e);
+    return null;
+  }
+}
+
+/** Profile Static (Bio dáta ako výška, pohlavie...) */
+export async function apiGetProfileStatic(userId: number) {
+  if (!userId) return null;
+  const path = `/users/${encodeURIComponent(String(userId))}/bio`; 
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!json || (json as ApiFail).success === false) return null;
+    return json;
+  } catch (e) {
+    console.error("[userMetrics][GET profile static] error", e);
     return null;
   }
 }
@@ -175,6 +213,6 @@ export async function apiSaveMetric(
     return json;
   } catch (e) {
     console.error("[userMetrics][POST save metric] error", e);
-    throw e; // Hádžeme ďalej, aby FE komponenty (napr. Toast) vedeli, že to zlyhalo
+    throw e;
   }
 }
