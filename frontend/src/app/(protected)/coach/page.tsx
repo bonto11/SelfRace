@@ -72,6 +72,9 @@ function ClientPage() {
         <WidgetAthleteHealth
           onOpenDetail={() => router.push("/coach/health")}
         />
+
+        <WidgetCoachPlan />
+
         <WidgetCoachAIAnalyze
           onOpenDetail={() => router.push("/coach/ai/athleteState")}
         />
@@ -81,8 +84,6 @@ function ClientPage() {
         <WidgetCoachAIDaily
           onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
         />
-        
-        {showAdvanced && <WidgetCoachPlan />}
         
         {/* Progress presunutý za showAdvanced podmienku */}
         {showAdvanced && (
