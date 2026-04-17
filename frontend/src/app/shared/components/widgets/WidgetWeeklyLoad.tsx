@@ -14,7 +14,6 @@ import {
   WIDGET_VALUE_PRIMARY,
   WIDGET_VALUE_UNIT,
   WIDGET_NOTE,
-  WIDGET_FOOTNOTE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -34,31 +33,48 @@ export default function WeeklyLoadWidget({
 
   const { h, m } = useMemo(() => minToHM(totalLast), [totalLast]);
 
+  // Výpočet percentuálneho rozdielu
   const diffPct: number | null = useMemo(() => {
+    if (!totalPrev && totalLast > 0) return 100; // Ak predtým netrénoval vôbec a teraz áno
     if (!totalPrev) return null;
     return ((totalLast - totalPrev) / totalPrev) * 100;
   }, [totalLast, totalPrev]);
 
-  const { note, accent } = useMemo(() => {
-    if (loading || diffPct == null) return { note: "—", accent: "none" };
-    if (diffPct > 20) return {
-      note: t("weeklyLoad.status.muchMore"),
-      accent: appColors.stateWarning
-    };
-    if (diffPct < -20) return {
-      note: t("weeklyLoad.status.muchLess"),
-      accent: appColors.stateWarning
-    };
+  // Určenie textu, farby a accentu pre WidgetCard
+  const { note, accent, diffColor } = useMemo(() => {
+    if (loading || diffPct == null) {
+      return { note: "—", accent: "none", diffColor: "opacity-70" };
+    }
+    
+    // Nárast o viac ako 20 % (Riziko únavy)
+    if (diffPct > 20) {
+      return {
+        note: t("weeklyLoad.status.muchMore"),
+        accent: appColors.stateWarning,
+        diffColor: "text-red-400", 
+      };
+    }
+    
+    // Pokles o viac ako 20 % (Deload / Oddych)
+    if (diffPct < -20) {
+      return {
+        note: t("weeklyLoad.status.muchLess"),
+        accent: "none",
+        diffColor: "text-blue-400",
+      };
+    }
+
+    // Stabilná záťaž (Ideál)
     return {
       note: t("weeklyLoad.status.similar"),
-      accent: "none"
+      accent: "none",
+      diffColor: "opacity-70",
     };
   }, [loading, diffPct, t]);
 
-  const rangeTxt =
-    r7?.last?.range?.start && r7?.last?.range?.end
-      ? fmtRange(r7.last.range.start, r7.last.range.end)
-      : "—";
+  const diffStr = diffPct !== null 
+    ? `${diffPct > 0 ? "+" : ""}${Math.round(diffPct)} %` 
+    : null;
 
   return (
     <WidgetCard
@@ -85,7 +101,14 @@ export default function WeeklyLoadWidget({
               <span className={WIDGET_VALUE_UNIT}>m</span>
             </div>
 
-            <p className={WIDGET_NOTE}>
+            {/* Ukazovateľ percentuálneho rozdielu */}
+            {diffStr && (
+              <div className={`mt-2 text-sm font-bold tracking-wide ${diffColor}`}>
+                {diffStr}
+              </div>
+            )}
+
+            <p className={`${WIDGET_NOTE} ${diffStr ? "mt-1" : "mt-2"}`}>
               {note}
             </p>
           </div>
