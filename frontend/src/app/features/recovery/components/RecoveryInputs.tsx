@@ -101,7 +101,6 @@ export default function RecoveryInputs() {
   const [sleepStart, setSleepStart] = useState("");
 
   const [dirty, setDirty] = useState<DirtyMap>({});
-  const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
     setDirty((d) => (d[k] ? d : { ...d, [k]: true }));
@@ -110,39 +109,64 @@ export default function RecoveryInputs() {
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
 
+  // SMART PREDVYPLNENIE (Reaguje na zmenu dátumu v kalendáriku)
   useEffect(() => {
-    if (data && Array.isArray(data) && data.length > 0 && !isInitialized) {
-      const findLatest = (key: string) => {
-        const entry = data.find((d: any) => d && d[key] !== null && d[key] !== undefined && d[key] !== "");
-        return entry ? entry[key] : "";
-      };
+    if (!data || !Array.isArray(data) || data.length === 0) return;
 
-      setRhr(findLatest("RHR_bpm"));
-      setHrvAvg(findLatest("HRV_avg_ms"));
-      setHrvMax(findLatest("HRV_max_ms"));
-      
-      const latestAlcoholVolume = findLatest("alcohol_volume_ml");
-      if (latestAlcoholVolume !== "") setAlcoholVolume(latestAlcoholVolume);
-      
-      const latestAlcoholType = findLatest("alcohol_type_pct");
-      if (latestAlcoholType !== "") setAlcoholType(latestAlcoholType);
+    // 1. Zotriedime dáta od najnovšieho po najstaršie
+    const sortedData = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      const sd = findLatest("sleep_duration_min");
-      if (typeof sd === "number") {
-        setSleepDuration(minutesToHHMM(sd));
+    // 2. Nájdeme záznam presne pre VYBRANÝ DÁTUM (ak už existuje v DB)
+    const exactDayEntry = sortedData.find((d) => d.date === date);
+
+    // 3. Helper funkcia: Hľadá prvú neprázdnu hodnotu (od vybraného dňa smerom do minulosti)
+    const findLatestBeforeOrOnDate = (key: string, onlyExactDay: boolean = false) => {
+      // Ak chceme len pre konkrétny deň (poznámky, káva...), pozrieme len exactDayEntry
+      if (onlyExactDay) {
+        return exactDayEntry && exactDayEntry[key] !== null && exactDayEntry[key] !== undefined 
+          ? exactDayEntry[key] 
+          : "";
       }
 
-      const ss = findLatest("sleep_start_time");
-      if (typeof ss === "string") {
-        const parts = ss.split(":");
-        if (parts.length >= 2) {
-          setSleepStart(`${parts[0]}:${parts[1]}`);
-        }
-      }
+      // Ak chceme predvyplniť (HRV, RHR, spánok...), hľadáme prvý záznam od vybraného dňa do minulosti
+      const entry = sortedData.find((d) => 
+        new Date(d.date) <= new Date(date) && 
+        d[key] !== null && 
+        d[key] !== undefined && 
+        d[key] !== "" &&
+        d[key] !== 0 // ignorujeme nuly, ak sa do DB ukladajú nuly namiesto null
+      );
+      
+      return entry ? entry[key] : "";
+    };
 
-      setIsInitialized(true);
+    // Aplikujeme logiku
+    // Tieto hodnoty predvyplníme históriou (ak nie sú zadané presne v daný deň)
+    setRhr(findLatestBeforeOrOnDate("RHR_bpm"));
+    setHrvAvg(findLatestBeforeOrOnDate("HRV_avg_ms"));
+    setHrvMax(findLatestBeforeOrOnDate("HRV_max_ms"));
+
+    const sd = findLatestBeforeOrOnDate("sleep_duration_min");
+    setSleepDuration(typeof sd === "number" ? minutesToHHMM(sd) : "");
+
+    const ss = findLatestBeforeOrOnDate("sleep_start_time");
+    if (typeof ss === "string" && ss.includes(":")) {
+      setSleepStart(`${ss.split(":")[0]}:${ss.split(":")[1]}`);
+    } else {
+      setSleepStart("");
     }
-  }, [data, isInitialized]);
+
+    // Tieto hodnoty striktne ťaháme LEN z vybraného dňa (nepredvyplňujeme ich včerajškom)
+    setLateFood(Boolean(findLatestBeforeOrOnDate("food_2h_before", true)));
+    setLateCaffeine(Boolean(findLatestBeforeOrOnDate("caffeine_8h", true)));
+    setAlcoholVolume(findLatestBeforeOrOnDate("alcohol_volume_ml", true));
+    setAlcoholType(findLatestBeforeOrOnDate("alcohol_type_pct", true));
+    setComments(findLatestBeforeOrOnDate("comments", true) as string);
+
+    // Vyčistíme dirty mapu, pretože sme polia naplnili systémovo, nie ručne užívateľom
+    setDirty({});
+
+  }, [data, date]); // Akonáhle sa zmení `date` (kalendárik) alebo `data` (po uložení), tento kód sa zbehne znova
 
   async function handleSave() {
     if (!userId) {
@@ -173,6 +197,7 @@ export default function RecoveryInputs() {
     const keys = Object.keys(patch).filter(
       (k) => k !== "date" && k !== "user_id",
     );
+    
     if (keys.length === 0) {
       toast.error(t("recovery.inputs.errorNoChanges"));
       return;
@@ -194,7 +219,7 @@ export default function RecoveryInputs() {
     }
   }
 
-  const previewText = `${t("recovery.inputs.dateLabel")}: ${date}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
+  const previewText = `${t("recovery.inputs.dateLabel")}: ${new Date(date).toLocaleDateString("sk-SK")}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
   const tooltipContent = "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán.";
 
