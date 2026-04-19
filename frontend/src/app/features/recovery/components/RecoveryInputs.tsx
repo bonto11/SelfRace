@@ -114,10 +114,26 @@ export default function RecoveryInputs() {
 
   // SMART INIT - Nájdenie najnovších známych hodnôt z histórie
   useEffect(() => {
-    if (data && Array.isArray(data) && data.length > 0 && !isInitialized) {
-      
+    if (isInitialized) return; // Ak sme to už spravili, neriešime ďalej
+
+    console.log("=== RECOVERY INPUTS INIT ===");
+    console.log("Dáta z provideru (surový stav):", data);
+
+    // Pokúsime sa zistiť, či sú dáta priamo pole, alebo sú schované v nejakom kľúči
+    let recordsArray = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data) && data) {
+      // Možno sú schované v data.data alebo data.trend
+      if (Array.isArray(data.data)) recordsArray = data.data;
+      else if (Array.isArray(data.trend)) recordsArray = data.trend;
+      else if (Array.isArray(data.records)) recordsArray = data.records;
+    }
+
+    console.log("Rozpoznané pole pre predvyplnenie:", recordsArray);
+
+    if (recordsArray && recordsArray.length > 0) {
       // Zotriedime dáta od najnovších po najstaršie
-      const sortedData = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const sortedData = [...recordsArray].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      console.log("Zotriedené dáta (najnovšie prvé):", sortedData);
 
       // Helper na nájdenie prvej nenulovej hodnoty
       const findLatest = (key: string) => {
@@ -127,25 +143,31 @@ export default function RecoveryInputs() {
           d[key] !== "" && 
           d[key] !== 0
         );
-        return entry ? entry[key] : "";
+        const val = entry ? entry[key] : "";
+        console.log(`Hodnota pre [${key}]:`, val, entry ? `(z dátumu ${entry.date})` : "(nenašlo sa)");
+        return val;
       };
 
       // Predvyplníme metriky, každá si môže potiahnuť dáta z iného (najnovšieho dostupného) dňa
-      setRhr(findLatest("RHR_bpm"));
-      setHrvAvg(findLatest("HRV_avg_ms"));
-      setHrvMax(findLatest("HRV_max_ms"));
+      const latestRhr = findLatest("RHR_bpm");
+      const latestHrvAvg = findLatest("HRV_avg_ms");
+      const latestHrvMax = findLatest("HRV_max_ms");
+      const latestSleepDur = findLatest("sleep_duration_min");
+      const latestSleepStart = findLatest("sleep_start_time");
 
-      const sd = findLatest("sleep_duration_min");
-      if (typeof sd === "number") {
-        setSleepDuration(minutesToHHMM(sd));
+      setRhr(latestRhr);
+      setHrvAvg(latestHrvAvg);
+      setHrvMax(latestHrvMax);
+
+      if (typeof latestSleepDur === "number") {
+        setSleepDuration(minutesToHHMM(latestSleepDur));
       }
 
-      const ss = findLatest("sleep_start_time");
-      if (typeof ss === "string" && ss.includes(":")) {
-        setSleepStart(`${ss.split(":")[0]}:${ss.split(":")[1]}`);
+      if (typeof latestSleepStart === "string" && latestSleepStart.includes(":")) {
+        setSleepStart(`${latestSleepStart.split(":")[0]}:${latestSleepStart.split(":")[1]}`);
       }
 
-      // Behaviorálne veci naschvál necháme prázdne, nedáva zmysel predvyplniť, že si včera pil kávu
+      // Behaviorálne veci naschvál necháme prázdne, nedáva zmysel predvyplniť, že sa včera pila káva
       setLateFood(false);
       setLateCaffeine(false);
       setAlcoholVolume("");
@@ -153,6 +175,9 @@ export default function RecoveryInputs() {
       setComments("");
 
       setIsInitialized(true);
+      console.log("=== INIT DOKONČENÝ ===");
+    } else {
+      console.log("Polia sa nepredvyplnili, pretože pole dát je prázdne alebo sa ho nepodarilo nájsť.");
     }
   }, [data, isInitialized]);
 
