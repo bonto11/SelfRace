@@ -101,6 +101,9 @@ export default function RecoveryInputs() {
   const [sleepStart, setSleepStart] = useState("");
 
   const [dirty, setDirty] = useState<DirtyMap>({});
+  
+  // Pridáme flag, aby sme predvyplnenie spravili iba raz po načítaní
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
     setDirty((d) => (d[k] ? d : { ...d, [k]: true }));
@@ -109,64 +112,49 @@ export default function RecoveryInputs() {
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
 
-  // SMART PREDVYPLNENIE (Reaguje na zmenu dátumu v kalendáriku)
+  // SMART INIT - Nájdenie najnovších známych hodnôt z histórie
   useEffect(() => {
-    if (!data || !Array.isArray(data) || data.length === 0) return;
+    if (data && Array.isArray(data) && data.length > 0 && !isInitialized) {
+      
+      // Zotriedime dáta od najnovších po najstaršie
+      const sortedData = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // 1. Zotriedime dáta od najnovšieho po najstaršie
-    const sortedData = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // Helper na nájdenie prvej nenulovej hodnoty
+      const findLatest = (key: string) => {
+        const entry = sortedData.find((d: any) => 
+          d[key] !== null && 
+          d[key] !== undefined && 
+          d[key] !== "" && 
+          d[key] !== 0
+        );
+        return entry ? entry[key] : "";
+      };
 
-    // 2. Nájdeme záznam presne pre VYBRANÝ DÁTUM (ak už existuje v DB)
-    const exactDayEntry = sortedData.find((d) => d.date === date);
+      // Predvyplníme metriky, každá si môže potiahnuť dáta z iného (najnovšieho dostupného) dňa
+      setRhr(findLatest("RHR_bpm"));
+      setHrvAvg(findLatest("HRV_avg_ms"));
+      setHrvMax(findLatest("HRV_max_ms"));
 
-    // 3. Helper funkcia: Hľadá prvú neprázdnu hodnotu (od vybraného dňa smerom do minulosti)
-    const findLatestBeforeOrOnDate = (key: string, onlyExactDay: boolean = false) => {
-      // Ak chceme len pre konkrétny deň (poznámky, káva...), pozrieme len exactDayEntry
-      if (onlyExactDay) {
-        return exactDayEntry && exactDayEntry[key] !== null && exactDayEntry[key] !== undefined 
-          ? exactDayEntry[key] 
-          : "";
+      const sd = findLatest("sleep_duration_min");
+      if (typeof sd === "number") {
+        setSleepDuration(minutesToHHMM(sd));
       }
 
-      // Ak chceme predvyplniť (HRV, RHR, spánok...), hľadáme prvý záznam od vybraného dňa do minulosti
-      const entry = sortedData.find((d) => 
-        new Date(d.date) <= new Date(date) && 
-        d[key] !== null && 
-        d[key] !== undefined && 
-        d[key] !== "" &&
-        d[key] !== 0 // ignorujeme nuly, ak sa do DB ukladajú nuly namiesto null
-      );
-      
-      return entry ? entry[key] : "";
-    };
+      const ss = findLatest("sleep_start_time");
+      if (typeof ss === "string" && ss.includes(":")) {
+        setSleepStart(`${ss.split(":")[0]}:${ss.split(":")[1]}`);
+      }
 
-    // Aplikujeme logiku
-    // Tieto hodnoty predvyplníme históriou (ak nie sú zadané presne v daný deň)
-    setRhr(findLatestBeforeOrOnDate("RHR_bpm"));
-    setHrvAvg(findLatestBeforeOrOnDate("HRV_avg_ms"));
-    setHrvMax(findLatestBeforeOrOnDate("HRV_max_ms"));
+      // Behaviorálne veci naschvál necháme prázdne, nedáva zmysel predvyplniť, že si včera pil kávu
+      setLateFood(false);
+      setLateCaffeine(false);
+      setAlcoholVolume("");
+      setAlcoholType("");
+      setComments("");
 
-    const sd = findLatestBeforeOrOnDate("sleep_duration_min");
-    setSleepDuration(typeof sd === "number" ? minutesToHHMM(sd) : "");
-
-    const ss = findLatestBeforeOrOnDate("sleep_start_time");
-    if (typeof ss === "string" && ss.includes(":")) {
-      setSleepStart(`${ss.split(":")[0]}:${ss.split(":")[1]}`);
-    } else {
-      setSleepStart("");
+      setIsInitialized(true);
     }
-
-    // Tieto hodnoty striktne ťaháme LEN z vybraného dňa (nepredvyplňujeme ich včerajškom)
-    setLateFood(Boolean(findLatestBeforeOrOnDate("food_2h_before", true)));
-    setLateCaffeine(Boolean(findLatestBeforeOrOnDate("caffeine_8h", true)));
-    setAlcoholVolume(findLatestBeforeOrOnDate("alcohol_volume_ml", true));
-    setAlcoholType(findLatestBeforeOrOnDate("alcohol_type_pct", true));
-    setComments(findLatestBeforeOrOnDate("comments", true) as string);
-
-    // Vyčistíme dirty mapu, pretože sme polia naplnili systémovo, nie ručne užívateľom
-    setDirty({});
-
-  }, [data, date]); // Akonáhle sa zmení `date` (kalendárik) alebo `data` (po uložení), tento kód sa zbehne znova
+  }, [data, isInitialized]);
 
   async function handleSave() {
     if (!userId) {
@@ -197,7 +185,6 @@ export default function RecoveryInputs() {
     const keys = Object.keys(patch).filter(
       (k) => k !== "date" && k !== "user_id",
     );
-    
     if (keys.length === 0) {
       toast.error(t("recovery.inputs.errorNoChanges"));
       return;
@@ -221,7 +208,7 @@ export default function RecoveryInputs() {
 
   const previewText = `${t("recovery.inputs.dateLabel")}: ${new Date(date).toLocaleDateString("sk-SK")}${userId ? "" : ` • ${t("recovery.inputs.notLoggedIn")}`}`;
 
-  const tooltipContent = "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá tvojej regenerácie. Zapisuj si ich ideálne hneď ráno. Ak ti HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti tvojmu normálu, tvoje telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. AI ti na základe týchto dát vie zachrániť krk a upraviť dnešný plán.";
+  const tooltipContent = "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá regenerácie. Zapisovať by sa mali ideálne hneď ráno. Ak HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti normálu, telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. Tréner na základe týchto dát vie ochrániť zdravie a upraviť dnešný plán.";
 
   return (
     <InputsCard
