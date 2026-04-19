@@ -54,6 +54,41 @@ function SnapColumn({
     }
   }, [value, expanded]);
 
+  // ZÁMOK ŠIKMÉHO/HORIZONTÁLNEHO POHYBU (Zabráni prechodu späť/dopredu v iOS Safari)
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl || !expanded) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const diffX = Math.abs(currentX - startX);
+      const diffY = Math.abs(currentY - startY);
+
+      // Ak je pohyb viac do boku ako hore/dole, zakážeme ho
+      if (diffX > diffY) {
+        e.preventDefault();
+      }
+    };
+
+    // passive: false je nutné pre fungovanie e.preventDefault()
+    scrollEl.addEventListener("touchstart", handleTouchStart, { passive: true });
+    scrollEl.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      scrollEl.removeEventListener("touchstart", handleTouchStart);
+      scrollEl.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [expanded]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (disabled) return;
     isScrolling.current = true;
@@ -84,7 +119,13 @@ function SnapColumn({
         <svg className="w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}><path d="M5 15l7-7 7 7" /></svg>
       </button>
       
-      <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
+      {/* PRIDANÉ: overflow-x-hidden a overscroll-none */}
+      <div 
+        ref={scrollRef} 
+        onScroll={handleScroll} 
+        className="h-full w-full overflow-y-auto overflow-x-hidden overscroll-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" 
+        style={{ touchAction: "pan-y" }}
+      >
         <div style={{ height: `${ITEM_HEIGHT}px` }} />
         {options.map((val) => (
           <div 
@@ -92,7 +133,6 @@ function SnapColumn({
             style={{ height: `${ITEM_HEIGHT}px` }} 
             className={cx(
               "snap-center flex items-center justify-center transition-all duration-200 select-none", 
-              // Výrazné zvýraznenie aktuálneho čísla
               val === value ? "text-xl text-black font-bold scale-110" : "text-sm text-black/40 scale-100"
             )}
           >
@@ -133,12 +173,10 @@ export default function TimeSelectorField({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  // 1. BEZPEČNÝ FALLBACK
   const activeColumnsCount = [hh, mm, ss].filter(Boolean).length;
   const fallbackArr = Array(activeColumnsCount).fill("00");
   const safeValue = value || fallbackArr.join(":");
   
-  // 2. OPRAVENÁ LOGIKA PARSOVANIA
   const parts = safeValue.split(":").map(n => isNaN(Number(n)) ? 0 : Number(n));
   let pIdx = 0;
   const currentH = hh ? (parts[pIdx++] ?? 0) : 0;
@@ -167,7 +205,6 @@ export default function TimeSelectorField({
     };
   }, [expanded]);
 
-  // 3. OPRAVENÁ LOGIKA UKLADANIA
   const handleColumnChange = (type: "h" | "m" | "s", newVal: number) => {
     const newH = type === "h" ? newVal : currentH;
     const newM = type === "m" ? newVal : currentM;
