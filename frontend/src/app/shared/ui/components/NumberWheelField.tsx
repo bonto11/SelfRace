@@ -78,7 +78,7 @@ export default function NumberWheelField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [expanded]);
 
-  // Ultimátny zámok scrollovania (iOS fix)
+  // Ultimátny zámok scrollovania celej stránky (iOS fix)
   useEffect(() => {
     if (expanded) {
       document.documentElement.style.overflow = "hidden";
@@ -93,7 +93,7 @@ export default function NumberWheelField({
     };
   }, [expanded]);
 
-  // Vycentrovanie po otvorení (opravené na okamžité bez smooth pre iOS)
+  // Vycentrovanie po otvorení (okamžité bez smooth pre iOS)
   useEffect(() => {
     if (expanded && scrollRef.current && !isScrolling.current) {
       const idx = options.indexOf(safeValue);
@@ -102,6 +102,41 @@ export default function NumberWheelField({
       }
     }
   }, [expanded, safeValue, options]);
+
+  // ZÁMOK ŠIKMÉHO/HORIZONTÁLNEHO POHYBU (Zabráni prechodu späť/dopredu v iOS Safari)
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl || !expanded) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const diffX = Math.abs(currentX - startX);
+      const diffY = Math.abs(currentY - startY);
+
+      // Ak je pohyb viac do boku ako hore/dole, zakážeme ho (zastaví to swipe na zmenu stránky)
+      if (diffX > diffY) {
+        e.preventDefault();
+      }
+    };
+
+    // Musíme pridať passive: false, inak e.preventDefault() neurobí nič
+    scrollEl.addEventListener("touchstart", handleTouchStart, { passive: true });
+    scrollEl.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      scrollEl.removeEventListener("touchstart", handleTouchStart);
+      scrollEl.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [expanded]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (effectiveDisabled) return;
@@ -156,8 +191,13 @@ export default function NumberWheelField({
           
           <div className="absolute top-1/2 left-2 right-2 h-[40px] -translate-y-1/2 bg-black/5 rounded-lg pointer-events-none" />
           
-          {/* overscroll-y-none zabráni "gumenému" ťahaniu stránky */}
-          <div ref={scrollRef} onScroll={handleScroll} className="h-full w-full overflow-y-auto overscroll-y-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" style={{ touchAction: "pan-y" }}>
+          {/* PRIDANÉ: overflow-x-hidden a overscroll-none */}
+          <div 
+            ref={scrollRef} 
+            onScroll={handleScroll} 
+            className="h-full w-full overflow-y-auto overflow-x-hidden overscroll-none snap-y snap-mandatory [&::-webkit-scrollbar]:hidden outline-none" 
+            style={{ touchAction: "pan-y" }}
+          >
             <div style={{ height: `${ITEM_HEIGHT}px` }} />
             {options.map((val) => (
               <div 
