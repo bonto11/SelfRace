@@ -78,7 +78,6 @@ export default function RecoveryInputs() {
   
   const { settings } = useSettings() as any; 
   
-  // 👈 OPRAVA TU: Vytiahneme 'rows', nie 'data'
   const { rows, refresh } = useRecoveryData();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -119,8 +118,7 @@ export default function RecoveryInputs() {
 
     // Ak máme načítané rows, môžeme predvyplniť
     if (rows && rows.length > 0) {
-      console.log("=== RECOVERY INPUTS INIT ===");
-      
+
       // Zotriedime dáta od najnovších po najstaršie
       const sortedData = [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -133,7 +131,6 @@ export default function RecoveryInputs() {
           (d as any)[key] !== 0
         );
         const val = entry ? (entry as any)[key] : "";
-        console.log(`Hodnota pre [${key}]:`, val, entry ? `(z dátumu ${entry.date})` : "(nenašlo sa)");
         return val;
       };
 
@@ -162,7 +159,6 @@ export default function RecoveryInputs() {
       setComments("");
 
       setIsInitialized(true);
-      console.log("=== INIT DOKONČENÝ ===");
     }
   }, [rows, isInitialized]);
 
