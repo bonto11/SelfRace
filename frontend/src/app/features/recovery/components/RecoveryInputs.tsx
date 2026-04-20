@@ -102,7 +102,7 @@ export default function RecoveryInputs() {
 
   const [dirty, setDirty] = useState<DirtyMap>({});
   
-  // Pridáme flag, aby sme predvyplnenie spravili iba raz po načítaní
+  // Flag, aby sme predvyplnenie spravili iba raz po načítaní
   const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
@@ -114,16 +114,18 @@ export default function RecoveryInputs() {
 
   // SMART INIT - Nájdenie najnovších známych hodnôt z histórie
   useEffect(() => {
-    if (isInitialized) return; // Ak sme to už spravili, neriešime ďalej
+    if (isInitialized) return; // Ak sme to už spravili raz, neriešime ďalej
 
     console.log("=== RECOVERY INPUTS INIT ===");
     console.log("Dáta z provideru (surový stav):", data);
 
-    // Pokúsime sa zistiť, či sú dáta priamo pole, alebo sú schované v nejakom kľúči
-    let recordsArray = Array.isArray(data) ? data : [];
-    if (!Array.isArray(data) && data) {
-      // Možno sú schované v data.data alebo data.trend
-      if (Array.isArray(data.data)) recordsArray = data.data;
+    // Hľadáme správne pole záznamov. Tvoj screenshot ukázal, že je to pod kľúčom "rows"
+    let recordsArray: any[] = [];
+    if (Array.isArray(data)) {
+      recordsArray = data;
+    } else if (data && typeof data === 'object') {
+      if (Array.isArray(data.rows)) recordsArray = data.rows; // 👈 TOTO CHÝBALO
+      else if (Array.isArray(data.data)) recordsArray = data.data;
       else if (Array.isArray(data.trend)) recordsArray = data.trend;
       else if (Array.isArray(data.records)) recordsArray = data.records;
     }
@@ -177,7 +179,7 @@ export default function RecoveryInputs() {
       setIsInitialized(true);
       console.log("=== INIT DOKONČENÝ ===");
     } else {
-      console.log("Polia sa nepredvyplnili, pretože pole dát je prázdne alebo sa ho nepodarilo nájsť.");
+      console.log("Polia sa nepredvyplnili, pretože pole dát je prázdne alebo sa ho nepodarilo nájsť (ešte sa načítava).");
     }
   }, [data, isInitialized]);
 
