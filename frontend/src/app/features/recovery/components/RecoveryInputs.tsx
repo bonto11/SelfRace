@@ -36,7 +36,16 @@ import {
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-import { useSettings } from "@/app/shared/i18n/SettingsProvider"; 
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+
+/* ---------- Fallback hodnoty pre nových používateľov ---------- */
+const RECOVERY_FALLBACKS = {
+  RHR_bpm: 50,
+  HRV_avg_ms: 70,
+  HRV_max_ms: 90,
+  sleep_duration_min: 480, // 8:00
+  sleep_start_time: "22:00",
+};
 
 type DirtyKey =
   | "RHR_bpm"
@@ -75,9 +84,8 @@ function minutesToHHMM(mins: number | string | null | undefined): string {
 export default function RecoveryInputs() {
   const { userId } = useUserId();
   const t = useT();
-  
-  const { settings } = useSettings() as any; 
-  
+
+  const { settings } = useSettings() as any;
   const { rows, refresh } = useRecoveryData();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -102,7 +110,6 @@ export default function RecoveryInputs() {
   const [sleepStart, setSleepStart] = useState("");
 
   const [dirty, setDirty] = useState<DirtyMap>({});
-  
   const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
@@ -112,54 +119,47 @@ export default function RecoveryInputs() {
   const shiftDate = (deltaDays: number) =>
     setDate((prev) => addDaysIso(prev, deltaDays));
 
-  // SMART INIT - Nájdenie najnovších známych hodnôt z histórie
+  // SMART INIT - Posledné dáta z DB alebo Fallbacky
   useEffect(() => {
-    if (isInitialized) return; 
+    if (isInitialized) return;
 
-    // Ak máme načítané rows, môžeme predvyplniť
-    if (rows && rows.length > 0) {
+    // 1. Zotriedime rows (ak nejaké sú)
+    const sortedData = rows ? [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
 
-      // Zotriedime dáta od najnovších po najstaršie
-      const sortedData = [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 2. Helper na nájdenie hodnoty (DB -> Fallback)
+    const getInitialValue = (key: keyof typeof RECOVERY_FALLBACKS) => {
+      const entry = sortedData.find((d) =>
+        (d as any)[key] !== null &&
+        (d as any)[key] !== undefined &&
+        (d as any)[key] !== "" &&
+        (d as any)[key] !== 0
+      );
+      return entry ? (entry as any)[key] : RECOVERY_FALLBACKS[key];
+    };
 
-      // Helper na nájdenie prvej nenulovej hodnoty
-      const findLatest = (key: string) => {
-        const entry = sortedData.find((d) => 
-          (d as any)[key] !== null && 
-          (d as any)[key] !== undefined && 
-          (d as any)[key] !== "" && 
-          (d as any)[key] !== 0
-        );
-        const val = entry ? (entry as any)[key] : "";
-        return val;
-      };
+    // 3. Setovanie hodnôt
+    setRhr(getInitialValue("RHR_bpm"));
+    setHrvAvg(getInitialValue("HRV_avg_ms"));
+    setHrvMax(getInitialValue("HRV_max_ms"));
 
-      const latestRhr = findLatest("RHR_bpm");
-      const latestHrvAvg = findLatest("HRV_avg_ms");
-      const latestHrvMax = findLatest("HRV_max_ms");
-      const latestSleepDur = findLatest("sleep_duration_min");
-      const latestSleepStart = findLatest("sleep_start_time");
+    const sd = getInitialValue("sleep_duration_min");
+    setSleepDuration(minutesToHHMM(sd));
 
-      setRhr(latestRhr as number | "");
-      setHrvAvg(latestHrvAvg as number | "");
-      setHrvMax(latestHrvMax as number | "");
-
-      if (typeof latestSleepDur === "number") {
-        setSleepDuration(minutesToHHMM(latestSleepDur));
-      }
-
-      if (typeof latestSleepStart === "string" && latestSleepStart.includes(":")) {
-        setSleepStart(`${latestSleepStart.split(":")[0]}:${latestSleepStart.split(":")[1]}`);
-      }
-
-      setLateFood(false);
-      setLateCaffeine(false);
-      setAlcoholVolume("");
-      setAlcoholType("");
-      setComments("");
-
-      setIsInitialized(true);
+    const ss = getInitialValue("sleep_start_time");
+    if (typeof ss === "string" && ss.includes(":")) {
+      setSleepStart(`${ss.split(":")[0]}:${ss.split(":")[1]}`);
+    } else {
+      setSleepStart(RECOVERY_FALLBACKS.sleep_start_time);
     }
+
+    // Ostatné veci sú vždy pri inite prázdne (resetované na nový deň)
+    setLateFood(false);
+    setLateCaffeine(false);
+    setAlcoholVolume("");
+    setAlcoholType("");
+    setComments("");
+
+    setIsInitialized(true);
   }, [rows, isInitialized]);
 
   async function handleSave() {
@@ -200,11 +200,11 @@ export default function RecoveryInputs() {
       setSaving(true);
       await apiSaveRecoveryPatch(userId, patch);
       toast.success(t("recovery.inputs.saveSuccess"));
-      
+
       setOpen(false);
       setDirty({});
-      refresh(true); 
-      
+      refresh(true);
+
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.recovery.saveFailed"));
     } finally {
@@ -312,7 +312,7 @@ export default function RecoveryInputs() {
 
           {showAdvanced && (
             <div className="md:col-span-2 grid gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200 mt-2">
-              
+
               <section className={SECTION} style={SECTION_STYLE}>
                 <div
                   className={INPUTS_CARD_LABEL_SM_1}
