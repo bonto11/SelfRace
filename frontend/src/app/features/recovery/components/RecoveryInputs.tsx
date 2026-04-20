@@ -77,7 +77,9 @@ export default function RecoveryInputs() {
   const t = useT();
   
   const { settings } = useSettings() as any; 
-  const { data, refresh } = useRecoveryData() as any;
+  
+  // 👈 OPRAVA TU: Vytiahneme 'rows', nie 'data'
+  const { rows, refresh } = useRecoveryData();
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [saving, setSaving] = useState(false);
@@ -102,7 +104,6 @@ export default function RecoveryInputs() {
 
   const [dirty, setDirty] = useState<DirtyMap>({});
   
-  // Flag, aby sme predvyplnenie spravili iba raz po načítaní
   const [isInitialized, setIsInitialized] = useState(false);
 
   const markDirty = (k: DirtyKey) => {
@@ -114,52 +115,37 @@ export default function RecoveryInputs() {
 
   // SMART INIT - Nájdenie najnovších známych hodnôt z histórie
   useEffect(() => {
-    if (isInitialized) return; // Ak sme to už spravili raz, neriešime ďalej
+    if (isInitialized) return; 
 
-    console.log("=== RECOVERY INPUTS INIT ===");
-    console.log("Dáta z provideru (surový stav):", data);
-
-    // Hľadáme správne pole záznamov. Tvoj screenshot ukázal, že je to pod kľúčom "rows"
-    let recordsArray: any[] = [];
-    if (Array.isArray(data)) {
-      recordsArray = data;
-    } else if (data && typeof data === 'object') {
-      if (Array.isArray(data.rows)) recordsArray = data.rows; // 👈 TOTO CHÝBALO
-      else if (Array.isArray(data.data)) recordsArray = data.data;
-      else if (Array.isArray(data.trend)) recordsArray = data.trend;
-      else if (Array.isArray(data.records)) recordsArray = data.records;
-    }
-
-    console.log("Rozpoznané pole pre predvyplnenie:", recordsArray);
-
-    if (recordsArray && recordsArray.length > 0) {
+    // Ak máme načítané rows, môžeme predvyplniť
+    if (rows && rows.length > 0) {
+      console.log("=== RECOVERY INPUTS INIT ===");
+      
       // Zotriedime dáta od najnovších po najstaršie
-      const sortedData = [...recordsArray].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      console.log("Zotriedené dáta (najnovšie prvé):", sortedData);
+      const sortedData = [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       // Helper na nájdenie prvej nenulovej hodnoty
       const findLatest = (key: string) => {
-        const entry = sortedData.find((d: any) => 
-          d[key] !== null && 
-          d[key] !== undefined && 
-          d[key] !== "" && 
-          d[key] !== 0
+        const entry = sortedData.find((d) => 
+          (d as any)[key] !== null && 
+          (d as any)[key] !== undefined && 
+          (d as any)[key] !== "" && 
+          (d as any)[key] !== 0
         );
-        const val = entry ? entry[key] : "";
+        const val = entry ? (entry as any)[key] : "";
         console.log(`Hodnota pre [${key}]:`, val, entry ? `(z dátumu ${entry.date})` : "(nenašlo sa)");
         return val;
       };
 
-      // Predvyplníme metriky, každá si môže potiahnuť dáta z iného (najnovšieho dostupného) dňa
       const latestRhr = findLatest("RHR_bpm");
       const latestHrvAvg = findLatest("HRV_avg_ms");
       const latestHrvMax = findLatest("HRV_max_ms");
       const latestSleepDur = findLatest("sleep_duration_min");
       const latestSleepStart = findLatest("sleep_start_time");
 
-      setRhr(latestRhr);
-      setHrvAvg(latestHrvAvg);
-      setHrvMax(latestHrvMax);
+      setRhr(latestRhr as number | "");
+      setHrvAvg(latestHrvAvg as number | "");
+      setHrvMax(latestHrvMax as number | "");
 
       if (typeof latestSleepDur === "number") {
         setSleepDuration(minutesToHHMM(latestSleepDur));
@@ -169,7 +155,6 @@ export default function RecoveryInputs() {
         setSleepStart(`${latestSleepStart.split(":")[0]}:${latestSleepStart.split(":")[1]}`);
       }
 
-      // Behaviorálne veci naschvál necháme prázdne, nedáva zmysel predvyplniť, že sa včera pila káva
       setLateFood(false);
       setLateCaffeine(false);
       setAlcoholVolume("");
@@ -178,10 +163,8 @@ export default function RecoveryInputs() {
 
       setIsInitialized(true);
       console.log("=== INIT DOKONČENÝ ===");
-    } else {
-      console.log("Polia sa nepredvyplnili, pretože pole dát je prázdne alebo sa ho nepodarilo nájsť (ešte sa načítava).");
     }
-  }, [data, isInitialized]);
+  }, [rows, isInitialized]);
 
   async function handleSave() {
     if (!userId) {
