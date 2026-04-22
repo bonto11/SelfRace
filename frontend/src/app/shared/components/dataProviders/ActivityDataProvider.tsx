@@ -288,8 +288,9 @@ export function ActivityDataProvider({
   const [loading, setLoading] = useState(false);
   const t = useT();
 
-  const rangeEnd = todayISO();
-  const rangeStart = addDays(rangeEnd, -(days - 1));
+  // FIX: rangeEnd získa 1 deň navyše, aby bezpečne pokryl večerné/nočné aktivity posunuté kvôli časovému pásmu
+  const rangeEnd = addDays(todayISO(), 1); 
+  const rangeStart = addDays(todayISO(), -days);
 
   const fetchRange = useCallback(
     async (force = false) => {
@@ -307,7 +308,7 @@ export function ActivityDataProvider({
       try {
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
         
-        // OPRAVA 1: Zabezpečenie, že rows je VŽDY pole aktivít (nie objekt s meta-dátami)
+        // FIX: Vyťahujeme array čisto z res.data, ak BE vráti obalený JSON
         const activities = Array.isArray(res) ? res : (res?.data || []);
         
         setRows(activities);
@@ -415,7 +416,6 @@ export function ActivityDataProvider({
         return data;
       } catch (err: any) {
         console.error("[DataProvider] getEnrichment failed:", t(err?.message as any));
-        // Nevyhadzujeme toast tu, lebo je to casto pozadove volanie
         return null;
       }
     },
@@ -424,9 +424,6 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      // OPRAVA 2: Buffer pre posun timezone
-      // Vezmeme "zajtra" ako náš pomyselný end-point pre rolling, 
-      // čím zaručíme, že aktivity posunuté do ďalšieho dňa budú zrátané.
       const endLast = addDays(todayISO(), 1); 
       const startPrev = addDays(endLast, -13);
       
@@ -434,9 +431,15 @@ export function ActivityDataProvider({
       for (let i = 0; i < 14; i++) dayKeys.push(addDays(startPrev, i));
 
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
+      
       for (const r of rows) {
-        const d = r.date.slice(0, 10);
-        if (!daily.has(d)) continue;
+        // FIX: Konverzia UTC na lokálny čas používateľa, aby priradenie k dňu presne sedelo
+        let dStr = r.date;
+        if (!dStr.includes("Z") && !dStr.includes("+")) dStr += "Z";
+        const dt = new Date(dStr);
+        const localDateIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+        if (!daily.has(localDateIso)) continue;
 
         let inc = 0;
         if (metric === "time")
@@ -454,7 +457,7 @@ export function ActivityDataProvider({
               ((r as any).trimp_other ?? 0);
           inc = Number(trimp) || 0;
         }
-        daily.set(d, (daily.get(d) || 0) + inc);
+        daily.set(localDateIso, (daily.get(localDateIso) || 0) + inc);
       }
 
       const vals = dayKeys.map((k) => daily.get(k) || 0);
@@ -508,7 +511,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoWidget(userId, daysParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto widget error:", t(err?.message as any));
-        return null; // Silent fallback
+        return null;
       }
     },
     [userId, t],
@@ -525,7 +528,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoTrend(userId, weeksParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto trend error:", t(err?.message as any));
-        return { trend: [], availableSports: [] }; // Silent fallback
+        return { trend: [], availableSports: [] };
       }
     },
     [userId, t],
