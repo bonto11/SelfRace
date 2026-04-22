@@ -305,9 +305,13 @@ export function ActivityDataProvider({
 
       setLoading(true);
       try {
-        const norm = await apiFetchRange(userId, rangeStart, rangeEnd);
-        setRows(norm);
-        saveRange(userId, rangeStart, rangeEnd, norm); 
+        const res = await apiFetchRange(userId, rangeStart, rangeEnd);
+        
+        // OPRAVA 1: Zabezpečenie, že rows je VŽDY pole aktivít (nie objekt s meta-dátami)
+        const activities = Array.isArray(res) ? res : (res?.data || []);
+        
+        setRows(activities);
+        saveRange(userId, rangeStart, rangeEnd, activities); 
       } catch (err: any) {
         const translatedError = t(err?.message as any) || t("api.common.fetchFailed");
         toast.error(translatedError);
@@ -420,8 +424,12 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      const endLast = todayISO();
+      // OPRAVA 2: Buffer pre posun timezone
+      // Vezmeme "zajtra" ako náš pomyselný end-point pre rolling, 
+      // čím zaručíme, že aktivity posunuté do ďalšieho dňa budú zrátané.
+      const endLast = addDays(todayISO(), 1); 
       const startPrev = addDays(endLast, -13);
+      
       const dayKeys: string[] = [];
       for (let i = 0; i < 14; i++) dayKeys.push(addDays(startPrev, i));
 
