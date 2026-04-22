@@ -292,7 +292,7 @@ export function ActivityDataProvider({
   const rangeEnd = addDays(todayISO(), 1); 
   const rangeStart = addDays(todayISO(), -days);
 
-  const fetchRange = useCallback(
+    const fetchRange = useCallback(
     async (force = false) => {
       if (userId == null) {
         setRows([]);
@@ -308,8 +308,8 @@ export function ActivityDataProvider({
       try {
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
         
-        // FIX: Vyťahujeme array čisto z res.data, ak BE vráti obalený JSON
-        const activities = Array.isArray(res) ? res : (res?.data || []);
+        // OPRAVA 1: Pretypovanie na 'any' umlčí TypeScript error o type 'never'
+        const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
         
         setRows(activities);
         saveRange(userId, rangeStart, rangeEnd, activities); 
