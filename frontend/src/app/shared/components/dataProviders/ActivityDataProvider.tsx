@@ -12,8 +12,7 @@ import React, {
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { aggregateWeeks } from "@/app/features/activities/utils/activity";
-import { addDays, todayISO } from "@/app/shared/utils/time";
-import { addDaysIso, todayLocalISO } from "@/app/shared/utils/time"; // 👈 ZMENENÉ
+import { addDaysIso, todayLocalISO } from "@/app/shared/utils/time";
 
 import type {
   ActivityRow,
@@ -301,7 +300,6 @@ export function ActivityDataProvider({
 
       if (!force) {
         const cached = loadRange(userId, rangeStart, rangeEnd);
-        // Garantujeme, že cache vracia pole, inak to padne na map/reduce
         if (cached && Array.isArray(cached)) {
           setRows(cached);
         }
@@ -310,11 +308,34 @@ export function ActivityDataProvider({
       setLoading(true);
       try {
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
-        
-        // OPRAVA 1: Zamedzenie client-side crashu 
-        // Vždy musíme vyextrahovať pole aktivít
         const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
         
+        console.group("=== DEBUG: ActivityDataProvider (fetchRange) ===");
+        console.log(`Stiahnuté aktivity pre userId: ${userId} (${rangeStart} až ${rangeEnd})`);
+        if (activities.length > 0) {
+          console.log(`Počet aktivít celkovo: ${activities.length}`);
+          
+          const runs = activities.filter((a: any) => 
+            String(a.sport_type).toLowerCase().includes('run') || 
+            String(a.sport_type_fe).toLowerCase().includes('run')
+          );
+          
+          console.log(`Počet behov: ${runs.length}`);
+          
+          if (runs.length > 0) {
+            console.table(runs.map((r: any) => ({
+              Názov: r.name,
+              Dátum: r.date,
+              Vzdialenosť_m: r.distance_m,
+              Čas_s: r.moving_time_s,
+              Tempo_s_km: r.pace_seconds_per_km || r.avg_pace_sec_per_km || (r.moving_time_s / (r.distance_m / 1000))
+            })));
+          }
+        } else {
+           console.log("Žiadne aktivity neboli nájdené.");
+        }
+        console.groupEnd();
+
         setRows(activities);
         saveRange(userId, rangeStart, rangeEnd, activities); 
       } catch (err: any) {
@@ -392,7 +413,7 @@ export function ActivityDataProvider({
         return out;
       } catch (err: any) {
         console.error("getExtras Provider fetch error:", t(err?.message as any));
-        return { streams: null, laps: [], splits: [] }; // Silent fallback
+        return { streams: null, laps: [], splits: [] }; 
       }
     },
     [userId, t],
@@ -428,13 +449,12 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      // 👈 OPRAVA: Použijeme lokálne ISO a robustný addDaysIso
       const endLast = todayLocalISO(); 
       const startPrev = addDaysIso(endLast, -13);
       
       const dayKeys: string[] = [];
       for (let i = 0; i < 14; i++) {
-        dayKeys.push(addDaysIso(startPrev, i)); // 👈 OPRAVA
+        dayKeys.push(addDaysIso(startPrev, i));
       }
 
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
@@ -492,7 +512,6 @@ export function ActivityDataProvider({
       const prevDaily = vals.slice(0, 7);
       const lastDaily = vals.slice(7);
 
-      // OPRAVA: Automatické zaokrúhlenie sumy na 1 desatinné miesto
       const sum = (arr: number[]) => {
         const s = arr.reduce((a, b) => a + b, 0);
         return Math.round(s * 10) / 10;
@@ -513,7 +532,7 @@ export function ActivityDataProvider({
       const strain = (arr: number[]) => {
         const m = mono(arr);
         if (m == null) return null;
-        return Math.round(sum(arr) * m * 10) / 10; // Zaokrúhlime aj strain
+        return Math.round(sum(arr) * m * 10) / 10;
       };
 
       return {
