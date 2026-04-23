@@ -13,6 +13,7 @@ import React, {
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { aggregateWeeks } from "@/app/features/activities/utils/activity";
 import { addDays, todayISO } from "@/app/shared/utils/time";
+import { addDaysIso, todayLocalISO } from "@/app/shared/utils/time"; // 👈 ZMENENÉ
 
 import type {
   ActivityRow,
@@ -288,8 +289,8 @@ export function ActivityDataProvider({
   const [loading, setLoading] = useState(false);
   const t = useT();
 
-  const rangeEnd = todayISO();
-  const rangeStart = addDays(rangeEnd, -(days - 1));
+  const rangeEnd = todayLocalISO();
+  const rangeStart = addDaysIso(rangeEnd, -(days - 1));
 
   const fetchRange = useCallback(
     async (force = false) => {
@@ -427,21 +428,18 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      const endLast = todayISO(); 
-      const startPrev = addDays(endLast, -13);
+      // 👈 OPRAVA: Použijeme lokálne ISO a robustný addDaysIso
+      const endLast = todayLocalISO(); 
+      const startPrev = addDaysIso(endLast, -13);
       
       const dayKeys: string[] = [];
-      for (let i = 0; i < 14; i++) dayKeys.push(addDays(startPrev, i));
-
-      console.group(`=== ROLLING 7 (metric: ${metric}) ===`);
-      console.log(`Mapped window (14 days): ${dayKeys[0]} to ${dayKeys[13]}`);
-      console.log("Expected dayKeys:", dayKeys);
+      for (let i = 0; i < 14; i++) {
+        dayKeys.push(addDaysIso(startPrev, i)); // 👈 OPRAVA
+      }
 
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
       
       if (!Array.isArray(rows)) {
-        console.warn("Rows is not an array! Returning empty rolling7.");
-        console.groupEnd();
         return createEmptyRolling7(dayKeys);
       }
 
@@ -458,7 +456,6 @@ export function ActivityDataProvider({
           
           if (isNaN(dateObj.getTime())) {
             localDateString = String(r.date).slice(0, 10);
-            console.warn(`[Rolling7] Failed to parse date: ${r.date}. Falling back to slice: ${localDateString}`);
           } else {
             const yyyy = dateObj.getFullYear();
             const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -467,14 +464,9 @@ export function ActivityDataProvider({
           }
         } catch (e) {
           localDateString = String(r.date).slice(0, 10);
-          console.warn(`[Rolling7] Error parsing date: ${r.date}. Fallback: ${localDateString}`);
         }
 
-        if (!daily.has(localDateString)) {
-            // Uncomment to see activities that are outside the 14-day window
-            // console.log(`[Rolling7] Ignored Activity: ${(r as any).name} (${localDateString}) - Outside 14 day window.`);
-            continue;
-        }
+        if (!daily.has(localDateString)) continue;
 
         let inc = 0;
         if (metric === "time") {
@@ -493,7 +485,6 @@ export function ActivityDataProvider({
           inc = Number(trimp) || 0;
         }
         
-        console.log(`[Rolling7] MATCH: ${(r as any).name} | DB Date: ${r.date} -> Local: ${localDateString} | Value added: ${inc.toFixed(2)}`);
         daily.set(localDateString, (daily.get(localDateString) || 0) + inc);
       }
 
@@ -501,12 +492,11 @@ export function ActivityDataProvider({
       const prevDaily = vals.slice(0, 7);
       const lastDaily = vals.slice(7);
 
-      const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
-      
-      console.log("--- SUMMARIES ---");
-      console.log(`Prev 7 Days (${dayKeys[0]} to ${dayKeys[6]}): Sum = ${sum(prevDaily)}`);
-      console.log(`Last 7 Days (${dayKeys[7]} to ${dayKeys[13]}): Sum = ${sum(lastDaily)}`);
-      console.groupEnd();
+      // OPRAVA: Automatické zaokrúhlenie sumy na 1 desatinné miesto
+      const sum = (arr: number[]) => {
+        const s = arr.reduce((a, b) => a + b, 0);
+        return Math.round(s * 10) / 10;
+      };
 
       const mean = (arr: number[]) => (arr.length ? sum(arr) / arr.length : 0);
       const std = (arr: number[]) => {
@@ -523,7 +513,7 @@ export function ActivityDataProvider({
       const strain = (arr: number[]) => {
         const m = mono(arr);
         if (m == null) return null;
-        return sum(arr) * m;
+        return Math.round(sum(arr) * m * 10) / 10; // Zaokrúhlime aj strain
       };
 
       return {
