@@ -288,11 +288,10 @@ export function ActivityDataProvider({
   const [loading, setLoading] = useState(false);
   const t = useT();
 
-  // FIX: rangeEnd získa 1 deň navyše, aby bezpečne pokryl večerné/nočné aktivity posunuté kvôli časovému pásmu
-  const rangeEnd = addDays(todayISO(), 1); 
-  const rangeStart = addDays(todayISO(), -days);
+  const rangeEnd = todayISO();
+  const rangeStart = addDays(rangeEnd, -(days - 1));
 
-    const fetchRange = useCallback(
+  const fetchRange = useCallback(
     async (force = false) => {
       if (userId == null) {
         setRows([]);
@@ -301,14 +300,18 @@ export function ActivityDataProvider({
 
       if (!force) {
         const cached = loadRange(userId, rangeStart, rangeEnd);
-        if (cached) setRows(cached);
+        // Garantujeme, že cache vracia pole, inak to padne na map/reduce
+        if (cached && Array.isArray(cached)) {
+          setRows(cached);
+        }
       }
 
       setLoading(true);
       try {
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
         
-        // OPRAVA 1: Pretypovanie na 'any' umlčí TypeScript error o type 'never'
+        // OPRAVA 1: Zamedzenie client-side crashu 
+        // Vždy musíme vyextrahovať pole aktivít, inak to padne všade tam kde sa volá for...of a aggregateWeeks
         const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
         
         setRows(activities);
@@ -424,7 +427,7 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      const endLast = addDays(todayISO(), 1); 
+      const endLast = todayISO(); 
       const startPrev = addDays(endLast, -13);
       
       const dayKeys: string[] = [];
@@ -432,21 +435,49 @@ export function ActivityDataProvider({
 
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
       
-      for (const r of rows) {
-        // FIX: Konverzia UTC na lokálny čas používateľa, aby priradenie k dňu presne sedelo
-        let dStr = r.date;
-        if (!dStr.includes("Z") && !dStr.includes("+")) dStr += "Z";
-        const dt = new Date(dStr);
-        const localDateIso = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      // Neprestrielna poistka - ak to nie je pole (z predchadzajuceho chybneho cachu), tak ignorujeme
+      if (!Array.isArray(rows)) {
+        return createEmptyRolling7(dayKeys);
+      }
 
-        if (!daily.has(localDateIso)) continue;
+      for (const r of rows) {
+        if (!r || !r.date) continue;
+
+        let localDateString = "";
+        
+        // OPRAVA 2: Extrakcia dátumu z DB timestampu so započítaním Timezóny ("2026-04-22 19:00:29+00")
+        try {
+          // Pre bezpecny parse nahradime medzeru za T
+          let safeDateStr = String(r.date).replace(" ", "T");
+          // Fix pre Safari aby správne chytilo UTC formát
+          if (safeDateStr.endsWith("+00")) safeDateStr += ":00";
+          
+          const dateObj = new Date(safeDateStr);
+          
+          // Ak by parse zlyhal, zoberieme bezpečný fallback
+          if (isNaN(dateObj.getTime())) {
+            localDateString = String(r.date).slice(0, 10);
+          } else {
+            // Získame lokálny čas používateľa na FE
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+            const dd = String(dateObj.getDate()).padStart(2, "0");
+            localDateString = `${yyyy}-${mm}-${dd}`;
+          }
+        } catch (e) {
+          // Ak by čokoľvek zlyhalo, natvrdo orežeme string
+          localDateString = String(r.date).slice(0, 10);
+        }
+
+        // Ak aktivita nepatrí do tohto 14-dňového okna, ideme ďalej
+        if (!daily.has(localDateString)) continue;
 
         let inc = 0;
-        if (metric === "time")
+        if (metric === "time") {
           inc = (Number((r as any).moving_time_s) || 0) / 60;
-        else if (metric === "km")
+        } else if (metric === "km") {
           inc = (Number((r as any).distance_m) || 0) / 1000;
-        else {
+        } else {
           const trimp =
             (r as any).trimp_total ??
             ((r as any).trimp_run ?? 0) +
@@ -457,7 +488,8 @@ export function ActivityDataProvider({
               ((r as any).trimp_other ?? 0);
           inc = Number(trimp) || 0;
         }
-        daily.set(localDateIso, (daily.get(localDateIso) || 0) + inc);
+        
+        daily.set(localDateString, (daily.get(localDateString) || 0) + inc);
       }
 
       const vals = dayKeys.map((k) => daily.get(k) || 0);
@@ -511,7 +543,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoWidget(userId, daysParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto widget error:", t(err?.message as any));
-        return null;
+        return null; 
       }
     },
     [userId, t],
@@ -528,7 +560,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoTrend(userId, weeksParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto trend error:", t(err?.message as any));
-        return { trend: [], availableSports: [] };
+        return { trend: [], availableSports: [] }; 
       }
     },
     [userId, t],
@@ -572,4 +604,24 @@ export function ActivityDataProvider({
       {children}
     </ActivityDataContext.Provider>
   );
+}
+
+// Fallback funkcia v prípade zlých dát
+function createEmptyRolling7(dayKeys: string[]): Rolling7 {
+  return {
+    last: {
+      sum: 0,
+      mono: null,
+      strain: null,
+      daily: [0,0,0,0,0,0,0],
+      range: { start: dayKeys[7], end: dayKeys[13] },
+    },
+    prev: {
+      sum: 0,
+      mono: null,
+      strain: null,
+      daily: [0,0,0,0,0,0,0],
+      range: { start: dayKeys[0], end: dayKeys[6] },
+    },
+  };
 }
