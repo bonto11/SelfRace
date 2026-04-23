@@ -310,32 +310,6 @@ export function ActivityDataProvider({
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
         const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
         
-        console.group("=== DEBUG: ActivityDataProvider (fetchRange) ===");
-        console.log(`Stiahnuté aktivity pre userId: ${userId} (${rangeStart} až ${rangeEnd})`);
-        if (activities.length > 0) {
-          console.log(`Počet aktivít celkovo: ${activities.length}`);
-          
-          const runs = activities.filter((a: any) => 
-            String(a.sport_type).toLowerCase().includes('run') || 
-            String(a.sport_type_fe).toLowerCase().includes('run')
-          );
-          
-          console.log(`Počet behov: ${runs.length}`);
-          
-          if (runs.length > 0) {
-            console.table(runs.map((r: any) => ({
-              Názov: r.name,
-              Dátum: r.date,
-              Vzdialenosť_m: r.distance_m,
-              Čas_s: r.moving_time_s,
-              Tempo_s_km: r.pace_seconds_per_km || r.avg_pace_sec_per_km || (r.moving_time_s / (r.distance_m / 1000))
-            })));
-          }
-        } else {
-           console.log("Žiadne aktivity neboli nájdené.");
-        }
-        console.groupEnd();
-
         setRows(activities);
         saveRange(userId, rangeStart, rangeEnd, activities); 
       } catch (err: any) {
