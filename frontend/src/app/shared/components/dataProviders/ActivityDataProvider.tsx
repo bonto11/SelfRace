@@ -311,7 +311,7 @@ export function ActivityDataProvider({
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
         
         // OPRAVA 1: Zamedzenie client-side crashu 
-        // Vždy musíme vyextrahovať pole aktivít, inak to padne všade tam kde sa volá for...of a aggregateWeeks
+        // Vždy musíme vyextrahovať pole aktivít
         const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
         
         setRows(activities);
@@ -433,10 +433,15 @@ export function ActivityDataProvider({
       const dayKeys: string[] = [];
       for (let i = 0; i < 14; i++) dayKeys.push(addDays(startPrev, i));
 
+      console.group(`=== ROLLING 7 (metric: ${metric}) ===`);
+      console.log(`Mapped window (14 days): ${dayKeys[0]} to ${dayKeys[13]}`);
+      console.log("Expected dayKeys:", dayKeys);
+
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
       
-      // Neprestrielna poistka - ak to nie je pole (z predchadzajuceho chybneho cachu), tak ignorujeme
       if (!Array.isArray(rows)) {
+        console.warn("Rows is not an array! Returning empty rolling7.");
+        console.groupEnd();
         return createEmptyRolling7(dayKeys);
       }
 
@@ -445,32 +450,31 @@ export function ActivityDataProvider({
 
         let localDateString = "";
         
-        // OPRAVA 2: Extrakcia dátumu z DB timestampu so započítaním Timezóny ("2026-04-22 19:00:29+00")
         try {
-          // Pre bezpecny parse nahradime medzeru za T
           let safeDateStr = String(r.date).replace(" ", "T");
-          // Fix pre Safari aby správne chytilo UTC formát
           if (safeDateStr.endsWith("+00")) safeDateStr += ":00";
           
           const dateObj = new Date(safeDateStr);
           
-          // Ak by parse zlyhal, zoberieme bezpečný fallback
           if (isNaN(dateObj.getTime())) {
             localDateString = String(r.date).slice(0, 10);
+            console.warn(`[Rolling7] Failed to parse date: ${r.date}. Falling back to slice: ${localDateString}`);
           } else {
-            // Získame lokálny čas používateľa na FE
             const yyyy = dateObj.getFullYear();
             const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
             const dd = String(dateObj.getDate()).padStart(2, "0");
             localDateString = `${yyyy}-${mm}-${dd}`;
           }
         } catch (e) {
-          // Ak by čokoľvek zlyhalo, natvrdo orežeme string
           localDateString = String(r.date).slice(0, 10);
+          console.warn(`[Rolling7] Error parsing date: ${r.date}. Fallback: ${localDateString}`);
         }
 
-        // Ak aktivita nepatrí do tohto 14-dňového okna, ideme ďalej
-        if (!daily.has(localDateString)) continue;
+        if (!daily.has(localDateString)) {
+            // Uncomment to see activities that are outside the 14-day window
+            // console.log(`[Rolling7] Ignored Activity: ${(r as any).name} (${localDateString}) - Outside 14 day window.`);
+            continue;
+        }
 
         let inc = 0;
         if (metric === "time") {
@@ -489,6 +493,7 @@ export function ActivityDataProvider({
           inc = Number(trimp) || 0;
         }
         
+        console.log(`[Rolling7] MATCH: ${(r as any).name} | DB Date: ${r.date} -> Local: ${localDateString} | Value added: ${inc.toFixed(2)}`);
         daily.set(localDateString, (daily.get(localDateString) || 0) + inc);
       }
 
@@ -497,6 +502,12 @@ export function ActivityDataProvider({
       const lastDaily = vals.slice(7);
 
       const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
+      
+      console.log("--- SUMMARIES ---");
+      console.log(`Prev 7 Days (${dayKeys[0]} to ${dayKeys[6]}): Sum = ${sum(prevDaily)}`);
+      console.log(`Last 7 Days (${dayKeys[7]} to ${dayKeys[13]}): Sum = ${sum(lastDaily)}`);
+      console.groupEnd();
+
       const mean = (arr: number[]) => (arr.length ? sum(arr) / arr.length : 0);
       const std = (arr: number[]) => {
         if (!arr.length) return 0;
