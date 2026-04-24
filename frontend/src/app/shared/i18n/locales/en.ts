@@ -2351,6 +2351,9 @@ export const en = {
       sectionNextDay: "Advice for tomorrow",
       noReviewPlaceholder:
         "No evaluation yet. Only workouts that are not older than 7 days can be analyzed.",
+      "upsellTitle": "Premium Analysis & Comments",
+      "upsellDesc": "An active subscription is required to add custom comments, provide detailed context, and unlock advanced evaluations from the coach.",
+      "limitReached": "You have reached the maximum number of recalculations for this activity.",
       api: {
         success: "Workout was successfully analyzed.",
         processing: "Analysis is running, will appear shortly...",
