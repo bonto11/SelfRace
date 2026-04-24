@@ -275,10 +275,8 @@ export default function SessionCard({
       <div className={SESSION_HEAD}>
         <div className="flex flex-col gap-3">
           
-          {/* HORNÁ ČASŤ: Texty vľavo, pilulky vpravo */}
           <div className="flex justify-between items-start gap-4">
             
-            {/* L'AVÁ ČASŤ: Názov a Dátum */}
             <div className="min-w-0 flex-1 pt-1">
               <div className={SESSION_TITLE}>{item.title}</div>
               
@@ -286,7 +284,6 @@ export default function SessionCard({
               {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
             </div>
 
-            {/* PRAVÁ ČASŤ: Pilulky zarovnané pod seba s fixnou šírkou */}
             <div className="flex flex-col items-end gap-2 shrink-0">
               
               <div className="flex items-center gap-1">
@@ -295,16 +292,15 @@ export default function SessionCard({
                     ★
                   </span>
                 )}
-                {/* Fixná šírka pre odznak športu (120px) s vycentrovaným vnútrom */}
-                <div className="w-[120px] flex justify-center [&>*]:w-full [&>*]:flex [&>*]:justify-center">
+                {/* Jednoriadkové s fixnou šírkou a centrom */}
+                <div className="w-[120px] flex justify-center [&>*]:w-full [&>*]:flex [&>*]:items-center [&>*]:justify-center [&>*]:text-center">
                   <SportBadge sport={item.sport} />
                 </div>
               </div>
 
               {item.kind === "plan" && (
-                /* Fixná šírka pre stav plánu (120px) */
                 <span 
-                  className={[SESSION_PILL, "w-[120px] flex justify-center text-center"].join(" ")} 
+                  className={[SESSION_PILL, "w-[120px] flex items-center justify-center text-center truncate"].join(" ")} 
                   style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
                 >
                   {t(`sessions.status.${(item as PlanSession).status}` as any)}
@@ -314,7 +310,6 @@ export default function SessionCard({
             </div>
           </div>
 
-          {/* SPODNÁ ČASŤ: Rozbaľovacia šípka v samostatnom riadku, v strede */}
           <div className="w-full flex justify-center -mt-1 pb-1">
             <button
               type="button"
