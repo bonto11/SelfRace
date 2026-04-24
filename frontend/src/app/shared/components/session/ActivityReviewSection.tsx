@@ -119,7 +119,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [comment, setComment] = useState<string>("");
 
-  // ✅ State pre Race Effort
   const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
 
   const commentLen = comment.length;
@@ -338,7 +337,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               </div>
             )}
 
-            {/* ✅ Checkbox pre Race Effort */}
             <div className="flex flex-wrap items-center gap-4 mt-3">
               <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors ml-auto md:ml-0">
                 <input
