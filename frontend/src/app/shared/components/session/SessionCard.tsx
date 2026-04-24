@@ -24,8 +24,6 @@ import {
   SESSION_HEAD,
   SESSION_BODY,
   SESSION_HEAD_ROW,
-  SESSION_HEAD_LEFT,
-  SESSION_HEAD_RIGHT,
   SESSION_DATE,
   SESSION_TITLE,
   SESSION_SUBTITLE,
@@ -110,7 +108,7 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
-  showAdvanced?: boolean; // 👈 PRIDANÉ: Nový parameter od Matky
+  showAdvanced?: boolean;
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -160,7 +158,7 @@ export default function SessionCard({
   item,
   onOpenActivity,
   showPlanDebug = false,
-  showAdvanced = false, // 👈 PRIDANÉ: Defaultná hodnota pre parameter od Matky
+  showAdvanced = false,
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -276,46 +274,57 @@ export default function SessionCard({
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
-        <div className={SESSION_HEAD_ROW}>
-          <div className={SESSION_HEAD_LEFT}>
-            {dateLine && <div className={SESSION_DATE}>{dateLine}</div>}
-
-            <div className="min-w-0">
-              <div className={SESSION_TITLE}>{item.title}</div>
-              {secondaryLine && <div className={SESSION_SUBTITLE}>{secondaryLine}</div>}
-            </div>
+        {/* ZMENA: Namiesto pevného flex-row pre celú hlavičku,
+            teraz použijeme grid alebo flex s wrap-om, 
+            ktorý sa rozloží podľa tebou požadovanej štruktúry.
+        */}
+        <div className="flex justify-between items-start gap-4">
+          
+          {/* L'AVÁ ČASŤ: Názov a Dátum, ktoré môžu rásť */}
+          <div className="min-w-0 flex-1 pt-1">
+            <div className={SESSION_TITLE}>{item.title}</div>
+            
+            {/* Dátum je teraz pod názvom pre lepšie čítanie */}
+            {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
+            {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
           </div>
 
-          <div className={SESSION_HEAD_RIGHT}>
-            {item.kind === "activity" && (item as ActivitySession).isFavorite && (
-              <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
-                ★
-              </span>
-            )}
+          {/* PRAVÁ ČASŤ: Odznaky, Stav a Rozbaľovač naskladané na seba */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            
+            <div className="flex items-center gap-2">
+              {item.kind === "activity" && (item as ActivitySession).isFavorite && (
+                <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
+                  ★
+                </span>
+              )}
+              <SportBadge sport={item.sport} />
+            </div>
 
-            {item.kind === "plan" && (
-              <span 
-                className={SESSION_PILL} 
-                style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+            <div className="flex items-center gap-2">
+              {item.kind === "plan" && (
+                <span 
+                  className={SESSION_PILL} 
+                  style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+                >
+                  {t(`sessions.status.${(item as PlanSession).status}` as any)}
+                </span>
+              )}
+
+              <button
+                type="button"
+                aria-expanded={opened}
+                onClick={() => setOpened((s) => !s)}
+                title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
+                className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
+                style={SESSION_TOGGLE_BTN_STYLE}
               >
-                {t(`sessions.status.${(item as PlanSession).status}` as any)}
-              </span>
-            )}
+                <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
+                  ▾
+                </span>
+              </button>
+            </div>
 
-            <SportBadge sport={item.sport} />
-
-            <button
-              type="button"
-              aria-expanded={opened}
-              onClick={() => setOpened((s) => !s)}
-              title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
-              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
-              style={SESSION_TOGGLE_BTN_STYLE}
-            >
-              <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
-                ▾
-              </span>
-            </button>
           </div>
         </div>
       </div>
@@ -328,7 +337,7 @@ export default function SessionCard({
               item={item}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
-              showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do komponentu DetailBody
+              showAdvanced={showAdvanced}
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -357,14 +366,14 @@ function DetailBody({
   item,
   onOpenActivity,
   showPlanDebug,
-  showAdvanced, // 👈 PRIDANÉ: Prijímame z komponentu SessionCard
+  showAdvanced,
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
-  showAdvanced: boolean; // 👈 PRIDANÉ: Deklarácia nového parametra
+  showAdvanced: boolean;
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -433,7 +442,7 @@ function DetailBody({
           variant={variant}
           item={item as any}
           showPlanDebug={showPlanDebug}
-          showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do PlanSessionDetail (kde to budeme reálne potrebovať)
+          showAdvanced={showAdvanced}
         />
       </div>
     );
