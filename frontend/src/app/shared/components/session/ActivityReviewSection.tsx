@@ -119,7 +119,6 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
   const [comment, setComment] = useState<string>("");
 
-  // ✅ State pre Race Effort
   const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
 
   const commentLen = comment.length;
@@ -212,7 +211,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          has_new_injury: false, // <-- Natvrdo false, odovzdávanie zranení z tadeto končí
+          has_new_injury: false, 
           is_race_effort: isRaceEffort,
         },
       );
@@ -308,48 +307,65 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         </div>
       </div>
 
-      {isEligible && canRerunByTier && (
-        <div className="mt-4 mb-2">
-          <textarea
-            className={`w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none transition-colors placeholder:text-white/20 ${commentTooLong ? "border-red-500/50 focus:border-red-500" : ""}`}
-            rows={3}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder={t("sessions.review.commentPlaceholder")}
-            disabled={busyGen}
-          />
-          {showCharCount && (
-            <div
-              className={`text-[10px] text-right mt-1 ${commentTooLong ? "text-red-400" : "opacity-40"}`}
-            >
-              {commentLen} / {MAX_COMMENT_CHARS}
+      {isEligible && (
+        tierCode === "free" ? (
+          /* UKÁŽKA PRE FREE POUŽÍVATEĽOV */
+          <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
+            <div className="flex items-center gap-2 text-sm font-medium text-white/80">
+              <span className="opacity-80">🔒</span> {t("sessions.review.upsellTitle")}
             </div>
-          )}
-
-          {/* ✅ Checkbox pre Race Effort */}
-          <div className="flex flex-wrap items-center gap-4 mt-3">
-            <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors ml-auto md:ml-0">
-              <input
-                type="checkbox"
-                checked={isRaceEffort}
-                onChange={(e) => setIsRaceEffort(e.target.checked)}
-                className="rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer w-3.5 h-3.5"
-                disabled={busyGen}
-              />
-              <span className="flex items-center gap-1.5 font-semibold">
-                🏁{" "}
-                {t("sessions.review.raceEffortLabel") ||
-                  "Závodné tempo (Race Effort / All-out)"}
-              </span>
-            </label>
+            <p className="text-[11px] text-white/50 leading-relaxed">
+              {t("sessions.review.upsellDesc")}
+            </p>
           </div>
+        ) : canRerunByCount ? (
+          /* AKTÍVNE TEXTOVÉ POLE PRE PREDPLATITEĽOV */
+          <div className="mt-4 mb-2">
+            <textarea
+              className={`w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none transition-colors placeholder:text-white/20 ${commentTooLong ? "border-red-500/50 focus:border-red-500" : ""}`}
+              rows={3}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder={t("sessions.review.commentPlaceholder")}
+              disabled={busyGen}
+            />
+            {showCharCount && (
+              <div
+                className={`text-[10px] text-right mt-1 ${commentTooLong ? "text-red-400" : "opacity-40"}`}
+              >
+                {commentLen} / {MAX_COMMENT_CHARS}
+              </div>
+            )}
 
-          {!hasReview && !comment && (
-            <div className="text-[11px] opacity-40 mt-3 pl-1">
-              {t("sessions.review.commentTip")}
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer hover:text-white transition-colors ml-auto md:ml-0">
+                <input
+                  type="checkbox"
+                  checked={isRaceEffort}
+                  onChange={(e) => setIsRaceEffort(e.target.checked)}
+                  className="rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer w-3.5 h-3.5"
+                  disabled={busyGen}
+                />
+                <span className="flex items-center gap-1.5 font-semibold">
+                  🏁{" "}
+                  {t("sessions.review.raceEffortLabel") ||
+                    "Závodné tempo (Race Effort / All-out)"}
+                </span>
+              </label>
             </div>
-          )}
-        </div>
+
+            {!hasReview && !comment && (
+              <div className="text-[11px] opacity-40 mt-3 pl-1">
+                {t("sessions.review.commentTip")}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* INFO PRE PREDPLATITEĽOV, KTORÍ VYČERPALI LIMIT PRE TÚTO AKTIVITU */
+          <div className="mt-4 mb-2 p-3 text-center text-[11px] text-white/40 border border-dashed border-white/10 rounded-xl">
+            {t("sessions.review.limitReached")}
+          </div>
+        )
       )}
 
       {uiError && (

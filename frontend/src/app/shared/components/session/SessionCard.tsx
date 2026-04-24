@@ -23,9 +23,6 @@ import {
   SESSION_VARIANT_PAD,
   SESSION_HEAD,
   SESSION_BODY,
-  SESSION_HEAD_ROW,
-  SESSION_HEAD_LEFT,
-  SESSION_HEAD_RIGHT,
   SESSION_DATE,
   SESSION_TITLE,
   SESSION_SUBTITLE,
@@ -110,7 +107,7 @@ export type SessionCardProps = {
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
-  showAdvanced?: boolean; // 👈 PRIDANÉ: Nový parameter od Matky
+  showAdvanced?: boolean;
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -160,7 +157,7 @@ export default function SessionCard({
   item,
   onOpenActivity,
   showPlanDebug = false,
-  showAdvanced = false, // 👈 PRIDANÉ: Defaultná hodnota pre parameter od Matky
+  showAdvanced = false,
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -276,34 +273,44 @@ export default function SessionCard({
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
-        <div className={SESSION_HEAD_ROW}>
-          <div className={SESSION_HEAD_LEFT}>
-            {dateLine && <div className={SESSION_DATE}>{dateLine}</div>}
-
-            <div className="min-w-0">
+        <div className="flex flex-col gap-3">
+          
+          <div className="flex justify-between items-start gap-4">
+            
+            <div className="min-w-0 flex-1 pt-1">
               <div className={SESSION_TITLE}>{item.title}</div>
-              {secondaryLine && <div className={SESSION_SUBTITLE}>{secondaryLine}</div>}
+              
+              {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
+              {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
+            </div>
+
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              
+              <div className="flex items-center gap-1">
+                {item.kind === "activity" && (item as ActivitySession).isFavorite && (
+                  <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
+                    ★
+                  </span>
+                )}
+                {/* Jednoriadkové s fixnou šírkou a centrom */}
+                <div className="w-[120px] flex justify-center [&>*]:w-full [&>*]:flex [&>*]:items-center [&>*]:justify-center [&>*]:text-center">
+                  <SportBadge sport={item.sport} />
+                </div>
+              </div>
+
+              {item.kind === "plan" && (
+                <span 
+                  className={[SESSION_PILL, "w-[120px] flex items-center justify-center text-center truncate"].join(" ")} 
+                  style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+                >
+                  {t(`sessions.status.${(item as PlanSession).status}` as any)}
+                </span>
+              )}
+
             </div>
           </div>
 
-          <div className={SESSION_HEAD_RIGHT}>
-            {item.kind === "activity" && (item as ActivitySession).isFavorite && (
-              <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
-                ★
-              </span>
-            )}
-
-            {item.kind === "plan" && (
-              <span 
-                className={SESSION_PILL} 
-                style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
-              >
-                {t(`sessions.status.${(item as PlanSession).status}` as any)}
-              </span>
-            )}
-
-            <SportBadge sport={item.sport} />
-
+          <div className="w-full flex justify-center -mt-1 pb-1">
             <button
               type="button"
               aria-expanded={opened}
@@ -317,6 +324,7 @@ export default function SessionCard({
               </span>
             </button>
           </div>
+
         </div>
       </div>
 
@@ -328,7 +336,7 @@ export default function SessionCard({
               item={item}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
-              showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do komponentu DetailBody
+              showAdvanced={showAdvanced}
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -357,14 +365,14 @@ function DetailBody({
   item,
   onOpenActivity,
   showPlanDebug,
-  showAdvanced, // 👈 PRIDANÉ: Prijímame z komponentu SessionCard
+  showAdvanced,
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
-  showAdvanced: boolean; // 👈 PRIDANÉ: Deklarácia nového parametra
+  showAdvanced: boolean;
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -433,7 +441,7 @@ function DetailBody({
           variant={variant}
           item={item as any}
           showPlanDebug={showPlanDebug}
-          showAdvanced={showAdvanced} // 👈 PRIDANÉ: Posúvame do PlanSessionDetail (kde to budeme reálne potrebovať)
+          showAdvanced={showAdvanced}
         />
       </div>
     );
