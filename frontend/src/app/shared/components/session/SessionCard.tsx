@@ -23,7 +23,6 @@ import {
   SESSION_VARIANT_PAD,
   SESSION_HEAD,
   SESSION_BODY,
-  SESSION_HEAD_ROW,
   SESSION_DATE,
   SESSION_TITLE,
   SESSION_SUBTITLE,
@@ -274,58 +273,63 @@ export default function SessionCard({
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
-        {/* ZMENA: Namiesto pevného flex-row pre celú hlavičku,
-            teraz použijeme grid alebo flex s wrap-om, 
-            ktorý sa rozloží podľa tebou požadovanej štruktúry.
-        */}
-        <div className="flex justify-between items-start gap-4">
+        <div className="flex flex-col gap-3">
           
-          {/* L'AVÁ ČASŤ: Názov a Dátum, ktoré môžu rásť */}
-          <div className="min-w-0 flex-1 pt-1">
-            <div className={SESSION_TITLE}>{item.title}</div>
+          {/* HORNÁ ČASŤ: Texty vľavo, pilulky vpravo */}
+          <div className="flex justify-between items-start gap-4">
             
-            {/* Dátum je teraz pod názvom pre lepšie čítanie */}
-            {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
-            {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
-          </div>
-
-          {/* PRAVÁ ČASŤ: Odznaky, Stav a Rozbaľovač naskladané na seba */}
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            
-            <div className="flex items-center gap-2">
-              {item.kind === "activity" && (item as ActivitySession).isFavorite && (
-                <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
-                  ★
-                </span>
-              )}
-              <SportBadge sport={item.sport} />
+            {/* L'AVÁ ČASŤ: Názov a Dátum */}
+            <div className="min-w-0 flex-1 pt-1">
+              <div className={SESSION_TITLE}>{item.title}</div>
+              
+              {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
+              {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* PRAVÁ ČASŤ: Pilulky zarovnané pod seba s fixnou šírkou */}
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              
+              <div className="flex items-center gap-1">
+                {item.kind === "activity" && (item as ActivitySession).isFavorite && (
+                  <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
+                    ★
+                  </span>
+                )}
+                {/* Fixná šírka pre odznak športu (120px) s vycentrovaným vnútrom */}
+                <div className="w-[120px] flex justify-center [&>*]:w-full [&>*]:flex [&>*]:justify-center">
+                  <SportBadge sport={item.sport} />
+                </div>
+              </div>
+
               {item.kind === "plan" && (
+                /* Fixná šírka pre stav plánu (120px) */
                 <span 
-                  className={SESSION_PILL} 
+                  className={[SESSION_PILL, "w-[120px] flex justify-center text-center"].join(" ")} 
                   style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
                 >
                   {t(`sessions.status.${(item as PlanSession).status}` as any)}
                 </span>
               )}
 
-              <button
-                type="button"
-                aria-expanded={opened}
-                onClick={() => setOpened((s) => !s)}
-                title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
-                className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
-                style={SESSION_TOGGLE_BTN_STYLE}
-              >
-                <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
-                  ▾
-                </span>
-              </button>
             </div>
-
           </div>
+
+          {/* SPODNÁ ČASŤ: Rozbaľovacia šípka v samostatnom riadku, v strede */}
+          <div className="w-full flex justify-center -mt-1 pb-1">
+            <button
+              type="button"
+              aria-expanded={opened}
+              onClick={() => setOpened((s) => !s)}
+              title={opened ? t("sessions.card.hideDetail") : t("sessions.card.showDetail")}
+              className={[SESSION_TOGGLE_BTN, SESSION_TOGGLE_BTN_HOVER].join(" ")}
+              style={SESSION_TOGGLE_BTN_STYLE}
+            >
+              <span className={[SESSION_TOGGLE_ICON, opened ? "rotate-180" : ""].join(" ")}>
+                ▾
+              </span>
+            </button>
+          </div>
+
         </div>
       </div>
 
