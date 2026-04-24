@@ -2127,7 +2127,7 @@ export const sk = {
     plan: "Plán",
     planDone: "Odtrénované",
     planMissed: "Vynechané",
-    planPlaned: "Naplánované",
+    planPlaned: "Plánované",
     openActivity: "Otvoriť detail",
     noActivity: "Na tento deň zatiaľ nie je nič naplánované.",
     past: "Už prebehlo",
