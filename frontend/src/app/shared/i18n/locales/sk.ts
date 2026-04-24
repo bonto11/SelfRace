@@ -99,7 +99,7 @@ export const sk = {
       run: "Beh",
       bike: "Bicykel",
       ride: "Bicykel",
-      strength: "Sila a posilňovanie",
+      strength: "Silový tréning",
       mixed: "Zmiešané aktivity",
       skate: "Korčule",
       football: "Futbal",
