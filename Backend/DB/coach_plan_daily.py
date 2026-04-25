@@ -39,7 +39,7 @@ def db_get_planned_range_rows(user_id: int, date_from: str, date_to: str, *, ctx
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
-            .select("*")
+            .select("*") # Toto ťahá aj status a activity_id
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
             .lte("plan_date", date_to)
@@ -88,7 +88,7 @@ def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: Auth
             .select("id")
             .eq("user_id", int(user_id))
             .eq("plan_date", plan_date)
-            .eq("status", "planned")  # 👈 OPRAVA: Pozeráme priamo na nový status
+            .eq("status", "planned") 
             .limit(1)
             .execute()
         )
@@ -134,8 +134,6 @@ def db_clear_daily_for_user_plan(user_id: int, *, ctx: AuthCtx) -> int:
         print("[DB-COACH-DAILY] clear_plan error:", repr(e))
         return 0
 
-# ✅ OPRAVA: Pridaný parameter `global_user_clear`. Ak je True, zmaže všetky staré plány
-# pre daného usera v danom dátumovom rozmedzí`.
 def db_clear_daily_for_user_range(
     user_id: int,
     date_from: str,
@@ -321,7 +319,7 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         
         stats = {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
         for row in data:
-            s = row.get("status", "planned")
+            s = row.get("status") or "planned"
             if s in stats:
                 stats[s] += 1
         
