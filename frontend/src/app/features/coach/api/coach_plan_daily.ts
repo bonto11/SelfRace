@@ -74,6 +74,9 @@ export type DailyPlanSession = {
   notes: string | null;
   session_type?: string | null;
   structure?: DailyPlanStructure | null;
+  // Pridané pre explicitný status a párovanie aktivít
+  status?: "planned" | "done" | "skipped" | "missed";
+  activity_id?: number | null;
 };
 
 export type DailyPlanDay = {
@@ -138,5 +141,37 @@ export async function apiSaveDailyReschedule(
   } catch (err: any) {
     console.error("[Coach][apiSaveDailyReschedule] ERROR", err);
     throw new Error("api.coach.dailyRescheduleFailed");
+  }
+}
+
+// NOVÝ ENDPOINT PRE MANUÁLNE ZÁSAHY DO TRÉNINGU (Skip, Match, Unmatch)
+export type PatchDailySessionPayload = {
+  status?: "planned" | "done" | "skipped" | "missed";
+  activity_id?: number | null;
+  unmatch?: boolean;
+};
+
+export async function apiPatchDailySessionStatus(
+  userId: number,
+  sessionId: number,
+  payload: PatchDailySessionPayload
+): Promise<DailyPlanSession | null> {
+  if (!userId || !sessionId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/coach-plan-daily/session/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(sessionId))}`;
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(payload),
+    });
+
+    if (!json?.success) throw new Error("api.coach.dailyUpdateFailed");
+    return json.data || null;
+  } catch (err: any) {
+    console.error("[Coach][apiPatchDailySessionStatus] ERROR", err);
+    throw new Error("api.coach.dailyUpdateFailed");
   }
 }

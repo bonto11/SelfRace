@@ -20,7 +20,8 @@ export const sk = {
       reported: "Nahlásil si zranenie:",
       calendar: "Kalendár je pozastavený (lekárske voľno).",
       dailyPlan: "Plán je momentálne v režime lekárskeho voľna.",
-      planAdjusted: "Tréningy som upravil tak, aby si sa mohol v pokoji zotaviť.",
+      planAdjusted:
+        "Tréningy som upravil tak, aby si sa mohol v pokoji zotaviť.",
     },
     optional: "Voliteľné",
     showAdvanced: "Zobraziť detaily",
@@ -246,8 +247,7 @@ export const sk = {
   forgotPassword: {
     tittle: "Zabudnuté heslo",
     fillValidMail: "Zadaj prosím platnú e-mailovú adresu.",
-    sentMail:
-      "Ak účet existuje, odoslal sa e-mail s odkazom na zmenu hesla.",
+    sentMail: "Ak účet existuje, odoslal sa e-mail s odkazom na zmenu hesla.",
     errorSent: "E-mail sa nepodarilo odoslať.",
     forgotPassword: "Zabudnuté heslo",
     fillYourMail:
@@ -294,7 +294,7 @@ export const sk = {
     btnForgotPassword: "Zabudol si heslo?",
     haveAccount: "Už máš účet?",
     btnSignin: "Prihlás sa",
-    footer: 'Stravu prepojíš v nastaveniach po úspešnej registrácii.',
+    footer: "Stravu prepojíš v nastaveniach po úspešnej registrácii.",
   },
   userMenu: {
     settings: "Nastavenia",
@@ -372,8 +372,7 @@ export const sk = {
       },
 
       focusAvoidSection: {
-        subtitle:
-          "Oblasti na zapracovanie a prvky, ktorým sa má plán vyhnúť.",
+        subtitle: "Oblasti na zapracovanie a prvky, ktorým sa má plán vyhnúť.",
         previewFocus: "Zameranie",
         previewAvoid: "Obmedzenia",
         areasLabel: "Na čo sa sústrediť?",
@@ -515,7 +514,8 @@ export const sk = {
             "• Ak sa bolesť vracia, opatrnosť je na mieste. Zdravie má vždy prednosť.",
           ].join("\n"),
         },
-        subtitle: "Úprava záťaže a pridanie regeneračných cvikov na základe stavu.",
+        subtitle:
+          "Úprava záťaže a pridanie regeneračných cvikov na základe stavu.",
         noInjuries: "Žiadne zranenia. Plné zdravie.",
         areaLabel: "Lokalita (Partia)",
         typeLabel: "Druh problému",
@@ -564,31 +564,25 @@ export const sk = {
         },
         hints: {
           foot: "Kde presne? Päta, klenba alebo skôr prsty?",
-          ankle: "Ide o podvrtnutie, alebo bolesť na vnútornej či vonkajšej strane?",
-          achilles:
-            "Bolí samotná šľacha, alebo skôr úpon na päte?",
+          ankle:
+            "Ide o podvrtnutie, alebo bolesť na vnútornej či vonkajšej strane?",
+          achilles: "Bolí samotná šľacha, alebo skôr úpon na päte?",
           shin: "Bolí predná časť (okostica) alebo vnútorná hrana holene?",
           calf: "Sú prítomné kŕče, alebo ide o natiahnutý sval?",
           knee: "Bolí pod jabĺčkom, z boku alebo skôr vo vnútri kĺbu?",
           quad: "Svalová bolesť na prednej strane stehna?",
-          hamstring:
-            "Ťah vzadu na stehne, alebo bolesť vysoko pod zadkom?",
+          hamstring: "Ťah vzadu na stehne, alebo bolesť vysoko pod zadkom?",
           glute:
             "Vystreľuje bolesť do nohy, alebo je to hlboká bolesť v zadku?",
           hip: "Bolí kĺb zboku alebo skôr vzadu?",
-          psoas:
-            "Bolesť hlboko v panve pri zdvíhaní nohy?",
-          groin:
-            "Bolesť na vnútornej strane stehna?",
-          abdomen:
-            "Svalstvo na povrchu, alebo pichanie vo vnútri?",
+          psoas: "Bolesť hlboko v panve pri zdvíhaní nohy?",
+          groin: "Bolesť na vnútornej strane stehna?",
+          abdomen: "Svalstvo na povrchu, alebo pichanie vo vnútri?",
           back: "Spodná časť (kríže), alebo skôr medzi lopatkami?",
           neck: "Stuhnutý krk, alebo bolesť vyráža do ramena?",
           shoulder: "Rameno bolí pri pohybe alebo aj v pokoji?",
-          arm_wrist:
-            "Zápästie alebo lakeť? (Časté pri bicyklovaní).",
-          other:
-            "Prosím, popíš presné miesto a situáciu v poznámke.",
+          arm_wrist: "Zápästie alebo lakeť? (Časté pri bicyklovaní).",
+          other: "Prosím, popíš presné miesto a situáciu v poznámke.",
         },
       },
 
@@ -622,8 +616,7 @@ export const sk = {
         subtitle: "Kompenzačné cvičenia a zameranie.",
         previewFocus: "Zameranie",
         focusLabel: "Čo sa ide „opravovať“?",
-        focusTooltip:
-          "Oblasti zamerania pre rehabilitačné cviky.",
+        focusTooltip: "Oblasti zamerania pre rehabilitačné cviky.",
         enums: {
           stretching: "Strečing (Naťahovanie)",
           mobility: "Mobilita kĺbov",
@@ -690,8 +683,7 @@ export const sk = {
       },
 
       sportsSection: {
-        subtitle:
-          "Hlavný šport a doplnkové aktivity.",
+        subtitle: "Hlavný šport a doplnkové aktivity.",
         previewMain: "Hlavný",
         previewAddons: "Doplnky",
         mainSportLabel: "Hlavný šport",
@@ -787,8 +779,7 @@ export const sk = {
         measurementLabel: "Metóda zistenia",
         saveBtn: "Uložiť prah",
         dbTitle: "Aktuálne hodnoty",
-        dbTooltip:
-          "Posledné platné zaznamenané záznamy.",
+        dbTooltip: "Posledné platné zaznamenané záznamy.",
         enums: {
           measure: {
             lab: "Laboratórny test (diagnostika)",
@@ -818,10 +809,8 @@ export const sk = {
       },
 
       volumeSection: {
-        subtitle:
-          "Časový limit vyhradený na tréning.",
-        previewEmpty:
-          "Limit nie je nastavený – objem sa navrhne podľa cieľov.",
+        subtitle: "Časový limit vyhradený na tréning.",
+        previewEmpty: "Limit nie je nastavený – objem sa navrhne podľa cieľov.",
         previewText:
           "≈ {{hours}} h týždenne / ≈ {{minutes}} min denne. Snaha tento strop neprekročiť.",
         modeLabel: "Zadanie limitu",
@@ -860,8 +849,7 @@ export const sk = {
         calcLabel: "Spôsob výpočtu zón",
         calcTooltip:
           "Režimy:\n• Manuálny = presné zadanie hraníc\n• Z HRmax = jednoduchý odhad podľa maxima\n• Z %LTHR = najpresnejšia metóda pre vytrvalostných športovcov\n\nPoznámka: Výpočet z LTHR vyžaduje nastavený tep v sekcii Prahové hodnoty.",
-        lthrTooltip:
-          "Údaj sa preberá z posledného uloženého prahu (LT2).",
+        lthrTooltip: "Údaj sa preberá z posledného uloženého prahu (LT2).",
         lthrSourceHint: "Zdroj: Prahový tep (LTHR) pre tento šport",
         lthrMissingHint:
           "Najprv je nutné zadať LTHR tep v sekcii Prahové hodnoty.",
@@ -954,8 +942,7 @@ export const sk = {
     coach: {
       tab: "Tréner",
       title: "Tréner na mieru 🧠",
-      desc1:
-        "Analýza dát a regenerácie pre návrh rozpisu tréningov.",
+      desc1: "Analýza dát a regenerácie pre návrh rozpisu tréningov.",
       prefsTitle: "Preferencie:",
       prefsDesc:
         "V časti 'Preferencie trénera' sa nastavia ciele, zóny, dni tréningu atď. Čím presnejšie dáta, tým lepšie sadne plán.",
@@ -1105,7 +1092,7 @@ export const sk = {
       ].join("\n"),
     },
   },
-    coachAthleteState: {
+  coachAthleteState: {
     title: "Trénovanosť",
     widget: {
       title: "Analýza trénovanosti",
@@ -1140,7 +1127,7 @@ export const sk = {
       injuryRisk: "Riziko zranenia",
     },
   },
-    coachDaily: {
+  coachDaily: {
     title: "Denný plán",
     widget: {
       title: "Denný plán",
@@ -1176,7 +1163,6 @@ export const sk = {
     },
   },
 
-
   coachPlan: {
     widget: {
       title: "Tvorba plánu",
@@ -1210,8 +1196,7 @@ export const sk = {
         title: "Šetrenie času:",
         text: "Každý nový plán spotrebuje kúsok z mesačného limitu. Zbytočne nepregeneruj plány. Zostatok nájdeš v sekcii",
         link: "Predplatné",
-        shortText:
-          "Pregenerovanie plánov s rozumom šetrí vyhradený čas.",
+        shortText: "Pregenerovanie plánov s rozumom šetrí vyhradený čas.",
       },
 
       status: {
@@ -1293,8 +1278,29 @@ export const sk = {
       aiQuota:
         "Čas na tento mesiac je už vyčerpaný. Počet minutých kreditov: {{tokens}}. Možné opäť využiť začiatkom nového mesiaca alebo napíš cez kontakt.",
     },
+    
   },
-    coachPrefs: {
+  coachCompliance: {
+    widget: {
+      title: "Plnenie tréningového plánu",
+      tooltip: "Prehľad dokončených, preskočených a zmeškaných tréningov za posledných 30 dní.",
+    },
+    stats: {
+      title: "Štatistika aktivity",
+      subtitle: "Vyhodnotenie tréningov za posledných 30 dní.",
+      completed: "Odtrénované",
+      skipped: "Odložené do banky restov",
+      missed: "Zmeškané (neaktívne)",
+      successRate: "Úspešnosť plnenia",
+    },
+    bank: {
+      title: "Banka restov",
+      subtitle: "Zoznam vedome preskočených tréningov čakajúcich na nové naplánovanie.",
+      empty: "V banke restov sa nenachádzajú žiadne tréningy.",
+      actionReschedule: "Naplánovať znova",
+    },
+  },
+  coachPrefs: {
     widget: {
       title: "Nastavenia trénera",
       tooltip: [
@@ -1320,7 +1326,7 @@ export const sk = {
       sports: "Športy",
     },
   },
-    coachProgress: {
+  coachProgress: {
     title: "Týždenný progres",
     widget: {
       title: "Týždenný progres",
@@ -1343,7 +1349,7 @@ export const sk = {
         "Zatiaľ nie je k dispozícii žiadne porovnanie. Po vykonaní druhej analýzy sa tu zobrazí tvoj posun.",
     },
   },
-    coachWeekly: {
+  coachWeekly: {
     title: "Týždenný rozvrh",
     widget: {
       title: "Prehľad týždňov",
@@ -1372,8 +1378,7 @@ export const sk = {
     subtitle:
       "Udalosti (ako práca, dovolenka či iný šport), s ktorými treba rátať pri tvorbe plánu.",
     preview: {
-      noUser:
-        "Najprv sa prosím prihlás pre načítanie udalostí.",
+      noUser: "Najprv sa prosím prihlás pre načítanie udalostí.",
       loading: "Načítavajú sa iné aktivity z databázy...",
       empty: "Zatiaľ nie sú zaznamenané žiadne iné udalosti.",
     },
@@ -1448,8 +1453,7 @@ export const sk = {
       high: "Vysoká (náročný deň)",
     },
     errors: {
-      loadFailed:
-        "Aktivity sa nepodarilo načítať. Skús to prosím neskôr.",
+      loadFailed: "Aktivity sa nepodarilo načítať. Skús to prosím neskôr.",
       saveFailed: "Chyba pri ukladaní. Skontroluj si prosím pripojenie.",
       deleteFailed: "Nepodarilo sa vymazať dáta.",
       missingDate: "Prosím, vyber v kalendári konkrétny dátum.",
@@ -1535,7 +1539,8 @@ export const sk = {
       ].join("\n"),
       noteMissing:
         "Do ideálneho pomeru chýba ešte {{min}} minút v ľahkej intenzite.",
-      noteExtra: "Viac o {{min}} minút v ľahkej intenzite oproti ideálnemu pomeru. Výborne!",
+      noteExtra:
+        "Viac o {{min}} minút v ľahkej intenzite oproti ideálnemu pomeru. Výborne!",
       notePerfect: "Presne ideálny tréningový mix ✔",
     },
     trend: {
@@ -1717,14 +1722,12 @@ export const sk = {
     title: "Nastavenia",
     btnChangeMail: "Zmeniť e-mail alebo profil",
     btnChangePassword: "Zmeniť heslo cez e-mail",
-    quickActions:
-      "Rýchle akcie pre profil a heslo.",
+    quickActions: "Rýchle akcie pre profil a heslo.",
     actions: "Akcie s účtom",
     dateFormat: "Formát dátumu",
     prefs: {
       title: "Osobné nastavenia",
-      subtitle:
-        "Jazyk, merné jednotky a časové pásmo.",
+      subtitle: "Jazyk, merné jednotky a časové pásmo.",
       labels: {
         language: "Jazyk aplikácie",
         units: "Merné jednotky",
@@ -1894,8 +1897,7 @@ export const sk = {
   recovery: {
     title: "Regenerácia",
     inputs: {
-      subtitle:
-        "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",
+      subtitle: "Ranné metriky (HRV a tep) a faktory, ktoré ovplyvnili noc.",
       dateLabel: "Dátum merania",
       notLoggedIn: "neprihlásený",
       errorNoChanges: "Nenašli sa žiadne zmeny na uloženie.",
@@ -1924,7 +1926,8 @@ export const sk = {
       },
       hrv: {
         title: "HRV",
-        subtitle: "Variabilita tepu a bežný priemer. Chýbajúce dni sú zvýraznené.",
+        subtitle:
+          "Variabilita tepu a bežný priemer. Chýbajúce dni sú zvýraznené.",
         baselineMinus: "Bežný priemer −5 %",
         baselinePlus: "Bežný priemer +5 %",
         hrvLabel: "Priemerná HRV",
@@ -1997,8 +2000,7 @@ export const sk = {
       menstruation: "Cyklus",
     },
     addTitle: "Nahlásiť problém",
-    addSubtitle:
-      "Tréningový plán sa okamžite prispôsobí aktuálnemu stavu.",
+    addSubtitle: "Tréningový plán sa okamžite prispôsobí aktuálnemu stavu.",
     returnToTrainingDesc:
       "Ak už prišlo zotavenie a plán je stále zredukovaný, oplatí sa požiadať o prepočet pre bezpečný návrat k plnej záťaži.",
     returnToTrainingBtn: "Požiadať o návrat k tréningu",
@@ -2020,8 +2022,7 @@ export const sk = {
       severityCriticalHint:
         "Dnes to nepôjde. Naordinuje sa lekárske voľno a poriadny oddych.",
       notesLabel: "Poznámka k problému (voliteľné)",
-      notesPlaceholder:
-        "Napr. bolesť kolena pri behu z kopca, teplota 38.5...",
+      notesPlaceholder: "Napr. bolesť kolena pri behu z kopca, teplota 38.5...",
       addDraftBtn: "+ Pridať na zoznam",
       draftsTitle: "Pripravené na uloženie (ešte neodoslané):",
       errorNoSymptoms: "Prosím, vyber aspoň jeden príznak.",
@@ -2102,7 +2103,7 @@ export const sk = {
       ok: "Áno, vymazať",
     },
   },
-    calendar: {
+  calendar: {
     title: "Kalendár",
     widget: {
       open: "Otvoriť kalendár",
@@ -2160,8 +2161,7 @@ export const sk = {
       fitnessTitle: "Vývoj kondície",
       volumeTitle: "Vývoj objemu",
       planChanges: "Čo by sa malo v pláne zmeniť",
-      noPlanChanges:
-        "Nateraz nie je odporúčané meniť tréningovú štruktúru.",
+      noPlanChanges: "Nateraz nie je odporúčané meniť tréningovú štruktúru.",
       recsTitle: "Odporúčania",
       celebrate: "Čo sa tento týždeň podarilo",
       noCelebrate: "Len tak ďalej, výsledky sa čoskoro ukážu!",
@@ -2183,8 +2183,7 @@ export const sk = {
       fitnessTitle: "Kondícia",
       fitnessSubtitle: "Subjektívne hodnotenie formy",
       toleranceTitle: "Znesiteľnosť záťaže",
-      toleranceSubtitle:
-        "Koľko záťaže momentálne organizmus bezpečne zvládne.",
+      toleranceSubtitle: "Koľko záťaže momentálne organizmus bezpečne zvládne.",
       weeklyVolume: "Týždenný objem",
       upTo: "maximálne do",
       hardSessions: "Najťažšie tréningy v týždni",
@@ -2236,8 +2235,7 @@ export const sk = {
       errorLoad: "Denný plán sa nepodarilo načítať.",
       errorLoadTitle: "Chyba pri načítaní dát",
       errorSave: "Zmeny v pláne sa nepodarilo uložiť.",
-      noPlan:
-        "Zatiaľ nebeží žiadny aktívny plán pre jednotlivé dni.",
+      noPlan: "Zatiaľ nebeží žiadny aktívny plán pre jednotlivé dni.",
       scheduleTitle: "Rozvrh tréningov",
       scheduleSubtitle:
         "Každá karta je jeden tréning. Presúvanie v rámci cyklu je možné podľa potreby.",
@@ -2308,8 +2306,7 @@ export const sk = {
     },
     toasts: {
       connectSuccess: "Strava účet bol úspešne prepojený.",
-      errorAlreadyLinked:
-        "Tento Strava účet už používa niekto iný.",
+      errorAlreadyLinked: "Tento Strava účet už používa niekto iný.",
       errorLimit:
         "Bol dosiahnutý limit pre pripojené účty. Skús to prosím neskôr.",
       reconnectAfter: "Znova pripojiť je možné najskôr po:",
@@ -2319,67 +2316,74 @@ export const sk = {
       importNotAllowed: "Momentálne nie je povolený manuálny import.",
       importOk: "Tréningy boli úspešne naimportované.",
       importFailed: "Import zo Stravy zlyhal.",
-      disconnectSuccess:
-        "Strava bola odpojená a dáta vymazané z profilu.",
+      disconnectSuccess: "Strava bola odpojená a dáta vymazané z profilu.",
       disconnectFailed: "Odpojenie Stravy zlyhalo.",
     },
   },
   sessions: {
-        "review": {
-      "title": "Zhodnotenie od trénera",
-      "errorTooOld": "Tento tréning je starší ako 7 dní, už ho nie je možné analyzovať.",
-      "errorCommentLong": "Komentár je príliš dlhý (max 900 znakov).",
-      "errorRerunRejected": "Požiadavku na nový prepočet nebolo možné prijať.",
-      "errorGeneric": "Pri analýze tréningu nastala chyba.",
-      "statusTooOld": "Aktivita prebehla pred viac ako týždňom.",
-      "statusNoReview": "Tento tréning ešte nie je zhodnotený.",
-      "statusReviewCount": "Verzia {{version}} z {{max}} možných",
-      "btnWait": "Počkaj prosím",
-      "btnRerun": "Prepočítať znova",
-      "btnGenerate": "Analyzovať tréning",
-      "btnGenerating": "Práve analyzujem...",
-      "commentPlaceholder": "Popíš, ako sa dnes trénovalo... (pocity, únava, terén)",
-      "commentTip": "Tip: Komentár veľmi pomôže lepšie pochopiť aktuálny stav.",
-      "loading": "Pripravuje sa analýza...",
-      "tagFocus": "Zameranie",
-      "tagZone": "Zóna",
-      "tagCaution": "Pozor na toto",
-      "raceEffortLabel": "Išlo sa nadoraz / Preteky",
-      "thresholdUpdateTitle": "Gratulujem k progresu!",
-      "thresholdUpdateDesc": "Dnešný výkon bol skvelý a prekonal doterajšie limity. Prah a zóny boli aktualizované.",
-      "thresholdPace": "Nové prahové tempo",
-      "thresholdNew": "Nový prahový tep (LTHR):",
-      "zonesAutoUpdated": "Nové zóny boli automaticky uložené do profilu.",
-      "sectionReview": "Hodnotenie tréningu",
-      "sectionNextDay": "Rada na zajtra",
-      "noReviewPlaceholder": "Zatiaľ žiadne hodnotenie. Analyzovať sa dajú len tréningy, ktoré nie sú staršie ako 7 dní.",
-      "upsellTitle": "Prémiové analýzy a komentáre",
-      "upsellDesc": "Pre pridávanie vlastných komentárov k tréningom, dodanie detailného kontextu a pokročilé vyhodnotenie od trénera je potrebné aktívne predplatné.",
-      "limitReached": "Bol dosiahnutý maximálny počet prepočtov pre tento tréning.",
-      "api": {
-        "success": "Tréning bol úspešne analyzovaný.",
-        "processing": "Analýza prebieha, o chvíľu sa ukáže...",
-        "queued": "Požiadavka je v poradí na spracovanie.",
-        "errorEnqueue": "Nepodarilo sa spustiť analýzu.",
-        "limitReached": "Bol dosiahnutý maximálny počet prepočtov pre tento tréning."
+    review: {
+      title: "Zhodnotenie od trénera",
+      errorTooOld:
+        "Tento tréning je starší ako 7 dní, už ho nie je možné analyzovať.",
+      errorCommentLong: "Komentár je príliš dlhý (max 900 znakov).",
+      errorRerunRejected: "Požiadavku na nový prepočet nebolo možné prijať.",
+      errorGeneric: "Pri analýze tréningu nastala chyba.",
+      statusTooOld: "Aktivita prebehla pred viac ako týždňom.",
+      statusNoReview: "Tento tréning ešte nie je zhodnotený.",
+      statusReviewCount: "Verzia {{version}} z {{max}} možných",
+      btnWait: "Počkaj prosím",
+      btnRerun: "Prepočítať znova",
+      btnGenerate: "Analyzovať tréning",
+      btnGenerating: "Práve analyzujem...",
+      commentPlaceholder:
+        "Popíš, ako sa dnes trénovalo... (pocity, únava, terén)",
+      commentTip: "Tip: Komentár veľmi pomôže lepšie pochopiť aktuálny stav.",
+      loading: "Pripravuje sa analýza...",
+      tagFocus: "Zameranie",
+      tagZone: "Zóna",
+      tagCaution: "Pozor na toto",
+      raceEffortLabel: "Išlo sa nadoraz / Preteky",
+      thresholdUpdateTitle: "Gratulujem k progresu!",
+      thresholdUpdateDesc:
+        "Dnešný výkon bol skvelý a prekonal doterajšie limity. Prah a zóny boli aktualizované.",
+      thresholdPace: "Nové prahové tempo",
+      thresholdNew: "Nový prahový tep (LTHR):",
+      zonesAutoUpdated: "Nové zóny boli automaticky uložené do profilu.",
+      sectionReview: "Hodnotenie tréningu",
+      sectionNextDay: "Rada na zajtra",
+      noReviewPlaceholder:
+        "Zatiaľ žiadne hodnotenie. Analyzovať sa dajú len tréningy, ktoré nie sú staršie ako 7 dní.",
+      upsellTitle: "Prémiové analýzy a komentáre",
+      upsellDesc:
+        "Pre pridávanie vlastných komentárov k tréningom, dodanie detailného kontextu a pokročilé vyhodnotenie od trénera je potrebné aktívne predplatné.",
+      limitReached:
+        "Bol dosiahnutý maximálny počet prepočtov pre tento tréning.",
+      api: {
+        success: "Tréning bol úspešne analyzovaný.",
+        processing: "Analýza prebieha, o chvíľu sa ukáže...",
+        queued: "Požiadavka je v poradí na spracovanie.",
+        errorEnqueue: "Nepodarilo sa spustiť analýzu.",
+        limitReached:
+          "Bol dosiahnutý maximálny počet prepočtov pre tento tréning.",
       },
-      "injuryModal": {
-        "title": "Správa bolestí a zranení",
-        "addNewTitle": "Pridať novú bolesť",
-        "severityTitle": "Ako veľmi to bolí? (1-10)",
-        "severityHint": "1 = takmer nič, 10 = vôbec sa to nedá",
-        "btnCancel": "Zrušiť",
-        "btnSave": "Uložiť zmeny",
-        "btnSaving": "Ukladá sa...",
-        "btnAddToList": "+ Pridať do zoznamu",
-        "btnRemove": "Zmazať",
-        "currentStatus": "Aktuálny stav (počet zranení: {{count}})",
-        "emptyStatus": "Zatiaľ úplne fit! Žiadne hlásené zranenia.",
-        "severityLabel": "Bolesť: {{severity}}/10",
-        "alertActive": "Je hlásené aktívne zranenie",
-        "alertReport": "Nahlásiť novú bolesť alebo zranenie",
-        "tooltipActive": "⚠️ O tomto zranení sa vie a pri tvorbe nového plánu sa naň berie ohľad. Keď už bolesť prešla, treba ho zmazať zo zoznamu."
-      }
+      injuryModal: {
+        title: "Správa bolestí a zranení",
+        addNewTitle: "Pridať novú bolesť",
+        severityTitle: "Ako veľmi to bolí? (1-10)",
+        severityHint: "1 = takmer nič, 10 = vôbec sa to nedá",
+        btnCancel: "Zrušiť",
+        btnSave: "Uložiť zmeny",
+        btnSaving: "Ukladá sa...",
+        btnAddToList: "+ Pridať do zoznamu",
+        btnRemove: "Zmazať",
+        currentStatus: "Aktuálny stav (počet zranení: {{count}})",
+        emptyStatus: "Zatiaľ úplne fit! Žiadne hlásené zranenia.",
+        severityLabel: "Bolesť: {{severity}}/10",
+        alertActive: "Je hlásené aktívne zranenie",
+        alertReport: "Nahlásiť novú bolesť alebo zranenie",
+        tooltipActive:
+          "⚠️ O tomto zranení sa vie a pri tvorbe nového plánu sa naň berie ohľad. Keď už bolesť prešla, treba ho zmazať zo zoznamu.",
+      },
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
@@ -2426,6 +2430,16 @@ export const sk = {
           "Tempá sú orientačné. Pri hodinkách treba sledovať primárne tep. V nízkej intenzite by sa malo dať plynulo rozprávať.",
       },
     },
+    matchModal: {
+      title: "Spárovať s aktivitou",
+      subtitle: "Vyber reálnu aktivitu pre plánovaný tréning:",
+      noActivities: "Nenašli sa žiadne nedávne aktivity.",
+      btnCancel: "Zrušiť",
+      btnMatch: "Spárovať",
+      btnSaving: "Ukladá sa...",
+      success: "Tréning bol úspešne spárovaný.",
+      error: "Nepodarilo sa spárovať tréning.",
+    },
     splits: {
       noData: "O úsekoch nie sú žiadne dáta.",
       totalTime: "Celkový čas",
@@ -2440,6 +2454,7 @@ export const sk = {
       planned: "naplánované",
       done: "hotovo",
       missed: "zmeškané",
+      skipped: "preskočené",
     },
     card: {
       distance: "Vzdialenosť",
@@ -2447,6 +2462,13 @@ export const sk = {
       favorite: "Obľúbené",
       hideDetail: "Skryť detaily",
       showDetail: "Zobraziť detaily",
+      managePlan: "Správa tréningu",
+      actions: {
+        reschedule: "Presunúť",
+        skip: "Preskočiť",
+        match: "Spárovať aktivitu",
+        unmatch: "Zrušiť spárovanie",
+      },
       reschedule: {
         title: "Presunúť tréning na iný deň",
         close: "Zavrieť",
@@ -2492,7 +2514,8 @@ export const sk = {
     },
     ai_errors: {
       activity_not_found: "Tréning sa nenašiel.",
-      activity_too_old: "Hodnotenie je možné len pre tréningy mladšie ako 7 dní.",
+      activity_too_old:
+        "Hodnotenie je možné len pre tréningy mladšie ako 7 dní.",
       hard_limit_reached:
         "Bol dosiahnutý celkový systémový limit na tvorbu plánov.",
       limit_reached: "Limit pregenerovaní pre aktuálny program bol vyčerpaný.",
@@ -2501,8 +2524,7 @@ export const sk = {
       duplicate_content:
         "Tento istý komentár už bol použitý pri poslednom prepočte.",
       enqueue_failed: "Nepodarilo sa požiadavku zaradiť, skús to prosím znovu.",
-      ai_quota_exceeded:
-        "Mesačný limit pre prepočty je vyčerpaný.",
+      ai_quota_exceeded: "Mesačný limit pre prepočty je vyčerpaný.",
       ai_generation_failed:
         "Systém je momentálne preťažený. Skús to prosím o chvíľu neskôr.",
       missing_activity_data: "Na analýzu chýbajú potrebné dáta z tréningu.",
@@ -2527,30 +2549,28 @@ export const sk = {
     activities: {
       missingUserId: "Nepodarilo sa identifikovať účet.",
       missingActivityId: "Chýba identifikátor tréningu.",
-      enqueueFailed:
-        "Nepodarilo sa spustiť analýzu. Skús to prosím neskôr.",
+      enqueueFailed: "Nepodarilo sa spustiť analýzu. Skús to prosím neskôr.",
       enrichmentFetchFailed: "Nepodarilo sa načítať detaily tréningu.",
       limitReached: "Bol dosiahnutý limit prepočtov pre tento tréning.",
       activityTooOld:
         "Tento tréning je starší ako 7 dní, už ho nie je možné analyzovať.",
-      onlyOneForFreeTier: "V bezplatnom programe je k dispozícii hodnotenie jedného tréningu.",
-      duplicateContent:
-        "Tento komentár sa už pri poslednej analýze použil.",
+      onlyOneForFreeTier:
+        "V bezplatnom programe je k dispozícii hodnotenie jedného tréningu.",
+      duplicateContent: "Tento komentár sa už pri poslednej analýze použil.",
       activityNotFound: "Tréning sa nenašiel.",
-      streamsFetchFailed:
-        "Dáta zo Stravy sa nepodarilo stiahnuť.",
+      streamsFetchFailed: "Dáta zo Stravy sa nepodarilo stiahnuť.",
       extrasFetchFailed: "Medzičasy zo Stravy sa nepodarilo načítať.",
       paretoFetchFailed: "Nepodarilo sa pripraviť 80/20 graf.",
       weeklyLoadFetchFailed:
         "Dáta pre graf týždňovej záťaže nie sú k dispozícii.",
-      monoStrainFetchFailed:
-        "Nepodarilo sa načítať monotónnosť a úsilie.",
+      monoStrainFetchFailed: "Nepodarilo sa načítať monotónnosť a úsilie.",
     },
     strava: {
       statusLoadFailed: "Nepodarilo sa zistiť stav prepojenia so Stravou.",
       disconnectConsentRequired:
         "Na odpojenie Stravy je potrebný výslovný súhlas.",
-      disconnectFailed: "Stravu sa nepodarilo odpojiť. Skús to prosím o chvíľu.",
+      disconnectFailed:
+        "Stravu sa nepodarilo odpojiť. Skús to prosím o chvíľu.",
     },
     bests: {
       loadFailed: "Osobné rekordy sa nepodarilo načítať.",
@@ -2578,8 +2598,7 @@ export const sk = {
     },
     coach: {
       planFetchFailed: "Tréningový plán sa nepodarilo načítať.",
-      enqueueFailed:
-        "Nepodarilo sa spustiť analýzu. Skús to prosím o chvíľu.",
+      enqueueFailed: "Nepodarilo sa spustiť analýzu. Skús to prosím o chvíľu.",
       runFailed: "Zlyhalo spracovanie požiadavky na pozadí.",
       invalidResult:
         "Prijaté neplatné dáta. Bude potrebné vygenerovať rozpis znovu.",

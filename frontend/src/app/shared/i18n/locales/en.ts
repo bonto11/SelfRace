@@ -158,8 +158,7 @@ export const en = {
   pwaPrompt: {
     title: "Install SelfRace",
     androidDesc: "Save the app to your phone for the best experience.",
-    iosDesc:
-      "Add the app to your iPhone home screen. Here's a quick guide:",
+    iosDesc: "Add the app to your iPhone home screen. Here's a quick guide:",
     later: "Later",
     install: "Install app",
     close: "Got it, close",
@@ -294,7 +293,8 @@ export const en = {
     btnForgotPassword: "Forgot password?",
     haveAccount: "Already have an account?",
     btnSignin: "Log in",
-    footer: 'You can connect Strava in the settings after successful registration.',
+    footer:
+      "You can connect Strava in the settings after successful registration.",
   },
   userMenu: {
     settings: "Settings",
@@ -307,7 +307,8 @@ export const en = {
   },
   share: {
     generating: "Preparing the photo...",
-    generatingWarning: "The image is still generating, please hold on a second.",
+    generatingWarning:
+      "The image is still generating, please hold on a second.",
     title: "Workout",
     errorFailed: "Sharing failed.",
     errorNotSupported: "The device doesn't support direct image sharing.",
@@ -372,8 +373,7 @@ export const en = {
       },
 
       focusAvoidSection: {
-        subtitle:
-          "Areas to work on and elements the plan should avoid.",
+        subtitle: "Areas to work on and elements the plan should avoid.",
         previewFocus: "Focus",
         previewAvoid: "Limitations",
         areasLabel: "What to focus on?",
@@ -515,7 +515,8 @@ export const en = {
             "• If the pain keeps returning, caution is advised. Health always takes precedence.",
           ].join("\n"),
         },
-        subtitle: "Adjusting load and adding recovery exercises based on your condition.",
+        subtitle:
+          "Adjusting load and adding recovery exercises based on your condition.",
         noInjuries: "No injuries. Completely fit.",
         areaLabel: "Location (Body part)",
         typeLabel: "Type of problem",
@@ -576,17 +577,13 @@ export const en = {
           glute:
             "Does the pain shoot down the leg, or is it a deep pain in the glute?",
           hip: "Does the joint hurt on the side or more towards the back?",
-          psoas:
-            "Deep pelvic pain when lifting the leg?",
-          groin:
-            "Pain on the inner thigh?",
-          abdomen:
-            "Surface muscles, or a sharp pain inside?",
+          psoas: "Deep pelvic pain when lifting the leg?",
+          groin: "Pain on the inner thigh?",
+          abdomen: "Surface muscles, or a sharp pain inside?",
           back: "Lower back, or more between the shoulder blades?",
           neck: "Stiff neck, or does the pain shoot to the shoulder?",
           shoulder: "Does the shoulder hurt when moving or even at rest?",
-          arm_wrist:
-            "Wrist or elbow? (Common in cycling).",
+          arm_wrist: "Wrist or elbow? (Common in cycling).",
           other:
             "Please describe the exact location and situation in the notes.",
         },
@@ -622,8 +619,7 @@ export const en = {
         subtitle: "Compensation exercises and focus.",
         previewFocus: "Focus",
         focusLabel: "What is being 'fixed'?",
-        focusTooltip:
-          "Focus areas for the rehab exercises.",
+        focusTooltip: "Focus areas for the rehab exercises.",
         enums: {
           stretching: "Stretching",
           mobility: "Joint mobility",
@@ -690,8 +686,7 @@ export const en = {
       },
 
       sportsSection: {
-        subtitle:
-          "Main sport and complementary activities.",
+        subtitle: "Main sport and complementary activities.",
         previewMain: "Main",
         previewAddons: "Add-ons",
         mainSportLabel: "Main sport",
@@ -787,8 +782,7 @@ export const en = {
         measurementLabel: "Method of determination",
         saveBtn: "Save threshold",
         dbTitle: "Current values",
-        dbTooltip:
-          "The latest valid recorded entries.",
+        dbTooltip: "The latest valid recorded entries.",
         enums: {
           measure: {
             lab: "Lab test",
@@ -818,8 +812,7 @@ export const en = {
       },
 
       volumeSection: {
-        subtitle:
-          "Time limit reserved for training.",
+        subtitle: "Time limit reserved for training.",
         previewEmpty:
           "Limit not set – volume will be suggested based on goals.",
         previewText:
@@ -860,8 +853,7 @@ export const en = {
         calcLabel: "Zone calculation method",
         calcTooltip:
           "Modes:\n• Manual = precise entry of boundaries\n• From HRmax = simple estimate based on maximum\n• From %LTHR = most accurate method for endurance athletes\n\nNote: Calculation from LTHR requires the heart rate set in the Thresholds section.",
-        lthrTooltip:
-          "The data is taken from the last saved threshold (LT2).",
+        lthrTooltip: "The data is taken from the last saved threshold (LT2).",
         lthrSourceHint: "Source: Threshold heart rate (LTHR) for this sport",
         lthrMissingHint:
           "First, the LTHR heart rate must be entered in the Thresholds section.",
@@ -882,9 +874,11 @@ export const en = {
         errors: {
           empty: "Zone data is empty.",
           mustBeNumber: "this field must be a number.",
-          minMax: "Error: Every zone must have a minimum smaller than the maximum.",
+          minMax:
+            "Error: Every zone must have a minimum smaller than the maximum.",
           order: "Zones must follow each other and cannot overlap.",
-          maxHr: "Zone 5 cannot be higher than the maximum heart rate ({{hr}}).",
+          maxHr:
+            "Zone 5 cannot be higher than the maximum heart rate ({{hr}}).",
         },
         widget: {
           title: "Heart rate zones",
@@ -912,9 +906,11 @@ export const en = {
       desc1:
         "For the best performance, it is recommended to save this app to the phone's home screen. It will run faster and without browser distractions:",
       iosTitle: "For iPhone (Safari):",
-      iosDesc: "Tap the share icon at the bottom and select 'Add to Home Screen'.",
+      iosDesc:
+        "Tap the share icon at the bottom and select 'Add to Home Screen'.",
       androidTitle: "For Android (Chrome):",
-      androidDesc: "Tap the three dots in the top right and select 'Add to Home screen'.",
+      androidDesc:
+        "Tap the three dots in the top right and select 'Add to Home screen'.",
       ps: "Tip: This guide can always be found in the profile menu.",
     },
     notifications: {
@@ -954,8 +950,7 @@ export const en = {
     coach: {
       tab: "Coach",
       title: "Custom coach 🧠",
-      desc1:
-        "Data and recovery analysis to design a workout schedule.",
+      desc1: "Data and recovery analysis to design a workout schedule.",
       prefsTitle: "Preferences:",
       prefsDesc:
         "In 'Training preferences', goals, zones, training days, etc. are set. The more accurate the data, the better the plan fits.",
@@ -1198,7 +1193,8 @@ export const en = {
         "• Generate a new plan only when a change is truly needed (e.g., a new goal or return after a long break).",
       ].join("\n"),
       note: "Analyze fitness, create the schedule, and then start the active plan.",
-      timeNote: "Preparing the plan can take up to 3 minutes, please be patient.",
+      timeNote:
+        "Preparing the plan can take up to 3 minutes, please be patient.",
       loading: {
         msg1: "Dialing in form takes focus...",
         msg2: "Calculating millions of running scenarios. Time to check shoelaces.",
@@ -1209,8 +1205,7 @@ export const en = {
         title: "Saving time:",
         text: "Every new plan uses a bit of the monthly limit. Don't regenerate plans unnecessarily. The balance can be found in the section",
         link: "Subscription",
-        shortText:
-          "Regenerating plans wisely saves allocated time.",
+        shortText: "Regenerating plans wisely saves allocated time.",
       },
 
       status: {
@@ -1225,7 +1220,8 @@ export const en = {
       medicalSuspendBanner: {
         title: "Training on hold",
         text: "The plan was paused due to pain ({{severity}}/10).",
-        action: "Only delete the injury in the profile when a doctor clears training.",
+        action:
+          "Only delete the injury in the profile when a doctor clears training.",
       },
     },
     status: {
@@ -1291,6 +1287,26 @@ export const en = {
       genericStart: "This plan could not be started.",
       aiQuota:
         "Time for this month is exhausted. Credits used: {{tokens}}. Can be used again at the start of a new month or via contact.",
+    },
+  },
+  coachCompliance: {
+    widget: {
+      title: "Training Plan Compliance",
+      tooltip: "Overview of completed, skipped, and missed workouts over the last 30 days.",
+    },
+    stats: {
+      title: "Activity Statistics",
+      subtitle: "Evaluation of workouts over the last 30 days.",
+      completed: "Completed",
+      skipped: "Moved to rest bank",
+      missed: "Missed (inactive)",
+      successRate: "Compliance rate",
+    },
+    bank: {
+      title: "Rest Bank",
+      subtitle: "List of consciously skipped workouts waiting to be rescheduled.",
+      empty: "There are currently no workouts in the rest bank.",
+      actionReschedule: "Reschedule",
     },
   },
   coachPrefs: {
@@ -1376,8 +1392,7 @@ export const en = {
     subtitle:
       "Events (like work, vacation, or another sport) to account for when creating the plan.",
     preview: {
-      noUser:
-        "Please log in first to load events.",
+      noUser: "Please log in first to load events.",
       loading: "Loading other activities from the database...",
       empty: "No other events recorded yet.",
     },
@@ -1452,8 +1467,7 @@ export const en = {
       high: "High (demanding day)",
     },
     errors: {
-      loadFailed:
-        "Activities could not be loaded. Please try again later.",
+      loadFailed: "Activities could not be loaded. Please try again later.",
       saveFailed: "Error saving. Please check the connection.",
       deleteFailed: "Could not delete data.",
       missingDate: "Please select a specific date in the calendar.",
@@ -1539,7 +1553,8 @@ export const en = {
       ].join("\n"),
       noteMissing:
         "Still missing {{min}} minutes in low intensity for the ideal ratio.",
-      noteExtra: "More by {{min}} minutes of low intensity compared to the ideal ratio. Great!",
+      noteExtra:
+        "More by {{min}} minutes of low intensity compared to the ideal ratio. Great!",
       notePerfect: "Exactly the ideal training mix ✔",
     },
     trend: {
@@ -1720,14 +1735,12 @@ export const en = {
     title: "Settings",
     btnChangeMail: "Change email or profile",
     btnChangePassword: "Change password via email",
-    quickActions:
-      "Quick actions for profile and password.",
+    quickActions: "Quick actions for profile and password.",
     actions: "Account actions",
     dateFormat: "Date format",
     prefs: {
       title: "Personal settings",
-      subtitle:
-        "Language, units, and time zone.",
+      subtitle: "Language, units, and time zone.",
       labels: {
         language: "App language",
         units: "Units",
@@ -1877,7 +1890,8 @@ export const en = {
     },
     metrics: {
       title: "Statistics",
-      subtitle: "Weight, body fat percentage, maximum heart rate, and fitness (VO₂max).",
+      subtitle:
+        "Weight, body fat percentage, maximum heart rate, and fitness (VO₂max).",
       weightLabel: "Weight",
       fatLabel: "Body fat",
       hrMaxLabel: "Maximum heart rate (HR max)",
@@ -1927,7 +1941,8 @@ export const en = {
       },
       hrv: {
         title: "HRV",
-        subtitle: "Heart rate variability and normal average. Missing days are highlighted.",
+        subtitle:
+          "Heart rate variability and normal average. Missing days are highlighted.",
         baselineMinus: "Normal average −5 %",
         baselinePlus: "Normal average +5 %",
         hrvLabel: "Average HRV",
@@ -1937,7 +1952,8 @@ export const en = {
       },
       rhr: {
         title: "Resting heart rate (RHR)",
-        subtitle: "Morning heart rate and average. Missing days are highlighted.",
+        subtitle:
+          "Morning heart rate and average. Missing days are highlighted.",
         baselineMinus: "Average −5 %",
         baselinePlus: "Average +5 %",
         rhrLabel: "Morning HR",
@@ -1977,8 +1993,7 @@ export const en = {
     pageTitle: "Health limitations",
     widget: {
       title: "Injuries and limitations",
-      tooltip:
-        "Current injuries, fatigue, or illnesses affecting the plan.",
+      tooltip: "Current injuries, fatigue, or illnesses affecting the plan.",
       allGood: "Everything is fine! 100% fit.",
       errorFailedLoad: "Health status could not be loaded.",
     },
@@ -2006,14 +2021,14 @@ export const en = {
       autoSeverityTitle: "Automatic evaluation",
       autoSeverityText:
         "The severity of the problem will be calculated automatically based on symptoms.",
-      severityLabel: "Severity (1 = small limitation, 10 = training impossible)",
+      severityLabel:
+        "Severity (1 = small limitation, 10 = training impossible)",
       severityMildHint:
         "Small limitation. Training will be softened or another sport suggested.",
       severityCriticalHint:
         "No go today. Medical leave and proper rest will be prescribed.",
       notesLabel: "Note about the problem (optional)",
-      notesPlaceholder:
-        "e.g., knee pain when running downhill, fever 38.5...",
+      notesPlaceholder: "e.g., knee pain when running downhill, fever 38.5...",
       addDraftBtn: "+ Add to list",
       draftsTitle: "Ready to save (not yet sent):",
       errorNoSymptoms: "Please select at least one symptom.",
@@ -2209,8 +2224,7 @@ export const en = {
       totalVolume: "Total volume",
       plannedVolume: "Planned volume",
       weeksTitle: "Breakdown by weeks",
-      weeksSubtitle:
-        "Details of each block. The bar shows running kilometers.",
+      weeksSubtitle: "Details of each block. The bar shows running kilometers.",
       noGoalShort: "No specific goal yet",
       phases: {
         base: "Base endurance",
@@ -2229,8 +2243,7 @@ export const en = {
       errorLoad: "Daily plan could not be loaded.",
       errorLoadTitle: "Error loading data",
       errorSave: "Changes in the plan could not be saved.",
-      noPlan:
-        "No active plan running for individual days right now.",
+      noPlan: "No active plan running for individual days right now.",
       scheduleTitle: "Workout schedule",
       scheduleSubtitle:
         "Each card is one workout. Moving within the cycle is possible as needed.",
@@ -2293,8 +2306,7 @@ export const en = {
         "all workouts, graphs, and splits imported from Strava will be deleted from the profile",
       consequence2: "the official connection between apps will be cancelled",
       consequence3: "reconnecting will only be possible after 24 hours",
-      consentLabel:
-        "Consent to delete all Strava data in this app.",
+      consentLabel: "Consent to delete all Strava data in this app.",
       consentHint: "Disconnection cannot be performed without confirmation.",
       btnDisabledTitle: "Consent must be confirmed first.",
       btnAction: "Disconnect Strava account",
@@ -2323,7 +2335,8 @@ export const en = {
       errorTooOld:
         "This workout is older than 7 days, it can no longer be analyzed.",
       errorCommentLong: "Comment is too long (max 900 characters).",
-      errorRerunRejected: "The request for a new calculation could not be accepted.",
+      errorRerunRejected:
+        "The request for a new calculation could not be accepted.",
       errorGeneric: "Error occurred while analyzing the workout.",
       statusTooOld: "Activity took place more than a week ago.",
       statusNoReview: "This workout is not evaluated yet.",
@@ -2351,15 +2364,18 @@ export const en = {
       sectionNextDay: "Advice for tomorrow",
       noReviewPlaceholder:
         "No evaluation yet. Only workouts that are not older than 7 days can be analyzed.",
-      "upsellTitle": "Premium Analysis & Comments",
-      "upsellDesc": "An active subscription is required to add custom comments, provide detailed context, and unlock advanced evaluations from the coach.",
-      "limitReached": "You have reached the maximum number of recalculations for this activity.",
+      upsellTitle: "Premium Analysis & Comments",
+      upsellDesc:
+        "An active subscription is required to add custom comments, provide detailed context, and unlock advanced evaluations from the coach.",
+      limitReached:
+        "You have reached the maximum number of recalculations for this activity.",
       api: {
         success: "Workout was successfully analyzed.",
         processing: "Analysis is running, will appear shortly...",
         queued: "Request is in the queue for processing.",
         errorEnqueue: "Failed to start the analysis.",
-        limitReached: "Maximum number of recalculations for this workout has been reached.",
+        limitReached:
+          "Maximum number of recalculations for this workout has been reached.",
       },
       injuryModal: {
         title: "Pain and injury management",
@@ -2425,6 +2441,16 @@ export const en = {
           "Paces are estimates. With a watch, heart rate should be followed primarily. In low intensity, fluent conversation should be possible.",
       },
     },
+    matchModal: {
+      title: "Match with Activity",
+      subtitle: "Select a real activity for the planned session:",
+      noActivities: "No recent activities found.",
+      btnCancel: "Cancel",
+      btnMatch: "Match",
+      btnSaving: "Saving...",
+      success: "Session matched successfully.",
+      error: "Failed to match the session.",
+    },
     splits: {
       noData: "No data about splits.",
       totalTime: "Total time",
@@ -2439,6 +2465,7 @@ export const en = {
       planned: "planned",
       done: "done",
       missed: "missed",
+      skipped: "skipped",
     },
     card: {
       distance: "Distance",
@@ -2446,6 +2473,13 @@ export const en = {
       favorite: "Favorite",
       hideDetail: "Hide details",
       showDetail: "Show details",
+      managePlan: "Manage plan",
+      actions: {
+        reschedule: "Reschedule",
+        skip: "Skip",
+        match: "Match activity",
+        unmatch: "Unmatch activity",
+      },
       reschedule: {
         title: "Move workout to a different day",
         close: "Close",
@@ -2491,27 +2525,28 @@ export const en = {
     },
     ai_errors: {
       activity_not_found: "Workout was not found.",
-      activity_too_old: "Evaluation is only possible for workouts younger than 7 days.",
+      activity_too_old:
+        "Evaluation is only possible for workouts younger than 7 days.",
       hard_limit_reached:
         "The overall system limit for plan creation was reached.",
-      limit_reached: "The recalculation limit for the current program was exhausted.",
+      limit_reached:
+        "The recalculation limit for the current program was exhausted.",
       only_one_for_free_tier:
         "In the free version, evaluation is available for only one workout.",
       duplicate_content:
         "This same comment was already used in the last recalculation.",
       enqueue_failed: "Request could not be queued, please try again.",
-      ai_quota_exceeded:
-        "The monthly limit for recalculations is exhausted.",
+      ai_quota_exceeded: "The monthly limit for recalculations is exhausted.",
       ai_generation_failed:
         "The system is currently overloaded. Please try again a bit later.",
       missing_activity_data: "Necessary workout data is missing for analysis.",
       REQUEST_FAILED: "Request to the server failed.",
-      generic_error: "An unexpected error occurred while creating the schedule.",
+      generic_error:
+        "An unexpected error occurred while creating the schedule.",
     },
     billing: {
       missingTier: "No program has been chosen yet.",
-      checkoutSessionFailed:
-        "Payment could not be started. Please try again.",
+      checkoutSessionFailed: "Payment could not be started. Please try again.",
       portalSessionFailed: "Subscription management could not be opened.",
       tierChangeFailed: "Program change failed.",
       cancelPlannedFailed: "Planned change could not be cancelled.",
@@ -2526,30 +2561,28 @@ export const en = {
     activities: {
       missingUserId: "Account could not be identified.",
       missingActivityId: "Workout identifier is missing.",
-      enqueueFailed:
-        "Analysis could not be started. Please try again later.",
+      enqueueFailed: "Analysis could not be started. Please try again later.",
       enrichmentFetchFailed: "Workout details could not be loaded.",
       limitReached: "Recalculation limit for this workout has been reached.",
       activityTooOld:
         "This workout is older than 7 days, it can no longer be analyzed.",
-      onlyOneForFreeTier: "In the free program, evaluation of one workout is available.",
+      onlyOneForFreeTier:
+        "In the free program, evaluation of one workout is available.",
       duplicateContent:
         "This comment was already used during the last analysis.",
       activityNotFound: "Workout was not found.",
-      streamsFetchFailed:
-        "Data from Strava could not be downloaded.",
+      streamsFetchFailed: "Data from Strava could not be downloaded.",
       extrasFetchFailed: "Splits from Strava could not be loaded.",
       paretoFetchFailed: "80/20 graph could not be prepared.",
-      weeklyLoadFetchFailed:
-        "Data for the weekly load graph is not available.",
-      monoStrainFetchFailed:
-        "Monotony and strain could not be loaded.",
+      weeklyLoadFetchFailed: "Data for the weekly load graph is not available.",
+      monoStrainFetchFailed: "Monotony and strain could not be loaded.",
     },
     strava: {
       statusLoadFailed: "Strava connection status could not be determined.",
       disconnectConsentRequired:
         "Explicit consent is needed to disconnect Strava.",
-      disconnectFailed: "Strava could not be disconnected. Please try again in a moment.",
+      disconnectFailed:
+        "Strava could not be disconnected. Please try again in a moment.",
     },
     bests: {
       loadFailed: "Personal bests could not be loaded.",

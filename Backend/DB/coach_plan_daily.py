@@ -54,10 +54,18 @@ def db_get_planned_range_rows(user_id: int, date_from: str, date_to: str, *, ctx
 
 def db_link_session_to_activity(user_id: int, *, ctx: AuthCtx, id: int, activity_id: Optional[int]) -> Optional[Dict[str, Any]]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_link_session_to_activity")
+    
+    # Automatická zmena statusu: ak priradíme ID, je done. Ak odoberieme (None), je planned.
+    new_status = "done" if activity_id else "planned"
+    
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
-            .update({"activity_id": activity_id, "updated_at": _now_iso()})
+            .update({
+                "activity_id": activity_id, 
+                "status": new_status, 
+                "updated_at": _now_iso()
+            })
             .eq("id", int(id))
             .eq("user_id", int(user_id))
             .execute()
@@ -67,6 +75,27 @@ def db_link_session_to_activity(user_id: int, *, ctx: AuthCtx, id: int, activity
     except Exception as e:
         print("[DB-COACH-DAILY] link_session_to_activity error:", repr(e))
         return None
+
+def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: AuthCtx) -> bool:
+    """
+    Vráti True, ak pre daný deň existuje aspoň jeden tréning,
+    ktorý má status 'planned' (čaká na odtrénovanie).
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_has_uncompleted_daily_sessions")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id")
+            .eq("user_id", int(user_id))
+            .eq("plan_date", plan_date)
+            .eq("status", "planned")  # 👈 OPRAVA: Pozeráme priamo na nový status
+            .limit(1)
+            .execute()
+        )
+        return len(res.data or []) > 0
+    except Exception as e:
+        print("[DB-COACH-DAILY] has_uncompleted_sessions error:", repr(e))
+        return False
 
 def db_list_daily_for_user_horizon(user_id: int, horizon_days: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     from datetime import date, timedelta
@@ -199,27 +228,6 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
     return {"ok": True, "updated": updated}
     
     
-def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: AuthCtx) -> bool:
-    """
-    Vráti True, ak pre daný deň existuje aspoň jeden tréning,
-    ktorý EŠTE NEMÁ priradené activity_id (t.j. nebol odtrénovaný).
-    """
-    sb = get_sb(ctx, caller="coach_plan_daily.db_has_uncompleted_daily_sessions")
-    try:
-        res = (
-            sb.table(TABLE_COACH_PLAN_DAILY)
-            .select("id")
-            .eq("user_id", int(user_id))
-            .eq("plan_date", plan_date)
-            .is_("activity_id", "null")  # Ak je null, znamená to neukončený
-            .limit(1)
-            .execute()
-        )
-        return len(res.data or []) > 0
-    except Exception as e:
-        print("[DB-COACH-DAILY] has_uncompleted_sessions error:", repr(e))
-        return False
-
 def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     """
     Vráti True, ak pre daný plán a používateľa existuje aspoň jeden daily záznam.
@@ -257,6 +265,25 @@ def db_delete_future_daily_plans(user_id: int, from_date: str, *, ctx: AuthCtx) 
         print("[DB-COACH-DAILY] delete future error:", repr(e))
         return False
         
+def db_delete_daily_session(user_id: int, session_id: int, *, ctx: AuthCtx) -> bool:
+    """
+    Vymaže jeden konkrétny denný tréning.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_delete_daily_session")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .delete()
+            .eq("id", int(session_id))
+            .eq("user_id", int(user_id))
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print(f"[DB-COACH-DAILY] delete_daily_session error: {repr(e)}")
+        return False
+
+
 def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     """
     Vykoná univerzálny update jedného denného tréningu.
@@ -277,21 +304,3 @@ def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dic
     except Exception as e:
         print(f"[DB-COACH-DAILY] update_daily_session_data error: {repr(e)}")
         return None
-
-def db_delete_daily_session(user_id: int, session_id: int, *, ctx: AuthCtx) -> bool:
-    """
-    Vymaže jeden konkrétny denný tréning.
-    """
-    sb = get_sb(ctx, caller="coach_plan_daily.db_delete_daily_session")
-    try:
-        res = (
-            sb.table(TABLE_COACH_PLAN_DAILY)
-            .delete()
-            .eq("id", int(session_id))
-            .eq("user_id", int(user_id))
-            .execute()
-        )
-        return bool(res.data)
-    except Exception as e:
-        print(f"[DB-COACH-DAILY] delete_daily_session error: {repr(e)}")
-        return False

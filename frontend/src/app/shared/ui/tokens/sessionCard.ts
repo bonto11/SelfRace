@@ -320,7 +320,7 @@ export const SESSION_TOGGLE_ICON = [
 ============================================================================ */
 
 export const SESSION_PLAN_STATUS_STYLE: Record<
-  "planned" | "done" | "missed",
+  "planned" | "done" | "missed" | "skipped",
   VarStyle
 > = {
   planned: {
@@ -337,6 +337,12 @@ export const SESSION_PLAN_STATUS_STYLE: Record<
     "--pill-bg": "rgba(245,158,11,0.10)",
     "--pill-border": appColors.statusWarning,
     "--pill-text": appColors.statusWarning,
+  },
+  skipped: {
+    ...SESSION_PILL_STYLE,
+    "--pill-bg": "rgba(156, 163, 175, 0.10)", 
+    "--pill-border": "rgba(156, 163, 175, 0.4)",
+    "--pill-text": "rgba(156, 163, 175, 0.9)",
   },
 };
 

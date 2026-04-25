@@ -20,6 +20,9 @@ import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeek
 import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
 import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 
+// 👈 Import nového Widgetu
+import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance"; 
+
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
@@ -91,6 +94,14 @@ function ClientPage() {
             onOpenDetail={() => router.push("/coach/ai/progress")}
           />
         )}
+
+        {/* 👈 Pridaný náš nový Compliance Widget */}
+        {showAdvanced && (
+          <WidgetCoachPlanCompliance 
+            onOpenDetail={() => router.push("/coach/compliance")}
+          />
+        )}
+
       </div>
     </PageShell>
   );

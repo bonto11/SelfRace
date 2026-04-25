@@ -1,7 +1,7 @@
 # Routes_FE/coach_plan_daily.py
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -13,14 +13,20 @@ from Schemas.coach_plan_daily import DailyWeekGenerateConfig
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_get_daily_overview,
+    service_update_daily_session_status
 )
-
+from DB.coach_plan_daily import db_update_daily_session_data
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
     prefix="/coach-plan-daily",
     tags=["coach-plan-daily"],
 )
+
+class DailySessionPatch(BaseModel):
+    status: Optional[str] = Field(None, description="Napr. 'planned', 'skipped', 'missed'")
+    activity_id: Optional[int] = Field(None, description="ID aktivity pre manuálne spárovanie")
+    unmatch: Optional[bool] = Field(False, description="Ak True, zruší spárovanie a vráti stav na planned")
 
 @router.post("/generate/{user_id}")
 def generate_daily_for_week(
@@ -100,6 +106,39 @@ def reschedule_daily_plan(
         )
 
         return {"success": True, "data": overview, "error_code": None, "message": None}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
+    except Exception as e:  
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.patch("/session/{user_id}/{session_id}")
+def update_daily_session_status_route(
+    req: Request,
+    user_id: int,
+    session_id: int,
+    payload: DailySessionPatch,
+) -> Dict[str, Any]:
+    """
+    Univerzálny endpoint pre manuálne zásahy do tréningu z Frontendu.
+    Presúva logiku do service vrstvy.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        
+        # Všetka logika sa deje v Service
+        result = service_update_daily_session_status(
+            user_id=user_id,
+            session_id=session_id,
+            status=payload.status,
+            activity_id=payload.activity_id,
+            unmatch=bool(payload.unmatch),
+            ctx=ctx
+        )
+        
+        return {"success": True, "data": result["data"], "error_code": None, "message": result["message"]}
+        
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:

@@ -9,11 +9,9 @@ from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
     db_insert_daily_rows,
     db_list_daily_for_user_horizon,
+    db_update_daily_session_data
 )
-from DB.coach_plan_meta import (
-    db_get_active_plan_meta_for_user,
-    db_get_latest_plan_meta_for_user,
-)
+
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -390,3 +388,48 @@ def service_auto_extend_daily_plan(
         "final_days_left": days_left,
         "last_daily_date": current_last_str,
     }
+
+
+def service_update_daily_session_status(
+    user_id: int,
+    session_id: int,
+    status: Optional[str],
+    activity_id: Optional[int],
+    unmatch: bool,
+    *,
+    ctx: AuthCtx
+) -> Dict[str, Any]:
+    """
+    Spracuje logiku pre manuálne zásahy do denného tréningu (Skip, Match, Unmatch).
+    """
+    update_data = {}
+    
+    # 1. Logika pre UNMATCH (Zrušiť spárovanie)
+    if unmatch:
+        update_data["activity_id"] = None
+        update_data["status"] = "planned"
+    else:
+        # 2. Logika pre MANUAL MATCH (Užívateľ vybral aktivitu)
+        if activity_id is not None:
+            update_data["activity_id"] = activity_id
+            update_data["status"] = "done"  # Automaticky prepneme na hotovo
+            
+        # 3. Logika pre SKIP/UNSKIP alebo inú priamu zmenu statusu
+        if status is not None:
+            update_data["status"] = status
+
+    if not update_data:
+        return {"success": True, "data": None, "message": "No changes requested"}
+
+    # Volanie databázovej vrstvy
+    row = db_update_daily_session_data(
+        user_id=user_id, 
+        session_id=session_id, 
+        update_data=update_data, 
+        ctx=ctx
+    )
+    
+    if not row:
+        raise ValueError("Session not found or update failed")
+
+    return {"success": True, "data": row, "message": "Session updated successfully"}
