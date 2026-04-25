@@ -20,7 +20,7 @@ import {
 import { apiGetBests } from "@/app/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/app/shared/utils/time";
 import { fetchPlanRangeApi } from "@/app/features/coach/api/planApi";
-import { useT } from "@/app/shared/i18n/useT"; // ✅ Import prekladov
+import { useT } from "@/app/shared/i18n/useT";
 
 /* ----------------- PB mapovanie ----------------- */
 
@@ -48,6 +48,8 @@ export type PlanRow = {
   duration_min?: number | null;
   intensity?: string | null;
   activity_id?: number | null;
+  // ✅ PRIDANÉ: Status z databázy
+  status?: "planned" | "done" | "skipped" | "missed";
   session_type?: string | null;
   session_index?: number | null;
   payload?: any;
@@ -69,7 +71,6 @@ type PlanSubCtx = {
 /* ----------------- Typ kontextu ----------------- */
 
 type CoachCtx = {
-  // ✅ nový agregát
   loading: boolean;
 
   // coach prefs + PB
@@ -103,12 +104,12 @@ export function CoachDataProvider({
   futureDays?: number;
 }) {
   const { userId } = useUserId();
-  const t = useT(); // ✅ Inicializácia prekladača
+  const t = useT();
 
   // -------- prefs + PB --------
   const [prefs, setPrefs] = useState<CoachPrefs>(DEFAULT_PREFS);
   const [pbRun, setPbRun] = useState<typePB[]>([]);
-  const [coachLoading, setCoachLoading] = useState(false); // ✅ NEW
+  const [coachLoading, setCoachLoading] = useState(false);
 
   const refreshCoachCore = useCallback(async () => {
     if (!userId) return;
@@ -159,13 +160,11 @@ export function CoachDataProvider({
         return;
       }
 
-      // force zatiaľ nerozlišujeme – nechávame parameter kvôli budúcnosti
       setPlanLoading(true);
       try {
         const norm = await fetchPlanRangeApi(userId, rangeStart, rangeEnd);
         setPlanRows(norm as PlanRow[]);
       } catch (e: any) {
-        // ✅ Tiché zalogovanie s prekladom
         console.error("[PLAN][provider] fetchRange ERROR", t(e?.message as any) || t("api.coach.planFetchFailed"));
         setPlanRows([]);
       } finally {
@@ -205,7 +204,7 @@ export function CoachDataProvider({
 
   const value = useMemo<CoachCtx>(
     () => ({
-      loading: coachLoading || planLoading, // ✅ NEW agregát
+      loading: coachLoading || planLoading,
 
       prefs,
       pbRun,
