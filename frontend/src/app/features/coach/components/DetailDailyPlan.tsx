@@ -1,7 +1,7 @@
 // src/app/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -115,42 +115,39 @@ export default function DetailDailyPlan() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // 👈 Lokálne stavy pre kalendár
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
   const [showAllDays, setShowAllDays] = useState(false); 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
-  useEffect(() => {
+  // 🔄 Funkcia pre refresh dát (použijeme po Skipnutí/Matchnutí)
+  const refreshData = useCallback(async (showLoading = true) => {
     if (!userId) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetDailyOverview(userId);
-        if (alive) {
-          setOverview(r ?? null);
-          setMoves([]); 
-          setSaveError(null);
-        }
-      } catch (e: any) {
-        if (alive) setError(t(e?.message as any) || t("coach.daily.errorLoad"));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+    if (showLoading) setLoading(true);
+    setError(null);
+    try {
+      const r = await apiGetDailyOverview(userId);
+      setOverview(r ?? null);
+      setMoves([]); 
+      setSaveError(null);
+    } catch (e: any) {
+      setError(t(e?.message as any));
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, [userId, t]);
+
+  useEffect(() => {
+    refreshData(true);
+  }, [refreshData]);
 
   const days = overview?.days ?? [];
   const hasPlan = days.length > 0;
 
-  // 👈 Vypočítame dni, ktoré sa reálne vyrendrujú na základe Togglu a vybraného dátumu
   const filteredDays = useMemo(() => {
     if (showAllDays) return days;
-    return days.filter((d) => d.date === selectedDate);
+    // V bežnom móde filtrujeme len tie, ktoré nie sú skipped, aby nezavadzali
+    const list = days.filter((d) => d.date === selectedDate);
+    return list;
   }, [days, showAllDays, selectedDate]);
 
   const planDates = useMemo(() => {
@@ -225,16 +222,15 @@ export default function DetailDailyPlan() {
       if (next) setOverview(next);
       setMoves([]);
     } catch (e: any) {
-      setSaveError(t(e?.message as any) || t("coach.daily.errorSave"));
+      setSaveError(t(e?.message as any));
     } finally {
       setSaving(false);
     }
   };
 
-  // 👈 Handler pri kliknutí na deň v kalendári
   const handleSelectDate = (isoDate: string) => {
     setSelectedDate(isoDate);
-    setShowAllDays(false); // Pri kliku sa automaticky prepneme do "zobraziť iba 1 deň"
+    setShowAllDays(false); 
   };
 
   if (!userId) {
@@ -270,7 +266,6 @@ export default function DetailDailyPlan() {
       
       {hasPlan && <ShowAdvancedToggle />}
 
-      {/* 🌟 Kalendár na samom vrchu */}
       {hasPlan && (
         <div className="mb-2 space-y-2">
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -282,16 +277,14 @@ export default function DetailDailyPlan() {
              />
           </div>
           
-          {/* Lokálny prepínač pre filtrovanie dní */}
           <Toggle 
-            label="Zobraziť plán na celý týždeň"
+            label={t("coach.daily.toggleAllWeek")}
             checked={showAllDays}
             onChange={setShowAllDays}
           />
         </div>
       )}
 
-      {/* HLAVNÁ KARTA PRE ROZPIS */}
       <Card
         title={t("coach.daily.scheduleTitle")}
         subtitle={t("coach.daily.scheduleSubtitle")}
@@ -342,8 +335,7 @@ export default function DetailDailyPlan() {
           <div className={PANEL_PREVIEW}>{t("coach.daily.noPlan")}</div>
         ) : filteredDays.length === 0 || filteredDays.every(d => !d.sessions?.length) ? (
           <div className={PANEL_PREVIEW}>
-            {/* Ak má užívateľ prázdny deň, vypíšeme fallback hlášku */}
-            Na tento deň nie je naplánovaný žiadny tréning.
+            {t("coach.daily.noSessionsOnDay")}
           </div>
         ) : (
           <div className={PANEL_STACK}>
@@ -363,7 +355,8 @@ export default function DetailDailyPlan() {
                 const item: PlanSession = {
                   id: s.id,
                   kind: "plan",
-                  status: "planned",
+                  // 🌟 TERAZ BERIEME REÁLNY STATUS Z BACKENDU
+                  status: s.status || "planned",
                   title: s.title || s.session_type || s.sport || t("coach.daily.sessionFallback"),
                   dateIso,
                   sport: s.sport || "other",
@@ -384,6 +377,8 @@ export default function DetailDailyPlan() {
                     variant="calendar"
                     item={item}
                     showAdvanced={showAdvanced}
+                    // 🌟 REFRESH PO SKIPE/MATCHi
+                    onRefreshPlan={() => refreshData(false)}
                     planReschedule={{
                       enabled: true,
                       dates: planDates,

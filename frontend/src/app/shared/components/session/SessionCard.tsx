@@ -45,6 +45,26 @@ import {
 export type SessionKind = "activity" | "plan" | "external" | "bests";
 export type PlanStatus = "planned" | "done" | "missed" | "skipped";
 
+/**
+ * POMOCNÝ KOMPONENT PRE IKONKY STATUSOV
+ * Využiteľný v karte aj v miniatúre v kalendári.
+ */
+export function StatusIndicator({ status, kind }: { status?: PlanStatus; kind: SessionKind }) {
+  if (kind === "activity") return <span className="text-emerald-500" title="Aktivita">●</span>;
+  
+  switch (status) {
+    case "done": 
+      return <span className="text-emerald-500 font-bold" title="Splnené">✓</span>;
+    case "missed": 
+      return <span className="text-orange-500 font-bold" title="Zmeškané">✕</span>;
+    case "skipped": 
+      return <span className="text-white/30 font-bold text-xs" title="Preskočené">↷</span>;
+    case "planned": 
+    default: 
+      return <span className="text-white/40" title="Naplánované">○</span>;
+  }
+}
+
 export type KPI = { label: string; value: any };
 
 type Base = {
@@ -114,7 +134,6 @@ export type SessionCardProps = {
   showPlanDebug?: boolean;
   showAdvanced?: boolean;
   
-  // Callbacky pre refresh po akciách
   onRefreshPlan?: () => void;
 
   planReschedule?: {
@@ -232,7 +251,7 @@ function ManualMatchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md rounded-2xl bg-[#121212] border border-white/10 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         
         <div className="p-5 border-b border-white/10 shrink-0">
@@ -312,6 +331,8 @@ function ManualMatchModal({
   );
 }
 
+/* ========================================================= */
+/* HLAVNÝ KOMPONENT                                          */
 /* ========================================================= */
 
 export default function SessionCard({
@@ -430,9 +451,16 @@ export default function SessionCard({
     setShowReschedule(false);
   };
 
+  const isSkipped = item.kind === "plan" && (item as PlanSession).status === "skipped";
+
   return (
     <section
-      className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(" ")}
+      className={[
+        SESSION_CARD, 
+        SESSION_CARD_HOVER, 
+        SESSION_VARIANT_PAD[variant],
+        isSkipped ? "opacity-50 grayscale-[0.5]" : ""
+      ].join(" ")}
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
@@ -441,7 +469,13 @@ export default function SessionCard({
           <div className="flex justify-between items-start gap-4">
             
             <div className="min-w-0 flex-1 pt-1">
-              <div className={SESSION_TITLE}>{item.title}</div>
+              <div className="flex items-center gap-2">
+                <StatusIndicator 
+                  kind={item.kind} 
+                  status={item.kind === "plan" ? (item as PlanSession).status : undefined} 
+                />
+                <div className={SESSION_TITLE}>{item.title}</div>
+              </div>
               
               {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
               {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
@@ -566,7 +600,6 @@ function DetailBody({
     />
   ) : null;
 
-  // --- VNÚTORNÉ HANDLERY PRE API ---
   const handleSkip = async (sessionId: string | number) => {
     if (!userId || isProcessing) return;
     setIsProcessing(true);
@@ -617,7 +650,6 @@ function DetailBody({
             </div>
             
             <div className="flex flex-wrap gap-2">
-              {/* Presunúť (Reschedule) */}
               {planRescheduleUI && (
                 <Button
                   size="xs"
@@ -631,7 +663,6 @@ function DetailBody({
                 </Button>
               )}
 
-              {/* Preskočiť (Skip) - TERAZ FUNKČNÉ */}
               {plan.status === "planned" && (
                 <Button
                   size="xs"
@@ -643,7 +674,6 @@ function DetailBody({
                 </Button>
               )}
 
-              {/* Spárovať aktivitu (Manual Match) */}
               {(plan.status === "planned" || plan.status === "missed") && (
                 <Button
                   size="xs"
@@ -655,7 +685,6 @@ function DetailBody({
                 </Button>
               )}
 
-              {/* Zrušiť spárovanie (Unmatch) - TERAZ FUNKČNÉ */}
               {plan.status === "done" && (
                 <Button
                   size="xs"
@@ -669,7 +698,6 @@ function DetailBody({
               )}
             </div>
 
-            {/* Zobrazenie formulára na presun */}
             {planRescheduleUI?.show && (
               <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40">
                 <SelectField

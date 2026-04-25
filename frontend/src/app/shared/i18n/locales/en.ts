@@ -1293,7 +1293,8 @@ export const en = {
   coachCompliance: {
     widget: {
       title: "Training Plan Compliance",
-      tooltip: "Overview of completed, skipped, and missed workouts over the last 30 days.",
+      tooltip:
+        "Overview of completed, skipped, and missed workouts over the last 30 days.",
     },
     stats: {
       title: "Activity Statistics",
@@ -1305,7 +1306,8 @@ export const en = {
     },
     bank: {
       title: "Rest Bank",
-      subtitle: "List of consciously skipped workouts waiting to be rescheduled.",
+      subtitle:
+        "List of consciously skipped workouts waiting to be rescheduled.",
       empty: "There are currently no workouts in the rest bank.",
       actionReschedule: "Reschedule",
     },
@@ -2254,6 +2256,8 @@ export const en = {
       undoConfirmMessage:
         "This will return the last moved workout to its original day.",
       sessionFallback: "Training unit",
+      toggleAllWeek: "Show full week plan",
+      noSessionsOnDay: "No workout planned for this day.",
     },
   },
   activities: {

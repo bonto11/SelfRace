@@ -2246,6 +2246,8 @@ export const sk = {
       undoConfirmMessage:
         "Týmto sa vráti posledný presun tréningu na pôvodný deň.",
       sessionFallback: "Tréningová jednotka",
+      toggleAllWeek: "Zobraziť plán na celý týždeň",
+      noSessionsOnDay: "Na tento deň nie je naplánovaný žiadny tréning.",
     },
   },
   activities: {

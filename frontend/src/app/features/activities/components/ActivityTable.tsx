@@ -1,3 +1,4 @@
+// src/app/features/activities/components/ActivityTable.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -26,6 +27,8 @@ import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useT } from "@/app/shared/i18n/useT";
 
 import SessionCard from "@/app/shared/components/session/SessionCard";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 type Props = {
   start?: string;
@@ -33,7 +36,7 @@ type Props = {
   sport?: string | string[] | null;
   allowedSports?: string[] | null;
   titleOverride?: string;
-  variant?: ComponentVariant; // "activity" | "calendar" | "pb"
+  variant?: ComponentVariant; 
   suppressItemHeaderIfSingleDay?: boolean;
   autoOpenActivityId?: number;
 };
@@ -49,6 +52,10 @@ export default function ActivityTable({
   autoOpenActivityId,
 }: Props) {
   const { selectByRange, rows: allRows } = useActivityData();
+  const { refresh: refreshCoach } = useCoachData(); // 1. Prístup k refreshu trénera
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
+
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -66,7 +73,7 @@ export default function ActivityTable({
     }
 
     return t("activityTable.history");
-  }, [start, end, titleOverride, singleDay]);
+  }, [start, end, titleOverride, singleDay, t]);
 
   const sportList = useMemo(() => normSportsList(sport), [sport]);
 
@@ -134,6 +141,9 @@ export default function ActivityTable({
               <li key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}>
                 <SessionCard
                   variant={variant === "calendar" ? "calendar" : "activity"}
+                  showAdvanced={showAdvanced}
+                  // 2. Refresh trénera, ak sa s aktivitou niečo udeje (napr. zmazanie recenzie alebo v budúcnosti unmatch)
+                  onRefreshPlan={() => refreshCoach()}
                   item={{
                     id: r.activity_id,
                     kind: "activity",

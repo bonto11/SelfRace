@@ -10,6 +10,8 @@ import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets"
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+// 1. Importujeme CoachData pre prístup k refresh funkcii
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 type Props = {
   selectedIso: string;
@@ -28,18 +30,17 @@ export default function DayDetail({
   safeSportKey,
 }: Props) {
   const t = useT();
+  const { plan } = useCoachData(); // 2. Získame prístup k plánu
   
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
   
-  // 1. Ochrana proti Hydration Error: Uistíme sa, že renderujeme až na klientovi
   const [isMounted, setIsMounted] = React.useState(false);
   const [localLabel, setLocalLabel] = React.useState("");
 
   React.useEffect(() => {
     setIsMounted(true);
     
-    // Tu si DayDetail sám a bezpečne vygeneruje formátovaný dátum
     if (selectedIso) {
       const d = new Date(selectedIso);
       setLocalLabel(
@@ -53,7 +54,6 @@ export default function DayDetail({
     }
   }, [selectedIso]);
 
-  // buildDayBuckets necháme tak, ale vyrenderuje sa bezpečne až na klientovi
   const { past, planned } = React.useMemo(
     () =>
       buildDayBuckets({
@@ -75,15 +75,13 @@ export default function DayDetail({
     borderTop: `1px solid ${appColors.surfaceCardBorder}`,
   };
 
-  // 2. Ak komponent ešte nie je "mounted" na klientovi, nezobrazujeme nič (alebo len prázdny obal),
-  // čím zabránime nesúladu medzi serverom a prehliadačom
   if (!isMounted) {
-    return null; // alebo <div className="mt-3 ml-1 h-20" /> ako placeholder
+    return null;
   }
 
   return (
     <div className="mt-3 ml-1 space-y-4">
-      {/* PAST */}
+      {/* PAST - Realizované aktivity a zmapované tréningy */}
       <div className="space-y-2">
         <div
           className="text-[11px] uppercase tracking-wide"
@@ -104,6 +102,8 @@ export default function DayDetail({
                   variant="calendar" 
                   item={it} 
                   showAdvanced={showAdvanced}
+                  // 3. Umožníme Unmatch (zrušenie spárovania) a následný refresh
+                  onRefreshPlan={() => plan.refresh()}
                 />
               </li>
             ))}
@@ -113,7 +113,7 @@ export default function DayDetail({
 
       <div style={dividerStyle} />
 
-      {/* PLANNED */}
+      {/* PLANNED - Naplánované, vynechané a zmeškané tréningy */}
       <div className="space-y-2">
         <div
           className="text-[11px] uppercase tracking-wide"
@@ -134,6 +134,16 @@ export default function DayDetail({
                   variant="calendar" 
                   item={it} 
                   showAdvanced={showAdvanced}
+                  // 4. Umožníme Skip a Match akcie s následným refreshom kalendára
+                  onRefreshPlan={() => plan.refresh()}
+                  // Zachováme aj pôvodný rescheduling dátumu
+                  planReschedule={{
+                    enabled: true,
+                    dates: plan.rangeStart ? [plan.rangeStart, plan.rangeEnd] : [], // zjednodušené pre kalendár
+                    onChangeDate: async ({ sessionId, fromDate, toDate }) => {
+                       // Tu by v ideálnom prípade mal byť volaný globálny handler z kalendára
+                    }
+                  }}
                 />
               </li>
             ))}
