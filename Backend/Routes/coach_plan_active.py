@@ -65,6 +65,7 @@ async def cancel_active_plan(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"cancel_active_plan ERROR: {e}")
 
+
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/link
 # ----------------------------------------------------
@@ -108,13 +109,15 @@ async def link_activity(
     return {"success": ok}
 
 
+# ----------------------------------------------------
+# GET /coach-plan/{user_id}
+# ----------------------------------------------------
 @router.get("/coach-plan/{user_id}")
 def get_plan_range(
     user_id: int,
-     req: Request,
+    req: Request,
     date_from: str = Query(..., alias="date_from"),
     date_to: str = Query(..., alias="date_to"),
-    
 ) -> Dict[str, Any]:
     """
     Vráti všetky plánované sessions (coach_plan_daily) pre usera
@@ -138,10 +141,13 @@ def get_plan_range(
     }
 
 
+# ----------------------------------------------------
+# GET /coach-plan-active/{user_id}/status
+# ----------------------------------------------------
 @router.get("/coach-plan-active/{user_id}/status")
 async def get_active_plan_status(
     user_id: int,
-     req: Request,
+    req: Request,
 ) -> Dict[str, Any]:
     """
     Vráti info, či má user aktívny plán.
@@ -182,4 +188,3 @@ async def get_plan_history(
         raise HTTPException(
             status_code=500, detail=f"get_plan_history ERROR: {e}"
         )
-
