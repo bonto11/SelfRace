@@ -27,6 +27,7 @@ export const en = {
     downloadPDF: "Download as PDF",
     showPDFError: "Your browser cannot display the PDF file.",
     done: "Done",
+    error: "Error",
     loading: "Loading…",
     undo: "Undo",
     cancel: "Cancel",

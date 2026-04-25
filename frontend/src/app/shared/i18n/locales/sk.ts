@@ -28,6 +28,7 @@ export const sk = {
     downloadPDF: "Stiahnuť ako PDF",
     showPDFError: "Prehliadač nedokáže zobraziť PDF súbor.",
     done: "Hotovo",
+    error: "Chyba",
     loading: "Načítavam…",
     undo: "Vrátiť späť",
     cancel: "Zrušiť",

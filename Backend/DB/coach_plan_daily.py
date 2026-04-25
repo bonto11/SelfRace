@@ -1,6 +1,6 @@
 # DB/coach_plan_daily.py
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
@@ -304,3 +304,45 @@ def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dic
     except Exception as e:
         print(f"[DB-COACH-DAILY] update_daily_session_data error: {repr(e)}")
         return None
+    
+def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Dict[str, int]:
+    """Vráti počty statusov za posledné obdobie."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_compliance_stats")
+    try:
+        # Vytiahneme všetky záznamy za X dní
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("status")
+            .eq("user_id", user_id)
+            .gte("plan_date", (datetime.now() - timedelta(days=days)).date().isoformat())
+            .execute()
+        )
+        data = res.data or []
+        
+        stats = {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
+        for row in data:
+            s = row.get("status", "planned")
+            if s in stats:
+                stats[s] += 1
+        
+        return stats
+    except Exception as e:
+        print("[DB-COACH-DAILY] stats error:", repr(e))
+        return {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
+
+def db_get_skipped_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    """Vráti všetky tréningy, ktoré sú v banke restov (skipped)."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_skipped_sessions")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("status", "skipped")
+            .order("plan_date", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_skipped error:", repr(e))
+        return []

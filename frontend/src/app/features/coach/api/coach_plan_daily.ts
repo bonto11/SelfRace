@@ -175,3 +175,9 @@ export async function apiPatchDailySessionStatus(
     throw new Error("api.coach.dailyUpdateFailed");
   }
 }
+
+export async function apiGetPlanCompliance(userId: number): Promise<any> {
+  const path = `/coach-plan-daily/compliance/${encodeURIComponent(String(userId))}`;
+  const json = await callBackend<any>(path, { method: "GET" });
+  return json?.success ? json.data : null;
+}

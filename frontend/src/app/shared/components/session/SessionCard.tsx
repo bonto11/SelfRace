@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 
-// --- NOVÉ IMPORTY PRE MODAL A API ---
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -115,9 +114,7 @@ export type SessionCardProps = {
   showPlanDebug?: boolean;
   showAdvanced?: boolean;
   
-  onSkipPlan?: (id: string | number) => void;
-  onUnmatchPlan?: (id: string | number) => void;
-  // Pridaný callback pre refresh po manuálnom spárovaní vnútri modalu
+  // Callbacky pre refresh po akciách
   onRefreshPlan?: () => void;
 
   planReschedule?: {
@@ -165,7 +162,7 @@ function parseKm(s?: string | null): number | null {
 }
 
 /* ========================================================= */
-/* MANUAL MATCH MODAL                      */
+/* MANUAL MATCH MODAL                                      */
 /* ========================================================= */
 type ManualMatchModalProps = {
   isOpen: boolean;
@@ -210,7 +207,6 @@ function ManualMatchModal({
       onClose();
     } catch (error) {
       toast.error(t("sessions.matchModal.error"));
-      console.error(error);
     } finally {
       setIsSaving(false);
     }
@@ -315,6 +311,7 @@ function ManualMatchModal({
     </div>
   );
 }
+
 /* ========================================================= */
 
 export default function SessionCard({
@@ -323,8 +320,6 @@ export default function SessionCard({
   onOpenActivity,
   showPlanDebug = false,
   showAdvanced = false,
-  onSkipPlan,
-  onUnmatchPlan,
   onRefreshPlan,
   planReschedule,
 }: SessionCardProps) {
@@ -504,8 +499,6 @@ export default function SessionCard({
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
               showAdvanced={showAdvanced}
-              onSkipPlan={onSkipPlan}
-              onUnmatchPlan={onUnmatchPlan}
               onRefreshPlan={onRefreshPlan}
               planRescheduleUI={
                 canReschedulePlan
@@ -536,8 +529,6 @@ function DetailBody({
   onOpenActivity,
   showPlanDebug,
   showAdvanced,
-  onSkipPlan,
-  onUnmatchPlan,
   onRefreshPlan,
   planRescheduleUI,
 }: {
@@ -546,8 +537,6 @@ function DetailBody({
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug: boolean;
   showAdvanced: boolean;
-  onSkipPlan?: (id: string | number) => void;
-  onUnmatchPlan?: (id: string | number) => void;
   onRefreshPlan?: () => void;
   planRescheduleUI: null | {
     show: boolean;
@@ -559,8 +548,10 @@ function DetailBody({
   };
 }) {
   const t = useT();
+  const { userId } = useUserId();
   const compactChart = variant !== "activity";
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
   const hasKpis = kpis.length > 0;
@@ -574,6 +565,35 @@ function DetailBody({
       }))}
     />
   ) : null;
+
+  // --- VNÚTORNÉ HANDLERY PRE API ---
+  const handleSkip = async (sessionId: string | number) => {
+    if (!userId || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "skipped" });
+      toast.success(t("common.done"));
+      if (onRefreshPlan) onRefreshPlan();
+    } catch (e) {
+      toast.error(t("common.error"));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnmatch = async (sessionId: string | number) => {
+    if (!userId || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await apiPatchDailySessionStatus(userId, Number(sessionId), { unmatch: true });
+      toast.success(t("common.done"));
+      if (onRefreshPlan) onRefreshPlan();
+    } catch (e) {
+      toast.error(t("common.error"));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (item.kind === "plan") {
     const plan = item as PlanSession;
@@ -602,20 +622,22 @@ function DetailBody({
                 <Button
                   size="xs"
                   variant="secondary"
+                  disabled={isProcessing}
                   onClick={() => planRescheduleUI.setShow((s) => !s)}
                 >
                   {planRescheduleUI.show 
-                    ? t("common.cancel") || "Zrušiť" 
+                    ? t("common.cancel")
                     : t("sessions.card.actions.reschedule")}
                 </Button>
               )}
 
-              {/* Preskočiť (Skip) */}
+              {/* Preskočiť (Skip) - TERAZ FUNKČNÉ */}
               {plan.status === "planned" && (
                 <Button
                   size="xs"
                   variant="secondary"
-                  onClick={() => onSkipPlan && onSkipPlan(plan.id)}
+                  disabled={isProcessing}
+                  onClick={() => handleSkip(plan.id)}
                 >
                   {t("sessions.card.actions.skip")}
                 </Button>
@@ -626,26 +648,28 @@ function DetailBody({
                 <Button
                   size="xs"
                   variant="primary"
+                  disabled={isProcessing}
                   onClick={() => setIsMatchModalOpen(true)}
                 >
                   {t("sessions.card.actions.match")}
                 </Button>
               )}
 
-              {/* Zrušiť spárovanie (Unmatch) */}
+              {/* Zrušiť spárovanie (Unmatch) - TERAZ FUNKČNÉ */}
               {plan.status === "done" && (
                 <Button
                   size="xs"
                   variant="secondary"
+                  disabled={isProcessing}
                   className="text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 transition-colors"
-                  onClick={() => onUnmatchPlan && onUnmatchPlan(plan.id)}
+                  onClick={() => handleUnmatch(plan.id)}
                 >
                   {t("sessions.card.actions.unmatch")}
                 </Button>
               )}
             </div>
 
-            {/* Zobrazenie formulára na presun (ak je aktívny) */}
+            {/* Zobrazenie formulára na presun */}
             {planRescheduleUI?.show && (
               <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40">
                 <SelectField

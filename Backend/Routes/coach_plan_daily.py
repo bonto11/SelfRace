@@ -13,9 +13,9 @@ from Schemas.coach_plan_daily import DailyWeekGenerateConfig
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
     service_get_daily_overview,
-    service_update_daily_session_status
+    service_update_daily_session_status,
 )
-from DB.coach_plan_daily import db_update_daily_session_data
+from DB.coach_plan_daily import db_get_compliance_stats, db_get_skipped_sessions
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
@@ -23,10 +23,18 @@ router = APIRouter(
     tags=["coach-plan-daily"],
 )
 
+
 class DailySessionPatch(BaseModel):
-    status: Optional[str] = Field(None, description="Napr. 'planned', 'skipped', 'missed'")
-    activity_id: Optional[int] = Field(None, description="ID aktivity pre manuálne spárovanie")
-    unmatch: Optional[bool] = Field(False, description="Ak True, zruší spárovanie a vráti stav na planned")
+    status: Optional[str] = Field(
+        None, description="Napr. 'planned', 'skipped', 'missed'"
+    )
+    activity_id: Optional[int] = Field(
+        None, description="ID aktivity pre manuálne spárovanie"
+    )
+    unmatch: Optional[bool] = Field(
+        False, description="Ak True, zruší spárovanie a vráti stav na planned"
+    )
+
 
 @router.post("/generate/{user_id}")
 def generate_daily_for_week(
@@ -43,23 +51,24 @@ def generate_daily_for_week(
             model=payload.model,
             ctx=ctx,
         )
-        
+
         # ✅ Skontrolujeme vnútorné "ok" z workera
         if not result.get("ok"):
-             return {
-                 "success": False, 
-                 "data": None, 
-                 "error_code": result.get("code") or "REQUEST_FAILED",
-                 "message": result.get("message")
-             }
+            return {
+                "success": False,
+                "data": None,
+                "error_code": result.get("code") or "REQUEST_FAILED",
+                "message": result.get("message"),
+            }
 
         return {"success": True, "data": result, "error_code": None, "message": None}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/overview/{user_id}")
 def get_daily_overview(
@@ -78,16 +87,19 @@ def get_daily_overview(
         return {"success": True, "data": overview, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 class DailyRescheduleMove(BaseModel):
     id: int = Field(..., description="PK id z coach_plan_daily")
     from_date: str = Field(..., description="YYYY-MM-DD (len pre audit/validáciu)")
     to_date: str = Field(..., description="YYYY-MM-DD")
 
+
 class DailyReschedulePayload(BaseModel):
     moves: list[DailyRescheduleMove] = Field(default_factory=list)
+
 
 @router.post("/reschedule/{user_id}")
 def reschedule_daily_plan(
@@ -110,9 +122,10 @@ def reschedule_daily_plan(
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.patch("/session/{user_id}/{session_id}")
 def update_daily_session_status_route(
     req: Request,
@@ -126,7 +139,7 @@ def update_daily_session_status_route(
     """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
+
         # Všetka logika sa deje v Service
         result = service_update_daily_session_status(
             user_id=user_id,
@@ -134,14 +147,32 @@ def update_daily_session_status_route(
             status=payload.status,
             activity_id=payload.activity_id,
             unmatch=bool(payload.unmatch),
-            ctx=ctx
+            ctx=ctx,
         )
-        
-        return {"success": True, "data": result["data"], "error_code": None, "message": result["message"]}
-        
+
+        return {
+            "success": True,
+            "data": result["data"],
+            "error_code": None,
+            "message": result["message"],
+        }
+
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/compliance/{user_id}")
+def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
+    try:
+        ctx = require_user(get_auth_ctx(req))
+
+        stats = db_get_compliance_stats(user_id, days=30, ctx=ctx)
+        skipped = db_get_skipped_sessions(user_id, ctx=ctx)
+
+        return {"success": True, "data": {"stats": stats, "skipped_sessions": skipped}}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
