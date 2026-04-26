@@ -1,6 +1,6 @@
 # DB/coach_plan_daily.py
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
@@ -39,7 +39,7 @@ def db_get_planned_range_rows(user_id: int, date_from: str, date_to: str, *, ctx
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
-            .select("*") # Toto ťahá aj status a activity_id
+            .select("*")
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
             .lte("plan_date", date_to)
@@ -55,10 +55,28 @@ def db_get_planned_range_rows(user_id: int, date_from: str, date_to: str, *, ctx
 def db_link_session_to_activity(user_id: int, *, ctx: AuthCtx, id: int, activity_id: Optional[int]) -> Optional[Dict[str, Any]]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_link_session_to_activity")
     
-    # Automatická zmena statusu: ak priradíme ID, je done. Ak odoberieme (None), je planned.
-    new_status = "done" if activity_id else "planned"
-    
     try:
+        # First, we need to know the plan_date of the session to determine the new status
+        # if we are unlinking it.
+        session_res = sb.table(TABLE_COACH_PLAN_DAILY).select("plan_date").eq("id", int(id)).eq("user_id", int(user_id)).execute()
+        session_data = session_res.data or []
+        
+        if not session_data:
+            return None
+            
+        plan_date_str = session_data[0].get("plan_date")
+        
+        # Determine status:
+        if activity_id:
+            new_status = "done"
+        else:
+            # If unlinking, check if the date is in the past
+            today_str = date.today().isoformat()
+            if plan_date_str and plan_date_str < today_str:
+                new_status = "missed"
+            else:
+                new_status = "planned"
+
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .update({
@@ -77,10 +95,6 @@ def db_link_session_to_activity(user_id: int, *, ctx: AuthCtx, id: int, activity
         return None
 
 def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: AuthCtx) -> bool:
-    """
-    Vráti True, ak pre daný deň existuje aspoň jeden tréning,
-    ktorý má status 'planned' (čaká na odtrénovanie).
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_has_uncompleted_daily_sessions")
     try:
         res = (
@@ -98,7 +112,6 @@ def db_has_uncompleted_daily_sessions(user_id: int, plan_date: str, *, ctx: Auth
         return False
 
 def db_list_daily_for_user_horizon(user_id: int, horizon_days: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    from datetime import date, timedelta
     if horizon_days <= 0: horizon_days = 7
     today = date.today()
     date_from = today.isoformat()
@@ -145,7 +158,7 @@ def db_clear_daily_for_user_range(
     sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_range")
     try:
         query = sb.table(TABLE_COACH_PLAN_DAILY).delete().eq("user_id", user_id).gte("plan_date", date_from).lte("plan_date", date_to)
-           
+            
         res = query.execute()
         return len(res.data or [])
     except Exception as e:
@@ -227,9 +240,6 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
     
     
 def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
-    """
-    Vráti True, ak pre daný plán a používateľa existuje aspoň jeden daily záznam.
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_check_daily_data_exists")
     try:
         res = (
@@ -239,15 +249,12 @@ def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
             .limit(1)
             .execute()
         )
-        return bool(res.data) # Ak vráti aspoň jeden riadok, je to True
+        return bool(res.data)
     except Exception as e:
         print("[DB-COACH-DAILY] check_exists error:", repr(e))
         return False
     
 def db_delete_future_daily_plans(user_id: int, from_date: str, *, ctx: AuthCtx) -> bool:
-    """
-    Vymaže všetky plánované denné tréningy od zadaného dátumu (vrátane) do budúcna.
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_delete_future")
 
     try:
@@ -264,9 +271,6 @@ def db_delete_future_daily_plans(user_id: int, from_date: str, *, ctx: AuthCtx) 
         return False
         
 def db_delete_daily_session(user_id: int, session_id: int, *, ctx: AuthCtx) -> bool:
-    """
-    Vymaže jeden konkrétny denný tréning.
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_delete_daily_session")
     try:
         res = (
@@ -281,15 +285,31 @@ def db_delete_daily_session(user_id: int, session_id: int, *, ctx: AuthCtx) -> b
         print(f"[DB-COACH-DAILY] delete_daily_session error: {repr(e)}")
         return False
 
-
 def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
-    """
-    Vykoná univerzálny update jedného denného tréningu.
-    """
     sb = get_sb(ctx, caller="coach_plan_daily.db_update_daily_session_data")
     try:
+        # We need to fetch the existing row to see what the plan_date is, 
+        # so we can set status to 'missed' if it's in the past and they are unmatching.
+        session_res = sb.table(TABLE_COACH_PLAN_DAILY).select("plan_date").eq("id", int(session_id)).eq("user_id", int(user_id)).execute()
+        session_data = session_res.data or []
+        
+        if not session_data:
+            return None
+            
+        plan_date_str = session_data[0].get("plan_date")
+
         payload = dict(update_data)
         payload["updated_at"] = _now_iso()
+        
+        # If the user is unmatching (activity_id is explicitly set to None)
+        # AND they haven't manually passed in a 'status' override, we calculate it.
+        if "activity_id" in payload and payload["activity_id"] is None and "status" not in payload:
+             today_str = date.today().isoformat()
+             if plan_date_str and plan_date_str < today_str:
+                 payload["status"] = "missed"
+             else:
+                 payload["status"] = "planned"
+
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .update(payload)
@@ -304,10 +324,8 @@ def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dic
         return None
     
 def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Dict[str, int]:
-    """Vráti počty statusov za posledné obdobie."""
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_compliance_stats")
     try:
-        # Vytiahneme všetky záznamy za X dní
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .select("status")
@@ -329,7 +347,6 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         return {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
 
 def db_get_skipped_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    """Vráti všetky tréningy, ktoré sú v banke restov (skipped)."""
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_skipped_sessions")
     try:
         res = (

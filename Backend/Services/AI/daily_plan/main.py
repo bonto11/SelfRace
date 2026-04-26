@@ -249,6 +249,9 @@ def service_get_daily_overview(
                     "session_type": s.get("session_type"),
                     "structure": structure,
                     "payload": payload,
+                    # Added missing fields here:
+                    "status": s.get("status"),
+                    "activity_id": s.get("activity_id"),
                 }
             )
 
