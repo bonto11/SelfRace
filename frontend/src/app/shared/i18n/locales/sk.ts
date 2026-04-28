@@ -51,6 +51,7 @@ export const sk = {
     noData: "Zatiaľ tu nie sú žiadne dáta",
     last7Days: "Posledných 7 dní",
     together: "spolu",
+    date: "Dátum aktivity",
     note: "Poznámka",
     confirm: {
       title: "Potvrď prosím",
