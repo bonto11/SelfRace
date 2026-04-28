@@ -40,11 +40,9 @@ export default function DetailPlanCompliance() {
     loadData();
   }, [loadData]);
 
-  // Vypočítame si zoznam voľných dátumov na nasledujúcich 7 dní pre Reschedule funkciu
   const planDates = useMemo(() => {
     const out: string[] = [];
     const base = new Date(); 
-    // Ponúkame presun od dneška na ďalších 7 dní
     for (let i = 0; i <= 7; i++) {
       const d = new Date(base);
       d.setDate(d.getDate() + i);
@@ -56,16 +54,13 @@ export default function DetailPlanCompliance() {
   const handleReschedule = async ({ sessionId, fromDate, toDate }: any) => {
     if (!userId || !sessionId || !toDate) return;
     try {
-      // 1. Uložíme zmenu dátumu
       await apiSaveDailyReschedule(userId, [
         { id: sessionId, from_date: fromDate, to_date: toDate }
       ]);
-      
-      // 2. Musíme natvrdo zmeniť status zo 'skipped' späť na 'planned'
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
       toast.success(t("common.moved") || "Presunuté");
-      loadData(); // Obnovíme dáta (Tréning zmizne z banky restov)
+      loadData(); 
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
     }
@@ -151,9 +146,8 @@ export default function DetailPlanCompliance() {
                       <SessionCard
                         variant="calendar"
                         showAdvanced={true}
-                        onRefreshPlan={loadData} // Pre manuálne spárovanie (Activity selector modal)
+                        onRefreshPlan={loadData}
                         
-                        // 🌟 Pridanie Reschedule modulu priamo do banky restov
                         planReschedule={{
                           enabled: true,
                           dates: planDates,
@@ -171,7 +165,6 @@ export default function DetailPlanCompliance() {
                           notes: s.notes,
                           planDur: s.duration_min ? `${s.duration_min} min` : null,
                           planIntensity: s.intensity,
-                          // Uložíme aj raw dáta pre vnútorný detail
                           planRaw: s,
                           planStructure: s.structure ?? null,
                           kpis: [],
