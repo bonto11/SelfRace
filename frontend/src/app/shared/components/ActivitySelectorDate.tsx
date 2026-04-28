@@ -3,8 +3,8 @@
 
 import React, { useState } from "react";
 import ActivitySelector from "@/app/shared/components/ActivitySelector";
+import DateField from "@/app/shared/ui/components/DateField"; // 🌟 Použijeme DateField z tvojich tokens
 import type { MiniActivity, SportFE } from "@/app/features/activities/types/activities";
-import { FIELD_READONLY_BASE } from "@/app/shared/ui/tokens"; 
 import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
@@ -28,41 +28,40 @@ export default function ActivitySelectorDate({
 }: Props) {
   const t = useT();
   
-  // Defaultne predvyplníme dátum tréningu, ale dá sa zmeniť!
   const [searchDate, setSearchDate] = useState<string>(
     defaultDateIso || new Date().toISOString().slice(0, 10)
   );
 
   return (
-    <div className={`flex flex-col gap-4 ${className}`}>
+    <div className={`flex flex-col gap-3 ${className}`}>
       
-      {/* 1. KROK: Výber dátumu */}
+      {/* 1. KROK: Výber dátumu pomocou tvojho DateField */}
       <div>
-        <label className="block text-xs uppercase tracking-wider text-white/50 mb-1">
+        <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
           {t("common.date") || "Dátum aktivity"}
         </label>
-        <input
-          type="date"
+        <DateField
           value={searchDate}
-          onChange={(e) => {
-            setSearchDate(e.target.value);
-            // Ak užívateľ zmení dátum, resetneme predchádzajúci výber aktivity
-            onChange(""); 
+          onChange={(v) => {
+            if (v) {
+              setSearchDate(v);
+              onChange(""); // Resetneme výber pri zmene dátumu
+            }
           }}
-          className={FIELD_READONLY_BASE}
+          variant="editable"
         />
       </div>
 
       {/* 2. KROK: Samotný výber aktivity z daného dňa */}
       <div>
-        <label className="block text-xs uppercase tracking-wider text-white/50 mb-1">
-          {t("calendar.activity") || "Aktivita"}
+        <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
+          {t("calendar.activity") || "Nájdené aktivity"}
         </label>
         <ActivitySelector
           userId={userId}
-          dateIso={searchDate} // 🌟 Posielame mu aktuálne zvolený dátum
+          dateIso={searchDate}
           sports={sports}
-          deltaDays={2} // Pre istotu ukážeme aktivity +/- 2 dni okolo zvoleného dátumu
+          deltaDays={2}
           value={value}
           onChange={onChange}
           onPicked={onPicked}
