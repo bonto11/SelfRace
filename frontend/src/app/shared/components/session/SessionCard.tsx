@@ -12,7 +12,7 @@ import { apiPatchDailySessionStatus } from "@/app/features/coach/api/coach_plan_
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import ActivitySelectorDate from "@/app/shared/components/ActivitySelectorDate"; // 🌟 Importujeme nový komponent
+import ActivitySelectorDate from "@/app/shared/components/ActivitySelectorDate";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
@@ -221,23 +221,22 @@ function ManualMatchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-[#121212] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
+    // 🌟 Zarovnanie na stred (items-center) a menej paddingu
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-2xl bg-[#1a1a1a] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
         
-        <div className="p-5 border-b border-white/10 shrink-0">
-          <h3 className="text-lg font-bold text-white">
-            {t("sessions.matchModal.title")}
+        {/* Hlavička */}
+        <div className="px-4 py-3 border-b border-white/10 shrink-0 bg-black/20 flex items-center justify-between">
+          <h3 className="text-base font-bold text-white">
+            {t("sessions.matchModal.title") || "Spárovať tréning"}
           </h3>
-          <p className="text-sm opacity-60 mt-1">
-            Vyhľadaj a priraď reálnu aktivitu k tomuto tréningu.
-          </p>
-          <div className="mt-2 text-emerald-400 font-semibold text-sm">
+          <div className="text-emerald-400 font-semibold text-xs truncate max-w-[150px]">
             {session.title}
           </div>
         </div>
 
-        {/* 🌟 Vymenené za náš nový ActivitySelectorDate */}
-        <div className="p-5 overflow-y-auto flex-1 bg-black/20">
+        {/* Telo s naším DateField a ActivitySelectorom */}
+        <div className="p-4 flex-1">
           <ActivitySelectorDate
             userId={userId}
             defaultDateIso={session.dateIso || new Date().toISOString().slice(0, 10)}
@@ -247,17 +246,19 @@ function ManualMatchModal({
           />
         </div>
 
-        <div className="p-5 border-t border-white/10 shrink-0 flex justify-end gap-3 bg-white/5">
-          <Button variant="ghost" onClick={onClose} disabled={isSaving}>
+        {/* Pätička */}
+        <div className="px-4 py-3 border-t border-white/10 shrink-0 flex justify-end gap-2 bg-black/20">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={isSaving}>
             {t("sessions.matchModal.btnCancel") || "Zrušiť"}
           </Button>
           
           <Button
             variant="primary"
+            size="sm"
             onClick={handleMatch}
             disabled={!selectedActivityId || isSaving}
           >
-            {isSaving ? t("sessions.matchModal.btnSaving") || "Ukladám..." : t("sessions.matchModal.btnMatch") || "Spárovať"}
+            {isSaving ? t("sessions.matchModal.btnSaving") || "Ukladám..." : t("sessions.matchModal.btnMatch") || "Uložiť"}
           </Button>
         </div>
       </div>
@@ -385,16 +386,12 @@ export default function SessionCard({
     setShowReschedule(false);
   };
 
-  // Upravená podmienka - farbu nemenime
-  const isSkipped = item.kind === "plan" && (item as PlanSession).status === "skipped";
-
   return (
     <section
       className={[
         SESSION_CARD, 
         SESSION_CARD_HOVER, 
         SESSION_VARIANT_PAD[variant]
-        // Odstránené prešedivenie pre skipped tréningy
       ].join(" ")}
       style={SESSION_CARD_STYLE}
     >
@@ -609,7 +606,6 @@ function DetailBody({
                 </Button>
               )}
 
-              {/* 🌟 OPRAVENÉ: Spárovať sa dá pre planned, missed aj skipped */}
               {(plan.status === "planned" || plan.status === "missed" || plan.status === "skipped") && (
                 <Button
                   size="xs"
