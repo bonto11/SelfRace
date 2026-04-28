@@ -13,7 +13,8 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
-type DotKind = "external" | "activity" | "plan" | "done" | "missed";
+// 🌟 OPRAVA: Pridaný stav "skipped"
+type DotKind = "external" | "activity" | "plan" | "done" | "missed" | "skipped";
 type Dot = { key: string; sport: string; kind: DotKind };
 
 function isoToday(): string {
@@ -34,13 +35,14 @@ export default function CalendarDayCell({
     dots.push({ key: `e-${it.id}`, sport: String(it.sport), kind: "external" });
   for (const it of cell.activities)
     dots.push({ key: `a-${it.id}`, sport: String(it.sport), kind: "activity" });
+    
   for (const it of cell.plans) {
-    const kind: DotKind =
-      it.status === "planned"
-        ? "plan"
-        : it.status === "done"
-          ? "done"
-          : "missed";
+    // 🌟 OPRAVA: Správne namapovanie statusu
+    let kind: DotKind = "missed";
+    if (it.status === "planned") kind = "plan";
+    else if (it.status === "done") kind = "done";
+    else if (it.status === "skipped") kind = "skipped";
+    
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
 
@@ -125,11 +127,26 @@ export default function CalendarDayCell({
               );
             }
 
+            // 🌟 OPRAVA: Ikonka pre skipped
+            if (it.kind === "skipped") {
+              return (
+                <span
+                  key={it.key}
+                  className="text-[12px] leading-none font-bold"
+                  style={{ color: "rgba(255, 255, 255, 0.4)" }}
+                  title="Odložené"
+                >
+                  ↷
+                </span>
+              );
+            }
+
+            // Fallback pre missed (Krížik)
             return (
               <span
                 key={it.key}
                 className="text-[11px] leading-none font-semibold"
-                style={{ color }}
+                style={{ color: appColors.statusError || color }}
               >
                 ×
               </span>
