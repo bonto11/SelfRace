@@ -1,3 +1,4 @@
+// src/app/(protected)/coach/plan/compliance/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -13,7 +14,6 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 import { PANEL_STACK } from "@/app/shared/ui/tokens";
-import PageShell from "@/app/shared/ui/components/PageShell";
 
 export default function DetailPlanCompliance() {
   const { userId } = useUserId();
@@ -64,7 +64,7 @@ export default function DetailPlanCompliance() {
       // 2. Musíme natvrdo zmeniť status zo 'skipped' späť na 'planned'
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
-      toast.success(t("common.moved"));
+      toast.success(t("common.moved") || "Presunuté");
       loadData(); // Obnovíme dáta (Tréning zmizne z banky restov)
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
@@ -73,11 +73,9 @@ export default function DetailPlanCompliance() {
 
   if (loading && !data) {
     return (
-      <PageShell title={t("coachCompliance.stats.title")} showBack showPoweredByStrava={false}>
-        <div className="flex justify-center p-12">
-          <LoadingSpinner size="widget" />
-        </div>
-      </PageShell>
+      <div className="flex justify-center p-12 w-full">
+        <LoadingSpinner size="widget" />
+      </div>
     );
   }
 
@@ -85,7 +83,7 @@ export default function DetailPlanCompliance() {
   const skippedSessions = data?.skipped_sessions || [];
 
   return (
-    <PageShell title={t("coachCompliance.stats.title")} showBack showPoweredByStrava={false}>
+    <div className="flex flex-col gap-6 w-full">
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
       <div className={PAGE_GRID_2}>
@@ -159,7 +157,6 @@ export default function DetailPlanCompliance() {
                         planReschedule={{
                           enabled: true,
                           dates: planDates,
-                          // Pre jednoduchosť nekontrolujeme max kapacitu dňa v rest banke, nech si užívateľ vyberie
                           maxPerDay: 5, 
                           onChangeDate: handleReschedule
                         }}
@@ -189,6 +186,6 @@ export default function DetailPlanCompliance() {
         </div>
 
       </div>
-    </PageShell>
+    </div>
   );
 }

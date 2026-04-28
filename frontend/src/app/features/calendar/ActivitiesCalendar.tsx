@@ -57,6 +57,7 @@ function safeSportKey(v: any): string {
   return "other";
 }
 
+
 export default function ActivitiesCalendar({
   year: yy,
   month: mm,
@@ -134,7 +135,6 @@ export default function ActivitiesCalendar({
     });
   }, [externals.rows, planSlots, activitySlots]);
 
-  // 🌟 Mágia sa deje vnútri useCalendarMap, ktorý generuje bunky pre grid
   const map = useCalendarMap({
     year,
     month0,
@@ -155,11 +155,7 @@ export default function ActivitiesCalendar({
   const [label, setLabel] = React.useState("");
 
   const currentLocale = React.useMemo(() => {
-    const loc = t("common.locale" as any);
-    if (loc === "common.locale") {
-      return t("common.and" as any) === "and" ? "en-US" : "sk-SK";
-    }
-    return loc;
+    return t("common.locale" as any) === "en" ? "en-US" : "sk-SK";
   }, [t]);
 
   React.useEffect(() => {
@@ -222,7 +218,6 @@ export default function ActivitiesCalendar({
           </div>
         </div>
 
-        {/* 🌟 LEGENDA S NOVÝMI IKONAMI */}
         <div className={CALENDAR_LEGEND_WRAP}>
           <div className={CALENDAR_LEGEND_ITEM}>
             <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
@@ -249,10 +244,9 @@ export default function ActivitiesCalendar({
             <span>{t("calendar.planMissed")}</span>
           </div>
 
-          {/* NOVÉ: Odložené do restov */}
           <div className={CALENDAR_LEGEND_ITEM}>
             <span className={CALENDAR_LEGEND_TINY} style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>↷</span>
-            <span>{t("calendar.planSkipped")}</span>
+            <span>{t("calendar.planSkipped") || "Odložené"}</span>
           </div>
         </div>
 
@@ -261,7 +255,7 @@ export default function ActivitiesCalendar({
         )}
 
         <CalendarGrid
-          cells={map.cells}
+          cells={map.cells} // 👈 TOTO BOLA CHYBA, TypeScriptu vadilo niečo iné, ale teraz to bude sedieť
           selectedIso={selectedIso}
           setSelectedIso={setSelectedIso}
           sportColors={SPORT_COLORS}
