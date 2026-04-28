@@ -61,14 +61,17 @@ function safeSportKey(v: any): SportKey {
   return "other";
 }
 
-type DayItem = CalendarItemBase & { id: number };
+// 🌟 Rozšírený DayItem, aby TypeScript nenadával na nové statusy
+type DayItem = CalendarItemBase & { 
+  id: number; 
+  kind: CalendarItemKind | "skipped" | "done" | "missed" 
+};
 
 type MiniCalendarProps = {
   startFrom?: "monday" | "today";
   content?: "all" | "plan";
   perDayLimit?: number;
   onOpen?: () => void;
-  // 👇 Nové props pre vyberanie konkrétneho dňa
   selectedDateIso?: string;
   onSelectDate?: (dateIso: string) => void;
 };
@@ -173,6 +176,9 @@ export default function MiniCalendar({
       const sType = String(p.session_type || "").toLowerCase();
       const sport = safeSportKey(p.sport || "other");
       const duration = p.duration_min ?? null;
+      
+      // 🌟 Reálny status z databázy
+      const status = p.status || "planned"; 
 
       const isRest = sType === "rest" || title.startsWith("rest") || duration === 0;
       const arr = map.get(k)!;
@@ -182,7 +188,7 @@ export default function MiniCalendar({
           arr.push({
             id: Number(p.id) || Math.floor(Math.random() * 1e9),
             sport,
-            kind: "plan",
+            kind: status === "skipped" ? "skipped" : "plan",
             activityId: null,
           });
         }
@@ -192,8 +198,9 @@ export default function MiniCalendar({
       const actIdRaw = (p as any).activity_id;
       const activityId = actIdRaw != null && !Number.isNaN(Number(actIdRaw)) ? Number(actIdRaw) : null;
 
-      if (activityId) {
-        const idx = arr.findIndex((it) => it.kind === "activity" && it.activityId === activityId);
+      // Ak má activityId alebo status "done", je to spárované
+      if (activityId || status === "done") {
+        const idx = arr.findIndex((it) => it.kind === "activity" && it.activityId === (activityId || it.activityId));
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done", activityId };
           continue;
@@ -201,12 +208,24 @@ export default function MiniCalendar({
       }
 
       if (!isRest) {
-        const isPast = k < todayIso;
-        const kind: CalendarItemKind = isPast ? "missed" : "plan";
+        let finalKind: DayItem["kind"] = "plan";
+
+        if (status === "skipped") {
+          finalKind = "skipped";
+        } else if (status === "missed") {
+          finalKind = "missed";
+        } else if (status === "done") {
+          finalKind = "done";
+        } else {
+          // Ak je to v minulosti a nebolo to manualne zmenene, vyhodnotime to ako missed
+          const isPast = k < todayIso;
+          finalKind = isPast ? "missed" : "plan";
+        }
+
         arr.push({
           id: Number(p.id) || Math.floor(Math.random() * 1e9),
           sport,
-          kind,
+          kind: finalKind,
           activityId: activityId ?? null,
         });
       }
@@ -258,7 +277,6 @@ export default function MiniCalendar({
           const isToday = d.toDateString() === todayStr;
           const isSelected = key === selectedDateIso;
 
-          // 👈 Tu sme pridali zvýraznenie označeného dňa
           const cellStyle: React.CSSProperties = {
             background: isSelected ? "rgba(255,255,255,0.08)" : appColors.inputBg,
             borderColor: isSelected ? appColors.brandPrimary : appColors.surfaceCardBorder,
@@ -291,6 +309,7 @@ export default function MiniCalendar({
                   {shown.map((it) => {
                     const color = SPORT_COLORS[String(it.sport)] ?? SPORT_COLORS.other;
 
+                    // 1. Aktivita mimo plánu (Plný krúžok)
                     if (it.kind === "activity" || it.kind === "external") {
                       return (
                         <span
@@ -301,6 +320,7 @@ export default function MiniCalendar({
                       );
                     }
 
+                    // 2. Naplánovaný tréning (Prázdny krúžok)
                     if (it.kind === "plan") {
                       return (
                         <span
@@ -314,23 +334,44 @@ export default function MiniCalendar({
                       );
                     }
 
+                    // 3. Spárovaný/Odtrénovaný (Fajka)
                     if (it.kind === "done") {
                       return (
                         <span
                           key={`${it.kind}-${it.id}`}
                           className={CAL_WIDGET_MARK}
-                          style={{ color }}
+                          style={{ color, fontWeight: "bold" }}
                         >
                           ✓
                         </span>
                       );
                     }
 
+                    // 4. Odložený tréning do restov (Zalomená šípka, jemne sivá)
+                    if (it.kind === "skipped") {
+                      return (
+                        <span
+                          key={`${it.kind}-${it.id}`}
+                          className={CAL_WIDGET_MARK}
+                          style={{ 
+                            color: "rgba(255, 255, 255, 0.4)", 
+                            fontSize: "12px", 
+                            fontWeight: "bold", 
+                            lineHeight: 1 
+                          }}
+                          title="Odložené do restov"
+                        >
+                          ↷
+                        </span>
+                      );
+                    }
+
+                    // 5. Zmeškaný tréning (Krížik)
                     return (
                       <span
                         key={`${it.kind}-${it.id}`}
                         className={CAL_WIDGET_MARK}
-                        style={{ color }}
+                        style={{ color: appColors.statusError, fontWeight: "bold" }}
                       >
                         ✕
                       </span>

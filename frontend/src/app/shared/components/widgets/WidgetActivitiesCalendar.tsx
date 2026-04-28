@@ -92,7 +92,6 @@ export default function WidgetActivitiesCalendar({
             </div>
           )}
 
-          {/* 👈 Tu len vložíme náš nový grid s parametrami pre celý týždeň a všetok obsah */}
           <MiniCalendar 
             startFrom="monday" 
             content="all" 

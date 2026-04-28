@@ -9,7 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import Button from "@/app/shared/ui/components/Button";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT TOGGLE
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; 
 
 import {
   CALENDAR_CONTAINER,
@@ -88,7 +88,6 @@ export default function ActivitiesCalendar({
   const range = React.useMemo(() => gridRange42(year, month0), [year, month0]);
   const externals = useCalendarExternals(userId, range);
 
-  // 1) sety (date|sportKey), kde už je plán alebo aktivita
   const planSlots = React.useMemo(() => {
     const slots = new Set<string>();
     for (const p of planRows as any[]) {
@@ -115,7 +114,6 @@ export default function ActivitiesCalendar({
     return slots;
   }, [actRows]);
 
-  // 2) globálne odfiltrujeme external events (len vizuálne prečistíme grid)
   const filteredExternalRows = React.useMemo(() => {
     const rows = (externals.rows ?? []) as ExternalEvent[];
     if (!rows.length) return rows;
@@ -136,7 +134,7 @@ export default function ActivitiesCalendar({
     });
   }, [externals.rows, planSlots, activitySlots]);
 
-  // 3) map pre grid – dedupe v hooku
+  // 🌟 Mágia sa deje vnútri useCalendarMap, ktorý generuje bunky pre grid
   const map = useCalendarMap({
     year,
     month0,
@@ -156,10 +154,8 @@ export default function ActivitiesCalendar({
 
   const [label, setLabel] = React.useState("");
 
-  // ✅ Získanie aktuálneho locale kódu
   const currentLocale = React.useMemo(() => {
     const loc = t("common.locale" as any);
-    // Ak si locale kľúč do common ešte nepridal, robíme fallback trik na zistenie jazyka z iného prekladu
     if (loc === "common.locale") {
       return t("common.and" as any) === "and" ? "en-US" : "sk-SK";
     }
@@ -168,9 +164,7 @@ export default function ActivitiesCalendar({
 
   React.useEffect(() => {
     const d = new Date(year, month0, 1);
-    // ✅ Použitie premennej s aktuálnym jazykom
     let text = d.toLocaleDateString(currentLocale, { month: "long", year: "numeric" });
-    // Zabezpečíme prvé veľké písmeno (napríklad Február 2024 namiesto február 2024)
     text = text.charAt(0).toUpperCase() + text.slice(1);
     setLabel(text);
   }, [year, month0, currentLocale]);
@@ -202,7 +196,6 @@ export default function ActivitiesCalendar({
     return m;
   }, [actRows]);
 
-  // vizuálne: tiny symbol farby konzistentné (nech nie je vždy run)
   const colPlan = appColors.chartRun;
   const colExternal = appColors.chartOther;
   const colActivity = appColors.chartRun;
@@ -211,7 +204,6 @@ export default function ActivitiesCalendar({
     <div className={[CALENDAR_PAGE_WRAP, NO_X_OVERFLOW].join(" ")}>
       <div className={CALENDAR_CONTAINER} style={CALENDAR_CONTAINER_STYLE}>
         
-        {/* 🌟 Globálny prepínač hneď na vrchu */}
         <div className="mb-4">
           <ShowAdvancedToggle />
         </div>
@@ -220,78 +212,47 @@ export default function ActivitiesCalendar({
           <h2 className={CALENDAR_TITLE}> </h2>
 
           <div className={[CALENDAR_NAV_ROW, CALENDAR_NAV_NUDGE].join(" ")}>
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label={t("calendar.pastMonth")}
-              onClick={() => jump(-1)}
-            >
+            <Button variant="ghost" size="sm" circle aria-label={t("calendar.pastMonth")} onClick={() => jump(-1)}>
               ‹
             </Button>
-
             <div className={CALENDAR_MONTH_LABEL}>{label}</div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              circle
-              aria-label={t("calendar.nextMonth")}
-              onClick={() => jump(1)}
-            >
+            <Button variant="ghost" size="sm" circle aria-label={t("calendar.nextMonth")} onClick={() => jump(1)}>
               ›
             </Button>
           </div>
         </div>
 
-        {/* legenda */}
+        {/* 🌟 LEGENDA S NOVÝMI IKONAMI */}
         <div className={CALENDAR_LEGEND_WRAP}>
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_DOT}
-              style={{ backgroundColor: colExternal }}
-            />
+            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colExternal }} />
             <span>{t("calendar.external")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_DOT}
-              style={{ backgroundColor: colActivity }}
-            />
+            <span className={CALENDAR_LEGEND_DOT} style={{ backgroundColor: colActivity }} />
             <span>{t("calendar.activity")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={[CALENDAR_LEGEND_DOT, "border"].join(" ")}
-              style={{ borderColor: colPlan, backgroundColor: "transparent" }}
-            />
+            <span className={[CALENDAR_LEGEND_DOT, "border"].join(" ")} style={{ borderColor: colPlan, backgroundColor: "transparent" }} />
             <span>{t("calendar.plan")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_TINY}
-              style={{ color: appColors.statusInfo }}
-            >
-              ✓
-            </span>
-            <span>
-              {t("calendar.planDone")}
-            </span>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusInfo }}>✓</span>
+            <span>{t("calendar.planDone")}</span>
           </div>
 
           <div className={CALENDAR_LEGEND_ITEM}>
-            <span
-              className={CALENDAR_LEGEND_TINY}
-              style={{ color: appColors.statusWarning }}
-            >
-              ×
-            </span>
-            <span>
-              {t("calendar.planMissed")}
-            </span>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: appColors.statusWarning }}>✕</span>
+            <span>{t("calendar.planMissed")}</span>
+          </div>
+
+          {/* NOVÉ: Odložené do restov */}
+          <div className={CALENDAR_LEGEND_ITEM}>
+            <span className={CALENDAR_LEGEND_TINY} style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>↷</span>
+            <span>{t("calendar.planSkipped")}</span>
           </div>
         </div>
 

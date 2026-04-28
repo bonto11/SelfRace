@@ -18,7 +18,6 @@ import {
 } from "@/app/features/calendar/utils/calendarDates";
 import {
   isRestSession,
-  planStatusForDate,
 } from "@/app/features/calendar/utils/calendarFormat";
 import {
   dedupeCalendarItems,
@@ -41,9 +40,11 @@ type Args = {
   safeSportKey: (v: any) => SportKey;
 };
 
+// 🌟 Rozšírený Shadow Item aby pobral aj 'skipped'
 type DayShadowItem = CalendarItemBase & {
   source: "activity" | "plan" | "external";
   index: number;
+  kind: CalendarItemKind | "skipped" | "done" | "missed";
 };
 
 export function useCalendarMap({
@@ -88,7 +89,7 @@ export function useCalendarMap({
     const lastIso = iso(year, month0, daysInMonth(year, month0));
     const todayIso = new Date().toISOString().slice(0, 10);
 
-    // --- precompute activityIdsByDate (len aktivity v rozsahu mesiaca) ---
+    // --- precompute activityIdsByDate ---
     const activityIdsByDate = new Map<string, Set<number>>();
     for (const r of actRows as any[]) {
       const dIso = String(r.date ?? "").slice(0, 10);
@@ -105,7 +106,7 @@ export function useCalendarMap({
       set.add(aid);
     }
 
-    // externals (expandované cez occurrence_date / single_date atď.)
+    // externals
     for (const ev of externalRows) {
       const dIso = eventDateIso(ev);
       if (!dIso) continue;
@@ -134,25 +135,24 @@ export function useCalendarMap({
       const sport = safeSportKey(p.sport || detectSport(sess) || "other");
 
       const rawActId = (p as any).activity_id;
-      let actIdForStatus: number | null = null;
       let actIdForPlan: number | null = null;
+      let dbStatus = p.status || "planned";
 
       if (rawActId != null && !Number.isNaN(Number(rawActId))) {
         const num = Number(rawActId);
         actIdForPlan = num;
 
-        // DÔLEŽITÉ: ber ako "done" len ak existuje activity v TEN ISTÝ DEŇ
+        // Validation against real activities in the month
         const set = activityIdsByDate.get(dIso);
         if (set && set.has(num)) {
-          actIdForStatus = num;
+          dbStatus = "done"; 
         }
       }
 
-      const status: PlanStatus = planStatusForDate(
-        dIso,
-        todayIso,
-        actIdForStatus,
-      );
+      // 🌟 AK TO NIE JE DONE/SKIPPED A JE TO V MINULOSTI -> JE TO MISSED
+      if (dbStatus === "planned" && dIso < todayIso) {
+        dbStatus = "missed";
+      }
 
       const cell = byIso[dIso];
       if (!cell) continue;
@@ -160,12 +160,12 @@ export function useCalendarMap({
       cell.plans.push({
         id: p.id,
         sport,
-        status,
+        status: dbStatus as PlanStatus,
         activityId: actIdForPlan ?? undefined,
       } as any);
     }
 
-    // activities (už len fyzicky vložiť do buniek)
+    // activities
     for (const r of actRows as any[]) {
       const dIso = String(r.date ?? "").slice(0, 10);
       if (!dIso || dIso < firstIso || dIso > lastIso) continue;
@@ -188,10 +188,8 @@ export function useCalendarMap({
     // DEDUPE v gride cez shared util
     for (const k of Object.keys(byIso)) {
       const cell = byIso[k];
-
       const shadows: DayShadowItem[] = [];
 
-      // activities
       cell.activities.forEach((a, idx) => {
         shadows.push({
           sport: String(a.sport),
@@ -202,7 +200,6 @@ export function useCalendarMap({
         });
       });
 
-      // externals
       cell.externals.forEach((e, idx) => {
         shadows.push({
           sport: String(e.sport),
@@ -213,14 +210,13 @@ export function useCalendarMap({
         });
       });
 
-      // plans (planned / done / missed)
       cell.plans.forEach((p: any, idx) => {
-        const kind: CalendarItemKind =
-          p.status === "planned"
-            ? "plan"
-            : p.status === "done"
-            ? "done"
-            : "missed";
+        // 🌟 Presné mapovanie statusu z DB na kind pre vizuál v kalendári
+        let kind: DayShadowItem["kind"] = "plan";
+        
+        if (p.status === "done") kind = "done";
+        else if (p.status === "missed") kind = "missed";
+        else if (p.status === "skipped") kind = "skipped";
 
         shadows.push({
           sport: String(p.sport),
@@ -258,7 +254,6 @@ export function useCalendarMap({
       cell.plans = cell.plans.filter((_, idx) => keepPlanIdx.has(idx));
     }
 
-    // cells array
     const cells: DayCellData[] = [];
     for (let i = 0; i < totalCells; i++) {
       const d = new Date(firstCell);
@@ -268,7 +263,7 @@ export function useCalendarMap({
     }
 
     setState({ byIso, cells });
-  }, [year, month0, actRows, planRows, externalRows, safeSportKey]);
+  }, [year, month0, actRows, planRows, externalRows, safeSportKey, t]);
 
   return state;
 }
