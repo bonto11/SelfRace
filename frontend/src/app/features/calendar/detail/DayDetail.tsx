@@ -10,7 +10,6 @@ import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets"
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-// 1. Importujeme CoachData pre prístup k refresh funkcii
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 type Props = {
@@ -30,7 +29,7 @@ export default function DayDetail({
   safeSportKey,
 }: Props) {
   const t = useT();
-  const { plan } = useCoachData(); // 2. Získame prístup k plánu
+  const { plan } = useCoachData();
   
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
@@ -54,17 +53,25 @@ export default function DayDetail({
     }
   }, [selectedIso]);
 
+  // 🌟 TU JE OPRAVA: Odfiltrujeme 'skipped' tréningy predtým, než ich pošleme do buildDayBuckets
+  const filteredPlanRows = React.useMemo(() => {
+    return planRowsForDay.filter((p: any) => {
+       const status = p.status || p.planRaw?.status;
+       return status !== "skipped";
+    });
+  }, [planRowsForDay]);
+
   const { past, planned } = React.useMemo(
     () =>
       buildDayBuckets({
         selectedIso,
         actRows,
-        planRowsForDay,
+        planRowsForDay: filteredPlanRows, // 👈 Použijeme odfiltrované pole
         externalRows,
         safeSportKey,
         t,
       }),
-    [selectedIso, actRows, planRowsForDay, externalRows, safeSportKey, t],
+    [selectedIso, actRows, filteredPlanRows, externalRows, safeSportKey, t],
   );
 
   const sectionStyle: React.CSSProperties = {
@@ -102,7 +109,6 @@ export default function DayDetail({
                   variant="calendar" 
                   item={it} 
                   showAdvanced={showAdvanced}
-                  // 3. Umožníme Unmatch (zrušenie spárovania) a následný refresh
                   onRefreshPlan={() => plan.refresh()}
                 />
               </li>
@@ -113,7 +119,7 @@ export default function DayDetail({
 
       <div style={dividerStyle} />
 
-      {/* PLANNED - Naplánované, vynechané a zmeškané tréningy */}
+      {/* PLANNED - Naplánované a zmeškané tréningy */}
       <div className="space-y-2">
         <div
           className="text-[11px] uppercase tracking-wide"
@@ -134,14 +140,12 @@ export default function DayDetail({
                   variant="calendar" 
                   item={it} 
                   showAdvanced={showAdvanced}
-                  // 4. Umožníme Skip a Match akcie s následným refreshom kalendára
                   onRefreshPlan={() => plan.refresh()}
-                  // Zachováme aj pôvodný rescheduling dátumu
                   planReschedule={{
                     enabled: true,
-                    dates: plan.rangeStart ? [plan.rangeStart, plan.rangeEnd] : [], // zjednodušené pre kalendár
+                    dates: plan.rangeStart ? [plan.rangeStart, plan.rangeEnd] : [], 
                     onChangeDate: async ({ sessionId, fromDate, toDate }) => {
-                       // Tu by v ideálnom prípade mal byť volaný globálny handler z kalendára
+                       // Tu by mal ísť call na API ak to chceš presúvať priamo odtiaľto
                     }
                   }}
                 />

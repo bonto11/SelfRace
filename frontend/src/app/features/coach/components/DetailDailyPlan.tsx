@@ -261,6 +261,14 @@ export default function DetailDailyPlan() {
     );
   }
 
+  // Odfiltrujeme všetky 'skipped' tréningy pre zoznam (karty) dole.
+  const daysForList = filteredDays.map(day => ({
+    ...day,
+    sessions: (day.sessions || []).filter((s: any) => s.status !== "skipped")
+  }));
+
+  const hasVisibleSessions = daysForList.some(d => d.sessions && d.sessions.length > 0);
+
   return (
     <div className={PANEL_STACK}>
       
@@ -333,13 +341,13 @@ export default function DetailDailyPlan() {
 
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>{t("coach.daily.noPlan")}</div>
-        ) : filteredDays.length === 0 || filteredDays.every(d => !d.sessions?.length) ? (
+        ) : !hasVisibleSessions ? (
           <div className={PANEL_PREVIEW}>
             {t("coach.daily.noSessionsOnDay")}
           </div>
         ) : (
           <div className={PANEL_STACK}>
-            {filteredDays.flatMap((d) => {
+            {daysForList.flatMap((d) => {
               if (!d.date) return [];
               if (!d.sessions || d.sessions.length === 0) return [];
               
