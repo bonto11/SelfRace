@@ -50,6 +50,7 @@ export const en = {
     noData: "No data available yet",
     last7Days: "Last 7 days",
     together: "total",
+    date: "Activity date",
     note: "Note",
     confirm: {
       title: "Please confirm",
