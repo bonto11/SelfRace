@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { apiPatchDailySessionStatus } from "@/app/features/coach/api/coach_plan_daily";
 
@@ -55,7 +54,7 @@ export function StatusIndicator({ status, kind }: { status?: PlanStatus; kind: S
     case "missed": 
       return <span className="text-orange-500 font-bold" title="Zmeškané">✕</span>;
     case "postponed": 
-      return <span className="text-white/30 font-bold text-xs" title="Preskočené">↷</span>;
+      return <span className="text-white/30 font-bold text-xs" title="Odložené">↷</span>;
     case "planned": 
     default: 
       return <span className="text-white/40" title="Naplánované">○</span>;
@@ -132,6 +131,8 @@ export type SessionCardProps = {
   showAdvanced?: boolean;
   
   onRefreshPlan?: () => void;
+  // 🌟 Pridali sme onDiscard funkciu
+  onDiscard?: (sessionId: number) => void;
 
   planReschedule?: {
     enabled?: boolean;
@@ -221,11 +222,9 @@ function ManualMatchModal({
   };
 
   return (
-    // 🌟 Zarovnanie na stred (items-center) a menej paddingu
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-sm rounded-2xl bg-[#1a1a1a] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
         
-        {/* Hlavička */}
         <div className="px-4 py-3 border-b border-white/10 shrink-0 bg-black/20 flex items-center justify-between">
           <h3 className="text-base font-bold text-white">
             {t("sessions.matchModal.title") || "Spárovať tréning"}
@@ -235,7 +234,6 @@ function ManualMatchModal({
           </div>
         </div>
 
-        {/* Telo s naším DateField a ActivitySelectorom */}
         <div className="p-4 flex-1">
           <ActivitySelectorDate
             userId={userId}
@@ -246,7 +244,6 @@ function ManualMatchModal({
           />
         </div>
 
-        {/* Pätička */}
         <div className="px-4 py-3 border-t border-white/10 shrink-0 flex justify-end gap-2 bg-black/20">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={isSaving}>
             {t("sessions.matchModal.btnCancel") || "Zrušiť"}
@@ -277,6 +274,7 @@ export default function SessionCard({
   showPlanDebug = false,
   showAdvanced = false,
   onRefreshPlan,
+  onDiscard, // 🌟 Prijímame onDiscard
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -466,6 +464,7 @@ export default function SessionCard({
               showPlanDebug={showPlanDebug}
               showAdvanced={showAdvanced}
               onRefreshPlan={onRefreshPlan}
+              onDiscard={onDiscard} // 🌟 Posúvame ďalej do DetailBody
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -496,6 +495,7 @@ function DetailBody({
   showPlanDebug,
   showAdvanced,
   onRefreshPlan,
+  onDiscard, // 🌟 Prijímame
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
@@ -504,6 +504,7 @@ function DetailBody({
   showPlanDebug: boolean;
   showAdvanced: boolean;
   onRefreshPlan?: () => void;
+  onDiscard?: (sessionId: number) => void; // 🌟 Type
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -537,10 +538,10 @@ function DetailBody({
     setIsProcessing(true);
     try {
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "postponed" });
-      toast.success(t("common.done"));
+      toast.success(t("common.done") || "Uložené");
       if (onRefreshPlan) onRefreshPlan();
     } catch (e) {
-      toast.error(t("common.error"));
+      toast.error(t("common.error") || "Chyba");
     } finally {
       setIsProcessing(false);
     }
@@ -551,10 +552,10 @@ function DetailBody({
     setIsProcessing(true);
     try {
       await apiPatchDailySessionStatus(userId, Number(sessionId), { unmatch: true });
-      toast.success(t("common.done"));
+      toast.success(t("common.done") || "Uložené");
       if (onRefreshPlan) onRefreshPlan();
     } catch (e) {
-      toast.error(t("common.error"));
+      toast.error(t("common.error") || "Chyba");
     } finally {
       setIsProcessing(false);
     }
@@ -578,7 +579,7 @@ function DetailBody({
         {showAdvanced && (
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="text-[11px] uppercase tracking-wider opacity-50 font-semibold">
-              {t("sessions.card.managePlan")}
+              {t("sessions.card.managePlan") || "Správa tréningu"}
             </div>
             
             <div className="flex flex-wrap gap-2">
@@ -590,8 +591,8 @@ function DetailBody({
                   onClick={() => planRescheduleUI.setShow((s) => !s)}
                 >
                   {planRescheduleUI.show 
-                    ? t("common.cancel")
-                    : t("sessions.card.actions.reschedule")}
+                    ? t("common.cancel") || "Zrušiť"
+                    : t("sessions.card.actions.reschedule") || "Presunúť"}
                 </Button>
               )}
 
@@ -602,7 +603,7 @@ function DetailBody({
                   disabled={isProcessing}
                   onClick={() => handlePostpone(plan.id)}
                 >
-                  {t("sessions.card.actions.postpone")}
+                  {t("sessions.card.actions.postpone") || "Odložiť"}
                 </Button>
               )}
 
@@ -628,6 +629,24 @@ function DetailBody({
                   {t("sessions.card.actions.unmatch")}
                 </Button>
               )}
+
+              {/* 🌟 NOVÉ TLAČIDLO: Zahodiť zo zásobníka */}
+              {plan.status === "postponed" && onDiscard && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  disabled={isProcessing}
+                  className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border-orange-500/20 transition-colors ml-auto"
+                  onClick={() => {
+                    if (window.confirm(t("sessions.card.actions.discardConfirm"))) {
+                      onDiscard(Number(plan.id));
+                    }
+                  }}
+                >
+                  {t("sessions.card.actions.discard")}
+                </Button>
+              )}
+
             </div>
 
             {planRescheduleUI?.show && (

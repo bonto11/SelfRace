@@ -42,6 +42,7 @@ export const sk = {
     refreshTitle: "Aktualizovať dáta",
     edit: "Upraviť",
     delete: "Vymazať",
+    deleted: "Odstránené",
     share: "Zdieľať",
     none: "žiadne",
     set: "nastavený",
@@ -2487,6 +2488,8 @@ export const sk = {
         postpone: "Odložiť",
         match: "Spárovať aktivitu",
         unmatch: "Zrušiť spárovanie",
+        discard: "Zahodiť",
+        discardConfirm: "Naozaj chcete tento tréning vymazať?",
       },
       reschedule: {
         title: "Presunúť tréning na iný deň",

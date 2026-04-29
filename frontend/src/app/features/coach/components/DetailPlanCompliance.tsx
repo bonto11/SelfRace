@@ -14,7 +14,6 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
-// Budeme z neho potrebovať refresh
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
@@ -69,10 +68,8 @@ export default function DetailPlanCompliance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Potrebujeme refresh funkciu z providera pre synchro s denným plánom/kalendárom
   const { refresh: refreshCoach } = useCoachData();
 
-  // 🌟 Voláme vlastné API, aby sme dostali komplet všetky odložené
   const loadData = useCallback(async () => {
     if (!userId) return;
     try {
@@ -110,15 +107,27 @@ export default function DetailPlanCompliance() {
       ]);
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
-      toast.success(t("common.moved") || "Presunuté");
-      
-      // Obnovíme túto stránku
+      toast.success(t("common.moved"));
       await loadData();
-      
-      // A povieme aj globálnemu kalendáru, aby sa obnovil
       refreshCoach(false); 
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 🌟 NOVÁ FUNKCIA: Vyhodenie tréningu zo zásobníka
+  const handleDiscard = async (sessionId: number) => {
+    if (!userId || !sessionId || saving) return;
+    setSaving(true);
+    try {
+      await apiPatchDailySessionStatus(userId, sessionId, { status: "missed" });
+      toast.success(t("common.deleted"));
+      await loadData();
+      refreshCoach(false);
+    } catch (e: any) {
+       toast.error(t(e?.message as any) || t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -132,10 +141,11 @@ export default function DetailPlanCompliance() {
     );
   }
 
-  // Ak sa premenujú z backende kľúče, postaráme sa o oba varianty
+  // 🌟 Zjednotené štatistiky (backend nám posiela už hotové čísla)
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
   const displayPostponedCount = stats.postponed || stats.skipped || 0;
   
+  // 🌟 Zoznam všetkých odložených bez ohľadu na dátum
   const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
 
   return (
@@ -212,6 +222,8 @@ export default function DetailPlanCompliance() {
                             loadData();
                             refreshCoach(false);
                           }}
+                          // 🌟 Posielame novú funkciu do SessionCard
+                          onDiscard={() => handleDiscard(s.id)}
                           
                           planReschedule={{
                             enabled: true,

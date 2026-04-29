@@ -41,6 +41,7 @@ export const en = {
     refreshTitle: "Refresh data",
     edit: "Edit",
     delete: "Delete",
+    deleted: "Deleted",
     share: "Share",
     none: "none",
     set: "set",
@@ -2499,6 +2500,8 @@ export const en = {
         postpone: "Postpone",
         match: "Match activity",
         unmatch: "Unmatch activity",
+        discard: "Discard",
+        discardConfirm: "Are you sure you want to delete this workout?",
       },
       reschedule: {
         title: "Move workout to a different day",
