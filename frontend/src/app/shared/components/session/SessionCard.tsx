@@ -131,7 +131,6 @@ export type SessionCardProps = {
   showAdvanced?: boolean;
   
   onRefreshPlan?: () => void;
-  // 🌟 Pridali sme onDiscard funkciu
   onDiscard?: (sessionId: number) => void;
 
   planReschedule?: {
@@ -179,91 +178,6 @@ function parseKm(s?: string | null): number | null {
 }
 
 /* ========================================================= */
-/* MANUAL MATCH MODAL S ActivitySelectorDate                 */
-/* ========================================================= */
-type ManualMatchModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  session: PlanSession;
-};
-
-function ManualMatchModal({
-  isOpen,
-  onClose,
-  onSuccess,
-  session,
-}: ManualMatchModalProps) {
-  const t = useT();
-  const { userId } = useUserId();
-
-  const [selectedActivityId, setSelectedActivityId] = useState<number | "">("");
-  const [isSaving, setIsSaving] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleMatch = async () => {
-    if (!userId || !session.id || !selectedActivityId) return;
-
-    setIsSaving(true);
-    try {
-      await apiPatchDailySessionStatus(userId, Number(session.id), {
-        activity_id: Number(selectedActivityId),
-      });
-      
-      toast.success(t("sessions.matchModal.success") || "Spárované");
-      onSuccess(); 
-      onClose();
-    } catch (error) {
-      toast.error(t("sessions.matchModal.error") || "Chyba");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm rounded-2xl bg-[#1a1a1a] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
-        
-        <div className="px-4 py-3 border-b border-white/10 shrink-0 bg-black/20 flex items-center justify-between">
-          <h3 className="text-base font-bold text-white">
-            {t("sessions.matchModal.title") || "Spárovať tréning"}
-          </h3>
-          <div className="text-emerald-400 font-semibold text-xs truncate max-w-[150px]">
-            {session.title}
-          </div>
-        </div>
-
-        <div className="p-4 flex-1">
-          <ActivitySelectorDate
-            userId={userId}
-            defaultDateIso={session.dateIso || new Date().toISOString().slice(0, 10)}
-            sports={[session.sport as any]}
-            value={selectedActivityId}
-            onChange={(val) => setSelectedActivityId(val)}
-          />
-        </div>
-
-        <div className="px-4 py-3 border-t border-white/10 shrink-0 flex justify-end gap-2 bg-black/20">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={isSaving}>
-            {t("sessions.matchModal.btnCancel") || "Zrušiť"}
-          </Button>
-          
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleMatch}
-            disabled={!selectedActivityId || isSaving}
-          >
-            {isSaving ? t("sessions.matchModal.btnSaving") || "Ukladám..." : t("sessions.matchModal.btnMatch") || "Uložiť"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ========================================================= */
 /* HLAVNÝ KOMPONENT                                          */
 /* ========================================================= */
 
@@ -274,7 +188,7 @@ export default function SessionCard({
   showPlanDebug = false,
   showAdvanced = false,
   onRefreshPlan,
-  onDiscard, // 🌟 Prijímame onDiscard
+  onDiscard, 
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -464,7 +378,7 @@ export default function SessionCard({
               showPlanDebug={showPlanDebug}
               showAdvanced={showAdvanced}
               onRefreshPlan={onRefreshPlan}
-              onDiscard={onDiscard} // 🌟 Posúvame ďalej do DetailBody
+              onDiscard={onDiscard}
               planRescheduleUI={
                 canReschedulePlan
                   ? {
@@ -495,7 +409,7 @@ function DetailBody({
   showPlanDebug,
   showAdvanced,
   onRefreshPlan,
-  onDiscard, // 🌟 Prijímame
+  onDiscard,
   planRescheduleUI,
 }: {
   variant: ComponentVariant;
@@ -504,7 +418,7 @@ function DetailBody({
   showPlanDebug: boolean;
   showAdvanced: boolean;
   onRefreshPlan?: () => void;
-  onDiscard?: (sessionId: number) => void; // 🌟 Type
+  onDiscard?: (sessionId: number) => void;
   planRescheduleUI: null | {
     show: boolean;
     setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
@@ -517,8 +431,11 @@ function DetailBody({
   const t = useT();
   const { userId } = useUserId();
   const compactChart = variant !== "activity";
-  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 🌟 Stavy pre INLINE SPÁROVANIE
+  const [showMatchUI, setShowMatchUI] = useState(false);
+  const [selectedActivityId, setSelectedActivityId] = useState<number | "">("");
 
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
   const hasKpis = kpis.length > 0;
@@ -561,21 +478,31 @@ function DetailBody({
     }
   };
 
+  // 🌟 Uloženie inline spárovania
+  const handleMatchSave = async () => {
+    if (!userId || !item.id || !selectedActivityId) return;
+
+    setIsProcessing(true);
+    try {
+      await apiPatchDailySessionStatus(userId, Number(item.id), {
+        activity_id: Number(selectedActivityId),
+      });
+      
+      toast.success(t("sessions.matchModal.success") || "Spárované");
+      setShowMatchUI(false);
+      if (onRefreshPlan) onRefreshPlan();
+    } catch (error) {
+      toast.error(t("sessions.matchModal.error") || "Chyba");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (item.kind === "plan") {
     const plan = item as PlanSession;
 
     return (
       <div className="space-y-3">
-        
-        <ManualMatchModal
-          isOpen={isMatchModalOpen}
-          onClose={() => setIsMatchModalOpen(false)}
-          session={plan}
-          onSuccess={() => {
-            if (onRefreshPlan) onRefreshPlan();
-          }}
-        />
-
         {showAdvanced && (
           <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="text-[11px] uppercase tracking-wider opacity-50 font-semibold">
@@ -583,12 +510,16 @@ function DetailBody({
             </div>
             
             <div className="flex flex-wrap gap-2">
+              {/* Presunúť - PRIMARY variant */}
               {planRescheduleUI && (
                 <Button
                   size="xs"
-                  variant="secondary"
+                  variant="primary"
                   disabled={isProcessing}
-                  onClick={() => planRescheduleUI.setShow((s) => !s)}
+                  onClick={() => {
+                    planRescheduleUI.setShow((s) => !s);
+                    setShowMatchUI(false); 
+                  }}
                 >
                   {planRescheduleUI.show 
                     ? t("common.cancel") || "Zrušiť"
@@ -596,6 +527,7 @@ function DetailBody({
                 </Button>
               )}
 
+              {/* Odložiť (ponechané ako secondary, lebo je to alternatíva k presunu/splneniu) */}
               {plan.status === "planned" && (
                 <Button
                   size="xs"
@@ -607,50 +539,55 @@ function DetailBody({
                 </Button>
               )}
 
+              {/* Spárovať - PRIMARY variant */}
               {(plan.status === "planned" || plan.status === "missed" || plan.status === "postponed") && (
                 <Button
                   size="xs"
                   variant="primary"
                   disabled={isProcessing}
-                  onClick={() => setIsMatchModalOpen(true)}
+                  onClick={() => {
+                    setShowMatchUI((s) => !s);
+                    if (planRescheduleUI) planRescheduleUI.setShow(false); 
+                  }}
                 >
-                  {t("sessions.card.actions.match")}
+                  {showMatchUI ? t("common.cancel") || "Zrušiť" : t("sessions.card.actions.match") || "Spárovať"}
                 </Button>
               )}
 
+              {/* Zrušiť spárovanie (danger) */}
               {plan.status === "done" && (
                 <Button
                   size="xs"
-                  variant="secondary"
+                  variant="danger"
                   disabled={isProcessing}
-                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 border-red-500/20 transition-colors"
                   onClick={() => handleUnmatch(plan.id)}
                 >
-                  {t("sessions.card.actions.unmatch")}
+                  {t("sessions.card.actions.unmatch") || "Zrušiť spárovanie"}
                 </Button>
               )}
 
-              {/* 🌟 NOVÉ TLAČIDLO: Zahodiť zo zásobníka */}
+              {/* 🌟 Zahodiť zo zásobníka - DANGER variant, odskokne doprava vďaka ml-auto */}
               {plan.status === "postponed" && onDiscard && (
                 <Button
                   size="xs"
-                  variant="secondary"
+                  variant="danger"
                   disabled={isProcessing}
-                  className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border-orange-500/20 transition-colors ml-auto"
+                  className="ml-auto"
                   onClick={() => {
-                    if (window.confirm(t("sessions.card.actions.discardConfirm"))) {
+                    if (window.confirm(t("sessions.card.actions.discardConfirm") || "Naozaj chcete tento tréning vymazať zo zásobníka?")) {
                       onDiscard(Number(plan.id));
                     }
                   }}
                 >
-                  {t("sessions.card.actions.discard")}
+                  {t("sessions.card.actions.discard") || "Zahodiť"}
                 </Button>
               )}
 
             </div>
 
+            {/* INLINE UI PRE PRESUNUTIE TRÉNINGU */}
             {planRescheduleUI?.show && (
-              <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40">
+              <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
                 <SelectField
                   value={planRescheduleUI.pendingDate}
                   onChange={(e) => planRescheduleUI.onSelect(String(e.target.value))}
@@ -661,6 +598,38 @@ function DetailBody({
                 <div className="mt-2 text-[11px] opacity-60">
                   {t("sessions.card.reschedule.current")} {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
                   {shortSkDay(planRescheduleUI.currentDate)}
+                </div>
+              </div>
+            )}
+
+            {/* INLINE UI PRE SPÁROVANIE TRÉNINGU */}
+            {showMatchUI && (
+              <div className="mt-2 p-3 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
+                <ActivitySelectorDate
+                  userId={userId}
+                  defaultDateIso={plan.dateIso || new Date().toISOString().slice(0, 10)}
+                  sports={[plan.sport as any]}
+                  value={selectedActivityId}
+                  onChange={(val) => setSelectedActivityId(val)}
+                />
+                
+                <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-white/5">
+                  <Button 
+                    variant="ghost" 
+                    size="xs" 
+                    onClick={() => setShowMatchUI(false)} 
+                    disabled={isProcessing}
+                  >
+                    {t("common.cancel") || "Zrušiť"}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="xs"
+                    onClick={handleMatchSave}
+                    disabled={!selectedActivityId || isProcessing}
+                  >
+                    {isProcessing ? t("common.saving") || "Ukladám..." : t("common.save") || "Uložiť"}
+                  </Button>
                 </div>
               </div>
             )}
