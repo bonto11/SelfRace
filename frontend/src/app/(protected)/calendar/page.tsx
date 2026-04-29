@@ -30,8 +30,8 @@ function CalendarRefreshBtn() {
       circle
       size="sm"
       variant="ghost"
-      aria-label={t("common.refreshTitle" as any) || "Obnoviť"}
-      title={t("common.refreshTitle" as any) || "Obnoviť"}
+      aria-label={t("common.refreshTitle" as any)}
+      title={t("common.refreshTitle" as any)}
       onClick={handleRefreshAll}
       disabled={isGlobalLoading}
     >
