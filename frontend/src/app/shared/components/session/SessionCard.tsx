@@ -532,7 +532,7 @@ function DetailBody({
     />
   ) : null;
 
-  const handleSkip = async (sessionId: string | number) => {
+  const handlePostpone = async (sessionId: string | number) => {
     if (!userId || isProcessing) return;
     setIsProcessing(true);
     try {
@@ -600,9 +600,9 @@ function DetailBody({
                   size="xs"
                   variant="secondary"
                   disabled={isProcessing}
-                  onClick={() => handleSkip(plan.id)}
+                  onClick={() => handlePostpone(plan.id)}
                 >
-                  {t("sessions.card.actions.skip")}
+                  {t("sessions.card.actions.postpone")}
                 </Button>
               )}
 

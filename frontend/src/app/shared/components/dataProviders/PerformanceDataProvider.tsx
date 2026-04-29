@@ -27,11 +27,14 @@ import {
   apiGetVo2EstimatedTrend,
   apiGetBodyFatLatest,
   apiGetBodyFatTrend,
-  apiGetWeightLatest,     // 👈 PRIDANÉ
-  apiGetWeightTrend,      // 👈 PRIDANÉ
-  apiGetHrMaxLatest,      // 👈 PRIDANÉ
-  apiGetProfileStatic,    // 👈 PRIDANÉ
+  apiGetWeightLatest,
+  apiGetWeightTrend,
+  apiGetHrMaxLatest,
 } from "@/app/features/performance/api/userMetrics";
+
+import {
+  apiGetStaticProfile, 
+} from "@/app/features/performance/api/static";
 
 /* Typy */
 import type { ZonesOut } from "@/app/features/performance/types/zonesTypes";
@@ -146,10 +149,10 @@ export function PerformanceDataProvider({
         vo2ETrend,
         fatLatest,
         fatTrend,
-        weightLat,   // 👈 PRIDANÉ
-        weightTrnd,  // 👈 PRIDANÉ
-        hrMaxLat,    // 👈 PRIDANÉ
-        profileStat, // 👈 PRIDANÉ
+        weightLat,  
+        weightTrnd,  
+        hrMaxLat,   
+        profileStat,
       ] = await Promise.all([
         apiFetchUserZoneTrends(uid, "running", d),
         apiGetLatestPaces(uid),
@@ -160,10 +163,10 @@ export function PerformanceDataProvider({
         apiGetVo2EstimatedTrend(uid, d),
         apiGetBodyFatLatest(uid),
         apiGetBodyFatTrend(uid, d),
-        apiGetWeightLatest(uid),    // 👈 PRIDANÉ
-        apiGetWeightTrend(uid, d),  // 👈 PRIDANÉ
-        apiGetHrMaxLatest(uid),     // 👈 PRIDANÉ
-        apiGetProfileStatic(uid),   // 👈 PRIDANÉ
+        apiGetWeightLatest(uid), 
+        apiGetWeightTrend(uid, d),
+        apiGetHrMaxLatest(uid), 
+        apiGetStaticProfile(uid), 
       ]);
 
       return {
@@ -181,7 +184,7 @@ export function PerformanceDataProvider({
         weightLatest: weightLat?.data || null,
         bodyWeightTrend: weightTrnd?.trends || weightTrnd?.data || [],
         hrMaxLatest: hrMaxLat?.data || null,
-        profileStatic: profileStat?.data || profileStat || null, 
+        profileStatic: profileStat || null,
       };
     },
     [],

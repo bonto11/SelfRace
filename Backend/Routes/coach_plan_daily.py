@@ -15,7 +15,7 @@ from Services.AI.daily_plan.main import (
     service_get_daily_overview,
     service_update_daily_session_status,
 )
-from DB.coach_plan_daily import db_get_compliance_stats, db_get_skipped_sessions
+from DB.coach_plan_daily import db_get_compliance_stats, db_get_postponed_sessions
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
@@ -26,7 +26,7 @@ router = APIRouter(
 
 class DailySessionPatch(BaseModel):
     status: Optional[str] = Field(
-        None, description="Napr. 'planned', 'skipped', 'missed'"
+        None, description="Napr. 'planned', 'postponed', 'missed'"
     )
     activity_id: Optional[int] = Field(
         None, description="ID aktivity pre manuálne spárovanie"
@@ -171,8 +171,8 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
         ctx = require_user(get_auth_ctx(req))
 
         stats = db_get_compliance_stats(user_id, days=30, ctx=ctx)
-        skipped = db_get_skipped_sessions(user_id, ctx=ctx)
+        postponed = db_get_postponed_sessions(user_id, ctx=ctx)
 
-        return {"success": True, "data": {"stats": stats, "skipped_sessions": skipped}}
+        return {"success": True, "data": {"stats": stats, "postponed_sessions": postponed}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

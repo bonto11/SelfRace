@@ -7,6 +7,7 @@ import type {
   StaticApiFail,
 } from "@/app/features/performance/types/performance";
 
+
 /**
  * GET /performance/static/:user_id
  * - user sa identifikuje cez JWT + path user_id
@@ -38,6 +39,7 @@ export async function apiGetStaticProfile(
     throw new Error("api.profile.staticLoadFailed");
   }
 }
+
 
 /**
  * POST /profile/static/:user_id

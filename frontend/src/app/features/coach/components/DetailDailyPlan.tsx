@@ -119,7 +119,7 @@ export default function DetailDailyPlan() {
   const [showAllDays, setShowAllDays] = useState(false); 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
-  // 🔄 Funkcia pre refresh dát (použijeme po Skipnutí/Matchnutí)
+  // 🔄 Funkcia pre refresh dát (použijeme po postpone/Matchnutí)
   const refreshData = useCallback(async (showLoading = true) => {
     if (!userId) return;
     if (showLoading) setLoading(true);
@@ -385,7 +385,7 @@ export default function DetailDailyPlan() {
                     variant="calendar"
                     item={item}
                     showAdvanced={showAdvanced}
-                    // 🌟 REFRESH PO SKIPE/MATCHi
+                    // 🌟 REFRESH PO postpone/MATCHi
                     onRefreshPlan={() => refreshData(false)}
                     planReschedule={{
                       enabled: true,

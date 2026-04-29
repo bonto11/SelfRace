@@ -403,7 +403,7 @@ def service_update_daily_session_status(
     ctx: AuthCtx
 ) -> Dict[str, Any]:
     """
-    Spracuje logiku pre manuálne zásahy do denného tréningu (Skip, Match, Unmatch).
+    Spracuje logiku pre manuálne zásahy do denného tréningu (Postpone, Match, Unmatch).
     """
     update_data = {}
     
@@ -417,7 +417,7 @@ def service_update_daily_session_status(
             update_data["activity_id"] = activity_id
             update_data["status"] = "done"  # Automaticky prepneme na hotovo
             
-        # 3. Logika pre SKIP/UNSKIP alebo inú priamu zmenu statusu
+        # 3. Logika pre postpone/plan alebo inú priamu zmenu statusu
         if status is not None:
             update_data["status"] = status
 

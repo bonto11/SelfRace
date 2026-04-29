@@ -1,6 +1,6 @@
 import { callBackend } from "@/app/shared/utils/callBackend";
 
-type ApiFail = { success: false; detail?: string };
+export type ApiFail = { success: false; detail?: string };
 
 /** VO2 Max Measured (Latest) */
 export async function apiGetVo2MeasuredLatest(userId: number) {
@@ -169,25 +169,6 @@ export async function apiGetHrMaxLatest(userId: number) {
     return json;
   } catch (e) {
     console.error("[userMetrics][GET hrmax latest] error", e);
-    return null;
-  }
-}
-
-/** Profile Static (Bio dáta ako výška, pohlavie...) */
-export async function apiGetProfileStatic(userId: number) {
-  if (!userId) return null;
-  const path = `/users/${encodeURIComponent(String(userId))}/bio`; 
-
-  try {
-    const json = await callBackend<any>(path, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    if (!json || (json as ApiFail).success === false) return null;
-    return json;
-  } catch (e) {
-    console.error("[userMetrics][GET profile static] error", e);
     return null;
   }
 }

@@ -335,7 +335,7 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         )
         data = res.data or []
         
-        stats = {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
+        stats = {"done": 0, "postponed": 0, "missed": 0, "planned": 0}
         for row in data:
             s = row.get("status") or "planned"
             if s in stats:
@@ -344,20 +344,20 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         return stats
     except Exception as e:
         print("[DB-COACH-DAILY] stats error:", repr(e))
-        return {"done": 0, "skipped": 0, "missed": 0, "planned": 0}
+        return {"done": 0, "postponed": 0, "missed": 0, "planned": 0}
 
-def db_get_skipped_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
-    sb = get_sb(ctx, caller="coach_plan_daily.db_get_skipped_sessions")
+def db_get_postponed_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_postponed_sessions")
     try:
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .select("*")
             .eq("user_id", user_id)
-            .eq("status", "skipped")
+            .eq("status", "postponed")
             .order("plan_date", desc=True)
             .execute()
         )
         return res.data or []
     except Exception as e:
-        print("[DB-COACH-DAILY] get_skipped error:", repr(e))
+        print("[DB-COACH-DAILY] get_postponed error:", repr(e))
         return []

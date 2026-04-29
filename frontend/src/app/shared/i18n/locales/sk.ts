@@ -2484,7 +2484,7 @@ export const sk = {
       managePlan: "Správa tréningu",
       actions: {
         reschedule: "Presunúť",
-        skip: "Preskočiť",
+        postpone: "Odložiť",
         match: "Spárovať aktivitu",
         unmatch: "Zrušiť spárovanie",
       },

@@ -2496,7 +2496,7 @@ export const en = {
       managePlan: "Manage plan",
       actions: {
         reschedule: "Reschedule",
-        skip: "Skip",
+        postpone: "Postpone",
         match: "Match activity",
         unmatch: "Unmatch activity",
       },

@@ -144,7 +144,7 @@ export async function apiSaveDailyReschedule(
   }
 }
 
-// NOVÝ ENDPOINT PRE MANUÁLNE ZÁSAHY DO TRÉNINGU (Skip, Match, Unmatch)
+// NOVÝ ENDPOINT PRE MANUÁLNE ZÁSAHY DO TRÉNINGU (postpone, Match, Unmatch)
 export type PatchDailySessionPayload = {
   status?: "planned" | "done" | "postponed" | "missed";
   activity_id?: number | null;
