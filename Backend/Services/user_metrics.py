@@ -52,6 +52,18 @@ def service_get_body_fat_latest(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
 def service_get_body_fat_trend(user_id: int, days: int, ctx: AuthCtx) -> List[Dict[str, Any]]:
     return db_get_metric_trend(user_id, "body_fat_pct", days, ctx=ctx)
 
+# --- GENERIC METRICS (Nové univerzálne funkcie napr. pre weight_kg, HR_max) ---
+
+def service_get_generic_latest(user_id: int, metric: str, ctx: AuthCtx) -> Dict[str, Any]:
+    row = db_get_latest_metric(user_id, metric, ctx=ctx)
+    return {
+        "value": row["value_num"] if row else None,
+        "measured_at": row["measured_at"] if row else None
+    }
+
+def service_get_generic_trend(user_id: int, metric: str, days: int, ctx: AuthCtx) -> List[Dict[str, Any]]:
+    return db_get_metric_trend(user_id, metric, days, ctx=ctx)
+
 # --- SAVE (Univerzálny) ---
 
 def service_save_metric(
