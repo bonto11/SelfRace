@@ -18,7 +18,6 @@ export async function apiGetStaticProfile(
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/profile/static/${encodeURIComponent(String(userId))}`;
-  console.debug("[PROFILE][apiGetStaticProfile] ->", path);
 
   try {
     const json = await callBackend<StaticProfileSuccess | StaticApiFail | null>(

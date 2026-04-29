@@ -1,11 +1,10 @@
-// src/app/(protected)/coach/plan/compliance/page.tsx
+// src/app/features/coach/components/DetailPlanCompliance.tsx
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { 
-  apiGetPlanCompliance, 
   apiSaveDailyReschedule,
   apiPatchDailySessionStatus 
 } from "@/app/features/coach/api/coach_plan_daily";
@@ -13,6 +12,9 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
+
+// 🌟 Používame globálny provider namiesto vlastného API na GET
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
   PANEL_STACK,
@@ -29,7 +31,7 @@ import {
 } from "@/app/shared/ui/tokens/sessionCard";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-/* ---------- card wrapper (Tento zabezpečí ten správny tokenový dizajn) ---------- */
+/* ---------- card wrapper ---------- */
 function Card({
   title,
   subtitle,
@@ -61,26 +63,49 @@ export default function DetailPlanCompliance() {
   const { userId } = useUserId();
   const t = useT();
 
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
-    try {
-      setLoading(true);
-      const res = await apiGetPlanCompliance(userId);
-      setData(res);
-    } catch (err: any) {
-      setError(t(err?.message as any));
-    } finally {
-      setLoading(false);
+  // 🌟 Vytiahneme globálne dáta
+  const { plan: { rows: globalRows }, loading: isGlobalLoading, refresh: refreshCoach } = useCoachData();
+
+  // 🌟 Agregujeme compliance štatistiky zo SSOT (posledných 30 dní)
+  const complianceData = useMemo(() => {
+    if (!globalRows || !Array.isArray(globalRows)) return { stats: { done: 0, postponed: 0, missed: 0 }, postponedSessions: [] };
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysIso = thirtyDaysAgo.toISOString().slice(0, 10);
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    let done = 0;
+    let postponed = 0;
+    let missed = 0;
+    const postponedArr: any[] = [];
+
+    for (const r of globalRows) {
+      const pDate = String(r.plan_date).slice(0, 10);
+      
+      // Zaujíma nás len posledných 30 dní až po dnešok (vrátane)
+      if (pDate >= thirtyDaysIso && pDate <= todayIso) {
+        if (r.status === "done") done++;
+        if (r.status === "postponed") {
+            postponed++;
+            postponedArr.push(r);
+        }
+        if (r.status === "missed") missed++;
+      }
     }
-  }, [userId, t]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // Sortneme odložené od najnovšieho
+    postponedArr.sort((a, b) => String(b.plan_date).localeCompare(String(a.plan_date)));
+
+    return {
+      stats: { done, postponed, missed },
+      postponedSessions: postponedArr
+    };
+  }, [globalRows]);
+
 
   const planDates = useMemo(() => {
     const out: string[] = [];
@@ -94,21 +119,28 @@ export default function DetailPlanCompliance() {
   }, []);
 
   const handleReschedule = async ({ sessionId, fromDate, toDate }: any) => {
-    if (!userId || !sessionId || !toDate) return;
+    if (!userId || !sessionId || !toDate || saving) return;
+    setSaving(true);
     try {
+      // 1. Uložíme nový dátum
       await apiSaveDailyReschedule(userId, [
         { id: sessionId, from_date: fromDate, to_date: toDate }
       ]);
+      // 2. Musíme natvrdo zmeniť status z postponed späť na planned
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
       toast.success(t("common.moved"));
-      loadData(); 
+      
+      // 🌟 Globálny refresh!
+      refreshCoach(false); 
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading && !data) {
+  if (isGlobalLoading && !globalRows?.length) {
     return (
       <div className="flex justify-center p-12 w-full">
         <LoadingSpinner size="widget" />
@@ -116,13 +148,10 @@ export default function DetailPlanCompliance() {
     );
   }
 
-  const stats = data?.stats || { done: 0, postponed: 0, missed: 0 };
-  const postponedSessions = data?.postponed_sessions || [];
+  const { stats, postponedSessions } = complianceData;
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {error && <div className="text-red-500 mb-4">{error}</div>}
-
       <div className={PAGE_GRID_2}>
         
         {/* STATISTIKY OBALENÉ V NOVOM CARDE */}
@@ -145,7 +174,7 @@ export default function DetailPlanCompliance() {
                 </span>
               </div>
               
-              {/* Odložené (šedé/priehľadné) */}
+              {/* Odložené */}
               <div className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5">
                 <span className="text-white/70 font-semibold">
                   {t("coachCompliance.stats.postponed")}
@@ -171,7 +200,7 @@ export default function DetailPlanCompliance() {
           </Card>
         </div>
 
-        {/* BANKA RESTOV OBALENÁ V NOVOM CARDE */}
+        {/* BANKA RESTOV / POSTPONED ZÁSOBNÍK */}
         <div className={PANEL_STACK}>
           <Card
             title={t("coachCompliance.bank.title")}
@@ -184,37 +213,42 @@ export default function DetailPlanCompliance() {
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {postponedSessions.map((s: any) => (
-                    <li key={s.id}>
-                      <SessionCard
-                        variant="calendar"
-                        showAdvanced={true}
-                        onRefreshPlan={loadData}
-                        
-                        planReschedule={{
-                          enabled: true,
-                          dates: planDates,
-                          maxPerDay: 5, 
-                          onChangeDate: handleReschedule
-                        }}
-                        
-                        item={{
-                          id: s.id,
-                          kind: "plan",
-                          status: s.status,
-                          title: s.title || s.sport,
-                          dateIso: s.plan_date,
-                          sport: s.sport,
-                          notes: s.notes,
-                          planDur: s.duration_min ? `${s.duration_min} min` : null,
-                          planIntensity: s.intensity,
-                          planRaw: s,
-                          planStructure: s.structure ?? null,
-                          kpis: [],
-                        } as any}
-                      />
-                    </li>
-                  ))}
+                  {postponedSessions.map((s: any) => {
+                    // Zachovávame existujúcu podporu pre raw DB riadok vs JSON payload
+                    const rawData = s.payload ?? s;
+
+                    return (
+                      <li key={s.id}>
+                        <SessionCard
+                          variant="calendar"
+                          showAdvanced={true}
+                          onRefreshPlan={() => refreshCoach(false)}
+                          
+                          planReschedule={{
+                            enabled: true,
+                            dates: planDates,
+                            maxPerDay: 5, 
+                            onChangeDate: handleReschedule
+                          }}
+                          
+                          item={{
+                            id: s.id,
+                            kind: "plan",
+                            status: s.status,
+                            title: rawData.title || rawData.sport,
+                            dateIso: s.plan_date,
+                            sport: rawData.sport,
+                            notes: rawData.notes,
+                            planDur: rawData.duration_min ? `${rawData.duration_min} min` : null,
+                            planIntensity: rawData.intensity,
+                            planRaw: s,
+                            planStructure: rawData.structure ?? null,
+                            kpis: [],
+                          } as any}
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

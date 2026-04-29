@@ -1,23 +1,20 @@
 // src/app/features/coach/components/DetailDailyPlan.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
-
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import Toggle from "@/app/shared/ui/components/Toggle";
+import MiniCalendar from "@/app/shared/ui/components/MiniCalendar";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
-import MiniCalendar from "@/app/shared/ui/components/MiniCalendar"; 
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
-  apiGetDailyOverview,
   apiSaveDailyReschedule,
-  type DailyOverview,
-  type DailyPlanDay,
   type DailyRescheduleMove,
 } from "@/app/features/coach/api/coach_plan_daily";
 
@@ -90,9 +87,7 @@ function Card({
           </div>
         </header>
       )}
-
       <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
-
       <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
   );
@@ -109,58 +104,54 @@ export default function DetailDailyPlan() {
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const [overview, setOverview] = useState<DailyOverview | null>(null);
-  const [loading, setLoading] = useState(false);
+  // 🌟 Vytiahneme globálne dáta
+  const { plan: { rows: globalRows }, loading: isGlobalLoading, refresh: refreshCoach } = useCoachData();
+
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
   const [showAllDays, setShowAllDays] = useState(false); 
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
-  // 🔄 Funkcia pre refresh dát (použijeme po postpone/Matchnutí)
-  const refreshData = useCallback(async (showLoading = true) => {
-    if (!userId) return;
-    if (showLoading) setLoading(true);
-    setError(null);
-    try {
-      const r = await apiGetDailyOverview(userId);
-      setOverview(r ?? null);
-      setMoves([]); 
-      setSaveError(null);
-    } catch (e: any) {
-      setError(t(e?.message as any));
-    } finally {
-      if (showLoading) setLoading(false);
+  // 🌟 Pretransformujeme globálne riadky do pôvodnej štruktúry 'days'
+  const days = useMemo(() => {
+    if (!globalRows || !Array.isArray(globalRows)) return [];
+    
+    const daysMap = new Map<string, any>();
+    
+    // Predpokladáme zobrazenie +- 7 dní (alebo celého rozsahu z DB)
+    for (const r of globalRows) {
+      const pDate = String(r.plan_date).slice(0, 10);
+      if (!daysMap.has(pDate)) {
+        daysMap.set(pDate, { date: pDate, sessions: [] });
+      }
+      daysMap.get(pDate).sessions.push(r);
     }
-  }, [userId, t]);
 
-  useEffect(() => {
-    refreshData(true);
-  }, [refreshData]);
+    // Sortneme od najstaršieho po najnovší
+    return Array.from(daysMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [globalRows]);
 
-  const days = overview?.days ?? [];
   const hasPlan = days.length > 0;
 
   const filteredDays = useMemo(() => {
     if (showAllDays) return days;
-    // V bežnom móde filtrujeme len tie, ktoré nie sú postponed, aby nezavadzali
     const list = days.filter((d) => d.date === selectedDate);
     return list;
   }, [days, showAllDays, selectedDate]);
 
   const planDates = useMemo(() => {
-    const h = overview?.horizon_days ?? 7;
     const out: string[] = [];
     const base = new Date(); 
-    for (let i = 0; i <= h; i++) {
+    // Horizon necháme hardcoded na 7 dní dopredu, keďže to postačuje
+    for (let i = 0; i <= 7; i++) {
       const d = new Date(base);
       d.setDate(d.getDate() + i);
       out.push(d.toISOString().slice(0, 10));
     }
     return out;
-  }, [overview?.horizon_days]);
+  }, []);
   
   const dayCounts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
@@ -173,44 +164,14 @@ export default function DetailDailyPlan() {
 
   const dirty = moves.length > 0;
 
-  const moveSessionLocal = (fromDate: string, toDate: string, sessionId: number) => {
-    setOverview((prev) => {
-      if (!prev) return prev;
-      let moved: any = null;
-      const daysNext: DailyPlanDay[] = prev.days.map((d) => {
-        if (d.date === fromDate) {
-          const next = [...(d.sessions ?? [])];
-          const i = next.findIndex((x: any) => Number(x?.id) === Number(sessionId));
-          if (i >= 0) {
-            moved = next[i];
-            next.splice(i, 1);
-          }
-          return { ...d, sessions: next };
-        }
-        return d;
-      });
-
-      if (!moved) return prev;
-      const daysNext2: DailyPlanDay[] = daysNext.map((d) => {
-        if (d.date === toDate) {
-          const moved2 = { ...moved, plan_date: toDate };
-          return { ...d, sessions: [...(d.sessions ?? []), moved2] };
-        }
-        return d;
-      });
-      return { ...prev, days: daysNext2 };
-    });
+  const addMove = (m: DailyRescheduleMove) => {
+    // ⚠️ Keďže teraz máme SSOT z providera, local override zrušíme, aby to nerobilo ghosting bugy. 
+    // Používateľ rovno uloží zmeny, čím zabezpečíme konzistenciu.
+    setMoves((prev) => [...prev, m]);
   };
 
-  const addMove = (m: DailyRescheduleMove) => setMoves((prev) => [...prev, m]);
-
   const undoLast = () => {
-    setMoves((prev) => {
-      if (!prev.length) return prev;
-      const last = prev[prev.length - 1];
-      moveSessionLocal(last.to_date, last.from_date, Number(last.id));
-      return prev.slice(0, -1);
-    });
+    setMoves((prev) => prev.slice(0, -1));
   };
 
   const saveMoves = async () => {
@@ -218,9 +179,10 @@ export default function DetailDailyPlan() {
     setSaving(true);
     setSaveError(null);
     try {
-      const next = await apiSaveDailyReschedule(userId, moves);
-      if (next) setOverview(next);
+      await apiSaveDailyReschedule(userId, moves);
       setMoves([]);
+      // 🌟 Globálny refresh!
+      refreshCoach(false); 
     } catch (e: any) {
       setSaveError(t(e?.message as any));
     } finally {
@@ -241,7 +203,8 @@ export default function DetailDailyPlan() {
     );
   }
 
-  if (loading) {
+  // Loading zobrazíme len pri prvotnom loade
+  if (isGlobalLoading && days.length === 0) {
     return (
       <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "flex items-center gap-2"].join(" ")}>
@@ -253,15 +216,7 @@ export default function DetailDailyPlan() {
     );
   }
 
-  if (error) {
-    return (
-      <Card title={t("coach.daily.scheduleTitle")} subtitle={t("coach.daily.errorLoadTitle")}>
-        <div className={PANEL_PREVIEW}>{error}</div>
-      </Card>
-    );
-  }
-
-  // Odfiltrujeme všetky 'postponed' tréningy pre zoznam (karty) dole.
+  // Odfiltrujeme 'postponed'
   const daysForList = filteredDays.map(day => ({
     ...day,
     sessions: (day.sessions || []).filter((s: any) => s.status !== "postponed")
@@ -271,7 +226,6 @@ export default function DetailDailyPlan() {
 
   return (
     <div className={PANEL_STACK}>
-      
       {hasPlan && <ShowAdvancedToggle />}
 
       {hasPlan && (
@@ -356,27 +310,29 @@ export default function DetailDailyPlan() {
               const wd = weekdayLabel(d.date) ?? "";
 
               return d.sessions.map((s: any) => {
+                // Aby sme zachovali payload (ak existuje) alebo len surový objekt
+                const rawData = s.payload ?? s;
+
                 const kpis: KPI[] = [];
-                if (s.duration_min) kpis.push({ label: t("common.metrics.duration").toUpperCase(), value: `${s.duration_min} ${t("common.units.min")}` });
-                if (s.intensity) kpis.push({ label: t("common.metrics.intensity").toUpperCase(), value: String(s.intensity) });
+                if (rawData.duration_min) kpis.push({ label: t("common.metrics.duration").toUpperCase(), value: `${rawData.duration_min} ${t("common.units.min")}` });
+                if (rawData.intensity) kpis.push({ label: t("common.metrics.intensity").toUpperCase(), value: String(rawData.intensity) });
 
                 const item: PlanSession = {
                   id: s.id,
                   kind: "plan",
-                  // 🌟 TERAZ BERIEME REÁLNY STATUS Z BACKENDU
                   status: s.status || "planned",
-                  title: s.title || s.session_type || s.sport || t("coach.daily.sessionFallback"),
+                  title: rawData.title || rawData.session_type || rawData.sport || t("coach.daily.sessionFallback"),
                   dateIso,
-                  sport: s.sport || "other",
+                  sport: rawData.sport || "other",
                   subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
                   kpis,
-                  notes: s.notes ?? null,
-                  planDur: s.duration_min ? `${s.duration_min} ${t("common.units.min")}` : null,
-                  planIntensity: s.intensity ?? null,
-                  planNotes: s.notes ?? null,
-                  planRaw: s,
-                  planStructure: s.structure ?? null,
-                  planExercises: (s.structure?.strength_exercises as any[]) ?? [],
+                  notes: rawData.notes ?? null,
+                  planDur: rawData.duration_min ? `${rawData.duration_min} ${t("common.units.min")}` : null,
+                  planIntensity: rawData.intensity ?? null,
+                  planNotes: rawData.notes ?? null,
+                  planRaw: s, // Ukladame cely DB riadok pre pripadne volania
+                  planStructure: rawData.structure ?? null,
+                  planExercises: (rawData.structure?.strength_exercises as any[]) ?? [],
                 };
 
                 return (
@@ -386,7 +342,7 @@ export default function DetailDailyPlan() {
                     item={item}
                     showAdvanced={showAdvanced}
                     // 🌟 REFRESH PO postpone/MATCHi
-                    onRefreshPlan={() => refreshData(false)}
+                    onRefreshPlan={() => refreshCoach(false)}
                     planReschedule={{
                       enabled: true,
                       dates: planDates,
@@ -395,7 +351,6 @@ export default function DetailDailyPlan() {
                       onChangeDate: ({ sessionId, fromDate, toDate }) => {
                         if (sessionId == null) return;
                         addMove({ id: sessionId, from_date: fromDate, to_date: toDate });
-                        moveSessionLocal(fromDate, toDate, Number(sessionId));
                       },
                     }}
                   />
