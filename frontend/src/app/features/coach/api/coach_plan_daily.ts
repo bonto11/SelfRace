@@ -75,7 +75,7 @@ export type DailyPlanSession = {
   session_type?: string | null;
   structure?: DailyPlanStructure | null;
   // Pridané pre explicitný status a párovanie aktivít
-  status?: "planned" | "done" | "skipped" | "missed";
+  status?: "planned" | "done" | "postponed" | "missed";
   activity_id?: number | null;
 };
 
@@ -146,7 +146,7 @@ export async function apiSaveDailyReschedule(
 
 // NOVÝ ENDPOINT PRE MANUÁLNE ZÁSAHY DO TRÉNINGU (Skip, Match, Unmatch)
 export type PatchDailySessionPayload = {
-  status?: "planned" | "done" | "skipped" | "missed";
+  status?: "planned" | "done" | "postponed" | "missed";
   activity_id?: number | null;
   unmatch?: boolean;
 };

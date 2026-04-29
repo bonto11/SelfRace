@@ -12,7 +12,7 @@ import { apiPatchDailySessionStatus } from "@/app/features/coach/api/coach_plan_
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import ActivitySelectorDate from "@/app/shared/components/ActivitySelectorDate";
+import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDate";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
@@ -44,7 +44,7 @@ import {
 } from "@/app/shared/ui/tokens";
 
 export type SessionKind = "activity" | "plan" | "external" | "bests";
-export type PlanStatus = "planned" | "done" | "missed" | "skipped";
+export type PlanStatus = "planned" | "done" | "missed" | "postponed";
 
 export function StatusIndicator({ status, kind }: { status?: PlanStatus; kind: SessionKind }) {
   if (kind === "activity") return <span className="text-emerald-500" title="Aktivita">●</span>;
@@ -54,7 +54,7 @@ export function StatusIndicator({ status, kind }: { status?: PlanStatus; kind: S
       return <span className="text-emerald-500 font-bold" title="Splnené">✓</span>;
     case "missed": 
       return <span className="text-orange-500 font-bold" title="Zmeškané">✕</span>;
-    case "skipped": 
+    case "postponed": 
       return <span className="text-white/30 font-bold text-xs" title="Preskočené">↷</span>;
     case "planned": 
     default: 
@@ -536,7 +536,7 @@ function DetailBody({
     if (!userId || isProcessing) return;
     setIsProcessing(true);
     try {
-      await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "skipped" });
+      await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "postponed" });
       toast.success(t("common.done"));
       if (onRefreshPlan) onRefreshPlan();
     } catch (e) {
@@ -606,7 +606,7 @@ function DetailBody({
                 </Button>
               )}
 
-              {(plan.status === "planned" || plan.status === "missed" || plan.status === "skipped") && (
+              {(plan.status === "planned" || plan.status === "missed" || plan.status === "postponed") && (
                 <Button
                   size="xs"
                   variant="primary"

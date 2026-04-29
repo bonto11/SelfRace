@@ -49,7 +49,7 @@ export type PlanRow = {
   intensity?: string | null;
   activity_id?: number | null;
   // ✅ PRIDANÉ: Status z databázy
-  status?: "planned" | "done" | "skipped" | "missed";
+  status?: "planned" | "done" | "postponed" | "missed";
   session_type?: string | null;
   session_index?: number | null;
   payload?: any;

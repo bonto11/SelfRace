@@ -145,7 +145,7 @@ export default function DetailDailyPlan() {
 
   const filteredDays = useMemo(() => {
     if (showAllDays) return days;
-    // V bežnom móde filtrujeme len tie, ktoré nie sú skipped, aby nezavadzali
+    // V bežnom móde filtrujeme len tie, ktoré nie sú postponed, aby nezavadzali
     const list = days.filter((d) => d.date === selectedDate);
     return list;
   }, [days, showAllDays, selectedDate]);
@@ -261,10 +261,10 @@ export default function DetailDailyPlan() {
     );
   }
 
-  // Odfiltrujeme všetky 'skipped' tréningy pre zoznam (karty) dole.
+  // Odfiltrujeme všetky 'postponed' tréningy pre zoznam (karty) dole.
   const daysForList = filteredDays.map(day => ({
     ...day,
-    sessions: (day.sessions || []).filter((s: any) => s.status !== "skipped")
+    sessions: (day.sessions || []).filter((s: any) => s.status !== "postponed")
   }));
 
   const hasVisibleSessions = daysForList.some(d => d.sessions && d.sessions.length > 0);

@@ -13,7 +13,49 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
-import { PANEL_STACK } from "@/app/shared/ui/tokens";
+
+import {
+  PANEL_STACK,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  PANEL_SECTION_HEAD,
+  PANEL_SECTION_TITLE,
+  PANEL_SECTION_SUBTITLE,
+  ACCORDION_FOOTER_BAR_MUTED,
+} from "@/app/shared/ui/tokens";
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+
+/* ---------- card wrapper (Tento zabezpečí ten správny tokenový dizajn) ---------- */
+function Card({
+  title,
+  subtitle,
+  children,
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
+      {(title || subtitle) && (
+        <header className={[PANEL_PAD, PANEL_SECTION_HEAD].join(" ")}>
+          <div className="min-w-0">
+            {title && <div className={PANEL_SECTION_TITLE}>{title}</div>}
+            {subtitle && (
+              <div className={PANEL_SECTION_SUBTITLE}>{subtitle}</div>
+            )}
+          </div>
+        </header>
+      )}
+      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>{children}</div>
+      <div className={ACCORDION_FOOTER_BAR_MUTED} />
+    </section>
+  );
+}
 
 export default function DetailPlanCompliance() {
   const { userId } = useUserId();
@@ -59,7 +101,7 @@ export default function DetailPlanCompliance() {
       ]);
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
-      toast.success(t("common.moved") || "Presunuté");
+      toast.success(t("common.moved"));
       loadData(); 
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
@@ -74,8 +116,8 @@ export default function DetailPlanCompliance() {
     );
   }
 
-  const stats = data?.stats || { done: 0, skipped: 0, missed: 0 };
-  const skippedSessions = data?.skipped_sessions || [];
+  const stats = data?.stats || { done: 0, postponed: 0, missed: 0 };
+  const postponedSessions = data?.postponed_sessions || [];
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -83,65 +125,66 @@ export default function DetailPlanCompliance() {
 
       <div className={PAGE_GRID_2}>
         
-        {/* STATISTIKY */}
+        {/* STATISTIKY OBALENÉ V NOVOM CARDE */}
         <div className={PANEL_STACK}>
-          <div className="rounded-2xl border border-white/10 bg-[#121212] p-5 shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-2">
-              {t("coachCompliance.stats.title")}
-            </h2>
-            <p className="text-sm opacity-60 mb-6">
-              {t("coachCompliance.stats.subtitle")}
-            </p>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <span className="text-emerald-400 font-semibold">
+          <Card
+            title={t("coachCompliance.stats.title")}
+            subtitle={t("coachCompliance.stats.subtitle")}
+          >
+            <div className="space-y-3">
+              {/* Odtrénované */}
+              <div 
+                className="flex justify-between items-center p-3 rounded-xl border"
+                style={{ backgroundColor: `${appColors.statusSuccess}15`, borderColor: `${appColors.statusSuccess}33` }}
+              >
+                <span className="font-semibold" style={{ color: appColors.statusSuccess }}>
                   {t("coachCompliance.stats.completed")}
                 </span>
-                <span className="text-xl font-bold text-emerald-400">
+                <span className="text-xl font-bold" style={{ color: appColors.statusSuccess }}>
                   {stats.done}
                 </span>
               </div>
               
-              <div className="flex justify-between items-center p-3 rounded-lg bg-gray-500/10 border border-gray-500/20">
-                <span className="text-gray-300 font-semibold">
-                  {t("coachCompliance.stats.skipped")}
+              {/* Odložené (šedé/priehľadné) */}
+              <div className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5">
+                <span className="text-white/70 font-semibold">
+                  {t("coachCompliance.stats.postponed")}
                 </span>
-                <span className="text-xl font-bold text-gray-300">
-                  {stats.skipped}
+                <span className="text-xl font-bold text-white/90">
+                  {stats.postponed}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <span className="text-red-400 font-semibold">
+              {/* Zmeškané */}
+              <div 
+                className="flex justify-between items-center p-3 rounded-xl border"
+                style={{ backgroundColor: `${appColors.statusError}15`, borderColor: `${appColors.statusError}33` }}
+              >
+                <span className="font-semibold" style={{ color: appColors.statusError }}>
                   {t("coachCompliance.stats.missed")}
                 </span>
-                <span className="text-xl font-bold text-red-400">
+                <span className="text-xl font-bold" style={{ color: appColors.statusError }}>
                   {stats.missed}
                 </span>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
-        {/* BANKA RESTOV */}
+        {/* BANKA RESTOV OBALENÁ V NOVOM CARDE */}
         <div className={PANEL_STACK}>
-          <div className="rounded-2xl border border-white/10 bg-[#121212] p-5 shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-2">
-              {t("coachCompliance.bank.title")}
-            </h2>
-            <p className="text-sm opacity-60 mb-6">
-              {t("coachCompliance.bank.subtitle")}
-            </p>
-            
+          <Card
+            title={t("coachCompliance.bank.title")}
+            subtitle={t("coachCompliance.bank.subtitle")}
+          >
             <div className="space-y-3">
-              {skippedSessions.length === 0 ? (
+              {postponedSessions.length === 0 ? (
                 <div className="p-4 border border-white/10 bg-white/5 rounded-xl text-center text-sm opacity-50 italic">
                   {t("coachCompliance.bank.empty")}
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {skippedSessions.map((s: any) => (
+                  {postponedSessions.map((s: any) => (
                     <li key={s.id}>
                       <SessionCard
                         variant="calendar"
@@ -175,7 +218,7 @@ export default function DetailPlanCompliance() {
                 </ul>
               )}
             </div>
-          </div>
+          </Card>
         </div>
 
       </div>

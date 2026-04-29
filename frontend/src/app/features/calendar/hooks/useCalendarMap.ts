@@ -40,11 +40,11 @@ type Args = {
   safeSportKey: (v: any) => SportKey;
 };
 
-// 🌟 Rozšírený Shadow Item aby pobral aj 'skipped'
+// 🌟 Rozšírený Shadow Item aby pobral aj 'postponed'
 type DayShadowItem = CalendarItemBase & {
   source: "activity" | "plan" | "external";
   index: number;
-  kind: CalendarItemKind | "skipped" | "done" | "missed";
+  kind: CalendarItemKind | "postponed" | "done" | "missed";
 };
 
 export function useCalendarMap({
@@ -149,7 +149,7 @@ export function useCalendarMap({
         }
       }
 
-      // 🌟 AK TO NIE JE DONE/SKIPPED A JE TO V MINULOSTI -> JE TO MISSED
+      // 🌟 AK TO NIE JE DONE/postponed A JE TO V MINULOSTI -> JE TO MISSED
       if (dbStatus === "planned" && dIso < todayIso) {
         dbStatus = "missed";
       }
@@ -216,7 +216,7 @@ export function useCalendarMap({
         
         if (p.status === "done") kind = "done";
         else if (p.status === "missed") kind = "missed";
-        else if (p.status === "skipped") kind = "skipped";
+        else if (p.status === "postponed") kind = "postponed";
 
         shadows.push({
           sport: String(p.sport),

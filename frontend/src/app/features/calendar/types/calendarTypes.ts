@@ -3,9 +3,9 @@ import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 
 export type PlanStatus = "planned" | "done" | "missed";
 
-export type CalendarItemStatus = "planned" | "done" | "missed" | "skipped" | "none";
+export type CalendarItemStatus = "planned" | "done" | "missed" | "postponed" | "none";
 export type CalendarItemKind = "activity" | "plan" | "external";
-export type CalendarPlanStatus = "planned" | "done" | "missed" | "skipped";
+export type CalendarPlanStatus = "planned" | "done" | "missed" | "postponed";
 
 export type DayPlanItem = {
   id: number;

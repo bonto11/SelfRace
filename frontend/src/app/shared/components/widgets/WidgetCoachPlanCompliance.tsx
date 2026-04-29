@@ -30,8 +30,8 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
     </WidgetCard>
   );
 
-  const stats = data?.stats || { done: 0, skipped: 0, missed: 0 };
-  const total = stats.done + stats.skipped + stats.missed;
+  const stats = data?.stats || { done: 0, postponed: 0, missed: 0 };
+  const total = stats.done + stats.postponed + stats.missed;
   const successRate = total > 0 ? Math.round((stats.done / total) * 100) : 0;
 
   return (
@@ -60,9 +60,9 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-gray-400" />
-              <span className="text-white/80">{t("coachCompliance.stats.skipped")}</span>
+              <span className="text-white/80">{t("coachCompliance.stats.postponed")}</span>
             </div>
-            <span className="font-bold text-gray-300">{stats.skipped}</span>
+            <span className="font-bold text-gray-300">{stats.postponed}</span>
           </div>
 
           <div className="flex items-center justify-between text-sm">

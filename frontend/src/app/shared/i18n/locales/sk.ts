@@ -1281,28 +1281,41 @@ export const sk = {
       aiQuota:
         "Čas na tento mesiac je už vyčerpaný. Počet minutých kreditov: {{tokens}}. Možné opäť využiť začiatkom nového mesiaca alebo napíš cez kontakt.",
     },
-    
   },
   coachCompliance: {
-    widget: {
-      title: "Plnenie tréningového plánu",
-      tooltip: "Prehľad dokončených, preskočených a zmeškaných tréningov za posledných 30 dní.",
-    },
-    stats: {
-      title: "Štatistika aktivity",
-      subtitle: "Vyhodnotenie tréningov za posledných 30 dní.",
-      completed: "Odtrénované",
-      skipped: "Odložené do banky restov",
-      missed: "Zmeškané (neaktívne)",
-      successRate: "Úspešnosť plnenia",
-    },
-    bank: {
-      title: "Banka restov",
-      subtitle: "Zoznam vedome preskočených tréningov čakajúcich na nové naplánovanie.",
-      empty: "V banke restov sa nenachádzajú žiadne tréningy.",
-      actionReschedule: "Naplánovať znova",
-    },
+  widget: {
+    title: "Plnenie tréningového plánu",
+    tooltip: [
+      "Tento widget slúži na sledovanie tvojej tréningovej disciplíny a úspešnosti plnenia plánu za posledných 30 dní.",
+      "",
+      "Čo jednotlivé stavy znamenajú?",
+      "• Odtrénované: Tréningy, ktoré si úspešne dokončil. Na základe nich sa počíta tvoja celková úspešnosť plnenia (v percentách).",
+      "• Zmeškané: Tréningy v minulosti, ktoré si neurobil a nevenoval si im žiadnu pozornosť. Zostávajú už len ako štatistika.",
+      "• Odložené: Zaujímavé tréningy (napr. dôležité intervaly), ktoré si vedome odložil na neskôr, aby si o ne neprišiel. Čakajú v zozname pod štatistikami.",
+      "",
+      "Čo sa dá robiť s odloženými tréningami?",
+      "• Spárovať aktivitu: Ak si tréning medzičasom reálne absolvoval, môžeš ho tu manuálne prepojiť so svojou aktivitou.",
+      "• Naplánovať znova: Tréning môžeš kedykoľvek presunúť na iný voľný deň v týždni a splniť si ho.",
+      "",
+      "Tip:",
+      "• Ak vieš, že dnešný tréning nestíhaš, radšej si ho vedome „Odlož“. Zostane ti v zálohe na lepšie dni a nepokazí ti zbytočne štatistiku zmeškaných tréningov.",
+    ].join("\n"),
   },
+  stats: {
+    title: "Štatistika aktivity",
+    subtitle: "Vyhodnotenie tréningov za posledných 30 dní.",
+    completed: "Odtrénované",
+    postponed: "Odložené na neskôr", // nahrádza "Preskočené"
+    missed: "Zmeškané (neaktívne)",
+    successRate: "Úspešnosť plnenia",
+  },
+  bank: {
+    title: "Odložené tréningy",
+    subtitle: "Zoznam tréningov, ktoré si si odložil na neskôr a čakajú na nové naplánovanie.",
+    empty: "Nemáte žiadne odložené tréningy.",
+    actionReschedule: "Naplánovať znova",
+  },
+},
   coachPrefs: {
     widget: {
       title: "Nastavenia trénera",
@@ -2132,7 +2145,7 @@ export const sk = {
     planDone: "Odtrénované",
     planMissed: "Vynechané",
     planPlaned: "Plánované",
-    planSkipped: "Preskočené",
+    planPostponed: "Odložené",
     openActivity: "Otvoriť detail",
     noActivity: "Na tento deň zatiaľ nie je nič naplánované.",
     past: "Už prebehlo",
@@ -2460,7 +2473,7 @@ export const sk = {
       planned: "naplánované",
       done: "hotovo",
       missed: "zmeškané",
-      skipped: "preskočené",
+      postponed: "odložené",
     },
     card: {
       distance: "Vzdialenosť",

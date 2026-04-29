@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetBests, apiSaveBest, apiDeleteBest } from "@/app/features/bests/api/bests";
+import {
+  apiGetBests,
+  apiSaveBest,
+  apiDeleteBest,
+} from "@/app/features/bests/api/bests";
 import { distanceOptions } from "@/app/features/bests/utils/bests";
 import type { UserBest } from "@/app/features/bests/types/bests";
-import { useFavoritePBStrength } from "@/app/features/bests/hooks/useFavoritePBStrength"; 
+import { useFavoritePBStrength } from "@/app/features/bests/hooks/useFavoritePBStrength";
 
-import ActivitySelector from "@/app/shared/components/ActivitySelector";
+import ActivitySelector from "@/app/shared/ui/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -21,11 +25,23 @@ import type { MiniActivity } from "@/app/features/activities/types/activities";
 import { useT } from "@/app/shared/i18n/useT";
 
 import {
-  PANEL_STACK, PANEL_PREVIEW, PANEL_ACTIONS_INLINE, PANEL_LIST, PANEL_SECTION,
-  PANEL_SECTION_LABEL, PANEL_SECTION_TEXT, PANEL_PAD, PANEL_INNER_STACK,
-  SWIPE_ROW, SWIPE_ACTIONS, SWIPE_CONTENT,
+  PANEL_STACK,
+  PANEL_PREVIEW,
+  PANEL_ACTIONS_INLINE,
+  PANEL_LIST,
+  PANEL_SECTION,
+  PANEL_SECTION_LABEL,
+  PANEL_SECTION_TEXT,
+  PANEL_PAD,
+  PANEL_INNER_STACK,
+  SWIPE_ROW,
+  SWIPE_ACTIONS,
+  SWIPE_CONTENT,
 } from "@/app/shared/ui/tokens";
-import { SESSION_INLINE, SESSION_INLINE_STYLE } from "@/app/shared/ui/tokens/sessionCard";
+import {
+  SESSION_INLINE,
+  SESSION_INLINE_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 // ✅ 1. Zadefinovali sme presný typ pre formulár
 type PBStrengthFormState = {
@@ -39,9 +55,9 @@ type PBStrengthFormState = {
 
 // ✅ 2. Aplikovali sme ho na EMPTY objekt
 const EMPTY: PBStrengthFormState = {
-  distance_m: "", 
-  record_value: "", 
-  record_unit: "kg", 
+  distance_m: "",
+  record_value: "",
+  record_unit: "kg",
   achieved_at: "",
   activity_id: "",
   activity_name: undefined,
@@ -73,7 +89,9 @@ export default function PBStrength() {
     }
   };
 
-  useEffect(() => { if (userId) refresh(); /* eslint-disable-line */ }, [userId]);
+  useEffect(() => {
+    if (userId) refresh(); /* eslint-disable-line */
+  }, [userId]);
 
   const canSave = useMemo(() => {
     const m = Number(form.distance_m);
@@ -83,8 +101,13 @@ export default function PBStrength() {
   // ✅ 3. Pomocná funkcia na preklad cvikov priamo tu
   const getExerciseName = (m: number) => {
     const keys: Record<number, string> = {
-      1: "bench", 2: "squat", 3: "deadlift", 4: "ohp",
-      5: "pullups", 6: "clean", 7: "snatch"
+      1: "bench",
+      2: "squat",
+      3: "deadlift",
+      4: "ohp",
+      5: "pullups",
+      6: "clean",
+      7: "snatch",
     };
     const k = keys[m];
     return k ? ((t as any)(`PB.exercises.${k}`) as string) : `Exercise ${m}`;
@@ -93,12 +116,12 @@ export default function PBStrength() {
   const exerciseOptions = useMemo(() => {
     return [
       { value: "", label: `— ${t("PB.chooseExercise")} —` },
-      ...distanceOptions("strength").map((o) => ({ 
-        value: String(o.m), 
-        label: getExerciseName(o.m) 
+      ...distanceOptions("strength").map((o) => ({
+        value: String(o.m),
+        label: getExerciseName(o.m),
       })),
     ];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
   const handleSave = async () => {
@@ -108,16 +131,19 @@ export default function PBStrength() {
       const m = Number(form.distance_m);
       const val = form.record_value.trim();
       const unit = form.record_unit;
-      
+
       const payload: any = {
         sport: "strength",
         distance_m: m,
         time_str: `${val} ${unit}`,
       };
 
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       await apiSaveBest(userId, payload);
       toast.success(t("PB.saved"));
@@ -134,14 +160,18 @@ export default function PBStrength() {
     const ok = await confirm({
       title: t("PB.removeTitle"),
       message: `${t("PB.removeMessage")}\n(${getExerciseName(m)})`,
-      okText: t("PB.removeConfirm"), cancelText: t("PB.removeCancel"), tone: "danger",
+      okText: t("PB.removeConfirm"),
+      cancelText: t("PB.removeCancel"),
+      tone: "danger",
     });
     if (!ok || !userId) return;
     try {
       await apiDeleteBest(userId, m, "strength");
       toast.success(t("PB.deleted"));
       await refresh();
-    } catch (e: any) { toast.error(t("api.bests.deleteFailed")); }
+    } catch (e: any) {
+      toast.error(t("api.bests.deleteFailed"));
+    }
   };
 
   return (
@@ -153,12 +183,17 @@ export default function PBStrength() {
         </div>
       </div>
 
-      <div className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")} style={SESSION_INLINE_STYLE}>
+      <div
+        className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
+        style={SESSION_INLINE_STYLE}
+      >
         <div className="grid gap-3 sm:grid-cols-12 items-start">
           <div className="sm:col-span-5">
             <SelectField
               value={form.distance_m}
-              onChange={(e) => setForm((f) => ({ ...f, distance_m: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, distance_m: e.target.value }))
+              }
               options={exerciseOptions as any}
             />
           </div>
@@ -167,13 +202,17 @@ export default function PBStrength() {
             <TextField
               placeholder={t("PB.recordValue")}
               value={form.record_value}
-              onChange={(e) => setForm((f) => ({ ...f, record_value: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, record_value: e.target.value }))
+              }
               inputMode="decimal"
               containerClassName="flex-1"
             />
             <SelectField
               value={form.record_unit}
-              onChange={(e) => setForm((f) => ({ ...f, record_unit: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, record_unit: e.target.value }))
+              }
               options={[
                 { value: "kg", label: "kg" },
                 { value: "lbs", label: "lbs" },
@@ -192,68 +231,120 @@ export default function PBStrength() {
 
           <div className="sm:col-span-12">
             <ActivitySelector
-              userId={userId ?? null} dateIso={form.achieved_at} sports={["workout", "mixed"]}
+              userId={userId ?? null}
+              dateIso={form.achieved_at}
+              sports={["workout", "mixed"]}
               value={form.activity_id ? Number(form.activity_id) : ""}
-              onChange={(v) => setForm((f) => ({ ...f, activity_id: v === "" ? "" : String(v) }))}
-              onPicked={(a: MiniActivity | null) => setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  activity_id: v === "" ? "" : String(v),
+                }))
+              }
+              onPicked={(a: MiniActivity | null) =>
+                setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
+              }
             />
           </div>
 
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
-            <Button onClick={handleSave} disabled={!canSave} variant="success" size="xs">
+            <Button
+              onClick={handleSave}
+              disabled={!canSave}
+              variant="success"
+              size="xs"
+            >
               {saving ? t("common.saving") : t("common.save")}
             </Button>
-            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">{t("common.undo") || "Clear"}</Button>
-            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">{t("common.loading") || "Refresh"}</Button>
+            <Button
+              variant="secondary"
+              onClick={() => setForm(EMPTY)}
+              size="xs"
+            >
+              {t("common.undo") || "Clear"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={refresh}
+              disabled={loading}
+              size="xs"
+            >
+              {t("common.loading") || "Refresh"}
+            </Button>
           </div>
         </div>
       </div>
 
       <ul className={PANEL_LIST}>
-        {rows.slice().sort((a, b) => a.distance_m - b.distance_m).map((b) => {
-          const actId = b.activity_id != null ? Number(b.activity_id) : null;
-          const displayValue = b.time_str ?? "—"; 
-          const dist = getExerciseName(b.distance_m);
-          const isFav = b.distance_m === favoriteM;
+        {rows
+          .slice()
+          .sort((a, b) => a.distance_m - b.distance_m)
+          .map((b) => {
+            const actId = b.activity_id != null ? Number(b.activity_id) : null;
+            const displayValue = b.time_str ?? "—";
+            const dist = getExerciseName(b.distance_m);
+            const isFav = b.distance_m === favoriteM;
 
-          const doEdit = () => {
-            const [val, unit] = (b.time_str || " ").split(" ");
-            setForm({
-              distance_m: String(b.distance_m),
-              record_value: val || "",
-              record_unit: unit || "kg",
-              achieved_at: isoDateOnly(b.achieved_at),
-              activity_id: b.activity_id != null ? String(b.activity_id) : "",
-              activity_name: (b as any).activity_name ?? "",
-            });
-          };
+            const doEdit = () => {
+              const [val, unit] = (b.time_str || " ").split(" ");
+              setForm({
+                distance_m: String(b.distance_m),
+                record_value: val || "",
+                record_unit: unit || "kg",
+                achieved_at: isoDateOnly(b.achieved_at),
+                activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                activity_name: (b as any).activity_name ?? "",
+              });
+            };
 
-          const doDelete = () => handleDelete(b.distance_m);
+            const doDelete = () => handleDelete(b.distance_m);
 
-          const toggleFav = async () => {
-            try {
-              await setFavM(b.distance_m);
-              toast.success(`★ ${t("PB.favoriteExercise")}: ${dist}`);
-            } catch (e: any) { toast.error("Chyba"); }
-          };
+            const toggleFav = async () => {
+              try {
+                await setFavM(b.distance_m);
+                toast.success(`★ ${t("PB.favoriteExercise")}: ${dist}`);
+              } catch (e: any) {
+                toast.error("Chyba");
+              }
+            };
 
-          const card = (
-            <SessionCard
-              variant="pb"
-              item={{
-                id: b.distance_m, kind: "bests", title: dist, dateIso: isoDateOnly(b.achieved_at),
-                sport: "strength", activityId: actId ?? 0, timeStr: displayValue, 
-                distanceStr: "", defaultOpen: false, isFavorite: isFav,
-                onToggleFavorite: toggleFav, onEdit: doEdit, onDelete: doDelete,
-              } as any}
-            />
-          );
+            const card = (
+              <SessionCard
+                variant="pb"
+                item={
+                  {
+                    id: b.distance_m,
+                    kind: "bests",
+                    title: dist,
+                    dateIso: isoDateOnly(b.achieved_at),
+                    sport: "strength",
+                    activityId: actId ?? 0,
+                    timeStr: displayValue,
+                    distanceStr: "",
+                    defaultOpen: false,
+                    isFavorite: isFav,
+                    onToggleFavorite: toggleFav,
+                    onEdit: doEdit,
+                    onDelete: doDelete,
+                  } as any
+                }
+              />
+            );
 
-          if (isTouch) {
-            return <SwipeRow key={b.distance_m} enableSwipe onEdit={doEdit} onDelete={doDelete}>{card}</SwipeRow>;
-          }
-          return <li key={b.distance_m}>{card}</li>;
-        })}
+            if (isTouch) {
+              return (
+                <SwipeRow
+                  key={b.distance_m}
+                  enableSwipe
+                  onEdit={doEdit}
+                  onDelete={doDelete}
+                >
+                  {card}
+                </SwipeRow>
+              );
+            }
+            return <li key={b.distance_m}>{card}</li>;
+          })}
       </ul>
     </div>
   );
@@ -271,7 +362,8 @@ function SwipeRow({ children, onEdit, onDelete, enableSwipe = true }: any) {
   const THRESHOLD = 8;
 
   const clamp = (v: number) => Math.max(SNAP_OPEN, Math.min(SNAP_CLOSED, v));
-  const snap = (v: number) => setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
+  const snap = (v: number) =>
+    setTx(Math.abs(v) > ACTION_W / 2 ? SNAP_OPEN : SNAP_CLOSED);
 
   function onTouchStart(e: React.TouchEvent) {
     if (!enableSwipe) return;
@@ -303,14 +395,27 @@ function SwipeRow({ children, onEdit, onDelete, enableSwipe = true }: any) {
       onTouchCancel={onTouchEnd}
     >
       <div className={SWIPE_ACTIONS}>
-        <Button size="xs" variant="secondary" onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}>
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={() => {
+            setTx(SNAP_CLOSED);
+            onEdit();
+          }}
+        >
           {t("common.edit")}
         </Button>
         <Button size="xs" variant="danger" onClick={onDelete}>
           {t("common.delete")}
         </Button>
       </div>
-      <div className={[SWIPE_CONTENT, "transition-transform duration-150 ease-out"].join(" ")} style={{ transform: `translateX(${tx}px)` }}>
+      <div
+        className={[
+          SWIPE_CONTENT,
+          "transition-transform duration-150 ease-out",
+        ].join(" ")}
+        style={{ transform: `translateX(${tx}px)` }}
+      >
         {children}
       </div>
     </li>

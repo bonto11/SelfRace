@@ -7,13 +7,10 @@ import type {
   MiniActivity,
   SportFE,
 } from "@/app/features/activities/types/activities";
-import {
-  FIELD_READONLY_BASE,
-  FIELD_DISABLED,
-  FIELD_HELP,
-} from "@/app/shared/ui/tokens";
+import { FIELD_HELP } from "@/app/shared/ui/tokens";
 import { fmtShortDate } from "@/app/shared/utils/time";
 import { useT } from "@/app/shared/i18n/useT";
+import SelectField from "@/app/shared/ui/components/SelectField";
 
 type Props = {
   userId: number | null;
@@ -39,7 +36,6 @@ export default function ActivitySelector({
   variant = "default",
 }: Props) {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<MiniActivity[]>([]);
   const disabled = !userId || !dateIso;
@@ -55,15 +51,13 @@ export default function ActivitySelector({
         sports,
       });
     } catch (err: any) {
-      // Tichý log, alebo ak chceš, môžeš tu dať toast.error(t(err?.message))
       console.error("Failed to load around activities:", err?.message);
       return [] as MiniActivity[];
     }
   }
 
-  // fetch po otvorení selectu
   useEffect(() => {
-    if (!open || disabled) return;
+    if (disabled) return;
     let alive = true;
     setLoading(true);
     loadActivities()
@@ -79,9 +73,8 @@ export default function ActivitySelector({
     return () => {
       alive = false;
     };
-  }, [open, disabled, userId, dateIso, deltaDays, JSON.stringify(sports)]);
+  }, [disabled, userId, dateIso, deltaDays, JSON.stringify(sports)]);
 
-  // AUTO-DOPLNENIE názvu pri edite (bez zmeny výberu)
   useEffect(() => {
     if (!userId || !dateIso || !value || preloadDoneRef.current) return;
     preloadDoneRef.current = true;
@@ -129,56 +122,52 @@ export default function ActivitySelector({
 
   const sportsStr = sports?.join(", ") ?? "run, mixed";
 
+  // 🌟 Vytvoríme formát dát (Options) presne tak, ako ho žiada SelectField
+  const defaultLabel = disabled
+    ? t("activitySelector.pickDateFirst") || "Najprv vyberte dátum"
+    : loading
+      ? t("common.loading") || "Načítava sa..."
+      : t("activitySelector.noActivity") || "— žiadny tréning —";
+
+  const options = [
+    { value: "", label: defaultLabel },
+    ...items.map((a) => {
+      const dateLabel = fmtShortDate(a.start_date);
+      const dist = a.distance_km != null ? `(${a.distance_km} km)` : "";
+      const suffix = [dist, dateLabel].filter(Boolean).join(" · ");
+
+      return {
+        value: String(a.id),
+        label: `${a.name} ${suffix}`.trim(),
+      };
+    }),
+  ];
+
   return (
     <div className={className}>
-      <select
-        className={[FIELD_READONLY_BASE, disabled ? FIELD_DISABLED : ""].join(
-          " ",
-        )}
+      {/* 🌟 Tu sme nasadili tvoj custom komponent */}
+      <SelectField
         value={value === "" ? "" : String(value)}
-        onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          const v = e.target.value.trim();
-          const id = v ? Number(v) : "";
+        disabled={disabled || loading}
+        options={options}
+        onValueChange={(newVal) => {
+          const id = newVal ? Number(newVal) : "";
           onChange(id);
 
           if (onPicked) {
-            const picked = v
-              ? (items.find((x) => String(x.id) === v) ?? null)
+            const picked = newVal
+              ? (items.find((x) => String(x.id) === newVal) ?? null)
               : null;
             onPicked(picked);
           }
         }}
-        disabled={disabled}
-      >
-        <option value="">
-          {disabled
-            ? t("activitySelector.pickDateFirst")
-            : loading
-              ? t("common.loading")
-              : t("activitySelector.noActivity")}
-        </option>
-
-        {!loading &&
-          items.map((a) => {
-            const dateLabel = fmtShortDate(a.start_date);
-            const dist = a.distance_km != null ? ` (${a.distance_km} km)` : "";
-            const suffix = [dist, dateLabel].filter(Boolean).join(" · ");
-
-            return (
-              <option key={a.id} value={a.id}>
-                {a.name}
-                {suffix ? ` ${suffix}` : ""}
-              </option>
-            );
-          })}
-      </select>
+      />
 
       {!disabled && variant === "default" && (
         <div className={FIELD_HELP}>
           {t("activitySelector.helpText")
-            .replace("{{days}}", String(deltaDays))
-            .replace("{{sports}}", sportsStr)}
+            ?.replace("{{days}}", String(deltaDays))
+            ?.replace("{{sports}}", sportsStr)}
         </div>
       )}
     </div>

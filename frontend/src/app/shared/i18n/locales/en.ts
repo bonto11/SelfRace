@@ -412,7 +412,7 @@ export const en = {
             "",
             "Examples:",
             "• 'The goal is to mainly build long-distance endurance.'",
-            "• 'Downhill running causes knee pain, it must be skipped.'",
+            "• 'Downhill running causes knee pain, it must be postponed.'",
           ].join("\n"),
         },
       },
@@ -1293,27 +1293,39 @@ export const en = {
     },
   },
   coachCompliance: {
-    widget: {
-      title: "Training Plan Compliance",
-      tooltip:
-        "Overview of completed, skipped, and missed workouts over the last 30 days.",
-    },
-    stats: {
-      title: "Activity Statistics",
-      subtitle: "Evaluation of workouts over the last 30 days.",
-      completed: "Completed",
-      skipped: "Moved to rest bank",
-      missed: "Missed (inactive)",
-      successRate: "Compliance rate",
-    },
-    bank: {
-      title: "Rest Bank",
-      subtitle:
-        "List of consciously skipped workouts waiting to be rescheduled.",
-      empty: "There are currently no workouts in the rest bank.",
-      actionReschedule: "Reschedule",
-    },
+  widget: {
+    title: "Training plan compliance",
+    tooltip: [
+      "This widget helps you track your training discipline and overall plan compliance over the last 30 days.",
+      "",
+      "What do the different states mean?",
+      "• Completed: Workouts you have successfully finished. This builds your overall compliance rate (in percentages).",
+      "• Missed: Past workouts you ignored without taking any action. These remain purely as a statistic.",
+      "• Postponed: Workouts (e.g., key intervals) you consciously saved for later so you wouldn't miss out on them. They wait in the list below.",
+      "",
+      "What can you do with postponed workouts?",
+      "• Match activity: If you actually completed the workout in the meantime, you can manually link it to your activity here.",
+      "• Reschedule: You can move the workout to any available day in the future and get it done.",
+      "",
+      "Tip:",
+      "• If you know you won't make today's workout, use the „Postpone“ action. It keeps the workout in your backlog for a better day and prevents it from hurting your missed stats.",
+    ].join("\n"),
   },
+  stats: {
+    title: "Activity statistics",
+    subtitle: "Workout evaluation over the last 30 days.",
+    completed: "Completed",
+    postponed: "Postponed",
+    missed: "Missed (inactive)",
+    successRate: "Compliance rate",
+  },
+  bank: {
+    title: "Postponed workouts",
+    subtitle: "List of workouts you saved for later, waiting to be rescheduled.",
+    empty: "You have no postponed workouts.",
+    actionReschedule: "Reschedule",
+  },
+},
   coachPrefs: {
     widget: {
       title: "Coach settings",
@@ -2141,7 +2153,7 @@ export const en = {
     planDone: "Completed",
     planMissed: "Missed",
     planPlaned: "Planned",
-    planSkipped: "Skipped",
+    planPostponed: "Postponed",
     openActivity: "Open detail",
     noActivity: "Nothing planned for this day yet.",
     past: "Already passed",
@@ -2473,7 +2485,7 @@ export const en = {
       planned: "planned",
       done: "done",
       missed: "missed",
-      skipped: "skipped",
+      postponed: "postponed",
     },
     card: {
       distance: "Distance",

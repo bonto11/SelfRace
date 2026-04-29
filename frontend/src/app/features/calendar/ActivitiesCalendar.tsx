@@ -246,7 +246,7 @@ export default function ActivitiesCalendar({
 
           <div className={CALENDAR_LEGEND_ITEM}>
             <span className={CALENDAR_LEGEND_TINY} style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px" }}>↷</span>
-            <span>{t("calendar.planSkipped") || "Odložené"}</span>
+            <span>{t("calendar.planPostponed")}</span>
           </div>
         </div>
 

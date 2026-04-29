@@ -13,7 +13,7 @@ type Props = {
   sportColors: Record<string, string>;
 };
 
-type DotKind = "external" | "activity" | "plan" | "done" | "missed" | "skipped";
+type DotKind = "external" | "activity" | "plan" | "done" | "missed" | "postponed";
 type Dot = { key: string; sport: string; kind: DotKind };
 
 function isoToday(): string {
@@ -41,7 +41,7 @@ export default function CalendarDayCell({
     let kind: DotKind = "missed";
     if (currentStatus === "planned") kind = "plan";
     else if (currentStatus === "done") kind = "done";
-    else if (currentStatus === "skipped") kind = "skipped";
+    else if (currentStatus === "postponed") kind = "postponed";
     
     dots.push({ key: `p-${it.id}`, sport: String(it.sport), kind });
   }
@@ -127,7 +127,7 @@ export default function CalendarDayCell({
               );
             }
 
-            if (it.kind === "skipped") {
+            if (it.kind === "postponed") {
               return (
                 <span
                   key={it.key}

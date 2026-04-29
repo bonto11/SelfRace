@@ -64,7 +64,7 @@ function safeSportKey(v: any): SportKey {
 // 🌟 Rozšírený DayItem, aby TypeScript nenadával na nové statusy
 type DayItem = CalendarItemBase & { 
   id: number; 
-  kind: CalendarItemKind | "skipped" | "done" | "missed" 
+  kind: CalendarItemKind | "postponed" | "done" | "missed" 
 };
 
 type MiniCalendarProps = {
@@ -188,7 +188,7 @@ export default function MiniCalendar({
           arr.push({
             id: Number(p.id) || Math.floor(Math.random() * 1e9),
             sport,
-            kind: status === "skipped" ? "skipped" : "plan",
+            kind: status === "postponed" ? "postponed" : "plan",
             activityId: null,
           });
         }
@@ -210,8 +210,8 @@ export default function MiniCalendar({
       if (!isRest) {
         let finalKind: DayItem["kind"] = "plan";
 
-        if (status === "skipped") {
-          finalKind = "skipped";
+        if (status === "postponed") {
+          finalKind = "postponed";
         } else if (status === "missed") {
           finalKind = "missed";
         } else if (status === "done") {
@@ -348,7 +348,7 @@ export default function MiniCalendar({
                     }
 
                     // 4. Odložený tréning do restov (Zalomená šípka, jemne sivá)
-                    if (it.kind === "skipped") {
+                    if (it.kind === "postponed") {
                       return (
                         <span
                           key={`${it.kind}-${it.id}`}

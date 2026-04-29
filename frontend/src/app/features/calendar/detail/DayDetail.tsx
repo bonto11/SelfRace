@@ -53,11 +53,11 @@ export default function DayDetail({
     }
   }, [selectedIso]);
 
-  // 🌟 TU JE OPRAVA: Odfiltrujeme 'skipped' tréningy predtým, než ich pošleme do buildDayBuckets
+  // 🌟 TU JE OPRAVA: Odfiltrujeme 'postponed' tréningy predtým, než ich pošleme do buildDayBuckets
   const filteredPlanRows = React.useMemo(() => {
     return planRowsForDay.filter((p: any) => {
        const status = p.status || p.planRaw?.status;
-       return status !== "skipped";
+       return status !== "postponed";
     });
   }, [planRowsForDay]);
 

@@ -2,16 +2,19 @@
 "use client";
 
 import React, { useState } from "react";
-import ActivitySelector from "@/app/shared/components/ActivitySelector";
+import ActivitySelector from "@/app/shared/ui/components/ActivitySelector";
 import DateField from "@/app/shared/ui/components/DateField"; // 🌟 Použijeme DateField z tvojich tokens
-import type { MiniActivity, SportFE } from "@/app/features/activities/types/activities";
+import type {
+  MiniActivity,
+  SportFE,
+} from "@/app/features/activities/types/activities";
 import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
   userId: number | null;
   defaultDateIso: string;
   sports?: SportFE[];
-  value: number | ""; 
+  value: number | "";
   onChange: (id: number | "") => void;
   onPicked?: (a: MiniActivity | null) => void;
   className?: string;
@@ -27,14 +30,13 @@ export default function ActivitySelectorDate({
   className = "",
 }: Props) {
   const t = useT();
-  
+
   const [searchDate, setSearchDate] = useState<string>(
-    defaultDateIso || new Date().toISOString().slice(0, 10)
+    defaultDateIso || new Date().toISOString().slice(0, 10),
   );
 
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
-      
       {/* 1. KROK: Výber dátumu pomocou tvojho DateField */}
       <div>
         <label className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
@@ -67,7 +69,6 @@ export default function ActivitySelectorDate({
           onPicked={onPicked}
         />
       </div>
-      
     </div>
   );
 }

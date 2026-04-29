@@ -2,7 +2,7 @@
 
 import type { SportKey, PlanStatus } from "@/app/features/calendar/types/calendarTypes";
 
-export type CalendarItemKind = "activity" | "external" | "plan" | "done" | "missed" | "skipped";
+export type CalendarItemKind = "activity" | "external" | "plan" | "done" | "missed" | "postponed";
 
 export type CalendarItemBase = {
   sport: SportKey | string;

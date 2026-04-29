@@ -20,8 +20,8 @@ import type {
 
 import { secToHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 // Uisti sa, že tento hook existuje, inak ho premenuj podľa seba
-import { useFavoritePBTriathlon } from "@/app/features/bests/hooks/useFavoritePBTriathlon"; 
-import ActivitySelector from "@/app/shared/components/ActivitySelector";
+import { useFavoritePBTriathlon } from "@/app/features/bests/hooks/useFavoritePBTriathlon";
+import ActivitySelector from "@/app/shared/ui/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -94,12 +94,15 @@ export default function PBTriathlon() {
 
   useEffect(() => {
     if (userId) refresh();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const canSave = useMemo(() => {
     const m = Number(form.distance_m);
-    const validTime = form.time_str.trim() !== "" && form.time_str !== "00:00:00" && form.time_str !== "00:00";
+    const validTime =
+      form.time_str.trim() !== "" &&
+      form.time_str !== "00:00:00" &&
+      form.time_str !== "00:00";
     return Number.isFinite(m) && m > 0 && validTime && !saving;
   }, [form.distance_m, form.time_str, saving]);
 
@@ -127,12 +130,17 @@ export default function PBTriathlon() {
           : { time_str: form.time_str.trim() }),
       };
 
-      if (form.activity_id !== "") payload.activity_id = Number(form.activity_id);
-      if (form.activity_name !== undefined) payload.activity_name = form.activity_name.trim();
-      if (form.achieved_at) payload.achieved_at = form.achieved_at.replace(/\./g, "-");
+      if (form.activity_id !== "")
+        payload.activity_id = Number(form.activity_id);
+      if (form.activity_name !== undefined)
+        payload.activity_name = form.activity_name.trim();
+      if (form.achieved_at)
+        payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
       if (form.total_distance_km) {
-        payload.total_distance_m = Math.round(parseFloat(form.total_distance_km.replace(",", ".")) * 1000);
+        payload.total_distance_m = Math.round(
+          parseFloat(form.total_distance_km.replace(",", ".")) * 1000,
+        );
       }
       if (form.total_time_str) {
         const tSec = hhmmssToSec(form.total_time_str.trim());
@@ -237,28 +245,32 @@ export default function PBTriathlon() {
           </div>
 
           <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
-             <NumberWheelField
-                min={0}
-                max={500}
-                step={0.1}
-                value={form.total_distance_km ? Number(form.total_distance_km.replace(",", ".")) : ""}
-                onChange={(val) =>
-                  setForm((f) => ({ ...f, total_distance_km: String(val) }))
-                }
-              />
-            
-              <TimeSelectorField
-                hh={true}
-                mm={true}
-                ss={true}
-                value={form.total_time_str || "00:00:00"}
-                onChange={(val) =>
-                  setForm((f) => ({
-                    ...f,
-                    total_time_str: val,
-                  }))
-                }
-              />
+            <NumberWheelField
+              min={0}
+              max={500}
+              step={0.1}
+              value={
+                form.total_distance_km
+                  ? Number(form.total_distance_km.replace(",", "."))
+                  : ""
+              }
+              onChange={(val) =>
+                setForm((f) => ({ ...f, total_distance_km: String(val) }))
+              }
+            />
+
+            <TimeSelectorField
+              hh={true}
+              mm={true}
+              ss={true}
+              value={form.total_time_str || "00:00:00"}
+              onChange={(val) =>
+                setForm((f) => ({
+                  ...f,
+                  total_time_str: val,
+                }))
+              }
+            />
           </div>
 
           <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
@@ -270,10 +282,19 @@ export default function PBTriathlon() {
             >
               {saving ? t("common.saving") : t("common.save")}
             </Button>
-            <Button variant="secondary" onClick={() => setForm(EMPTY)} size="xs">
+            <Button
+              variant="secondary"
+              onClick={() => setForm(EMPTY)}
+              size="xs"
+            >
               {t("common.undo") || "Clear"}
             </Button>
-            <Button variant="ghost" onClick={refresh} disabled={loading} size="xs">
+            <Button
+              variant="ghost"
+              onClick={refresh}
+              disabled={loading}
+              size="xs"
+            >
               {loading ? t("common.loading") : t("common.refresh")}
             </Button>
           </div>
@@ -286,19 +307,28 @@ export default function PBTriathlon() {
           .sort((a, b) => a.distance_m - b.distance_m)
           .map((b) => {
             const actId = b.activity_id != null ? Number(b.activity_id) : null;
-            const timeDB = b.best_time_s != null ? secToHHMMSS(b.best_time_s) : (b.time_str ?? "—");
+            const timeDB =
+              b.best_time_s != null
+                ? secToHHMMSS(b.best_time_s)
+                : (b.time_str ?? "—");
             const dist = distanceLabel(b.distance_m, "triathlon");
             const isFav = b.distance_m === favoriteM;
 
             const doEdit = () => {
               setForm({
                 distance_m: String(b.distance_m),
-                time_str: b.time_str ?? (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                time_str:
+                  b.time_str ??
+                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
-                total_distance_km: b.total_distance_m ? (b.total_distance_m / 1000).toFixed(2) : "",
-                total_time_str: b.total_time_s ? secToHHMMSS(b.total_time_s) : "",
+                total_distance_km: b.total_distance_m
+                  ? (b.total_distance_m / 1000).toFixed(2)
+                  : "",
+                total_time_str: b.total_time_s
+                  ? secToHHMMSS(b.total_time_s)
+                  : "",
               });
             };
 
@@ -316,27 +346,34 @@ export default function PBTriathlon() {
             const card = (
               <SessionCard
                 variant="pb"
-                item={{
-                  id: b.distance_m,
-                  kind: "bests", 
-                  title: dist,
-                  dateIso: isoDateOnly(b.achieved_at),
-                  sport: "triathlon",
-                  activityId: actId ?? 0,
-                  timeStr: timeDB,
-                  distanceStr: dist.replace("— ", ""),
-                  defaultOpen: false,
-                  isFavorite: isFav,
-                  onToggleFavorite: toggleFav,
-                  onEdit: doEdit,
-                  onDelete: doDelete,
-                } as any}
+                item={
+                  {
+                    id: b.distance_m,
+                    kind: "bests",
+                    title: dist,
+                    dateIso: isoDateOnly(b.achieved_at),
+                    sport: "triathlon",
+                    activityId: actId ?? 0,
+                    timeStr: timeDB,
+                    distanceStr: dist.replace("— ", ""),
+                    defaultOpen: false,
+                    isFavorite: isFav,
+                    onToggleFavorite: toggleFav,
+                    onEdit: doEdit,
+                    onDelete: doDelete,
+                  } as any
+                }
               />
             );
 
             if (isTouch) {
               return (
-                <SwipeRow key={b.distance_m} enableSwipe onEdit={doEdit} onDelete={doDelete}>
+                <SwipeRow
+                  key={b.distance_m}
+                  enableSwipe
+                  onEdit={doEdit}
+                  onDelete={doDelete}
+                >
                   {card}
                 </SwipeRow>
               );
@@ -408,7 +445,14 @@ function SwipeRow({
       onTouchCancel={onTouchEnd}
     >
       <div className={SWIPE_ACTIONS}>
-        <Button size="xs" variant="secondary" onClick={() => { setTx(SNAP_CLOSED); onEdit(); }}>
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={() => {
+            setTx(SNAP_CLOSED);
+            onEdit();
+          }}
+        >
           {t("common.edit")}
         </Button>
         <Button size="xs" variant="danger" onClick={onDelete}>
@@ -417,7 +461,10 @@ function SwipeRow({
       </div>
 
       <div
-        className={[SWIPE_CONTENT, "transition-transform duration-150 ease-out"].join(" ")}
+        className={[
+          SWIPE_CONTENT,
+          "transition-transform duration-150 ease-out",
+        ].join(" ")}
         style={{ transform: `translateX(${tx}px)` }}
       >
         {children}
