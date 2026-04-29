@@ -1,10 +1,11 @@
 // src/app/features/coach/components/DetailPlanCompliance.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { 
+  apiGetPlanCompliance, 
   apiSaveDailyReschedule,
   apiPatchDailySessionStatus 
 } from "@/app/features/coach/api/coach_plan_daily";
@@ -13,7 +14,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
-// 🌟 Používame globálny provider namiesto vlastného API na GET
+// Budeme z neho potrebovať refresh
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
@@ -64,48 +65,30 @@ export default function DetailPlanCompliance() {
   const t = useT();
 
   const [saving, setSaving] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 🌟 Vytiahneme globálne dáta
-  const { plan: { rows: globalRows }, loading: isGlobalLoading, refresh: refreshCoach } = useCoachData();
+  // Potrebujeme refresh funkciu z providera pre synchro s denným plánom/kalendárom
+  const { refresh: refreshCoach } = useCoachData();
 
-  // 🌟 Agregujeme compliance štatistiky zo SSOT (posledných 30 dní)
-  const complianceData = useMemo(() => {
-    if (!globalRows || !Array.isArray(globalRows)) return { stats: { done: 0, postponed: 0, missed: 0 }, postponedSessions: [] };
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysIso = thirtyDaysAgo.toISOString().slice(0, 10);
-
-    const todayIso = new Date().toISOString().slice(0, 10);
-
-    let done = 0;
-    let postponed = 0;
-    let missed = 0;
-    const postponedArr: any[] = [];
-
-    for (const r of globalRows) {
-      const pDate = String(r.plan_date).slice(0, 10);
-      
-      // Zaujíma nás len posledných 30 dní až po dnešok (vrátane)
-      if (pDate >= thirtyDaysIso && pDate <= todayIso) {
-        if (r.status === "done") done++;
-        if (r.status === "postponed") {
-            postponed++;
-            postponedArr.push(r);
-        }
-        if (r.status === "missed") missed++;
-      }
+  // 🌟 Voláme vlastné API, aby sme dostali komplet všetky odložené
+  const loadData = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setLoading(true);
+      const res = await apiGetPlanCompliance(userId);
+      setData(res);
+    } catch (err: any) {
+      setError(t(err?.message as any));
+    } finally {
+      setLoading(false);
     }
+  }, [userId, t]);
 
-    // Sortneme odložené od najnovšieho
-    postponedArr.sort((a, b) => String(b.plan_date).localeCompare(String(a.plan_date)));
-
-    return {
-      stats: { done, postponed, missed },
-      postponedSessions: postponedArr
-    };
-  }, [globalRows]);
-
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const planDates = useMemo(() => {
     const out: string[] = [];
@@ -122,16 +105,17 @@ export default function DetailPlanCompliance() {
     if (!userId || !sessionId || !toDate || saving) return;
     setSaving(true);
     try {
-      // 1. Uložíme nový dátum
       await apiSaveDailyReschedule(userId, [
         { id: sessionId, from_date: fromDate, to_date: toDate }
       ]);
-      // 2. Musíme natvrdo zmeniť status z postponed späť na planned
       await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "planned" });
       
-      toast.success(t("common.moved"));
+      toast.success(t("common.moved") || "Presunuté");
       
-      // 🌟 Globálny refresh!
+      // Obnovíme túto stránku
+      await loadData();
+      
+      // A povieme aj globálnemu kalendáru, aby sa obnovil
       refreshCoach(false); 
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("common.error"));
@@ -140,7 +124,7 @@ export default function DetailPlanCompliance() {
     }
   };
 
-  if (isGlobalLoading && !globalRows?.length) {
+  if (loading && !data) {
     return (
       <div className="flex justify-center p-12 w-full">
         <LoadingSpinner size="widget" />
@@ -148,20 +132,25 @@ export default function DetailPlanCompliance() {
     );
   }
 
-  const { stats, postponedSessions } = complianceData;
+  // Ak sa premenujú z backende kľúče, postaráme sa o oba varianty
+  const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
+  const displayPostponedCount = stats.postponed || stats.skipped || 0;
+  
+  const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
 
   return (
     <div className="flex flex-col gap-6 w-full">
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+
       <div className={PAGE_GRID_2}>
         
-        {/* STATISTIKY OBALENÉ V NOVOM CARDE */}
+        {/* STATISTIKY */}
         <div className={PANEL_STACK}>
           <Card
             title={t("coachCompliance.stats.title")}
             subtitle={t("coachCompliance.stats.subtitle")}
           >
             <div className="space-y-3">
-              {/* Odtrénované */}
               <div 
                 className="flex justify-between items-center p-3 rounded-xl border"
                 style={{ backgroundColor: `${appColors.statusSuccess}15`, borderColor: `${appColors.statusSuccess}33` }}
@@ -174,17 +163,15 @@ export default function DetailPlanCompliance() {
                 </span>
               </div>
               
-              {/* Odložené */}
               <div className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5">
                 <span className="text-white/70 font-semibold">
                   {t("coachCompliance.stats.postponed")}
                 </span>
                 <span className="text-xl font-bold text-white/90">
-                  {stats.postponed}
+                  {displayPostponedCount}
                 </span>
               </div>
 
-              {/* Zmeškané */}
               <div 
                 className="flex justify-between items-center p-3 rounded-xl border"
                 style={{ backgroundColor: `${appColors.statusError}15`, borderColor: `${appColors.statusError}33` }}
@@ -200,7 +187,7 @@ export default function DetailPlanCompliance() {
           </Card>
         </div>
 
-        {/* BANKA RESTOV / POSTPONED ZÁSOBNÍK */}
+        {/* ZÁSOBNÍK ODLOŽENÝCH */}
         <div className={PANEL_STACK}>
           <Card
             title={t("coachCompliance.bank.title")}
@@ -214,7 +201,6 @@ export default function DetailPlanCompliance() {
               ) : (
                 <ul className="space-y-3">
                   {postponedSessions.map((s: any) => {
-                    // Zachovávame existujúcu podporu pre raw DB riadok vs JSON payload
                     const rawData = s.payload ?? s;
 
                     return (
@@ -222,7 +208,10 @@ export default function DetailPlanCompliance() {
                         <SessionCard
                           variant="calendar"
                           showAdvanced={true}
-                          onRefreshPlan={() => refreshCoach(false)}
+                          onRefreshPlan={() => {
+                            loadData();
+                            refreshCoach(false);
+                          }}
                           
                           planReschedule={{
                             enabled: true,
