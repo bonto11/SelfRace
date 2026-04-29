@@ -2486,7 +2486,7 @@ export const sk = {
       actions: {
         reschedule: "Presunúť",
         postpone: "Odložiť",
-        match: "Spárovať aktivitu",
+        match: "Spárovať",
         unmatch: "Zrušiť spárovanie",
         discard: "Zahodiť",
         discardConfirm: "Naozaj chcete tento tréning vymazať?",
