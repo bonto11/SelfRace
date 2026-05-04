@@ -1262,6 +1262,7 @@ export const sk = {
       daily: "denný rozpis",
     },
     history: {
+      pageTitle: "História plánov",
       empty: "Zatiaľ žiadne staršie plány.",
       completed: "Úspešne dokončené",
       canceled: "Predčasne ukončené",

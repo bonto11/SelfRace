@@ -1272,6 +1272,7 @@ export const en = {
       daily: "daily schedule",
     },
     history: {
+      pageTitle: "Plan history",
       empty: "No older plans yet.",
       completed: "Successfully completed",
       canceled: "Ended early",
