@@ -35,7 +35,7 @@ export async function apiGetStaticProfile(
     return (json as StaticProfileSuccess).data ?? null;
   } catch (e) {
     console.error("[PROFILE][apiGetStaticProfile] ERROR", e);
-    throw new Error("api.profile.staticLoadFailed");
+    return null; 
   }
 }
 
