@@ -1,3 +1,4 @@
+// src/app/features/performance/components/PerformanceDataProvider.tsx (alebo kde to máš)
 "use client";
 
 import React, {
@@ -32,9 +33,7 @@ import {
   apiGetHrMaxLatest,
 } from "@/app/features/performance/api/userMetrics";
 
-import {
-  apiGetStaticProfile, 
-} from "@/app/features/performance/api/static";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 /* Typy */
 import type { ZonesOut } from "@/app/features/performance/types/zonesTypes";
@@ -50,7 +49,6 @@ export type PerformanceDataState = {
   vo2EstimatedTrend: any[];
   bodyFatLatest: any | null;
   bodyFatTrend: any[];
-  // 👈 PRIDANÉ NOVÉ TYPY
   weightLatest: any | null;
   bodyWeightTrend: any[];
   hrMaxLatest: any | null;
@@ -74,7 +72,6 @@ const EMPTY_DATA: PerformanceDataState = {
   vo2EstimatedTrend: [],
   bodyFatLatest: null,
   bodyFatTrend: [],
-  // 👈 PRIDANÉ DO INICIALIZÁCIE
   weightLatest: null,
   bodyWeightTrend: [],
   hrMaxLatest: null,
@@ -135,10 +132,14 @@ export function PerformanceDataProvider({
 
   const fetchAllData = useCallback(
     async (uid: number, d: number): Promise<PerformanceDataState> => {
-      // 1. ZOHRIEVACÍ REQUEST
-      const latestZones = await apiFetchUserZonesLatest(uid, "running");
+      // 1. ZOHRIEVACÍ REQUEST (Tu tiež pridáme catch pre istotu)
+      const latestZones = await apiFetchUserZonesLatest(uid, "running").catch(
+        () => null,
+      );
 
       // 2. Hromadný fetch
+      // PRIDANÉ .catch(() => null) NA KAŽDÝ PROMISE
+      // Vďaka tomuto už NIKDY nezlyhá celý Promise.all kvôli jednému API endpointu!
       const [
         zoneTrends,
         latestPaceRes,
@@ -149,38 +150,38 @@ export function PerformanceDataProvider({
         vo2ETrend,
         fatLatest,
         fatTrend,
-        weightLat,  
-        weightTrnd,  
-        hrMaxLat,   
+        weightLat,
+        weightTrnd,
+        hrMaxLat,
         profileStat,
       ] = await Promise.all([
-        apiFetchUserZoneTrends(uid, "running", d),
-        apiGetLatestPaces(uid),
-        apiGetPaceTrend(uid, d),
-        apiGetVo2MeasuredLatest(uid),
-        apiGetVo2MeasuredTrend(uid, d),
-        apiGetVo2EstimatedLatest(uid),
-        apiGetVo2EstimatedTrend(uid, d),
-        apiGetBodyFatLatest(uid),
-        apiGetBodyFatTrend(uid, d),
-        apiGetWeightLatest(uid), 
-        apiGetWeightTrend(uid, d),
-        apiGetHrMaxLatest(uid), 
-        apiGetStaticProfile(uid), 
+        apiFetchUserZoneTrends(uid, "running", d).catch(() => null),
+        apiGetLatestPaces(uid).catch(() => null),
+        apiGetPaceTrend(uid, d).catch(() => null),
+        apiGetVo2MeasuredLatest(uid).catch(() => null),
+        apiGetVo2MeasuredTrend(uid, d).catch(() => null),
+        apiGetVo2EstimatedLatest(uid).catch(() => null),
+        apiGetVo2EstimatedTrend(uid, d).catch(() => null),
+        apiGetBodyFatLatest(uid).catch(() => null),
+        apiGetBodyFatTrend(uid, d).catch(() => null),
+        apiGetWeightLatest(uid).catch(() => null),
+        apiGetWeightTrend(uid, d).catch(() => null),
+        apiGetHrMaxLatest(uid).catch(() => null),
+        apiGetStaticProfile(uid).catch(() => null),
       ]);
 
       return {
         latestZones,
         zoneTrends: zoneTrends || [],
         latestPace: (latestPaceRes as any)?.data || null,
-        paceTrends: (paceTrendRes as any)?.trends || (paceTrendRes as any)?.data || [],
+        paceTrends:
+          (paceTrendRes as any)?.trends || (paceTrendRes as any)?.data || [],
         vo2MeasuredLatest: vo2MLatest?.data || null,
-        vo2MeasuredTrend: vo2MTrend?.trends || vo2MTrend?.data || [], 
+        vo2MeasuredTrend: vo2MTrend?.trends || vo2MTrend?.data || [],
         vo2EstimatedLatest: vo2ELatest?.data || null,
         vo2EstimatedTrend: vo2ETrend?.trends || vo2ETrend?.data || [],
         bodyFatLatest: fatLatest?.data || null,
         bodyFatTrend: fatTrend?.trends || fatTrend?.data || [],
-        // 👈 PRIDANÉ NAMAPOVANIE NA STATE
         weightLatest: weightLat?.data || null,
         bodyWeightTrend: weightTrnd?.trends || weightTrnd?.data || [],
         hrMaxLatest: hrMaxLat?.data || null,
