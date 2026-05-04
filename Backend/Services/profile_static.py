@@ -13,17 +13,15 @@ from Modules.Supabase.auth import AuthCtx
 def service_get_static_profile(
     user_id: int,
     ctx: AuthCtx,
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """
-    Načíta static profil – ak neexistuje, hodí 404.
+    Načíta static profil – ak neexistuje, vráti None miesto 404.
     """
- 
     row = db_fetch_static(
         user_id=user_id,
         ctx=ctx,
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Static profile not found")
+    
     return row
 
 
