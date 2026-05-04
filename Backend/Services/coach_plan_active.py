@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -188,7 +189,10 @@ def service_get_active_plan_status(
     }
 
 def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
-    today_iso = datetime.now(timezone.utc).date().isoformat()
+    # OPRAVA: Použijeme lokálny čas, nie UTC!
+    tz_ba = ZoneInfo("Europe/Bratislava")
+    today_iso = datetime.now(tz_ba).date().isoformat()
+    
     users_to_complete = db_get_due_active_plans(today_iso=today_iso, ctx=ctx)
 
     processed = 0
@@ -205,7 +209,7 @@ def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
     return {
         "processed_users": processed,
         "errors": errors,
-        "note": f"Checked against date {today_iso}"
+        "note": f"Checked against local date {today_iso}"
     }
     
 def service_get_plan_history(
