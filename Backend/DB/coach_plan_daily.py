@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta, date
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -326,13 +327,19 @@ def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dic
 def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Dict[str, int]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_compliance_stats")
     try:
-        res = (
-            sb.table(TABLE_COACH_PLAN_DAILY)
-            .select("status")
-            .eq("user_id", user_id)
-            .gte("plan_date", (datetime.now() - timedelta(days=days)).date().isoformat())
-            .execute()
-        )
+        # 1. Zistíme, kedy začal aktuálny aktívny plán atléta
+        active_plan = db_get_active_plan_meta_for_user(user_id, ctx=ctx)
+        
+        query = sb.table(TABLE_COACH_PLAN_DAILY).select("status").eq("user_id", user_id)
+        
+        # 2. Ak máme aktívny plán, ťaháme VŠETKY denné dáta od jeho úplného začiatku!
+        if active_plan and active_plan.get("start_date"):
+            query = query.gte("plan_date", active_plan["start_date"])
+        else:
+            # Fallback (ak by nebol aktívny plán), potiahneme klasicky X dní dozadu
+            query = query.gte("plan_date", (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat())
+            
+        res = query.execute()
         data = res.data or []
         
         stats = {"done": 0, "postponed": 0, "missed": 0, "planned": 0}

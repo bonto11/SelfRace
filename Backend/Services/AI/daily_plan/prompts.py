@@ -492,6 +492,16 @@ def build_prompts_for_daily(
             "- Their body is still fragile. A 'Threshold run' right after being sick is a terrible coaching mistake.\n"
         )
 
+    elif reason == "refill_auto_extend":
+        special_reason_rule = (
+            "\n--- ⚠️ PARTIAL WEEK REFILL (CRITICAL) ⚠️ ---\n"
+            "- You are generating workouts for a week that is ALREADY PARTIALLY COMPLETED.\n"
+            "- You MUST look at the athlete's 'recent_load' and determine what they have already done THIS week.\n"
+            "- CRITICAL: Your task is ONLY to generate workouts for the REMAINING days of this week to reach the weekly 'planned_minutes' and 'goal'.\n"
+            "- Do NOT schedule a Long Run if they already did one this week. Do NOT schedule hard intervals if they already did them.\n"
+            "- Only provide the missing puzzle pieces.\n"
+        )
+
     user_txt = (
         "Generate a weekly plan.\n"
         f"Week: {week_index} ({week_start} .. {week_end})\n"
