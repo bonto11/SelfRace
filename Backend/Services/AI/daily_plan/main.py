@@ -314,7 +314,18 @@ def service_auto_extend_daily_plan(
 
     weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
 
+    # 🌟 OPRAVA HĽADANIA "Budúcich týždňov"
+    # Namiesto hľadania len current_week a preskakovania ho, 
+    # proste pozrime na posledný deň (last_date) a zoberme všetky týždne,
+    # ktorých KONIEC (we) je striktne PO last_date. To znamená, že aj aktuálny týždeň 
+    # by sa mal (v budúcnosti s AI) zrekonštruovať, ak má end_date > last_date.
+    
+    # Pre túto chvíľu, kým AI nevie "dopĺňať", radšej budeme generovať striktne od ďalšieho týždňa, 
+    # ALE musíme vyriešiť tú Nedeľu.
+
     current_week_index: Optional[int] = None
+    target_weeks_to_generate: List[int] = []
+
     for w in weekly_sorted:
         ws_raw = w.get("week_start")
         we_raw = w.get("week_end") or ws_raw
@@ -325,25 +336,28 @@ def service_auto_extend_daily_plan(
             we = date.fromisoformat(we_raw[:10])
         except Exception:
             continue
+            
         if ws <= last_date <= we:
             current_week_index = int(w.get("week_index") or 0)
-            break
+            
+            # AK SME V STREDE TÝŽDŇA, a ideme dopĺňať, aktuálny backendový prístup 
+            # to buď zmaže, alebo preskočí. My to teraz prepíšeme tak, aby to 
+            # zavolalo AI aj s parametrom "drop_past_days=True" pre current_week!
+            
+            # (Takže sa vygeneruje Týždeň 2, ALE minulé dni sa nezmažú, iba sa vložia
+            # tie, čo sú "od dnes ďalej"!)
+            
+            if we > last_date: # V tomto týždni ešte ostali nevygenerované dni!
+               target_weeks_to_generate.append(current_week_index)
+            
+        elif ws > last_date:
+            target_weeks_to_generate.append(int(w.get("week_index") or 0))
 
-    if current_week_index is None:
+
+    if not target_weeks_to_generate:
         return {
             "changed": False,
-            "reason": "cannot_determine_current_week",
-            "days_left": days_left,
-            "last_daily_date": last_date_str,
-        }
-
-    future_weeks = [
-        w for w in weekly_sorted if int(w.get("week_index") or 0) > current_week_index
-    ]
-    if not future_weeks:
-        return {
-            "changed": False,
-            "reason": "no_future_weeks",
+            "reason": "no_future_weeks_needed",
             "current_week_index": current_week_index,
             "days_left": days_left,
             "last_daily_date": last_date_str,
@@ -352,13 +366,19 @@ def service_auto_extend_daily_plan(
     generated: List[int] = []
     current_last_str = last_date_str
 
-    for w in future_weeks:
-        week_idx = int(w.get("week_index") or 0)
-
+    for week_idx in target_weeks_to_generate:
+        
+        # 🌟 ZÁSADNÁ ZMENA: Ak generujeme týždeň, v ktorom sa PRÁVE nachádzame, 
+        # prikážeme drop_past_days=True. Tým pádom zachováme to, čo user už odtrénoval (po-štvrtok),
+        # a vložíme len nové dni (piatok-nedeľa).
+        is_current_week = (week_idx == current_week_index)
+        
         res = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
             model=None,
+            drop_past_days=is_current_week, # 👈 Tu to posielame
+            reason="refill_auto_extend",
             ctx=ctx,
         )
         
@@ -391,7 +411,6 @@ def service_auto_extend_daily_plan(
         "final_days_left": days_left,
         "last_daily_date": current_last_str,
     }
-
 
 def service_update_daily_session_status(
     user_id: int,
