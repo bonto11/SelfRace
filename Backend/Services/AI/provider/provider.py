@@ -21,12 +21,6 @@ from Services.AI.provider.claude_client import get_claude_models, claude_call_js
 # STATICKÁ KONFIGURÁCIA PROVIDEROV
 # =============================================================================
 
-_PROVIDER_KEYS: Dict[str, Optional[str]] = {
-    "openai": OPENAI_API_KEY,
-    "gemini": GEMINI_API_KEY,
-    "claude": CLAUDE_API_KEY,
-}
-
 _PROVIDER_FALLBACKS: Dict[str, List[str]] = {
     "openai": OPENAI_MODEL_FALLBACKS or [],
     "gemini": GEMINI_MODEL_FALLBACKS or [],
@@ -48,17 +42,32 @@ _PROVIDER_MODELS = {
 # Poradie záchrannej siete — primárny provider sa preskočí automaticky
 _FALLBACK_ORDER: List[str] = ["gemini", "openai", "claude"]
 
-_VALID_PROVIDERS = set(_PROVIDER_KEYS.keys())
+_VALID_PROVIDERS = set(_PROVIDER_FALLBACKS.keys())
 
 
 # =============================================================================
 # HELPERS
 # =============================================================================
 
+def _get_api_key(provider: str) -> Optional[str]:
+    """
+    Číta API kľúč VŽDY live z importovanej premennej — nie z dict načítaného pri importe.
+    Toto zaručí že ak sa ENV zmení (napr. Railway redeploy), provider to zachytí správne.
+    """
+    if provider == "openai":
+        return OPENAI_API_KEY
+    if provider == "gemini":
+        return GEMINI_API_KEY
+    if provider == "claude":
+        return CLAUDE_API_KEY
+    return None
+
+
 def _get_primary_provider() -> str:
+    """Prečíta AI_PROVIDER z ENV a validuje — fallback na gemini ak neznámy."""
     p = (AI_PROVIDER or "gemini").strip().lower()
     if p not in _VALID_PROVIDERS:
-        print(f"[PROVIDER] Neznámy AI_PROVIDER='{p}', fallback na 'gemini'")
+        print(f"[PROVIDER] ⚠️  Neznámy AI_PROVIDER='{p}', fallback na 'gemini'")
         return "gemini"
     return p
 
@@ -66,10 +75,8 @@ def _get_primary_provider() -> str:
 def _build_chain(primary: str, requested_model: Optional[str]) -> List[Tuple[str, str]]:
     """
     Zostaví poradovník (provider, model) pre jedno volanie.
-
-    Poradie:
-      1. Primárny provider — requested_model ak zadaný, potom jeho fallbacky
-      2. Ostatní provideri v _FALLBACK_ORDER — len ich fallbacky
+    1. Primárny provider — requested_model ak zadaný, potom jeho fallbacky z ENV
+    2. Ostatní provideri v _FALLBACK_ORDER — len ich fallbacky
     """
     chain: List[Tuple[str, str]] = []
 
@@ -84,7 +91,7 @@ def _build_chain(primary: str, requested_model: Optional[str]) -> List[Tuple[str
     for m in primary_models:
         chain.append((primary, m))
 
-    # 2. Záchranná sieť
+    # 2. Záchranná sieť — ostatní provideri v poradí
     for p in _FALLBACK_ORDER:
         if p == primary:
             continue
@@ -93,6 +100,31 @@ def _build_chain(primary: str, requested_model: Optional[str]) -> List[Tuple[str
                 chain.append((p, m.strip()))
 
     return chain
+
+
+def _log_chain_start(primary: str, chain: List[Tuple[str, str]]) -> None:
+    """Vypíše celý plánovaný chain pred spustením — vidíš čo sa bude volať."""
+    chain_str = " → ".join(f"{p}:{m}" for p, m in chain)
+    print(f"[PROVIDER] 🚀 primary={primary} | chain: {chain_str}")
+    # Overenie kľúčov pre každého providera v chaine
+    checked: set = set()
+    for p, _ in chain:
+        if p in checked:
+            continue
+        checked.add(p)
+        key = _get_api_key(p)
+        status = f"✅ key present ({str(key)[:12]}...)" if key else "❌ NO KEY"
+        print(f"[PROVIDER]   {p}: {status}")
+
+
+def _log_attempt(provider: str, model: str, attempt_num: int, ok: bool, duration_ms: int, error: Optional[str] = None) -> None:
+    """Log pre každý pokus — úspech alebo zlyhanie s dôvodom."""
+    icon = "✅" if ok else "❌"
+    base = f"[PROVIDER] {icon} attempt#{attempt_num} {provider}:{model} ({duration_ms}ms)"
+    if ok:
+        print(base)
+    else:
+        print(f"{base} → {error}")
 
 
 def _call_provider(
@@ -105,6 +137,7 @@ def _call_provider(
     max_tokens: int,
     temperature: float,
 ) -> AiResult:
+    """Zavolá konkrétneho AI providera s danými parametrami."""
     return _PROVIDER_CALL[provider](
         context_payload=context_payload,
         system_prompt=system_prompt,
@@ -131,22 +164,34 @@ def ai_call_json_model(
     """
     Volanie AI s automatickým cross-provider fallbackom.
     Primárny provider sa nastaví cez AI_PROVIDER env var.
+    Pri každom pokuse loguje provider, model, výsledok a dôvod zlyhania.
     """
+    import time
+
     primary = _get_primary_provider()
     chain = _build_chain(primary, model)
     attempts: List[Dict[str, Any]] = []
 
+    # Zobrazí celý plán pred spustením
+    _log_chain_start(primary, chain)
+
+    attempt_num = 0
+
     for provider, m in chain:
-        # Preskočíme ak chýba API kľúč
-        if not _PROVIDER_KEYS.get(provider):
-            attempts.append({
-                "provider": provider,
-                "model": m,
-                "error": f"Chýba API kľúč pre '{provider}'",
-            })
+        attempt_num += 1
+        started = time.time()
+
+        # Preskočíme ak chýba API kľúč — live check, nie z importu
+        key = _get_api_key(provider)
+        if not key:
+            dur_ms = int((time.time() - started) * 1000)
+            error = f"Chýba API kľúč pre '{provider}'"
+            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=error)
+            attempts.append({"provider": provider, "model": m, "error": error})
             continue
 
         try:
+            print(f"[PROVIDER] ⏳ calling {provider}:{m} ...")
             res = _call_provider(
                 provider, m,
                 context_payload=context_payload,
@@ -155,8 +200,11 @@ def ai_call_json_model(
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
+            dur_ms = int((time.time() - started) * 1000)
 
             if res and res.ok:
+                _log_attempt(provider, m, attempt_num, ok=True, duration_ms=dur_ms)
+                print(f"[PROVIDER] 🎉 SUCCESS → {provider}:{m}")
                 if not res.trace:
                     res.trace = {}
                 res.trace["attempts"] = attempts
@@ -167,14 +215,19 @@ def ai_call_json_model(
                 return res
 
             err = res.error.message if (res and res.error) else "Neznáma chyba"
+            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=err)
             attempts.append({"provider": provider, "model": m, "error": err})
 
         except Exception as e:
-            attempts.append({"provider": provider, "model": m, "error": f"{type(e).__name__}: {e}"})
+            dur_ms = int((time.time() - started) * 1000)
+            err = f"{type(e).__name__}: {e}"
+            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=err)
+            attempts.append({"provider": provider, "model": m, "error": err})
 
     # Všetci zlyhali
     tried = ", ".join(f"{a['provider']}:{a['model']}" for a in attempts)
     last_err = attempts[-1]["error"] if attempts else "N/A"
+    print(f"[PROVIDER] 💀 ALL FAILED. Tried: {tried}")
 
     return AiResult(
         ok=False,
@@ -185,7 +238,7 @@ def ai_call_json_model(
             code="ai_cross_provider_failed",
             message=f"Zlyhali všetci provideri. Skúšané: ({tried}). Posledná chyba: {last_err}",
         ),
-        trace={"attempts": attempts, "ok_model": None},
+        trace={"attempts": attempts, "ok_model": None, "ok_provider": None},
     )
 
 
@@ -195,9 +248,7 @@ def ai_call_json_model(
 
 def get_available_ai_models() -> Dict[str, Any]:
     """Zoznam modelov od každého providera + nakonfigurované modely."""
-    result: Dict[str, Any] = {
-        p: [] for p in _VALID_PROVIDERS
-    }
+    result: Dict[str, Any] = {p: [] for p in _VALID_PROVIDERS}
     result["configured"] = {p: _PROVIDER_FALLBACKS[p] for p in _VALID_PROVIDERS}
     result["errors"] = []
 
@@ -226,7 +277,7 @@ def check_configured_models_health() -> Dict[str, Any]:
 
 
 def get_ai_health_status() -> Tuple[bool, str]:
-    """Jednoduchý health check pre externé služby."""
+    """Jednoduchý health check pre externé služby — vracia (ok, error_message)."""
     health = check_configured_models_health()
 
     if health["ok"]:
