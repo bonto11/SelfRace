@@ -474,9 +474,7 @@ def _real_db_get_plans_for_today_tomorrow(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Načíta denný plán na dnes a zajtra z DB — pre kontext AI."""
     try:
-        db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(
-            user_id=user_id, ctx=ctx
-        )
+        # meta sa momentálne nepoužíva — načítame len daily rows
         daily_rows = db_list_daily_for_user_horizon(user_id=user_id, horizon_days=2, ctx=ctx) or []
         dt_today = datetime.strptime(date_str_today, "%Y-%m-%d")
         date_str_tomorrow = (dt_today + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -490,7 +488,6 @@ def _real_db_get_plans_for_today_tomorrow(
     except Exception as e:
         print("[AI][builder] Failed to fetch plans for today/tomorrow", repr(e))
         return None, None
-
 
 # ============================================================
 # MAIN INPUT BUILDER

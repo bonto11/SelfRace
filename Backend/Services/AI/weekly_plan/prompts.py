@@ -1,54 +1,36 @@
+# Services/AI/weekly_plan/prompts.py
 from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import date
+
+
+# ============================================================
+# HELPERS
+# ============================================================
 
 def _as_dict(v: Any) -> Dict[str, Any]:
     return v if isinstance(v, dict) else {}
 
+
 def _as_list(v: Any) -> List[Any]:
     return v if isinstance(v, list) else []
+
 
 def _get_dict(d: Dict[str, Any], key: str) -> Dict[str, Any]:
     return _as_dict(d.get(key))
 
-def _safe_date_yyyy_mm_dd(v: Any) -> Optional[str]:
-    if not v: return None
+
+def _safe_date(v: Any) -> Optional[str]:
+    if not v:
+        return None
     s = str(v).strip()
-    return s[:10] if s else None
+    return s[:10] if len(s) >= 10 else None
 
-def _derive_key_slots_from_weekly_template(wt: Dict[str, Any], max_fixed: int = 10) -> List[Dict[str, Any]]:
-    wt = _as_dict(wt)
-    days = _as_list(wt.get("days"))
-    out: List[Dict[str, Any]] = []
-
-    for d in days:
-        d2 = _as_dict(d)
-        day = d2.get("day")
-        slots = _as_list(d2.get("slots"))
-        if not isinstance(day, str): continue
-
-        for s in slots:
-            s2 = _as_dict(s)
-            if s2.get("priority") != "key": continue
-            sport = s2.get("sport")
-            kind = s2.get("kind")
-            if not (isinstance(sport, str) and isinstance(kind, str)): continue
-
-            out.append({"weekday": day, "sport": sport, "kind": kind})
-            if len(out) >= max_fixed: return out
-    return out
-
-def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
-    analyze_src = _as_dict(context.get("analyze_input_min") or context.get("analyze_input") or {})
-    prefs_any = analyze_src.get("prefs")
-    if isinstance(prefs_any, dict): return prefs_any
-
-    prefs_any = context.get("prefs")
-    if isinstance(prefs_any, dict): return prefs_any
-    return {}
 
 def _remove_empty(d: Any) -> Any:
+    """Rekurzívne vymaže None, [], {} — menej tokenov."""
     if isinstance(d, dict):
         cleaned = {k: _remove_empty(v) for k, v in d.items()}
         return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
@@ -57,47 +39,165 @@ def _remove_empty(d: Any) -> Any:
         return [v for v in cleaned if v is not None and v != [] and v != {}]
     return d
 
+
+def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
+    """Vráti (jazyk_label, pravidlo_oslovovania)."""
+    lang_code = str(settings.get("language") or "sk").lower()
+    if lang_code.startswith("en"):
+        return "English", "Use 'you' to talk directly to the athlete."
+    if lang_code.startswith("cs"):
+        return "Czech", "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
+    return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
+
+
+# ============================================================
+# PREFS EXTRACTION
+# ============================================================
+
+def _extract_prefs_source(context: Dict[str, Any]) -> Dict[str, Any]:
+    """Vytiahne prefs z contextu — skúša analyze_input_min, analyze_input, root."""
+    for source_key in ("analyze_input_min", "analyze_input"):
+        src = _as_dict(context.get(source_key))
+        prefs = src.get("prefs")
+        if isinstance(prefs, dict):
+            val = prefs.get("value")
+            return _as_dict(val) if isinstance(val, dict) else prefs
+    prefs = context.get("prefs")
+    if isinstance(prefs, dict):
+        val = prefs.get("value")
+        return _as_dict(val) if isinstance(val, dict) else prefs
+    return {}
+
+
+# ============================================================
+# WEEKLY TEMPLATE
+# ============================================================
+
+def _derive_key_slots_from_weekly_template(
+    wt: Dict[str, Any], max_fixed: int = 10
+) -> List[Dict[str, Any]]:
+    """Vytiahne key sloty z weekly_template — pre AI aby vedela fixné tréningové dni."""
+    days = _as_list(wt.get("days"))
+    out: List[Dict[str, Any]] = []
+    for d in days:
+        d2 = _as_dict(d)
+        day = d2.get("day")
+        slots = _as_list(d2.get("slots"))
+        if not isinstance(day, str):
+            continue
+        for s in slots:
+            s2 = _as_dict(s)
+            if s2.get("priority") != "key":
+                continue
+            sport = s2.get("sport")
+            kind = s2.get("kind")
+            if not (isinstance(sport, str) and isinstance(kind, str)):
+                continue
+            out.append({"weekday": day, "sport": sport, "kind": kind})
+            if len(out) >= max_fixed:
+                return out
+    return out
+
+
+# ============================================================
+# WOMEN'S HEALTH
+# ============================================================
+
+def _build_womens_health_rule(
+    preferences_obj: Dict[str, Any],
+    start_date: Optional[str],
+) -> str:
+    """
+    Vráti špeciálnu inštrukciu pre cycle sync ak je aktivovaná a dátum sedí.
+    Bug fix: abs() na days_into_cycle aby nebol záporný pri plan_start < cycle_start.
+    """
+    womens_health = _get_dict(preferences_obj, "womens_health")
+    if not womens_health.get("sync_enabled"):
+        return ""
+
+    next_cycle_start_str = womens_health.get("next_cycle_start")
+    if not next_cycle_start_str:
+        return ""
+
+    try:
+        cycle_length = int(womens_health.get("cycle_length_days") or 28)
+        plan_start_dt = (
+            date.fromisoformat(start_date) if start_date else date.today()
+        )
+        cycle_start_dt = date.fromisoformat(next_cycle_start_str[:10])
+
+        # abs() zaručí správny výsledok aj keď plan_start je pred cycle_start
+        diff_days = (plan_start_dt - cycle_start_dt).days
+        days_into_cycle = abs(diff_days) % cycle_length
+
+        if 0 <= days_into_cycle <= 7:
+            return (
+                "\n--- WOMEN'S HEALTH (CYCLE SYNC) ---\n"
+                "- The athlete's menstrual cycle starts this week.\n"
+                "- You MUST respect her physiology. Make this week a TAPER / RECOVERY week.\n"
+                "- Lower the total volume by 20-30%, prioritize Z1/Z2, avoid max intensity intervals.\n"
+                "- Remind her gently in the 'notes' that this is an expected lighter week.\n"
+            )
+    except Exception:
+        pass
+
+    return ""
+
+
+# ============================================================
+# MINIFY CONTEXT
+# ============================================================
+
 def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Osekáva weekly context pred odoslaním do AI.
+    Zachováva: prefs (s races, weekly_template), athlete_state (bez metrics),
+    external_events, weeks, replan_trigger, generate_reason.
+    """
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
 
     raw_prefs = _extract_prefs_source(context)
-    prefs_val = raw_prefs.get("value")
-    prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else _as_dict(raw_prefs)
-
-    preferences = _get_dict(prefs, "preferences")
-    volume = _get_dict(prefs, "volume")
-    targets = _get_dict(prefs, "targets")
-
+    preferences = _get_dict(raw_prefs, "preferences")
+    volume = _get_dict(raw_prefs, "volume")
+    targets = _get_dict(raw_prefs, "targets")
     run_t = _get_dict(targets, "run")
     strength_t = _get_dict(targets, "strength")
 
+    # Races — minifikované
     races_raw = run_t.get("races")
     races_min: Optional[List[Dict[str, Any]]] = None
     if isinstance(races_raw, list):
         races_min = []
         for r in races_raw:
             r2 = _as_dict(r)
-            if not r2: continue
+            if not r2:
+                continue
             races_min.append({
-                "date": _safe_date_yyyy_mm_dd(r2.get("date") or r2.get("start_date") or r2.get("race_date")),
+                "date": _safe_date(
+                    r2.get("date") or r2.get("start_date") or r2.get("race_date")
+                ),
                 "name": r2.get("name") or r2.get("title"),
                 "type": r2.get("type") or r2.get("race_type"),
             })
-            if len(races_min) >= 10: break
+            if len(races_min) >= 10:
+                break
 
     prefs2: Dict[str, Any] = {
-        "main_sport": prefs.get("main_sport"),
-        "add_on_sports": prefs.get("add_on_sports"),
-        "included_sports": prefs.get("included_sports"),
-        "goal_kind": prefs.get("goal_kind"),
-        "volume": {"mode": volume.get("mode"), "value": volume.get("value")} if volume else {},
+        "main_sport": raw_prefs.get("main_sport"),
+        "add_on_sports": raw_prefs.get("add_on_sports"),
+        "included_sports": raw_prefs.get("included_sports"),
+        "goal_kind": raw_prefs.get("goal_kind"),
+        "volume": {
+            "mode": volume.get("mode"),
+            "value": volume.get("value"),
+        } if volume else {},
         "preferences": {
             "days_off": preferences.get("days_off"),
             "long_run_days": preferences.get("long_run_days"),
             "avoid_two_a_day": preferences.get("avoid_two_a_day"),
             "avoid_back_to_back_hard": preferences.get("avoid_back_to_back_hard"),
-            "womens_health": preferences.get("womens_health"), # ✅ PRIDANÉ PRE AI
+            "womens_health": preferences.get("womens_health"),
         } if preferences else {},
         "targets": {
             "run": {
@@ -113,7 +213,8 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         } if targets else {},
     }
 
-    wt = _as_dict(prefs.get("weekly_template"))
+    # Weekly template — len key sloty
+    wt = _as_dict(raw_prefs.get("weekly_template"))
     if wt:
         prefs2["weekly_template"] = {
             "mode": wt.get("mode"),
@@ -122,131 +223,183 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
+    # Athlete state — bez metrics (tie sú inde)
     athlete_state = _as_dict(context.get("athlete_state"))
     is_beginner = athlete_state.get("is_returning_beginner")
-
     if athlete_state:
-        ai_state = _as_dict(athlete_state.get("ai_state"))
+        ai_state = dict(_as_dict(athlete_state.get("ai_state")))
         ai_state.pop("metrics", None)
-        ctx2["athlete_state"] = {"ai_state": ai_state, "is_returning_beginner": is_beginner}
+        ctx2["athlete_state"] = {
+            "ai_state": ai_state,
+            "is_returning_beginner": is_beginner,
+        }
 
+    # External events
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
         if isinstance(ext.get("events"), list):
-            events = [_as_dict(e) for e in ext.get("events", []) if isinstance(e, dict)]
+            events = [_as_dict(e) for e in ext["events"] if isinstance(e, dict)]
         else:
             win = _as_dict(ext.get("window"))
             if isinstance(win.get("events"), list):
-                events = [_as_dict(e) for e in win.get("events", []) if isinstance(e, dict)]
+                events = [_as_dict(e) for e in win["events"] if isinstance(e, dict)]
 
         cleaned_events: List[Dict[str, Any]] = []
         for e in events:
-            dt = e.get("occurrence_date") or e.get("date") or e.get("start_date_local") or e.get("start_date") or e.get("start_date_iso")
-            dt_ymd = _safe_date_yyyy_mm_dd(dt)
+            dt = (
+                e.get("occurrence_date")
+                or e.get("date")
+                or e.get("start_date_local")
+                or e.get("start_date")
+                or e.get("start_date_iso")
+            )
+            dt_ymd = _safe_date(dt)
             dft = e.get("days_from_today")
-            
+
             if dt_ymd is None and isinstance(dft, (int, float)):
                 cleaned_events.append({
-                    "days_from_today": int(dft), "sport": e.get("sport"), "duration_min": e.get("duration_min"),
-                    "priority": e.get("priority"), "title": e.get("title"),
+                    "days_from_today": int(dft),
+                    "sport": e.get("sport"),
+                    "duration_min": e.get("duration_min"),
+                    "priority": e.get("priority"),
+                    "title": e.get("title"),
                 })
                 continue
-            if not dt_ymd: continue
+            if not dt_ymd:
+                continue
             cleaned_events.append({
-                "occurrence_date": dt_ymd, "sport": e.get("sport"), "duration_min": e.get("duration_min"),
-                "priority": e.get("priority"), "title": e.get("title"),
+                "occurrence_date": dt_ymd,
+                "sport": e.get("sport"),
+                "duration_min": e.get("duration_min"),
+                "priority": e.get("priority"),
+                "title": e.get("title"),
             })
 
         win2 = _as_dict(ext.get("window"))
         if win2:
             ctx2["external_events"] = {
                 "window": {
-                    "from": _safe_date_yyyy_mm_dd(win2.get("from")),
-                    "to": _safe_date_yyyy_mm_dd(win2.get("to")),
+                    "from": _safe_date(win2.get("from")),
+                    "to": _safe_date(win2.get("to")),
                     "events": cleaned_events,
                 }
             }
         else:
             ctx2["external_events"] = {"events": cleaned_events}
 
-    if "weeks" in context: ctx2["weeks"] = context.get("weeks")
-    if "replan_trigger" in context: ctx2["replan_trigger"] = context.get("replan_trigger")
-    if "generate_reason" in context: ctx2["generate_reason"] = context.get("generate_reason")
+    # Meta polia
+    for k in ("weeks", "replan_trigger", "generate_reason"):
+        if k in context:
+            ctx2[k] = context[k]
 
     return _remove_empty(ctx2)
 
-def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
-    settings = _as_dict(settings or {})
-    lang_code = str(settings.get("language") or "sk").lower()
 
-    if lang_code.startswith("en"):
-        lang_label = "English"
-        second_person_note = "Use 'you' to talk directly to the athlete."
-    elif lang_code.startswith("cs"):
-        lang_label = "Czech"
-        second_person_note = "Používej 2. osobu ('ty/vy') a mluv přímo k atletovi."
-    else:
-        lang_label = "Slovak"
-        second_person_note = "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
+# ============================================================
+# HLAVNÁ FUNKCIA
+# ============================================================
+
+def build_prompts_for_weekly(
+    context_payload: dict,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
+    """
+    Zostaví (system_prompt, user_prompt) pre weekly meta-plán.
+    Detekuje volume mode, beginner stav, women's health cycle, špeciálne dôvody.
+    """
+    settings = _as_dict(settings or {})
+    lang_label, second_person_note = _lang_notes(settings)
 
     ctx = _as_dict(context_payload)
-    analyze_input = _as_dict(ctx.get("analyze_input_min") or ctx.get("analyze_input") or {})
-    raw_prefs = _as_dict(analyze_input.get("prefs") or ctx.get("prefs") or {})
-    prefs_val = raw_prefs.get("value")
-    prefs = _as_dict(prefs_val) if isinstance(prefs_val, dict) else raw_prefs
+    raw_prefs = _extract_prefs_source(ctx)
+    preferences_obj = _get_dict(raw_prefs, "preferences")
 
-    weeks = int(prefs.get("weeks") or ctx.get("weeks") or 6)
-    start_date = _safe_date_yyyy_mm_dd(prefs.get("start_date") or prefs.get("plan_start_date") or _as_dict(ctx.get("plan_meta")).get("start_date") or "")
-    main_sport = prefs.get("main_sport") or "run"
+    weeks = int(raw_prefs.get("weeks") or ctx.get("weeks") or 6)
+    start_date = _safe_date(
+        raw_prefs.get("start_date")
+        or raw_prefs.get("plan_start_date")
+        or _get_dict(ctx.get("plan_meta") or {}, "").get("start_date")
+    )
+    main_sport = raw_prefs.get("main_sport") or "run"
 
-    add_on = prefs.get("add_on_sports")
-    included = prefs.get("included_sports")
+    # Zoznam povolených sportov
     sports_set = {main_sport}
+    add_on = raw_prefs.get("add_on_sports")
+    included = raw_prefs.get("included_sports")
     if isinstance(add_on, list):
-        sports_set.update([s.lower() for s in add_on if isinstance(s, str) and s])
+        sports_set.update(s.lower() for s in add_on if isinstance(s, str) and s)
     elif isinstance(included, list):
-        sports_set.update([s.lower() for s in included if isinstance(s, str) and s])
+        sports_set.update(s.lower() for s in included if isinstance(s, str) and s)
     final_sports_list = list(sports_set)
 
+    # Athlete state
     athlete_state = _as_dict(ctx.get("athlete_state"))
     is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
 
+    # Minifikovaný context pre AI
     context_for_ai = minify_weekly_context_for_ai(ctx)
     prefs_min = _as_dict(context_for_ai.get("prefs"))
     vol = _get_dict(prefs_min, "volume")
     volume_mode = vol.get("mode")
     volume_value = vol.get("value")
 
-    # ✅ Vytiahnutie ženských preferencií
-    preferences_obj = _get_dict(prefs, "preferences")
-    womens_health = _get_dict(preferences_obj, "womens_health")
-    sync_enabled = womens_health.get("sync_enabled")
-    next_cycle_start_str = womens_health.get("next_cycle_start")
-    cycle_length = int(womens_health.get("cycle_length_days") or 28)
-    
-    womens_health_rule = ""
-    if sync_enabled and next_cycle_start_str:
-        try:
-            from datetime import date
-            plan_start_dt = date.fromisoformat(start_date) if start_date else date.today()
-            cycle_start_dt = date.fromisoformat(next_cycle_start_str[:10])
-            
-            # Výpočet cyklu (% modulo nám umožní trafiť to aj po 3 mesiacoch)
-            diff_days = (plan_start_dt - cycle_start_dt).days
-            days_into_cycle = diff_days % cycle_length
-            
-            # Ak sa generovaný týždeň trafí do prvých 7 dní cyklu, nariadime voľnejší režim
-            if 0 <= days_into_cycle <= 7:
-                womens_health_rule = (
-                    "\n--- WOMEN'S HEALTH (CYCLE SYNC) ---\n"
-                    "- The athlete's menstrual cycle starts this week.\n"
-                    "- You MUST respect her physiology. Make this week a TAPER / RECOVERY week.\n"
-                    "- Lower the total volume by 20-30%, prioritize Z1/Z2, and avoid max intensity intervals.\n"
-                    "- Remind her gently in the 'notes' that this is an expected lighter week due to her cycle phase.\n"
-                )
-        except Exception as e:
-            pass
+    # Women's health rule — opravený bug (abs() na diff_days)
+    womens_health_rule = _build_womens_health_rule(preferences_obj, start_date)
+
+    # Volume hints
+    volume_hint_lines: List[str] = []
+    if is_returning_beginner:
+        volume_hint_lines.append(
+            "- ATHLETE IS A BEGINNER (LEVEL 1): Start VERY light (40-90 min total/week). "
+            "Focus on bone and tendon adaptation."
+        )
+    if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
+        volume_hint_lines.append(
+            f"- Baseline target: {volume_value * 60:.0f} total minutes per week."
+        )
+    elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
+        volume_hint_lines.append(
+            f"- Baseline target: ~{volume_value} min per active day."
+        )
+    else:
+        volume_hint_lines.append("- No volume target: use ai_state.volume_tolerance.")
+    volume_hint_lines.append("- Stay within ai_state.volume_tolerance min/max.")
+    volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
+    volume_hint = "\n".join(volume_hint_lines)
+
+    # Beginner protokol
+    beginner_protocol = (
+        "\n- BEGINNER COACHING PROTOCOL:\n"
+        "  - Tone: Encouraging, educational, protective.\n"
+        "  - 'notes' MUST explain the theme. Remind 'Easy means Easy' (Talk Test).\n"
+        "  - Emphasize that walking during a run is success, not failure.\n"
+        if is_returning_beginner
+        else ""
+    )
+
+    # Špeciálny dôvod generovania
+    reason = context_for_ai.get("generate_reason")
+    special_reason_rule = ""
+    if reason == "health_resolved_return":
+        special_reason_rule = (
+            "\n--- HEALTH RECOVERY (RETURN TO PLAY) ---\n"
+            "- Athlete just recovered from illness/injury.\n"
+            "- Week 1 MUST be very low volume and Z1/Z2 only.\n"
+            "- No high-intensity intervals in the first week.\n"
+        )
+    elif reason == "health_recovery_mild":
+        special_reason_rule = (
+            "\n--- MILD HEALTH RESTRICTION ---\n"
+            "- Athlete is not 100% fit yet.\n"
+            "- Week 1 MUST be ultra-light with extra rest days.\n"
+        )
+
+    sports_restriction = (
+        f"- ALLOWED SPORTS: {', '.join(final_sports_list)}.\n"
+        "- ONLY populate planned_stats for listed sports. Set others to 0."
+    )
 
     system_txt = (
         "You are an elite endurance coaching assistant. "
@@ -254,95 +407,55 @@ def build_prompts_for_weekly(context_payload: dict, *, settings: Optional[Dict[s
         "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
-    schema_text = f"""
-{{
+    schema_text = _weekly_schema()
+
+    user_txt = (
+        f"Design a WEEKLY meta plan.\n"
+        f"Main sport: {main_sport}\n"
+        f"Horizon: {weeks} weeks starting {start_date or 'ASAP'}.\n\n"
+        "CONTEXT_JSON:\n"
+        + json.dumps(context_for_ai, ensure_ascii=False)
+        + "\n\nSCHEMA & REQUIREMENTS:\n"
+        + schema_text + "\n"
+        + f"- All text fields (goal, notes) must be in {lang_label}. {second_person_note}\n"
+        + sports_restriction + "\n"
+        + "- Volume guidelines:\n"
+        + volume_hint
+        + beginner_protocol
+        + special_reason_rule
+        + womens_health_rule
+    )
+
+    return system_txt, user_txt
+
+
+# ============================================================
+# SCHEMA
+# ============================================================
+
+def _weekly_schema() -> str:
+    """JSON schéma pre weekly meta-plán."""
+    return """
+{
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp",
   "weeks": [
-    {{
+    {
       "week_index": number,
       "week_start": "YYYY-MM-DD",
       "week_end": "YYYY-MM-DD",
       "goal": "1 punchy sentence",
       "focus": "Short technical tag",
       "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | "Taper" | "Race",
-      "planned_stats": {{
-          "run_distance_km": number,
-          "run_time_min": number,
-          "bike_time_min": number,
-          "strength_time_min": number,
-          "other_time_min": number
-      }},
-      "notes": "string (If athlete is a beginner/returning, provide encouraging educational details. If advanced, provide max 2 short, direct sentences.)"
-    }}
+      "planned_stats": {
+        "run_distance_km": number,
+        "run_time_min": number,
+        "bike_time_min": number,
+        "strength_time_min": number,
+        "other_time_min": number
+      },
+      "notes": "string"
+    }
   ]
-}}
+}
 """.strip()
-
-    volume_hint_lines: List[str] = []
-    if is_returning_beginner:
-        volume_hint_lines.append(
-            "- ATHLETE IS A BEGINNER (LEVEL 1): Start VERY light (e.g. 40-90 min total/week). "
-            "Focus on adaptation of bones and tendons. Keep planned_stats very low."
-        )
-    if volume_mode == "weekly_hours" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(f"- Baseline target: {volume_value * 60} total minutes per week across all sports.")
-    elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(f"- Baseline target: Roughly {volume_value} min per active day.")
-    else:
-        volume_hint_lines.append("- No volume target specified: use ai_state.volume_tolerance.")
-
-    volume_hint_lines.append("- athlete_state.ai_state.volume_tolerance is your safety guard. Stay mostly within min/max.")
-    volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
-    volume_hint = "\n".join(volume_hint_lines)
-    
-    beginner_protocol = ""
-    if is_returning_beginner:
-        beginner_protocol = (
-            "\n- BEGINNER COACHING PROTOCOL:\n"
-            "  - Tone: Encouraging, educational, protective.\n"
-            "  - 'notes' field MUST explain the theme. Remind the athlete that 'Easy means Easy' (Talk Test).\n"
-            "  - Emphasize that walking during a run is a success, not a failure.\n"
-        )
-
-    reason = context_for_ai.get("generate_reason")
-    special_reason_rule = ""
-    if reason == "health_resolved_return":
-        special_reason_rule = (
-            "\n--- HEALTH RECOVERY (RETURN TO PLAY) ---\n"
-            "- The athlete has just fully recovered from an illness or injury.\n"
-            "- The first week MUST be very low volume and low intensity (Z1/Z2).\n"
-            "- Avoid high-intensity intervals entirely in the first week back.\n"
-        )
-    elif reason == "health_recovery_mild":
-        special_reason_rule = (
-            "\n--- MILD HEALTH RESTRICTION (TAIL END OF ILLNESS) ---\n"
-            "- The athlete is not 100% fit yet.\n"
-            "- The very FIRST week MUST BE ultra-light. Instruct the daily generator to schedule extra rest days.\n"
-        )
-
-    sports_restriction_hint = (
-        f"- ALLOWED SPORTS FROM PREFS: {', '.join(final_sports_list)}.\n"
-        "- ONLY populate data for sports explicitly listed above in 'planned_stats'. "
-        "Omit unselected sports or set them to 0."
-    )
-
-    user_txt = (
-        "Design a WEEKLY meta plan.\n"
-        f"Main sport: {main_sport}\n"
-        f"Horizon: {weeks} weeks starting {start_date or 'ASAP'}.\n\n"
-        "CONTEXT_JSON:\n"
-        + json.dumps(context_for_ai, ensure_ascii=False)
-        + "\n\nSCHEMA & REQUIREMENTS:\n"
-        + schema_text
-        + "\n"
-        + f"- All text fields (goal, notes) must be in {lang_label}. {second_person_note}\n"
-        + sports_restriction_hint + "\n"
-        + "- Volume guidelines:\n"
-        + volume_hint
-        + beginner_protocol
-        + special_reason_rule
-        + womens_health_rule # ✅ PRIDANÉ PRAVIDLO PRE ŽENY (aktivuje sa len ak sedí dátum)
-    )
-
-    return system_txt, user_txt

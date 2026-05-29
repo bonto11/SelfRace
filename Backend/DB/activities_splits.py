@@ -61,3 +61,46 @@ def db_get_activity_splits(
         .execute()
     )
     return res.data or []
+
+
+def db_get_activity_splits_batch(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> Dict[int, List[Dict[str, Any]]]:
+    """
+    Načíta splits pre viacero aktivít naraz — jeden DB call namiesto N.
+    Vracia {activity_id: [rows]} zoradené podľa split_index.
+    Iba platné záznamy: deleted_at IS NULL, expires_at > now().
+    """
+    if not activity_ids:
+        return {}
+
+    sb = get_sb(ctx, caller="activities_splits.db_get_activity_splits_batch")
+    now = _now_iso()
+
+    res = (
+        sb.table(TABLE_ACTIVITIES_SPLITS)
+        .select("*")
+        .eq("user_id", user_id)
+        .in_("activity_id", activity_ids)
+        .is_("deleted_at", "null")
+        .gt("expires_at", now)
+        .order("split_index", desc=False)
+        .execute()
+    )
+
+    # Zoskupíme riadky podľa activity_id — poradie split_index je zachované z DB
+    result: Dict[int, List[Dict[str, Any]]] = {}
+    for row in res.data or []:
+        aid = row.get("activity_id")
+        if aid is None:
+            continue
+        try:
+            aid = int(aid)
+        except Exception:
+            continue
+        result.setdefault(aid, []).append(row)
+
+    return result
