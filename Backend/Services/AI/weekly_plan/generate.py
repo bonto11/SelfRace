@@ -109,6 +109,10 @@ def generate_weekly_plan_json(
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )
+    
+    from Services.AI.utils.others import debug_log_ai_io
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
+
 
     # Trace — NEZAPISUJEME cez update() aby sme neprepísali ok_provider/ok_model
     trace = _get_trace(res)
