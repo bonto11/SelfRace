@@ -179,6 +179,10 @@ def generate_activity_review_json(
         user_instructions=user_txt,
         model=model,  # None = provider použije default z ENV
     )
+    
+    from Services.AI.utils.others import debug_log_ai_io
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))
+
 
     trace = _get_trace_from_result(res)
 
