@@ -6,10 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from Configs.config import (
     AI_PROVIDER,
     OPENAI_API_KEY,
+    OPENAI_DEFAULT_MODEL,
     OPENAI_MODEL_FALLBACKS,
     GEMINI_API_KEY,
+    GEMINI_DEFAULT_MODEL,
     GEMINI_MODEL_FALLBACKS,
     CLAUDE_API_KEY,
+    CLAUDE_DEFAULT_MODEL,
     CLAUDE_MODEL_FALLBACKS,
 )
 from Services.AI.utils.types import AiResult, AiError
@@ -18,14 +21,13 @@ from Services.AI.provider.gemini_client import get_gemini_models, gemini_call_js
 from Services.AI.provider.claude_client import get_claude_models, claude_call_json_model
 
 # =============================================================================
-# STATICKÁ KONFIGURÁCIA PROVIDEROV
+# KONFIGURÁCIA
 # =============================================================================
 
-_PROVIDER_FALLBACKS: Dict[str, List[str]] = {
-    "openai": OPENAI_MODEL_FALLBACKS or [],
-    "gemini": GEMINI_MODEL_FALLBACKS or [],
-    "claude": CLAUDE_MODEL_FALLBACKS or [],
-}
+# Poradie záchrannej siete — primárny sa preskočí automaticky
+_FALLBACK_ORDER: List[str] = ["claude", "gemini", "openai"]
+
+_VALID_PROVIDERS = {"claude", "gemini", "openai"}
 
 _PROVIDER_CALL = {
     "openai": openai_call_json_model,
@@ -39,92 +41,96 @@ _PROVIDER_MODELS = {
     "claude": get_claude_models,
 }
 
-# Poradie záchrannej siete — primárny provider sa preskočí automaticky
-_FALLBACK_ORDER: List[str] = ["gemini", "openai", "claude"]
-
-_VALID_PROVIDERS = set(_PROVIDER_FALLBACKS.keys())
-
 
 # =============================================================================
 # HELPERS
 # =============================================================================
 
 def _get_api_key(provider: str) -> Optional[str]:
-    """
-    Číta API kľúč VŽDY live z importovanej premennej — nie z dict načítaného pri importe.
-    Toto zaručí že ak sa ENV zmení (napr. Railway redeploy), provider to zachytí správne.
-    """
-    if provider == "openai":
-        return OPENAI_API_KEY
-    if provider == "gemini":
-        return GEMINI_API_KEY
+    """Číta API kľúč live — nie z dict načítaného pri importe."""
     if provider == "claude":
         return CLAUDE_API_KEY
+    if provider == "gemini":
+        return GEMINI_API_KEY
+    if provider == "openai":
+        return OPENAI_API_KEY
     return None
 
 
+def _get_provider_models(provider: str) -> List[str]:
+    """
+    Vráti zoradený zoznam modelov pre providera: [default, ...fallbacks].
+    Default je vždy prvý — to je ten ktorý sa volá ako prvý.
+    Duplicity sa odstránia, poradie sa zachová.
+    """
+    if provider == "claude":
+        default = CLAUDE_DEFAULT_MODEL
+        fallbacks = CLAUDE_MODEL_FALLBACKS or []
+    elif provider == "gemini":
+        default = GEMINI_DEFAULT_MODEL
+        fallbacks = GEMINI_MODEL_FALLBACKS or []
+    elif provider == "openai":
+        default = OPENAI_DEFAULT_MODEL
+        fallbacks = OPENAI_MODEL_FALLBACKS or []
+    else:
+        return []
+
+    # default prvý, potom fallbacky bez duplikátov
+    seen: set = set()
+    result: List[str] = []
+    for m in ([default] + list(fallbacks)):
+        m = (m or "").strip()
+        if m and m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
+
+
 def _get_primary_provider() -> str:
-    """Prečíta AI_PROVIDER z ENV a validuje — fallback na gemini ak neznámy."""
-    p = (AI_PROVIDER or "gemini").strip().lower()
+    """Prečíta AI_PROVIDER z ENV — fallback na claude ak neznámy."""
+    p = (AI_PROVIDER or "claude").strip().lower()
     if p not in _VALID_PROVIDERS:
-        print(f"[PROVIDER] ⚠️  Neznámy AI_PROVIDER='{p}', fallback na 'gemini'")
-        return "gemini"
+        print(f"[PROVIDER] ⚠️  Neznámy AI_PROVIDER='{p}', fallback na 'claude'")
+        return "claude"
     return p
 
 
 def _build_chain(primary: str, requested_model: Optional[str]) -> List[Tuple[str, str]]:
     """
-    Zostaví poradovník (provider, model) pre jedno volanie.
-    1. Primárny provider — requested_model ak zadaný, potom jeho fallbacky z ENV
-    2. Ostatní provideri v _FALLBACK_ORDER — len ich fallbacky
+    Zostaví poradovník (provider, model):
+
+    1. Primárny provider:
+       - ak je requested_model → ten prvý, potom default + fallbacky
+       - inak → default, potom fallbacky
+
+    2. Ostatní provideri v poradí _FALLBACK_ORDER (primárny preskočený):
+       - každý začína svojim defaultom, potom fallbacky
+
+    Príklad pre AI_PROVIDER=claude:
+      claude:haiku → claude:sonnet → gemini:flash → gemini:flash-lite → openai:gpt-4o-mini → openai:gpt-4o
     """
     chain: List[Tuple[str, str]] = []
 
     # 1. Primárny provider
-    primary_models: List[str] = []
+    primary_models = _get_provider_models(primary)
     if requested_model:
-        primary_models.append(requested_model.strip())
-    for m in _PROVIDER_FALLBACKS[primary]:
-        if m and m not in primary_models:
-            primary_models.append(m)
+        req = requested_model.strip()
+        # requested_model ide úplne prvý, default+fallbacky za ním (bez duplikátu)
+        ordered = [req] + [m for m in primary_models if m != req]
+    else:
+        ordered = primary_models
 
-    for m in primary_models:
+    for m in ordered:
         chain.append((primary, m))
 
-    # 2. Záchranná sieť — ostatní provideri v poradí
+    # 2. Záchranná sieť — ostatní provideri v definovanom poradí
     for p in _FALLBACK_ORDER:
         if p == primary:
             continue
-        for m in _PROVIDER_FALLBACKS[p]:
-            if m:
-                chain.append((p, m.strip()))
+        for m in _get_provider_models(p):
+            chain.append((p, m))
 
     return chain
-
-
-def _log_chain_start(primary: str, chain: List[Tuple[str, str]]) -> None:
-    """Vypíše celý plánovaný chain pred spustením — vidíš čo sa bude volať."""
-    chain_str = " → ".join(f"{p}:{m}" for p, m in chain)
-    print(f"[PROVIDER] 🚀 primary={primary} | chain: {chain_str}")
-    # Overenie kľúčov pre každého providera v chaine
-    checked: set = set()
-    for p, _ in chain:
-        if p in checked:
-            continue
-        checked.add(p)
-        key = _get_api_key(p)
-        status = f"✅ key present ({str(key)[:12]}...)" if key else "❌ NO KEY"
-        print(f"[PROVIDER]   {p}: {status}")
-
-
-def _log_attempt(provider: str, model: str, attempt_num: int, ok: bool, duration_ms: int, error: Optional[str] = None) -> None:
-    """Log pre každý pokus — úspech alebo zlyhanie s dôvodom."""
-    icon = "✅" if ok else "❌"
-    base = f"[PROVIDER] {icon} attempt#{attempt_num} {provider}:{model} ({duration_ms}ms)"
-    if ok:
-        print(base)
-    else:
-        print(f"{base} → {error}")
 
 
 def _call_provider(
@@ -137,7 +143,7 @@ def _call_provider(
     max_tokens: int,
     temperature: float,
 ) -> AiResult:
-    """Zavolá konkrétneho AI providera s danými parametrami."""
+    """Zavolá konkrétneho AI providera."""
     return _PROVIDER_CALL[provider](
         context_payload=context_payload,
         system_prompt=system_prompt,
@@ -163,8 +169,8 @@ def ai_call_json_model(
 ) -> AiResult[Dict[str, Any]]:
     """
     Volanie AI s automatickým cross-provider fallbackom.
-    Primárny provider sa nastaví cez AI_PROVIDER env var.
-    Pri každom pokuse loguje provider, model, výsledok a dôvod zlyhania.
+    Poradie: primárny provider (default → fallbacky) → ostatní v poradí _FALLBACK_ORDER.
+    Chyby loguje, úspech nie.
     """
     import time
 
@@ -172,26 +178,17 @@ def ai_call_json_model(
     chain = _build_chain(primary, model)
     attempts: List[Dict[str, Any]] = []
 
-    # Zobrazí celý plán pred spustením
-    _log_chain_start(primary, chain)
-
-    attempt_num = 0
-
-    for provider, m in chain:
-        attempt_num += 1
+    for attempt_num, (provider, m) in enumerate(chain, start=1):
         started = time.time()
 
-        # Preskočíme ak chýba API kľúč — live check, nie z importu
-        key = _get_api_key(provider)
-        if not key:
-            dur_ms = int((time.time() - started) * 1000)
-            error = f"Chýba API kľúč pre '{provider}'"
-            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=error)
-            attempts.append({"provider": provider, "model": m, "error": error})
+        # Live check API kľúča
+        if not _get_api_key(provider):
+            err = f"Chýba API kľúč pre '{provider}'"
+            print(f"[PROVIDER] ❌ {provider}:{m} — {err}")
+            attempts.append({"provider": provider, "model": m, "error": err})
             continue
 
         try:
-            print(f"[PROVIDER] ⏳ calling {provider}:{m} ...")
             res = _call_provider(
                 provider, m,
                 context_payload=context_payload,
@@ -203,8 +200,6 @@ def ai_call_json_model(
             dur_ms = int((time.time() - started) * 1000)
 
             if res and res.ok:
-                _log_attempt(provider, m, attempt_num, ok=True, duration_ms=dur_ms)
-                print(f"[PROVIDER] 🎉 SUCCESS → {provider}:{m}")
                 if not res.trace:
                     res.trace = {}
                 res.trace["attempts"] = attempts
@@ -215,13 +210,13 @@ def ai_call_json_model(
                 return res
 
             err = res.error.message if (res and res.error) else "Neznáma chyba"
-            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=err)
+            print(f"[PROVIDER] ❌ attempt#{attempt_num} {provider}:{m} ({dur_ms}ms) — {err}")
             attempts.append({"provider": provider, "model": m, "error": err})
 
         except Exception as e:
             dur_ms = int((time.time() - started) * 1000)
             err = f"{type(e).__name__}: {e}"
-            _log_attempt(provider, m, attempt_num, ok=False, duration_ms=dur_ms, error=err)
+            print(f"[PROVIDER] ❌ attempt#{attempt_num} {provider}:{m} ({dur_ms}ms) — {err}")
             attempts.append({"provider": provider, "model": m, "error": err})
 
     # Všetci zlyhali
@@ -249,7 +244,7 @@ def ai_call_json_model(
 def get_available_ai_models() -> Dict[str, Any]:
     """Zoznam modelov od každého providera + nakonfigurované modely."""
     result: Dict[str, Any] = {p: [] for p in _VALID_PROVIDERS}
-    result["configured"] = {p: _PROVIDER_FALLBACKS[p] for p in _VALID_PROVIDERS}
+    result["configured"] = {p: _get_provider_models(p) for p in _VALID_PROVIDERS}
     result["errors"] = []
 
     for p, fn in _PROVIDER_MODELS.items():
@@ -268,11 +263,10 @@ def check_configured_models_health() -> Dict[str, Any]:
 
     for p in _VALID_PROVIDERS:
         available_models = available.get(p, [])
-        missing[p] = [m for m in _PROVIDER_FALLBACKS[p] if m not in available_models]
+        missing[p] = [m for m in _get_provider_models(p) if m not in available_models]
 
     api_errors = available.get("errors", [])
     is_ok = not any(missing.values()) and not api_errors
-
     return {"ok": is_ok, "missing": missing, "api_errors": api_errors}
 
 
