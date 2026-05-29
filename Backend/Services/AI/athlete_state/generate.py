@@ -86,7 +86,7 @@ def generate_athlete_state_json(
     )
     
     from Services.AI.utils.others import debug_log_ai_io
-    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
 
     trace = _get_trace(res)
@@ -146,7 +146,7 @@ def generate_athlete_progress_report(
     )
     
     from Services.AI.utils.others import debug_log_ai_io
-    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
 
     trace = _get_trace(res)
