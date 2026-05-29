@@ -1,61 +1,123 @@
 # Services/AI/provider/provider.py
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from Configs.config import (
     AI_PROVIDER,
-    OPENAI_DEFAULT_MODEL,
+    OPENAI_API_KEY,
     OPENAI_MODEL_FALLBACKS,
-    GEMINI_DEFAULT_MODEL,
-    GEMINI_MODEL_FALLBACKS,
     GEMINI_API_KEY,
-    OPENAI_API_KEY, # Pridaný import pre kontrolu kľúča
+    GEMINI_MODEL_FALLBACKS,
+    CLAUDE_API_KEY,
+    CLAUDE_MODEL_FALLBACKS,
 )
-
 from Services.AI.utils.types import AiResult, AiError
 from Services.AI.provider.openai_client import get_openai_models, openai_call_json_model
 from Services.AI.provider.gemini_client import get_gemini_models, gemini_call_json_model
+from Services.AI.provider.claude_client import get_claude_models, claude_call_json_model
 
-def _provider() -> str:
-    """Zistí aktuálne nastaveného primárneho providera."""
-    return (AI_PROVIDER or "openai").strip().lower()
+# =============================================================================
+# STATICKÁ KONFIGURÁCIA PROVIDEROV
+# =============================================================================
+
+_PROVIDER_KEYS: Dict[str, Optional[str]] = {
+    "openai": OPENAI_API_KEY,
+    "gemini": GEMINI_API_KEY,
+    "claude": CLAUDE_API_KEY,
+}
+
+_PROVIDER_FALLBACKS: Dict[str, List[str]] = {
+    "openai": OPENAI_MODEL_FALLBACKS or [],
+    "gemini": GEMINI_MODEL_FALLBACKS or [],
+    "claude": CLAUDE_MODEL_FALLBACKS or [],
+}
+
+_PROVIDER_CALL = {
+    "openai": openai_call_json_model,
+    "gemini": gemini_call_json_model,
+    "claude": claude_call_json_model,
+}
+
+_PROVIDER_MODELS = {
+    "openai": get_openai_models,
+    "gemini": get_gemini_models,
+    "claude": get_claude_models,
+}
+
+# Poradie záchrannej siete — primárny provider sa preskočí automaticky
+_FALLBACK_ORDER: List[str] = ["gemini", "openai", "claude"]
+
+_VALID_PROVIDERS = set(_PROVIDER_KEYS.keys())
 
 
-def _get_full_chain(primary_p: str, requested_model: Optional[str] = None) -> List[Tuple[str, str]]:
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+def _get_primary_provider() -> str:
+    p = (AI_PROVIDER or "gemini").strip().lower()
+    if p not in _VALID_PROVIDERS:
+        print(f"[PROVIDER] Neznámy AI_PROVIDER='{p}', fallback na 'gemini'")
+        return "gemini"
+    return p
+
+
+def _build_chain(primary: str, requested_model: Optional[str]) -> List[Tuple[str, str]]:
     """
-    Vytvorí kompletný poradovník (Provider, Model).
-    Príklad pre Gemini:
-    1. Gemini (requested alebo default)
-    2. Gemini Fallbacky
-    3. OpenAI Fallbacky (ako záchrana)
+    Zostaví poradovník (provider, model) pre jedno volanie.
+
+    Poradie:
+      1. Primárny provider — requested_model ak zadaný, potom jeho fallbacky
+      2. Ostatní provideri v _FALLBACK_ORDER — len ich fallbacky
     """
-    full_chain: List[Tuple[str, str]] = []
-    
-    # Určíme, kto je druhý v poradí
-    secondary_p = "openai" if primary_p == "gemini" else "gemini"
-    
-    # --- 1. PRIMÁRNY PROVIDER ---
-    p_models = []
+    chain: List[Tuple[str, str]] = []
+
+    # 1. Primárny provider
+    primary_models: List[str] = []
     if requested_model:
-        p_models.append(requested_model)
-    
-    # Pridáme fallbacky primárneho providera z configu
-    primary_fallbacks = GEMINI_MODEL_FALLBACKS if primary_p == "gemini" else OPENAI_MODEL_FALLBACKS
-    for m in primary_fallbacks:
-        if m not in p_models:
-            p_models.append(m)
-            
-    for m in p_models:
-        full_chain.append((primary_p, m))
-        
-    # --- 2. SEKUNDÁRNY PROVIDER (Záchranná sieť) ---
-    secondary_fallbacks = OPENAI_MODEL_FALLBACKS if secondary_p == "openai" else GEMINI_MODEL_FALLBACKS
-    for m in secondary_fallbacks:
-        full_chain.append((secondary_p, m))
-        
-    return full_chain
+        primary_models.append(requested_model.strip())
+    for m in _PROVIDER_FALLBACKS[primary]:
+        if m and m not in primary_models:
+            primary_models.append(m)
 
+    for m in primary_models:
+        chain.append((primary, m))
+
+    # 2. Záchranná sieť
+    for p in _FALLBACK_ORDER:
+        if p == primary:
+            continue
+        for m in _PROVIDER_FALLBACKS[p]:
+            if m:
+                chain.append((p, m.strip()))
+
+    return chain
+
+
+def _call_provider(
+    provider: str,
+    model: str,
+    *,
+    context_payload: Dict[str, Any],
+    system_prompt: str,
+    user_instructions: str,
+    max_tokens: int,
+    temperature: float,
+) -> AiResult:
+    return _PROVIDER_CALL[provider](
+        context_payload=context_payload,
+        system_prompt=system_prompt,
+        user_instructions=user_instructions,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+
+
+# =============================================================================
+# HLAVNÁ FUNKCIA
+# =============================================================================
 
 def ai_call_json_model(
     *,
@@ -67,170 +129,114 @@ def ai_call_json_model(
     temperature: float = 0.2,
 ) -> AiResult[Dict[str, Any]]:
     """
-    Volanie AI s Cross-Provider fallbackom. 
-    Ak zlyhá Gemini, automaticky skúša OpenAI (a naopak).
+    Volanie AI s automatickým cross-provider fallbackom.
+    Primárny provider sa nastaví cez AI_PROVIDER env var.
     """
-    primary_p = _provider()
-    # Získame zoznam (provider, model) v poradí, v akom ich budeme skúšať
-    full_chain = _get_full_chain(primary_p, model)
-    
-    attempts = []
+    primary = _get_primary_provider()
+    chain = _build_chain(primary, model)
+    attempts: List[Dict[str, Any]] = []
 
-    # Ideme rad za radom cez celý chain
-    for p, m in full_chain:
-        try:
-            # Kontrola, či máme API kľúč pre daného providera v aktuálnom kroku
-            if p == "gemini" and not GEMINI_API_KEY:
-                attempts.append({"provider": p, "model": m, "error": "Chýba Gemini API kľúč"})
-                continue
-            if p == "openai" and not OPENAI_API_KEY:
-                attempts.append({"provider": p, "model": m, "error": "Chýba OpenAI API kľúč"})
-                continue
-
-            res: Optional[AiResult] = None
-            
-            # Volanie konkrétneho klienta
-            if p == "openai":
-                res = openai_call_json_model(
-                    context_payload=context_payload,
-                    system_prompt=system_prompt,
-                    user_instructions=user_instructions,
-                    model=m,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-            elif p == "gemini":
-                res = gemini_call_json_model(
-                    context_payload=context_payload,
-                    system_prompt=system_prompt,
-                    user_instructions=user_instructions,
-                    model=m,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-            
-            # Ak to klaplo, vrátime výsledok a do trace zapíšeme cestu, ktorá uspela
-            if res and res.ok:
-                if not res.trace: res.trace = {}
-                res.trace["attempts"] = attempts
-                res.trace["ok_model"] = m
-                res.trace["ok_provider"] = p
-                # Nastavíme finálny model a providera na výsledok
-                res.model = m
-                res.provider = p
-                return res
-
-            # Ak zlyhalo, zapíšeme chybu a slučka skúsi ďalšieho (model alebo providera)
-            error_msg = res.error.message if (res and res.error) else "Neznáma chyba"
-            attempts.append({"provider": p, "model": m, "error": error_msg})
-
-        except Exception as e:
-            # Zachytenie pádov (napr. 503 alebo 404 priamo z knižnice)
-            attempts.append({"provider": p, "model": m, "error": str(e)})
+    for provider, m in chain:
+        # Preskočíme ak chýba API kľúč
+        if not _PROVIDER_KEYS.get(provider):
+            attempts.append({
+                "provider": provider,
+                "model": m,
+                "error": f"Chýba API kľúč pre '{provider}'",
+            })
             continue
 
-    # Ak sme vyčerpali úplne všetko (Gemini aj OpenAI fallbacky)
-    tried_summary = ", ".join([f"{a['provider']}:{a['model']}" for a in attempts])
+        try:
+            res = _call_provider(
+                provider, m,
+                context_payload=context_payload,
+                system_prompt=system_prompt,
+                user_instructions=user_instructions,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+            if res and res.ok:
+                if not res.trace:
+                    res.trace = {}
+                res.trace["attempts"] = attempts
+                res.trace["ok_provider"] = provider
+                res.trace["ok_model"] = m
+                res.provider = provider
+                res.model = m
+                return res
+
+            err = res.error.message if (res and res.error) else "Neznáma chyba"
+            attempts.append({"provider": provider, "model": m, "error": err})
+
+        except Exception as e:
+            attempts.append({"provider": provider, "model": m, "error": f"{type(e).__name__}: {e}"})
+
+    # Všetci zlyhali
+    tried = ", ".join(f"{a['provider']}:{a['model']}" for a in attempts)
+    last_err = attempts[-1]["error"] if attempts else "N/A"
+
     return AiResult(
         ok=False,
         data=None,
+        provider=primary,
+        model=model or "unknown",
         error=AiError(
             code="ai_cross_provider_failed",
-            message=f"Zlyhali všetci provideri. Skúšané: ({tried_summary}). Posledná chyba: {attempts[-1]['error'] if attempts else 'N/A'}"
+            message=f"Zlyhali všetci provideri. Skúšané: ({tried}). Posledná chyba: {last_err}",
         ),
-        provider=primary_p,
-        model=model or "unknown",
-        trace={
-            "attempts": attempts,
-            "ok_model": None
-        },
+        trace={"attempts": attempts, "ok_model": None},
     )
+
+
+# =============================================================================
+# MONITORING / HEALTH
+# =============================================================================
 
 def get_available_ai_models() -> Dict[str, Any]:
-    """
-    Združí dostupné modely z OpenAI aj Gemini a pripojí aktuálnu konfiguráciu.
-    """
-    from Configs.config import (
-        OPENAI_DEFAULT_MODEL, OPENAI_MODEL_FALLBACKS,
-        GEMINI_DEFAULT_MODEL, GEMINI_MODEL_FALLBACKS
-    )
-
+    """Zoznam modelov od každého providera + nakonfigurované modely."""
     result: Dict[str, Any] = {
-        "openai": [],
-        "gemini": [],
-        "configured": {
-            "openai": [],
-            "gemini": []
-        },
-        "errors": []
+        p: [] for p in _VALID_PROVIDERS
     }
+    result["configured"] = {p: _PROVIDER_FALLBACKS[p] for p in _VALID_PROVIDERS}
+    result["errors"] = []
 
-    # 1. Zostavenie zoznamu nastavených modelov (odstránenie duplicít)
-    cfg_openai = [OPENAI_DEFAULT_MODEL] + (OPENAI_MODEL_FALLBACKS or [])
-    cfg_gemini = [GEMINI_DEFAULT_MODEL] + (GEMINI_MODEL_FALLBACKS or [])
-    
-    result["configured"]["openai"] = list(dict.fromkeys([str(m).strip() for m in cfg_openai if m]))
-    result["configured"]["gemini"] = list(dict.fromkeys([str(m).strip() for m in cfg_gemini if m]))
-
-    # 2. OpenAI Modely z API
-    try:
-        result["openai"] = get_openai_models()
-    except Exception as e:
-        result["errors"].append(f"OpenAI: {str(e)}")
-
-    # 3. Gemini Modely z API
-    try:
-        result["gemini"] = get_gemini_models()
-    except Exception as e:
-        result["errors"].append(f"Gemini: {str(e)}")
+    for p, fn in _PROVIDER_MODELS.items():
+        try:
+            result[p] = fn()
+        except Exception as e:
+            result["errors"].append(f"{p}: {e}")
 
     return result
 
+
 def check_configured_models_health() -> Dict[str, Any]:
-    """
-    Porovná modely nastavené v Configu s reálne dostupnými modelmi z API.
-    Vráti report, ak nejaký nakonfigurovaný model chýba.
-    """
-    
-    # Získame reálne dostupné modely (funkciu už máme)
+    """Porovná nakonfigurované modely s reálne dostupnými."""
     available = get_available_ai_models()
+    missing: Dict[str, List[str]] = {}
 
-    # Zozbierame všetky naše nastavené modely a odstránime duplicity/prázdne
-    cfg_openai = list(set([m for m in [OPENAI_DEFAULT_MODEL] + OPENAI_MODEL_FALLBACKS if m]))
-    cfg_gemini = list(set([m for m in [GEMINI_DEFAULT_MODEL] + GEMINI_MODEL_FALLBACKS if m]))
+    for p in _VALID_PROVIDERS:
+        available_models = available.get(p, [])
+        missing[p] = [m for m in _PROVIDER_FALLBACKS[p] if m not in available_models]
 
-    # Ktoré z našich modelov sa NENACHÁDZAJÚ v zozname od providera?
-    missing_openai = [m for m in cfg_openai if m not in available.get("openai", [])]
-    missing_gemini = [m for m in cfg_gemini if m not in available.get("gemini", [])]
     api_errors = available.get("errors", [])
+    is_ok = not any(missing.values()) and not api_errors
 
-    is_ok = not missing_openai and not missing_gemini and not api_errors
+    return {"ok": is_ok, "missing": missing, "api_errors": api_errors}
 
-    return {
-        "ok": is_ok,
-        "missing_openai": missing_openai,
-        "missing_gemini": missing_gemini,
-        "api_errors": api_errors
-    }
 
-def get_ai_health_status() -> tuple[bool, str]:
-    """
-    Vyhodnotí zdravie modelov a vráti jednoduchý výsledok pre externé služby.
-    Návratová hodnota: (is_ok, error_message)
-    """
+def get_ai_health_status() -> Tuple[bool, str]:
+    """Jednoduchý health check pre externé služby."""
     health = check_configured_models_health()
-    
+
     if health["ok"]:
         return True, ""
-        
-    # Ak niečo chýba, tu (priamo v AI doméne) vygenerujeme textový report
-    alerts = []
-    if health["missing_openai"]:
-        alerts.append(f"Chýba OpenAI: {', '.join(health['missing_openai'])}")
-    if health["missing_gemini"]:
-        alerts.append(f"Chýba Gemini: {', '.join(health['missing_gemini'])}")
+
+    alerts: List[str] = []
+    for p, models in health["missing"].items():
+        if models:
+            alerts.append(f"Chýba {p}: {', '.join(models)}")
     if health["api_errors"]:
-        alerts.append(f"API Chyby: {', '.join(health['api_errors'])}")
-        
-    warning_message = " | ".join(alerts)
-    return False, warning_message
+        alerts.append(f"API chyby: {', '.join(health['api_errors'])}")
+
+    return False, " | ".join(alerts)
