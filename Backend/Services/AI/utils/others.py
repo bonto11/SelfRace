@@ -39,9 +39,7 @@ def _debug_log_ai_io(
     result: Optional[dict],
     trace: dict,
 ) -> None:
-    """Loguje input/output do AI ak je DEBUG_AI_IO=true v ENV."""
-    if os.getenv("DEBUG_AI_IO", "").lower() not in ("1", "true", "yes"):
-        return
+    """Loguje input/output do AI"""
     
     input_tokens_est = (len(system_prompt) + len(user_prompt)) // 4
     output_tokens_est = len(json.dumps(result or {})) // 4
