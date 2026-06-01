@@ -9,6 +9,7 @@ from Services.user_prefs import service_load_user_settings
 from Services.AI.provider.provider import ai_call_json_model
 from Services.AI.activity_review.prompts import build_prompts_for_activity_review
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.others import debug_log_ai_io
 
 
 # ============================================================
@@ -180,7 +181,6 @@ def generate_activity_review_json(
         model=model,  # None = provider použije default z ENV
     )
     
-    from Services.AI.utils.others import debug_log_ai_io
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace_from_result(res))
 
 

@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 from datetime import date, datetime, timezone, timedelta
 from typing import Any, Dict, Optional, List
@@ -33,7 +34,7 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     except Exception:
         return False
 
-def _debug_log_ai_io(
+def debug_log_ai_io(
     system_prompt: str,
     user_prompt: str,
     result: Optional[dict],

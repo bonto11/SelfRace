@@ -12,6 +12,7 @@ from Services.AI.athlete_state.prompts import (
 )
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.others import debug_log_ai_io
 
 
 # ============================================================
@@ -144,8 +145,7 @@ def generate_athlete_progress_report(
         user_instructions=user_txt,
         model=model,
     )
-    
-    from Services.AI.utils.others import debug_log_ai_io
+
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
 

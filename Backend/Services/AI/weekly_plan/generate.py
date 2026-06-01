@@ -10,6 +10,7 @@ from Services.user_prefs import service_load_user_settings
 from Services.AI.weekly_plan.prompts import build_prompts_for_weekly
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.others import debug_log_ai_io
 
 
 # ============================================================
@@ -109,8 +110,7 @@ def generate_weekly_plan_json(
         max_tokens=resolved_max_tokens,
         temperature=resolved_temperature,
     )
-    
-    from Services.AI.utils.others import debug_log_ai_io
+
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
 

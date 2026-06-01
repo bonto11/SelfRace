@@ -9,6 +9,7 @@ from Configs.config import LLM_MAX_TOKENS, LLM_TEMPERATURE
 from Services.AI.daily_plan.prompts import build_prompts_for_daily
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.others import debug_log_ai_io
 
 
 # ============================================================
@@ -147,7 +148,7 @@ def generate_daily_week_json(
         temperature=resolved_temperature,
     )
     
-    from Services.AI.utils.others import debug_log_ai_io
+    
     debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
 
