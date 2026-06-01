@@ -34,22 +34,28 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     except Exception:
         return False
 
+        
 def debug_log_ai_io(
     system_prompt: str,
     user_prompt: str,
     result: Optional[dict],
     trace: dict,
 ) -> None:
-    """Loguje input/output do AI"""
+    """Loguje input/output do AI — kompaktne pre Railway."""
     
     input_tokens_est = (len(system_prompt) + len(user_prompt)) // 4
     output_tokens_est = len(json.dumps(result or {})) // 4
     
-    print(f"\n{'='*60}")
-    print(f"[AI DEBUG] Provider: {trace.get('ok_provider')} | Model: {trace.get('ok_model')}")
-    print(f"[AI DEBUG] Input est: ~{input_tokens_est} tokens | Output est: ~{output_tokens_est} tokens")
-    print(f"[AI DEBUG] SYSTEM PROMPT:\n{system_prompt[:500]}...")
-    print(f"[AI DEBUG] USER PROMPT (last 1000 chars):\n...{user_prompt[-1000:]}")
-    print(f"[AI DEBUG] RESULT KEYS: {list(result.keys()) if result else 'None'}")
-    print(f"{'='*60}\n")
-
+    # Jeden riadok — provider, model, tokeny
+    print(f"[AI DEBUG] {trace.get('ok_provider')}:{trace.get('ok_model')} | in:~{input_tokens_est}t out:~{output_tokens_est}t")
+    
+    # Context JSON — posledných 500 znakov user promptu (tam je schéma a rules)
+    print(f"[AI DEBUG] PROMPT_TAIL: {user_prompt[-500:]!r}")
+    
+    # Celý výstup na jeden riadok
+    print(f"[AI DEBUG] RESULT: {json.dumps(result, ensure_ascii=False)[:2000] if result else 'None'}")
+    
+    # Trace — attempts ak zlyhalo
+    attempts = trace.get('attempts') or []
+    if attempts:
+        print(f"[AI DEBUG] ATTEMPTS: {json.dumps(attempts, ensure_ascii=False)}")
