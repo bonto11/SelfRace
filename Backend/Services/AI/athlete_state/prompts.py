@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional, Tuple
 
 from Modules.Supabase.auth import AuthCtx
@@ -33,29 +33,44 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
 
+def _days_until(date_str: Optional[str]) -> Optional[int]:
+    """Vráti počet dní do dátumu od dnes."""
+    if not date_str:
+        return None
+    try:
+        target = date.fromisoformat(str(date_str)[:10])
+        return (target - date.today()).days
+    except Exception:
+        return None
+
+
 # ============================================================
 # MINIFIKÁCIA KONTEXTU
 # ============================================================
 
 def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Osekáva analyze context pred odoslaním do AI:
-    - Odstráni interné ID, email, meno
-    - Odstráni streams/laps/splits (tie patria do activity review, nie sem)
-    - last_activities: zachová max 20, relativné dátumy už sú z buildera (today-N)
-    - user_settings: len jazyk a timezone
+    Osekáva analyze context pred odoslaním do AI.
+    Optimalizácie:
+    - latest_paces: odstráni DB metadata (id, user_id, measured_at)
+    - external_events: posiela len ak má reálne eventy
+    - recent_load: max 4 týždne (nie 6-7)
+    - bests: preskočí záznamy staršie ako 180 dní (outdated)
+    - prefs.targets: odstráni sporty ktoré nie sú v main/add_on_sports
+    - races: pridá days_until_race pre lepší kontext AI
+    - last_activities: max 10, bez interných ID
     """
     if not isinstance(context, dict):
         return {}
     out: Dict[str, Any] = json.loads(json.dumps(context, default=str))
 
-    # Interné polia
+    # --- User — odstráni interné polia ---
     u = out.get("user")
     if isinstance(u, dict):
         for k in ("id", "email", "name"):
             u.pop(k, None)
 
-    # External activities z prefs
+    # --- Prefs — odstráni external_activities, nerelevantné sporty ---
     prefs = out.get("prefs")
     if isinstance(prefs, dict):
         pv = prefs.get("value")
@@ -63,11 +78,96 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             pv.pop("external_activities", None)
         prefs.pop("external_activities", None)
 
-    # Streamy, laps, splits nepatria do athlete state
+        # Zisti povolené sporty
+        main_sport = prefs.get("main_sport") or ""
+        add_on = prefs.get("add_on_sports") or []
+        allowed_sports = {main_sport.lower()} | {s.lower() for s in add_on if isinstance(s, str)}
+
+        # Targets — odstráni sporty mimo allowed + pridá days_until_race
+        targets = prefs.get("targets")
+        if isinstance(targets, dict):
+            cleaned_targets: Dict[str, Any] = {}
+            for sport_key, sport_val in targets.items():
+                # Swim/iné sporty čo nie sú v allowed — preskočí
+                if sport_key not in ("strength",) and sport_key not in allowed_sports:
+                    continue
+                if not isinstance(sport_val, dict):
+                    continue
+
+                # Races — pridá days_until_race
+                races = sport_val.get("races")
+                if isinstance(races, list):
+                    minified_races = []
+                    for r in races:
+                        if not isinstance(r, dict):
+                            continue
+                        race_date = r.get("date") or r.get("start_date")
+                        days_left = _days_until(race_date)
+                        minified_races.append({
+                            "name": r.get("name"),
+                            "date": race_date,
+                            "days_until_race": days_left,
+                            "race_goal": r.get("race_goal"),
+                            "race_type": r.get("race_type"),
+                            "target_time": r.get("target_time"),
+                            "custom_distance_km": r.get("custom_distance_km"),
+                            "elevation_gain_m": r.get("elevation_gain_m"),
+                            "terrain": r.get("terrain"),
+                            "priority": r.get("priority"),
+                        })
+                    sport_val = dict(sport_val)
+                    sport_val["races"] = minified_races
+
+                cleaned_targets[sport_key] = sport_val
+            prefs["targets"] = cleaned_targets
+
+    # --- Streamy, laps, splits nepatria sem ---
     for k in ("streams", "laps", "splits"):
         out.pop(k, None)
 
-    # last_activities — relativné dátumy už prišli z buildera, len osekáme ID
+    # --- recent_load — max 4 týždne (nie 6-7) ---
+    recent_load = out.get("recent_load")
+    if isinstance(recent_load, dict):
+        weeks = recent_load.get("weeks")
+        if isinstance(weeks, list):
+            # Zachovaj len posledné 4 týždne (week_index_from_now >= -4)
+            recent_load["weeks"] = [
+                w for w in weeks
+                if isinstance(w, dict) and int(w.get("week_index_from_now", -99)) >= -4
+            ]
+
+    # --- bests — preskočí záznamy staršie ako 180 dní ---
+    bests = out.get("bests")
+    if isinstance(bests, dict):
+        for sport_key, items in bests.items():
+            if not isinstance(items, list):
+                continue
+            bests[sport_key] = [
+                b for b in items
+                if isinstance(b, dict) and int(b.get("days_ago", 0)) <= 180
+            ]
+
+    # --- latest_paces — odstráni DB metadata ---
+    paces = out.get("latest_paces")
+    if isinstance(paces, dict):
+        out["latest_paces"] = {
+            k: v for k, v in paces.items()
+            if k not in ("id", "user_id", "measured_at")
+        }
+
+    # --- external_events — posiela len ak má reálne eventy ---
+    ext = out.get("external_events")
+    if isinstance(ext, dict):
+        events = ext.get("events")
+        if not events:
+            win = ext.get("window")
+            if isinstance(win, dict):
+                events = win.get("events")
+        if not events:
+            # Prázdny blok — vymaž
+            out.pop("external_events", None)
+
+    # --- last_activities — max 10, bez interných ID ---
     la = out.get("last_activities")
     if isinstance(la, list):
         cleaned: List[Dict[str, Any]] = []
@@ -78,11 +178,11 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             it2.pop("activity_id", None)
             it2.pop("name", None)
             cleaned.append(it2)
-            if len(cleaned) >= 20:
+            if len(cleaned) >= 10:
                 break
         out["last_activities"] = cleaned
 
-    # user_settings — len relevantné polia
+    # --- user_settings — len relevantné polia ---
     us = out.get("user_settings")
     if isinstance(us, dict):
         out["user_settings"] = {
@@ -94,7 +194,7 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _minify_state_for_progress(state: dict) -> dict:
-    """Pre progress report potrebujeme len ai_state a user_summary — zvyšok je redundantný."""
+    """Pre progress report potrebujeme len ai_state a user_summary."""
     if not isinstance(state, dict):
         return {}
     return _remove_empty({
@@ -134,14 +234,40 @@ def build_prompts_for_analyze(
     main_sport = prefs2.get("main_sport") or "run"
     is_beginner = bool(context_for_llm.get("is_returning_beginner"))
 
-    # Detekcia detraining z posledných aktivít
+    # LTHR pre explicitné pravidlo zón
+    thresholds = context_for_llm.get("thresholds") or {}
+    run_thresh = thresholds.get("run") or {}
+    lthr = run_thresh.get("lthr_bpm")
+    lthr_rule = (
+        f"- THRESHOLD RULE: LTHR = {lthr} bpm = Z4/Z5 boundary. "
+        "Threshold/Prahový sessions target Z4. NEVER prescribe Z3 for threshold sessions.\n"
+        if lthr else ""
+    )
+
+    # Najbližší pretek
+    targets = prefs2.get("targets") or {}
+    run_target = targets.get("run") or {}
+    races = run_target.get("races") or []
+    next_race = min(
+        (r for r in races if isinstance(r, dict) and r.get("days_until_race") is not None and r["days_until_race"] >= 0),
+        key=lambda r: r["days_until_race"],
+        default=None,
+    )
+    race_hint = (
+        f"- NEXT RACE: {next_race.get('name')} in {next_race.get('days_until_race')} days "
+        f"({next_race.get('custom_distance_km')} km, {next_race.get('elevation_gain_m')} m elev). "
+        "Factor this into block recommendation and fatigue management.\n"
+        if next_race else ""
+    )
+
+    # Detekcia detraining
     last_acts = context_for_llm.get("last_activities") or []
     days_since_last_run = _get_days_since_last_run(last_acts)
     detraining_hint = _build_detraining_hint(days_since_last_run)
+
     beginner_hint = (
         "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
-        if is_beginner
-        else ""
+        if is_beginner else ""
     )
 
     system_txt = (
@@ -168,6 +294,8 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing consistency and capability.\n"
+        + lthr_rule
+        + race_hint
         + beginner_hint
         + detraining_hint
         + "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
