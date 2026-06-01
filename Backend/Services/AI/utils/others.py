@@ -34,28 +34,17 @@ def _check_is_returning_beginner(analyze_input: Dict[str, Any]) -> bool:
     except Exception:
         return False
 
-        
+
 def debug_log_ai_io(
     system_prompt: str,
     user_prompt: str,
     result: Optional[dict],
     trace: dict,
 ) -> None:
-    """Loguje input/output do AI — kompaktne pre Railway."""
-    
     input_tokens_est = (len(system_prompt) + len(user_prompt)) // 4
     output_tokens_est = len(json.dumps(result or {})) // 4
     
-    # Jeden riadok — provider, model, tokeny
     print(f"[AI DEBUG] {trace.get('ok_provider')}:{trace.get('ok_model')} | in:~{input_tokens_est}t out:~{output_tokens_est}t")
-    
-    # Context JSON — posledných 500 znakov user promptu (tam je schéma a rules)
-    print(f"[AI DEBUG] PROMPT_TAIL: {user_prompt[-500:]!r}")
-    
-    # Celý výstup na jeden riadok
-    print(f"[AI DEBUG] RESULT: {json.dumps(result, ensure_ascii=False)[:2000] if result else 'None'}")
-    
-    # Trace — attempts ak zlyhalo
-    attempts = trace.get('attempts') or []
-    if attempts:
-        print(f"[AI DEBUG] ATTEMPTS: {json.dumps(attempts, ensure_ascii=False)}")
+    # Celý prompt — system + user na jeden riadok
+    print(f"[AI DEBUG] FULL_INPUT: {json.dumps({'system': system_prompt, 'user': user_prompt}, ensure_ascii=False)}")
+    print(f"[AI DEBUG] FULL_RESULT: {json.dumps(result, ensure_ascii=False) if result else 'None'}")
