@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Brush,
@@ -31,15 +32,12 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
-/* ─── Y-OS: ±5 od skutočného min/max (nie ±10 napevno) ─── */
+/* ─── Y-OS ±5 od skutočného min/max ─── */
 function calcYDomain(allValid: number[]): [number, number] {
   if (!allValid.length) return [40, 80];
   const dataMin = Math.min(...allValid);
   const dataMax = Math.max(...allValid);
-  // ±5 od skutočných hodnôt, min Y = 30
-  const yMin = Math.max(30, Math.floor(dataMin) - 5);
-  const yMax = Math.ceil(dataMax) + 5;
-  return [yMin, yMax];
+  return [Math.max(30, Math.floor(dataMin) - 5), Math.ceil(dataMax) + 5];
 }
 
 /* ─── TOOLTIP ─── */
@@ -93,7 +91,7 @@ interface ChartInnerProps {
   yAxisLabel: string;
   COLOR: { main: string; bandFill: string; missing: string };
   t: any;
-  showLegend?: boolean; // v karte áno, v fullscreen nie (legenda je mimo)
+  showLegend?: boolean;
 }
 
 function ChartInner({ chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t, showLegend = true }: ChartInnerProps) {
@@ -139,25 +137,30 @@ interface FullscreenOverlayProps extends ChartInnerProps {
   loading: boolean;
 }
 
-// Výška spodnej navigácie PWA — aby legenda nebola schovaná za ňou
-// Môžeš zmeniť na token ak chceš
-const NAV_BAR_HEIGHT = 76;
+function FullscreenOverlay(props: FullscreenOverlayProps) {
+  const { onClose, chartData, yMin, yMax, tickInterval, yAxisLabel,
+    COLOR, t, weeks, onWeeksChange, loading } = props;
 
-function FullscreenOverlay({
-  onClose, chartData, yMin, yMax, tickInterval, yAxisLabel,
-  COLOR, t, weeks, onWeeksChange, loading,
-}: FullscreenOverlayProps) {
   useEffect(() => {
+    // 1. Pridaj triedu na body — MobileBottomBar ju detekuje a skryje sa
+    document.body.classList.add("chart-fullscreen");
+    // 2. Escape klávesa
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    return () => {
+      document.body.classList.remove("chart-fullscreen");
+      window.removeEventListener("keydown", h);
+    };
   }, [onClose]);
 
-  return (
+  const overlay = (
+    // Klik na pozadie = zatvoriť
     <div onClick={onClose}
       style={{
         position: "fixed", inset: 0,
-        zIndex: 99999, // veľmi vysoké — nad nav barom
+        // createPortal ho dá priamo na document.body — z-index tu je absolútny,
+        // nie relatívny k žiadnemu stacking contextu
+        zIndex: 99999,
         backgroundColor: "#071610",
         display: "flex", flexDirection: "column",
       }}
@@ -165,9 +168,8 @@ function FullscreenOverlay({
       <div onClick={(e) => e.stopPropagation()}
         style={{
           flex: 1, display: "flex", flexDirection: "column",
-          // Padding bottom = výška nav baru aby legenda bola viditeľná
-          padding: `16px 16px 0 16px`,
-          paddingBottom: NAV_BAR_HEIGHT,
+          padding: "16px 16px 16px 16px", // nav je schovaný, len safe-area padding
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
           minHeight: 0, boxSizing: "border-box",
         }}
       >
@@ -201,41 +203,31 @@ function FullscreenOverlay({
           </button>
         </div>
 
-        {/* ── Graf — berie všetok voľný priestor ── */}
+        {/* ── Graf ── */}
         <div style={{
           flex: 1, minHeight: 0, position: "relative",
           outline: "none", WebkitTapHighlightColor: "transparent",
-        }}
-          tabIndex={-1}
-        >
+        }} tabIndex={-1}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
               <LoadingSpinner size="trend" />
             </div>
           )}
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-            {/*
-              V fullscreen: showLegend=false — legenda je mimo (pod grafom).
-              Tak Brush a os sú vždy viditeľné bez toho aby ich legenda kryla.
-            */}
             <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
               <ChartInner
                 chartData={chartData} yMin={yMin} yMax={yMax}
                 tickInterval={tickInterval} yAxisLabel={yAxisLabel}
                 COLOR={COLOR} t={t}
-                showLegend={false}
+                showLegend={false} // legenda je mimo grafu
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
         {/* ── Legenda mimo grafu — vždy viditeľná ── */}
-        <div style={{ flexShrink: 0, paddingTop: 8, paddingBottom: 6 }}>
-          {/* Farby čiar */}
-          <div style={{
-            display: "flex", flexWrap: "wrap", gap: "8px 20px",
-            marginBottom: 6,
-          }}>
+        <div style={{ flexShrink: 0, paddingTop: 8 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 20px", marginBottom: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
                 display: "inline-block", width: 8, height: 8, borderRadius: "50%",
@@ -255,12 +247,17 @@ function FullscreenOverlay({
               </span>
             </div>
           </div>
-          {/* Events legenda (alkohol, jedlo, kofeín) */}
           <EventsLegend t={t} />
         </div>
       </div>
     </div>
   );
+
+  // createPortal — renderuje priamo do document.body, mimo akéhokoľvek stacking contextu
+  // Takto overlay vždy "vyhrá" nad nav barom aj keď nav má z-40
+  return typeof document !== "undefined"
+    ? createPortal(overlay, document.body)
+    : null;
 }
 
 /* ─── HLAVNÝ KOMPONENT ─── */
@@ -349,7 +346,6 @@ export default function TrendRHR() {
     ...lower.filter((v): v is number => v !== null),
     ...upper.filter((v): v is number => v !== null),
   ];
-  // Tighter Y: ±5 od skutočných dát namiesto napevno ±10
   const [yMin, yMax] = calcYDomain(allValid);
   const yAxisLabel   = `[${t("common.units.hr")}]`;
   const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
@@ -369,7 +365,6 @@ export default function TrendRHR() {
       )}
 
       <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
-        {/* ── Header ── */}
         <div style={{
           display: "flex", alignItems: "flex-start", justifyContent: "space-between",
           padding: "14px 16px 10px 16px", gap: 8,
@@ -405,7 +400,6 @@ export default function TrendRHR() {
           </div>
         </div>
 
-        {/* ── Graf ── */}
         <div style={{ padding: "0 12px 8px 12px" }}>
           <div style={{
             width: "100%", height: 340, position: "relative",
