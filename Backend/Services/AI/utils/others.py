@@ -41,10 +41,11 @@ def debug_log_ai_io(
     result: Optional[dict],
     trace: dict,
 ) -> None:
-    input_tokens_est = (len(system_prompt) + len(user_prompt)) // 4
-    output_tokens_est = len(json.dumps(result or {})) // 4
     
-    print(f"[AI DEBUG] {trace.get('ok_provider')}:{trace.get('ok_model')} | in:~{input_tokens_est}t out:~{output_tokens_est}t")
+    real_in = trace.get("input_tokens")
+    real_out = trace.get("output_tokens")
+    #print(f"[AI DEBUG] tokens: in={real_in} out={real_out}")
+
     # Celý prompt — system + user na jeden riadok
-    print(f"[AI DEBUG] FULL_INPUT: {json.dumps({'system': system_prompt, 'user': user_prompt}, ensure_ascii=False)}")
-    print(f"[AI DEBUG] FULL_RESULT: {json.dumps(result, ensure_ascii=False) if result else 'None'}")
+    #print(f"[AI DEBUG] FULL_INPUT: {json.dumps({'system': system_prompt, 'user': user_prompt}, ensure_ascii=False)}")
+    #print(f"[AI DEBUG] FULL_RESULT: {json.dumps(result, ensure_ascii=False) if result else 'None'}")
