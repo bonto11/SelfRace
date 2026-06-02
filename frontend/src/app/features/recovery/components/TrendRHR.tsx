@@ -31,6 +31,17 @@ function dateSeq(startISO: string, endISO: string): string[] {
   return out;
 }
 
+/* ─── Y-OS: ±5 od skutočného min/max (nie ±10 napevno) ─── */
+function calcYDomain(allValid: number[]): [number, number] {
+  if (!allValid.length) return [40, 80];
+  const dataMin = Math.min(...allValid);
+  const dataMax = Math.max(...allValid);
+  // ±5 od skutočných hodnôt, min Y = 30
+  const yMin = Math.max(30, Math.floor(dataMin) - 5);
+  const yMax = Math.ceil(dataMax) + 5;
+  return [yMin, yMax];
+}
+
 /* ─── TOOLTIP ─── */
 const RecoveryTooltip = ({ active, payload, label, t }: any) => {
   if (!active || !payload?.length) return null;
@@ -74,7 +85,7 @@ const ExpandIcon = () => (
   </svg>
 );
 
-/* ─── SHARED CHART CONTENT ─── */
+/* ─── SHARED CHART SERIES ─── */
 interface ChartInnerProps {
   chartData: any[];
   yMin: number; yMax: number;
@@ -82,9 +93,10 @@ interface ChartInnerProps {
   yAxisLabel: string;
   COLOR: { main: string; bandFill: string; missing: string };
   t: any;
+  showLegend?: boolean; // v karte áno, v fullscreen nie (legenda je mimo)
 }
 
-function ChartInner({ chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t }: ChartInnerProps) {
+function ChartInner({ chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t, showLegend = true }: ChartInnerProps) {
   const fmt = (v: any) => new Date(v).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
   return (
     <>
@@ -99,7 +111,9 @@ function ChartInner({ chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t 
           fill: appColors.textMuted, fontSize: 10, dy: 30 }} />
       <Tooltip content={<RecoveryTooltip t={t} />}
         cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
-      <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+      {showLegend && (
+        <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+      )}
       <Area type="monotone" dataKey="bandRange" stroke="none"
         fill={COLOR.bandFill} fillOpacity={1} legendType="none" connectNulls />
       <Line type="monotone" dataKey="val"
@@ -117,7 +131,7 @@ function ChartInner({ chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t 
   );
 }
 
-/* ─── FULLSCREEN OVERLAY (portrait, žiadna rotácia) ─── */
+/* ─── FULLSCREEN OVERLAY ─── */
 interface FullscreenOverlayProps extends ChartInnerProps {
   onClose: () => void;
   weeks: number;
@@ -125,11 +139,14 @@ interface FullscreenOverlayProps extends ChartInnerProps {
   loading: boolean;
 }
 
+// Výška spodnej navigácie PWA — aby legenda nebola schovaná za ňou
+// Môžeš zmeniť na token ak chceš
+const NAV_BAR_HEIGHT = 76;
+
 function FullscreenOverlay({
   onClose, chartData, yMin, yMax, tickInterval, yAxisLabel,
   COLOR, t, weeks, onWeeksChange, loading,
 }: FullscreenOverlayProps) {
-  // Escape na zatvorenie
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h);
@@ -137,38 +154,33 @@ function FullscreenOverlay({
   }, [onClose]);
 
   return (
-    // Klik na tmavé pozadie = zatvoriť
-    <div
-      onClick={onClose}
+    <div onClick={onClose}
       style={{
-        position: "fixed", inset: 0, zIndex: 9999,
+        position: "fixed", inset: 0,
+        zIndex: 99999, // veľmi vysoké — nad nav barom
         backgroundColor: "#071610",
         display: "flex", flexDirection: "column",
       }}
     >
-      {/* Inner — klik nezatvára */}
-      <div
-        onClick={(e) => e.stopPropagation()}
+      <div onClick={(e) => e.stopPropagation()}
         style={{
           flex: 1, display: "flex", flexDirection: "column",
-          padding: "16px 16px 12px 16px",
-          minHeight: 0,
+          // Padding bottom = výška nav baru aby legenda bola viditeľná
+          padding: `16px 16px 0 16px`,
+          paddingBottom: NAV_BAR_HEIGHT,
+          minHeight: 0, boxSizing: "border-box",
         }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
           display: "flex", alignItems: "center",
-          marginBottom: 12, flexShrink: 0, gap: 8,
+          marginBottom: 10, flexShrink: 0, gap: 8,
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
               {t("recovery.trends.rhr.title")}
             </div>
-            <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-              {t("recovery.trends.rhr.subtitle")}
-            </div>
           </div>
-
           <SelectField
             value={String(weeks)}
             onChange={(e) => onWeeksChange(Number(e.target.value))}
@@ -176,10 +188,7 @@ function FullscreenOverlay({
             variant="editable"
             containerClassName="w-[110px]"
           />
-
-          {/* Zatvoriť */}
-          <button
-            onClick={onClose}
+          <button onClick={onClose}
             style={{
               width: 34, height: 34, borderRadius: "50%",
               border: `1px solid ${appColors.panelBorder}`,
@@ -187,15 +196,16 @@ function FullscreenOverlay({
               color: appColors.textPrimary, fontSize: 16,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", flexShrink: 0, outline: "none",
-            }}
-          >
+            }}>
             ✕
           </button>
         </div>
 
-        {/* Chart — berie všetok zostatok výšky (ResponsiveContainer tu funguje perfektne) */}
-        <div style={{ flex: 1, minHeight: 0, position: "relative",
-          outline: "none", WebkitTapHighlightColor: "transparent" }}
+        {/* ── Graf — berie všetok voľný priestor ── */}
+        <div style={{
+          flex: 1, minHeight: 0, position: "relative",
+          outline: "none", WebkitTapHighlightColor: "transparent",
+        }}
           tabIndex={-1}
         >
           {loading && (
@@ -204,18 +214,48 @@ function FullscreenOverlay({
             </div>
           )}
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-            <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+            {/*
+              V fullscreen: showLegend=false — legenda je mimo (pod grafom).
+              Tak Brush a os sú vždy viditeľné bez toho aby ich legenda kryla.
+            */}
+            <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
               <ChartInner
                 chartData={chartData} yMin={yMin} yMax={yMax}
                 tickInterval={tickInterval} yAxisLabel={yAxisLabel}
                 COLOR={COLOR} t={t}
+                showLegend={false}
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Legenda dole */}
-        <div style={{ flexShrink: 0, marginTop: 8 }}>
+        {/* ── Legenda mimo grafu — vždy viditeľná ── */}
+        <div style={{ flexShrink: 0, paddingTop: 8, paddingBottom: 6 }}>
+          {/* Farby čiar */}
+          <div style={{
+            display: "flex", flexWrap: "wrap", gap: "8px 20px",
+            marginBottom: 6,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                backgroundColor: appColors.chartLine1,
+              }} />
+              <span style={{ fontSize: 11, color: appColors.textMuted }}>
+                {t("recovery.trends.rhr.rhrLabel")}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                backgroundColor: appColors.stateBad,
+              }} />
+              <span style={{ fontSize: 11, color: appColors.textMuted }}>
+                {t("recovery.trends.rhr.missingLabel")}
+              </span>
+            </div>
+          </div>
+          {/* Events legenda (alkohol, jedlo, kofeín) */}
           <EventsLegend t={t} />
         </div>
       </div>
@@ -309,8 +349,8 @@ export default function TrendRHR() {
     ...lower.filter((v): v is number => v !== null),
     ...upper.filter((v): v is number => v !== null),
   ];
-  const yMin = allValid.length ? Math.max(30, Math.floor((Math.min(...allValid) - 10) / 5) * 5) : 40;
-  const yMax = allValid.length ? Math.ceil((Math.max(...allValid) + 5) / 5) * 5 : 80;
+  // Tighter Y: ±5 od skutočných dát namiesto napevno ±10
+  const [yMin, yMax] = calcYDomain(allValid);
   const yAxisLabel   = `[${t("common.units.hr")}]`;
   const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
 
@@ -329,7 +369,7 @@ export default function TrendRHR() {
       )}
 
       <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
           display: "flex", alignItems: "flex-start", justifyContent: "space-between",
           padding: "14px 16px 10px 16px", gap: 8,
@@ -342,10 +382,8 @@ export default function TrendRHR() {
               {t("recovery.trends.rhr.subtitle")}
             </div>
           </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button
-              onClick={() => setShowFullscreen(true)}
+            <button onClick={() => setShowFullscreen(true)}
               title="Zobraziť na celú obrazovku"
               style={{
                 width: 34, height: 34, borderRadius: 8,
@@ -354,11 +392,9 @@ export default function TrendRHR() {
                 color: appColors.textMuted,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, outline: "none",
-              }}
-            >
+              }}>
               <ExpandIcon />
             </button>
-
             <SelectField
               value={String(weeks)}
               onChange={(e) => setWeeks(Number(e.target.value))}
@@ -369,13 +405,12 @@ export default function TrendRHR() {
           </div>
         </div>
 
-        {/* Graf — karta */}
+        {/* ── Graf ── */}
         <div style={{ padding: "0 12px 8px 12px" }}>
-          <div
-            style={{ width: "100%", height: 340, position: "relative",
-              outline: "none", WebkitTapHighlightColor: "transparent" }}
-            tabIndex={-1}
-          >
+          <div style={{
+            width: "100%", height: 340, position: "relative",
+            outline: "none", WebkitTapHighlightColor: "transparent",
+          }} tabIndex={-1}>
             {loading && (
               <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
                 <LoadingSpinner size="trend" />
@@ -383,7 +418,7 @@ export default function TrendRHR() {
             )}
             <ResponsiveContainer width="100%" height="100%" minWidth={1}>
               <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-                <ChartInner {...innerProps} />
+                <ChartInner {...innerProps} showLegend />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
