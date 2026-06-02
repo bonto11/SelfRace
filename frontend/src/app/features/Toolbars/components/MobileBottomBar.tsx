@@ -1,6 +1,6 @@
-// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -13,15 +13,15 @@ import {
 type ItemDef = {
   id: NavId;
   href: string;
-  translationKey: string; // Zmena z label na kľúč
+  translationKey: string;
 };
 
 const ITEMS: ItemDef[] = [
-  { id: "activities", href: "/activities", translationKey: "activities.title" },
-  { id: "coach", href: "/coach", translationKey: "coach.title" },
+  { id: "activities",  href: "/activities",  translationKey: "activities.title" },
+  { id: "coach",       href: "/coach",       translationKey: "coach.title" },
   { id: "performance", href: "/performance", translationKey: "performance.title" },
-  { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
-  { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
+  { id: "recovery",    href: "/recovery",    translationKey: "recovery.title" },
+  { id: "calendar",    href: "/calendar",    translationKey: "calendar.title" },
 ];
 
 function BottomNavItem({ id, href, translationKey }: ItemDef) {
@@ -45,7 +45,6 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       >
         {NavIcon({ id })}
       </div>
-
       <span
         className="mt-1 text-[11px] leading-none truncate"
         style={{
@@ -60,7 +59,28 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
 
 export default function MobileBottomBar() {
   const t = useT();
-  
+
+  // Schovaj sa keď je aktívny fullscreen chart overlay.
+  // TrendRHR (a iné grafy) pridajú triedu "chart-fullscreen" na document.body.
+  // MutationObserver detekuje zmenu a nav sa skryje/ukáže bez re-renderu celého stromu.
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      setHidden(document.body.classList.contains("chart-fullscreen"));
+    };
+    check(); // inicializácia
+
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  if (hidden) return null;
+
   return (
     <nav
       className={[
