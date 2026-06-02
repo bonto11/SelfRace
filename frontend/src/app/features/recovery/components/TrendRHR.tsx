@@ -23,15 +23,11 @@ import { EventsIcon, TooltipEvents, EventsLegend } from "@/app/shared/charts/Rec
 function getLocalISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
 function dateSeq(startISO: string, endISO: string): string[] {
   const out: string[] = [];
   const cur = new Date(startISO + "T00:00:00");
   const end = new Date(endISO   + "T00:00:00");
-  while (cur <= end) {
-    out.push(getLocalISODate(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
+  while (cur <= end) { out.push(getLocalISODate(cur)); cur.setDate(cur.getDate() + 1); }
   return out;
 }
 
@@ -42,10 +38,8 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
   const missingData = payload.find((p: any) => p.dataKey === "missingY");
   const comments    = payload[0]?.payload?.comments;
   return (
-    <div
-      className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
-      style={{ backgroundColor: "rgba(9,24,18,0.95)", borderColor: appColors.panelBorder }}
-    >
+    <div className="p-3 rounded-xl border shadow-xl backdrop-blur-md max-w-xs"
+      style={{ backgroundColor: "rgba(9,24,18,0.95)", borderColor: appColors.panelBorder }}>
       <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>
         {new Date(label).toLocaleDateString("sk-SK")}
       </p>
@@ -80,92 +74,85 @@ const ExpandIcon = () => (
   </svg>
 );
 
-/* ─── CHART RENDERER — rovnaký kód pre normal aj landscape ─── */
-interface RHRChartProps {
-  chartData: any[];
+/* ─── SPOLOČNÉ CHART SERIES (DRY) ─── */
+interface SeriesProps {
+  COLOR: { main: string; bandFill: string; missing: string };
+  t: any;
   yMin: number; yMax: number;
   tickInterval: number;
   yAxisLabel: string;
-  loading: boolean;
-  COLOR: { main: string; bandFill: string; missing: string };
-  t: any;
-  height: number; // explicitná výška — landscape dostane viac
+  chartData: any[];
 }
 
-function RHRChart({ chartData, yMin, yMax, tickInterval, yAxisLabel, loading, COLOR, t, height }: RHRChartProps) {
+function ChartSeries({ COLOR, t, yMin, yMax, tickInterval, yAxisLabel, chartData }: SeriesProps) {
+  const fmt = (v: any) => new Date(v).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
   return (
-    /* FIX: outline:none + tap-highlight:transparent odstraňuje modrý rámček */
-    <div
-      style={{ width: "100%", height, position: "relative", outline: "none", WebkitTapHighlightColor: "transparent" }}
-      tabIndex={-1}
-    >
-      {loading && (
-        <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
-          <LoadingSpinner size="trend" />
-        </div>
-      )}
-      <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-        <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-
-          <XAxis
-            dataKey="date"
-            interval={tickInterval}
-            tick={{ fill: appColors.textMuted, fontSize: 10 }}
-            axisLine={false} tickLine={false} dy={8}
-            tickFormatter={(v) => new Date(v).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" })}
-          />
-
-          <YAxis
-            domain={[yMin, yMax]}
-            tick={{ fill: appColors.textMuted, fontSize: 10 }}
-            axisLine={false} tickLine={false}
-            label={{ value: yAxisLabel, angle: -90, position: "insideLeft", fill: appColors.textMuted, fontSize: 10, dy: 30 }}
-          />
-
-          <Tooltip
-            content={<RecoveryTooltip t={t} />}
-            cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }}
-          />
-
-          <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-
-          <Area type="monotone" dataKey="bandRange"
-            stroke="none" fill={COLOR.bandFill} fillOpacity={1} legendType="none" connectNulls />
-
-          <Line type="monotone" dataKey="val"
-            name={t("recovery.trends.rhr.rhrLabel") as string}
-            stroke={COLOR.main} strokeWidth={3}
-            dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
-            activeDot={{ r: 6, strokeWidth: 0 }}
-            connectNulls />
-
-          <Scatter dataKey="missingY"
-            name={t("recovery.trends.rhr.missingLabel") as string}
-            fill={COLOR.missing} r={4} />
-
-          <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
-
-          <Brush
-            dataKey="date" height={26} travellerWidth={10}
-            stroke={appColors.panelBorder} fill="#0a1f14"
-            tickFormatter={(v) => new Date(v).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" })}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <>
+      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+      <XAxis dataKey="date" interval={tickInterval}
+        tick={{ fill: appColors.textMuted, fontSize: 10 }}
+        axisLine={false} tickLine={false} dy={8} tickFormatter={fmt} />
+      <YAxis domain={[yMin, yMax]}
+        tick={{ fill: appColors.textMuted, fontSize: 10 }}
+        axisLine={false} tickLine={false}
+        label={{ value: yAxisLabel, angle: -90, position: "insideLeft", fill: appColors.textMuted, fontSize: 10, dy: 30 }} />
+      <Tooltip content={<RecoveryTooltip t={t} />}
+        cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "5 5" }} />
+      <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
+      <Area type="monotone" dataKey="bandRange" stroke="none"
+        fill={COLOR.bandFill} fillOpacity={1} legendType="none" connectNulls />
+      <Line type="monotone" dataKey="val"
+        name={t("recovery.trends.rhr.rhrLabel") as string}
+        stroke={COLOR.main} strokeWidth={3}
+        dot={{ r: 3, fill: COLOR.main, strokeWidth: 0 }}
+        activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
+      <Scatter dataKey="missingY"
+        name={t("recovery.trends.rhr.missingLabel") as string}
+        fill={COLOR.missing} r={4} />
+      <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
+      <Brush dataKey="date" height={26} travellerWidth={10}
+        stroke={appColors.panelBorder} fill="#0a1f14" tickFormatter={fmt} />
+    </>
   );
 }
 
 /* ─── LANDSCAPE OVERLAY ─── */
 interface LandscapeOverlayProps {
   onClose: () => void;
-  children: React.ReactNode;
+  chartData: any[];
+  yMin: number; yMax: number;
+  tickInterval: number;
+  yAxisLabel: string;
+  COLOR: { main: string; bandFill: string; missing: string };
+  t: any;
+  weeks: number;
+  onWeeksChange: (v: number) => void;
 }
 
-function LandscapeOverlay({ onClose, children }: LandscapeOverlayProps) {
+function LandscapeOverlay({ onClose, chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t, weeks, onWeeksChange }: LandscapeOverlayProps) {
+  // Explicitné rozmery z okna — ResponsiveContainer nefunguje správne v rotovanom div
+  // Po rotate(90deg): vizuálna šírka = výška telefónu (innerHeight), vizuálna výška = šírka (innerWidth)
+  const [chartW, setChartW] = useState(0);
+  const [chartH, setChartH] = useState(0);
+  const HEADER_H = 48;
+  const PAD_H    = 24; // padding top+bottom
+
   useEffect(() => {
-    // Pokus o lock — funguje na Android PWA, iOS ignoruje
+    const calc = () => {
+      // Portrait viewport: vw = šírka, vh = výška
+      // V landscape (po otočení): vizuálna šírka = vh, vizuálna výška = vw
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setChartW(vh - 32);         // landscape vizuálna šírka mínus side padding
+      setChartH(vw - HEADER_H - PAD_H); // landscape vizuálna výška mínus header
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+
+  useEffect(() => {
+    // Pokus o lock — funguje Android PWA, iOS ignoruje
     (screen.orientation as any)?.lock?.("landscape-primary").catch?.(() => {});
     return () => { (screen.orientation as any)?.unlock?.(); };
   }, []);
@@ -176,56 +163,89 @@ function LandscapeOverlay({ onClose, children }: LandscapeOverlayProps) {
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
+  if (!chartW || !chartH) return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#071610",
+      display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <LoadingSpinner size="trend" />
+    </div>
+  );
+
   return (
-    // FIX: klik na pozadie = zatvoriť
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "#071610" }}
-    >
+    // Klik na pozadie = zatvoriť
+    <div onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#071610", overflow: "hidden" }}>
+
       {/*
-        CSS transform trick pre iOS kde orientation.lock nefunguje:
-        - div má rozmery 100vh × 100vw (pred rotáciou)
-        - po rotate(90deg) vyzerá ako landscape (100vw × 100vh)
-        - translate(-50%, -50%) + top/left 50% ho centruje
+        CSS transform trik pre iOS kde orientation.lock nefunguje.
+        Matematika:
+        - width: 100vh, height: 100vw (pred rotáciou)
+        - left: calc((vw - vh) / 2) = centruje po rotácii
+        - top: calc((vh - vw) / 2)
+        - rotate(90deg) → vizuálne landscape
       */}
       <div
-        onClick={(e) => e.stopPropagation()} // klik vnútri nezatvára overlay
+        onClick={(e) => e.stopPropagation()} // klik vnútri nezatvára
         style={{
           position: "absolute",
-          top: "50%",
-          left: "50%",
+          left: "calc((100vw - 100vh) / 2)",
+          top: "calc((100vh - 100vw) / 2)",
           width: "100vh",
           height: "100vw",
-          transform: "translate(-50%, -50%) rotate(90deg)",
+          transform: "rotate(90deg)",
           transformOrigin: "center center",
           display: "flex",
           flexDirection: "column",
-          padding: "12px 16px 8px 16px",
+          padding: "12px 16px",
           boxSizing: "border-box",
         }}
       >
-        {/* Zatvoriť — vizuálne vpravo hore po rotácii */}
-        <button
-          onClick={onClose}
+        {/* Zatvoriť */}
+        <button onClick={onClose}
           style={{
-            position: "absolute",
-            top: 12, right: 12,
-            width: 34, height: 34,
-            borderRadius: "50%",
+            position: "absolute", top: 10, right: 12,
+            width: 32, height: 32, borderRadius: "50%",
             border: `1px solid ${appColors.panelBorder}`,
             backgroundColor: "rgba(255,255,255,0.08)",
             color: appColors.textPrimary,
-            fontSize: 16,
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer",
-            zIndex: 1,
-            outline: "none",
-          }}
-        >
+            cursor: "pointer", zIndex: 1, outline: "none", fontSize: 14,
+          }}>
           ✕
         </button>
 
-        {children}
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", height: HEADER_H,
+          marginBottom: 4, paddingRight: 44, flexShrink: 0,
+        }}>
+          <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary, fontSize: 14 }}>
+            {t("recovery.trends.rhr.title")}
+          </div>
+          <div style={{ marginLeft: "auto" }}>
+            <SelectField
+              value={String(weeks)}
+              onChange={(e) => onWeeksChange(Number(e.target.value))}
+              options={WEEK_OPTIONS(t)}
+              variant="editable"
+              containerClassName="w-[110px]"
+            />
+          </div>
+        </div>
+
+        {/*
+          Kľúčová oprava: NEpoužívame ResponsiveContainer — v rotovanom div
+          nefunguje správne (detekuje zlé rozmery).
+          Namiesto toho dáme ComposedChart explicitné pixel rozmery.
+        */}
+        <ComposedChart width={chartW} height={chartH} data={chartData}
+          margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+          <ChartSeries
+            COLOR={COLOR} t={t}
+            yMin={yMin} yMax={yMax}
+            tickInterval={tickInterval} yAxisLabel={yAxisLabel}
+            chartData={chartData}
+          />
+        </ComposedChart>
       </div>
     </div>
   );
@@ -246,8 +266,8 @@ export default function TrendRHR() {
 
   useEffect(() => {
     setLoading(true);
-    const t = requestAnimationFrame(() => setLoading(false));
-    return () => cancelAnimationFrame(t);
+    const f = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(f);
   }, [weeks, all]);
 
   const endISO   = useMemo(() => isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]);
@@ -266,10 +286,7 @@ export default function TrendRHR() {
   const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
 
   const rhr = useMemo(() =>
-    labelsISO.map((d) => {
-      const rec = byDate.get(d);
-      return typeof rec?.RHR_bpm === "number" ? rec.RHR_bpm : NaN;
-    }),
+    labelsISO.map((d) => { const r = byDate.get(d); return typeof r?.RHR_bpm === "number" ? r.RHR_bpm : NaN; }),
     [labelsISO, byDate],
   );
 
@@ -279,36 +296,35 @@ export default function TrendRHR() {
   const missingY = useMemo(() => {
     const n = rhr.length;
     const out = new Array<number | null>(n).fill(null);
-    const nextKnown = new Array<number>(n).fill(-1);
+    const nxt = new Array<number>(n).fill(-1);
     let last = -1;
-    for (let i = n - 1; i >= 0; i--) { if (Number.isFinite(rhr[i])) last = i; nextKnown[i] = last; }
+    for (let i = n - 1; i >= 0; i--) { if (Number.isFinite(rhr[i])) last = i; nxt[i] = last; }
     let prev = -1;
     for (let i = 0; i < n; i++) {
       if (Number.isFinite(rhr[i])) { prev = i; continue; }
-      const nxt = nextKnown[i];
-      if (prev !== -1 && nxt !== -1) {
-        out[i] = (rhr[prev] as number) + ((rhr[nxt] as number) - (rhr[prev] as number)) * ((i - prev) / (nxt - prev));
-      } else if (prev !== -1) out[i] = rhr[prev] as number;
-      else if (nxt !== -1)  out[i] = rhr[nxt] as number;
+      const nx = nxt[i];
+      if (prev !== -1 && nx !== -1) out[i] = (rhr[prev] as number) + ((rhr[nx] as number) - (rhr[prev] as number)) * ((i - prev) / (nx - prev));
+      else if (prev !== -1) out[i] = rhr[prev] as number;
+      else if (nx !== -1)  out[i] = rhr[nx] as number;
     }
     return out;
   }, [rhr]);
 
   const chartData = useMemo(() => labelsISO.map((d, i) => {
     const v = rhr[i];
-    const isMissing = !Number.isFinite(v);
+    const miss = !Number.isFinite(v);
     const rec = byDate.get(d);
-    const hasAlcohol  = !!rec?.alcohol_consumed;
-    const hasFood     = !!rec?.food_2h_before;
-    const hasCaffeine = !!rec?.caffeine_8h;
+    const hasAlcohol = !!rec?.alcohol_consumed;
+    const hasFood    = !!rec?.food_2h_before;
+    const hasCaff    = !!rec?.caffeine_8h;
     return {
       date: d,
-      val: isMissing ? null : v,
+      val: miss ? null : v,
       bandRange: lower[i] != null && upper[i] != null ? [lower[i], upper[i]] : null,
-      missingY: isMissing ? missingY[i] : null,
+      missingY: miss ? missingY[i] : null,
       comments: rec?.comments,
-      hasAlcohol, hasFood, hasCaffeine,
-      eventsY: (hasAlcohol || hasFood || hasCaffeine) ? (isMissing ? missingY[i] : v) : null,
+      hasAlcohol, hasFood, hasCaffeine: hasCaff,
+      eventsY: (hasAlcohol || hasFood || hasCaff) ? (miss ? missingY[i] : v) : null,
     };
   }), [labelsISO, rhr, lower, upper, missingY, byDate]);
 
@@ -320,39 +336,19 @@ export default function TrendRHR() {
   const yAxisLabel   = `[${t("common.units.hr")}]`;
   const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
 
-  const sharedChartProps = { chartData, yMin, yMax, tickInterval, yAxisLabel, loading, COLOR, t };
+  const seriesProps = { COLOR, t, yMin, yMax, tickInterval, yAxisLabel, chartData };
 
   return (
     <>
-      {/* ── Landscape fullscreen overlay ── */}
       {showLandscape && (
-        <LandscapeOverlay onClose={() => setShowLandscape(false)}>
-          {/* Titul v landscape */}
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 8, paddingRight: 44 }}>
-            <div>
-              <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary, fontSize: 14 }}>
-                {t("recovery.trends.rhr.title")}
-              </div>
-            </div>
-            <div style={{ marginLeft: "auto" }}>
-              <SelectField
-                value={String(weeks)}
-                onChange={(e) => setWeeks(Number(e.target.value))}
-                options={WEEK_OPTIONS(t)}
-                variant="editable"
-                containerClassName="w-[110px]"
-              />
-            </div>
-          </div>
-
-          {/* Graf zaberá zvyšok priestoru v landscape */}
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <RHRChart {...sharedChartProps} height={500} />
-          </div>
-        </LandscapeOverlay>
+        <LandscapeOverlay
+          onClose={() => setShowLandscape(false)}
+          weeks={weeks}
+          onWeeksChange={setWeeks}
+          {...seriesProps}
+        />
       )}
 
-      {/* ── Normálna karta ── */}
       <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "14px 16px 10px 16px", gap: 8 }}>
@@ -366,7 +362,6 @@ export default function TrendRHR() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {/* Expand tlačidlo */}
             <button
               onClick={() => setShowLandscape(true)}
               title="Zobraziť na celú obrazovku"
@@ -377,8 +372,7 @@ export default function TrendRHR() {
                 color: appColors.textMuted,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", flexShrink: 0, outline: "none",
-              }}
-            >
+              }}>
               <ExpandIcon />
             </button>
 
@@ -392,9 +386,22 @@ export default function TrendRHR() {
           </div>
         </div>
 
-        {/* Graf */}
+        {/* Graf — normálny portrait, ResponsiveContainer tu funguje OK */}
         <div style={{ padding: "0 12px 8px 12px" }}>
-          <RHRChart {...sharedChartProps} height={340} />
+          {/* FIX modrý rámček: outline:none + tap-highlight:transparent */}
+          <div style={{ width: "100%", height: 340, position: "relative", outline: "none", WebkitTapHighlightColor: "transparent" }}
+            tabIndex={-1}>
+            {loading && (
+              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+                <LoadingSpinner size="trend" />
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+                <ChartSeries {...seriesProps} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <EventsLegend t={t} />
