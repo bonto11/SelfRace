@@ -2,20 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ResponsiveContainer,
-  ComposedChart,
-  Line,
-  Area,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
+  ResponsiveContainer, ComposedChart, Line, Area, Scatter,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  Brush,  // ← pridaj
 } from "recharts";
 
 import { WEEK_OPTIONS } from "@/app/shared/charts/chart_builders";
-import { rollingMean, bandsAround, wrapToLines } from "@/app/shared/utils/recovery";
+import {
+  rollingMean,
+  bandsAround,
+  wrapToLines,
+} from "@/app/shared/utils/recovery";
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -32,7 +29,11 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
-import { EventsIcon, TooltipEvents, EventsLegend } from "@/app/shared/charts/RecoveryEvents";
+import {
+  EventsIcon,
+  TooltipEvents,
+  EventsLegend,
+} from "@/app/shared/charts/RecoveryEvents";
 
 function getLocalISODate(d: Date): string {
   const year = d.getFullYear();
@@ -82,7 +83,9 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
               style={{ backgroundColor: mainData.color }}
             ></span>
             <span className="opacity-90">RHR:</span>
-            <span className="font-bold">{Math.round(mainData.value)} {t("common.units.hr")}</span>
+            <span className="font-bold">
+              {Math.round(mainData.value)} {t("common.units.hr")}
+            </span>
           </div>
         ) : missingData ? (
           <div className="flex items-center gap-2 text-sm text-red-400">
@@ -133,8 +136,12 @@ export default function TrendRHR() {
   }, [weeks, all]);
 
   const days = weeks * 7;
-  const endISO = useMemo(() => isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]);
-  
+  const endISO = useMemo(
+    () =>
+      isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()),
+    [isMounted],
+  );
+
   const startISO = useMemo(() => {
     const d = new Date(endISO + "T00:00:00");
     d.setDate(d.getDate() - (days - 1));
@@ -207,7 +214,7 @@ export default function TrendRHR() {
       const v = rhr[i];
       const isMissing = !Number.isFinite(v);
       const hasBand = lower[i] != null && upper[i] != null;
-      
+
       const rec = byDate.get(d);
       const hasAlcohol = !!rec?.alcohol_consumed;
       const hasFood = !!rec?.food_2h_before;
@@ -243,6 +250,7 @@ export default function TrendRHR() {
   const yMax = Math.ceil((maxValue + 5) / 5) * 5;
 
   const yAxisLabel = `[${t("common.units.hr")}]`;
+  const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
 
   return (
     <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
@@ -286,9 +294,8 @@ export default function TrendRHR() {
           <ResponsiveContainer width="100%" height="100%" minWidth={1}>
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 10, bottom: 35 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
             >
-              
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -297,6 +304,7 @@ export default function TrendRHR() {
 
               <XAxis
                 dataKey="date"
+                interval={tickInterval}   // ← pridaj
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
@@ -314,7 +322,14 @@ export default function TrendRHR() {
                 tick={{ fill: appColors.textMuted, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+                label={{
+                  value: yAxisLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: appColors.textMuted,
+                  fontSize: 10,
+                  dy: 30,
+                }}
               />
 
               <Tooltip
@@ -356,9 +371,26 @@ export default function TrendRHR() {
                 fill={COLOR.missing}
                 r={4}
               />
-              
-              <Scatter dataKey="eventsY" shape={<EventsIcon />} legendType="none" tooltipType="none" />
-              
+
+              <Scatter
+                dataKey="eventsY"
+                shape={<EventsIcon />}
+                legendType="none"
+                tooltipType="none"
+              />
+              <Brush
+                dataKey="date"
+                height={28}
+                travellerWidth={10}
+                stroke={appColors.panelBorder}
+                fill="#0a1f14"
+                tickFormatter={(val) =>
+                  new Date(val).toLocaleDateString("sk-SK", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })
+                }
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
