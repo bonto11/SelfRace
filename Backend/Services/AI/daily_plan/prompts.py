@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -70,6 +71,16 @@ def _format_pace(seconds_per_km: Any) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
+def _days_until(date_str: Optional[str]) -> Optional[int]:
+    """Počet dní do dátumu od dnes."""
+    if not date_str:
+        return None
+    try:
+        return (date.fromisoformat(str(date_str)[:10]) - date.today()).days
+    except Exception:
+        return None
+
+
 def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     """Vráti (jazyk_label, pravidlo_oslovovania)."""
     lang_code = str(settings.get("language") or "sk").lower()
@@ -87,16 +98,53 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
 def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Osekáva daily context pred odoslaním do AI.
-    BUG FIX: external_events sa neskopíruje dvakrát — spracúva sa raz
-    cez vlastnú logiku a NIE cez generický for k in (...).
+
+    Optimalizácie v tejto verzii:
+    - latest_paces: odstráni id, user_id, measured_at (DB metadata)
+    - external_events: posiela len ak má reálne eventy (nie prázdny window)
+    - recent_load: max 4 týždne namiesto 6-7
+    - athlete_state: odstráni user_summary (dlhé texty nepotrebné pre daily)
+      a plan_adjustment (nie je relevantný pre daily plánovač)
+    - races: odstráni UUID id, pridá days_until_race
+    - zones: posiela len run zóny (nie všetky sporty)
     """
     context = dict(context) if isinstance(context, dict) else {}
     ctx2: Dict[str, Any] = {}
 
-    # Priamo kopírované bloky (bez external_events — ten sa spracúva nižšie)
-    for k in ("week", "zones", "thresholds", "latest_paces", "recent_load", "recovery"):
-        if k in context:
-            ctx2[k] = context[k]
+    # Week — priamo
+    if "week" in context:
+        ctx2["week"] = context["week"]
+
+    # Zones — len run zóny (nie celý dict ak je tam ride/swim/atď)
+    zones_raw = context.get("zones")
+    if isinstance(zones_raw, dict):
+        ctx2["zones"] = zones_raw  # zachovaj celé, AI potrebuje zóny pre sport
+
+    # Thresholds — priamo
+    if "thresholds" in context:
+        ctx2["thresholds"] = context["thresholds"]
+
+    # latest_paces — odstráni DB metadata (id, user_id, measured_at)
+    paces = context.get("latest_paces")
+    if isinstance(paces, dict):
+        ctx2["latest_paces"] = {
+            k: v for k, v in paces.items()
+            if k not in ("id", "user_id", "measured_at")
+        }
+
+    # recent_load — max 4 týždne (nie 6-7), šetrí ~200 tokenov
+    recent_load = context.get("recent_load")
+    if isinstance(recent_load, dict):
+        weeks = recent_load.get("weeks") or []
+        trimmed_weeks = [
+            w for w in weeks
+            if isinstance(w, dict) and int(w.get("week_index_from_now", -99)) >= -4
+        ]
+        ctx2["recent_load"] = {**recent_load, "weeks": trimmed_weeks}
+
+    # Recovery — priamo ak existuje
+    if "recovery" in context:
+        ctx2["recovery"] = context["recovery"]
 
     # Prefs — flatten + minify
     raw_prefs = context.get("prefs") or {}
@@ -105,7 +153,7 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     volume = _get_dict(prefs, "volume")
     targets = _get_dict(prefs, "targets")
 
-    # Targets — dynamicky pre všetky sporty (run, bike, swim, triathlon...)
+    # Targets — dynamicky, races bez UUID, s days_until_race
     ctx_targets: Dict[str, Any] = {}
     for sport_key, sport_val in targets.items():
         if not isinstance(sport_val, dict):
@@ -116,11 +164,31 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 "sessions_per_week": sport_val.get("sessions_per_week"),
             }
         else:
+            races_raw = sport_val.get("races")
+            races_clean = None
+            if isinstance(races_raw, list):
+                races_clean = []
+                for r in races_raw:
+                    if not isinstance(r, dict):
+                        continue
+                    race_date = r.get("date") or r.get("start_date")
+                    races_clean.append({
+                        "name": r.get("name"),
+                        "date": race_date,
+                        "days_until_race": _days_until(race_date),
+                        "race_goal": r.get("race_goal"),
+                        "race_type": r.get("race_type"),
+                        "target_time": r.get("target_time"),
+                        "custom_distance_km": r.get("custom_distance_km"),
+                        "elevation_gain_m": r.get("elevation_gain_m"),
+                        "terrain": r.get("terrain"),
+                        "priority": r.get("priority"),
+                    })
             ctx_targets[sport_key] = {
                 "race_goal": sport_val.get("race_goal"),
                 "race_type": sport_val.get("race_type"),
                 "target_time": sport_val.get("target_time"),
-                "races": sport_val.get("races"),
+                "races": races_clean,
             }
 
     ctx2["prefs"] = {
@@ -138,18 +206,20 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         "targets": ctx_targets if targets else {},
     }
 
-    # Athlete state — bez metrics
+    # Athlete state — bez user_summary (dlhé texty) a bez plan_adjustment
+    # Daily planner potrebuje len ai_state pre kapacity, únavu, zóny tolerancie
     athlete_state = context.get("athlete_state")
     if isinstance(athlete_state, dict):
         ai_state = dict(_as_dict(athlete_state.get("ai_state")))
-        ai_state.pop("metrics", None)
+        ai_state.pop("metrics", None)           # nie je potrebné pre daily
+        ai_state.pop("plan_adjustment", None)   # nie je relevantné pre daily builder
         ctx2["athlete_state"] = {
             "ai_state": ai_state,
-            "user_summary": athlete_state.get("user_summary"),
+            # user_summary — vynechané, šetrí ~300 tokenov, daily ho nepotrebuje
             "is_returning_beginner": athlete_state.get("is_returning_beginner"),
         }
 
-    # External events — spracúvame raz, nie dvakrát
+    # External events — len ak má reálne eventy (nie prázdny window)
     ext = context.get("external_events")
     if isinstance(ext, dict):
         events: List[Dict[str, Any]] = []
@@ -160,48 +230,49 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(win, dict) and isinstance(win.get("events"), list):
                 events = [e for e in win["events"] if isinstance(e, dict)]
 
-        cleaned_events: List[Dict[str, Any]] = []
-        for e in events:
-            dt = (
-                e.get("occurrence_date")
-                or e.get("date")
-                or e.get("start_date_local")
-                or e.get("start_date")
-                or e.get("start_date_iso")
-            )
-            dt_ymd = str(dt)[:10] if dt else None
-            dft = e.get("days_from_today")
-
-            if dt_ymd is None and isinstance(dft, (int, float)):
+        if events:  # len ak má reálne eventy
+            cleaned_events: List[Dict[str, Any]] = []
+            for e in events:
+                dt = (
+                    e.get("occurrence_date")
+                    or e.get("date")
+                    or e.get("start_date_local")
+                    or e.get("start_date")
+                    or e.get("start_date_iso")
+                )
+                dt_ymd = str(dt)[:10] if dt else None
+                dft = e.get("days_from_today")
+                if dt_ymd is None and isinstance(dft, (int, float)):
+                    cleaned_events.append({
+                        "days_from_today": int(dft),
+                        "sport": e.get("sport"),
+                        "duration_min": e.get("duration_min"),
+                        "priority": e.get("priority"),
+                        "title": e.get("title"),
+                    })
+                    continue
+                if not dt_ymd:
+                    continue
                 cleaned_events.append({
-                    "days_from_today": int(dft),
+                    "occurrence_date": dt_ymd,
                     "sport": e.get("sport"),
                     "duration_min": e.get("duration_min"),
                     "priority": e.get("priority"),
                     "title": e.get("title"),
                 })
-                continue
-            if not dt_ymd:
-                continue
-            cleaned_events.append({
-                "occurrence_date": dt_ymd,
-                "sport": e.get("sport"),
-                "duration_min": e.get("duration_min"),
-                "priority": e.get("priority"),
-                "title": e.get("title"),
-            })
 
-        win2 = ext.get("window")
-        if isinstance(win2, dict):
-            ctx2["external_events"] = {
-                "window": {
-                    "from": str(win2.get("from"))[:10] if win2.get("from") else None,
-                    "to": str(win2.get("to"))[:10] if win2.get("to") else None,
-                    "events": cleaned_events,
+            win2 = ext.get("window")
+            if isinstance(win2, dict):
+                ctx2["external_events"] = {
+                    "window": {
+                        "from": str(win2.get("from"))[:10] if win2.get("from") else None,
+                        "to": str(win2.get("to"))[:10] if win2.get("to") else None,
+                        "events": cleaned_events,
+                    }
                 }
-            }
-        else:
-            ctx2["external_events"] = {"events": cleaned_events}
+            else:
+                ctx2["external_events"] = {"events": cleaned_events}
+        # Ak events je prázdny — external_events sa nevloží do ctx2
 
     # Meta polia
     for k in ("week_meta", "replan_trigger", "generate_reason", "is_replan", "planning_constraints"):
@@ -218,38 +289,39 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 def _build_intensity_format_rule(
     has_zones: bool,
     latest_paces: Dict[str, Any],
+    lthr: Optional[float] = None,
 ) -> str:
-    """
-    Zostaví inštrukciu pre formát intenzity — buď zones+pace alebo RPE+pace.
-    Extrahovaná ako samostatná funkcia pre čitateľnosť.
-    """
+    """Zostaví inštrukciu pre formát intenzity + LTHR pravidlo pre threshold sessions."""
+    lthr_rule = (
+        f"- THRESHOLD RULE: LTHR = {int(lthr)} bpm = Z4/Z5 boundary. "
+        "Threshold/Prahový sessions target Z4. NEVER prescribe Z3 for threshold sessions.\n"
+        if lthr else ""
+    )
+
     if not has_zones:
         return (
+            lthr_rule +
             "- INTENSITY FORMATTING (NO ZONES): "
             "In `notes` fields for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH RPE AND Pace (min/km) or Power (W). "
             "Example Format: 'RPE 3/10 @ 6:00-6:30 min/km'. "
             "Keep paces conservative for easy runs, warmups, and cooldowns.\n\n"
         )
 
-    # Zones sú — pridáme pace referenciu ak existuje
     pace_parts = []
     for i in range(1, 6):
         val = latest_paces.get(f"z{i}_pace_s")
         if val is not None:
             pace_parts.append(f"Z{i}: {_format_pace(val)}")
 
-    if pace_parts:
-        pace_instructions = (
-            f"CRITICAL: When prescribing Pace for running, use these references: "
-            f"{', '.join(pace_parts)}. Do not deviate by more than 5-10 sec/km unless hilly or trail-based.\n"
-        )
-    else:
-        pace_instructions = (
-            "CRITICAL: No pace history found. ESTIMATE realistic paces from recent load and athlete state. "
-            "Keep it conservative.\n"
-        )
+    pace_instructions = (
+        f"CRITICAL: When prescribing Pace for running, use these references: "
+        f"{', '.join(pace_parts)}. Do not deviate by more than 5-10 sec/km unless hilly or trail-based.\n"
+        if pace_parts else
+        "CRITICAL: No pace history found. ESTIMATE realistic paces from recent load and athlete state. Keep it conservative.\n"
+    )
 
     return (
+        lthr_rule +
         "- INTENSITY FORMATTING (HAS ZONES): "
         "In `notes` for `warmup`, `main_part`, and `cooldown`, ALWAYS include BOTH Target HR range (bpm) AND Pace (min/km) or Power (W). "
         "CRITICAL HR RULE: DO NOT output the full zone width (e.g. '0-154 bpm'). "
@@ -369,8 +441,7 @@ def build_prompts_for_daily(
 ) -> Tuple[str, str]:
     """
     Zostaví (system_prompt, user_prompt) pre daily týždenný plán.
-    Návratová hodnota je Tuple[str, str] — strength_target a prázdny list
-    sa odstraňujú (generate.py ich nepoužíval).
+    Vracia Tuple[str, str].
     """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -386,12 +457,25 @@ def build_prompts_for_daily(
     planned_minutes = week.get("planned_minutes")
     main_sport = prefs.get("main_sport") or "run"
 
-    # Zoznam všetkých sportov
+    # Zoznam sportov — pridaj strength ak má sessions_per_week > 0
     sports_set = {main_sport}
     for key in ("add_on_sports", "included_sports"):
         lst = prefs.get(key)
         if isinstance(lst, list):
             sports_set.update(s.lower() for s in lst if isinstance(s, str) and s)
+
+    # Strength — pridaj do allowed sports ak je nastavené
+    strength_settings = _get_dict(prefs, "strength_settings")
+    strength_target_int: Optional[int] = None
+    try:
+        ss_raw = strength_settings.get("sessions_per_week") or constraints.get("strength_sessions_per_week_target")
+        if ss_raw:
+            strength_target_int = int(ss_raw)
+            if strength_target_int > 0:
+                sports_set.add("strength")
+    except Exception:
+        pass
+
     final_sports_list = list(sports_set)
 
     pref_obj = _get_dict(prefs, "preferences")
@@ -402,8 +486,16 @@ def build_prompts_for_daily(
     two = _get_dict(pref_obj, "two_a_day")
     two_enabled = bool(two.get("enabled"))
     two_cap = _safe_int(two.get("max_days_per_week"), 0, min_v=0, max_v=2) if two_enabled else 0
+
+    # Two-a-day z constraints (builder ho nastavuje správne)
+    if not two_enabled:
+        two_cap_constraint = _safe_int(constraints.get("two_a_day_max_days_per_week"), 0)
+        if two_cap_constraint > 0:
+            two_enabled = True
+            two_cap = two_cap_constraint
+
     long_run_days = [
-        str(d) for d in (pref_obj.get("long_run_days") or [])
+        str(d) for d in (pref_obj.get("long_run_days") or constraints.get("long_run_days") or [])
         if isinstance(d, str) and d.strip()
     ]
     avoid_back_to_back = bool(pref_obj.get("avoid_back_to_back_hard"))
@@ -417,6 +509,11 @@ def build_prompts_for_daily(
     zones_data = _as_dict(context_payload.get("zones"))
     has_zones = _check_has_zones(zones_data)
 
+    # LTHR pre threshold pravidlo
+    thresholds = _as_dict(context_payload.get("thresholds"))
+    run_thresh = _as_dict(thresholds.get("run"))
+    lthr = run_thresh.get("lthr_bpm")
+
     # Training blocks
     tb = _get_dict(pref_obj, "training_blocks")
     blocks = {
@@ -425,26 +522,14 @@ def build_prompts_for_daily(
         "threshold": bool(tb.get("threshold")),
     }
 
-    # Strength
-    strength_settings = _get_dict(prefs, "strength_settings")
-    strength_target_int: Optional[int] = None
-    ss_raw = strength_settings.get("sessions_per_week")
-    if isinstance(ss_raw, (int, float, str)):
-        try:
-            strength_target_int = int(ss_raw)
-        except Exception:
-            pass
-
-    # External events
+    # External events count
     ext = _as_dict(context_payload.get("external_events"))
-    ext_occ = ext.get("occurrences")
+    ext_occ = ext.get("occurrences") or []
     if not isinstance(ext_occ, list):
         ext_occ = []
     ext_count = len(ext_occ)
     ext_minutes_total = sum(
-        _safe_int(e.get("duration_min"), 0)
-        for e in ext_occ
-        if isinstance(e, dict)
+        _safe_int(e.get("duration_min"), 0) for e in ext_occ if isinstance(e, dict)
     )
 
     # Volume
@@ -467,19 +552,19 @@ def build_prompts_for_daily(
         )
     else:
         weekly_volume_line = (
-            "- WEEKLY VOLUME: Infer from recent_load and DO NOT exceed "
-            "`athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
+            "- WEEKLY VOLUME: Infer from recent_load. "
+            "DO NOT exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
         )
 
     # Rules
     if days_off:
         rest_days_rule = (
             f"- REST DAYS (CRITICAL): Explicit days off: {', '.join(days_off)}. "
-            "Schedule ONLY complete rest on these days (sport='other', kind='rest', duration_min=0). No exceptions.\n\n"
+            "Schedule ONLY complete rest (sport='other', kind='rest', duration_min=0). No exceptions.\n\n"
         )
     else:
         rest_days_rule = (
-            "- REST DAYS & SPACING (CRITICAL): No explicit days off selected. "
+            "- REST DAYS & SPACING (CRITICAL): No explicit days off. "
             "MUST keep AT LEAST 1 DAY completely free. "
             "On rest day: one session with sport='other', kind='rest', duration_min=0. "
             "DO NOT schedule more than 3 consecutive training days without a rest day.\n\n"
@@ -488,19 +573,19 @@ def build_prompts_for_daily(
     if two_enabled and two_cap > 0:
         two_a_day_rule = (
             f"- TWO-A-DAY: Max {two_cap} days/week can have 2 sessions. "
-            "Use to group sessions (e.g. Run + Strength) to free up rest days.\n\n"
+            "Use to group (e.g. Run + Strength) to free up rest days.\n\n"
         )
     else:
         two_a_day_rule = (
             "- TWO-A-DAY (CRITICAL): Max 0 days/week can have 2 sessions. "
             "FORBIDDEN from scheduling 2 sessions on same day. "
-            "If too many workouts — DROP some sessions. NEVER train 7 days a week.\n\n"
+            "If too many workouts — DROP some. NEVER train 7 days a week.\n\n"
         )
 
     strength_str = f"{strength_target_int}× per week" if strength_target_int else "not specified"
     strength_rule = (
         f"- STRENGTH: Target {strength_str}. Use sport='strength'. "
-        "If two_a_day is disabled and lack days — REDUCE strength sessions. DO NOT sacrifice rest days.\n\n"
+        "If two_a_day disabled and lack days — REDUCE strength sessions. DO NOT sacrifice rest days.\n\n"
     )
     long_run_rule = (
         f"- LONG RUN: If run is main sport, 1 long run "
@@ -525,12 +610,11 @@ def build_prompts_for_daily(
         "  - Explain intensity using human feeling (Talk Test, Sing Test).\n"
         "  - Emphasize: 'Walking during a run is success, not failure.'\n"
         "  - FOR BIKE: 'Cadence over Power'.\n\n"
-        if is_returning_beginner
-        else ""
+        if is_returning_beginner else ""
     )
 
     latest_paces = _as_dict(context_payload.get("latest_paces"))
-    intensity_format_rule = _build_intensity_format_rule(has_zones, latest_paces)
+    intensity_format_rule = _build_intensity_format_rule(has_zones, latest_paces, lthr)
 
     endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): Provide `structure` with `warmup`, `main_part`, `cooldown`.\n"
@@ -543,9 +627,8 @@ def build_prompts_for_daily(
         "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
     )
 
-    special_reason_rule = _build_special_reason_rule(
-        context_payload.get("generate_reason")
-    )
+    special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
+
     sports_restriction = (
         f"- ALLOWED SPORTS: {', '.join(final_sports_list)}. "
         "ONLY populate sessions for listed sports.\n\n"
