@@ -64,10 +64,23 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 # sport a intensity zostávajú na roote dňa (nie v metrics)
 
-    # Legacy hr_zones_bpm z ctx — user_zones z DB sú presnejšie, toto je redundantné
+    # Plan today a tomorrow — odstráni DB metadata, zachová len to čo AI potrebuje
     ctx_block = out.get("context", {})
     if isinstance(ctx_block, dict):
         ctx_block.pop("hr_zones_bpm", None)
+        
+        for plan_key in ("plan_today", "plan_tomorrow"):
+            plan = ctx_block.get(plan_key)
+            if isinstance(plan, dict):
+                ctx_block[plan_key] = {
+                    "sport": plan.get("sport"),
+                    "title": plan.get("title"),
+                    "duration_min": plan.get("duration_min"),
+                    "notes": plan.get("notes"),
+                    "status": plan.get("status"),
+                    # intensity/load_phase ak existuje
+                    "intensity": plan.get("intensity") or plan.get("session_type"),
+                }
 
     return _remove_empty(out)
 

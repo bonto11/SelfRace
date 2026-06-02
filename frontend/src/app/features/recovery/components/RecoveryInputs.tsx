@@ -125,8 +125,8 @@ export default function RecoveryInputs() {
       setSleepStart(normalizeTime(existing.sleep_start_time));
       setLateFood(Boolean(existing.food_2h_before));
       setLateCaffeine(Boolean(existing.caffeine_8h));
-      setAlcoholVolume(existing.alcohol_volume_ml ?? "");
-      setAlcoholType(existing.alcohol_type_pct ?? "");
+      setAlcoholVolume((existing as any).alcohol_volume_ml ?? "");
+      setAlcoholType((existing as any).alcohol_type_pct ?? "");
       setComments(existing.comments ?? "");
     } else {
       // Nový deň — biometrika z posledného záznamu, faktory resetuj
