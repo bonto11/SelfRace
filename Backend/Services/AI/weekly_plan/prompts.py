@@ -29,6 +29,16 @@ def _safe_date(v: Any) -> Optional[str]:
     return s[:10] if len(s) >= 10 else None
 
 
+def _days_until(date_str: Optional[str]) -> Optional[int]:
+    """Počet dní do dátumu od dnes."""
+    if not date_str:
+        return None
+    try:
+        return (date.fromisoformat(str(date_str)[:10]) - date.today()).days
+    except Exception:
+        return None
+
+
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} — menej tokenov."""
     if isinstance(d, dict):
@@ -107,40 +117,29 @@ def _build_womens_health_rule(
     preferences_obj: Dict[str, Any],
     start_date: Optional[str],
 ) -> str:
-    """
-    Vráti špeciálnu inštrukciu pre cycle sync ak je aktivovaná a dátum sedí.
-    Bug fix: abs() na days_into_cycle aby nebol záporný pri plan_start < cycle_start.
-    """
+    """Vráti inštrukciu pre cycle sync ak je aktivovaná a dátum sedí."""
     womens_health = _get_dict(preferences_obj, "womens_health")
     if not womens_health.get("sync_enabled"):
         return ""
-
     next_cycle_start_str = womens_health.get("next_cycle_start")
     if not next_cycle_start_str:
         return ""
-
     try:
         cycle_length = int(womens_health.get("cycle_length_days") or 28)
-        plan_start_dt = (
-            date.fromisoformat(start_date) if start_date else date.today()
-        )
+        plan_start_dt = date.fromisoformat(start_date) if start_date else date.today()
         cycle_start_dt = date.fromisoformat(next_cycle_start_str[:10])
-
-        # abs() zaručí správny výsledok aj keď plan_start je pred cycle_start
         diff_days = (plan_start_dt - cycle_start_dt).days
         days_into_cycle = abs(diff_days) % cycle_length
-
         if 0 <= days_into_cycle <= 7:
             return (
                 "\n--- WOMEN'S HEALTH (CYCLE SYNC) ---\n"
                 "- The athlete's menstrual cycle starts this week.\n"
-                "- You MUST respect her physiology. Make this week a TAPER / RECOVERY week.\n"
-                "- Lower the total volume by 20-30%, prioritize Z1/Z2, avoid max intensity intervals.\n"
-                "- Remind her gently in the 'notes' that this is an expected lighter week.\n"
+                "- Make this week a TAPER / RECOVERY week.\n"
+                "- Lower volume by 20-30%, prioritize Z1/Z2, avoid max intensity.\n"
+                "- Remind her gently in 'notes' that this is an expected lighter week.\n"
             )
     except Exception:
         pass
-
     return ""
 
 
@@ -151,8 +150,11 @@ def _build_womens_health_rule(
 def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Osekáva weekly context pred odoslaním do AI.
-    Zachováva: prefs (s races, weekly_template), athlete_state (bez metrics),
-    external_events, weeks, replan_trigger, generate_reason.
+    Zmeny v tejto verzii:
+    - Races: pridané days_until_race, elevation_gain_m, custom_distance_km, terrain — kritické pre ultra plánovanie
+    - Strength: strength_settings.sessions_per_week sa teraz posiela explicitne (predtým sa stratilo)
+    - External events: posiela sa len ak má reálne eventy (nie prázdny window)
+    - athlete_state: odstránený plan_adjustment (nie je relevantný pre weekly builder)
     """
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
@@ -164,7 +166,18 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     run_t = _get_dict(targets, "run")
     strength_t = _get_dict(targets, "strength")
 
-    # Races — minifikované
+    # Strength settings — z prefs.strength_settings (nie targets.strength ktorý môže byť prázdny)
+    strength_settings = _get_dict(raw_prefs, "strength_settings")
+    strength_sessions = None
+    if strength_settings:
+        try:
+            raw = strength_settings.get("sessions_per_week")
+            if raw is not None:
+                strength_sessions = int(raw)
+        except Exception:
+            pass
+
+    # Races — kompletné info vrátane elevation a distance (kritické pre ultra/mountain)
     races_raw = run_t.get("races")
     races_min: Optional[List[Dict[str, Any]]] = None
     if isinstance(races_raw, list):
@@ -173,12 +186,20 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             r2 = _as_dict(r)
             if not r2:
                 continue
+            race_date = _safe_date(
+                r2.get("date") or r2.get("start_date") or r2.get("race_date")
+            )
             races_min.append({
-                "date": _safe_date(
-                    r2.get("date") or r2.get("start_date") or r2.get("race_date")
-                ),
                 "name": r2.get("name") or r2.get("title"),
-                "type": r2.get("type") or r2.get("race_type"),
+                "date": race_date,
+                "days_until_race": _days_until(race_date),  # AI vie presne koľko dní zostáva
+                "race_goal": r2.get("race_goal"),
+                "race_type": r2.get("type") or r2.get("race_type"),
+                "target_time": r2.get("target_time"),
+                "custom_distance_km": r2.get("custom_distance_km"),     # dĺžka ultra
+                "elevation_gain_m": r2.get("elevation_gain_m"),          # prevýšenie
+                "terrain": r2.get("terrain"),                            # mountain/road
+                "priority": r2.get("priority"),
             })
             if len(races_min) >= 10:
                 break
@@ -213,6 +234,10 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         } if targets else {},
     }
 
+    # Strength settings explicitne — sessions_per_week je kľúčové pre plánovanie
+    if strength_sessions:
+        prefs2["strength_sessions_per_week"] = strength_sessions
+
     # Weekly template — len key sloty
     wt = _as_dict(raw_prefs.get("weekly_template"))
     if wt:
@@ -223,18 +248,19 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
-    # Athlete state — bez metrics (tie sú inde)
+    # Athlete state — bez metrics a bez plan_adjustment (nie je relevantný tu)
     athlete_state = _as_dict(context.get("athlete_state"))
     is_beginner = athlete_state.get("is_returning_beginner")
     if athlete_state:
         ai_state = dict(_as_dict(athlete_state.get("ai_state")))
         ai_state.pop("metrics", None)
+        ai_state.pop("plan_adjustment", None)  # nie je relevantné pre weekly builder
         ctx2["athlete_state"] = {
             "ai_state": ai_state,
             "is_returning_beginner": is_beginner,
         }
 
-    # External events
+    # External events — len ak má reálne eventy (nie prázdny window blok)
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
@@ -245,48 +271,48 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(win.get("events"), list):
                 events = [_as_dict(e) for e in win["events"] if isinstance(e, dict)]
 
-        cleaned_events: List[Dict[str, Any]] = []
-        for e in events:
-            dt = (
-                e.get("occurrence_date")
-                or e.get("date")
-                or e.get("start_date_local")
-                or e.get("start_date")
-                or e.get("start_date_iso")
-            )
-            dt_ymd = _safe_date(dt)
-            dft = e.get("days_from_today")
-
-            if dt_ymd is None and isinstance(dft, (int, float)):
+        if events:  # len ak má reálne eventy
+            cleaned_events: List[Dict[str, Any]] = []
+            for e in events:
+                dt = (
+                    e.get("occurrence_date")
+                    or e.get("date")
+                    or e.get("start_date_local")
+                    or e.get("start_date")
+                    or e.get("start_date_iso")
+                )
+                dt_ymd = _safe_date(dt)
+                dft = e.get("days_from_today")
+                if dt_ymd is None and isinstance(dft, (int, float)):
+                    cleaned_events.append({
+                        "days_from_today": int(dft),
+                        "sport": e.get("sport"),
+                        "duration_min": e.get("duration_min"),
+                        "priority": e.get("priority"),
+                        "title": e.get("title"),
+                    })
+                    continue
+                if not dt_ymd:
+                    continue
                 cleaned_events.append({
-                    "days_from_today": int(dft),
+                    "occurrence_date": dt_ymd,
                     "sport": e.get("sport"),
                     "duration_min": e.get("duration_min"),
                     "priority": e.get("priority"),
                     "title": e.get("title"),
                 })
-                continue
-            if not dt_ymd:
-                continue
-            cleaned_events.append({
-                "occurrence_date": dt_ymd,
-                "sport": e.get("sport"),
-                "duration_min": e.get("duration_min"),
-                "priority": e.get("priority"),
-                "title": e.get("title"),
-            })
 
-        win2 = _as_dict(ext.get("window"))
-        if win2:
-            ctx2["external_events"] = {
-                "window": {
-                    "from": _safe_date(win2.get("from")),
-                    "to": _safe_date(win2.get("to")),
-                    "events": cleaned_events,
+            win2 = _as_dict(ext.get("window"))
+            if win2:
+                ctx2["external_events"] = {
+                    "window": {
+                        "from": _safe_date(win2.get("from")),
+                        "to": _safe_date(win2.get("to")),
+                        "events": cleaned_events,
+                    }
                 }
-            }
-        else:
-            ctx2["external_events"] = {"events": cleaned_events}
+            else:
+                ctx2["external_events"] = {"events": cleaned_events}
 
     # Meta polia
     for k in ("weeks", "replan_trigger", "generate_reason"):
@@ -307,7 +333,6 @@ def build_prompts_for_weekly(
 ) -> Tuple[str, str]:
     """
     Zostaví (system_prompt, user_prompt) pre weekly meta-plán.
-    Detekuje volume mode, beginner stav, women's health cycle, špeciálne dôvody.
     """
     settings = _as_dict(settings or {})
     lang_label, second_person_note = _lang_notes(settings)
@@ -324,7 +349,7 @@ def build_prompts_for_weekly(
     )
     main_sport = raw_prefs.get("main_sport") or "run"
 
-    # Zoznam povolených sportov
+    # Zoznam povolených sportov — pridáme strength ak má sessions_per_week
     sports_set = {main_sport}
     add_on = raw_prefs.get("add_on_sports")
     included = raw_prefs.get("included_sports")
@@ -332,11 +357,53 @@ def build_prompts_for_weekly(
         sports_set.update(s.lower() for s in add_on if isinstance(s, str) and s)
     elif isinstance(included, list):
         sports_set.update(s.lower() for s in included if isinstance(s, str) and s)
+
+    # Strength — pridaj do sportov ak má nastavené sessions
+    strength_settings = _get_dict(raw_prefs, "strength_settings")
+    strength_sessions = None
+    try:
+        raw = strength_settings.get("sessions_per_week")
+        if raw:
+            strength_sessions = int(raw)
+            if strength_sessions > 0:
+                sports_set.add("strength")
+    except Exception:
+        pass
+
     final_sports_list = list(sports_set)
 
-    # Athlete state
+    # Athlete state + najbližší pretek
     athlete_state = _as_dict(ctx.get("athlete_state"))
     is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
+
+    # Nearest race hint — explicitná inštrukcia s dňami
+    targets = _get_dict(raw_prefs, "targets")
+    run_races = _as_list(_get_dict(targets, "run").get("races"))
+    next_race = min(
+        (r for r in run_races
+         if isinstance(r, dict) and isinstance(r.get("days_until_race"), int) and r["days_until_race"] >= 0),
+        key=lambda r: r["days_until_race"],
+        default=None,
+    )
+    # Zmeň toto (riadky 89-98):
+    race_hint = ""
+    if next_race:
+        dist = next_race.get("custom_distance_km")
+        elev = next_race.get("elevation_gain_m")
+        terrain = next_race.get("terrain")
+        details_parts = []
+        if dist:
+            details_parts.append(f"{dist} km")
+        if elev:
+            details_parts.append(f"{elev}m elev")
+        if terrain:
+            details_parts.append(f"{terrain} terrain")
+        details = f" ({', '.join(details_parts)})" if details_parts else ""
+        race_hint = (
+            f"\n- KEY RACE: {next_race.get('name')} in {next_race.get('days_until_race')} days{details}."
+            f" Target: {next_race.get('target_time')}. "
+            "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
+        )
 
     # Minifikovaný context pre AI
     context_for_ai = minify_weekly_context_for_ai(ctx)
@@ -345,7 +412,7 @@ def build_prompts_for_weekly(
     volume_mode = vol.get("mode")
     volume_value = vol.get("value")
 
-    # Women's health rule — opravený bug (abs() na diff_days)
+    # Women's health
     womens_health_rule = _build_womens_health_rule(preferences_obj, start_date)
 
     # Volume hints
@@ -360,13 +427,15 @@ def build_prompts_for_weekly(
             f"- Baseline target: {volume_value * 60:.0f} total minutes per week."
         )
     elif volume_mode == "daily_minutes" and isinstance(volume_value, (int, float)):
-        volume_hint_lines.append(
-            f"- Baseline target: ~{volume_value} min per active day."
-        )
+        volume_hint_lines.append(f"- Baseline target: ~{volume_value} min per active day.")
     else:
         volume_hint_lines.append("- No volume target: use ai_state.volume_tolerance.")
     volume_hint_lines.append("- Stay within ai_state.volume_tolerance min/max.")
     volume_hint_lines.append("- Use 2-3 build weeks + 1 recovery week cycle.")
+    if strength_sessions:
+        volume_hint_lines.append(
+            f"- STRENGTH: Include {strength_sessions}x strength sessions per week in planned_stats."
+        )
     volume_hint = "\n".join(volume_hint_lines)
 
     # Beginner protokol
@@ -375,11 +444,10 @@ def build_prompts_for_weekly(
         "  - Tone: Encouraging, educational, protective.\n"
         "  - 'notes' MUST explain the theme. Remind 'Easy means Easy' (Talk Test).\n"
         "  - Emphasize that walking during a run is success, not failure.\n"
-        if is_returning_beginner
-        else ""
+        if is_returning_beginner else ""
     )
 
-    # Špeciálny dôvod generovania
+    # Špeciálny dôvod
     reason = context_for_ai.get("generate_reason")
     special_reason_rule = ""
     if reason == "health_resolved_return":
@@ -407,8 +475,6 @@ def build_prompts_for_weekly(
         "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
-    schema_text = _weekly_schema()
-
     user_txt = (
         f"Design a WEEKLY meta plan.\n"
         f"Main sport: {main_sport}\n"
@@ -416,11 +482,12 @@ def build_prompts_for_weekly(
         "CONTEXT_JSON:\n"
         + json.dumps(context_for_ai, ensure_ascii=False)
         + "\n\nSCHEMA & REQUIREMENTS:\n"
-        + schema_text + "\n"
+        + _weekly_schema() + "\n"
         + f"- All text fields (goal, notes) must be in {lang_label}. {second_person_note}\n"
         + sports_restriction + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
+        + race_hint
         + beginner_protocol
         + special_reason_rule
         + womens_health_rule
