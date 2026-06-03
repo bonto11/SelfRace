@@ -30,7 +30,7 @@ const formatTimeValue = (val: number) => {
 
 /* ─── DIM COLOR — pre nevybraté bary (solídna farba, žiadna opacity) ─── */
 // Mix farby smerom k tmavému pozadiu — nevybraté bary sú tlmené ale viditeľné
-function dimColor(hex: string, amount = 0.78): string {
+function dimColor(hex: string, amount = 0.85): string {
   if (!hex?.startsWith("#") || hex.length < 7) return hex;
   // Tmavé zelené pozadie aplikácie ~ rgb(7,22,16)
   const bg = [10, 24, 18];
@@ -253,49 +253,75 @@ export default function TrendWeeklyLoad({
           <BarChart data={chartData} onClick={handleChartClick}
             margin={{ top: 16, right: 8, left: 0, bottom: 4 }} style={{ outline: "none" }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-            <XAxis dataKey="label" interval={xAxisInterval}
-              tick={{ fill: appColors.textMuted, fontSize: 10 }}
-              axisLine={false} tickLine={false} dy={8} />
+            <XAxis
+              dataKey="label"
+              interval={xAxisInterval}
+              axisLine={false}
+              tickLine={false}
+              dy={8}
+              tick={(props: any) => {
+                const { x, y, payload, index } = props;
+                const isSelected = selectedIndex === index;
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text
+                      x={0} y={0} dy={14}
+                      textAnchor="middle"
+                      fill={isSelected ? appColors.brandPrimary : appColors.textMuted}
+                      fontWeight={isSelected ? 700 : 400}
+                      fontSize={10}
+                    >
+                      {payload.value}
+                    </text>
+                    {isSelected && (
+                      <circle cx={0} cy={6} r={2.5} fill={appColors.brandPrimary} />
+                    )}
+                  </g>
+                );
+              }}
+            />
             <YAxis width={42} tick={{ fill: appColors.textMuted, fontSize: 10 }}
               axisLine={false} tickLine={false} tickFormatter={yAxisTickFormatter}
               label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
                 fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }} />
 
-            {/* Legend — farby berie z fill prop každého Bar automaticky */}
-            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+            {/* Legenda len keď nič nie je vybraté — popup nahradí obsah */}
+            {selectedIndex === null && (
+              <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+            )}
 
             {hasData.run && (
-              <Bar dataKey="run" name={t("common.sports.run") as string}
+              <Bar key={`bar-run-${selectedIndex ?? "x"}`} dataKey="run" name={t("common.sports.run") as string}
                 stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartRun, "run")}
               </Bar>
             )}
             {hasData.ride && (
-              <Bar dataKey="ride" name={t("common.sports.bike") as string}
+              <Bar key={`bar-ride-${selectedIndex ?? "x"}`} dataKey="ride" name={t("common.sports.bike") as string}
                 stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartBike, "ride")}
               </Bar>
             )}
             {hasData.strength && (metric === "time" || metric === "trimp") && (
-              <Bar dataKey="strength" name={t("common.sports.strength") as string}
+              <Bar key={`bar-strength-${selectedIndex ?? "x"}`} dataKey="strength" name={t("common.sports.strength") as string}
                 stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartStrength, "strength")}
               </Bar>
             )}
             {hasData.mixed && (
-              <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
+              <Bar key={`bar-mixed-${selectedIndex ?? "x"}`} dataKey="mixed" name={t("common.sports.mixed") as string}
                 stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartMixed, "mixed")}
               </Bar>
             )}
             {hasData.skate && (
-              <Bar dataKey="skate" name={t("common.sports.skate") as string}
+              <Bar key={`bar-skate-${selectedIndex ?? "x"}`} dataKey="skate" name={t("common.sports.skate") as string}
                 stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartSkate, "skate")}
               </Bar>
             )}
             {hasData.other && (metric === "time" || metric === "trimp") && (
-              <Bar dataKey="other" name={t("common.sports.other") as string}
+              <Bar key={`bar-other-${selectedIndex ?? "x"}`} dataKey="other" name={t("common.sports.other") as string}
                 stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false}>
                 {renderCells(appColors.chartOther, "other")}
               </Bar>
