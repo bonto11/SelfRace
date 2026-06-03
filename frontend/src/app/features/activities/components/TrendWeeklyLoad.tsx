@@ -28,7 +28,20 @@ const formatTimeValue = (val: number) => {
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
 
-/* ─── WEEK POPUP (vlastný, nie Recharts Tooltip) ─── */
+/* ─── DIM COLOR — pre nevybraté bary (solídna farba, žiadna opacity) ─── */
+// Mix farby smerom k tmavému pozadiu — nevybraté bary sú tlmené ale viditeľné
+function dimColor(hex: string, amount = 0.78): string {
+  if (!hex?.startsWith("#") || hex.length < 7) return hex;
+  // Tmavé zelené pozadie aplikácie ~ rgb(7,22,16)
+  const bg = [10, 24, 18];
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c: number, bgc: number) => Math.round(c + (bgc - c) * amount);
+  return `rgb(${mix(r, bg[0])}, ${mix(g, bg[1])}, ${mix(b, bg[2])})`;
+}
+
+/* ─── WEEK POPUP ─── */
 const SPORT_COLORS: Record<string, string> = {
   run: appColors.chartRun, ride: appColors.chartBike,
   strength: appColors.chartStrength, mixed: appColors.chartMixed,
@@ -46,7 +59,6 @@ function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t:
   const entries = (["run","ride","strength","mixed","skate","other"] as const)
     .map((k) => ({ k, val: data[k] as number | undefined, color: SPORT_COLORS[k] }))
     .filter((e) => e.val && e.val > 0);
-
   const total = entries.reduce((s, e) => s + (e.val ?? 0), 0);
 
   return (
@@ -145,18 +157,10 @@ export default function TrendWeeklyLoad({
     return { chartData: data, hasData: hd };
   }, [weeks, metric]);
 
-  /* Opacity pre každý index — 1 ak nie je nič vybraté ALEBO ak je tento index vybraný */
-  const cellOpacity = useCallback(
-    (index: number) =>
-      selectedIndex === null || selectedIndex === index ? 1 : 0.3,
-    [selectedIndex],
-  );
-
   const handleChartClick = useCallback((state: any) => {
     if (!state) return;
     const index = state.activeTooltipIndex ?? state.activeIndex;
     if (index === undefined || index === null || !chartData[index]) return;
-
     if (selectedIndex === index) {
       setSelectedIndex(null);
       onPickWeek?.(null);
@@ -191,11 +195,23 @@ export default function TrendWeeklyLoad({
 
   const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
 
-  /* Helper: Cells pre jeden Bar dataKey */
-  const renderCells = (baseColor: string) =>
-    chartData.map((_, i) => (
-      <Cell key={i} fill={baseColor} fillOpacity={cellOpacity(i)} />
-    ));
+  /*
+    Cells: SOLÍDNA farba (žiadna fillOpacity ktorá robí problémy).
+    - nič nevybraté → plná farba
+    - vybraný index → plná farba
+    - ostatné → dimColor (tlmená solídna farba)
+    key obsahuje selectedIndex → vynúti remount Cell → Recharts prekreslí
+  */
+  const renderCells = (baseColor: string, dataKey: string) =>
+    chartData.map((_, i) => {
+      const active = selectedIndex === null || selectedIndex === i;
+      return (
+        <Cell
+          key={`${dataKey}-${i}-${selectedIndex ?? "none"}`}
+          fill={active ? baseColor : dimColor(baseColor)}
+        />
+      );
+    });
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -245,54 +261,61 @@ export default function TrendWeeklyLoad({
               label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
                 fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }} />
 
-            {/* BEZ Recharts Tooltip — popup renderujeme sami */}
-            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+            {/* fill na Legend cez payload — explicitné farby aby bodky neboli čierne */}
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+              payload={[
+                ...(hasData.run      ? [{ value: t("common.sports.run"),      type: "circle" as const, color: appColors.chartRun }] : []),
+                ...(hasData.ride     ? [{ value: t("common.sports.bike"),     type: "circle" as const, color: appColors.chartBike }] : []),
+                ...(hasData.strength && (metric === "time" || metric === "trimp") ? [{ value: t("common.sports.strength"), type: "circle" as const, color: appColors.chartStrength }] : []),
+                ...(hasData.mixed    ? [{ value: t("common.sports.mixed"),    type: "circle" as const, color: appColors.chartMixed }] : []),
+                ...(hasData.skate    ? [{ value: t("common.sports.skate"),    type: "circle" as const, color: appColors.chartSkate }] : []),
+                ...(hasData.other && (metric === "time" || metric === "trimp") ? [{ value: t("common.sports.other"), type: "circle" as const, color: appColors.chartOther }] : []),
+              ]}
+            />
 
-            {/*
-              Cell s fillOpacity — najspoľahlivejší spôsob dynamickej opacity
-              v Recharts stacked baroch. Nevyžaduje stable refs ani shape prop trik.
-            */}
             {hasData.run && (
               <Bar dataKey="run" name={t("common.sports.run") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartRun)}
+                stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartRun, "run")}
               </Bar>
             )}
             {hasData.ride && (
               <Bar dataKey="ride" name={t("common.sports.bike") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartBike)}
+                stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartBike, "ride")}
               </Bar>
             )}
             {hasData.strength && (metric === "time" || metric === "trimp") && (
               <Bar dataKey="strength" name={t("common.sports.strength") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartStrength)}
+                stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartStrength, "strength")}
               </Bar>
             )}
             {hasData.mixed && (
               <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartMixed)}
+                stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartMixed, "mixed")}
               </Bar>
             )}
             {hasData.skate && (
               <Bar dataKey="skate" name={t("common.sports.skate") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartSkate)}
+                stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartSkate, "skate")}
               </Bar>
             )}
             {hasData.other && (metric === "time" || metric === "trimp") && (
               <Bar dataKey="other" name={t("common.sports.other") as string}
-                stackId="a" maxBarSize={44} activeBar={false}>
-                {renderCells(appColors.chartOther)}
+                stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false}>
+                {renderCells(appColors.chartOther, "other")}
               </Bar>
             )}
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Vlastný popup pod grafom — plná kontrola nad zavretím */}
+      {/* Popup pod grafom */}
       {selectedIndex !== null && chartData[selectedIndex] && (
         <WeekPopup data={chartData[selectedIndex]} metric={metric} t={t} onClose={handleDismiss} />
       )}
