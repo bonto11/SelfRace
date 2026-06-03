@@ -154,8 +154,13 @@ export default function TrendWeeklyLoad({
       }
       data.push(row);
     }
-    return { chartData: data, hasData: hd };
-  }, [weeks, metric]);
+    // _active flag priamo v dátach — Recharts prekreslí bary keď selectedIndex zmení chartData
+    const chartData = data.map((row, i) => ({
+      ...row,
+      _active: selectedIndex === null || selectedIndex === i,
+    }));
+    return { chartData, hasData: hd };
+  }, [weeks, metric, selectedIndex]); // ← selectedIndex v deps = nový array = Recharts prekreslí
 
   const handleChartClick = useCallback((state: any) => {
     if (!state) return;
@@ -195,23 +200,11 @@ export default function TrendWeeklyLoad({
 
   const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
 
-  /*
-    Cells: SOLÍDNA farba (žiadna fillOpacity ktorá robí problémy).
-    - nič nevybraté → plná farba
-    - vybraný index → plná farba
-    - ostatné → dimColor (tlmená solídna farba)
-    key obsahuje selectedIndex → vynúti remount Cell → Recharts prekreslí
-  */
-  const renderCells = (baseColor: string, dataKey: string) =>
-    chartData.map((_, i) => {
-      const active = selectedIndex === null || selectedIndex === i;
-      return (
-        <Cell
-          key={`${dataKey}-${i}-${selectedIndex ?? "none"}`}
-          fill={active ? baseColor : dimColor(baseColor)}
-        />
-      );
-    });
+  // _active je v každom dátovom bode — jednoduché čítanie
+  const renderCells = (baseColor: string) =>
+    chartData.map((item, i) => (
+      <Cell key={i} fill={item._active ? baseColor : dimColor(baseColor)} />
+    ));
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
@@ -291,39 +284,39 @@ export default function TrendWeeklyLoad({
             )}
 
             {hasData.run && (
-              <Bar key={`bar-run-${selectedIndex ?? "x"}`} dataKey="run" name={t("common.sports.run") as string}
+              <Bar dataKey="run" name={t("common.sports.run") as string}
                 stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartRun, "run")}
+                {renderCells(appColors.chartRun)}
               </Bar>
             )}
             {hasData.ride && (
-              <Bar key={`bar-ride-${selectedIndex ?? "x"}`} dataKey="ride" name={t("common.sports.bike") as string}
+              <Bar dataKey="ride" name={t("common.sports.bike") as string}
                 stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartBike, "ride")}
+                {renderCells(appColors.chartBike)}
               </Bar>
             )}
             {hasData.strength && (metric === "time" || metric === "trimp") && (
-              <Bar key={`bar-strength-${selectedIndex ?? "x"}`} dataKey="strength" name={t("common.sports.strength") as string}
+              <Bar dataKey="strength" name={t("common.sports.strength") as string}
                 stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartStrength, "strength")}
+                {renderCells(appColors.chartStrength)}
               </Bar>
             )}
             {hasData.mixed && (
-              <Bar key={`bar-mixed-${selectedIndex ?? "x"}`} dataKey="mixed" name={t("common.sports.mixed") as string}
+              <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
                 stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartMixed, "mixed")}
+                {renderCells(appColors.chartMixed)}
               </Bar>
             )}
             {hasData.skate && (
-              <Bar key={`bar-skate-${selectedIndex ?? "x"}`} dataKey="skate" name={t("common.sports.skate") as string}
+              <Bar dataKey="skate" name={t("common.sports.skate") as string}
                 stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartSkate, "skate")}
+                {renderCells(appColors.chartSkate)}
               </Bar>
             )}
             {hasData.other && (metric === "time" || metric === "trimp") && (
-              <Bar key={`bar-other-${selectedIndex ?? "x"}`} dataKey="other" name={t("common.sports.other") as string}
+              <Bar dataKey="other" name={t("common.sports.other") as string}
                 stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartOther, "other")}
+                {renderCells(appColors.chartOther)}
               </Bar>
             )}
           </BarChart>
