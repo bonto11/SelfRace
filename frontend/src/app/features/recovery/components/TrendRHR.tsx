@@ -31,8 +31,6 @@ function dateSeq(startISO: string, endISO: string): string[] {
   while (cur <= end) { out.push(getLocalISODate(cur)); cur.setDate(cur.getDate() + 1); }
   return out;
 }
-
-/* ─── Y-OS ±5 od skutočného min/max ─── */
 function calcYDomain(allValid: number[]): [number, number] {
   if (!allValid.length) return [40, 80];
   const dataMin = Math.min(...allValid);
@@ -75,7 +73,6 @@ const RecoveryTooltip = ({ active, payload, label, t }: any) => {
   );
 };
 
-/* ─── EXPAND ICON ─── */
 const ExpandIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
     <path d="M1 1h4M1 1v4M15 1h-4M15 1v4M1 15h4M1 15v-4M15 15h-4M15 15v-4"
@@ -142,24 +139,24 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
     COLOR, t, weeks, onWeeksChange, loading } = props;
 
   useEffect(() => {
-    // 1. Pridaj triedu na body — MobileBottomBar ju detekuje a skryje sa
-    document.body.classList.add("chart-fullscreen");
-    // 2. Escape klávesa
+    // Priamy DOM prístup — najistejší spôsob skrytia nav baru
+    // MobileBottomBar má id="mobile-bottom-nav"
+    const nav = document.getElementById("mobile-bottom-nav");
+    if (nav) nav.style.setProperty("display", "none", "important");
+
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", h);
+
     return () => {
-      document.body.classList.remove("chart-fullscreen");
+      if (nav) nav.style.removeProperty("display");
       window.removeEventListener("keydown", h);
     };
   }, [onClose]);
 
   const overlay = (
-    // Klik na pozadie = zatvoriť
     <div onClick={onClose}
       style={{
         position: "fixed", inset: 0,
-        // createPortal ho dá priamo na document.body — z-index tu je absolútny,
-        // nie relatívny k žiadnemu stacking contextu
         zIndex: 99999,
         backgroundColor: "#071610",
         display: "flex", flexDirection: "column",
@@ -168,17 +165,17 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
       <div onClick={(e) => e.stopPropagation()}
         style={{
           flex: 1, display: "flex", flexDirection: "column",
-          padding: "16px 16px 16px 16px", // nav je schovaný, len safe-area padding
+          padding: "16px 16px 0 16px",
           paddingBottom: "max(16px, env(safe-area-inset-bottom))",
           minHeight: 0, boxSizing: "border-box",
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={{
           display: "flex", alignItems: "center",
           marginBottom: 10, flexShrink: 0, gap: 8,
         }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1 }}>
             <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
               {t("recovery.trends.rhr.title")}
             </div>
@@ -203,7 +200,7 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
           </button>
         </div>
 
-        {/* ── Graf ── */}
+        {/* Graf */}
         <div style={{
           flex: 1, minHeight: 0, position: "relative",
           outline: "none", WebkitTapHighlightColor: "transparent",
@@ -218,20 +215,23 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
               <ChartInner
                 chartData={chartData} yMin={yMin} yMax={yMax}
                 tickInterval={tickInterval} yAxisLabel={yAxisLabel}
-                COLOR={COLOR} t={t}
-                showLegend={false} // legenda je mimo grafu
+                COLOR={COLOR} t={t} showLegend={false}
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
-        {/* ── Legenda mimo grafu — vždy viditeľná ── */}
-        <div style={{ flexShrink: 0, paddingTop: 8 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 20px", marginBottom: 6 }}>
+        {/* Legenda vycentrovaná */}
+        <div style={{ flexShrink: 0, paddingTop: 10, paddingBottom: 8 }}>
+          {/* Farby čiar — vycentrované */}
+          <div style={{
+            display: "flex", justifyContent: "center",
+            flexWrap: "wrap", gap: "6px 20px", marginBottom: 6,
+          }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
                 display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-                backgroundColor: appColors.chartLine1,
+                backgroundColor: appColors.chartLine1, flexShrink: 0,
               }} />
               <span style={{ fontSize: 11, color: appColors.textMuted }}>
                 {t("recovery.trends.rhr.rhrLabel")}
@@ -240,21 +240,22 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
                 display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-                backgroundColor: appColors.stateBad,
+                backgroundColor: appColors.stateBad, flexShrink: 0,
               }} />
               <span style={{ fontSize: 11, color: appColors.textMuted }}>
                 {t("recovery.trends.rhr.missingLabel")}
               </span>
             </div>
           </div>
-          <EventsLegend t={t} />
+          {/* EventsLegend — ak má vlastný wrapper, prebal ho do centrovania */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <EventsLegend t={t} />
+          </div>
         </div>
       </div>
     </div>
   );
 
-  // createPortal — renderuje priamo do document.body, mimo akéhokoľvek stacking contextu
-  // Takto overlay vždy "vyhrá" nad nav barom aj keď nav má z-40
   return typeof document !== "undefined"
     ? createPortal(overlay, document.body)
     : null;
@@ -349,7 +350,6 @@ export default function TrendRHR() {
   const [yMin, yMax] = calcYDomain(allValid);
   const yAxisLabel   = `[${t("common.units.hr")}]`;
   const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
-
   const innerProps: ChartInnerProps = { chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t };
 
   return (

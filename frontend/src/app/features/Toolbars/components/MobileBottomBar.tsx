@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -60,29 +59,10 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
 export default function MobileBottomBar() {
   const t = useT();
 
-  // Schovaj sa keď je aktívny fullscreen chart overlay.
-  // TrendRHR (a iné grafy) pridajú triedu "chart-fullscreen" na document.body.
-  // MutationObserver detekuje zmenu a nav sa skryje/ukáže bez re-renderu celého stromu.
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    const check = () => {
-      setHidden(document.body.classList.contains("chart-fullscreen"));
-    };
-    check(); // inicializácia
-
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  if (hidden) return null;
-
   return (
+    // id="mobile-bottom-nav" — TrendRHR (a iné grafy) ho priamo schovajú/ukážu cez DOM
     <nav
+      id="mobile-bottom-nav"
       className={[
         "lg:hidden",
         "fixed bottom-0 inset-x-0 z-40",
