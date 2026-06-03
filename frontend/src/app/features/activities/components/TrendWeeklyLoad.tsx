@@ -261,19 +261,8 @@ export default function TrendWeeklyLoad({
               label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
                 fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }} />
 
-            {/* fill na Legend cez payload — explicitné farby aby bodky neboli čierne */}
-            <Legend
-              iconType="circle"
-              wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
-              payload={[
-                ...(hasData.run      ? [{ value: t("common.sports.run"),      type: "circle" as const, color: appColors.chartRun }] : []),
-                ...(hasData.ride     ? [{ value: t("common.sports.bike"),     type: "circle" as const, color: appColors.chartBike }] : []),
-                ...(hasData.strength && (metric === "time" || metric === "trimp") ? [{ value: t("common.sports.strength"), type: "circle" as const, color: appColors.chartStrength }] : []),
-                ...(hasData.mixed    ? [{ value: t("common.sports.mixed"),    type: "circle" as const, color: appColors.chartMixed }] : []),
-                ...(hasData.skate    ? [{ value: t("common.sports.skate"),    type: "circle" as const, color: appColors.chartSkate }] : []),
-                ...(hasData.other && (metric === "time" || metric === "trimp") ? [{ value: t("common.sports.other"), type: "circle" as const, color: appColors.chartOther }] : []),
-              ]}
-            />
+            {/* Legend — farby berie z fill prop každého Bar automaticky */}
+            <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
 
             {hasData.run && (
               <Bar dataKey="run" name={t("common.sports.run") as string}
