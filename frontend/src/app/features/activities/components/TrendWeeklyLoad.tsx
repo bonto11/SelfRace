@@ -2,15 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  Rectangle,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, Cell,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -24,11 +17,7 @@ import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activi
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
-  CARD,
-  SURFACE_CARD_STYLE,
-  PANEL_PAD,
-  PANEL_CARD_HEAD,
-  PANEL_TITLE,
+  CARD, SURFACE_CARD_STYLE, PANEL_PAD, PANEL_CARD_HEAD, PANEL_TITLE,
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -41,76 +30,109 @@ const formatTimeValue = (val: number) => {
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
 
-const StackedTooltip = ({ active, payload, label, metric, t }: any) => {
-  if (active && payload && payload.length) {
-    const total = payload.reduce((sum: number, entry: any) => sum + (Number(entry.value) || 0), 0);
-    const formatFn = (val: number) => metric === "time" ? formatTimeValue(val) : val.toFixed(1);
+/* ─── TOOLTIP ─── */
+const StackedTooltip = ({ active, payload, label, metric, t, onDismiss }: any) => {
+  if (!active || !payload?.length) return null;
+  const total = payload.reduce((sum: number, e: any) => sum + (Number(e.value) || 0), 0);
+  const fmt = (v: number) => metric === "time" ? formatTimeValue(v) : v.toFixed(1);
 
-    return (
-      <div 
-        className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px]"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder, outline: "none" }}
-      >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-        
-        <div className="space-y-1 mb-2">
-          {payload.map((entry: any, index: number) => {
-            if (!entry.value) return null;
-            return (
-              <div key={index} className="flex items-center justify-between gap-4 text-sm" style={{ color: entry.color }}>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
-                  <span className="opacity-90">{entry.name}</span>
-                </div>
-                <span className="font-bold">{formatFn(entry.value)}</span>
-              </div>
-            );
-          })}
-        </div>
-        
-        <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold" style={{ borderColor: appColors.divider }}>
-          <span>{t("common.together") || "Spolu"}:</span>
-          <span>{formatFn(total)}</span>
-        </div>
+  return (
+    // Klik na tooltip = dismiss
+    <div
+      onClick={(e) => { e.stopPropagation(); onDismiss?.(); }}
+      className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px] cursor-pointer"
+      style={{ backgroundColor: "rgba(9,24,18,0.95)", borderColor: appColors.panelBorder, outline: "none" }}
+    >
+      {/* Malý dismiss hint */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <p className="text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
+        <span style={{ color: appColors.textMuted, fontSize: 12, lineHeight: 1 }}>✕</span>
       </div>
-    );
-  }
-  return null;
+
+      <div className="space-y-1 mb-2">
+        {payload.map((entry: any, i: number) => {
+          if (!entry.value) return null;
+          return (
+            <div key={i} className="flex items-center justify-between gap-4 text-sm" style={{ color: entry.color }}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }} />
+                <span className="opacity-90">{entry.name}</span>
+              </div>
+              <span className="font-bold">{fmt(entry.value)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold"
+        style={{ borderColor: appColors.divider }}>
+        <span>{t("common.together") || "spolu"}:</span>
+        <span>{fmt(total)}</span>
+      </div>
+    </div>
+  );
 };
 
+/* ─── CUSTOM BAR SHAPE — wider + dimmed ─── */
+// Factory: returns shape renderer that knows selectedIndex via closure
+function makeBarShape(selectedIndex: number | null, color: string) {
+  return function BarShape(props: any) {
+    const { x, y, width, height, index } = props;
+    if (!height || height <= 0 || !width || width <= 0) return null;
+
+    const isSelected = selectedIndex === index;
+    const hasSelection = selectedIndex !== null;
+
+    // Vybraný bar: +10px širší (±5 na každú stranu), ostatné: 35% opacity
+    const extra     = isSelected ? 10 : 0;
+    const opacity   = hasSelection && !isSelected ? 0.35 : 1;
+
+    return (
+      <rect
+        x={x - extra / 2}
+        y={y}
+        width={Math.max(1, width + extra)}
+        height={Math.max(1, height)}
+        fill={color}
+        fillOpacity={opacity}
+        stroke="none"
+        style={{ transition: "all 0.15s ease" }}
+      />
+    );
+  };
+}
+
+/* ─── HLAVNÝ KOMPONENT ─── */
 export default function TrendWeeklyLoad({
   onPickWeek,
   onSportChange,
   showLookback = true,
 }: {
-  onPickWeek?: (w: WeekPick) => void;
+  onPickWeek?: (w: WeekPick | null) => void;
   onSportChange?: (sport: string) => void;
   showLookback?: boolean;
 }) {
   const { userId } = useUserId();
-  const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(2);
-  const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [metric, setMetric]         = useState<Metric>("km");
+  const [lookback, setLookback]     = useState<number>(2);
+  const [weeks, setWeeks]           = useState<WeekRow[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const t = useT();
 
-  useEffect(() => {
-    onSportChange?.(DEFAULT_SPORT);
-  }, [onSportChange]);
+  useEffect(() => { onSportChange?.(DEFAULT_SPORT); }, [onSportChange]);
+
+  // Reset výberu pri zmene dát
+  useEffect(() => { setSelectedIndex(null); onPickWeek?.(null); }, [lookback, metric]);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyLoad(userId, {
-          weeks: lookback,
-          sport: DEFAULT_SPORT,
-        });
-        if (!alive) return;
-        setWeeks(rows);
+        const rows = await apiGetWeeklyLoad(userId, { weeks: lookback, sport: DEFAULT_SPORT });
+        if (alive) setWeeks(rows);
       } catch (e: any) {
         console.error("Weekly load fetch failed:", t(e?.message as any));
         if (alive) setWeeks([]);
@@ -118,7 +140,6 @@ export default function TrendWeeklyLoad({
         if (alive) setLoading(false);
       }
     })();
-
     return () => { alive = false; };
   }, [userId, lookback, t]);
 
@@ -158,112 +179,206 @@ export default function TrendWeeklyLoad({
     return { chartData: data, hasData: hd };
   }, [weeks, metric]);
 
-  const handleChartClick = (state: any) => {
-    // Odstránená prísna podmienka !state.activePayload. Preskočíme len ak state vôbec nepríde.
-    if (!onPickWeek || !state) return;
+  // Bar shapes — nové inštancie pri zmene selectedIndex (aby sa prekreslili)
+  const barShapes = useMemo(() => ({
+    run:      makeBarShape(selectedIndex, appColors.chartRun),
+    ride:     makeBarShape(selectedIndex, appColors.chartBike),
+    strength: makeBarShape(selectedIndex, appColors.chartStrength),
+    mixed:    makeBarShape(selectedIndex, appColors.chartMixed),
+    skate:    makeBarShape(selectedIndex, appColors.chartSkate),
+    other:    makeBarShape(selectedIndex, appColors.chartOther),
+  }), [selectedIndex]);
 
-    // Vytiahneme index
-    const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
-    
-    if (index !== undefined && index !== null && chartData[index]) {
-      const w = chartData[index].rawWeek;
-      
-      if (w && w.start && w.end) {
-        onPickWeek({
-          week: w.week || w.start || "",
-          start: w.start,
-          end: w.end,
-          sport: "all", // Opravené späť na string "all" tak ako si chcel
-        });
-      }
+  const handleChartClick = (state: any) => {
+    if (!state) return;
+    const index = state.activeTooltipIndex ?? state.activeIndex;
+    if (index === undefined || index === null || !chartData[index]) return;
+
+    // Toggle — klik na vybraný = odznačiť
+    if (selectedIndex === index) {
+      setSelectedIndex(null);
+      onPickWeek?.(null);
+      return;
+    }
+
+    setSelectedIndex(index);
+    const w = chartData[index].rawWeek;
+    if (onPickWeek && w?.start && w?.end) {
+      onPickWeek({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
     }
   };
 
-  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour") || "h"}]` : `[${t("common.units.trimp")}]`;
+  const handleDismiss = () => {
+    setSelectedIndex(null);
+    onPickWeek?.(null);
+  };
 
-  const yAxisTickFormatter = (val: any, index: number): string => {
+  const yAxisLabel = metric === "km"
+    ? `[${t("common.units.km")}]`
+    : metric === "time"
+    ? `[${t("common.units.hour") || "h"}]`
+    : `[${t("common.units.trimp")}]`;
+
+  const yAxisTickFormatter = (val: any): string => {
     const num = Number(val);
     if (metric === "time") {
       if (num === 0) return "0";
       if (num >= 60) {
-         const h = Math.floor(num / 60);
-         const m = Math.floor(num % 60);
-         return m === 0 ? `${h}${t("common.units.hour") || "h"}` : `${h}:${m.toString().padStart(2, "0")}`;
+        const h = Math.floor(num / 60);
+        const m = Math.floor(num % 60);
+        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}${t("common.units.min") || "m"}`;
+      return `${num}m`;
     }
-    return String(val); 
+    return String(val);
   };
 
-  // ✅ Opravený activeBar, aby nevznikal biely stroke (okraj), ale aby zostal stĺpec klikateľný
-  const renderActiveBar = (props: any) => {
-    return <Rectangle {...props} stroke="none" style={{ outline: "none" }} />;
-  };
+  // X-axis interval — pri veľa týždňoch ukaž menej tickov
+  const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      
-      <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
-        <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
 
-        <div className="flex flex-wrap items-center gap-3 ml-auto">
-          <div className="flex items-center gap-1 p-1 rounded-lg">
-            <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>{t("common.metrics.distance")}</Button>
-            <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>{t("common.metrics.time")}</Button>
-            <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>{t("common.metrics.trimp")}</Button>
-          </div>
-
+      {/* ── Header: titul + metriky + select ── */}
+      <div style={{ padding: "14px 16px 8px 16px" }}>
+        {/* Riadok 1: titul + select */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
           {showLookback && (
             <SelectField
               value={String(lookback)}
               onValueChange={(v) => setLookback(Number(v))}
               options={WEEK_OPTIONS(t)}
-              containerClassName="w-[120px]"
+              containerClassName="w-[110px]"
               variant="editable"
             />
           )}
         </div>
+
+        {/* Riadok 2: metriky — plná šírka */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
+            {t("common.metrics.distance")}
+          </Button>
+          <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
+            {t("common.metrics.time")}
+          </Button>
+          <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
+            {t("common.metrics.trimp")}
+          </Button>
+        </div>
       </div>
 
-      {/* ✅ Zachované Tailwind hacky na SVG obrysy (prístupnosť) */}
-      <div className="w-full relative px-2 sm:px-4 pb-4 focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none select-none" style={{ height: 360 }}>
+      {/* ── Graf ── */}
+      <div
+        className="w-full relative px-1 pb-3 focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none select-none"
+        style={{ height: 380 }}
+      >
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
           </div>
         )}
-        
+
         <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }} style={{ outline: 'none' }}>
+          <BarChart
+            data={chartData}
+            onClick={handleChartClick}
+            margin={{ top: 16, right: 8, left: 0, bottom: 4 }}
+            style={{ outline: "none" }}
+          >
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-            
-            <XAxis 
-              dataKey="label" 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
-              dy={10}
+
+            <XAxis
+              dataKey="label"
+              interval={xAxisInterval}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              dy={8}
             />
-            
-            <YAxis 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
+
+            {/*
+              Y-os: width=42 aby [km] label neprekrýval čísla.
+              label dx=-2 posúva text bližšie k osi.
+            */}
+            <YAxis
+              width={42}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
               tickFormatter={yAxisTickFormatter}
-              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{
+                value: yAxisLabel,
+                angle: -90,
+                position: "insideLeft",
+                fill: appColors.textMuted,
+                fontSize: 10,
+                dx: 8,   // bližšie k osi (pozitívne = doprava = bližšie k číslam)
+                dy: 28,
+              }}
             />
-            
-            {/* ✅ Cursor transparent zabráni tmavému bloku za stĺpcami */}
-            <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-            
-            {/* Používame custom Rectangle (renderActiveBar), takže nevznikne žiaden biely obrys! */}
-            {hasData.run && <Bar activeBar={renderActiveBar} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.ride && <Bar activeBar={renderActiveBar} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.mixed && <Bar activeBar={renderActiveBar} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.skate && <Bar activeBar={renderActiveBar} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+
+            <Tooltip
+              content={<StackedTooltip metric={metric} t={t} onDismiss={handleDismiss} />}
+              cursor={{ fill: "transparent" }}
+              wrapperStyle={{ outline: "none" }}
+            />
+
+            <Legend
+              iconType="circle"
+              wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+            />
+
+            {/* Každý Bar dostane custom shape s logikou opacity + šírky */}
+            {hasData.run && (
+              <Bar dataKey="run" name={t("common.sports.run") as string}
+                stackId="a" fill={appColors.chartRun}
+                maxBarSize={44} radius={[0, 0, 0, 0]}
+                shape={barShapes.run}
+                activeBar={false}
+              />
+            )}
+            {hasData.ride && (
+              <Bar dataKey="ride" name={t("common.sports.bike") as string}
+                stackId="a" fill={appColors.chartBike}
+                maxBarSize={44} radius={[0, 0, 0, 0]}
+                shape={barShapes.ride}
+                activeBar={false}
+              />
+            )}
+            {hasData.strength && (metric === "time" || metric === "trimp") && (
+              <Bar dataKey="strength" name={t("common.sports.strength") as string}
+                stackId="a" fill={appColors.chartStrength}
+                maxBarSize={44} radius={[0, 0, 0, 0]}
+                shape={barShapes.strength}
+                activeBar={false}
+              />
+            )}
+            {hasData.mixed && (
+              <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
+                stackId="a" fill={appColors.chartMixed}
+                maxBarSize={44} radius={[0, 0, 0, 0]}
+                shape={barShapes.mixed}
+                activeBar={false}
+              />
+            )}
+            {hasData.skate && (
+              <Bar dataKey="skate" name={t("common.sports.skate") as string}
+                stackId="a" fill={appColors.chartSkate}
+                maxBarSize={44} radius={[0, 0, 0, 0]}
+                shape={barShapes.skate}
+                activeBar={false}
+              />
+            )}
+            {hasData.other && (metric === "time" || metric === "trimp") && (
+              <Bar dataKey="other" name={t("common.sports.other") as string}
+                stackId="a" fill={appColors.chartOther}
+                maxBarSize={44} radius={[4, 4, 0, 0]}
+                shape={barShapes.other}
+                activeBar={false}
+              />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
