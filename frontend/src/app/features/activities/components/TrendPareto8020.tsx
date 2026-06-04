@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
@@ -70,6 +70,124 @@ function WeekPopup({
         }}>
           <span>{t("pareto8020.trend.labelEasy")} {fmtSecondsHMS((raw.easy_min || 0) * 60)}</span>
           <span>{t("pareto8020.trend.labelHard")} {fmtSecondsHMS((raw.hard_min || 0) * 60)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ─── COMPACT SPORT PICKER ─── */
+function SportPicker({
+  visibleSportsOptions,
+  selectedSports,
+  onToggle,
+  t,
+}: {
+  visibleSportsOptions: { value: string; label: string }[];
+  selectedSports: string[];
+  onToggle: (s: string) => void;
+  t: any;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Zatvoriť pri kliku mimo
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [open]);
+
+  // Label tlačidla: "Beh, Bike" alebo "Beh, Bike +2"
+  const activeLabels = visibleSportsOptions
+    .filter((opt) => selectedSports.map(normalizeSport).includes(normalizeSport(opt.value) ?? ""))
+    .map((opt) => opt.label);
+  const btnLabel =
+    activeLabels.length === 0
+      ? t("pareto8020.trend.pickSports") || "Športy"
+      : activeLabels.length <= 2
+      ? activeLabels.join(", ")
+      : `${activeLabels.slice(0, 2).join(", ")} +${activeLabels.length - 2}`;
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+      {/* Trigger tlačidlo */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "5px 10px", borderRadius: 20,
+          border: `1px solid ${appColors.panelBorder}`,
+          backgroundColor: open ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
+          color: appColors.textPrimary,
+          fontSize: 12, cursor: "pointer", outline: "none",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span>{btnLabel}</span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+          <path d="M1 3l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {/* Dropdown so checkboxmi */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          zIndex: 50, minWidth: 180,
+          backgroundColor: appColors.panelBg,
+          border: `1px solid ${appColors.panelBorder}`,
+          borderRadius: 12, padding: "8px 4px",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+        }}>
+          {visibleSportsOptions.map((opt) => {
+            const norm = normalizeSport(opt.value) ?? "";
+            const active = selectedSports.map(normalizeSport).includes(norm);
+            const isDefault = isInParetoDefault(norm);
+            return (
+              <label key={opt.value}
+                onClick={() => onToggle(opt.value)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "7px 12px", cursor: "pointer", borderRadius: 8,
+                  backgroundColor: active ? "rgba(255,255,255,0.06)" : "transparent",
+                }}
+              >
+                {/* Custom checkbox */}
+                <span style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                  border: `1.5px solid ${active ? appColors.brandPrimary : appColors.panelBorder}`,
+                  backgroundColor: active ? appColors.brandPrimary : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {active && (
+                    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                      <path d="M1 3.5L3.5 6L8 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </span>
+                <span style={{ fontSize: 13, color: active ? appColors.textPrimary : appColors.textMuted }}>
+                  {opt.label}
+                </span>
+                {!isDefault && (
+                  <span style={{ fontSize: 10, color: appColors.textMuted, marginLeft: "auto", opacity: 0.6 }}>
+                    *
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </div>
       )}
     </div>
@@ -195,23 +313,13 @@ export default function TrendPareto8020({
           />
         </div>
 
-        {/* Riadok 2: sport filtre */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {visibleSportsOptions.map((opt) => {
-            const norm = normalizeSport(opt.value) ?? "";
-            const active = selectedSports.map(normalizeSport).includes(norm);
-            const isDefault = isInParetoDefault(norm);
-            return (
-              <Button key={opt.value} size="xs"
-                variant={active ? "active" : "editable"}
-                onClick={() => toggleSport(opt.value)}
-                title={isDefault ? t("pareto8020.trend.inRange") : t("pareto8020.trend.outRange")}
-              >
-                {opt.label}{isDefault ? "" : " *"}
-              </Button>
-            );
-          })}
-        </div>
+        {/* Riadok 2: kompaktný sport picker */}
+        <SportPicker
+          visibleSportsOptions={visibleSportsOptions}
+          selectedSports={selectedSports}
+          onToggle={toggleSport}
+          t={t}
+        />
       </div>
 
       {/* ── Graf ── */}
