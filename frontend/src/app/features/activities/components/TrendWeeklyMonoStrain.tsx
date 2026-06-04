@@ -53,6 +53,45 @@ const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
   );
 };
 
+/* ─── WEEK POPUP (rovnaký štýl ako WeeklyLoad) ─── */
+function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t: any; onClose: () => void }) {
+  const formatVal = (v: number | null) => {
+    if (v === null || v === undefined) return "—";
+    if (metric === "time") return formatTimeValue(v);
+    return Number(v).toFixed(2);
+  };
+
+  return (
+    <div style={{
+      margin: "0 12px 8px 12px", padding: "10px 12px", borderRadius: 12,
+      border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(9,24,18,0.95)",
+      display: "flex", flexDirection: "column", gap: 4,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: appColors.textMuted }}>{data.label}</span>
+        <button onClick={onClose} style={{
+          background: "none", border: "none", cursor: "pointer",
+          color: appColors.textMuted, fontSize: 16, lineHeight: 1, padding: "2px 4px", outline: "none",
+        }}>✕</button>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.monotony, display: "inline-block", flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: appColors.textMuted }}>{t("monoStrain.trend.mono")}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.monotony }}>{formatVal(data.mono)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.strain, display: "inline-block", flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: appColors.textMuted }}>{t("monoStrain.trend.strain")}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.strain }}>{formatVal(data.strain)}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── HLAVNÝ KOMPONENT ─── */
 export default function TrendWeeklyMonoStrain({
   onPickWeek, onSportChange, showLookback = true,
@@ -96,6 +135,11 @@ export default function TrendWeeklyMonoStrain({
     strain: w.strain?.[metric] ?? null,
     rawWeek: w,
   })), [weeks, metric]);
+
+  const handleDismiss = useCallback(() => {
+    setSelectedIndex(null);
+    onPickWeek?.(null);
+  }, [onPickWeek]);
 
   const handleChartClick = useCallback((state: any) => {
     if (!state) return;
@@ -248,6 +292,16 @@ export default function TrendWeeklyMonoStrain({
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Popup pod grafom — rovnaký štýl ako WeeklyLoad */}
+      {selectedIndex !== null && chartData[selectedIndex] && (
+        <WeekPopup
+          data={chartData[selectedIndex]}
+          metric={metric}
+          t={t}
+          onClose={handleDismiss}
+        />
+      )}
     </div>
   );
 }
