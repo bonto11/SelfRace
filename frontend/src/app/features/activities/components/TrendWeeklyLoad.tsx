@@ -291,7 +291,7 @@ export default function TrendWeeklyLoad({
                       fontWeight={isSelected ? 700 : 400} fontSize={10}>
                       {payload.value}
                     </text>
-                    {isSelected && <circle cx={0} cy={6} r={2.5} fill={appColors.brandPrimary} />}
+
                   </g>
                 );
               }}
