@@ -31,27 +31,7 @@ const formatTimeValue = (val: number) => {
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
 
-/* ─── TOOLTIP ─── */
-const CustomTooltip = ({ active, payload, label, metric, t }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="p-3 rounded-xl border shadow-xl backdrop-blur-md"
-      style={{ backgroundColor: "rgba(9,24,18,0.92)", borderColor: appColors.panelBorder }}>
-      <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-      {payload.map((entry: any, i: number) => {
-        let val = Number(entry.value).toFixed(2);
-        if (entry.dataKey === "strain" && metric === "time") val = formatTimeValue(entry.value);
-        return (
-          <div key={i} className="flex items-center gap-2 text-sm" style={{ color: entry.color }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            <span className="opacity-90">{entry.name}:</span>
-            <span className="font-bold">{val}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+
 
 /* ─── WEEK POPUP (rovnaký štýl ako WeeklyLoad) ─── */
 function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t: any; onClose: () => void }) {
@@ -258,10 +238,10 @@ export default function TrendWeeklyMonoStrain({
               label={{ value: rightAxisUnit, angle: 90, position: "insideRight",
                 fill: appColors.textMuted, fontSize: 10, dx: -8, dy: 28 }} />
 
-            <Tooltip content={<CustomTooltip metric={metric} t={t} />}
-              cursor={{ stroke: appColors.textMuted, strokeWidth: 1, strokeDasharray: "4 4" }}
-              wrapperStyle={{ outline: "none" }} />
 
+
+            {/* Vypnúť Recharts tooltip — náš popup je dole */}
+            <Tooltip active={false} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
 
             {/* Zvislá referenčná čiara pre vybraný týždeň — funguje spoľahlivo v LineChart */}
