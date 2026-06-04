@@ -95,7 +95,7 @@ function SportPicker({
   // Zatvoriť pri kliku mimo
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: Event) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
