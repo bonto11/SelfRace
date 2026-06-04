@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Legend, Cell,
+  CartesianGrid, Legend,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -20,6 +20,9 @@ import { CARD, SURFACE_CARD_STYLE, PANEL_TITLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
 const DEFAULT_SPORT = "all" as const;
+// Konštanty layoutu grafu — musia sedieť s margin a YAxis width
+const Y_AXIS_W    = 42;  // YAxis width prop
+const RIGHT_MARGIN = 8;  // margin.right
 
 const formatTimeValue = (val: number) => {
   if (!val || val === 0) return "0:00";
@@ -27,19 +30,6 @@ const formatTimeValue = (val: number) => {
   const m = Math.floor(val % 60);
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
-
-/* ─── DIM COLOR — pre nevybraté bary (solídna farba, žiadna opacity) ─── */
-// Mix farby smerom k tmavému pozadiu — nevybraté bary sú tlmené ale viditeľné
-function dimColor(hex: string, amount = 0.85): string {
-  if (!hex?.startsWith("#") || hex.length < 7) return hex;
-  // Tmavé zelené pozadie aplikácie ~ rgb(7,22,16)
-  const bg = [10, 24, 18];
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const mix = (c: number, bgc: number) => Math.round(c + (bgc - c) * amount);
-  return `rgb(${mix(r, bg[0])}, ${mix(g, bg[1])}, ${mix(b, bg[2])})`;
-}
 
 /* ─── WEEK POPUP ─── */
 const SPORT_COLORS: Record<string, string> = {
@@ -154,18 +144,16 @@ export default function TrendWeeklyLoad({
       }
       data.push(row);
     }
-    // _active flag priamo v dátach — Recharts prekreslí bary keď selectedIndex zmení chartData
-    const chartData = data.map((row, i) => ({
-      ...row,
-      _active: selectedIndex === null || selectedIndex === i,
-    }));
-    return { chartData, hasData: hd };
-  }, [weeks, metric, selectedIndex]); // ← selectedIndex v deps = nový array = Recharts prekreslí
+    return { chartData: data, hasData: hd };
+  }, [weeks, metric]);
 
   const handleChartClick = useCallback((state: any) => {
     if (!state) return;
-    const index = state.activeTooltipIndex ?? state.activeIndex;
-    if (index === undefined || index === null || !chartData[index]) return;
+    const raw = state.activeTooltipIndex ?? state.activeIndex;
+    if (raw === undefined || raw === null) return;
+    const index = Number(raw);
+    if (!Number.isInteger(index) || !chartData[index]) return;
+
     if (selectedIndex === index) {
       setSelectedIndex(null);
       onPickWeek?.(null);
@@ -199,16 +187,56 @@ export default function TrendWeeklyLoad({
     : metric === "time" ? `[h]` : `[trimp]`;
 
   const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
+  const N = chartData.length;
 
-  // _active je v každom dátovom bode — jednoduché čítanie
-  const renderCells = (baseColor: string) =>
-    chartData.map((item, i) => (
-      <Cell key={i} fill={item._active ? baseColor : dimColor(baseColor)} />
-    ));
+  /*
+    DIV OVERLAY prístup — garantovane funguje, obchádza všetky Recharts cell problémy.
+
+    Recharts vždy kreslí bary plnou farbou.
+    My overlay-ujeme tmavé divy NA ĽAVEJ a PRAVEJ strane vybraného baru.
+    Matematika: každý bar zaberá (100% - Y_AXIS_W - RIGHT_MARGIN) / N šírky.
+
+    Left overlay:  od left=0, šírka = Y_AXIS_W + si * zoneWidth
+    Right overlay: od right=0, šírka = RIGHT_MARGIN + (N-si-1) * zoneWidth
+    Selected zone: medzera medzi overlayami = plná farba, viditeľná
+  */
+  const renderOverlays = () => {
+    if (selectedIndex === null || N === 0) return null;
+    const si = selectedIndex;
+    const zoneW = `(100% - ${Y_AXIS_W + RIGHT_MARGIN}px) / ${N}`;
+    const dimStyle: React.CSSProperties = {
+      position: "absolute",
+      top: 0,
+      bottom: 36, // nechaj priestor pre x-os labely
+      backgroundColor: "rgba(7, 22, 16, 0.72)",
+      pointerEvents: "none", // kliknutia prepadnú skrze na chart
+      zIndex: 3,
+      transition: "width 0.15s ease",
+    };
+    return (
+      <>
+        {/* Ľavý overlay — pred vybraným barom */}
+        {si > 0 && (
+          <div style={{
+            ...dimStyle,
+            left: 0,
+            width: `calc(${Y_AXIS_W}px + ${si} * ${zoneW})`,
+          }} />
+        )}
+        {/* Pravý overlay — za vybraným barom */}
+        {si < N - 1 && (
+          <div style={{
+            ...dimStyle,
+            right: 0,
+            width: `calc(${RIGHT_MARGIN}px + ${N - si - 1} * ${zoneW})`,
+          }} />
+        )}
+      </>
+    );
+  };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-
       {/* Header */}
       <div style={{ padding: "14px 16px 8px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
@@ -231,7 +259,7 @@ export default function TrendWeeklyLoad({
         </div>
       </div>
 
-      {/* Graf */}
+      {/* Graf + overlay */}
       <div
         className="w-full relative px-1 select-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
         style={{ height: 360 }}
@@ -244,8 +272,9 @@ export default function TrendWeeklyLoad({
 
         <ResponsiveContainer width="100%" height="100%" minWidth={1}>
           <BarChart data={chartData} onClick={handleChartClick}
-            margin={{ top: 16, right: 8, left: 0, bottom: 4 }} style={{ outline: "none" }}>
+            margin={{ top: 16, right: RIGHT_MARGIN, left: 0, bottom: 4 }} style={{ outline: "none" }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
+
             <XAxis
               dataKey="label"
               interval={xAxisInterval}
@@ -257,70 +286,60 @@ export default function TrendWeeklyLoad({
                 const isSelected = selectedIndex === index;
                 return (
                   <g transform={`translate(${x},${y})`}>
-                    <text
-                      x={0} y={0} dy={14}
-                      textAnchor="middle"
+                    <text x={0} y={0} dy={14} textAnchor="middle"
                       fill={isSelected ? appColors.brandPrimary : appColors.textMuted}
-                      fontWeight={isSelected ? 700 : 400}
-                      fontSize={10}
-                    >
+                      fontWeight={isSelected ? 700 : 400} fontSize={10}>
                       {payload.value}
                     </text>
-                    {isSelected && (
-                      <circle cx={0} cy={6} r={2.5} fill={appColors.brandPrimary} />
-                    )}
+                    {isSelected && <circle cx={0} cy={6} r={2.5} fill={appColors.brandPrimary} />}
                   </g>
                 );
               }}
             />
-            <YAxis width={42} tick={{ fill: appColors.textMuted, fontSize: 10 }}
-              axisLine={false} tickLine={false} tickFormatter={yAxisTickFormatter}
-              label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
-                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }} />
 
-            {/* Legenda len keď nič nie je vybraté — popup nahradí obsah */}
+            <YAxis
+              width={Y_AXIS_W}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false} tickLine={false}
+              tickFormatter={yAxisTickFormatter}
+              label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
+                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }}
+            />
+
             {selectedIndex === null && (
               <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
             )}
 
+            {/* Bary — vždy plná farba, overlay sa stará o dimming */}
             {hasData.run && (
               <Bar dataKey="run" name={t("common.sports.run") as string}
-                stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartRun)}
-              </Bar>
+                stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
             {hasData.ride && (
               <Bar dataKey="ride" name={t("common.sports.bike") as string}
-                stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartBike)}
-              </Bar>
+                stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
             {hasData.strength && (metric === "time" || metric === "trimp") && (
               <Bar dataKey="strength" name={t("common.sports.strength") as string}
-                stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartStrength)}
-              </Bar>
+                stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
             {hasData.mixed && (
               <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
-                stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartMixed)}
-              </Bar>
+                stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
             {hasData.skate && (
               <Bar dataKey="skate" name={t("common.sports.skate") as string}
-                stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartSkate)}
-              </Bar>
+                stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
             {hasData.other && (metric === "time" || metric === "trimp") && (
               <Bar dataKey="other" name={t("common.sports.other") as string}
-                stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false}>
-                {renderCells(appColors.chartOther)}
-              </Bar>
+                stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false} />
             )}
           </BarChart>
         </ResponsiveContainer>
+
+        {/* Overlay divy — MIMO SVG, CSS pozicovanie, garantovane funguje */}
+        {renderOverlays()}
       </div>
 
       {/* Popup pod grafom */}
