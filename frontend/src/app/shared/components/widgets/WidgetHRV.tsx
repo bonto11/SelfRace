@@ -137,7 +137,7 @@ export default function WidgetHRV({ onOpenDetail }: { onOpenDetail?: () => void 
   const note = hasToday
     ? cmp.note
     : sparkValues.length > 0
-    ? t("HRV.widget.noDataToday") || t("HRV.widget.noData")
+    ? t("HRV.widget.noData")
     : t("HRV.widget.noData");
 
   // Nemáme žiadne dáta vôbec
