@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  Rectangle,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Legend,
 } from "recharts";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -23,16 +16,13 @@ import { WeekPick, Metric } from "@/app/features/activities/types/activities";
 import { apiGetWeeklyLoad } from "@/app/features/activities/api/analytics_activities";
 import { WeekRow } from "@/app/features/activities/types/WeeklyLoad";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import {
-  CARD,
-  SURFACE_CARD_STYLE,
-  PANEL_PAD,
-  PANEL_CARD_HEAD,
-  PANEL_TITLE,
-} from "@/app/shared/ui/tokens";
+import { CARD, SURFACE_CARD_STYLE, PANEL_TITLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
 const DEFAULT_SPORT = "all" as const;
+// Konštanty layoutu grafu — musia sedieť s margin a YAxis width
+const Y_AXIS_W    = 42;  // YAxis width prop
+const RIGHT_MARGIN = 8;  // margin.right
 
 const formatTimeValue = (val: number) => {
   if (!val || val === 0) return "0:00";
@@ -41,232 +31,321 @@ const formatTimeValue = (val: number) => {
   return `${h}:${m.toString().padStart(2, "0")}`;
 };
 
-const StackedTooltip = ({ active, payload, label, metric, t }: any) => {
-  if (active && payload && payload.length) {
-    const total = payload.reduce((sum: number, entry: any) => sum + (Number(entry.value) || 0), 0);
-    const formatFn = (val: number) => metric === "time" ? formatTimeValue(val) : val.toFixed(1);
-
-    return (
-      <div 
-        className="p-3 rounded-xl border shadow-xl backdrop-blur-md min-w-[140px]"
-        style={{ backgroundColor: "rgba(9, 24, 18, 0.92)", borderColor: appColors.panelBorder, outline: "none" }}
-      >
-        <p className="mb-2 text-xs font-semibold" style={{ color: appColors.textMuted }}>{label}</p>
-        
-        <div className="space-y-1 mb-2">
-          {payload.map((entry: any, index: number) => {
-            if (!entry.value) return null;
-            return (
-              <div key={index} className="flex items-center justify-between gap-4 text-sm" style={{ color: entry.color }}>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
-                  <span className="opacity-90">{entry.name}</span>
-                </div>
-                <span className="font-bold">{formatFn(entry.value)}</span>
-              </div>
-            );
-          })}
-        </div>
-        
-        <div className="pt-2 border-t flex justify-between items-center text-sm text-white/90 font-bold" style={{ borderColor: appColors.divider }}>
-          <span>{t("common.together") || "Spolu"}:</span>
-          <span>{formatFn(total)}</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
+/* ─── WEEK POPUP ─── */
+const SPORT_COLORS: Record<string, string> = {
+  run: appColors.chartRun, ride: appColors.chartBike,
+  strength: appColors.chartStrength, mixed: appColors.chartMixed,
+  skate: appColors.chartSkate, other: appColors.chartOther,
 };
 
+function WeekPopup({ data, metric, t, onClose }: { data: any; metric: Metric; t: any; onClose: () => void }) {
+  const fmt = (v: number) => metric === "time" ? formatTimeValue(v) : Number(v).toFixed(1);
+  const sportName = (key: string) => ({
+    run: t("common.sports.run"), ride: t("common.sports.bike"),
+    strength: t("common.sports.strength"), mixed: t("common.sports.mixed"),
+    skate: t("common.sports.skate"), other: t("common.sports.other"),
+  }[key] ?? key);
+
+  const entries = (["run","ride","strength","mixed","skate","other"] as const)
+    .map((k) => ({ k, val: data[k] as number | undefined, color: SPORT_COLORS[k] }))
+    .filter((e) => e.val && e.val > 0);
+  const total = entries.reduce((s, e) => s + (e.val ?? 0), 0);
+
+  return (
+    <div style={{
+      margin: "0 12px 8px 12px", padding: "10px 12px", borderRadius: 12,
+      border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(9,24,18,0.95)",
+      display: "flex", flexDirection: "column", gap: 4,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: appColors.textMuted }}>{data.label}</span>
+        <button onClick={onClose} style={{
+          background: "none", border: "none", cursor: "pointer",
+          color: appColors.textMuted, fontSize: 16, lineHeight: 1, padding: "2px 4px", outline: "none",
+        }}>✕</button>
+      </div>
+      {entries.map(({ k, val, color }) => (
+        <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color, display: "inline-block", flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: appColors.textMuted }}>{sportName(k)}</span>
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color }}>{fmt(val!)}</span>
+        </div>
+      ))}
+      {entries.length > 1 && (
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          marginTop: 4, paddingTop: 6, borderTop: `1px solid ${appColors.divider}`,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary }}>
+            {t("common.together") || "spolu"}:
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary }}>{fmt(total)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── HLAVNÝ KOMPONENT ─── */
 export default function TrendWeeklyLoad({
-  onPickWeek,
-  onSportChange,
-  showLookback = true,
+  onPickWeek, onSportChange, showLookback = true,
 }: {
-  onPickWeek?: (w: WeekPick) => void;
+  onPickWeek?: (w: WeekPick | null) => void;
   onSportChange?: (sport: string) => void;
   showLookback?: boolean;
 }) {
   const { userId } = useUserId();
-  const [metric, setMetric] = useState<Metric>("km");
-  const [lookback, setLookback] = useState<number>(2);
-  const [weeks, setWeeks] = useState<WeekRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [metric, setMetric]               = useState<Metric>("km");
+  const [lookback, setLookback]           = useState<number>(2);
+  const [weeks, setWeeks]                 = useState<WeekRow[]>([]);
+  const [loading, setLoading]             = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const t = useT();
 
-  useEffect(() => {
-    onSportChange?.(DEFAULT_SPORT);
-  }, [onSportChange]);
+  useEffect(() => { onSportChange?.(DEFAULT_SPORT); }, [onSportChange]);
+  useEffect(() => { setSelectedIndex(null); onPickWeek?.(null); }, [lookback, metric]);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-
     (async () => {
       setLoading(true);
       try {
-        const rows = await apiGetWeeklyLoad(userId, {
-          weeks: lookback,
-          sport: DEFAULT_SPORT,
-        });
-        if (!alive) return;
-        setWeeks(rows);
-      } catch (e: any) {
-        console.error("Weekly load fetch failed:", t(e?.message as any));
-        if (alive) setWeeks([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
+        const rows = await apiGetWeeklyLoad(userId, { weeks: lookback, sport: DEFAULT_SPORT });
+        if (alive) setWeeks(rows);
+      } catch { if (alive) setWeeks([]); }
+      finally { if (alive) setLoading(false); }
     })();
-
     return () => { alive = false; };
-  }, [userId, lookback, t]);
+  }, [userId, lookback]);
 
   const { chartData, hasData } = useMemo(() => {
     const data = [];
     const hd = { run: false, ride: false, strength: false, mixed: false, skate: false, other: false };
-
     for (const w of weeks) {
       const base = { label: w.label || w.week, rawWeek: w };
       let row: any = { ...base };
-
       if (metric === "km") {
         row = { ...base, run: w.km_run, ride: w.km_ride, mixed: w.km_mixed, skate: w.km_skate };
-        if (w.km_run > 0) hd.run = true;
-        if (w.km_ride > 0) hd.ride = true;
-        if (w.km_mixed > 0) hd.mixed = true;
-        if (w.km_skate > 0) hd.skate = true;
+        if (w.km_run > 0) hd.run = true; if (w.km_ride > 0) hd.ride = true;
+        if (w.km_mixed > 0) hd.mixed = true; if (w.km_skate > 0) hd.skate = true;
       } else if (metric === "time") {
         row = { ...base, run: w.time_run_min, ride: w.time_ride_min, strength: w.time_strength_min, mixed: w.time_mixed_min, skate: w.time_skate_min, other: w.time_other_min };
-        if (w.time_run_min > 0) hd.run = true;
-        if (w.time_ride_min > 0) hd.ride = true;
-        if (w.time_strength_min > 0) hd.strength = true;
-        if (w.time_mixed_min > 0) hd.mixed = true;
-        if (w.time_skate_min > 0) hd.skate = true;
-        if (w.time_other_min > 0) hd.other = true;
+        if (w.time_run_min > 0) hd.run = true; if (w.time_ride_min > 0) hd.ride = true;
+        if (w.time_strength_min > 0) hd.strength = true; if (w.time_mixed_min > 0) hd.mixed = true;
+        if (w.time_skate_min > 0) hd.skate = true; if (w.time_other_min > 0) hd.other = true;
       } else {
         row = { ...base, run: w.trimp_run, ride: w.trimp_ride, strength: w.trimp_strength, mixed: w.trimp_mixed, skate: w.trimp_skate, other: w.trimp_other };
-        if (w.trimp_run > 0) hd.run = true;
-        if (w.trimp_ride > 0) hd.ride = true;
-        if (w.trimp_strength > 0) hd.strength = true;
-        if (w.trimp_mixed > 0) hd.mixed = true;
-        if (w.trimp_skate > 0) hd.skate = true;
-        if (w.trimp_other > 0) hd.other = true;
+        if (w.trimp_run > 0) hd.run = true; if (w.trimp_ride > 0) hd.ride = true;
+        if (w.trimp_strength > 0) hd.strength = true; if (w.trimp_mixed > 0) hd.mixed = true;
+        if (w.trimp_skate > 0) hd.skate = true; if (w.trimp_other > 0) hd.other = true;
       }
       data.push(row);
     }
     return { chartData: data, hasData: hd };
   }, [weeks, metric]);
 
-  const handleChartClick = (state: any) => {
-    // Odstránená prísna podmienka !state.activePayload. Preskočíme len ak state vôbec nepríde.
-    if (!onPickWeek || !state) return;
+  const handleChartClick = useCallback((state: any) => {
+    if (!state) return;
+    const raw = state.activeTooltipIndex ?? state.activeIndex;
+    if (raw === undefined || raw === null) return;
+    const index = Number(raw);
+    if (!Number.isInteger(index) || !chartData[index]) return;
 
-    // Vytiahneme index
-    const index = state.activeTooltipIndex !== undefined ? state.activeTooltipIndex : state.activeIndex;
-    
-    if (index !== undefined && index !== null && chartData[index]) {
-      const w = chartData[index].rawWeek;
-      
-      if (w && w.start && w.end) {
-        onPickWeek({
-          week: w.week || w.start || "",
-          start: w.start,
-          end: w.end,
-          sport: "all", // Opravené späť na string "all" tak ako si chcel
-        });
-      }
+    if (selectedIndex === index) {
+      setSelectedIndex(null);
+      onPickWeek?.(null);
+      return;
     }
-  };
+    setSelectedIndex(index);
+    const w = chartData[index].rawWeek;
+    if (onPickWeek && w?.start && w?.end)
+      onPickWeek({ week: w.week || w.start || "", start: w.start, end: w.end, sport: "all" });
+  }, [selectedIndex, chartData, onPickWeek]);
 
-  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]` : metric === "time" ? `[${t("common.units.hour") || "h"}]` : `[${t("common.units.trimp")}]`;
+  const handleDismiss = useCallback(() => {
+    setSelectedIndex(null);
+    onPickWeek?.(null);
+  }, [onPickWeek]);
 
-  const yAxisTickFormatter = (val: any, index: number): string => {
+  const yAxisTickFormatter = (val: any): string => {
     const num = Number(val);
     if (metric === "time") {
       if (num === 0) return "0";
       if (num >= 60) {
-         const h = Math.floor(num / 60);
-         const m = Math.floor(num % 60);
-         return m === 0 ? `${h}${t("common.units.hour") || "h"}` : `${h}:${m.toString().padStart(2, "0")}`;
+        const h = Math.floor(num / 60); const m = Math.floor(num % 60);
+        return m === 0 ? `${h}h` : `${h}:${m.toString().padStart(2, "0")}`;
       }
-      return `${num}${t("common.units.min") || "m"}`;
+      return `${num}m`;
     }
-    return String(val); 
+    return String(val);
   };
 
-  // ✅ Opravený activeBar, aby nevznikal biely stroke (okraj), ale aby zostal stĺpec klikateľný
-  const renderActiveBar = (props: any) => {
-    return <Rectangle {...props} stroke="none" style={{ outline: "none" }} />;
+  const yAxisLabel = metric === "km" ? `[${t("common.units.km")}]`
+    : metric === "time" ? `[h]` : `[trimp]`;
+
+  const xAxisInterval = lookback <= 4 ? 0 : lookback <= 8 ? 1 : 2;
+  const N = chartData.length;
+
+  /*
+    DIV OVERLAY prístup — garantovane funguje, obchádza všetky Recharts cell problémy.
+
+    Recharts vždy kreslí bary plnou farbou.
+    My overlay-ujeme tmavé divy NA ĽAVEJ a PRAVEJ strane vybraného baru.
+    Matematika: každý bar zaberá (100% - Y_AXIS_W - RIGHT_MARGIN) / N šírky.
+
+    Left overlay:  od left=0, šírka = Y_AXIS_W + si * zoneWidth
+    Right overlay: od right=0, šírka = RIGHT_MARGIN + (N-si-1) * zoneWidth
+    Selected zone: medzera medzi overlayami = plná farba, viditeľná
+  */
+  const renderOverlays = () => {
+    if (selectedIndex === null || N === 0) return null;
+    const si = selectedIndex;
+    const zoneW = `(100% - ${Y_AXIS_W + RIGHT_MARGIN}px) / ${N}`;
+    const dimStyle: React.CSSProperties = {
+      position: "absolute",
+      top: 0,
+      bottom: 36, // nechaj priestor pre x-os labely
+      backgroundColor: "rgba(7, 22, 16, 0.72)",
+      pointerEvents: "none", // kliknutia prepadnú skrze na chart
+      zIndex: 3,
+      transition: "width 0.15s ease",
+    };
+    return (
+      <>
+        {/* Ľavý overlay — pred vybraným barom */}
+        {si > 0 && (
+          <div style={{
+            ...dimStyle,
+            left: 0,
+            width: `calc(${Y_AXIS_W}px + ${si} * ${zoneW})`,
+          }} />
+        )}
+        {/* Pravý overlay — za vybraným barom */}
+        {si < N - 1 && (
+          <div style={{
+            ...dimStyle,
+            right: 0,
+            width: `calc(${RIGHT_MARGIN}px + ${N - si - 1} * ${zoneW})`,
+          }} />
+        )}
+      </>
+    );
   };
 
   return (
     <div className={`${CARD} relative`} style={SURFACE_CARD_STYLE}>
-      
-      <div className={[PANEL_PAD, PANEL_CARD_HEAD, "flex-wrap gap-4"].join(" ")}>
-        <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
-
-        <div className="flex flex-wrap items-center gap-3 ml-auto">
-          <div className="flex items-center gap-1 p-1 rounded-lg">
-            <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>{t("common.metrics.distance")}</Button>
-            <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>{t("common.metrics.time")}</Button>
-            <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>{t("common.metrics.trimp")}</Button>
-          </div>
-
+      {/* Header */}
+      <div style={{ padding: "14px 16px 8px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <h2 className={PANEL_TITLE}>{t("weeklyLoad.title")}</h2>
           {showLookback && (
-            <SelectField
-              value={String(lookback)}
-              onValueChange={(v) => setLookback(Number(v))}
-              options={WEEK_OPTIONS(t)}
-              containerClassName="w-[120px]"
-              variant="editable"
-            />
+            <SelectField value={String(lookback)} onValueChange={(v) => setLookback(Number(v))}
+              options={WEEK_OPTIONS(t)} containerClassName="w-[110px]" variant="editable" />
           )}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <Button size="xs" variant={metric === "km" ? "active" : "editable"} onClick={() => setMetric("km")}>
+            {t("common.metrics.distance")}
+          </Button>
+          <Button size="xs" variant={metric === "time" ? "active" : "editable"} onClick={() => setMetric("time")}>
+            {t("common.metrics.time")}
+          </Button>
+          <Button size="xs" variant={metric === "trimp" ? "active" : "editable"} onClick={() => setMetric("trimp")}>
+            {t("common.metrics.trimp")}
+          </Button>
         </div>
       </div>
 
-      {/* ✅ Zachované Tailwind hacky na SVG obrysy (prístupnosť) */}
-      <div className="w-full relative px-2 sm:px-4 pb-4 focus:outline-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none select-none" style={{ height: 360 }}>
+      {/* Graf + overlay */}
+      <div
+        className="w-full relative px-1 select-none [&_.recharts-wrapper]:outline-none [&_.recharts-surface]:outline-none [&_*:focus]:outline-none"
+        style={{ height: 360 }}
+      >
         {loading && (
           <div className="absolute inset-0 grid place-items-center z-10 bg-black/20 rounded-b-xl backdrop-blur-sm">
             <LoadingSpinner size="trend" />
           </div>
         )}
-        
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <BarChart data={chartData} onClick={handleChartClick} margin={{ top: 20, right: 10, left: 10, bottom: 0 }} style={{ outline: 'none' }}>
+
+        <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+          <BarChart data={chartData} onClick={handleChartClick}
+            margin={{ top: 16, right: RIGHT_MARGIN, left: 0, bottom: 4 }} style={{ outline: "none" }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
-            
-            <XAxis 
-              dataKey="label" 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
-              dy={10}
+
+            <XAxis
+              dataKey="label"
+              interval={xAxisInterval}
+              axisLine={false}
+              tickLine={false}
+              dy={8}
+              tick={(props: any) => {
+                const { x, y, payload, index } = props;
+                const isSelected = selectedIndex === index;
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text x={0} y={0} dy={14} textAnchor="middle"
+                      fill={isSelected ? appColors.brandPrimary : appColors.textMuted}
+                      fontWeight={isSelected ? 700 : 400} fontSize={10}>
+                      {payload.value}
+                    </text>
+
+                  </g>
+                );
+              }}
             />
-            
-            <YAxis 
-              tick={{ fill: appColors.textMuted, fontSize: 10 }} 
-              axisLine={false} 
-              tickLine={false} 
+
+            <YAxis
+              width={Y_AXIS_W}
+              tick={{ fill: appColors.textMuted, fontSize: 10 }}
+              axisLine={false} tickLine={false}
               tickFormatter={yAxisTickFormatter}
-              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: appColors.textMuted, fontSize: 10, dy: 30 }}
+              label={{ value: yAxisLabel, angle: -90, position: "insideLeft",
+                fill: appColors.textMuted, fontSize: 10, dx: 8, dy: 28 }}
             />
-            
-            {/* ✅ Cursor transparent zabráni tmavému bloku za stĺpcami */}
-            <Tooltip content={<StackedTooltip metric={metric} t={t} />} cursor={{ fill: "transparent" }} wrapperStyle={{ outline: 'none' }} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-            
-            {/* Používame custom Rectangle (renderActiveBar), takže nevznikne žiaden biely obrys! */}
-            {hasData.run && <Bar activeBar={renderActiveBar} dataKey="run" name={t("common.sports.run") as string} stackId="a" fill={appColors.chartRun} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.ride && <Bar activeBar={renderActiveBar} dataKey="ride" name={t("common.sports.bike") as string} stackId="a" fill={appColors.chartBike} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.strength && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="strength" name={t("common.sports.strength") as string} stackId="a" fill={appColors.chartStrength} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.mixed && <Bar activeBar={renderActiveBar} dataKey="mixed" name={t("common.sports.mixed") as string} stackId="a" fill={appColors.chartMixed} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.skate && <Bar activeBar={renderActiveBar} dataKey="skate" name={t("common.sports.skate") as string} stackId="a" fill={appColors.chartSkate} radius={[0, 0, 0, 0]} maxBarSize={40} />}
-            {hasData.other && (metric === "time" || metric === "trimp") && <Bar activeBar={renderActiveBar} dataKey="other" name={t("common.sports.other") as string} stackId="a" fill={appColors.chartOther} radius={[4, 4, 0, 0]} maxBarSize={40} />} 
+
+            {selectedIndex === null && (
+              <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+            )}
+
+            {/* Bary — vždy plná farba, overlay sa stará o dimming */}
+            {hasData.run && (
+              <Bar dataKey="run" name={t("common.sports.run") as string}
+                stackId="a" fill={appColors.chartRun} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
+            {hasData.ride && (
+              <Bar dataKey="ride" name={t("common.sports.bike") as string}
+                stackId="a" fill={appColors.chartBike} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
+            {hasData.strength && (metric === "time" || metric === "trimp") && (
+              <Bar dataKey="strength" name={t("common.sports.strength") as string}
+                stackId="a" fill={appColors.chartStrength} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
+            {hasData.mixed && (
+              <Bar dataKey="mixed" name={t("common.sports.mixed") as string}
+                stackId="a" fill={appColors.chartMixed} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
+            {hasData.skate && (
+              <Bar dataKey="skate" name={t("common.sports.skate") as string}
+                stackId="a" fill={appColors.chartSkate} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
+            {hasData.other && (metric === "time" || metric === "trimp") && (
+              <Bar dataKey="other" name={t("common.sports.other") as string}
+                stackId="a" fill={appColors.chartOther} maxBarSize={44} activeBar={false} isAnimationActive={false} />
+            )}
           </BarChart>
         </ResponsiveContainer>
+
+        {/* Overlay divy — MIMO SVG, CSS pozicovanie, garantovane funguje */}
+        {renderOverlays()}
       </div>
+
+      {/* Popup pod grafom */}
+      {selectedIndex !== null && chartData[selectedIndex] && (
+        <WeekPopup data={chartData[selectedIndex]} metric={metric} t={t} onClose={handleDismiss} />
+      )}
     </div>
   );
 }

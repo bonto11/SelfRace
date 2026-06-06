@@ -18,18 +18,18 @@ from DB.activities_enrichment import db_get_enrichment_for_activities
 from Modules.Supabase.auth import AuthCtx
 
 
-# ----------------------- interné helpers ------------------------
+# ─── helpers ────────────────────────────────────────────────────────────────
+
 def _easy(row: dict) -> int:
-    z1 = int(round(float(row.get("z1_min") or 0)))
-    z2 = int(round(float(row.get("z2_min") or 0)))
-    return z1 + z2
+    return int(round(float(row.get("z1_min") or 0))) + int(round(float(row.get("z2_min") or 0)))
 
 
 def _hard(row: dict) -> int:
-    z3 = int(round(float(row.get("z3_min") or 0)))
-    z4 = int(round(float(row.get("z4_min") or 0)))
-    z5 = int(round(float(row.get("z5_min") or 0)))
-    return z3 + z4 + z5
+    return (
+        int(round(float(row.get("z3_min") or 0)))
+        + int(round(float(row.get("z4_min") or 0)))
+        + int(round(float(row.get("z5_min") or 0)))
+    )
 
 
 def _iso(dt: datetime) -> str:
@@ -46,33 +46,29 @@ def _to_dt(s: str) -> datetime:
         dt = datetime.fromisoformat(x)
     except Exception:
         dt = datetime.strptime(x[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def _week_bucket(dt: datetime) -> Dict[str, str]:
+    """Vráti začiatok ISO týždňa (pondelok) pre daný datetime."""
     dt = dt.astimezone(timezone.utc)
     start = dt - timedelta(days=dt.weekday())
     end = start + timedelta(days=6)
     year, week, _ = start.isocalendar()
-    key = f"{year}-W{week:02d}"
-    label = f"{start.day}–{end.day}.{end.month}."
+    # Kratší label: ak rovnaký mesiac → "1–7.6.", inak "28.5.–3.6."
+    if start.month == end.month:
+        label = f"{start.day}–{end.day}.{end.month}."
+    else:
+        label = f"{start.day}.{start.month}.–{end.day}.{end.month}."
     return {
-        "key": key,
+        "key": f"{year}-W{week:02d}",
         "label": label,
-        "start": start.isoformat(),
-        "end": end.isoformat(),
+        "start": _iso(start),
+        "end": _iso(end),
     }
 
 
 def _parse_sport_query(sport: str | None) -> Optional[Set[str]]:
-    """
-    Podporuje:
-      - sport="all" -> None (použije sa default whitelist)
-      - sport="run" -> {"run"}
-      - sport="run,ride" -> {"run","ride"}
-    """
     if not sport or sport.strip().lower() == "all":
         return None
     parts = [p.strip() for p in str(sport).split(",") if p.strip()]
@@ -84,7 +80,8 @@ def _norm_db(x: Any) -> Optional[str]:
     return normalize_sport(x)
 
 
-# --------------------------- SOURCE -----------------------------
+# ─── SOURCE ─────────────────────────────────────────────────────────────────
+
 def service_pareto_source(
     user_id: int,
     months: int = 3,
@@ -92,11 +89,6 @@ def service_pareto_source(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Proxy na veľký dataset pre session.
-    Jediná zodpovednosť: forwardnúť user_jwt ďalej (RLS vs service role).
-    """
-
     return get_pareto_source(
         user_id=user_id,
         months=months,
@@ -105,7 +97,8 @@ def service_pareto_source(
     )
 
 
-# --------------------------- WIDGET -----------------------------
+# ─── WIDGET ─────────────────────────────────────────────────────────────────
+
 def service_pareto_widget(
     user_id: int,
     days: int = 14,
@@ -113,62 +106,29 @@ def service_pareto_widget(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Sumár za posledné `days` – vracia iba payload `data` bez `success`.
-    """
-
     days = int(days)
-    sports = _parse_sport_query(sport)  # None => použi default set
+    sports = _parse_sport_query(sport)
 
-    since_dt = datetime.now(timezone.utc) - timedelta(days=days)
-    since_iso = _iso(since_dt)
+    since_iso = _iso(datetime.now(timezone.utc) - timedelta(days=days))
 
-    # Activities summary cez DB helper (DB vrstva sama rozhoduje RLS vs service)
-    rows = db_fetch_summary_since(
-        user_id=user_id,
-        since_iso=since_iso,
-        ctx=ctx,
-    )
+    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso, ctx=ctx)
 
-    # filter podľa športu
-    if sports is None:
-        allowed = PARETO_DEFAULT_SET
-        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in allowed]
-        sports_used = allowed
-    else:
-        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in sports]
-        sports_used = sports
+    allowed = sports if sports is not None else PARETO_DEFAULT_SET
+    rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in allowed]
 
     ids = [int(r["activity_id"]) for r in rows if r.get("activity_id")]
-
     if not ids:
-        return {
-            "easy_min": 0,
-            "hard_min": 0,
-            "total_min": 0,
-            "days": days,
-        }
+        return {"easy_min": 0, "hard_min": 0, "total_min": 0, "days": days}
 
-    # enrichment cez DB helper
-    enr = db_get_enrichment_for_activities(
-        user_id=user_id,
-        activity_ids=ids,
-        ctx=ctx,
-    )
-
+    enr = db_get_enrichment_for_activities(user_id=user_id, activity_ids=ids, ctx=ctx)
     easy = sum(_easy(r) for r in enr)
     hard = sum(_hard(r) for r in enr)
-    total = easy + hard
 
-    return {
-        "easy_min": int(easy),
-        "hard_min": int(hard),
-        "total_min": int(total),
-        "days": days,
-    }
+    return {"easy_min": int(easy), "hard_min": int(hard), "total_min": int(easy + hard), "days": days}
 
 
-# ---------------------------- TREND -----------------------------
+# ─── TREND ──────────────────────────────────────────────────────────────────
+
 def service_pareto_trend(
     user_id: int,
     weeks: int = 8,
@@ -177,133 +137,126 @@ def service_pareto_trend(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Trend po týždňoch s doplnením prázdnych týždňov nulami.
-    Vracia objekt: { "trend": [...], "available_sports": [...] }
+    Trend po FIXNÝCH ISO týždňoch — rýchly, bez volania Strava API.
+
+    Čo sa zmenilo oproti pôvodnej verzii:
+    - ODSTRÁNENÉ: preview_zones_for_activities(fetch_if_missing=True)
+      → zóny sú obohacované pri IMPORTE aktivity (webhook), nie tu.
+    - ODSTRÁNENÉ: upsert_enrichment_minutes vo trend endpoint
+      → trend je READ-ONLY operácia, nič nezapisuje.
+    - Ak enrichment chýba pre nejakú aktivitu, jednoducho ju preskočíme
+      (nezapočítame) — nefailujeme a nevolíme Strava API.
+    - Výsledok: request trvá ~200-500ms namiesto niekoľkých sekúnd.
     """
 
     weeks = max(1, int(weeks))
-    sports_query = _parse_sport_query(sport)  # None => default set
+    sports_query = _parse_sport_query(sport)
 
-    since = datetime.now(timezone.utc) - timedelta(weeks=weeks + 1)
-    since_iso = _iso(since)
+    # +1 týždeň buffer pre prípad neúplného prvého týždňa
+    since_iso = _iso(datetime.now(timezone.utc) - timedelta(weeks=weeks + 1))
 
-    # Activities summary cez DB helper
-    rows = db_fetch_summary_since(
-        user_id=user_id,
-        since_iso=since_iso,
-        ctx=ctx,
-    )
+    # 1. Aktivity zo summary
+    rows = db_fetch_summary_since(user_id=user_id, since_iso=since_iso, ctx=ctx)
+    rows.sort(key=lambda r: str(r.get("date") or ""))
 
-    rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
+    # Reálne športy v období (pre available_sports filter v FE)
+    real_sports = {
+        s for r in rows if (s := _norm_db(r.get("sport_type_fe")))
+    }
 
-    # Zozbierame všetky REÁLNE športy, ktoré používateľ v tomto období robil (pred filtrom)
-    real_sports_in_period = set()
-    for r in rows:
-        norm_s = _norm_db(r.get("sport_type_fe"))
-        if norm_s:
-            real_sports_in_period.add(norm_s)
-
-    # filter podľa športu pre vykreslenie trendu
-    if sports_query is None:
-        allowed = PARETO_DEFAULT_SET
-        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in allowed]
-        sports_used = allowed
-    else:
-        rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in sports_query]
-        sports_used = sports_query
+    # Sport filter
+    allowed = sports_query if sports_query is not None else PARETO_DEFAULT_SET
+    rows = [r for r in rows if _norm_db(r.get("sport_type_fe")) in allowed]
 
     if not rows:
-        return {
-            "trend": [],
-            "available_sports": list(real_sports_in_period)
-        }
+        return {"trend": [], "available_sports": list(real_sports)}
 
-    # map na týždne
+    # 2. Skupinovanie activity_id podľa týždňa
     aid_by_week: Dict[str, List[int]] = {}
     week_meta: Dict[str, Dict[str, str]] = {}
     for r in rows:
-        dt = _to_dt(r["date"])
-        wb = _week_bucket(dt)
+        wb = _week_bucket(_to_dt(r["date"]))
         k = wb["key"]
         aid_by_week.setdefault(k, []).append(int(r["activity_id"]))
-        if k not in week_meta:
-            week_meta[k] = {
-                "label": wb["label"],
-                "start": wb["start"],
-                "end": wb["end"],
-            }
+        week_meta.setdefault(k, wb)
 
-    # recompute missing enrichment (preview + upsert)
-    all_ids: List[int] = [aid for ids in aid_by_week.values() for aid in ids]
-    if all_ids:
-        prev = preview_zones_for_activities(
-            user_id,
-            list(set(all_ids)),
-            fetch_if_missing=True,
-            ctx=ctx,
-        )
-
-        if prev.get("ok"):
-            upsert_enrichment_minutes(
-                user_id,
-                prev.get("items") or [],
-                ctx=ctx,
-            )
-
-    # načítaj enrichment z DB
+    # 3. Enrichment — JEDNODUCHÝ READ, žiadne API volania
+    all_ids = list({aid for ids in aid_by_week.values() for aid in ids})
     enr = db_get_enrichment_for_activities(
         user_id=user_id,
-        activity_ids=list(set(all_ids)),
+        activity_ids=all_ids,
         ctx=ctx,
     )
-
+    # Len aktivity ktoré majú enrichment (ostatné preskočíme — nie failujeme)
     emap = {
         int(e["activity_id"]): (_easy(e), _hard(e))
         for e in enr
         if e.get("activity_id") is not None
     }
 
-    # kontinuálne posledných `weeks` pondelkov
+    # 4. Generuj posledných `weeks` pondelkov (vrátane prázdnych týždňov = nuly)
     today = datetime.now(timezone.utc)
     this_monday = today - timedelta(days=today.weekday())
-    keys_ordered: List[str] = []
-    for i in range(weeks - 1, -1, -1):
-        d = this_monday - timedelta(weeks=i)
-        wb = _week_bucket(d)
-        keys_ordered.append(wb["key"])
-        week_meta.setdefault(
-            wb["key"],
-            {
-                "label": wb["label"],
-                "start": wb["start"],
-                "end": wb["end"],
-            },
-        )
 
     out: List[Dict[str, Any]] = []
-    for k in keys_ordered:
+    for i in range(weeks - 1, -1, -1):
+        monday = this_monday - timedelta(weeks=i)
+        wb = _week_bucket(monday)
+        k = wb["key"]
+        meta = week_meta.get(k, wb)
+
         e_sum = h_sum = 0
         for aid in aid_by_week.get(k, []):
-            e, h = emap.get(aid, (0, 0))
-            e_sum += int(e)
-            h_sum += int(h)
-        t = e_sum + h_sum
-        ep = int(round(100 * e_sum / t)) if t else 0
-        hp = max(0, 100 - ep)
-        meta = week_meta[k]
-        out.append(
-            {
-                "label": meta["label"],
-                "easy_pct": ep,
-                "hard_pct": hp,
-                "easy_min": e_sum,
-                "hard_min": h_sum,
-                "start": meta["start"],
-                "end": meta["end"],
-            }
-        )
+            e, h = emap.get(aid, (0, 0))  # ak chýba enrichment → 0 (nie error)
+            e_sum += e
+            h_sum += h
 
-    return {
-        "trend": out,
-        "available_sports": list(real_sports_in_period)
-    }
+        total = e_sum + h_sum
+        ep = int(round(100 * e_sum / total)) if total else 0
+
+        out.append({
+            "label": meta["label"],
+            "easy_pct": ep,
+            "hard_pct": max(0, 100 - ep),
+            "easy_min": e_sum,
+            "hard_min": h_sum,
+            "start": meta["start"],
+            "end": meta["end"],
+        })
+
+    return {"trend": out, "available_sports": list(real_sports)}
+
+
+# ─── ENRICH ON IMPORT (volaj toto z webhooku, nie z trend) ──────────────────
+
+def service_enrich_activity_zones(
+    user_id: int,
+    activity_id: int,
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Zavolaj toto pri IMPORTE aktivity (webhook) — NIE v trend endpointe.
+    Fetchne streamy z Strava, vypočíta zóny a uloží do enrichment.
+    Vracia True ak úspešne, False ak streamy nie sú dostupné.
+    """
+    try:
+        prev = preview_zones_for_activities(
+            user_id,
+            [activity_id],
+            fetch_if_missing=True,
+            ctx=ctx,
+        )
+        if not prev.get("ok"):
+            return False
+
+        items = prev.get("items") or []
+        if not items:
+            return False
+
+        upsert_enrichment_minutes(user_id, items, ctx=ctx)
+        return True
+
+    except Exception as e:
+        print(f"[PARETO][enrich] activity {activity_id} failed: {e}")
+        return False

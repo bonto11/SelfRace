@@ -10,42 +10,71 @@ from Services.user_prefs import service_load_user_settings
 from Services.AI.weekly_plan.prompts import build_prompts_for_weekly
 from Services.AI.provider.provider import ai_call_json_model
 from Modules.Supabase.auth import AuthCtx
+from Services.AI.utils.others import debug_log_ai_io
 
-def _get_trace_from_result(res: Any) -> Dict[str, Any]:
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _get_trace(res: Any) -> Dict[str, Any]:
     """
-    Vytiahne trace dáta z výsledku AI volania.
-    Provider teraz vracia detailné informácie o všetkých pokusoch.
+    Vytiahne trace z AI result — zachováva ok_provider a ok_model z providera.
+    NEPREPÍSUJE ich — provider ich už správne nastavil.
     """
     tr = getattr(res, "trace", None)
     if isinstance(tr, dict):
         return tr
-    
-    # Základný fallback pre štruktúru trace
     err = getattr(res, "error", None)
     return {
         "provider": str(getattr(res, "provider", None) or "unknown"),
+        "ok_provider": str(getattr(res, "provider", None) or "unknown"),
         "ok_model": str(getattr(res, "model", None) or "") or None,
-        "models_tried": [],
-        "attempts": [],
-        "error": getattr(err, "message", None) if err else None
+        "error": getattr(err, "message", None) if err else None,
     }
+
+
+def _load_settings(user_id: Optional[int], ctx: AuthCtx) -> Dict[str, Any]:
+    """Bezpečne načíta user settings."""
+    if not user_id:
+        return {}
+    try:
+        return service_load_user_settings(ctx=ctx, user_id=user_id) or {}
+    except Exception:
+        return {}
+
+
+def _tzinfo_from_settings(settings: Dict[str, Any]) -> timezone | ZoneInfo:
+    """Vráti timezone objekt z nastavení, fallback Bratislava."""
+    tz_name = settings.get("timezone") or "Europe/Bratislava"
+    try:
+        return ZoneInfo(str(tz_name))
+    except Exception:
+        return timezone.utc
+
+
+# ============================================================
+# HLAVNÁ FUNKCIA
+# ============================================================
 
 def generate_weekly_plan_json(
     context_payload: dict,
     ctx: AuthCtx,
-    model: Optional[str] = None, # ZMENA: Model je teraz voliteľný
+    model: Optional[str] = None,
     *,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None,
 ) -> Tuple[Optional[dict], Dict[str, Any], Optional[str]]:
     """
-    Generuje makro-cyklus (dlhodobý plán) na niekoľko týždňov.
-    Využíva centrálnu logiku fallbackov v provider.py.
+    Generuje weekly meta-plán (objemy, fázy, ciele) na niekoľko týždňov.
+    model=None = provider použije default z ENV.
+    Vracia (data, trace, error_message).
     """
     context: Dict[str, Any] = (
         context_payload if isinstance(context_payload, dict) else {}
     )
 
+    # User ID a settings
     user_id: Optional[int] = None
     try:
         uid = context.get("user_id")
@@ -53,37 +82,26 @@ def generate_weekly_plan_json(
     except Exception:
         pass
 
-    # Načítanie preferencií používateľa
-    settings: Dict[str, Any] = {}
-    if user_id:
-        try:
-            settings = service_load_user_settings(ctx=ctx, user_id=int(user_id)) or {}
-        except Exception:
-            pass
+    settings = _load_settings(user_id, ctx)
+    tzinfo = _tzinfo_from_settings(settings)
 
-    # Zostavenie systémového a používateľského promptu
+    # Prompty
     system_txt, user_txt = build_prompts_for_weekly(context, settings=settings)
+
+    # Parametre
+    resolved_max_tokens = int(
+        max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 4000)
+    )
+    resolved_temperature = float(
+        temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)
+    )
 
     try:
         horizon_weeks = int(context.get("weeks") or 6)
     except Exception:
         horizon_weeks = 6
 
-    # Určenie časovej zóny pre správny timestamp generovania
-    tz_name = settings.get("timezone") or "Europe/Bratislava"
-    try:
-        tzinfo = ZoneInfo(str(tz_name))
-    except Exception:
-        tzinfo = timezone.utc
-
-    resolved_max_tokens = int(
-        max_tokens if max_tokens is not None else (LLM_MAX_TOKENS or 2000)
-    )
-    resolved_temperature = float(
-        temperature if temperature is not None else (LLM_TEMPERATURE or 0.2)
-    )
-
-    # Hlavné volanie AI. Ak model zlyhá, provider skúsi fallbacky z configu.
+    # AI volanie — provider rieši fallbacky
     res = ai_call_json_model(
         context_payload=context,
         system_prompt=system_txt,
@@ -93,42 +111,33 @@ def generate_weekly_plan_json(
         temperature=resolved_temperature,
     )
 
-    # Získanie trace dát (obsahujú info o tom, či sme museli použiť fallback)
-    trace: Dict[str, Any] = _get_trace_from_result(res)
-    trace.update({
-        "max_tokens": resolved_max_tokens,
-        "temperature": resolved_temperature,
-        "timezone": str(tz_name),
-        "ok": bool(res.ok)
-    })
+    debug_log_ai_io(system_txt, user_txt, res.data if res.ok else None, _get_trace(res))
 
-    # --- Cesta úspechu ---
+
+    # Trace — NEZAPISUJEME cez update() aby sme neprepísali ok_provider/ok_model
+    trace = _get_trace(res)
+    trace["max_tokens"] = resolved_max_tokens
+    trace["temperature"] = resolved_temperature
+    trace["timezone"] = str(settings.get("timezone") or "Europe/Bratislava")
+
     if res.ok and isinstance(res.data, dict):
         parsed: Dict[str, Any] = dict(res.data)
-
-        now_local = datetime.now(tzinfo)
         parsed["schema_version"] = int(parsed.get("schema_version") or 1)
-        parsed["generated_at"] = now_local.isoformat()
-        
-        # Zapíšeme model, ktorý reálne odpovedal (mohol to byť fallback)
-        ok_model = str(res.model or model or "unknown")
-        parsed["model"] = str(parsed.get("model") or ok_model)
+        parsed["generated_at"] = datetime.now(tzinfo).isoformat()
+        parsed["model"] = str(res.model or model or "unknown")
 
-        plan_meta = parsed.get("plan_meta")
+        plan_meta = parsed.get("plan_meta") or {}
         if not isinstance(plan_meta, dict):
             plan_meta = {}
-
-        plan_meta["weeks"] = int(horizon_weeks)
+        plan_meta["weeks"] = horizon_weeks
         parsed["plan_meta"] = plan_meta
-
-        if not trace.get("ok_model"):
-            trace["ok_model"] = parsed["model"]
 
         return parsed, trace, None
 
-    # --- Cesta zlyhania (všetky modely v reťazci zlyhali) ---
-    err_msg = res.error.message if res.error else "AI provider failed after all fallback attempts"
-    
+    # Zlyhanie
+    err_msg = (
+        res.error.message if res.error else "AI provider failed after all fallback attempts"
+    )
     trace["error_code"] = res.error.code if res.error else "ai_failed"
     trace["error_message"] = err_msg
 

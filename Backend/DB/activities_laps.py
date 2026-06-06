@@ -61,3 +61,46 @@ def db_get_activity_laps(
         .execute()
     )
     return res.data or []
+
+
+def db_get_activity_laps_batch(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> Dict[int, List[Dict[str, Any]]]:
+    """
+    Načíta laps pre viacero aktivít naraz — jeden DB call namiesto N.
+    Vracia {activity_id: [rows]} zoradené podľa lap_index.
+    Iba platné záznamy: deleted_at IS NULL, expires_at > now().
+    """
+    if not activity_ids:
+        return {}
+
+    sb = get_sb(ctx, caller="activities_laps.db_get_activity_laps_batch")
+    now = _now_iso()
+
+    res = (
+        sb.table(TABLE_ACTIVITIES_LAPS)
+        .select("*")
+        .eq("user_id", user_id)
+        .in_("activity_id", activity_ids)
+        .is_("deleted_at", "null")
+        .gt("expires_at", now)
+        .order("lap_index", desc=False)
+        .execute()
+    )
+
+    # Zoskupíme riadky podľa activity_id — poradie lap_index je zachované z DB
+    result: Dict[int, List[Dict[str, Any]]] = {}
+    for row in res.data or []:
+        aid = row.get("activity_id")
+        if aid is None:
+            continue
+        try:
+            aid = int(aid)
+        except Exception:
+            continue
+        result.setdefault(aid, []).append(row)
+
+    return result

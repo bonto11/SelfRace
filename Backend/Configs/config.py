@@ -148,7 +148,7 @@ AI_PROVIDER = (os.getenv("AI_PROVIDER", "openai") or "openai").strip().lower()
 
 OPENAI_API_KEY = env_optional("OPENAI_API_KEY")
 GEMINI_API_KEY = env_optional("GEMINI_API_KEY")
-
+CLAUDE_API_KEY = env_optional("CLAUDE_API_KEY")
 
 # =============================================================================
 # GLOBAL LLM TUNING
@@ -181,6 +181,17 @@ GEMINI_DEFAULT_MODEL = (
 GEMINI_MODEL_FALLBACKS = _csv_list(
     env_optional("GEMINI_MODEL_FALLBACKS"),
     default=GEMINI_DEFAULT_MODEL,
+)
+
+
+CLAUDE_DEFAULT_MODEL = (
+    env_optional("CLAUDE_DEFAULT_MODEL", "claude-haiku-4-5")
+    or "claude-haiku-4-5"
+)
+
+CLAUDE_MODEL_FALLBACKS = _csv_list(
+    env_optional("CLAUDE_MODEL_FALLBACKS"),
+    default=CLAUDE_DEFAULT_MODEL,
 )
 
 
