@@ -462,7 +462,7 @@ export const en = {
             "5k": "5 km",
             "10k": "10 km",
             half: "Half Marathon",
-            maratón: "Marathon",
+            marathon: "Marathon",
             ultra: "Ultra trail",
             other: "Other / custom distance",
           },
@@ -1928,6 +1928,68 @@ export const en = {
       previewHrMax: "Max HR",
     },
   },
+"upcomingRace": {
+  "widget": {
+    "title": "Upcoming Race",
+    "tooltip": "Countdown to your nearest race",
+    "noRace": "No race has been set yet"
+  },
+  "detail": { "title": "Races" }
+}
+,
+"readiness": {
+  "widget": {
+    "title": "Readiness",
+    "tooltip": [
+      "Composite training readiness score (0–100) based on your daily measurements.",
+      "",
+      "What's measured:",
+      "• HRV (40%): Heart rate variability vs. your 14-day average. Higher HRV = better recovery.",
+      "• RHR (30%): Resting heart rate vs. your average. Lower = more rested.",
+      "• Sleep (20%): 8 hours = 100 points. Score drops below 7h, slightly above 9h too.",
+      "• Factors (10%): Alcohol (-30), late caffeine (-15), heavy meal before bed (-10).",
+      "",
+      "How to read your score:",
+      "• 85–100 Excellent: Fully recovered. Great day for hard training.",
+      "• 70–84 Good: Normal training day, no restrictions.",
+      "• 55–69 Average: Train yes, but keep it moderate.",
+      "• 40–54 Low: Light movement or active recovery only.",
+      "• 0–39 Rest up: Your body needs rest more than load today.",
+      "",
+      "Scientific basis:",
+      "• HRV as recovery marker: Plews et al. (2013), Buchheit (2014).",
+      "• Optimal sleep 7–9h: National Sleep Foundation, Matthew Walker.",
+      "• Alcohol effects on HRV: well documented in sports medicine."
+    ].join("\n"),
+    "factorAlcohol": "Alcohol impacted your score"
+  },
+  "detail": {
+    "title": "Training Readiness",
+    "breakdown": "What influenced your score",
+    "breakdownSub": "Based on today's and historical measurements",
+    "hrv": "Nervous system status (HRV)",
+    "rhr": "Resting heart rate (RHR)",
+    "sleep": "Sleep duration",
+    "factors": "Previous day factors",
+    "noData": "Measurement missing",
+    "noFactors": "No negative factors",
+    "notEnoughData": "Enter morning measurements (HRV or RHR) to calculate score",
+    "sleepLow": "Less than the recommended 7 hours",
+    "sleepHigh": "More than 9 hours — extended sleep",
+    "factorAlcohol": "🍷 Alcohol",
+    "factorCaffeine": "☕ Late caffeine",
+    "factorFood": "🍔 Heavy meal",
+  }, "label": {
+  "none": "—",
+  "excellent": "Excellent",
+  "good": "Good",
+  "average": "Average",
+  "low": "Low",
+  "rest": "Rest up"
+}
+,
+}
+,
   recovery: {
     title: "Recovery",
     inputs: {

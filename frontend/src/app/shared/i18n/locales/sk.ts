@@ -461,7 +461,7 @@ export const sk = {
             "5k": "5 km",
             "10k": "10 km",
             half: "Polmaratón",
-            maratón: "Maratón",
+            marathon: "Maratón",
             ultra: "Ultra trail",
             other: "Iné / vlastná dĺžka",
           },
@@ -1912,6 +1912,67 @@ export const sk = {
       previewHrMax: "Maximálny tep",
     },
   },
+"upcomingRace": {
+  "widget": {
+    "title": "Nadchádzajúci závod",
+    "tooltip": "Odpočet do najbližšieho závodu",
+    "noRace": "Žiadny závod nie je nastavený"
+  },
+  "detail": { "title": "Závody" }
+},
+
+"readiness": {
+  "widget": {
+    "title": "Pripravenosť",
+    "tooltip": [
+      "Kompozitné skóre pripravenosti na tréning (0–100) z meraní toho dňa.",
+      "",
+      "Čo sa hodnotí:",
+      "• HRV (40 %): Variabilita tepu oproti 14-dňovému priemeru. Vyššia HRV = lepšia regenerácia.",
+      "• RHR (30 %): Pokojový tep oproti priemeru. Nižší tep = oddýchnutejší organizmus.",
+      "• Spánok (20 %): 8 hodín = 100 bodov. Pod 7h začína skóre klesať, nad 9h mierne tiež.",
+      "• Faktory (10 %): Alkohol (-30), neskorý kofeín (-15), ťažké jedlo pred spaním (-10).",
+      "",
+      "Ako čítať výsledok:",
+      "• 85–100 Výborná: Telo je plne zotavené. Ideálny deň na tvrdý tréning.",
+      "• 70–84 Dobrá: Štandardný tréningový deň bez obmedzení.",
+      "• 55–69 Priemerná: Tréning áno, ale radšej stredná intenzita.",
+      "• 40–54 Nízka: Len ľahký pohyb alebo aktívna regenerácia.",
+      "• 0–39 Odpočívaj: Telo potrebuje oddych viac ako záťaž.",
+      "",
+      "Vedecký základ:",
+      "• HRV ako marker regenerácie: Plews et al. (2013), Buchheit (2014).",
+      "• Optimálny spánok 7–9h: National Sleep Foundation, Matthew Walker.",
+      "• Vplyv alkoholu na HRV: dobre zdokumentovaný v športovej medicíne."
+    ].join("\n"),
+    "factorAlcohol": "Alkohol ovplyvnil skóre"
+  },
+  "detail": {
+    "title": "Pripravenosť na tréning",
+    "breakdown": "Čo ovplyvnilo skóre",
+    "breakdownSub": "Na základe dnešných a historických meraní",
+    "hrv": "Stav nervového systému (HRV)",
+    "rhr": "Pokojový tep (RHR)",
+    "sleep": "Dĺžka spánku",
+    "factors": "Faktory predchádzajúceho dňa",
+    "noData": "Meranie chýba",
+    "noFactors": "Žiadne negatívne faktory",
+    "notEnoughData": "Zadaj ranné merania (HRV alebo RHR) pre výpočet skóre",
+    "sleepLow": "Menej ako odporúčaných 7 hodín",
+    "sleepHigh": "Viac ako 9 hodín — dlhý spánok",
+    "factorAlcohol": "🍷 Alkohol",
+    "factorCaffeine": "☕ Kofeín neskoro",
+    "factorFood": "🍔 Ťažké jedlo",
+  },
+  "label": {
+    "none": "—",
+    "excellent": "Výborná",
+    "good": "Dobrá",
+    "average": "Priemerná",
+    "low": "Nízka",
+    "rest": "Odpočívaj"
+  },
+},
   recovery: {
     title: "Regenerácia",
     inputs: {
