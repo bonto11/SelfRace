@@ -1928,6 +1928,29 @@ export const en = {
       previewHrMax: "Max HR",
     },
   },
+
+"readiness": {
+  "widget": {
+    "title": "Readiness",
+    "tooltip": "Composite score from HRV, RHR, sleep and lifestyle factors",
+    "factorAlcohol": "Alcohol impacted your score"
+  },
+  "detail": {
+    "title": "Training Readiness",
+    "breakdown": "What influenced your score",
+    "breakdownSub": "Based on today's and historical measurements",
+    "hrv": "Nervous system status (HRV)",
+    "rhr": "Resting heart rate (RHR)",
+    "sleep": "Sleep duration",
+    "factors": "Previous day factors",
+    "noData": "Measurement missing",
+    "noFactors": "No negative factors",
+    "notEnoughData": "Enter morning measurements (HRV or RHR) to calculate score",
+    "sleepLow": "Less than the recommended 7 hours",
+    "sleepHigh": "More than 9 hours — extended sleep"
+  }
+}
+,
   recovery: {
     title: "Recovery",
     inputs: {
