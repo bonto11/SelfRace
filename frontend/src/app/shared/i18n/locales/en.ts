@@ -1928,7 +1928,15 @@ export const en = {
       previewHrMax: "Max HR",
     },
   },
-
+"upcomingRace": {
+  "widget": {
+    "title": "Upcoming Race",
+    "tooltip": "Countdown to your nearest race",
+    "noRace": "No race has been set yet"
+  },
+  "detail": { "title": "Races" }
+}
+,
 "readiness": {
   "widget": {
     "title": "Readiness",
