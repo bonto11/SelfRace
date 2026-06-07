@@ -66,7 +66,7 @@ function compose(
   return clamp(Math.round(total / totalW));
 }
 
-export function readinessLabel(score: number | null): string {
+export function readinessLabelKey(score: number | null): string {
   if (score === null) return "readiness.label.none";
   if (score >= 85) return "readiness.label.excellent";
   if (score >= 70) return "readiness.label.good";
