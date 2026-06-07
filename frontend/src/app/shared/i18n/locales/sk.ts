@@ -1912,6 +1912,29 @@ export const sk = {
       previewHrMax: "Maximálny tep",
     },
   },
+
+"readiness": {
+  "widget": {
+    "title": "Pripravenosť",
+    "tooltip": "Kompozitné skóre z HRV, RHR, spánku a faktorov",
+    "factorAlcohol": "Alkohol ovplyvnil skóre"
+  },
+  "detail": {
+    "title": "Pripravenosť na tréning",
+    "breakdown": "Čo ovplyvnilo skóre",
+    "breakdownSub": "Na základe dnešných a historických meraní",
+    "hrv": "Stav nervového systému (HRV)",
+    "rhr": "Pokojový tep (RHR)",
+    "sleep": "Dĺžka spánku",
+    "factors": "Faktory predchádzajúceho dňa",
+    "noData": "Meranie chýba",
+    "noFactors": "Žiadne negatívne faktory",
+    "notEnoughData": "Zadaj ranné merania (HRV alebo RHR) pre výpočet skóre",
+    "sleepLow": "Menej ako odporúčaných 7 hodín",
+    "sleepHigh": "Viac ako 9 hodín — dlhý spánok"
+  }
+}
+,
   recovery: {
     title: "Regenerácia",
     inputs: {
