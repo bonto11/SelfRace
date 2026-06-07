@@ -48,8 +48,8 @@ export default function WidgetReadiness({ onOpenDetail }: { onOpenDetail?: () =>
 
   return (
     <WidgetCard
-      title={t("readiness.widget.title") || "Pripravenosť"}
-      tooltip={t("readiness.widget.tooltip") || "Kompozitné skóre z HRV, RHR, spánku a faktorov"}
+      title={t("readiness.widget.title") as any}
+      tooltip={t("readiness.widget.tooltip") as any}
       accent={cardAccent}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}
@@ -72,13 +72,13 @@ export default function WidgetReadiness({ onOpenDetail }: { onOpenDetail?: () =>
           <ReadinessBar score={result.score} />
 
           <p className={WIDGET_NOTE} style={{ color: result.hasEnough ? color : undefined }}>
-            {result.label}
+            {t(result.label as any)}
           </p>
 
           {/* Upozornenie na negatívne faktory */}
           {result.components.factors.alcohol && (
             <p className={WIDGET_NOTE} style={{ color: appColors.stateDanger, marginTop: 2 }}>
-              🍷 {t("readiness.widget.factorAlcohol") || "Alkohol ovplyvnil skóre"}
+              🍷 {t("readiness.widget.factorAlcohol") as any}
             </p>
           )}
         </>
