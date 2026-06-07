@@ -327,31 +327,46 @@ def db_update_daily_session_data(user_id: int, session_id: int, update_data: Dic
 def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Dict[str, int]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_compliance_stats")
     try:
-        # 1. Zistíme, kedy začal aktuálny aktívny plán atléta
         active_plan = db_get_active_plan_meta_for_user(user_id, ctx=ctx)
-        
-        query = sb.table(TABLE_COACH_PLAN_DAILY).select("status").eq("user_id", user_id)
-        
-        # 2. Ak máme aktívny plán, ťaháme VŠETKY denné dáta od jeho úplného začiatku!
+
+        # FIX: select aj plan_date, nielen status
+        query = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("status, plan_date")
+            .eq("user_id", user_id)
+        )
+
         if active_plan and active_plan.get("start_date"):
             query = query.gte("plan_date", active_plan["start_date"])
         else:
-            # Fallback (ak by nebol aktívny plán), potiahneme klasicky X dní dozadu
-            query = query.gte("plan_date", (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat())
-            
+            since = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+            query = query.gte("plan_date", since)
+
+        # Nepočítaj budúce plánované (sú stále "planned" = správne)
+        today = date.today().isoformat()
+        query = query.lte("plan_date", today)  # len minulosť + dnes
+
         res = query.execute()
         data = res.data or []
-        
+
         stats = {"done": 0, "postponed": 0, "missed": 0, "planned": 0}
         for row in data:
             s = row.get("status") or "planned"
+            plan_date = str(row.get("plan_date") or "")
+
+            # Kľúčová oprava: planned session v minulosti = missed
+            # (status sa v DB nemení automaticky, počítame to tu)
+            if s == "planned" and plan_date and plan_date < today:
+                s = "missed"
+
             if s in stats:
                 stats[s] += 1
-        
+
         return stats
     except Exception as e:
         print("[DB-COACH-DAILY] stats error:", repr(e))
         return {"done": 0, "postponed": 0, "missed": 0, "planned": 0}
+
 
 def db_get_postponed_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_postponed_sessions")
