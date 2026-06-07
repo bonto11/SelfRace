@@ -1,0 +1,135 @@
+// src/app/shared/hooks/useReadinessScore.ts
+import { useMemo } from "react";
+
+export type ReadinessComponents = {
+  hrv:     { score: number | null; today: number | null; baseline: number | null };
+  rhr:     { score: number | null; today: number | null; baseline: number | null };
+  sleep:   { score: number | null; today: number | null };
+  factors: { score: number; alcohol: boolean; caffeine: boolean; food: boolean };
+};
+
+export type ReadinessResult = {
+  score:      number | null;
+  label:      string;
+  components: ReadinessComponents;
+  hasEnough:  boolean;
+};
+
+function clamp(v: number, lo = 0, hi = 100) {
+  return Math.max(lo, Math.min(hi, v));
+}
+function avg(nums: number[]) {
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function scoreHRV(today: number | null, baseline: number | null): number | null {
+  if (today === null || baseline === null || baseline === 0) return null;
+  return clamp(Math.round((today / baseline) * 100));
+}
+
+function scoreRHR(today: number | null, baseline: number | null): number | null {
+  if (today === null || baseline === null || today === 0) return null;
+  return clamp(Math.round((baseline / today) * 100));
+}
+
+function scoreSleep(minutes: number | null): number | null {
+  if (minutes === null) return null;
+  if (minutes > 540) return Math.max(75, 100 - Math.round(((minutes - 540) / 30) * 5));
+  if (minutes >= 480) return 100;
+  if (minutes >= 420) return Math.round(80 + ((minutes - 420) / 60) * 20);
+  if (minutes >= 360) return Math.round(50 + ((minutes - 360) / 60) * 30);
+  if (minutes >= 240) return clamp(Math.round((minutes / 360) * 50));
+  return 0;
+}
+
+function scoreFactors(alcohol: boolean, caffeine: boolean, food: boolean): number {
+  let s = 100;
+  if (alcohol)  s -= 30;
+  if (caffeine) s -= 15;
+  if (food)     s -= 10;
+  return Math.max(0, s);
+}
+
+function compose(
+  hrv: number | null, rhr: number | null,
+  sleep: number | null, factors: number,
+): number | null {
+  const W = { hrv: 0.40, rhr: 0.30, sleep: 0.20, factors: 0.10 };
+  let total = 0, totalW = 0;
+  if (hrv   !== null) { total += hrv   * W.hrv;   totalW += W.hrv; }
+  if (rhr   !== null) { total += rhr   * W.rhr;   totalW += W.rhr; }
+  if (sleep !== null) { total += sleep * W.sleep; totalW += W.sleep; }
+  total += factors * W.factors;
+  totalW += W.factors;
+  const hasCore = hrv !== null || rhr !== null;
+  if (!hasCore) return null;
+  return clamp(Math.round(total / totalW));
+}
+
+export function readinessLabel(score: number | null): string {
+  if (score === null) return "—";
+  if (score >= 85) return "Výborná";
+  if (score >= 70) return "Dobrá";
+  if (score >= 55) return "Priemerná";
+  if (score >= 40) return "Nízka";
+  return "Odpočívaj";
+}
+
+export function readinessColor(score: number | null): string {
+  if (score === null) return "#6b7280";
+  if (score >= 85) return "#4ade80";
+  if (score >= 70) return "#86efac";
+  if (score >= 55) return "#facc15";
+  if (score >= 40) return "#fb923c";
+  return "#f87171";
+}
+
+export function useReadinessScore(rows: any[]): ReadinessResult {
+  return useMemo(() => {
+    const empty: ReadinessResult = {
+      score: null, label: "—", hasEnough: false,
+      components: {
+        hrv:     { score: null, today: null, baseline: null },
+        rhr:     { score: null, today: null, baseline: null },
+        sleep:   { score: null, today: null },
+        factors: { score: 100, alcohol: false, caffeine: false, food: false },
+      },
+    };
+    if (!rows.length) return empty;
+
+    const today = rows.at(-1);
+    if (!today) return empty;
+
+    const nums_hrv = rows.map((r) => r.HRV_avg_ms).filter((v): v is number => typeof v === "number");
+    const nums_rhr = rows.map((r) => r.RHR_bpm).filter((v): v is number => typeof v === "number");
+
+    const baseline_hrv = nums_hrv.length >= 3 ? Math.round(avg(nums_hrv.slice(-14))) : null;
+    const baseline_rhr = nums_rhr.length >= 3 ? Math.round(avg(nums_rhr.slice(-14))) : null;
+
+    const todayHRV   = typeof today.HRV_avg_ms        === "number" ? today.HRV_avg_ms : null;
+    const todayRHR   = typeof today.RHR_bpm            === "number" ? today.RHR_bpm : null;
+    const todaySleep = typeof today.sleep_duration_min === "number" ? today.sleep_duration_min : null;
+
+    const alcohol  = !!today.alcohol_consumed;
+    const caffeine = !!today.caffeine_8h;
+    const food     = !!today.food_2h_before;
+
+    const hrv_s     = scoreHRV(todayHRV, baseline_hrv);
+    const rhr_s     = scoreRHR(todayRHR, baseline_rhr);
+    const sleep_s   = scoreSleep(todaySleep);
+    const factors_s = scoreFactors(alcohol, caffeine, food);
+    const score     = compose(hrv_s, rhr_s, sleep_s, factors_s);
+
+    return {
+      score,
+      label: readinessLabel(score),
+      hasEnough: score !== null,
+      components: {
+        hrv:     { score: hrv_s,   today: todayHRV,   baseline: baseline_hrv },
+        rhr:     { score: rhr_s,   today: todayRHR,   baseline: baseline_rhr },
+        sleep:   { score: sleep_s, today: todaySleep },
+        factors: { score: factors_s, alcohol, caffeine, food },
+      },
+    };
+  }, [rows]);
+}
