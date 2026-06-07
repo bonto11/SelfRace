@@ -461,7 +461,7 @@ export const sk = {
             "5k": "5 km",
             "10k": "10 km",
             half: "Polmaratón",
-            maratón: "Maratón",
+            marathon: "Maratón",
             ultra: "Ultra trail",
             other: "Iné / vlastná dĺžka",
           },
