@@ -123,7 +123,7 @@ export function useReadinessScore(rows: any[]): ReadinessResult {
 
     return {
       score,
-      label: readinessLabel(score),
+      label: readinessLabelKey(score),
       hasEnough: score !== null,
       components: {
         hrv:     { score: hrv_s,   today: todayHRV,   baseline: baseline_hrv },
