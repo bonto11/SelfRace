@@ -11,10 +11,11 @@ import {
 } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+
+import WidgetUpcomingRace from "@/app/shared/components/widgets/WidgetUpcomingRace";
 import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
 import WidgetCoachPlan from "@/app/shared/components/widgets/WidgetCoachPlan";
 import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternalEvents";
-
 import WidgetAthleteHealth from "@/app/shared/components/widgets/WidgetAthleteHealth";
 import WidgetCoachAIAnalyze from "@/app/shared/components/widgets/WidgetCoachAthleteState";
 import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
@@ -29,34 +30,19 @@ import { useT } from "@/app/shared/i18n/useT";
 
 function RefreshIconBtn() {
   const t = useT();
-
-  // Vytiahneme refresh funkcie a loading stavy z oboch providerov
-  const { refresh: refreshActivities, loading: loadingActivities } =
-    useActivityData();
+  const { refresh: refreshActivities, loading: loadingActivities } = useActivityData();
   const { refresh: refreshCoach, loading: loadingCoach } = useCoachData();
-
-  // Celkový loading je true, ak sa aspoň jeden provider práve načítava
   const isGlobalLoading = loadingActivities || loadingCoach;
-
-  // Funkcia, ktorá spustí oba refreshe naraz
-  const handleRefreshAll = () => {
-    refreshActivities(true);
-    refreshCoach(true);
-  };
 
   return (
     <Button
-      circle
-      size="sm"
-      variant="ghost"
+      circle size="sm" variant="ghost"
       aria-label={t("common.refreshTitle" as any)}
       title={t("common.refreshTitle" as any)}
-      onClick={handleRefreshAll}
+      onClick={() => { refreshActivities(true); refreshCoach(true); }}
       disabled={isGlobalLoading}
     >
-      <IconRefresh
-        className={`h-4 w-4 ${isGlobalLoading ? "animate-spin" : ""}`}
-      />
+      <IconRefresh className={`h-4 w-4 ${isGlobalLoading ? "animate-spin" : ""}`} />
     </Button>
   );
 }
@@ -64,7 +50,6 @@ function RefreshIconBtn() {
 function ClientPage() {
   const router = useRouter();
   const t = useT();
-
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
@@ -80,38 +65,25 @@ function ClientPage() {
       </div>
 
       <div className={PAGE_GRID_2}>
+        {/* Odpočet do závodu — vždy viditeľný, ako prvý */}
+        <WidgetUpcomingRace
+          onOpenDetail={() => router.push("/coach/race-countdown")}
+        />
+
         {showAdvanced && <WidgetExternalEvents />}
 
         <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
-
-        <WidgetAthleteHealth
-          onOpenDetail={() => router.push("/coach/health")}
-        />
-
+        <WidgetAthleteHealth onOpenDetail={() => router.push("/coach/health")} />
         <WidgetCoachPlan />
+        <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
+        <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
+        <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
 
-        <WidgetCoachAIAnalyze
-          onOpenDetail={() => router.push("/coach/ai/athleteState")}
-        />
-        <WidgetCoachAIWeekly
-          onOpenDetail={() => router.push("/coach/ai/weeklyPlan")}
-        />
-        <WidgetCoachAIDaily
-          onOpenDetail={() => router.push("/coach/ai/dailyPlan")}
-        />
-
-        {/* Progress presunutý za showAdvanced podmienku */}
         {showAdvanced && (
-          <WidgetCoachAIProgress
-            onOpenDetail={() => router.push("/coach/ai/progress")}
-          />
-        )}
-
-        {/* 👈 Pridaný náš nový Compliance Widget */}
-        {showAdvanced && (
-          <WidgetCoachPlanCompliance
-            onOpenDetail={() => router.push("/coach/compliance")}
-          />
+          <>
+            <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
+            <WidgetCoachPlanCompliance onOpenDetail={() => router.push("/coach/compliance")} />
+          </>
         )}
       </div>
     </PageShell>
