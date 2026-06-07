@@ -67,13 +67,14 @@ function compose(
 }
 
 export function readinessLabel(score: number | null): string {
-  if (score === null) return "—";
-  if (score >= 85) return "Výborná";
-  if (score >= 70) return "Dobrá";
-  if (score >= 55) return "Priemerná";
-  if (score >= 40) return "Nízka";
-  return "Odpočívaj";
+  if (score === null) return "readiness.label.none";
+  if (score >= 85) return "readiness.label.excellent";
+  if (score >= 70) return "readiness.label.good";
+  if (score >= 55) return "readiness.label.average";
+  if (score >= 40) return "readiness.label.low";
+  return "readiness.label.rest";
 }
+
 
 export function readinessColor(score: number | null): string {
   if (score === null) return "#6b7280";
