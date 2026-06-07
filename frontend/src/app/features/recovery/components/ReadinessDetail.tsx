@@ -4,7 +4,7 @@
 import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import {
-  useReadinessScore, readinessColor, readinessLabel,
+  useReadinessScore, readinessColor, readinessLabelKey,
 } from "@/app/shared/hooks/useReadinessScore";
 import { minutesToHHMM_Time } from "@/app/shared/utils/time";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -16,8 +16,8 @@ import { useT } from "@/app/shared/i18n/useT";
 
 /* ─── KRUH SO SKÓRE ─── */
 function ScoreCircle({ score }: { score: number | null }) {
+  const t = useT();
   const color = readinessColor(score);
-  const label = readinessLabel(score);
   const pct   = score ?? 0;
   const R     = 54;
   const CIRC  = 2 * Math.PI * R;
@@ -43,7 +43,7 @@ function ScoreCircle({ score }: { score: number | null }) {
       </svg>
       <span style={{ fontSize: 18, fontWeight: 700, marginTop: 6,
         color: score !== null ? color : appColors.textMuted }}>
-        {label}
+        {t(readinessLabelKey(score))}
       </span>
     </div>
   );
@@ -97,68 +97,66 @@ export default function ReadinessDetail() {
     );
   }
 
-  const hrvVal  = c.hrv.today !== null   ? `${Math.round(c.hrv.today)} ms`   : "—";
-  const hrvSub  = c.hrv.baseline !== null  ? `/ ø ${Math.round(c.hrv.baseline)} ms` : undefined;
-  const rhrVal  = c.rhr.today !== null   ? `${Math.round(c.rhr.today)} bpm` : "—";
-  const rhrSub  = c.rhr.baseline !== null  ? `/ ø ${Math.round(c.rhr.baseline)} bpm` : undefined;
-  const sleepVal = c.sleep.today !== null ? minutesToHHMM_Time(c.sleep.today) : "—";
+  const hrvVal  = c.hrv.today !== null    ? `${Math.round(c.hrv.today)} ms`          : "—";
+  const hrvSub  = c.hrv.baseline !== null ? `/ ø ${Math.round(c.hrv.baseline)} ms`   : undefined;
+  const rhrVal  = c.rhr.today !== null    ? `${Math.round(c.rhr.today)} bpm`          : "—";
+  const rhrSub  = c.rhr.baseline !== null ? `/ ø ${Math.round(c.rhr.baseline)} bpm`  : undefined;
+  const sleepVal = c.sleep.today !== null ? minutesToHHMM_Time(c.sleep.today)         : "—";
 
   const sleepNote = c.sleep.today !== null
-    ? c.sleep.today < 420 ? (t("readiness.detail.sleepLow") || "Menej ako odporúčaných 7 hodín")
-    : c.sleep.today > 540 ? (t("readiness.detail.sleepHigh") || "Viac ako 9 hodín — dlhý spánok")
+    ? c.sleep.today < 420 ? t("readiness.detail.sleepLow")
+    : c.sleep.today > 540 ? t("readiness.detail.sleepHigh")
     : undefined
-    : (t("readiness.detail.noData") || "Dáta chýbajú");
+    : t("readiness.detail.noData");
 
   const factorsList = [
-    c.factors.alcohol  && "🍷 Alkohol",
-    c.factors.caffeine && "☕ Kofeín neskoro",
-    c.factors.food     && "🍔 Ťažké jedlo",
+    c.factors.alcohol  && t("readiness.detail.factorAlcohol"),
+    c.factors.caffeine && t("readiness.detail.factorCaffeine"),
+    c.factors.food     && t("readiness.detail.factorFood"),
   ].filter(Boolean).join(" · ");
 
   return (
     <>
-      {/* Skóre */}
       <section className={CARD} style={SURFACE_CARD_STYLE}>
         <ScoreCircle score={result.score} />
         {!result.hasEnough && (
           <p style={{ textAlign: "center", fontSize: 13, color: appColors.textMuted, padding: "0 16px 16px" }}>
-            {t("readiness.detail.notEnoughData") || "Zadaj ranné merania (HRV alebo RHR) pre výpočet skóre"}
+            {t("readiness.detail.notEnoughData")}
           </p>
         )}
       </section>
 
-      {/* Breakdown */}
       <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginTop: 12 }}>
         <div style={{ padding: "14px 16px 6px" }}>
           <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
-            {t("readiness.detail.breakdown") || "Čo ovplyvnilo skóre"}
+            {t("readiness.detail.breakdown")}
           </div>
           <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
-            {t("readiness.detail.breakdownSub") || "Na základe dnešných a historických meraní"}
+            {t("readiness.detail.breakdownSub")}
           </div>
         </div>
 
         <ComponentRow
-          title={t("readiness.detail.hrv") || "Stav nervového systému (HRV)"}
+          title={t("readiness.detail.hrv")}
           value={hrvVal} sub={hrvSub} score={c.hrv.score}
-          note={c.hrv.score === null ? (t("readiness.detail.noData") || "Meranie chýba") : undefined}
+          note={c.hrv.score === null ? t("readiness.detail.noData") : undefined}
         />
         <ComponentRow
-          title={t("readiness.detail.rhr") || "Pokojový tep (RHR)"}
+          title={t("readiness.detail.rhr")}
           value={rhrVal} sub={rhrSub} score={c.rhr.score}
-          note={c.rhr.score === null ? (t("readiness.detail.noData") || "Meranie chýba") : undefined}
+          note={c.rhr.score === null ? t("readiness.detail.noData") : undefined}
         />
         <ComponentRow
-          title={t("readiness.detail.sleep") || "Dĺžka spánku"}
+          title={t("readiness.detail.sleep")}
           value={sleepVal} score={c.sleep.score}
           note={sleepNote}
           noteColor={c.sleep.today !== null && c.sleep.today < 420 ? appColors.stateWarning : undefined}
         />
         <ComponentRow
-          title={t("readiness.detail.factors") || "Faktory predchádzajúceho dňa"}
+          title={t("readiness.detail.factors")}
           value={c.factors.score === 100 ? "✓" : `−${100 - c.factors.score}`}
           score={c.factors.score}
-          note={factorsList || (t("readiness.detail.noFactors") || "Žiadne negatívne faktory")}
+          note={factorsList || t("readiness.detail.noFactors")}
           noteColor={factorsList ? appColors.stateWarning : undefined}
         />
       </section>
