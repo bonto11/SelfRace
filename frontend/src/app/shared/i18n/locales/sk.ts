@@ -1912,6 +1912,14 @@ export const sk = {
       previewHrMax: "Maximálny tep",
     },
   },
+"upcomingRace": {
+  "widget": {
+    "title": "Nadchádzajúci závod",
+    "tooltip": "Odpočet do najbližšieho závodu",
+    "noRace": "Žiadny závod nie je nastavený"
+  },
+  "detail": { "title": "Závody" }
+},
 
 "readiness": {
   "widget": {
