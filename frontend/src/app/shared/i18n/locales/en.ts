@@ -462,7 +462,7 @@ export const en = {
             "5k": "5 km",
             "10k": "10 km",
             half: "Half Marathon",
-            maratón: "Marathon",
+            marathon: "Marathon",
             ultra: "Ultra trail",
             other: "Other / custom distance",
           },
