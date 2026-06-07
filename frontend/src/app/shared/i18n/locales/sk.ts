@@ -1932,9 +1932,16 @@ export const sk = {
     "notEnoughData": "Zadaj ranné merania (HRV alebo RHR) pre výpočet skóre",
     "sleepLow": "Menej ako odporúčaných 7 hodín",
     "sleepHigh": "Viac ako 9 hodín — dlhý spánok"
-  }
-}
-,
+  },
+"label": {
+  "none": "—",
+  "excellent": "Výborná",
+  "good": "Dobrá",
+  "average": "Priemerná",
+  "low": "Nízka",
+  "rest": "Odpočívaj"
+},
+},
   recovery: {
     title: "Regenerácia",
     inputs: {
