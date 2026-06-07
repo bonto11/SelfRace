@@ -1948,7 +1948,15 @@ export const en = {
     "notEnoughData": "Enter morning measurements (HRV or RHR) to calculate score",
     "sleepLow": "Less than the recommended 7 hours",
     "sleepHigh": "More than 9 hours — extended sleep"
-  }
+  }, "label": {
+  "none": "—",
+  "excellent": "Excellent",
+  "good": "Good",
+  "average": "Average",
+  "low": "Low",
+  "rest": "Rest up"
+}
+,
 }
 ,
   recovery: {
