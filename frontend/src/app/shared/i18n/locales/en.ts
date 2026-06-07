@@ -1947,7 +1947,10 @@ export const en = {
     "noFactors": "No negative factors",
     "notEnoughData": "Enter morning measurements (HRV or RHR) to calculate score",
     "sleepLow": "Less than the recommended 7 hours",
-    "sleepHigh": "More than 9 hours — extended sleep"
+    "sleepHigh": "More than 9 hours — extended sleep",
+    "factorAlcohol": "🍷 Alcohol",
+    "factorCaffeine": "☕ Late caffeine",
+    "factorFood": "🍔 Heavy meal",
   }, "label": {
   "none": "—",
   "excellent": "Excellent",
