@@ -43,7 +43,7 @@ function ScoreCircle({ score }: { score: number | null }) {
       </svg>
       <span style={{ fontSize: 18, fontWeight: 700, marginTop: 6,
         color: score !== null ? color : appColors.textMuted }}>
-        {t(readinessLabelKey(score))}
+        {t(readinessLabelKey(score) as any)}
       </span>
     </div>
   );
