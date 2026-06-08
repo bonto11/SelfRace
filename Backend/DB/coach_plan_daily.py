@@ -383,3 +383,27 @@ def db_get_postponed_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, A
     except Exception as e:
         print("[DB-COACH-DAILY] get_postponed error:", repr(e))
         return []
+    
+def db_get_done_sessions_for_streak(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti všetky done sessiony s plan_date a duration_min.
+    Používa sa pre výpočet týždenného streaku.
+    """
+    sb = get_sb(ctx, caller="coach_streak.db_get_done_sessions_for_streak")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("plan_date, duration_min")
+            .eq("user_id", user_id)
+            .eq("status", "done")
+            .order("plan_date", desc=False)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-STREAK] error:", repr(e))
+        return []

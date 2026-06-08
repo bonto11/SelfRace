@@ -52,7 +52,6 @@ export async function apiGenerateDailyForWeek(
     return { success: true, status: "QUEUED" };
   }
 
-  // Vráti už pekne zabalený výsledok priamo v tvare pre frontend
   return await runAsyncJobWithPolling(userId, jobId);
 }
 
@@ -74,7 +73,6 @@ export type DailyPlanSession = {
   notes: string | null;
   session_type?: string | null;
   structure?: DailyPlanStructure | null;
-  // Pridané pre explicitný status a párovanie aktivít
   status?: "planned" | "done" | "postponed" | "missed";
   activity_id?: number | null;
 };
@@ -101,11 +99,7 @@ export async function apiGetDailyOverview(userId: number): Promise<DailyOverview
       cache: "no-store",
     });
 
-    if (!json?.success) {
-      return null;
-    }
-
-    // Backend posiela dáta v json.data alebo priamo json.overview
+    if (!json?.success) return null;
     return json.data || json.overview || null;
   } catch (err: any) {
     console.error("[Coach][apiGetDailyOverview] ERROR", err);
@@ -144,7 +138,6 @@ export async function apiSaveDailyReschedule(
   }
 }
 
-// NOVÝ ENDPOINT PRE MANUÁLNE ZÁSAHY DO TRÉNINGU (postpone, Match, Unmatch)
 export type PatchDailySessionPayload = {
   status?: "planned" | "done" | "postponed" | "missed";
   activity_id?: number | null;
@@ -180,4 +173,30 @@ export async function apiGetPlanCompliance(userId: number): Promise<any> {
   const path = `/coach-plan-daily/compliance/${encodeURIComponent(String(userId))}`;
   const json = await callBackend<any>(path, { method: "GET" });
   return json?.success ? json.data : null;
+}
+
+/* ─── STREAK ─── */
+export type StreakData = {
+  current_streak: number;
+  best_streak: number;
+  this_week_done: number;
+  min_sessions_per_week: number;
+  min_duration_min: number;
+};
+
+export async function apiGetStreak(userId: number): Promise<StreakData | null> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/coach-plan-daily/${encodeURIComponent(String(userId))}/coach-streak`;
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return json?.success ? (json.data as StreakData) : null;
+  } catch (err: any) {
+    console.error("[Coach][apiGetStreak] ERROR", err);
+    return null;
+  }
 }
