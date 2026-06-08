@@ -176,12 +176,18 @@ export async function apiGetPlanCompliance(userId: number): Promise<any> {
 }
 
 /* ─── STREAK ─── */
+export type SportStat = {
+  time_s: number;
+  dist_m: number | null;
+};
+
 export type StreakData = {
   current_streak: number;
   best_streak: number;
   this_week_done: number;
   min_sessions_per_week: number;
   min_duration_min: number;
+  sport_stats: Record<string, SportStat>;
 };
 
 export async function apiGetStreak(userId: number): Promise<StreakData | null> {

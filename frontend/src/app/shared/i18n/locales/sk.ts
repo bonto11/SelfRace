@@ -1307,6 +1307,7 @@ export const sk = {
     },
     detail: {
       title: "Séria tréningov",
+      statsTitle : "Celkový objem (plán)",
       week: "týždeň v rade",
       weeks: "týždne v rade",
       weeksUnit: "týž.",

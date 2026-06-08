@@ -407,3 +407,29 @@ def db_get_done_sessions_for_streak(
     except Exception as e:
         print("[DB-COACH-STREAK] error:", repr(e))
         return []
+    
+
+# ─── Pridaj do DB/coach_plan_daily.py ────────────────────────────────────────
+def db_get_done_sessions_with_activity(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Done sessiony z plánu s activity_id (pre join s activities_summary).
+    Vráti: sport, duration_min, activity_id
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_done_sessions_with_activity")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("sport, duration_min, activity_id")
+            .eq("user_id", user_id)
+            .eq("status", "done")
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-STREAK] done_with_activity error:", repr(e))
+        return []
+

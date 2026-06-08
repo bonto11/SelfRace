@@ -1317,6 +1317,7 @@ export const en = {
     },
     detail: {
       title: "Training Streak",
+      statsTitle : "Total volume (plan)",
       week: "week in a row",
       weeks: "weeks in a row",
       weeksUnit: "wks",
