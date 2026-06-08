@@ -223,3 +223,22 @@ def db_get_unreviewed_activities_for_push(
     )
     
     return res.data or []
+    
+def db_get_zone_minutes_for_ids(
+    user_id: int,
+    activity_ids: "List[int]",
+    *,
+    ctx: "AuthCtx",
+) -> "List[Dict[str, Any]]":
+    """Zónové minúty pre dané activity_ids."""
+    if not activity_ids:
+        return []
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_zone_minutes_for_ids")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("z1_min,z2_min,z3_min,z4_min,z5_min")
+        .eq("user_id", user_id)
+        .in_("activity_id", list(set(int(x) for x in activity_ids)))
+        .execute()
+    )
+    return res.data or []
