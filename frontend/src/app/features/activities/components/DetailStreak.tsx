@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetStreak, type StreakData } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGetStreak, type StreakData } from "@/app/features/activities/api/analytics_activities";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";

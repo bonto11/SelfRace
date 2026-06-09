@@ -11,6 +11,7 @@ from Services.analytics_pareto8020 import (
     service_pareto_widget,
     service_pareto_trend,
 )
+from Services.coach_streak import service_get_streak
 
 from Services.analytics import (
     service_get_activity_detail,service_get_activity_extras_cached_or_fetch
@@ -202,4 +203,13 @@ def activity_extras_fetch(
         )
         return {"success": True, **payload}
     except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/{user_id}/coach-streak")
+def get_coach_streak(user_id: int, req: Request) -> Dict[str, Any]:
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        data = service_get_streak(user_id=user_id, ctx=ctx)
+        return {"success": True, "data": data}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,7 +12,7 @@ import {
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
-import WidgetStreak       from "@/app/shared/components/widgets/WidgetStreak";
+
 import WidgetUpcomingRace from "@/app/shared/components/widgets/WidgetUpcomingRace";
 import WidgetCoachPrefs   from "@/app/shared/components/widgets/WidgetCoachPrefs";
 import WidgetCoachPlan    from "@/app/shared/components/widgets/WidgetCoachPlan";
@@ -65,12 +65,6 @@ function ClientPage() {
       </div>
 
       <div className={PAGE_GRID_2}>
-        {/* 1. Séria tréningov — vždy prvý */}
-        <WidgetStreak
-          onOpenDetail={() => router.push("/coach/streak")}
-        />
-
-        {/* 2. Odpočet do závodu */}
         <WidgetUpcomingRace
           onOpenDetail={() => router.push("/coach/race-countdown")}
         />

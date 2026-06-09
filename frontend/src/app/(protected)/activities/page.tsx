@@ -7,6 +7,7 @@ import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 
+import WidgetStreak from "@/app/shared/components/widgets/WidgetStreak";
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
@@ -47,10 +48,20 @@ export default function ActivitiesPage() {
       rightSlot={<RefreshIconBtn />}
     >
       <div className={PAGE_GRID_2}>
-        <WidgetMonthlySummary onOpenDetail={() => router.push("/activities/monthlySummary")} />
-        <WeeklyLoadWidget onOpenDetail={() => router.push("/activities/load")} />
-        <MonoStrainWidget onOpenDetail={() => router.push("/activities/mono")} />
-        <WidgetPareto8020 onOpenTrend={() => router.push("/activities/pareto")} weeks={2} />
+        <WidgetStreak onOpenDetail={() => router.push("/coach/streak")} />
+        <WidgetMonthlySummary
+          onOpenDetail={() => router.push("/activities/monthlySummary")}
+        />
+        <WeeklyLoadWidget
+          onOpenDetail={() => router.push("/activities/load")}
+        />
+        <MonoStrainWidget
+          onOpenDetail={() => router.push("/activities/mono")}
+        />
+        <WidgetPareto8020
+          onOpenTrend={() => router.push("/activities/pareto")}
+          weeks={2}
+        />
         <WidgetActivitiesCalendar />
       </div>
     </PageShell>
