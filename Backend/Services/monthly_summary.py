@@ -78,22 +78,10 @@ def service_get_monthly_summary(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    TAG = f"[MONTHLY-SUMMARY][user={user_id}][{year}-{month:02d}]"
-    print(f"{TAG} START")
-
     _, last_day = monthrange(year, month)
 
     # ── 1. Aktivity ──────────────────────────────────────────────────────────
     activities = db_get_activities_for_month(user_id, year, month, ctx=ctx)
-    print(f"{TAG} activities fetched: {len(activities)}")
-    if activities:
-        sample = activities[0]
-        print(f"{TAG} sample row keys: {list(sample.keys())}")
-        print(
-            f"{TAG} sample sport_type_fe={sample.get('sport_type_fe')!r} "
-            f"moving_time_s={sample.get('moving_time_s')!r} "
-            f"distance_m={sample.get('distance_m')!r}"
-        )
 
     sport_time: Dict[str, float] = defaultdict(float)
     sport_dist: Dict[str, float] = defaultdict(float)
@@ -114,9 +102,6 @@ def service_get_monthly_summary(
         if time_s > sport_longest.get(sport, 0):
             sport_longest[sport] = time_s
 
-    print(f"{TAG} sport_count={dict(sport_count)}")
-    print(f"{TAG} sport_time (s)={dict(sport_time)}")
-
     sport_stats: Dict[str, Any] = {}
     for sport in sport_time:
         t = sport_time[sport]
@@ -134,22 +119,16 @@ def service_get_monthly_summary(
 
     # ── 2. Zóny ──────────────────────────────────────────────────────────────
     zone_rows = db_get_zone_minutes_for_ids(user_id, activity_ids, ctx=ctx)
-    print(
-        f"{TAG} zone_rows fetched: {len(zone_rows)} (for {len(activity_ids)} activity_ids)"
-    )
 
     zones: Dict[str, float] = {"z1": 0.0, "z2": 0.0, "z3": 0.0, "z4": 0.0, "z5": 0.0}
     for row in zone_rows:
         for z in ("z1", "z2", "z3", "z4", "z5"):
             zones[z] += _to_f(row.get(f"{z}_min"))
     zones_rounded = {k: round(v, 1) for k, v in zones.items() if v > 0}
-    print(f"{TAG} zones_rounded={zones_rounded}")
+
 
     # ── 3. Recovery ───────────────────────────────────────────────────────────
     rec_rows = db_get_recovery_for_month(user_id, year, month, ctx=ctx)
-    print(f"{TAG} recovery rows fetched: {len(rec_rows)}")
-    if rec_rows:
-        print(f"{TAG} recovery sample keys: {list(rec_rows[0].keys())}")
 
     hrv_vals, rhr_vals, sleep_vals, start_vals = [], [], [], []
     for r in rec_rows:
@@ -197,5 +176,5 @@ def service_get_monthly_summary(
         "zones_min": zones_rounded,
         "recovery": recovery_stats,
     }
-    print(f"{TAG} RESULT summary={result['summary']}")
+  
     return result
