@@ -50,9 +50,16 @@ export async function apiGetMonthlySummary(
 
   try {
     const json = await callBackend<any>(path, { method: "GET", cache: "no-store" });
-    return json?.success ? (json.data as MonthlySummary) : null;
+
+    if (!json?.success) {
+      console.warn("[MonthlySummary] success=false, json:", json);
+      return null;
+    }
+
+    const data = json.data as MonthlySummary;
+    return data;
   } catch (err: any) {
-    console.error("[MonthlySummary] apiGetMonthlySummary ERROR", err);
+    console.error("[MonthlySummary] ERROR:", err);
     return null;
   }
 }

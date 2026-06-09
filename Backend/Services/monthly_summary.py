@@ -1,29 +1,43 @@
-# =============================================================================
-# Services/monthly_summary.py  — NOVÝ SÚBOR
-# =============================================================================
+# Services/monthly_summary.py — s debugom
 from __future__ import annotations
 
 import math
 from calendar import monthrange
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
-from DB.activities_summary  import db_get_activities_for_month
+from DB.activities_summary import db_get_activities_for_month
 from DB.activities_enrichment import db_get_zone_minutes_for_ids
-from DB.user_recovery        import db_get_recovery_for_month
+from DB.user_recovery import db_get_recovery_for_month
 from Modules.Supabase.auth import AuthCtx
 
-# Športy kde má zmysel uvádzať vzdialenosť
-_DIST_SPORTS = {"run", "running", "ride", "bike", "cycling", "swim", "swimming", "mixed"}
+_DIST_SPORTS = {
+    "run",
+    "running",
+    "ride",
+    "bike",
+    "cycling",
+    "swim",
+    "swimming",
+    "mixed",
+}
+
 
 def _norm_sport(s: Optional[str]) -> str:
     s = (s or "other").lower().strip()
-    if s in ("run", "running"):              return "run"
-    if s in ("ride", "bike", "cycling"):     return "ride"
-    if s in ("swim", "swimming"):            return "swim"
-    if s in ("strength",):                   return "strength"
-    if s in ("mixed",):                      return "mixed"
-    if s in ("walk",):                       return "walk"
+    if s in ("run", "running"):
+        return "run"
+    if s in ("ride", "bike", "cycling"):
+        return "ride"
+    if s in ("swim", "swimming"):
+        return "swim"
+    if s in ("strength",):
+        return "strength"
+    if s in ("mixed",):
+        return "mixed"
+    if s in ("walk",):
+        return "walk"
     return "other"
+
 
 def _to_f(v: Any) -> float:
     try:
@@ -31,8 +45,8 @@ def _to_f(v: Any) -> float:
     except Exception:
         return 0.0
 
+
 def _avg_sleep_start(starts: List[str]) -> Optional[str]:
-    """Cirkulárny priemer časov zaspávania (rieši prechod cez polnoc)."""
     angles = []
     for s in starts:
         if not s:
@@ -41,7 +55,6 @@ def _avg_sleep_start(starts: List[str]) -> Optional[str]:
             parts = str(s).split(":")
             h, m = int(parts[0]), int(parts[1])
             total_min = h * 60 + m
-            # Časy pred 6:00 patria k predchádzajúcej noci
             if total_min < 360:
                 total_min += 1440
             angles.append(2 * math.pi * total_min / 1440)
@@ -63,67 +76,58 @@ def service_get_monthly_summary(
     year: int,
     month: int,
     *,
-    ctx: "AuthCtx",
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Komplexný mesačný prehľad pripravený pre FE zobrazenie aj neskoršie AI spracovanie.
-    """
-    
-
     _, last_day = monthrange(year, month)
 
-    # ── 1. Aktivity ─────────────────────────────────────────────────────────
+    # ── 1. Aktivity ──────────────────────────────────────────────────────────
     activities = db_get_activities_for_month(user_id, year, month, ctx=ctx)
 
-    # Per-sport agregácia
-    sport_time: Dict[str, float]  = defaultdict(float)
-    sport_dist: Dict[str, float]  = defaultdict(float)
-    sport_count: Dict[str, int]   = defaultdict(int)
+    sport_time: Dict[str, float] = defaultdict(float)
+    sport_dist: Dict[str, float] = defaultdict(float)
+    sport_count: Dict[str, int] = defaultdict(int)
     sport_longest: Dict[str, float] = defaultdict(float)
-    sport_sessions: Dict[str, List[float]] = defaultdict(list)
     activity_ids: List[int] = []
 
     for act in activities:
-        aid  = act.get("activity_id")
+        aid = act.get("activity_id")
         if aid:
             activity_ids.append(int(aid))
         sport = _norm_sport(act.get("sport_type_fe"))
-        time_s  = _to_f(act.get("moving_time_s") or act.get("elapsed_time_s"))
-        dist_m  = _to_f(act.get("distance_m"))
-
-        sport_time[sport]  += time_s
-        sport_dist[sport]  += dist_m
+        time_s = _to_f(act.get("moving_time_s") or act.get("elapsed_time_s"))
+        dist_m = _to_f(act.get("distance_m"))
+        sport_time[sport] += time_s
+        sport_dist[sport] += dist_m
         sport_count[sport] += 1
-        sport_sessions[sport].append(time_s)
         if time_s > sport_longest.get(sport, 0):
             sport_longest[sport] = time_s
 
-    # Zostavenie sport_stats
     sport_stats: Dict[str, Any] = {}
-    for sport in set(list(sport_time.keys())):
-        t  = sport_time[sport]
-        d  = sport_dist[sport]
+    for sport in sport_time:
+        t = sport_time[sport]
+        d = sport_dist[sport]
         cnt = sport_count[sport]
         avg_speed_mps = (d / t) if t > 0 and sport in _DIST_SPORTS and d > 0 else None
         sport_stats[sport] = {
-            "count":       cnt,
+            "count": cnt,
             "total_time_s": round(t),
-            "avg_time_s":   round(t / cnt) if cnt else 0,
-            "longest_s":    round(sport_longest.get(sport, 0)),
+            "avg_time_s": round(t / cnt) if cnt else 0,
+            "longest_s": round(sport_longest.get(sport, 0)),
             "total_dist_m": round(d) if sport in _DIST_SPORTS else None,
             "avg_speed_mps": round(avg_speed_mps, 3) if avg_speed_mps else None,
         }
 
-    # ── 2. Zónové minúty ───────────────────────────────────────────────────
+    # ── 2. Zóny ──────────────────────────────────────────────────────────────
     zone_rows = db_get_zone_minutes_for_ids(user_id, activity_ids, ctx=ctx)
+
     zones: Dict[str, float] = {"z1": 0.0, "z2": 0.0, "z3": 0.0, "z4": 0.0, "z5": 0.0}
     for row in zone_rows:
         for z in ("z1", "z2", "z3", "z4", "z5"):
             zones[z] += _to_f(row.get(f"{z}_min"))
-    # Zaokrúhli
     zones_rounded = {k: round(v, 1) for k, v in zones.items() if v > 0}
 
-    # ── 3. Recovery ─────────────────────────────────────────────────────────
+
+    # ── 3. Recovery ───────────────────────────────────────────────────────────
     rec_rows = db_get_recovery_for_month(user_id, year, month, ctx=ctx)
 
     hrv_vals, rhr_vals, sleep_vals, start_vals = [], [], [], []
@@ -134,40 +138,43 @@ def service_get_monthly_summary(
             rhr_vals.append(_to_f(r["RHR_bpm"]))
         if r.get("sleep_duration_min") is not None:
             sleep_vals.append(_to_f(r["sleep_duration_min"]))
-        if r.get("sleep_start_hhmm"):
-            start_vals.append(str(r["sleep_start_hhmm"]))
+        if r.get("sleep_start_time"):
+            start_vals.append(str(r["sleep_start_time"]))
 
     def _avg(lst: List[float]) -> Optional[float]:
         return round(sum(lst) / len(lst), 1) if lst else None
 
-    recovery_stats = {
-        "days_recorded":         len(rec_rows),
-        "avg_hrv_ms":            _avg(hrv_vals),
-        "avg_rhr_bpm":           _avg(rhr_vals),
+    recovery_stats: Dict[str, Any] = {
+        "days_recorded": len(rec_rows),
+        "avg_hrv_ms": _avg(hrv_vals),
+        "avg_rhr_bpm": _avg(rhr_vals),
         "avg_sleep_duration_min": _avg(sleep_vals),
-        "avg_sleep_start":       _avg_sleep_start(start_vals),
+        "avg_sleep_start": _avg_sleep_start(start_vals),
     }
-    # Odfiltruj None pre čistejší výstup
-    recovery_stats = {k: v for k, v in recovery_stats.items() if v is not None or k == "days_recorded"}
+    recovery_stats = {
+        k: v for k, v in recovery_stats.items() if v is not None or k == "days_recorded"
+    }
 
-    # ── 4. Súhrn ────────────────────────────────────────────────────────────
-    total_time_s  = sum(sport_time.values())
-    total_dist_m  = sum(v for k, v in sport_dist.items() if k in _DIST_SPORTS)
+    # ── 4. Výsledok ───────────────────────────────────────────────────────────
+    total_time_s = sum(sport_time.values())
+    total_dist_m = sum(v for k, v in sport_dist.items() if k in _DIST_SPORTS)
     total_sessions = sum(sport_count.values())
 
-    return {
+    result = {
         "period": {
-            "year":  year,
+            "year": year,
             "month": month,
-            "from":  f"{year}-{month:02d}-01",
-            "to":    f"{year}-{month:02d}-{last_day:02d}",
+            "from": f"{year}-{month:02d}-01",
+            "to": f"{year}-{month:02d}-{last_day:02d}",
         },
         "summary": {
-            "total_sessions":  total_sessions,
-            "total_time_s":    round(total_time_s),
-            "total_dist_m":    round(total_dist_m),
+            "total_sessions": total_sessions,
+            "total_time_s": round(total_time_s),
+            "total_dist_m": round(total_dist_m),
         },
-        "sport_stats":    sport_stats,
-        "zones_min":      zones_rounded,
-        "recovery":       recovery_stats,
+        "sport_stats": sport_stats,
+        "zones_min": zones_rounded,
+        "recovery": recovery_stats,
     }
+  
+    return result

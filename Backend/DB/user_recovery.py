@@ -99,7 +99,7 @@ def db_get_recovery_for_month(
     sb = get_sb(ctx, caller="user_recovery.db_get_recovery_for_month")
     res = (
         sb.table(TABLE_USERS_RECOVERY)
-        .select("HRV_avg_ms,RHR_bpm,sleep_duration_min,sleep_start_hhmm")
+        .select("HRV_avg_ms,RHR_bpm,sleep_duration_min,sleep_start_time")
         .eq("user_id", user_id)
         .gte("date", date_from)
         .lte("date", date_to)
