@@ -7,6 +7,10 @@ import math
 from calendar import monthrange
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
+from DB.activities_summary  import db_get_activities_for_month
+from DB.activities_enrichment import db_get_zone_minutes_for_ids
+from DB.user_recovery        import db_get_recovery_for_month
+from Modules.Supabase.auth import AuthCtx
 
 # Športy kde má zmysel uvádzať vzdialenosť
 _DIST_SPORTS = {"run", "running", "ride", "bike", "cycling", "swim", "swimming", "mixed"}
@@ -64,9 +68,7 @@ def service_get_monthly_summary(
     """
     Komplexný mesačný prehľad pripravený pre FE zobrazenie aj neskoršie AI spracovanie.
     """
-    from DB.activities_summary  import db_get_activities_for_month
-    from DB.activities_enrichment import db_get_zone_minutes_for_ids
-    from DB.user_recovery        import db_get_recovery_for_month
+    
 
     _, last_day = monthrange(year, month)
 
