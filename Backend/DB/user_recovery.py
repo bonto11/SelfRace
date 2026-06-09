@@ -82,4 +82,28 @@ def db_get_recent_recovery(
     rows: List[Dict[str, Any]] = res.data or []
 
     return rows
+    
+def db_get_recovery_for_month(
+    user_id: int,
+    year: int,
+    month: int,
+    *,
+    ctx: "AuthCtx",
+) -> "List[Dict[str, Any]]":
+    """Recovery záznamy za daný mesiac."""
+    from calendar import monthrange
+    _, last_day = monthrange(year, month)
+    date_from = f"{year}-{month:02d}-01"
+    date_to   = f"{year}-{month:02d}-{last_day:02d}"
+
+    sb = get_sb(ctx, caller="user_recovery.db_get_recovery_for_month")
+    res = (
+        sb.table(TABLE_USERS_RECOVERY)
+        .select("HRV_avg_ms,RHR_bpm,sleep_duration_min,sleep_start_hhmm")
+        .eq("user_id", user_id)
+        .gte("date", date_from)
+        .lte("date", date_to)
+        .execute()
+    )
+    return res.data or []
 

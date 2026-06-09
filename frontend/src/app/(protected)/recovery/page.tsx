@@ -10,6 +10,7 @@ import WidgetRHR from "@/app/shared/components/widgets/WidgetRHR";
 import WidgetHRV from "@/app/shared/components/widgets/WidgetHRV";
 import WidgetSleepDuration from "@/app/shared/components/widgets/WidgetSleepDuration";
 import WidgetSleepStart from "@/app/shared/components/widgets/WidgetSleepStart";
+import WidgetReadiness from "@/app/shared/components/widgets/WidgetReadiness";
 
 import RecoveryInputs from "@/app/features/recovery/components/RecoveryInputs";
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
@@ -23,10 +24,7 @@ function RefreshIconBtn() {
   const t = useT();
   const { refresh, loading } = useRecoveryData();
   return (
-    <Button
-      circle
-      size="sm"
-      variant="ghost"
+    <Button circle size="sm" variant="ghost"
       aria-label={t("common.refreshTitle")}
       title={t("common.refreshTitle")}
       onClick={() => refresh(true)}
@@ -40,39 +38,36 @@ function RefreshIconBtn() {
 export default function RecoveryPage() {
   const t = useT();
   const router = useRouter();
-  
-  // Načítanie globálneho stavu z Providera
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
   return (
-    <PageShell title={t("recovery.title")} showBack={false} rightSlot={<RefreshIconBtn />} showPoweredByStrava={false}>
-      {/* Globálny prepínač pre zobrazenie pokročilých informácií */}
+    <PageShell
+      title={t("recovery.title")}
+      showBack={false}
+      rightSlot={<RefreshIconBtn />}
+      showPoweredByStrava={false}
+    >
       <div className="mt-4 mb-2">
         <ShowAdvancedToggle />
       </div>
 
-      {/* Formulár pre zadávanie dát (sám reaguje na showAdvanced stav) */}
       <RecoveryInputs />
 
-      {/* Grid s widgetmi */}
       <div className={PAGE_GRID_2}>
+        {/* Readiness Score — hlavný widget, vždy viditeľný */}
+        <WidgetReadiness onOpenDetail={() => router.push("/recovery/readiness")} />
+
         <WidgetRHR onOpenDetail={() => router.push("/recovery/rhr")} />
         <WidgetHRV onOpenDetail={() => router.push("/recovery/hrv")} />
-        
-        {/* Tieto widgety sa ukážu len v pokročilom režime */}
+
         {showAdvanced && (
           <>
-            <WidgetSleepDuration
-              onOpenDetail={() => router.push("/recovery/sleepDuration")}
-            />
-            <WidgetSleepStart
-              onOpenDetail={() => router.push("/recovery/sleepStart")}
-            />
+            <WidgetSleepDuration onOpenDetail={() => router.push("/recovery/sleepDuration")} />
+            <WidgetSleepStart    onOpenDetail={() => router.push("/recovery/sleepStart")} />
           </>
         )}
       </div>
-
     </PageShell>
   );
 }

@@ -1,3 +1,4 @@
+# Services/AI/daily_plan/main.py
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -9,9 +10,8 @@ from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
     db_insert_daily_rows,
     db_list_daily_for_user_horizon,
-    db_update_daily_session_data
+    db_update_daily_session_data,
 )
-
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -23,17 +23,21 @@ from Services.AI.daily_plan.builders import (
     build_daily_context_from_db,
     build_daily_rows_from_ai,
 )
-
 from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
+
+# ============================================================
+# HELPERS
+# ============================================================
+
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Opraví session_index v každom dni — zaručí 0-based sekvenciu."""
     if not isinstance(daily_plan, dict):
         return daily_plan
     days = daily_plan.get("days")
     if not isinstance(days, list):
         return daily_plan
-
     for day in days:
         if not isinstance(day, dict):
             continue
@@ -44,8 +48,42 @@ def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
         for i, s in enumerate(dict_sessions):
             s["session_index"] = i
         day["sessions"] = dict_sessions
-
     return daily_plan
+
+
+def _log_ai_usage(
+    user_id: int,
+    trace: Dict[str, Any],
+    model: str,
+    week_index: int,
+    ctx: AuthCtx,
+) -> None:
+    """Zaloguje AI usage s provider a model z trace."""
+    usage = extract_usage_from_trace(trace, model_fallback=model)
+    if not usage:
+        return
+    try:
+        log_ai_usage_for_user(
+            user_id=user_id,
+            usage=usage,
+            job_type="coach.generate_daily_plan",
+            source="user",
+            billed_via="internal",
+            charge_wallet=False,
+            meta={
+                "week_index": week_index,
+                "provider": trace.get("ok_provider"),
+                "model": trace.get("ok_model"),
+            },
+            ctx=ctx,
+        )
+    except Exception as e:
+        print(f"[AI_BILLING] daily_plan error: {repr(e)}")
+
+
+# ============================================================
+# GENERATE DAILY WEEK
+# ============================================================
 
 def service_generate_daily_week(
     user_id: int,
@@ -56,37 +94,42 @@ def service_generate_daily_week(
     reason: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-
+    """
+    Generuje denný tréningový plán pre daný týždeň.
+    model=None = provider použije default z ENV.
+    drop_past_days=True = vynechá dni pred dneškom (pri auto-extend).
+    reason = špeciálny dôvod generovania pre prompt.
+    """
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
-    daily_model = model
-
+    # Kvóta check
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
             "ok": False,
             "code": "ai_quota_exceeded",
-            "message": "Mesačný limit AI plánov bol vyčerpaný. Skús to znova na začiatku ďalšieho mesiaca alebo ma kontaktuj.",
+            "message": "Mesačný limit AI plánov bol vyčerpaný.",
             "used_tokens_this_month": used,
         }
 
-    contex = build_daily_context_from_db(
+    # Builder
+    context = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
         ctx=ctx,
     )
+    context_payload = context["context_payload"]
+    week_meta = context["week_meta"]
+    state_row = context["state_row"]
 
-    context_payload = contex["context_payload"]
     if reason:
         context_payload["generate_reason"] = reason
 
-    week_meta: Dict[str, Any] = contex["week_meta"]
-    state_row: Optional[Dict[str, Any]] = contex["state_row"]
-    
+    # AI generovanie
     ai_plan, trace, err_msg = generate_daily_week_json(
         context_payload=context_payload,
-        model=daily_model,
+        model=model,
     )
 
     if not ai_plan:
@@ -94,7 +137,7 @@ def service_generate_daily_week(
         return {
             "ok": False,
             "code": trace.get("error_code") or "ai_generation_failed",
-            "message": err_msg
+            "message": err_msg,
         }
 
     week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
@@ -106,89 +149,75 @@ def service_generate_daily_week(
     if week_end:
         ai_plan.setdefault("week_end", week_end)
 
-    daily_plan = ai_plan
-
-    days_n = len(daily_plan.get("days") or []) if isinstance(daily_plan.get("days"), list) else 0
-    if days_n == 0:
-        return {
-            "ok": False,
-            "code": "daily_plan_empty",
-            "message": "AI vrátil prázdny plán pre týždeň."
-        }
-
+    days: List[Dict[str, Any]] = ai_plan.get("days") or []
+    if len(days) == 0:
+        return {"ok": False, "code": "daily_plan_empty", "message": "AI vrátil prázdny plán."}
+    
     # Billing
-    usage = extract_usage_from_trace(trace)
-    if usage:
-        used_model = str(daily_plan.get("model") or usage.get("model") or daily_model or "").strip()
-        if used_model: usage["model"] = used_model
-        try:
-            log_ai_usage_for_user(
-                user_id=user_id, usage=usage, job_type="coach.generate_daily_plan",
-                source="user", billed_via="internal", charge_wallet=False,
-                meta={"week_index": week_index}, ctx=ctx,
-            )
-        except Exception as e: print("[AI_BILLING] daily_plan error:", repr(e))
+    model_used = str(trace.get("ok_model") or ai_plan.get("model") or "unknown")
+    _log_ai_usage(user_id, trace, model_used, week_index, ctx)
 
-    daily_plan = _reindex_sessions_per_day(daily_plan)
+    ai_plan = _reindex_sessions_per_day(ai_plan)
 
+    # Strength history
     try:
         extract_and_save_ai_strength_history(
-            user_id=user_id,
-            ai_daily_plan=daily_plan,
-            ctx=ctx
+            user_id=user_id, ai_daily_plan=ai_plan, ctx=ctx
         )
     except Exception as e:
-        print("[STRENGTH_MAPPER] error saving ai history:", repr(e))
+        print(f"[STRENGTH_MAPPER] error: {repr(e)}")
 
-    days = daily_plan.get("days")
-    if not isinstance(days, list): days = []
-
+    # Dátumový rozsah pre clear
     dates: List[str] = []
     for d in days:
-        if not isinstance(d, dict): continue
+        if not isinstance(d, dict):
+            continue
         v = d.get("date") or d.get("plan_date")
-        if isinstance(v, str) and v: dates.append(v[:10])
+        if isinstance(v, str) and v:
+            dates.append(v[:10])
 
     date_from = min(dates) if dates else None
     date_to = max(dates) if dates else None
-
     today_iso = date.today().isoformat()
-    if drop_past_days and date_from and date_from < today_iso:
-        date_from = today_iso 
 
+    if drop_past_days and date_from and date_from < today_iso:
+        date_from = today_iso
+
+    # Clear a insert
     deleted_rows = 0
     if date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
-            user_id=user_id,
-            date_from=date_from, date_to=date_to, ctx=ctx,
+            user_id=user_id, date_from=date_from, date_to=date_to, ctx=ctx
         )
 
-    rows_to_insert: List[Dict[str, Any]] = build_daily_rows_from_ai(
-        user_id=user_id, daily_plan=daily_plan,
-    )
-
+    rows_to_insert = build_daily_rows_from_ai(user_id=user_id, daily_plan=ai_plan)
     if drop_past_days:
-        rows_to_insert = [r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso]
+        rows_to_insert = [
+            r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso
+        ]
 
     inserted_rows = 0
     if rows_to_insert:
         inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx)
 
-    resp: Dict[str, Any] = {
+    return {
         "ok": True,
-        "daily_plan": daily_plan,
+        "daily_plan": ai_plan,
         "week_index": week_index,
-        "week_start": daily_plan.get("week_start") or week_meta.get("week_start"),
-        "week_end": daily_plan.get("week_end") or week_meta.get("week_end"),
+        "week_start": ai_plan.get("week_start") or week_meta.get("week_start"),
+        "week_end": ai_plan.get("week_end") or week_meta.get("week_end"),
         "state_id": (state_row or {}).get("id"),
-        "model": daily_plan.get("model") or daily_model,
+        "model": model_used,
         "overwrite": True,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
         "error": None,
     }
 
-    return resp
+
+# ============================================================
+# READ
+# ============================================================
 
 def service_get_daily_overview(
     user_id: int,
@@ -196,14 +225,13 @@ def service_get_daily_overview(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
+    """Načíta denný prehľad tréningov pre daný horizont."""
     if horizon_days <= 0:
         horizon_days = 7
 
     rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id,
-            horizon_days=horizon_days,
-            ctx=ctx,
+            user_id=user_id, horizon_days=horizon_days, ctx=ctx
         )
         or []
     )
@@ -218,47 +246,46 @@ def service_get_daily_overview(
 
     today = date.today()
     end_day = today + timedelta(days=horizon_days)
-
     days_out: List[Dict[str, Any]] = []
 
     d = today
     while d <= end_day:
         date_str = d.isoformat()
         sessions = by_date.get(date_str, [])
-
         sessions_out: List[Dict[str, Any]] = []
+
         for s in sorted(sessions, key=lambda x: int(x.get("session_index") or 0)):
             payload = s.get("payload") or {}
             structure = s.get("structure") or payload.get("structure")
-
             if structure is None:
                 strength_ex = s.get("strength_exercises") or payload.get("strength_exercises")
                 if strength_ex:
                     structure = {"strength_exercises": strength_ex}
-
-            sessions_out.append(
-                {
-                    "id": s.get("id"),
-                    "plan_date": str(s.get("plan_date") or "")[:10],
-                    "session_index": int(s.get("session_index") or 0),
-                    "sport": s.get("sport") or "other",
-                    "title": s.get("title"),
-                    "duration_min": s.get("duration_min"),
-                    "intensity": s.get("intensity"),
-                    "notes": s.get("notes"),
-                    "session_type": s.get("session_type"),
-                    "structure": structure,
-                    "payload": payload,
-                    # Added missing fields here:
-                    "status": s.get("status"),
-                    "activity_id": s.get("activity_id"),
-                }
-            )
+            sessions_out.append({
+                "id": s.get("id"),
+                "plan_date": str(s.get("plan_date") or "")[:10],
+                "session_index": int(s.get("session_index") or 0),
+                "sport": s.get("sport") or "other",
+                "title": s.get("title"),
+                "duration_min": s.get("duration_min"),
+                "intensity": s.get("intensity"),
+                "notes": s.get("notes"),
+                "session_type": s.get("session_type"),
+                "structure": structure,
+                "payload": payload,
+                "status": s.get("status"),
+                "activity_id": s.get("activity_id"),
+            })
 
         days_out.append({"date": date_str, "sessions": sessions_out})
         d += timedelta(days=1)
 
     return {"horizon_days": horizon_days, "days": days_out}
+
+
+# ============================================================
+# AUTO EXTEND
+# ============================================================
 
 def service_auto_extend_daily_plan(
     user_id: int,
@@ -266,7 +293,10 @@ def service_auto_extend_daily_plan(
     min_horizon_days: int = 4,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-
+    """
+    Automaticky rozšíri denný plán ak zostáva menej ako min_horizon_days dní.
+    Pri aktuálnom týždni zachová odtrénované dni (drop_past_days=True).
+    """
     if min_horizon_days <= 0:
         min_horizon_days = 6
 
@@ -274,9 +304,7 @@ def service_auto_extend_daily_plan(
 
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id,
-            horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-            ctx=ctx,
+            user_id=user_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
         )
         or []
     )
@@ -298,11 +326,7 @@ def service_auto_extend_daily_plan(
         }
 
     weekly_rows: List[Dict[str, Any]] = (
-        db_get_weekly_for_user_plan(
-            user_id=user_id,
-            ctx=ctx,
-        )
-        or []
+        db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
     )
     if not weekly_rows:
         return {
@@ -314,17 +338,8 @@ def service_auto_extend_daily_plan(
 
     weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
 
-    # 🌟 OPRAVA HĽADANIA "Budúcich týždňov"
-    # Namiesto hľadania len current_week a preskakovania ho, 
-    # proste pozrime na posledný deň (last_date) a zoberme všetky týždne,
-    # ktorých KONIEC (we) je striktne PO last_date. To znamená, že aj aktuálny týždeň 
-    # by sa mal (v budúcnosti s AI) zrekonštruovať, ak má end_date > last_date.
-    
-    # Pre túto chvíľu, kým AI nevie "dopĺňať", radšej budeme generovať striktne od ďalšieho týždňa, 
-    # ALE musíme vyriešiť tú Nedeľu.
-
     current_week_index: Optional[int] = None
-    target_weeks_to_generate: List[int] = []
+    target_weeks: List[int] = []
 
     for w in weekly_sorted:
         ws_raw = w.get("week_start")
@@ -336,25 +351,16 @@ def service_auto_extend_daily_plan(
             we = date.fromisoformat(we_raw[:10])
         except Exception:
             continue
-            
+
         if ws <= last_date <= we:
             current_week_index = int(w.get("week_index") or 0)
-            
-            # AK SME V STREDE TÝŽDŇA, a ideme dopĺňať, aktuálny backendový prístup 
-            # to buď zmaže, alebo preskočí. My to teraz prepíšeme tak, aby to 
-            # zavolalo AI aj s parametrom "drop_past_days=True" pre current_week!
-            
-            # (Takže sa vygeneruje Týždeň 2, ALE minulé dni sa nezmažú, iba sa vložia
-            # tie, čo sú "od dnes ďalej"!)
-            
-            if we > last_date: # V tomto týždni ešte ostali nevygenerované dni!
-               target_weeks_to_generate.append(current_week_index)
-            
+            # Ak v tomto týždni ešte ostali dni po last_date, doplň ich
+            if we > last_date:
+                target_weeks.append(current_week_index)
         elif ws > last_date:
-            target_weeks_to_generate.append(int(w.get("week_index") or 0))
+            target_weeks.append(int(w.get("week_index") or 0))
 
-
-    if not target_weeks_to_generate:
+    if not target_weeks:
         return {
             "changed": False,
             "reason": "no_future_weeks_needed",
@@ -366,41 +372,31 @@ def service_auto_extend_daily_plan(
     generated: List[int] = []
     current_last_str = last_date_str
 
-    for week_idx in target_weeks_to_generate:
-        
-        # 🌟 ZÁSADNÁ ZMENA: Ak generujeme týždeň, v ktorom sa PRÁVE nachádzame, 
-        # prikážeme drop_past_days=True. Tým pádom zachováme to, čo user už odtrénoval (po-štvrtok),
-        # a vložíme len nové dni (piatok-nedeľa).
-        is_current_week = (week_idx == current_week_index)
-        
+    for week_idx in target_weeks:
+        is_current_week = week_idx == current_week_index
         res = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
             model=None,
-            drop_past_days=is_current_week, # 👈 Tu to posielame
+            drop_past_days=is_current_week,
             reason="refill_auto_extend",
             ctx=ctx,
         )
-        
         if res.get("ok"):
             generated.append(week_idx)
 
+        # Refresh days_left po každom generovaní
         daily_rows = (
             db_list_daily_for_user_horizon(
-                user_id=user_id,
-                horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
-                ctx=ctx,
+                user_id=user_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
             )
             or []
         )
-
         if daily_rows:
             current_last_str = max(
                 str(r.get("plan_date"))[:10] for r in daily_rows if r.get("plan_date")
             )
-            current_last_date = date.fromisoformat(current_last_str)
-            days_left = (current_last_date - today).days
-
+            days_left = (date.fromisoformat(current_last_str) - today).days
             if days_left >= min_horizon_days:
                 break
 
@@ -412,6 +408,11 @@ def service_auto_extend_daily_plan(
         "last_daily_date": current_last_str,
     }
 
+
+# ============================================================
+# SESSION STATUS UPDATE
+# ============================================================
+
 def service_update_daily_session_status(
     user_id: int,
     session_id: int,
@@ -419,38 +420,29 @@ def service_update_daily_session_status(
     activity_id: Optional[int],
     unmatch: bool,
     *,
-    ctx: AuthCtx
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Spracuje logiku pre manuálne zásahy do denného tréningu (Postpone, Match, Unmatch).
+    Spracuje manuálne zásahy do denného tréningu: Postpone, Match, Unmatch.
     """
-    update_data = {}
-    
-    # 1. Logika pre UNMATCH (Zrušiť spárovanie)
+    update_data: Dict[str, Any] = {}
+
     if unmatch:
         update_data["activity_id"] = None
         update_data["status"] = "planned"
     else:
-        # 2. Logika pre MANUAL MATCH (Užívateľ vybral aktivitu)
         if activity_id is not None:
             update_data["activity_id"] = activity_id
-            update_data["status"] = "done"  # Automaticky prepneme na hotovo
-            
-        # 3. Logika pre postpone/plan alebo inú priamu zmenu statusu
+            update_data["status"] = "done"
         if status is not None:
             update_data["status"] = status
 
     if not update_data:
         return {"success": True, "data": None, "message": "No changes requested"}
 
-    # Volanie databázovej vrstvy
     row = db_update_daily_session_data(
-        user_id=user_id, 
-        session_id=session_id, 
-        update_data=update_data, 
-        ctx=ctx
+        user_id=user_id, session_id=session_id, update_data=update_data, ctx=ctx
     )
-    
     if not row:
         raise ValueError("Session not found or update failed")
 

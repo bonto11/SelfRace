@@ -1,4 +1,3 @@
-// src/app/(protected)/activities/load/page.tsx
 "use client";
 
 import { useCallback, useState } from "react";
@@ -18,7 +17,12 @@ export default function Page() {
   const [sport, setSport] = useState<string>("all");
   const t = useT();
 
-  const handlePick = useCallback((w: WeekPick) => {
+  // Prijíma WeekPick | null — null = odznačenie týždňa (reset range)
+  const handlePick = useCallback((w: WeekPick | null) => {
+    if (!w) {
+      setRange({});
+      return;
+    }
     setRange({ start: w.start, end: w.end });
     setSport(w.sport || "all");
   }, []);

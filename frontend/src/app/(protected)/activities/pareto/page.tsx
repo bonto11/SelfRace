@@ -1,4 +1,3 @@
-// src/app/(protected)/activities/pareto/page.tsx
 "use client";
 
 import { useState, useCallback } from "react";
@@ -16,7 +15,8 @@ export default function ParetoPage() {
   const [sport, setSport] = useState<string>("all");
   const t = useT();
 
-  const handlePick = useCallback((w: ParetoWeekPick) => {
+  const handlePick = useCallback((w: ParetoWeekPick | null) => {
+    if (!w) { setRange({}); return; }
     setRange({ start: w.start, end: w.end });
     setSport(w.sport || "all");
   }, []);

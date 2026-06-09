@@ -1,4 +1,4 @@
-// src/features/coach/utils/prefs.ts
+// src/features/prefs/utils/prefs.ts
 "use client";
 
 import type {

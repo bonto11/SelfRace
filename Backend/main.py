@@ -9,6 +9,7 @@ from Routes import (
     activities_summary,
     activities_enrichment,
     analytics,
+    monthly_summary,
     synchronization,
     user_prefs,
     user_bests,
@@ -72,6 +73,7 @@ app.include_router(activities_summary.router)
 app.include_router(activities_enrichment.router)
 app.include_router(analytics.router)
 app.include_router(synchronization.router)
+app.include_router(monthly_summary.router)
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)

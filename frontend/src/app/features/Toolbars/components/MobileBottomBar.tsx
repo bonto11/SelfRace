@@ -1,4 +1,3 @@
-// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
 import Link from "next/link";
@@ -13,15 +12,15 @@ import {
 type ItemDef = {
   id: NavId;
   href: string;
-  translationKey: string; // Zmena z label na kľúč
+  translationKey: string;
 };
 
 const ITEMS: ItemDef[] = [
-  { id: "activities", href: "/activities", translationKey: "activities.title" },
-  { id: "coach", href: "/coach", translationKey: "coach.title" },
+  { id: "activities",  href: "/activities",  translationKey: "activities.title" },
+  { id: "coach",       href: "/coach",       translationKey: "coach.title" },
   { id: "performance", href: "/performance", translationKey: "performance.title" },
-  { id: "recovery", href: "/recovery", translationKey: "recovery.title" },
-  { id: "calendar", href: "/calendar", translationKey: "calendar.title" },
+  { id: "recovery",    href: "/recovery",    translationKey: "recovery.title" },
+  { id: "calendar",    href: "/calendar",    translationKey: "calendar.title" },
 ];
 
 function BottomNavItem({ id, href, translationKey }: ItemDef) {
@@ -45,7 +44,6 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       >
         {NavIcon({ id })}
       </div>
-
       <span
         className="mt-1 text-[11px] leading-none truncate"
         style={{
@@ -60,9 +58,11 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
 
 export default function MobileBottomBar() {
   const t = useT();
-  
+
   return (
+    // id="mobile-bottom-nav" — TrendRHR (a iné grafy) ho priamo schovajú/ukážu cez DOM
     <nav
+      id="mobile-bottom-nav"
       className={[
         "lg:hidden",
         "fixed bottom-0 inset-x-0 z-40",

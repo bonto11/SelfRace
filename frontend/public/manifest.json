@@ -3,6 +3,7 @@
   "short_name": "SelfRace",
   "description": "Training and recovery insights with help of AI",
   "start_url": "/",
+  "orientation": "portrait",
   "display": "standalone",
   "background_color": "#FFFFFF",
   "theme_color": "#FFFFFF",
