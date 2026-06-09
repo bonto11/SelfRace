@@ -262,3 +262,31 @@ def db_fetch_window_activity_ids(
         return ids
     except Exception:
         return []
+        
+def db_get_activities_for_month(
+    user_id: int,
+    year: int,
+    month: int,
+    *,
+    ctx: "AuthCtx",
+) -> "List[Dict[str, Any]]":
+    """Všetky aktivity za daný mesiac — len polia potrebné pre monthly summary."""
+    from calendar import monthrange
+    _, last_day = monthrange(year, month)
+    date_from = f"{year}-{month:02d}-01"
+    date_to   = f"{year}-{month:02d}-{last_day:02d}"
+
+    sb = get_sb(ctx, caller="activities_summary.db_get_activities_for_month")
+    res = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .select(
+            "activity_id,sport_type_fe,moving_time_s,elapsed_time_s,"
+            "distance_m,average_speed_mps,average_heartrate_bpm"
+        )
+        .eq("user_id", user_id)
+        .is_("deleted_at", None)
+        .gte("date", date_from)
+        .lte("date", date_to)
+        .execute()
+    )
+    return res.data or []

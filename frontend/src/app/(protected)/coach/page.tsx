@@ -12,14 +12,15 @@ import {
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
+import WidgetStreak       from "@/app/shared/components/widgets/WidgetStreak";
 import WidgetUpcomingRace from "@/app/shared/components/widgets/WidgetUpcomingRace";
-import WidgetCoachPrefs from "@/app/shared/components/widgets/WidgetCoachPrefs";
-import WidgetCoachPlan from "@/app/shared/components/widgets/WidgetCoachPlan";
+import WidgetCoachPrefs   from "@/app/shared/components/widgets/WidgetCoachPrefs";
+import WidgetCoachPlan    from "@/app/shared/components/widgets/WidgetCoachPlan";
 import WidgetExternalEvents from "@/app/shared/components/widgets/WidgetExternalEvents";
-import WidgetAthleteHealth from "@/app/shared/components/widgets/WidgetAthleteHealth";
-import WidgetCoachAIAnalyze from "@/app/shared/components/widgets/WidgetCoachAthleteState";
-import WidgetCoachAIWeekly from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
-import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
+import WidgetAthleteHealth  from "@/app/shared/components/widgets/WidgetAthleteHealth";
+import WidgetCoachAIAnalyze  from "@/app/shared/components/widgets/WidgetCoachAthleteState";
+import WidgetCoachAIWeekly   from "@/app/shared/components/widgets/WidgetCoachWeeklyPlan";
+import WidgetCoachAIDaily    from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
 import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance";
 
@@ -35,8 +36,7 @@ function RefreshIconBtn() {
   const isGlobalLoading = loadingActivities || loadingCoach;
 
   return (
-    <Button
-      circle size="sm" variant="ghost"
+    <Button circle size="sm" variant="ghost"
       aria-label={t("common.refreshTitle" as any)}
       title={t("common.refreshTitle" as any)}
       onClick={() => { refreshActivities(true); refreshCoach(true); }}
@@ -65,23 +65,28 @@ function ClientPage() {
       </div>
 
       <div className={PAGE_GRID_2}>
-        {/* Odpočet do závodu — vždy viditeľný, ako prvý */}
+        {/* 1. Séria tréningov — vždy prvý */}
+        <WidgetStreak
+          onOpenDetail={() => router.push("/coach/streak")}
+        />
+
+        {/* 2. Odpočet do závodu */}
         <WidgetUpcomingRace
           onOpenDetail={() => router.push("/coach/race-countdown")}
         />
 
         {showAdvanced && <WidgetExternalEvents />}
 
-        <WidgetCoachPrefs onOpenDetail={() => router.push("/coach/prefs")} />
+        <WidgetCoachPrefs    onOpenDetail={() => router.push("/coach/prefs")} />
         <WidgetAthleteHealth onOpenDetail={() => router.push("/coach/health")} />
         <WidgetCoachPlan />
         <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
-        <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
-        <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
+        <WidgetCoachAIWeekly  onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
+        <WidgetCoachAIDaily   onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
 
         {showAdvanced && (
           <>
-            <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
+            <WidgetCoachAIProgress   onOpenDetail={() => router.push("/coach/ai/progress")} />
             <WidgetCoachPlanCompliance onOpenDetail={() => router.push("/coach/compliance")} />
           </>
         )}

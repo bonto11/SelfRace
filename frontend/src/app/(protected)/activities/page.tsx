@@ -11,6 +11,7 @@ import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
+import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlySummary";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -38,10 +39,6 @@ export default function ActivitiesPage() {
   const router = useRouter();
   const t = useT();
 
-  const openDetailLoad = () => router.push("/activities/load");
-  const openDetailMono = () => router.push("/activities/mono");
-  const openDetail8020 = () => router.push("/activities/pareto");
-
   return (
     <PageShell
       title={t("activities.title")}
@@ -50,9 +47,10 @@ export default function ActivitiesPage() {
       rightSlot={<RefreshIconBtn />}
     >
       <div className={PAGE_GRID_2}>
-        <WeeklyLoadWidget onOpenDetail={openDetailLoad} />
-        <MonoStrainWidget onOpenDetail={openDetailMono} />
-        <WidgetPareto8020 onOpenTrend={openDetail8020} weeks={2} />
+        <WidgetMonthlySummary onOpenDetail={() => router.push("/activities/monthlySummary")} />
+        <WeeklyLoadWidget onOpenDetail={() => router.push("/activities/load")} />
+        <MonoStrainWidget onOpenDetail={() => router.push("/activities/mono")} />
+        <WidgetPareto8020 onOpenTrend={() => router.push("/activities/pareto")} weeks={2} />
         <WidgetActivitiesCalendar />
       </div>
     </PageShell>
