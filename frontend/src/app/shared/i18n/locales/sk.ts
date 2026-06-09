@@ -1284,6 +1284,34 @@ export const sk = {
         "Čas na tento mesiac je už vyčerpaný. Počet minutých kreditov: {{tokens}}. Možné opäť využiť začiatkom nového mesiaca alebo napíš cez kontakt.",
     },
   },
+  monthlySummary: {
+    title: "Mesačný prehľad",
+    noData: "Žiadne dáta za tento mesiac",
+    overallTitle: "Celkový prehľad",
+    totalSessions: "Počet tréningov",
+    totalTime: "Celkový čas",
+    totalDist: "Celková vzdialenosť",
+    bySportTitle: "Podľa sportu",
+    zonesTitle: "Čas v tepových zónach",
+    recoveryTitle: "Regenerácia (priemer)",
+    daysRecorded: "Dní so záznamom",
+    avgSleep: "Priemerný spánok",
+    avgSleepStart: "Priemerný čas zaspania",
+    widget: {
+      title: "Mesačný prehľad",
+      tooltip:
+        "Súhrn tréningov za aktuálny mesiac — čas, vzdialenosť a rozdelenie po športoch.",
+      sessions: "tréningov",
+    },
+    sport: {
+      totalTime: "Celkový čas",
+      totalDist: "Celková vzdialenosť",
+      avgPace: "Priemerné tempo",
+      avgSpeed: "Priemerná rýchlosť",
+      avgSession: "Priemerný tréning",
+      longest: "Najdlhší tréning",
+    },
+  },
   streak: {
     widget: {
       title: "Séria tréningov",
@@ -1307,7 +1335,7 @@ export const sk = {
     },
     detail: {
       title: "Séria tréningov",
-      statsTitle : "Celkový objem (plán)",
+      statsTitle: "Celkový objem (plán)",
       week: "týždeň v rade",
       weeks: "týždne v rade",
       weeksUnit: "týž.",

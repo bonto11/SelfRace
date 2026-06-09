@@ -1294,6 +1294,34 @@ export const en = {
         "Time for this month is exhausted. Credits used: {{tokens}}. Can be used again at the start of a new month or via contact.",
     },
   },
+  monthlySummary: {
+    title: "Monthly Summary",
+    noData: "No data for this month",
+    overallTitle: "Overview",
+    totalSessions: "Total sessions",
+    totalTime: "Total time",
+    totalDist: "Total distance",
+    bySportTitle: "By sport",
+    zonesTitle: "Time in heart rate zones",
+    recoveryTitle: "Recovery (average)",
+    daysRecorded: "Days recorded",
+    avgSleep: "Average sleep",
+    avgSleepStart: "Average bedtime",
+    widget: {
+      title: "Monthly Summary",
+      tooltip:
+        "Summary of this month's training — time, distance and breakdown by sport.",
+      sessions: "sessions",
+    },
+    sport: {
+      totalTime: "Total time",
+      totalDist: "Total distance",
+      avgPace: "Average pace",
+      avgSpeed: "Average speed",
+      avgSession: "Average session",
+      longest: "Longest session",
+    },
+  },
   streak: {
     widget: {
       title: "Training Streak",
@@ -1317,7 +1345,7 @@ export const en = {
     },
     detail: {
       title: "Training Streak",
-      statsTitle : "Total volume (plan)",
+      statsTitle: "Total volume (plan)",
       week: "week in a row",
       weeks: "weeks in a row",
       weeksUnit: "wks",
