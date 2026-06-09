@@ -48,11 +48,23 @@ export async function apiGetMonthlySummary(
     params.toString() ? `?${params.toString()}` : ""
   }`;
 
+  console.log("[MonthlySummary] path:", path);
+
   try {
     const json = await callBackend<any>(path, { method: "GET", cache: "no-store" });
-    return json?.success ? (json.data as MonthlySummary) : null;
+    console.log("[MonthlySummary] raw response:", JSON.stringify(json));
+
+    if (!json?.success) {
+      console.warn("[MonthlySummary] success=false, json:", json);
+      return null;
+    }
+
+    const data = json.data as MonthlySummary;
+    console.log("[MonthlySummary] summary:", data?.summary);
+    console.log("[MonthlySummary] sport_stats keys:", Object.keys(data?.sport_stats ?? {}));
+    return data;
   } catch (err: any) {
-    console.error("[MonthlySummary] apiGetMonthlySummary ERROR", err);
+    console.error("[MonthlySummary] ERROR:", err);
     return null;
   }
 }
