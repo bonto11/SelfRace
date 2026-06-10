@@ -61,8 +61,7 @@ function compose(
   if (sleep !== null) { total += sleep * W.sleep; totalW += W.sleep; }
   total += factors * W.factors;
   totalW += W.factors;
-  const hasCore = hrv !== null || rhr !== null;
-  if (!hasCore) return null;
+  if (hrv === null && rhr === null) return null;
   return clamp(Math.round(total / totalW));
 }
 
@@ -75,7 +74,6 @@ export function readinessLabelKey(score: number | null): string {
   return "readiness.label.rest";
 }
 
-
 export function readinessColor(score: number | null): string {
   if (score === null) return "#6b7280";
   if (score >= 85) return "#4ade80";
@@ -85,10 +83,19 @@ export function readinessColor(score: number | null): string {
   return "#f87171";
 }
 
+/** ISO dátum dnešného dňa v lokálnom čase: "2026-06-10" */
+function todayIso(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function useReadinessScore(rows: any[]): ReadinessResult {
   return useMemo(() => {
     const empty: ReadinessResult = {
-      score: null, label: "—", hasEnough: false,
+      score: null, label: readinessLabelKey(null), hasEnough: false,
       components: {
         hrv:     { score: null, today: null, baseline: null },
         rhr:     { score: null, today: null, baseline: null },
@@ -96,24 +103,36 @@ export function useReadinessScore(rows: any[]): ReadinessResult {
         factors: { score: 100, alcohol: false, caffeine: false, food: false },
       },
     };
+
     if (!rows.length) return empty;
 
-    const today = rows.at(-1);
-    if (!today) return empty;
+    const last = rows.at(-1);
+    if (!last) return empty;
 
-    const nums_hrv = rows.map((r) => r.HRV_avg_ms).filter((v): v is number => typeof v === "number");
-    const nums_rhr = rows.map((r) => r.RHR_bpm).filter((v): v is number => typeof v === "number");
+    // ── Kľúčová kontrola: posledný záznam musí byť dnešný ──
+    const lastDate = String(last.date ?? "").slice(0, 10);
+    if (lastDate !== todayIso()) return empty;
 
-    const baseline_hrv = nums_hrv.length >= 3 ? Math.round(avg(nums_hrv.slice(-14))) : null;
-    const baseline_rhr = nums_rhr.length >= 3 ? Math.round(avg(nums_rhr.slice(-14))) : null;
+    // Baseline z posledných 14 záznamov (vrátane dnešného)
+    const nums_hrv = rows
+      .map((r) => r.HRV_avg_ms)
+      .filter((v): v is number => typeof v === "number");
+    const nums_rhr = rows
+      .map((r) => r.RHR_bpm)
+      .filter((v): v is number => typeof v === "number");
 
-    const todayHRV   = typeof today.HRV_avg_ms        === "number" ? today.HRV_avg_ms : null;
-    const todayRHR   = typeof today.RHR_bpm            === "number" ? today.RHR_bpm : null;
-    const todaySleep = typeof today.sleep_duration_min === "number" ? today.sleep_duration_min : null;
+    const baseline_hrv = nums_hrv.length >= 3
+      ? Math.round(avg(nums_hrv.slice(-14))) : null;
+    const baseline_rhr = nums_rhr.length >= 3
+      ? Math.round(avg(nums_rhr.slice(-14))) : null;
 
-    const alcohol  = !!today.alcohol_consumed;
-    const caffeine = !!today.caffeine_8h;
-    const food     = !!today.food_2h_before;
+    const todayHRV   = typeof last.HRV_avg_ms        === "number" ? last.HRV_avg_ms : null;
+    const todayRHR   = typeof last.RHR_bpm            === "number" ? last.RHR_bpm   : null;
+    const todaySleep = typeof last.sleep_duration_min === "number" ? last.sleep_duration_min : null;
+
+    const alcohol  = !!last.alcohol_consumed;
+    const caffeine = !!last.caffeine_8h;
+    const food     = !!last.food_2h_before;
 
     const hrv_s     = scoreHRV(todayHRV, baseline_hrv);
     const rhr_s     = scoreRHR(todayRHR, baseline_rhr);
@@ -123,12 +142,12 @@ export function useReadinessScore(rows: any[]): ReadinessResult {
 
     return {
       score,
-      label: readinessLabelKey(score),
+      label:     readinessLabelKey(score),
       hasEnough: score !== null,
       components: {
-        hrv:     { score: hrv_s,   today: todayHRV,   baseline: baseline_hrv },
-        rhr:     { score: rhr_s,   today: todayRHR,   baseline: baseline_rhr },
-        sleep:   { score: sleep_s, today: todaySleep },
+        hrv:     { score: hrv_s,     today: todayHRV,   baseline: baseline_hrv },
+        rhr:     { score: rhr_s,     today: todayRHR,   baseline: baseline_rhr },
+        sleep:   { score: sleep_s,   today: todaySleep },
         factors: { score: factors_s, alcohol, caffeine, food },
       },
     };
