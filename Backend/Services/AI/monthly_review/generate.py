@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
-from calendar import monthrange, month_name
+from calendar import month_name
 from typing import Any, Dict, Optional, Tuple
 
 from Services.monthly_summary import service_get_monthly_summary
 from Services.AI.provider.provider import ai_call_json_model
-from DB.user_prefs import db_get_pref_single
+from Services.user_prefs import service_load_user_settings
+from Services.AI.utils.billing import extract_usage_from_trace, log_ai_usage_for_user
+from DB.user_prefs import db_get_pref_single, db_upsert_pref_single
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -20,7 +22,6 @@ def _prev_month(year: int, month: int) -> Tuple[int, int]:
 
 
 def _month_label(year: int, month: int, lang: str) -> str:
-    """Lokalizovaný názov mesiaca."""
     if lang == "en":
         return f"{month_name[month]} {year}"
     SK_MONTHS = [
@@ -32,7 +33,6 @@ def _month_label(year: int, month: int, lang: str) -> str:
 
 def _get_user_lang(user_id: int, ctx: AuthCtx) -> str:
     try:
-        from Services.user_prefs import service_load_user_settings
         s = service_load_user_settings(user_id=user_id, ctx=ctx) or {}
         return str(s.get("language") or "sk")[:2].lower()
     except Exception:
@@ -102,8 +102,8 @@ def _build_prompts(
 }"""
 
     comparison_note = (
-        "- COMPARISON: previous_month data is available — reference specific changes (volume, zone balance, recovery metrics). "
-        "State if the trend is positive, negative, or stable."
+        "- COMPARISON: previous_month data is available — reference specific changes "
+        "(volume, zone balance, recovery metrics). State if the trend is positive, negative, or stable."
         if previous else
         "- No previous month data available for comparison."
     )
@@ -138,18 +138,15 @@ def service_generate_monthly_review(
 ) -> Dict[str, Any]:
     """
     Generuje AI mesačné hodnotenie.
-    - Načíta dáta za aktuálny + predchádzajúci mesiac
+    - Načíta dáta za daný + predchádzajúci mesiac
     - Zavolá AI
     - Výsledok uloží do user_prefs ako monthly_review.YYYY-MM
     - Volá scheduler každý 1. v mesiaci pre uzavretý predchádzajúci mesiac
     """
     TAG = f"[MONTHLY-REVIEW][user={user_id}][{year}-{month:02d}]"
-    print(f"{TAG} START save={save_result}")
 
-    # Aktuálny mesiac
     current = service_get_monthly_summary(user_id, year, month, ctx=ctx)
     if current["summary"]["total_sessions"] == 0:
-        print(f"{TAG} No activities, skipping")
         return {"ok": False, "reason": "no_data"}
 
     # Predchádzajúci mesiac
@@ -159,18 +156,14 @@ def service_generate_monthly_review(
         prev = service_get_monthly_summary(user_id, py, pm, ctx=ctx)
         if prev["summary"]["total_sessions"] > 0:
             previous = prev
-            print(f"{TAG} previous month loaded: {py}-{pm:02d}")
     except Exception as e:
-        print(f"{TAG} prev month failed: {e}")
+        print(f"{TAG} ❌ prev month {py}-{pm:02d} failed: {e}")
 
-    lang         = _get_user_lang(user_id, ctx)
-    user_goals   = _get_user_goals(user_id, ctx)
+    lang       = _get_user_lang(user_id, ctx)
+    user_goals = _get_user_goals(user_id, ctx)
 
-    system_txt, user_txt = _build_prompts(
-        current, previous, user_goals, lang, year, month
-    )
+    system_txt, user_txt = _build_prompts(current, previous, user_goals, lang, year, month)
 
-    # AI call — provider si sám vyberie model (haiku → sonnet fallback)
     res = ai_call_json_model(
         context_payload={"user": {"id": user_id}, "type": "monthly_review"},
         system_prompt=system_txt,
@@ -180,32 +173,26 @@ def service_generate_monthly_review(
 
     if not res.ok or not isinstance(res.data, dict):
         err = str(getattr(res.error, "message", res.error) if res.error else "unknown")
-        print(f"{TAG} AI FAILED: {err}")
+        print(f"{TAG} ❌ AI failed: {err}")
         return {"ok": False, "reason": "ai_failed", "error": err}
 
     review = dict(res.data)
     review.setdefault("schema_version", 1)
     review.setdefault("period", {"year": year, "month": month})
     review["model"] = str(res.model or "unknown")
-    print(f"{TAG} OK model={review['model']}")
 
-    # Uloženie do user_prefs
     if save_result:
         try:
-            from DB.user_prefs import db_upsert_pref_single
             db_upsert_pref_single(
                 user_id=user_id,
                 key=f"monthly_review.{year}-{month:02d}",
                 value=review,
                 ctx=ctx,
             )
-            print(f"{TAG} saved to prefs")
         except Exception as e:
-            print(f"{TAG} save failed: {e}")
+            print(f"{TAG} ❌ save failed: {e}")
 
-    # Billing
     try:
-        from Services.AI.utils.billing import extract_usage_from_trace, log_ai_usage_for_user
         trace = {"ok_model": res.model, "ok_provider": getattr(res, "provider", "unknown")}
         usage = extract_usage_from_trace(trace, model_fallback=res.model)
         if usage:
@@ -217,6 +204,6 @@ def service_generate_monthly_review(
                 ctx=ctx,
             )
     except Exception as e:
-        print(f"{TAG} billing failed: {e}")
+        print(f"{TAG} ❌ billing failed: {e}")
 
     return {"ok": True, "data": review}

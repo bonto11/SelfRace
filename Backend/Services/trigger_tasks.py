@@ -1,22 +1,21 @@
+# Services/scheduler.py — aktualizovaná verzia
 from __future__ import annotations
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from Modules.Supabase.auth import AuthCtx
 
-# Importy cron služieb (Notifikácie a AI)
 from Services.notifications import (
     service_cron_notify_recovery,
     service_cron_notify_review,
     service_cron_notify_training,
     service_cron_notify_check_ai,
+    service_cron_notify_monthly_summary,
 )
 from Services.AI.athlete_state.main import service_run_weekly_athlete_state
-from DB.users import (
-    db_force_logout_all_users
-)
+from DB.users import db_force_logout_all_users
 
 from Services.maintenance import (
     service_cleanup_deleted_activities,
@@ -26,30 +25,22 @@ from Services.maintenance import (
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
 
-# =========================================================================
-# HLAVNÝ MASTER SCHEDULER
-# =========================================================================
 
 def service_run_master_scheduler(
-    ctx: AuthCtx, 
-    mode: str = "scheduled", 
-    task: str | None = None
+    ctx: AuthCtx,
+    mode: str = "scheduled",
+    task: str | None = None,
 ) -> Dict[str, Any]:
-    """
-    Hlavná riadiaca logika Schedulera.
-    Zlučuje manuálne spustenie konkrétnej úlohy a automatické spustenie podľa času.
-    """
-    
+
     # -------------------------------------------------------------------------
-    # A) MANUÁLNY REŽIM (Z ADMIN PANELA)
+    # A) MANUÁLNY REŽIM
     # -------------------------------------------------------------------------
     if mode == "manual":
         if not task:
             raise ValueError("Pre manuálny režim musí byť zadaný 'task'.")
-            
-        print(f"[ADMIN TRIGGER] Manuálne spustenie úlohy: {task}")
-        
-        # Databáza & Údržba
+
+        print(f"[ADMIN TRIGGER] Manuálne spustenie: {task}")
+
         if task == "cleanup-deleted-activities":
             service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30)
             service_cleanup_expired_activity_details(ctx=ctx)
@@ -60,9 +51,7 @@ def service_run_master_scheduler(
         elif task == "coach-plan-complete":
             service_complete_due_active_plans(ctx=ctx)
         elif task == "force-logout-all":
-            result = db_force_logout_all_users(ctx=ctx)
-            
-        # Notifikácie & AI
+            db_force_logout_all_users(ctx=ctx)
         elif task == "check-ai-models":
             service_cron_notify_check_ai(admin_email="patrikmbontar@gmail.com", ctx=ctx)
         elif task == "notify-review":
@@ -73,113 +62,81 @@ def service_run_master_scheduler(
             service_cron_notify_training(ctx=ctx)
         elif task == "weekly-athlete-state":
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
+        elif task == "monthly-summary":
+            service_cron_notify_monthly_summary(ctx=ctx)
         else:
             raise ValueError(f"Neznáma úloha: {task}")
 
-        return {
-            "status": "executed_manual",
-            "task": task,
-            "message": f"Úloha '{task}' bola úspešne vykonaná."
-        }
-
+        return {"status": "executed_manual", "task": task}
 
     # -------------------------------------------------------------------------
-    # B) ČASOVANÝ REŽIM (GOOGLE SCHEDULER)
+    # B) ČASOVANÝ REŽIM
     # -------------------------------------------------------------------------
     tz_ba = ZoneInfo("Europe/Bratislava")
     now_ba = datetime.now(tz_ba)
-    current_hour = now_ba.hour
-    current_weekday = now_ba.weekday()  # 0=Pondelok, 6=Nedeľa
+    hour    = now_ba.hour
+    weekday = now_ba.weekday()
+    day     = now_ba.day
 
-    print(f"--- [SCHEDULER PING] {now_ba.strftime('%Y-%m-%d %H:%M:%S')} ---")
+    print(f"[SCHEDULER] {now_ba.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # -------------------------------------------------------------------------
-    # 1. NOČNÁ ÚDRŽBA DATABÁZY
-    # -------------------------------------------------------------------------
-    if current_hour == 1:  # Nastavené na 1 podľa tvojho kódu
-        print("[SCHEDULER] 🧹 Je 01:00. Spúšťam údržbu (Maintenance).")
-        
-        try:
-            service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30)
-            print("[SCHEDULER] ✅ Údržba: 'cleanup_deleted_activities' hotovo.")
-        except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba 'cleanup_deleted_activities': {e}")
+    # 1. NOČNÁ ÚDRŽBA (01:00)
+    if hour == 1:
+        for fn, name in [
+            (lambda: service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30),    "cleanup_deleted"),
+            (lambda: service_cleanup_expired_activity_details(ctx=ctx),              "cleanup_details"),
+            (lambda: service_apply_due_subscription_changes(ctx=ctx),                "subscriptions"),
+            (lambda: service_account_hard_delete(ctx=ctx, dry_run=False),            "hard_delete"),
+            (lambda: service_complete_due_active_plans(ctx=ctx),                     "plan_complete"),
+        ]:
+            try:
+                fn()
+            except Exception as e:
+                print(f"[SCHEDULER] ❌ {name}: {e}")
 
-        try:
-            service_cleanup_expired_activity_details(ctx=ctx)
-            print("[SCHEDULER] ✅ Údržba: 'cleanup_expired_activity_details' hotovo.")
-        except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba 'cleanup_expired_activity_details': {e}")
-
-        try:
-            service_apply_due_subscription_changes(ctx=ctx)
-            print("[SCHEDULER] ✅ Údržba: 'apply_due_subscription_changes' hotovo.")
-        except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba 'apply_due_subscription_changes': {e}")
-
-        try:
-            service_account_hard_delete(ctx=ctx, dry_run=False, only_user_id=None)
-            print("[SCHEDULER] ✅ Údržba: 'account_hard_delete' hotovo.")
-        except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba 'account_hard_delete': {e}")
-
-        try:
-            service_complete_due_active_plans(ctx=ctx)
-            print("[SCHEDULER] ✅ Údržba: 'coach_plan_complete_due' hotovo.")
-        except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba 'coach_plan_complete_due': {e}")
-
-    # -------------------------------------------------------------------------
-    # 2. KAŽDOHODINOVÁ LOGIKA
-    # -------------------------------------------------------------------------
-    print(f"[SCHEDULER] Hodinová kontrola spustená (Hour: {current_hour})")
-    
+    # 2. KAŽDOHODINOVÁ KONTROLA
     try:
         service_cron_notify_check_ai(admin_email="patrikmbontar@gmail.com", ctx=ctx)
-        print("[SCHEDULER] ✅ Kontrola AI modelov prebehla úspešne.")
     except Exception as e:
-        print(f"[SCHEDULER] ❌ Chyba pri kontrole AI modelov: {e}")
+        print(f"[SCHEDULER] ❌ check-ai: {e}")
 
     try:
         service_cron_notify_review(ctx=ctx)
-        print("[SCHEDULER] ✅ Pripomienka 'review' skontrolovaná.")
     except Exception as e:
-        print(f"[SCHEDULER] ❌ Chyba Review notifikácií: {e}")
+        print(f"[SCHEDULER] ❌ notify-review: {e}")
 
-    # -------------------------------------------------------------------------
     # 3. DENNÉ NOTIFIKÁCIE
-    # -------------------------------------------------------------------------
-    if current_hour == 11:
-        print("[SCHEDULER] ☀️ Je 11:00. Posielam Recovery notifikácie...")
+    if hour == 11:
         try:
             service_cron_notify_recovery(ctx=ctx)
         except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba Recovery notifikácií: {e}")
+            print(f"[SCHEDULER] ❌ notify-recovery: {e}")
 
-    if current_hour == 19:
-        print("[SCHEDULER] 🌙 Je 19:00. Posielam Training notifikácie...")
+    if hour == 19:
         try:
             service_cron_notify_training(ctx=ctx)
         except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba Training notifikácií: {e}")
+            print(f"[SCHEDULER] ❌ notify-training: {e}")
 
-    # -------------------------------------------------------------------------
-    # 4. TÝŽDENNÁ LOGIKA
-    # -------------------------------------------------------------------------
-    if current_weekday == 6 and current_hour == 23:
-        print("[SCHEDULER] 📅 Je Nedeľa 23:00. Spúšťam týždennú údržbu.")
-        
+    # 4. MESAČNÝ SÚHRN — 1. deň v mesiaci o 09:00
+    if day == 1 and hour == 9:
+        print("[SCHEDULER] 📊 1. deň v mesiaci 09:00 — spúšťam mesačný súhrn.")
         try:
-            print("[SCHEDULER] Spúšťam 'weekly_athlete_state_refresh'...")
-            service_run_weekly_athlete_state(max_users=0, ctx=ctx)
-            print("[SCHEDULER] ✅ Analýza atlétov úspešná.")
+            service_cron_notify_monthly_summary(ctx=ctx)
         except Exception as e:
-            print(f"[SCHEDULER] ❌ Chyba pri weekly_athlete_state: {e}")
+            print(f"[SCHEDULER] ❌ monthly-summary: {e}")
 
-    # Vrátime výsledok pre logy
+    # 5. TÝŽDENNÁ LOGIKA (Nedeľa 23:00)
+    if weekday == 6 and hour == 23:
+        try:
+            service_run_weekly_athlete_state(max_users=0, ctx=ctx)
+        except Exception as e:
+            print(f"[SCHEDULER] ❌ weekly-athlete-state: {e}")
+
     return {
         "status": "executed_scheduled",
-        "hour": current_hour,
-        "weekday": current_weekday,
-        "timestamp_ba": now_ba.isoformat()
+        "hour": hour,
+        "weekday": weekday,
+        "day": day,
+        "timestamp_ba": now_ba.isoformat(),
     }
