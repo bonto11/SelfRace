@@ -290,3 +290,29 @@ def db_get_activities_for_month(
         .execute()
     )
     return res.data or []
+
+def db_get_activities_for_streak(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+    days_back: int = 365,
+) -> List[Dict[str, Any]]:
+    """Všetky aktivity za posledný rok — dátum + čas pohybu pre streak výpočet."""
+    from datetime import datetime, timezone, timedelta
+    since = (datetime.now(timezone.utc) - timedelta(days=days_back)).date().isoformat()
+    sb = get_sb(ctx, caller="activities_summary.db_get_activities_for_streak")
+    try:
+        res = (
+            sb.table(TABLE_ACTIVITIES_SUMMARY)
+            .select("date,moving_time_s")
+            .eq("user_id", user_id)
+            .is_("deleted_at", None)
+            .gte("date", since)
+            .order("date", desc=False)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-STREAK] error:", repr(e))
+        return []
+ 

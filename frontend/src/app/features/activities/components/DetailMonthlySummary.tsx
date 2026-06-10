@@ -1,14 +1,18 @@
-// src/app/features/coach/components/DetailMonthlySummary.tsx
+// src/app/features/coach/components/MonthlySummaryDetail.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetMonthlySummary,
+  apiGetMonthlyReview,
+  apiGenerateMonthlyReview,
   type MonthlySummary,
+  type MonthlyReview,
   type SportStat,
 } from "@/app/features/activities/api/monthly_summary";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
@@ -40,20 +44,14 @@ function monthName(month: number): string {
 
 /* ─── SPORT CONFIG ─── */
 const SPORT_LABEL: Record<string, string> = {
-  run:      "🏃 Beh",
-  ride:     "🚴 Bicykel",
-  swim:     "🏊 Plávanie",
-  strength: "💪 Posilka",
-  mixed:    "⚡ Zmiešané",
-  walk:     "🚶 Chôdza",
-  other:    "▪ Iné",
+  run: "🏃 Beh", ride: "🚴 Bicykel", swim: "🏊 Plávanie",
+  strength: "💪 Posilka", mixed: "⚡ Zmiešané", walk: "🚶 Chôdza", other: "▪ Iné",
 };
 const SPORT_HAS_PACE  = new Set(["run", "mixed"]);
 const SPORT_HAS_SPEED = new Set(["ride", "swim"]);
 const SPORT_HAS_DIST  = new Set(["run", "ride", "swim", "mixed"]);
 const SPORT_ORDER     = ["run", "ride", "swim", "mixed", "strength", "walk", "other"];
 
-/* ─── ZONE CONFIG ─── */
 const ZONE_COLOR: Record<string, string> = {
   z1: "#64d8a2", z2: "#4ade80", z3: "#facc15", z4: "#fb923c", z5: "#f87171",
 };
@@ -88,25 +86,12 @@ function SportCard({ sport, stat, t }: { sport: string; stat: SportStat; t: any 
   const hasDist  = SPORT_HAS_DIST.has(sport)  && (stat.total_dist_m ?? 0) > 0;
   const hasPace  = SPORT_HAS_PACE.has(sport)  && !!stat.avg_speed_mps;
   const hasSpeed = SPORT_HAS_SPEED.has(sport) && !!stat.avg_speed_mps;
-
   return (
-    <div style={{
-      margin: "0 12px 12px",
-      borderRadius: 12,
-      border: `1px solid ${appColors.panelBorder}`,
-      backgroundColor: "rgba(255,255,255,0.02)",
-      overflow: "hidden",
-    }}>
-      <div style={{
-        padding: "8px 12px",
-        backgroundColor: "rgba(255,255,255,0.04)",
-        borderBottom: `1px solid ${appColors.panelBorder}`,
-        display: "flex", justifyContent: "space-between",
-      }}>
+    <div style={{ margin: "0 12px 12px", borderRadius: 12, border: `1px solid ${appColors.panelBorder}`, backgroundColor: "rgba(255,255,255,0.02)", overflow: "hidden" }}>
+      <div style={{ padding: "8px 12px", backgroundColor: "rgba(255,255,255,0.04)", borderBottom: `1px solid ${appColors.panelBorder}`, display: "flex", justifyContent: "space-between" }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary }}>{label}</span>
         <span style={{ fontSize: 12, color: appColors.textMuted }}>{stat.count}×</span>
       </div>
-
       <Row label={t("monthlySummary.sport.totalTime") as any}  value={fmtTime(stat.total_time_s)} />
       {hasDist  && <Row label={t("monthlySummary.sport.totalDist") as any}  value={fmtDist(stat.total_dist_m!)} />}
       {hasPace  && <Row label={t("monthlySummary.sport.avgPace") as any}    value={fmtPace(stat.avg_speed_mps!)} />}
@@ -122,7 +107,6 @@ function ZoneBar({ zones }: { zones: Record<string, number> }) {
   const total = Object.values(zones).reduce((a, b) => a + b, 0);
   if (total === 0) return null;
   const keys = (["z1", "z2", "z3", "z4", "z5"] as const).filter((k) => (zones[k] ?? 0) > 0);
-
   return (
     <div style={{ padding: "10px 16px 14px" }}>
       <div style={{ display: "flex", height: 12, borderRadius: 6, overflow: "hidden", marginBottom: 10 }}>
@@ -144,17 +128,101 @@ function ZoneBar({ zones }: { zones: Record<string, number> }) {
   );
 }
 
+/* ─── AI REVIEW SEKCIA ─── */
+function ReviewSection({ review, onGenerate, generating, t }: {
+  review: MonthlyReview | null;
+  onGenerate: () => void;
+  generating: boolean;
+  t: any;
+}) {
+  return (
+    <Section title={t("monthlySummary.reviewTitle") as any}>
+      {review ? (
+        <div style={{ padding: "8px 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Hlavný text */}
+          <p style={{ fontSize: 14, color: appColors.textPrimary, lineHeight: 1.6, margin: 0 }}>
+            {review.review_text}
+          </p>
+
+          {/* Highlights */}
+          {review.highlights?.length > 0 && (
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", margin: "0 0 4px" }}>
+                {t("monthlySummary.reviewHighlights") as any}
+              </p>
+              {review.highlights.map((h, i) => (
+                <p key={i} style={{ fontSize: 13, color: appColors.textMuted, margin: "2px 0" }}>✓ {h}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Concerns */}
+          {review.concerns?.length > 0 && (
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: appColors.stateWarning, margin: "0 0 4px" }}>
+                {t("monthlySummary.reviewConcerns") as any}
+              </p>
+              {review.concerns.map((c, i) => (
+                <p key={i} style={{ fontSize: 13, color: appColors.textMuted, margin: "2px 0" }}>⚠ {c}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Recovery + zóny */}
+          {review.recovery_note && (
+            <p style={{ fontSize: 13, color: appColors.textMuted, margin: 0, borderTop: `1px solid ${appColors.divider}`, paddingTop: 8 }}>
+              💤 {review.recovery_note}
+            </p>
+          )}
+          {review.zone_note && (
+            <p style={{ fontSize: 13, color: appColors.textMuted, margin: 0 }}>
+              📊 {review.zone_note}
+            </p>
+          )}
+
+          {/* Ďalší mesiac */}
+          {review.next_month_focus && (
+            <div style={{ borderTop: `1px solid ${appColors.divider}`, paddingTop: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: appColors.textMuted, margin: "0 0 4px" }}>
+                {t("monthlySummary.reviewNextMonth") as any}
+              </p>
+              <p style={{ fontSize: 13, color: appColors.textPrimary, margin: 0, lineHeight: 1.6 }}>
+                {review.next_month_focus}
+              </p>
+            </div>
+          )}
+
+          {/* Regenerovať tlačidlo — TEST, zmazať neskôr */}
+          <Button size="xs" variant="ghost" onClick={onGenerate} disabled={generating}>
+            {generating ? "..." : t("monthlySummary.reviewRegenerate") as any}
+          </Button>
+        </div>
+      ) : (
+        <div style={{ padding: "12px 16px 16px" }}>
+          <p style={{ fontSize: 13, color: appColors.textMuted, margin: "0 0 12px" }}>
+            {t("monthlySummary.reviewEmpty") as any}
+          </p>
+          {/* TEST TLAČIDLO — zmazať po overení schedulera */}
+          <Button variant="primary" size="sm" onClick={onGenerate} disabled={generating}>
+            {generating
+              ? t("monthlySummary.reviewGenerating") as any
+              : t("monthlySummary.reviewGenerate") as any
+            }
+          </Button>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 /* ─── MESIAC NAVIGÁCIA ─── */
 function MonthNav({ year, month, onChange }: {
-  year: number; month: number;
-  onChange: (y: number, m: number) => void;
+  year: number; month: number; onChange: (y: number, m: number) => void;
 }) {
   const now = new Date();
   const isNow = year === now.getFullYear() && month === now.getMonth() + 1;
-
   const prev = () => month === 1 ? onChange(year - 1, 12) : onChange(year, month - 1);
   const next = () => { if (!isNow) month === 12 ? onChange(year + 1, 1) : onChange(year, month + 1); };
-
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 4px 16px" }}>
       <button onClick={prev} style={{ background: "none", border: "none", cursor: "pointer", color: appColors.textMuted, fontSize: 22, padding: "4px 10px" }}>‹</button>
@@ -174,24 +242,46 @@ export default function DetailMonthlySummary() {
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<MonthlySummary | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [data,   setData]   = useState<MonthlySummary | null>(null);
+  const [review, setReview] = useState<MonthlyReview | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
     setLoading(true);
-    apiGetMonthlySummary(userId, year, month)
-      .then((d) => { if (alive) setData(d); })
+    Promise.all([
+      apiGetMonthlySummary(userId, year, month),
+      apiGetMonthlyReview(userId, year, month),
+    ])
+      .then(([d, r]) => {
+        if (!alive) return;
+        setData(d);
+        setReview(r);
+      })
       .catch((e) => console.error("[MonthlySummaryDetail]", e))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [userId, year, month]);
 
-  const allSports = [
-    ...SPORT_ORDER.filter((s) => data?.sport_stats[s] && data.sport_stats[s].total_time_s > 0),
-    ...Object.keys(data?.sport_stats ?? {}).filter((s) => !SPORT_ORDER.includes(s) && (data?.sport_stats[s].total_time_s ?? 0) > 0),
-  ];
+  const handleGenerate = async () => {
+    if (!userId) return;
+    setGenerating(true);
+    try {
+      const r = await apiGenerateMonthlyReview(userId, year, month);
+      if (r) setReview(r);
+    } catch (e) {
+      console.error("[MonthlySummaryDetail] generate", e);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const allSports = data ? [
+    ...SPORT_ORDER.filter((s) => data.sport_stats[s]?.total_time_s > 0),
+    ...Object.keys(data.sport_stats).filter((s) => !SPORT_ORDER.includes(s) && (data.sport_stats[s].total_time_s ?? 0) > 0),
+  ] : [];
 
   const rec      = data?.recovery;
   const zones    = data?.zones_min ?? {};
@@ -213,7 +303,6 @@ export default function DetailMonthlySummary() {
         </section>
       ) : (
         <>
-          {/* Celkový súhrn */}
           <Section title={t("monthlySummary.overallTitle") as any}>
             <Row label={t("monthlySummary.totalSessions") as any} value={String(data.summary.total_sessions)} />
             <Row label={t("monthlySummary.totalTime") as any}     value={fmtTime(data.summary.total_time_s)} />
@@ -222,7 +311,6 @@ export default function DetailMonthlySummary() {
             )}
           </Section>
 
-          {/* Podľa sportu */}
           {allSports.length > 0 && (
             <Section title={t("monthlySummary.bySportTitle") as any}>
               <div style={{ height: 6 }} />
@@ -232,23 +320,29 @@ export default function DetailMonthlySummary() {
             </Section>
           )}
 
-          {/* Tepové zóny */}
           {hasZones && (
             <Section title={t("monthlySummary.zonesTitle") as any}>
               <ZoneBar zones={zones as Record<string, number>} />
             </Section>
           )}
 
-          {/* Regenerácia */}
           {rec && rec.days_recorded > 0 && (
             <Section title={t("monthlySummary.recoveryTitle") as any}>
-              <Row label={t("monthlySummary.daysRecorded") as any}   value={String(rec.days_recorded)} />
-              {rec.avg_hrv_ms        != null && <Row label="HRV"                                             value={`${rec.avg_hrv_ms} ms`} />}
-              {rec.avg_rhr_bpm       != null && <Row label="RHR"                                             value={`${rec.avg_rhr_bpm} bpm`} />}
+              <Row label={t("monthlySummary.daysRecorded") as any} value={String(rec.days_recorded)} />
+              {rec.avg_hrv_ms             != null && <Row label="HRV"                                        value={`${rec.avg_hrv_ms} ms`} />}
+              {rec.avg_rhr_bpm            != null && <Row label="RHR"                                        value={`${rec.avg_rhr_bpm} bpm`} />}
               {rec.avg_sleep_duration_min != null && <Row label={t("monthlySummary.avgSleep") as any}        value={fmtTime(rec.avg_sleep_duration_min * 60)} />}
-              {rec.avg_sleep_start   != null && <Row label={t("monthlySummary.avgSleepStart") as any}        value={rec.avg_sleep_start} />}
+              {rec.avg_sleep_start        != null && <Row label={t("monthlySummary.avgSleepStart") as any}   value={rec.avg_sleep_start} />}
             </Section>
           )}
+
+          {/* AI Review — TEST SEKCIA, tlačidlo sa zmaže po overení schedulera */}
+          <ReviewSection
+            review={review}
+            onGenerate={handleGenerate}
+            generating={generating}
+            t={t}
+          />
         </>
       )}
     </>

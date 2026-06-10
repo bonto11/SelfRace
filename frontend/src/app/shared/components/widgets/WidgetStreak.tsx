@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiGetStreak, type StreakData } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGetStreak, type StreakData } from "@/app/features/activities/api/analytics_activities";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   WIDGET_LOADING_WRAP, WIDGET_VALUE_ROW,

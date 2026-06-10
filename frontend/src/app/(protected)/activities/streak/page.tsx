@@ -2,7 +2,7 @@
 "use client";
 
 import PageShell from "@/app/shared/ui/components/PageShell";
-import DetailStreak from "@/app/features/coach/components/DetailStreak"
+import DetailStreak from "@/app/features/activities/components/DetailStreak"
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function Page() {

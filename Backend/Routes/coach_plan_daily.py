@@ -16,7 +16,6 @@ from Services.AI.daily_plan.main import (
     service_update_daily_session_status,
 )
 
-from Services.coach_streak import service_get_streak
 
 from DB.coach_plan_daily import db_get_compliance_stats, db_get_postponed_sessions
 from Modules.Supabase.auth import get_auth_ctx, require_user
@@ -181,11 +180,3 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{user_id}/coach-streak")
-def get_coach_streak(user_id: int, req: Request) -> Dict[str, Any]:
-    try:
-        ctx = require_user(get_auth_ctx(req))
-        data = service_get_streak(user_id=user_id, ctx=ctx)
-        return {"success": True, "data": data}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
