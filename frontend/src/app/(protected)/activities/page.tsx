@@ -48,7 +48,7 @@ export default function ActivitiesPage() {
       rightSlot={<RefreshIconBtn />}
     >
       <div className={PAGE_GRID_2}>
-        <WidgetStreak onOpenDetail={() => router.push("/coach/streak")} />
+        <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
         <WidgetMonthlySummary
           onOpenDetail={() => router.push("/activities/monthlySummary")}
         />
