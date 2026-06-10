@@ -205,7 +205,7 @@ def activity_extras_fetch(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/{user_id}/coach-streak")
+@router.get("/streak/{user_id}")
 def get_coach_streak(user_id: int, req: Request) -> Dict[str, Any]:
     try:
         ctx = require_user(get_auth_ctx(req))
