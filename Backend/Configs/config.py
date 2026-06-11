@@ -127,7 +127,7 @@ INTERNAL_SERVICE_SECRET: str = env_required("SUPABASE_URL")
 # =============================================================================
 # STRAVA
 # =============================================================================
-STRAVA_BASE = "https://www.api-v3.strava.com"
+STRAVA_BASE = "https://www.strava.com/api/v3"
 
 STRAVA_CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
