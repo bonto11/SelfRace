@@ -32,6 +32,38 @@ type Props = {
 
 const REFRESH_COOLDOWN_MS = 10000;
 
+/* ================= thread types ================= */
+type ReviewPayload = {
+  review_text?: string;
+  next_day_plan?: string;
+  session_kind?: string;
+  key_numbers?: { dominant_zone?: string; [k: string]: any };
+  suggested_thresholds?: {
+    hr_bpm?: number | null;
+    pace_sec_km?: number | null;
+    notes?: string;
+    [k: string]: any;
+  } | null;
+  flags?: { needs_caution?: boolean; used_user_comment?: boolean };
+  [k: string]: any;
+};
+
+type AssistantEntry = {
+  role: "assistant";
+  created_at?: string;
+  source?: string;
+  review: ReviewPayload;
+};
+
+type UserEntry = {
+  role: "user";
+  created_at?: string;
+  comment?: string | null;
+  is_race_effort?: boolean;
+};
+
+type ThreadEntry = AssistantEntry | UserEntry;
+
 /* ================= date & tier helpers ================= */
 function parseDateSafe(v: any): Date | null {
   if (!v) return null;
@@ -86,6 +118,112 @@ function TextBlock({ children }: { children: ReactNode }) {
   );
 }
 
+function ThresholdCard({ thresholds, t }: { thresholds: NonNullable<ReviewPayload["suggested_thresholds"]>; t: any }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-700">
+      <div className="flex items-center gap-4 p-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-2xl shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+          🚀
+        </div>
+        <div className="flex-1">
+          <h4 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
+            {t("sessions.review.thresholdUpdateTitle")}
+          </h4>
+          <p className="mt-1 text-xs leading-relaxed text-white/80">
+            {thresholds.notes || t("sessions.review.thresholdUpdateDesc")}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+            {thresholds.hr_bpm && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-[10px] uppercase opacity-50 font-medium">
+                  {t("sessions.review.thresholdNew")}
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {thresholds.hr_bpm} {t("common.units.hr")}
+                </span>
+              </div>
+            )}
+            {thresholds.pace_sec_km && (
+              <div className="flex items-baseline gap-2">
+                <span className="text-[10px] uppercase opacity-50 font-medium">
+                  {t("sessions.review.thresholdPace")}
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {Math.floor(thresholds.pace_sec_km / 60)}:
+                  {(thresholds.pace_sec_km % 60).toString().padStart(2, "0")} /
+                  {t("common.units.km")}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-emerald-500/10 px-4 py-2 text-[10px] text-emerald-400/80 italic border-t border-emerald-500/20">
+        ✨ {t("sessions.review.zonesAutoUpdated")}
+      </div>
+    </div>
+  );
+}
+
+function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
+  const r = entry.review || {};
+  const reviewText = typeof r.review_text === "string" ? r.review_text.trim() : null;
+  const nextDayPlan = typeof r.next_day_plan === "string" ? r.next_day_plan.trim() : null;
+  const sessionKind = typeof r.session_kind === "string" ? r.session_kind : null;
+  const dominantZone =
+    typeof r?.key_numbers?.dominant_zone === "string" ? r.key_numbers.dominant_zone : null;
+  const needsCaution = r?.flags?.needs_caution === true;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4 animate-in fade-in duration-500">
+      <div className="flex flex-wrap gap-2">
+        {sessionKind && <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />}
+        {dominantZone && <Chip label={t("sessions.review.tagZone")} value={dominantZone} />}
+        {needsCaution && (
+          <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
+            ⚠️ {t("sessions.review.tagCaution")}
+          </div>
+        )}
+      </div>
+
+      {reviewText && (
+        <div>
+          <SectionTitle>{t("sessions.review.sectionReview")}</SectionTitle>
+          <TextBlock>{reviewText}</TextBlock>
+        </div>
+      )}
+
+      {nextDayPlan && (
+        <div>
+          <SectionTitle>{t("sessions.review.sectionNextDay")}</SectionTitle>
+          <TextBlock>{nextDayPlan}</TextBlock>
+        </div>
+      )}
+
+      {r.suggested_thresholds && <ThresholdCard thresholds={r.suggested_thresholds} t={t} />}
+    </div>
+  );
+}
+
+function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
+  if (!entry.comment) return null;
+  return (
+    <div className="ml-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3 animate-in fade-in duration-500">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
+        {t("sessions.review.youLabel") || "Ty"}
+      </div>
+      <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      {entry.is_race_effort && (
+        <div className="mt-1 text-[10px] text-emerald-300/70">
+          🏁 {t("sessions.review.raceEffortLabel")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ================= HLAVNÝ KOMPONENT ================= */
 
 export default function ActivityReviewSection({ item, activityId }: Props) {
@@ -115,11 +253,15 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     return days <= 7;
   }, [startDt]);
 
-  const [review, setReview] = useState<any | null>(null);
-  const [aiReviewVersion, setAiReviewVersion] = useState<number>(0);
+  const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [comment, setComment] = useState<string>("");
-
   const [isRaceEffort, setIsRaceEffort] = useState<boolean>(false);
+
+  const aiReviewVersion = useMemo(
+    () => thread.filter((e) => e.role === "assistant").length,
+    [thread],
+  );
+  const hasReview = aiReviewVersion > 0;
 
   const commentLen = comment.length;
   const commentTooLong = commentLen > MAX_COMMENT_CHARS;
@@ -136,13 +278,17 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     setBusyLoad(true);
     try {
       const data = await getEnrichment(activityId, { fetch: forceFetch });
-      setReview(data?.ai_review ?? null);
-      const v = Number(data?.ai_review_version ?? 0);
-      setAiReviewVersion(Number.isFinite(v) && v >= 0 ? v : 0);
+      const t2: ThreadEntry[] = Array.isArray(data?.ai_review_thread)
+        ? data.ai_review_thread
+        : [];
+      setThread(t2);
 
-      const dbComment = data?.ai_review_last_user_comment;
-      if (typeof dbComment === "string")
-        setComment((prev) => prev || dbComment);
+      const lastUserComment = [...t2]
+        .reverse()
+        .find((e): e is UserEntry => e.role === "user" && !!e.comment)?.comment;
+      if (typeof lastUserComment === "string") {
+        setComment((prev) => prev || lastUserComment);
+      }
 
       setUiError(null);
     } catch (e) {
@@ -156,25 +302,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
     loadData(false);
   }, [userId, activityId]);
 
-  const hasReview = review != null;
   const canRerunByTier = maxVersions > 1;
   const canRerunByCount = aiReviewVersion < maxVersions;
   const canFreeRun = tierCode === "free" && aiReviewVersion === 0;
   const canRerun =
     isEligible && ((canRerunByTier && canRerunByCount) || canFreeRun);
-
-  const r = review ?? {};
-  const reviewText =
-    typeof r?.review_text === "string" ? r.review_text.trim() : null;
-  const nextDayPlan =
-    typeof r?.next_day_plan === "string" ? r.next_day_plan.trim() : null;
-  const sessionKind =
-    typeof r?.session_kind === "string" ? r.session_kind : null;
-  const dominantZone =
-    typeof r?.key_numbers?.dominant_zone === "string"
-      ? r.key_numbers.dominant_zone
-      : null;
-  const needsCaution = r?.flags?.needs_caution === true;
 
   const onManualRefresh = async () => {
     if (refreshLocked || busyGen || busyLoad) return;
@@ -211,7 +343,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         {
           comment: c.length ? c : null,
           model: null,
-          has_new_injury: false, 
+          has_new_injury: false,
           is_race_effort: isRaceEffort,
         },
       );
@@ -220,11 +352,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         const code = out?.error_code || "generic_error";
         const errorKey = `api.ai_errors.${code}`;
         const translatedError = t(errorKey as any);
-        
+
         if (translatedError && translatedError !== errorKey) {
-            setUiError(translatedError);
+          setUiError(translatedError);
         } else {
-            setUiError(t("api.ai_errors.generic_error"));
+          setUiError(t("api.ai_errors.generic_error"));
         }
       } else {
         if (out.status === "SUCCESS")
@@ -379,105 +511,19 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         </div>
       )}
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-3">
         {busyLoad ? (
           <div className="py-4 flex flex-col items-center justify-center opacity-50 space-y-2">
-            <span className="text-sm">
-              {t("sessions.review.loading")}
-            </span>
+            <span className="text-sm">{t("sessions.review.loading")}</span>
           </div>
-        ) : hasReview ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {sessionKind && (
-                <Chip
-                  label={t("sessions.review.tagFocus")}
-                  value={sessionKind}
-                />
-              )}
-              {dominantZone && (
-                <Chip
-                  label={t("sessions.review.tagZone")}
-                  value={dominantZone}
-                />
-              )}
-              {needsCaution && (
-                <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
-                  ⚠️ {t("sessions.review.tagCaution")}
-                </div>
-              )}
-            </div>
-            {reviewText && (
-              <div className="animate-in fade-in duration-500">
-                <SectionTitle>
-                  {t("sessions.review.sectionReview")}
-                </SectionTitle>
-                <TextBlock>{reviewText}</TextBlock>
-              </div>
-            )}
-            {nextDayPlan && (
-              <div className="animate-in fade-in duration-500 delay-100">
-                <SectionTitle>
-                  {t("sessions.review.sectionNextDay")}
-                </SectionTitle>
-                <TextBlock>{nextDayPlan}</TextBlock>
-              </div>
-            )}
-
-            {review.suggested_thresholds && (
-              <div className="mb-6 overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-700">
-                <div className="flex items-center gap-4 p-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-2xl shadow-[0_0_15px_rgba(16,185,129,0.4)]">
-                    🚀
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
-                      {t("sessions.review.thresholdUpdateTitle")}
-                    </h4>
-                    <p className="mt-1 text-xs leading-relaxed text-white/80">
-                      {review.suggested_thresholds.notes ||
-                        t("sessions.review.thresholdUpdateDesc")}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-                      {review.suggested_thresholds.hr_bpm && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[10px] uppercase opacity-50 font-medium">
-                            {t("sessions.review.thresholdNew")}
-                          </span>
-                          <span className="text-sm font-bold text-white">
-                            {review.suggested_thresholds.hr_bpm}{" "}
-                            {t("common.units.hr")}
-                          </span>
-                        </div>
-                      )}
-                      {review.suggested_thresholds.pace_sec_km && (
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[10px] uppercase opacity-50 font-medium">
-                            {t("sessions.review.thresholdPace")}
-                          </span>
-                          <span className="text-sm font-bold text-white">
-                            {Math.floor(
-                              review.suggested_thresholds.pace_sec_km / 60,
-                            )}
-                            :
-                            {(review.suggested_thresholds.pace_sec_km % 60)
-                              .toString()
-                              .padStart(2, "0")}{" "}
-                            /{t("common.units.km")}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-emerald-500/10 px-4 py-2 text-[10px] text-emerald-400/80 italic border-t border-emerald-500/20">
-                  ✨ {t("sessions.review.zonesAutoUpdated")}
-                </div>
-              </div>
-            )}
-          </>
+        ) : thread.length > 0 ? (
+          thread.map((entry, idx) =>
+            entry.role === "assistant" ? (
+              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+            ) : (
+              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+            ),
+          )
         ) : (
           !busyGen && (
             <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
