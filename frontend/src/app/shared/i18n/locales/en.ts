@@ -2520,6 +2520,7 @@ export const en = {
       zonesAutoUpdated: "New zones were automatically saved to the profile.",
       sectionReview: "Workout evaluation",
       sectionNextDay: "Advice for tomorrow",
+      youLabel: "You",
       noReviewPlaceholder:
         "No evaluation yet. Only workouts that are not older than 7 days can be analyzed.",
       upsellTitle: "Premium Analysis & Comments",
