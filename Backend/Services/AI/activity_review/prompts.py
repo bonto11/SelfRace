@@ -181,7 +181,7 @@ def _system_prompt(sport: str, is_race: bool = False) -> str:
 
 
 def _sport_rules(sport_key: str, is_race: bool = False) -> str:
-    """Zostaví pravidlá pre AI podľa sportu a módu (race/training)."""
+< truncated line 184 >
     common = [
         "- Do NOT invent missing data.",
         "- Output must be valid JSON only (no markdown).",
@@ -232,10 +232,20 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
     return "\n".join(common + ["- Identify session kind and evaluate intensity vs plan."])
 
 
-def _schema(lang: str, sport: str, is_race: bool = False) -> str:
-    """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
-    review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
+def _schema(lang: str, sport: str, is_race: bool = False, is_reply: bool = False) -> str:
+    """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race, najkratšia pre reply v threade."""
+    if is_reply:
+        review_len = "1–2 short sentences"
+    elif is_race:
+        review_len = "4–6 sentences"
+    else:
+        review_len = "3–4 concise sentences"
     plan_len = "2–3 concise sentences"
+    reply_note = (
+        " This is a DIRECT REPLY inside an ongoing conversation — do NOT restate the athlete's "
+        "name, do NOT re-summarize the session, just respond naturally to their comment."
+        if is_reply else ""
+    )
     return f"""
 {{
   "schema_version": 6,
@@ -244,7 +254,7 @@ def _schema(lang: str, sport: str, is_race: bool = False) -> str:
   "activity_id": number | null,
   "sport": "{sport}",
   "session_kind": "{"race" if is_race else "training"}",
-  "review_text": "FREE TEXT. {review_len}. {lang}. DO NOT list basic stats. Focus on execution insights, pacing, and physiological response.",
+  "review_text": "FREE TEXT. {review_len}. {lang}. DO NOT list basic stats. Focus on execution insights, pacing, and physiological response.{reply_note}",
   "next_day_plan": "FREE TEXT. {plan_len}. Recovery focus based on load and HRV. Reference plan_tomorrow if available.",
   "key_numbers": {{
     "duration_min": number,
@@ -318,8 +328,9 @@ def build_prompts_for_activity_review(
 
     # Konverzačný kontext — ak existuje predchádzajúci review_thread, AI reaguje na reply
     thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
+    is_reply = bool(thread_ctx)
     conversation_note = ""
-    if thread_ctx:
+    if is_reply:
         conversation_note = (
             "\n--- CONVERSATION CONTEXT ---\n"
             "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
@@ -327,6 +338,10 @@ def build_prompts_for_activity_review(
             "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
             "Address it directly and specifically — explain or reconsider your previous view if the "
             "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
+            "STYLE FOR THIS REPLY: Do NOT re-greet or restart with the athlete's name "
+            "(e.g. do not begin with 'Patrik, ...' again). Do NOT re-summarize the session from scratch. "
+            "Respond like a short, direct continuation of the same chat — brief and conversational, "
+            "not a fresh report.\n"
         )
 
     user_txt = (
@@ -335,11 +350,12 @@ def build_prompts_for_activity_review(
         "CONTEXT_JSON:\n"
         + json.dumps(context_for_llm, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
-        + _schema(lang_label, resolved_sport, is_race=actually_is_race)
+        + _schema(lang_label, resolved_sport, is_race=actually_is_race, is_reply=is_reply)
         + "\n\nRULES:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
+        + ("- REPLY OVERRIDE: ignore the name-addressing instruction above for this turn — do not open with the athlete's name again.\n" if is_reply else "")
+        + f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
         f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
