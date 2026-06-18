@@ -9,7 +9,7 @@ from Services.analytics_RecentLoad import service_build_recent_load_block_for_an
 from Services.user_recovery import service_build_recovery_block_for_analysis
 
 from DB.activities_summary import db_get_summary_for_activities, db_fetch_window_activity_ids
-from DB.activities_enrichment import db_get_enrichment_for_activities
+from DB.activities_enrichment import db_get_enrichment_for_activities, db_get_review_thread
 from DB.activities_splits import db_get_activity_splits
 from DB.activities_laps import db_get_activity_laps
 from DB.activities_streams import db_get_streams_one
@@ -33,6 +33,7 @@ SPLITS_MAX_ITEMS_RUN    = 12
 SPLITS_MAX_ITEMS_RIDE   = 10
 LAPS_MAX_ITEMS_RUN      = 12
 LAPS_MAX_ITEMS_RIDE     = 10
+THREAD_MAX_ENTRIES_FOR_AI = 6
 
 
 # ============================================================
@@ -255,6 +256,38 @@ def _minify_recent_load_to_week_horizon(recent_load: Any) -> Any:
         "window_days": recent_load.get("window_days"),
         "weeks": out_weeks,
     }
+
+
+def _minify_thread_for_ai(
+    thread: List[Dict[str, Any]], *, max_entries: int = THREAD_MAX_ENTRIES_FOR_AI
+) -> List[Dict[str, Any]]:
+    """
+    Osekáva predchádzajúci review thread pre AI — necháva len posledných N entries.
+    Z assistant review necháva len review_text + next_day_plan (zvyšok je
+    odvoditeľný z aktuálnych dát aktivity a netreba ho duplikovať).
+    """
+    if not thread:
+        return []
+    recent = thread[-max_entries:]
+    out: List[Dict[str, Any]] = []
+    for entry in recent:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role")
+        if role == "user":
+            out.append({
+                "role": "user",
+                "comment": entry.get("comment"),
+                "is_race_effort": bool(entry.get("is_race_effort")),
+            })
+        elif role == "assistant":
+            rev = entry.get("review") or {}
+            out.append({
+                "role": "assistant",
+                "review_text": rev.get("review_text"),
+                "next_day_plan": rev.get("next_day_plan"),
+            })
+    return out
 
 
 def _splits_max_items(sport: str) -> int:
@@ -486,7 +519,7 @@ def _real_db_get_plans_for_today_tomorrow(
         )
         return plan_today, plan_tomorrow
     except Exception as e:
-        print("[AI][builder] Failed to fetch plans for today/tomorrow", repr(e))
+        print(f"❌ [AI][builder] Failed to fetch plans for today/tomorrow: {repr(e)}")
         return None, None
 
 # ============================================================
@@ -523,6 +556,7 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             "injury_state": None,
             "plan_today": None,
             "plan_tomorrow": None,
+            "review_thread": [],
         },
     }
 
@@ -538,7 +572,8 @@ def build_input_from_db(
 ) -> Dict[str, Any]:
     """
     Hlavná funkcia buildera — zostaví kompletný context_payload pre AI
-    z DB dát: aktivita, história, recovery, recent_load, zóny, plán, preferencie.
+    z DB dát: aktivita, história, recovery, recent_load, zóny, plán, preferencie,
+    a predchádzajúci review thread (ak ide o reply na predošlé review).
     """
     input_data = build_base_input(user_id, activity_id)
 
@@ -560,6 +595,13 @@ def build_input_from_db(
     input_data["context"]["recovery"] = recovery
     input_data["context"]["recent_load"] = _minify_recent_load_to_week_horizon(recent_load_raw)
 
+    # Predchádzajúci review thread — kontext pri reply na predošlé review
+    try:
+        existing_thread = db_get_review_thread(user_id=user_id, activity_id=activity_id, ctx=ctx)
+        input_data["context"]["review_thread"] = _minify_thread_for_ai(existing_thread)
+    except Exception as e:
+        print(f"❌ [AI][builder] Failed to fetch review thread: {repr(e)}")
+
     # Personalizácia: meno, pohlavie, zranenia
     try:
         display_name = db_get_user_display_name(user_id, ctx=ctx)
@@ -577,7 +619,7 @@ def build_input_from_db(
             if isinstance(injuries, list) and len(injuries) > 0:
                 input_data["context"]["injury_state"] = {"active_injuries": injuries}
     except Exception as e:
-        print("[AI][builder] Failed to fetch user personalization data", repr(e))
+        print(f"❌ [AI][builder] Failed to fetch user personalization data: {repr(e)}")
 
     # Načítanie ID aktivít z okna 14 dní
     window_ids: List[int] = []
@@ -603,7 +645,7 @@ def build_input_from_db(
     focus_summary = sum_by_id.get(int(activity_id))
     if not isinstance(focus_summary, dict):
         _dbg(
-            "[AI][input] missing focus_summary",
+            "❌ [AI][input] missing focus_summary",
             {"user_id": int(user_id), "activity_id": int(activity_id)},
         )
         return input_data
@@ -660,7 +702,7 @@ def build_input_from_db(
                 },
             }
     except Exception as e:
-        print("[AI][builder] user_zones fetch failed", repr(e))
+        print(f"❌ [AI][builder] user_zones fetch failed: {repr(e)}")
 
     # Rozdelenie ID do časových okien
     ids_0_7: List[int] = []
