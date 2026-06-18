@@ -2508,6 +2508,7 @@ export const sk = {
       zonesAutoUpdated: "Nové zóny boli automaticky uložené do profilu.",
       sectionReview: "Hodnotenie tréningu",
       sectionNextDay: "Rada na zajtra",
+      youLabel: "Ty",
       noReviewPlaceholder:
         "Zatiaľ žiadne hodnotenie. Analyzovať sa dajú len tréningy, ktoré nie sú staršie ako 7 dní.",
       upsellTitle: "Prémiové analýzy a komentáre",
