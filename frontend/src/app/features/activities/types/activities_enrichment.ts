@@ -1,3 +1,5 @@
+// src/app/features/activities/types/activities_enrichment.ts
+
 type AsyncJobRow = {
   id: number;
   user_id: number;
@@ -11,6 +13,51 @@ type AsyncJobRow = {
   finished_at: string | null;
 };
 
+export type ReviewPayload = {
+  schema_version?: number;
+  generated_at?: string;
+  model?: string;
+  activity_id?: number | null;
+  sport?: string;
+  session_kind?: string;
+  review_text?: string;
+  next_day_plan?: string;
+  key_numbers?: {
+    duration_min?: number;
+    distance_km?: number;
+    avg_hr_bpm?: number;
+    max_hr_bpm?: number;
+    dominant_zone?: string;
+    [k: string]: any;
+  };
+  suggested_thresholds?: {
+    sport?: string;
+    threshold_type?: string;
+    hr_bpm?: number | null;
+    pace_sec_km?: number | null;
+    power_watt?: number | null;
+    notes?: string;
+  } | null;
+  flags?: { used_user_comment?: boolean; needs_caution?: boolean };
+  [k: string]: any;
+};
+
+export type ThreadAssistantEntry = {
+  role: "assistant";
+  created_at?: string;
+  source?: string;
+  review: ReviewPayload;
+};
+
+export type ThreadUserEntry = {
+  role: "user";
+  created_at?: string;
+  comment?: string | null;
+  is_race_effort?: boolean;
+};
+
+export type ThreadEntry = ThreadAssistantEntry | ThreadUserEntry;
+
 export type ActivityEnrichment = {
   activity_id: number;
   z1_min: number | null;
@@ -22,21 +69,16 @@ export type ActivityEnrichment = {
   avg_hr_bpm: number | null;
   moving_time_s: number | null;
   distance_m: number | null;
-  ai_review: any | null;
   updated_at: string | null;
-  ai_review_version: number | null;
-  ai_review_last_user_comment: string | null;
-  ai_review_last_user_comment_at: string | null;
-  ai_review_last_source: string | null;
+  ai_review_thread: ThreadEntry[];
 };
 
 export type ActivityReviewEnqueueOpts = {
   runNow?: boolean;
   model?: string | null;
   comment?: string | null;
-  has_new_injury?: boolean; 
+  has_new_injury?: boolean;
 };
-
 
 export type ActivityReviewRerunResponse =
   | {
@@ -46,7 +88,7 @@ export type ActivityReviewRerunResponse =
       job?: AsyncJobRow;
       note?: string | null;
       tier?: string;
-      ai_review_version?: number;
+      next_version?: number;
       max_versions?: number;
     }
   | {
@@ -55,7 +97,6 @@ export type ActivityReviewRerunResponse =
       code: string;
       message: string;
       tier?: string;
-      ai_review_version?: number;
+      next_version?: number;
       max_versions?: number;
     };
-
