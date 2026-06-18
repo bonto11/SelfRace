@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -22,17 +22,13 @@ from Configs.config import (
 
 from Services.AI.activity_review.builders import build_input_from_db as build_review_input
 from Services.AI.activity_review.generate import generate_activity_review_json
-from DB.activities_enrichment import (
-    db_get_review_thread,
-    db_append_review_thread_entries,
-    db_get_enrichment_for_activity,
-)
+from DB.activities_enrichment import db_upsert_ai_review_one
+from DB.activities_enrichment import db_get_enrichment_for_activity
 from DB.activities_summary import db_get_summary_for_activities
 from DB.app_subscription import db_get_active_app_subscription_for_user
 from DB.user_thresholds import db_upsert_user_threshold
 from DB.user_prefs import db_get_pref_single
 from DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
-
 
 def _calculate_zones_from_lthr(lthr: int, hr_max: int) -> Dict[str, int]:
     return {
@@ -44,20 +40,17 @@ def _calculate_zones_from_lthr(lthr: int, hr_max: int) -> Dict[str, int]:
         "z4_min": round(lthr * 0.93) + 1,
         "z4_max": round(lthr * 0.99),
         "z5_min": round(lthr * 0.99) + 1,
-        "z5_max": hr_max,
+        "z5_max": hr_max
     }
-
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 def _default_ai_model() -> str:
     p = (AI_PROVIDER or "openai").strip().lower()
     if p == "gemini":
         return (GEMINI_DEFAULT_MODEL).strip()
     return (OPENAI_DEFAULT_MODEL).strip()
-
 
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     ctx = json.loads(json.dumps(payload, default=str))
@@ -67,17 +60,13 @@ def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     ctx.pop("_debug", None)
     return ctx
 
-
 def _norm_comment(comment: Optional[str]) -> Optional[str]:
-    if not isinstance(comment, str):
-        return None
+    if not isinstance(comment, str): return None
     c = comment.strip()
     return c if c else None
 
-
 def _get_activity_days_ago(date_str: Optional[str]) -> int:
-    if not date_str:
-        return 9999
+    if not date_str: return 9999  
     try:
         clean_date = str(date_str)[:10]
         dt = datetime.strptime(clean_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -85,19 +74,6 @@ def _get_activity_days_ago(date_str: Optional[str]) -> int:
         return (now - dt).days
     except Exception:
         return 9999
-
-
-def _count_assistant_entries(thread: List[Dict[str, Any]]) -> int:
-    return len([e for e in thread if isinstance(e, dict) and e.get("role") == "assistant"])
-
-
-def _last_user_comment(thread: List[Dict[str, Any]]) -> Optional[str]:
-    for entry in reversed(thread):
-        if isinstance(entry, dict) and entry.get("role") == "user":
-            c = entry.get("comment")
-            return c if isinstance(c, str) else None
-    return None
-
 
 # ============================================================
 # READ SERVICE (ENRICHMENT)
@@ -110,9 +86,8 @@ def service_get_activity_enrichment(
 ) -> Optional[Dict[str, Any]]:
     return db_get_enrichment_for_activity(user_id=user_id, activity_id=activity_id, ctx=ctx)
 
-
 # ============================================================
-# WRITE / RERUN SERVICE (= "reply" v threade)
+# WRITE / RERUN SERVICE
 # ============================================================
 def service_request_activity_review_rerun(
     *,
@@ -120,27 +95,28 @@ def service_request_activity_review_rerun(
     activity_id: int,
     comment: Optional[str],
     model: Optional[str] = None,
-    has_new_injury: Optional[bool] = False,
-    is_race_effort: Optional[bool] = False,
+    has_new_injury: Optional[bool] = False, 
+    is_race_effort: Optional[bool] = False, 
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-
+    
     summaries = db_get_summary_for_activities(ctx=ctx, user_id=user_id, activity_ids=[activity_id])
     if not summaries or not summaries[0]:
         return {"ok": False, "code": "activity_not_found", "message": "Aktivita nebola nájdená."}
-
+    
     days_old = _get_activity_days_ago(summaries[0].get("date"))
     if days_old > 7:
         return {"ok": False, "code": "activity_too_old", "message": "Analýzu je možné vyžiadať len pre aktivity do 7 dní."}
 
-    thread = db_get_review_thread(user_id=user_id, activity_id=activity_id, ctx=ctx)
-    cur_version = _count_assistant_entries(thread)
+    enr_row = db_get_enrichment_for_activity(user_id=int(user_id), activity_id=int(activity_id), ctx=ctx) or {}
+    current_review = enr_row.get("ai_review")
+    cur_version = int(enr_row.get("ai_review_version") or 0) if current_review else 0
 
     app_subscription = db_get_active_app_subscription_for_user(int(user_id), ctx=ctx) or {}
     tier_code = (app_subscription.get("tier_code") or "free").strip().lower()
     comment_from_user = _norm_comment(comment)
 
-    # --- 1. ANTI-CHEAT: absolútny systémový limit ---
+    # --- 1. ANTI-CHEAT: Záchranná brzda API (Zabráni nekonečným zraneniam) ---
     if cur_version >= 10:
         return {"ok": False, "code": "hard_limit_reached", "message": "Bol dosiahnutý absolútny systémový limit pregenerovaní."}
 
@@ -152,18 +128,18 @@ def service_request_activity_review_rerun(
     elif tier_code == "classic":
         max_versions = 2
         if cur_version >= max_versions and not has_new_injury:
-            return {"ok": False, "code": "limit_reached", "message": "Dosiahli ste limit pregenerovaní pre Classic účet.", "tier": tier_code}
-    else:
+             return {"ok": False, "code": "limit_reached", "message": "Dosiahli ste limit pregenerovaní pre Classic účet.", "tier": tier_code}
+    else: 
         if cur_version > 0 and not has_new_injury:
-            return {"ok": False, "code": "only_one_for_free_tier", "message": "Vo free verzii máte nárok len na jedno hodnotenie.", "tier": tier_code}
+             return {"ok": False, "code": "only_one_for_free_tier", "message": "Vo free verzii máte nárok len na jedno hodnotenie.", "tier": tier_code}
         if not has_new_injury:
             comment_from_user = None
 
     # --- 3. ANTI-SPAM DUPLICITY ---
-    if tier_code != "free" and thread and not has_new_injury:
-        last_comment = _last_user_comment(thread)
-        if comment_from_user == last_comment and not is_race_effort:
-            return {"ok": False, "code": "duplicate_content", "message": "Tento komentár ste už použili pri poslednom generovaní."}
+    if tier_code != "free" and current_review and not has_new_injury:
+        last_comment = enr_row.get("ai_review_last_user_comment")
+        if comment_from_user == last_comment and not is_race_effort: 
+             return {"ok": False, "code": "duplicate_content", "message": "Tento komentár ste už použili pri poslednom generovaní."}
 
     next_version = cur_version + 1
     dedupe_key = f"activity_review_user:{user_id}:{activity_id}:{next_version}"
@@ -178,9 +154,9 @@ def service_request_activity_review_rerun(
             "model": model,
             "source": "user",
             "comment": comment_from_user,
-            "has_new_injury": has_new_injury,
-            "is_race_effort": is_race_effort,
-            "target_version": next_version,
+            "has_new_injury": has_new_injury, 
+            "is_race_effort": is_race_effort, 
+            "target_version": next_version
         },
         priority=140,
         max_attempts=1,
@@ -193,37 +169,22 @@ def service_request_activity_review_rerun(
 
     return {"ok": True, "job_id": out["job"].get("id"), "tier": tier_code, "next_version": next_version, "comment_used": bool(comment_from_user)}
 
-
 # ============================================================
 # MAIN WORKER EXECUTION
 # ============================================================
 def service_activity_review(
-    user_id: int,
-    activity_id: int,
-    *,
-    ctx: AuthCtx,
-    model: Optional[str] = None,
-    source: Optional[str] = None,
-    comment: Optional[str] = None,
-    is_race_effort: Optional[bool] = False,
+    user_id: int, activity_id: int, *, ctx: AuthCtx, model: Optional[str] = None, source: Optional[str] = None, comment: Optional[str] = None, is_race_effort: Optional[bool] = False
 ) -> Dict[str, Any]:
-
+    
     model_to_use = (model or _default_ai_model()).strip()
-    src = (source or "").strip().lower() or "auto"
+    src = (source or "").strip().lower() or "auto" 
     safe_comment = _norm_comment(comment)
 
     if src == "user" and is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {"ok": False, "code": "ai_quota_exceeded", "used_tokens_this_month": used}
 
-    input_data = build_review_input(
-        user_id=user_id,
-        activity_id=activity_id,
-        ctx=ctx,
-        source=src,
-        user_comment=safe_comment,
-        is_race_effort=is_race_effort,
-    )
+    input_data = build_review_input(user_id=user_id, activity_id=activity_id, ctx=ctx, source=src, user_comment=safe_comment, is_race_effort=is_race_effort)
     context_for_ai = _minify_context_for_ai(input_data)
 
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
@@ -231,20 +192,24 @@ def service_activity_review(
     if not isinstance(metrics, dict) or not metrics:
         return {"ok": False, "code": "missing_activity_data"}
 
-    review, trace, err_msg = generate_activity_review_json(
-        context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx
-    )
+    # ✅ OPRAVA PYLANCE: Teraz chytáme všetky tri návratové hodnoty!
+    review, trace, err_msg = generate_activity_review_json(context_payload=context_for_ai, model=model_to_use, user_id=user_id, ctx=ctx)
 
+    # ✅ OCHRANA: Ak AI zlyhalo, vrátime rovno chybový stav, DO DATABÁZY SA NIČ NEZAPÍŠE!
     if not review:
-        print(f"❌ [AR] AI Generation failed: {err_msg}")
-        return {"ok": False, "code": "ai_generation_failed", "message": err_msg}
+        print(f"[AR] AI Generation failed: {err_msg}")
+        return {
+            "ok": False,
+            "code": "ai_generation_failed",
+            "message": err_msg
+        }
 
     # --- LOGIKA PRE THRESHOLDY A ZÓNY ---
     if isinstance(review, dict) and review.get("suggested_thresholds"):
         sug = review["suggested_thresholds"]
         new_lthr = sug.get("hr_bpm")
         sport = sug.get("sport") or "running"
-
+        
         if new_lthr:
             threshold_row = {
                 "sport": sport,
@@ -253,7 +218,7 @@ def service_activity_review(
                 "pace_sec_km": sug.get("pace_sec_km"),
                 "power_watt": sug.get("power_watt"),
                 "measurement_type": "ai_estimate",
-                "updated_at": _now_iso(),
+                "updated_at": _now_iso()
             }
             db_upsert_user_threshold(user_id=user_id, row=threshold_row, ctx=ctx)
 
@@ -283,13 +248,14 @@ def service_activity_review(
                         "z3_max_bpm": z_vals["z3_max"],
                         "z4_min_bpm": z_vals["z4_min"],
                         "z4_max_bpm": z_vals["z4_max"],
-                        "z5_min_bpm": z_vals["z5_min"],
+                        "z5_min_bpm": z_vals["z5_min"], 
                     }
                     db_user_zones_insert_row(new_zone_row, ctx=ctx)
             except Exception as e:
-                print(f"❌ [AR] Zone recalculation error: {repr(e)}")
+                print(f"[AR] Zone recalculation error: {repr(e)}")
 
-    # Billing
+
+    # Ukladáme Billing
     usage = extract_usage_from_trace(trace, model_fallback=review.get("model"))
     if usage:
         try:
@@ -298,33 +264,11 @@ def service_activity_review(
                 source=src, billed_via="internal", charge_wallet=False,
                 meta={"activity_id": activity_id, "source": src}, ctx=ctx,
             )
-        except Exception as e:
-            print(f"❌ [AI_BILLING] error: {repr(e)}")
+        except Exception as e: print("[AI_BILLING] error:", repr(e))
 
-    # --- ULOŽENIE DO THREADU ---
-    now_iso = _now_iso()
-    entries: List[Dict[str, Any]] = []
-
-    if safe_comment or is_race_effort:
-        entries.append({
-            "role": "user",
-            "created_at": now_iso,
-            "comment": safe_comment,
-            "is_race_effort": bool(is_race_effort),
-        })
-
-    entries.append({
-        "role": "assistant",
-        "created_at": now_iso,
-        "source": src,
-        "review": review,
-    })
-
+    # Až teraz ukladáme čisté a hotové dáta do DB
     try:
-        db_append_review_thread_entries(
-            user_id=user_id, activity_id=activity_id, entries=entries, ctx=ctx
-        )
-    except Exception as e:
-        print(f"❌ [AR] db_append_review_thread_entries error: {repr(e)}")
+        db_upsert_ai_review_one(user_id=user_id, activity_id=activity_id, ai_review=review, ctx=ctx, source=src, user_comment=safe_comment)
+    except Exception as e: print("[AR] db_upsert_ai_review_one error:", repr(e))
 
     return {"ok": True, "data": review}
