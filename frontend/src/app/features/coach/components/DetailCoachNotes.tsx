@@ -15,8 +15,11 @@ import {
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
 import {
   apiGetCoachNotes, apiCreateSticky, apiUpdateSticky,
-  apiDeleteNote, type CoachNotesData, type StickyNote,
+  apiDeleteNote, apiAddEphemeral,
+  type CoachNotesData, type StickyNote,
 } from "@/app/features/coach/api/coach_user_notes";
+import { apiGenerateDailyForWeek, apiGetDailyOverview } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGenerateWeeklyPlan, apiGetLatestWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 
 function Card({ title, subtitle, children }: { title?: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -36,9 +39,10 @@ function Card({ title, subtitle, children }: { title?: React.ReactNode; subtitle
 }
 
 const MAX_CHARS = 500;
+const MAX_REPLAN_CHARS = 300;
 
 export default function DetailCoachNotes() {
-  const { userId } = useUserId();
+  const { userId, userUuid } = useUserId();
   const t = useT();
 
   const [data, setData] = useState<CoachNotesData | null>(null);
@@ -49,6 +53,10 @@ export default function DetailCoachNotes() {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+
+  // Replan
+  const [replanNote, setReplanNote] = useState("");
+  const [replanning, setReplanning] = useState<"daily" | "weekly" | null>(null);
 
   const fetchData = async () => {
     if (!userId) return;
@@ -66,6 +74,8 @@ export default function DetailCoachNotes() {
   useEffect(() => { fetchData(); }, [userId]);
 
   const canAddSticky = (data?.sticky_slots_used ?? 0) < (data?.sticky_slots_max ?? 2);
+
+  /* ---- Sticky CRUD ---- */
 
   const handleAddSticky = async () => {
     if (!userId || !newText.trim()) return;
@@ -123,6 +133,91 @@ export default function DetailCoachNotes() {
     }
   };
 
+  /* ---- Replan helpers ---- */
+
+  const _saveEphemeralIfNeeded = async () => {
+    const text = replanNote.trim();
+    if (!userId || !text) return;
+    await apiAddEphemeral(userId, text);
+    setReplanNote("");
+  };
+
+  const _getCurrentWeekIndex = async (): Promise<number> => {
+    if (!userId) return 1;
+    try {
+      const plan = await apiGetLatestWeeklyPlan(userId);
+      const today = new Date().toISOString().slice(0, 10);
+      const current = plan?.weeks.find(
+        (w) => w.week_start && w.week_end && w.week_start <= today && w.week_end >= today
+      );
+      return current?.week_index ?? 1;
+    } catch {
+      return 1;
+    }
+  };
+
+  /* ---- Uprav dni (daily replan, current week) ---- */
+  const handleReplanDaily = async () => {
+    if (!userId || !userUuid || replanning) return;
+    setReplanning("daily");
+    try {
+      await _saveEphemeralIfNeeded();
+
+      const weekIndex = await _getCurrentWeekIndex();
+      const out = await apiGenerateDailyForWeek(userId, userUuid, {
+        week_index: weekIndex,
+        overwrite: true,
+      });
+
+      if (!out.success) {
+        toast.error(out.message ?? t("coachNotes.replan.error"));
+        return;
+      }
+      toast.success(t("coachNotes.replan.successDaily"));
+      await fetchData();
+    } catch {
+      toast.error(t("coachNotes.replan.error"));
+    } finally {
+      setReplanning(null);
+    }
+  };
+
+  /* ---- Veľká zmena (weekly + daily) ---- */
+  const handleReplanWeekly = async () => {
+    if (!userId || !userUuid || replanning) return;
+
+    const ok = await confirm({
+      title: t("coachNotes.replan.confirmWeeklyTitle"),
+      message: t("coachNotes.replan.confirmWeeklyMsg"),
+      okText: t("coachNotes.replan.btnWeekly"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    setReplanning("weekly");
+    try {
+      await _saveEphemeralIfNeeded();
+
+      // 1. Weekly
+      const wOut = await apiGenerateWeeklyPlan(userId, userUuid, { overwrite: true });
+      if (!wOut.success) {
+        toast.error(wOut.message ?? t("coachNotes.replan.error"));
+        return;
+      }
+
+      // 2. Daily pre 1. týždeň automaticky
+      await apiGenerateDailyForWeek(userId, userUuid, { week_index: 1, overwrite: true });
+
+      toast.success(t("coachNotes.replan.successWeekly"));
+      await fetchData();
+    } catch {
+      toast.error(t("coachNotes.replan.error"));
+    } finally {
+      setReplanning(null);
+    }
+  };
+
   if (!userId) return null;
 
   return (
@@ -137,7 +232,6 @@ export default function DetailCoachNotes() {
           <div className="flex justify-center p-4"><LoadingSpinner size="button" /></div>
         ) : (
           <>
-            {/* Existujúce sticky */}
             {(data?.sticky ?? []).length > 0 && (
               <ul className="space-y-2 mb-4">
                 {(data?.sticky ?? []).map((note) => (
@@ -180,7 +274,6 @@ export default function DetailCoachNotes() {
               </ul>
             )}
 
-            {/* Pridať novú sticky */}
             {canAddSticky ? (
               <div className="flex flex-col gap-2">
                 <textarea
@@ -226,6 +319,79 @@ export default function DetailCoachNotes() {
           </ul>
         </Card>
       )}
+
+      {/* PREGENEROVANIE */}
+      <Card
+        title={t("coachNotes.replan.title")}
+        subtitle={t("coachNotes.replan.subtitle")}
+      >
+        <div className="flex flex-col gap-4">
+          {/* Ephemeral textarea */}
+          <div>
+            <div className="text-xs font-medium opacity-60 mb-2">
+              {t("coachNotes.replan.oneTimeLabel")}
+            </div>
+            <textarea
+              className="w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
+              rows={2}
+              value={replanNote}
+              maxLength={MAX_REPLAN_CHARS}
+              onChange={(e) => setReplanNote(e.target.value)}
+              placeholder={t("coachNotes.replan.oneTimePlaceholder")}
+              disabled={!!replanning}
+            />
+            {replanNote.length > MAX_REPLAN_CHARS * 0.8 && (
+              <div className="text-[10px] text-right opacity-40 mt-1">{replanNote.length} / {MAX_REPLAN_CHARS}</div>
+            )}
+          </div>
+
+          {/* 2 tlačidlá */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleReplanDaily}
+              disabled={!!replanning}
+              className="flex flex-col items-center gap-0.5 !h-auto !py-3"
+            >
+              {replanning === "daily" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                <>
+                  <span className="text-base">📅</span>
+                  <span className="text-xs font-semibold">{t("coachNotes.replan.btnDaily")}</span>
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleReplanWeekly}
+              disabled={!!replanning}
+              className="flex flex-col items-center gap-0.5 !h-auto !py-3"
+            >
+              {replanning === "weekly" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                <>
+                  <span className="text-base">🔄</span>
+                  <span className="text-xs font-semibold">{t("coachNotes.replan.btnWeekly")}</span>
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Hint pod tlačidlami */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="text-[10px] text-white/30 text-center leading-tight">
+              {t("coachNotes.replan.hintDaily")}
+            </div>
+            <div className="text-[10px] text-white/30 text-center leading-tight">
+              {t("coachNotes.replan.hintWeekly")}
+            </div>
+          </div>
+        </div>
+      </Card>
 
     </div>
   );
