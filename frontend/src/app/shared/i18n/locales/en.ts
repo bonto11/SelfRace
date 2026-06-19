@@ -1104,6 +1104,21 @@ export const en = {
       ].join("\n"),
     },
   },
+replan: {
+  title: "Regenerate Plan",
+  subtitle: "Adjust your plan based on your instructions",
+  oneTimeLabel: "One-time instruction for this regeneration (optional)",
+  oneTimePlaceholder: "E.g. Less time this week, shorten workouts...",
+  btnDaily: "Adjust days",
+  btnWeekly: "Full replan",
+  hintDaily: "Regenerates current week only",
+  hintWeekly: "Overwrites the entire plan",
+  confirmWeeklyTitle: "Overwrite entire plan?",
+  confirmWeeklyMsg: "This will overwrite your entire training plan including weekly structure. Cannot be undone.",
+  successDaily: "Workouts for this week are being updated...",
+  successWeekly: "Full plan is being regenerated, this may take a moment.",
+  error: "Failed to regenerate plan",
+},
 coachNotes: {
   widget: {
     title: "Coach Instructions",
