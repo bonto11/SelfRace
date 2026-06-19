@@ -1144,7 +1144,10 @@ replan: {
   successDaily: "Tréningy na tento týždeň sa aktualizujú...",
   successWeekly: "Celý plán sa pregeneruje, chvíľu to potrvá.",
   error: "Pregenerovanie sa nepodarilo",
-},
+  noPlan: "Nemáš aktívny tréningový plán. Najprv vygeneruj plán.",
+  resultDaily: "Týždeň aktualizovaný",
+  resultWeekly: "Plán pregenerovaný",
+  },
 },
   coachAthleteState: {
     title: "Trénovanosť",
