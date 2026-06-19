@@ -155,6 +155,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     - Strength: strength_settings.sessions_per_week sa teraz posiela explicitne (predtým sa stratilo)
     - External events: posiela sa len ak má reálne eventy (nie prázdny window)
     - athlete_state: odstránený plan_adjustment (nie je relevantný pre weekly builder)
+    - coach_notes: sticky + ephemeral (bez ephemeral_note_id)
     """
     context = _as_dict(context)
     ctx2: Dict[str, Any] = {}
@@ -192,13 +193,13 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             races_min.append({
                 "name": r2.get("name") or r2.get("title"),
                 "date": race_date,
-                "days_until_race": _days_until(race_date),  # AI vie presne koľko dní zostáva
+                "days_until_race": _days_until(race_date),
                 "race_goal": r2.get("race_goal"),
                 "race_type": r2.get("type") or r2.get("race_type"),
                 "target_time": r2.get("target_time"),
-                "custom_distance_km": r2.get("custom_distance_km"),     # dĺžka ultra
-                "elevation_gain_m": r2.get("elevation_gain_m"),          # prevýšenie
-                "terrain": r2.get("terrain"),                            # mountain/road
+                "custom_distance_km": r2.get("custom_distance_km"),
+                "elevation_gain_m": r2.get("elevation_gain_m"),
+                "terrain": r2.get("terrain"),
                 "priority": r2.get("priority"),
             })
             if len(races_min) >= 10:
@@ -248,19 +249,19 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     ctx2["prefs"] = prefs2
 
-    # Athlete state — bez metrics a bez plan_adjustment (nie je relevantný tu)
+    # Athlete state — bez metrics a bez plan_adjustment
     athlete_state = _as_dict(context.get("athlete_state"))
     is_beginner = athlete_state.get("is_returning_beginner")
     if athlete_state:
         ai_state = dict(_as_dict(athlete_state.get("ai_state")))
         ai_state.pop("metrics", None)
-        ai_state.pop("plan_adjustment", None)  # nie je relevantné pre weekly builder
+        ai_state.pop("plan_adjustment", None)
         ctx2["athlete_state"] = {
             "ai_state": ai_state,
             "is_returning_beginner": is_beginner,
         }
 
-    # External events — len ak má reálne eventy (nie prázdny window blok)
+    # External events — len ak má reálne eventy
     ext = _as_dict(context.get("external_events"))
     if ext:
         events: List[Dict[str, Any]] = []
@@ -271,7 +272,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(win.get("events"), list):
                 events = [_as_dict(e) for e in win["events"] if isinstance(e, dict)]
 
-        if events:  # len ak má reálne eventy
+        if events:
             cleaned_events: List[Dict[str, Any]] = []
             for e in events:
                 dt = (
@@ -314,6 +315,17 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             else:
                 ctx2["external_events"] = {"events": cleaned_events}
 
+    # Coach notes — sticky + ephemeral (bez ephemeral_note_id ktorý je len pre main.py)
+    coach_notes = context.get("coach_notes")
+    if isinstance(coach_notes, dict):
+        sticky = coach_notes.get("sticky_notes") or []
+        ephemeral = coach_notes.get("ephemeral_note")
+        if sticky or ephemeral:
+            ctx2["coach_notes"] = {
+                "sticky_notes": sticky,
+                **({"ephemeral_note": ephemeral} if ephemeral else {}),
+            }
+
     # Meta polia
     for k in ("weeks", "replan_trigger", "generate_reason"):
         if k in context:
@@ -349,7 +361,7 @@ def build_prompts_for_weekly(
     )
     main_sport = raw_prefs.get("main_sport") or "run"
 
-    # Zoznam povolených sportov — pridáme strength ak má sessions_per_week
+    # Zoznam povolených sportov
     sports_set = {main_sport}
     add_on = raw_prefs.get("add_on_sports")
     included = raw_prefs.get("included_sports")
@@ -358,7 +370,7 @@ def build_prompts_for_weekly(
     elif isinstance(included, list):
         sports_set.update(s.lower() for s in included if isinstance(s, str) and s)
 
-    # Strength — pridaj do sportov ak má nastavené sessions
+    # Strength
     strength_settings = _get_dict(raw_prefs, "strength_settings")
     strength_sessions = None
     try:
@@ -372,11 +384,11 @@ def build_prompts_for_weekly(
 
     final_sports_list = list(sports_set)
 
-    # Athlete state + najbližší pretek
+    # Athlete state
     athlete_state = _as_dict(ctx.get("athlete_state"))
     is_returning_beginner = bool(athlete_state.get("is_returning_beginner"))
 
-    # Nearest race hint — explicitná inštrukcia s dňami
+    # Nearest race hint
     targets = _get_dict(raw_prefs, "targets")
     run_races = _as_list(_get_dict(targets, "run").get("races"))
     next_race = min(
@@ -385,7 +397,6 @@ def build_prompts_for_weekly(
         key=lambda r: r["days_until_race"],
         default=None,
     )
-    # Zmeň toto (riadky 89-98):
     race_hint = ""
     if next_race:
         dist = next_race.get("custom_distance_km")
@@ -464,6 +475,25 @@ def build_prompts_for_weekly(
             "- Week 1 MUST be ultra-light with extra rest days.\n"
         )
 
+    # Athlete notes — sticky (každý plán) + ephemeral (len tento plán)
+    coach_notes = _as_dict(ctx.get("coach_notes"))
+    sticky_notes = coach_notes.get("sticky_notes") or []
+    ephemeral_note = coach_notes.get("ephemeral_note")
+
+    notes_rule = ""
+    if sticky_notes or ephemeral_note:
+        lines = [
+            "--- ATHLETE INSTRUCTIONS (CRITICAL — MUST FOLLOW) ---",
+            "The athlete has left direct instructions. Respect them throughout the entire plan.\n",
+        ]
+        if sticky_notes:
+            lines.append("Permanent (applies to every plan):")
+            for i, n in enumerate(sticky_notes, 1):
+                lines.append(f"  {i}. {n}")
+        if ephemeral_note:
+            lines.append(f"\nOne-time instruction for THIS plan only:\n  → {ephemeral_note}")
+        notes_rule = "\n".join(lines) + "\n\n"
+
     sports_restriction = (
         f"- ALLOWED SPORTS: {', '.join(final_sports_list)}.\n"
         "- ONLY populate planned_stats for listed sports. Set others to 0."
@@ -491,6 +521,7 @@ def build_prompts_for_weekly(
         + beginner_protocol
         + special_reason_rule
         + womens_health_rule
+        + notes_rule
     )
 
     return system_txt, user_txt
