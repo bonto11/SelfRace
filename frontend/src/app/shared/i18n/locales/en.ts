@@ -1104,6 +1104,40 @@ export const en = {
       ].join("\n"),
     },
   },
+coachNotes: {
+  widget: {
+    title: "Coach Instructions",
+    tooltip: "Your instructions the AI considers when planning",
+    empty: "No instructions yet",
+  },
+  detail: { title: "My Coach Instructions" },
+  sticky: {
+    title: "Sticky Notes",
+    subtitle: "Max 2 — AI sees these every time it generates a plan",
+    add: "Add note",
+    save: "Save",
+    edit: "Edit",
+    placeholder: "E.g. Training for Spartan Ultra, less time on weekdays...",
+    limitReached: "You've reached the 2 sticky note limit",
+  },
+  ephemeral: {
+    title: "One-time instruction history",
+    subtitle: "Instructions used in recent plan regenerations",
+    applied: "Used",
+    pending: "Pending",
+    empty: "None yet",
+  },
+  saveSuccess: "Note saved",
+  deleteSuccess: "Note deleted",
+  errorLoad: "Failed to load notes",
+  errorSave: "Failed to save",
+  errorDelete: "Failed to delete",
+  deleteConfirm: {
+    title: "Delete note?",
+    message: "This action cannot be undone.",
+    ok: "Delete",
+  },
+},
   coachAthleteState: {
     title: "Fitness state",
     widget: {
