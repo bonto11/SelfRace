@@ -17,6 +17,7 @@ from Services.AI.weekly_plan.builders import (
     build_weekly_rows_from_ai,
 )
 from Services.AI.weekly_plan.generate import generate_weekly_plan_json
+from Services.coach_user_notes import service_consume_pending_ephemeral
 
 from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
@@ -82,6 +83,7 @@ def service_generate_weekly_plan(
     """
     Hlavný service pre generovanie weekly meta-plánu.
     Kontroluje kvótu, zostaví kontext, zavolá AI, uloží výsledky.
+    Po úspešnom generovaní označí ephemeral poznámku ako použitú.
     model=None = provider použije default z ENV.
     reason = špeciálny dôvod generovania (health_resolved_return, health_recovery_mild atď.)
     """
@@ -95,7 +97,7 @@ def service_generate_weekly_plan(
             "used_tokens_this_month": used,
         }
 
-    # Builder — zostaví context z DB
+    # Builder — zostaví context z DB (vrátane coach_notes)
     context = build_weekly_context_from_db(
         user_id=user_id,
         ctx=ctx,
@@ -155,6 +157,13 @@ def service_generate_weekly_plan(
     weeks_list = extract_weeks_payload(weekly_plan)
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
     inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
+
+    # Označí ephemeral poznámku ako použitú
+    if context.get("ephemeral_note_id"):
+        try:
+            service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
+        except Exception as e:
+            print(f"❌ [WEEKLY] consume ephemeral error: {repr(e)}")
 
     # Plan meta
     plan_meta_dict = (
