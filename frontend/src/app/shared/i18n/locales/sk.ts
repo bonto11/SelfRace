@@ -1096,7 +1096,21 @@ export const sk = {
       ].join("\n"),
     },
   },
-// SK
+replan: {
+  title: "Pregenerovanie plánu",
+  subtitle: "Uprav plán na základe svojich pokynov",
+  oneTimeLabel: "Jednorazový pokyn pre toto pregenerovanie (nepovinné)",
+  oneTimePlaceholder: "Napr. Tento týždeň mám menej času, skráť tréningy...",
+  btnDaily: "Uprav dni",
+  btnWeekly: "Veľká zmena",
+  hintDaily: "Pregeneruje len aktuálny týždeň",
+  hintWeekly: "Prepíše celý plán od znova",
+  confirmWeeklyTitle: "Prepísať celý plán?",
+  confirmWeeklyMsg: "Toto prepíše celý tréningový plán vrátane týždennej kostry. Nedá sa vrátiť.",
+  successDaily: "Tréningy na tento týždeň sa aktualizujú...",
+  successWeekly: "Celý plán sa pregeneruje, chvíľu to potrvá.",
+  error: "Pregenerovanie sa nepodarilo",
+},
 coachNotes: {
   widget: {
     title: "Pokyny pre trénera",
