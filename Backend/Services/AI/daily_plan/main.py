@@ -23,6 +23,9 @@ from Services.AI.daily_plan.builders import (
     build_daily_context_from_db,
     build_daily_rows_from_ai,
 )
+
+from Services.coach_user_notes import service_consume_pending_ephemeral
+
 from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
@@ -199,6 +202,13 @@ def service_generate_daily_week(
     inserted_rows = 0
     if rows_to_insert:
         inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx)
+        
+    # Označí ephemeral poznámku ako použitú
+    if context.get("ephemeral_note_id"):
+        try:
+            service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
+        except Exception as e:
+            print(f"❌ [DAILY] consume ephemeral error: {repr(e)}")
 
     return {
         "ok": True,
