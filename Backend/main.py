@@ -24,6 +24,7 @@ from Routes import (
     coach_athlete_state,
     coach_plan_active,
     coach_external_events,
+    coach_user_notes,
     profile_static,
     async_jobs,
     app_subscription,
@@ -80,6 +81,7 @@ app.include_router(coach_plan_weekly.router)
 app.include_router(coach_athlete_state.router)
 app.include_router(coach_plan_active.router)
 app.include_router(coach_external_events.router)
+app.include_router(coach_user_notes.router)
 app.include_router(async_jobs.router)
 app.include_router(app_subscription.router)
 app.include_router(account.router)
