@@ -1152,7 +1152,10 @@ replan: {
   successDaily: "Workouts for this week are being updated...",
   successWeekly: "Full plan is being regenerated, this may take a moment.",
   error: "Failed to regenerate plan",
-},
+  noPlan: "No active training plan. Generate a plan first.",
+  resultDaily: "Week updated",
+  resultWeekly: "Plan regenerated",
+  },
 },
   coachAthleteState: {
     title: "Fitness state",
