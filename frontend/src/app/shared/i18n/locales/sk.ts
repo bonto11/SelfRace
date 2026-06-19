@@ -1096,6 +1096,41 @@ export const sk = {
       ].join("\n"),
     },
   },
+// SK
+coachNotes: {
+  widget: {
+    title: "Pokyny pre trénera",
+    tooltip: "Tvoje inštrukcie, ktoré AI berie do úvahy pri každom plánovaní",
+    empty: "Žiadne pokyny",
+  },
+  detail: { title: "Moje pokyny pre trénera" },
+  sticky: {
+    title: "Trvalé poznámky",
+    subtitle: "Max 2 — AI ich vidí pri každom generovaní plánu",
+    add: "Pridať poznámku",
+    save: "Uložiť",
+    edit: "Upraviť",
+    placeholder: "Napr. Tréningem sa na Spartan Ultra, cez týždeň mám menej času...",
+    limitReached: "Dosiahol si limit 2 trvalých poznámok",
+  },
+  ephemeral: {
+    title: "História jednorazových pokynov",
+    subtitle: "Pokyny použité pri posledných regeneráciách plánu",
+    applied: "Použité",
+    pending: "Čaká",
+    empty: "Zatiaľ žiadne",
+  },
+  saveSuccess: "Poznámka uložená",
+  deleteSuccess: "Poznámka zmazaná",
+  errorLoad: "Nepodarilo sa načítať poznámky",
+  errorSave: "Nepodarilo sa uložiť",
+  errorDelete: "Nepodarilo sa zmazať",
+  deleteConfirm: {
+    title: "Zmazať poznámku?",
+    message: "Táto akcia sa nedá vrátiť.",
+    ok: "Zmazať",
+  },
+},
   coachAthleteState: {
     title: "Trénovanosť",
     widget: {
