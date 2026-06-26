@@ -19,6 +19,7 @@ from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
 from Services.AI.utils.others import _check_is_returning_beginner
+from Services.coach_user_notes import service_get_notes_for_builder
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -167,7 +168,8 @@ def build_weekly_context_from_db(
 ) -> Dict[str, Any]:
     """
     Zostaví kompletný context_payload pre weekly plan generátor.
-    Načíta analyze_input z DB (ťažký call), athlete_state a external_events.
+    Načíta analyze_input z DB (ťažký call), athlete_state, external_events
+    a coach_user_notes (sticky + ephemeral).
     """
     # Plný analyze input — potrebujeme last_activities, recovery, recent_load
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx)
@@ -198,6 +200,13 @@ def build_weekly_context_from_db(
     if isinstance(athlete_state, dict):
         athlete_state["is_returning_beginner"] = is_returning_beginner
 
+    # Coach notes — sticky + ephemeral pre AI context
+    coach_notes = {"sticky_notes": [], "ephemeral_note": None, "ephemeral_note_id": None}
+    try:
+        coach_notes = service_get_notes_for_builder(user_id=user_id, ctx=ctx)
+    except Exception as e:
+        print(f"❌ [WEEKLY][builder] coach notes fetch failed: {repr(e)}")
+
     # Horizon weeks — z parametra alebo prefs, oklipovaný na min/max
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
@@ -218,6 +227,10 @@ def build_weekly_context_from_db(
             "version": state_bundle.get("version"),
             "created_at": state_bundle.get("created_at"),
         },
+        "coach_notes": {
+            "sticky_notes": coach_notes.get("sticky_notes") or [],
+            "ephemeral_note": coach_notes.get("ephemeral_note"),
+        },
     }
 
     if external_events_block is not None:
@@ -230,6 +243,7 @@ def build_weekly_context_from_db(
         "horizon_weeks": horizon_weeks,
         "analyze_input": analyze_input,
         "analyze_input_min": analyze_input_min,
+        "ephemeral_note_id": coach_notes.get("ephemeral_note_id"),
     }
 
 

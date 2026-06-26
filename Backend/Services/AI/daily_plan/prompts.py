@@ -279,6 +279,17 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
         if k in context:
             ctx2[k] = context[k]
 
+    # Coach notes — sticky + ephemeral (bez ephemeral_note_id ktorý je len pre main.py)
+    coach_notes = context.get("coach_notes")
+    if isinstance(coach_notes, dict):
+        sticky = coach_notes.get("sticky_notes") or []
+        ephemeral = coach_notes.get("ephemeral_note")
+        if sticky or ephemeral:
+            ctx2["coach_notes"] = {
+                "sticky_notes": sticky,
+                **({"ephemeral_note": ephemeral} if ephemeral else {}),
+            }
+
     return _remove_empty(ctx2)
 
 
@@ -628,6 +639,23 @@ def build_prompts_for_daily(
     )
 
     special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
+
+    # Athlete notes rule
+    coach_notes = _as_dict(context_payload.get("coach_notes"))
+    sticky_notes = coach_notes.get("sticky_notes") or []
+    ephemeral_note = coach_notes.get("ephemeral_note")
+
+    notes_rule = ""
+    if sticky_notes or ephemeral_note:
+        lines = ["--- ATHLETE INSTRUCTIONS (CRITICAL — MUST FOLLOW) ---",
+                 "The athlete has left direct instructions. Respect them throughout the plan.\n"]
+        if sticky_notes:
+            lines.append("Permanent (every plan):")
+            for i, n in enumerate(sticky_notes, 1):
+                lines.append(f"  {i}. {n}")
+        if ephemeral_note:
+            lines.append(f"\nOne-time instruction for THIS week only:\n  → {ephemeral_note}")
+        notes_rule = "\n".join(lines) + "\n\n"
 
     sports_restriction = (
         f"- ALLOWED SPORTS: {', '.join(final_sports_list)}. "

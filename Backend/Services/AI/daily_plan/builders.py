@@ -16,6 +16,7 @@ from Services.coach_strength_mapper import prepare_strength_context_for_ai
 from DB.user_pace_history import db_get_latest_paces
 from DB.coach_athlete_state import db_get_latest_state_for_user
 from DB.coach_plan_weekly import db_get_week_row_for_plan
+from Services.coach_user_notes import service_get_notes_for_builder
 
 from Services.AI.athlete_state.builders import build_input_from_db
 
@@ -442,6 +443,13 @@ def build_daily_context_from_db(
         except Exception as e:
             print(f"[DAILY][builder] strength menu fetch failed: {repr(e)}")
 
+    # Coach notes — sticky + ephemeral pre AI
+    coach_notes = {"sticky_notes": [], "ephemeral_note": None, "ephemeral_note_id": None}
+    try:
+        coach_notes = service_get_notes_for_builder(user_id=user_id, ctx=ctx)
+    except Exception as e:
+        print(f"❌ [DAILY][builder] coach notes fetch failed: {repr(e)}")
+
     context_payload: Dict[str, Any] = {
         "schema_version": 2,
         "user_id": user_id,
@@ -463,6 +471,10 @@ def build_daily_context_from_db(
             "is_returning_beginner": is_returning_beginner,
             "strength_ai_menu": strength_ai_menu,
         },
+        "coach_notes": {
+            "sticky_notes": coach_notes.get("sticky_notes") or [],
+            "ephemeral_note": coach_notes.get("ephemeral_note"),
+        },
     }
 
     if external_block is not None:
@@ -480,4 +492,5 @@ def build_daily_context_from_db(
         "zones": zones,
         "thresholds": thresholds,
         "analyze_input": analyze_input,
+        "ephemeral_note_id": coach_notes.get("ephemeral_note_id"),
     }

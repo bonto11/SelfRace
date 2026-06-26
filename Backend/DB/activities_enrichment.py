@@ -1,3 +1,4 @@
+# DB/activities_enrichment.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -27,12 +28,8 @@ def db_get_enrichment_for_activities(
         "activity_id,"
         "z1_min,z2_min,z3_min,z4_min,z5_min,"
         "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
-        "ai_review,updated_at,"
-        # ✅ NEW
-        "ai_review_version,"
-        "ai_review_last_user_comment,"
-        "ai_review_last_user_comment_at,"
-        "ai_review_last_source"
+        "ai_review_thread,"
+        "updated_at"
     )
 
     res = (
@@ -57,6 +54,29 @@ def db_get_enrichment_for_activity(
         ctx=ctx,
     )
     return rows[0] if rows else None
+
+
+def db_get_review_thread(
+    user_id: int,
+    activity_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """Vráti celý review thread (assistant/user entries) pre danú aktivitu."""
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_review_thread")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("ai_review_thread")
+        .eq("user_id", int(user_id))
+        .eq("activity_id", int(activity_id))
+        .limit(1)
+        .execute()
+    )
+    rows = res.data or []
+    if not rows:
+        return []
+    thread = rows[0].get("ai_review_thread")
+    return thread if isinstance(thread, list) else []
 
 
 # =========================
@@ -90,7 +110,6 @@ def db_upsert_enrichment_rows_merge(
     for i in range(0, len(rows), BATCH):
         chunk_in = rows[i : i + BATCH]
 
-        # 1) normalize + drop None fields (per row)
         chunk: List[Dict[str, Any]] = []
         for r in chunk_in:
             if not isinstance(r, dict):
@@ -106,9 +125,6 @@ def db_upsert_enrichment_rows_merge(
         if not chunk:
             continue
 
-        # 2) upsert by composite key
-        # NOTE: This will still overwrite provided columns with provided values,
-        # but because we stripped None, we won't null-out existing data.
         res = (
             sb.table(TABLE_ACTIVITIES_ENRICHMENT)
             .upsert(
@@ -120,7 +136,7 @@ def db_upsert_enrichment_rows_merge(
 
         err = getattr(res, "error", None)
         if err:
-            print("[ENRICH][upsert] error:", err)
+            print("❌ [ENRICH][upsert] error:", err)
 
         saved += len(chunk)
 
@@ -128,60 +144,34 @@ def db_upsert_enrichment_rows_merge(
 
 
 # =========================
-# AI REVIEW (UPSERT + META)
+# AI REVIEW THREAD (APPEND)
 # =========================
-def db_upsert_ai_review_one(
+def db_append_review_thread_entries(
     *,
     user_id: int,
     activity_id: int,
-    ai_review: Any,
+    entries: List[Dict[str, Any]],
     ctx: AuthCtx,
-    # ✅ NEW meta
-    source: Optional[str] = None,  # "auto" | "user" | "service" | ...
-    user_comment: Optional[str] = None,
 ) -> bool:
-    sb = get_sb(ctx, caller="activities_enrichment.db_upsert_ai_review_one")
+    """
+    Pripojí nové entries (user/assistant) na koniec existujúceho threadu.
+    Read-modify-write — pre jednu aktivitu sa nepredpokladá konkurentný zápis.
+    """
+    if not entries:
+        return True
+
+    sb = get_sb(ctx, caller="activities_enrichment.db_append_review_thread_entries")
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # 1) fetch current meta (for version increment + optional diff)
-    prev_version: int = 0
-    try:
-        prev = (
-            sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-            .select("ai_review_version")
-            .eq("user_id", int(user_id))
-            .eq("activity_id", int(activity_id))
-            .limit(1)
-            .execute()
-        )
-        row0 = (prev.data or [None])[0]
-        if isinstance(row0, dict):
-            try:
-                prev_version = int(row0.get("ai_review_version") or 0)
-            except Exception:
-                prev_version = 0
-    except Exception:
-        prev_version = 0
+    current_thread = db_get_review_thread(user_id=user_id, activity_id=activity_id, ctx=ctx)
+    new_thread = [*current_thread, *entries]
 
-    new_version = max(1, prev_version + 1)
-
-    # 2) build upsert row (do NOT overwrite comment fields with None)
     row: Dict[str, Any] = {
         "user_id": int(user_id),
         "activity_id": int(activity_id),
-        "ai_review": ai_review,
+        "ai_review_thread": new_thread,
         "updated_at": now_iso,
-        "ai_review_version": int(new_version),
     }
-
-    if isinstance(source, str) and source.strip():
-        row["ai_review_last_source"] = source.strip()
-
-    # comment: set only if provided and non-empty
-    c = user_comment.strip() if isinstance(user_comment, str) else ""
-    if c:
-        row["ai_review_last_user_comment"] = c
-        row["ai_review_last_user_comment_at"] = now_iso
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
@@ -191,11 +181,11 @@ def db_upsert_ai_review_one(
 
     err = getattr(res, "error", None)
     if err:
-        print("[ENRICH][ai_review upsert] error:", err)
+        print("❌ [ENRICH][thread append] error:", err)
         return False
 
     return True
-    
+
 
 def db_get_unreviewed_activities_for_push(
     user_id: int,
@@ -203,8 +193,8 @@ def db_get_unreviewed_activities_for_push(
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """
-    Nájde aktivity, ktoré sa skončili (updated_at) pred viac ako 1 hodinou, 
-    ale menej ako 2 hodinami, a ešte nemajú AI review.
+    Nájde aktivity, ktoré sa skončili (updated_at) pred viac ako 1 hodinou,
+    ale menej ako 2 hodinami, a ešte nemajú žiadny review v threade.
     """
     sb = get_sb(ctx, caller="activities_enrichment.db_get_unreviewed_activities_for_push")
 
@@ -214,22 +204,26 @@ def db_get_unreviewed_activities_for_push(
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
-        .select("activity_id, updated_at, ai_review")
+        .select("activity_id, updated_at, ai_review_thread")
         .eq("user_id", int(user_id))
-        .is_("ai_review", "null")  # Ešte nebolo ohodnotené
-        .lte("updated_at", one_hour_ago) # Staršie ako 1 hodina
-        .gte("updated_at", two_hours_ago) # Ale nie staršie ako 2 hodiny
+        .lte("updated_at", one_hour_ago)
+        .gte("updated_at", two_hours_ago)
         .execute()
     )
-    
-    return res.data or []
-    
+
+    rows = res.data or []
+    return [
+        r for r in rows
+        if not isinstance(r.get("ai_review_thread"), list) or len(r["ai_review_thread"]) == 0
+    ]
+
+
 def db_get_zone_minutes_for_ids(
     user_id: int,
-    activity_ids: "List[int]",
+    activity_ids: List[int],
     *,
-    ctx: "AuthCtx",
-) -> "List[Dict[str, Any]]":
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
     """Zónové minúty pre dané activity_ids."""
     if not activity_ids:
         return []

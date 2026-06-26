@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -16,7 +16,11 @@ from Services.AI.utils.billing import (
 
 from Services.AI.activity_review.builders import build_input_from_db as build_review_input
 from Services.AI.activity_review.generate import generate_activity_review_json
-from DB.activities_enrichment import db_upsert_ai_review_one, db_get_enrichment_for_activity
+from DB.activities_enrichment import (
+    db_get_enrichment_for_activity,
+    db_get_review_thread,
+    db_append_review_thread_entries,
+)
 from DB.activities_summary import db_get_summary_for_activities
 from DB.user_thresholds import db_upsert_user_threshold
 from DB.user_prefs import db_get_pref_single
@@ -78,6 +82,20 @@ def _get_tier_max_versions(tier_code: str) -> int:
     return {"pro": 3, "classic": 2, "family": 10}.get(tier_code, 1)
 
 
+def _count_assistant_entries(thread: List[Dict[str, Any]]) -> int:
+    """Počet AI odpovedí v threade = aktuálna 'verzia' review."""
+    return len([e for e in thread if isinstance(e, dict) and e.get("role") == "assistant"])
+
+
+def _last_user_comment(thread: List[Dict[str, Any]]) -> Optional[str]:
+    """Posledný komentár usera v threade — pre anti-spam duplicitu."""
+    for entry in reversed(thread):
+        if isinstance(entry, dict) and entry.get("role") == "user":
+            c = entry.get("comment")
+            return c if isinstance(c, str) else None
+    return None
+
+
 # ============================================================
 # READ SERVICE
 # ============================================================
@@ -88,7 +106,7 @@ def service_get_activity_enrichment(
     activity_id: int,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    """Načíta enrichment (vrátane AI review) pre jednu aktivitu."""
+    """Načíta enrichment (vrátane ai_review_thread) pre jednu aktivitu."""
     return db_get_enrichment_for_activity(
         user_id=user_id, activity_id=activity_id, ctx=ctx
     )
@@ -105,11 +123,13 @@ def service_request_activity_review_rerun(
     comment: Optional[str],
     model: Optional[str] = None,
     has_new_injury: Optional[bool] = False,
+    is_race_effort: Optional[bool] = False,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Zaradí požiadavku na (pre)generovanie AI review do async fronty.
     Kontroluje: vek aktivity, tier limity, anti-spam duplicitu, absolútny hard limit.
+    Verzia sa počíta z review threadu (počet assistant entries), nie zo samostatnej kolóny.
     """
     # Overenie existencie a veku aktivity
     summaries = db_get_summary_for_activities(
@@ -130,15 +150,9 @@ def service_request_activity_review_rerun(
             "message": "Analýzu je možné vyžiadať len pre aktivity do 7 dní.",
         }
 
-    # Aktuálny stav review a verzia
-    enr_row = (
-        db_get_enrichment_for_activity(
-            user_id=int(user_id), activity_id=int(activity_id), ctx=ctx
-        )
-        or {}
-    )
-    current_review = enr_row.get("ai_review")
-    cur_version = int(enr_row.get("ai_review_version") or 0) if current_review else 0
+    # Aktuálny review thread a verzia
+    thread = db_get_review_thread(user_id=int(user_id), activity_id=int(activity_id), ctx=ctx)
+    cur_version = _count_assistant_entries(thread)
 
     # Absolútny hard limit — ochrana pred zneužitím
     if cur_version >= 10:
@@ -176,9 +190,9 @@ def service_request_activity_review_rerun(
     if tier_code == "free" and not has_new_injury:
         comment_from_user = None
 
-    # Anti-spam: rovnaký komentár ako posledný raz
-    if tier_code != "free" and current_review and not has_new_injury:
-        last_comment = enr_row.get("ai_review_last_user_comment")
+    # Anti-spam: rovnaký komentár ako posledný raz (race effort je vždy výnimka)
+    if tier_code != "free" and thread and not has_new_injury and not is_race_effort:
+        last_comment = _last_user_comment(thread)
         if comment_from_user and comment_from_user == last_comment:
             return {
                 "ok": False,
@@ -200,6 +214,7 @@ def service_request_activity_review_rerun(
             "source": "user",
             "comment": comment_from_user,
             "has_new_injury": has_new_injury,
+            "is_race_effort": is_race_effort,
             "target_version": next_version,
         },
         priority=140,
@@ -232,10 +247,12 @@ def service_activity_review(
     model: Optional[str] = None,
     source: Optional[str] = None,
     comment: Optional[str] = None,
+    is_race_effort: Optional[bool] = False,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre generovanie AI review jednej aktivity.
-    Kontroluje kvótu, zostaví kontext, zavolá AI, uloží výsledok a billing.
+    Kontroluje kvótu, zostaví kontext (vrátane review_thread), zavolá AI,
+    pripojí výsledok do threadu a zaznamená billing.
     model=None znamená že provider použije default z ENV (odporúčané).
     """
     src = (source or "").strip().lower() or "auto"
@@ -250,13 +267,14 @@ def service_activity_review(
             "used_tokens_this_month": used,
         }
 
-    # Builder — zostaví kompletný kontext z DB
+    # Builder — zostaví kompletný kontext z DB (vrátane predošlého review_thread)
     input_data = build_review_input(
         user_id=user_id,
         activity_id=activity_id,
         ctx=ctx,
         source=src,
         user_comment=safe_comment,
+        is_race_effort=is_race_effort,
     )
     context_for_ai = _minify_context_for_ai(input_data)
 
@@ -276,7 +294,7 @@ def service_activity_review(
 
     # AI zlyhalo — žiadny zápis do DB
     if not review:
-        print(f"[AR] AI Generation failed: {err_msg}")
+        print(f"❌ [AR] AI Generation failed: {err_msg}")
         return {
             "ok": False,
             "code": "ai_generation_failed",
@@ -335,7 +353,7 @@ def service_activity_review(
                     }
                     db_user_zones_insert_row(new_zone_row, ctx=ctx)
             except Exception as e:
-                print(f"[AR] Zone recalculation error: {repr(e)}")
+                print(f"❌ [AR] Zone recalculation error: {repr(e)}")
 
     # Billing — zaznamenáme reálny model a providera (nie len fallback meno)
     usage = extract_usage_from_trace(trace, model_fallback=review.get("model"))
@@ -357,19 +375,32 @@ def service_activity_review(
                 ctx=ctx,
             )
         except Exception as e:
-            print("[AI_BILLING] error:", repr(e))
+            print(f"❌ [AI_BILLING] error: {repr(e)}")
 
-    # Uloženie review do DB — len ak je všetko OK
+    # --- ULOŽENIE DO THREADU (namiesto jedného prepisovaného ai_review) ---
+    now_iso = _now_iso()
+    entries: List[Dict[str, Any]] = []
+
+    if safe_comment or is_race_effort:
+        entries.append({
+            "role": "user",
+            "created_at": now_iso,
+            "comment": safe_comment,
+            "is_race_effort": bool(is_race_effort),
+        })
+
+    entries.append({
+        "role": "assistant",
+        "created_at": now_iso,
+        "source": src,
+        "review": review,
+    })
+
     try:
-        db_upsert_ai_review_one(
-            user_id=user_id,
-            activity_id=activity_id,
-            ai_review=review,
-            ctx=ctx,
-            source=src,
-            user_comment=safe_comment,
+        db_append_review_thread_entries(
+            user_id=user_id, activity_id=activity_id, entries=entries, ctx=ctx
         )
     except Exception as e:
-        print("[AR] db_upsert_ai_review_one error:", repr(e))
+        print(f"❌ [AR] db_append_review_thread_entries error: {repr(e)}")
 
     return {"ok": True, "data": review}

@@ -23,6 +23,7 @@ import WidgetCoachAIWeekly   from "@/app/shared/components/widgets/WidgetCoachWe
 import WidgetCoachAIDaily    from "@/app/shared/components/widgets/WidgetCoachDailyPlan";
 import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance";
+import WidgetCoachNotes from "@/app/shared/components/widgets/WidgetCoachNotes";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -80,6 +81,7 @@ function ClientPage() {
 
         {showAdvanced && (
           <>
+            <WidgetCoachNotes onOpenDetail={() => router.push("/coach/notes")} />
             <WidgetCoachAIProgress   onOpenDetail={() => router.push("/coach/ai/progress")} />
             <WidgetCoachPlanCompliance onOpenDetail={() => router.push("/coach/compliance")} />
           </>

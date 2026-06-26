@@ -27,6 +27,7 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     - z histórie zachová sport, intensity, duration, avg_hr (AI potrebuje vedieť záťaž)
     - odstráni splits/laps/streams z histórie (sú len pre focus aktivitu)
     - odstráni legacy hr_zones_bpm (user_zones sú dostačujúce)
+    - review_thread (ak existuje) ostáva — je to kontext na reply
     """
     out = json.loads(json.dumps(context, default=str))
 
@@ -68,7 +69,7 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     ctx_block = out.get("context", {})
     if isinstance(ctx_block, dict):
         ctx_block.pop("hr_zones_bpm", None)
-        
+
         for plan_key in ("plan_today", "plan_tomorrow"):
             plan = ctx_block.get(plan_key)
             if isinstance(plan, dict):
@@ -279,6 +280,8 @@ def build_prompts_for_activity_review(
     """
     Zostaví (system_prompt, user_prompt) pre activity review.
     Minifikuje context, pridá jazykové pravidlá, schému a sport-špecifické rules.
+    Ak je v contexte review_thread (predchádzajúce review + komentár usera),
+    pridá inštrukciu aby AI reagovalo v kontexte konverzácie, nie izolovane.
     """
     settings = settings or {}
 
@@ -313,6 +316,19 @@ def build_prompts_for_activity_review(
             "5. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
         )
 
+    # Konverzačný kontext — ak existuje predchádzajúci review_thread, AI reaguje na reply
+    thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
+    conversation_note = ""
+    if thread_ctx:
+        conversation_note = (
+            "\n--- CONVERSATION CONTEXT ---\n"
+            "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
+            "in CONTEXT_JSON for the prior exchange (oldest first). "
+            "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
+            "Address it directly and specifically — explain or reconsider your previous view if the "
+            "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
+        )
+
     user_txt = (
         f"Analyze this {resolved_sport.upper()} session. "
         f"Mode: {'[PERFORMANCE AUDIT]' if actually_is_race else '[STANDARD REVIEW]'}\n\n"
@@ -327,6 +343,7 @@ def build_prompts_for_activity_review(
         f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
+        + conversation_note
         + "\n- Return ONLY raw JSON."
     )
 
