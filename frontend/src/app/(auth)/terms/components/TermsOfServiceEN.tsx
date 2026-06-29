@@ -97,7 +97,7 @@ export default function TermsOfServiceEN() {
             <strong style={{ color: appColors.textPrimary }}>Cancellation:</strong> You may cancel your subscription at any time in your account settings. Cancellation takes effect at the end of the current billing period. Access to paid features remains active until the end of the paid period.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Refunds:</strong> In accordance with EU Directive 2011/83/EU, you have the right to withdraw from the contract within 14 days of your first billing cycle without giving any reason. After this period, payments are non-refundable. Refund requests should be sent to support@selfrace.app.
+            <strong style={{ color: appColors.textPrimary }}>Refunds:</strong> In accordance with EU Directive 2011/83/EU, you have the right to withdraw from the contract within 14 days of your first billing cycle without giving any reason. After this period, payments are non-refundable. Refund requests should be sent to support@selfrace.com.
           </li>
           <li>
             <strong style={{ color: appColors.textPrimary }}>Price Changes:</strong> We reserve the right to modify subscription pricing. You will be notified of any changes at least 30 days in advance by email.
