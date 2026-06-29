@@ -97,7 +97,7 @@ export default function TermsOfServiceSK() {
             <strong style={{ color: appColors.textPrimary }}>Zrušenie predplatného:</strong> Predplatné môžete kedykoľvek zrušiť v nastaveniach účtu. Zrušenie nadobúda účinnosť na konci aktuálneho fakturačného obdobia. Po zrušení zostáva prístup k plateným funkciám aktívny do konca zaplateného obdobia.
           </li>
           <li>
-            <strong style={{ color: appColors.textPrimary }}>Vrátenie peňazí:</strong> V súlade so smernicou EÚ 2011/83/EÚ máte právo odstúpiť od zmluvy do 14 dní od prvého platobného cyklu bez udania dôvodu. Po uplynutí tejto lehoty platby nie sú vratné. Žiadosť o vrátenie peňazí zasielajte na support@selfrace.app.
+            <strong style={{ color: appColors.textPrimary }}>Vrátenie peňazí:</strong> V súlade so smernicou EÚ 2011/83/EÚ máte právo odstúpiť od zmluvy do 14 dní od prvého platobného cyklu bez udania dôvodu. Po uplynutí tejto lehoty platby nie sú vratné. Žiadosť o vrátenie peňazí zasielajte na support@selfrace.com.
           </li>
           <li>
             <strong style={{ color: appColors.textPrimary }}>Zmeny cien:</strong> Vyhradzujeme si právo zmeniť ceny predplatného. O akýchkoľvek zmenách vás budeme informovať minimálne 30 dní vopred e-mailom.
