@@ -112,7 +112,7 @@ export default function PrivacyPolicyEN() {
 
       <section>
         <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>8. Contact</h3>
-        <p>If you have any questions about this Privacy Policy or your data, contact: <a href="mailto:selfrace.app@gmail.com" className="hover:underline" style={{ color: appColors.textPrimary }}>selfrace.app@gmail.com</a></p>
+        <p>If you have any questions about this Privacy Policy or your data, contact: <a href="mailto:support@selfrace.com" className="hover:underline" style={{ color: appColors.textPrimary }}>support@selfrace.com</a></p>
       </section>
     </div>
   );
