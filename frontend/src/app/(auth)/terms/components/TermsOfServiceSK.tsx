@@ -7,7 +7,7 @@ export default function TermsOfServiceSK() {
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Podmienky používania – SelfRace</p>
-        <p>Posledná aktualizácia: 29. Januára 2026</p>
+        <p>Posledná aktualizácia: 29. Júna 2026</p>
       </div>
 
       <section>
@@ -82,6 +82,27 @@ export default function TermsOfServiceSK() {
         <p>
           Tieto podmienky sa riadia zákonmi Slovenskej republiky. Akékoľvek spory budú riešené príslušnými súdmi Slovenskej republiky.
         </p>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>8. Predplatné, Platby a Vrátenie peňazí</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Bezplatné skúšobné obdobie:</strong> Noví používatelia získajú 14-dňové bezplatné skúšobné obdobie plánu Pro. Po uplynutí skúšobného obdobia sa účet automaticky prepne na bezplatný plán Free, pokiaľ si používateľ nezvolí platené predplatné.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Platené plány:</strong> Plán Classic je dostupný za 5 € mesačne, plán Pro za 10 € mesačne. Predplatné sa automaticky obnovuje každý mesiac, kým ho používateľ nezruší.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Zrušenie predplatného:</strong> Predplatné môžete kedykoľvek zrušiť v nastaveniach účtu. Zrušenie nadobúda účinnosť na konci aktuálneho fakturačného obdobia. Po zrušení zostáva prístup k plateným funkciám aktívny do konca zaplateného obdobia.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Vrátenie peňazí:</strong> V súlade so smernicou EÚ 2011/83/EÚ máte právo odstúpiť od zmluvy do 14 dní od prvého platobného cyklu bez udania dôvodu. Po uplynutí tejto lehoty platby nie sú vratné. Žiadosť o vrátenie peňazí zasielajte na support@selfrace.app.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Zmeny cien:</strong> Vyhradzujeme si právo zmeniť ceny predplatného. O akýchkoľvek zmenách vás budeme informovať minimálne 30 dní vopred e-mailom.
+          </li>
+        </ul>
       </section>
     </div>
   );
