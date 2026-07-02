@@ -76,7 +76,7 @@ function MiniMetricGrid({
 export default function PlanSessionDetail({
   item,
   showPlanDebug,
-  showAdvanced = false, // 👈 PARAMETER Z MATKY
+  showAdvanced = false,
 }: {
   variant?: ComponentVariant;
   item: PlanSession;
@@ -150,23 +150,27 @@ export default function PlanSessionDetail({
           formattedId ||
           `${fallbackLabel} ${i + 1}`;
 
-        // Oprava formátovania pre opakovania (ak to obsahuje "s" alebo "min", nedávame tam slovo "opak.")
         const repsString = String(e?.reps || "");
-        const hasTimeFormat = repsString.includes("s") || repsString.includes("min");
-        const formattedReps = e?.reps 
-          ? (hasTimeFormat ? e.reps : `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`) 
+        const hasTimeFormat =
+          repsString.includes("s") || repsString.includes("min");
+        const formattedReps = e?.reps
+          ? hasTimeFormat
+            ? e.reps
+            : `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`
           : null;
 
         return (
           <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
             <div
               className={PLAN_EX_NAME}
-              style={{ textTransform: "capitalize", fontWeight: showAdvanced ? "600" : "400" }}
+              style={{
+                textTransform: "capitalize",
+                fontWeight: showAdvanced ? "600" : "400",
+              }}
             >
               {displayName}
             </div>
-            
-            {/* 🔐 UKÁŽE SA LEN V DETAILNOM REŽIME */}
+
             {showAdvanced && (
               <div className="mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
                 <div className={PLAN_EX_LINE}>
@@ -204,15 +208,15 @@ export default function PlanSessionDetail({
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
         <DetailSection title={t("sessions.detail.sectionStructure")}>
-          
-          {/* 🔐 Modrá poznámka sa ukáže len v detailoch */}
+
           {showAdvanced && (item.sport === "run" || item.sport === "ride") && (
             <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/90 italic animate-in fade-in">
               <strong>{t("common.note") || "Poznámka"}:</strong>{" "}
-              {t("sessions.detail.plan.noteEndurance") || "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom."}
+              {t("sessions.detail.plan.noteEndurance") ||
+                "Tempá sú orientačné (vhodné pre GPS v telefóne). Ak máš športové hodinky, prioritne sa riaď tepom. Ak nie, riaď sa pocitom."}
             </div>
           )}
-          
+
           <div className={PLAN_STRUCT_STACK}>
             {wu && (
               <div className={PLAN_BLOCK}>
@@ -222,9 +226,10 @@ export default function PlanSessionDetail({
                 <div className={PLAN_BLOCK_TEXT}>
                   {typeof wu === "string" ? wu : getDuration(wu) || "—"}
                 </div>
-                {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
                 {showAdvanced && typeof wu !== "string" && getNote(wu) && (
-                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(getNote(wu))}</div>
+                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
+                    {safeText(getNote(wu))}
+                  </div>
                 )}
               </div>
             )}
@@ -238,40 +243,77 @@ export default function PlanSessionDetail({
                   {mainBlocks.map((blk: any, idx: number) => {
                     if (typeof blk === "string") {
                       return (
-                        <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
-                          <div className={PLAN_MAIN_NOTE}>{safeText(blk)}</div>
+                        <div
+                          key={idx}
+                          className={PLAN_MAIN_ITEM}
+                          style={PLAN_MAIN_ITEM_STYLE}
+                        >
+                          <div className={PLAN_MAIN_NOTE}>
+                            {safeText(blk)}
+                          </div>
                         </div>
                       );
                     }
 
-                    const isInterval = blk.kind === "interval_block";
+                    // --- HANDLING PRE OBA FORMÁTY ---
+                    const isIntervalFlat = blk.kind === "interval_block";
+                    const isIntervalNested = !!blk.interval_block;
+                    const isInterval = isIntervalFlat || isIntervalNested;
 
                     if (isInterval) {
-                      const reps = blk.repeats || 1;
-                      const workDur = getDuration(blk.work);
-                      const restDur = getDuration(blk.rest);
-                      const workNote = getNote(blk.work);
+                      const iData = isIntervalNested
+                        ? blk.interval_block
+                        : blk;
+                      const reps = iData.repeats || 1;
+
+                      // Nested: intervals[0] = work, intervals[1] = rest
+                      // Flat: work / rest priamo
+                      const workBlock = isIntervalNested
+                        ? (iData.intervals?.[0] ?? null)
+                        : iData.work;
+                      const restBlock = isIntervalNested
+                        ? (iData.intervals?.[1] ?? null)
+                        : iData.rest;
+
+                      const workDur = getDuration(workBlock);
+                      const restDur = getDuration(restBlock);
+                      const workNote = getNote(workBlock);
 
                       return (
-                        <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                        <div
+                          key={idx}
+                          className={PLAN_MAIN_ITEM}
+                          style={PLAN_MAIN_ITEM_STYLE}
+                        >
                           <div className="flex items-baseline gap-2 mb-1">
                             <span className="text-white font-bold text-base">
                               {reps}×
                             </span>
                             <span className="opacity-90">
                               {workDur}{" "}
-                              {showAdvanced && <span className="opacity-60 text-xs">({t("sessions.detail.plan.work")})</span>}
+                              {showAdvanced && (
+                                <span className="opacity-60 text-xs">
+                                  ({t("sessions.detail.plan.work")})
+                                </span>
+                              )}
                             </span>
                             {restDur && (
                               <span className="opacity-60">
                                 + {restDur}{" "}
-                                {showAdvanced && <span className="text-xs">({t("sessions.detail.plan.recovery")})</span>}
+                                {showAdvanced && (
+                                  <span className="text-xs">
+                                    ({t("sessions.detail.plan.recovery")})
+                                  </span>
+                                )}
                               </span>
                             )}
                           </div>
-                          {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
                           {showAdvanced && workNote && (
-                            <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
+                            <div
+                              className={
+                                PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"
+                              }
+                            >
                               {safeText(workNote)}
                             </div>
                           )}
@@ -279,17 +321,27 @@ export default function PlanSessionDetail({
                       );
                     }
 
+                    // --- SIMPLE BLOCK ---
                     const dur = getDuration(blk);
                     const note = getNote(blk);
 
                     return (
-                      <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
+                      <div
+                        key={idx}
+                        className={PLAN_MAIN_ITEM}
+                        style={PLAN_MAIN_ITEM_STYLE}
+                      >
                         <div className="font-semibold text-white/90">
                           {dur || "—"}
                         </div>
-                        {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
                         {showAdvanced && note && (
-                          <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(note)}</div>
+                          <div
+                            className={
+                              PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"
+                            }
+                          >
+                            {safeText(note)}
+                          </div>
                         )}
                       </div>
                     );
@@ -306,9 +358,10 @@ export default function PlanSessionDetail({
                 <div className={PLAN_BLOCK_TEXT}>
                   {typeof cd === "string" ? cd : getDuration(cd) || "—"}
                 </div>
-                {/* 🔐 Poznámky zobrazené iba v detailnom režime */}
                 {showAdvanced && typeof cd !== "string" && getNote(cd) && (
-                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>{safeText(getNote(cd))}</div>
+                  <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
+                    {safeText(getNote(cd))}
+                  </div>
                 )}
               </div>
             )}
@@ -350,8 +403,13 @@ export default function PlanSessionDetail({
 
       {/* --- DEBUG SEKCIA --- */}
       {showAdvanced && showPlanDebug && (
-        <DetailSection title={t("sessions.detail.sectionDebug")} defaultOpen={false}>
-          <pre className={PLAN_DEBUG_PRE + " animate-in fade-in"}>{safeText({ structure, raw })}</pre>
+        <DetailSection
+          title={t("sessions.detail.sectionDebug")}
+          defaultOpen={false}
+        >
+          <pre className={PLAN_DEBUG_PRE + " animate-in fade-in"}>
+            {safeText({ structure, raw })}
+          </pre>
         </DetailSection>
       )}
     </div>
