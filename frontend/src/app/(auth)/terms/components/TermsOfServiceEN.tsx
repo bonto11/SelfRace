@@ -7,7 +7,7 @@ export default function TermsOfServiceEN() {
     <div className="space-y-6 text-sm leading-relaxed" style={{ color: appColors.textMuted }}>
       <div>
         <p className="font-bold mb-1" style={{ color: appColors.textPrimary }}>Terms of Service – SelfRace</p>
-        <p>Last updated: January 29, 2026</p>
+        <p>Last updated: June 29, 2026</p>
       </div>
 
       <section>
@@ -82,6 +82,27 @@ export default function TermsOfServiceEN() {
         <p>
           These terms are governed by the laws of the Slovak Republic. Any disputes shall be resolved in the competent courts of the Slovak Republic.
         </p>
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>8. Subscriptions, Payments & Refunds</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Free Trial:</strong> New users receive a 14-day free trial of the Pro plan. After the trial period, the account automatically reverts to the Free plan unless the user purchases a paid subscription.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Paid Plans:</strong> The Classic plan is available at €5/month and the Pro plan at €10/month. Subscriptions renew automatically each month until cancelled.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Cancellation:</strong> You may cancel your subscription at any time in your account settings. Cancellation takes effect at the end of the current billing period. Access to paid features remains active until the end of the paid period.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Refunds:</strong> In accordance with EU Directive 2011/83/EU, you have the right to withdraw from the contract within 14 days of your first billing cycle without giving any reason. After this period, payments are non-refundable. Refund requests should be sent to support@selfrace.com.
+          </li>
+          <li>
+            <strong style={{ color: appColors.textPrimary }}>Price Changes:</strong> We reserve the right to modify subscription pricing. You will be notified of any changes at least 30 days in advance by email.
+          </li>
+        </ul>
       </section>
     </div>
   );

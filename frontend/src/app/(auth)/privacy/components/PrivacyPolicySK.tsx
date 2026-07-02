@@ -112,7 +112,7 @@ export default function PrivacyPolicySK() {
 
       <section>
         <h3 className="text-base font-bold mb-2" style={{ color: appColors.textPrimary }}>8. Kontakt</h3>
-        <p>V prípade akýchkoľvek otázok ohľadom týchto Zásad ochrany osobných údajov nás prosím kontaktujte na adrese: <a href="mailto:selfrace.app@gmail.com" className="hover:underline" style={{ color: appColors.textPrimary }}>selfrace.app@gmail.com</a></p>
+        <p>V prípade akýchkoľvek otázok ohľadom týchto Zásad ochrany osobných údajov nás prosím kontaktujte na adrese: <a href="mailto:support@selfrace.com" className="hover:underline" style={{ color: appColors.textPrimary }}>support@selfrace.com</a></p>
       </section>
     </div>
   );
