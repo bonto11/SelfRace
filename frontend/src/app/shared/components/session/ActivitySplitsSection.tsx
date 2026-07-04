@@ -93,7 +93,11 @@ function buildRows(data: any[]): SplitRow[] {
     const avg_hr_bpm =
       toNumber(sp.avg_hr_bpm) ?? toNumber(sp.average_heartrate_bpm) ?? null;
     const elev_delta_m =
-      toNumber(sp.elev_delta_m) ?? toNumber(sp.elevation_gain_m) ?? null;
+      toNumber(sp.elev_delta_m) ??
+      toNumber(sp.elevation_gain_m) ??
+      toNumber(sp.elevation_diff_m) ??  // ← pridaj toto
+      null;
+
 
     return {
       index: i + 1,
