@@ -1,12 +1,12 @@
 // src/app/shared/components/session/ActivityBestSegmentsSection.tsx
 "use client";
 
-import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import type { ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
 
 type Props = {
   enrichment: ActivityEnrichment | null;
+  t: any;
 };
 
 type SegmentDef = {
@@ -34,6 +34,11 @@ function fmtTime(seconds: number): string {
   return `${mm}:${ss}`;
 }
 
+export function hasAnyBestSegment(enrichment: ActivityEnrichment | null): boolean {
+  if (!enrichment) return false;
+  return SEGMENT_DEFS.some((def) => typeof enrichment[def.key] === "number");
+}
+
 const TILE_CLASS =
   "rounded-xl border px-3 py-2 flex flex-col justify-center shadow-sm";
 const TILE_STYLE = {
@@ -41,9 +46,7 @@ const TILE_STYLE = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-export function ActivityBestSegmentsSection({ enrichment }: Props) {
-  const t = useT();
-
+export function ActivityBestSegmentsSection({ enrichment, t }: Props) {
   const items = SEGMENT_DEFS
     .map((def) => {
       const raw = enrichment?.[def.key];
