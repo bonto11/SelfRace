@@ -9,7 +9,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberField from "@/app/shared/ui/components/NumberField";
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -75,7 +75,7 @@ function normalizeTime(val: any): string {
   if (typeof val === "string" && val.includes(":")) {
     return val.slice(0, 5);
   }
-  return FALLBACKS.sleep_start_time;
+  return "";
 }
 
 // ============================================================
@@ -98,8 +98,8 @@ export default function RecoveryInputs() {
   const [rhr, setRhr] = useState<number | "">(FALLBACKS.RHR_bpm);
   const [hrvAvg, setHrvAvg] = useState<number | "">(FALLBACKS.HRV_avg_ms);
   const [hrvMax, setHrvMax] = useState<number | "">(FALLBACKS.HRV_max_ms);
-  const [sleepDuration, setSleepDuration] = useState(minutesToHHMM(FALLBACKS.sleep_duration_min));
-  const [sleepStart, setSleepStart] = useState(FALLBACKS.sleep_start_time);
+  const [sleepDuration, setSleepDuration] = useState("");
+  const [sleepStart, setSleepStart] = useState("");
 
   // Faktory
   const [lateFood, setLateFood] = useState(false);
@@ -121,8 +121,8 @@ export default function RecoveryInputs() {
       setRhr(existing.RHR_bpm ?? FALLBACKS.RHR_bpm);
       setHrvAvg(existing.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
       setHrvMax(existing.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
-      setSleepDuration(minutesToHHMM(existing.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
-      setSleepStart(normalizeTime(existing.sleep_start_time));
+      setSleepDuration(minutesToHHMM(existing.sleep_duration_min) || "");
+      setSleepStart(existing.sleep_start_time ? normalizeTime(existing.sleep_start_time) : "");
       setLateFood(Boolean(existing.food_2h_before));
       setLateCaffeine(Boolean(existing.caffeine_8h));
       setAlcoholVolume((existing as any).alcohol_volume_ml ?? "");
@@ -137,8 +137,8 @@ export default function RecoveryInputs() {
       setRhr(last?.RHR_bpm ?? FALLBACKS.RHR_bpm);
       setHrvAvg(last?.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
       setHrvMax(last?.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
-      setSleepDuration(minutesToHHMM(last?.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
-      setSleepStart(normalizeTime(last?.sleep_start_time));
+      setSleepDuration(minutesToHHMM(last?.sleep_duration_min) || "");
+      setSleepStart(last?.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
       setLateFood(false);
       setLateCaffeine(false);
       setAlcoholVolume("");
@@ -146,6 +146,46 @@ export default function RecoveryInputs() {
       setComments("");
     }
   }, [date, rows]);
+
+  // ============================================================
+  // Predvyplniť z posledného záznamu (aj mimo aktuálneho dátumu)
+  // ============================================================
+  function handlePrefillAll() {
+    if (!rows || !rows.length) return;
+
+    const last = [...rows]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .find((r: any) => r.RHR_bpm || r.HRV_avg_ms);
+
+    if (!last) return;
+
+    setRhr(last.RHR_bpm ?? FALLBACKS.RHR_bpm);
+    setHrvAvg(last.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
+    setHrvMax(last.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
+    setSleepDuration(minutesToHHMM(last.sleep_duration_min) || "");
+    setSleepStart(last.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
+    setLateFood(Boolean(last.food_2h_before));
+    setLateCaffeine(Boolean(last.caffeine_8h));
+    setAlcoholVolume((last as any).alcohol_volume_ml ?? "");
+    setAlcoholType((last as any).alcohol_type_pct ?? "");
+    setComments(last.comments ?? "");
+  }
+
+  // ============================================================
+  // Zrušiť všetko — vyprázdni všetky polia
+  // ============================================================
+  function handleClearAll() {
+    setRhr("");
+    setHrvAvg("");
+    setHrvMax("");
+    setSleepDuration("");
+    setSleepStart("");
+    setLateFood(false);
+    setLateCaffeine(false);
+    setAlcoholVolume("");
+    setAlcoholType("");
+    setComments("");
+  }
 
   // ============================================================
   // SAVE — vždy uloží celý stav, žiadna dirty logika
@@ -231,6 +271,16 @@ export default function RecoveryInputs() {
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Predvyplniť / Zrušiť všetko */}
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" variant="secondary" onClick={handlePrefillAll} disabled={saving || !rows?.length}>
+            {t("performance.metrics.btnPrefillAll")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleClearAll} disabled={saving}>
+            {t("performance.metrics.btnClearAll")}
+          </Button>
+        </div>
+
         <div className={FORM_GRID_TWO}>
 
           {/* RHR */}
@@ -281,9 +331,9 @@ export default function RecoveryInputs() {
                 <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {t("recovery.inputs.sleepDurationLabel")}
                 </div>
-                <TimeSelectorField
-                  hh={true} mm={true} ss={false}
-                  value={sleepDuration || "00:00"}
+                <TimeField
+                  hh mm ss={false}
+                  value={sleepDuration}
                   disabled={saving}
                   onChange={setSleepDuration}
                 />
@@ -294,9 +344,9 @@ export default function RecoveryInputs() {
                 <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {t("recovery.inputs.sleepStartLabel")}
                 </div>
-                <TimeSelectorField
-                  hh={true} mm={true} ss={false}
-                  value={sleepStart || "00:00"}
+                <TimeField
+                  hh mm ss={false}
+                  value={sleepStart}
                   disabled={saving}
                   onChange={setSleepStart}
                 />
