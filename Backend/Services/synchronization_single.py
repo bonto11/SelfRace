@@ -329,14 +329,16 @@ def service_sync_single_activity(
         except Exception as e:
             print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
 
-        # ✅ ---------- 6) KONTROLA REKORDOV (zatiaľ len výpis) ----------
+        # ✅ ---------- 6) KONTROLA REKORDOV ----------
     try:
         print(f"[SYNC:single] Checking records for activity_id={aid}...")
 
-        # TODO: sem napojíme streams z DB/Stravy pre presný výpočet
+        # TODO: streams z DB pre presný výpočet – zatiaľ splits fallback
         service_check_activity_records(
+            user_id=user_id,
             activity=row,
             splits=split_rows if fetch_details and mode == "splits" else [],
+            ctx=ctx,
             streams=None,
         )
     except Exception as e:  # noqa: BLE001
