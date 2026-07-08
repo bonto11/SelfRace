@@ -1,32 +1,13 @@
 # Services/records_check.py
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, List, Optional, Tuple
-from Modules.Supabase.auth import AuthCtx
 
 
 # =====================================================================
 # POMOCNÉ FUNKCIE
 # =====================================================================
-
-def _rolling_best(splits: List[Dict[str, Any]], window: int) -> Optional[float]:
-    """
-    Nájde najrýchlejší rolling window N splitov.
-    Vracia najmenší súčet time_s pre okno veľkosti N.
-    """
-    times = [s.get("moving_time_s") or s.get("elapsed_time_s") for s in splits]
-    times = [t for t in times if t is not None]
-
-    if len(times) < window:
-        return None
-
-    best = None
-    for i in range(len(times) - window + 1):
-        total = sum(times[i:i + window])
-        if best is None or total < best:
-            best = total
-    return best
-
 
 def _fmt_time(seconds: float) -> str:
     s = int(round(seconds))
@@ -38,128 +19,174 @@ def _fmt_time(seconds: float) -> str:
     return f"{m}:{sec:02d}"
 
 
+def _best_time_for_distance_streams(
+    time_s: List[float],
+    dist_m: List[float],
+    target_m: float,
+) -> Optional[float]:
+    """
+    Presný výpočet najrýchlejšieho úseku danej dĺžky zo streamov.
+
+    Algoritmus: two-pointer sliding window s lineárnou interpoláciou
+    na presnú hranicu okna. Zložitosť O(n) – pre 50km beh (~18k vzoriek)
+    beží v milisekundách.
+
+    Pre každý koncový bod j nájdeme presný čas, v ktorom bežec
+    bol vo vzdialenosti (dist[j] - target). Ten leží medzi vzorkami
+    i a i+1 → interpolujeme.
+    """
+    n = len(dist_m)
+    if n < 2 or dist_m[-1] < target_m:
+        return None
+
+    best: Optional[float] = None
+    i = 0
+
+    for j in range(1, n):
+        window_start_dist = dist_m[j] - target_m
+        if window_start_dist < dist_m[0]:
+            continue
+
+        # Posuň i tak, aby dist[i] <= window_start_dist < dist[i+1]
+        while i + 1 < j and dist_m[i + 1] <= window_start_dist:
+            i += 1
+
+        # Lineárna interpolácia času na presnej hranici okna
+        d0, d1 = dist_m[i], dist_m[i + 1]
+        t0, t1 = time_s[i], time_s[i + 1]
+
+        if d1 <= d0:
+            t_start = t0  # zastavený GPS bod – bez interpolácie
+        else:
+            ratio = (window_start_dist - d0) / (d1 - d0)
+            t_start = t0 + ratio * (t1 - t0)
+
+        elapsed = time_s[j] - t_start
+        if elapsed > 0 and (best is None or elapsed < best):
+            best = elapsed
+
+    return best
+
+
+def _best_time_for_distance_splits(
+    splits: List[Dict[str, Any]],
+    window: int,
+) -> Optional[float]:
+    """
+    Fallback: rolling window cez 1km splity (menej presné –
+    hranice okna sú viazané na hranice splitov).
+    """
+    times = [
+        s.get("moving_time_s") or s.get("elapsed_time_s")
+        for s in splits
+    ]
+    times = [t for t in times if t is not None]
+
+    if len(times) < window:
+        return None
+
+    best = None
+    for k in range(len(times) - window + 1):
+        total = sum(times[k:k + window])
+        if best is None or total < best:
+            best = total
+    return best
+
+
 # =====================================================================
 # HLAVNÁ FUNKCIA
 # =====================================================================
 
+SEGMENTS: List[Tuple[str, float]] = [
+    ("1km",  1_000.0),
+    ("5km",  5_000.0),
+    ("10km", 10_000.0),
+    ("21km", 21_097.5),
+    ("42km", 42_195.0),
+    ("50km", 50_000.0),
+]
+
+
 def service_check_activity_records(
-    user_id: int,
     activity: Dict[str, Any],
     splits: List[Dict[str, Any]],
-    all_activities: List[Dict[str, Any]],
-    ctx: AuthCtx,
+    streams: Optional[Dict[str, List[float]]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Porovná metriky novej aktivity s historickými maximami.
-    Zatiaľ len print výstupy – DB zápis a notifikácie prídu neskôr.
+    Vypočíta najlepšie segmentové časy aktivity + celkové metriky.
 
-    Vracia list nových rekordov: [{"type": ..., "value": ..., "prev": ...}]
+    Zatiaľ len print výstupy – porovnanie s historickými rekordami
+    a DB zápis prídu v ďalšom kroku.
+
+    streams: {"time": [...], "distance": [...]} – ak sú k dispozícii,
+             použije sa presný stream algoritmus, inak fallback na splits.
+
+    Vracia list: [{"type": ..., "value_s"/"value_m": ...}]
     """
-    sport = activity.get("sport_type") or activity.get("type") or ""
-    sport = sport.lower()
+    t_start = time.perf_counter()
 
-    # Len bežecké aktivity pre teraz
-    if sport not in ("run", "trail_run", "virtualrun"):
+    sport = (activity.get("sport_type") or activity.get("type") or "").lower()
+    activity_id = activity.get("activity_id") or activity.get("id")
+
+    if sport not in ("run", "trail_run", "trailrun", "virtualrun"):
         print(f"[RECORDS] ⏭ Preskakujem sport={sport}, rekordy len pre beh")
         return []
 
-    new_records: List[Dict[str, Any]] = []
-    activity_id = activity.get("activity_id") or activity.get("id")
-
-    # Historické aktivity bez tejto novej
-    history = [
-        a for a in all_activities
-        if (a.get("activity_id") or a.get("id")) != activity_id
-        and (a.get("sport_type") or a.get("type") or "").lower()
-        in ("run", "trail_run", "virtualrun")
-    ]
+    results: List[Dict[str, Any]] = []
 
     # ---------------------------------------------------------------
-    # 1) NAJDLHŠIA VZDIALENOSŤ
+    # 1) CELKOVÉ METRIKY AKTIVITY
     # ---------------------------------------------------------------
-    new_dist = activity.get("distance_m") or activity.get("distance") or 0
-    hist_max_dist = max(
-        (a.get("distance_m") or a.get("distance") or 0 for a in history),
-        default=0,
-    )
-    if new_dist and new_dist > hist_max_dist:
-        new_records.append({
-            "type": "longest_distance",
-            "value_m": new_dist,
-            "prev_m": hist_max_dist,
-        })
-        print(
-            f"[RECORDS] 🏆 NOVÝ REKORD – Najdlhšia vzdialenosť: "
-            f"{new_dist/1000:.2f} km (predtým {hist_max_dist/1000:.2f} km)"
-        )
+    dist = activity.get("distance_m") or activity.get("distance") or 0
+    dur = activity.get("moving_time_s") or activity.get("moving_time") or 0
+
+    if dist:
+        results.append({"type": "total_distance", "value_m": dist})
+        print(f"[RECORDS] 📏 Vzdialenosť aktivity: {dist/1000:.2f} km")
+    if dur:
+        results.append({"type": "total_time", "value_s": dur})
+        print(f"[RECORDS] ⏱ Trvanie aktivity: {_fmt_time(dur)}")
 
     # ---------------------------------------------------------------
-    # 2) NAJDLHŠÍ ČAS
+    # 2) SEGMENTOVÉ ČASY
     # ---------------------------------------------------------------
-    new_time = activity.get("moving_time_s") or activity.get("moving_time") or 0
-    hist_max_time = max(
-        (a.get("moving_time_s") or a.get("moving_time") or 0 for a in history),
-        default=0,
-    )
-    if new_time and new_time > hist_max_time:
-        new_records.append({
-            "type": "longest_time",
-            "value_s": new_time,
-            "prev_s": hist_max_time,
-        })
-        print(
-            f"[RECORDS] 🏆 NOVÝ REKORD – Najdlhší čas: "
-            f"{_fmt_time(new_time)} (predtým {_fmt_time(hist_max_time)})"
-        )
+    time_stream = (streams or {}).get("time") or []
+    dist_stream = (streams or {}).get("distance") or []
+    use_streams = len(time_stream) >= 2 and len(time_stream) == len(dist_stream)
 
-    # ---------------------------------------------------------------
-    # 3) SEGMENTOVÉ REKORDY ZO SPLITOV (1k/5k/10k/21k/42k/50k)
-    # ---------------------------------------------------------------
-    if not splits:
-        print(f"[RECORDS] ⚠ Žiadne splits pre activity_id={activity_id}, preskakujem segmenty")
-        return new_records
+    if use_streams:
+        print(f"[RECORDS] 🎯 Používam streams ({len(time_stream)} vzoriek) – presný výpočet")
+    elif splits:
+        print(f"[RECORDS] ⚠ Streams nedostupné, fallback na splits ({len(splits)} splitov)")
+    else:
+        print(f"[RECORDS] ⚠ Žiadne streams ani splits pre activity_id={activity_id}")
 
-    # Zoradíme splits podľa split_index
-    sorted_splits = sorted(splits, key=lambda s: s.get("split_index", 0))
-    n_splits = len(sorted_splits)
+    sorted_splits = sorted(splits or [], key=lambda s: s.get("split_index", 0))
 
-    SEGMENTS: List[Tuple[str, int]] = [
-        ("1km",  1),
-        ("5km",  5),
-        ("10km", 10),
-        ("21km", 21),
-        ("42km", 42),
-        ("50km", 50),
-    ]
+    for label, target_m in SEGMENTS:
+        best: Optional[float] = None
 
-    for label, window in SEGMENTS:
-        if n_splits < window:
-            print(f"[RECORDS] ⏭ {label}: nedostatok splitov ({n_splits}/{window}), preskakujem")
+        if use_streams:
+            best = _best_time_for_distance_streams(time_stream, dist_stream, target_m)
+        elif sorted_splits:
+            window = max(1, round(target_m / 1000))
+            best = _best_time_for_distance_splits(sorted_splits, window)
+
+        if best is None:
+            print(f"[RECORDS] ⏭ {label}: aktivita je kratšia, preskakujem")
             continue
 
-        new_best = _rolling_best(sorted_splits, window)
-        if new_best is None:
-            continue
+        pace_s_per_km = best / (target_m / 1000)
+        results.append({
+            "type": f"segment_{label}",
+            "value_s": best,
+        })
+        print(
+            f"[RECORDS] 🏁 Best {label}: {_fmt_time(best)} "
+            f"(tempo {_fmt_time(pace_s_per_km)}/km)"
+        )
 
-        # TODO: Tu načítame historické best pre daný segment z DB
-        # Zatiaľ simulujeme že neexistuje historický rekord
-        hist_best: Optional[float] = None  # db_get_segment_record(user_id, label, ctx)
+    elapsed_ms = (time.perf_counter() - t_start) * 1000
+    print(f"[RECORDS] ⚡ Výpočet trval {elapsed_ms:.1f} ms")
 
-        if hist_best is None or new_best < hist_best:
-            new_records.append({
-                "type": f"segment_{label}",
-                "value_s": new_best,
-                "prev_s": hist_best,
-            })
-            prev_str = _fmt_time(hist_best) if hist_best else "—"
-            print(
-                f"[RECORDS] 🏆 NOVÝ REKORD – {label}: "
-                f"{_fmt_time(new_best)} (predtým {prev_str})"
-            )
-        else:
-            print(
-                f"[RECORDS] ✅ {label}: {_fmt_time(new_best)} "
-                f"(rekord je {_fmt_time(hist_best)})"
-            )
-
-    return new_records
+    return results
