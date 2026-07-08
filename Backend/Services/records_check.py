@@ -18,13 +18,14 @@ from DB.activities_enrichment import db_upsert_enrichment_rows_merge
 # (najdlhšia vzdialenosť + najdlhší čas)
 TOTALS_SENTINEL_DISTANCE = 0
 
-SEGMENTS: List[Tuple[str, int]] = [
-    ("1km",  1_000),
-    ("5km",  5_000),
-    ("10km", 10_000),
-    ("21km", 21_098),
-    ("42km", 42_195),
-    ("50km", 50_000),
+# (label, cieľová vzdialenosť v m, stĺpec v enrichment)
+SEGMENTS: List[Tuple[str, int, str]] = [
+    ("1km",      1_000,  "best_1k_s"),
+    ("5km",      5_000,  "best_5k_s"),
+    ("10km",     10_000, "best_10k_s"),
+    ("21.1km",   21_098, "best_half_s"),
+    ("42.2km",   42_195, "best_marathon_s"),
+    ("50km",     50_000, "best_50k_s"),
 ]
 
 SUPPORTED_SPORTS = ("run", "trail_run", "trailrun", "virtualrun")
@@ -132,7 +133,7 @@ def service_check_activity_records(
 ) -> List[Dict[str, Any]]:
     """
     1) Vypočíta najlepšie segmentové časy aktivity (streams > splits fallback).
-    2) Uloží segmenty do activities_enrichment.best_segments (vždy).
+    2) Uloží segmenty do activities_enrichment (best_1k_s, best_5k_s, ...).
     3) Porovná s users_bests a pri prekonaní upsertne nový rekord.
 
     Vracia list NOVÝCH rekordov:
@@ -169,9 +170,12 @@ def service_check_activity_records(
 
     sorted_splits = sorted(splits or [], key=lambda s: s.get("split_index", 0))
 
-    computed_segments: Dict[str, float] = {}
+    # {enrichment_column: best_time_s}
+    computed: Dict[str, float] = {}
+    # {distance_m: best_time_s} pre porovnanie s users_bests
+    computed_by_dist: Dict[int, float] = {}
 
-    for label, target_m in SEGMENTS:
+    for label, target_m, col in SEGMENTS:
         best: Optional[float] = None
 
         if use_streams:
@@ -183,27 +187,30 @@ def service_check_activity_records(
             best = _best_time_for_distance_splits(sorted_splits, window)
 
         if best is None:
+            print(f"[RECORDS] ⏭ {label}: aktivita je kratšia, preskakujem")
             continue
 
-        computed_segments[label] = round(best, 1)
+        best = round(best, 1)
+        computed[col] = best
+        computed_by_dist[target_m] = best
         pace = best / (target_m / 1000)
         print(f"[RECORDS] 🏁 Best {label}: {_fmt_time(best)} (tempo {_fmt_time(pace)}/km)")
 
     # ---------------------------------------------------------------
-    # 2) ULOŽENIE SEGMENTOV DO ENRICHMENT
+    # 2) ULOŽENIE SEGMENTOV DO ENRICHMENT (samostatné stĺpce)
     # ---------------------------------------------------------------
-    if computed_segments:
+    if computed:
         try:
             db_upsert_enrichment_rows_merge(
                 rows=[{
                     "user_id": int(user_id),
                     "activity_id": int(activity_id),
-                    "best_segments": computed_segments,
+                    **computed,
                     "updated_at": now_iso,
                 }],
                 ctx=ctx,
             )
-            print(f"[RECORDS] 💾 Segmenty uložené do enrichment: {computed_segments}")
+            print(f"[RECORDS] 💾 Segmenty uložené do enrichment: {computed}")
         except Exception as e:  # noqa: BLE001
             print(f"❌ [RECORDS] enrichment save failed: {e}")
 
@@ -222,10 +229,10 @@ def service_check_activity_records(
     }
 
     # ---------------------------------------------------------------
-    # 4) POROVNANIE SEGMENTOV + UPSERT
+    # 4) POROVNANIE SEGMENTOV + UPSERT REKORDOV
     # ---------------------------------------------------------------
-    for label, target_m in SEGMENTS:
-        new_time = computed_segments.get(label)
+    for label, target_m, _col in SEGMENTS:
+        new_time = computed_by_dist.get(target_m)
         if new_time is None:
             continue
 
