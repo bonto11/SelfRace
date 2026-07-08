@@ -23,62 +23,26 @@ type Props = {
   className?: string;
   variant?: "readonly" | "editable";
   disabled?: boolean;
-  /** Ktoré segmenty čas obsahuje. Default: hh + mm. */
   hh?: boolean;
   mm?: boolean;
   ss?: boolean;
-  /** Hodnota vo formáte "HH:MM", "HH:MM:SS" alebo "MM:SS" podľa aktívnych segmentov. */
+  /** Hodnota vo formáte "HH:MM", "HH:MM:SS" alebo "MM:SS" podľa aktívnych segmentov. Prázdny string = nevyplnené. */
   value: string;
   onChange: (val: string) => void;
   showReset?: boolean;
 };
 
-// Vytvorí prázdnu hodnotu podľa aktívnych segmentov, napr. "00:00" alebo "00:00:00"
-function emptyValue(hh: boolean, mm: boolean, ss: boolean): string {
-  const parts: string[] = [];
-  if (hh) parts.push("00");
-  if (mm) parts.push("00");
-  if (ss) parts.push("00");
-  return parts.join(":");
-}
-
-// Extrahuje čisté číslice z hocijakého vstupu (aj so zadanými dvojbodkami)
 function digitsOnly(s: string): string {
   return s.replace(/\D/g, "");
 }
 
-// Naformátuje reťazec čistých číslic späť na "HH:MM(:SS)" podľa segmentov,
-// pričom priebežne vkladá dvojbodky ako píšeš.
-function formatDigits(digits: string, segCount: number): string {
-  const maxLen = segCount * 2;
-  const clipped = digits.slice(0, maxLen);
+// Vloží dvojbodky do surových číslic po každých 2 znakoch, bez doplňovania núl.
+function formatDigitsForDisplay(digits: string): string {
   const groups: string[] = [];
-  for (let i = 0; i < clipped.length; i += 2) {
-    groups.push(clipped.slice(i, i + 2));
+  for (let i = 0; i < digits.length; i += 2) {
+    groups.push(digits.slice(i, i + 2));
   }
   return groups.join(":");
-}
-
-// Zarovná a orezá jednotlivé segmenty na platné rozsahy (0-23 pre hh, 0-59 pre mm/ss)
-function clampSegments(digits: string, segCount: number): string {
-  const maxLen = segCount * 2;
-  const clipped = digits.slice(0, maxLen);
-  const groups: string[] = [];
-  for (let i = 0; i < clipped.length; i += 2) {
-    groups.push(clipped.slice(i, i + 2));
-  }
-
-  return groups
-    .map((g, idx) => {
-      if (g.length < 2) return g; // ešte nekompletný segment, nezasahujeme
-      let n = parseInt(g, 10);
-      const isHour = idx === 0 && segCount === 3 ? true : idx === 0 && segCount === 2 ? true : false;
-      // Prvý segment je hodiny len ak `hh` je aktívne — riešime to v handleBlur cez segMax
-      const max = 59;
-      if (n > max) n = max;
-      return String(n).padStart(2, "0");
-    })
-    .join(":");
 }
 
 export default function TimeField({
@@ -108,35 +72,42 @@ export default function TimeField({
   } as React.CSSProperties;
 
   const segCount = [hh, mm, ss].filter(Boolean).length;
-  const segMaxes = [hh ? 23 : 59, 59, 59]; // poradie podľa aktívnych segmentov
+  const maxDigits = segCount * 2;
+  const segMaxes = [hh ? 23 : 59, 59, 59];
 
-  const hasValue = value !== "" && value !== emptyValue(hh, mm, ss);
+  // Interný stav sú vždy čisté číslice ("" keď prázdne), formátovanie na displeji je len derivát.
+  const [digits, setDigits] = React.useState<string>(() => digitsOnly(value || ""));
+
+  // Ak sa `value` zmení zvonku (napr. load z DB, reset, prefill), synchronizuj interný stav.
+  React.useEffect(() => {
+    setDigits(digitsOnly(value || ""));
+  }, [value]);
+
+  const displayValue = formatDigitsForDisplay(digits);
+  const hasValue = digits.length > 0;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
+    const newDigits = digitsOnly(raw).slice(0, maxDigits);
+    setDigits(newDigits);
 
-    if (raw === "") {
+    if (newDigits === "") {
       onChange("");
       return;
     }
 
-    const digits = digitsOnly(raw);
-    const formatted = formatDigits(digits, segCount);
-    onChange(formatted);
+    // Počas písania posielame von len kompletné segmenty naformátované,
+    // nekompletný posledný segment necháme tak ako je (bez orezania/paddingu).
+    onChange(formatDigitsForDisplay(newDigits));
   }
 
   function handleBlur() {
-    if (value === "") return;
-
-    const digits = digitsOnly(value);
-    if (!digits) {
+    if (digits === "") {
       onChange("");
       return;
     }
 
-    const maxLen = segCount * 2;
-    const padded = digits.padEnd(maxLen, "0").slice(0, maxLen);
-
+    const padded = digits.padEnd(maxDigits, "0").slice(0, maxDigits);
     const groups: string[] = [];
     for (let i = 0; i < padded.length; i += 2) {
       groups.push(padded.slice(i, i + 2));
@@ -150,14 +121,15 @@ export default function TimeField({
       return String(n).padStart(2, "0");
     });
 
+    const finalDigits = clamped.join("");
+    setDigits(finalDigits);
     onChange(clamped.join(":"));
   }
 
   function handleReset() {
+    setDigits("");
     onChange("");
   }
-
-  const placeholder = emptyValue(hh, mm, ss);
 
   return (
     <div className={cx("space-y-1", containerClassName)} style={style}>
@@ -167,8 +139,8 @@ export default function TimeField({
         <input
           type="text"
           inputMode="numeric"
-          value={value}
-          placeholder={placeholder}
+          value={displayValue}
+          placeholder="--:--"
           disabled={effectiveDisabled}
           onChange={handleChange}
           onBlur={handleBlur}
