@@ -118,6 +118,7 @@ export const sk = {
       min: "min",
       hour: "h",
       meter: "m",
+      cm:"cm",
       km: "km",
       power: "W (Watty)",
       vo2max: "ml/kg/min",
