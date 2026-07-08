@@ -75,7 +75,7 @@ function normalizeTime(val: any): string {
   if (typeof val === "string" && val.includes(":")) {
     return val.slice(0, 5);
   }
-  return FALLBACKS.sleep_start_time;
+  return "";
 }
 
 // ============================================================
@@ -98,8 +98,8 @@ export default function RecoveryInputs() {
   const [rhr, setRhr] = useState<number | "">(FALLBACKS.RHR_bpm);
   const [hrvAvg, setHrvAvg] = useState<number | "">(FALLBACKS.HRV_avg_ms);
   const [hrvMax, setHrvMax] = useState<number | "">(FALLBACKS.HRV_max_ms);
-  const [sleepDuration, setSleepDuration] = useState(minutesToHHMM(FALLBACKS.sleep_duration_min));
-  const [sleepStart, setSleepStart] = useState(FALLBACKS.sleep_start_time);
+  const [sleepDuration, setSleepDuration] = useState("");
+  const [sleepStart, setSleepStart] = useState("");
 
   // Faktory
   const [lateFood, setLateFood] = useState(false);
@@ -121,8 +121,8 @@ export default function RecoveryInputs() {
       setRhr(existing.RHR_bpm ?? FALLBACKS.RHR_bpm);
       setHrvAvg(existing.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
       setHrvMax(existing.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
-      setSleepDuration(minutesToHHMM(existing.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
-      setSleepStart(normalizeTime(existing.sleep_start_time));
+      setSleepDuration(minutesToHHMM(existing.sleep_duration_min) || "");
+      setSleepStart(existing.sleep_start_time ? normalizeTime(existing.sleep_start_time) : "");
       setLateFood(Boolean(existing.food_2h_before));
       setLateCaffeine(Boolean(existing.caffeine_8h));
       setAlcoholVolume((existing as any).alcohol_volume_ml ?? "");
@@ -137,8 +137,8 @@ export default function RecoveryInputs() {
       setRhr(last?.RHR_bpm ?? FALLBACKS.RHR_bpm);
       setHrvAvg(last?.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
       setHrvMax(last?.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
-      setSleepDuration(minutesToHHMM(last?.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
-      setSleepStart(normalizeTime(last?.sleep_start_time));
+      setSleepDuration(minutesToHHMM(last?.sleep_duration_min) || "");
+      setSleepStart(last?.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
       setLateFood(false);
       setLateCaffeine(false);
       setAlcoholVolume("");
@@ -162,8 +162,8 @@ export default function RecoveryInputs() {
     setRhr(last.RHR_bpm ?? FALLBACKS.RHR_bpm);
     setHrvAvg(last.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
     setHrvMax(last.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
-    setSleepDuration(minutesToHHMM(last.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
-    setSleepStart(normalizeTime(last.sleep_start_time));
+    setSleepDuration(minutesToHHMM(last.sleep_duration_min) || "");
+    setSleepStart(last.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
     setLateFood(Boolean(last.food_2h_before));
     setLateCaffeine(Boolean(last.caffeine_8h));
     setAlcoholVolume((last as any).alcohol_volume_ml ?? "");
@@ -178,8 +178,8 @@ export default function RecoveryInputs() {
     setRhr("");
     setHrvAvg("");
     setHrvMax("");
-    setSleepDuration("00:00");
-    setSleepStart("00:00");
+    setSleepDuration("");
+    setSleepStart("");
     setLateFood(false);
     setLateCaffeine(false);
     setAlcoholVolume("");
@@ -333,7 +333,7 @@ export default function RecoveryInputs() {
                 </div>
                 <TimeField
                   hh mm ss={false}
-                  value={sleepDuration || "00:00"}
+                  value={sleepDuration}
                   disabled={saving}
                   onChange={setSleepDuration}
                 />
@@ -346,7 +346,7 @@ export default function RecoveryInputs() {
                 </div>
                 <TimeField
                   hh mm ss={false}
-                  value={sleepStart || "00:00"}
+                  value={sleepStart}
                   disabled={saving}
                   onChange={setSleepStart}
                 />
