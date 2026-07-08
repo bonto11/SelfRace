@@ -6,8 +6,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
-// ✅ Import nášho točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
@@ -43,6 +42,22 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
+const EMPTY_STATE: MetricState = {
+  weight_kg: null,
+  body_fat_pct: null,
+  HR_max: null,
+  VO2Max_measured: null,
+  VO2Max_estimated: null,
+};
+
+const EMPTY_DIRTY: DirtyMap = {
+  weight_kg: false,
+  body_fat_pct: false,
+  HR_max: false,
+  VO2Max_measured: false,
+  VO2Max_estimated: false,
+};
+
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
   const t = useT();
@@ -51,21 +66,8 @@ export default function ProfileMetricInputs() {
   const [loading, setLoading] = useState(false);
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
-  const [m, setM] = useState<MetricState>({
-    weight_kg: null,
-    body_fat_pct: null,
-    HR_max: null,
-    VO2Max_measured: null,
-    VO2Max_estimated: null,
-  });
-
-  const [dirty, setDirty] = useState<DirtyMap>({
-    weight_kg: false,
-    body_fat_pct: false,
-    HR_max: false,
-    VO2Max_measured: false,
-    VO2Max_estimated: false,
-  });
+  const [m, setM] = useState<MetricState>(EMPTY_STATE);
+  const [dirty, setDirty] = useState<DirtyMap>(EMPTY_DIRTY);
 
   const loadAllLatest = useCallback(async (uid: number) => {
     try {
@@ -78,13 +80,26 @@ export default function ProfileMetricInputs() {
         apiGetHrMaxLatest(uid),
       ]);
 
-      setLatest({
+      const latestMap: LatestMetricsMap = {
         VO2Max_measured: vMeas?.data,
         VO2Max_estimated: vEst?.data,
         body_fat_pct: bFat?.data,
         weight_kg: weight?.data,
         HR_max: hrMax?.data,
+      };
+
+      setLatest(latestMap);
+
+      // Predvyplníme `m` hodnotami z DB, aby sa pri Uložiť poslali
+      // aj nezmenené hodnoty (nie len placeholder).
+      setM({
+        weight_kg: latestMap.weight_kg?.value ?? null,
+        body_fat_pct: latestMap.body_fat_pct?.value ?? null,
+        HR_max: latestMap.HR_max?.value ?? null,
+        VO2Max_measured: latestMap.VO2Max_measured?.value ?? null,
+        VO2Max_estimated: latestMap.VO2Max_estimated?.value ?? null,
       });
+      setDirty(EMPTY_DIRTY);
     } catch (e) {
       console.warn("[ProfileMetricInputs] bulk load failed");
     } finally {
@@ -110,8 +125,10 @@ export default function ProfileMetricInputs() {
       return;
     }
 
-    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(
-      (k) => dirty[k] && m[k] !== null
+    // Ukladáme všetky polia, ktoré majú vyplnenú hodnotu (z DB alebo novo zadanú).
+    // Prázdne (placeholder-only) polia sa neukladajú.
+    const toSave = (Object.keys(m) as EditableMetricKey[]).filter(
+      (k) => m[k] !== null
     );
 
     if (!toSave.length) {
@@ -126,23 +143,8 @@ export default function ProfileMetricInputs() {
       );
 
       toast.success(t("performance.metrics.saveSuccess"));
-      
-      await loadAllLatest(userId);
 
-      setM({
-        weight_kg: null,
-        body_fat_pct: null,
-        HR_max: null,
-        VO2Max_measured: null,
-        VO2Max_estimated: null,
-      });
-      setDirty({
-        weight_kg: false,
-        body_fat_pct: false,
-        HR_max: false,
-        VO2Max_measured: false,
-        VO2Max_estimated: false,
-      });
+      await loadAllLatest(userId);
       setOpen(false);
     } catch (e) {
       toast.error(t("api.performance.metricsSaveFailed"));
@@ -176,11 +178,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.weightLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={30}
-              max={200}
-              step={0.5}
+              max={250}
+              step={0.1}
+              unit={t("common.units.kg")}
+              placeholder={ph.weight_kg}
               value={m.weight_kg ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("weight_kg", val)}
@@ -192,11 +195,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.fatLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={3}
               max={50}
-              step={0.5}
+              step={0.1}
+              unit={t("common.units.pct")}
+              placeholder={ph.body_fat_pct}
               value={m.body_fat_pct ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("body_fat_pct", val)}
@@ -208,11 +212,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.hrMaxLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={100}
               max={250}
               step={1}
+              unit={t("common.units.hr")}
+              placeholder={ph.HR_max}
               value={m.HR_max ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("HR_max", val)}
@@ -225,20 +230,22 @@ export default function ProfileMetricInputs() {
               {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
-              {/* ✅ Nahradené za NumberWheelField pre AI Odhad */}
-              <NumberWheelField
-                min={20}
-                max={90}
+              <NumberField
+                min={0}
+                max={95}
                 step={1}
+                unit={t("common.units.vo2max")}
+                placeholder={ph.VO2Max_estimated}
                 value={m.VO2Max_estimated ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
               />
-              {/* ✅ Nahradené za NumberWheelField pre Hodinky */}
-              <NumberWheelField
-                min={20}
-                max={90}
+              <NumberField
+                min={0}
+                max={95}
                 step={1}
+                unit={t("common.units.vo2max")}
+                placeholder={ph.VO2Max_measured}
                 value={m.VO2Max_measured ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_measured", val)}

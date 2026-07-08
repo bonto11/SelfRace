@@ -8,7 +8,7 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -238,8 +238,9 @@ export default function RecoveryInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("recovery.inputs.rhrLabel")}
             </div>
-            <NumberWheelField
+            <NumberField
               min={30} max={150} step={1}
+              unit={t("common.units.hr")}
               value={rhr} disabled={saving}
               onChange={setRhr}
             />
@@ -250,8 +251,9 @@ export default function RecoveryInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("recovery.inputs.hrvAvgLabel")}
             </div>
-            <NumberWheelField
+            <NumberField
               min={10} max={250} step={1}
+              unit={t("common.units.ms")}
               value={hrvAvg} disabled={saving}
               onChange={setHrvAvg}
             />
@@ -266,8 +268,9 @@ export default function RecoveryInputs() {
                 <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {t("recovery.inputs.hrvMaxLabel")}
                 </div>
-                <NumberWheelField
+                <NumberField
                   min={10} max={300} step={1}
+                  unit={t("common.units.ms")}
                   value={hrvMax} disabled={saving}
                   onChange={setHrvMax}
                 />
@@ -328,13 +331,15 @@ export default function RecoveryInputs() {
                     {t("recovery.inputs.alcoholLabel")}
                   </div>
                   <div className={FORM_GRID_SPLIT}>
-                    <NumberWheelField
+                    <NumberField
                       min={0} max={2000} step={50}
+                      unit="ml"
                       value={alcoholVolume} disabled={saving}
                       onChange={setAlcoholVolume}
                     />
-                    <NumberWheelField
+                    <NumberField
                       min={0} max={80} step={1}
+                      unit={t("common.units.pct")}
                       value={alcoholType} disabled={saving}
                       onChange={setAlcoholType}
                     />

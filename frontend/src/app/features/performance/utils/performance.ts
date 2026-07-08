@@ -43,33 +43,28 @@ export function buildMetricPlaceholders(
 ) {
   return {
     weight_kg:
-      (latest?.weight_kg?.value != null
+      latest?.weight_kg?.value != null
         ? String(latest.weight_kg.value)
-        : "80") +
-      " " +
-      t("common.units.kg"),
+        : "80",
     body_fat_pct:
-      (latest?.body_fat_pct?.value != null
+      latest?.body_fat_pct?.value != null
         ? String(latest.body_fat_pct.value)
-        : "12") + t("common.units.pct"),
+        : "12",
     HR_max:
-      (latest?.HR_max?.value != null ? String(latest.HR_max.value) : "201 ") +
-      " " +
-      t("common.units.hr"),
+      latest?.HR_max?.value != null
+        ? String(latest.HR_max.value)
+        : "201",
     VO2Max_measured:
-      (latest?.VO2Max_measured?.value != null
+      latest?.VO2Max_measured?.value != null
         ? String(latest.VO2Max_measured.value)
-        : "46") +
-      " " +
-      t("common.units.vo2max"),
+        : "46",
     VO2Max_estimated:
-      (latest?.VO2Max_estimated?.value != null
+      latest?.VO2Max_estimated?.value != null
         ? String(latest.VO2Max_estimated.value)
-        : "48") +
-      " " +
-      t("common.units.vo2max"),
+        : "48",
   };
 }
+
 
 export function hexWithAlpha(hex?: string, a = 0.18): string {
   if (!hex) return `rgba(255,255,255,${a})`;
