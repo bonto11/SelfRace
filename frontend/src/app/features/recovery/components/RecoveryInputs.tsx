@@ -148,6 +148,46 @@ export default function RecoveryInputs() {
   }, [date, rows]);
 
   // ============================================================
+  // Predvyplniť z posledného záznamu (aj mimo aktuálneho dátumu)
+  // ============================================================
+  function handlePrefillAll() {
+    if (!rows || !rows.length) return;
+
+    const last = [...rows]
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .find((r: any) => r.RHR_bpm || r.HRV_avg_ms);
+
+    if (!last) return;
+
+    setRhr(last.RHR_bpm ?? FALLBACKS.RHR_bpm);
+    setHrvAvg(last.HRV_avg_ms ?? FALLBACKS.HRV_avg_ms);
+    setHrvMax(last.HRV_max_ms ?? FALLBACKS.HRV_max_ms);
+    setSleepDuration(minutesToHHMM(last.sleep_duration_min) || minutesToHHMM(FALLBACKS.sleep_duration_min));
+    setSleepStart(normalizeTime(last.sleep_start_time));
+    setLateFood(Boolean(last.food_2h_before));
+    setLateCaffeine(Boolean(last.caffeine_8h));
+    setAlcoholVolume((last as any).alcohol_volume_ml ?? "");
+    setAlcoholType((last as any).alcohol_type_pct ?? "");
+    setComments(last.comments ?? "");
+  }
+
+  // ============================================================
+  // Zrušiť všetko — vyprázdni všetky polia
+  // ============================================================
+  function handleClearAll() {
+    setRhr("");
+    setHrvAvg("");
+    setHrvMax("");
+    setSleepDuration("00:00");
+    setSleepStart("00:00");
+    setLateFood(false);
+    setLateCaffeine(false);
+    setAlcoholVolume("");
+    setAlcoholType("");
+    setComments("");
+  }
+
+  // ============================================================
   // SAVE — vždy uloží celý stav, žiadna dirty logika
   // ============================================================
   async function handleSave() {
@@ -231,6 +271,16 @@ export default function RecoveryInputs() {
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Predvyplniť / Zrušiť všetko */}
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" variant="secondary" onClick={handlePrefillAll} disabled={saving || !rows?.length}>
+            {t("performance.metrics.btnPrefillAll")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleClearAll} disabled={saving}>
+            {t("performance.metrics.btnClearAll")}
+          </Button>
+        </div>
+
         <div className={FORM_GRID_TWO}>
 
           {/* RHR */}
