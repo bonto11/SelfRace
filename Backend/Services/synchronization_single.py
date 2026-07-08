@@ -330,20 +330,33 @@ def service_sync_single_activity(
         except Exception as e:
             print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
 
-        # ✅ ---------- 6) KONTROLA REKORDOV ----------
+            # ✅ ---------- 6) KONTROLA REKORDOV ----------
     try:
         print(f"[SYNC:single] Checking records for activity_id={aid}...")
 
-        # TODO: streams z DB pre presný výpočet – zatiaľ splits fallback
+        streams_row = db_get_streams_one(
+            user_id=user_id,
+            activity_id=aid,
+            ctx=ctx,
+        )
+
+        streams_payload: Optional[Dict[str, List[float]]] = None
+        if streams_row and streams_row.get("time_s") and streams_row.get("distance_m"):
+            streams_payload = {
+                "time": streams_row["time_s"],
+                "distance": streams_row["distance_m"],
+            }
+
         service_check_activity_records(
             user_id=user_id,
             activity=row,
             splits=split_rows if fetch_details and mode == "splits" else [],
             ctx=ctx,
-            streams=None,
+            streams=streams_payload,
         )
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] Records check failed id={aid}: {e}")
+
 
     # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
     if imported > 0:
