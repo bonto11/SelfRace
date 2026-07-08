@@ -40,7 +40,10 @@ export default function ProfileStaticInputs() {
 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // `data` je to, čo sa reálne uloží. `heightPlaceholder` je len zobrazenie z DB.
   const [data, setData] = useState<StaticProfile>(EMPTY);
+  const [heightPlaceholder, setHeightPlaceholder] = useState<string>("");
 
   useEffect(() => {
     if (!userId) return;
@@ -50,9 +53,12 @@ export default function ProfileStaticInputs() {
       setLoading(true);
       try {
         const d = await apiGetStaticProfile(userId);
-        // `d` z DB sa rovno naleje do `data` — takže input je vopred
-        // vyplnený existujúcou hodnotou a Uložiť ju pošle aj bez zmeny.
-        if (alive && d) setData(d);
+        if (!alive || !d) return;
+
+        // sex a birth_date sa dajú predvyplniť rovno (nie sú to "veľké" polia
+        // riskujúce omylom uloženie), výška ide len ako placeholder.
+        setData({ ...d, height_cm: null });
+        setHeightPlaceholder(d.height_cm != null ? String(d.height_cm) : "");
       } catch (e: any) {
         console.warn("[ProfileStaticInputs] load failed");
       } finally {
@@ -69,7 +75,8 @@ export default function ProfileStaticInputs() {
     try {
       setLoading(true);
       const saved = await apiSaveStaticProfile(userId, data);
-      setData(saved);
+      setData({ ...saved, height_cm: null });
+      setHeightPlaceholder(saved.height_cm != null ? String(saved.height_cm) : "");
       toast.success(t("performance.static.saveSuccess"));
       setOpen(false);
     } catch (e: any) {
@@ -125,7 +132,7 @@ export default function ProfileStaticInputs() {
             />
           </section>
 
-          {/* Výška */}
+          {/* Výška — placeholder z DB, uloží sa len ak user zadá novú hodnotu */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.static.height")}
@@ -135,6 +142,7 @@ export default function ProfileStaticInputs() {
               max={250}
               step={1}
               unit={t("common.units.cm")}
+              placeholder={heightPlaceholder}
               value={data.height_cm ?? ""}
               disabled={loading}
               onChange={(val) => setData(s => ({ ...s, height_cm: val === "" ? null : val }))}
