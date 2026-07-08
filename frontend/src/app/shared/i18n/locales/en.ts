@@ -2055,6 +2055,8 @@ replan: {
       previewWeight: "Weight",
       previewFat: "Fat",
       previewHrMax: "Max HR",
+      btnPrefillAll: "Prefill from last values",
+      btnClearAll: "Clear all",
     },
   },
   upcomingRace: {

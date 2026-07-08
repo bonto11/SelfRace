@@ -2040,6 +2040,8 @@ replan: {
       previewWeight: "Váha",
       previewFat: "Tuk",
       previewHrMax: "Maximálny tep",
+      btnPrefillAll: "Predvyplniť z posledných hodnôt",
+      btnClearAll: "Zrušiť všetko",
     },
   },
   upcomingRace: {

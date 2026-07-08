@@ -36,6 +36,18 @@ export function formatBmiFromLatest(latest: LatestMetricsMap | null): string {
   return Number.isFinite(bmi as number) ? (bmi as number).toFixed(1) : "—";
 }
 
+/** Live BMI výpočet z aktuálnej váhy a výšky (bez čakania na server). */
+export function computeBmiLive(
+  weightKg: number | null,
+  heightCm: number | null,
+): string | null {
+  if (!weightKg || !heightCm) return null;
+  const heightM = heightCm / 100;
+  const bmi = weightKg / (heightM * heightM);
+  if (!Number.isFinite(bmi)) return null;
+  return bmi.toFixed(1);
+}
+
 /** Placeholder texty pre inputs. */
 export function buildMetricPlaceholders(
   t: any,
