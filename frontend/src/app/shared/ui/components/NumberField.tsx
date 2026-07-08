@@ -64,7 +64,6 @@ export default function NumberField({
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
 
-    // Povolíme prázdny string (user maže hodnotu) a čiastočný zápis desatinného čísla ("12.")
     if (raw === "") {
       onChange("");
       return;
@@ -73,7 +72,14 @@ export default function NumberField({
     // Nahradíme čiarku za bodku (SK klávesnica dáva čiarku)
     const normalized = raw.replace(",", ".");
 
+    // Povolíme aj čiastočný zápis desatinného čísla (napr. "12." počas písania)
     if (!/^\d*\.?\d*$/.test(normalized)) return;
+
+    if (normalized.endsWith(".")) {
+      // Necháme string prejsť ako medzikrok, aby používateľ mohol dopísať desatiny
+      onChange(normalized as unknown as number);
+      return;
+    }
 
     const num = Number(normalized);
     if (Number.isNaN(num)) return;
@@ -84,6 +90,10 @@ export default function NumberField({
   function handleBlur() {
     if (value === "" || value === null) return;
     let num = Number(value);
+    if (Number.isNaN(num)) {
+      onChange("");
+      return;
+    }
     if (min != null && num < min) num = min;
     if (max != null && num > max) num = max;
     onChange(num);
@@ -97,7 +107,6 @@ export default function NumberField({
         <input
           type="text"
           inputMode="decimal"
-          pattern="[0-9]*"
           value={displayValue}
           placeholder={placeholder}
           disabled={effectiveDisabled}
@@ -107,7 +116,8 @@ export default function NumberField({
         />
         {unit && (
           <span
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium opacity-50 pointer-events-none"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+            style={{ color: "#111111" }}
           >
             {unit}
           </span>
