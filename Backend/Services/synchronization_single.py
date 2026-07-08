@@ -37,6 +37,8 @@ from Configs.config import (
 )
 
 from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
+from Services.notifications import service_notify_new_activity
+from Services.records_check import service_check_activity_records
 
 
 # -------------------------------------------------------------------
@@ -326,6 +328,26 @@ def service_sync_single_activity(
             )
         except Exception as e:
             print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
+
+        # ✅ ---------- 6) KONTROLA REKORDOV (zatiaľ len výpis) ----------
+    try:
+        print(f"[SYNC:single] Checking records for activity_id={aid}...")
+
+        # TODO: sem napojíme streams z DB/Stravy pre presný výpočet
+        service_check_activity_records(
+            activity=row,
+            splits=split_rows if fetch_details and mode == "splits" else [],
+            streams=None,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] Records check failed id={aid}: {e}")
+
+    # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
+    if imported > 0:
+        try:
+            service_notify_new_activity(user_id=user_id, ctx=ctx)
+        except Exception as e:  # noqa: BLE001
+            print(f"[SYNC:single] New activity notification failed id={aid}: {e}")
 
     return {
         "imported": int(imported),
