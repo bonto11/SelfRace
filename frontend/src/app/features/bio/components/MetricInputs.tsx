@@ -177,8 +177,8 @@ export default function ProfileMetricInputs() {
             </div>
             <NumberField
               min={30}
-              max={200}
-              step={0.5}
+              max={250}
+              step={0.1}
               unit={t("common.units.kg")}
               placeholder={ph.weight_kg}
               value={m.weight_kg ?? ""}
@@ -195,7 +195,7 @@ export default function ProfileMetricInputs() {
             <NumberField
               min={3}
               max={50}
-              step={0.5}
+              step={0.1}
               unit={t("common.units.pct")}
               placeholder={ph.body_fat_pct}
               value={m.body_fat_pct ?? ""}
@@ -228,8 +228,8 @@ export default function ProfileMetricInputs() {
             </div>
             <div className={FORM_GRID_SPLIT}>
               <NumberField
-                min={20}
-                max={90}
+                min={0}
+                max={95}
                 step={1}
                 unit={t("common.units.vo2max")}
                 placeholder={ph.VO2Max_estimated}
@@ -238,8 +238,8 @@ export default function ProfileMetricInputs() {
                 onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
               />
               <NumberField
-                min={20}
-                max={90}
+                min={0}
+                max={95}
                 step={1}
                 unit={t("common.units.vo2max")}
                 placeholder={ph.VO2Max_measured}
