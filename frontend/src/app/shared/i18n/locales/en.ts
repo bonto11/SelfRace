@@ -117,6 +117,7 @@ export const en = {
       min: "min",
       hour: "h",
       meter: "m",
+      cm:"cm",
       km: "km",
       power: "W (Watts)",
       vo2max: "ml/kg/min",
