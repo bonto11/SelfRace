@@ -33,7 +33,6 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   SECTION,
   FORM_GRID_TWO,
-  FORM_GRID_SPLIT,
   PANEL_STACK,
   SECTION_STYLE,
   INPUTS_CARD_BODY,
@@ -66,6 +65,7 @@ export default function ProfileMetricInputs() {
   const [loading, setLoading] = useState(false);
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
+  // `m` ostáva prázdny kým user nezačne písať — hodnota z DB je len placeholder
   const [m, setM] = useState<MetricState>(EMPTY_STATE);
   const [dirty, setDirty] = useState<DirtyMap>(EMPTY_DIRTY);
 
@@ -80,26 +80,13 @@ export default function ProfileMetricInputs() {
         apiGetHrMaxLatest(uid),
       ]);
 
-      const latestMap: LatestMetricsMap = {
+      setLatest({
         VO2Max_measured: vMeas?.data,
         VO2Max_estimated: vEst?.data,
         body_fat_pct: bFat?.data,
         weight_kg: weight?.data,
         HR_max: hrMax?.data,
-      };
-
-      setLatest(latestMap);
-
-      // Predvyplníme `m` hodnotami z DB, aby sa pri Uložiť poslali
-      // aj nezmenené hodnoty (nie len placeholder).
-      setM({
-        weight_kg: latestMap.weight_kg?.value ?? null,
-        body_fat_pct: latestMap.body_fat_pct?.value ?? null,
-        HR_max: latestMap.HR_max?.value ?? null,
-        VO2Max_measured: latestMap.VO2Max_measured?.value ?? null,
-        VO2Max_estimated: latestMap.VO2Max_estimated?.value ?? null,
       });
-      setDirty(EMPTY_DIRTY);
     } catch (e) {
       console.warn("[ProfileMetricInputs] bulk load failed");
     } finally {
@@ -115,7 +102,7 @@ export default function ProfileMetricInputs() {
   const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
 
   function onChangeNumber<K extends EditableMetricKey>(key: K, val: number | "") {
-    setDirty((d) => ({ ...d, [key]: true }));
+    setDirty((d) => ({ ...d, [key]: val !== "" }));
     setM((s) => ({ ...s, [key]: val === "" ? null : val }));
   }
 
@@ -125,10 +112,9 @@ export default function ProfileMetricInputs() {
       return;
     }
 
-    // Ukladáme všetky polia, ktoré majú vyplnenú hodnotu (z DB alebo novo zadanú).
-    // Prázdne (placeholder-only) polia sa neukladajú.
-    const toSave = (Object.keys(m) as EditableMetricKey[]).filter(
-      (k) => m[k] !== null
+    // Ukladáme len polia, ktoré user skutočne vyplnil (dirty), nie placeholder hodnoty.
+    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(
+      (k) => dirty[k] && m[k] !== null
     );
 
     if (!toSave.length) {
@@ -145,6 +131,9 @@ export default function ProfileMetricInputs() {
       toast.success(t("performance.metrics.saveSuccess"));
 
       await loadAllLatest(userId);
+
+      setM(EMPTY_STATE);
+      setDirty(EMPTY_DIRTY);
       setOpen(false);
     } catch (e) {
       toast.error(t("api.performance.metricsSaveFailed"));
@@ -224,33 +213,21 @@ export default function ProfileMetricInputs() {
             />
           </section>
 
-          {/* VO2 Max Duo */}
+          {/* VO2 Max — len laboratórne meraná, odhad generuje systém */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("VO2Max.title")}
             </div>
-            <div className={FORM_GRID_SPLIT}>
-              <NumberField
-                min={0}
-                max={95}
-                step={1}
-                unit={t("common.units.vo2max")}
-                placeholder={ph.VO2Max_estimated}
-                value={m.VO2Max_estimated ?? ""}
-                disabled={loading}
-                onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
-              />
-              <NumberField
-                min={0}
-                max={95}
-                step={1}
-                unit={t("common.units.vo2max")}
-                placeholder={ph.VO2Max_measured}
-                value={m.VO2Max_measured ?? ""}
-                disabled={loading}
-                onChange={(val) => onChangeNumber("VO2Max_measured", val)}
-              />
-            </div>
+            <NumberField
+              min={0}
+              max={95}
+              step={1}
+              unit={t("common.units.vo2max")}
+              placeholder={ph.VO2Max_measured}
+              value={m.VO2Max_measured ?? ""}
+              disabled={loading}
+              onChange={(val) => onChangeNumber("VO2Max_measured", val)}
+            />
           </section>
 
           {/* BMI (Zostáva obyčajný TextField lebo je len na čítanie) */}
