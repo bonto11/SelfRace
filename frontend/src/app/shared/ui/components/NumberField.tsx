@@ -30,6 +30,7 @@ type Props = {
   step?: number;
   value: number | "" | null;
   onChange: (val: number | "") => void;
+  showReset?: boolean;
 };
 
 function decimalsFromStep(step?: number): number {
@@ -54,6 +55,7 @@ export default function NumberField({
   step,
   value,
   onChange,
+  showReset = true,
 }: Props) {
   const editable = variant === "editable";
   const effectiveDisabled = disabled || !editable;
@@ -68,6 +70,7 @@ export default function NumberField({
 
   const displayValue = value === null || value === "" ? "" : String(value);
   const decimals = decimalsFromStep(step);
+  const hasValue = value !== null && value !== "";
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
@@ -77,13 +80,10 @@ export default function NumberField({
       return;
     }
 
-    // Nahradíme čiarku za bodku (SK klávesnica dáva čiarku)
     const normalized = raw.replace(",", ".");
 
-    // Povolíme aj čiastočný zápis desatinného čísla (napr. "12." počas písania)
     if (!/^\d*\.?\d*$/.test(normalized)) return;
 
-    // Obmedzíme počet desatinných miest podľa `step` už počas písania
     const dotIdx = normalized.indexOf(".");
     if (dotIdx !== -1 && decimals >= 0) {
       const decimalsPart = normalized.slice(dotIdx + 1);
@@ -109,13 +109,16 @@ export default function NumberField({
       return;
     }
 
-    // Zaokrúhlime na presnosť daného `step` (napr. step=1 → celé číslo, step=0.1 → 1 desatina)
     const factor = Math.pow(10, decimals);
     num = Math.round(num * factor) / factor;
 
     if (min != null && num < min) num = min;
     if (max != null && num > max) num = max;
     onChange(num);
+  }
+
+  function handleReset() {
+    onChange("");
   }
 
   return (
@@ -131,8 +134,26 @@ export default function NumberField({
           disabled={effectiveDisabled}
           onChange={handleChange}
           onBlur={handleBlur}
-          className={cx(baseClass, error && FIELD_ERROR, unit && "pr-12", className)}
+          className={cx(
+            baseClass,
+            error && FIELD_ERROR,
+            unit && (showReset && hasValue ? "pr-20" : "pr-12"),
+            className
+          )}
         />
+
+        {showReset && hasValue && !effectiveDisabled && (
+          <button
+            type="button"
+            onClick={handleReset}
+            aria-label="Reset"
+            className="absolute right-9 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none opacity-50 hover:opacity-90 transition-opacity"
+            style={{ color: "#111111", border: "1px solid currentColor" }}
+          >
+            ✕
+          </button>
+        )}
+
         {unit && (
           <span
             className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
