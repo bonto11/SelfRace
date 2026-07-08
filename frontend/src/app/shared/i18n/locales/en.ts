@@ -2639,6 +2639,15 @@ replan: {
       unitReps: "reps",
       unitSets: "sets",
       unitRest: "rest",
+      "sectionBestSegments": "Best Segments",
+      "segments": {
+        "1k": "1 km",
+        "5k": "5 km",
+        "10k": "10 km",
+        "half": "Half Marathon",
+        "marathon": "Marathon",
+        "50k": "50 km"
+      },
       plan: {
         target: "goal",
         work: "Load",
