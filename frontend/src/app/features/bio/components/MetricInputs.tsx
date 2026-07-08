@@ -42,6 +42,22 @@ import {
 } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
 
+const EMPTY_STATE: MetricState = {
+  weight_kg: null,
+  body_fat_pct: null,
+  HR_max: null,
+  VO2Max_measured: null,
+  VO2Max_estimated: null,
+};
+
+const EMPTY_DIRTY: DirtyMap = {
+  weight_kg: false,
+  body_fat_pct: false,
+  HR_max: false,
+  VO2Max_measured: false,
+  VO2Max_estimated: false,
+};
+
 export default function ProfileMetricInputs() {
   const { userId } = useUserId() as { userId: number | null };
   const t = useT();
@@ -50,21 +66,8 @@ export default function ProfileMetricInputs() {
   const [loading, setLoading] = useState(false);
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
-  const [m, setM] = useState<MetricState>({
-    weight_kg: null,
-    body_fat_pct: null,
-    HR_max: null,
-    VO2Max_measured: null,
-    VO2Max_estimated: null,
-  });
-
-  const [dirty, setDirty] = useState<DirtyMap>({
-    weight_kg: false,
-    body_fat_pct: false,
-    HR_max: false,
-    VO2Max_measured: false,
-    VO2Max_estimated: false,
-  });
+  const [m, setM] = useState<MetricState>(EMPTY_STATE);
+  const [dirty, setDirty] = useState<DirtyMap>(EMPTY_DIRTY);
 
   const loadAllLatest = useCallback(async (uid: number) => {
     try {
@@ -77,13 +80,26 @@ export default function ProfileMetricInputs() {
         apiGetHrMaxLatest(uid),
       ]);
 
-      setLatest({
+      const latestMap: LatestMetricsMap = {
         VO2Max_measured: vMeas?.data,
         VO2Max_estimated: vEst?.data,
         body_fat_pct: bFat?.data,
         weight_kg: weight?.data,
         HR_max: hrMax?.data,
+      };
+
+      setLatest(latestMap);
+
+      // Predvyplníme `m` hodnotami z DB, aby sa pri Uložiť poslali
+      // aj nezmenené hodnoty (nie len placeholder).
+      setM({
+        weight_kg: latestMap.weight_kg?.value ?? null,
+        body_fat_pct: latestMap.body_fat_pct?.value ?? null,
+        HR_max: latestMap.HR_max?.value ?? null,
+        VO2Max_measured: latestMap.VO2Max_measured?.value ?? null,
+        VO2Max_estimated: latestMap.VO2Max_estimated?.value ?? null,
       });
+      setDirty(EMPTY_DIRTY);
     } catch (e) {
       console.warn("[ProfileMetricInputs] bulk load failed");
     } finally {
@@ -109,8 +125,10 @@ export default function ProfileMetricInputs() {
       return;
     }
 
-    const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(
-      (k) => dirty[k] && m[k] !== null
+    // Ukladáme všetky polia, ktoré majú vyplnenú hodnotu (z DB alebo novo zadanú).
+    // Prázdne (placeholder-only) polia sa neukladajú.
+    const toSave = (Object.keys(m) as EditableMetricKey[]).filter(
+      (k) => m[k] !== null
     );
 
     if (!toSave.length) {
@@ -127,21 +145,6 @@ export default function ProfileMetricInputs() {
       toast.success(t("performance.metrics.saveSuccess"));
 
       await loadAllLatest(userId);
-
-      setM({
-        weight_kg: null,
-        body_fat_pct: null,
-        HR_max: null,
-        VO2Max_measured: null,
-        VO2Max_estimated: null,
-      });
-      setDirty({
-        weight_kg: false,
-        body_fat_pct: false,
-        HR_max: false,
-        VO2Max_measured: false,
-        VO2Max_estimated: false,
-      });
       setOpen(false);
     } catch (e) {
       toast.error(t("api.performance.metricsSaveFailed"));
