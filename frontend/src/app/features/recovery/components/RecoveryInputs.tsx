@@ -189,4 +189,180 @@ export default function RecoveryInputs() {
   }`;
 
   const tooltipContent =
-    "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá regenerácie. Zapisovať by sa mali ideálne hneď ráno. Ak HRV klesne (alebo RHR stúpne) o viac
+    "RHR (pokojový tep) a HRV (variabilita tepu) sú hlavné zrkadlá regenerácie. Zapisovať by sa mali ideálne hneď ráno. Ak HRV klesne (alebo RHR stúpne) o viac ako 7–10 % oproti normálu, telo hlási preťaženie. Môže za to ťažký tréning, stres, blížiaca sa choroba, ale aj alkohol či ťažké jedlo neskoro večer. Tréner na základe týchto dát vie ochrániť zdravie a upraviť dnešný plán.";
+
+  return (
+    <InputsCard
+      title={t("recovery.title")}
+      subtitle={t("recovery.inputs.subtitle")}
+      tooltip={tooltipContent}
+      open={open}
+      onOpenChange={setOpen}
+      preview={previewText}
+      always={
+        <div className={INPUTS_CARD_DATE_ROW}>
+          <div className={INPUTS_CARD_DATE_INNER}>
+            <Button size="sm" variant="ghost" onClick={() => setDate((d) => addDaysIso(d, -1))} disabled={saving}>
+              −1
+            </Button>
+            <DateField
+              value={date}
+              onChange={(v) => setDate(v ?? todayIso)}
+              disabled={saving}
+              className={INPUTS_CARD_DATE_PILL}
+              variant="editable"
+            />
+            <Button size="sm" variant="ghost" onClick={() => setDate((d) => addDaysIso(d, +1))} disabled={saving}>
+              +1
+            </Button>
+          </div>
+        </div>
+      }
+      actions={
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={handleSave}
+          disabled={saving || !userId}
+          className={INPUTS_CARD_SAVE_BTN}
+        >
+          {saving ? t("common.saving") : t("common.save")}
+        </Button>
+      }
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        <div className={FORM_GRID_TWO}>
+
+          {/* RHR */}
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              {t("recovery.inputs.rhrLabel")}
+            </div>
+            <NumberField
+              min={30} max={150} step={1}
+              unit={t("common.units.hr")}
+              value={rhr} disabled={saving}
+              onChange={setRhr}
+            />
+          </section>
+
+          {/* HRV avg */}
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+              {t("recovery.inputs.hrvAvgLabel")}
+            </div>
+            <NumberField
+              min={10} max={250} step={1}
+              unit={t("common.units.ms")}
+              value={hrvAvg} disabled={saving}
+              onChange={setHrvAvg}
+            />
+          </section>
+
+          {/* Advanced sekcia */}
+          {showAdvanced && (
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-top-1 duration-200 mt-2">
+
+              {/* HRV max */}
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                  {t("recovery.inputs.hrvMaxLabel")}
+                </div>
+                <NumberField
+                  min={10} max={300} step={1}
+                  unit={t("common.units.ms")}
+                  value={hrvMax} disabled={saving}
+                  onChange={setHrvMax}
+                />
+              </section>
+
+              {/* Dĺžka spánku */}
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                  {t("recovery.inputs.sleepDurationLabel")}
+                </div>
+                <TimeSelectorField
+                  hh={true} mm={true} ss={false}
+                  value={sleepDuration || "00:00"}
+                  disabled={saving}
+                  onChange={setSleepDuration}
+                />
+              </section>
+
+              {/* Čas zaspania */}
+              <section className={SECTION} style={SECTION_STYLE}>
+                <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                  {t("recovery.inputs.sleepStartLabel")}
+                </div>
+                <TimeSelectorField
+                  hh={true} mm={true} ss={false}
+                  value={sleepStart || "00:00"}
+                  disabled={saving}
+                  onChange={setSleepStart}
+                />
+              </section>
+
+              {/* Faktory */}
+              <section className={SECTION + " md:col-span-2 mt-2"} style={SECTION_STYLE}>
+                <div className={INPUTS_CARD_LABEL_SM_2} style={{ color: appColors.textMuted }}>
+                  {t("recovery.inputs.factorsSection")}
+                </div>
+
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  <Checkbox
+                    containerClassName={INPUTS_CARD_CHECK_ROW_MB}
+                    checked={lateFood}
+                    onChange={(e) => setLateFood(e.currentTarget.checked)}
+                    disabled={saving}
+                    label={t("recovery.inputs.lateFoodLabel")}
+                  />
+                  <Checkbox
+                    containerClassName={INPUTS_CARD_CHECK_ROW_MB}
+                    checked={lateCaffeine}
+                    onChange={(e) => setLateCaffeine(e.currentTarget.checked)}
+                    disabled={saving}
+                    label={t("recovery.inputs.lateCaffeineLabel")}
+                  />
+                </div>
+
+                {/* Alkohol */}
+                <div className="mt-3">
+                  <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                    {t("recovery.inputs.alcoholLabel")}
+                  </div>
+                  <div className={FORM_GRID_SPLIT}>
+                    <NumberField
+                      min={0} max={2000} step={50}
+                      unit="ml"
+                      value={alcoholVolume} disabled={saving}
+                      onChange={setAlcoholVolume}
+                    />
+                    <NumberField
+                      min={0} max={80} step={1}
+                      unit={t("common.units.pct")}
+                      value={alcoholType} disabled={saving}
+                      onChange={setAlcoholType}
+                    />
+                  </div>
+                </div>
+
+                {/* Poznámka */}
+                <div className="mt-3">
+                  <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
+                    {t("recovery.inputs.noteLabel")}
+                  </div>
+                  <TextField
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                    placeholder={t("recovery.inputs.notePlaceholder")}
+                    disabled={saving}
+                  />
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      </div>
+    </InputsCard>
+  );
+}
