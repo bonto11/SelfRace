@@ -6,8 +6,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
-// ✅ Import nášho točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import { toast } from "@/app/shared/ui/components/Toast";
 
 import {
@@ -126,7 +125,7 @@ export default function ProfileMetricInputs() {
       );
 
       toast.success(t("performance.metrics.saveSuccess"));
-      
+
       await loadAllLatest(userId);
 
       setM({
@@ -176,11 +175,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.weightLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={30}
               max={200}
               step={0.5}
+              unit={t("common.units.kg")}
+              placeholder={ph.weight_kg}
               value={m.weight_kg ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("weight_kg", val)}
@@ -192,11 +192,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.fatLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={3}
               max={50}
               step={0.5}
+              unit={t("common.units.pct")}
+              placeholder={ph.body_fat_pct}
               value={m.body_fat_pct ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("body_fat_pct", val)}
@@ -208,11 +209,12 @@ export default function ProfileMetricInputs() {
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.hrMaxLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField */}
-            <NumberWheelField
+            <NumberField
               min={100}
               max={250}
               step={1}
+              unit={t("common.units.hr")}
+              placeholder={ph.HR_max}
               value={m.HR_max ?? ""}
               disabled={loading}
               onChange={(val) => onChangeNumber("HR_max", val)}
@@ -225,20 +227,22 @@ export default function ProfileMetricInputs() {
               {t("VO2Max.title")}
             </div>
             <div className={FORM_GRID_SPLIT}>
-              {/* ✅ Nahradené za NumberWheelField pre AI Odhad */}
-              <NumberWheelField
+              <NumberField
                 min={20}
                 max={90}
                 step={1}
+                unit={t("common.units.vo2max")}
+                placeholder={ph.VO2Max_estimated}
                 value={m.VO2Max_estimated ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_estimated", val)}
               />
-              {/* ✅ Nahradené za NumberWheelField pre Hodinky */}
-              <NumberWheelField
+              <NumberField
                 min={20}
                 max={90}
                 step={1}
+                unit={t("common.units.vo2max")}
+                placeholder={ph.VO2Max_measured}
                 value={m.VO2Max_measured ?? ""}
                 disabled={loading}
                 onChange={(val) => onChangeNumber("VO2Max_measured", val)}
