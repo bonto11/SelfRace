@@ -26,7 +26,6 @@ import type {
 } from "@/app/features/performance/types/performance";
 import {
   buildMetricPlaceholders,
-  formatBmiFromLatest,
 } from "@/app/features/performance/utils/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -65,9 +64,12 @@ export default function ProfileMetricInputs() {
   const [loading, setLoading] = useState(false);
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
 
-  // `m` ostáva prázdny kým user nezačne písať — hodnota z DB je len placeholder
   const [m, setM] = useState<MetricState>(EMPTY_STATE);
   const [dirty, setDirty] = useState<DirtyMap>(EMPTY_DIRTY);
+
+  // Potrebujeme aj výšku pre live BMI výpočet — natiahneme ju samostatne,
+  // keďže je súčasťou static profilu, nie metrics.
+  const [heightCm, setHeightCm] = useState<number | null>(null);
 
   const loadAllLatest = useCallback(async (uid: number) => {
     try {
@@ -99,11 +101,47 @@ export default function ProfileMetricInputs() {
   }, [userId, loadAllLatest]);
 
   const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
-  const bmiText = useMemo(() => formatBmiFromLatest(latest), [latest]);
+
+  // Live BMI — počíta sa z aktuálne zadanej váhy (m.weight_kg), alebo ak nie je
+  // zadaná, z placeholder hodnoty (poslednej z DB). Výška rovnako.
+  const liveWeightKg = m.weight_kg ?? (latest?.weight_kg?.value ?? null);
+  const liveHeightCm = heightCm;
+
+  const bmiText = useMemo(() => {
+    if (!liveWeightKg || !liveHeightCm) return null;
+    const heightM = liveHeightCm / 100;
+    const bmi = liveWeightKg / (heightM * heightM);
+    if (!Number.isFinite(bmi)) return null;
+    return bmi.toFixed(1);
+  }, [liveWeightKg, liveHeightCm]);
 
   function onChangeNumber<K extends EditableMetricKey>(key: K, val: number | "") {
     setDirty((d) => ({ ...d, [key]: val !== "" }));
     setM((s) => ({ ...s, [key]: val === "" ? null : val }));
+  }
+
+  // "Predvyplniť" — natiahne posledné hodnoty z DB priamo do inputov
+  function handlePrefillAll() {
+    setM({
+      weight_kg: latest?.weight_kg?.value ?? null,
+      body_fat_pct: latest?.body_fat_pct?.value ?? null,
+      HR_max: latest?.HR_max?.value ?? null,
+      VO2Max_measured: latest?.VO2Max_measured?.value ?? null,
+      VO2Max_estimated: null,
+    });
+    setDirty({
+      weight_kg: latest?.weight_kg?.value != null,
+      body_fat_pct: latest?.body_fat_pct?.value != null,
+      HR_max: latest?.HR_max?.value != null,
+      VO2Max_measured: latest?.VO2Max_measured?.value != null,
+      VO2Max_estimated: false,
+    });
+  }
+
+  // "Zrušiť všetko" — vyprázdni všetky polia späť na placeholder stav
+  function handleClearAll() {
+    setM(EMPTY_STATE);
+    setDirty(EMPTY_DIRTY);
   }
 
   async function handleSave() {
@@ -112,7 +150,6 @@ export default function ProfileMetricInputs() {
       return;
     }
 
-    // Ukladáme len polia, ktoré user skutočne vyplnil (dirty), nie placeholder hodnoty.
     const toSave = (Object.keys(dirty) as EditableMetricKey[]).filter(
       (k) => dirty[k] && m[k] !== null
     );
@@ -161,6 +198,16 @@ export default function ProfileMetricInputs() {
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        {/* Predvyplniť / Zrušiť všetko */}
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" variant="secondary" onClick={handlePrefillAll} disabled={loading || !userId}>
+            {t("performance.metrics.btnPrefillAll")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleClearAll} disabled={loading}>
+            {t("performance.metrics.btnClearAll")}
+          </Button>
+        </div>
+
         <div className={FORM_GRID_TWO}>
           {/* Váha */}
           <section className={SECTION} style={SECTION_STYLE}>
@@ -230,7 +277,7 @@ export default function ProfileMetricInputs() {
             />
           </section>
 
-          {/* BMI (Zostáva obyčajný TextField lebo je len na čítanie) */}
+          {/* BMI (Zostáva obyčajný TextField lebo je len na čítanie, live prepočet) */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.bmiLabel")}
