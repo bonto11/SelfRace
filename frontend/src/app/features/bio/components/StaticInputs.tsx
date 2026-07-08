@@ -50,6 +50,8 @@ export default function ProfileStaticInputs() {
       setLoading(true);
       try {
         const d = await apiGetStaticProfile(userId);
+        // `d` z DB sa rovno naleje do `data` — takže input je vopred
+        // vyplnený existujúcou hodnotou a Uložiť ju pošle aj bez zmeny.
         if (alive && d) setData(d);
       } catch (e: any) {
         console.warn("[ProfileStaticInputs] load failed");
