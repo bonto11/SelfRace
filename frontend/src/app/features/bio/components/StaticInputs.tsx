@@ -132,7 +132,7 @@ export default function ProfileStaticInputs() {
               min={100}
               max={250}
               step={1}
-              unit={t("common.units.meter") === "m" ? "cm" : t("common.units.meter")}
+              unit={t("common.units.cm")}
               value={data.height_cm ?? ""}
               disabled={loading}
               onChange={(val) => setData(s => ({ ...s, height_cm: val === "" ? null : val }))}
