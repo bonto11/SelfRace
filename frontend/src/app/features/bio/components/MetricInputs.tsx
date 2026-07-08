@@ -17,6 +17,7 @@ import {
   apiGetHrMaxLatest,
   apiSaveMetric,
 } from "@/app/features/performance/api/userMetrics";
+import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 import type {
   LatestMetricsMap,
@@ -26,6 +27,7 @@ import type {
 } from "@/app/features/performance/types/performance";
 import {
   buildMetricPlaceholders,
+  computeBmiLive,
 } from "@/app/features/performance/utils/performance";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
@@ -63,23 +65,21 @@ export default function ProfileMetricInputs() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [latest, setLatest] = useState<LatestMetricsMap | null>(null);
+  const [heightCm, setHeightCm] = useState<number | null>(null);
 
   const [m, setM] = useState<MetricState>(EMPTY_STATE);
   const [dirty, setDirty] = useState<DirtyMap>(EMPTY_DIRTY);
 
-  // Potrebujeme aj výšku pre live BMI výpočet — natiahneme ju samostatne,
-  // keďže je súčasťou static profilu, nie metrics.
-  const [heightCm, setHeightCm] = useState<number | null>(null);
-
   const loadAllLatest = useCallback(async (uid: number) => {
     try {
       setLoading(true);
-      const [vMeas, vEst, bFat, weight, hrMax] = await Promise.all([
+      const [vMeas, vEst, bFat, weight, hrMax, staticProfile] = await Promise.all([
         apiGetVo2MeasuredLatest(uid),
         apiGetVo2EstimatedLatest(uid),
         apiGetBodyFatLatest(uid),
         apiGetWeightLatest(uid),
         apiGetHrMaxLatest(uid),
+        apiGetStaticProfile(uid),
       ]);
 
       setLatest({
@@ -89,6 +89,8 @@ export default function ProfileMetricInputs() {
         weight_kg: weight?.data,
         HR_max: hrMax?.data,
       });
+
+      setHeightCm(staticProfile?.height_cm ?? null);
     } catch (e) {
       console.warn("[ProfileMetricInputs] bulk load failed");
     } finally {
@@ -102,25 +104,18 @@ export default function ProfileMetricInputs() {
 
   const ph = useMemo(() => buildMetricPlaceholders(t, latest), [latest, t]);
 
-  // Live BMI — počíta sa z aktuálne zadanej váhy (m.weight_kg), alebo ak nie je
-  // zadaná, z placeholder hodnoty (poslednej z DB). Výška rovnako.
-  const liveWeightKg = m.weight_kg ?? (latest?.weight_kg?.value ?? null);
-  const liveHeightCm = heightCm;
-
-  const bmiText = useMemo(() => {
-    if (!liveWeightKg || !liveHeightCm) return null;
-    const heightM = liveHeightCm / 100;
-    const bmi = liveWeightKg / (heightM * heightM);
-    if (!Number.isFinite(bmi)) return null;
-    return bmi.toFixed(1);
-  }, [liveWeightKg, liveHeightCm]);
+  // Live BMI — reaguje na zadanú váhu (m.weight_kg), fallback na poslednú z DB.
+  const liveWeightKg = m.weight_kg ?? latest?.weight_kg?.value ?? null;
+  const bmiText = useMemo(
+    () => computeBmiLive(liveWeightKg, heightCm) ?? "—",
+    [liveWeightKg, heightCm]
+  );
 
   function onChangeNumber<K extends EditableMetricKey>(key: K, val: number | "") {
     setDirty((d) => ({ ...d, [key]: val !== "" }));
     setM((s) => ({ ...s, [key]: val === "" ? null : val }));
   }
 
-  // "Predvyplniť" — natiahne posledné hodnoty z DB priamo do inputov
   function handlePrefillAll() {
     setM({
       weight_kg: latest?.weight_kg?.value ?? null,
@@ -138,7 +133,6 @@ export default function ProfileMetricInputs() {
     });
   }
 
-  // "Zrušiť všetko" — vyprázdni všetky polia späť na placeholder stav
   function handleClearAll() {
     setM(EMPTY_STATE);
     setDirty(EMPTY_DIRTY);
@@ -277,12 +271,12 @@ export default function ProfileMetricInputs() {
             />
           </section>
 
-          {/* BMI (Zostáva obyčajný TextField lebo je len na čítanie, live prepočet) */}
+          {/* BMI (live prepočet z aktuálnej váhy + výšky) */}
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
               {t("performance.metrics.bmiLabel")}
             </div>
-            <TextField value={bmiText || "—"} disabled />
+            <TextField value={bmiText} disabled />
           </section>
         </div>
       </div>
