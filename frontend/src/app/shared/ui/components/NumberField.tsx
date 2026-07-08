@@ -72,6 +72,11 @@ export default function NumberField({
   const decimals = decimalsFromStep(step);
   const hasValue = value !== null && value !== "";
 
+  // Odhad max. počtu znakov na základe `max` + desatiny, aby počas písania
+  // nešlo napísať absurdne veľké číslo skôr, než príde blur validácia.
+  const maxIntDigits = max != null ? String(Math.floor(max)).length : 6;
+  const maxLength = maxIntDigits + (decimals > 0 ? decimals + 1 : 0) + 1; // +1 rezerva na znamienko/bodku
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
 
@@ -83,6 +88,7 @@ export default function NumberField({
     const normalized = raw.replace(",", ".");
 
     if (!/^\d*\.?\d*$/.test(normalized)) return;
+    if (normalized.length > maxLength) return;
 
     const dotIdx = normalized.indexOf(".");
     if (dotIdx !== -1 && decimals >= 0) {
@@ -97,6 +103,9 @@ export default function NumberField({
 
     const num = Number(normalized);
     if (Number.isNaN(num)) return;
+
+    // Priebežne orezávame na `max`, aby ani medzikrok písania neprekročil limit
+    if (max != null && num > max) return;
 
     onChange(num);
   }
@@ -137,30 +146,33 @@ export default function NumberField({
           className={cx(
             baseClass,
             error && FIELD_ERROR,
-            unit && (showReset && hasValue ? "pr-20" : "pr-12"),
+            hasValue && showReset ? "pr-20" : unit ? "pr-12" : "",
             className
           )}
         />
+
+        {unit && (
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+            style={{
+              color: "#111111",
+              right: hasValue && showReset ? "2.25rem" : "0.75rem",
+            }}
+          >
+            {unit}
+          </span>
+        )}
 
         {showReset && hasValue && !effectiveDisabled && (
           <button
             type="button"
             onClick={handleReset}
             aria-label="Reset"
-            className="absolute right-9 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none opacity-50 hover:opacity-90 transition-opacity"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-[11px] leading-none opacity-50 hover:opacity-90 transition-opacity"
             style={{ color: "#111111", border: "1px solid currentColor" }}
           >
             ✕
           </button>
-        )}
-
-        {unit && (
-          <span
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-            style={{ color: "#111111" }}
-          >
-            {unit}
-          </span>
         )}
       </div>
 
