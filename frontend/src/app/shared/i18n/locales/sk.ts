@@ -2026,6 +2026,7 @@ replan: {
       title: "Štatistiky",
       subtitle: "Hmotnosť, percento tuku, maximálny tep a kondícia (VO₂max).",
       weightLabel: "Váha",
+      vo2MaxLabel: "VO₂max (laboratórne meraná)",
       fatLabel: "Telesný tuk",
       hrMaxLabel: "Maximálny tep (HR max)",
       bmiLabel: "BMI (Index telesnej hmotnosti)",

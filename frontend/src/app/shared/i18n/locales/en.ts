@@ -2042,6 +2042,7 @@ replan: {
         "Weight, body fat percentage, maximum heart rate, and fitness (VO₂max).",
       weightLabel: "Weight",
       fatLabel: "Body fat",
+      vo2maxLabel: "VO2max (lab-measured)",
       hrMaxLabel: "Maximum heart rate (HR max)",
       bmiLabel: "BMI (Body Mass Index)",
       estimatedPlaceholder: "estimate",
