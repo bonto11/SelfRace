@@ -44,6 +44,8 @@ PUSH_TRANSLATIONS = {
         "autorecovery_applied_body": "Dnes si mal horšiu noc. Zmenili sme tvoj tréning na ľahkú regeneráciu.",
         "monthly_summary_title": "Mesačný prehľad je hotový 📊",
         "monthly_summary_body": "Tvoj tréningový súhrn za minulý mesiac je pripravený. Pozri si, čo sa podarilo!",
+        "new_activity_title": "Nová aktivita je v appke! 🏃",
+        "new_activity_body": "Tvoja aktivita bola importovaná a analyzovaná. Pozri si detaily.",
     },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
@@ -60,6 +62,8 @@ PUSH_TRANSLATIONS = {
         "autorecovery_applied_body": "You had a rough night. We changed today's training to a light recovery session.",
         "monthly_summary_title": "Monthly summary ready 📊",
         "monthly_summary_body": "Your training summary for last month is ready. Check out what you achieved!",
+        "new_activity_title": "New activity imported! 🏃",
+        "new_activity_body": "Your activity was imported and analyzed. Check out the details.",
     },
 }
 
@@ -301,6 +305,16 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
     return service_send_push_notification(
         user_id=user_id, title=t["progress_title"],
         body=t["progress_body"], url="/coach/ai/progress", ctx=ctx,
+    )
+
+
+def service_notify_new_activity(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Pošle notifikáciu keď je nová aktivita importovaná a pripravená na pozretie."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id, title=t["new_activity_title"],
+        body=t["new_activity_body"], url="/calendar", ctx=ctx,
     )
 
 

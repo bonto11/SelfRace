@@ -29,6 +29,7 @@ from Services.synchronization_utils import (
     _decide_laps_or_splits,
 )
 from Modules.Supabase.auth import AuthCtx
+from DB.activities_streams import db_get_streams_one
 
 from DB.account import mark_strava_ever_synced_now
 from Services.synchronization_utils import enrich_activities_for_ids
@@ -37,6 +38,8 @@ from Configs.config import (
 )
 
 from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
+from Services.notifications import service_notify_new_activity
+from Services.records_check import service_check_activity_records
 
 
 # -------------------------------------------------------------------
@@ -326,6 +329,41 @@ def service_sync_single_activity(
             )
         except Exception as e:
             print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
+
+            # ✅ ---------- 6) KONTROLA REKORDOV ----------
+    try:
+        print(f"[SYNC:single] Checking records for activity_id={aid}...")
+
+        streams_row = db_get_streams_one(
+            user_id=user_id,
+            activity_id=aid,
+            ctx=ctx,
+        )
+
+        streams_payload: Optional[Dict[str, List[float]]] = None
+        if streams_row and streams_row.get("time_s") and streams_row.get("distance_m"):
+            streams_payload = {
+                "time": streams_row["time_s"],
+                "distance": streams_row["distance_m"],
+            }
+
+        service_check_activity_records(
+            user_id=user_id,
+            activity=row,
+            splits=split_rows if fetch_details and mode == "splits" else [],
+            ctx=ctx,
+            streams=streams_payload,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] Records check failed id={aid}: {e}")
+
+
+    # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
+    if imported > 0:
+        try:
+            service_notify_new_activity(user_id=user_id, ctx=ctx)
+        except Exception as e:  # noqa: BLE001
+            print(f"[SYNC:single] New activity notification failed id={aid}: {e}")
 
     return {
         "imported": int(imported),

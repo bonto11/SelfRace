@@ -2627,6 +2627,15 @@ replan: {
       unitReps: "opakovaní",
       unitSets: "sérií",
       unitRest: "oddych",
+      "sectionBestSegments": "Najlepšie segmenty",
+      "segments": {
+        "1k": "1 km",
+        "5k": "5 km",
+        "10k": "10 km",
+        "half": "Polmaratón",
+        "marathon": "Maratón",
+        "50k": "50 km"
+      },
       plan: {
         target: "cieľ",
         work: "Záťaž",

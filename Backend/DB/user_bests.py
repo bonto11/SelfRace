@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_USERS_BESTS
+
 
 def db_fetch_user_bests(
     user_id: int,
@@ -22,7 +23,7 @@ def db_fetch_user_bests(
         sb.table(TABLE_USERS_BESTS)
         .select(
             "user_id,sport,distance_m,best_time_s,"
-            "activity_id,activity_name,achieved_at,updated_at",
+            "activity_id,activity_name,achieved_at,updated_at,"
             "total_distance_m,total_time_s"
         )
         .eq("user_id", user_id)
@@ -52,7 +53,6 @@ def db_upsert_user_best(
     )
 
     rows: List[Dict[str, Any]] = res.data or []
-    # Supabase pri upserte vráti celý riadok; ak by nie, vrátime aspoň to, čo sme poslali.
     return rows[0] if rows else row
 
 

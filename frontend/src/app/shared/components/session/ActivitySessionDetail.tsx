@@ -22,6 +22,7 @@ import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { ActivitySplitsSection } from "./ActivitySplitsSection";
+import { ActivityBestSegmentsSection, hasAnyBestSegment } from "./ActivityBestSegmentsSection";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -160,6 +161,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
 
   const hasRawStreams = Array.isArray(streams.time_s) && streams.time_s.length > 0;
   const hasSplits = Array.isArray(splits) && splits.length > 1;
+  const hasBestSegments = hasAnyBestSegment(enrichment);
 
   const cleanedStreams = useMemo(() => {
     if (!streams.time_s || streams.time_s.length === 0) return streams;
@@ -295,6 +297,12 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       {hasSplits && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
           <ActivitySplitsSection kind={splits} />
+        </ActivitySectionShell>
+      )}
+
+      {hasBestSegments && (
+        <ActivitySectionShell title={t("sessions.detail.sectionBestSegments" as any)}>
+          <ActivityBestSegmentsSection enrichment={enrichment} t={t} />
         </ActivitySectionShell>
       )}
 

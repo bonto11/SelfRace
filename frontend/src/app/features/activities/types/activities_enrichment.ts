@@ -71,6 +71,12 @@ export type ActivityEnrichment = {
   distance_m: number | null;
   updated_at: string | null;
   ai_review_thread: ThreadEntry[];
+  best_1k_s?: number | null;
+  best_5k_s?: number | null;
+  best_10k_s?: number | null;
+  best_half_s?: number | null;
+  best_marathon_s?: number | null;
+  best_50k_s?: number | null;
 };
 
 export type ActivityReviewEnqueueOpts = {
