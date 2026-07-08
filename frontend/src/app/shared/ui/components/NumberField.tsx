@@ -32,6 +32,13 @@ type Props = {
   onChange: (val: number | "") => void;
 };
 
+function decimalsFromStep(step?: number): number {
+  if (!step || step >= 1) return 0;
+  const s = String(step);
+  const idx = s.indexOf(".");
+  return idx === -1 ? 0 : s.length - idx - 1;
+}
+
 export default function NumberField({
   label,
   hint,
@@ -60,6 +67,7 @@ export default function NumberField({
   } as React.CSSProperties;
 
   const displayValue = value === null || value === "" ? "" : String(value);
+  const decimals = decimalsFromStep(step);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
@@ -75,8 +83,14 @@ export default function NumberField({
     // Povolíme aj čiastočný zápis desatinného čísla (napr. "12." počas písania)
     if (!/^\d*\.?\d*$/.test(normalized)) return;
 
+    // Obmedzíme počet desatinných miest podľa `step` už počas písania
+    const dotIdx = normalized.indexOf(".");
+    if (dotIdx !== -1 && decimals >= 0) {
+      const decimalsPart = normalized.slice(dotIdx + 1);
+      if (decimalsPart.length > decimals) return;
+    }
+
     if (normalized.endsWith(".")) {
-      // Necháme string prejsť ako medzikrok, aby používateľ mohol dopísať desatiny
       onChange(normalized as unknown as number);
       return;
     }
@@ -94,6 +108,11 @@ export default function NumberField({
       onChange("");
       return;
     }
+
+    // Zaokrúhlime na presnosť daného `step` (napr. step=1 → celé číslo, step=0.1 → 1 desatina)
+    const factor = Math.pow(10, decimals);
+    num = Math.round(num * factor) / factor;
+
     if (min != null && num < min) num = min;
     if (max != null && num > max) num = max;
     onChange(num);
