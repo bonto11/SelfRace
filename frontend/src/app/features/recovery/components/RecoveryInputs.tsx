@@ -9,7 +9,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import DateField from "@/app/shared/ui/components/DateField";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
 import NumberField from "@/app/shared/ui/components/NumberField";
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { addDaysIso } from "@/app/shared/utils/time";
@@ -331,8 +331,8 @@ export default function RecoveryInputs() {
                 <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {t("recovery.inputs.sleepDurationLabel")}
                 </div>
-                <TimeSelectorField
-                  hh={true} mm={true} ss={false}
+                <TimeField
+                  hh mm ss={false}
                   value={sleepDuration || "00:00"}
                   disabled={saving}
                   onChange={setSleepDuration}
@@ -344,8 +344,8 @@ export default function RecoveryInputs() {
                 <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
                   {t("recovery.inputs.sleepStartLabel")}
                 </div>
-                <TimeSelectorField
-                  hh={true} mm={true} ss={false}
+                <TimeField
+                  hh mm ss={false}
                   value={sleepStart || "00:00"}
                   disabled={saving}
                   onChange={setSleepStart}
