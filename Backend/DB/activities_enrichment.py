@@ -29,6 +29,7 @@ def db_get_enrichment_for_activities(
         "z1_min,z2_min,z3_min,z4_min,z5_min,"
         "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
         "ai_review_thread,"
+        "best_1k_s,best_5k_s,best_10k_s,best_half_s,best_marathon_s,best_50k_s,"
         "updated_at"
     )
 
