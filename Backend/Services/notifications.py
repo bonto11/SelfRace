@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 from datetime import datetime, timezone
 
 from pywebpush import webpush, WebPushException
@@ -46,6 +46,11 @@ PUSH_TRANSLATIONS = {
         "monthly_summary_body": "Tvoj tréningový súhrn za minulý mesiac je pripravený. Pozri si, čo sa podarilo!",
         "new_activity_title": "Nová aktivita je v appke! 🏃",
         "new_activity_body": "Tvoja nová aktivita bola pridaná. Pozri si detaily.",
+        "new_record_title": "Nový osobný rekord! 🏆",
+        "new_record_body_with_delta": "Čas zlepšený o {delta} na {label}. Nový čas je {value}.",
+        "new_record_body_no_delta": "Nový čas na {label}: {value}.",
+        "new_record_body_distance": "Nová najdlhšia vzdialenosť: {value} (o {delta} viac).",
+        "new_record_body_time": "Nový najdlhší čas: {value} (o {delta} viac).",
     },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
@@ -64,12 +69,18 @@ PUSH_TRANSLATIONS = {
         "monthly_summary_body": "Your training summary for last month is ready. Check out what you achieved!",
         "new_activity_title": "New activity imported! 🏃",
         "new_activity_body": "Your new activity was added. Check out the details.",
+        "new_record_title": "New personal record! 🏆",
+        "new_record_body_with_delta": "Time improved by {delta} for {label}. New time is {value}.",
+        "new_record_body_no_delta": "New time for {label}: {value}.",
+        "new_record_body_distance": "New longest distance: {value} ({delta} more).",
+        "new_record_body_time": "New longest time: {value} ({delta} more).",
     },
 }
 
 # =====================================================================
 # POMOCNÉ FUNKCIE
 # =====================================================================
+
 
 def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
     """Zistí preferovaný jazyk užívateľa z DB. Fallback je 'en'."""
@@ -95,7 +106,11 @@ def service_save_push_subscription(
         raise ValueError("Neplatný formát push subscription objektu.")
 
     return db_upsert_push_subscription(
-        user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth, ctx=ctx,
+        user_id=user_id,
+        endpoint=endpoint,
+        p256dh=p256dh,
+        auth=auth,
+        ctx=ctx,
     )
 
 
@@ -114,6 +129,7 @@ def service_delete_push_subscription(
 # UNIVERZÁLNY ODOSIELATEĽ
 # =====================================================================
 
+
 def service_send_push_notification(
     user_id: int,
     title: str,
@@ -125,12 +141,14 @@ def service_send_push_notification(
     if not subs:
         return {"success": False, "message": "User has no active subscriptions."}
 
-    payload = json.dumps({
-        "title": title,
-        "body": body,
-        "url": url,
-        "icon": "/logo/actual/selfrace_icon.svg",
-    })
+    payload = json.dumps(
+        {
+            "title": title,
+            "body": body,
+            "url": url,
+            "icon": "/logo/actual/selfrace_icon.svg",
+        }
+    )
 
     success_count = 0
     error_count = 0
@@ -162,6 +180,7 @@ def service_send_push_notification(
 # CRON FUNKCIE
 # =====================================================================
 
+
 def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
     """Volané z denného cronu o 11:00."""
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -176,8 +195,11 @@ def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
             lang = _get_user_language(user_id, ctx)
             t = PUSH_TRANSLATIONS[lang]
             res = service_send_push_notification(
-                user_id=user_id, title=t["recovery_title"],
-                body=t["recovery_body"], url="/recovery", ctx=ctx,
+                user_id=user_id,
+                title=t["recovery_title"],
+                body=t["recovery_body"],
+                url="/recovery",
+                ctx=ctx,
             )
             total_sent += res.get("sent", 0)
 
@@ -199,8 +221,11 @@ def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
         lang = _get_user_language(user_id, ctx)
         t = PUSH_TRANSLATIONS[lang]
         res = service_send_push_notification(
-            user_id=user_id, title=t["review_title"],
-            body=t["review_body"], url="/calendar", ctx=ctx,
+            user_id=user_id,
+            title=t["review_title"],
+            body=t["review_body"],
+            url="/calendar",
+            ctx=ctx,
         )
         total_sent += res.get("sent", 0)
 
@@ -217,12 +242,17 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
         user_id = u.get("id")
         if not user_id:
             continue
-        if db_has_uncompleted_daily_sessions(user_id=user_id, plan_date=today_iso, ctx=ctx):
+        if db_has_uncompleted_daily_sessions(
+            user_id=user_id, plan_date=today_iso, ctx=ctx
+        ):
             lang = _get_user_language(user_id, ctx)
             t = PUSH_TRANSLATIONS[lang]
             res = service_send_push_notification(
-                user_id=user_id, title=t["training_title"],
-                body=t["training_body"], url="/coach/ai/dailyPlan", ctx=ctx,
+                user_id=user_id,
+                title=t["training_title"],
+                body=t["training_body"],
+                url="/coach/ai/dailyPlan",
+                ctx=ctx,
             )
             total_sent += res.get("sent", 0)
 
@@ -232,12 +262,12 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
 def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
     """Volané 1. dňa v mesiaci o 09:00. Generuje AI review a notifikuje userov."""
     now = datetime.now(timezone.utc)
-    year  = now.year - 1 if now.month == 1 else now.year
-    month = 12           if now.month == 1 else now.month - 1
+    year = now.year - 1 if now.month == 1 else now.year
+    month = 12 if now.month == 1 else now.month - 1
 
     users = db_list_users_for_cron(ctx=ctx)
     total_generated = 0
-    total_notified  = 0
+    total_notified = 0
 
     for u in users:
         user_id = u.get("id")
@@ -246,8 +276,11 @@ def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
 
         try:
             result = service_generate_monthly_review(
-                user_id=user_id, year=year, month=month,
-                ctx=ctx, save_result=True,
+                user_id=user_id,
+                year=year,
+                month=month,
+                ctx=ctx,
+                save_result=True,
             )
         except Exception as e:
             print(f"[MONTHLY-CRON] ❌ user={user_id} generate failed: {e}")
@@ -262,16 +295,22 @@ def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
             lang = _get_user_language(user_id, ctx)
             t = PUSH_TRANSLATIONS[lang]
             res = service_send_push_notification(
-                user_id=user_id, title=t["monthly_summary_title"],
-                body=t["monthly_summary_body"], url="/activities/monthlySummary", ctx=ctx,
+                user_id=user_id,
+                title=t["monthly_summary_title"],
+                body=t["monthly_summary_body"],
+                url="/activities/monthlySummary",
+                ctx=ctx,
             )
             total_notified += res.get("sent", 0)
         except Exception as e:
             print(f"[MONTHLY-CRON] ❌ user={user_id} notify failed: {e}")
 
     return {
-        "success": True, "year": year, "month": month,
-        "generated": total_generated, "notified": total_notified,
+        "success": True,
+        "year": year,
+        "month": month,
+        "generated": total_generated,
+        "notified": total_notified,
         "users_checked": len(users),
     }
 
@@ -280,13 +319,17 @@ def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
 # EVENT NOTIFIKÁCIE
 # =====================================================================
 
+
 def service_notify_monthly_summary_done(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     """Pošle notifikáciu po manuálnom vygenerovaní mesačného súhrnu."""
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
     return service_send_push_notification(
-        user_id=user_id, title=t["monthly_summary_title"],
-        body=t["monthly_summary_body"], url="/activities/monthlySummary", ctx=ctx,
+        user_id=user_id,
+        title=t["monthly_summary_title"],
+        body=t["monthly_summary_body"],
+        url="/activities/monthlySummary",
+        ctx=ctx,
     )
 
 
@@ -294,8 +337,11 @@ def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str,
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
     return service_send_push_notification(
-        user_id=user_id, title=t["autorecovery_applied_title"],
-        body=t["autorecovery_applied_body"], url="/coach/ai/dailyPlan", ctx=ctx,
+        user_id=user_id,
+        title=t["autorecovery_applied_title"],
+        body=t["autorecovery_applied_body"],
+        url="/coach/ai/dailyPlan",
+        ctx=ctx,
     )
 
 
@@ -303,8 +349,11 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
     return service_send_push_notification(
-        user_id=user_id, title=t["progress_title"],
-        body=t["progress_body"], url="/coach/ai/progress", ctx=ctx,
+        user_id=user_id,
+        title=t["progress_title"],
+        body=t["progress_body"],
+        url="/coach/ai/progress",
+        ctx=ctx,
     )
 
 
@@ -313,8 +362,11 @@ def service_notify_new_activity(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
     return service_send_push_notification(
-        user_id=user_id, title=t["new_activity_title"],
-        body=t["new_activity_body"], url="/calendar", ctx=ctx,
+        user_id=user_id,
+        title=t["new_activity_title"],
+        body=t["new_activity_body"],
+        url="/calendar",
+        ctx=ctx,
     )
 
 
@@ -322,8 +374,11 @@ def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
     return service_send_push_notification(
-        user_id=user_id, title=t["test_title"],
-        body=t["test_body"], url="/activities", ctx=ctx,
+        user_id=user_id,
+        title=t["test_title"],
+        body=t["test_body"],
+        url="/activities",
+        ctx=ctx,
     )
 
 
@@ -333,19 +388,34 @@ def service_cron_notify_check_ai(admin_email: str, ctx: AuthCtx) -> Dict[str, An
         return {"success": True, "message": "Všetky AI modely sú dostupné."}
 
     sb = get_service_client()
-    user_resp = sb.table("users").select("id").eq("mail_address", admin_email).single().execute()
+    user_resp = (
+        sb.table("users")
+        .select("id")
+        .eq("mail_address", admin_email)
+        .single()
+        .execute()
+    )
     admin_id = user_resp.data.get("id") if user_resp.data else None
     if not admin_id:
         raise ValueError(f"Admin email {admin_email} nenájdený v DB.")
 
     push_result = service_send_push_notification(
-        user_id=int(admin_id), title="⚠️ AI Model Výpadok",
-        body=warning_message, url="/hq-secure-zone", ctx=ctx,
+        user_id=int(admin_id),
+        title="⚠️ AI Model Výpadok",
+        body=warning_message,
+        url="/hq-secure-zone",
+        ctx=ctx,
     )
-    return {"success": True, "message": "Problém detegovaný.", "push_details": push_result}
+    return {
+        "success": True,
+        "message": "Problém detegovaný.",
+        "push_details": push_result,
+    }
 
 
-def service_notify_global(messages: Dict[str, Dict[str, str]], ctx: AuthCtx) -> Dict[str, Any]:
+def service_notify_global(
+    messages: Dict[str, Dict[str, str]], ctx: AuthCtx
+) -> Dict[str, Any]:
     if not messages:
         return {"success": False, "sent": 0, "message": "Prázdny payload správ."}
 
@@ -357,13 +427,62 @@ def service_notify_global(messages: Dict[str, Dict[str, str]], ctx: AuthCtx) -> 
         if not user_id:
             continue
         lang = _get_user_language(user_id, ctx)
-        user_msg = messages.get(lang) or messages.get("en") or next(iter(messages.values()), None)
+        user_msg = (
+            messages.get(lang)
+            or messages.get("en")
+            or next(iter(messages.values()), None)
+        )
         if not user_msg:
             continue
         res = service_send_push_notification(
-            user_id=user_id, title=user_msg.get("title", "Oznámenie"),
-            body=user_msg.get("body", ""), url=user_msg.get("url", "/"), ctx=ctx,
+            user_id=user_id,
+            title=user_msg.get("title", "Oznámenie"),
+            body=user_msg.get("body", ""),
+            url=user_msg.get("url", "/"),
+            ctx=ctx,
         )
         total_sent += res.get("sent", 0)
 
     return {"success": True, "sent": total_sent}
+
+def service_notify_new_record(
+    user_id: int,
+    records: List[Dict[str, Any]],
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Pošle notifikáciu za KAŽDÝ nový rekord v zozname (zvyčajne 1, ale
+    jedna aktivita môže prekonať viac segmentov naraz).
+    """
+    if not records:
+        return {"success": False, "message": "No records to notify."}
+
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+
+    total_sent = 0
+    for rec in records:
+        rec_type = rec.get("type", "")
+        label = rec.get("label", "")
+        value_fmt = rec.get("value_fmt", "")
+        delta_fmt = rec.get("delta_fmt")
+
+        if rec_type == "total_distance":
+            body = t["new_record_body_distance"].format(value=value_fmt, delta=delta_fmt or "—")
+        elif rec_type == "total_time":
+            body = t["new_record_body_time"].format(value=value_fmt, delta=delta_fmt or "—")
+        elif delta_fmt:
+            body = t["new_record_body_with_delta"].format(delta=delta_fmt, label=label, value=value_fmt)
+        else:
+            body = t["new_record_body_no_delta"].format(label=label, value=value_fmt)
+
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=t["new_record_title"],
+            body=body,
+            url="/performance/pb",
+            ctx=ctx,
+        )
+        total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent, "records_notified": len(records)}

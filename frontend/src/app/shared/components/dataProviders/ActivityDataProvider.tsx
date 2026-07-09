@@ -405,20 +405,13 @@ export function ActivityDataProvider({
     if (!fetch) {
       const cached = loadEnrichment(activityId);
       if (cached) {
-        console.log("[ActivityDataProvider] getEnrichment CACHE HIT", {
-          activityId,
-          cached,
-        });
         return cached;
       }
     }
 
     try {
       const data = await apiGetActivityEnrichment(userId, activityId);
-      console.log("[ActivityDataProvider] getEnrichment API RESULT", {
-        activityId,
-        data,
-      });
+
       if (data) {
         saveEnrichment(activityId, data);
       }

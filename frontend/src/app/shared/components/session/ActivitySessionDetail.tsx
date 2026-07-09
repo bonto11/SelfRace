@@ -279,12 +279,6 @@ export function ActivitySessionDetail({
         ]);
         if (!alive) return;
 
-        console.log("[ActivitySessionDetail] loadInitialData result", {
-          activityId: act.activityId,
-          extras,
-          enr,
-        });
-
         if (extras?.streams) setStreams(extras.streams);
         if (extras?.splits) setSplits(extras.splits);
         if (enr) setEnrichment(enr);
