@@ -20,6 +20,17 @@ import {
   PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 
+// Normalizuje label z vo2Ref (napr. "Very Poor", "Superior") na kľúč katalógu
+// (napr. "very_poor", "superior") a skúsi ho preložiť cez common.levels.
+// Ak preklad chýba, vráti pôvodný label bez zmeny.
+function levelLabel(t: any, rawLabel: string): string {
+  if (!rawLabel) return rawLabel;
+  const key = rawLabel.trim().toLowerCase().replace(/\s+/g, "_");
+  const translated = t(`common.levels.${key}` as any);
+  const looksUntranslated = !translated || translated === `common.levels.${key}`;
+  return looksUntranslated ? rawLabel : translated;
+}
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -152,7 +163,7 @@ export default function TrendVO2Max() {
                   fill={hexWithAlpha(r.color, 0.1)}
                   fillOpacity={1}
                   strokeOpacity={0}
-                  label={<BandLabel text={r.label} color={r.color} />}
+                  label={<BandLabel text={levelLabel(t, r.label)} color={r.color} />}
                 />
               ))}
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
