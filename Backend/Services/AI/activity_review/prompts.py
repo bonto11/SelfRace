@@ -189,6 +189,12 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
         "- NO PARROTING: DO NOT recite basic metrics (total distance, duration, average HR). "
         "The user sees these on their screen! Provide INSIGHTS (pacing trends, HR stability, effort validation, fatigue).",
         "- PACE FORMAT: Always write pace in 'mm:ss/km' format. NEVER write raw seconds.",
+        "- TIME/DURATION FORMAT: Never write raw seconds for any duration or time value "
+        "(intervals, splits, total time, rest periods, etc). Always format as human-readable time: "
+        "use 'M:SS' when under an hour (e.g. 319 seconds -> '5:19', 196 seconds -> '3:16'), "
+        "and 'H:MM:SS' when an hour or more (e.g. 17813 seconds -> '4:56:53'). "
+        "If minutes or hours are zero, omit that unit rather than writing a leading zero segment "
+        "(e.g. 45 seconds -> '0:45', not '00:00:45').",
         "- PLAN ADHERENCE: If 'context.plan_today' exists, evaluate whether the session matched the plan. "
         "If 'context.plan_tomorrow' exists, reference it explicitly in 'next_day_plan'.",
         "- HISTORY CONTEXT: Use 'history.days_0_7' to assess recent fatigue accumulation. "
@@ -230,7 +236,6 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
         )
 
     return "\n".join(common + ["- Identify session kind and evaluate intensity vs plan."])
-
 
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""

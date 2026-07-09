@@ -91,6 +91,19 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     return "Slovak", "Vždy hovor priamo k atlétovi a používej 2. osobu."
 
 
+def _time_format_rule() -> str:
+    """
+    Spoločné pravidlo pre formátovanie akéhokoľvek trvania vo voľnom texte
+    (notes, titles). Zabraňuje AI písať surové sekundy namiesto čitateľného formátu.
+    """
+    return (
+        "- TIME/DURATION FORMAT: Never write raw seconds for any duration in `notes` or `title` "
+        "(e.g. interval work/rest length). Always format as human-readable time: "
+        "use 'M:SS' when under an hour (e.g. 90 seconds -> '1:30', 45 seconds -> '0:45'), "
+        "and 'H:MM:SS' when an hour or more. Pace is always 'mm:ss/km'.\n"
+    )
+
+
 # ============================================================
 # MINIFY CONTEXT
 # ============================================================
@@ -691,6 +704,7 @@ def build_prompts_for_daily(
         + strength_rule
         + sports_restriction
         + intensity_format_rule
+        + _time_format_rule()
         + endurance_structure_rule
         + strength_structure_rule
         + f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"

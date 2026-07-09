@@ -33,6 +33,23 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
 
+def _time_format_rule() -> str:
+    """
+    Spoločné pravidlo pre formátovanie akéhokoľvek času/trvania vo voľnom texte.
+    Platí pre headline, bullets, comment a všetky ostatné free-text polia,
+    kdekoľvek sa spomína čas odvodený zo sekúnd (paces, race times, atď.).
+    """
+    return (
+        "- TIME/DURATION FORMAT: Never write raw seconds for any duration or time value "
+        "(paces, race time estimates, splits, etc) in free text. Always format as human-readable time: "
+        "use 'M:SS' when under an hour (e.g. 319 seconds -> '5:19', 196 seconds -> '3:16'), "
+        "and 'H:MM:SS' when an hour or more (e.g. 17813 seconds -> '4:56:53'). "
+        "If minutes or hours are zero, omit that unit rather than writing a leading zero segment "
+        "(e.g. 45 seconds -> '0:45', not '00:00:45'). "
+        "Paces specifically should be written as 'mm:ss/km'.\n"
+    )
+
+
 def _days_until(date_str: Optional[str]) -> Optional[int]:
     """Vráti počet dní do dátumu od dnes."""
     if not date_str:
@@ -294,6 +311,7 @@ def build_prompts_for_analyze(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing consistency and capability.\n"
+        + _time_format_rule()
         + lthr_rule
         + race_hint
         + beginner_hint
@@ -356,7 +374,8 @@ def build_prompts_for_progress(
         f"- All free text MUST be written in {lang_label}.\n"
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Keep string arrays short and impactful.\n"
-        "- If possible, extract and compare estimated_vo2max from metrics.\n"
+        + _time_format_rule()
+        + "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
     return system_txt, user_txt

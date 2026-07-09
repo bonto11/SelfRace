@@ -60,6 +60,20 @@ def _lang_notes(settings: Dict[str, Any]) -> Tuple[str, str]:
     return "Slovak", "Používaj 2. osobu ('ty') a hovor priamo k atlétovi."
 
 
+def _time_format_rule() -> str:
+    """
+    Spoločné pravidlo pre formátovanie akéhokoľvek trvania vo voľnom texte
+    (goal, notes). Zabraňuje AI písať surové sekundy namiesto čitateľného formátu,
+    ak by v texte spomenulo konkrétny čas (napr. cieľový čas dlhého behu, tempo).
+    """
+    return (
+        "- TIME/DURATION FORMAT: If mentioning any specific duration or target time in "
+        "'goal' or 'notes' (not the numeric planned_stats fields), never write raw seconds. "
+        "Format as 'M:SS' under an hour (e.g. '5:19'), 'H:MM:SS' for an hour or more. "
+        "Pace is always 'mm:ss/km'.\n"
+    )
+
+
 # ============================================================
 # PREFS EXTRACTION
 # ============================================================
@@ -522,6 +536,7 @@ def build_prompts_for_weekly(
         + special_reason_rule
         + womens_health_rule
         + notes_rule
+        + _time_format_rule()
     )
 
     return system_txt, user_txt
