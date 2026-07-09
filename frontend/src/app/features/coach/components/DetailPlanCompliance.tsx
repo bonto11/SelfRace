@@ -62,8 +62,23 @@ function Card({
 
 function sportLabel(t: any, sport: string): string {
   const key = (sport || "other").toLowerCase();
-  return t(`common.sports.${key}` as any) || sport;
+  const translated = t(`common.sports.${key}` as any);
+
+  // Ak preklad chýba, i18n zvyčajne vráti späť samotný kľúč (napr. "common.sports.snowshoe").
+  // V tom prípade spravíme fallback: posledný segment kľúča, podčiarkovníky nahradíme
+  // medzerou a prvé písmeno každého slova veľké (napr. "rock_climbing" -> "Rock Climbing").
+  const looksUntranslated = translated === `common.sports.${key}` || !translated;
+
+  if (looksUntranslated) {
+    return key
+      .split("_")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ");
+  }
+
+  return translated;
 }
+
 
 export default function DetailPlanCompliance() {
   const { userId } = useUserId();
@@ -154,6 +169,7 @@ export default function DetailPlanCompliance() {
     count: number;
     distance_m: number;
     moving_time_s: number;
+    elevation_gain_m: number;
   }> = Array.isArray(data?.unmatched_summary) ? data.unmatched_summary : [];
 
   const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
@@ -206,36 +222,29 @@ export default function DetailPlanCompliance() {
             </div>
           </Card>
 
-          {unmatchedSummary.length > 0 && (
-            <Card
-              title={t("coachCompliance.unmatched.title")}
-              subtitle={t("coachCompliance.unmatched.subtitle")}
-            >
-              <div className="space-y-2">
-                {unmatchedSummary.map((row) => {
-                  const km = row.distance_m / 1000;
-                  const hasDistance = km > 0.05;
-                  return (
-                    <div
-                      key={row.sport}
-                      className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5"
-                    >
-                      <span className="text-white/80 font-medium">
-                        {sportLabel(t, row.sport)}
-                      </span>
-                      <span className="text-sm text-white/70 text-right">
-                        {row.count} {t("coachCompliance.unmatched.activitiesUnit")}
-                        {hasDistance && <> · {km.toFixed(1)} km</>}
-                        {row.moving_time_s > 0 && <> · {fmtSecondsHMS(row.moving_time_s)}</>}
-                      </span>
-                    </div>
-                  );
-                })}
+          {unmatchedSummary.map((row) => {
+            const km = row.distance_m / 1000;
+            const hasDistance = km > 0.05;
+            const hasElevation = row.elevation_gain_m > 0;
+            return (
+              <div
+                key={row.sport}
+                className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5"
+              >
+                <span className="text-white/80 font-medium">
+                  {sportLabel(t, row.sport)}
+                </span>
+                <span className="text-sm text-white/70 text-right">
+                  {row.count} {t("coachCompliance.unmatched.activitiesUnit")}
+                  {hasDistance && <> · {km.toFixed(1)} km</>}
+                  {row.moving_time_s > 0 && <> · {fmtSecondsHMS(row.moving_time_s)}</>}
+                  {hasElevation && <> · {Math.round(row.elevation_gain_m)} m ↑</>}
+                </span>
               </div>
-            </Card>
-          )}
-        </div>
-
+            );
+          })}
+          
+  
         {/* ZÁSOBNÍK ODLOŽENÝCH */}
         <div className={PANEL_STACK}>
           <Card

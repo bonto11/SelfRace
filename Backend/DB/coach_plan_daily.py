@@ -425,7 +425,7 @@ def db_get_unmatched_activities_summary(
 ) -> List[Dict[str, Any]]:
     """
     Aktivity zo Stravy (activities_summary) za obdobie bez napárovania na plán,
-    agregované podľa športu: počet, celková vzdialenosť, celkový čas.
+    agregované podľa športu: počet, celková vzdialenosť, celkový čas, celkové prevýšenie.
     """
     unmatched = db_get_unmatched_activities(user_id, ctx=ctx, days=days)
 
@@ -434,9 +434,16 @@ def db_get_unmatched_activities_summary(
         sport = str(a.get("sport_type_fe") or a.get("sport_type") or "other")
         dist = a.get("distance_m") or 0
         moving = a.get("moving_time_s") or 0
+        elev = a.get("elevation_gain_m") or 0
 
         if sport not in agg:
-            agg[sport] = {"sport": sport, "count": 0, "distance_m": 0, "moving_time_s": 0}
+            agg[sport] = {
+                "sport": sport,
+                "count": 0,
+                "distance_m": 0,
+                "moving_time_s": 0,
+                "elevation_gain_m": 0,
+            }
 
         agg[sport]["count"] += 1
         try:
@@ -447,10 +454,13 @@ def db_get_unmatched_activities_summary(
             agg[sport]["moving_time_s"] += float(moving)
         except (TypeError, ValueError):
             pass
+        try:
+            agg[sport]["elevation_gain_m"] += float(elev)
+        except (TypeError, ValueError):
+            pass
 
     # Zoradené od najviac aktivít po najmenej
     return sorted(agg.values(), key=lambda x: x["count"], reverse=True)
-
 
 def db_get_postponed_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_postponed_sessions")

@@ -112,6 +112,9 @@ export const sk = {
       other: "Iný šport",
       swim: "Plávanie",
       walk: "Chôdza",
+"hike": "Turistika",
+"soccer": "Futbal",
+
     },
     units: {
       trimp: "trimp (záťaž)",
