@@ -111,6 +111,8 @@ export const en = {
       other: "Other sport",
       swim: "Swim",
       walk: "Walk",
+      "hike": "Hike",
+      "soccer": "Football",
     },
     units: {
       trimp: "trimp (load)",
