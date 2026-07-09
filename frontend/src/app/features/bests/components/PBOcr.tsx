@@ -22,6 +22,7 @@ import { secToHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
 import { useFavoritePBOcr } from "@/app/features/bests/hooks/useFavoritePBOcr";
 import ActivitySelector from "@/app/shared/ui/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
+import InputsCard from "@/app/shared/ui/components/InputsCard";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import Button from "@/app/shared/ui/components/Button";
@@ -40,11 +41,9 @@ import {
   PANEL_PREVIEW,
   PANEL_ACTIONS_INLINE,
   PANEL_LIST,
-  PANEL_SECTION,
-  PANEL_SECTION_LABEL,
-  PANEL_SECTION_TEXT,
   PANEL_PAD,
   PANEL_INNER_STACK,
+  INPUTS_CARD_BODY,
   SWIPE_ROW,
   SWIPE_ACTIONS,
   SWIPE_CONTENT,
@@ -74,6 +73,7 @@ export default function PBRun() {
   const isTouch = useIsTouch();
   const t = useT();
 
+  const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<UserBest[]>([]);
   const [form, setForm] = useState<PBRunFormState>(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -113,6 +113,14 @@ export default function PBRun() {
       })),
     ];
   }, [t]);
+
+  const previewText = useMemo(() => {
+    const favLabel = distanceLabel(favoriteM, "run");
+    const count = rows.length;
+    return count > 0
+      ? `${t("PB.favorite")}: ${favLabel} · ${count} ${t("PB.recordsCount") || "záznamov"}`
+      : `${t("PB.favorite")}: ${favLabel}`;
+  }, [favoriteM, rows.length, t]);
 
   const handleSave = async () => {
     if (!userId || !canSave) return;
@@ -176,220 +184,219 @@ export default function PBRun() {
   };
 
   return (
-    <div className={PANEL_STACK}>
-      <div className={PANEL_SECTION}>
-        <div className={PANEL_SECTION_LABEL}>{t("PB.favorite")}</div>
-        <div className={PANEL_SECTION_TEXT}>
-          <strong>{distanceLabel(favoriteM, "run")}</strong>
-        </div>
-      </div>
+    <InputsCard
+      title="Spartan Race"
+      subtitle={t("PB.ocr.subtitle") as any}
+      preview={previewText}
+      open={open}
+      onOpenChange={setOpen}
+      backdropVariant="default"
+    >
+      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
+        <div
+          className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
+          style={SESSION_INLINE_STYLE}
+        >
+          <div className="grid gap-3 sm:grid-cols-12 items-start">
+            <div className="sm:col-span-3">
+              <SelectField
+                value={form.distance_m}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    distance_m: (e.target as HTMLSelectElement).value,
+                  }))
+                }
+                options={distanceSelectOptions as any}
+              />
+            </div>
 
-      {/* FORM */}
-      <div
-        className={[SESSION_INLINE, PANEL_PAD, PANEL_INNER_STACK].join(" ")}
-        style={SESSION_INLINE_STYLE}
-      >
-        <div className="grid gap-3 sm:grid-cols-12 items-start">
-          <div className="sm:col-span-3">
-            <SelectField
-              value={form.distance_m}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  distance_m: (e.target as HTMLSelectElement).value,
-                }))
-              }
-              options={distanceSelectOptions as any}
-            />
-          </div>
-
-          <div className="sm:col-span-3">
-            <TimeField
-              hh mm ss
-              value={form.time_str ?? ""}
-              onChange={(val) =>
-                setForm((f) => ({
-                  ...f,
-                  time_str: val,
-                }))
-              }
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <DateField
-              value={form.achieved_at || null}
-              onChange={(v) => setForm((f) => ({ ...f, achieved_at: v || "" }))}
-            />
-          </div>
-
-          <div className="sm:col-span-4">
-            <ActivitySelector
-              userId={userId ?? null}
-              dateIso={form.achieved_at}
-              sports={["run", "mixed"]}
-              value={form.activity_id ? Number(form.activity_id) : ""}
-              onChange={(v) =>
-                setForm((f) => ({
-                  ...f,
-                  activity_id: v === "" ? "" : String(v),
-                }))
-              }
-              onPicked={(a: MiniActivity | null) =>
-                setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
-              }
-            />
-          </div>
-
-          {/* VOLITEĽNÉ CELKOVÉ DÁTA */}
-          <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
-            <NumberField
-              min={0}
-              max={200}
-              step={0.1}
-              unit={t("common.units.km")}
-              value={
-                form.total_distance_km
-                  ? Number(form.total_distance_km.replace(",", "."))
-                  : ""
-              }
-              onChange={(val) =>
-                setForm((f) => ({
-                  ...f,
-                  total_distance_km: val === "" ? "" : String(val),
-                }))
-              }
-            />
-
-            <TimeField
-              hh mm ss
-              value={form.total_time_str ?? ""}
-              onChange={(val) =>
-                setForm((f) => ({
-                  ...f,
-                  total_time_str: val,
-                }))
-              }
-            />
-          </div>
-
-          <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
-            <Button
-              onClick={handleSave}
-              disabled={!canSave}
-              variant="success"
-              size="xs"
-            >
-              {saving ? t("common.saving") : t("common.save")}
-            </Button>
-
-            <Button
-              variant="secondary"
-              onClick={() => setForm(EMPTY)}
-              size="xs"
-            >
-              {t("common.undo") || "Clear"}
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={refresh}
-              disabled={loading}
-              size="xs"
-            >
-              {loading ? t("common.loading") : t("common.refresh")}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* LIST */}
-      <ul className={PANEL_LIST}>
-        {rows
-          .slice()
-          .sort((a, b) => a.distance_m - b.distance_m)
-          .map((b) => {
-            const actId = b.activity_id != null ? Number(b.activity_id) : null;
-            const timeDB =
-              b.best_time_s != null
-                ? secToHHMMSS(b.best_time_s)
-                : (b.time_str ?? "—");
-            const dist = distanceLabel(b.distance_m, "run");
-            const isFav = b.distance_m === favoriteM;
-
-            const doEdit = () => {
-              setForm({
-                distance_m: String(b.distance_m),
-                time_str:
-                  b.time_str ??
-                  (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
-                achieved_at: isoDateOnly(b.achieved_at),
-                activity_id: b.activity_id != null ? String(b.activity_id) : "",
-                activity_name: (b as any).activity_name ?? "",
-                total_distance_km: b.total_distance_m
-                  ? (b.total_distance_m / 1000).toFixed(2)
-                  : "",
-                total_time_str: b.total_time_s
-                  ? secToHHMMSS(b.total_time_s)
-                  : "",
-              });
-            };
-
-            const doDelete = () => handleDelete(b.distance_m);
-
-            const toggleFav = async () => {
-              try {
-                await setFavM(b.distance_m);
-                toast.success(`★ ${t("PB.favorite")}: ${dist}`);
-              } catch (e: any) {
-                toast.error(String(e?.message ?? e));
-              }
-            };
-
-            const card = (
-              <SessionCard
-                variant="pb"
-                item={
-                  {
-                    id: b.distance_m,
-                    kind: "bests",
-                    title: dist,
-                    dateIso: isoDateOnly(b.achieved_at),
-                    sport: "run",
-                    activityId: actId ?? 0,
-                    timeStr: timeDB,
-                    distanceStr: dist.replace("— ", ""),
-                    defaultOpen: false,
-                    isFavorite: isFav,
-                    onToggleFavorite: toggleFav,
-                    onEdit: doEdit,
-                    onDelete: doDelete,
-                  } as any
+            <div className="sm:col-span-3">
+              <TimeField
+                hh mm ss
+                value={form.time_str ?? ""}
+                onChange={(val) =>
+                  setForm((f) => ({
+                    ...f,
+                    time_str: val,
+                  }))
                 }
               />
-            );
+            </div>
 
-            if (isTouch) {
-              return (
-                <SwipeRow
-                  key={b.distance_m}
-                  enableSwipe
-                  onEdit={doEdit}
-                  onDelete={doDelete}
-                >
-                  {card}
-                </SwipeRow>
+            <div className="sm:col-span-2">
+              <DateField
+                value={form.achieved_at || null}
+                onChange={(v) => setForm((f) => ({ ...f, achieved_at: v || "" }))}
+              />
+            </div>
+
+            <div className="sm:col-span-4">
+              <ActivitySelector
+                userId={userId ?? null}
+                dateIso={form.achieved_at}
+                sports={["run", "mixed"]}
+                value={form.activity_id ? Number(form.activity_id) : ""}
+                onChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    activity_id: v === "" ? "" : String(v),
+                  }))
+                }
+                onPicked={(a: MiniActivity | null) =>
+                  setForm((f) => ({ ...f, activity_name: a ? a.name : "" }))
+                }
+              />
+            </div>
+
+            <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
+              <NumberField
+                min={0}
+                max={200}
+                step={0.1}
+                unit={t("common.units.km")}
+                value={
+                  form.total_distance_km
+                    ? Number(form.total_distance_km.replace(",", "."))
+                    : ""
+                }
+                onChange={(val) =>
+                  setForm((f) => ({
+                    ...f,
+                    total_distance_km: val === "" ? "" : String(val),
+                  }))
+                }
+              />
+
+              <TimeField
+                hh mm ss
+                value={form.total_time_str ?? ""}
+                onChange={(val) =>
+                  setForm((f) => ({
+                    ...f,
+                    total_time_str: val,
+                  }))
+                }
+              />
+            </div>
+
+            <div className={["sm:col-span-12", PANEL_ACTIONS_INLINE].join(" ")}>
+              <Button
+                onClick={handleSave}
+                disabled={!canSave}
+                variant="success"
+                size="xs"
+              >
+                {saving ? t("common.saving") : t("common.save")}
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={() => setForm(EMPTY)}
+                size="xs"
+              >
+                {t("common.undo") || "Clear"}
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={refresh}
+                disabled={loading}
+                size="xs"
+              >
+                {loading ? t("common.loading") : t("common.refresh")}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <ul className={PANEL_LIST}>
+          {rows
+            .slice()
+            .sort((a, b) => a.distance_m - b.distance_m)
+            .map((b) => {
+              const actId = b.activity_id != null ? Number(b.activity_id) : null;
+              const timeDB =
+                b.best_time_s != null
+                  ? secToHHMMSS(b.best_time_s)
+                  : (b.time_str ?? "—");
+              const dist = distanceLabel(b.distance_m, "run");
+              const isFav = b.distance_m === favoriteM;
+
+              const doEdit = () => {
+                setForm({
+                  distance_m: String(b.distance_m),
+                  time_str:
+                    b.time_str ??
+                    (b.best_time_s ? secToHHMMSS(b.best_time_s) : ""),
+                  achieved_at: isoDateOnly(b.achieved_at),
+                  activity_id: b.activity_id != null ? String(b.activity_id) : "",
+                  activity_name: (b as any).activity_name ?? "",
+                  total_distance_km: b.total_distance_m
+                    ? (b.total_distance_m / 1000).toFixed(2)
+                    : "",
+                  total_time_str: b.total_time_s
+                    ? secToHHMMSS(b.total_time_s)
+                    : "",
+                });
+              };
+
+              const doDelete = () => handleDelete(b.distance_m);
+
+              const toggleFav = async () => {
+                try {
+                  await setFavM(b.distance_m);
+                  toast.success(`★ ${t("PB.favorite")}: ${dist}`);
+                } catch (e: any) {
+                  toast.error(String(e?.message ?? e));
+                }
+              };
+
+              const card = (
+                <SessionCard
+                  variant="pb"
+                  item={
+                    {
+                      id: b.distance_m,
+                      kind: "bests",
+                      title: dist,
+                      dateIso: isoDateOnly(b.achieved_at),
+                      sport: "run",
+                      activityId: actId ?? 0,
+                      timeStr: timeDB,
+                      distanceStr: dist.replace("— ", ""),
+                      defaultOpen: false,
+                      isFavorite: isFav,
+                      onToggleFavorite: toggleFav,
+                      onEdit: doEdit,
+                      onDelete: doDelete,
+                    } as any
+                  }
+                />
               );
-            }
 
-            return <li key={b.distance_m}>{card}</li>;
-          })}
+              if (isTouch) {
+                return (
+                  <SwipeRow
+                    key={b.distance_m}
+                    enableSwipe
+                    onEdit={doEdit}
+                    onDelete={doDelete}
+                  >
+                    {card}
+                  </SwipeRow>
+                );
+              }
 
-        {rows.length === 0 && !loading && (
-          <li className={PANEL_PREVIEW}>{t("PB.noRecords")}</li>
-        )}
-      </ul>
-    </div>
+              return <li key={b.distance_m}>{card}</li>;
+            })}
+
+          {rows.length === 0 && !loading && (
+            <li className={PANEL_PREVIEW}>{t("PB.noRecords")}</li>
+          )}
+        </ul>
+      </div>
+    </InputsCard>
   );
 }
 
