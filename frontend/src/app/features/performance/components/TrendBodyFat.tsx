@@ -35,6 +35,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+// Jemný popisok bandu — vpravo hore v páse, malé a poloпriehľadné
+const BandLabel = ({ viewBox, text, color }: any) => {
+  if (!viewBox) return null;
+  const { x, y, width, height } = viewBox;
+  if (height < 14) return null; // pás je príliš úzky na text
+  return (
+    <text
+      x={x + width - 6}
+      y={y + height / 2}
+      textAnchor="end"
+      dominantBaseline="middle"
+      fontSize={10}
+      fontWeight={600}
+      fill={color}
+      opacity={0.75}
+    >
+      {text}
+    </text>
+  );
+};
+
 export default function TrendBodyFat() {
   const t = useT();
   const { data, loading } = usePerformanceData();
@@ -113,16 +134,20 @@ export default function TrendBodyFat() {
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              {bands.map((b, i) => (
-                <ReferenceArea
-                  key={b.label}
-                  y1={Math.max(0, i === 0 ? 0 : (bands[i - 1].max ?? 0))}
-                  y2={Math.min(suggestedTop, b.max ?? suggestedTop)}
-                  fill={hexWithAlpha(colorForBodyFatBand(b.label || ""), 0.1)}
-                  fillOpacity={1}
-                  strokeOpacity={0}
-                />
-              ))}
+              {bands.map((b, i) => {
+                const color = colorForBodyFatBand(b.label || "");
+                return (
+                  <ReferenceArea
+                    key={b.label}
+                    y1={Math.max(0, i === 0 ? 0 : (bands[i - 1].max ?? 0))}
+                    y2={Math.min(suggestedTop, b.max ?? suggestedTop)}
+                    fill={hexWithAlpha(color, 0.1)}
+                    fillOpacity={1}
+                    strokeOpacity={0}
+                    label={<BandLabel text={b.label} color={color} />}
+                  />
+                );
+              })}
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
               <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
               <YAxis domain={[0, suggestedTop]} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
