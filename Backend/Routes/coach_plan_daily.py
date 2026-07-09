@@ -16,8 +16,12 @@ from Services.AI.daily_plan.main import (
     service_update_daily_session_status,
 )
 
+from DB.coach_plan_daily import (
+    db_get_compliance_stats,
+    db_get_postponed_sessions,
+    db_get_unmatched_activities_summary,
+)
 
-from DB.coach_plan_daily import db_get_compliance_stats, db_get_postponed_sessions, db_get_unmatched_activities
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
