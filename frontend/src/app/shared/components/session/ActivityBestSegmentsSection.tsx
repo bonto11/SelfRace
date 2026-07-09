@@ -35,8 +35,17 @@ function fmtTime(seconds: number): string {
 }
 
 export function hasAnyBestSegment(enrichment: ActivityEnrichment | null): boolean {
-  if (!enrichment) return false;
-  return SEGMENT_DEFS.some((def) => typeof enrichment[def.key] === "number");
+  if (!enrichment) {
+    console.log("[BestSegments] hasAnyBestSegment: enrichment is null/undefined");
+    return false;
+  }
+  const result = SEGMENT_DEFS.some((def) => typeof enrichment[def.key] === "number");
+  console.log("[BestSegments] hasAnyBestSegment check", {
+    enrichment,
+    segmentValues: SEGMENT_DEFS.map((def) => ({ key: def.key, value: enrichment[def.key], type: typeof enrichment[def.key] })),
+    result,
+  });
+  return result;
 }
 
 const TILE_CLASS =
@@ -47,6 +56,8 @@ const TILE_STYLE = {
 };
 
 export function ActivityBestSegmentsSection({ enrichment, t }: Props) {
+  console.log("[BestSegments] ActivityBestSegmentsSection render", { enrichment });
+
   const items = SEGMENT_DEFS
     .map((def) => {
       const raw = enrichment?.[def.key];
@@ -55,6 +66,8 @@ export function ActivityBestSegmentsSection({ enrichment, t }: Props) {
       return { label: t(def.labelKey as any), value: fmtTime(value) };
     })
     .filter(Boolean) as { label: string; value: string }[];
+
+  console.log("[BestSegments] computed items", items);
 
   if (!items.length) return null;
 

@@ -394,32 +394,42 @@ export function ActivityDataProvider({
   );
 
   const getEnrichment = useCallback(
-    async (
-      activityId: number,
-      opts?: FetchOpts,
-    ): Promise<ActivityEnrichment | null> => {
-      if (userId == null || !activityId) return null;
+  async (
+    activityId: number,
+    opts?: FetchOpts,
+  ): Promise<ActivityEnrichment | null> => {
+    if (userId == null || !activityId) return null;
 
-      const fetch = !!opts?.fetch;
+    const fetch = !!opts?.fetch;
 
-      if (!fetch) {
-        const cached = loadEnrichment(activityId);
-        if (cached) return cached;
+    if (!fetch) {
+      const cached = loadEnrichment(activityId);
+      if (cached) {
+        console.log("[ActivityDataProvider] getEnrichment CACHE HIT", {
+          activityId,
+          cached,
+        });
+        return cached;
       }
+    }
 
-      try {
-        const data = await apiGetActivityEnrichment(userId, activityId);
-        if (data) {
-          saveEnrichment(activityId, data);
-        }
-        return data;
-      } catch (err: any) {
-        console.error("[DataProvider] getEnrichment failed:", t(err?.message as any));
-        return null;
+    try {
+      const data = await apiGetActivityEnrichment(userId, activityId);
+      console.log("[ActivityDataProvider] getEnrichment API RESULT", {
+        activityId,
+        data,
+      });
+      if (data) {
+        saveEnrichment(activityId, data);
       }
-    },
-    [userId, t],
-  );
+      return data;
+    } catch (err: any) {
+      console.error("[DataProvider] getEnrichment failed:", t(err?.message as any));
+      return null;
+    }
+  },
+  [userId, t],
+);
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {

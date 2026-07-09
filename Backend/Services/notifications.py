@@ -45,7 +45,7 @@ PUSH_TRANSLATIONS = {
         "monthly_summary_title": "Mesačný prehľad je hotový 📊",
         "monthly_summary_body": "Tvoj tréningový súhrn za minulý mesiac je pripravený. Pozri si, čo sa podarilo!",
         "new_activity_title": "Nová aktivita je v appke! 🏃",
-        "new_activity_body": "Tvoja aktivita bola importovaná a analyzovaná. Pozri si detaily.",
+        "new_activity_body": "Tvoja nová aktivita bola pridaná. Pozri si detaily.",
     },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
@@ -63,7 +63,7 @@ PUSH_TRANSLATIONS = {
         "monthly_summary_title": "Monthly summary ready 📊",
         "monthly_summary_body": "Your training summary for last month is ready. Check out what you achieved!",
         "new_activity_title": "New activity imported! 🏃",
-        "new_activity_body": "Your activity was imported and analyzed. Check out the details.",
+        "new_activity_body": "Your new activity was added. Check out the details.",
     },
 }
 

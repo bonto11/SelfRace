@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, type ReactNode, type CSSProperties, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  type ReactNode,
+  type CSSProperties,
+  useMemo,
+} from "react";
 import {
   SURFACE_INLINE,
   SURFACE_INLINE_STYLE,
@@ -10,7 +16,7 @@ import {
   SESSION_PILL_STYLE,
   SESSION_PILL_ACTIVE_STYLE,
   SESSION_PILL_DANGER_STYLE,
-  CHART_HR
+  CHART_HR,
 } from "@/app/shared/ui/tokens";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -22,7 +28,10 @@ import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { ActivitySplitsSection } from "./ActivitySplitsSection";
-import { ActivityBestSegmentsSection, hasAnyBestSegment } from "./ActivityBestSegmentsSection";
+import {
+  ActivityBestSegmentsSection,
+  hasAnyBestSegment,
+} from "./ActivityBestSegmentsSection";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -56,8 +65,17 @@ function valOrDash(v: string | number | null): string {
 
 function safeText(value: any): string {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
-  try { return JSON.stringify(value); } catch { return String(value); }
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  )
+    return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
@@ -70,14 +88,19 @@ function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
 
 function formatCadenceSummary(s: any | null, t: any): string | null {
   if (!s || s.average_cadence_rpm == null) return null;
-  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "").toString().toLowerCase();
+  const sport = (s.sport_type_ovrd ?? s.sport_type_fe ?? s.sport_type ?? "")
+    .toString()
+    .toLowerCase();
   const rpm = s.average_cadence_rpm;
-  if (sport.includes("bike") || sport.includes("ride") ) 
+  if (sport.includes("bike") || sport.includes("ride"))
     return `${rpm} ${t("common.units.kadenceBike")}`;
   return `${Math.round(rpm * 2)} ${t("common.units.kadenceRun")}`;
 }
 
-function formatPaceFromSpeedMps(speed: number | null | undefined, t: any): string | null {
+function formatPaceFromSpeedMps(
+  speed: number | null | undefined,
+  t: any,
+): string | null {
   if (!speed || speed <= 0) return null;
   const secPerKm = 1000 / speed;
   const minutes = Math.floor(secPerKm / 60);
@@ -94,32 +117,68 @@ function zoneColor(zoneNum: number) {
   return z5;
 }
 
-type SectionProps = { title: string; defaultOpen?: boolean; items?: InfoItem[]; children?: ReactNode };
+type SectionProps = {
+  title: string;
+  defaultOpen?: boolean;
+  items?: InfoItem[];
+  children?: ReactNode;
+};
 
-const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(" ");
-const INFO_TILE_CLASS = "rounded-xl border px-3 py-2 flex flex-col justify-center shadow-sm";
-const INFO_TILE_STYLE: CSSProperties = { background: appColors.backgroundAlt, borderColor: appColors.surfaceCardBorder };
+const INLINE_WRAP_CLASS = [SURFACE_INLINE, "px-0 py-0 overflow-hidden"].join(
+  " ",
+);
+const INFO_TILE_CLASS =
+  "rounded-xl border px-3 py-2 flex flex-col justify-center shadow-sm";
+const INFO_TILE_STYLE: CSSProperties = {
+  background: appColors.backgroundAlt,
+  borderColor: appColors.surfaceCardBorder,
+};
 
-export function ActivitySectionShell({ title, defaultOpen, items, children }: SectionProps) {
+export function ActivitySectionShell({
+  title,
+  defaultOpen,
+  items,
+  children,
+}: SectionProps) {
   const [open, setOpen] = useState(!!defaultOpen);
-  const hasItems = items && items.some(it => it.value != null && it.value !== "—");
+  const hasItems =
+    items && items.some((it) => it.value != null && it.value !== "—");
   if (!hasItems && !children) return null;
 
   return (
     <section className="mt-4">
       <div className={INLINE_WRAP_CLASS} style={SURFACE_INLINE_STYLE}>
-        <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold tracking-tight hover:bg-white/5 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold tracking-tight hover:bg-white/5 transition-colors"
+        >
           <span className="min-w-0">{title}</span>
-          <span className={`text-base opacity-50 leading-none transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+          <span
+            className={`text-base opacity-50 leading-none transition-transform ${open ? "rotate-180" : ""}`}
+          >
+            ▾
+          </span>
         </button>
         {open && (
-          <div className={[SESSION_DIVIDER, "px-4 py-4 text-sm"].join(" ")} style={SESSION_DIVIDER_STYLE}>
+          <div
+            className={[SESSION_DIVIDER, "px-4 py-4 text-sm"].join(" ")}
+            style={SESSION_DIVIDER_STYLE}
+          >
             {hasItems && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                {items!.map(t => (
-                  <div key={t.label} className={INFO_TILE_CLASS} style={INFO_TILE_STYLE}>
-                    <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-0.5">{t.label}</div>
-                    <div className="text-[15px] font-semibold tabular-nums text-white/90">{valOrDash(t.value)}</div>
+                {items!.map((t) => (
+                  <div
+                    key={t.label}
+                    className={INFO_TILE_CLASS}
+                    style={INFO_TILE_STYLE}
+                  >
+                    <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-0.5">
+                      {t.label}
+                    </div>
+                    <div className="text-[15px] font-semibold tabular-nums text-white/90">
+                      {valOrDash(t.value)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -132,34 +191,58 @@ export function ActivitySectionShell({ title, defaultOpen, items, children }: Se
   );
 }
 
-export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: any) {
+export function ActivitySessionDetail({
+  item,
+  compactChart,
+  onOpenActivity,
+}: any) {
   const act = item;
   const t = useT();
   const { userId } = useUserId();
   const { getSummary, getExtras, getEnrichment } = useActivityData() as any;
 
   const s = act.activityId != null ? getSummary(act.activityId) : null;
-  const distTxt = s ? formatDistance(s.distance_m ?? null) : act.distanceStr ?? "—";
-  const timeTxt = s && s.moving_time_s != null ? fmtSecondsHMS(s.moving_time_s) : act.timeStr ?? "—";
-  const avgHrTxt = s ? s.average_heartrate_bpm ?? "—" : act.avgHr ?? "—";
-  const maxHrTxt = s ? s.max_heartrate_bpm ?? "—" : act.maxHr ?? "—";
+  const distTxt = s
+    ? formatDistance(s.distance_m ?? null)
+    : (act.distanceStr ?? "—");
+  const timeTxt =
+    s && s.moving_time_s != null
+      ? fmtSecondsHMS(s.moving_time_s)
+      : (act.timeStr ?? "—");
+  const avgHrTxt = s ? (s.average_heartrate_bpm ?? "—") : (act.avgHr ?? "—");
+  const maxHrTxt = s ? (s.max_heartrate_bpm ?? "—") : (act.maxHr ?? "—");
   const cadenceLabel = formatCadenceSummary(s, t);
   const paceLabel = formatPaceFromSpeedMps(s?.average_speed_mps, t);
   const powerTxt = s?.average_watts ? `${Math.round(s.average_watts)} W` : null;
-  const sportHint = (s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? act.sport ?? "") as string;
+  const sportHint = (s?.sport_type_ovrd ??
+    s?.sport_type_fe ??
+    s?.sport_type ??
+    act.sport ??
+    "") as string;
   const stravaActivityId = s?.activity_id ?? s?.id ?? null;
-  const stravaUrl = stravaActivityId ? getStravaActivityUrl(stravaActivityId) : null;
+  const stravaUrl = stravaActivityId
+    ? getStravaActivityUrl(stravaActivityId)
+    : null;
 
-  const [streams, setStreams] = useState<StreamsData>({ time_s: [], hr: [], duration_s: 0, cadence_rpm: [], power_w: [], distance_m: [], altitude_m: [] });
+  const [streams, setStreams] = useState<StreamsData>({
+    time_s: [],
+    hr: [],
+    duration_s: 0,
+    cadence_rpm: [],
+    power_w: [],
+    distance_m: [],
+    altitude_m: [],
+  });
   const [splits, setSplits] = useState<any[]>([]);
   const [enrichment, setEnrichment] = useState<ActivityEnrichment | null>(null);
-  
+
   const [isFetchingDetailed, setIsFetchingDetailed] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  
+
   const [isShareOpen, setIsShareOpen] = useState(false);
 
-  const hasRawStreams = Array.isArray(streams.time_s) && streams.time_s.length > 0;
+  const hasRawStreams =
+    Array.isArray(streams.time_s) && streams.time_s.length > 0;
   const hasSplits = Array.isArray(splits) && splits.length > 1;
   const hasBestSegments = hasAnyBestSegment(enrichment);
 
@@ -169,7 +252,7 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     const out = { ...streams };
     const hasData = (arr: (number | null)[] | undefined) => {
       if (!Array.isArray(arr) || arr.length === 0) return false;
-      return arr.some(val => val !== null && val !== 0);
+      return arr.some((val) => val !== null && val !== 0);
     };
 
     if (!hasData(out.altitude_m)) out.altitude_m = [];
@@ -181,16 +264,26 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
     return out;
   }, [streams]);
 
-  const hasValidStreamsForChart = cleanedStreams.time_s && cleanedStreams.time_s.length > 0;
+  const hasValidStreamsForChart =
+    cleanedStreams.time_s && cleanedStreams.time_s.length > 0;
 
   useEffect(() => {
     if (!act.activityId) return;
     let alive = true;
-    
+
     const loadInitialData = async () => {
       try {
-        const [extras, enr] = await Promise.all([getExtras(act.activityId), getEnrichment(act.activityId)]);
+        const [extras, enr] = await Promise.all([
+          getExtras(act.activityId),
+          getEnrichment(act.activityId),
+        ]);
         if (!alive) return;
+
+        console.log("[ActivitySessionDetail] loadInitialData result", {
+          activityId: act.activityId,
+          extras,
+          enr,
+        });
 
         if (extras?.streams) setStreams(extras.streams);
         if (extras?.splits) setSplits(extras.splits);
@@ -201,22 +294,30 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
         if (alive) setInitialLoadDone(true);
       }
     };
-    
+
     loadInitialData();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [act.activityId, getExtras, getEnrichment]);
 
   const handleFetchDetailedData = async () => {
     if (!userId || !act.activityId || isFetchingDetailed) return;
     setIsFetchingDetailed(true);
     try {
-      const result = await apiFetchActivityExtrasCombined(Number(userId), act.activityId, true);
+      const result = await apiFetchActivityExtrasCombined(
+        Number(userId),
+        act.activityId,
+        true,
+      );
       if (result) {
         if (result.streams) setStreams(result.streams);
         if (result.splits) setSplits(result.splits);
       }
     } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.activities.extrasFetchFailed"));
+      toast.error(
+        t(e?.message as any) || t("api.activities.extrasFetchFailed"),
+      );
     } finally {
       setIsFetchingDetailed(false);
     }
@@ -225,12 +326,23 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   const allKpis: InfoItem[] = [
     { label: t("common.metrics.time"), value: timeTxt },
     { label: t("common.metrics.distance"), value: distTxt },
-    isMeaningfulNumber(avgHrTxt) ? { label: t("common.metrics.hr_avg"), value: avgHrTxt } : null,
-    isMeaningfulNumber(maxHrTxt) ? { label: t("common.metrics.hr_max"), value: maxHrTxt } : null,
+    isMeaningfulNumber(avgHrTxt)
+      ? { label: t("common.metrics.hr_avg"), value: avgHrTxt }
+      : null,
+    isMeaningfulNumber(maxHrTxt)
+      ? { label: t("common.metrics.hr_max"), value: maxHrTxt }
+      : null,
     paceLabel ? { label: t("common.metrics.pace"), value: paceLabel } : null,
     powerTxt ? { label: t("common.metrics.power"), value: powerTxt } : null,
-    cadenceLabel ? { label: t("sessions.splits.colCadence"), value: cadenceLabel } : null,
-    s?.elevation_gain_m ? { label: t("sessions.splits.colElev"), value: `${s.elevation_gain_m} m` } : null,
+    cadenceLabel
+      ? { label: t("sessions.splits.colCadence"), value: cadenceLabel }
+      : null,
+    s?.elevation_gain_m
+      ? {
+          label: t("sessions.splits.colElev"),
+          value: `${s.elevation_gain_m} m`,
+        }
+      : null,
   ].filter(Boolean) as InfoItem[];
 
   const zoneItems: PieTrendItem[] = [
@@ -244,53 +356,120 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
   return (
     <div className="pb-4">
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button 
-          type="button" 
-          variant="primary" 
-          size="sm" 
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
           onClick={() => setIsShareOpen(true)}
         >
           {t("common.share")}
         </Button>
 
         {stravaUrl && (
-          <Button type="button" variant="viewOnStrava" size="sm" onClick={() => window.open(stravaUrl, "_blank")}>
+          <Button
+            type="button"
+            variant="viewOnStrava"
+            size="sm"
+            onClick={() => window.open(stravaUrl, "_blank")}
+          >
             {t("sessions.detail.btnStrava")}
           </Button>
         )}
 
         {act.onToggleFavorite && (
-          <button type="button" onClick={act.onToggleFavorite} className={SESSION_PILL} style={act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE}>
-            {act.isFavorite ? `★ ${t("sessions.detail.btnFavoriteUnset")}` : `☆ ${t("sessions.detail.btnFavoriteSet")}`}
+          <button
+            type="button"
+            onClick={act.onToggleFavorite}
+            className={SESSION_PILL}
+            style={
+              act.isFavorite ? SESSION_PILL_ACTIVE_STYLE : SESSION_PILL_STYLE
+            }
+          >
+            {act.isFavorite
+              ? `★ ${t("sessions.detail.btnFavoriteUnset")}`
+              : `☆ ${t("sessions.detail.btnFavoriteSet")}`}
           </button>
         )}
-        {act.onEdit && <button type="button" onClick={act.onEdit} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("common.edit")}</button>}
-        {act.onDelete && <button type="button" onClick={act.onDelete} className={SESSION_PILL} style={SESSION_PILL_DANGER_STYLE}>{t("common.delete")}</button>}
-        {onOpenActivity && <button type="button" onClick={() => onOpenActivity(act.activityId)} className={SESSION_PILL} style={SESSION_PILL_STYLE}>{t("calendar.openActivity")}</button>}
-        
+        {act.onEdit && (
+          <button
+            type="button"
+            onClick={act.onEdit}
+            className={SESSION_PILL}
+            style={SESSION_PILL_STYLE}
+          >
+            {t("common.edit")}
+          </button>
+        )}
+        {act.onDelete && (
+          <button
+            type="button"
+            onClick={act.onDelete}
+            className={SESSION_PILL}
+            style={SESSION_PILL_DANGER_STYLE}
+          >
+            {t("common.delete")}
+          </button>
+        )}
+        {onOpenActivity && (
+          <button
+            type="button"
+            onClick={() => onOpenActivity(act.activityId)}
+            className={SESSION_PILL}
+            style={SESSION_PILL_STYLE}
+          >
+            {t("calendar.openActivity")}
+          </button>
+        )}
+
         {initialLoadDone && stravaActivityId && !hasRawStreams && (
-          <Button type="button" variant="secondary" size="sm" onClick={handleFetchDetailedData} disabled={isFetchingDetailed}>
-            {isFetchingDetailed ? t("common.loading") : t("sessions.detail.btnMoreData" as any)}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleFetchDetailedData}
+            disabled={isFetchingDetailed}
+          >
+            {isFetchingDetailed
+              ? t("common.loading")
+              : t("sessions.detail.btnMoreData" as any)}
           </Button>
         )}
       </div>
 
-      <ActivitySectionShell title={t("sessions.detail.sectionOverview")} defaultOpen={true} items={allKpis}>
+      <ActivitySectionShell
+        title={t("sessions.detail.sectionOverview")}
+        defaultOpen={true}
+        items={allKpis}
+      >
         {enrichment && (
           <div className="mt-6 pt-6 border-t border-white/5">
-            <div className="text-xs uppercase font-bold opacity-60 mb-6 px-1">{t("sessions.detail.zonesDistribution")}</div>
+            <div className="text-xs uppercase font-bold opacity-60 mb-6 px-1">
+              {t("sessions.detail.zonesDistribution")}
+            </div>
             <div className="bg-black/10 rounded-xl p-4 border border-white/5">
-                <PieTrend items={zoneItems} valueFormatter={fmtTime} />
+              <PieTrend items={zoneItems} valueFormatter={fmtTime} />
             </div>
           </div>
         )}
       </ActivitySectionShell>
-      
-      {!!act.activityId && <ActivityCoachReviewSection item={act} activityId={Number(act.activityId)} />}
+
+      {!!act.activityId && (
+        <ActivityCoachReviewSection
+          item={act}
+          activityId={Number(act.activityId)}
+        />
+      )}
 
       {hasValidStreamsForChart && (
-        <ActivitySectionShell title={t("sessions.charts.stream.title" as any)} defaultOpen={false}>
-           <ActivityStreamCharts streams={cleanedStreams} compact={compactChart} sportHint={sportHint} />
+        <ActivitySectionShell
+          title={t("sessions.charts.stream.title" as any)}
+          defaultOpen={false}
+        >
+          <ActivityStreamCharts
+            streams={cleanedStreams}
+            compact={compactChart}
+            sportHint={sportHint}
+          />
         </ActivitySectionShell>
       )}
 
@@ -301,7 +480,9 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       )}
 
       {hasBestSegments && (
-        <ActivitySectionShell title={t("sessions.detail.sectionBestSegments" as any)}>
+        <ActivitySectionShell
+          title={t("sessions.detail.sectionBestSegments" as any)}
+        >
           <ActivityBestSegmentsSection enrichment={enrichment} t={t} />
         </ActivitySectionShell>
       )}
@@ -313,8 +494,8 @@ export function ActivitySessionDetail({ item, compactChart, onOpenActivity }: an
       )}
 
       {isShareOpen && (
-        <ActivityShareModal 
-          isOpen={isShareOpen} 
+        <ActivityShareModal
+          isOpen={isShareOpen}
           onClose={() => setIsShareOpen(false)}
           activity={act}
           summary={s}
