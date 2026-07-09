@@ -19,6 +19,17 @@ import {
   PANEL_CARD_HEAD, PANEL_CARD_TITLE, PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens";
 
+// Normalizuje label z bands (napr. "Very Poor", "Athletes") na kľúč katalógu
+// (napr. "very_poor", "athletes") a skúsi ho preložiť cez common.levels.
+// Ak preklad chýba, vráti pôvodný label bez zmeny.
+function levelLabel(t: any, rawLabel: string): string {
+  if (!rawLabel) return rawLabel;
+  const key = rawLabel.trim().toLowerCase().replace(/\s+/g, "_");
+  const translated = t(`common.levels.${key}` as any);
+  const looksUntranslated = !translated || translated === `common.levels.${key}`;
+  return looksUntranslated ? rawLabel : translated;
+}
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -144,7 +155,7 @@ export default function TrendBodyFat() {
                     fill={hexWithAlpha(color, 0.1)}
                     fillOpacity={1}
                     strokeOpacity={0}
-                    label={<BandLabel text={b.label} color={color} />}
+                    label={<BandLabel text={levelLabel(t, b.label || "")} color={color} />}
                   />
                 );
               })}
