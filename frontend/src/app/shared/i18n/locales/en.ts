@@ -78,6 +78,7 @@ export const en = {
       good: "Good",
       fair: "Fair",
       poor: "Poor",
+      normal: "Normal",
       very_poor: "Very poor",
       beginner: "Beginner",
       hobby: "Recreational (Hobby)",
