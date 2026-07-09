@@ -79,6 +79,7 @@ export const sk = {
       good: "Dobrá",
       fair: "Uspokojivá",
       poor: "Slabá",
+      normal: "Normálna,
       very_poor: "Veľmi slabá",
       beginner: "Začiatočník",
       hobby: "Rekreačný (Hobby)",
