@@ -5,8 +5,7 @@ import { useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
-// ✅ Import nášho točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -67,10 +66,9 @@ export function VolumeSection({ volume, setPref }: Props) {
     ? t("prefs.sections.volumeSection.valueWeekly") 
     : t("prefs.sections.volumeSection.valueDaily");
 
-  // Dynamické nastavenie pre náš bubon na základe módu
   const wheelConfig = mode === "weekly_hours" 
-    ? { min: 1, max: 40, step: 0.5, hint: "h" }
-    : { min: 15, max: 300, step: 5, hint: "min" };
+    ? { min: 1, max: 40, step: 0.5, unit: t("common.units.hour") }
+    : { min: 15, max: 300, step: 5, unit: t("common.units.min") };
 
   return (
     <InputsCard
@@ -101,13 +99,13 @@ export function VolumeSection({ volume, setPref }: Props) {
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>{valueLabel}</div>
-            {/* ✅ Nahradené za NumberWheelField s dynamickými parametrami */}
-            <NumberWheelField
+            <NumberField
               min={wheelConfig.min}
               max={wheelConfig.max}
               step={wheelConfig.step}
+              unit={wheelConfig.unit}
               value={Number.isFinite(safeVal) ? safeVal : ""}
-              onChange={(val) => setPref("volume", { mode, value: val })}
+              onChange={(val) => setPref("volume", { mode, value: val === "" ? null : val })}
             />
           </section>
         </div>

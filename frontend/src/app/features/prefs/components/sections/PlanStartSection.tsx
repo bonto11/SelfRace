@@ -6,8 +6,7 @@ import { useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
-// ✅ Import nášho točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -192,13 +191,13 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.planStartSection.horizonLabel")}
             </div>
-            {/* ✅ Nahradené za NumberWheelField pre výber počtu týždňov */}
-            <NumberWheelField
+            <NumberField
               min={1}
               max={52}
               step={1}
+              unit={t("common.units.weeksAbbrev")}
               value={local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : ""}
-              onChange={(val) => applyWeeks(val)}
+              onChange={(val) => val !== "" && applyWeeks(val)}
             />
           </section>
 

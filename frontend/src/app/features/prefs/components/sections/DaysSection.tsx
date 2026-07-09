@@ -3,8 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
-// ✅ Import nášho nového točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField"; 
+import NumberField from "@/app/shared/ui/components/NumberField";
 import DateField from "@/app/shared/ui/components/DateField";
 import type { DayAbbrev } from "@/app/shared/types/day";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
@@ -122,13 +121,13 @@ export function DaysSection({
                   <div className="text-xs opacity-70 mb-1">
                     Dĺžka cyklu
                   </div>
-                  {/* ✅ Nahradené za NumberWheelField */}
-                  <NumberWheelField
+                  <NumberField
                     min={20}
                     max={45}
                     step={1}
-                    value={healthData.cycle_length_days ?? 28}
-                    onChange={(val) => updateWomensHealth({ cycle_length_days: val })}
+                    unit={t("common.units.days")}
+                    value={healthData.cycle_length_days ?? ""}
+                    onChange={(val) => updateWomensHealth({ cycle_length_days: val === "" ? undefined : val })}
                   />
                 </div>
                 

@@ -19,32 +19,44 @@ from DB.activities_enrichment import db_upsert_enrichment_rows_merge
 TOTALS_SENTINEL_DISTANCE = 0
 
 # (label, cieľová vzdialenosť v m, stĺpec v enrichment) — beh
+# Presne podľa FE "Rekordy" selectu: 400m, 1km, 5km, 10km, 20km,
+# Half marathon, 30km, Marathon, 50km
 RUN_SEGMENTS: List[Tuple[str, int, str]] = [
-    ("1km",      1_000,  "best_1k_s"),
-    ("5km",      5_000,  "best_5k_s"),
-    ("10km",     10_000, "best_10k_s"),
-    ("21.1km",   21_098, "best_half_s"),
-    ("42.2km",   42_195, "best_marathon_s"),
-    ("50km",     50_000, "best_50k_s"),
+    ("400m",           400,    "best_400m_s"),
+    ("1km",             1_000,  "best_1k_s"),
+    ("5km",             5_000,  "best_5k_s"),
+    ("10km",            10_000, "best_10k_s"),
+    ("20km",            20_000, "best_20k_s"),
+    ("half_marathon",   21_098, "best_half_s"),
+    ("30km",            30_000, "best_30k_s"),
+    ("marathon",        42_195, "best_marathon_s"),
+    ("50km",            50_000, "best_50k_s"),
 ]
 
-# plávanie — bazénové klasické dĺžky, žiadny enrichment stĺpec (zatiaľ len users_bests)
+# plávanie — presne podľa FE selectu: 100m, 400m, 750m (Sprint),
+# 1km, 1500m (Olympic), 1900m (Half IM), 3800m (Ironman), 5km
 SWIM_SEGMENTS: List[Tuple[str, int, str]] = [
-    ("50m",    50,    "best_50m_s"),
-    ("100m",   100,   "best_100m_s"),
-    ("200m",   200,   "best_200m_s"),
-    ("400m",   400,   "best_400m_s"),
-    ("800m",   800,   "best_800m_s"),
-    ("1500m",  1_500, "best_1500m_s"),
+    ("100m",            100,    "best_swim_100m_s"),
+    ("400m",            400,    "best_swim_400m_s"),
+    ("750m_sprint",     750,    "best_swim_750m_s"),
+    ("1km",             1_000,  "best_swim_1k_s"),
+    ("1500m_olympic",   1_500,  "best_swim_1500m_s"),
+    ("1900m_half_im",   1_900,  "best_swim_1900m_s"),
+    ("3800m_ironman",   3_800,  "best_swim_3800m_s"),
+    ("5km",             5_000,  "best_swim_5k_s"),
 ]
 
-# bicykel — klasické vzdialenostné segmenty, žiadny enrichment stĺpec
+# bicykel — presne podľa FE selectu: 10km, 20km, 40km, 50km, 90km,
+# 100km, 100 miles, 180km (Ironman)
 RIDE_SEGMENTS: List[Tuple[str, int, str]] = [
-    ("5km",   5_000,   "best_ride_5k_s"),
-    ("10km",  10_000,  "best_ride_10k_s"),
-    ("20km",  20_000,  "best_ride_20k_s"),
-    ("40km",  40_000,  "best_ride_40k_s"),
-    ("100km", 100_000, "best_ride_100k_s"),
+    ("10km",            10_000,   "best_ride_10k_s"),
+    ("20km",            20_000,   "best_ride_20k_s"),
+    ("40km",            40_000,   "best_ride_40k_s"),
+    ("50km",            50_000,   "best_ride_50k_s"),
+    ("90km",            90_000,   "best_ride_90k_s"),
+    ("100km",           100_000,  "best_ride_100k_s"),
+    ("100_miles",       160_934,  "best_ride_100mi_s"),
+    ("180km_ironman",   180_000,  "best_ride_180k_s"),
 ]
 
 RUN_SPORTS = ("run", "trail_run", "trailrun", "virtualrun")
@@ -69,7 +81,7 @@ def _fmt_time(seconds: float) -> str:
 def _fmt_delta(delta_seconds: float) -> str:
     """
     Naformátuje rozdiel v sekundách na čitateľný tvar zlepšenia,
-    napr. 83.4 -> "1:23", 4.2 -> "4 s".
+    napr. 83.4 -> "1:23 min", 4.2 -> "4 s".
     """
     d = abs(delta_seconds)
     if d < 60:
@@ -88,7 +100,7 @@ def _best_time_for_distance_streams(
     Presný výpočet najrýchlejšieho úseku danej dĺžky zo streamov.
 
     Two-pointer sliding window s lineárnou interpoláciou na presnú
-    hranicu okna. Zložitosť O(n) – 100km cyklo (~desiatky tisíc vzoriek) = ms.
+    hranicu okna. Zložitosť O(n).
     """
     n = len(dist_m)
     if n < 2 or dist_m[-1] < target_m:
@@ -181,7 +193,7 @@ def service_check_activity_records(
 ) -> List[Dict[str, Any]]:
     """
     1) Vypočíta najlepšie segmentové časy aktivity (streams > splits fallback).
-    2) Uloží segmenty do activities_enrichment (best_1k_s, best_5k_s, ...) — len beh.
+    2) Uloží segmenty do activities_enrichment (best_1k_s, best_5k_s, ...).
     3) Porovná s users_bests a pri prekonaní upsertne nový rekord.
 
     Vracia list NOVÝCH rekordov, pripravený priamo na notifikáciu:
@@ -206,7 +218,6 @@ def service_check_activity_records(
 
     segments = _segments_for_sport(sport)
     if not segments:
-        print(f"[RECORDS] ⏭ Preskakujem sport={sport_raw}, rekordy podporujeme len pre beh, plávanie a bicykel")
         return []
 
     new_records: List[Dict[str, Any]] = []
@@ -219,18 +230,9 @@ def service_check_activity_records(
     dist_stream = (streams or {}).get("distance") or []
     use_streams = len(time_stream) >= 2 and len(time_stream) == len(dist_stream)
 
-    if use_streams:
-        print(f"[RECORDS] 🎯 Používam streams ({len(time_stream)} vzoriek) – presný výpočet")
-    elif splits:
-        print(f"[RECORDS] ⚠ Streams nedostupné, fallback na splits ({len(splits)} splitov)")
-    else:
-        print(f"[RECORDS] ⚠ Žiadne streams ani splits pre activity_id={activity_id}")
-
     sorted_splits = sorted(splits or [], key=lambda s: s.get("split_index", 0))
 
-    # {enrichment_column: best_time_s} — relevantné len pre beh, ostatné športy enrichment nemajú
     computed: Dict[str, float] = {}
-    # {distance_m: best_time_s} pre porovnanie s users_bests
     computed_by_dist: Dict[int, float] = {}
 
     for label, target_m, col in segments:
@@ -241,28 +243,19 @@ def service_check_activity_records(
                 time_stream, dist_stream, float(target_m)
             )
         elif sorted_splits:
-            # window v "jednotkách splitu" — Strava splits sú vždy po 1km
-            # (metric) alebo 1 míli. Pre beh to sedí priamo, pre bike
-            # splits zvyčajne nemáme (Strava ich pre ride negeneruje
-            # rovnako), takže fallback bez streamov pri ride reálne nič nenájde.
             window = max(1, round(target_m / 1000)) if sport in ("run", "ride") else None
             if window:
                 best = _best_time_for_distance_splits(sorted_splits, window)
 
         if best is None:
-            print(f"[RECORDS] ⏭ {label}: aktivita je kratšia alebo chýbajú dáta, preskakujem")
             continue
 
         best = round(best, 1)
         computed_by_dist[target_m] = best
-        if sport == "run":
-            computed[col] = best
-        pace = best / (target_m / 1000) if target_m >= 1000 else None
-        pace_str = f" (tempo {_fmt_time(pace)}/km)" if pace else ""
-        print(f"[RECORDS] 🏁 Best {label}: {_fmt_time(best)}{pace_str}")
+        computed[col] = best
 
     # ---------------------------------------------------------------
-    # 2) ULOŽENIE SEGMENTOV DO ENRICHMENT (len beh, samostatné stĺpce)
+    # 2) ULOŽENIE SEGMENTOV DO ENRICHMENT (samostatné stĺpce)
     # ---------------------------------------------------------------
     if computed:
         try:
@@ -275,7 +268,6 @@ def service_check_activity_records(
                 }],
                 ctx=ctx,
             )
-            print(f"[RECORDS] 💾 Segmenty uložené do enrichment: {computed}")
         except Exception as e:  # noqa: BLE001
             print(f"❌ [RECORDS] enrichment save failed: {e}")
 
@@ -305,7 +297,6 @@ def service_check_activity_records(
         prev_time = existing.get("best_time_s") if existing else None
 
         if prev_time is not None and new_time >= float(prev_time):
-            print(f"[RECORDS] ✅ {label}: {_fmt_time(new_time)} (rekord ostáva {_fmt_time(float(prev_time))})")
             continue
 
         try:
@@ -324,15 +315,6 @@ def service_check_activity_records(
             )
 
             delta_s = (float(prev_time) - new_time) if prev_time is not None else None
-            prev_str = _fmt_time(float(prev_time)) if prev_time else None
-
-            if delta_s is not None:
-                print(
-                    f"[RECORDS] 🏆 NOVÝ REKORD {label}: {_fmt_time(new_time)} "
-                    f"(zlepšenie o {_fmt_delta(delta_s)}, predtým {prev_str})"
-                )
-            else:
-                print(f"[RECORDS] 🏆 NOVÝ REKORD {label}: {_fmt_time(new_time)} (prvý zaznamenaný čas)")
 
             new_records.append({
                 "type": f"segment_{label}",
@@ -380,10 +362,6 @@ def service_check_activity_records(
                 )
                 if dist_record:
                     delta_dist = new_dist - prev_max_dist
-                    print(
-                        f"[RECORDS] 🏆 NOVÝ REKORD – Najdlhšia vzdialenosť: "
-                        f"{new_dist/1000:.2f} km (o {delta_dist/1000:.2f} km viac, predtým {prev_max_dist/1000:.2f} km)"
-                    )
                     new_records.append({
                         "type": "total_distance",
                         "sport": sport,
@@ -397,10 +375,6 @@ def service_check_activity_records(
                     })
                 if time_record:
                     delta_time = new_time_total - prev_max_time
-                    print(
-                        f"[RECORDS] 🏆 NOVÝ REKORD – Najdlhší čas: "
-                        f"{_fmt_time(new_time_total)} (o {_fmt_delta(delta_time)} viac, predtým {_fmt_time(prev_max_time)})"
-                    )
                     new_records.append({
                         "type": "total_time",
                         "sport": sport,
@@ -413,13 +387,5 @@ def service_check_activity_records(
                     })
             except Exception as e:  # noqa: BLE001
                 print(f"❌ [RECORDS] upsert totals failed: {e}")
-        else:
-            print(
-                f"[RECORDS] ✅ Celkové rekordy ostávajú "
-                f"(max dist {prev_max_dist/1000:.2f} km, max čas {_fmt_time(prev_max_time)})"
-            )
-
-    elapsed_ms = (time.perf_counter() - t_start) * 1000
-    print(f"[RECORDS] ⚡ Výpočet + DB trval {elapsed_ms:.1f} ms")
 
     return new_records

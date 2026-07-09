@@ -53,7 +53,6 @@ export async function apiRerunActivityReview(
       return { success: true, status: "PROCESSING" };
     }
 
-    // ✅ NOVÉ: Pozrieme sa dovnútra Jobu, či AI worker nevrátil chybu
     const innerResult = runJson?.data?.result || runJson?.job?.result || runJson?.result;
     if (innerResult && innerResult.ok === false) {
       return {

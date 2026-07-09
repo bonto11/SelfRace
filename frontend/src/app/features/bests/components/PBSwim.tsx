@@ -19,7 +19,6 @@ import type {
 } from "@/app/features/bests/types/bests";
 
 import { secToHHMMSS, hhmmssToSec } from "@/app/shared/utils/time";
-// Uisti sa, že tento hook existuje, inak ho premenuj podľa seba
 import { useFavoritePBSwim } from "@/app/features/bests/hooks/useFavoritePBSwim";
 import ActivitySelector from "@/app/shared/ui/components/ActivitySelector";
 import SessionCard from "@/app/shared/components/session/SessionCard";
@@ -29,8 +28,8 @@ import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import TimeField from "@/app/shared/ui/components/TimeField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
@@ -205,11 +204,9 @@ export default function PBSwim() {
           </div>
 
           <div className="sm:col-span-3">
-            <TimeSelectorField
-              hh={true}
-              mm={true}
-              ss={true}
-              value={form.time_str || "00:00:00"}
+            <TimeField
+              hh mm ss
+              value={form.time_str ?? ""}
               onChange={(val) =>
                 setForm((f) => ({
                   ...f,
@@ -245,25 +242,27 @@ export default function PBSwim() {
           </div>
 
           <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
-            <NumberWheelField
+            <NumberField
               min={0}
-              max={50} // Plávanie zriedka prekročí 50 km
+              max={50}
               step={0.1}
+              unit={t("common.units.km")}
               value={
                 form.total_distance_km
                   ? Number(form.total_distance_km.replace(",", "."))
                   : ""
               }
               onChange={(val) =>
-                setForm((f) => ({ ...f, total_distance_km: String(val) }))
+                setForm((f) => ({
+                  ...f,
+                  total_distance_km: val === "" ? "" : String(val),
+                }))
               }
             />
 
-            <TimeSelectorField
-              hh={true}
-              mm={true}
-              ss={true}
-              value={form.total_time_str || "00:00:00"}
+            <TimeField
+              hh mm ss
+              value={form.total_time_str ?? ""}
               onChange={(val) =>
                 setForm((f) => ({
                   ...f,
@@ -389,7 +388,6 @@ export default function PBSwim() {
   );
 }
 
-// ... SwipeRow identický s prvým príkladom ...
 function SwipeRow({
   children,
   onEdit,

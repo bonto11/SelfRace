@@ -7,9 +7,8 @@ import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
-// ✅ Import našich nových inteligentných bubnov
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+import NumberField from "@/app/shared/ui/components/NumberField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -350,32 +349,38 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
                       ]}
                     />
 
-                    <TimeSelectorField
-                      label={t("prefs.sections.goalSection.targetTimeLabel")}
-                      hh={true}
-                      mm={true}
-                      ss={true}
-                      value={race.target_time ?? "00:00:00"}
-                      onChange={(v) =>
-                        updateRaceAt(index, {
-                          target_time: v !== "00:00:00" ? v : null,
-                        })
-                      }
-                    />
+                    <div>
+                      <div className="text-xs opacity-70 mb-1">
+                        {t("prefs.sections.goalSection.targetTimeLabel")}
+                      </div>
+                      <TimeField
+                        hh mm ss
+                        value={race.target_time ?? ""}
+                        onChange={(v) =>
+                          updateRaceAt(index, {
+                            target_time: v || null,
+                          })
+                        }
+                      />
+                    </div>
 
-                    <NumberWheelField
-                      // ✅ Jednotka pridaná priamo do labelu
-                      label={`${t("prefs.sections.goalSection.elevationGainLabel")}`}
-                      min={0}
-                      max={10000}
-                      step={50}
-                      value={race.elevation_gain_m ?? ""}
-                      onChange={(val) =>
-                        updateRaceAt(index, {
-                          elevation_gain_m: val,
-                        })
-                      }
-                    />
+                    <div>
+                      <div className="text-xs opacity-70 mb-1">
+                        {t("prefs.sections.goalSection.elevationGainLabel")}
+                      </div>
+                      <NumberField
+                        min={0}
+                        max={10000}
+                        step={50}
+                        unit={t("common.units.meter")}
+                        value={race.elevation_gain_m ?? ""}
+                        onChange={(val) =>
+                          updateRaceAt(index, {
+                            elevation_gain_m: val === "" ? null : val,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -412,18 +417,18 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
                         {showCustom && (
                           <div className="mt-2">
-                            {/* ✅ Nahradené za NumberWheelField pre Vlastnú vzdialenosť */}
-                            <NumberWheelField
+                            <NumberField
                               label={t(
                                 "prefs.sections.goalSection.customDistLabel",
                               )}
                               min={1}
                               max={300}
                               step={1}
+                              unit={t("common.units.km")}
                               value={race.custom_distance_km ?? ""}
                               onChange={(val) =>
                                 updateRaceAt(index, {
-                                  custom_distance_km: val,
+                                  custom_distance_km: val === "" ? null : val,
                                 })
                               }
                             />

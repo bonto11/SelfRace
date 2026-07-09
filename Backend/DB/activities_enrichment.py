@@ -7,7 +7,6 @@ from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_ENRICHMENT
 
-
 # =========================
 # GET
 # =========================
@@ -29,7 +28,12 @@ def db_get_enrichment_for_activities(
         "z1_min,z2_min,z3_min,z4_min,z5_min,"
         "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
         "ai_review_thread,"
-        "best_1k_s,best_5k_s,best_10k_s,best_half_s,best_marathon_s,best_50k_s,"
+        "best_400m_s,best_1k_s,best_5k_s,best_10k_s,best_20k_s,"
+        "best_half_s,best_30k_s,best_marathon_s,best_50k_s,"
+        "best_swim_100m_s,best_swim_400m_s,best_swim_750m_s,best_swim_1k_s,"
+        "best_swim_1500m_s,best_swim_1900m_s,best_swim_3800m_s,best_swim_5k_s,"
+        "best_ride_10k_s,best_ride_20k_s,best_ride_40k_s,best_ride_50k_s,"
+        "best_ride_90k_s,best_ride_100k_s,best_ride_100mi_s,best_ride_180k_s,"
         "updated_at"
     )
 
@@ -164,7 +168,9 @@ def db_append_review_thread_entries(
     sb = get_sb(ctx, caller="activities_enrichment.db_append_review_thread_entries")
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    current_thread = db_get_review_thread(user_id=user_id, activity_id=activity_id, ctx=ctx)
+    current_thread = db_get_review_thread(
+        user_id=user_id, activity_id=activity_id, ctx=ctx
+    )
     new_thread = [*current_thread, *entries]
 
     row: Dict[str, Any] = {
@@ -197,7 +203,9 @@ def db_get_unreviewed_activities_for_push(
     Nájde aktivity, ktoré sa skončili (updated_at) pred viac ako 1 hodinou,
     ale menej ako 2 hodinami, a ešte nemajú žiadny review v threade.
     """
-    sb = get_sb(ctx, caller="activities_enrichment.db_get_unreviewed_activities_for_push")
+    sb = get_sb(
+        ctx, caller="activities_enrichment.db_get_unreviewed_activities_for_push"
+    )
 
     now = datetime.now(timezone.utc)
     one_hour_ago = (now - timedelta(hours=1)).isoformat()
@@ -214,8 +222,10 @@ def db_get_unreviewed_activities_for_push(
 
     rows = res.data or []
     return [
-        r for r in rows
-        if not isinstance(r.get("ai_review_thread"), list) or len(r["ai_review_thread"]) == 0
+        r
+        for r in rows
+        if not isinstance(r.get("ai_review_thread"), list)
+        or len(r["ai_review_thread"]) == 0
     ]
 
 

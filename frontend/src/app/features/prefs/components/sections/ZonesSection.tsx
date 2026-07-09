@@ -6,8 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import TextField from "@/app/shared/ui/components/TextField";
-// ✅ Pridaný import nášho nového točiaceho bubna
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
@@ -152,14 +151,14 @@ export default function ZonesSection({
 
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.zonesSection.HRmax")}</div>
-            {/* ✅ Nahradené NumberWheelField pre HR max */}
-            <NumberWheelField
+            <NumberField
               min={100}
               max={250}
               step={1}
+              unit={t("common.units.hr")}
               value={z.hr_max ?? ""}
               onChange={(val) => {
-                const next = { ...(zones ?? {}), sport: z.sport, hr_max: val };
+                const next = { ...(zones ?? {}), sport: z.sport, hr_max: val === "" ? null : val };
                 onZonesChange(calcMode === "manual" ? next : recalc(calcMode, next, lthrBpm));
               }}
             />
@@ -178,8 +177,7 @@ export default function ZonesSection({
             <div key={key} className={[SURFACE_INLINE, "px-3 py-2"].join(" ")}>
               <div className="text-[10px] opacity-70 uppercase mb-1">{key}</div>
               <div className="flex items-center gap-2">
-                {/* ✅ Nahradené NumberWheelField pre MIN a MAX zónu */}
-                <NumberWheelField 
+                <NumberField 
                   min={30} 
                   max={250} 
                   step={1} 
@@ -187,10 +185,10 @@ export default function ZonesSection({
                   containerClassName="flex-1"
                   className={zonesLocked ? "opacity-40" : ""}
                   value={(z as any)[`${key}_min`] ?? ""} 
-                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_min`]: val })} 
+                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_min`]: val === "" ? null : val })} 
                 />
                 <span className="opacity-60">–</span>
-                <NumberWheelField 
+                <NumberField 
                   min={30} 
                   max={250} 
                   step={1} 
@@ -198,7 +196,7 @@ export default function ZonesSection({
                   containerClassName="flex-1"
                   className={zonesLocked ? "opacity-40" : ""}
                   value={(z as any)[`${key}_max`] ?? ""} 
-                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_max`]: val })} 
+                  onChange={(val) => onZonesChange({ ...(zones ?? {}), sport: z.sport, [`${key}_max`]: val === "" ? null : val })} 
                 />
               </div>
             </div>

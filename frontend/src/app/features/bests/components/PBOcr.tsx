@@ -28,9 +28,8 @@ import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 
-// ✅ Import našich nových komponentov
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
+import TimeField from "@/app/shared/ui/components/TimeField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
@@ -98,7 +97,6 @@ export default function PBRun() {
 
   const canSave = useMemo(() => {
     const m = Number(form.distance_m);
-    // Overíme, či časový string nie je prázdny a či neobsahuje len nuly
     const validTime =
       form.time_str.trim() !== "" &&
       form.time_str !== "00:00:00" &&
@@ -137,7 +135,6 @@ export default function PBRun() {
       if (form.achieved_at)
         payload.achieved_at = form.achieved_at.replace(/\./g, "-");
 
-      // Pripravíme voliteľné total fields pre payload
       if (form.total_distance_km) {
         payload.total_distance_m = Math.round(
           parseFloat(form.total_distance_km.replace(",", ".")) * 1000,
@@ -207,12 +204,9 @@ export default function PBRun() {
           </div>
 
           <div className="sm:col-span-3">
-            {/* ✅ Nahradené za TimeSelectorField */}
-            <TimeSelectorField
-              hh={true}
-              mm={true}
-              ss={true}
-              value={form.time_str || "00:00:00"}
+            <TimeField
+              hh mm ss
+              value={form.time_str ?? ""}
               onChange={(val) =>
                 setForm((f) => ({
                   ...f,
@@ -249,25 +243,27 @@ export default function PBRun() {
 
           {/* VOLITEĽNÉ CELKOVÉ DÁTA */}
           <div className="sm:col-span-6 grid grid-cols-2 gap-3 p-3 bg-black/10 rounded-lg border border-white/5">
-            <NumberWheelField
+            <NumberField
               min={0}
               max={200}
               step={0.1}
+              unit={t("common.units.km")}
               value={
                 form.total_distance_km
                   ? Number(form.total_distance_km.replace(",", "."))
                   : ""
               }
               onChange={(val) =>
-                setForm((f) => ({ ...f, total_distance_km: String(val) }))
+                setForm((f) => ({
+                  ...f,
+                  total_distance_km: val === "" ? "" : String(val),
+                }))
               }
             />
 
-            <TimeSelectorField
-              hh={true}
-              mm={true}
-              ss={true}
-              value={form.total_time_str || "00:00:00"}
+            <TimeField
+              hh mm ss
+              value={form.total_time_str ?? ""}
               onChange={(val) =>
                 setForm((f) => ({
                   ...f,
@@ -330,7 +326,6 @@ export default function PBRun() {
                 achieved_at: isoDateOnly(b.achieved_at),
                 activity_id: b.activity_id != null ? String(b.activity_id) : "",
                 activity_name: (b as any).activity_name ?? "",
-                // Natiahneme aj total dáta do formulára
                 total_distance_km: b.total_distance_m
                   ? (b.total_distance_m / 1000).toFixed(2)
                   : "",

@@ -10,8 +10,8 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+import NumberField from "@/app/shared/ui/components/NumberField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -109,19 +109,28 @@ function RaceCard({ race, index, onChange, onRemove, t }: {
           ]}
         />
 
-        <TimeSelectorField
-          label={t("prefs.sections.goalSection.targetTimeLabel")}
-          hh mm ss
-          value={race.target_time ?? "00:00:00"}
-          onChange={(v) => onChange({ target_time: v !== "00:00:00" ? v : null })}
-        />
+        <div>
+          <div className="text-xs opacity-70 mb-1">
+            {t("prefs.sections.goalSection.targetTimeLabel")}
+          </div>
+          <TimeField
+            hh mm ss
+            value={race.target_time ?? ""}
+            onChange={(v) => onChange({ target_time: v || null })}
+          />
+        </div>
 
-        <NumberWheelField
-          label={t("prefs.sections.goalSection.elevationGainLabel")}
-          min={0} max={10000} step={50}
-          value={race.elevation_gain_m ?? ""}
-          onChange={(val) => onChange({ elevation_gain_m: val })}
-        />
+        <div>
+          <div className="text-xs opacity-70 mb-1">
+            {t("prefs.sections.goalSection.elevationGainLabel")}
+          </div>
+          <NumberField
+            min={0} max={10000} step={50}
+            unit={t("common.units.meter")}
+            value={race.elevation_gain_m ?? ""}
+            onChange={(val) => onChange({ elevation_gain_m: val === "" ? null : val })}
+          />
+        </div>
       </div>
 
       {/* Trasa a terén */}
@@ -157,11 +166,12 @@ function RaceCard({ race, index, onChange, onRemove, t }: {
             </div>
             {showCustom && (
               <div className="mt-2">
-                <NumberWheelField
+                <NumberField
                   label={t("prefs.sections.goalSection.customDistLabel")}
                   min={1} max={300} step={1}
+                  unit={t("common.units.km")}
                   value={race.custom_distance_km ?? ""}
-                  onChange={(val) => onChange({ custom_distance_km: val })}
+                  onChange={(val) => onChange({ custom_distance_km: val === "" ? null : val })}
                 />
               </div>
             )}

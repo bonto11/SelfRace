@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import InputsCard from "@/app/shared/ui/components/InputsCard";
 import SelectField from "@/app/shared/ui/components/SelectField";
-import NumberWheelField from "@/app/shared/ui/components/NumberWheelField";
-import TimeSelectorField from "@/app/shared/ui/components/TimeSelectorField";
+import NumberField from "@/app/shared/ui/components/NumberField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 import Button from "@/app/shared/ui/components/Button";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
@@ -22,20 +22,9 @@ import {
 } from "@/app/shared/ui/tokens";
 
 /* ---------- pace helpers (mm:ss) ---------- */
-function normalizePaceInput(v: string): string {
-  const raw = v.replace(/[^\d:]/g, "");
-  if (raw.includes(":")) {
-    const [m, s] = raw.split(":");
-    return `${m.slice(0, 2)}:${(s ?? "").slice(0, 2)}`;
-  }
-  if (raw.length <= 2) return raw;
-  return `${raw.slice(0, 2)}:${raw.slice(2, 4)}`;
-}
-
 function paceToSec(v: string): number | null {
-  const t = normalizePaceInput(v);
-  if (!t || !t.includes(":")) return null;
-  const [m, s] = t.split(":").map((x) => Number(x));
+  if (!v || !v.includes(":")) return null;
+  const [m, s] = v.split(":").map((x) => Number(x));
   if (!Number.isFinite(m) || !Number.isFinite(s)) return null;
   return m * 60 + s;
 }
@@ -84,12 +73,10 @@ export default function ThresholdsSection({
   const thr = thresholds ?? {};
   const [open, setOpen] = useState(false);
 
-  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km) || "00:00");
-  
+  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km));
+
   useEffect(() => {
-    if (thr.pace_sec_km) {
-      setPaceStr(secToPace(thr.pace_sec_km));
-    }
+    setPaceStr(secToPace(thr.pace_sec_km));
   }, [thr.pace_sec_km]);
 
   const latestByCombo = useMemo(() => {
@@ -244,12 +231,13 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.thresholdsSection.hrLabel")}
             </div>
-            <NumberWheelField
+            <NumberField
               min={40}
               max={220}
               step={1}
+              unit={t("common.units.hr")}
               value={thr.hr_bpm ?? ""}
-              onChange={(val) => onChange({ ...thr, hr_bpm: val })}
+              onChange={(val) => onChange({ ...thr, hr_bpm: val === "" ? null : val })}
             />
           </section>
 
@@ -257,10 +245,8 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.thresholdsSection.paceLabel")}
             </div>
-            <TimeSelectorField
-              hh={false}
-              mm={true}
-              ss={true}
+            <TimeField
+              hh={false} mm ss
               value={paceStr}
               onChange={(v) => {
                 setPaceStr(v);
@@ -273,12 +259,13 @@ export default function ThresholdsSection({
             <div className={INPUTS_CARD_LABEL_SM_1}>
               {t("prefs.sections.thresholdsSection.powerLabel")}
             </div>
-            <NumberWheelField
+            <NumberField
               min={0}
               max={1000}
               step={1}
+              unit={t("common.units.power")}
               value={thr.power_watt ?? ""}
-              onChange={(val) => onChange({ ...thr, power_watt: val })}
+              onChange={(val) => onChange({ ...thr, power_watt: val === "" ? null : val })}
             />
           </section>
 

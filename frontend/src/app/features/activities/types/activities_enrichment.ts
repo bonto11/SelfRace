@@ -71,12 +71,34 @@ export type ActivityEnrichment = {
   distance_m: number | null;
   updated_at: string | null;
   ai_review_thread: ThreadEntry[];
+  // Beh
+  best_400m_s?: number | null;
   best_1k_s?: number | null;
   best_5k_s?: number | null;
   best_10k_s?: number | null;
+  best_20k_s?: number | null;
   best_half_s?: number | null;
+  best_30k_s?: number | null;
   best_marathon_s?: number | null;
   best_50k_s?: number | null;
+  // Plávanie
+  best_swim_100m_s?: number | null;
+  best_swim_400m_s?: number | null;
+  best_swim_750m_s?: number | null;
+  best_swim_1k_s?: number | null;
+  best_swim_1500m_s?: number | null;
+  best_swim_1900m_s?: number | null;
+  best_swim_3800m_s?: number | null;
+  best_swim_5k_s?: number | null;
+  // Bicykel
+  best_ride_10k_s?: number | null;
+  best_ride_20k_s?: number | null;
+  best_ride_40k_s?: number | null;
+  best_ride_50k_s?: number | null;
+  best_ride_90k_s?: number | null;
+  best_ride_100k_s?: number | null;
+  best_ride_100mi_s?: number | null;
+  best_ride_180k_s?: number | null;
 };
 
 export type ActivityReviewEnqueueOpts = {
