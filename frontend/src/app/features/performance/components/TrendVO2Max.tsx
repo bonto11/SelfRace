@@ -36,6 +36,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+// Jemný popisok pásma — vpravo hore v páse, malé a poloпriehľadné
+const BandLabel = ({ viewBox, text, color }: any) => {
+  if (!viewBox) return null;
+  const { x, y, width, height } = viewBox;
+  if (height < 14) return null; // pás je príliš úzky na text
+  return (
+    <text
+      x={x + width - 6}
+      y={y + height / 2}
+      textAnchor="end"
+      dominantBaseline="middle"
+      fontSize={10}
+      fontWeight={600}
+      fill={color}
+      opacity={0.75}
+    >
+      {text}
+    </text>
+  );
+};
+
 export default function TrendVO2Max() {
   const t = useT();
   const { data, loading } = usePerformanceData();
@@ -131,6 +152,7 @@ export default function TrendVO2Max() {
                   fill={hexWithAlpha(r.color, 0.1)}
                   fillOpacity={1}
                   strokeOpacity={0}
+                  label={<BandLabel text={r.label} color={r.color} />}
                 />
               ))}
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
