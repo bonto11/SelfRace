@@ -62,8 +62,23 @@ function Card({
 
 function sportLabel(t: any, sport: string): string {
   const key = (sport || "other").toLowerCase();
-  return t(`common.sports.${key}` as any) || sport;
+  const translated = t(`common.sports.${key}` as any);
+
+  // Ak preklad chýba, i18n zvyčajne vráti späť samotný kľúč (napr. "common.sports.snowshoe").
+  // V tom prípade spravíme fallback: posledný segment kľúča, podčiarkovníky nahradíme
+  // medzerou a prvé písmeno každého slova veľké (napr. "rock_climbing" -> "Rock Climbing").
+  const looksUntranslated = translated === `common.sports.${key}` || !translated;
+
+  if (looksUntranslated) {
+    return key
+      .split("_")
+      .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(" ");
+  }
+
+  return translated;
 }
+
 
 export default function DetailPlanCompliance() {
   const { userId } = useUserId();
