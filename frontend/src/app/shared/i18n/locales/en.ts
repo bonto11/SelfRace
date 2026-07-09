@@ -1451,6 +1451,11 @@ export const en = {
       successRate: "Compliance rate",
       unmatched: "Other activities",
     },
+    "unmatched": {
+    "title": "Other activities",
+    "subtitle": "Activities outside your training plan",
+    "activitiesUnit": "act."
+  },
     bank: {
       title: "Postponed workouts",
       subtitle:

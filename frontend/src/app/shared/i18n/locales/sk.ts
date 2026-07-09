@@ -1443,6 +1443,11 @@ export const sk = {
       successRate: "Úspešnosť plnenia",
       unmatched: "Iné aktivity",
     },
+    "unmatched": {
+      "title": "Iné aktivity",
+      "subtitle": "Aktivity mimo tréningového plánu",
+      "activitiesUnit": "akt."
+    },
     bank: {
       title: "Odložené tréningy",
       subtitle:

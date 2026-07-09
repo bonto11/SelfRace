@@ -13,6 +13,7 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
+import { fmtSecondsHMS } from "@/app/shared/utils/time";
 
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
@@ -57,6 +58,11 @@ function Card({
       <div className={ACCORDION_FOOTER_BAR_MUTED} />
     </section>
   );
+}
+
+function sportLabel(t: any, sport: string): string {
+  const key = (sport || "other").toLowerCase();
+  return t(`common.sports.${key}` as any) || sport;
 }
 
 export default function DetailPlanCompliance() {
@@ -142,9 +148,13 @@ export default function DetailPlanCompliance() {
 
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
   const displayPostponedCount = stats.postponed || stats.skipped || 0;
-  const unmatchedCount = Array.isArray(data?.unmatched_activities)
-    ? data.unmatched_activities.length
-    : 0;
+
+  const unmatchedSummary: Array<{
+    sport: string;
+    count: number;
+    distance_m: number;
+    moving_time_s: number;
+  }> = Array.isArray(data?.unmatched_summary) ? data.unmatched_summary : [];
 
   const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
 
@@ -193,19 +203,37 @@ export default function DetailPlanCompliance() {
                   {stats.missed}
                 </span>
               </div>
-
-              {unmatchedCount > 0 && (
-                <div className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5">
-                  <span className="text-white/70 font-semibold">
-                    {t("coachCompliance.stats.unmatched")}
-                  </span>
-                  <span className="text-xl font-bold text-white/90">
-                    {unmatchedCount}
-                  </span>
-                </div>
-              )}
             </div>
           </Card>
+
+          {unmatchedSummary.length > 0 && (
+            <Card
+              title={t("coachCompliance.unmatched.title")}
+              subtitle={t("coachCompliance.unmatched.subtitle")}
+            >
+              <div className="space-y-2">
+                {unmatchedSummary.map((row) => {
+                  const km = row.distance_m / 1000;
+                  const hasDistance = km > 0.05;
+                  return (
+                    <div
+                      key={row.sport}
+                      className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5"
+                    >
+                      <span className="text-white/80 font-medium">
+                        {sportLabel(t, row.sport)}
+                      </span>
+                      <span className="text-sm text-white/70 text-right">
+                        {row.count} {t("coachCompliance.unmatched.activitiesUnit")}
+                        {hasDistance && <> · {km.toFixed(1)} km</>}
+                        {row.moving_time_s > 0 && <> · {fmtSecondsHMS(row.moving_time_s)}</>}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* ZÁSOBNÍK ODLOŽENÝCH */}

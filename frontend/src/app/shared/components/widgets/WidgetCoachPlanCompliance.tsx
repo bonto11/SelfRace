@@ -46,7 +46,11 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
 
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
   const displayPostponedCount = stats.postponed || stats.skipped || 0;
-  const unmatchedCount = Array.isArray(data?.unmatched_activities) ? data.unmatched_activities.length : 0;
+
+  const unmatchedSummary: Array<{ count: number }> = Array.isArray(data?.unmatched_summary)
+    ? data.unmatched_summary
+    : [];
+  const unmatchedCount = unmatchedSummary.reduce((sum, r) => sum + (r.count || 0), 0);
 
   const total = stats.done + displayPostponedCount + stats.missed;
   const successRate = total > 0 ? Math.round((stats.done / total) * 100) : 0;

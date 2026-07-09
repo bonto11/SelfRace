@@ -16,8 +16,12 @@ from Services.AI.daily_plan.main import (
     service_update_daily_session_status,
 )
 
+from DB.coach_plan_daily import (
+    db_get_compliance_stats,
+    db_get_postponed_sessions,
+    db_get_unmatched_activities_summary,
+)
 
-from DB.coach_plan_daily import db_get_compliance_stats, db_get_postponed_sessions, db_get_unmatched_activities
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
 router = APIRouter(
@@ -166,7 +170,6 @@ def update_daily_session_status_route(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/compliance/{user_id}")
 def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
     try:
@@ -174,15 +177,16 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
 
         stats = db_get_compliance_stats(user_id, days=30, ctx=ctx)
         postponed = db_get_postponed_sessions(user_id, ctx=ctx)
-        unmatched = db_get_unmatched_activities(user_id, days=30, ctx=ctx)
+        unmatched_summary = db_get_unmatched_activities_summary(user_id, days=30, ctx=ctx)
 
         return {
             "success": True,
             "data": {
                 "stats": stats,
                 "postponed_sessions": postponed,
-                "unmatched_activities": unmatched,
+                "unmatched_summary": unmatched_summary,
             },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
