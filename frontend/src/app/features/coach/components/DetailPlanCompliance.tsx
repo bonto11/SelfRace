@@ -169,6 +169,7 @@ export default function DetailPlanCompliance() {
     count: number;
     distance_m: number;
     moving_time_s: number;
+    elevation_gain_m: number;
   }> = Array.isArray(data?.unmatched_summary) ? data.unmatched_summary : [];
 
   const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
