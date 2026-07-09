@@ -222,29 +222,38 @@ export default function DetailPlanCompliance() {
             </div>
           </Card>
 
-          {unmatchedSummary.map((row) => {
-            const km = row.distance_m / 1000;
-            const hasDistance = km > 0.05;
-            const hasElevation = row.elevation_gain_m > 0;
-            return (
-              <div
-                key={row.sport}
-                className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5"
-              >
-                <span className="text-white/80 font-medium">
-                  {sportLabel(t, row.sport)}
-                </span>
-                <span className="text-sm text-white/70 text-right">
-                  {row.count} {t("coachCompliance.unmatched.activitiesUnit")}
-                  {hasDistance && <> · {km.toFixed(1)} km</>}
-                  {row.moving_time_s > 0 && <> · {fmtSecondsHMS(row.moving_time_s)}</>}
-                  {hasElevation && <> · {Math.round(row.elevation_gain_m)} m ↑</>}
-                </span>
+          {unmatchedSummary.length > 0 && (
+            <Card
+              title={t("coachCompliance.unmatched.title")}
+              subtitle={t("coachCompliance.unmatched.subtitle")}
+            >
+              <div className="space-y-2">
+                {unmatchedSummary.map((row) => {
+                  const km = row.distance_m / 1000;
+                  const hasDistance = km > 0.05;
+                  const hasElevation = row.elevation_gain_m > 0;
+                  return (
+                    <div
+                      key={row.sport}
+                      className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5"
+                    >
+                      <span className="text-white/80 font-medium">
+                        {sportLabel(t, row.sport)}
+                      </span>
+                      <span className="text-sm text-white/70 text-right">
+                        {row.count} {t("coachCompliance.unmatched.activitiesUnit")}
+                        {hasDistance && <> · {km.toFixed(1)} km</>}
+                        {row.moving_time_s > 0 && <> · {fmtSecondsHMS(row.moving_time_s)}</>}
+                        {hasElevation && <> · {Math.round(row.elevation_gain_m)} m ↑</>}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-          
-  
+            </Card>
+          )}
+        </div>
+
         {/* ZÁSOBNÍK ODLOŽENÝCH */}
         <div className={PANEL_STACK}>
           <Card

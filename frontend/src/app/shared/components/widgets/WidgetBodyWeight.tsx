@@ -37,7 +37,7 @@ export default function WidgetBodyWeight({ onOpen, onOpenDetail, showAdvanced = 
 
   const weight = weightLatest?.value ?? null;
   const updatedAt = weightLatest?.measured_at ?? null;
-  const height = profileStatic?.height ?? null; // Výška v cm
+  const height = profileStatic?.height_cm ?? null; // Výška v cm — pole sa volá height_cm, nie height
 
   // Výpočet BMI a kategórie
   const bmi = React.useMemo(() => {
@@ -57,7 +57,7 @@ export default function WidgetBodyWeight({ onOpen, onOpenDetail, showAdvanced = 
   return (
     <WidgetCard
       title={t("performance.metrics.weightLabel")}
-      tooltip={t("volumeSection.widget.tooltip" as any)} // Alebo iný vhodný tooltip key
+      tooltip={t("volumeSection.widget.tooltip" as any)}
       onOpen={handleOpen}
       interactive={!!handleOpen}
       accent={bmiLevel?.color ?? appColors.brandPrimary}
