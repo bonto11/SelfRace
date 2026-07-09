@@ -32,7 +32,6 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
       });
   }, [userId]);
 
-  // Úvodný load a load vždy, keď sa dočíta globálny kalendár
   useEffect(() => {
     if (!isGlobalLoading) {
       loadComplianceStats();
@@ -47,7 +46,8 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
 
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
   const displayPostponedCount = stats.postponed || stats.skipped || 0;
-  
+  const unmatchedCount = Array.isArray(data?.unmatched_activities) ? data.unmatched_activities.length : 0;
+
   const total = stats.done + displayPostponedCount + stats.missed;
   const successRate = total > 0 ? Math.round((stats.done / total) * 100) : 0;
 
@@ -89,6 +89,16 @@ export default function WidgetCoachPlanCompliance({ onOpenDetail }: Props) {
             </div>
             <span className="font-bold text-red-400">{stats.missed}</span>
           </div>
+
+          {unmatchedCount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <span className="text-white/80">{t("coachCompliance.stats.unmatched")}</span>
+              </div>
+              <span className="font-bold text-blue-300">{unmatchedCount}</span>
+            </div>
+          )}
         </div>
       </div>
     </WidgetCard>

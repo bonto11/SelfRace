@@ -117,7 +117,6 @@ export default function DetailPlanCompliance() {
     }
   };
 
-  // 🌟 NOVÁ FUNKCIA: Vyhodenie tréningu zo zásobníka
   const handleDiscard = async (sessionId: number) => {
     if (!userId || !sessionId || saving) return;
     setSaving(true);
@@ -141,11 +140,12 @@ export default function DetailPlanCompliance() {
     );
   }
 
-  // 🌟 Zjednotené štatistiky (backend nám posiela už hotové čísla)
   const stats = data?.stats || { done: 0, postponed: 0, skipped: 0, missed: 0 };
   const displayPostponedCount = stats.postponed || stats.skipped || 0;
-  
-  // 🌟 Zoznam všetkých odložených bez ohľadu na dátum
+  const unmatchedCount = Array.isArray(data?.unmatched_activities)
+    ? data.unmatched_activities.length
+    : 0;
+
   const postponedSessions = data?.postponed_sessions || data?.skipped_sessions || [];
 
   return (
@@ -153,7 +153,7 @@ export default function DetailPlanCompliance() {
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
       <div className={PAGE_GRID_2}>
-        
+
         {/* STATISTIKY */}
         <div className={PANEL_STACK}>
           <Card
@@ -193,6 +193,17 @@ export default function DetailPlanCompliance() {
                   {stats.missed}
                 </span>
               </div>
+
+              {unmatchedCount > 0 && (
+                <div className="flex justify-between items-center p-3 rounded-xl border border-white/5 bg-white/5">
+                  <span className="text-white/70 font-semibold">
+                    {t("coachCompliance.stats.unmatched")}
+                  </span>
+                  <span className="text-xl font-bold text-white/90">
+                    {unmatchedCount}
+                  </span>
+                </div>
+              )}
             </div>
           </Card>
         </div>
@@ -222,7 +233,6 @@ export default function DetailPlanCompliance() {
                             loadData();
                             refreshCoach(false);
                           }}
-                          // 🌟 Posielame novú funkciu do SessionCard
                           onDiscard={() => handleDiscard(s.id)}
                           
                           planReschedule={{

@@ -1449,6 +1449,7 @@ export const en = {
       postponed: "Postponed",
       missed: "Missed (inactive)",
       successRate: "Compliance rate",
+      unmatched: "Other activities",
     },
     bank: {
       title: "Postponed workouts",

@@ -5,7 +5,7 @@ from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_DAILY
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
-
+from DB.activities_summary import db_get_activities_recent
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -329,10 +329,10 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
     try:
         active_plan = db_get_active_plan_meta_for_user(user_id, ctx=ctx)
 
-        # FIX: select aj plan_date, nielen status
+        # FIX: select aj plan_date a duration_min, nielen status
         query = (
             sb.table(TABLE_COACH_PLAN_DAILY)
-            .select("status, plan_date")
+            .select("status, plan_date, duration_min, sport")
             .eq("user_id", user_id)
         )
 
@@ -353,11 +353,15 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         for row in data:
             s = row.get("status") or "planned"
             plan_date = str(row.get("plan_date") or "")
+            duration = row.get("duration_min")
+            sport = str(row.get("sport") or "")
 
-            # Kľúčová oprava: planned session v minulosti = missed
-            # (status sa v DB nemení automaticky, počítame to tu)
+            is_rest_day = (sport == "other" and (duration is None or int(duration) == 0))
+
+            # Kľúčová oprava: planned session v minulosti = missed,
+            # OKREM rest dní (duration_min=0), tie sa počítajú ako splnené automaticky.
             if s == "planned" and plan_date and plan_date < today:
-                s = "missed"
+                s = "done" if is_rest_day else "missed"
 
             if s in stats:
                 stats[s] += 1
@@ -367,6 +371,51 @@ def db_get_compliance_stats(user_id: int, days: int = 30, *, ctx: AuthCtx) -> Di
         print("[DB-COACH-DAILY] stats error:", repr(e))
         return {"done": 0, "postponed": 0, "missed": 0, "planned": 0}
 
+def db_get_unmatched_activities(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+    days: int = 30,
+) -> List[Dict[str, Any]]:
+    """
+    Aktivity zo Stravy (activities_summary) za obdobie, ktoré NIE SÚ
+    napárované na žiadnu tréningovú session v coach_plan_daily.
+    Používa sa na zobrazenie "iné aktivity" v compliance widgete.
+    """
+    
+
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_unmatched_activities")
+    try:
+        active_plan = db_get_active_plan_meta_for_user(user_id, ctx=ctx)
+        if active_plan and active_plan.get("start_date"):
+            since_iso = active_plan["start_date"]
+        else:
+            since_iso = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+
+        # Všetky activity_id, ktoré sú už napárované na plán
+        plan_res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("activity_id")
+            .eq("user_id", user_id)
+            .gte("plan_date", since_iso)
+            .execute()
+        )
+        matched_ids = {
+            int(r["activity_id"]) for r in (plan_res.data or [])
+            if r.get("activity_id") is not None
+        }
+
+        # Všetky reálne aktivity za rovnaké obdobie
+        activities = db_get_activities_recent(ctx=ctx, user_id=user_id, since_iso_date=since_iso)
+
+        unmatched = [
+            a for a in activities
+            if int(a["activity_id"]) not in matched_ids
+        ]
+        return unmatched
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_unmatched_activities error:", repr(e))
+        return []
 
 def db_get_postponed_sessions(user_id: int, *, ctx: AuthCtx) -> List[Dict[str, Any]]:
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_postponed_sessions")

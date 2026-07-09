@@ -132,7 +132,6 @@ export const sk = {
       pct: "%",
       kadenceRun: "krokov/min",
       kadenceBike: "ot/min",
-      
     },
     metrics: {
       trimp: "Záťaž (Trimp)",
@@ -1442,6 +1441,7 @@ export const sk = {
       postponed: "Odložené na neskôr", // nahrádza "Preskočené"
       missed: "Zmeškané (neaktívne)",
       successRate: "Úspešnosť plnenia",
+      unmatched: "Iné aktivity",
     },
     bank: {
       title: "Odložené tréningy",
