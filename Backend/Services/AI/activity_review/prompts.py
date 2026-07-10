@@ -2,186 +2,127 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # ============================================================
 # HELPERS
 # ============================================================
 
-def _remove_empty(d: Any) -> Any:
-    """Rekurzívne vymaže None, [], {} — znižuje počet tokenov v JSON payload."""
-    if isinstance(d, dict):
-        cleaned = {k: _remove_empty(v) for k, v in d.items()}
-        return {k: v for k, v in cleaned.items() if v is not None and v != [] and v != {}}
-    elif isinstance(d, list):
-        cleaned = [_remove_empty(v) for v in d]
-        return [v for v in cleaned if v is not None and v != [] and v != {}]
-    return d
+def _lang_label(lang: str) -> str:
+    l = (lang or "sk").lower()
+    if l.startswith("en"):
+        return "English"
+    if l.startswith("cs"):
+        return "Czech"
+    return "Slovak"
 
 
-def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Osekáva context_payload pred odoslaním do AI:
-    - odstráni interné ID a debug polia
-    - z histórie zachová sport, intensity, duration, avg_hr (AI potrebuje vedieť záťaž)
-    - odstráni splits/laps/streams z histórie (sú len pre focus aktivitu)
-    - odstráni legacy hr_zones_bpm (user_zones sú dostačujúce)
-    - review_thread (ak existuje) ostáva — je to kontext na reply
-    """
-    out = json.loads(json.dumps(context, default=str))
-
-    # Interné polia ktoré AI nepotrebuje
-    u = out.get("user")
-    if isinstance(u, dict):
-        u.pop("id", None)
-        u.pop("email", None)
-    out.pop("_debug", None)
-
-    # Z focus aktivity odstránime len interné ID (metriky zostanú)
-    act = out.get("activity")
-    if isinstance(act, dict):
-        act.pop("activity_id", None)
-
-    # História — zachováme sport, intensity, duration a avg_hr
-    # AI musí vedieť či pred 3 dňami bol hard interval alebo easy Z2
-    history = out.get("history", {})
-    if isinstance(history, dict):
-        for period in ("days_0_7", "days_8_14"):
-            days = history.get(period, [])
-            if not isinstance(days, list):
-                continue
-            for day in days:
-                day.pop("activity_id", None)
-                day.pop("splits_minified", None)
-                day.pop("laps_minified", None)
-                day.pop("streams_minified", None)
-                # Zachováme kľúčové metriky — AI potrebuje vedieť záťaž, nie len dĺžku
-                if "metrics" in day and isinstance(day["metrics"], dict):
-                    day["metrics"] = {
-                        "duration_min": day["metrics"].get("duration_min"),
-                        "avg_hr_bpm": day["metrics"].get("avg_hr_bpm"),
-                        "distance_km": day["metrics"].get("distance_km"),
-                    }
-                # sport a intensity zostávajú na roote dňa (nie v metrics)
-
-    # Plan today a tomorrow — odstráni DB metadata, zachová len to čo AI potrebuje
-    ctx_block = out.get("context", {})
-    if isinstance(ctx_block, dict):
-        ctx_block.pop("hr_zones_bpm", None)
-
-        for plan_key in ("plan_today", "plan_tomorrow"):
-            plan = ctx_block.get(plan_key)
-            if isinstance(plan, dict):
-                ctx_block[plan_key] = {
-                    "sport": plan.get("sport"),
-                    "title": plan.get("title"),
-                    "duration_min": plan.get("duration_min"),
-                    "notes": plan.get("notes"),
-                    "status": plan.get("status"),
-                    # intensity/load_phase ak existuje
-                    "intensity": plan.get("intensity") or plan.get("session_type"),
-                }
-
-    return _remove_empty(out)
+def _second_person_note(lang: str) -> str:
+    l = (lang or "sk").lower()
+    if l.startswith("en"):
+        return "Use 'you' to address the athlete directly."
+    if l.startswith("cs"):
+        return "Oslovuj atleta ve 2. osobě ('ty')."
+    return "Oslovuj atléta v 2. osobe ('ty')."
 
 
-def _lang_notes(
-    settings: Dict[str, Any], user_data: Optional[Dict[str, Any]] = None
-) -> Tuple[str, str, str]:
-    """
-    Vráti (jazyk_label, pravidlo_oslovovania, health_reminder) podľa nastavení a profilu.
-    Podporuje sk/cs/en s rodovými pravidlami.
-    """
-    lang = (settings.get("language") or "sk").lower()
-    user_data = user_data or {}
-    first_name = user_data.get("first_name")
-    gender = user_data.get("gender")
-    address_rule = ""
-    health_reminder = ""
-
-    if lang.startswith("en"):
-        lang_label = "English"
-        address_rule = "Use second person ('you'). Keep it punchy and expert-like. "
-        health_reminder = (
-            "Don't forget to log this health issue in the Health Log on your Dashboard "
-            "so I can properly adjust your training plan."
-        )
-        if first_name:
-            address_rule += f"Address the athlete by their first name: '{first_name}'. "
-
-    elif lang.startswith("cs"):
-        lang_label = "Czech"
-        address_rule = "Používej 2. osobu (tykání) a mluv přímo k atletovi stručně a expertně. "
-        health_reminder = (
-            "Nezapomeň si tento zdravotní problém zaevidovat ve Zdravotní kartě na Nástěnce, "
-            "abych ti mohl přizpůsobit tréninkový plán."
-        )
-        if first_name:
-            address_rule += f"Oslovuj atlete jménem: '{first_name}'. "
-        if gender == "female":
-            address_rule += "DŮLEŽITÉ: Atletka je ŽENA. Používej ženský rod. "
-        elif gender == "male":
-            address_rule += "Atlet je MUŽ. Používej mužský rod. "
-
-    else:  # Slovak default
-        lang_label = "Slovak"
-        address_rule = (
-            "Používaj 2. osobu (tykanie) a hovor priamo k atlétovi ako expert. "
-            "Vyjadruj sa stručne a úderne. "
-        )
-        health_reminder = (
-            "Nezabudni si tento zdravotný problém zaevidovať v Zdravotnej karte na Nástenke, "
-            "aby som ti mohol prispôsobiť tréningový plán."
-        )
-        if first_name:
-            address_rule += f"Oslovuj atléta menom: '{first_name}'. "
-        if gender == "female":
-            address_rule += "DÔLEŽITÉ: Atlétka je ŽENA. Používaj výhradne ženský rod. "
-        elif gender == "male":
-            address_rule += "Atlét je MUŽ. Používaj mužský rod. "
-
-    return lang_label, address_rule, health_reminder
-
-
-def _canonical_sport(s: Any) -> str:
-    """Normalizuje sport na run/ride/strength/swim/other."""
-    if not s:
-        return "other"
-    v = str(s).lower().strip()
-    if v in ("run", "trail", "trail_run") or v.startswith("run"):
-        return "run"
-    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
-        return "ride"
-    if v in ("strength", "gym", "weights") or "strength" in v or "gym" in v:
-        return "strength"
-    if "swim" in v:
-        return "swim"
-    return "other"
-
-
-def _system_prompt(sport: str, is_race: bool = False) -> str:
-    """Vráti system prompt — pre race audit alebo štandardný review."""
-    if is_race:
-        return (
-            "You are an Elite Performance Analyst. The athlete has performed an ALL-OUT RACE/TEST. "
-            "Your primary mission is to audit their physiological thresholds (LTHR/FTP). "
-            "You must be analytical, precise, and decisive regarding fitness improvements or regressions. "
-            "Return ONE valid JSON object only. No markdown. No extra text."
-        )
-    base = (
-        "You are a highly empathetic coaching assistant evaluating ONE completed training session. "
-        "Return ONE valid JSON object only. No markdown. No extra text."
+def _time_format_rule() -> str:
+    return (
+        "- TIME/DURATION FORMAT: Never write raw seconds for any duration or time value "
+        "(intervals, splits, total time, rest periods, etc). Always format as human-readable time: "
+        "use 'M:SS' when under an hour (e.g. 319 seconds -> '5:19', 196 seconds -> '3:16'), "
+        "and 'H:MM:SS' when an hour or more (e.g. 17813 seconds -> '4:56:53'). "
+        "If minutes or hours are zero, omit that unit rather than writing a leading zero segment "
+        "(e.g. 45 seconds -> '0:45', not '00:00:45'). Pace is always 'mm:ss/km'.\n"
     )
-    if sport == "run":
-        return base + " Focus on running execution and intensity vs. plan."
-    if sport == "ride":
-        return base + " Focus on power/HR consistency and execution vs. plan."
-    return base + " Focus on general training evaluation."
 
+
+def _name_usage_rule(nickname: Optional[str]) -> str:
+    """
+    Meno atleta sa NEMÁ používať na začiatku každej odpovede — pôsobí to strojovo.
+    Model ho má použiť len zriedka pri významnom momente.
+    """
+    if not nickname:
+        return (
+            "- NAME USAGE: Do NOT invent or use any name. Address the athlete directly in 2nd person.\n"
+        )
+    return (
+        f"- NAME USAGE (CRITICAL): The athlete's name is '{nickname}'. Do NOT start your response "
+        f"with their name — starting every review with the name reads as robotic and repetitive. "
+        f"By DEFAULT address them directly in 2nd person ('you') WITHOUT naming them at all. "
+        f"Use the name '{nickname}' only RARELY (roughly 1 in every 5-6 responses) and ONLY when it "
+        f"genuinely adds warmth at a meaningful moment — a breakthrough, a hard day, a milestone, or "
+        f"encouragement after a setback. Never use the name as a routine greeting or opener.\n"
+    )
+
+
+def _conversation_rule(has_prior_review: bool, has_user_followup: bool) -> str:
+    """
+    Ak už existuje predošlé hodnotenie A užívateľ pridal follow-up komentár,
+    model má reagovať na posledný komentár v kontexte celého threadu,
+    nie re-reviewovať aktivitu odznova.
+    """
+    if not (has_prior_review and has_user_followup):
+        return ""
+    return (
+        "\n--- CONVERSATION MODE (CRITICAL) ---\n"
+        "- This is an ONGOING CONVERSATION, not a fresh review. The thread below already contains your "
+        "previous assessment(s) and the athlete has now replied with a follow-up comment (the LAST user "
+        "entry in the thread).\n"
+        "- Your 'review_text' MUST DIRECTLY ADDRESS the athlete's MOST RECENT comment, in the context of "
+        "the whole thread and the activity data.\n"
+        "- DO NOT re-review the activity from scratch. DO NOT repeat observations, praise, or advice you "
+        "already gave earlier — the athlete has already read it.\n"
+        "- Acknowledge specifically what they said and respond to it. If they asked a question, answer it. "
+        "If they shared how they felt, react to that feeling in relation to the numbers. Add only NEW "
+        "insight relevant to their comment.\n"
+        "- Keep 'review_text' focused and SHORTER than a first-time review — it's a reply, not a full report.\n"
+    )
+
+
+def _time_and_pace_context(latest_paces: Dict[str, Any]) -> str:
+    if not latest_paces:
+        return ""
+    parts = []
+    for i in range(1, 6):
+        v = latest_paces.get(f"z{i}_pace_s")
+        if isinstance(v, (int, float)) and v > 0:
+            m = int(v) // 60
+            s = int(v) % 60
+            parts.append(f"Z{i}={m}:{s:02d}/km")
+    if not parts:
+        return ""
+    return "- CURRENT PACE ZONES (reference): " + ", ".join(parts) + "\n"
+
+
+def _serialize_thread(thread: List[Dict[str, Any]]) -> str:
+    """Serializuje existujúci thread do čitateľného textu pre model."""
+    if not thread:
+        return ""
+    lines: List[str] = []
+    for entry in thread:
+        role = entry.get("role")
+        if role == "assistant":
+            review = entry.get("review") or {}
+            txt = review.get("review_text") or ""
+            plan = review.get("next_day_plan") or ""
+            lines.append(f"[COACH]: {txt}")
+            if plan:
+                lines.append(f"[COACH — next day plan]: {plan}")
+        elif role == "user":
+            c = entry.get("comment") or ""
+            race = " (marked as RACE EFFORT)" if entry.get("is_race_effort") else ""
+            if c:
+                lines.append(f"[ATHLETE{race}]: {c}")
+    return "\n".join(lines)
+
+
+# ============================================================
+# SPORT RULES
+# ============================================================
 
 def _sport_rules(sport_key: str, is_race: bool = False) -> str:
-    """Zostaví pravidlá pre AI podľa sportu a módu (race/training)."""
     common = [
         "- Do NOT invent missing data.",
         "- Output must be valid JSON only (no markdown).",
@@ -189,12 +130,7 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
         "- NO PARROTING: DO NOT recite basic metrics (total distance, duration, average HR). "
         "The user sees these on their screen! Provide INSIGHTS (pacing trends, HR stability, effort validation, fatigue).",
         "- PACE FORMAT: Always write pace in 'mm:ss/km' format. NEVER write raw seconds.",
-        "- TIME/DURATION FORMAT: Never write raw seconds for any duration or time value "
-        "(intervals, splits, total time, rest periods, etc). Always format as human-readable time: "
-        "use 'M:SS' when under an hour (e.g. 319 seconds -> '5:19', 196 seconds -> '3:16'), "
-        "and 'H:MM:SS' when an hour or more (e.g. 17813 seconds -> '4:56:53'). "
-        "If minutes or hours are zero, omit that unit rather than writing a leading zero segment "
-        "(e.g. 45 seconds -> '0:45', not '00:00:45').",
+        _time_format_rule().strip(),
         "- PLAN ADHERENCE: If 'context.plan_today' exists, evaluate whether the session matched the plan. "
         "If 'context.plan_tomorrow' exists, reference it explicitly in 'next_day_plan'.",
         "- HISTORY CONTEXT: Use 'history.days_0_7' to assess recent fatigue accumulation. "
@@ -228,7 +164,6 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
             ]
         )
 
-    # Splits/laps pravidlo — len ak sú v payload
     if sport_key in ("run", "ride"):
         common.append(
             "- SPLITS/LAPS: If 'activity.splits_minified' or 'activity.laps_minified' are present, "
@@ -237,36 +172,32 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
 
     return "\n".join(common + ["- Identify session kind and evaluate intensity vs plan."])
 
-def _schema(lang: str, sport: str, is_race: bool = False) -> str:
-    """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
-    review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
-    plan_len = "2–3 concise sentences"
+
+# ============================================================
+# SCHEMA
+# ============================================================
+
+def _review_schema(lang_label: str) -> str:
     return f"""
 {{
-  "schema_version": 6,
-  "generated_at": "ISO timestamp",
-  "model": "string",
-  "activity_id": number | null,
-  "sport": "{sport}",
-  "session_kind": "{"race" if is_race else "training"}",
-  "review_text": "FREE TEXT. {review_len}. {lang}. DO NOT list basic stats. Focus on execution insights, pacing, and physiological response.",
-  "next_day_plan": "FREE TEXT. {plan_len}. Recovery focus based on load and HRV. Reference plan_tomorrow if available.",
+  "schema_version": 2,
+  "sport": "run" | "ride" | "swim" | "strength" | "other",
+  "session_kind": "easy" | "long" | "interval" | "tempo" | "recovery" | "race" | "other",
+  "review_text": "Main coaching feedback in {lang_label}. Continuous prose.",
+  "next_day_plan": "Concrete recommendation for tomorrow in {lang_label}.",
   "key_numbers": {{
-    "duration_min": number,
-    "distance_km": number,
-    "avg_hr_bpm": number,
-    "max_hr_bpm": number,
-    "dominant_zone": "Z1" | "Z2" | "Z3" | "Z4" | "Z5"
+    "dominant_zone": "Z1" | "Z2" | "Z3" | "Z4" | "Z5" | null
   }},
   "suggested_thresholds": {{
-    "sport": "running" | "cycling",
-    "threshold_type": "LT2" | "FTP",
+    "threshold_type": "LT2" | "FTP" | null,
     "hr_bpm": number | null,
     "pace_sec_km": number | null,
-    "power_watt": number | null,
-    "notes": "Scientific reasoning. Use mm:ss/km format when mentioning pace in notes."
+    "notes": "short reason in {lang_label}"
   }} | null,
-  "flags": {{ "used_user_comment": boolean, "needs_caution": boolean }}
+  "flags": {{
+    "needs_caution": boolean,
+    "used_user_comment": boolean
+  }}
 }}
 """.strip()
 
@@ -275,81 +206,106 @@ def _schema(lang: str, sport: str, is_race: bool = False) -> str:
 # HLAVNÁ FUNKCIA
 # ============================================================
 
-def build_prompts_for_activity_review(
-    context_payload: Dict[str, Any],
+def _build_prompt(
     *,
-    settings: Optional[Dict[str, Any]] = None,
-    sport: Optional[str] = None,
-    is_race: bool = False,
+    context: Dict[str, Any],
+    thread: List[Dict[str, Any]],
+    version: int,
+    sport_key: str,
+    is_race: bool,
+    nickname: Optional[str],
+    lang: str,
+    latest_paces: Dict[str, Any],
+    user_comment: Optional[str],
 ) -> Tuple[str, str]:
-    """
-    Zostaví (system_prompt, user_prompt) pre activity review.
-    Minifikuje context, pridá jazykové pravidlá, schému a sport-špecifické rules.
-    Ak je v contexte review_thread (predchádzajúce review + komentár usera),
-    pridá inštrukciu aby AI reagovalo v kontexte konverzácie, nie izolovane.
-    """
-    settings = settings or {}
+    lang_label = _lang_label(lang)
+    second_person = _second_person_note(lang)
 
-    user_data = context_payload.get("user", {})
-    lang_label, second_person_note, health_reminder = _lang_notes(
-        settings, user_data=user_data
+    is_first = version <= 1
+
+    # Detekcia konverzačného módu: existuje predošlé hodnotenie + posledný záznam
+    # v threade je užívateľov follow-up komentár.
+    prior_assistant_count = sum(1 for e in (thread or []) if e.get("role") == "assistant")
+    has_prior_review = prior_assistant_count > 0
+    last_entry = thread[-1] if thread else None
+    has_user_followup = bool(
+        last_entry
+        and last_entry.get("role") == "user"
+        and last_entry.get("comment")
+    )
+    # Ak nový komentár nie je ešte v threade (posiela sa zvlášť), ber do úvahy aj user_comment
+    if not has_user_followup and user_comment:
+        has_user_followup = True
+
+    conversation_rule = _conversation_rule(has_prior_review, has_user_followup)
+    history_text = _serialize_thread(thread)
+
+    system_txt = (
+        "You are an elite endurance coaching assistant reviewing a single training session. "
+        "You return exactly ONE valid JSON object. Do NOT output prose or markdown fences."
     )
 
-    # is_race_effort môže prísť aj z user_input (checkbox na FE)
-    user_input_data = context_payload.get("user_input") or {}
-    actually_is_race = is_race or bool(user_input_data.get("is_race_effort"))
+    rules = _sport_rules(sport_key, is_race=is_race)
 
-    resolved_sport = _canonical_sport(
-        context_payload.get("sport") or sport or "other"
-    )
-    sport_key = f"{resolved_sport}_race" if actually_is_race else resolved_sport
+    user_parts: List[str] = [
+        f"Review this {sport_key} session and fill the schema.\n",
+        _name_usage_rule(nickname),
+        f"- {second_person}\n",
+        _time_and_pace_context(latest_paces),
+        "\nRULES:\n",
+        rules,
+        conversation_rule,
+    ]
 
-    # Minifikácia contextu — menej tokenov, rovnaká informácia
-    context_for_llm = minify_activity_context_for_ai(context_payload)
-
-    system_txt = _system_prompt(resolved_sport, is_race=actually_is_race)
-
-    # Špeciálny protokol pre race/test — krok po kroku audit prahu
-    race_logic = ""
-    if actually_is_race:
-        race_logic = (
-            "\n--- PERFORMANCE AUDIT PROTOCOL ---\n"
-            "1. ACCESS CURRENT DATA: Find the current LTHR in `context.user_zones` (Z4/Z5 boundary).\n"
-            "2. PERFORM COMPARISON: Compare that value with the session `avg_hr_bpm`.\n"
-            "3. MANDATORY STATEMENT: Explicitly mention this comparison in the `review_text`.\n"
-            "4. VERDICT: State if the threshold has improved, worsened, or remains stable.\n"
-            "5. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
+    if history_text:
+        user_parts.append(
+            "\n\n--- CONVERSATION THREAD SO FAR (oldest first) ---\n"
+            + history_text
+            + "\n--- END THREAD ---\n"
         )
 
-    # Konverzačný kontext — ak existuje predchádzajúci review_thread, AI reaguje na reply
-    thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
-    conversation_note = ""
-    if thread_ctx:
-        conversation_note = (
-            "\n--- CONVERSATION CONTEXT ---\n"
-            "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
-            "in CONTEXT_JSON for the prior exchange (oldest first). "
-            "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
-            "Address it directly and specifically — explain or reconsider your previous view if the "
-            "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
+    if user_comment:
+        user_parts.append(
+            f"\n\nThe athlete's NEW comment to respond to:\n\"{user_comment}\"\n"
+            "Set flags.used_user_comment = true and make sure your review_text addresses it.\n"
         )
 
-    user_txt = (
-        f"Analyze this {resolved_sport.upper()} session. "
-        f"Mode: {'[PERFORMANCE AUDIT]' if actually_is_race else '[STANDARD REVIEW]'}\n\n"
-        "CONTEXT_JSON:\n"
-        + json.dumps(context_for_llm, ensure_ascii=False)
+    user_parts.append(
+        "\n\nCONTEXT_JSON:\n"
+        + json.dumps(context, ensure_ascii=False)
         + "\n\nSCHEMA:\n"
-        + _schema(lang_label, resolved_sport, is_race=actually_is_race)
-        + "\n\nRULES:\n"
-        f"- Language: {lang_label}\n"
-        f"- {second_person_note}\n"
-        f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
-        f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
-        + _sport_rules(sport_key, is_race=actually_is_race)
-        + race_logic
-        + conversation_note
-        + "\n- Return ONLY raw JSON."
+        + _review_schema(lang_label)
+        + "\n\nReturn ONLY the JSON object."
     )
 
+    user_txt = "".join(p for p in user_parts if p)
     return system_txt, user_txt
+
+
+def build_messages_for_review(
+    *,
+    context: Dict[str, Any],
+    thread: Optional[List[Dict[str, Any]]] = None,
+    version: int = 1,
+    sport_key: str = "run",
+    is_race: bool = False,
+    nickname: Optional[str] = None,
+    lang: str = "sk",
+    latest_paces: Optional[Dict[str, Any]] = None,
+    user_comment: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    system_txt, user_txt = _build_prompt(
+        context=context,
+        thread=thread or [],
+        version=version,
+        sport_key=sport_key,
+        is_race=is_race,
+        nickname=nickname,
+        lang=lang,
+        latest_paces=latest_paces or {},
+        user_comment=user_comment,
+    )
+    return [
+        {"role": "system", "content": system_txt},
+        {"role": "user", "content": user_txt},
+    ]
