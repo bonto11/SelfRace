@@ -2569,6 +2569,7 @@ export const sk = {
       statusReviewCount: "Verzia {{version}} z {{max}} možných",
       btnWait: "Počkaj prosím",
       btnRerun: "Prepočítať znova",
+      btnReply: "Reagovať",
       btnGenerate: "Analyzovať tréning",
       btnGenerating: "Práve analyzujem...",
       commentPlaceholder:
