@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
@@ -140,16 +140,20 @@ interface FullscreenOverlayProps extends ChartInnerProps {
 function FullscreenOverlay(props: FullscreenOverlayProps) {
   const { onClose, chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t, weeks, onWeeksChange, loading } = props;
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const nav = document.getElementById("mobile-bottom-nav");
     if (nav) nav.style.setProperty("display", "none", "important");
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
     window.addEventListener("keydown", h);
     return () => {
       if (nav) nav.style.removeProperty("display");
       window.removeEventListener("keydown", h);
     };
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const overlay = (
     <div onClick={onClose}
@@ -216,6 +220,15 @@ export default function TrendSleepDuration() {
   const [showFullscreen, setShowFullscreen] = useState(false);
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  useEffect(() => {
+    if (!showFullscreen) {
+      const nav = document.getElementById("mobile-bottom-nav");
+      if (nav && nav.style.display === "none") {
+        nav.style.removeProperty("display");
+      }
+    }
+  }, [showFullscreen]);
 
   const COLOR = { main: appColors.chartLine1, bandFill: appColors.chartBandFill, missing: appColors.stateBad };
 
