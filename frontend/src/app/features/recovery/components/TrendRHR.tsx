@@ -184,4 +184,253 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
               {t("recovery.trends.rhr.title")}
             </div>
           </div>
-          
+          <SelectField
+            value={String(weeks)}
+            onChange={(e) => onWeeksChange(Number(e.target.value))}
+            options={WEEK_OPTIONS(t)}
+            variant="editable"
+            containerClassName="w-[110px]"
+          />
+          <button onClick={onClose}
+            style={{
+              width: 34, height: 34, borderRadius: "50%",
+              border: `1px solid ${appColors.panelBorder}`,
+              backgroundColor: "rgba(255,255,255,0.08)",
+              color: appColors.textPrimary, fontSize: 16,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0, outline: "none",
+            }}>
+            ✕
+          </button>
+        </div>
+
+        {/* Graf */}
+        <div style={{
+          flex: 1, minHeight: 0, position: "relative",
+          outline: "none", WebkitTapHighlightColor: "transparent",
+        }} tabIndex={-1}>
+          {loading && (
+            <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+              <LoadingSpinner size="trend" />
+            </div>
+          )}
+          <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+              <ChartInner
+                chartData={chartData} yMin={yMin} yMax={yMax}
+                tickInterval={tickInterval} yAxisLabel={yAxisLabel}
+                COLOR={COLOR} t={t} showLegend={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legenda vycentrovaná */}
+        <div style={{ flexShrink: 0, paddingTop: 10, paddingBottom: 8 }}>
+          <div style={{
+            display: "flex", justifyContent: "center",
+            flexWrap: "wrap", gap: "6px 20px", marginBottom: 6,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                backgroundColor: appColors.chartLine1, flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 11, color: appColors.textMuted }}>
+                {t("recovery.trends.rhr.rhrLabel")}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                backgroundColor: appColors.stateBad, flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 11, color: appColors.textMuted }}>
+                {t("recovery.trends.rhr.missingLabel")}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <EventsLegend t={t} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined"
+    ? createPortal(overlay, document.body)
+    : null;
+}
+
+/* ─── HLAVNÝ KOMPONENT ─── */
+export default function TrendRHR() {
+  const t = useT();
+  const { rows: all } = useRecoveryData();
+  const [weeks, setWeeks] = useState<number>(2);
+  const [loading, setLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
+
+  useEffect(() => { setIsMounted(true); }, []);
+
+  useEffect(() => {
+    if (!showFullscreen) {
+      const nav = document.getElementById("mobile-bottom-nav");
+      if (nav && nav.style.display === "none") {
+        nav.style.removeProperty("display");
+      }
+    }
+  }, [showFullscreen]);
+
+  const COLOR = { main: appColors.chartLine1, bandFill: appColors.chartBandFill, missing: appColors.stateBad };
+
+  useEffect(() => {
+    setLoading(true);
+    const f = requestAnimationFrame(() => setLoading(false));
+    return () => cancelAnimationFrame(f);
+  }, [weeks, all]);
+
+  const endISO = useMemo(() =>
+    isMounted ? getLocalISODate(new Date()) : getLocalISODate(new Date()), [isMounted]);
+  const startISO = useMemo(() => {
+    const d = new Date(endISO + "T00:00:00");
+    d.setDate(d.getDate() - (weeks * 7 - 1));
+    return getLocalISODate(d);
+  }, [endISO, weeks]);
+
+  const byDate = useMemo(() => {
+    const m = new Map<string, (typeof all)[number]>();
+    for (const r of all) m.set(r.date, r);
+    return m;
+  }, [all]);
+
+  const labelsISO = useMemo(() => dateSeq(startISO, endISO), [startISO, endISO]);
+
+  const rhr = useMemo(() =>
+    labelsISO.map((d) => { const r = byDate.get(d); return typeof r?.RHR_bpm === "number" ? r.RHR_bpm : NaN; }),
+    [labelsISO, byDate]);
+
+  const baselineArr = useMemo(() =>
+    rollingMean(rhr.map((v) => Number.isFinite(v) ? (v as number) : null), 14), [rhr]);
+  const { lower, upper } = useMemo(() => bandsAround(baselineArr, 0.05), [baselineArr]);
+
+  const missingY = useMemo(() => {
+    const n = rhr.length;
+    const out = new Array<number | null>(n).fill(null);
+    const nxt = new Array<number>(n).fill(-1);
+    let last = -1;
+    for (let i = n - 1; i >= 0; i--) { if (Number.isFinite(rhr[i])) last = i; nxt[i] = last; }
+    let prev = -1;
+    for (let i = 0; i < n; i++) {
+      if (Number.isFinite(rhr[i])) { prev = i; continue; }
+      const nx = nxt[i];
+      if (prev !== -1 && nx !== -1)
+        out[i] = (rhr[prev] as number) + ((rhr[nx] as number) - (rhr[prev] as number)) * ((i - prev) / (nx - prev));
+      else if (prev !== -1) out[i] = rhr[prev] as number;
+      else if (nx  !== -1)  out[i] = rhr[nx]  as number;
+    }
+    return out;
+  }, [rhr]);
+
+  const chartData = useMemo(() => labelsISO.map((d, i) => {
+    const v = rhr[i];
+    const miss = !Number.isFinite(v);
+    const rec = byDate.get(d);
+    const hasAlcohol = !!rec?.alcohol_consumed;
+    const hasFood    = !!rec?.food_2h_before;
+    const hasCaff    = !!rec?.caffeine_8h;
+    return {
+      date: d,
+      val: miss ? null : v,
+      bandRange: lower[i] != null && upper[i] != null ? [lower[i], upper[i]] : null,
+      missingY: miss ? missingY[i] : null,
+      comments: rec?.comments,
+      hasAlcohol, hasFood, hasCaffeine: hasCaff,
+      eventsY: (hasAlcohol || hasFood || hasCaff) ? (miss ? missingY[i] : v) : null,
+    };
+  }), [labelsISO, rhr, lower, upper, missingY, byDate]);
+
+  if (!isMounted) return null;
+
+  const allValid = [
+    ...rhr.filter(Number.isFinite),
+    ...lower.filter((v): v is number => v !== null),
+    ...upper.filter((v): v is number => v !== null),
+  ];
+  const [yMin, yMax] = calcYDomain(allValid);
+  const yAxisLabel   = `[${t("common.units.hr")}]`;
+  const tickInterval = weeks <= 2 ? 2 : weeks <= 4 ? 3 : weeks <= 8 ? 6 : 13;
+  const innerProps: ChartInnerProps = { chartData, yMin, yMax, tickInterval, yAxisLabel, COLOR, t };
+
+  return (
+    <>
+      {showFullscreen && (
+        <FullscreenOverlay
+          {...innerProps}
+          loading={loading}
+          weeks={weeks}
+          onWeeksChange={setWeeks}
+          onClose={() => setShowFullscreen(false)}
+        />
+      )}
+
+      <section className={CARD + " relative pb-2"} style={SURFACE_CARD_STYLE}>
+        <div style={{
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+          padding: "14px 16px 10px 16px", gap: 8,
+        }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className={PANEL_SECTION_TITLE} style={{ color: appColors.textPrimary }}>
+              {t("recovery.trends.rhr.title")}
+            </div>
+            <div className={PANEL_SECTION_SUBTITLE} style={{ color: appColors.textMuted }}>
+              {t("recovery.trends.rhr.subtitle")}
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <button onClick={() => setShowFullscreen(true)}
+              title="Zobraziť na celú obrazovku"
+              style={{
+                width: 34, height: 34, borderRadius: 8,
+                border: `1px solid ${appColors.panelBorder}`,
+                backgroundColor: "rgba(255,255,255,0.05)",
+                color: appColors.textMuted,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0, outline: "none",
+              }}>
+              <ExpandIcon />
+            </button>
+            <SelectField
+              value={String(weeks)}
+              onChange={(e) => setWeeks(Number(e.target.value))}
+              options={WEEK_OPTIONS(t)}
+              variant="editable"
+              containerClassName="w-[110px]"
+            />
+          </div>
+        </div>
+
+        <div style={{ padding: "0 12px 8px 12px" }}>
+          <div style={{
+            width: "100%", height: 340, position: "relative",
+            outline: "none", WebkitTapHighlightColor: "transparent",
+          }} tabIndex={-1}>
+            {loading && (
+              <div className="absolute inset-0 grid place-items-center z-10 bg-black/10">
+                <LoadingSpinner size="trend" />
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%" minWidth={1}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+                <ChartInner {...innerProps} showLegend />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <EventsLegend t={t} />
+      </section>
+    </>
+  );
+}
