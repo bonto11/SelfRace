@@ -2577,7 +2577,7 @@ export const en = {
       statusReviewCount: "Version {{version}} out of {{max}} possible",
       btnWait: "Please wait",
       btnRerun: "Recalculate again",
-      btnReply: "Reply"
+      btnReply: "Reply",
       btnGenerate: "Analyze workout",
       btnGenerating: "Analyzing right now...",
       commentPlaceholder:
