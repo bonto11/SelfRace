@@ -108,7 +108,7 @@ def _lang_notes(
             "so I can properly adjust your training plan."
         )
         if first_name:
-            address_rule += f"Address the athlete by their first name: '{first_name}'. "
+            address_rule += f"The athlete's name is '{first_name}'. "
 
     elif lang.startswith("cs"):
         lang_label = "Czech"
@@ -118,7 +118,7 @@ def _lang_notes(
             "abych ti mohl přizpůsobit tréninkový plán."
         )
         if first_name:
-            address_rule += f"Oslovuj atlete jménem: '{first_name}'. "
+            address_rule += f"Jméno atleta je '{first_name}'. "
         if gender == "female":
             address_rule += "DŮLEŽITÉ: Atletka je ŽENA. Používej ženský rod. "
         elif gender == "male":
@@ -135,13 +135,50 @@ def _lang_notes(
             "aby som ti mohol prispôsobiť tréningový plán."
         )
         if first_name:
-            address_rule += f"Oslovuj atléta menom: '{first_name}'. "
+            address_rule += f"Meno atléta je '{first_name}'. "
         if gender == "female":
             address_rule += "DÔLEŽITÉ: Atlétka je ŽENA. Používaj výhradne ženský rod. "
         elif gender == "male":
             address_rule += "Atlét je MUŽ. Používaj mužský rod. "
 
     return lang_label, address_rule, health_reminder
+
+
+def _name_usage_rule(nickname: Optional[str], lang: str) -> str:
+    """
+    Meno atléta sa NEMÁ používať na začiatku každej odpovede — pôsobí to strojovo
+    a opakovane. Model ho má použiť len zriedka, pri významnom momente.
+    """
+    if not nickname:
+        return ""
+
+    l = (lang or "sk").lower()
+    if l.startswith("en"):
+        return (
+            f"- NAME USAGE (CRITICAL): Do NOT start your response with the athlete's name "
+            f"('{nickname}') — starting every review with the name reads as robotic and repetitive. "
+            f"By DEFAULT address them directly in 2nd person ('you') WITHOUT naming them. "
+            f"Use the name '{nickname}' only RARELY (roughly 1 in every 5-6 responses) and ONLY when "
+            f"it genuinely adds warmth at a meaningful moment — a breakthrough, a hard day, a milestone, "
+            f"or encouragement after a setback. Never use it as a routine greeting or opener.\n"
+        )
+    if l.startswith("cs"):
+        return (
+            f"- POUŽITÍ JMÉNA (KRITICKÉ): NEZAČÍNEJ odpověď jménem atleta ('{nickname}') — "
+            f"začínat každé hodnocení jménem působí strojově a opakovaně. "
+            f"VÝCHOZÍ chování je oslovovat atleta přímo v 2. osobě BEZ použití jména. "
+            f"Jméno '{nickname}' použij jen ZŘÍDKA (zhruba 1 z 5-6 odpovědí) a jen tehdy, "
+            f"když to přidá skutečné teplo ve významném momentu — průlom, těžký den, milník, "
+            f"nebo povzbuzení po nezdaru. Nikdy ho nepoužívej jako rutinní pozdrav.\n"
+        )
+    return (
+        f"- POUŽITIE MENA (KRITICKÉ): NEZAČÍNAJ odpoveď menom atléta ('{nickname}') — "
+        f"začínať každé hodnotenie menom pôsobí strojovo a opakovane. "
+        f"PREDVOLENE oslovuj atléta priamo v 2. osobe BEZ použitia mena. "
+        f"Meno '{nickname}' použi len ZRIEDKA (zhruba 1 z 5-6 odpovedí) a len vtedy, "
+        f"keď to pridá skutočné teplo pri významnom momente — prelom, ťažký deň, míľnik, "
+        f"alebo povzbudenie po neúspechu. Nikdy ho nepoužívaj ako rutinný pozdrav.\n"
+    )
 
 
 def _canonical_sport(s: Any) -> str:
@@ -237,6 +274,7 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
 
     return "\n".join(common + ["- Identify session kind and evaluate intensity vs plan."])
 
+
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
     review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
@@ -289,11 +327,15 @@ def build_prompts_for_activity_review(
     pridá inštrukciu aby AI reagovalo v kontexte konverzácie, nie izolovane.
     """
     settings = settings or {}
+    lang = (settings.get("language") or "sk").lower()
 
     user_data = context_payload.get("user", {})
     lang_label, second_person_note, health_reminder = _lang_notes(
         settings, user_data=user_data
     )
+
+    nickname = user_data.get("first_name") if isinstance(user_data, dict) else None
+    name_rule = _name_usage_rule(nickname, lang)
 
     # is_race_effort môže prísť aj z user_input (checkbox na FE)
     user_input_data = context_payload.get("user_input") or {}
@@ -322,17 +364,49 @@ def build_prompts_for_activity_review(
         )
 
     # Konverzačný kontext — ak existuje predchádzajúci review_thread, AI reaguje na reply
+    # namiesto toho aby re-review-ovalo aktivitu odznova.
     thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
     conversation_note = ""
     if thread_ctx:
-        conversation_note = (
-            "\n--- CONVERSATION CONTEXT ---\n"
-            "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
-            "in CONTEXT_JSON for the prior exchange (oldest first). "
-            "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
-            "Address it directly and specifically — explain or reconsider your previous view if the "
-            "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
+        prior_assistant_count = sum(1 for e in thread_ctx if isinstance(e, dict) and e.get("role") == "assistant")
+        has_prior_review = prior_assistant_count > 0
+        last_entry = thread_ctx[-1] if thread_ctx else None
+        has_user_followup = bool(
+            isinstance(last_entry, dict)
+            and last_entry.get("role") == "user"
+            and last_entry.get("comment")
         )
+        # Aj samotný aktuálny komentár (user_input.comment) počítame ako follow-up,
+        # keďže sa niekedy posiela mimo threadu.
+        if not has_user_followup and user_input_data.get("comment"):
+            has_user_followup = True
+
+        if has_prior_review and has_user_followup:
+            conversation_note = (
+                "\n--- CONVERSATION MODE (CRITICAL) ---\n"
+                "This is an ONGOING CONVERSATION, not a fresh review. See 'context.review_thread' "
+                "in CONTEXT_JSON for the prior exchange (oldest first) — it already contains your "
+                "previous assessment(s) and the athlete's replies.\n"
+                "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there.\n"
+                "Your 'review_text' MUST DIRECTLY ADDRESS this most recent comment, in the context of the "
+                "whole thread and the activity data. DO NOT re-review the activity from scratch. "
+                "DO NOT repeat observations, praise, or advice you already gave earlier — the athlete has "
+                "already read it. Acknowledge specifically what they said and respond to it — answer a "
+                "question if asked, or react to a feeling in relation to the numbers if shared. Add only "
+                "NEW insight relevant to their comment.\n"
+                "Keep 'review_text' focused and SHORTER than a first-time review — it's a reply, not a full report.\n"
+            )
+        else:
+            # Predošlý thread existuje, ale nejde o priamy follow-up (napr. nový race effort na tú istú
+            # aktivitu) — pôvodné všeobecné pravidlo na kontext konverzácie.
+            conversation_note = (
+                "\n--- CONVERSATION CONTEXT ---\n"
+                "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
+                "in CONTEXT_JSON for the prior exchange (oldest first). "
+                "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
+                "Address it directly and specifically — explain or reconsider your previous view if the "
+                "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
+            )
 
     user_txt = (
         f"Analyze this {resolved_sport.upper()} session. "
@@ -344,7 +418,8 @@ def build_prompts_for_activity_review(
         + "\n\nRULES:\n"
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
-        f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
+        + name_rule
+        + f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
         f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
