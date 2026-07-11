@@ -24,9 +24,8 @@ import {
 import { ActivitySectionShell } from "@/app/features/activities/components/ActivitySessionDetail";
 
 type Props = {
-  userId: number;
   sessionId: number;
-  planDate?: string | null;
+  isEditable: boolean; // true len keď status === "planned"
   initialThread?: PreviewThreadEntry[];
 };
 
@@ -119,12 +118,11 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
 /* ================= HLAVNÝ KOMPONENT ================= */
 
 export default function SessionPreviewSection({
-  userId: userIdProp,
   sessionId,
+  isEditable,
   initialThread,
 }: Props) {
-  const { userId: userIdFromHook } = useUserId();
-  const userId = userIdProp ?? userIdFromHook;
+  const { userId } = useUserId();
   const t = useT();
 
   const [tierCode, setTierCode] = useState<string>(() => {
@@ -157,7 +155,6 @@ export default function SessionPreviewSection({
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [apiNote, setApiNote] = useState<string | null>(null);
-  const [refreshLocked, setRefreshLocked] = useState(false);
 
   const canAskByTier = maxVersions > 1;
   const canAskByCount = previewVersion < maxVersions;
@@ -178,7 +175,6 @@ export default function SessionPreviewSection({
     }
 
     setBusyGen(true);
-    setRefreshLocked(true);
 
     try {
       const c = comment.trim();
@@ -205,9 +201,6 @@ export default function SessionPreviewSection({
 
         const data = out.data || {};
 
-        // Pridaj user + assistant entry priamo do lokálneho threadu — BE už
-        // uložil oba záznamy do preview_thread, tu len okamžite zrkadlíme UI
-        // bez čakania na refetch celého plánu.
         setThread((prev) => [
           ...prev,
           { role: "user", comment: c, request_change: requestChange, created_at: new Date().toISOString() },
@@ -227,11 +220,36 @@ export default function SessionPreviewSection({
       setUiError(translatedError || t("sessions.review.errorGeneric"));
     } finally {
       setBusyGen(false);
-      setTimeout(() => {
-        setRefreshLocked(false);
-      }, REFRESH_COOLDOWN_MS);
     }
   };
+
+  // Read-only režim (session už nie je "planned" — je done/missed/postponed):
+  // zobrazíme históriu konverzácie ak existuje, žiadny formulár na písanie.
+  // Ak vôbec žiadna história neexistuje, sekciu radšej nezobrazíme (nemá zmysel
+  // ukazovať prázdny "Preview" panel pre dávno odtrénovaný beh).
+  if (!isEditable) {
+    if (thread.length === 0) return null;
+    return (
+      <ActivitySectionShell
+        title={t("sessions.preview.title")}
+        defaultOpen={false}
+        items={[]}
+      >
+        <div className="text-xs font-medium opacity-50 mb-3">
+          {t("sessions.preview.readOnlyNote")}
+        </div>
+        <div className="space-y-3">
+          {thread.map((entry, idx) =>
+            entry.role === "assistant" ? (
+              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+            ) : (
+              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+            ),
+          )}
+        </div>
+      </ActivitySectionShell>
+    );
+  }
 
   return (
     <ActivitySectionShell
@@ -257,7 +275,6 @@ export default function SessionPreviewSection({
       </div>
 
       {tierCode === "free" ? (
-        /* UKÁŽKA PRE FREE POUŽÍVATEĽOV */
         <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
           <div className="flex items-center gap-2 text-sm font-medium text-white/80">
             <span className="opacity-80">🔒</span> {t("sessions.preview.upsellTitle")}
@@ -267,7 +284,6 @@ export default function SessionPreviewSection({
           </p>
         </div>
       ) : canAskByCount ? (
-        /* AKTÍVNE TEXTOVÉ POLE PRE PREDPLATITEĽOV */
         <div className="mt-4 mb-2">
           <textarea
             className={`w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none transition-colors placeholder:text-white/20 ${commentTooLong ? "border-red-500/50 focus:border-red-500" : ""}`}
@@ -318,7 +334,6 @@ export default function SessionPreviewSection({
           </div>
         </div>
       ) : (
-        /* INFO PRE PREDPLATITEĽOV, KTORÍ VYČERPALI LIMIT PRE TÚTO SESSION */
         <div className="mt-4 mb-2 p-3 text-center text-[11px] text-white/40 border border-dashed border-white/10 rounded-xl">
           {t("sessions.review.limitReached")}
         </div>
