@@ -334,6 +334,13 @@ export const sk = {
     bgTransparent: "Priehľadné",
     showDate: "Zobraziť dátum",
   },
+inAppBrowser: {
+  title: "Otvor v prehliadači",
+  desc: "Aplikácia {{app}} môže blokovať prihlásenie cez Stravu. Pre plynulé fungovanie ju otvor v bežnom prehliadači (Safari/Chrome).",
+  stepsIOS: "Klepni na tri bodky vpravo hore a vyber „Otvoriť v externom prehliadači“.",
+  stepsAndroid: "Klepni na tri bodky (vpravo hore alebo dole) a vyber „Otvoriť v prehliadači“.",
+},
+
   prefs: {
     title: "Tréningové preferencie",
     actions: {
