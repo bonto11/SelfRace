@@ -21,7 +21,7 @@ import {
   MAX_COMMENT_CHARS,
 } from "@/app/shared/config";
 
-import { ActivitySectionShell } from "@/app/shared/ui/components/ActivitySessionDetail";
+import { ActivitySectionShell } from "@/app/shared/components/session/ActivitySessionDetail";
 
 type Props = {
   sessionId: number;
