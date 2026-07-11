@@ -21,8 +21,9 @@ const TOP_ARROW = {
 
 const BOTTOM_ARROW = {
   bottom: 16, // px od safe-area-inset-bottom
-  right: 26,  // px od pravého okraja
+  right: 70,  // posunuté viac doľava (predtým 26) — Messenger má menu bližšie k stredu spodného panelu
 };
+
 
 // Zapni na true, kým ladíte presné hodnoty — vykreslí pravítko s ryskami po 10px
 // od pravého a horného/spodného okraja, nech vieš presne odčítať čísla.
