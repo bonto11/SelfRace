@@ -334,6 +334,13 @@ export const en = {
     bgTransparent: "Transparent",
     showDate: "Show date",
   },
+inAppBrowser: {
+  title: "Open in browser",
+  desc: "{{app}} may block Strava sign-in. For smooth functionality, open this page in your regular browser (Safari/Chrome).",
+  stepsIOS: "Tap the three dots in the top right and choose \"Open in external browser\".",
+  stepsAndroid: "Tap the three dots (top or bottom right) and choose \"Open in browser\".",
+},
+
   prefs: {
     title: "Training preferences",
     actions: {
