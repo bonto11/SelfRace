@@ -500,4 +500,53 @@ def db_get_done_sessions_with_activity(
     except Exception as e:
         print("[DB-COACH-STREAK] done_with_activity error:", repr(e))
         return []
+        
+def db_get_daily_session_by_id_full(user_id: int, id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_daily_session_by_id_full")
+    try:
+        res = sb.table(TABLE_COACH_PLAN_DAILY).select("*").eq("id", int(id)).eq("user_id", int(user_id)).limit(1).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_daily_session_by_id_full error:", repr(e))
+        return None
+
+
+def db_append_preview_thread_entry(user_id: int, id: int, entry: Dict[str, Any], *, ctx: AuthCtx) -> bool:
+    sb = get_sb(ctx, caller="coach_plan_daily.db_append_preview_thread_entry")
+    try:
+        row = db_get_daily_session_by_id_full(user_id, id, ctx=ctx)
+        if not row:
+            return False
+        thread = row.get("preview_thread") or []
+        entry = dict(entry)
+        entry["created_at"] = _now_iso()
+        thread.append(entry)
+        sb.table(TABLE_COACH_PLAN_DAILY).update({"preview_thread": thread, "updated_at": _now_iso()}).eq("id", int(id)).eq("user_id", int(user_id)).execute()
+        return True
+    except Exception as e:
+        print("[DB-COACH-DAILY] append_preview_thread_entry error:", repr(e))
+        return False
+
+
+def db_apply_session_preview_update(
+    user_id: int, id: int, *,
+    duration_min: Optional[int], notes: Optional[str], structure: Optional[Dict[str, Any]],
+    ctx: AuthCtx,
+) -> bool:
+    sb = get_sb(ctx, caller="coach_plan_daily.db_apply_session_preview_update")
+    payload: Dict[str, Any] = {"updated_at": _now_iso()}
+    if duration_min is not None:
+        payload["duration_min"] = duration_min
+    if notes is not None:
+        payload["notes"] = notes
+    if structure is not None:
+        payload["structure"] = structure
+    try:
+        sb.table(TABLE_COACH_PLAN_DAILY).update(payload).eq("id", int(id)).eq("user_id", int(user_id)).execute()
+        return True
+    except Exception as e:
+        print("[DB-COACH-DAILY] apply_session_preview_update error:", repr(e))
+        return False
+
 
