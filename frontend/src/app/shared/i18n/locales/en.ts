@@ -2571,6 +2571,26 @@ inAppBrowser: {
     },
   },
   sessions: {
+
+preview: {
+  title: "Session preview",
+  statusNoPreview: "No questions about this session yet.",
+  sectionReply: "Coach's reply",
+  tagChanged: "Session updated",
+  commentPlaceholder: "Ask about this session, or share how you're feeling...",
+  commentTip: "Tip: Without checking the box, the session stays the same — you'll just get advice.",
+  hintChangeScope: "Only this single session will change, other days stay untouched.",
+  requestChangeCheckbox: "I want to change this session",
+  requestChangeLabel: "Change requested",
+  btnAsk: "Ask the coach",
+  upsellTitle: "Live conversation with your coach",
+  upsellDesc: "Asking about and adjusting planned sessions directly in chat requires an active subscription.",
+  noPreviewPlaceholder: "No conversation yet. Ask your coach about this session above.",
+  api: {
+    success: "Reply is ready.",
+  },
+},
+
     review: {
       title: "Coach's evaluation",
       errorTooOld:
