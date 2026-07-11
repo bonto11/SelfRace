@@ -440,7 +440,19 @@ def _daily_schema(lang_label: str) -> str:
           "session_type": "external_event" | null,
           "structure": {{
             "warmup": {{ "minutes": number, "notes": "Target HR (bpm) AND Pace/Power. max 2 sentences." }},
-            "main_part": [ object ],
+            "main_part": [
+              {{
+                "minutes": number,
+                "notes": "Target HR (bpm) AND Pace/Power. max 2 sentences."
+              }}
+              // OR for interval sessions, use this EXACT shape instead (see INTERVAL BLOCK FORMAT rule):
+              // {{
+              //   "kind": "interval_block",
+              //   "rounds": number,
+              //   "work": {{ "minutes": number, "notes": "..." }},
+              //   "rest":  {{ "minutes": number, "notes": "..." }}
+              // }}
+            ],
             "cooldown": {{ "minutes": number, "notes": "Target HR (bpm) AND Pace/Power. max 2 sentences." }},
             "activation": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ],
             "strength_main_part": [ {{ "exercise_id": string, "sets": number, "reps": string, "rest_s": number, "notes": "max 3 words" }} ],
@@ -640,10 +652,25 @@ def build_prompts_for_daily(
     latest_paces = _as_dict(context_payload.get("latest_paces"))
     intensity_format_rule = _build_intensity_format_rule(has_zones, latest_paces, lthr)
 
-    endurance_structure_rule = (
+        endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): Provide `structure` with `warmup`, `main_part`, `cooldown`.\n"
-        "  - Steady run: `main_part` = array of objects with `minutes` and `notes`.\n"
-        "  - Interval session: use `interval_block` format in `main_part`.\n\n"
+        "  - `main_part` is ALWAYS an array. Each element is EITHER a steady block OR an interval block "
+        "(you may mix both in the same array for progressive sessions, e.g. steady → interval → steady).\n\n"
+        "- STEADY BLOCK FORMAT (single continuous effort): "
+        '{ "minutes": number, "notes": "..." }. Use this for warmup-style ramps, tempo holds, '
+        "or any single-effort segment that does not repeat.\n\n"
+        "- INTERVAL BLOCK FORMAT (repeated work/rest, e.g. VO2max, threshold repeats, fartlek): "
+        "You MUST use EXACTLY this shape, with these EXACT field names — do not rename, nest, or "
+        "restructure them:\n"
+        '{ "kind": "interval_block", "rounds": number, '
+        '"work": { "minutes": number, "notes": "..." }, '
+        '"rest": { "minutes": number, "notes": "..." } }\n'
+        "  - `rounds` = how many times work+rest repeats (e.g. 6 for '6x3min hard, 2min easy').\n"
+        "  - `work` = the hard/target-intensity portion. `rest` = the recovery portion between reps.\n"
+        "  - If the session has NO recovery between reps (e.g. straight repeats with no rest), "
+        "omit `rest` entirely rather than inventing a zero-duration one.\n"
+        "  - NEVER use alternate field names like `repeats`, `intervals`, `work_min`, or nested variants — "
+        "the app parses ONLY `rounds`, `work`, and `rest` exactly as specified above.\n\n"
     )
     strength_structure_rule = (
         "- STRENGTH STRUCTURE: Use 'strength_ai_menu' exercise_ids. "
