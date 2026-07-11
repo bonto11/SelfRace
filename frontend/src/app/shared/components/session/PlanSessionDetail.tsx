@@ -10,7 +10,7 @@ import {
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import SessionPreviewSection from "@/app/features/coach/components/SessionPreviewSection";
+import SessionPreviewSection from "@/app/shared/components/session/SessionPreviewSection";
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
