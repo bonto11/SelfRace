@@ -20,13 +20,13 @@ const TOP_ARROW = {
 };
 
 const BOTTOM_ARROW = {
-  bottom: 16, // px od safe-area-inset-bottom (predtým 58 — teraz bližšie k spodku)
+  bottom: 16, // px od safe-area-inset-bottom
   right: 26,  // px od pravého okraja
 };
 
 // Zapni na true, kým ladíte presné hodnoty — vykreslí pravítko s ryskami po 10px
 // od pravého a horného/spodného okraja, nech vieš presne odčítať čísla.
-const DEBUG_RULER = true;
+const DEBUG_RULER = false;
 
 function wasRecentlyDismissed(): boolean {
   try {
@@ -90,7 +90,7 @@ const DebugRuler = ({ fromTop }: { fromTop: boolean }) => {
         right: 0,
         width: 120,
         height: 130,
-        zIndex: 999998,
+        zIndex: 1000001, // nad modal-backdropom (999999), inak nebol vidieť
         pointerEvents: "none",
       }}
     >
