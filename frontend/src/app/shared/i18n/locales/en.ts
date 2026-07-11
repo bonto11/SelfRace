@@ -2586,6 +2586,7 @@ preview: {
   upsellTitle: "Live conversation with your coach",
   upsellDesc: "Asking about and adjusting planned sessions directly in chat requires an active subscription.",
   noPreviewPlaceholder: "No conversation yet. Ask your coach about this session above.",
+  readOnlyNote: "This session already happened — conversation is read-only.",
   api: {
     success: "Reply is ready.",
   },
