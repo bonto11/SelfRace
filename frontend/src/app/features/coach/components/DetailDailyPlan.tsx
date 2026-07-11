@@ -135,12 +135,7 @@ export default function DetailDailyPlan() {
 
   const hasPlan = days.length > 0;
 
-  const filteredDays = useMemo(() => {
-    if (showAllDays) return days;
-    const list = days.filter((d) => d.date === selectedDate);
-    return list;
-  }, [days, showAllDays, selectedDate]);
-
+  // 🌟 Definované PRED filteredDays, keďže filteredDays ho teraz potrebuje
   const planDates = useMemo(() => {
     const out: string[] = [];
     const base = new Date(); 
@@ -152,6 +147,18 @@ export default function DetailDailyPlan() {
     }
     return out;
   }, []);
+
+  const filteredDays = useMemo(() => {
+    if (showAllDays) {
+      // OPRAVA: predtým sa vracalo úplne celé 'days' pole (t.j. aj historické
+      // záznamy z globalRows, napr. spred 11 dní), teraz sa obmedzí na tie isté
+      // dátumy ako ukazuje MiniCalendar / planDates (dnes .. +7 dní).
+      const allowedDates = new Set(planDates);
+      return days.filter((d) => allowedDates.has(d.date));
+    }
+    const list = days.filter((d) => d.date === selectedDate);
+    return list;
+  }, [days, showAllDays, selectedDate, planDates]);
   
   const dayCounts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
