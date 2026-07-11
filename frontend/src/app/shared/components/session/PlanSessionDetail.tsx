@@ -264,15 +264,18 @@ export default function PlanSessionDetail({
                       const iData = isIntervalNested
                         ? blk.interval_block
                         : blk;
-                      const reps = iData.repeats || 1;
+                      // OPRAVA: AI generuje niekedy 'repeats', niekedy 'rounds' —
+                      // predtým sa čítalo len 'repeats', takže pri 'rounds' spadlo
+                      // na fallback 1× aj keď reálne malo byť 6×.
+                      const reps = iData.repeats ?? iData.rounds ?? 1;
 
                       // Nested: intervals[0] = work, intervals[1] = rest
                       // Flat: work / rest priamo
                       const workBlock = isIntervalNested
-                        ? (iData.intervals?.[0] ?? null)
+                        ? (iData.intervals?.[0] ?? iData.work ?? null)
                         : iData.work;
                       const restBlock = isIntervalNested
-                        ? (iData.intervals?.[1] ?? null)
+                        ? (iData.intervals?.[1] ?? iData.rest ?? null)
                         : iData.rest;
 
                       const workDur = getDuration(workBlock);
