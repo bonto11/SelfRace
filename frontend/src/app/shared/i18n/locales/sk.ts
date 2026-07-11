@@ -2578,6 +2578,7 @@ preview: {
   upsellTitle: "Živá konverzácia s trénerom",
   upsellDesc: "Pre otázky k plánovaným tréningom a ich úpravu priamo v chate je potrebné aktívne predplatné.",
   noPreviewPlaceholder: "Zatiaľ žiadna konverzácia. Opýtaj sa trénera na tento tréning vyššie.",
+  readOnlyNote: "Tento tréning už prebehol — konverzácia je len na čítanie.",
   api: {
     success: "Odpoveď je pripravená.",
   },
