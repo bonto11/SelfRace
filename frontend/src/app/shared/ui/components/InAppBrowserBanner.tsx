@@ -20,6 +20,36 @@ function wasRecentlyDismissed(): boolean {
   }
 }
 
+// Messenger má svoje menu (⟳ / zdieľať / ⋯) v spodnom paneli, ostatné in-app
+// browsery (Instagram, Facebook, ...) majú tri bodky vpravo hore.
+function menuIsAtBottom(appName: string | null): boolean {
+  return appName === "Messenger";
+}
+
+const ArrowUpRight = ({ style }: { style?: React.CSSProperties }) => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={style}>
+    <path
+      d="M8 32L32 8M32 8H14M32 8V26"
+      stroke={appColors.brandPrimary}
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const ArrowDownRight = ({ style }: { style?: React.CSSProperties }) => (
+  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={style}>
+    <path
+      d="M8 8L32 32M32 32H14M32 32V14"
+      stroke={appColors.brandPrimary}
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 export default function InAppBrowserBanner() {
   const t = useT();
   const [info, setInfo] = useState<ReturnType<typeof detectInAppBrowser> | null>(null);
@@ -33,9 +63,6 @@ export default function InAppBrowserBanner() {
     if (wasRecentlyDismissed()) return;
 
     if (detected.isAndroid) {
-      // Android: skús priamy redirect. Ak by zlyhal (napr. nie je Chrome), banner
-      // ostane ako fallback, ale vo väčšine prípadov used nikdy neuvidí banner —
-      // presmerovanie prebehne okamžite.
       const redirected = tryAndroidIntentRedirect();
       if (redirected) return;
     }
@@ -52,80 +79,109 @@ export default function InAppBrowserBanner() {
     setVisible(false);
   };
 
+  const arrowAtBottom = menuIsAtBottom(info.appName);
+
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 999999,
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(2px)",
-      }}
-      onClick={dismiss}
-    >
+    <>
+      {/* Šípka smerujúca k menu — hore vpravo (Instagram/väčšina) alebo dole vpravo (Messenger) */}
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%",
-          maxWidth: 480,
-          background: appColors.backgroundAlt,
-          borderTop: `1px solid ${appColors.panelBorder}`,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          padding: "20px 20px calc(20px + env(safe-area-inset-bottom))",
-          boxShadow: "0 -8px 30px rgba(0,0,0,0.4)",
+          position: "fixed",
+          top: arrowAtBottom ? "auto" : "calc(env(safe-area-inset-top) + 6px)",
+          bottom: arrowAtBottom ? "calc(env(safe-area-inset-bottom) + 6px)" : "auto",
+          right: 8,
+          zIndex: 1000000,
+          pointerEvents: "none",
+          animation: "srArrowBounce 1.4s ease-in-out infinite",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: appColors.textPrimary }}>
-            {t("inAppBrowser.title" as any)}
-          </div>
-          <button
-            onClick={dismiss}
-            aria-label={t("common.close" as any)}
-            style={{
-              width: 30, height: 30, borderRadius: "50%",
-              border: `1px solid ${appColors.panelBorder}`,
-              background: "rgba(255,255,255,0.06)",
-              color: appColors.textPrimary,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", flexShrink: 0, fontSize: 14,
-            }}
-          >
-            ✕
-          </button>
-        </div>
+        {arrowAtBottom ? <ArrowDownRight /> : <ArrowUpRight />}
+      </div>
 
-        <p style={{ fontSize: 13, color: appColors.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
-          {t("inAppBrowser.desc" as any).replace("{{app}}", info.appName || "")}
-        </p>
+      <style>{`
+        @keyframes srArrowBounce {
+          0%, 100% { transform: translate(0, 0); opacity: 0.85; }
+          50% { transform: translate(4px, ${arrowAtBottom ? "4px" : "-4px"}); opacity: 1; }
+        }
+      `}</style>
 
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 999999,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(2px)",
+        }}
+        onClick={dismiss}
+      >
         <div
+          onClick={(e) => e.stopPropagation()}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "12px 14px",
-            borderRadius: 12,
-            background: "rgba(255,255,255,0.05)",
-            border: `1px solid ${appColors.panelBorder}`,
+            width: "100%",
+            maxWidth: 480,
+            background: appColors.backgroundAlt,
+            borderTop: `1px solid ${appColors.panelBorder}`,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: "20px 20px calc(20px + env(safe-area-inset-bottom))",
+            boxShadow: "0 -8px 30px rgba(0,0,0,0.4)",
+            textAlign: "center",
           }}
         >
-          <span style={{ fontSize: 22, flexShrink: 0 }}>
-            {info.isIOS ? "︙" : "⋮"}
-          </span>
-          <span style={{ fontSize: 13, color: appColors.textPrimary, lineHeight: 1.4 }}>
-            {info.isIOS
-              ? t("inAppBrowser.stepsIOS" as any)
-              : t("inAppBrowser.stepsAndroid" as any)}
-          </span>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+            <button
+              onClick={dismiss}
+              aria-label={t("common.close" as any)}
+              style={{
+                width: 30, height: 30, borderRadius: "50%",
+                border: `1px solid ${appColors.panelBorder}`,
+                background: "rgba(255,255,255,0.06)",
+                color: appColors.textPrimary,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0, fontSize: 14,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div style={{ fontSize: 16, fontWeight: 700, color: appColors.textPrimary, marginBottom: 10 }}>
+            {t("inAppBrowser.title" as any)}
+          </div>
+
+          <p style={{ fontSize: 13, color: appColors.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
+            {t("inAppBrowser.desc" as any).replace("{{app}}", info.appName || "")}
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              padding: "14px 16px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.05)",
+              border: `1px solid ${appColors.panelBorder}`,
+            }}
+          >
+            <span style={{ fontSize: 24, lineHeight: 1 }}>
+              {info.isIOS ? "︙" : "⋮"}
+            </span>
+            <span style={{ fontSize: 13, color: appColors.textPrimary, lineHeight: 1.4, textAlign: "center" }}>
+              {info.isIOS
+                ? t("inAppBrowser.stepsIOS" as any)
+                : t("inAppBrowser.stepsAndroid" as any)}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
