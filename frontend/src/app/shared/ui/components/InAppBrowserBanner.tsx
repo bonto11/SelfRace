@@ -41,8 +41,17 @@ function wasRecentlyDismissed(): boolean {
 
 // Messenger má svoje menu (⟳ / zdieľať / ⋯) v spodnom paneli, ostatné in-app
 // browsery (Instagram, Facebook, ...) majú tri bodky vpravo hore.
+// appName z detekcie nie je vždy spoľahlivý (rôzne casing / názvy), preto
+// kontrolujeme aj priamo user-agent ako fallback.
 function menuIsAtBottom(appName: string | null): boolean {
-  return appName === "Messenger";
+  if (appName && appName.toLowerCase().includes("messenger")) return true;
+
+  if (typeof navigator !== "undefined") {
+    const ua = navigator.userAgent || "";
+    if (/FBAN|FB_IAB|MESSENGER|Messenger/i.test(ua)) return true;
+  }
+
+  return false;
 }
 
 const ArrowUpRight = ({ style }: { style?: React.CSSProperties }) => (
