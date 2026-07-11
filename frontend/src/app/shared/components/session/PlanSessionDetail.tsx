@@ -10,6 +10,7 @@ import {
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import SessionPreviewSection from "@/app/features/coach/components/SessionPreviewSection";
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -402,6 +403,17 @@ export default function PlanSessionDetail({
             )}
           </div>
         </DetailSection>
+      )}
+
+      {/* --- SEKCIA: SESSION PREVIEW (konverzácia s trénerom k tejto session) --- */}
+      {/* Editovateľné (formulár + otázka/zmena) len keď je session ešte "planned".
+          Pri done/missed/postponed sa zobrazí len ako read-only história, ak nejaká existuje. */}
+      {item.id != null && (
+        <SessionPreviewSection
+          sessionId={Number(item.id)}
+          isEditable={item.status === "planned"}
+          initialThread={(raw as any)?.preview_thread ?? []}
+        />
       )}
 
       {/* --- DEBUG SEKCIA --- */}
