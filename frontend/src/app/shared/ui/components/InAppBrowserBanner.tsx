@@ -9,6 +9,25 @@ import { useT } from "@/app/shared/i18n/useT";
 const STORAGE_KEY = "sr_inapp_banner_dismissed_at";
 const DISMISS_COOLDOWN_MS = 1000 * 60 * 60 * 6; // 6 hodín — nezobrazuj znova hneď
 
+// ---------------------------------------------------------------------------
+// LADENIE POZÍCIE ŠÍPKY — uprav tieto čísla podľa toho, čo uvidíš na telefóne.
+// TOP_ARROW  = Instagram / Facebook / väčšina in-app browserov (⋮ vpravo hore)
+// BOTTOM_ARROW = Messenger (menu v spodnom paneli)
+// ---------------------------------------------------------------------------
+const TOP_ARROW = {
+  top: 18,   // px od safe-area-inset-top (predtým 58 — teraz nižšie/vyššie podľa potreby)
+  right: 50, // px od pravého okraja (predtým 26 — vyššie číslo = viac doľava)
+};
+
+const BOTTOM_ARROW = {
+  bottom: 16, // px od safe-area-inset-bottom (predtým 58 — teraz bližšie k spodku)
+  right: 26,  // px od pravého okraja
+};
+
+// Zapni na true, kým ladíte presné hodnoty — vykreslí pravítko s ryskami po 10px
+// od pravého a horného/spodného okraja, nech vieš presne odčítať čísla.
+const DEBUG_RULER = true;
+
 function wasRecentlyDismissed(): boolean {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -50,6 +69,49 @@ const ArrowDownRight = ({ style }: { style?: React.CSSProperties }) => (
   </svg>
 );
 
+// Jednoduché debug pravítko — vertikálne ryska po 10px od pravého okraja,
+// s číslami každých 50px. Slúži LEN na ladenie, potom DEBUG_RULER = false.
+const DebugRuler = ({ fromTop }: { fromTop: boolean }) => {
+  const marks = Array.from({ length: 12 }, (_, i) => i * 10); // 0..110px
+  return (
+    <div
+      style={{
+        position: "fixed",
+        [fromTop ? "top" : "bottom"]: 0,
+        right: 0,
+        width: 120,
+        height: 130,
+        zIndex: 999998,
+        pointerEvents: "none",
+      }}
+    >
+      {marks.map((px) => (
+        <div
+          key={px}
+          style={{
+            position: "absolute",
+            [fromTop ? "top" : "bottom"]: px,
+            right: 0,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontSize: 9, color: "rgba(255,80,80,0.9)", marginRight: 4 }}>
+            {px}
+          </span>
+          <div
+            style={{
+              width: px % 50 === 0 ? 16 : 8,
+              height: 1,
+              background: "rgba(255,80,80,0.9)",
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function InAppBrowserBanner() {
   const t = useT();
   const [info, setInfo] = useState<ReturnType<typeof detectInAppBrowser> | null>(null);
@@ -83,14 +145,16 @@ export default function InAppBrowserBanner() {
 
   return (
     <>
+      {DEBUG_RULER && <DebugRuler fromTop={!arrowAtBottom} />}
+
       {/* Šípka smerujúca presne k trom bodkám menu — hore vpravo (Instagram/väčšina)
-          alebo dole vpravo (Messenger). Posunutá bližšie k rohu, nie do stredu okraja. */}
+          alebo dole vpravo (Messenger). */}
       <div
         style={{
           position: "fixed",
-          top: arrowAtBottom ? "auto" : "calc(env(safe-area-inset-top) + 58px)",
-          bottom: arrowAtBottom ? "calc(env(safe-area-inset-bottom) + 58px)" : "auto",
-          right: 26,
+          top: arrowAtBottom ? "auto" : `calc(env(safe-area-inset-top) + ${TOP_ARROW.top}px)`,
+          bottom: arrowAtBottom ? `calc(env(safe-area-inset-bottom) + ${BOTTOM_ARROW.bottom}px)` : "auto",
+          right: arrowAtBottom ? BOTTOM_ARROW.right : TOP_ARROW.right,
           zIndex: 1000000,
           pointerEvents: "none",
           animation: "srArrowBounce 1.4s ease-in-out infinite",
