@@ -652,7 +652,7 @@ def build_prompts_for_daily(
     latest_paces = _as_dict(context_payload.get("latest_paces"))
     intensity_format_rule = _build_intensity_format_rule(has_zones, latest_paces, lthr)
 
-        endurance_structure_rule = (
+    endurance_structure_rule = (
         "- ENDURANCE STRUCTURE (RUN & RIDE): Provide `structure` with `warmup`, `main_part`, `cooldown`.\n"
         "  - `main_part` is ALWAYS an array. Each element is EITHER a steady block OR an interval block "
         "(you may mix both in the same array for progressive sessions, e.g. steady → interval → steady).\n\n"
