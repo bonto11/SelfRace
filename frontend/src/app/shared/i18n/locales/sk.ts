@@ -2564,6 +2564,25 @@ inAppBrowser: {
     },
   },
   sessions: {
+preview: {
+  title: "Náhľad tréningu",
+  statusNoPreview: "Zatiaľ žiadna otázka k tomuto tréningu.",
+  sectionReply: "Odpoveď trénera",
+  tagChanged: "Tréning upravený",
+  commentPlaceholder: "Opýtaj sa na tento tréning, alebo napíš ako sa cítiš...",
+  commentTip: "Tip: Bez zaškrtnutia sa tréning nezmení, dostaneš len radu.",
+  hintChangeScope: "Zmení sa len tento jeden tréning, ostatné dni ostanú nedotknuté.",
+  requestChangeCheckbox: "Chcem upraviť tento tréning",
+  requestChangeLabel: "Požiadavka na zmenu",
+  btnAsk: "Opýtať sa trénera",
+  upsellTitle: "Živá konverzácia s trénerom",
+  upsellDesc: "Pre otázky k plánovaným tréningom a ich úpravu priamo v chate je potrebné aktívne predplatné.",
+  noPreviewPlaceholder: "Zatiaľ žiadna konverzácia. Opýtaj sa trénera na tento tréning vyššie.",
+  api: {
+    success: "Odpoveď je pripravená.",
+  },
+},
+
     review: {
       title: "Zhodnotenie od trénera",
       errorTooOld:
