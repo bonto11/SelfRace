@@ -51,13 +51,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* 🛡️ SessionGuard beží na pozadí a počúva na signál k odhláseniu */}
         <SessionGuard />
 
-        {/* 🌐 Detekuje in-app browser (Instagram/Messenger/FB/...) a ponúkne
-            otvorenie v systémovom prehliadači — na Androide priamy redirect,
-            na iOS krátky návod */}
-        <InAppBrowserBanner />
-
         <SettingsProvider>
           <TooltipProvider>
+            {/* 🌐 Detekuje in-app browser (Instagram/Messenger/FB/...) a ponúkne
+                otvorenie v systémovom prehliadači — na Androide priamy redirect,
+                na iOS krátky návod. Musí byť POD SettingsProvider, keďže používa useT(). */}
+            <InAppBrowserBanner />
+
             <div
               style={{
                 minHeight: "100dvh",
