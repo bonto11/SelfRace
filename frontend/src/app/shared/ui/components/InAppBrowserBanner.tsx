@@ -27,7 +27,7 @@ function menuIsAtBottom(appName: string | null): boolean {
 }
 
 const ArrowUpRight = ({ style }: { style?: React.CSSProperties }) => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={style}>
+  <svg width="36" height="36" viewBox="0 0 40 40" fill="none" style={style}>
     <path
       d="M8 32L32 8M32 8H14M32 8V26"
       stroke={appColors.brandPrimary}
@@ -39,7 +39,7 @@ const ArrowUpRight = ({ style }: { style?: React.CSSProperties }) => (
 );
 
 const ArrowDownRight = ({ style }: { style?: React.CSSProperties }) => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={style}>
+  <svg width="36" height="36" viewBox="0 0 40 40" fill="none" style={style}>
     <path
       d="M8 8L32 32M32 32H14M32 32V14"
       stroke={appColors.brandPrimary}
@@ -83,13 +83,14 @@ export default function InAppBrowserBanner() {
 
   return (
     <>
-      {/* Šípka smerujúca k menu — hore vpravo (Instagram/väčšina) alebo dole vpravo (Messenger) */}
+      {/* Šípka smerujúca presne k trom bodkám menu — hore vpravo (Instagram/väčšina)
+          alebo dole vpravo (Messenger). Posunutá bližšie k rohu, nie do stredu okraja. */}
       <div
         style={{
           position: "fixed",
-          top: arrowAtBottom ? "auto" : "calc(env(safe-area-inset-top) + 6px)",
-          bottom: arrowAtBottom ? "calc(env(safe-area-inset-bottom) + 6px)" : "auto",
-          right: 8,
+          top: arrowAtBottom ? "auto" : "calc(env(safe-area-inset-top) + 58px)",
+          bottom: arrowAtBottom ? "calc(env(safe-area-inset-bottom) + 58px)" : "auto",
+          right: 26,
           zIndex: 1000000,
           pointerEvents: "none",
           animation: "srArrowBounce 1.4s ease-in-out infinite",
@@ -101,7 +102,7 @@ export default function InAppBrowserBanner() {
       <style>{`
         @keyframes srArrowBounce {
           0%, 100% { transform: translate(0, 0); opacity: 0.85; }
-          50% { transform: translate(4px, ${arrowAtBottom ? "4px" : "-4px"}); opacity: 1; }
+          50% { transform: translate(3px, ${arrowAtBottom ? "3px" : "-3px"}); opacity: 1; }
         }
       `}</style>
 
@@ -113,8 +114,9 @@ export default function InAppBrowserBanner() {
           inset: 0,
           zIndex: 999999,
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: "center",
           justifyContent: "center",
+          padding: 20,
           background: "rgba(0,0,0,0.6)",
           backdropFilter: "blur(2px)",
         }}
@@ -124,17 +126,18 @@ export default function InAppBrowserBanner() {
           onClick={(e) => e.stopPropagation()}
           style={{
             width: "100%",
-            maxWidth: 480,
+            maxWidth: 420,
             background: appColors.backgroundAlt,
-            borderTop: `1px solid ${appColors.panelBorder}`,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: "20px 20px calc(20px + env(safe-area-inset-bottom))",
-            boxShadow: "0 -8px 30px rgba(0,0,0,0.4)",
-            textAlign: "center",
+            border: `1px solid ${appColors.panelBorder}`,
+            borderRadius: 20,
+            padding: 20,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: appColors.textPrimary }}>
+              {t("inAppBrowser.title" as any)}
+            </div>
             <button
               onClick={dismiss}
               aria-label={t("common.close" as any)}
@@ -151,10 +154,6 @@ export default function InAppBrowserBanner() {
             </button>
           </div>
 
-          <div style={{ fontSize: 16, fontWeight: 700, color: appColors.textPrimary, marginBottom: 10 }}>
-            {t("inAppBrowser.title" as any)}
-          </div>
-
           <p style={{ fontSize: 13, color: appColors.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
             {t("inAppBrowser.desc" as any).replace("{{app}}", info.appName || "")}
           </p>
@@ -162,19 +161,18 @@ export default function InAppBrowserBanner() {
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              gap: 8,
-              padding: "14px 16px",
+              gap: 12,
+              padding: "12px 14px",
               borderRadius: 12,
               background: "rgba(255,255,255,0.05)",
               border: `1px solid ${appColors.panelBorder}`,
             }}
           >
-            <span style={{ fontSize: 24, lineHeight: 1 }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>
               {info.isIOS ? "︙" : "⋮"}
             </span>
-            <span style={{ fontSize: 13, color: appColors.textPrimary, lineHeight: 1.4, textAlign: "center" }}>
+            <span style={{ fontSize: 13, color: appColors.textPrimary, lineHeight: 1.4 }}>
               {info.isIOS
                 ? t("inAppBrowser.stepsIOS" as any)
                 : t("inAppBrowser.stepsAndroid" as any)}
