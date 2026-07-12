@@ -17,8 +17,7 @@ from Services.AI.session_preview.builders import build_context_for_session_previ
 from Services.AI.session_preview.generate import generate_session_preview_json
 from DB.coach_plan_daily import (
     db_get_daily_session_by_id_full,
-    db_get_preview_thread,
-    db_append_preview_thread_entries,
+    db_append_preview_thread_entry,
     db_apply_session_preview_update,
 )
 from DB.app_subscription import db_get_active_app_subscription_for_user
@@ -71,7 +70,11 @@ def service_get_session_preview_thread(
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
     """Načíta preview_thread pre jednu naplánovanú session."""
-    return db_get_preview_thread(user_id=user_id, session_id=session_id, ctx=ctx) or []
+    row = db_get_daily_session_by_id_full(user_id, session_id, ctx=ctx)
+    if not row:
+        return []
+    thread = row.get("preview_thread")
+    return thread if isinstance(thread, list) else []
 
 
 # ============================================================
@@ -190,36 +193,33 @@ def service_session_preview_ask(
         except Exception as e:
             print(f"❌ [AI_BILLING] error: {repr(e)}")
 
-    # Uloženie do threadu (user + assistant entries)
-    now_iso = _now_iso()
+    # Uloženie do threadu — db_append_preview_thread_entry berie JEDEN entry naraz,
+    # takže voláme dvakrát (user, potom assistant), nie raz s listom.
     entries: List[Dict[str, Any]] = [
         {
             "role": "user",
-            "created_at": now_iso,
             "comment": safe_comment,
             "request_change": bool(request_change),
         },
         {
             "role": "assistant",
-            "created_at": now_iso,
             "reply_text": reply.get("reply_text"),
             "changed": bool(reply.get("changed")),
         },
     ]
 
-    try:
-        db_append_preview_thread_entries(
-            user_id=user_id, session_id=session_id, entries=entries, ctx=ctx
-        )
-    except Exception as e:
-        print(f"❌ [SP] db_append_preview_thread_entries error: {repr(e)}")
+    for entry in entries:
+        try:
+            db_append_preview_thread_entry(user_id, session_id, entry, ctx=ctx)
+        except Exception as e:
+            print(f"❌ [SP] db_append_preview_thread_entry error: {repr(e)}")
 
     # Ak AI navrhlo a povolilo zmenu, aplikuj na tú JEDNU session
     if reply.get("changed"):
         try:
             db_apply_session_preview_update(
-                user_id=user_id,
-                session_id=session_id,
+                user_id,
+                session_id,
                 duration_min=reply.get("updated_duration_min"),
                 notes=reply.get("updated_notes"),
                 structure=reply.get("updated_structure"),
