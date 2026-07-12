@@ -549,4 +549,23 @@ def db_apply_session_preview_update(
         print("[DB-COACH-DAILY] apply_session_preview_update error:", repr(e))
         return False
 
+def db_get_daily_session_by_activity_id(
+    user_id: int, activity_id: int, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """Nájde plánovanú session namapovanú na danú aktivitu (podľa activity_id)."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_daily_session_by_activity_id")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("activity_id", int(activity_id))
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_daily_session_by_activity_id error:", repr(e))
+        return None
 
