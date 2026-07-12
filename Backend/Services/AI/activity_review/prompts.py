@@ -31,20 +31,16 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     out = json.loads(json.dumps(context, default=str))
 
-    # Interné polia ktoré AI nepotrebuje
     u = out.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
         u.pop("email", None)
     out.pop("_debug", None)
 
-    # Z focus aktivity odstránime len interné ID (metriky zostanú)
     act = out.get("activity")
     if isinstance(act, dict):
         act.pop("activity_id", None)
 
-    # História — zachováme sport, intensity, duration a avg_hr
-    # AI musí vedieť či pred 3 dňami bol hard interval alebo easy Z2
     history = out.get("history", {})
     if isinstance(history, dict):
         for period in ("days_0_7", "days_8_14"):
@@ -56,16 +52,13 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 day.pop("splits_minified", None)
                 day.pop("laps_minified", None)
                 day.pop("streams_minified", None)
-                # Zachováme kľúčové metriky — AI potrebuje vedieť záťaž, nie len dĺžku
                 if "metrics" in day and isinstance(day["metrics"], dict):
                     day["metrics"] = {
                         "duration_min": day["metrics"].get("duration_min"),
                         "avg_hr_bpm": day["metrics"].get("avg_hr_bpm"),
                         "distance_km": day["metrics"].get("distance_km"),
                     }
-                # sport a intensity zostávajú na roote dňa (nie v metrics)
 
-    # Plan today a tomorrow — odstráni DB metadata, zachová len to čo AI potrebuje
     ctx_block = out.get("context", {})
     if isinstance(ctx_block, dict):
         ctx_block.pop("hr_zones_bpm", None)
@@ -79,7 +72,6 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                     "duration_min": plan.get("duration_min"),
                     "notes": plan.get("notes"),
                     "status": plan.get("status"),
-                    # intensity/load_phase ak existuje
                     "intensity": plan.get("intensity") or plan.get("session_type"),
                 }
 
@@ -92,10 +84,11 @@ def _lang_notes(
     """
     Vráti (jazyk_label, pravidlo_oslovovania, health_reminder) podľa nastavení a profilu.
     Podporuje sk/cs/en s rodovými pravidlami.
+    POZNÁMKA: address_rule už NEinštruuje AI aby vždy oslovovalo menom — to teraz
+    rieši samostatná _name_usage_rule() nižšie (meno len zriedka, nikdy ako opener).
     """
     lang = (settings.get("language") or "sk").lower()
     user_data = user_data or {}
-    first_name = user_data.get("first_name")
     gender = user_data.get("gender")
     address_rule = ""
     health_reminder = ""
@@ -107,8 +100,6 @@ def _lang_notes(
             "Don't forget to log this health issue in the Health Log on your Dashboard "
             "so I can properly adjust your training plan."
         )
-        if first_name:
-            address_rule += f"The athlete's name is '{first_name}'. "
 
     elif lang.startswith("cs"):
         lang_label = "Czech"
@@ -117,8 +108,6 @@ def _lang_notes(
             "Nezapomeň si tento zdravotní problém zaevidovat ve Zdravotní kartě na Nástěnce, "
             "abych ti mohl přizpůsobit tréninkový plán."
         )
-        if first_name:
-            address_rule += f"Jméno atleta je '{first_name}'. "
         if gender == "female":
             address_rule += "DŮLEŽITÉ: Atletka je ŽENA. Používej ženský rod. "
         elif gender == "male":
@@ -134,8 +123,6 @@ def _lang_notes(
             "Nezabudni si tento zdravotný problém zaevidovať v Zdravotnej karte na Nástenke, "
             "aby som ti mohol prispôsobiť tréningový plán."
         )
-        if first_name:
-            address_rule += f"Meno atléta je '{first_name}'. "
         if gender == "female":
             address_rule += "DÔLEŽITÉ: Atlétka je ŽENA. Používaj výhradne ženský rod. "
         elif gender == "male":
@@ -265,7 +252,6 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
             ]
         )
 
-    # Splits/laps pravidlo — len ak sú v payload
     if sport_key in ("run", "ride"):
         common.append(
             "- SPLITS/LAPS: If 'activity.splits_minified' or 'activity.laps_minified' are present, "
@@ -324,7 +310,8 @@ def build_prompts_for_activity_review(
     Zostaví (system_prompt, user_prompt) pre activity review.
     Minifikuje context, pridá jazykové pravidlá, schému a sport-špecifické rules.
     Ak je v contexte review_thread (predchádzajúce review + komentár usera),
-    pridá inštrukciu aby AI reagovalo v kontexte konverzácie, nie izolovane.
+    pridá inštrukciu aby AI reagovalo v kontexte konverzácie na posledný komentár,
+    nie izolovane/od začiatku.
     """
     settings = settings or {}
     lang = (settings.get("language") or "sk").lower()
@@ -337,7 +324,6 @@ def build_prompts_for_activity_review(
     nickname = user_data.get("first_name") if isinstance(user_data, dict) else None
     name_rule = _name_usage_rule(nickname, lang)
 
-    # is_race_effort môže prísť aj z user_input (checkbox na FE)
     user_input_data = context_payload.get("user_input") or {}
     actually_is_race = is_race or bool(user_input_data.get("is_race_effort"))
 
@@ -346,12 +332,10 @@ def build_prompts_for_activity_review(
     )
     sport_key = f"{resolved_sport}_race" if actually_is_race else resolved_sport
 
-    # Minifikácia contextu — menej tokenov, rovnaká informácia
     context_for_llm = minify_activity_context_for_ai(context_payload)
 
     system_txt = _system_prompt(resolved_sport, is_race=actually_is_race)
 
-    # Špeciálny protokol pre race/test — krok po kroku audit prahu
     race_logic = ""
     if actually_is_race:
         race_logic = (
@@ -363,8 +347,8 @@ def build_prompts_for_activity_review(
             "5. DATA SUGGESTION: If improved, provide the new suggested LTHR in `suggested_thresholds`.\n"
         )
 
-    # Konverzačný kontext — ak existuje predchádzajúci review_thread, AI reaguje na reply
-    # namiesto toho aby re-review-ovalo aktivitu odznova.
+    # Konverzačný kontext — ak existuje predchádzajúci review_thread A posledný záznam
+    # je užívateľov follow-up komentár, AI má reagovať priamo naň (nie re-review odznova).
     thread_ctx = (context_for_llm.get("context") or {}).get("review_thread") or []
     conversation_note = ""
     if thread_ctx:
@@ -376,8 +360,6 @@ def build_prompts_for_activity_review(
             and last_entry.get("role") == "user"
             and last_entry.get("comment")
         )
-        # Aj samotný aktuálny komentár (user_input.comment) počítame ako follow-up,
-        # keďže sa niekedy posiela mimo threadu.
         if not has_user_followup and user_input_data.get("comment"):
             has_user_followup = True
 
@@ -397,8 +379,6 @@ def build_prompts_for_activity_review(
                 "Keep 'review_text' focused and SHORTER than a first-time review — it's a reply, not a full report.\n"
             )
         else:
-            # Predošlý thread existuje, ale nejde o priamy follow-up (napr. nový race effort na tú istú
-            # aktivitu) — pôvodné všeobecné pravidlo na kontext konverzácie.
             conversation_note = (
                 "\n--- CONVERSATION CONTEXT ---\n"
                 "This is a CONTINUING conversation about this same session — see 'context.review_thread' "
