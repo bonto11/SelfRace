@@ -151,4 +151,119 @@ def _system_prompt(sport: str) -> str:
 
 def _mode_rule(request_change: bool) -> str:
     """
-    Kľúčové rozlí
+    Kľúčové rozlíšenie: bez zmeny (len rada/vysvetlenie) vs. so zmenou
+    (upraví sa structure/duration_min/notes tejto JEDNEJ session).
+    """
+    if not request_change:
+        return (
+            "\n--- MODE: ADVICE ONLY (NO CHANGE) ---\n"
+            "The athlete wants advice, an explanation, or a question answered about this "
+            "upcoming session. They have NOT requested a change.\n"
+            "- Set 'changed' to false.\n"
+            "- Set 'updated_structure', 'updated_duration_min', and 'updated_notes' to null.\n"
+            "- Answer helpfully in 'reply_text': explain pacing, how to approach the session, "
+            "adjust for how they feel, fatigue, etc. — but the plan itself stays as-is.\n"
+            "- If their message actually implies they want a change but forgot to request it, "
+            "gently tell them to check the 'change this session' option and resend.\n"
+        )
+    return (
+        "\n--- MODE: REQUEST CHANGE (THIS SESSION ONLY) ---\n"
+        "The athlete has explicitly asked to modify THIS SINGLE SESSION. You MAY update it.\n"
+        "- CRITICAL SCOPE: You are ONLY allowed to change THIS ONE session. Do NOT reference or "
+        "imply changes to any other day or the rest of the week — that is out of scope here.\n"
+        "- If the requested change is reasonable and safe given the athlete's recovery/wellness "
+        "context, apply it: set 'changed' to true and fill 'updated_structure' (same shape as the "
+        "original 'session.structure'), 'updated_duration_min', and 'updated_notes'.\n"
+        "- If the change is unsafe or doesn't make sense (e.g. asking for a much harder session "
+        "right after reporting exhaustion), set 'changed' to false, explain why in 'reply_text', "
+        "and suggest a safer alternative in words only.\n"
+        "- If the request actually needs changes across MULTIPLE days (e.g. 'I'm on vacation next "
+        "two weeks'), set 'changed' to false and tell the athlete to use the weekly/daily replan "
+        "feature with a coach note instead — this tool only handles a single session.\n"
+        "- Keep the original session's sport and overall purpose intact unless the athlete "
+        "explicitly asked to change the type of session.\n"
+    )
+
+
+def _conversation_rule(thread_ctx: list) -> str:
+    """Ak existuje predchádzajúci preview_thread, AI reaguje na posledný komentár, nie odznova."""
+    if not thread_ctx:
+        return ""
+    return (
+        "\n--- CONVERSATION CONTEXT ---\n"
+        "This is a CONTINUING conversation about this specific upcoming session — see "
+        "'context.preview_thread' in CONTEXT_JSON for the prior exchange (oldest first). "
+        "The athlete's latest message in 'user_input.comment' is a REPLY to your last message there. "
+        "Address it directly and specifically. Do NOT repeat your previous reply verbatim.\n"
+    )
+
+
+def _schema(lang: str) -> str:
+    """JSON schéma výstupu pre session preview."""
+    return f"""
+{{
+  "schema_version": 1,
+  "generated_at": "ISO timestamp",
+  "model": "string",
+  "reply_text": "FREE TEXT, 2-4 sentences, {lang}. Direct, conversational reply to the athlete's message.",
+  "changed": boolean,
+  "updated_duration_min": number | null,
+  "updated_notes": "string | null — short session summary in {lang}, same role as original session.notes",
+  "updated_structure": object | null
+}}
+""".strip()
+
+
+# ============================================================
+# HLAVNÁ FUNKCIA
+# ============================================================
+
+def build_prompts_for_session_preview(
+    context_payload: Dict[str, Any],
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, str]:
+    """
+    Zostaví (system_prompt, user_prompt) pre session preview (pred-tréningová
+    konverzácia/úprava jednej naplánovanej session).
+    Minifikuje context, pridá jazykové pravidlá, meno-pravidlo, schému,
+    mode rule (advice vs change) a conversation rule ak existuje história.
+    """
+    settings = settings or {}
+    lang = (settings.get("language") or "sk").lower()
+
+    user_data = context_payload.get("user", {})
+    lang_label, second_person_note = _lang_notes(settings, user_data=user_data)
+
+    nickname = user_data.get("first_name") if isinstance(user_data, dict) else None
+    name_rule = _name_usage_rule(nickname, lang)
+
+    user_input_data = context_payload.get("user_input") or {}
+    request_change = bool(user_input_data.get("request_change"))
+
+    resolved_sport = _canonical_sport(context_payload.get("sport") or "other")
+
+    context_for_llm = minify_session_context_for_ai(context_payload)
+
+    system_txt = _system_prompt(resolved_sport)
+
+    thread_ctx = (context_for_llm.get("context") or {}).get("preview_thread") or []
+    conversation_note = _conversation_rule(thread_ctx)
+
+    user_txt = (
+        f"The athlete is asking about their upcoming {resolved_sport.upper()} session.\n\n"
+        "CONTEXT_JSON:\n"
+        + json.dumps(context_for_llm, ensure_ascii=False)
+        + "\n\nSCHEMA:\n"
+        + _schema(lang_label)
+        + "\n\nRULES:\n"
+        f"- Language: {lang_label}\n"
+        f"- {second_person_note}\n"
+        + name_rule
+        + _time_format_rule()
+        + _mode_rule(request_change)
+        + conversation_note
+        + "\n- Return ONLY raw JSON."
+    )
+
+    return system_txt, user_txt
