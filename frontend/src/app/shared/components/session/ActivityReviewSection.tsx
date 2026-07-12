@@ -283,11 +283,16 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         : [];
       setThread(t2);
 
-      const lastUserComment = [...t2]
-        .reverse()
-        .find((e): e is UserEntry => e.role === "user" && !!e.comment)?.comment;
-      if (typeof lastUserComment === "string") {
-        setComment((prev) => prev || lastUserComment);
+      // Predvyplnenie posledným komentárom sa robí LEN pri prvom načítaní stránky
+      // (keď comment ešte nič neobsahuje), nie po každom refreshi — inak by sa
+      // pole po odoslaní znova naplnilo starým textom namiesto zostania prázdne.
+      if (!forceFetch) {
+        const lastUserComment = [...t2]
+          .reverse()
+          .find((e): e is UserEntry => e.role === "user" && !!e.comment)?.comment;
+        if (typeof lastUserComment === "string") {
+          setComment((prev) => prev || lastUserComment);
+        }
       }
 
       setUiError(null);
@@ -366,6 +371,11 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         if (out.status === "QUEUED")
           setApiNote(t("sessions.review.api.queued"));
 
+        // Vymaž pole po úspešnom odoslaní — komentár je už súčasťou threadu
+        // (zobrazí sa ako UserBubble), netreba ho nechávať v textarea.
+        setComment("");
+        setIsRaceEffort(false);
+
         await loadData(true);
       }
     } catch (e: any) {
@@ -432,7 +442,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
               {busyGen
                 ? t("sessions.review.btnGenerating")
                 : hasReview
-                  ? t("sessions.review.btnRerun")
+                  ? t("sessions.review.btnReply")
                   : t("sessions.review.btnGenerate")}
             </Button>
           )}

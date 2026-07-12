@@ -334,6 +334,13 @@ export const sk = {
     bgTransparent: "Priehľadné",
     showDate: "Zobraziť dátum",
   },
+inAppBrowser: {
+  title: "Otvor v prehliadači",
+  desc: "Aplikácia {{app}} môže blokovať prihlásenie cez Stravu. Pre plynulé fungovanie ju otvor v bežnom prehliadači (Safari/Chrome).",
+  stepsIOS: "Klepni na tri bodky vpravo hore a vyber „Otvoriť v externom prehliadači“.",
+  stepsAndroid: "Klepni na tri bodky (vpravo hore alebo dole) a vyber „Otvoriť v prehliadači“.",
+},
+
   prefs: {
     title: "Tréningové preferencie",
     actions: {
@@ -2557,6 +2564,26 @@ export const sk = {
     },
   },
   sessions: {
+preview: {
+  title: "Náhľad tréningu",
+  statusNoPreview: "Zatiaľ žiadna otázka k tomuto tréningu.",
+  sectionReply: "Odpoveď trénera",
+  tagChanged: "Tréning upravený",
+  commentPlaceholder: "Opýtaj sa na tento tréning, alebo napíš ako sa cítiš...",
+  commentTip: "Tip: Bez zaškrtnutia sa tréning nezmení, dostaneš len radu.",
+  hintChangeScope: "Zmení sa len tento jeden tréning, ostatné dni ostanú nedotknuté.",
+  requestChangeCheckbox: "Chcem upraviť tento tréning",
+  requestChangeLabel: "Požiadavka na zmenu",
+  btnAsk: "Opýtať sa trénera",
+  upsellTitle: "Živá konverzácia s trénerom",
+  upsellDesc: "Pre otázky k plánovaným tréningom a ich úpravu priamo v chate je potrebné aktívne predplatné.",
+  noPreviewPlaceholder: "Zatiaľ žiadna konverzácia. Opýtaj sa trénera na tento tréning vyššie.",
+  readOnlyNote: "Tento tréning už prebehol — konverzácia je len na čítanie.",
+  api: {
+    success: "Odpoveď je pripravená.",
+  },
+},
+
     review: {
       title: "Zhodnotenie od trénera",
       errorTooOld:
@@ -2569,6 +2596,7 @@ export const sk = {
       statusReviewCount: "Verzia {{version}} z {{max}} možných",
       btnWait: "Počkaj prosím",
       btnRerun: "Prepočítať znova",
+      btnReply: "Reagovať",
       btnGenerate: "Analyzovať tréning",
       btnGenerating: "Práve analyzujem...",
       commentPlaceholder:
@@ -2655,24 +2683,35 @@ export const sk = {
       unitRest: "oddych",
       sectionBestSegments: "Najlepšie segmenty",
       segments: {
-        "1k": "1 km",
-        "5k": "5 km",
-        "10k": "10 km",
-        half: "Polmaratón",
-        marathon: "Maratón",
-        "50k": "50 km",
-        swim50m: "50 m",
-        swim100m: "100 m",
-        swim200m: "200 m",
-        swim400m: "400 m",
-        swim800m: "800 m",
-        swim1500m: "1500 m",
-        ride5k: "5 km (bicykel)",
-        ride10k: "10 km (bicykel)",
-        ride20k: "20 km (bicykel)",
-        ride40k: "40 km (bicykel)",
-        ride100k: "100 km (bicykel)",
-      },
+  // Beh
+  run400m: "400 m",
+  run1k: "1 km",
+  run5k: "5 km",
+  run10k: "10 km",
+  run20k: "20 km",
+  runHalf: "Polmaratón",
+  run30k: "30 km",
+  runMarathon: "Maratón",
+  run50k: "50 km",
+  // Plávanie
+  swim100m: "100 m",
+  swim400m: "400 m",
+  swim750mSprint: "750 m (Sprint)",
+  swim1k: "1 km",
+  swim1500mOlympic: "1500 m (Olympic)",
+  swim1900mHalfIm: "1900 m (Half IM)",
+  swim3800mIronman: "3800 m (Ironman)",
+  swim5k: "5 km",
+  // Bicykel
+  ride10k: "10 km",
+  ride20k: "20 km",
+  ride40k: "40 km",
+  ride50k: "50 km",
+  ride90k: "90 km",
+  ride100k: "100 km",
+  ride100mi: "100 míľ",
+  ride180kIronman: "180 km (Ironman)",
+},
       plan: {
         target: "cieľ",
         work: "Záťaž",

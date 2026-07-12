@@ -10,6 +10,7 @@ import {
 import type { PlanSession } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import SessionPreviewSection from "@/app/shared/components/session/SessionPreviewSection";
 import {
   SESSION_MINIGRID_BASE,
   SESSION_MINIGRID_2COL,
@@ -264,15 +265,18 @@ export default function PlanSessionDetail({
                       const iData = isIntervalNested
                         ? blk.interval_block
                         : blk;
-                      const reps = iData.repeats || 1;
+                      // OPRAVA: AI generuje niekedy 'repeats', niekedy 'rounds' —
+                      // predtým sa čítalo len 'repeats', takže pri 'rounds' spadlo
+                      // na fallback 1× aj keď reálne malo byť 6×.
+                      const reps = iData.repeats ?? iData.rounds ?? 1;
 
                       // Nested: intervals[0] = work, intervals[1] = rest
                       // Flat: work / rest priamo
                       const workBlock = isIntervalNested
-                        ? (iData.intervals?.[0] ?? null)
+                        ? (iData.intervals?.[0] ?? iData.work ?? null)
                         : iData.work;
                       const restBlock = isIntervalNested
-                        ? (iData.intervals?.[1] ?? null)
+                        ? (iData.intervals?.[1] ?? iData.rest ?? null)
                         : iData.rest;
 
                       const workDur = getDuration(workBlock);
@@ -399,6 +403,17 @@ export default function PlanSessionDetail({
             )}
           </div>
         </DetailSection>
+      )}
+
+      {/* --- SEKCIA: SESSION PREVIEW (konverzácia s trénerom k tejto session) --- */}
+      {/* Editovateľné (formulár + otázka/zmena) len keď je session ešte "planned".
+          Pri done/missed/postponed sa zobrazí len ako read-only história, ak nejaká existuje. */}
+      {item.id != null && (
+        <SessionPreviewSection
+          sessionId={Number(item.id)}
+          isEditable={item.status === "planned"}
+          initialThread={(raw as any)?.preview_thread ?? []}
+        />
       )}
 
       {/* --- DEBUG SEKCIA --- */}

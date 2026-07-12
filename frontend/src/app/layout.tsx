@@ -7,6 +7,7 @@ import AppFooter from "@/app/shared/ui/components/AppFooter";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 import SessionGuard from "@/app/shared/ui/components/SessionGuard";
+import InAppBrowserBanner from "@/app/shared/ui/components/InAppBrowserBanner";
 
 export const metadata: Metadata = {
   title: "SelfRace",
@@ -52,6 +53,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
         <SettingsProvider>
           <TooltipProvider>
+            {/* 🌐 Detekuje in-app browser (Instagram/Messenger/FB/...) a ponúkne
+                otvorenie v systémovom prehliadači — na Androide priamy redirect,
+                na iOS krátky návod. Musí byť POD SettingsProvider, keďže používa useT(). */}
+            <InAppBrowserBanner />
+
             <div
               style={{
                 minHeight: "100dvh",

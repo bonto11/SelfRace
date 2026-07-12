@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
@@ -138,20 +138,24 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
   const { onClose, chartData, yMin, yMax, tickInterval, yAxisLabel,
     COLOR, t, weeks, onWeeksChange, loading } = props;
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     // Priamy DOM prístup — najistejší spôsob skrytia nav baru
     // MobileBottomBar má id="mobile-bottom-nav"
     const nav = document.getElementById("mobile-bottom-nav");
     if (nav) nav.style.setProperty("display", "none", "important");
 
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
     window.addEventListener("keydown", h);
 
     return () => {
       if (nav) nav.style.removeProperty("display");
       window.removeEventListener("keydown", h);
     };
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const overlay = (
     <div onClick={onClose}
@@ -223,7 +227,6 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
 
         {/* Legenda vycentrovaná */}
         <div style={{ flexShrink: 0, paddingTop: 10, paddingBottom: 8 }}>
-          {/* Farby čiar — vycentrované */}
           <div style={{
             display: "flex", justifyContent: "center",
             flexWrap: "wrap", gap: "6px 20px", marginBottom: 6,
@@ -247,7 +250,6 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
               </span>
             </div>
           </div>
-          {/* EventsLegend — ak má vlastný wrapper, prebal ho do centrovania */}
           <div style={{ display: "flex", justifyContent: "center" }}>
             <EventsLegend t={t} />
           </div>
@@ -271,6 +273,15 @@ export default function TrendRHR() {
   const [showFullscreen, setShowFullscreen] = useState(false);
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  useEffect(() => {
+    if (!showFullscreen) {
+      const nav = document.getElementById("mobile-bottom-nav");
+      if (nav && nav.style.display === "none") {
+        nav.style.removeProperty("display");
+      }
+    }
+  }, [showFullscreen]);
 
   const COLOR = { main: appColors.chartLine1, bandFill: appColors.chartBandFill, missing: appColors.stateBad };
 

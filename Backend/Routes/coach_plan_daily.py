@@ -15,7 +15,7 @@ from Services.AI.daily_plan.main import (
     service_get_daily_overview,
     service_update_daily_session_status,
 )
-
+from Services.AI.session_preview.main import service_session_preview_ask
 from DB.coach_plan_daily import (
     db_get_compliance_stats,
     db_get_postponed_sessions,
@@ -190,3 +190,24 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class SessionPreviewAsk(BaseModel):
+    comment: str = Field(..., min_length=1, max_length=900)
+    request_change: bool = Field(False)
+
+
+@router.post("/session/{user_id}/{session_id}/preview-ask")
+def session_preview_ask(
+    req: Request, user_id: int, session_id: int, payload: SessionPreviewAsk,
+) -> Dict[str, Any]:
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        result = service_session_preview_ask(
+            user_id=user_id, session_id=session_id,
+            comment=payload.comment, request_change=payload.request_change,
+            ctx=ctx,
+        )
+        if not result.get("ok"):
+            return {"success": False, "error_code": result.get("code"), "data": None}
+        return {"success": True, "data": result["data"], "error_code": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

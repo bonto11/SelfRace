@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, Scatter,
@@ -152,16 +152,28 @@ function FullscreenOverlay(props: FullscreenOverlayProps) {
   const { onClose, chartData, yMin, yMax, tickInterval, yAxisLabel,
     COLOR, t, showAdvanced, weeks, onWeeksChange, loading } = props;
 
+  // onClose sa drží v ref, aby zmena jeho referencie (inline arrow fn v rodičovi)
+  // NEVYVOLALA znova celý efekt nižšie — ten sa má spustiť LEN raz pri mount/unmount
+  // tohto overlay. Predtým bol onClose v deps poľa, čo pri každom re-renderi rodiča
+  // (kým bol overlay otvorený) zbytočne cleanup-lo a znova nastavovalo display na nav,
+  // a pri nešťastnom timingu (napr. route change medzi cleanup a re-run) mohol
+  // display:none zostať zaseknutý na navigácii.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const nav = document.getElementById("mobile-bottom-nav");
     if (nav) nav.style.setProperty("display", "none", "important");
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
     window.addEventListener("keydown", h);
+
     return () => {
       if (nav) nav.style.removeProperty("display");
       window.removeEventListener("keydown", h);
     };
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // spustiť LEN raz pri mount, cleanup LEN raz pri unmount
 
   const overlay = (
     <div onClick={onClose}
@@ -235,6 +247,21 @@ export default function TrendHRV() {
   const [showFullscreen, setShowFullscreen] = useState(false);
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  // Defenzívna poistka: ak by z akéhokoľvek dôvodu (napr. route change počas
+  // otvoreného fullscreenu na inej stránke) ostal na navigácii zaseknutý
+  // "display: none !important" z predošlej session, pri mounte tejto komponenty
+  // (t.j. pri návšteve stránky s trendmi) ho vynulujeme. Nemení to žiadnu
+  // existujúcu funkcionalitu — len istí, že bottom nav je vždy viditeľná,
+  // pokiaľ nie je aktívne otvorený fullscreen overlay na TEJTO komponente.
+  useEffect(() => {
+    if (!showFullscreen) {
+      const nav = document.getElementById("mobile-bottom-nav");
+      if (nav && nav.style.display === "none") {
+        nav.style.removeProperty("display");
+      }
+    }
+  }, [showFullscreen]);
 
   const COLOR = { main: appColors.chartLine1, maxLine: appColors.chartLine2, bandFill: appColors.chartBandFill, missing: appColors.stateBad };
 

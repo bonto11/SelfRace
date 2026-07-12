@@ -206,3 +206,14 @@ export async function apiGetStreak(userId: number): Promise<StreakData | null> {
     return null;
   }
 }
+
+export async function apiSessionPreviewAsk(
+  userId: number, sessionId: number, comment: string, requestChange: boolean,
+) {
+  const path = `/coach-plan-daily/session/${userId}/${sessionId}/preview-ask`;
+  return callBackend<any>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ comment, request_change: requestChange }),
+  });
+}

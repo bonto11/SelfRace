@@ -334,6 +334,13 @@ export const en = {
     bgTransparent: "Transparent",
     showDate: "Show date",
   },
+inAppBrowser: {
+  title: "Open in browser",
+  desc: "{{app}} may block Strava sign-in. For smooth functionality, open this page in your regular browser (Safari/Chrome).",
+  stepsIOS: "Tap the three dots in the top right and choose \"Open in external browser\".",
+  stepsAndroid: "Tap the three dots (top or bottom right) and choose \"Open in browser\".",
+},
+
   prefs: {
     title: "Training preferences",
     actions: {
@@ -2564,6 +2571,27 @@ export const en = {
     },
   },
   sessions: {
+
+preview: {
+  title: "Session preview",
+  statusNoPreview: "No questions about this session yet.",
+  sectionReply: "Coach's reply",
+  tagChanged: "Session updated",
+  commentPlaceholder: "Ask about this session, or share how you're feeling...",
+  commentTip: "Tip: Without checking the box, the session stays the same — you'll just get advice.",
+  hintChangeScope: "Only this single session will change, other days stay untouched.",
+  requestChangeCheckbox: "I want to change this session",
+  requestChangeLabel: "Change requested",
+  btnAsk: "Ask the coach",
+  upsellTitle: "Live conversation with your coach",
+  upsellDesc: "Asking about and adjusting planned sessions directly in chat requires an active subscription.",
+  noPreviewPlaceholder: "No conversation yet. Ask your coach about this session above.",
+  readOnlyNote: "This session already happened — conversation is read-only.",
+  api: {
+    success: "Reply is ready.",
+  },
+},
+
     review: {
       title: "Coach's evaluation",
       errorTooOld:
@@ -2577,6 +2605,7 @@ export const en = {
       statusReviewCount: "Version {{version}} out of {{max}} possible",
       btnWait: "Please wait",
       btnRerun: "Recalculate again",
+      btnReply: "Reply",
       btnGenerate: "Analyze workout",
       btnGenerating: "Analyzing right now...",
       commentPlaceholder:
@@ -2664,24 +2693,35 @@ export const en = {
       unitRest: "rest",
       sectionBestSegments: "Best Segments",
       segments: {
-        "1k": "1 km",
-        "5k": "5 km",
-        "10k": "10 km",
-        half: "Half Marathon",
-        marathon: "Marathon",
-        "50k": "50 km",
-        swim50m: "50 m",
-        swim100m: "100 m",
-        swim200m: "200 m",
-        swim400m: "400 m",
-        swim800m: "800 m",
-        swim1500m: "1500 m",
-        ride5k: "5 km (bike)",
-        ride10k: "10 km (bike)",
-        ride20k: "20 km (bike)",
-        ride40k: "40 km (bike)",
-        ride100k: "100 km (bike)",
-      },
+  // Running
+  run400m: "400 m",
+  run1k: "1 km",
+  run5k: "5 km",
+  run10k: "10 km",
+  run20k: "20 km",
+  runHalf: "Half Marathon",
+  run30k: "30 km",
+  runMarathon: "Marathon",
+  run50k: "50 km",
+  // Swimming
+  swim100m: "100 m",
+  swim400m: "400 m",
+  swim750mSprint: "750 m (Sprint)",
+  swim1k: "1 km",
+  swim1500mOlympic: "1500 m (Olympic)",
+  swim1900mHalfIm: "1900 m (Half IM)",
+  swim3800mIronman: "3800 m (Ironman)",
+  swim5k: "5 km",
+  // Cycling
+  ride10k: "10 km",
+  ride20k: "20 km",
+  ride40k: "40 km",
+  ride50k: "50 km",
+  ride90k: "90 km",
+  ride100k: "100 km",
+  ride100mi: "100 miles",
+  ride180kIronman: "180 km (Ironman)",
+},
       plan: {
         target: "goal",
         work: "Load",
