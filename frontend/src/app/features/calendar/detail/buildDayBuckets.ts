@@ -2,6 +2,7 @@
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import type {
   SessionCardItem,
+  SessionItem,
   KPI,
   PlanStatus,
 } from "@/app/shared/components/session/SessionCard";
@@ -28,13 +29,8 @@ type Args = {
   planRowsForDay: any[];
   externalRows: ExternalEvent[];
   safeSportKey: (v: any) => string;
-  t: any; // <--- PRIDANÉ
+  t: any;
 };
-
-function toPlanStatus(v: any): PlanStatus {
-  if (v === "done" || v === "missed" || v === "planned") return v;
-  return "planned";
-}
 
 function asKpis(arr: (KPI | null | undefined)[]): KPI[] {
   return arr.filter(Boolean) as KPI[];
@@ -47,79 +43,94 @@ export function buildDayBuckets({
   externalRows,
   safeSportKey,
   t,
-  
 }: Args): { past: SessionCardItem[]; planned: SessionCardItem[] } {
   const tIso = todayIso();
 
-  // --- activities for day ---
-  const actsForDay: SessionCardItem[] = actRows
+  // --- raw activities for day (pre voľné aktivity bez plánu) ---
+  const actRowsForDay = actRows
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
-    .filter((r) => Number.isFinite(Number(r.activity_id))) // <-- fix
-    .map((r) => {
-      const aid = Number(r.activity_id); // teraz garantovane number
-      const sport = safeSportKey(
-        (r as any).sport || (r as any).sport_type_fe || "other"
-      );
+    .filter((r) => Number.isFinite(Number(r.activity_id)));
 
+  // --- index VŠETKÝCH aktivít podľa activity_id (nie len pre daný deň) ---
+  // Dôvod: plán.activity_id sa má matchnúť s aktivitou aj keď sa jej reálny
+  // "date" mierne líši od plan_date (napr. časové pásmo, večerný tréning
+  // uložený pod iným kalendárnym dňom). Predtým sa hľadalo len v rámci
+  // toho istého dňa, čo spôsobovalo že spárované session ostávali "missed".
+  const actById = new Map<number, any>();
+  for (const r of actRows) {
+    const aid = Number((r as any).activity_id);
+    if (Number.isFinite(aid)) actById.set(aid, r);
+  }
+
+  const actByIdForDay = new Map<number, any>();
+  for (const r of actRowsForDay) {
+    actByIdForDay.set(Number(r.activity_id), r);
+  }
+
+  // helper: build activity-derived fields (kpis, subtitle, raw fallbacks) from an activity row
+  function activityFields(r: any) {
     const dist = fmtDistanceKm(r.distance_m ?? null, t);
-  const dur = fmtMinutes((r.moving_time_s ?? 0) / 60, t);
-      const kpis = asKpis([
-        dur ? { label: t("common.metrics.time"), value: dur } : null,
-        dist ? { label: t("common.metrics.distance"), value: dist } : null,
-        r.average_heartrate_bpm != null
-          ? { label: t("common.metrics.hr_avg"), value: String(Math.round(r.average_heartrate_bpm)) }
-          : null,
-        r.max_heartrate_bpm != null
-          ? { label: t("common.metrics.hr_max"), value: String(Math.round(r.max_heartrate_bpm)) }
-          : null,
-      ]);
+    const dur = fmtMinutes((r.moving_time_s ?? 0) / 60, t);
+    const kpis = asKpis([
+      dur ? { label: t("common.metrics.time"), value: dur } : null,
+      dist ? { label: t("common.metrics.distance"), value: dist } : null,
+      r.average_heartrate_bpm != null
+        ? { label: t("common.metrics.hr_avg"), value: String(Math.round(r.average_heartrate_bpm)) }
+        : null,
+      r.max_heartrate_bpm != null
+        ? { label: t("common.metrics.hr_max"), value: String(Math.round(r.max_heartrate_bpm)) }
+        : null,
+    ]);
+    const subtitle = dist
+      ? `${t("common.metrics.distance")} ${dist}`
+      : dur
+        ? `${t("common.metrics.time")} ${dur}`
+        : null;
 
-      const title = String(r.name || t("activities.title"));
-      const subtitle = dist ? `${t("common.metrics.distance")} ${dist}` : dur ? `${t("common.metrics.time")} ${dur}` : null;
-
-      return {
-        kind: "activity",
-        id: `a:${aid}`,
-        dateIso: selectedIso,
-        sport,
-        title,
-        subtitle,
-        kpis,
-        notes: null,
-        activityId: aid,
-
-        // fallbacky
-        timeStr: dur ?? null,
-        distanceStr: dist ?? null,
-        avgHr: r.average_heartrate_bpm ?? null,
-        maxHr: r.max_heartrate_bpm ?? null,
-      };
-    });
-
-  const actSports = new Set<string>(actsForDay.map((a: any) => a.sport));
+    return {
+      kpis,
+      subtitle,
+      timeStr: dur ?? null,
+      distanceStr: dist ?? null,
+      avgHr: r.average_heartrate_bpm ?? null,
+      maxHr: r.max_heartrate_bpm ?? null,
+      name: String(r.name || t("activities.title")),
+    };
+  }
 
   // --- plans (for day) ---
-  const plansForDay: SessionCardItem[] = planRowsForDay
+  const usedActivityIds = new Set<number>();
+
+  const plansForDay: SessionItem[] = planRowsForDay
     .filter((p) => String(p.plan_date).slice(0, 10) === selectedIso)
     .map((p) => {
       const sess = (p as any).payload ?? p;
       const sport = safeSportKey((p as any).sport || sess?.sport || "other");
 
       const dIso = selectedIso;
-      const hasAct =
-        p.activity_id != null && !Number.isNaN(Number(p.activity_id));
-      const status: PlanStatus = hasAct ? "done" : dIso < tIso ? "missed" : "planned";
+
+      // 🌟 Dôverujeme p.activity_id priamo z BE - je to autoritatívny signál
+      // "tento plán JE spárovaný s touto aktivitou", nezávisle od toho, či tá
+      // aktivita je aj vo výbere actRows pre presne tento deň (mohla byť uložená
+      // pod mierne iným kalendárnym dňom kvôli časovému pásmu a pod.).
+      const rawActId = p.activity_id;
+      const activityId =
+        rawActId != null && !Number.isNaN(Number(rawActId)) ? Number(rawActId) : null;
+
+      if (activityId != null) usedActivityIds.add(activityId);
+
+      const status: PlanStatus = activityId != null ? "done" : dIso < tIso ? "missed" : "planned";
 
       const title = String(
-        sess?.title || sess?.name || sess?.session_type || p.title || t("coach.plan")
+        sess?.title || sess?.name || sess?.session_type || p.title || t("coach.plan"),
       );
 
       const durStr =
         typeof sess?.duration_min === "number"
           ? `${sess.duration_min} ${t("common.units.min")}`
           : typeof p.duration_min === "number"
-          ? `${p.duration_min} ${t("common.units.min")}`
-          : null;
+            ? `${p.duration_min} ${t("common.units.min")}`
+            : null;
 
       const intensity = sess?.intensity ?? p.intensity ?? null;
 
@@ -133,34 +144,42 @@ export function buildDayBuckets({
         typeof target === "string"
           ? target
           : Array.isArray(target) && target.length === 2
-          ? `${t("common.metrics.hr")} ${target[0]}–${target[1]}`
-          : target?.hr
-          ? `${t("common.metrics.hr")} ${target.hr[0]}–${target.hr[1]}`
-          : target?.pace
-          ? `${t("common.metrics.pace")} ${target.pace}`
-          : target?.power
-          ? `${t("common.metrics.power")} ${target.power}${t("common.units.power")}`
-          : null;
+            ? `${t("common.metrics.hr")} ${target[0]}–${target[1]}`
+            : target?.hr
+              ? `${t("common.metrics.hr")} ${target.hr[0]}–${target.hr[1]}`
+              : target?.pace
+                ? `${t("common.metrics.pace")} ${target.pace}`
+                : target?.power
+                  ? `${t("common.metrics.power")} ${target.power}${t("common.units.power")}`
+                  : null;
 
       const notes = sess?.notes ?? sess?.structure?.main?.notes ?? p?.notes ?? null;
 
-      const kpis = asKpis([
+      // ak je plán spárovaný s aktivitou, KPI/subtitle radšej ukážeme z aktivity
+      // (reálne odjazdené hodnoty sú užitočnejšie ako plánované), plán detail si
+      // svoje metriky zobrazí sám v PlanSessionDetail cez planDur/planIntensity/planTarget.
+      const activityRow = activityId != null ? actById.get(activityId) : null;
+      const actFields = activityRow ? activityFields(activityRow) : null;
+
+      const planKpis = asKpis([
         durStr ? { label: t("common.metrics.duration"), value: durStr } : null,
         intensity ? { label: t("common.metrics.intensity"), value: String(intensity) } : null,
         planTarget ? { label: t("common.metrics.target"), value: String(planTarget) } : null,
       ]);
 
-      return {
-        kind: "plan",
-        id: `p:${String(p.id ?? `${dIso}:${sport}:${title}`)}`,
+      const item: SessionItem = {
+        kind: "session",
+        id: activityId != null ? `s:${p.id}:${activityId}` : `s:${p.id}`,
         dateIso: dIso,
         sport,
-        title,
-        subtitle: durStr ? `${t("coach.plan")} · ${durStr}` : t("coach.plan"),
-        kpis,
+        title: actFields ? actFields.name : title,
+        subtitle: actFields ? actFields.subtitle : durStr ? `${t("coach.plan")} · ${durStr}` : t("coach.plan"),
+        kpis: actFields ? actFields.kpis : planKpis,
         notes: notes ? String(notes) : null,
 
-        status: toPlanStatus(status),
+        planId: p.id ?? null,
+        activityId: activityId,
+        status,
 
         planDur: durStr,
         planIntensity: intensity != null ? String(intensity) : null,
@@ -170,22 +189,60 @@ export function buildDayBuckets({
         planRaw: sess,
         planStructure: sess?.structure ?? null,
         planExercises: Array.isArray(sess?.exercises) ? sess.exercises : [],
+
+        // activity-derived fallbacky, ak je spárované
+        timeStr: actFields?.timeStr ?? null,
+        distanceStr: actFields?.distanceStr ?? null,
+        avgHr: actFields?.avgHr ?? null,
+        maxHr: actFields?.maxHr ?? null,
       };
+
+      return item;
     });
+
+  // --- activities for day, OKREM tých, ktoré už boli spárované s plánom vyššie ---
+  const actsForDay: SessionItem[] = actRowsForDay
+    .filter((r) => !usedActivityIds.has(Number(r.activity_id)))
+    .map((r) => {
+      const aid = Number(r.activity_id);
+      const sport = safeSportKey((r as any).sport || (r as any).sport_type_fe || "other");
+      const fields = activityFields(r);
+
+      const item: SessionItem = {
+        kind: "session",
+        id: `s:a:${aid}`,
+        dateIso: selectedIso,
+        sport,
+        title: fields.name,
+        subtitle: fields.subtitle,
+        kpis: fields.kpis,
+        notes: null,
+
+        planId: null,
+        activityId: aid,
+
+        timeStr: fields.timeStr,
+        distanceStr: fields.distanceStr,
+        avgHr: fields.avgHr,
+        maxHr: fields.maxHr,
+      };
+
+      return item;
+    });
+
+  const actSports = new Set<string>(
+    [...actsForDay, ...plansForDay.filter((p) => p.activityId != null)].map((a) => a.sport),
+  );
 
   // --- externals (expanded via occurrence_date / single_date) ---
   const externalsForDay: SessionCardItem[] = externalRows
     .filter((ev) => {
-      const dIso = String(
-        (ev as any).occurrence_date || ev.single_date || ""
-      ).slice(0, 10);
+      const dIso = String((ev as any).occurrence_date || ev.single_date || "").slice(0, 10);
       return dIso === selectedIso;
     })
     .map((ev, idx) => {
       const sport = safeSportKey((ev as any).sport);
-      const ti = (ev as any).start_time_local
-        ? String((ev as any).start_time_local)
-        : null;
+      const ti = (ev as any).start_time_local ? String((ev as any).start_time_local) : null;
       const durMin = (ev as any).duration_min ?? null;
       const durTxt = fmtMinutes(durMin, t);
 
@@ -209,14 +266,13 @@ export function buildDayBuckets({
 
         time: ti,
         durationMin: typeof durMin === "number" ? durMin : null,
-      };
+      } as SessionCardItem;
     });
 
   // --- DEDUPE (vizuálne čistenie) ---
-  const plansDeduped = plansForDay.filter((p: any) => !actSports.has(p.sport));
-  const externalsDeduped = externalsForDay.filter(
-    (e: any) => !actSports.has(e.sport)
-  );
+  // plán bez priradenej aktivity pre šport, ktorý už má aktivitu v ten deň, sa neduplikuje
+  const plansDeduped = plansForDay.filter((p) => p.activityId != null || !actSports.has(p.sport));
+  const externalsDeduped = externalsForDay.filter((e: any) => !actSports.has(e.sport));
 
   // --- buckets ---
   const past: SessionCardItem[] = [];
@@ -225,7 +281,7 @@ export function buildDayBuckets({
   for (const a of actsForDay) past.push(a);
 
   for (const p of plansDeduped) {
-    const st = (p as any).status;
+    const st = p.status;
     if (st === "planned" || st === "missed") planned.push(p);
     else past.push(p);
   }
@@ -236,12 +292,12 @@ export function buildDayBuckets({
   }
 
   // stable sort
-  const kindOrder: Record<string, number> = { activity: 0, plan: 1, external: 2 };
+  const kindOrder: Record<string, number> = { session: 0, external: 2, bests: 1 };
   const sort = (arr: SessionCardItem[]) =>
     arr.sort(
       (a: any, b: any) =>
-        kindOrder[a.kind] - kindOrder[b.kind] ||
-        String(a.title).localeCompare(String(b.title))
+        (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9) ||
+        String(a.title).localeCompare(String(b.title)),
     );
 
   return { past: sort(past), planned: sort(planned) };

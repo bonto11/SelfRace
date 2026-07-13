@@ -531,11 +531,16 @@ def db_append_preview_thread_entry(user_id: int, id: int, entry: Dict[str, Any],
 
 def db_apply_session_preview_update(
     user_id: int, id: int, *,
-    duration_min: Optional[int], notes: Optional[str], structure: Optional[Dict[str, Any]],
+    title: Optional[str] = None,
+    duration_min: Optional[int] = None,
+    notes: Optional[str] = None,
+    structure: Optional[Dict[str, Any]] = None,
     ctx: AuthCtx,
 ) -> bool:
     sb = get_sb(ctx, caller="coach_plan_daily.db_apply_session_preview_update")
     payload: Dict[str, Any] = {"updated_at": _now_iso()}
+    if title is not None:
+        payload["title"] = title
     if duration_min is not None:
         payload["duration_min"] = duration_min
     if notes is not None:
@@ -548,5 +553,32 @@ def db_apply_session_preview_update(
     except Exception as e:
         print("[DB-COACH-DAILY] apply_session_preview_update error:", repr(e))
         return False
+    
+def db_get_daily_session_by_activity_id(
+    user_id: int, activity_id: int, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """Nájde plánovanú session namapovanú na danú aktivitu (podľa activity_id).
+    Ak je aktivita zmazaná (deleted_at != null), vráti None, aj keby plán
+    na ňu ešte odkazoval (nemal by, ale pre istotu)."""
+    from DB.activities_summary import db_get_summary_one
 
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_daily_session_by_activity_id")
+    try:
+        # Over že aktivita existuje a nie je zmazaná
+        activity = db_get_summary_one(ctx, int(activity_id))
+        if not activity:
+            return None
 
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("activity_id", int(activity_id))
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_daily_session_by_activity_id error:", repr(e))
+        return None

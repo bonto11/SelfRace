@@ -26,7 +26,7 @@ import {
 import { prettySkDate, fmtSecondsHMS } from "@/app/shared/utils/time";
 import { useT } from "@/app/shared/i18n/useT";
 
-import SessionCard from "@/app/shared/components/session/SessionCard";
+import SessionCard, { type SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
@@ -137,6 +137,27 @@ export default function ActivityTable({
               variant === "calendar" ||
               (suppressItemHeaderIfSingleDay && singleDay);
 
+            // 🌟 kind: "session" (zjednotený model) - planId zostáva null,
+            // SessionCard si ho sám dotiahne cez apiGetPlanByActivityId ak existuje
+            // (napr. ak bola táto aktivita napárovaná na plán z kalendára).
+            const item: SessionItem = {
+              id: r.activity_id,
+              kind: "session",
+              title: r.name || t("activityTable.activities"),
+              dateIso: iso,
+              sport: eff,
+              planId: null,
+              activityId: Number(r.activity_id),
+
+              timeStr: dur,
+              distanceStr: dist,
+              avgHr: r.average_heartrate_bpm ?? null,
+              maxHr: r.max_heartrate_bpm ?? null,
+
+              defaultOpen: isFocused,
+              hideDateLine,
+            };
+
             return (
               <li key={`${r.activity_id}-${isFocused ? "open" : "closed"}`}>
                 <SessionCard
@@ -144,22 +165,7 @@ export default function ActivityTable({
                   showAdvanced={showAdvanced}
                   // 2. Refresh trénera, ak sa s aktivitou niečo udeje (napr. zmazanie recenzie alebo v budúcnosti unmatch)
                   onRefreshPlan={() => refreshCoach()}
-                  item={{
-                    id: r.activity_id,
-                    kind: "activity",
-                    title: r.name || t("activityTable.activities"),
-                    dateIso: iso,
-                    sport: eff,
-                    activityId: Number(r.activity_id),
-
-                    timeStr: dur,
-                    distanceStr: dist,
-                    avgHr: r.average_heartrate_bpm ?? null,
-                    maxHr: r.max_heartrate_bpm ?? null,
-
-                    defaultOpen: isFocused,
-                    hideDateLine,
-                  }}
+                  item={item}
                 />
               </li>
             );

@@ -1,4 +1,4 @@
-// src/app/shared/components/session/ExternalSessionDetail.tsx
+// src/app/shared/components/session/DetailExternal.tsx
 "use client";
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
@@ -37,7 +37,7 @@ function MiniMetricGrid({ metrics, cols = 2 }: { metrics: MiniMetric[], cols?: 2
   );
 }
 
-export default function ExternalSessionDetail({ item }: { variant: ComponentVariant; item: ExternalSession; }) {
+export default function DetailExternal({ item }: { variant: ComponentVariant; item: ExternalSession; }) {
   const t = useT();
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
 

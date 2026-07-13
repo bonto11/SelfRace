@@ -1,4 +1,4 @@
-// src/app/features/coach/components/SessionPreviewSection.tsx
+// src/app/features/coach/components/SectionPreview.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -21,11 +21,11 @@ import {
   MAX_COMMENT_CHARS,
 } from "@/app/shared/config";
 
-import { ActivitySectionShell } from "@/app/shared/components/session/ActivitySessionDetail";
+import { ActivitySectionShell } from "@/app/shared/components/session/DetailActivity";
 
 type Props = {
   sessionId: number;
-  isEditable: boolean; // true len keď status === "planned"
+  isEditable: boolean; // true len keď status === "planned" a session je v budúcnosti
   initialThread?: PreviewThreadEntry[];
 };
 
@@ -78,7 +78,8 @@ function TextBlock({ children }: { children: ReactNode }) {
 }
 
 function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
-  const replyText = typeof entry.reply_text === "string" ? entry.reply_text.trim() : null;
+  const replyText =
+    typeof entry.reply_text === "string" ? entry.reply_text.trim() : null;
   const changed = entry.changed === true;
 
   return (
@@ -105,7 +106,9 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
         {t("sessions.review.youLabel") || "Ty"}
       </div>
-      <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      <div className="text-sm text-white/80 whitespace-pre-wrap">
+        {entry.comment}
+      </div>
       {entry.request_change && (
         <div className="mt-1 text-[10px] text-emerald-300/70">
           ✏️ {t("sessions.preview.requestChangeLabel")}
@@ -117,7 +120,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
 
 /* ================= HLAVNÝ KOMPONENT ================= */
 
-export default function SessionPreviewSection({
+export default function SectionPreview({
   sessionId,
   isEditable,
   initialThread,
@@ -138,7 +141,9 @@ export default function SessionPreviewSection({
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
 
-  const [thread, setThread] = useState<PreviewThreadEntry[]>(initialThread || []);
+  const [thread, setThread] = useState<PreviewThreadEntry[]>(
+    initialThread || [],
+  );
   const [comment, setComment] = useState<string>("");
   const [requestChange, setRequestChange] = useState<boolean>(false);
 
@@ -203,7 +208,12 @@ export default function SessionPreviewSection({
 
         setThread((prev) => [
           ...prev,
-          { role: "user", comment: c, request_change: requestChange, created_at: new Date().toISOString() },
+          {
+            role: "user",
+            comment: c,
+            request_change: requestChange,
+            created_at: new Date().toISOString(),
+          },
           {
             role: "assistant",
             reply_text: data.reply_text,
@@ -223,12 +233,12 @@ export default function SessionPreviewSection({
     }
   };
 
-  // Read-only režim (session už nie je "planned" — je done/missed/postponed):
-  // zobrazíme históriu konverzácie ak existuje, žiadny formulár na písanie.
-  // Ak vôbec žiadna história neexistuje, sekciu radšej nezobrazíme (nemá zmysel
-  // ukazovať prázdny "Preview" panel pre dávno odtrénovaný beh).
+  // Read-only režim (session už nie je editovateľná - je v minulosti alebo
+  // done/missed/postponed): zobrazíme históriu konverzácie, žiadny formulár.
+  // Predtým sa sekcia úplne skryla ak thread bol prázdny - teraz Preview je
+  // vždy viditeľná sekcia pre plán (len bez formulára a s placeholder textom),
+  // nech je jasné že táto session žiadny preview nemala.
   if (!isEditable) {
-    if (thread.length === 0) return null;
     return (
       <ActivitySectionShell
         title={t("sessions.preview.title")}
@@ -238,15 +248,23 @@ export default function SessionPreviewSection({
         <div className="text-xs font-medium opacity-50 mb-3">
           {t("sessions.preview.readOnlyNote")}
         </div>
-        <div className="space-y-3">
-          {thread.map((entry, idx) =>
-            entry.role === "assistant" ? (
-              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
-            ) : (
-              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
-            ),
-          )}
-        </div>
+        {thread.length > 0 ? (
+          <div className="space-y-3">
+            {thread.map((entry, idx) =>
+              entry.role === "assistant" ? (
+                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+              ) : (
+                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="py-6 text-center border border-dashed border-white/10 rounded-lg">
+            <p className="text-sm opacity-50">
+              {t("sessions.preview.noPreviewPlaceholder")}
+            </p>
+          </div>
+        )}
       </ActivitySectionShell>
     );
   }
@@ -254,7 +272,7 @@ export default function SessionPreviewSection({
   return (
     <ActivitySectionShell
       title={t("sessions.preview.title")}
-      defaultOpen={true}
+      defaultOpen={thread.length === 0}
       items={[]}
     >
       <div className="flex items-center justify-between min-h-[32px]">
@@ -277,7 +295,8 @@ export default function SessionPreviewSection({
       {tierCode === "free" ? (
         <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
           <div className="flex items-center gap-2 text-sm font-medium text-white/80">
-            <span className="opacity-80">🔒</span> {t("sessions.preview.upsellTitle")}
+            <span className="opacity-80">🔒</span>{" "}
+            {t("sessions.preview.upsellTitle")}
           </div>
           <p className="text-[11px] text-white/50 leading-relaxed">
             {t("sessions.preview.upsellDesc")}
@@ -323,7 +342,9 @@ export default function SessionPreviewSection({
               disabled={busyGen || !comment.trim() || commentTooLong}
               className="ml-auto"
             >
-              {busyGen ? t("sessions.review.btnGenerating") : t("sessions.preview.btnAsk")}
+              {busyGen
+                ? t("sessions.review.btnGenerating")
+                : t("sessions.preview.btnAsk")}
             </Button>
           </div>
 
@@ -351,23 +372,21 @@ export default function SessionPreviewSection({
       )}
 
       <div className="mt-6 space-y-3">
-        {thread.length > 0 ? (
-          thread.map((entry, idx) =>
-            entry.role === "assistant" ? (
-              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
-            ) : (
-              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
-            ),
-          )
-        ) : (
-          !busyGen && (
-            <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
-              <p className="text-sm opacity-50">
-                {t("sessions.preview.noPreviewPlaceholder")}
-              </p>
-            </div>
-          )
-        )}
+        {thread.length > 0
+          ? thread.map((entry, idx) =>
+              entry.role === "assistant" ? (
+                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+              ) : (
+                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+              ),
+            )
+          : !busyGen && (
+              <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
+                <p className="text-sm opacity-50">
+                  {t("sessions.preview.noPreviewPlaceholder")}
+                </p>
+              </div>
+            )}
       </div>
     </ActivitySectionShell>
   );

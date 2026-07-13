@@ -220,6 +220,7 @@ def service_session_preview_ask(
             db_apply_session_preview_update(
                 user_id,
                 session_id,
+                title=reply.get("updated_title"),
                 duration_min=reply.get("updated_duration_min"),
                 notes=reply.get("updated_notes"),
                 structure=reply.get("updated_structure"),

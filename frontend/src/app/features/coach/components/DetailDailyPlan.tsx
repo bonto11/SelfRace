@@ -20,7 +20,7 @@ import {
 
 import SessionCard, {
   type KPI,
-  type PlanSession,
+  type SessionItem,
 } from "@/app/shared/components/session/SessionCard";
 
 import {
@@ -324,9 +324,18 @@ export default function DetailDailyPlan() {
                 if (rawData.duration_min) kpis.push({ label: t("common.metrics.duration").toUpperCase(), value: `${rawData.duration_min} ${t("common.units.min")}` });
                 if (rawData.intensity) kpis.push({ label: t("common.metrics.intensity").toUpperCase(), value: String(rawData.intensity) });
 
-                const item: PlanSession = {
+                // 🌟 activityId - ak je plán už spárovaný so skutočnou aktivitou
+                // (predtým sa toto pole vôbec nenastavovalo, takže spárované session
+                // tu nezobrazovali Activity sekciu).
+                const rawActId = s.activity_id;
+                const activityId =
+                  rawActId != null && !Number.isNaN(Number(rawActId))
+                    ? Number(rawActId)
+                    : null;
+
+                const item: SessionItem = {
                   id: s.id,
-                  kind: "plan",
+                  kind: "session",
                   status: s.status || "planned",
                   title: rawData.title || rawData.session_type || rawData.sport || t("coach.daily.sessionFallback"),
                   dateIso,
@@ -334,6 +343,10 @@ export default function DetailDailyPlan() {
                   subtitle: `${dateLabel}${wd ? ` · ${wd.toUpperCase()}` : ""}`,
                   kpis,
                   notes: rawData.notes ?? null,
+
+                  planId: s.id,
+                  activityId,
+
                   planDur: rawData.duration_min ? `${rawData.duration_min} ${t("common.units.min")}` : null,
                   planIntensity: rawData.intensity ?? null,
                   planNotes: rawData.notes ?? null,

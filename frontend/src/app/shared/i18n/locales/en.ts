@@ -112,8 +112,8 @@ export const en = {
       other: "Other sport",
       swim: "Swim",
       walk: "Walk",
-      "hike": "Hike",
-      "soccer": "Football",
+      hike: "Hike",
+      soccer: "Football",
     },
     units: {
       trimp: "trimp (load)",
@@ -334,12 +334,14 @@ export const en = {
     bgTransparent: "Transparent",
     showDate: "Show date",
   },
-inAppBrowser: {
-  title: "Open in browser",
-  desc: "{{app}} may block Strava sign-in. For smooth functionality, open this page in your regular browser (Safari/Chrome).",
-  stepsIOS: "Tap the three dots in the top right and choose \"Open in external browser\".",
-  stepsAndroid: "Tap the three dots (top or bottom right) and choose \"Open in browser\".",
-},
+  inAppBrowser: {
+    title: "Open in browser",
+    desc: "{{app}} may block Strava sign-in. For smooth functionality, open this page in your regular browser (Safari/Chrome).",
+    stepsIOS:
+      'Tap the three dots in the top right and choose "Open in external browser".',
+    stepsAndroid:
+      'Tap the three dots (top or bottom right) and choose "Open in browser".',
+  },
 
   prefs: {
     title: "Training preferences",
@@ -991,80 +993,80 @@ inAppBrowser: {
     missingUserId: "Missing account identification",
   },
   PB: {
-  title: "Records",
-  chooseDist: "choose distance",
-  chooseExercise: "choose exercise",
-  saved: "Record saved",
-  deleted: "Record deleted",
-  removeTitle: "Delete this record?",
-  removeMessage: "Warning, this action cannot be undone.",
-  removeConfirm: "Delete",
-  removeCancel: "Cancel",
-  favorite: "Favorite record",
-  favoriteExercise: "Favorite exercise",
-  noRecords: "No records yet",
-  recordsCount: "records",
-  totalDistKm: "Total distance (km)",
-  totalTime: "Total time",
-  recordValue: "Value (e.g. 120)",
-  widget: {
-    title: "Personal records",
-    tooltip: [
-      "Best performances for specific distances.",
-      "",
-      "How does it work?",
-      "• Pick a distance (e.g. 5 km, 10 km, or half marathon).",
-      "• Your absolute best time for that distance will always be shown.",
-      "",
-      "Why does it matter?",
-      "• Maxes are a great way to track long-term progress.",
-      "• They help set the right pace for races or hard intervals.",
-      "",
-      "Tip:",
-      "• If a record hasn't fallen in a while but training feels strong, that's fine too. Consistency and resilience matter more than a record from a random day.",
-    ].join("\n"),
-    distanceLabel: "Distance",
-    empty:
-      "There's no record yet for your favorite distance. Open the details and add your first performance.",
+    title: "Records",
+    chooseDist: "choose distance",
+    chooseExercise: "choose exercise",
+    saved: "Record saved",
+    deleted: "Record deleted",
+    removeTitle: "Delete this record?",
+    removeMessage: "Warning, this action cannot be undone.",
+    removeConfirm: "Delete",
+    removeCancel: "Cancel",
+    favorite: "Favorite record",
+    favoriteExercise: "Favorite exercise",
+    noRecords: "No records yet",
+    recordsCount: "records",
+    totalDistKm: "Total distance (km)",
+    totalTime: "Total time",
+    recordValue: "Value (e.g. 120)",
+    widget: {
+      title: "Personal records",
+      tooltip: [
+        "Best performances for specific distances.",
+        "",
+        "How does it work?",
+        "• Pick a distance (e.g. 5 km, 10 km, or half marathon).",
+        "• Your absolute best time for that distance will always be shown.",
+        "",
+        "Why does it matter?",
+        "• Maxes are a great way to track long-term progress.",
+        "• They help set the right pace for races or hard intervals.",
+        "",
+        "Tip:",
+        "• If a record hasn't fallen in a while but training feels strong, that's fine too. Consistency and resilience matter more than a record from a random day.",
+      ].join("\n"),
+      distanceLabel: "Distance",
+      empty:
+        "There's no record yet for your favorite distance. Open the details and add your first performance.",
+    },
+    run: {
+      title: "Running records",
+      subtitle: "Personal bests in running",
+    },
+    bike: {
+      title: "Bike records",
+      subtitle: "Personal bests on the bike",
+    },
+    swim: {
+      title: "Swimming records",
+      subtitle: "Personal bests in swimming",
+    },
+    triathlon: {
+      title: "Triathlon records",
+      subtitle: "Personal bests in triathlon",
+    },
+    ocr: {
+      title: "Obstacle course records (OCR/Spartan)",
+      subtitle: "Personal bests in Spartan Race",
+    },
+    hyrox: {
+      title: "Hyrox records",
+      subtitle: "Personal bests in Hyrox",
+    },
+    strength: {
+      title: "Strength records",
+      subtitle: "Personal bests in strength training",
+    },
+    exercises: {
+      bench: "Bench press - 1RM",
+      squat: "Squat - 1RM",
+      deadlift: "Deadlift - 1RM",
+      ohp: "Overhead press (Military press) - 1RM",
+      pullups: "Pull-ups (Max reps)",
+      clean: "Weightlifting - Clean & Jerk - 1RM",
+      snatch: "Weightlifting - Snatch - 1RM",
+    },
   },
-  run: {
-    title: "Running records",
-    subtitle: "Personal bests in running",
-  },
-  bike: {
-    title: "Bike records",
-    subtitle: "Personal bests on the bike",
-  },
-  swim: {
-    title: "Swimming records",
-    subtitle: "Personal bests in swimming",
-  },
-  triathlon: {
-    title: "Triathlon records",
-    subtitle: "Personal bests in triathlon",
-  },
-  ocr: {
-    title: "Obstacle course records (OCR/Spartan)",
-    subtitle: "Personal bests in Spartan Race",
-  },
-  hyrox: {
-    title: "Hyrox records",
-    subtitle: "Personal bests in Hyrox",
-  },
-  strength: {
-    title: "Strength records",
-    subtitle: "Personal bests in strength training",
-  },
-  exercises: {
-    bench: "Bench press - 1RM",
-    squat: "Squat - 1RM",
-    deadlift: "Deadlift - 1RM",
-    ohp: "Overhead press (Military press) - 1RM",
-    pullups: "Pull-ups (Max reps)",
-    clean: "Weightlifting - Clean & Jerk - 1RM",
-    snatch: "Weightlifting - Snatch - 1RM",
-  },
-},
 
   estTopPaces: {
     title: "Potential",
@@ -1470,11 +1472,11 @@ inAppBrowser: {
       successRate: "Compliance rate",
       unmatched: "Other activities",
     },
-    "unmatched": {
-    "title": "Other activities",
-    "subtitle": "Activities outside your training plan",
-    "activitiesUnit": "act."
-  },
+    unmatched: {
+      title: "Other activities",
+      subtitle: "Activities outside your training plan",
+      activitiesUnit: "act.",
+    },
     bank: {
       title: "Postponed workouts",
       subtitle:
@@ -2571,26 +2573,31 @@ inAppBrowser: {
     },
   },
   sessions: {
-
-preview: {
-  title: "Session preview",
-  statusNoPreview: "No questions about this session yet.",
-  sectionReply: "Coach's reply",
-  tagChanged: "Session updated",
-  commentPlaceholder: "Ask about this session, or share how you're feeling...",
-  commentTip: "Tip: Without checking the box, the session stays the same — you'll just get advice.",
-  hintChangeScope: "Only this single session will change, other days stay untouched.",
-  requestChangeCheckbox: "I want to change this session",
-  requestChangeLabel: "Change requested",
-  btnAsk: "Ask the coach",
-  upsellTitle: "Live conversation with your coach",
-  upsellDesc: "Asking about and adjusting planned sessions directly in chat requires an active subscription.",
-  noPreviewPlaceholder: "No conversation yet. Ask your coach about this session above.",
-  readOnlyNote: "This session already happened — conversation is read-only.",
-  api: {
-    success: "Reply is ready.",
-  },
-},
+    preview: {
+      title: "Session preview",
+      statusNoPreview: "No questions about this session yet.",
+      sectionReply: "Coach's reply",
+      tagChanged: "Session updated",
+      commentPlaceholder:
+        "Ask about this session, or share how you're feeling...",
+      commentTip:
+        "Tip: Without checking the box, the session stays the same — you'll just get advice.",
+      hintChangeScope:
+        "Only this single session will change, other days stay untouched.",
+      requestChangeCheckbox: "I want to change this session",
+      requestChangeLabel: "Change requested",
+      btnAsk: "Ask the coach",
+      upsellTitle: "Live conversation with your coach",
+      upsellDesc:
+        "Asking about and adjusting planned sessions directly in chat requires an active subscription.",
+      noPreviewPlaceholder:
+        "No conversation yet. Ask your coach about this session above.",
+      readOnlyNote:
+        "This session already happened — conversation is read-only.",
+      api: {
+        success: "Reply is ready.",
+      },
+    },
 
     review: {
       title: "Coach's evaluation",
@@ -2686,6 +2693,8 @@ preview: {
       showDetail: "Show details",
       rescheduleTitle: "Move workout to a different day",
       currentLabel: "Currently set",
+      labelPlan: "Plan",
+      labelReality: "Reality",
       unitMin: "min",
       unitSec: "s",
       unitReps: "reps",
@@ -2693,35 +2702,35 @@ preview: {
       unitRest: "rest",
       sectionBestSegments: "Best Segments",
       segments: {
-  // Running
-  run400m: "400 m",
-  run1k: "1 km",
-  run5k: "5 km",
-  run10k: "10 km",
-  run20k: "20 km",
-  runHalf: "Half Marathon",
-  run30k: "30 km",
-  runMarathon: "Marathon",
-  run50k: "50 km",
-  // Swimming
-  swim100m: "100 m",
-  swim400m: "400 m",
-  swim750mSprint: "750 m (Sprint)",
-  swim1k: "1 km",
-  swim1500mOlympic: "1500 m (Olympic)",
-  swim1900mHalfIm: "1900 m (Half IM)",
-  swim3800mIronman: "3800 m (Ironman)",
-  swim5k: "5 km",
-  // Cycling
-  ride10k: "10 km",
-  ride20k: "20 km",
-  ride40k: "40 km",
-  ride50k: "50 km",
-  ride90k: "90 km",
-  ride100k: "100 km",
-  ride100mi: "100 miles",
-  ride180kIronman: "180 km (Ironman)",
-},
+        // Running
+        run400m: "400 m",
+        run1k: "1 km",
+        run5k: "5 km",
+        run10k: "10 km",
+        run20k: "20 km",
+        runHalf: "Half Marathon",
+        run30k: "30 km",
+        runMarathon: "Marathon",
+        run50k: "50 km",
+        // Swimming
+        swim100m: "100 m",
+        swim400m: "400 m",
+        swim750mSprint: "750 m (Sprint)",
+        swim1k: "1 km",
+        swim1500mOlympic: "1500 m (Olympic)",
+        swim1900mHalfIm: "1900 m (Half IM)",
+        swim3800mIronman: "3800 m (Ironman)",
+        swim5k: "5 km",
+        // Cycling
+        ride10k: "10 km",
+        ride20k: "20 km",
+        ride40k: "40 km",
+        ride50k: "50 km",
+        ride90k: "90 km",
+        ride100k: "100 km",
+        ride100mi: "100 miles",
+        ride180kIronman: "180 km (Ironman)",
+      },
       plan: {
         target: "goal",
         work: "Load",

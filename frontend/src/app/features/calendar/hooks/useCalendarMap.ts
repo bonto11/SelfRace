@@ -106,6 +106,24 @@ export function useCalendarMap({
       set.add(aid);
     }
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        "[useCalendarMap][debug] activityIdsByDate",
+        Object.fromEntries(
+          Array.from(activityIdsByDate.entries()).map(([k, v]) => [k, Array.from(v)]),
+        ),
+      );
+      console.log(
+        "[useCalendarMap][debug] planRows raw sample",
+        (planRows as any[]).slice(0, 20).map((p) => ({
+          id: p.id,
+          plan_date: p.plan_date,
+          status: p.status,
+          activity_id: p.activity_id,
+        })),
+      );
+    }
+
     // externals
     for (const ev of externalRows) {
       const dIso = eventDateIso(ev);
@@ -139,19 +157,38 @@ export function useCalendarMap({
       let dbStatus = p.status || "planned";
 
       if (rawActId != null && !Number.isNaN(Number(rawActId))) {
-        const num = Number(rawActId);
-        actIdForPlan = num;
+        actIdForPlan = Number(rawActId);
+      }
 
-        // Validation against real activities in the month
+      // BE status "done" je autoritatívny signál (nastavuje sa pri PATCH match/unmatch).
+      // Predtým sa "done" prepočítavalo len ak activity_id sedelo s activityIdsByDate
+      // pre daný mesiac - čo zlyhávalo, keď aktivita nebola v aktuálne načítanom
+      // rozsahu actRows (napr. pri prepínaní mesiacov). Teraz: ak BE povie "done",
+      // je to done, bodka.
+      if (dbStatus !== "done" && actIdForPlan != null) {
         const set = activityIdsByDate.get(dIso);
-        if (set && set.has(num)) {
-          dbStatus = "done"; 
+        if (set && set.has(actIdForPlan)) {
+          dbStatus = "done";
         }
       }
 
       // 🌟 AK TO NIE JE DONE/postponed A JE TO V MINULOSTI -> JE TO MISSED
       if (dbStatus === "planned" && dIso < todayIso) {
         dbStatus = "missed";
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[useCalendarMap][plan-debug]", {
+          planId: p.id,
+          dIso,
+          rawStatusFromDB: p.status,
+          rawActId,
+          resolvedActIdForPlan: actIdForPlan,
+          activitiesFoundForDate: activityIdsByDate.get(dIso)
+            ? Array.from(activityIdsByDate.get(dIso)!)
+            : [],
+          finalDbStatus: dbStatus,
+        });
       }
 
       const cell = byIso[dIso];
@@ -233,6 +270,15 @@ export function useCalendarMap({
       if (!shadows.length) continue;
 
       const deduped = dedupeCalendarItems<DayShadowItem>(shadows);
+
+      if (process.env.NODE_ENV !== "production" && deduped.length !== shadows.length) {
+        console.log("[useCalendarMap][dedupe-debug]", {
+          dIso: k,
+          before: shadows.map((s) => ({ kind: s.kind, sport: s.sport, activityId: s.activityId })),
+          after: deduped.map((s) => ({ kind: s.kind, sport: s.sport, activityId: s.activityId })),
+        });
+      }
+
       if (deduped.length === shadows.length) continue;
 
       const keepActivityIdx = new Set<number>();

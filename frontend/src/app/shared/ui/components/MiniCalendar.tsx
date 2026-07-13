@@ -168,6 +168,22 @@ export default function MiniCalendar({
     }
 
     const planRows = selectPlanByRange(startIso, endIso);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(
+        "[MiniCalendar][debug] planRows raw",
+        (planRows as any[]).map((p) => ({
+          id: p.id,
+          plan_date: p.plan_date,
+          status: p.status,
+          activity_id: p.activity_id,
+          session_type: p.session_type,
+          title: p.title,
+          duration_min: p.duration_min,
+        })),
+      );
+    }
+
     for (const p of planRows as any[]) {
       const k = String(p.plan_date ?? "").slice(0, 10);
       if (!k || !map.has(k)) continue;
@@ -198,13 +214,27 @@ export default function MiniCalendar({
       const actIdRaw = (p as any).activity_id;
       const activityId = actIdRaw != null && !Number.isNaN(Number(actIdRaw)) ? Number(actIdRaw) : null;
 
-      // Ak má activityId alebo status "done", je to spárované
-      if (activityId || status === "done") {
-        const idx = arr.findIndex((it) => it.kind === "activity" && it.activityId === (activityId || it.activityId));
+      // BE status "done" je autoritatívny signál. Ak máme activityId, skúsime
+      // "povýšiť" existujúcu voľnú "activity" dot (aby sa nezobrazovala 2x pre
+      // tú istú aktivitu), inak done dot jednoducho pushneme priamo - predtým sa
+      // pri chýbajúcej zhode (idx === -1) nič nepushlo a fajka zmizla.
+      if (activityId != null || status === "done") {
+        const idx =
+          activityId != null
+            ? arr.findIndex((it) => it.kind === "activity" && it.activityId === activityId)
+            : -1;
+
         if (idx >= 0) {
           arr[idx] = { ...arr[idx], kind: "done", activityId };
-          continue;
+        } else if (!isRest) {
+          arr.push({
+            id: Number(p.id) || Math.floor(Math.random() * 1e9),
+            sport,
+            kind: "done",
+            activityId,
+          });
         }
+        continue;
       }
 
       if (!isRest) {
@@ -220,6 +250,16 @@ export default function MiniCalendar({
           // Ak je to v minulosti a nebolo to manualne zmenene, vyhodnotime to ako missed
           const isPast = k < todayIso;
           finalKind = isPast ? "missed" : "plan";
+        }
+
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[MiniCalendar][plan-debug] fallback-branch", {
+            planId: p.id,
+            k,
+            status,
+            activityId,
+            finalKind,
+          });
         }
 
         arr.push({

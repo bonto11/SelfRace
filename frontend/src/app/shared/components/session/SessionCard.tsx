@@ -5,21 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { toast } from "@/app/shared/ui/components/Toast";
-import { apiPatchDailySessionStatus } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGetPlanByActivityId, type DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
-import SportBadge from "@/app/shared/ui/components/SportBadge";
-import Button from "@/app/shared/ui/components/Button";
-import SelectField from "@/app/shared/ui/components/SelectField";
-import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDate";
+import SportBadge, { getSportColor } from "@/app/shared/ui/components/SportBadge";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
-import PlanSessionDetail from "@/app/shared/components/session/PlanSessionDetail";
-import ExternalSessionDetail from "@/app/shared/components/session/ExternalSessionDetail";
-import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
-import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
-import { safeText } from "@/app/shared/components/session/sessionUtils";
+import { DetailSession } from "@/app/shared/components/session/DetailSession";
 
 import {
   SESSION_CARD,
@@ -42,23 +33,76 @@ import {
   SESSION_FLUSH_DETAIL_STYLE,
 } from "@/app/shared/ui/tokens";
 
-export type SessionKind = "activity" | "plan" | "external" | "bests";
+/* ========================================================= */
+/* KIND: "session" = plan a/alebo activity (jednotny model)  */
+/*       "external" a "bests" ostavaju samostatne, ako doteraz*/
+/* ========================================================= */
+
+export type SessionKind = "session" | "external" | "bests";
 export type PlanStatus = "planned" | "done" | "missed" | "postponed";
 
-export function StatusIndicator({ status, kind }: { status?: PlanStatus; kind: SessionKind }) {
-  if (kind === "activity") return <span className="text-emerald-500" title="Aktivita">●</span>;
-  
-  switch (status) {
-    case "done": 
-      return <span className="text-emerald-500 font-bold" title="Splnené">✓</span>;
-    case "missed": 
-      return <span className="text-orange-500 font-bold" title="Zmeškané">✕</span>;
-    case "postponed": 
-      return <span className="text-white/30 font-bold text-xs" title="Odložené">↷</span>;
-    case "planned": 
-    default: 
-      return <span className="text-white/40" title="Naplánované">○</span>;
+/**
+ * Status indikator (guľôčka pred titulkom).
+ * Farba VŽDY podľa športu (getSportColor), tvar podľa kombinácie planId/activityId:
+ *  - hasPlan && hasActivity              -> ✓ (splnené / spárované)
+ *  - hasPlan && !hasActivity && postponed -> ↷ (odložené)
+ *  - hasPlan && !hasActivity && missed     -> ✕ (zmeškané)
+ *  - hasPlan && !hasActivity && planned    -> ○ (naplánované, prázdny kruh)
+ *  - hasActivity && !hasPlan               -> ● (voľná aktivita bez plánu)
+ */
+export function StatusIndicator({
+  hasPlan,
+  hasActivity,
+  status,
+  sport,
+}: {
+  hasPlan: boolean;
+  hasActivity: boolean;
+  status?: PlanStatus;
+  sport: string;
+}) {
+  const color = getSportColor(sport);
+  const style = { color };
+
+  if (hasPlan && hasActivity) {
+    return (
+      <span style={style} className="font-bold" title="Splnené">
+        ✓
+      </span>
+    );
   }
+
+  if (hasPlan && !hasActivity) {
+    if (status === "postponed") {
+      return (
+        <span style={style} className="font-bold text-xs" title="Odložené">
+          ↷
+        </span>
+      );
+    }
+    if (status === "missed") {
+      return (
+        <span style={style} className="font-bold" title="Zmeškané">
+          ✕
+        </span>
+      );
+    }
+    return (
+      <span style={style} title="Naplánované">
+        ○
+      </span>
+    );
+  }
+
+  if (hasActivity && !hasPlan) {
+    return (
+      <span style={style} title="Aktivita">
+        ●
+      </span>
+    );
+  }
+
+  return null;
 }
 
 export type KPI = { label: string; value: any };
@@ -74,11 +118,29 @@ type Base = {
   subtitle?: string | null;
   kpis?: KPI[];
   notes?: string | null;
+
+  // 🌟 Spoločné identifikátory - jadro novej logiky.
+  // planId != null  -> existuje naplánovaná session v coach_plan_daily
+  // activityId != null -> existuje reálna vykonaná aktivita (Strava a pod.)
+  // Obe naraz -> splnený/spárovaný plán.
+  planId?: number | string | null;
+  activityId?: number | null;
 };
 
-export type ActivitySession = Base & {
-  kind: "activity";
-  activityId: number;
+export type SessionItem = Base & {
+  kind: "session";
+  status?: PlanStatus;
+
+  // Plan-related (platné ak planId != null)
+  planDur?: string | null;
+  planIntensity?: string | null;
+  planTarget?: string | null;
+  planNotes?: string | null;
+  planRaw?: any;
+  planStructure?: any;
+  planExercises?: any[];
+
+  // Activity-related (platné ak activityId != null)
   timeStr?: string | null;
   distanceStr?: string | null;
   avgHr?: number | null;
@@ -98,18 +160,6 @@ export type BestsSession = Base & {
   maxHr?: number | null;
 };
 
-export type PlanSession = Base & {
-  kind: "plan";
-  status: PlanStatus;
-  planDur?: string | null;
-  planIntensity?: string | null;
-  planTarget?: string | null;
-  planNotes?: string | null;
-  planRaw?: any;
-  planStructure?: any;
-  planExercises?: any[];
-};
-
 export type ExternalSession = Base & {
   kind: "external";
   time?: string | null;
@@ -117,11 +167,7 @@ export type ExternalSession = Base & {
   notes?: string | null;
 };
 
-export type SessionCardItem =
-  | ActivitySession
-  | BestsSession
-  | PlanSession
-  | ExternalSession;
+export type SessionCardItem = SessionItem | BestsSession | ExternalSession;
 
 export type SessionCardProps = {
   variant?: ComponentVariant;
@@ -129,7 +175,7 @@ export type SessionCardProps = {
   onOpenActivity?: (activityId: number) => void;
   showPlanDebug?: boolean;
   showAdvanced?: boolean;
-  
+
   onRefreshPlan?: () => void;
   onDiscard?: (sessionId: number) => void;
 
@@ -188,25 +234,77 @@ export default function SessionCard({
   showPlanDebug = false,
   showAdvanced = false,
   onRefreshPlan,
-  onDiscard, 
+  onDiscard,
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
+  const { userId } = useUserId();
   const [opened, setOpened] = useState<boolean>(!!item.defaultOpen);
   const [showReschedule, setShowReschedule] = useState(false);
   const [pendingDate, setPendingDate] = useState<string | null>(null);
+
+  // 🌟 Auto-doplnenie plánu podľa activityId, ked ho item nema (napr. Activities stranka).
+  // Fetchne sa raz po prvom otvoreni karty a vysledok sa cachne.
+  const [resolvedPlan, setResolvedPlan] = useState<DailyPlanSession | null>(null);
+  const [planLookupDone, setPlanLookupDone] = useState(false);
+  const [planLookupLoading, setPlanLookupLoading] = useState(false);
+
+  const isSession = item.kind === "session";
+  const baseHasPlan = isSession && (item as SessionItem).planId != null;
+  const baseHasActivity = isSession && (item as SessionItem).activityId != null;
 
   useEffect(() => {
     if (item.defaultOpen) setOpened(true);
   }, [item.defaultOpen]);
 
   useEffect(() => {
-    if (item.kind === "plan") setPendingDate(item.dateIso ?? null);
-  }, [item.kind, item.dateIso]);
+    if (isSession) setPendingDate(item.dateIso ?? null);
+  }, [isSession, item.dateIso]);
 
   useEffect(() => {
     if (!opened) setShowReschedule(false);
   }, [opened]);
+
+  // Reset lookup cache ak sa zmení samotná session (iná karta / iné activityId)
+  useEffect(() => {
+    setResolvedPlan(null);
+    setPlanLookupDone(false);
+  }, [item.id, baseHasActivity, isSession && (item as SessionItem).activityId]);
+
+  useEffect(() => {
+    if (!opened) return;
+    if (!isSession) return;
+    if (baseHasPlan) return; // plán už máme, netreba dohľadávať
+    if (!baseHasActivity) return; // nemáme podľa čoho hľadať
+    if (planLookupDone || planLookupLoading) return;
+    if (!userId) return;
+
+    const activityId = (item as SessionItem).activityId as number;
+
+    let alive = true;
+    setPlanLookupLoading(true);
+    apiGetPlanByActivityId(Number(userId), activityId)
+      .then((plan) => {
+        if (!alive) return;
+        setResolvedPlan(plan);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setPlanLookupDone(true);
+        setPlanLookupLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [opened, isSession, baseHasPlan, baseHasActivity, planLookupDone, planLookupLoading, userId, item]);
+
+  const hasPlan = baseHasPlan || !!resolvedPlan;
+  const hasActivity = baseHasActivity;
+
+  const effectiveStatus: PlanStatus | undefined = isSession
+    ? (item as SessionItem).status ?? (resolvedPlan?.status as PlanStatus | undefined)
+    : undefined;
 
   const dateLine =
     item.hideDateLine || variant === "calendar" ? "" : prettySkDate(item.dateIso);
@@ -214,43 +312,42 @@ export default function SessionCard({
   const secondaryLine = useMemo(() => {
     if (variant === "calendar" && item.subtitle) return item.subtitle;
 
-    switch (item.kind) {
-      case "activity": {
-        const act = item as ActivitySession;
-        const distKm = parseKm(act.distanceStr);
-        if (distKm != null && distKm > 0 && act.distanceStr) {
-          return `${t("sessions.card.distance")} ${act.distanceStr}`;
-        }
-        if (act.timeStr) return `${t("sessions.card.time")} ${act.timeStr}`;
-        return null;
-      }
-      
-      case "bests": {
-        return null;
-      }
+    if (item.kind === "bests") return null;
 
-      case "plan": {
-        const plan = item as PlanSession;
-        const bits = [plan.planDur ?? "", plan.planIntensity ?? "", plan.planTarget ?? ""].filter(Boolean);
-        return bits.length ? bits.join(" · ") : null;
-      }
-
-      case "external": {
-        const ext = item as ExternalSession;
-        const bits = [
-          ext.time ? ext.time : null, 
-          ext.durationMin != null ? `${ext.durationMin} min` : null
-        ].filter(Boolean);
-        return bits.length ? bits.join(" · ") : null;
-      }
-
-      default:
-        return null;
+    if (item.kind === "external") {
+      const ext = item as ExternalSession;
+      const bits = [
+        ext.time ? ext.time : null,
+        ext.durationMin != null ? `${ext.durationMin} min` : null,
+      ].filter(Boolean);
+      return bits.length ? bits.join(" · ") : null;
     }
-  }, [item, variant, t]);
+
+    // kind === "session"
+    const s = item as SessionItem;
+
+    if (hasActivity) {
+      const distKm = parseKm(s.distanceStr);
+      if (distKm != null && distKm > 0 && s.distanceStr) {
+        return `${t("sessions.card.distance")} ${s.distanceStr}`;
+      }
+      if (s.timeStr) return `${t("sessions.card.time")} ${s.timeStr}`;
+      return null;
+    }
+
+    if (hasPlan) {
+      const bits = [s.planDur ?? "", s.planIntensity ?? "", s.planTarget ?? ""].filter(
+        Boolean,
+      );
+      return bits.length ? bits.join(" · ") : null;
+    }
+
+    return null;
+  }, [item, variant, t, hasActivity, hasPlan]);
 
   const canReschedulePlan =
-    item.kind === "plan" &&
+    isSession &&
+    hasPlan &&
     !!planReschedule?.enabled &&
     Array.isArray(planReschedule?.dates) &&
     planReschedule.dates.length > 0 &&
@@ -300,35 +397,38 @@ export default function SessionCard({
 
   return (
     <section
-      className={[
-        SESSION_CARD, 
-        SESSION_CARD_HOVER, 
-        SESSION_VARIANT_PAD[variant]
-      ].join(" ")}
+      className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(
+        " ",
+      )}
       style={SESSION_CARD_STYLE}
     >
       <div className={SESSION_HEAD}>
         <div className="flex flex-col gap-3">
-          
           <div className="flex justify-between items-start gap-4">
-            
             <div className="min-w-0 flex-1 pt-1">
               <div className="flex items-center gap-2">
-                <StatusIndicator 
-                  kind={item.kind} 
-                  status={item.kind === "plan" ? (item as PlanSession).status : undefined} 
-                />
+                {isSession && (
+                  <StatusIndicator
+                    hasPlan={hasPlan}
+                    hasActivity={hasActivity}
+                    status={effectiveStatus}
+                    sport={item.sport}
+                  />
+                )}
                 <div className={SESSION_TITLE}>{item.title}</div>
               </div>
-              
-              {dateLine && <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>}
-              {secondaryLine && <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>}
+
+              {dateLine && (
+                <div className={`${SESSION_DATE} mt-1 opacity-70 text-xs`}>{dateLine}</div>
+              )}
+              {secondaryLine && (
+                <div className={`${SESSION_SUBTITLE} mt-0.5`}>{secondaryLine}</div>
+              )}
             </div>
 
             <div className="flex flex-col items-end gap-2 shrink-0">
-              
               <div className="flex items-center gap-1">
-                {item.kind === "activity" && (item as ActivitySession).isFavorite && (
+                {isSession && (item as SessionItem).isFavorite && (
                   <span className={SESSION_FAVORITE_STAR} title={t("sessions.card.favorite")}>
                     ★
                   </span>
@@ -338,15 +438,17 @@ export default function SessionCard({
                 </div>
               </div>
 
-              {item.kind === "plan" && (
-                <span 
-                  className={[SESSION_PILL, "w-[120px] flex items-center justify-center text-center truncate"].join(" ")} 
-                  style={SESSION_PLAN_STATUS_STYLE[(item as PlanSession).status]}
+              {isSession && hasPlan && effectiveStatus && (
+                <span
+                  className={[
+                    SESSION_PILL,
+                    "w-[120px] flex items-center justify-center text-center truncate",
+                  ].join(" ")}
+                  style={SESSION_PLAN_STATUS_STYLE[effectiveStatus]}
                 >
-                  {t(`sessions.status.${(item as PlanSession).status}` as any)}
+                  {t(`sessions.status.${effectiveStatus}` as any)}
                 </span>
               )}
-
             </div>
           </div>
 
@@ -364,16 +466,19 @@ export default function SessionCard({
               </span>
             </button>
           </div>
-
         </div>
       </div>
 
       {opened && (
         <div className={SESSION_FLUSH_DETAIL} style={SESSION_FLUSH_DETAIL_STYLE}>
           <div className={SESSION_BODY}>
-            <DetailBody
+            <DetailSession
               variant={variant}
               item={item}
+              hasPlan={hasPlan}
+              hasActivity={hasActivity}
+              resolvedPlan={resolvedPlan}
+              planLookupLoading={planLookupLoading}
               onOpenActivity={onOpenActivity}
               showPlanDebug={showPlanDebug}
               showAdvanced={showAdvanced}
@@ -399,276 +504,5 @@ export default function SessionCard({
         </div>
       )}
     </section>
-  );
-}
-
-function DetailBody({
-  variant,
-  item,
-  onOpenActivity,
-  showPlanDebug,
-  showAdvanced,
-  onRefreshPlan,
-  onDiscard,
-  planRescheduleUI,
-}: {
-  variant: ComponentVariant;
-  item: SessionCardItem;
-  onOpenActivity?: (activityId: number) => void;
-  showPlanDebug: boolean;
-  showAdvanced: boolean;
-  onRefreshPlan?: () => void;
-  onDiscard?: (sessionId: number) => void;
-  planRescheduleUI: null | {
-    show: boolean;
-    setShow: (v: boolean | ((prev: boolean) => boolean)) => void;
-    currentDate: string;
-    pendingDate: string;
-    options: { value: string; label: string }[];
-    onSelect: (toDate: string) => void | Promise<void>;
-  };
-}) {
-  const t = useT();
-  const { userId } = useUserId();
-  const compactChart = variant !== "activity";
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // 🌟 Stavy pre INLINE SPÁROVANIE
-  const [showMatchUI, setShowMatchUI] = useState(false);
-  const [selectedActivityId, setSelectedActivityId] = useState<number | "">("");
-
-  const kpis = Array.isArray(item.kpis) ? item.kpis : [];
-  const hasKpis = kpis.length > 0;
-
-  const kpiBlock = hasKpis ? (
-    <MetricGrid
-      cols={4}
-      metrics={kpis.map((k) => ({
-        label: safeText(k.label),
-        value: safeText(k.value),
-      }))}
-    />
-  ) : null;
-
-  const handlePostpone = async (sessionId: string | number) => {
-    if (!userId || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "postponed" });
-      toast.success(t("common.done") || "Uložené");
-      if (onRefreshPlan) onRefreshPlan();
-    } catch (e) {
-      toast.error(t("common.error") || "Chyba");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleUnmatch = async (sessionId: string | number) => {
-    if (!userId || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      await apiPatchDailySessionStatus(userId, Number(sessionId), { unmatch: true });
-      toast.success(t("common.done") || "Uložené");
-      if (onRefreshPlan) onRefreshPlan();
-    } catch (e) {
-      toast.error(t("common.error") || "Chyba");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // 🌟 Uloženie inline spárovania
-  const handleMatchSave = async () => {
-    if (!userId || !item.id || !selectedActivityId) return;
-
-    setIsProcessing(true);
-    try {
-      await apiPatchDailySessionStatus(userId, Number(item.id), {
-        activity_id: Number(selectedActivityId),
-      });
-      
-      toast.success(t("sessions.matchModal.success") || "Spárované");
-      setShowMatchUI(false);
-      if (onRefreshPlan) onRefreshPlan();
-    } catch (error) {
-      toast.error(t("sessions.matchModal.error") || "Chyba");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (item.kind === "plan") {
-    const plan = item as PlanSession;
-
-    return (
-      <div className="space-y-3">
-        {showAdvanced && (
-          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="text-[11px] uppercase tracking-wider opacity-50 font-semibold">
-              {t("sessions.card.managePlan") || "Správa tréningu"}
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              {/* Presunúť - PRIMARY variant */}
-              {planRescheduleUI && (
-                <Button
-                  size="xs"
-                  variant="primary"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    planRescheduleUI.setShow((s) => !s);
-                    setShowMatchUI(false); 
-                  }}
-                >
-                  {planRescheduleUI.show 
-                    ? t("common.cancel") || "Zrušiť"
-                    : t("sessions.card.actions.reschedule") || "Presunúť"}
-                </Button>
-              )}
-
-              {/* Odložiť (ponechané ako secondary, lebo je to alternatíva k presunu/splneniu) */}
-              {plan.status === "planned" && (
-                <Button
-                  size="xs"
-                  variant="secondary"
-                  disabled={isProcessing}
-                  onClick={() => handlePostpone(plan.id)}
-                >
-                  {t("sessions.card.actions.postpone") || "Odložiť"}
-                </Button>
-              )}
-
-              {/* Spárovať - PRIMARY variant */}
-              {(plan.status === "planned" || plan.status === "missed" || plan.status === "postponed") && (
-                <Button
-                  size="xs"
-                  variant="primary"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    setShowMatchUI((s) => !s);
-                    if (planRescheduleUI) planRescheduleUI.setShow(false); 
-                  }}
-                >
-                  {showMatchUI ? t("common.cancel") || "Zrušiť" : t("sessions.card.actions.match") || "Spárovať"}
-                </Button>
-              )}
-
-              {/* Zrušiť spárovanie (danger) */}
-              {plan.status === "done" && (
-                <Button
-                  size="xs"
-                  variant="danger"
-                  disabled={isProcessing}
-                  onClick={() => handleUnmatch(plan.id)}
-                >
-                  {t("sessions.card.actions.unmatch") || "Zrušiť spárovanie"}
-                </Button>
-              )}
-
-              {/* 🌟 Zahodiť zo zásobníka - DANGER variant, odskokne doprava vďaka ml-auto */}
-              {plan.status === "postponed" && onDiscard && (
-                <Button
-                  size="xs"
-                  variant="danger"
-                  disabled={isProcessing}
-                  className="ml-auto"
-                  onClick={() => {
-                    if (window.confirm(t("sessions.card.actions.discardConfirm") || "Naozaj chcete tento tréning vymazať zo zásobníka?")) {
-                      onDiscard(Number(plan.id));
-                    }
-                  }}
-                >
-                  {t("sessions.card.actions.discard") || "Zahodiť"}
-                </Button>
-              )}
-
-            </div>
-
-            {/* INLINE UI PRE PRESUNUTIE TRÉNINGU */}
-            {planRescheduleUI?.show && (
-              <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
-                <SelectField
-                  value={planRescheduleUI.pendingDate}
-                  onChange={(e) => planRescheduleUI.onSelect(String(e.target.value))}
-                  options={planRescheduleUI.options}
-                  variant="editable"
-                />
-
-                <div className="mt-2 text-[11px] opacity-60">
-                  {t("sessions.card.reschedule.current")} {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
-                  {shortSkDay(planRescheduleUI.currentDate)}
-                </div>
-              </div>
-            )}
-
-            {/* INLINE UI PRE SPÁROVANIE TRÉNINGU */}
-            {showMatchUI && (
-              <div className="mt-2 p-3 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
-                <ActivitySelectorDate
-                  userId={userId}
-                  defaultDateIso={plan.dateIso || new Date().toISOString().slice(0, 10)}
-                  sports={[plan.sport as any]}
-                  value={selectedActivityId}
-                  onChange={(val) => setSelectedActivityId(val)}
-                />
-                
-                <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-white/5">
-                  <Button 
-                    variant="ghost" 
-                    size="xs" 
-                    onClick={() => setShowMatchUI(false)} 
-                    disabled={isProcessing}
-                  >
-                    {t("common.cancel") || "Zrušiť"}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="xs"
-                    onClick={handleMatchSave}
-                    disabled={!selectedActivityId || isProcessing}
-                  >
-                    {isProcessing ? t("common.saving") || "Ukladám..." : t("common.save") || "Uložiť"}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <PlanSessionDetail
-          variant={variant}
-          item={plan as any}
-          showPlanDebug={showPlanDebug}
-          showAdvanced={showAdvanced}
-        />
-      </div>
-    );
-  }
-
-  if (item.kind === "external") {
-    return <ExternalSessionDetail variant={variant} item={item as any} />;
-  }
-
-  if (item.kind === "bests") {
-    return (
-      <BestsSessionDetail
-        item={item as any}
-        kpiBlock={kpiBlock}
-        hasKpis={hasKpis}
-        compactChart={compactChart}
-        onOpenActivity={onOpenActivity}
-      />
-    );
-  }
-
-  return (
-    <ActivitySessionDetail
-      item={item as any}
-      kpiBlock={kpiBlock}
-      hasKpis={hasKpis}
-      compactChart={compactChart}
-      onOpenActivity={onOpenActivity}
-    />
   );
 }

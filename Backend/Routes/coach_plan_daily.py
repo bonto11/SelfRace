@@ -1,4 +1,4 @@
-# Routes_FE/coach_plan_daily.py
+# Routes/coach_plan_daily.py
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -20,6 +20,7 @@ from DB.coach_plan_daily import (
     db_get_compliance_stats,
     db_get_postponed_sessions,
     db_get_unmatched_activities_summary,
+    db_get_daily_session_by_activity_id,
 )
 
 from Modules.Supabase.auth import get_auth_ctx, require_user
@@ -190,6 +191,34 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/by-activity/{user_id}/{activity_id}")
+def get_plan_by_activity_id(
+    req: Request,
+    user_id: int,
+    activity_id: int,
+) -> Dict[str, Any]:
+    """
+    Nájde plán (session) napárovaný na danú aktivitu.
+    Vracia data=None ak plán pre túto aktivitu neexistuje (bežný, legitímny stav).
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+
+        session = db_get_daily_session_by_activity_id(
+            user_id=user_id, activity_id=activity_id, ctx=ctx
+        )
+
+        return {
+            "success": True,
+            "data": session,
+            "error_code": None,
+            "message": None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 class SessionPreviewAsk(BaseModel):
     comment: str = Field(..., min_length=1, max_length=900)
     request_change: bool = Field(False)

@@ -150,17 +150,13 @@ def _system_prompt(sport: str) -> str:
 
 
 def _mode_rule(request_change: bool) -> str:
-    """
-    Kľúčové rozlíšenie: bez zmeny (len rada/vysvetlenie) vs. so zmenou
-    (upraví sa structure/duration_min/notes tejto JEDNEJ session).
-    """
     if not request_change:
         return (
             "\n--- MODE: ADVICE ONLY (NO CHANGE) ---\n"
             "The athlete wants advice, an explanation, or a question answered about this "
             "upcoming session. They have NOT requested a change.\n"
             "- Set 'changed' to false.\n"
-            "- Set 'updated_structure', 'updated_duration_min', and 'updated_notes' to null.\n"
+            "- Set 'updated_title', 'updated_structure', 'updated_duration_min', and 'updated_notes' to null.\n"
             "- Answer helpfully in 'reply_text': explain pacing, how to approach the session, "
             "adjust for how they feel, fatigue, etc. — but the plan itself stays as-is.\n"
             "- If their message actually implies they want a change but forgot to request it, "
@@ -174,6 +170,11 @@ def _mode_rule(request_change: bool) -> str:
         "- If the requested change is reasonable and safe given the athlete's recovery/wellness "
         "context, apply it: set 'changed' to true and fill 'updated_structure' (same shape as the "
         "original 'session.structure'), 'updated_duration_min', and 'updated_notes'.\n"
+        "- CRITICAL: 'updated_title' MUST also reflect the new session type whenever the nature "
+        "of the session changes (e.g. original title 'Prahový beh - Z4 tempo' becomes something "
+        "like 'Ľahký regeneračný beh' if the athlete asked to make it easy). The title must never "
+        "be left describing the OLD session type after a change — this is a common mistake, avoid it. "
+        "If the sport/focus genuinely didn't change, you may keep the title as-is.\n"
         "- If the change is unsafe or doesn't make sense (e.g. asking for a much harder session "
         "right after reporting exhaustion), set 'changed' to false, explain why in 'reply_text', "
         "and suggest a safer alternative in words only.\n"
@@ -207,6 +208,7 @@ def _schema(lang: str) -> str:
   "model": "string",
   "reply_text": "FREE TEXT, 2-4 sentences, {lang}. Direct, conversational reply to the athlete's message.",
   "changed": boolean,
+  "updated_title": "string | null — short session title in {lang} (e.g. 'Ľahký beh', 'Intervaly 6x400m'), MUST be updated whenever the session type/nature changes so it matches the new structure",
   "updated_duration_min": number | null,
   "updated_notes": "string | null — short session summary in {lang}, same role as original session.notes",
   "updated_structure": object | null

@@ -68,7 +68,7 @@ const TILE_STYLE = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-export function ActivityBestSegmentsSection({ enrichment, t }: Props) {
+export function SectionBestSegments({ enrichment, t }: Props) {
   const items = SEGMENT_DEFS
     .map((def) => {
       const raw = enrichment?.[def.key];
