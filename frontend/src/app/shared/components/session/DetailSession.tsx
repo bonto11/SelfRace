@@ -18,7 +18,7 @@ import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDat
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
 import DetailPlan from "@/app/shared/components/session/DetailPlan";
-import DetailExternalSession from "@/app/shared/components/session/DetailExternalSession";
+import DetailExternal from "@/app/shared/components/session/DetailExternal";
 import DetailBests from "@/app/shared/components/session/DetailBests";
 import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
 import { safeText } from "@/app/shared/components/session/sessionUtils";
