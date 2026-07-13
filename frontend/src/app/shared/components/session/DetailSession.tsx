@@ -54,9 +54,9 @@ function todayIso() {
  *                              historia + Activity dole), s jemnymi labelmi
  *                              "Plán" / "Realita" nad kazdou sekciou.
  *
- * Samotne DetailPlan a ActivitySessionDetail ostavaju samostatne komponenty
+ * Samotne DetailPlan a DetailActivity ostavaju samostatne komponenty
  * (maju vlastnu domenovu logiku a pouzivaju sa aj mimo tejto karty - napr.
- * ActivitySessionDetail v bests/review kontextoch). Tento komponent je cisto
+ * DetailActivity v bests/review kontextoch). Tento komponent je cisto
  * orchestracna vrstva nad nimi.
  */
 export function DetailSession({
@@ -422,7 +422,7 @@ export function DetailSession({
             </div>
           )}
 
-          <ActivitySessionDetail
+          <DetailActivity
             item={session as any}
             kpiBlock={kpiBlock}
             hasKpis={hasKpis}
