@@ -130,6 +130,7 @@ export default function DetailPlan({
           structure={structure}
           sport={item.sport}
           showAdvanced={showAdvanced}
+          status={item.status}
         />
       )}
 
@@ -137,7 +138,7 @@ export default function DetailPlan({
       {hasStrength && (
         <ActivitySectionShell
           title={t("sessions.detail.sectionExercises")}
-          defaultOpen={false}
+          defaultOpen={item.status !== "done"}
           items={[]}
         >
           <div className={PLAN_STRUCT_STACK}>
