@@ -2,7 +2,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
+import { DetailActivity } from "@/app/shared/components/session/DetailActivity";
 import type { BestsSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {
@@ -21,7 +21,7 @@ export default function DetailBests({
   onOpenActivity,
 }: Props) {
   return (
-    <ActivitySessionDetail
+    <DetailActivity
       item={item as any}
       kpiBlock={kpiBlock}
       hasKpis={hasKpis}
