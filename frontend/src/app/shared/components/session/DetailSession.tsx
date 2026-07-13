@@ -16,7 +16,7 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDate";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
+import { DetailActivity } from "@/app/shared/components/session/DetailActivity";
 import DetailPlan from "@/app/shared/components/session/DetailPlan";
 import DetailExternal from "@/app/shared/components/session/DetailExternal";
 import DetailBests from "@/app/shared/components/session/DetailBests";
