@@ -102,7 +102,7 @@ export function DetailSession({
   const [selectedActivityId, setSelectedActivityId] = useState<number | "">("");
 
   if (item.kind === "external") {
-    return <DetailExternalSession variant={variant} item={item as any} />;
+    return <DetailExternal variant={variant} item={item as any} />;
   }
 
   if (item.kind === "bests") {
