@@ -70,7 +70,7 @@ export default function DayDetail({
       buildDayBuckets({
         selectedIso,
         actRows,
-        planRowsForDay: filteredPlanRows,
+        planRowsForDay: filteredPlanRows, // 👈 Použijeme odfiltrované pole
         externalRows,
         safeSportKey,
         t,
@@ -78,7 +78,7 @@ export default function DayDetail({
     [selectedIso, actRows, filteredPlanRows, externalRows, safeSportKey, t],
   );
 
-  // OPRAVA: predtým sa do planReschedule.dates posielalo len
+  // 🌟 OPRAVA: predtým sa do planReschedule.dates posielalo len
   // [plan.rangeStart, plan.rangeEnd] - dva krajné dátumy CELÉHO nahraného
   // rozsahu (90 dní dozadu / 15 dopredu), takže SelectField ponúkal len tieto
   // 2 extrémne hodnoty namiesto skutočných dní s plánom. Teraz vyberáme
@@ -86,10 +86,11 @@ export default function DayDetail({
   // logika ako v DetailDailyPlan.tsx), plus počet session na deň pre limit
   // "max 2 za deň".
   const { rescheduleDates, dayCounts } = React.useMemo(() => {
+    const todayIso = new Date().toISOString().slice(0, 10);
     const counts: Record<string, number> = {};
     for (const r of plan.rows) {
       const d = String(r.plan_date ?? "").slice(0, 10);
-      if (!d) continue;
+      if (!d || d < todayIso) continue;
       counts[d] = (counts[d] ?? 0) + 1;
     }
     const dates = Object.keys(counts).sort();
@@ -171,14 +172,33 @@ export default function DayDetail({
                     onChangeDate: async ({ sessionId, fromDate, toDate }) => {
                        if (sessionId == null || !userId) return;
                        try {
-                         await apiSaveDailyReschedule(Number(userId), [
+                         const result = await apiSaveDailyReschedule(Number(userId), [
                            { id: sessionId, from_date: fromDate, to_date: toDate },
                          ]);
+                         if (process.env.NODE_ENV !== "production") {
+                           console.log("[DayDetail][reschedule-debug]", {
+                             sessionId,
+                             fromDate,
+                             toDate,
+                             userId,
+                             result,
+                           });
+                         }
                        } catch (e: any) {
-                         toast.error(t(e?.message as any) || t("common.error"));
+                         if (process.env.NODE_ENV !== "production") {
+                           console.log("[DayDetail][reschedule-debug] ERROR", {
+                             sessionId,
+                             fromDate,
+                             toDate,
+                             userId,
+                             error: e,
+                             message: e?.message,
+                           });
+                         }
+                         toast.error(t(e?.message as any) || t("common.error") || "Chyba");
                          return;
                        }
-                       toast.success(t("common.done"));
+                       toast.success(t("common.done") || "Uložené");
                        plan.refresh();
                     }
                   }}
