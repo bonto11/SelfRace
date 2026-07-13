@@ -431,13 +431,6 @@ export function DetailSession({
           />
         </div>
       )}
-
-      {/* --- LOADING STAV pre auto-lookup plánu --- */}
-      {!hasPlan && hasActivity && planLookupLoading && (
-        <div className="text-xs opacity-50 px-1">
-          {t("common.loading") || "Načítavam..."}
-        </div>
-      )}
     </div>
   );
 }

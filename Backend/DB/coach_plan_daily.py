@@ -531,11 +531,16 @@ def db_append_preview_thread_entry(user_id: int, id: int, entry: Dict[str, Any],
 
 def db_apply_session_preview_update(
     user_id: int, id: int, *,
-    duration_min: Optional[int], notes: Optional[str], structure: Optional[Dict[str, Any]],
+    title: Optional[str] = None,
+    duration_min: Optional[int] = None,
+    notes: Optional[str] = None,
+    structure: Optional[Dict[str, Any]] = None,
     ctx: AuthCtx,
 ) -> bool:
     sb = get_sb(ctx, caller="coach_plan_daily.db_apply_session_preview_update")
     payload: Dict[str, Any] = {"updated_at": _now_iso()}
+    if title is not None:
+        payload["title"] = title
     if duration_min is not None:
         payload["duration_min"] = duration_min
     if notes is not None:
@@ -548,7 +553,7 @@ def db_apply_session_preview_update(
     except Exception as e:
         print("[DB-COACH-DAILY] apply_session_preview_update error:", repr(e))
         return False
-
+    
 def db_get_daily_session_by_activity_id(
     user_id: int, activity_id: int, *, ctx: AuthCtx
 ) -> Optional[Dict[str, Any]]:

@@ -63,21 +63,6 @@ function valOrDash(v: string | number | null): string {
   return String(v);
 }
 
-function safeText(value: any): string {
-  if (value == null) return "";
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  )
-    return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
 function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
   if (n == null) return false;
   const x = typeof n === "number" ? n : Number(n);
@@ -479,12 +464,6 @@ export function ActivitySessionDetail({
         >
           <SectionBestSegments enrichment={enrichment} t={t} />
         </ActivitySectionShell>
-      )}
-
-      {act.notes && (
-        <div className="mt-4 p-4 rounded-xl bg-black/20 border border-white/5 text-sm text-white/80 leading-relaxed">
-          {safeText(act.notes)}
-        </div>
       )}
 
       {isShareOpen && (

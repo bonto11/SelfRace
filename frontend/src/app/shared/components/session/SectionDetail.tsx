@@ -1,4 +1,4 @@
-// src/app/shared/components/session/DetailSection.tsx
+// src/app/shared/components/session/SectionDetail.tsx
 "use client";
 
 import { ReactNode, useState, type CSSProperties } from "react";

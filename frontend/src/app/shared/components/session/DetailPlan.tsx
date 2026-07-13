@@ -26,7 +26,6 @@ import {
   PLAN_EX_NAME,
   PLAN_EX_LINE,
   PLAN_EX_NOTE,
-  PLAN_DEBUG_PRE,
 } from "@/app/shared/ui/tokens";
 
 // --- Pomocné funkcie ---
@@ -148,6 +147,13 @@ export default function PlanSessionDetail({
 
   return (
     <div className="space-y-4">
+      {/* --- POZNÁMKA TRÉNERA K PLÁNU --- */}
+      {(item.planNotes || item.notes) && (
+        <div className="p-4 rounded-xl bg-black/20 border border-white/5 text-sm text-white/80 leading-relaxed">
+          {safeText(item.planNotes || item.notes)}
+        </div>
+      )}
+
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
         <SectionDetail title={t("sessions.detail.sectionStructure")}>
@@ -348,26 +354,14 @@ export default function PlanSessionDetail({
       )}
 
       {/* --- SEKCIA: SESSION PREVIEW (konverzácia s trénerom k tejto session) --- */}
-      {/* Editovateľné (formulár + otázka/zmena) len keď je session ešte "planned".
-          Pri done/missed/postponed sa zobrazí len ako read-only história, ak nejaká existuje. */}
+      {/* Editovateľné (formulár + otázka/zmena) len keď je session ešte "planned"
+          a nie je spárovaná s aktivitou. Inak read-only história, ak existuje. */}
       {item.id != null && (
         <SectionPreview
           sessionId={Number(item.id)}
           isEditable={item.status === "planned" && item.activityId == null}
           initialThread={(raw as any)?.preview_thread ?? []}
         />
-      )}
-
-      {/* --- DEBUG SEKCIA --- */}
-      {showAdvanced && showPlanDebug && (
-        <SectionDetail
-          title={t("sessions.detail.sectionDebug")}
-          defaultOpen={false}
-        >
-          <pre className={PLAN_DEBUG_PRE + " animate-in fade-in"}>
-            {safeText({ structure, raw })}
-          </pre>
-        </SectionDetail>
       )}
     </div>
   );
