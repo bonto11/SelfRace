@@ -6,10 +6,7 @@ import { useT } from "@/app/shared/i18n/useT";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { toast } from "@/app/shared/ui/components/Toast";
-import {
-  apiPatchDailySessionStatus,
-  type DailyPlanSession,
-} from "@/app/features/coach/api/coach_plan_daily";
+import { apiPatchDailySessionStatus, type DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
 import Button from "@/app/shared/ui/components/Button";
 import SelectField from "@/app/shared/ui/components/SelectField";
@@ -22,11 +19,7 @@ import ExternalSessionDetail from "@/app/shared/components/session/ExternalSessi
 import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
 import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
 import { safeText } from "@/app/shared/components/session/sessionUtils";
-import type {
-  SessionCardItem,
-  SessionItem,
-  PlanStatus,
-} from "@/app/shared/components/session/SessionCard";
+import type { SessionCardItem, SessionItem, PlanStatus } from "@/app/shared/components/session/SessionCard";
 
 function shortSkDate(iso?: string | null) {
   if (!iso) return "";
@@ -111,10 +104,7 @@ export function SessionDetail({
     const kpiBlock = hasKpis ? (
       <MetricGrid
         cols={4}
-        metrics={kpis.map((k) => ({
-          label: safeText(k.label),
-          value: safeText(k.value),
-        }))}
+        metrics={kpis.map((k) => ({ label: safeText(k.label), value: safeText(k.value) }))}
       />
     ) : null;
 
@@ -137,10 +127,7 @@ export function SessionDetail({
   const kpiBlock = hasKpis ? (
     <MetricGrid
       cols={4}
-      metrics={kpis.map((k) => ({
-        label: safeText(k.label),
-        value: safeText(k.value),
-      }))}
+      metrics={kpis.map((k) => ({ label: safeText(k.label), value: safeText(k.value) }))}
     />
   ) : null;
 
@@ -158,9 +145,7 @@ export function SessionDetail({
             planId: resolvedPlan.id ?? null,
             status: (resolvedPlan.status as PlanStatus) ?? "planned",
             planDur:
-              resolvedPlan.duration_min != null
-                ? `${resolvedPlan.duration_min} min`
-                : null,
+              resolvedPlan.duration_min != null ? `${resolvedPlan.duration_min} min` : null,
             planIntensity: resolvedPlan.intensity ?? null,
             planNotes: resolvedPlan.notes ?? null,
             planRaw: resolvedPlan,
@@ -170,20 +155,30 @@ export function SessionDetail({
         : null
     : null;
 
-  const isFuture =
-    !!planForDetail?.dateIso && planForDetail.dateIso >= todayIso();
+  const isFuture = !!planForDetail?.dateIso && planForDetail.dateIso >= todayIso();
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[SessionDetail][debug]", {
+      cardId: item.id,
+      hasPlan,
+      hasActivity,
+      sessionPlanId: session.planId,
+      sessionActivityId: session.activityId,
+      sessionStatus: session.status,
+      planForDetailId: planForDetail?.id,
+      planForDetailStatus: planForDetail?.status,
+    });
+  }
 
   const handlePostpone = async (sessionId: string | number) => {
     if (!userId || isProcessing) return;
     setIsProcessing(true);
     try {
-      await apiPatchDailySessionStatus(userId, Number(sessionId), {
-        status: "postponed",
-      });
-      toast.success(t("common.done") || "");
+      await apiPatchDailySessionStatus(userId, Number(sessionId), { status: "postponed" });
+      toast.success(t("common.done") || "Uložené");
       if (onRefreshPlan) onRefreshPlan();
     } catch (e) {
-      toast.error(t("common.error"));
+      toast.error(t("common.error") || "Chyba");
     } finally {
       setIsProcessing(false);
     }
@@ -193,13 +188,11 @@ export function SessionDetail({
     if (!userId || isProcessing) return;
     setIsProcessing(true);
     try {
-      await apiPatchDailySessionStatus(userId, Number(sessionId), {
-        unmatch: true,
-      });
-      toast.success(t("common.done"));
+      await apiPatchDailySessionStatus(userId, Number(sessionId), { unmatch: true });
+      toast.success(t("common.done") || "Uložené");
       if (onRefreshPlan) onRefreshPlan();
     } catch (e) {
-      toast.error(t("common.error"));
+      toast.error(t("common.error") || "Chyba");
     } finally {
       setIsProcessing(false);
     }
@@ -214,11 +207,11 @@ export function SessionDetail({
         activity_id: Number(selectedActivityId),
       });
 
-      toast.success(t("sessions.matchModal.success"));
+      toast.success(t("sessions.matchModal.success") || "Spárované");
       setShowMatchUI(false);
       if (onRefreshPlan) onRefreshPlan();
     } catch (error) {
-      toast.error(t("sessions.matchModal.error"));
+      toast.error(t("sessions.matchModal.error") || "Chyba");
     } finally {
       setIsProcessing(false);
     }
@@ -234,7 +227,7 @@ export function SessionDetail({
           {showBothLabels && (
             <div className="flex items-center gap-3 pt-1">
               <span className="text-[11px] uppercase tracking-wider font-semibold opacity-50">
-                {t("sessions.detail.labelPlan")}
+                {t("sessions.detail.labelPlan") || "Plán"}
               </span>
               <span className="flex-1 h-px bg-white/10" />
             </div>
@@ -243,7 +236,7 @@ export function SessionDetail({
           {showAdvanced && (
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="text-[11px] uppercase tracking-wider opacity-50 font-semibold">
-                {t("sessions.card.managePlan")}
+                {t("sessions.card.managePlan") || "Správa tréningu"}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -259,8 +252,8 @@ export function SessionDetail({
                     }}
                   >
                     {planRescheduleUI.show
-                      ? t("common.cancel")
-                      : t("sessions.card.actions.reschedule")}
+                      ? t("common.cancel") || "Zrušiť"
+                      : t("sessions.card.actions.reschedule") || "Presunúť"}
                   </Button>
                 )}
 
@@ -271,7 +264,7 @@ export function SessionDetail({
                     disabled={isProcessing}
                     onClick={() => handlePostpone(planForDetail.planId as any)}
                   >
-                    {t("sessions.card.actions.postpone")}
+                    {t("sessions.card.actions.postpone") || "Odložiť"}
                   </Button>
                 )}
 
@@ -290,8 +283,8 @@ export function SessionDetail({
                       }}
                     >
                       {showMatchUI
-                        ? t("common.cancel")
-                        : t("sessions.card.actions.match")}
+                        ? t("common.cancel") || "Zrušiť"
+                        : t("sessions.card.actions.match") || "Spárovať"}
                     </Button>
                   )}
 
@@ -303,47 +296,43 @@ export function SessionDetail({
                     disabled={isProcessing}
                     onClick={() => handleUnmatch(planForDetail.planId as any)}
                   >
-                    {t("sessions.card.actions.unmatch")}
+                    {t("sessions.card.actions.unmatch") || "Zrušiť spárovanie"}
                   </Button>
                 )}
 
-                {planForDetail.status === "postponed" &&
-                  !hasActivity &&
-                  onDiscard && (
-                    <Button
-                      size="xs"
-                      variant="danger"
-                      disabled={isProcessing}
-                      className="ml-auto"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            t("sessions.card.actions.discardConfirm"),
-                          )
-                        ) {
-                          onDiscard(Number(planForDetail.planId));
-                        }
-                      }}
-                    >
-                      {t("sessions.card.actions.discard")}
-                    </Button>
-                  )}
+                {planForDetail.status === "postponed" && !hasActivity && onDiscard && (
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    disabled={isProcessing}
+                    className="ml-auto"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          t("sessions.card.actions.discardConfirm") ||
+                            "Naozaj chcete tento tréning vymazať zo zásobníka?",
+                        )
+                      ) {
+                        onDiscard(Number(planForDetail.planId));
+                      }
+                    }}
+                  >
+                    {t("sessions.card.actions.discard") || "Zahodiť"}
+                  </Button>
+                )}
               </div>
 
               {planRescheduleUI?.show && !hasActivity && isFuture && (
                 <div className="mt-2 p-2 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
                   <SelectField
                     value={planRescheduleUI.pendingDate}
-                    onChange={(e) =>
-                      planRescheduleUI.onSelect(String(e.target.value))
-                    }
+                    onChange={(e) => planRescheduleUI.onSelect(String(e.target.value))}
                     options={planRescheduleUI.options}
                     variant="editable"
                   />
 
                   <div className="mt-2 text-[11px] opacity-60">
-                    {t("sessions.card.reschedule.current")}{" "}
-                    {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
+                    {t("sessions.card.reschedule.current")} {shortSkDate(planRescheduleUI.currentDate)} ·{" "}
                     {shortSkDay(planRescheduleUI.currentDate)}
                   </div>
                 </div>
@@ -353,10 +342,7 @@ export function SessionDetail({
                 <div className="mt-2 p-3 bg-black/20 rounded-lg border border-black/40 animate-in fade-in slide-in-from-top-1">
                   <ActivitySelectorDate
                     userId={userId}
-                    defaultDateIso={
-                      planForDetail.dateIso ||
-                      new Date().toISOString().slice(0, 10)
-                    }
+                    defaultDateIso={planForDetail.dateIso || new Date().toISOString().slice(0, 10)}
                     sports={[planForDetail.sport as any]}
                     value={selectedActivityId}
                     onChange={(val) => setSelectedActivityId(val)}
@@ -369,7 +355,7 @@ export function SessionDetail({
                       onClick={() => setShowMatchUI(false)}
                       disabled={isProcessing}
                     >
-                      {t("common.cancel")}
+                      {t("common.cancel") || "Zrušiť"}
                     </Button>
                     <Button
                       variant="primary"
@@ -377,7 +363,7 @@ export function SessionDetail({
                       onClick={handleMatchSave}
                       disabled={!selectedActivityId || isProcessing}
                     >
-                      {isProcessing ? t("common.saving") : t("common.save")}
+                      {isProcessing ? t("common.saving") || "Ukladám..." : t("common.save") || "Uložiť"}
                     </Button>
                   </div>
                 </div>
@@ -400,7 +386,7 @@ export function SessionDetail({
           {showBothLabels && (
             <div className="flex items-center gap-3 pt-2">
               <span className="text-[11px] uppercase tracking-wider font-semibold opacity-50">
-                {t("sessions.detail.labelReality")}
+                {t("sessions.detail.labelReality") || "Realita"}
               </span>
               <span className="flex-1 h-px bg-white/10" />
             </div>
@@ -418,7 +404,7 @@ export function SessionDetail({
 
       {/* --- LOADING STAV pre auto-lookup plánu --- */}
       {!hasPlan && hasActivity && planLookupLoading && (
-        <div className="text-xs opacity-50 px-1">{t("common.loading")}</div>
+        <div className="text-xs opacity-50 px-1">{t("common.loading") || "Načítavam..."}</div>
       )}
     </div>
   );

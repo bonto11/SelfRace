@@ -46,10 +46,21 @@ export function buildDayBuckets({
 }: Args): { past: SessionCardItem[]; planned: SessionCardItem[] } {
   const tIso = todayIso();
 
-  // --- raw activities for day, indexed by activity_id ---
+  // --- raw activities for day (pre voľné aktivity bez plánu) ---
   const actRowsForDay = actRows
     .filter((r) => String(r.date).slice(0, 10) === selectedIso)
     .filter((r) => Number.isFinite(Number(r.activity_id)));
+
+  // --- index VŠETKÝCH aktivít podľa activity_id (nie len pre daný deň) ---
+  // Dôvod: plán.activity_id sa má matchnúť s aktivitou aj keď sa jej reálny
+  // "date" mierne líši od plan_date (napr. časové pásmo, večerný tréning
+  // uložený pod iným kalendárnym dňom). Predtým sa hľadalo len v rámci
+  // toho istého dňa, čo spôsobovalo že spárované session ostávali "missed".
+  const actById = new Map<number, any>();
+  for (const r of actRows) {
+    const aid = Number((r as any).activity_id);
+    if (Number.isFinite(aid)) actById.set(aid, r);
+  }
 
   const actByIdForDay = new Map<number, any>();
   for (const r of actRowsForDay) {
@@ -98,13 +109,14 @@ export function buildDayBuckets({
 
       const dIso = selectedIso;
 
+      // 🌟 Dôverujeme p.activity_id priamo z BE - je to autoritatívny signál
+      // "tento plán JE spárovaný s touto aktivitou", nezávisle od toho, či tá
+      // aktivita je aj vo výbere actRows pre presne tento deň (mohla byť uložená
+      // pod mierne iným kalendárnym dňom kvôli časovému pásmu a pod.).
       const rawActId = p.activity_id;
-      const hasAct =
-        rawActId != null &&
-        !Number.isNaN(Number(rawActId)) &&
-        actByIdForDay.has(Number(rawActId));
+      const activityId =
+        rawActId != null && !Number.isNaN(Number(rawActId)) ? Number(rawActId) : null;
 
-      const activityId = hasAct ? Number(rawActId) : null;
       if (activityId != null) usedActivityIds.add(activityId);
 
       const status: PlanStatus = activityId != null ? "done" : dIso < tIso ? "missed" : "planned";
@@ -146,7 +158,7 @@ export function buildDayBuckets({
       // ak je plán spárovaný s aktivitou, KPI/subtitle radšej ukážeme z aktivity
       // (reálne odjazdené hodnoty sú užitočnejšie ako plánované), plán detail si
       // svoje metriky zobrazí sám v PlanSessionDetail cez planDur/planIntensity/planTarget.
-      const activityRow = activityId != null ? actByIdForDay.get(activityId) : null;
+      const activityRow = activityId != null ? actById.get(activityId) : null;
       const actFields = activityRow ? activityFields(activityRow) : null;
 
       const planKpis = asKpis([
