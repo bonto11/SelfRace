@@ -25,7 +25,7 @@ import { ActivitySectionShell } from "@/app/shared/components/session/DetailActi
 
 type Props = {
   sessionId: number;
-  isEditable: boolean; // true len keď status === "planned"
+  isEditable: boolean; // true len keď status === "planned" a session je v budúcnosti
   initialThread?: PreviewThreadEntry[];
 };
 
@@ -233,12 +233,12 @@ export default function SectionPreview({
     }
   };
 
-  // Read-only režim (session už nie je "planned" — je done/missed/postponed):
-  // zobrazíme históriu konverzácie ak existuje, žiadny formulár na písanie.
-  // Ak vôbec žiadna história neexistuje, sekciu radšej nezobrazíme (nemá zmysel
-  // ukazovať prázdny "Preview" panel pre dávno odtrénovaný beh).
+  // Read-only režim (session už nie je editovateľná - je v minulosti alebo
+  // done/missed/postponed): zobrazíme históriu konverzácie, žiadny formulár.
+  // Predtým sa sekcia úplne skryla ak thread bol prázdny - teraz Preview je
+  // vždy viditeľná sekcia pre plán (len bez formulára a s placeholder textom),
+  // nech je jasné že táto session žiadny preview nemala.
   if (!isEditable) {
-    if (thread.length === 0) return null;
     return (
       <ActivitySectionShell
         title={t("sessions.preview.title")}
@@ -248,15 +248,23 @@ export default function SectionPreview({
         <div className="text-xs font-medium opacity-50 mb-3">
           {t("sessions.preview.readOnlyNote")}
         </div>
-        <div className="space-y-3">
-          {thread.map((entry, idx) =>
-            entry.role === "assistant" ? (
-              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
-            ) : (
-              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
-            ),
-          )}
-        </div>
+        {thread.length > 0 ? (
+          <div className="space-y-3">
+            {thread.map((entry, idx) =>
+              entry.role === "assistant" ? (
+                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+              ) : (
+                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="py-6 text-center border border-dashed border-white/10 rounded-lg">
+            <p className="text-sm opacity-50">
+              {t("sessions.preview.noPreviewPlaceholder")}
+            </p>
+          </div>
+        )}
       </ActivitySectionShell>
     );
   }

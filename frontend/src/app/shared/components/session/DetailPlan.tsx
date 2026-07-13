@@ -1,4 +1,4 @@
-// src/app/shared/components/session/DetailPlan.tsx
+// src/app/shared/components/session/PlanSessionDetail.tsx
 "use client";
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
@@ -353,7 +353,7 @@ export default function PlanSessionDetail({
       {item.id != null && (
         <SectionPreview
           sessionId={Number(item.id)}
-          isEditable={item.status === "planned"}
+          isEditable={item.status === "planned" && item.activityId == null}
           initialThread={(raw as any)?.preview_thread ?? []}
         />
       )}
