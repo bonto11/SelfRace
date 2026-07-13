@@ -23,7 +23,7 @@ import {
 } from "@/app/shared/config";
 
 import type { SessionItem } from "./SessionCard";
-import { ActivitySectionShell } from "./ActivitySessionDetail";
+import { ActivitySectionShell } from "./DetailActivity";
 
 type Props = {
   item: SessionItem;
