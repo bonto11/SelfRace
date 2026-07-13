@@ -23,7 +23,7 @@ import {
 } from "@/app/shared/config";
 
 import type { SessionItem } from "./SessionCard";
-import { ActivitySectionShell } from "./ActivitySessionDetail";
+import { ActivitySectionShell } from "./DetailActivity";
 
 type Props = {
   item: SessionItem;
@@ -118,7 +118,13 @@ function TextBlock({ children }: { children: ReactNode }) {
   );
 }
 
-function ThresholdCard({ thresholds, t }: { thresholds: NonNullable<ReviewPayload["suggested_thresholds"]>; t: any }) {
+function ThresholdCard({
+  thresholds,
+  t,
+}: {
+  thresholds: NonNullable<ReviewPayload["suggested_thresholds"]>;
+  t: any;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-500/5 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-700">
       <div className="flex items-center gap-4 p-4">
@@ -169,18 +175,27 @@ function ThresholdCard({ thresholds, t }: { thresholds: NonNullable<ReviewPayloa
 
 function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
   const r = entry.review || {};
-  const reviewText = typeof r.review_text === "string" ? r.review_text.trim() : null;
-  const nextDayPlan = typeof r.next_day_plan === "string" ? r.next_day_plan.trim() : null;
-  const sessionKind = typeof r.session_kind === "string" ? r.session_kind : null;
+  const reviewText =
+    typeof r.review_text === "string" ? r.review_text.trim() : null;
+  const nextDayPlan =
+    typeof r.next_day_plan === "string" ? r.next_day_plan.trim() : null;
+  const sessionKind =
+    typeof r.session_kind === "string" ? r.session_kind : null;
   const dominantZone =
-    typeof r?.key_numbers?.dominant_zone === "string" ? r.key_numbers.dominant_zone : null;
+    typeof r?.key_numbers?.dominant_zone === "string"
+      ? r.key_numbers.dominant_zone
+      : null;
   const needsCaution = r?.flags?.needs_caution === true;
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4 animate-in fade-in duration-500">
       <div className="flex flex-wrap gap-2">
-        {sessionKind && <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />}
-        {dominantZone && <Chip label={t("sessions.review.tagZone")} value={dominantZone} />}
+        {sessionKind && (
+          <Chip label={t("sessions.review.tagFocus")} value={sessionKind} />
+        )}
+        {dominantZone && (
+          <Chip label={t("sessions.review.tagZone")} value={dominantZone} />
+        )}
         {needsCaution && (
           <div className="inline-flex items-center gap-1 rounded-md bg-yellow-500/20 border border-yellow-500/30 px-3 py-1.5 text-xs text-yellow-200">
             ⚠️ {t("sessions.review.tagCaution")}
@@ -202,7 +217,9 @@ function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
         </div>
       )}
 
-      {r.suggested_thresholds && <ThresholdCard thresholds={r.suggested_thresholds} t={t} />}
+      {r.suggested_thresholds && (
+        <ThresholdCard thresholds={r.suggested_thresholds} t={t} />
+      )}
     </div>
   );
 }
@@ -214,7 +231,9 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
         {t("sessions.review.youLabel") || "Ty"}
       </div>
-      <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      <div className="text-sm text-white/80 whitespace-pre-wrap">
+        {entry.comment}
+      </div>
       {entry.is_race_effort && (
         <div className="mt-1 text-[10px] text-emerald-300/70">
           🏁 {t("sessions.review.raceEffortLabel")}
@@ -244,7 +263,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
   const s: any | null =
-    activityId != null ? (getSummary(activityId)) || null : null;
+    activityId != null ? getSummary(activityId) || null : null;
   const startDt = parseDateSafe(s?.date) || null;
 
   const isEligible = useMemo(() => {
@@ -289,7 +308,9 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
       if (!forceFetch) {
         const lastUserComment = [...t2]
           .reverse()
-          .find((e): e is UserEntry => e.role === "user" && !!e.comment)?.comment;
+          .find(
+            (e): e is UserEntry => e.role === "user" && !!e.comment,
+          )?.comment;
         if (typeof lastUserComment === "string") {
           setComment((prev) => prev || lastUserComment);
         }
@@ -449,12 +470,13 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
         </div>
       </div>
 
-      {isEligible && (
-        tierCode === "free" ? (
+      {isEligible &&
+        (tierCode === "free" ? (
           /* UKÁŽKA PRE FREE POUŽÍVATEĽOV */
           <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
             <div className="flex items-center gap-2 text-sm font-medium text-white/80">
-              <span className="opacity-80">🔒</span> {t("sessions.review.upsellTitle")}
+              <span className="opacity-80">🔒</span>{" "}
+              {t("sessions.review.upsellTitle")}
             </div>
             <p className="text-[11px] text-white/50 leading-relaxed">
               {t("sessions.review.upsellDesc")}
@@ -507,8 +529,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
           <div className="mt-4 mb-2 p-3 text-center text-[11px] text-white/40 border border-dashed border-white/10 rounded-xl">
             {t("sessions.review.limitReached")}
           </div>
-        )
-      )}
+        ))}
 
       {uiError && (
         <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200">

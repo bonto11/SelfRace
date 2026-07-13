@@ -27,16 +27,16 @@ import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { ActivitySplitsSection } from "./ActivitySplitsSection";
+import { ActivitySplitsSection } from "./SectionSplits";
 import {
   ActivityBestSegmentsSection,
   hasAnyBestSegment,
-} from "./ActivityBestSegmentsSection";
+} from "./SectionBestSegments";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-import ActivityCoachReviewSection from "./ActivityReviewSection";
+import ActivityCoachReviewSection from "./SectionReview";
 import {
   PieTrend,
   type PieTrendItem,

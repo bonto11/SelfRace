@@ -2,7 +2,7 @@
 "use client";
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
-import DetailSection from "@/app/shared/components/session/DetailSection";
+import DetailSection from "@/app/shared/components/session/SectionDetail";
 import {
   fmtMin,
   safeText,
@@ -10,15 +10,8 @@ import {
 import type { SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import SessionPreviewSection from "@/app/shared/components/session/SessionPreviewSection";
+import SessionPreviewSection from "@/app/shared/components/session/SectionPreview";
 import {
-  SESSION_MINIGRID_BASE,
-  SESSION_MINIGRID_2COL,
-  SESSION_MINIGRID_3COL,
-  SESSION_MINITILE,
-  SESSION_MINITILE_STYLE,
-  SESSION_MINITILE_LABEL,
-  SESSION_MINITILE_VALUE,
   PLAN_STRUCT_STACK,
   PLAN_BLOCK,
   PLAN_BLOCK_LABEL,
@@ -47,31 +40,6 @@ function getDuration(block: any): string | null {
 function getNote(block: any): string | null {
   if (typeof block === "string") return block;
   return block?.instruction ?? block?.notes ?? null;
-}
-
-function MiniMetricGrid({
-  metrics,
-  cols = 3,
-}: {
-  metrics: any[];
-  cols?: 2 | 3;
-}) {
-  if (!metrics?.length) return null;
-  const colClass = cols === 2 ? SESSION_MINIGRID_2COL : SESSION_MINIGRID_3COL;
-  return (
-    <div className={[SESSION_MINIGRID_BASE, colClass].join(" ")}>
-      {metrics.map((m, i) => (
-        <div
-          key={i}
-          className={SESSION_MINITILE}
-          style={SESSION_MINITILE_STYLE}
-        >
-          <div className={SESSION_MINITILE_LABEL}>{m.label}</div>
-          <div className={SESSION_MINITILE_VALUE}>{m.value ?? "—"}</div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export default function PlanSessionDetail({
@@ -111,29 +79,6 @@ export default function PlanSessionDetail({
   const cd = (structure as any)?.cooldown;
 
   const hasEnduranceStructure = wu || mainBlocks.length > 0 || cd;
-
-  // Metriky pre MiniGrid
-  const metrics = (
-    item.kpis?.length
-      ? item.kpis
-      : [
-          item.planDur
-            ? { label: t("common.metrics.duration"), value: item.planDur }
-            : null,
-          item.planIntensity
-            ? {
-                label: t("prefs.sections.rulesSection.intensityLabel"),
-                value: item.planIntensity,
-              }
-            : null,
-          item.planTarget
-            ? {
-                label: t("sessions.detail.plan.target"),
-                value: item.planTarget,
-              }
-            : null,
-        ]
-  ).filter(Boolean);
 
   const renderExerciseList = (exercises: any[], fallbackLabel: string) => (
     <ul className={PLAN_EX_LIST}>
@@ -203,9 +148,6 @@ export default function PlanSessionDetail({
 
   return (
     <div className="space-y-4">
-      {/* Vždy viditeľný jednoduchý základný panel */}
-      <MiniMetricGrid metrics={metrics} cols={3} />
-
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
         <DetailSection title={t("sessions.detail.sectionStructure")}>

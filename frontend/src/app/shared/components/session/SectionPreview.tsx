@@ -21,7 +21,7 @@ import {
   MAX_COMMENT_CHARS,
 } from "@/app/shared/config";
 
-import { ActivitySectionShell } from "@/app/shared/components/session/ActivitySessionDetail";
+import { ActivitySectionShell } from "@/app/shared/components/session/DetailActivity";
 
 type Props = {
   sessionId: number;
@@ -78,7 +78,8 @@ function TextBlock({ children }: { children: ReactNode }) {
 }
 
 function AssistantBubble({ entry, t }: { entry: AssistantEntry; t: any }) {
-  const replyText = typeof entry.reply_text === "string" ? entry.reply_text.trim() : null;
+  const replyText =
+    typeof entry.reply_text === "string" ? entry.reply_text.trim() : null;
   const changed = entry.changed === true;
 
   return (
@@ -105,7 +106,9 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
       <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80 mb-1">
         {t("sessions.review.youLabel") || "Ty"}
       </div>
-      <div className="text-sm text-white/80 whitespace-pre-wrap">{entry.comment}</div>
+      <div className="text-sm text-white/80 whitespace-pre-wrap">
+        {entry.comment}
+      </div>
       {entry.request_change && (
         <div className="mt-1 text-[10px] text-emerald-300/70">
           ✏️ {t("sessions.preview.requestChangeLabel")}
@@ -138,7 +141,9 @@ export default function SessionPreviewSection({
 
   const maxVersions = useMemo(() => maxVersionsForTier(tierCode), [tierCode]);
 
-  const [thread, setThread] = useState<PreviewThreadEntry[]>(initialThread || []);
+  const [thread, setThread] = useState<PreviewThreadEntry[]>(
+    initialThread || [],
+  );
   const [comment, setComment] = useState<string>("");
   const [requestChange, setRequestChange] = useState<boolean>(false);
 
@@ -203,7 +208,12 @@ export default function SessionPreviewSection({
 
         setThread((prev) => [
           ...prev,
-          { role: "user", comment: c, request_change: requestChange, created_at: new Date().toISOString() },
+          {
+            role: "user",
+            comment: c,
+            request_change: requestChange,
+            created_at: new Date().toISOString(),
+          },
           {
             role: "assistant",
             reply_text: data.reply_text,
@@ -277,7 +287,8 @@ export default function SessionPreviewSection({
       {tierCode === "free" ? (
         <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
           <div className="flex items-center gap-2 text-sm font-medium text-white/80">
-            <span className="opacity-80">🔒</span> {t("sessions.preview.upsellTitle")}
+            <span className="opacity-80">🔒</span>{" "}
+            {t("sessions.preview.upsellTitle")}
           </div>
           <p className="text-[11px] text-white/50 leading-relaxed">
             {t("sessions.preview.upsellDesc")}
@@ -323,7 +334,9 @@ export default function SessionPreviewSection({
               disabled={busyGen || !comment.trim() || commentTooLong}
               className="ml-auto"
             >
-              {busyGen ? t("sessions.review.btnGenerating") : t("sessions.preview.btnAsk")}
+              {busyGen
+                ? t("sessions.review.btnGenerating")
+                : t("sessions.preview.btnAsk")}
             </Button>
           </div>
 
@@ -351,23 +364,21 @@ export default function SessionPreviewSection({
       )}
 
       <div className="mt-6 space-y-3">
-        {thread.length > 0 ? (
-          thread.map((entry, idx) =>
-            entry.role === "assistant" ? (
-              <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
-            ) : (
-              <UserBubble key={`u-${idx}`} entry={entry} t={t} />
-            ),
-          )
-        ) : (
-          !busyGen && (
-            <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
-              <p className="text-sm opacity-50">
-                {t("sessions.preview.noPreviewPlaceholder")}
-              </p>
-            </div>
-          )
-        )}
+        {thread.length > 0
+          ? thread.map((entry, idx) =>
+              entry.role === "assistant" ? (
+                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+              ) : (
+                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+              ),
+            )
+          : !busyGen && (
+              <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
+                <p className="text-sm opacity-50">
+                  {t("sessions.preview.noPreviewPlaceholder")}
+                </p>
+              </div>
+            )}
       </div>
     </ActivitySectionShell>
   );

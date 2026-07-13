@@ -2,7 +2,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
+import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
 import type { BestsSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {

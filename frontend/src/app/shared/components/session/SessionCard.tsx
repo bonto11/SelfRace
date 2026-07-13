@@ -10,7 +10,7 @@ import { apiGetPlanByActivityId, type DailyPlanSession } from "@/app/features/co
 import SportBadge, { getSportColor } from "@/app/shared/ui/components/SportBadge";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { SessionDetail } from "@/app/shared/components/session/SessionDetail";
+import { SessionDetail } from "@/app/shared/components/session/DetailSession";
 
 import {
   SESSION_CARD,
