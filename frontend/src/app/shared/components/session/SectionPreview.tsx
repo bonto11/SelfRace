@@ -272,7 +272,7 @@ export default function SectionPreview({
   return (
     <ActivitySectionShell
       title={t("sessions.preview.title")}
-      defaultOpen={true}
+      defaultOpen={thread.length === 0}
       items={[]}
     >
       <div className="flex items-center justify-between min-h-[32px]">
