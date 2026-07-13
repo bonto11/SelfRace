@@ -22,11 +22,11 @@ import {
   MAX_COMMENT_CHARS,
 } from "@/app/shared/config";
 
-import type { ActivitySession } from "./SessionCard";
+import type { SessionItem } from "./SessionCard";
 import { ActivitySectionShell } from "./ActivitySessionDetail";
 
 type Props = {
-  item: ActivitySession;
+  item: SessionItem;
   activityId: number;
 };
 

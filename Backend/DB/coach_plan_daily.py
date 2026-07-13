@@ -552,9 +552,18 @@ def db_apply_session_preview_update(
 def db_get_daily_session_by_activity_id(
     user_id: int, activity_id: int, *, ctx: AuthCtx
 ) -> Optional[Dict[str, Any]]:
-    """Nájde plánovanú session namapovanú na danú aktivitu (podľa activity_id)."""
+    """Nájde plánovanú session namapovanú na danú aktivitu (podľa activity_id).
+    Ak je aktivita zmazaná (deleted_at != null), vráti None, aj keby plán
+    na ňu ešte odkazoval (nemal by, ale pre istotu)."""
+    from DB.activities_summary import db_get_summary_one
+
     sb = get_sb(ctx, caller="coach_plan_daily.db_get_daily_session_by_activity_id")
     try:
+        # Over že aktivita existuje a nie je zmazaná
+        activity = db_get_summary_one(ctx, int(activity_id))
+        if not activity:
+            return None
+
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .select("*")
@@ -568,4 +577,3 @@ def db_get_daily_session_by_activity_id(
     except Exception as e:
         print("[DB-COACH-DAILY] get_daily_session_by_activity_id error:", repr(e))
         return None
-

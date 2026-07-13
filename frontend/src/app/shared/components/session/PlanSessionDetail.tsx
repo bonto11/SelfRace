@@ -7,7 +7,7 @@ import {
   fmtMin,
   safeText,
 } from "@/app/shared/components/session/sessionUtils";
-import type { PlanSession } from "@/app/shared/components/session/SessionCard";
+import type { SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
 import SessionPreviewSection from "@/app/shared/components/session/SessionPreviewSection";
@@ -80,7 +80,7 @@ export default function PlanSessionDetail({
   showAdvanced = false,
 }: {
   variant?: ComponentVariant;
-  item: PlanSession;
+  item: SessionItem;
   showPlanDebug: boolean;
   showAdvanced?: boolean;
 }) {
