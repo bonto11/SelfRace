@@ -245,7 +245,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
 
 /* ================= HLAVNÝ KOMPONENT ================= */
 
-export default function ActivityReviewSection({ item, activityId }: Props) {
+export default function SectionReview({ item, activityId }: Props) {
   const { userId } = useUserId();
   const t = useT();
   const { getSummary, getEnrichment } = useActivityData();

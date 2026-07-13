@@ -13,7 +13,7 @@ type Props = {
   onOpenActivity?: (activityId: number) => void;
 };
 
-export default function BestsSessionDetail({
+export default function DetailBests({
   item,
   kpiBlock,
   hasKpis,

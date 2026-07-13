@@ -10,7 +10,7 @@ import { apiGetPlanByActivityId, type DailyPlanSession } from "@/app/features/co
 import SportBadge, { getSportColor } from "@/app/shared/ui/components/SportBadge";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { SessionDetail } from "@/app/shared/components/session/DetailSession";
+import { DetailSession } from "@/app/shared/components/session/DetailSession";
 
 import {
   SESSION_CARD,
@@ -472,7 +472,7 @@ export default function SessionCard({
       {opened && (
         <div className={SESSION_FLUSH_DETAIL} style={SESSION_FLUSH_DETAIL_STYLE}>
           <div className={SESSION_BODY}>
-            <SessionDetail
+            <DetailSession
               variant={variant}
               item={item}
               hasPlan={hasPlan}

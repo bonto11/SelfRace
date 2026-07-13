@@ -1,8 +1,8 @@
-// src/app/shared/components/session/PlanSessionDetail.tsx
+// src/app/shared/components/session/DetailPlan.tsx
 "use client";
 
 import type { ComponentVariant } from "@/app/features/activities/types/activities";
-import DetailSection from "@/app/shared/components/session/SectionDetail";
+import SectionDetail from "@/app/shared/components/session/SectionDetail";
 import {
   fmtMin,
   safeText,
@@ -10,7 +10,7 @@ import {
 import type { SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import SessionPreviewSection from "@/app/shared/components/session/SectionPreview";
+import SectionPreview from "@/app/shared/components/session/SectionPreview";
 import {
   PLAN_STRUCT_STACK,
   PLAN_BLOCK,
@@ -150,7 +150,7 @@ export default function PlanSessionDetail({
     <div className="space-y-4">
       {/* --- SEKCIA: ŠTRUKTÚRA TRÉNINGU (Endurance) --- */}
       {hasEnduranceStructure && (
-        <DetailSection title={t("sessions.detail.sectionStructure")}>
+        <SectionDetail title={t("sessions.detail.sectionStructure")}>
 
           {showAdvanced && (item.sport === "run" || item.sport === "ride") && (
             <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs leading-relaxed text-blue-200/90 italic animate-in fade-in">
@@ -312,12 +312,12 @@ export default function PlanSessionDetail({
               </div>
             )}
           </div>
-        </DetailSection>
+        </SectionDetail>
       )}
 
       {/* --- SEKCIA: CVIKY (Strength) --- */}
       {hasStrength && (
-        <DetailSection title={t("sessions.detail.sectionExercises")}>
+        <SectionDetail title={t("sessions.detail.sectionExercises")}>
           <div className={PLAN_STRUCT_STACK}>
             {strengthActivation.length > 0 && (
               <div className={PLAN_BLOCK}>
@@ -344,14 +344,14 @@ export default function PlanSessionDetail({
               </div>
             )}
           </div>
-        </DetailSection>
+        </SectionDetail>
       )}
 
       {/* --- SEKCIA: SESSION PREVIEW (konverzácia s trénerom k tejto session) --- */}
       {/* Editovateľné (formulár + otázka/zmena) len keď je session ešte "planned".
           Pri done/missed/postponed sa zobrazí len ako read-only história, ak nejaká existuje. */}
       {item.id != null && (
-        <SessionPreviewSection
+        <SectionPreview
           sessionId={Number(item.id)}
           isEditable={item.status === "planned"}
           initialThread={(raw as any)?.preview_thread ?? []}
@@ -360,14 +360,14 @@ export default function PlanSessionDetail({
 
       {/* --- DEBUG SEKCIA --- */}
       {showAdvanced && showPlanDebug && (
-        <DetailSection
+        <SectionDetail
           title={t("sessions.detail.sectionDebug")}
           defaultOpen={false}
         >
           <pre className={PLAN_DEBUG_PRE + " animate-in fade-in"}>
             {safeText({ structure, raw })}
           </pre>
-        </DetailSection>
+        </SectionDetail>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-// src/app/shared/components/session/SessionDetail.tsx
+// src/app/shared/components/session/DetailSession.tsx
 "use client";
 
 import { useState } from "react";
@@ -18,8 +18,8 @@ import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDat
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
 import PlanSessionDetail from "@/app/shared/components/session/DetailPlan";
-import ExternalSessionDetail from "@/app/shared/components/session/DetailExternalSession";
-import BestsSessionDetail from "@/app/shared/components/session/BestsSessionDetail";
+import DetailExternalSession from "@/app/shared/components/session/DetailExternalSession";
+import DetailBests from "@/app/shared/components/session/DetailBests";
 import { MetricGrid } from "@/app/shared/components/session/MetricGrid";
 import { safeText } from "@/app/shared/components/session/sessionUtils";
 import type {
@@ -59,7 +59,7 @@ function todayIso() {
  * ActivitySessionDetail v bests/review kontextoch). Tento komponent je cisto
  * orchestracna vrstva nad nimi.
  */
-export function SessionDetail({
+export function DetailSession({
   variant,
   item,
   hasPlan,
@@ -102,7 +102,7 @@ export function SessionDetail({
   const [selectedActivityId, setSelectedActivityId] = useState<number | "">("");
 
   if (item.kind === "external") {
-    return <ExternalSessionDetail variant={variant} item={item as any} />;
+    return <DetailExternalSession variant={variant} item={item as any} />;
   }
 
   if (item.kind === "bests") {
@@ -119,7 +119,7 @@ export function SessionDetail({
     ) : null;
 
     return (
-      <BestsSessionDetail
+      <DetailBests
         item={item as any}
         kpiBlock={kpiBlock}
         hasKpis={hasKpis}
@@ -442,4 +442,4 @@ export function SessionDetail({
   );
 }
 
-export default SessionDetail;
+export default DetailSession;

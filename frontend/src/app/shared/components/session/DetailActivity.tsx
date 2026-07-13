@@ -27,16 +27,16 @@ import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { ActivitySplitsSection } from "./SectionSplits";
+import { SectionSplits } from "./SectionSplits";
 import {
-  ActivityBestSegmentsSection,
+  SectionBestSegments,
   hasAnyBestSegment,
 } from "./SectionBestSegments";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-import ActivityCoachReviewSection from "./SectionReview";
+import SectionReview from "./SectionReview";
 import {
   PieTrend,
   type PieTrendItem,
@@ -448,7 +448,7 @@ export function ActivitySessionDetail({
       </ActivitySectionShell>
 
       {!!act.activityId && (
-        <ActivityCoachReviewSection
+        <SectionReview
           item={act}
           activityId={Number(act.activityId)}
         />
@@ -469,7 +469,7 @@ export function ActivitySessionDetail({
 
       {hasSplits && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
-          <ActivitySplitsSection kind={splits} />
+          <SectionSplits kind={splits} />
         </ActivitySectionShell>
       )}
 
@@ -477,7 +477,7 @@ export function ActivitySessionDetail({
         <ActivitySectionShell
           title={t("sessions.detail.sectionBestSegments" as any)}
         >
-          <ActivityBestSegmentsSection enrichment={enrichment} t={t} />
+          <SectionBestSegments enrichment={enrichment} t={t} />
         </ActivitySectionShell>
       )}
 

@@ -1,4 +1,4 @@
-// src/app/features/coach/components/SessionPreviewSection.tsx
+// src/app/features/coach/components/SectionPreview.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -120,7 +120,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
 
 /* ================= HLAVNÝ KOMPONENT ================= */
 
-export default function SessionPreviewSection({
+export default function SectionPreview({
   sessionId,
   isEditable,
   initialThread,

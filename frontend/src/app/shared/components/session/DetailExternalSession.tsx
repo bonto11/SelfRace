@@ -37,7 +37,7 @@ function MiniMetricGrid({ metrics, cols = 2 }: { metrics: MiniMetric[], cols?: 2
   );
 }
 
-export default function ExternalSessionDetail({ item }: { variant: ComponentVariant; item: ExternalSession; }) {
+export default function DetailExternalSession({ item }: { variant: ComponentVariant; item: ExternalSession; }) {
   const t = useT();
   const kpis = Array.isArray(item.kpis) ? item.kpis : [];
 
