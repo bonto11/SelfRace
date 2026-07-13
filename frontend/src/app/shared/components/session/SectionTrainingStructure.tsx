@@ -30,6 +30,7 @@ export type SectionTrainingStructureProps = {
   structure: any;
   sport: string;
   showAdvanced?: boolean;
+  status?: string;
 };
 
 /**
@@ -49,6 +50,7 @@ export default function SectionTrainingStructure({
   structure,
   sport,
   showAdvanced = false,
+  status,
 }: SectionTrainingStructureProps) {
   const t = useT();
 
@@ -62,7 +64,7 @@ export default function SectionTrainingStructure({
   return (
     <ActivitySectionShell
       title={t("sessions.detail.sectionStructure")}
-      defaultOpen={true}
+      defaultOpen={status !== "done"}
       items={[]}
     >
       {showAdvanced && (sport === "run" || sport === "ride") && (
