@@ -87,13 +87,29 @@ export default function DayDetail({
   // "max 2 za deň".
   const { rescheduleDates, dayCounts } = React.useMemo(() => {
     const todayIso = new Date().toISOString().slice(0, 10);
+
     const counts: Record<string, number> = {};
+    let lastPlanDate: string | null = null;
     for (const r of plan.rows) {
       const d = String(r.plan_date ?? "").slice(0, 10);
       if (!d || d < todayIso) continue;
       counts[d] = (counts[d] ?? 0) + 1;
+      if (!lastPlanDate || d > lastPlanDate) lastPlanDate = d;
     }
-    const dates = Object.keys(counts).sort();
+
+    // Súvislý rozsah dní od dneška po posledný deň, na ktorý existuje
+    // vygenerovaný plán (nie len dni, ktoré už niečo majú) - aby sa dalo
+    // presunúť aj na "prázdny" deň v rámci vygenerovaného týždňa/plánu.
+    const dates: string[] = [];
+    if (lastPlanDate) {
+      let cur = new Date(todayIso);
+      const end = new Date(lastPlanDate);
+      while (cur <= end) {
+        dates.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
     return { rescheduleDates: dates, dayCounts: counts };
   }, [plan.rows]);
 

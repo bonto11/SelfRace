@@ -372,6 +372,13 @@ export default function SessionCard({
   const handlePlanDateChange = async (toDate: string) => {
     if (!canReschedulePlan) return;
 
+    // 🌟 FIX: predtým sa posielalo item.id, čo je pri spárovaných session
+    // kompozitný string card id (napr. "s:736:12345"), nie skutočné plan
+    // DB id -> BE padalo na 422 "unable to parse string as integer".
+    // canReschedulePlan už garantuje isSession && hasPlan, takže item je vždy SessionItem tu.
+    const planId = (item as SessionItem).planId;
+    if (planId == null) return;
+
     const fromDate = (item.dateIso as string) ?? "";
     if (!fromDate || !toDate || toDate === fromDate) {
       setPendingDate(fromDate || null);
@@ -387,7 +394,7 @@ export default function SessionCard({
     setPendingDate(toDate);
 
     await planReschedule!.onChangeDate({
-      sessionId: item.id,
+      sessionId: planId,
       fromDate,
       toDate,
     });
