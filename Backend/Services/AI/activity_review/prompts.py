@@ -166,6 +166,21 @@ def _name_usage_rule(nickname: Optional[str], lang: str) -> str:
         f"alebo povzbudenie po neúspechu. Nikdy ho nepoužívaj ako rutinný pozdrav.\n"
     )
 
+def _terminology_rule(lang_label: str) -> str:
+    """Rovnaké pravidlo ako v daily_plan/prompts.py — zabraňuje substitúcii
+    foneticky/sémanticky podobných ale nesprávnych slov (napr. 'nohy' -> 'nohavice')."""
+    return (
+        "- WORD ACCURACY (CRITICAL): Use ONLY standard, correct sport/anatomy terminology. "
+        "Before finalizing any text, double-check every word is the one you actually meant — "
+        "LLMs sometimes substitute a phonetically or visually similar but WRONG word (a known "
+        "failure mode), especially in Slovak/Czech.\n"
+        "  Examples of this exact mistake to AVOID:\n"
+        "  - Slovak: 'nohy' (legs) MUST NOT become 'nohavice' (trousers/pants).\n"
+        "  - Do not invent or drift into clothing, furniture, or unrelated nouns when describing "
+        "body parts, muscle groups, or exercise focus areas.\n"
+        f"  Re-read each generated {lang_label} sentence once and confirm every noun matches "
+        "its intended meaning before including it in the output.\n"
+    )
 
 def _canonical_sport(s: Any) -> str:
     """Normalizuje sport na run/ride/strength/swim/other."""
@@ -445,6 +460,7 @@ def build_prompts_for_activity_review(
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
         + name_rule
+        + _terminology_rule(lang_label)
         + f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
         f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
         + _sport_rules(sport_key, is_race=actually_is_race)

@@ -103,6 +103,24 @@ def _time_format_rule() -> str:
         "and 'H:MM:SS' when an hour or more. Pace is always 'mm:ss/km'.\n"
     )
 
+def _terminology_rule(lang_label: str) -> str:
+    """
+    Zabraňuje AI substitúcii sémanticky/foneticky podobných, ale nesprávnych
+    slov v generovanom texte (notes, title) — bežná chyba LLM pri generovaní
+    v slovenčine/češtine, keď si model "prehodí" podobne znejúce slovo.
+    """
+    return (
+        "- WORD ACCURACY (CRITICAL): Use ONLY standard, correct sport/anatomy terminology "
+        "in `title` and `notes`. Before finalizing any text, double-check every word is the "
+        "one you actually meant — LLMs sometimes substitute a phonetically or visually similar "
+        "but WRONG word (a known failure mode), especially in Slovak/Czech.\n"
+        "  Examples of this exact mistake to AVOID:\n"
+        "  - Slovak: 'nohy' (legs) MUST NOT become 'nohavice' (trousers/pants).\n"
+        "  - Do not invent or drift into clothing, furniture, or unrelated nouns when describing "
+        "body parts, muscle groups, or exercise focus areas.\n"
+        f"  Re-read each generated {lang_label} sentence once and confirm every noun matches "
+        "its intended meaning before including it in the output.\n"
+    )
 
 # ============================================================
 # MINIFY CONTEXT
@@ -732,6 +750,7 @@ def build_prompts_for_daily(
         + sports_restriction
         + intensity_format_rule
         + _time_format_rule()
+        + _terminology_rule(lang_label)
         + endurance_structure_rule
         + strength_structure_rule
         + f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
