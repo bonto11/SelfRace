@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -56,7 +58,7 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
   );
 }
 
-export default function MobileBottomBar() {
+function BottomBarContent() {
   const t = useT();
 
   return (
@@ -87,4 +89,26 @@ export default function MobileBottomBar() {
       </div>
     </nav>
   );
+}
+
+export default function MobileBottomBar() {
+  // FIX: renderované cez React portal priamo do document.body.
+  // Predtým bola lišta síce "position: fixed", ale stále súčasťou React
+  // stromu vnoreného pod viacero rodičovských divov v ClientProtectedShell.
+  // Ak čokoľvek nad ňou (aj dočasne, napr. animácia/transition triedou)
+  // dostane CSS transform/filter/will-change, prehliadač podľa CSS
+  // špecifikácie vytvorí nový "containing block" a fixed potomkovia sa
+  // zrazu viažu na TOHO rodiča namiesto viewportu - navigácia potom
+  // "pláva" so scrollom namiesto toho, aby zostala prilepená dole.
+  // Portál do document.body toto úplne vylučuje, lebo lišta už nie je
+  // potomkom žiadneho z tých divov.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(<BottomBarContent />, document.body);
 }
