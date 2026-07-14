@@ -88,12 +88,19 @@ export default function DayDetail({
   const { rescheduleDates, dayCounts } = React.useMemo(() => {
     const todayIso = new Date().toISOString().slice(0, 10);
 
+    const isRestRow = (r: any) => {
+      const dur = r.duration_min;
+      return dur == null || Number(dur) === 0;
+    };
+
     const counts: Record<string, number> = {};
     let lastPlanDate: string | null = null;
     for (const r of plan.rows) {
       const d = String(r.plan_date ?? "").slice(0, 10);
       if (!d || d < todayIso) continue;
-      counts[d] = (counts[d] ?? 0) + 1;
+      if (!isRestRow(r)) {
+        counts[d] = (counts[d] ?? 0) + 1;
+      }
       if (!lastPlanDate || d > lastPlanDate) lastPlanDate = d;
     }
 
@@ -211,10 +218,10 @@ export default function DayDetail({
                              message: e?.message,
                            });
                          }
-                         toast.error(t(e?.message as any) || t("common.error") || "Chyba");
+                         toast.error(t(e?.message as any) || t("common.error"));
                          return;
                        }
-                       toast.success(t("common.done") || "Uložené");
+                       toast.success(t("common.done"));
                        plan.refresh();
                     }
                   }}
