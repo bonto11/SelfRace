@@ -40,6 +40,7 @@ from Configs.config import (
 from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
 from Services.notifications import service_notify_new_activity
 from Services.records_check import service_check_activity_records
+from Services.route_match import service_auto_match_route_for_activity
 
 
 # -------------------------------------------------------------------
@@ -357,6 +358,19 @@ def service_sync_single_activity(
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] Records check failed id={aid}: {e}")
 
+    # ✅ ---------- 6.5) ROUTE AUTO-MATCH (pomenované trate) ----------
+    # Beží pri importe AJ update (re-sync, napr. Strava opravila dáta),
+    # rovnako pri jednorazovom aj opakovanom volaní. Service funkcia interne
+    # nič nerobí (early-exit), ak už aktivita má POTVRDENÝ route_match -
+    # re-sync tak nikdy nemôže ticho prepísať finálne rozhodnutie usera.
+    try:
+        service_auto_match_route_for_activity(
+            user_id=user_id,
+            activity_id=aid,
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] Route auto-match failed id={aid}: {e}")
 
     # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
     if imported > 0:
