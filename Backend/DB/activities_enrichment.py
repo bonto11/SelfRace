@@ -247,3 +247,165 @@ def db_get_zone_minutes_for_ids(
         .execute()
     )
     return res.data or []
+    
+# =========================
+# ROUTE MATCHING (pomenované trate)
+# =========================
+
+def db_get_matched_routes_for_sport(
+    user_id: int,
+    sport_type_fe: str,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti kandidátov na route matching pre daný šport: activity_id + route_match
+    z enrichment (kde je route_match potvrdený), doplnené o distance_m a
+    elevation_gain_m z activities_summary. Enrichment nemá elevation_gain_m
+    stĺpec vôbec, a jeho distance_m je len denormalizovaná kópia - berieme
+    radšej summary ako zdroj pravdy pre oba údaje.
+    """
+    from DB.activities_summary import db_get_summary_for_activities
+
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_matched_routes_for_sport")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("activity_id, route_match")
+        .eq("user_id", int(user_id))
+        .eq("sport_type_fe", sport_type_fe)
+        .not_.is_("route_match", "null")
+        .execute()
+    )
+    enrich_rows = res.data or []
+    if not enrich_rows:
+        return []
+
+    activity_ids = [int(r["activity_id"]) for r in enrich_rows]
+    summary_rows = db_get_summary_for_activities(ctx, user_id, activity_ids)
+    summary_by_id = {int(r["activity_id"]): r for r in summary_rows}
+
+    out: List[Dict[str, Any]] = []
+    for r in enrich_rows:
+        aid = int(r["activity_id"])
+        s = summary_by_id.get(aid)
+        if not s:
+            continue
+        out.append({
+            "activity_id": aid,
+            "route_match": r["route_match"],
+            "distance_m": s.get("distance_m"),
+            "elevation_gain_m": s.get("elevation_gain_m"),
+        })
+    return out
+
+
+def db_get_distinct_route_names_for_sport(
+    user_id: int,
+    sport_type_fe: str,
+    *,
+    ctx: AuthCtx,
+) -> List[str]:
+    """
+    Vráti zoznam unikátnych, potvrdených názvov trás (route_match) používateľa
+    pre daný šport — pre FE select list ("vyber z existujúcich alebo napíš nový").
+    """
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_distinct_route_names_for_sport")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("route_match")
+        .eq("user_id", int(user_id))
+        .eq("sport_type_fe", sport_type_fe)
+        .not_.is_("route_match", "null")
+        .execute()
+    )
+    names = {r["route_match"] for r in (res.data or []) if r.get("route_match")}
+    return sorted(names)
+
+
+def db_get_activities_for_route_match(
+    user_id: int,
+    route_match: str,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti všetky aktivity s daným potvrdeným route_match názvom — pre
+    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m
+    z activities_summary rovnakým spôsobom ako db_get_matched_routes_for_sport,
+    aby porovnanie dvoch behov s rovnakou vzdialenosťou ale iným prevýšením
+    nebolo mätúce.
+    """
+    from DB.activities_summary import db_get_summary_for_activities
+
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_activities_for_route_match")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select(
+            "activity_id, route_match, distance_m, moving_time_s, "
+            "avg_hr_bpm, sport_type_fe, updated_at"
+        )
+        .eq("user_id", int(user_id))
+        .eq("route_match", route_match)
+        .order("updated_at", desc=True)
+        .execute()
+    )
+    enrich_rows = res.data or []
+    if not enrich_rows:
+        return []
+
+    activity_ids = [int(r["activity_id"]) for r in enrich_rows]
+    summary_rows = db_get_summary_for_activities(ctx, user_id, activity_ids)
+    elevation_by_id = {
+        int(r["activity_id"]): r.get("elevation_gain_m") for r in summary_rows
+    }
+
+    for r in enrich_rows:
+        r["elevation_gain_m"] = elevation_by_id.get(int(r["activity_id"]))
+
+    return enrich_rows
+
+
+def db_set_route_auto_match(
+    user_id: int,
+    activity_id: int,
+    route_auto_match: Optional[str],
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Nastaví (alebo vyčistí, ak None) navrhovaný auto-match názov trate.
+    Priamy update namiesto merge-upsertu, pretože route_auto_match musí byť
+    možné explicitne vynulovať na None (napr. po potvrdení/zamietnutí),
+    čo by db_upsert_enrichment_rows_merge (ktorý None hodnoty ignoruje) nevedelo.
+    """
+    sb = get_sb(ctx, caller="activities_enrichment.db_set_route_auto_match")
+    try:
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT).update(
+            {"route_auto_match": route_auto_match}
+        ).eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
+        return True
+    except Exception as e:
+        print("❌ [ENRICH][set_route_auto_match] error:", repr(e))
+        return False
+
+
+def db_set_route_match(
+    user_id: int,
+    activity_id: int,
+    route_match: Optional[str],
+    *,
+    ctx: AuthCtx,
+) -> bool:
+    """
+    Nastaví (alebo zruší, ak None) potvrdený názov trate. Po potvrdení sa
+    zvyčajne zároveň vyčistí route_auto_match (rieši volajúci v service vrstve).
+    """
+    sb = get_sb(ctx, caller="activities_enrichment.db_set_route_match")
+    try:
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT).update(
+            {"route_match": route_match}
+        ).eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
+        return True
+    except Exception as e:
+        print("❌ [ENRICH][set_route_match] error:", repr(e))
+        return False
