@@ -101,6 +101,15 @@ def service_auto_match_route_for_activity(
     if sport not in ELIGIBLE_SPORTS:
         return None
 
+    # Ak už má aktivita POTVRDENÝ route_match, nič neprepočítavame - je to
+    # finálne rozhodnutie usera a re-sync (napr. Strava opravila dáta) ho
+    # nesmie ticho zmeniť.
+    from DB.activities_enrichment import db_get_enrichment_for_activity
+
+    existing_enrichment = db_get_enrichment_for_activity(user_id, int(activity_id), ctx=ctx)
+    if existing_enrichment and existing_enrichment.get("route_match"):
+        return None
+
     distance_m = activity.get("distance_m")
     elevation_gain_m = activity.get("elevation_gain_m")
     if distance_m is None:
