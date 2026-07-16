@@ -176,7 +176,7 @@ export function ActivitySectionShell({
   );
 }
 
-export function ActivitySessionDetail({
+export function DetailActivity({
   item,
   compactChart,
   onOpenActivity,

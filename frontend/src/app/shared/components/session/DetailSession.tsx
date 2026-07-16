@@ -16,7 +16,7 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import ActivitySelectorDate from "@/app/shared/ui/components/ActivitySelectorDate";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
-import { ActivitySessionDetail } from "@/app/shared/components/session/DetailActivity";
+import { DetailActivity } from "@/app/shared/components/session/DetailActivity";
 import DetailPlan from "@/app/shared/components/session/DetailPlan";
 import DetailExternal from "@/app/shared/components/session/DetailExternal";
 import DetailBests from "@/app/shared/components/session/DetailBests";
@@ -54,9 +54,9 @@ function todayIso() {
  *                              historia + Activity dole), s jemnymi labelmi
  *                              "Plán" / "Realita" nad kazdou sekciou.
  *
- * Samotne DetailPlan a ActivitySessionDetail ostavaju samostatne komponenty
+ * Samotne DetailPlan a DetailActivity ostavaju samostatne komponenty
  * (maju vlastnu domenovu logiku a pouzivaju sa aj mimo tejto karty - napr.
- * ActivitySessionDetail v bests/review kontextoch). Tento komponent je cisto
+ * DetailActivity v bests/review kontextoch). Tento komponent je cisto
  * orchestracna vrstva nad nimi.
  */
 export function DetailSession({
@@ -422,7 +422,7 @@ export function DetailSession({
             </div>
           )}
 
-          <ActivitySessionDetail
+          <DetailActivity
             item={session as any}
             kpiBlock={kpiBlock}
             hasKpis={hasKpis}

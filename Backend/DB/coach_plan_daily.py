@@ -225,6 +225,17 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
             current_date = str(row.get("plan_date") or "")[:10]
 
             if to_date == current_date: continue
+
+            # 🌟 Ak je na cieľovom dni existujúci "rest day" (duration_min NULL alebo 0),
+            # zmažeme ho pred presunom, aby v kalendári nevznikol duplicitný
+            # zápis (rest + reálny tréning na tom istom dni). Rest deň sa
+            # generuje automaticky, takže jeho zmazanie tu je bezpečné.
+            rest_row = db_get_rest_session_on_day(user_id=user_id, plan_date=to_date, ctx=ctx)
+            if rest_row and rest_row.get("id") is not None:
+                deleted = db_delete_daily_session(user_id=user_id, session_id=int(rest_row["id"]), ctx=ctx)
+                if not deleted:
+                    raise ValueError("rest_day_delete_failed")
+
             cnt = db_count_sessions_on_day(user_id=user_id, plan_date=to_date, ctx=ctx)
             if cnt >= int(max_per_day or 2): raise ValueError("target_day_full")
 
@@ -238,8 +249,27 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
 
     if errors: return {"ok": False, "updated": updated, "error": "some_moves_failed", "errors": errors}
     return {"ok": True, "updated": updated}
-    
-    
+
+def db_get_rest_session_on_day(user_id: int, plan_date: str, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Nájde rest-day session (duration_min NULL alebo 0) na danom dni, ak existuje."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_rest_session_on_day")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, duration_min")
+            .eq("user_id", int(user_id))
+            .eq("plan_date", str(plan_date))
+            .execute()
+        )
+        for row in (res.data or []):
+            dur = row.get("duration_min")
+            if dur is None or int(dur) == 0:
+                return row
+        return None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_rest_session_on_day error:", repr(e))
+        return None
+
 def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     sb = get_sb(ctx, caller="coach_plan_daily.db_check_daily_data_exists")
     try:

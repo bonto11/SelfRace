@@ -1,21 +1,25 @@
 // src/features/calendar/utils/calendarFormat.ts
-import { detectSport } from "@/app/shared/utils/sports";
-import type{ PlanStatus } from "@/app/features/calendar/types/calendarTypes";
+import type { PlanStatus } from "@/app/features/calendar/types/calendarTypes";
 
 type AnyObj = Record<string, any>;
 
 export function isRestSession(row: any, sess: AnyObj): boolean {
-  const sport = (row as any).sport || detectSport(sess) || "other";
+  // 🌟 FIX: zjednotené na duration_min-only pravidlo (rovnaké ako BE
+  // db_get_compliance_stats a DayDetail.tsx/MiniCalendar.tsx). Predtým
+  // "sport === 'other'" samo osebe stačilo na to, aby sa session
+  // vyhodnotila ako rest day - to nesprávne zasiahlo aj reálne
+  // odtrénované "iné aktivity" (joga a pod.) so sport:'other', ktoré
+  // majú duration_min > 0. Rovnako title regex ("rest/voľno/off day")
+  // je krehký (jazykovo závislý) - nahradené čisto duration_min.
   const duration = sess.duration_min ?? row.duration_min ?? null;
-  const title = String(sess.title || sess.session_type || row.title || row.session_type || "");
-
-  if (sport === "other") return true;
-  if (duration === 0) return true;
-  if (/rest|volno|off day/i.test(title)) return true;
-  return false;
+  return duration == null || Number(duration) === 0;
 }
 
-export function planStatusForDate(dIso: string, todayIso: string, actId: number | null): PlanStatus {
+export function planStatusForDate(
+  dIso: string,
+  todayIso: string,
+  actId: number | null,
+): PlanStatus {
   if (actId) return "done";
   return dIso < todayIso ? "missed" : "planned";
 }

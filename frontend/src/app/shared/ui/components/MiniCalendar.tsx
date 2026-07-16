@@ -188,15 +188,13 @@ export default function MiniCalendar({
       const k = String(p.plan_date ?? "").slice(0, 10);
       if (!k || !map.has(k)) continue;
 
-      const title = String(p.title || "").toLowerCase();
-      const sType = String(p.session_type || "").toLowerCase();
       const sport = safeSportKey(p.sport || "other");
       const duration = p.duration_min ?? null;
       
       // 🌟 Reálny status z databázy
       const status = p.status || "planned"; 
 
-      const isRest = sType === "rest" || title.startsWith("rest") || duration === 0;
+      const isRest = duration == null || Number(duration) === 0;
       const arr = map.get(k)!;
 
       if (content === "plan") {
