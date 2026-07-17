@@ -2668,7 +2668,7 @@ export const en = {
       },
     },
 
-    routeMatch: {
+        routeMatch: {
       sectionTitle: "Route",
       assign: "Assign to route",
       confirm: "Assign",
@@ -2687,7 +2687,9 @@ export const en = {
       pageEmpty: "No named routes yet. Assign one from an activity detail.",
       activitiesCount: "runs",
       bestTime: "Best time",
+      trendTitle: "Pace & HR trend",
     },
+
     detail: {
       btnFavoriteSet: "Add to favorites",
       btnFavoriteUnset: "In favorites",
