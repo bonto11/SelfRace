@@ -2684,7 +2684,9 @@ export const sk = {
       paceChange: "Zmena tempa",
       hrChange: "Zmena tepu",
       vs: "vs",
-    },
+      wasFaster: "bol rýchlejší", 
+      hadLowerHr: "mal nižší tep",
+      },
 
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
