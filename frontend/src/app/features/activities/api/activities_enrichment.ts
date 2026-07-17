@@ -62,7 +62,6 @@ export async function apiRerunActivityReview(
       };
     }
 
-    // Skontrolujeme, či samotný status Jobu neskončil chybou
     const jobStatus = runJson?.data?.status || runJson?.job?.status || runJson?.status;
     if (jobStatus === "failed" || jobStatus === "error") {
       return {
@@ -263,6 +262,7 @@ export type RouteMatchComparison = {
     elevation_gain_m: number | null;
     moving_time_s: number | null;
     avg_hr_bpm: number | string | null;
+    average_speed_mps: number | null;
     sport_type_fe: string | null;
     updated_at: string | null;
   }>;
