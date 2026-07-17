@@ -28,10 +28,7 @@ import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { SectionSplits } from "./SectionSplits";
-import {
-  SectionBestSegments,
-  hasAnyBestSegment,
-} from "./SectionBestSegments";
+import { SectionBestSegments, hasAnyBestSegment } from "./SectionBestSegments";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -177,11 +174,7 @@ export function ActivitySectionShell({
   );
 }
 
-export function ActivitySessionDetail({
-  item,
-  compactChart,
-  onOpenActivity,
-}: any) {
+export function DetailActivity({ item, compactChart, onOpenActivity }: any) {
   const act = item;
   const t = useT();
   const { userId } = useUserId();
@@ -438,10 +431,7 @@ export function ActivitySessionDetail({
       )}
 
       {!!act.activityId && (
-        <SectionReview
-          item={act}
-          activityId={Number(act.activityId)}
-        />
+        <SectionReview item={act} activityId={Number(act.activityId)} />
       )}
 
       {hasValidStreamsForChart && (
