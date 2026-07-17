@@ -2657,7 +2657,7 @@ export const sk = {
       },
     },
 
-    routeMatch: {
+        routeMatch: {
       sectionTitle: "Trasa",
       assign: "Priradiť k trase",
       confirm: "Priradiť",
@@ -2677,6 +2677,7 @@ export const sk = {
         "Zatiaľ nemáš pomenovanú žiadnu trať. Priraď ju v detaile aktivity.",
       activitiesCount: "behov",
       bestTime: "Najlepší čas",
+      trendTitle: "Vývoj tempa a tepu",
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
