@@ -3,8 +3,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,13 +16,23 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { CARD, SURFACE_CARD_STYLE } from "@/app/shared/ui/tokens";
+import { CARD, SURFACE_CARD_STYLE, CHART_HR } from "@/app/shared/ui/tokens";
 import {
   apiGetRouteOverview,
   apiCompareRouteMatch,
   type RouteOverviewEntry,
   type RouteMatchComparison,
 } from "@/app/features/activities/api/activities_enrichment";
+import { apiFetchActivityStreams } from "@/app/features/activities/api/analytics_activities";
+import {
+  resampleStreamByDistance,
+  resampleByElevationMatch,
+  shouldUseElevationAlignment,
+  mergeSeriesForChart,
+  average,
+  pctChange,
+  type ResampledSeries,
+} from "@/app/features/activities/utils/routeStreamCompare";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
 import { formatDistance } from "@/app/shared/utils/distance";
 
@@ -31,20 +42,11 @@ const SPORT_ICON: Record<string, string> = {
   swim: "🏊",
 };
 
+const LINE_COLORS = [appColors.chartRun, appColors.chartBike];
+
+const MAX_OVERLAY_ACTIVITIES = 2;
+
 /* ─── HELPERS ─── */
-
-function formatPaceFromSpeed(speedMps: number | null | undefined): string | null {
-  if (!speedMps || speedMps <= 0) return null;
-  const secPerKm = 1000 / speedMps;
-  const minutes = Math.floor(secPerKm / 60);
-  const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
-  return `${minutes}:${seconds}/km`;
-}
-
-function paceSecondsFromSpeed(speedMps: number | null | undefined): number | null {
-  if (!speedMps || speedMps <= 0) return null;
-  return 1000 / speedMps;
-}
 
 function formatSecondsAsPace(sec: number): string {
   const minutes = Math.floor(sec / 60);
@@ -97,30 +99,81 @@ function RouteListRow({
   );
 }
 
-/* ─── TREND CHART (tempo naprieč behmi, chronologicky) ─── */
+/* ─── LEGENDA (klikateľná - zapnúť/vypnúť krivku) ─── */
 
-function PaceTrendChart({
-  activities,
+function RunLegend({
+  labels,
+  visible,
+  onToggle,
 }: {
-  activities: RouteMatchComparison["activities"];
+  labels: string[];
+  visible: boolean[];
+  onToggle: (idx: number) => void;
 }) {
-  const t = useT();
+  return (
+    <div style={{ display: "flex", gap: 12, padding: "0 16px 8px", flexWrap: "wrap" }}>
+      {labels.map((label, idx) => (
+        <button
+          key={idx}
+          type="button"
+          onClick={() => onToggle(idx)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            background: "transparent",
+            border: "none",
+            padding: "3px 6px",
+            borderRadius: 6,
+            cursor: "pointer",
+            opacity: visible[idx] ? 1 : 0.35,
+          }}
+        >
+          <span
+            style={{
+              width: 10,
+              height: 2,
+              background: LINE_COLORS[idx % LINE_COLORS.length],
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 11, color: appColors.textMuted }}>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  const chartData = useMemo(() => {
-    return [...activities]
-      .filter((a) => a.average_speed_mps != null)
-      .sort((a, b) => (a.updated_at ?? "").localeCompare(b.updated_at ?? ""))
-      .map((a) => ({
-        date: fmtShortDate(a.updated_at),
-        paceSec: paceSecondsFromSpeed(a.average_speed_mps),
-      }))
-      .filter((d) => d.paceSec != null);
-  }, [activities]);
+/* ─── OVERLAY CHART (jeden metrický graf, N kriviek podľa vzdialenosti) ─── */
 
-  if (chartData.length < 2) return null;
+function OverlayChart({
+  title,
+  data,
+  dataKeyPrefix,
+  reversedY,
+  valueFormatter,
+  activityCount,
+  areaFill,
+  visible,
+}: {
+  title: string;
+  data: Record<string, any>[];
+  dataKeyPrefix: "hr" | "pace" | "elevation";
+  reversedY?: boolean;
+  valueFormatter: (v: number) => string;
+  activityCount: number;
+  areaFill?: boolean;
+  visible: boolean[];
+}) {
+  const hasAnyData = data.some((row) =>
+    Array.from({ length: activityCount }).some(
+      (_, idx) => row[`${dataKeyPrefix}_${idx}`] != null,
+    ),
+  );
+  if (!hasAnyData) return null;
 
   return (
-    <div style={{ padding: "8px 16px 16px" }}>
+    <div style={{ padding: "8px 16px 12px" }}>
       <div
         style={{
           fontSize: 11,
@@ -128,28 +181,31 @@ function PaceTrendChart({
           textTransform: "uppercase",
           letterSpacing: "0.04em",
           color: appColors.textMuted,
-          marginBottom: 8,
+          marginBottom: 6,
         }}
       >
-        {t("sessions.routeMatch.paceTrend")}
+        {title}
       </div>
-      <div style={{ width: "100%", height: 140 }}>
+      <div style={{ width: "100%", height: 130 }}>
         <ResponsiveContainer>
-          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={appColors.divider} vertical={false} />
             <XAxis
-              dataKey="date"
-              tick={{ fontSize: 11, fill: appColors.textMuted }}
+              dataKey="distanceKm"
+              type="number"
+              domain={["dataMin", "dataMax"]}
+              tick={{ fontSize: 10, fill: appColors.textMuted }}
               axisLine={{ stroke: appColors.divider }}
               tickLine={false}
+              tickFormatter={(v) => `${v} km`}
             />
             <YAxis
-              reversed
-              tick={{ fontSize: 11, fill: appColors.textMuted }}
+              reversed={reversedY}
+              tick={{ fontSize: 10, fill: appColors.textMuted }}
               axisLine={false}
               tickLine={false}
               width={40}
-              tickFormatter={(v) => formatSecondsAsPace(v)}
+              tickFormatter={(v) => valueFormatter(v)}
             />
             <Tooltip
               contentStyle={{
@@ -158,19 +214,141 @@ function PaceTrendChart({
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              labelStyle={{ color: appColors.textMuted }}
-              formatter={(value: any) => [`${formatSecondsAsPace(Number(value))}/km`, ""]}
+              labelFormatter={(v) => `${v} km`}
+              formatter={(value: any) => [valueFormatter(Number(value)), ""]}
             />
-            <Line
-              type="monotone"
-              dataKey="paceSec"
-              stroke={appColors.chartRun}
-              strokeWidth={2}
-              dot={{ r: 3, fill: appColors.chartRun }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
+            {Array.from({ length: activityCount }).map((_, idx) => {
+              if (!visible[idx]) return null;
+              return areaFill ? (
+                <Area
+                  key={idx}
+                  type="monotone"
+                  dataKey={`${dataKeyPrefix}_${idx}`}
+                  stroke={LINE_COLORS[idx % LINE_COLORS.length]}
+                  fill={LINE_COLORS[idx % LINE_COLORS.length]}
+                  fillOpacity={0.08}
+                  strokeWidth={1.5}
+                  connectNulls
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              ) : (
+                <Line
+                  key={idx}
+                  type="monotone"
+                  dataKey={`${dataKeyPrefix}_${idx}`}
+                  stroke={LINE_COLORS[idx % LINE_COLORS.length]}
+                  strokeWidth={2}
+                  connectNulls
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              );
+            })}
+          </ComposedChart>
         </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ─── SUMÁR ZMENY (posledny vs predposledny beh) ─── */
+
+function ChangeSummary({
+  currentLabel,
+  previousLabel,
+  paceChangePct,
+  paceChangeSec,
+  hrChangePct,
+}: {
+  currentLabel: string;
+  previousLabel: string;
+  paceChangePct: number | null;
+  paceChangeSec: number | null;
+  hrChangePct: number | null;
+}) {
+  const t = useT();
+
+  if (paceChangePct == null && hrChangePct == null) return null;
+
+  // paceChangePct < 0 znamená current (najnovší dátum) má NIŽŠIE sekundy/km
+  // = RÝCHLEJŠIE tempo ako previous. Formulujeme explicitne, aby nebolo
+  // treba počítať smer v hlave.
+  const paceFasterLabel = paceChangePct != null && paceChangePct < 0 ? currentLabel : previousLabel;
+  const hrLowerLabel = hrChangePct != null && hrChangePct < 0 ? currentLabel : previousLabel;
+
+  return (
+    <div style={{ padding: "0 16px 12px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        {paceChangePct != null && (
+          <div
+            style={{
+              flex: 1,
+              minWidth: 160,
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: appColors.backgroundAlt,
+              border: `1px solid ${appColors.surfaceCardBorder}`,
+            }}
+          >
+            <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
+              {t("sessions.routeMatch.paceChange")}
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "#4ade80",
+                marginTop: 2,
+              }}
+            >
+              {paceFasterLabel} {Math.abs(paceChangePct).toFixed(1)}%
+            </div>
+            {paceChangeSec != null && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#4ade80", marginTop: 1 }}>
+                −{formatSecondsAsPace(Math.abs(paceChangeSec))} /km
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
+              {t("sessions.routeMatch.wasFaster")}
+            </div>
+          </div>
+        )}
+        {hrChangePct != null && (
+          <div
+            style={{
+              flex: 1,
+              minWidth: 160,
+              padding: "10px 12px",
+              borderRadius: 10,
+              background: appColors.backgroundAlt,
+              border: `1px solid ${appColors.surfaceCardBorder}`,
+            }}
+          >
+            <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
+              {t("sessions.routeMatch.hrChange")}
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "#4ade80",
+                marginTop: 2,
+              }}
+            >
+              {hrLowerLabel} {Math.abs(hrChangePct).toFixed(1)}%
+            </div>
+            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
+              {t("sessions.routeMatch.hadLowerHr")}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -178,9 +356,112 @@ function PaceTrendChart({
 
 /* ─── COMPARISON PANEL ─── */
 
-function ComparisonPanel({ comparison }: { comparison: RouteMatchComparison }) {
+function ComparisonPanel({
+  comparison,
+  userId,
+}: {
+  comparison: RouteMatchComparison;
+  userId: number;
+}) {
   const t = useT();
   const { activities, stats } = comparison;
+
+  const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
+  const [overlayLoading, setOverlayLoading] = useState(false);
+
+  // Posledné N aktivít (activities už prichádzajú zoradené od najnovšej z BE)
+  const targetActivities = useMemo(
+    () => activities.slice(0, MAX_OVERLAY_ACTIVITIES),
+    [activities],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    if (targetActivities.length < 2) {
+      setOverlaySeries(null);
+      return;
+    }
+
+    setOverlayLoading(true);
+    Promise.all(
+      targetActivities.map((a) =>
+        apiFetchActivityStreams(userId, a.activity_id, true).catch(() => null),
+      ),
+    )
+      .then((results) => {
+        if (!alive) return;
+
+        const rawStreamsList = results.map((r) => r?.streams ?? null);
+
+        // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
+        // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
+        // na 10km) - na plochých tratiach by to len pridávalo šum, tam
+        // postačí jednoduché zarovnanie podľa vzdialenosti.
+        if (
+          rawStreamsList.length === 2 &&
+          rawStreamsList[0] &&
+          rawStreamsList[1] &&
+          shouldUseElevationAlignment(rawStreamsList[0])
+        ) {
+          const { reference, matched } = resampleByElevationMatch(
+            rawStreamsList[0],
+            rawStreamsList[1],
+          );
+          setOverlaySeries([reference, matched]);
+          return;
+        }
+
+        const series = rawStreamsList.map((s) => (s ? resampleStreamByDistance(s) : []));
+        setOverlaySeries(series);
+      })
+      .finally(() => {
+        if (alive) setOverlayLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [targetActivities, userId]);
+
+  const chartData = useMemo(
+    () => (overlaySeries ? mergeSeriesForChart(overlaySeries) : []),
+    [overlaySeries],
+  );
+
+  if (process.env.NODE_ENV !== "production" && overlaySeries) {
+    console.log("[ComparisonPanel][debug]", {
+      overlaySeriesLengths: overlaySeries.map((s) => s.length),
+      overlaySeriesSample: overlaySeries.map((s) => s.slice(0, 3)),
+      chartDataSample: chartData.slice(0, 5),
+    });
+  }
+
+  const legendLabels = targetActivities.map((a) => fmtShortDate(a.updated_at));
+
+  const [visible, setVisible] = useState<boolean[]>([]);
+  useEffect(() => {
+    setVisible(targetActivities.map(() => true));
+  }, [targetActivities]);
+
+  const toggleVisible = (idx: number) => {
+    setVisible((prev) => prev.map((v, i) => (i === idx ? !v : v)));
+  };
+
+  const changeStats = useMemo(() => {
+    if (!overlaySeries || overlaySeries.length < 2) return null;
+    // index 0 = najnovšia (current), index 1 = predchádzajúca (previous)
+    const currentPace = average(overlaySeries[0].map((p) => p.paceSecPerKm));
+    const previousPace = average(overlaySeries[1].map((p) => p.paceSecPerKm));
+    const currentHr = average(overlaySeries[0].map((p) => p.hr));
+    const previousHr = average(overlaySeries[1].map((p) => p.hr));
+
+    return {
+      paceChangePct: pctChange(currentPace, previousPace),
+      paceChangeSec:
+        currentPace != null && previousPace != null ? currentPace - previousPace : null,
+      hrChangePct: pctChange(currentHr, previousHr),
+    };
+  }, [overlaySeries]);
 
   return (
     <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginTop: 12 }}>
@@ -202,61 +483,85 @@ function ComparisonPanel({ comparison }: { comparison: RouteMatchComparison }) {
         </div>
       </div>
 
-      <PaceTrendChart activities={activities} />
+      {overlayLoading && (
+        <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
+          <LoadingSpinner size="widget" />
+        </div>
+      )}
 
-      <div>
-        {activities.map((a) => {
-          const pace = formatPaceFromSpeed(a.average_speed_mps);
-          const hr =
-            a.avg_hr_bpm != null && Number(a.avg_hr_bpm) > 0
-              ? `${Math.round(Number(a.avg_hr_bpm))} bpm`
-              : null;
+      {!overlayLoading && overlaySeries && targetActivities.length >= 2 && (
+        <>
+          <RunLegend labels={legendLabels} visible={visible} onToggle={toggleVisible} />
 
-          return (
-            <div
-              key={a.activity_id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 16px",
-                borderTop: `1px solid ${appColors.divider}`,
-                gap: 12,
-              }}
-            >
-              <span style={{ fontSize: 13, color: appColors.textMuted, flexShrink: 0 }}>
-                {fmtShortDate(a.updated_at)}
-              </span>
+          {changeStats && (
+            <ChangeSummary
+              currentLabel={legendLabels[0]}
+              previousLabel={legendLabels[1]}
+              paceChangePct={changeStats.paceChangePct}
+              paceChangeSec={changeStats.paceChangeSec}
+              hrChangePct={changeStats.hrChangePct}
+            />
+          )}
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "baseline",
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
-              >
-                {a.moving_time_s != null && (
-                  <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
-                    {fmtSecondsHMS(a.moving_time_s)}
-                  </span>
-                )}
-                {pace && (
-                  <span style={{ fontSize: 12, color: appColors.textMuted }}>{pace}</span>
-                )}
-                {hr && (
-                  <span style={{ fontSize: 12, color: appColors.textMuted }}>❤️ {hr}</span>
-                )}
-                {a.elevation_gain_m != null && a.elevation_gain_m > 0 && (
-                  <span style={{ fontSize: 12, color: appColors.textMuted }}>
-                    ↗ {Math.round(a.elevation_gain_m)} m
-                  </span>
-                )}
-              </div>
+          <OverlayChart
+            title={t("sessions.routeMatch.chartHr")}
+            data={chartData}
+            dataKeyPrefix="hr"
+            valueFormatter={(v) => `${Math.round(v)}`}
+            activityCount={targetActivities.length}
+            areaFill
+            visible={visible}
+          />
+          <OverlayChart
+            title={t("sessions.routeMatch.chartPace")}
+            data={chartData}
+            dataKeyPrefix="pace"
+            reversedY
+            valueFormatter={(v) => formatSecondsAsPace(v)}
+            activityCount={targetActivities.length}
+            visible={visible}
+          />
+          <OverlayChart
+            title={t("sessions.routeMatch.chartElevation")}
+            data={chartData}
+            dataKeyPrefix="elevation"
+            valueFormatter={(v) => `${Math.round(v)} m`}
+            activityCount={targetActivities.length}
+            areaFill
+            visible={visible}
+          />
+        </>
+      )}
+
+      <div style={{ marginTop: overlaySeries ? 4 : 0 }}>
+        {activities.map((a) => (
+          <div
+            key={a.activity_id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 16px",
+              borderTop: `1px solid ${appColors.divider}`,
+            }}
+          >
+            <span style={{ fontSize: 13, color: appColors.textMuted }}>
+              {fmtShortDate(a.updated_at)}
+            </span>
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+              {a.moving_time_s != null && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+                  {fmtSecondsHMS(a.moving_time_s)}
+                </span>
+              )}
+              {a.distance_m != null && (
+                <span style={{ fontSize: 12, color: appColors.textMuted }}>
+                  {formatDistance(a.distance_m)}
+                </span>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -338,7 +643,9 @@ export default function DetailRouteMatch() {
         </div>
       )}
 
-      {!comparisonLoading && comparison && <ComparisonPanel comparison={comparison} />}
+      {!comparisonLoading && comparison && userId && (
+        <ComparisonPanel comparison={comparison} userId={Number(userId)} />
+      )}
     </>
   );
 }
