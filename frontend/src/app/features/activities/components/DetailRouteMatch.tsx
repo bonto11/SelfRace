@@ -26,6 +26,8 @@ import {
 import { apiFetchActivityStreams } from "@/app/features/activities/api/analytics_activities";
 import {
   resampleStreamByDistance,
+  resampleByElevationMatch,
+  shouldUseElevationAlignment,
   mergeSeriesForChart,
   average,
   pctChange,
@@ -349,9 +351,28 @@ function ComparisonPanel({
     )
       .then((results) => {
         if (!alive) return;
-        const series = results.map((r) =>
-          r?.streams ? resampleStreamByDistance(r.streams) : [],
-        );
+
+        const rawStreamsList = results.map((r) => r?.streams ?? null);
+
+        // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
+        // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
+        // na 10km) - na plochých tratiach by to len pridávalo šum, tam
+        // postačí jednoduché zarovnanie podľa vzdialenosti.
+        if (
+          rawStreamsList.length === 2 &&
+          rawStreamsList[0] &&
+          rawStreamsList[1] &&
+          shouldUseElevationAlignment(rawStreamsList[0])
+        ) {
+          const { reference, matched } = resampleByElevationMatch(
+            rawStreamsList[0],
+            rawStreamsList[1],
+          );
+          setOverlaySeries([reference, matched]);
+          return;
+        }
+
+        const series = rawStreamsList.map((s) => (s ? resampleStreamByDistance(s) : []));
         setOverlaySeries(series);
       })
       .finally(() => {
