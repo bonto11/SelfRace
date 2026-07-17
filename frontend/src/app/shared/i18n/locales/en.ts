@@ -2694,6 +2694,8 @@ export const en = {
       paceChange: "Pace change",
       hrChange: "HR change",
       vs: "vs",
+      wasFaster: "was faster", 
+      hadLowerHr: "had lower HR",
     },
 
 
