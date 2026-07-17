@@ -41,14 +41,6 @@ export default function SectionRouteMatch({ activityId, onOpenComparison }: Prop
     try {
       const out = await apiGetRouteMatchOptions(Number(userId), activityId);
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[SectionRouteMatch][debug]", {
-          userId,
-          activityId,
-          response: out,
-        });
-      }
-
       setOptions(out);
     } finally {
       setLoading(false);
@@ -166,7 +158,7 @@ export default function SectionRouteMatch({ activityId, onOpenComparison }: Prop
               {t("sessions.routeMatch.confirm")}
             </Button>
             <Button size="xs" variant="ghost" disabled={busy} onClick={handleRejectSuggestion}>
-              {t("common.cancel") || "Zrušiť"}
+              {t("common.cancel")}
             </Button>
             <Button
               size="xs"
@@ -223,7 +215,7 @@ export default function SectionRouteMatch({ activityId, onOpenComparison }: Prop
               }}
               disabled={busy}
             >
-              {t("common.cancel") || "Zrušiť"}
+              {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -237,7 +229,7 @@ export default function SectionRouteMatch({ activityId, onOpenComparison }: Prop
                 handleConfirm(selectedName === NEW_ROUTE_VALUE ? newName : selectedName)
               }
             >
-              {busy ? t("common.saving") || "Ukladám..." : t("common.save") || "Uložiť"}
+              {busy ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </div>
