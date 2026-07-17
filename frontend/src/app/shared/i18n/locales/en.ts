@@ -2668,7 +2668,7 @@ export const en = {
       },
     },
 
-        routeMatch: {
+            routeMatch: {
       sectionTitle: "Route",
       assign: "Assign to route",
       confirm: "Assign",
@@ -2688,7 +2688,14 @@ export const en = {
       activitiesCount: "runs",
       bestTime: "Best time",
       trendTitle: "Pace & HR trend",
+      chartHr: "Heart rate (bpm)",
+      chartPace: "Pace (min/km)",
+      chartElevation: "Elevation (m)",
+      paceChange: "Pace change",
+      hrChange: "HR change",
+      vs: "vs",
     },
+
 
     detail: {
       btnFavoriteSet: "Add to favorites",
