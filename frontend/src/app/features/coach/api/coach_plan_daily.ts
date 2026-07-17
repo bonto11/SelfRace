@@ -217,3 +217,23 @@ export async function apiSessionPreviewAsk(
     body: JSON.stringify({ comment, request_change: requestChange }),
   });
 }
+
+export async function apiGetPlanByActivityId(
+  userId: number,
+  activityId: number
+): Promise<DailyPlanSession | null> {
+  if (!userId || !activityId) return null;
+
+  const path = `/coach-plan-daily/by-activity/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(activityId))}`;
+
+  try {
+    const json = await callBackend<any>(path, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return json?.success ? (json.data as DailyPlanSession | null) : null;
+  } catch (err: any) {
+    console.error("[Coach][apiGetPlanByActivityId] ERROR", err);
+    return null;
+  }
+}

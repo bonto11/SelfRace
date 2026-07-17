@@ -120,6 +120,29 @@ def _time_format_rule() -> str:
     )
 
 
+def _terminology_rule(lang_label: str) -> str:
+    """
+    Zabraňuje AI substitúcii sémanticky/foneticky podobných, ale nesprávnych
+    slov v generovanom texte (reply_text, updated_title, updated_notes) —
+    bežná chyba LLM pri generovaní v slovenčine/češtine.
+    Rovnaké pravidlo ako v daily_plan/prompts.py.
+    """
+    return (
+        "- WORD ACCURACY (CRITICAL): Use ONLY standard, correct sport/anatomy terminology. "
+        "Before finalizing any text, double-check every word is the one you actually meant — "
+        "LLMs sometimes substitute a phonetically or visually similar but WRONG word (a known "
+        "failure mode), especially in Slovak/Czech.\n"
+        "  Examples of this exact mistake to AVOID:\n"
+        "  - Slovak: 'nohy' (legs) MUST NOT become 'nohavice' (trousers/pants).\n"
+        "  - Slovak: 'ruky'/'ramená' (arms/shoulders) MUST NOT become unrelated clothing words.\n"
+        "  - Czech: 'nohy' (legs) MUST NOT become 'nohavice' (kalhoty).\n"
+        "  - Do not invent or drift into clothing, furniture, or unrelated nouns when describing "
+        "body parts, muscle groups, or exercise focus areas.\n"
+        f"  Re-read each generated {lang_label} sentence once and confirm every noun matches "
+        "its intended meaning before including it in the output.\n"
+    )
+
+
 def _canonical_sport(s: Any) -> str:
     """Normalizuje sport na run/ride/strength/swim/other."""
     if not s:
@@ -149,23 +172,40 @@ def _system_prompt(sport: str) -> str:
     return base
 
 
-def _mode_rule(request_change: bool) -> str:
-    """
-    Kľúčové rozlíšenie: bez zmeny (len rada/vysvetlenie) vs. so zmenou
-    (upraví sa structure/duration_min/notes tejto JEDNEJ session).
-    """
+def _mode_rule(request_change: bool, has_strength_catalog: bool = False) -> str:
     if not request_change:
         return (
             "\n--- MODE: ADVICE ONLY (NO CHANGE) ---\n"
             "The athlete wants advice, an explanation, or a question answered about this "
             "upcoming session. They have NOT requested a change.\n"
             "- Set 'changed' to false.\n"
-            "- Set 'updated_structure', 'updated_duration_min', and 'updated_notes' to null.\n"
+            "- Set 'updated_title', 'updated_structure', 'updated_duration_min', and 'updated_notes' to null.\n"
             "- Answer helpfully in 'reply_text': explain pacing, how to approach the session, "
             "adjust for how they feel, fatigue, etc. — but the plan itself stays as-is.\n"
             "- If their message actually implies they want a change but forgot to request it, "
             "gently tell them to check the 'change this session' option and resend.\n"
         )
+
+    strength_rule = (
+        "- STRENGTH SESSIONS: 'updated_structure' for a strength session uses the SAME shape as "
+        "the original ('activation', 'strength_main_part', 'add_ons' arrays of exercise_id/sets/reps/"
+        "rest_s/notes). You MAY change the exercise selection (exercise_id) if the athlete asked for "
+        "a different focus (e.g. 'more upper body', 'skip squats, my knee hurts'). "
+        + (
+            "ONLY use exercise_id values that appear in 'context.strength_catalog' (each entry has "
+            "'id' and 'target' — match the target muscle group/focus the athlete wants). NEVER invent "
+            "an exercise_id not in that list. If none of the available exercises fit what the athlete "
+            "asked for, do NOT guess: keep 'updated_structure' null, set 'changed' to false, and "
+            "explain in 'reply_text' what focus/adjustment you'd suggest instead.\n"
+            if has_strength_catalog
+            else
+            "'context.strength_catalog' is NOT available for this request, so you do NOT have the list "
+            "of valid exercise_id values — do NOT invent or guess any exercise_id. Keep 'updated_structure' "
+            "null, set 'changed' to false, and instead describe in 'reply_text' what focus/adjustment "
+            "(e.g. muscle group, intensity) you'd suggest, in words only.\n"
+        )
+    )
+
     return (
         "\n--- MODE: REQUEST CHANGE (THIS SESSION ONLY) ---\n"
         "The athlete has explicitly asked to modify THIS SINGLE SESSION. You MAY update it.\n"
@@ -174,7 +214,13 @@ def _mode_rule(request_change: bool) -> str:
         "- If the requested change is reasonable and safe given the athlete's recovery/wellness "
         "context, apply it: set 'changed' to true and fill 'updated_structure' (same shape as the "
         "original 'session.structure'), 'updated_duration_min', and 'updated_notes'.\n"
-        "- If the change is unsafe or doesn't make sense (e.g. asking for a much harder session "
+        "- CRITICAL: 'updated_title' MUST also reflect the new session type whenever the nature "
+        "of the session changes (e.g. original title 'Prahový beh - Z4 tempo' becomes something "
+        "like 'Ľahký regeneračný beh' if the athlete asked to make it easy). The title must never "
+        "be left describing the OLD session type after a change — this is a common mistake, avoid it. "
+        "If the sport/focus genuinely didn't change, you may keep the title as-is.\n"
+        + strength_rule
+        + "- If the change is unsafe or doesn't make sense (e.g. asking for a much harder session "
         "right after reporting exhaustion), set 'changed' to false, explain why in 'reply_text', "
         "and suggest a safer alternative in words only.\n"
         "- If the request actually needs changes across MULTIPLE days (e.g. 'I'm on vacation next "
@@ -207,6 +253,7 @@ def _schema(lang: str) -> str:
   "model": "string",
   "reply_text": "FREE TEXT, 2-4 sentences, {lang}. Direct, conversational reply to the athlete's message.",
   "changed": boolean,
+  "updated_title": "string | null — short session title in {lang} (e.g. 'Ľahký beh', 'Intervaly 6x400m'), MUST be updated whenever the session type/nature changes so it matches the new structure",
   "updated_duration_min": number | null,
   "updated_notes": "string | null — short session summary in {lang}, same role as original session.notes",
   "updated_structure": object | null
@@ -250,6 +297,14 @@ def build_prompts_for_session_preview(
     thread_ctx = (context_for_llm.get("context") or {}).get("preview_thread") or []
     conversation_note = _conversation_rule(thread_ctx)
 
+    # Katalóg cvikov je v context_payload["context"]["strength_catalog"] len keď
+    # sport === "strength" AND request_change === True (nastavuje builders.py) —
+    # posiela sa podmienene, aby sa nezbytočne neplytvali tokeny pri iných športoch
+    # alebo pri "len poraď" dopyte.
+    has_strength_catalog = bool(
+        (context_for_llm.get("context") or {}).get("strength_catalog")
+    )
+
     user_txt = (
         f"The athlete is asking about their upcoming {resolved_sport.upper()} session.\n\n"
         "CONTEXT_JSON:\n"
@@ -261,7 +316,8 @@ def build_prompts_for_session_preview(
         f"- {second_person_note}\n"
         + name_rule
         + _time_format_rule()
-        + _mode_rule(request_change)
+        + _terminology_rule(lang_label)
+        + _mode_rule(request_change, has_strength_catalog=has_strength_catalog)
         + conversation_note
         + "\n- Return ONLY raw JSON."
     )

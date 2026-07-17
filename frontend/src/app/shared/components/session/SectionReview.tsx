@@ -1,4 +1,4 @@
-// src/app/features/activities/components/ActivityReviewSection.tsx
+// src/app/features/activities/components/SectionReview.tsx
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -22,11 +22,11 @@ import {
   MAX_COMMENT_CHARS,
 } from "@/app/shared/config";
 
-import type { ActivitySession } from "./SessionCard";
-import { ActivitySectionShell } from "./ActivitySessionDetail";
+import type { SessionItem } from "./SessionCard";
+import { ActivitySectionShell } from "./DetailActivity";
 
 type Props = {
-  item: ActivitySession;
+  item: SessionItem;
   activityId: number;
 };
 
@@ -226,7 +226,7 @@ function UserBubble({ entry, t }: { entry: UserEntry; t: any }) {
 
 /* ================= HLAVNÝ KOMPONENT ================= */
 
-export default function ActivityReviewSection({ item, activityId }: Props) {
+export default function SectionReview({ item, activityId }: Props) {
   const { userId } = useUserId();
   const t = useT();
   const { getSummary, getEnrichment } = useActivityData();
@@ -392,7 +392,7 @@ export default function ActivityReviewSection({ item, activityId }: Props) {
   return (
     <ActivitySectionShell
       title={t("sessions.review.title")}
-      defaultOpen={true}
+      defaultOpen={!hasReview && isEligible}
       items={[]}
     >
       <div className="flex items-center justify-between min-h-[32px]">

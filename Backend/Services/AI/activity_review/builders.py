@@ -1,4 +1,3 @@
-# Services/AI/activity_review/builders.py
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
@@ -17,7 +16,7 @@ from DB.user_zones import db_user_zones_fetch_latest
 from DB.users import db_get_user_display_name
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_get_latest_plan_meta_for_user
-from DB.coach_plan_daily import db_list_daily_for_user_horizon
+from DB.coach_plan_daily import db_list_daily_for_user_horizon, db_get_daily_session_by_activity_id
 from DB.user_prefs import db_get_pref_single
 
 from Modules.Supabase.auth import AuthCtx
@@ -290,6 +289,38 @@ def _minify_thread_for_ai(
     return out
 
 
+def _minify_preview_thread_for_ai(
+    thread: List[Dict[str, Any]], *, max_entries: int = THREAD_MAX_ENTRIES_FOR_AI
+) -> List[Dict[str, Any]]:
+    """
+    Osekáva pred-tréningový preview thread (konverzácia PRED vykonaním session,
+    napr. "som unavený, zľahči mi to") pre AI review. Tvar sa líši od review_thread
+    — reply_text/changed sú priamo na entry, nie vnorené v 'review' — preto
+    samostatná funkcia namiesto zdieľania s _minify_thread_for_ai.
+    """
+    if not thread:
+        return []
+    recent = thread[-max_entries:]
+    out: List[Dict[str, Any]] = []
+    for entry in recent:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role")
+        if role == "user":
+            out.append({
+                "role": "user",
+                "comment": entry.get("comment"),
+                "requested_change": bool(entry.get("request_change")),
+            })
+        elif role == "assistant":
+            out.append({
+                "role": "assistant",
+                "reply_text": entry.get("reply_text"),
+                "session_was_changed": bool(entry.get("changed")),
+            })
+    return out
+
+
 def _splits_max_items(sport: str) -> int:
     return SPLITS_MAX_ITEMS_RUN if sport == "run" else SPLITS_MAX_ITEMS_RIDE
 
@@ -437,7 +468,6 @@ def _build_activity_block_from_rows(
         },
     }
 
-    # Intensity label z zónových minút — úspornejší ako posielať celé zóny
     if include_intensity:
         z45 = (_round_float(enr_row.get("z4_min")) or 0) + (
             _round_float(enr_row.get("z5_min")) or 0
@@ -507,7 +537,6 @@ def _real_db_get_plans_for_today_tomorrow(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Načíta denný plán na dnes a zajtra z DB — pre kontext AI."""
     try:
-        # meta sa momentálne nepoužíva — načítame len daily rows
         daily_rows = db_list_daily_for_user_horizon(user_id=user_id, horizon_days=2, ctx=ctx) or []
         dt_today = datetime.strptime(date_str_today, "%Y-%m-%d")
         date_str_tomorrow = (dt_today + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -557,6 +586,7 @@ def build_base_input(user_id: int, activity_id: int) -> Dict[str, Any]:
             "plan_today": None,
             "plan_tomorrow": None,
             "review_thread": [],
+            "pre_session_conversation": [],
         },
     }
 
@@ -573,7 +603,9 @@ def build_input_from_db(
     """
     Hlavná funkcia buildera — zostaví kompletný context_payload pre AI
     z DB dát: aktivita, história, recovery, recent_load, zóny, plán, preferencie,
-    a predchádzajúci review thread (ak ide o reply na predošlé review).
+    predchádzajúci review thread (ak ide o reply na predošlé review), a
+    pred-tréningovú konverzáciu (session preview) ak bola aktivita namapovaná
+    na naplánovanú session, na ktorej prebehla konverzácia PRED tréningom.
     """
     input_data = build_base_input(user_id, activity_id)
 
@@ -601,6 +633,23 @@ def build_input_from_db(
         input_data["context"]["review_thread"] = _minify_thread_for_ai(existing_thread)
     except Exception as e:
         print(f"❌ [AI][builder] Failed to fetch review thread: {repr(e)}")
+
+    # Pred-tréningová konverzácia (session preview) — ak bola táto aktivita
+    # namapovaná na naplánovanú session, na ktorej prebehla konverzácia PRED
+    # tréningom (napr. "som unavený, zľahči mi to"), AI o nej musí vedieť,
+    # aby nesprávne neinterpretovalo zámerne zľahčený výkon ako zlyhanie.
+    try:
+        matched_session = db_get_daily_session_by_activity_id(
+            user_id=user_id, activity_id=activity_id, ctx=ctx
+        )
+        if matched_session:
+            preview_thread_raw = matched_session.get("preview_thread") or []
+            if preview_thread_raw:
+                input_data["context"]["pre_session_conversation"] = _minify_preview_thread_for_ai(
+                    preview_thread_raw
+                )
+    except Exception as e:
+        print(f"❌ [AI][builder] Failed to fetch matched session preview_thread: {repr(e)}")
 
     # Personalizácia: meno, pohlavie, zranenia
     try:
@@ -746,7 +795,6 @@ def build_input_from_db(
     sport = str(focus.get("sport") or "other")
 
     if int(activity_id) in ids_0_7:
-        # Streams — len ak globálne zapnuté
         focus["streams_minified"] = (
             _minify_streams_for_ai(
                 db_get_streams_one(
@@ -758,7 +806,6 @@ def build_input_from_db(
             else None
         )
 
-        # Splits a laps — len pre run/ride
         if _should_include_splits_laps(sport=sport, is_focus=True):
             try:
                 focus["splits_minified"] = _minify_splits(

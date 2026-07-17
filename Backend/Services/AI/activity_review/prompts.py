@@ -1,8 +1,7 @@
-# Services/AI/activity_review/prompts.py
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, List
 
 
 # ============================================================
@@ -27,7 +26,7 @@ def minify_activity_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     - z histórie zachová sport, intensity, duration, avg_hr (AI potrebuje vedieť záťaž)
     - odstráni splits/laps/streams z histórie (sú len pre focus aktivitu)
     - odstráni legacy hr_zones_bpm (user_zones sú dostačujúce)
-    - review_thread (ak existuje) ostáva — je to kontext na reply
+    - review_thread a pre_session_conversation (ak existujú) ostávajú — sú to kontexty na reply
     """
     out = json.loads(json.dumps(context, default=str))
 
@@ -84,8 +83,8 @@ def _lang_notes(
     """
     Vráti (jazyk_label, pravidlo_oslovovania, health_reminder) podľa nastavení a profilu.
     Podporuje sk/cs/en s rodovými pravidlami.
-    POZNÁMKA: address_rule už NEinštruuje AI aby vždy oslovovalo menom — to teraz
-    rieši samostatná _name_usage_rule() nižšie (meno len zriedka, nikdy ako opener).
+    Meno atléta sa TU už neinštruuje ako "vždy osloviť" — to rieši samostatná
+    _name_usage_rule() nižšie (meno len zriedka, nikdy ako opener).
     """
     lang = (settings.get("language") or "sk").lower()
     user_data = user_data or {}
@@ -167,6 +166,21 @@ def _name_usage_rule(nickname: Optional[str], lang: str) -> str:
         f"alebo povzbudenie po neúspechu. Nikdy ho nepoužívaj ako rutinný pozdrav.\n"
     )
 
+def _terminology_rule(lang_label: str) -> str:
+    """Rovnaké pravidlo ako v daily_plan/prompts.py — zabraňuje substitúcii
+    foneticky/sémanticky podobných ale nesprávnych slov (napr. 'nohy' -> 'nohavice')."""
+    return (
+        "- WORD ACCURACY (CRITICAL): Use ONLY standard, correct sport/anatomy terminology. "
+        "Before finalizing any text, double-check every word is the one you actually meant — "
+        "LLMs sometimes substitute a phonetically or visually similar but WRONG word (a known "
+        "failure mode), especially in Slovak/Czech.\n"
+        "  Examples of this exact mistake to AVOID:\n"
+        "  - Slovak: 'nohy' (legs) MUST NOT become 'nohavice' (trousers/pants).\n"
+        "  - Do not invent or drift into clothing, furniture, or unrelated nouns when describing "
+        "body parts, muscle groups, or exercise focus areas.\n"
+        f"  Re-read each generated {lang_label} sentence once and confirm every noun matches "
+        "its intended meaning before including it in the output.\n"
+    )
 
 def _canonical_sport(s: Any) -> str:
     """Normalizuje sport na run/ride/strength/swim/other."""
@@ -261,6 +275,46 @@ def _sport_rules(sport_key: str, is_race: bool = False) -> str:
     return "\n".join(common + ["- Identify session kind and evaluate intensity vs plan."])
 
 
+def _pre_session_conversation_rule(pre_session_ctx: List[Any]) -> str:
+    """
+    Ak existovala konverzácia PRED tréningom (session preview — atlét sa pýtal
+    alebo požiadal o zmenu ešte pred vykonaním), AI o nej musí vedieť pri
+    hodnotení výsledku, aby napr. zámerne zľahčený tréning neinterpretovalo
+    ako zlyhanie alebo nedostatočnú snahu.
+    """
+    if not pre_session_ctx:
+        return ""
+    return (
+        "\n--- PRE-SESSION CONVERSATION (IMPORTANT CONTEXT) ---\n"
+        "Before performing this session, the athlete had a conversation with the coach — "
+        "see 'context.pre_session_conversation' in CONTEXT_JSON (oldest first). "
+        "This may include questions about how to approach the session, or a requested "
+        "adjustment (marked 'requested_change': true / 'session_was_changed': true).\n"
+        "- If the session was adjusted or a lighter approach was advised BEFORE the session, "
+        "do NOT penalize or express concern about lower intensity/pace/effort that matches "
+        "what was actually discussed and agreed — that was the plan, not a shortfall.\n"
+        "- You may briefly acknowledge that the athlete followed (or diverged from) that "
+        "pre-session guidance if relevant to your review.\n"
+    )
+
+
+def _clarifying_question_rule() -> str:
+    """
+    AI môže položiť doplňujúcu otázku, ak je to skutočne potrebné pre lepšiu
+    analýzu — nie nanútene pri každej odpovedi, len keď dáta samy osebe nestačia
+    na kvalitné zhodnotenie (napr. nejasná príčina nezvyčajného poklesu výkonu).
+    """
+    return (
+        "\n--- OPTIONAL CLARIFYING QUESTION ---\n"
+        "If — and only if — something about this session is genuinely ambiguous or hard to "
+        "assess from the data alone (e.g. an unexplained performance drop, unusual HR pattern, "
+        "or a comment that raises a question you'd need answered to give good advice), you MAY "
+        "end 'review_text' with ONE short, natural follow-up question to the athlete. "
+        "Do NOT force a question into every review — most reviews need none. Only ask when it "
+        "would genuinely improve your next response or understanding of their situation.\n"
+    )
+
+
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
     review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
@@ -311,7 +365,8 @@ def build_prompts_for_activity_review(
     Minifikuje context, pridá jazykové pravidlá, schému a sport-špecifické rules.
     Ak je v contexte review_thread (predchádzajúce review + komentár usera),
     pridá inštrukciu aby AI reagovalo v kontexte konverzácie na posledný komentár,
-    nie izolovane/od začiatku.
+    nie izolovane/od začiatku. Ak je v contexte pre_session_conversation, informuje
+    AI o dohode pred tréningom. AI môže voliteľne položiť doplňujúcu otázku.
     """
     settings = settings or {}
     lang = (settings.get("language") or "sk").lower()
@@ -388,6 +443,12 @@ def build_prompts_for_activity_review(
                 "athlete's reply changes the picture. Do NOT repeat your previous analysis verbatim.\n"
             )
 
+    # Pred-tréningová konverzácia — dohoda/rada spred vykonania tejto session
+    pre_session_ctx = (context_for_llm.get("context") or {}).get("pre_session_conversation") or []
+    pre_session_note = _pre_session_conversation_rule(pre_session_ctx)
+
+    clarifying_note = _clarifying_question_rule()
+
     user_txt = (
         f"Analyze this {resolved_sport.upper()} session. "
         f"Mode: {'[PERFORMANCE AUDIT]' if actually_is_race else '[STANDARD REVIEW]'}\n\n"
@@ -399,11 +460,14 @@ def build_prompts_for_activity_review(
         f"- Language: {lang_label}\n"
         f"- {second_person_note}\n"
         + name_rule
+        + _terminology_rule(lang_label)
         + f"- HEALTH RULE: If the athlete mentions ANY pain, injury, sickness, or illness in their comment, "
         f"YOU MUST include this EXACT sentence in your review_text: '{health_reminder}'\n"
         + _sport_rules(sport_key, is_race=actually_is_race)
         + race_logic
         + conversation_note
+        + pre_session_note
+        + clarifying_note
         + "\n- Return ONLY raw JSON."
     )
 

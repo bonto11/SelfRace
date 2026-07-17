@@ -1,8 +1,8 @@
-// src/app/shared/components/session/BestsSessionDetail.tsx
+// src/app/shared/components/session/DetailBests.tsx
 "use client";
 
 import { ReactNode } from "react";
-import { ActivitySessionDetail } from "@/app/shared/components/session/ActivitySessionDetail";
+import { DetailActivity } from "@/app/shared/components/session/DetailActivity";
 import type { BestsSession } from "@/app/shared/components/session/SessionCard";
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
   onOpenActivity?: (activityId: number) => void;
 };
 
-export default function BestsSessionDetail({
+export default function DetailBests({
   item,
   kpiBlock,
   hasKpis,
@@ -21,7 +21,7 @@ export default function BestsSessionDetail({
   onOpenActivity,
 }: Props) {
   return (
-    <ActivitySessionDetail
+    <DetailActivity
       item={item as any}
       kpiBlock={kpiBlock}
       hasKpis={hasKpis}

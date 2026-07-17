@@ -1,4 +1,4 @@
-// src/app/shared/components/session/ActivitySplitsSection.tsx
+// src/app/shared/components/session/SectionSplits.tsx
 "use client";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
@@ -124,7 +124,7 @@ function makeHeightScaler(values: (number | null)[], minPx = 1, maxPx = 100) {
   };
 }
 
-export function ActivitySplitsSection({ kind }: Props) {
+export function SectionSplits({ kind }: Props) {
   const t = useT();
   const rows = buildRows(Array.isArray(kind) ? kind : []).filter(
     (r) => r.time_s != null,

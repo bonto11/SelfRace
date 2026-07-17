@@ -7,10 +7,13 @@ import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
 import SessionCard from "@/app/shared/components/session/SessionCard";
 
 import { buildDayBuckets } from "@/app/features/calendar/detail/buildDayBuckets";
+import { apiSaveDailyReschedule } from "@/app/features/coach/api/coach_plan_daily";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import { useUserId } from "@/app/shared/hooks/useUserId";
+import { toast } from "@/app/shared/ui/components/Toast";
 
 type Props = {
   selectedIso: string;
@@ -29,6 +32,7 @@ export default function DayDetail({
   safeSportKey,
 }: Props) {
   const t = useT();
+  const { userId } = useUserId();
   const { plan } = useCoachData();
   
   const { settings } = useSettings() as any;
@@ -73,6 +77,48 @@ export default function DayDetail({
       }),
     [selectedIso, actRows, filteredPlanRows, externalRows, safeSportKey, t],
   );
+
+  // 🌟 OPRAVA: predtým sa do planReschedule.dates posielalo len
+  // [plan.rangeStart, plan.rangeEnd] - dva krajné dátumy CELÉHO nahraného
+  // rozsahu (90 dní dozadu / 15 dopredu), takže SelectField ponúkal len tieto
+  // 2 extrémne hodnoty namiesto skutočných dní s plánom. Teraz vyberáme
+  // všetky reálne dni, na ktoré existuje aspoň jedna plán session (rovnaká
+  // logika ako v DetailDailyPlan.tsx), plus počet session na deň pre limit
+  // "max 2 za deň".
+  const { rescheduleDates, dayCounts } = React.useMemo(() => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    const isRestRow = (r: any) => {
+      const dur = r.duration_min;
+      return dur == null || Number(dur) === 0;
+    };
+
+    const counts: Record<string, number> = {};
+    let lastPlanDate: string | null = null;
+    for (const r of plan.rows) {
+      const d = String(r.plan_date ?? "").slice(0, 10);
+      if (!d || d < todayIso) continue;
+      if (!isRestRow(r)) {
+        counts[d] = (counts[d] ?? 0) + 1;
+      }
+      if (!lastPlanDate || d > lastPlanDate) lastPlanDate = d;
+    }
+
+    // Súvislý rozsah dní od dneška po posledný deň, na ktorý existuje
+    // vygenerovaný plán (nie len dni, ktoré už niečo majú) - aby sa dalo
+    // presunúť aj na "prázdny" deň v rámci vygenerovaného týždňa/plánu.
+    const dates: string[] = [];
+    if (lastPlanDate) {
+      let cur = new Date(todayIso);
+      const end = new Date(lastPlanDate);
+      while (cur <= end) {
+        dates.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    return { rescheduleDates: dates, dayCounts: counts };
+  }, [plan.rows]);
 
   const sectionStyle: React.CSSProperties = {
     color: appColors.textMuted,
@@ -143,9 +189,40 @@ export default function DayDetail({
                   onRefreshPlan={() => plan.refresh()}
                   planReschedule={{
                     enabled: true,
-                    dates: plan.rangeStart ? [plan.rangeStart, plan.rangeEnd] : [], 
+                    dates: rescheduleDates,
+                    dayCounts,
+                    maxPerDay: 2,
                     onChangeDate: async ({ sessionId, fromDate, toDate }) => {
-                       // Tu by mal ísť call na API ak to chceš presúvať priamo odtiaľto
+                       if (sessionId == null || !userId) return;
+                       try {
+                         const result = await apiSaveDailyReschedule(Number(userId), [
+                           { id: sessionId, from_date: fromDate, to_date: toDate },
+                         ]);
+                         if (process.env.NODE_ENV !== "production") {
+                           console.log("[DayDetail][reschedule-debug]", {
+                             sessionId,
+                             fromDate,
+                             toDate,
+                             userId,
+                             result,
+                           });
+                         }
+                       } catch (e: any) {
+                         if (process.env.NODE_ENV !== "production") {
+                           console.log("[DayDetail][reschedule-debug] ERROR", {
+                             sessionId,
+                             fromDate,
+                             toDate,
+                             userId,
+                             error: e,
+                             message: e?.message,
+                           });
+                         }
+                         toast.error(t(e?.message as any) || t("common.error"));
+                         return;
+                       }
+                       toast.success(t("common.done"));
+                       plan.refresh();
                     }
                   }}
                 />

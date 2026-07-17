@@ -1,4 +1,4 @@
-// src/app/shared/components/session/ActivityBestSegmentsSection.tsx
+// src/app/shared/components/session/SectionBestSegments.tsx
 "use client";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -68,7 +68,7 @@ const TILE_STYLE = {
   borderColor: appColors.surfaceCardBorder,
 };
 
-export function ActivityBestSegmentsSection({ enrichment, t }: Props) {
+export function SectionBestSegments({ enrichment, t }: Props) {
   const items = SEGMENT_DEFS
     .map((def) => {
       const raw = enrichment?.[def.key];

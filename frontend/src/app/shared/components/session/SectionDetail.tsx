@@ -1,4 +1,4 @@
-// src/app/shared/components/session/DetailSection.tsx
+// src/app/shared/components/session/SectionDetail.tsx
 "use client";
 
 import { ReactNode, useState, type CSSProperties } from "react";
@@ -18,7 +18,7 @@ type DetailSectionProps = {
 const BTN_CLASS = [SURFACE_INLINE, "w-full flex items-center justify-between px-3 py-2"].join(" ");
 const BTN_STYLE: CSSProperties = SURFACE_INLINE_STYLE;
 
-export default function DetailSection({
+export default function SectionDetail({
   title,
   children,
   defaultOpen = true,

@@ -225,6 +225,17 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
             current_date = str(row.get("plan_date") or "")[:10]
 
             if to_date == current_date: continue
+
+            # 🌟 Ak je na cieľovom dni existujúci "rest day" (duration_min NULL alebo 0),
+            # zmažeme ho pred presunom, aby v kalendári nevznikol duplicitný
+            # zápis (rest + reálny tréning na tom istom dni). Rest deň sa
+            # generuje automaticky, takže jeho zmazanie tu je bezpečné.
+            rest_row = db_get_rest_session_on_day(user_id=user_id, plan_date=to_date, ctx=ctx)
+            if rest_row and rest_row.get("id") is not None:
+                deleted = db_delete_daily_session(user_id=user_id, session_id=int(rest_row["id"]), ctx=ctx)
+                if not deleted:
+                    raise ValueError("rest_day_delete_failed")
+
             cnt = db_count_sessions_on_day(user_id=user_id, plan_date=to_date, ctx=ctx)
             if cnt >= int(max_per_day or 2): raise ValueError("target_day_full")
 
@@ -238,8 +249,27 @@ def db_reschedule_daily_sessions_bulk(user_id: int, *, moves: List[Dict[str, Any
 
     if errors: return {"ok": False, "updated": updated, "error": "some_moves_failed", "errors": errors}
     return {"ok": True, "updated": updated}
-    
-    
+
+def db_get_rest_session_on_day(user_id: int, plan_date: str, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Nájde rest-day session (duration_min NULL alebo 0) na danom dni, ak existuje."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_rest_session_on_day")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, duration_min")
+            .eq("user_id", int(user_id))
+            .eq("plan_date", str(plan_date))
+            .execute()
+        )
+        for row in (res.data or []):
+            dur = row.get("duration_min")
+            if dur is None or int(dur) == 0:
+                return row
+        return None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_rest_session_on_day error:", repr(e))
+        return None
+
 def db_check_daily_data_exists(user_id: int, *, ctx: AuthCtx) -> bool:
     sb = get_sb(ctx, caller="coach_plan_daily.db_check_daily_data_exists")
     try:
@@ -531,11 +561,16 @@ def db_append_preview_thread_entry(user_id: int, id: int, entry: Dict[str, Any],
 
 def db_apply_session_preview_update(
     user_id: int, id: int, *,
-    duration_min: Optional[int], notes: Optional[str], structure: Optional[Dict[str, Any]],
+    title: Optional[str] = None,
+    duration_min: Optional[int] = None,
+    notes: Optional[str] = None,
+    structure: Optional[Dict[str, Any]] = None,
     ctx: AuthCtx,
 ) -> bool:
     sb = get_sb(ctx, caller="coach_plan_daily.db_apply_session_preview_update")
     payload: Dict[str, Any] = {"updated_at": _now_iso()}
+    if title is not None:
+        payload["title"] = title
     if duration_min is not None:
         payload["duration_min"] = duration_min
     if notes is not None:
@@ -548,5 +583,32 @@ def db_apply_session_preview_update(
     except Exception as e:
         print("[DB-COACH-DAILY] apply_session_preview_update error:", repr(e))
         return False
+    
+def db_get_daily_session_by_activity_id(
+    user_id: int, activity_id: int, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """Nájde plánovanú session namapovanú na danú aktivitu (podľa activity_id).
+    Ak je aktivita zmazaná (deleted_at != null), vráti None, aj keby plán
+    na ňu ešte odkazoval (nemal by, ale pre istotu)."""
+    from DB.activities_summary import db_get_summary_one
 
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_daily_session_by_activity_id")
+    try:
+        # Over že aktivita existuje a nie je zmazaná
+        activity = db_get_summary_one(ctx, int(activity_id))
+        if not activity:
+            return None
 
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("activity_id", int(activity_id))
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_daily_session_by_activity_id error:", repr(e))
+        return None

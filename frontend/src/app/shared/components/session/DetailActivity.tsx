@@ -27,16 +27,14 @@ import { ActivityStreamCharts } from "@/app/shared/components/trend/StreamCharts
 import { StreamsData } from "@/app/features/activities/types/activities";
 import { formatDistance } from "@/app/shared/utils/distance";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
-import { ActivitySplitsSection } from "./ActivitySplitsSection";
-import {
-  ActivityBestSegmentsSection,
-  hasAnyBestSegment,
-} from "./ActivityBestSegmentsSection";
+import { SectionSplits } from "./SectionSplits";
+import { SectionBestSegments, hasAnyBestSegment } from "./SectionBestSegments";
 
 import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-import ActivityCoachReviewSection from "./ActivityReviewSection";
+import SectionReview from "./SectionReview";
+import SectionRouteMatch from "./SectionRouteMatch";
 import {
   PieTrend,
   type PieTrendItem,
@@ -61,21 +59,6 @@ type InfoItem = { label: string; value: string | number | null };
 function valOrDash(v: string | number | null): string {
   if (v === null || v === undefined || v === "") return "—";
   return String(v);
-}
-
-function safeText(value: any): string {
-  if (value == null) return "";
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  )
-    return String(value);
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
 }
 
 function isMeaningfulNumber(n: any, { allowZero = false } = {}): n is number {
@@ -191,11 +174,7 @@ export function ActivitySectionShell({
   );
 }
 
-export function ActivitySessionDetail({
-  item,
-  compactChart,
-  onOpenActivity,
-}: any) {
+export function DetailActivity({ item, compactChart, onOpenActivity }: any) {
   const act = item;
   const t = useT();
   const { userId } = useUserId();
@@ -448,10 +427,11 @@ export function ActivitySessionDetail({
       </ActivitySectionShell>
 
       {!!act.activityId && (
-        <ActivityCoachReviewSection
-          item={act}
-          activityId={Number(act.activityId)}
-        />
+        <SectionRouteMatch activityId={Number(act.activityId)} />
+      )}
+
+      {!!act.activityId && (
+        <SectionReview item={act} activityId={Number(act.activityId)} />
       )}
 
       {hasValidStreamsForChart && (
@@ -469,7 +449,7 @@ export function ActivitySessionDetail({
 
       {hasSplits && (
         <ActivitySectionShell title={t("sessions.detail.sectionSplits")}>
-          <ActivitySplitsSection kind={splits} />
+          <SectionSplits kind={splits} />
         </ActivitySectionShell>
       )}
 
@@ -477,14 +457,8 @@ export function ActivitySessionDetail({
         <ActivitySectionShell
           title={t("sessions.detail.sectionBestSegments" as any)}
         >
-          <ActivityBestSegmentsSection enrichment={enrichment} t={t} />
+          <SectionBestSegments enrichment={enrichment} t={t} />
         </ActivitySectionShell>
-      )}
-
-      {act.notes && (
-        <div className="mt-4 p-4 rounded-xl bg-black/20 border border-white/5 text-sm text-white/80 leading-relaxed">
-          {safeText(act.notes)}
-        </div>
       )}
 
       {isShareOpen && (

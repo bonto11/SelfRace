@@ -10,7 +10,15 @@ from DB.user_prefs import db_get_pref_single
 from Services.user_recovery import service_build_recovery_block_for_analysis
 
 from Modules.Supabase.auth import AuthCtx
+from Configs.strength_catalog import STRENGTH_EXERCISE_CATALOG
 
+def _minified_strength_catalog() -> List[Dict[str, Any]]:
+    """Len id + target - name/equipment nepotrebné pre AI výber, šetrí tokeny."""
+    return [
+        {"id": e["id"], "target": e.get("target")}
+        for e in STRENGTH_EXERCISE_CATALOG
+        if isinstance(e, dict) and e.get("id")
+    ]
 
 # ============================================================
 # HELPERS
@@ -133,6 +141,9 @@ def build_context_for_session_preview(
 
     sport = _canonical_sport(session_row.get("sport"))
     input_data["sport"] = sport
+    
+    if sport == "strength" and request_change:
+        input_data["context"]["strength_catalog"] = _minified_strength_catalog()
 
     input_data["session"] = {
         "plan_date": session_row.get("plan_date"),
@@ -192,3 +203,4 @@ def build_context_for_session_preview(
         print(f"❌ [AI][session_preview][builder] personalization fetch failed: {repr(e)}")
 
     return input_data
+
