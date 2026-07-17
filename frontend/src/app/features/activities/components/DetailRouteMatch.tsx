@@ -129,6 +129,20 @@ function RouteTrendChart({
   const hasPace = chartData.some((d) => d.paceSec != null);
   const hasHr = chartData.some((d) => d.hr != null);
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[RouteTrendChart][debug]", {
+      rawActivities: activities.map((a) => ({
+        activity_id: a.activity_id,
+        updated_at: a.updated_at,
+        average_speed_mps: a.average_speed_mps,
+        avg_hr_bpm: a.avg_hr_bpm,
+      })),
+      chartData,
+      hasPace,
+      hasHr,
+    });
+  }
+
   if (chartData.length < 2 || (!hasPace && !hasHr)) return null;
 
   const paceDomain = (() => {
@@ -173,6 +187,7 @@ function RouteTrendChart({
             <CartesianGrid strokeDasharray="3 3" stroke={appColors.divider} vertical={false} />
             <XAxis
               dataKey="date"
+              interval={0}
               tick={{ fontSize: 10, fill: appColors.textMuted }}
               axisLine={{ stroke: appColors.divider }}
               tickLine={false}
