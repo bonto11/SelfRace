@@ -40,6 +40,15 @@ export default function SectionRouteMatch({ activityId, onOpenComparison }: Prop
     setLoading(true);
     try {
       const out = await apiGetRouteMatchOptions(Number(userId), activityId);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[SectionRouteMatch][debug]", {
+          userId,
+          activityId,
+          response: out,
+        });
+      }
+
       setOptions(out);
     } finally {
       setLoading(false);

@@ -71,6 +71,9 @@ export type ActivityEnrichment = {
   distance_m: number | null;
   updated_at: string | null;
   ai_review_thread: ThreadEntry[];
+  // Pomenované trate (route matching)
+  route_auto_match?: string | null;
+  route_match?: string | null;
   // Beh
   best_400m_s?: number | null;
   best_1k_s?: number | null;

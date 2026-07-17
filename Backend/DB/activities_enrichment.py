@@ -24,18 +24,19 @@ def db_get_enrichment_for_activities(
     sb = get_sb(ctx, caller="activities_enrichment.db_get_enrichment_for_activities")
 
     fields = (
-        "activity_id,"
-        "z1_min,z2_min,z3_min,z4_min,z5_min,"
-        "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
-        "ai_review_thread,"
-        "best_400m_s,best_1k_s,best_5k_s,best_10k_s,best_20k_s,"
-        "best_half_s,best_30k_s,best_marathon_s,best_50k_s,"
-        "best_swim_100m_s,best_swim_400m_s,best_swim_750m_s,best_swim_1k_s,"
-        "best_swim_1500m_s,best_swim_1900m_s,best_swim_3800m_s,best_swim_5k_s,"
-        "best_ride_10k_s,best_ride_20k_s,best_ride_40k_s,best_ride_50k_s,"
-        "best_ride_90k_s,best_ride_100k_s,best_ride_100mi_s,best_ride_180k_s,"
-        "updated_at"
-    )
+    "activity_id,"
+    "z1_min,z2_min,z3_min,z4_min,z5_min,"
+    "sport_type_fe,avg_hr_bpm,moving_time_s,distance_m,"
+    "ai_review_thread,"
+    "route_auto_match,route_match,"
+    "best_400m_s,best_1k_s,best_5k_s,best_10k_s,best_20k_s,"
+    "best_half_s,best_30k_s,best_marathon_s,best_50k_s,"
+    "best_swim_100m_s,best_swim_400m_s,best_swim_750m_s,best_swim_1k_s,"
+    "best_swim_1500m_s,best_swim_1900m_s,best_swim_3800m_s,best_swim_5k_s,"
+    "best_ride_10k_s,best_ride_20k_s,best_ride_40k_s,best_ride_50k_s,"
+    "best_ride_90k_s,best_ride_100k_s,best_ride_100mi_s,best_ride_180k_s,"
+    "updated_at"
+)
 
     res = (
         sb.table(TABLE_ACTIVITIES_ENRICHMENT)
