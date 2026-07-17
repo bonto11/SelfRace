@@ -1,4 +1,4 @@
-// src/app/shared/components/session/ActivityBestSegmentsSection.tsx
+// src/app/shared/components/session/SectionBestSegments.tsx
 "use client";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";

@@ -1,5 +1,6 @@
-"use client";
 
+// src/app/shared/components/session/ActivityShareModal.tsx
+"use client";
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import html2canvas from "html2canvas";

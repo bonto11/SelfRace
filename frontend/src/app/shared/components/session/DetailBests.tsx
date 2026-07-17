@@ -1,4 +1,4 @@
-// src/app/shared/components/session/BestsSessionDetail.tsx
+// src/app/shared/components/session/DetailBests.tsx
 "use client";
 
 import { ReactNode } from "react";

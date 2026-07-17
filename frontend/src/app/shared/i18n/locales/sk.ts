@@ -2656,6 +2656,28 @@ export const sk = {
           "⚠️ O tomto zranení sa vie a pri tvorbe nového plánu sa naň berie ohľad. Keď už bolesť prešla, treba ho zmazať zo zoznamu.",
       },
     },
+
+    routeMatch: {
+      sectionTitle: "Trasa",
+      assign: "Priradiť k trase",
+      confirm: "Priradiť",
+      chooseOther: "Vybrať inú",
+      remove: "Zrušiť priradenie",
+      compare: "Porovnať",
+      saved: "Trasa uložená",
+      newRoute: "+ Nová trasa",
+      newRouteNamePlaceholder: "Názov novej trasy",
+      selectPlaceholder: "Vyber trasu",
+      suggestionText: "Vyzerá to ako trasa '{{name}}'. Priradiť?",
+      widgetTitle: "Moje trate",
+      widgetEmpty: "Zatiaľ žiadne pomenované trate.",
+      widgetMore: "+{{count}} ďalších",
+      pageTitle: "Moje trate",
+      pageEmpty:
+        "Zatiaľ nemáš pomenovanú žiadnu trať. Priraď ju v detaile aktivity.",
+      activitiesCount: "behov",
+      bestTime: "Najlepší čas",
+    },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
       btnFavoriteUnset: "V obľúbených",

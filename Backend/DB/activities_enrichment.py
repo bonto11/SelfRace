@@ -409,3 +409,41 @@ def db_set_route_match(
     except Exception as e:
         print("❌ [ENRICH][set_route_match] error:", repr(e))
         return False
+
+def db_get_route_match_counts(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vráti počet aktivít pre každý potvrdený route_match názov (naprieč
+    všetkými športmi) daného usera - pre widget/zoznam "moje trate".
+    Supabase klient nemá GROUP BY, takže agregujeme v Pythone.
+    """
+    sb = get_sb(ctx, caller="activities_enrichment.db_get_route_match_counts")
+    res = (
+        sb.table(TABLE_ACTIVITIES_ENRICHMENT)
+        .select("route_match, sport_type_fe, updated_at")
+        .eq("user_id", int(user_id))
+        .not_.is_("route_match", "null")
+        .execute()
+    )
+    rows = res.data or []
+
+    counts: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        name = r.get("route_match")
+        if not name:
+            continue
+        entry = counts.setdefault(name, {
+            "route_match": name,
+            "sport_type_fe": r.get("sport_type_fe"),
+            "count": 0,
+            "last_activity_at": None,
+        })
+        entry["count"] += 1
+        updated = r.get("updated_at")
+        if updated and (entry["last_activity_at"] is None or updated > entry["last_activity_at"]):
+            entry["last_activity_at"] = updated
+
+    return sorted(counts.values(), key=lambda x: x["count"], reverse=True)

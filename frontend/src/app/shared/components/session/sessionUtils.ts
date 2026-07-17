@@ -1,3 +1,4 @@
+// src/app/shared/components/session/sessionUtils.tsx
 import { ActivityRow } from "@/app/features/activities/types/activities";
 
 export function fmtMin(m?: number) {

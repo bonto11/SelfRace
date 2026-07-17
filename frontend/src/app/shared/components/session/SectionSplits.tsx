@@ -1,4 +1,4 @@
-// src/app/shared/components/session/ActivitySplitsSection.tsx
+// src/app/shared/components/session/SectionSplits.tsx
 "use client";
 
 import { fmtSecondsHMS } from "@/app/shared/utils/time";

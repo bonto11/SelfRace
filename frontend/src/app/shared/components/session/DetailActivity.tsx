@@ -37,6 +37,7 @@ import { getStravaActivityUrl } from "@/app/features/strava/utils/links";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import SectionReview from "./SectionReview";
+import SectionRouteMatch from "./SectionRouteMatch";
 import {
   PieTrend,
   type PieTrendItem,
@@ -176,7 +177,7 @@ export function ActivitySectionShell({
   );
 }
 
-export function DetailActivity({
+export function ActivitySessionDetail({
   item,
   compactChart,
   onOpenActivity,
@@ -431,6 +432,10 @@ export function DetailActivity({
           </div>
         )}
       </ActivitySectionShell>
+
+      {!!act.activityId && (
+        <SectionRouteMatch activityId={Number(act.activityId)} />
+      )}
 
       {!!act.activityId && (
         <SectionReview

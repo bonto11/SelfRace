@@ -347,3 +347,17 @@ def service_list_route_names_for_sport(
     konkrétnej otvorenej aktivity).
     """
     return db_get_distinct_route_names_for_sport(user_id, sport_type_fe, ctx=ctx)
+
+def service_get_route_overview(
+    *,
+    user_id: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Prehľad všetkých pomenovaných tratí usera (naprieč športmi), zoradený
+    od najviac použitej. Pre widget (top N) a "Moje trate" zoznam stránku.
+    """
+    from DB.activities_enrichment import db_get_route_match_counts
+
+    rows = db_get_route_match_counts(user_id, ctx=ctx)
+    return {"ok": True, "routes": rows}

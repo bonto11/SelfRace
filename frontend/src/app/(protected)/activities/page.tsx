@@ -13,6 +13,7 @@ import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
 import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
 import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlySummary";
+import WidgetRouteMatch from "@/app/shared/components/widgets/WidgetRouteMatch";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -62,6 +63,7 @@ export default function ActivitiesPage() {
           onOpenTrend={() => router.push("/activities/pareto")}
           weeks={2}
         />
+        <WidgetRouteMatch onOpenDetail={() => router.push("/activities/routes")} />
         <WidgetActivitiesCalendar />
       </div>
     </PageShell>
