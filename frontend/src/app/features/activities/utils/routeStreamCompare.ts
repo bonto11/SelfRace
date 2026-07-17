@@ -248,4 +248,94 @@ export function resampleByElevationMatch(
   const otherSegments = buildElevationSegments(otherPoints);
 
   const maxKm = refPoints[refPoints.length - 1].d;
-  const reference: ResampledSeries[]
+  const reference: ResampledSeries[] = [];
+  const matched: ResampledSeries[] = [];
+
+  for (let km = 0; km <= maxKm; km += stepKm) {
+    const { lo } = findSurrounding(refPoints, km);
+    const refIdx = refPoints.indexOf(lo);
+
+    const refHr = interpValueAtKm(refPoints, km, "hr");
+    const refAlt = interpValueAtKm(refPoints, km, "alt");
+    const refPace = paceAtKm(refPoints, km, stepKm);
+
+    reference.push({
+      distanceKm: Math.round(km * 100) / 100,
+      hr: refHr != null ? Math.round(refHr) : null,
+      paceSecPerKm: refPace,
+      elevation: refAlt != null ? Math.round(refAlt) : null,
+    });
+
+    const matchedPoint = matchByElevation(refPoints, refSegments, otherPoints, otherSegments, refIdx);
+
+    if (matchedPoint) {
+      const matchedPace = paceAtKm(otherPoints, matchedPoint.d, stepKm);
+      matched.push({
+        distanceKm: Math.round(km * 100) / 100,
+        hr: matchedPoint.hr != null ? Math.round(matchedPoint.hr) : null,
+        paceSecPerKm: matchedPace,
+        elevation: matchedPoint.alt != null ? Math.round(matchedPoint.alt) : null,
+      });
+    } else {
+      matched.push({
+        distanceKm: Math.round(km * 100) / 100,
+        hr: null,
+        paceSecPerKm: null,
+        elevation: null,
+      });
+    }
+  }
+
+  return { reference, matched };
+}
+
+/**
+ * Rozhodne, či daná trať má dosť prevýšenia na to, aby sa oplatilo elevation
+ * zarovnanie (namiesto jednoduchého podľa vzdialenosti). Prah: viac ako
+ * 50m gain na 10km, teda 5 m/km.
+ */
+export function shouldUseElevationAlignment(raw: RawStreams): boolean {
+  const points = toPoints(raw);
+  if (points.length < 2) return false;
+  const totalKm = points[points.length - 1].d;
+  if (totalKm <= 0) return false;
+  const gain = totalElevationGain(points);
+  return gain / totalKm > 5;
+}
+
+/* ============================================================ */
+/* ZLÚČENIE PRE CHART ============================================ */
+/* ============================================================ */
+
+export function mergeSeriesForChart(
+  seriesList: ResampledSeries[][],
+): Record<string, any>[] {
+  const maxLen = Math.max(...seriesList.map((s) => s.length), 0);
+  const rows: Record<string, any>[] = [];
+
+  for (let i = 0; i < maxLen; i++) {
+    const row: Record<string, any> = {
+      distanceKm: seriesList[0]?.[i]?.distanceKm ?? null,
+    };
+    seriesList.forEach((series, idx) => {
+      const point = series[i];
+      row[`hr_${idx}`] = point?.hr ?? null;
+      row[`pace_${idx}`] = point?.paceSecPerKm ?? null;
+      row[`elevation_${idx}`] = point?.elevation ?? null;
+    });
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+export function average(values: (number | null | undefined)[]): number | null {
+  const valid = values.filter((v): v is number => v != null && Number.isFinite(v));
+  if (!valid.length) return null;
+  return valid.reduce((a, b) => a + b, 0) / valid.length;
+}
+
+export function pctChange(current: number | null, previous: number | null): number | null {
+  if (current == null || previous == null || previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
