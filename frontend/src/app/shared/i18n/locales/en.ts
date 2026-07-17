@@ -2687,6 +2687,7 @@ export const en = {
       pageEmpty: "No named routes yet. Assign one from an activity detail.",
       activitiesCount: "runs",
       bestTime: "Best time",
+      paceTrend: "Pace trend",
     },
     detail: {
       btnFavoriteSet: "Add to favorites",

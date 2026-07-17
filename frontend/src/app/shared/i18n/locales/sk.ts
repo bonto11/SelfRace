@@ -2677,6 +2677,7 @@ export const sk = {
         "Zatiaľ nemáš pomenovanú žiadnu trať. Priraď ju v detaile aktivity.",
       activitiesCount: "behov",
       bestTime: "Najlepší čas",
+      paceTrend: "Vývoj tempa",
     },
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",

@@ -1,7 +1,16 @@
 // src/app/features/activities/components/DetailRouteMatch.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
@@ -21,6 +30,35 @@ const SPORT_ICON: Record<string, string> = {
   ride: "🚴",
   swim: "🏊",
 };
+
+/* ─── HELPERS ─── */
+
+function formatPaceFromSpeed(speedMps: number | null | undefined): string | null {
+  if (!speedMps || speedMps <= 0) return null;
+  const secPerKm = 1000 / speedMps;
+  const minutes = Math.floor(secPerKm / 60);
+  const seconds = String(Math.round(secPerKm % 60)).padStart(2, "0");
+  return `${minutes}:${seconds}/km`;
+}
+
+function paceSecondsFromSpeed(speedMps: number | null | undefined): number | null {
+  if (!speedMps || speedMps <= 0) return null;
+  return 1000 / speedMps;
+}
+
+function formatSecondsAsPace(sec: number): string {
+  const minutes = Math.floor(sec / 60);
+  const seconds = String(Math.round(sec % 60)).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function fmtShortDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+}
+
+/* ─── LIST ROW ─── */
 
 function RouteListRow({
   entry,
@@ -59,6 +97,87 @@ function RouteListRow({
   );
 }
 
+/* ─── TREND CHART (tempo naprieč behmi, chronologicky) ─── */
+
+function PaceTrendChart({
+  activities,
+}: {
+  activities: RouteMatchComparison["activities"];
+}) {
+  const t = useT();
+
+  const chartData = useMemo(() => {
+    return [...activities]
+      .filter((a) => a.average_speed_mps != null)
+      .sort((a, b) => (a.updated_at ?? "").localeCompare(b.updated_at ?? ""))
+      .map((a) => ({
+        date: fmtShortDate(a.updated_at),
+        paceSec: paceSecondsFromSpeed(a.average_speed_mps),
+      }))
+      .filter((d) => d.paceSec != null);
+  }, [activities]);
+
+  if (chartData.length < 2) return null;
+
+  return (
+    <div style={{ padding: "8px 16px 16px" }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          color: appColors.textMuted,
+          marginBottom: 8,
+        }}
+      >
+        {t("sessions.routeMatch.paceTrend")}
+      </div>
+      <div style={{ width: "100%", height: 140 }}>
+        <ResponsiveContainer>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={appColors.divider} vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 11, fill: appColors.textMuted }}
+              axisLine={{ stroke: appColors.divider }}
+              tickLine={false}
+            />
+            <YAxis
+              reversed
+              tick={{ fontSize: 11, fill: appColors.textMuted }}
+              axisLine={false}
+              tickLine={false}
+              width={40}
+              tickFormatter={(v) => formatSecondsAsPace(v)}
+            />
+            <Tooltip
+              contentStyle={{
+                background: appColors.backgroundAlt,
+                border: `1px solid ${appColors.surfaceCardBorder}`,
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: appColors.textMuted }}
+              formatter={(value: any) => [`${formatSecondsAsPace(Number(value))}/km`, ""]}
+            />
+            <Line
+              type="monotone"
+              dataKey="paceSec"
+              stroke={appColors.chartRun}
+              strokeWidth={2}
+              dot={{ r: 3, fill: appColors.chartRun }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ─── COMPARISON PANEL ─── */
+
 function ComparisonPanel({ comparison }: { comparison: RouteMatchComparison }) {
   const t = useT();
   const { activities, stats } = comparison;
@@ -83,35 +202,61 @@ function ComparisonPanel({ comparison }: { comparison: RouteMatchComparison }) {
         </div>
       </div>
 
+      <PaceTrendChart activities={activities} />
+
       <div>
-        {activities.map((a) => (
-          <div
-            key={a.activity_id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "10px 16px",
-              borderTop: `1px solid ${appColors.divider}`,
-            }}
-          >
-            <span style={{ fontSize: 13, color: appColors.textMuted }}>
-              {a.updated_at ? new Date(a.updated_at).toLocaleDateString("sk-SK") : "—"}
-            </span>
-            <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-              {a.moving_time_s != null && (
-                <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
-                  {fmtSecondsHMS(a.moving_time_s)}
-                </span>
-              )}
-              {a.distance_m != null && (
-                <span style={{ fontSize: 12, color: appColors.textMuted }}>
-                  {formatDistance(a.distance_m)}
-                </span>
-              )}
+        {activities.map((a) => {
+          const pace = formatPaceFromSpeed(a.average_speed_mps);
+          const hr =
+            a.avg_hr_bpm != null && Number(a.avg_hr_bpm) > 0
+              ? `${Math.round(Number(a.avg_hr_bpm))} bpm`
+              : null;
+
+          return (
+            <div
+              key={a.activity_id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 16px",
+                borderTop: `1px solid ${appColors.divider}`,
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 13, color: appColors.textMuted, flexShrink: 0 }}>
+                {fmtShortDate(a.updated_at)}
+              </span>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {a.moving_time_s != null && (
+                  <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+                    {fmtSecondsHMS(a.moving_time_s)}
+                  </span>
+                )}
+                {pace && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>{pace}</span>
+                )}
+                {hr && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>❤️ {hr}</span>
+                )}
+                {a.elevation_gain_m != null && a.elevation_gain_m > 0 && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>
+                    ↗ {Math.round(a.elevation_gain_m)} m
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

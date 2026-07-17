@@ -263,6 +263,7 @@ export type RouteMatchComparison = {
     elevation_gain_m: number | null;
     moving_time_s: number | null;
     avg_hr_bpm: number | string | null;
+    average_speed_mps: number | null;
     sport_type_fe: string | null;
     updated_at: string | null;
   }>;

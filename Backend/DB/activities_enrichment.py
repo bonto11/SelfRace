@@ -331,10 +331,11 @@ def db_get_activities_for_route_match(
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky aktivity s daným potvrdeným route_match názvom — pre
-    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m
-    z activities_summary rovnakým spôsobom ako db_get_matched_routes_for_sport,
-    aby porovnanie dvoch behov s rovnakou vzdialenosťou ale iným prevýšením
-    nebolo mätúce.
+    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m a
+    average_speed_mps z activities_summary (enrichment tieto stĺpce nemá,
+    resp. distance_m má len ako denormalizovanú kópiu) - aby FE vedelo
+    zobraziť tempo/rýchlosť a prevýšenie pri porovnaní jednotlivých behov
+    tej istej trate.
     """
     from DB.activities_summary import db_get_summary_for_activities
 
@@ -356,12 +357,12 @@ def db_get_activities_for_route_match(
 
     activity_ids = [int(r["activity_id"]) for r in enrich_rows]
     summary_rows = db_get_summary_for_activities(ctx, user_id, activity_ids)
-    elevation_by_id = {
-        int(r["activity_id"]): r.get("elevation_gain_m") for r in summary_rows
-    }
+    summary_by_id = {int(r["activity_id"]): r for r in summary_rows}
 
     for r in enrich_rows:
-        r["elevation_gain_m"] = elevation_by_id.get(int(r["activity_id"]))
+        s = summary_by_id.get(int(r["activity_id"])) or {}
+        r["elevation_gain_m"] = s.get("elevation_gain_m")
+        r["average_speed_mps"] = s.get("average_speed_mps")
 
     return enrich_rows
 
