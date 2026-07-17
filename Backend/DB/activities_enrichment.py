@@ -331,10 +331,11 @@ def db_get_activities_for_route_match(
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky aktivity s daným potvrdeným route_match názvom — pre
-    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m
-    z activities_summary rovnakým spôsobom ako db_get_matched_routes_for_sport,
-    aby porovnanie dvoch behov s rovnakou vzdialenosťou ale iným prevýšením
-    nebolo mätúce.
+    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m,
+    average_speed_mps A skutočný dátum aktivity (date) z activities_summary
+    (enrichment tieto stĺpce nemá, resp. jeho 'updated_at' je len časová
+    pečiatka posledného zápisu riadku, NIE dátum kedy sa beh reálne odohral -
+    to spôsobovalo posun dátumov o deň/viac vo FE zobrazení).
     """
     from DB.activities_summary import db_get_summary_for_activities
 
@@ -347,7 +348,6 @@ def db_get_activities_for_route_match(
         )
         .eq("user_id", int(user_id))
         .eq("route_match", route_match)
-        .order("updated_at", desc=True)
         .execute()
     )
     enrich_rows = res.data or []
@@ -356,12 +356,21 @@ def db_get_activities_for_route_match(
 
     activity_ids = [int(r["activity_id"]) for r in enrich_rows]
     summary_rows = db_get_summary_for_activities(ctx, user_id, activity_ids)
-    elevation_by_id = {
-        int(r["activity_id"]): r.get("elevation_gain_m") for r in summary_rows
-    }
+    summary_by_id = {int(r["activity_id"]): r for r in summary_rows}
 
     for r in enrich_rows:
-        r["elevation_gain_m"] = elevation_by_id.get(int(r["activity_id"]))
+        s = summary_by_id.get(int(r["activity_id"])) or {}
+        r["elevation_gain_m"] = s.get("elevation_gain_m")
+        r["average_speed_mps"] = s.get("average_speed_mps")
+        # Nahrádzame updated_at (enrichment riadok metadata) skutočným
+        # dátumom aktivity zo summary - to je to, čo chce FE zobraziť.
+        if s.get("date") is not None:
+            r["updated_at"] = s.get("date")
+
+    # Zoradenie podľa SKUTOČNÉHO dátumu aktivity (nie podľa poradia v DB),
+    # od najnovšej po najstaršiu - dôležité pre "current vs previous"
+    # porovnanie v ComparisonPanel na FE.
+    enrich_rows.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
 
     return enrich_rows
 
