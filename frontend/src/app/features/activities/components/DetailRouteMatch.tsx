@@ -99,13 +99,36 @@ function RouteListRow({
   );
 }
 
-/* ─── LEGENDA (ktorá farba = ktorý dátum) ─── */
+/* ─── LEGENDA (klikateľná - zapnúť/vypnúť krivku) ─── */
 
-function RunLegend({ labels }: { labels: string[] }) {
+function RunLegend({
+  labels,
+  visible,
+  onToggle,
+}: {
+  labels: string[];
+  visible: boolean[];
+  onToggle: (idx: number) => void;
+}) {
   return (
-    <div style={{ display: "flex", gap: 16, padding: "0 16px 8px" }}>
+    <div style={{ display: "flex", gap: 12, padding: "0 16px 8px", flexWrap: "wrap" }}>
       {labels.map((label, idx) => (
-        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <button
+          key={idx}
+          type="button"
+          onClick={() => onToggle(idx)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            background: "transparent",
+            border: "none",
+            padding: "3px 6px",
+            borderRadius: 6,
+            cursor: "pointer",
+            opacity: visible[idx] ? 1 : 0.35,
+          }}
+        >
           <span
             style={{
               width: 10,
@@ -115,7 +138,7 @@ function RunLegend({ labels }: { labels: string[] }) {
             }}
           />
           <span style={{ fontSize: 11, color: appColors.textMuted }}>{label}</span>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -131,6 +154,7 @@ function OverlayChart({
   valueFormatter,
   activityCount,
   areaFill,
+  visible,
 }: {
   title: string;
   data: Record<string, any>[];
@@ -139,6 +163,7 @@ function OverlayChart({
   valueFormatter: (v: number) => string;
   activityCount: number;
   areaFill?: boolean;
+  visible: boolean[];
 }) {
   const hasAnyData = data.some((row) =>
     Array.from({ length: activityCount }).some(
@@ -192,8 +217,9 @@ function OverlayChart({
               labelFormatter={(v) => `${v} km`}
               formatter={(value: any) => [valueFormatter(Number(value)), ""]}
             />
-            {Array.from({ length: activityCount }).map((_, idx) =>
-              areaFill ? (
+            {Array.from({ length: activityCount }).map((_, idx) => {
+              if (!visible[idx]) return null;
+              return areaFill ? (
                 <Area
                   key={idx}
                   type="monotone"
@@ -217,8 +243,8 @@ function OverlayChart({
                   dot={false}
                   isAnimationActive={false}
                 />
-              ),
-            )}
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -243,8 +269,11 @@ function ChangeSummary({
 
   if (paceChangePct == null && hrChangePct == null) return null;
 
-  const paceIsFaster = paceChangePct != null && paceChangePct < 0;
-  const hrIsLower = hrChangePct != null && hrChangePct < 0;
+  // paceChangePct < 0 znamená current (najnovší dátum) má NIŽŠIE sekundy/km
+  // = RÝCHLEJŠIE tempo ako previous. Formulujeme explicitne, aby nebolo
+  // treba počítať smer v hlave.
+  const paceFasterLabel = paceChangePct != null && paceChangePct < 0 ? currentLabel : previousLabel;
+  const hrLowerLabel = hrChangePct != null && hrChangePct < 0 ? currentLabel : previousLabel;
 
   return (
     <div style={{ padding: "0 16px 12px" }}>
@@ -259,7 +288,7 @@ function ChangeSummary({
           <div
             style={{
               flex: 1,
-              minWidth: 140,
+              minWidth: 160,
               padding: "10px 12px",
               borderRadius: 10,
               background: appColors.backgroundAlt,
@@ -273,11 +302,14 @@ function ChangeSummary({
               style={{
                 fontSize: 18,
                 fontWeight: 800,
-                color: paceIsFaster ? "#4ade80" : "#f87171",
+                color: "#4ade80",
                 marginTop: 2,
               }}
             >
-              {paceIsFaster ? "▼" : "▲"} {Math.abs(paceChangePct).toFixed(1)}%
+              {paceFasterLabel} {Math.abs(paceChangePct).toFixed(1)}%
+            </div>
+            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
+              {t("sessions.routeMatch.wasFaster")}
             </div>
           </div>
         )}
@@ -285,7 +317,7 @@ function ChangeSummary({
           <div
             style={{
               flex: 1,
-              minWidth: 140,
+              minWidth: 160,
               padding: "10px 12px",
               borderRadius: 10,
               background: appColors.backgroundAlt,
@@ -299,17 +331,17 @@ function ChangeSummary({
               style={{
                 fontSize: 18,
                 fontWeight: 800,
-                color: hrIsLower ? "#4ade80" : "#f87171",
+                color: "#4ade80",
                 marginTop: 2,
               }}
             >
-              {hrIsLower ? "▼" : "▲"} {Math.abs(hrChangePct).toFixed(1)}%
+              {hrLowerLabel} {Math.abs(hrChangePct).toFixed(1)}%
+            </div>
+            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
+              {t("sessions.routeMatch.hadLowerHr")}
             </div>
           </div>
         )}
-      </div>
-      <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 6 }}>
-        {currentLabel} {t("sessions.routeMatch.vs")} {previousLabel}
       </div>
     </div>
   );
@@ -389,7 +421,24 @@ function ComparisonPanel({
     [overlaySeries],
   );
 
+  if (process.env.NODE_ENV !== "production" && overlaySeries) {
+    console.log("[ComparisonPanel][debug]", {
+      overlaySeriesLengths: overlaySeries.map((s) => s.length),
+      overlaySeriesSample: overlaySeries.map((s) => s.slice(0, 3)),
+      chartDataSample: chartData.slice(0, 5),
+    });
+  }
+
   const legendLabels = targetActivities.map((a) => fmtShortDate(a.updated_at));
+
+  const [visible, setVisible] = useState<boolean[]>([]);
+  useEffect(() => {
+    setVisible(targetActivities.map(() => true));
+  }, [targetActivities]);
+
+  const toggleVisible = (idx: number) => {
+    setVisible((prev) => prev.map((v, i) => (i === idx ? !v : v)));
+  };
 
   const changeStats = useMemo(() => {
     if (!overlaySeries || overlaySeries.length < 2) return null;
@@ -433,7 +482,7 @@ function ComparisonPanel({
 
       {!overlayLoading && overlaySeries && targetActivities.length >= 2 && (
         <>
-          <RunLegend labels={legendLabels} />
+          <RunLegend labels={legendLabels} visible={visible} onToggle={toggleVisible} />
 
           {changeStats && (
             <ChangeSummary
@@ -451,6 +500,7 @@ function ComparisonPanel({
             valueFormatter={(v) => `${Math.round(v)}`}
             activityCount={targetActivities.length}
             areaFill
+            visible={visible}
           />
           <OverlayChart
             title={t("sessions.routeMatch.chartPace")}
@@ -459,6 +509,7 @@ function ComparisonPanel({
             reversedY
             valueFormatter={(v) => formatSecondsAsPace(v)}
             activityCount={targetActivities.length}
+            visible={visible}
           />
           <OverlayChart
             title={t("sessions.routeMatch.chartElevation")}
@@ -467,6 +518,7 @@ function ComparisonPanel({
             valueFormatter={(v) => `${Math.round(v)} m`}
             activityCount={targetActivities.length}
             areaFill
+            visible={visible}
           />
         </>
       )}
