@@ -258,20 +258,19 @@ function ChangeSummary({
   currentLabel,
   previousLabel,
   paceChangePct,
+  paceChangeSec,
   hrChangePct,
 }: {
   currentLabel: string;
   previousLabel: string;
   paceChangePct: number | null;
+  paceChangeSec: number | null;
   hrChangePct: number | null;
 }) {
   const t = useT();
 
   if (paceChangePct == null && hrChangePct == null) return null;
 
-  // paceChangePct < 0 znamená current (najnovší dátum) má NIŽŠIE sekundy/km
-  // = RÝCHLEJŠIE tempo ako previous. Formulujeme explicitne, aby nebolo
-  // treba počítať smer v hlave.
   const paceFasterLabel = paceChangePct != null && paceChangePct < 0 ? currentLabel : previousLabel;
   const hrLowerLabel = hrChangePct != null && hrChangePct < 0 ? currentLabel : previousLabel;
 
@@ -308,6 +307,11 @@ function ChangeSummary({
             >
               {paceFasterLabel} {Math.abs(paceChangePct).toFixed(1)}%
             </div>
+            {paceChangeSec != null && (
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#4ade80", marginTop: 1 }}>
+                −{formatSecondsAsPace(Math.abs(paceChangeSec))} /km
+              </div>
+            )}
             <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
               {t("sessions.routeMatch.wasFaster")}
             </div>
@@ -362,7 +366,6 @@ function ComparisonPanel({
   const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
 
-  // Posledné N aktivít (activities už prichádzajú zoradené od najnovšej z BE)
   const targetActivities = useMemo(
     () => activities.slice(0, MAX_OVERLAY_ACTIVITIES),
     [activities],
@@ -386,10 +389,6 @@ function ComparisonPanel({
 
         const rawStreamsList = results.map((r) => r?.streams ?? null);
 
-        // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
-        // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
-        // na 10km) - na plochých tratiach by to len pridávalo šum, tam
-        // postačí jednoduché zarovnanie podľa vzdialenosti.
         if (
           rawStreamsList.length === 2 &&
           rawStreamsList[0] &&
@@ -442,7 +441,6 @@ function ComparisonPanel({
 
   const changeStats = useMemo(() => {
     if (!overlaySeries || overlaySeries.length < 2) return null;
-    // index 0 = najnovšia (current), index 1 = predchádzajúca (previous)
     const currentPace = average(overlaySeries[0].map((p) => p.paceSecPerKm));
     const previousPace = average(overlaySeries[1].map((p) => p.paceSecPerKm));
     const currentHr = average(overlaySeries[0].map((p) => p.hr));
@@ -450,6 +448,8 @@ function ComparisonPanel({
 
     return {
       paceChangePct: pctChange(currentPace, previousPace),
+      paceChangeSec:
+        currentPace != null && previousPace != null ? currentPace - previousPace : null,
       hrChangePct: pctChange(currentHr, previousHr),
     };
   }, [overlaySeries]);
@@ -489,6 +489,7 @@ function ComparisonPanel({
               currentLabel={legendLabels[0]}
               previousLabel={legendLabels[1]}
               paceChangePct={changeStats.paceChangePct}
+              paceChangeSec={changeStats.paceChangeSec}
               hrChangePct={changeStats.hrChangePct}
             />
           )}
