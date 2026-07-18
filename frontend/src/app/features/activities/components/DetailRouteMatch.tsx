@@ -271,6 +271,9 @@ function ChangeSummary({
 
   if (paceChangePct == null && hrChangePct == null) return null;
 
+  // paceChangePct < 0 znamená current (najnovší dátum) má NIŽŠIE sekundy/km
+  // = RÝCHLEJŠIE tempo ako previous. Formulujeme explicitne, aby nebolo
+  // treba počítať smer v hlave.
   const paceFasterLabel = paceChangePct != null && paceChangePct < 0 ? currentLabel : previousLabel;
   const hrLowerLabel = hrChangePct != null && hrChangePct < 0 ? currentLabel : previousLabel;
 
@@ -366,6 +369,7 @@ function ComparisonPanel({
   const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
 
+  // Posledné N aktivít (activities už prichádzajú zoradené od najnovšej z BE)
   const targetActivities = useMemo(
     () => activities.slice(0, MAX_OVERLAY_ACTIVITIES),
     [activities],
@@ -389,6 +393,10 @@ function ComparisonPanel({
 
         const rawStreamsList = results.map((r) => r?.streams ?? null);
 
+        // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
+        // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
+        // na 10km) - na plochých tratiach by to len pridávalo šum, tam
+        // postačí jednoduché zarovnanie podľa vzdialenosti.
         if (
           rawStreamsList.length === 2 &&
           rawStreamsList[0] &&
@@ -420,7 +428,7 @@ function ComparisonPanel({
     [overlaySeries],
   );
 
-  if (process.env.NODE_ENV !== "production" && overlaySeries) {
+  if (overlaySeries) {
     console.log("[ComparisonPanel][debug]", {
       overlaySeriesLengths: overlaySeries.map((s) => s.length),
       overlaySeriesSample: overlaySeries.map((s) => s.slice(0, 3)),
@@ -441,6 +449,7 @@ function ComparisonPanel({
 
   const changeStats = useMemo(() => {
     if (!overlaySeries || overlaySeries.length < 2) return null;
+    // index 0 = najnovšia (current), index 1 = predchádzajúca (previous)
     const currentPace = average(overlaySeries[0].map((p) => p.paceSecPerKm));
     const previousPace = average(overlaySeries[1].map((p) => p.paceSecPerKm));
     const currentHr = average(overlaySeries[0].map((p) => p.hr));
