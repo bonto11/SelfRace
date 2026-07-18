@@ -2684,6 +2684,7 @@ export const sk = {
       hrChange: "Zmena tepu",
       wasFaster: "bol rýchlejší",
       hadLowerHr: "mal nižší tep",
+      selectTwoHint: "Vyber 2 aktivity na porovnanie",
     },
 
     detail: {
