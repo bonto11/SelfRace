@@ -428,7 +428,7 @@ function ComparisonPanel({
     [overlaySeries],
   );
 
-  if (process.env.NODE_ENV !== "production" && overlaySeries) {
+  if (overlaySeries) {
     console.log("[ComparisonPanel][debug]", {
       overlaySeriesLengths: overlaySeries.map((s) => s.length),
       overlaySeriesSample: overlaySeries.map((s) => s.slice(0, 3)),
