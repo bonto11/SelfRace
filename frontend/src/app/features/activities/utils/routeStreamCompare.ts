@@ -23,7 +23,14 @@ type Point = { d: number; t: number; hr: number | null; alt: number | null };
 function toPoints(raw: RawStreams): Point[] {
   const time = raw.time_s ?? [];
   const dist = raw.distance_m ?? [];
-  const hr = raw.hr ?? [];
+  // BE stream response môže vracať HR pod kľúčom "hr" ALEBO "heartrate_bpm"
+  // (rovnaký nesúlad ošetruje ActivityDataProvider.normalizeStreams) - preto
+  // fallback, inak by hr vychádzalo vždy null pri druhom formáte odpovede.
+  const hr: (number | null)[] = Array.isArray(raw.hr)
+    ? raw.hr
+    : Array.isArray((raw as any).heartrate_bpm)
+      ? (raw as any).heartrate_bpm
+      : [];
   const alt = raw.altitude_m ?? [];
 
   const points: Point[] = [];
@@ -130,11 +137,6 @@ function totalElevationGain(points: Point[]): number {
   return gain;
 }
 
-/**
- * Rozdelí trať na monotónne segmenty (stúpanie / klesanie / rovina),
- * s minimálnym prahom zmeny výšky, aby drobný GPS šum nevytváral
- * desiatky mikro-segmentov.
- */
 function buildElevationSegments(
   points: Point[],
   minDeltaM: number = 3,
@@ -170,12 +172,6 @@ function buildElevationSegments(
   return segments;
 }
 
-/**
- * Pre daný referenčný bod (index v referenčnej trati, s jeho elevation a
- * "fázou" - poradím segmentu a smerom) nájde v druhej trati bod s najbližšou
- * zhodou výšky V ROVNAKOM TYPE SEGMENTU (aby sa stúpanie na 3. km neplietlo
- * so zostupom na 8. km pri rovnakej nadmorskej výške).
- */
 function matchByElevation(
   refPoints: Point[],
   refSegments: ReturnType<typeof buildElevationSegments>,
@@ -226,12 +222,6 @@ function matchByElevation(
   return bestPoint;
 }
 
-/**
- * Elevation-zarovnané prevzorkovanie: os X ostáva vzdialenosť REFERENČNEJ
- * trate (tá s viac dátami / novšia), ale hodnoty (tempo/HR) druhej trate
- * sa priraďujú podľa zhody nadmorskej výšky v zodpovedajúcom teréne, nie
- * podľa rovnakej vzdialenosti od štartu.
- */
 export function resampleByElevationMatch(
   referenceRaw: RawStreams,
   otherRaw: RawStreams,
@@ -289,11 +279,6 @@ export function resampleByElevationMatch(
   return { reference, matched };
 }
 
-/**
- * Rozhodne, či daná trať má dosť prevýšenia na to, aby sa oplatilo elevation
- * zarovnanie (namiesto jednoduchého podľa vzdialenosti). Prah: viac ako
- * 50m gain na 10km, teda 5 m/km.
- */
 export function shouldUseElevationAlignment(raw: RawStreams): boolean {
   const points = toPoints(raw);
   if (points.length < 2) return false;
