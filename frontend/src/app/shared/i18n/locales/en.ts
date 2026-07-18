@@ -2694,6 +2694,7 @@ export const en = {
       hrChange: "HR change",
       wasFaster: "was faster",
       hadLowerHr: "had lower HR",
+      selectTwoHint: "Select 2 activities to compare",
     },
 
     detail: {
