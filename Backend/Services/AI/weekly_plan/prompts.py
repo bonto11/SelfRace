@@ -432,24 +432,37 @@ def build_prompts_for_weekly(
         key=lambda r: r["days_until_race"],
         default=None,
     )
+    
     race_hint = ""
-    if next_race:
-        dist = next_race.get("custom_distance_km")
-        elev = next_race.get("elevation_gain_m")
-        terrain = next_race.get("terrain")
-        details_parts = []
-        if dist:
-            details_parts.append(f"{dist} km")
-        if elev:
-            details_parts.append(f"{elev}m elev")
-        if terrain:
-            details_parts.append(f"{terrain} terrain")
-        details = f" ({', '.join(details_parts)})" if details_parts else ""
-        race_hint = (
-            f"\n- KEY RACE: {next_race.get('name')} in {next_race.get('days_until_race')} days{details}."
-            f" Target: {next_race.get('target_time')}. "
-            "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
-        )
+        if next_race:
+            dist = next_race.get("custom_distance_km")
+            elev = next_race.get("elevation_gain_m")
+            terrain = next_race.get("terrain")
+            details_parts = []
+            if dist:
+                details_parts.append(f"{dist} km")
+            if elev:
+                details_parts.append(f"{elev}m elev")
+            if terrain:
+                details_parts.append(f"{terrain} terrain")
+            details = f" ({', '.join(details_parts)})" if details_parts else ""
+    
+            # Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
+            race_date_str = _safe_date(next_race.get("date"))
+            weekday_str = ""
+            if race_date_str:
+                try:
+                    race_weekday = date.fromisoformat(race_date_str).strftime("%A")
+                    weekday_str = f" — {race_weekday} (calculated by system, do not recompute)"
+                except Exception:
+                    pass
+    
+            race_hint = (
+                f"\n- KEY RACE: {next_race.get('name')} on {race_date_str or 'unknown date'}{weekday_str}, "
+                f"in {next_race.get('days_until_race')} days{details}."
+                f" Target: {next_race.get('target_time')}. "
+                "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
+            )
 
     # Minifikovaný context pre AI
     context_for_ai = minify_weekly_context_for_ai(ctx)
