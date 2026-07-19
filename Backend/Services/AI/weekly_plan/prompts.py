@@ -74,7 +74,7 @@ def _time_format_rule() -> str:
     )
 
 
-def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
+def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]], is_replan: bool) -> str:
     """
     Kritické pravidlo: AI NESMIE počítať kalendárne dátumy/dni v týždni sama
     (LLM na to nie sú spoľahlivé - viedlo to k nesprávnemu určeniu dňa v týždni,
@@ -83,13 +83,23 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
     v Pythone a musia sa použiť doslovne, nie prepočítavať.
 
     Explicitne tiež označuje, ktorý week_index zodpovedá DNEŠKU - keď atlét
-    v coach_notes píše "tento týždeň", myslí presne tento week_index, nie
-    ten čo si AI sama odvodí z kontextu poznámky (to viedlo k prípadom, keď
-    AI omylom priradila deload/build fázu nesprávnemu týždňu).
+    v coach_notes píše "tento týždeň", myslí presne tento week_index.
+
+    Pri REPLANE week_index NEZAČÍNA na 1 - pokračuje od existujúceho čísla
+    (napr. ak už prebehli týždne 1-2, prvý týždeň v tomto zozname môže byť
+    week_index 3). AI generuje LEN tieto vymenované týždne, nič naviac a nič
+    s nižším week_index.
     """
     if not week_boundaries:
         return ""
     lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
+    if is_replan:
+        lines.append(
+            "This is a REPLAN of an existing plan. Earlier weeks (lower week_index than "
+            "listed below) already happened and are CLOSED - do NOT generate them, do NOT "
+            "reuse their week_index numbers. Generate ONLY the exact week_index values "
+            "listed below, starting from the current week."
+        )
     lines.append(
         "You MUST use these EXACT week_start/week_end dates for each week_index. "
         "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
@@ -114,6 +124,29 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
             f"week. When they say 'next week', 'ďalší týždeň', they mean week_index "
             f"{current_week_index + 1}. Do not misassign the deload/build phase to the "
             f"wrong week_index — this is a common and critical mistake to avoid."
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _past_weeks_summary_rule(past_weeks: List[Dict[str, Any]]) -> str:
+    """
+    Krátky súhrn už uzavretých minulých týždňov (pri replane) - AI ich
+    NEGENERUJE znova, ale môže sa na periodizáciu odvolávať (napr. vedieť
+    že predošlý týždeň bol build, takže tento môže byť recovery).
+    """
+    if not past_weeks:
+        return ""
+    lines = ["\n--- PAST WEEKS (ALREADY HAPPENED, READ-ONLY CONTEXT) ---"]
+    lines.append(
+        "These weeks already occurred and are closed. Do NOT include them in your "
+        "output. Use them only to understand recent periodization/training history:"
+    )
+    for w in past_weeks:
+        phase = w.get("load_phase") or "?"
+        goal = w.get("goal") or ""
+        lines.append(
+            f"  - week_index {w.get('week_index')} ({w.get('week_start')} to "
+            f"{w.get('week_end')}): {phase} — {goal}"
         )
     return "\n".join(lines) + "\n"
 
@@ -578,6 +611,8 @@ def build_prompts_for_weekly(
     )
 
     week_boundaries = ctx.get("week_boundaries") or []
+    is_replan = bool(ctx.get("is_replan"))
+    past_weeks_summary = ctx.get("past_weeks_summary") or []
 
     system_txt = (
         "You are an elite endurance coaching assistant. "
@@ -597,7 +632,8 @@ def build_prompts_for_weekly(
         + sports_restriction + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
-        + _week_boundaries_rule(week_boundaries)
+        + _week_boundaries_rule(week_boundaries, is_replan)
+        + _past_weeks_summary_rule(past_weeks_summary)
         + race_hint
         + beginner_protocol
         + special_reason_rule
