@@ -562,6 +562,14 @@ def build_prompts_for_weekly(
                 lines.append(f"  {i}. {n}")
         if ephemeral_note:
             lines.append(f"\nOne-time instruction for THIS plan only:\n  → {ephemeral_note}")
+        lines.append(
+            "\nCRITICAL: You MUST fill 'coach_reply' in your output — 2-3 sentences "
+            "directly addressing this note. Explicitly say what you changed because of "
+            "it, OR if you deliberately did NOT do what they asked (e.g. because of "
+            "taper/periodization/race timing), say so clearly and explain what you did "
+            "instead. The athlete needs to know whether their request was applied or not "
+            "— do not leave this ambiguous."
+        )
         notes_rule = "\n".join(lines) + "\n\n"
 
     sports_restriction = (
@@ -611,6 +619,7 @@ def _weekly_schema() -> str:
 {
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp",
+  "coach_reply": "string | null — ONLY if the athlete left a note (ephemeral_note or sticky_notes): 2-3 sentences DIRECTLY addressing what they asked. Explicitly confirm what you changed because of it, OR explain why you did NOT make that specific change (e.g. periodization/taper reasons) and what you did instead. If no athlete note was provided, set this to null.",
   "weeks": [
     {
       "week_index": number,
