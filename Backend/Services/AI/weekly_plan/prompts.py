@@ -81,6 +81,11 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
     napr. pri identifikácii dňa preteku). Presné hranice každého týždňa (vždy
     pondelok-nedeľa, okrem prípadne kratšieho prvého týždňa) sú vypočítané
     v Pythone a musia sa použiť doslovne, nie prepočítavať.
+
+    Explicitne tiež označuje, ktorý week_index zodpovedá DNEŠKU - keď atlét
+    v coach_notes píše "tento týždeň", myslí presne tento week_index, nie
+    ten čo si AI sama odvodí z kontextu poznámky (to viedlo k prípadom, keď
+    AI omylom priradila deload/build fázu nesprávnemu týždňu).
     """
     if not week_boundaries:
         return ""
@@ -91,9 +96,24 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
         "LLMs are unreliable at this and it causes wrong race-day weekday "
         "identification. Copy these values verbatim into your output:"
     )
+    today_iso = date.today().isoformat()
+    current_week_index: Optional[int] = None
     for wb in week_boundaries:
+        marker = ""
+        if wb["week_start"] <= today_iso <= wb["week_end"]:
+            current_week_index = wb["week_index"]
+            marker = "  <-- TODAY falls in this week"
         lines.append(
-            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}"
+            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}{marker}"
+        )
+    if current_week_index is not None:
+        lines.append(
+            f"\nCRITICAL: Today is {today_iso}, which is week_index {current_week_index}. "
+            f"When the athlete's notes say 'this week', 'tento týždeň', 'aktuálny týždeň', "
+            f"or similar, they mean week_index {current_week_index} EXACTLY — not any other "
+            f"week. When they say 'next week', 'ďalší týždeň', they mean week_index "
+            f"{current_week_index + 1}. Do not misassign the deload/build phase to the "
+            f"wrong week_index — this is a common and critical mistake to avoid."
         )
     return "\n".join(lines) + "\n"
 
@@ -449,7 +469,7 @@ def build_prompts_for_weekly(
             details_parts.append(f"{terrain} terrain")
         details = f" ({', '.join(details_parts)})" if details_parts else ""
 
-        # 🌟 Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
+        # Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
         race_date_str = _safe_date(next_race.get("date"))
         weekday_str = ""
         if race_date_str:
