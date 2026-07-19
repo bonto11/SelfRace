@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from Configs.config import (
     COACH_PLAN_MIN_WEEKS,
@@ -155,6 +155,52 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
     return ai
 
 
+
+def compute_week_boundaries(start_date_str: Optional[str], horizon_weeks: int) -> List[Dict[str, str]]:
+    """
+    Vypočíta presné (week_index, week_start, week_end) hranice pre každý týždeň
+    v pláne, deterministicky v Pythone (AI si dátumy/dni v týždni nesmie počítať
+    samo - LLM na to nie sú spoľahlivé, viedlo to k nesprávnym dňom v týždni
+    napr. pri identifikácii dňa preteku).
+
+    - Ak start_date_str chýba, berie sa dnešok.
+    - PRVÝ týždeň: od start_date po najbližšiu nedeľu (môže byť kratší ako 7 dní,
+      nikdy nie dlhší).
+    - KAŽDÝ ĎALŠÍ týždeň: vždy presne pondelok -> nedeľa (7 dní).
+    """
+    if start_date_str:
+        try:
+            start = date.fromisoformat(start_date_str[:10])
+        except Exception:
+            start = date.today()
+    else:
+        start = date.today()
+
+    boundaries: List[Dict[str, str]] = []
+
+    # Najbližšia nedeľa od start (vrátane, ak start je už nedeľa)
+    days_until_sunday = (6 - start.weekday()) % 7  # Monday=0 ... Sunday=6
+    first_week_end = start + timedelta(days=days_until_sunday)
+
+    boundaries.append({
+        "week_index": 1,
+        "week_start": start.isoformat(),
+        "week_end": first_week_end.isoformat(),
+    })
+
+    cursor = first_week_end + timedelta(days=1)  # ďalší pondelok
+    for i in range(2, horizon_weeks + 1):
+        week_end = cursor + timedelta(days=6)
+        boundaries.append({
+            "week_index": i,
+            "week_start": cursor.isoformat(),
+            "week_end": week_end.isoformat(),
+        })
+        cursor = week_end + timedelta(days=1)
+
+    return boundaries
+
+
 # ============================================================
 # MAIN BUILDER
 # ============================================================
@@ -211,12 +257,21 @@ def build_weekly_context_from_db(
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
+    # Presné, Python-vypočítané hranice týždňov (pondelok-nedeľa, prvý týždeň
+    # môže byť kratší podľa start_date) - AI ich dostane ako fakt, nesmie si
+    # dátumy/dni v týždni počítať sama.
+    start_date_for_weeks = _safe_date(
+        prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
+    )
+    week_boundaries = compute_week_boundaries(start_date_for_weeks, horizon_weeks)
+
     analyze_input_min = _minify_analyze_input_for_weekly(analyze_input)
 
     context_payload: Dict[str, Any] = {
         "schema_version": 1,
         "user_id": user_id,
         "weeks": horizon_weeks,
+        "week_boundaries": week_boundaries,
         "overwrite": True,
         "prefs": prefs_ai,
         "analyze_input_min": analyze_input_min,
