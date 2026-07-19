@@ -60,10 +60,20 @@ export default function ClientProtectedShell({
                 </>
               )}
 
-              {/* OPRAVA 1: Z hlavného obalu sme dali preč overflow-hidden pre istotu kvôli fixed lište */}
+              {/* 🌟 SCROLL-LOCK FIX (iOS PWA): tento wrapper je LOKÁLNY pre chránenú
+                  časť appky (nemení globálny html/body v globals.css/layout.tsx,
+                  ktoré ostávajú nedotknuté pre verejné stránky mimo (protected)).
+                  height: 100dvh + overflow: hidden tu znamená, že TENTO div sa
+                  sám nikdy nescrolluje - scroll prebieha výhradne vo vnútornom
+                  <main> nižšie (overflow-y: auto). Keďže telo stránky (body/html)
+                  sa vôbec nehýbe, iOS WebKit nemá príležitosť "odlepiť" fixed
+                  MobileBottomBar od viewportu pri scrollovaní (známy, dlho
+                  neopravený bug v iOS PWA standalone mode s position:fixed). */}
               <div
-                className="min-h-dvh flex flex-col relative"
+                className="flex flex-col relative"
                 style={{
+                  height: "100dvh",
+                  overflow: "hidden",
                   background: appColors.backgroundMain,
                   color: appColors.textPrimary,
                 }}
@@ -72,9 +82,9 @@ export default function ClientProtectedShell({
                   <AppBackdrop />
                 </div>
 
-                <div className="relative z-10 flex flex-col min-h-dvh">
+                <div className="relative z-10 flex flex-col h-full">
                   <header
-                    className="sticky top-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
+                    className="shrink-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                     style={{
                       background: appColors.backgroundAlt,
                       borderBottom: `1px solid ${appColors.divider}`,
@@ -103,12 +113,13 @@ export default function ClientProtectedShell({
                     </div>
                   </header>
 
-                  <div className="flex-1 flex flex-col relative">
+                  <div className="flex-1 flex flex-col relative min-h-0">
                     <div
-                      className={["hidden lg:grid h-full", SHELL_GRID].join(" ")}
+                      className={["hidden lg:grid h-full min-h-0", SHELL_GRID].join(" ")}
                     >
                       <Sidebar />
-                      <div className="min-h-dvh flex flex-col">
+                      {/* Scrollovateľná oblasť (desktop): len tento div má overflow-y:auto */}
+                      <div className="flex flex-col h-full min-h-0 overflow-y-auto">
                         <main className="flex-1 p-3 lg:p-4 pb-4">
                           {children}
                         </main>
@@ -116,8 +127,10 @@ export default function ClientProtectedShell({
                       </div>
                     </div>
 
-                    {/* OPRAVA 2: Odstránené min-h-dvh z mobilného obalu, pridaný čistý flex-1 */}
-                    <div className="lg:hidden flex-1 flex flex-col">
+                    {/* Scrollovateľná oblasť (mobile): jediné miesto kde sa reálne
+                        scrolluje - MobileBottomBar (portál do body, fixed) je mimo
+                        tohto stromu úplne, takže sa s ním scroll tu nijako nekríži. */}
+                    <div className="lg:hidden flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-contain">
                       <main className="flex-1 p-3 pb-24">{children}</main>
                       <div className="pb-28">
                         <AppFooter />
@@ -127,7 +140,9 @@ export default function ClientProtectedShell({
                 </div>
               </div>
               
-              {/* OPRAVA 3: Bottom Bar je úplne na root úrovni, mimo akéhokoľvek relative obalu */}
+              {/* Bottom Bar je úplne na root úrovni (cez portál do document.body,
+                  viď MobileBottomBar.tsx), mimo akéhokoľvek scrollovateľného
+                  alebo transformovaného obalu. */}
               <MobileBottomBar />
 
               </PerformanceDataProvider>
