@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
+from datetime import date as _date
 
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -22,6 +23,7 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
+    db_delete_current_and_future_weekly_plans,
     db_get_weekly_for_user_plan,
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats,
@@ -148,10 +150,17 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # Overwrite — vymaž staré týždne
+    # 🌟 Overwrite — vymaž len AKTUÁLNY + BUDÚCE týždne (od dneška ďalej), aby
+    # zostal zachovaný progres v už UZAVRETÝCH minulých týždňoch. Predtým sa
+    # volalo db_clear_weekly_for_user_plan, ktoré mazalo úplne všetko vrátane
+    # histórie - to spôsobovalo, že po replane (napr. cez coach notes) zmizol
+    # odtrénovaný progres v minulých týždňoch.
     deleted_rows = 0
     if overwrite:
-        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        today_iso = _date.today().isoformat()
+        deleted_rows = db_delete_current_and_future_weekly_plans(
+            user_id=user_id, from_date_iso=today_iso, ctx=ctx
+        )
 
     # Ulož nové týždenné riadky
     weeks_list = extract_weeks_payload(weekly_plan)
