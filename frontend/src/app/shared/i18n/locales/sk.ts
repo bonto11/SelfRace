@@ -1172,6 +1172,7 @@ export const sk = {
       noPlan: "Nemáš aktívny tréningový plán. Najprv vygeneruj plán.",
       resultDaily: "Týždeň aktualizovaný",
       resultWeekly: "Plán pregenerovaný",
+      coachReplyLabel: "Odpoveď trénera",
     },
   },
   coachAthleteState: {
