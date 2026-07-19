@@ -1178,6 +1178,7 @@ export const en = {
       noPlan: "No active training plan. Generate a plan first.",
       resultDaily: "Week updated",
       resultWeekly: "Plan regenerated",
+      coachReplyLabel: "Coach´s reply",
     },
   },
   coachAthleteState: {
