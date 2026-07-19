@@ -74,6 +74,30 @@ def _time_format_rule() -> str:
     )
 
 
+def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]]) -> str:
+    """
+    Kritické pravidlo: AI NESMIE počítať kalendárne dátumy/dni v týždni sama
+    (LLM na to nie sú spoľahlivé - viedlo to k nesprávnemu určeniu dňa v týždni,
+    napr. pri identifikácii dňa preteku). Presné hranice každého týždňa (vždy
+    pondelok-nedeľa, okrem prípadne kratšieho prvého týždňa) sú vypočítané
+    v Pythone a musia sa použiť doslovne, nie prepočítavať.
+    """
+    if not week_boundaries:
+        return ""
+    lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
+    lines.append(
+        "You MUST use these EXACT week_start/week_end dates for each week_index. "
+        "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
+        "LLMs are unreliable at this and it causes wrong race-day weekday "
+        "identification. Copy these values verbatim into your output:"
+    )
+    for wb in week_boundaries:
+        lines.append(
+            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 # ============================================================
 # PREFS EXTRACTION
 # ============================================================
@@ -347,28 +371,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     return _remove_empty(ctx2)
 
-def _week_boundaries_rule(week_boundaries: List[Dict[str, str]]) -> str:
-    """
-    Kritické pravidlo: AI NESMIE počítať kalendárne dátumy/dni v týždni sama
-    (LLM na to nie sú spoľahlivé - viedlo to k nesprávnemu určeniu dňa v týždni,
-    napr. pri identifikácii dňa preteku). Presné hranice každého týždňa (vždy
-    pondelok-nedeľa, okrem prípadne kratšieho prvého týždňa) sú vypočítané
-    v Pythone a musia sa použiť doslovne.
-    """
-    if not week_boundaries:
-        return ""
-    lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
-    lines.append(
-        "You MUST use these EXACT week_start/week_end dates for each week_index. "
-        "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
-        "LLMs are unreliable at this and it causes wrong race-day weekday "
-        "identification. Copy these values verbatim into your output:"
-    )
-    for wb in week_boundaries:
-        lines.append(
-            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}"
-        )
-    return "\n".join(lines) + "\n"
+
 # ============================================================
 # HLAVNÁ FUNKCIA
 # ============================================================
@@ -432,37 +435,36 @@ def build_prompts_for_weekly(
         key=lambda r: r["days_until_race"],
         default=None,
     )
-    
     race_hint = ""
-        if next_race:
-            dist = next_race.get("custom_distance_km")
-            elev = next_race.get("elevation_gain_m")
-            terrain = next_race.get("terrain")
-            details_parts = []
-            if dist:
-                details_parts.append(f"{dist} km")
-            if elev:
-                details_parts.append(f"{elev}m elev")
-            if terrain:
-                details_parts.append(f"{terrain} terrain")
-            details = f" ({', '.join(details_parts)})" if details_parts else ""
-    
-            # Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
-            race_date_str = _safe_date(next_race.get("date"))
-            weekday_str = ""
-            if race_date_str:
-                try:
-                    race_weekday = date.fromisoformat(race_date_str).strftime("%A")
-                    weekday_str = f" — {race_weekday} (calculated by system, do not recompute)"
-                except Exception:
-                    pass
-    
-            race_hint = (
-                f"\n- KEY RACE: {next_race.get('name')} on {race_date_str or 'unknown date'}{weekday_str}, "
-                f"in {next_race.get('days_until_race')} days{details}."
-                f" Target: {next_race.get('target_time')}. "
-                "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
-            )
+    if next_race:
+        dist = next_race.get("custom_distance_km")
+        elev = next_race.get("elevation_gain_m")
+        terrain = next_race.get("terrain")
+        details_parts = []
+        if dist:
+            details_parts.append(f"{dist} km")
+        if elev:
+            details_parts.append(f"{elev}m elev")
+        if terrain:
+            details_parts.append(f"{terrain} terrain")
+        details = f" ({', '.join(details_parts)})" if details_parts else ""
+
+        # 🌟 Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
+        race_date_str = _safe_date(next_race.get("date"))
+        weekday_str = ""
+        if race_date_str:
+            try:
+                race_weekday = date.fromisoformat(race_date_str).strftime("%A")
+                weekday_str = f" — {race_weekday} (calculated by system, do not recompute)"
+            except Exception:
+                pass
+
+        race_hint = (
+            f"\n- KEY RACE: {next_race.get('name')} on {race_date_str or 'unknown date'}{weekday_str}, "
+            f"in {next_race.get('days_until_race')} days{details}."
+            f" Target: {next_race.get('target_time')}. "
+            "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
+        )
 
     # Minifikovaný context pre AI
     context_for_ai = minify_weekly_context_for_ai(ctx)
@@ -547,13 +549,13 @@ def build_prompts_for_weekly(
         "- ONLY populate planned_stats for listed sports. Set others to 0."
     )
 
+    week_boundaries = ctx.get("week_boundaries") or []
+
     system_txt = (
         "You are an elite endurance coaching assistant. "
         "Your task is to design a high-level WEEKLY meta training plan. "
         "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
-
-    week_boundaries = ctx.get("week_boundaries") or []
 
     user_txt = (
         f"Design a WEEKLY meta plan.\n"
@@ -609,5 +611,3 @@ def _weekly_schema() -> str:
   ]
 }
 """.strip()
-
-
