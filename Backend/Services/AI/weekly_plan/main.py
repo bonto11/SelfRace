@@ -220,6 +220,7 @@ def service_generate_weekly_plan(
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
+        "coach_reply": weekly_plan.get("coach_reply") if isinstance(weekly_plan, dict) else None,
         "weekly_plan": weekly_plan,
         "error": None,
     }
