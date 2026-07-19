@@ -15,6 +15,7 @@ from DB.coach_athlete_state import (
     db_get_state_by_id,
     db_get_latest_state_for_user,
 )
+from DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from Services.coach_external_events import (
     service_build_external_events_block_for_analysis,
 )
@@ -59,8 +60,9 @@ def compute_week_boundaries(
     napr. pri identifikácii dňa preteku).
 
     - Ak start_date_str chýba, berie sa dnešok.
-    - PRVÝ týždeň: od start_date po najbližšiu nedeľu (môže byť kratší ako 7 dní,
-      nikdy nie dlhší).
+    - PRVÝ týždeň (week_index=1 v tomto výstupe, offsetuje sa neskôr pri
+      replane): od start_date po najbližšiu nedeľu (môže byť kratší ako 7
+      dní, nikdy nie dlhší).
     - KAŽDÝ ĎALŠÍ týždeň: vždy presne pondelok -> nedeľa (7 dní).
     """
     if start_date_str:
@@ -263,13 +265,53 @@ def build_weekly_context_from_db(
     raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
     horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
-    # 🌟 Presné, Python-vypočítané hranice týždňov (pondelok-nedeľa, prvý
+    # 🌟 REPLAN DETECTION: ak už existujú weekly riadky pre tohto usera, ide
+    # o replan existujúceho plánu, nie o prvotné vytvorenie. Pri replane
+    # NESMIEME znova generovať už uzavreté minulé týždne (spôsobovalo to
+    # duplicity - staré riadky s week_end v minulosti sa nemažú, ale AI ich
+    # aj tak vygenerovala znova s rovnakými dátumami). Namiesto pôvodného
+    # plan start_date z prefs preto začíname od pondelka týždňa, do ktorého
+    # padá DNEŠOK, a zachovávame nadväzujúce číslovanie week_index podľa
+    # toho, čo už v DB existuje (aby FE zoznam týždňov nadväzoval plynulo).
+    existing_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+    is_replan = len(existing_rows) > 0
+
+    current_week_index_offset = 1
+    start_date_for_weeks: Optional[str] = None
+
+    if is_replan:
+        today_iso = date.today().isoformat()
+        current_row = next(
+            (
+                r for r in existing_rows
+                if r.get("week_start") and r.get("week_end")
+                and str(r["week_start"]) <= today_iso <= str(r["week_end"])
+            ),
+            None,
+        )
+        if current_row:
+            current_week_index_offset = int(current_row.get("week_index") or 1)
+            start_date_for_weeks = str(current_row["week_start"])
+        else:
+            # Dnešok nepadá do žiadneho existujúceho týždňa (napr. plán sa
+            # skončil) - pokračuj hneď za posledným existujúcim týždňom.
+            max_index_row = max(existing_rows, key=lambda r: int(r.get("week_index") or 0))
+            current_week_index_offset = int(max_index_row.get("week_index") or 0) + 1
+            start_date_for_weeks = today_iso
+    else:
+        start_date_for_weeks = _safe_date(
+            prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
+        )
+
+    # Presné, Python-vypočítané hranice týždňov (pondelok-nedeľa, prvý
     # týždeň môže byť kratší podľa start_date) - AI ich dostane ako fakt cez
-    # prompt, nesmie si dátumy/dni v týždni počítať sama.
-    start_date_for_weeks = _safe_date(
-        prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
-    )
-    week_boundaries = compute_week_boundaries(start_date_for_weeks, horizon_weeks)
+    # prompt, nesmie si dátumy/dni v týždni počítať sama. Pri replane sa
+    # week_index posunie tak, aby nadväzoval na existujúce číslovanie.
+    raw_boundaries = compute_week_boundaries(start_date_for_weeks, horizon_weeks)
+    week_boundaries = [
+        {**wb, "week_index": wb["week_index"] + current_week_index_offset - 1}
+        for wb in raw_boundaries
+    ]
 
     analyze_input_min = _minify_analyze_input_for_weekly(analyze_input)
 
@@ -278,6 +320,7 @@ def build_weekly_context_from_db(
         "user_id": user_id,
         "weeks": horizon_weeks,
         "week_boundaries": week_boundaries,
+        "is_replan": is_replan,
         "overwrite": True,
         "prefs": prefs_ai,
         "analyze_input_min": analyze_input_min,
@@ -293,6 +336,25 @@ def build_weekly_context_from_db(
             "ephemeral_note": coach_notes.get("ephemeral_note"),
         },
     }
+
+    # Pri replane pošleme AI aj krátky súhrn UŽ UZAVRETÝCH minulých týždňov
+    # (goal/load_phase/actual_stats) ako kontext - AI ich nemá generovať
+    # znova, ale môže sa na ne odvolávať (napr. "pokračujeme v build fáze").
+    if is_replan:
+        past_weeks_summary = [
+            {
+                "week_index": r.get("week_index"),
+                "week_start": r.get("week_start"),
+                "week_end": r.get("week_end"),
+                "load_phase": r.get("load_phase"),
+                "goal": r.get("goal"),
+                "actual_stats": r.get("actual_stats"),
+            }
+            for r in existing_rows
+            if r.get("week_end") and str(r["week_end"]) < date.today().isoformat()
+        ]
+        if past_weeks_summary:
+            context_payload["past_weeks_summary"] = past_weeks_summary
 
     if external_events_block is not None:
         context_payload["external_events"] = external_events_block
