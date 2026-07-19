@@ -347,7 +347,28 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
 
     return _remove_empty(ctx2)
 
-
+def _week_boundaries_rule(week_boundaries: List[Dict[str, str]]) -> str:
+    """
+    Kritické pravidlo: AI NESMIE počítať kalendárne dátumy/dni v týždni sama
+    (LLM na to nie sú spoľahlivé - viedlo to k nesprávnemu určeniu dňa v týždni,
+    napr. pri identifikácii dňa preteku). Presné hranice každého týždňa (vždy
+    pondelok-nedeľa, okrem prípadne kratšieho prvého týždňa) sú vypočítané
+    v Pythone a musia sa použiť doslovne.
+    """
+    if not week_boundaries:
+        return ""
+    lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
+    lines.append(
+        "You MUST use these EXACT week_start/week_end dates for each week_index. "
+        "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
+        "LLMs are unreliable at this and it causes wrong race-day weekday "
+        "identification. Copy these values verbatim into your output:"
+    )
+    for wb in week_boundaries:
+        lines.append(
+            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}"
+        )
+    return "\n".join(lines) + "\n"
 # ============================================================
 # HLAVNÁ FUNKCIA
 # ============================================================
@@ -519,6 +540,8 @@ def build_prompts_for_weekly(
         "Return ONE valid JSON object only. Do NOT output prose or markdown."
     )
 
+    week_boundaries = ctx.get("week_boundaries") or []
+
     user_txt = (
         f"Design a WEEKLY meta plan.\n"
         f"Main sport: {main_sport}\n"
@@ -531,6 +554,7 @@ def build_prompts_for_weekly(
         + sports_restriction + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
+        + _week_boundaries_rule(week_boundaries)
         + race_hint
         + beginner_protocol
         + special_reason_rule
@@ -555,8 +579,8 @@ def _weekly_schema() -> str:
   "weeks": [
     {
       "week_index": number,
-      "week_start": "YYYY-MM-DD",
-      "week_end": "YYYY-MM-DD",
+      "week_start": "YYYY-MM-DD - MUST match context.week_boundaries EXACTLY for this week_index, do not calculate yourself",
+      "week_end": "YYYY-MM-DD - MUST match context.week_boundaries EXACTLY for this week_index, do not calculate yourself",
       "goal": "1 punchy sentence",
       "focus": "Short technical tag",
       "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | "Taper" | "Race",
@@ -572,3 +596,5 @@ def _weekly_schema() -> str:
   ]
 }
 """.strip()
+
+
