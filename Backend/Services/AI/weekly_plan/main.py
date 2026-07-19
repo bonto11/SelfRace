@@ -150,7 +150,7 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # 🌟 Overwrite — vymaž len AKTUÁLNY + BUDÚCE týždne (od dneška ďalej), aby
+    # Overwrite — vymaž len AKTUÁLNY + BUDÚCE týždne (od dneška ďalej), aby
     # zostal zachovaný progres v už UZAVRETÝCH minulých týždňoch. Predtým sa
     # volalo db_clear_weekly_for_user_plan, ktoré mazalo úplne všetko vrátane
     # histórie - to spôsobovalo, že po replane (napr. cez coach notes) zmizol
@@ -166,6 +166,20 @@ def service_generate_weekly_plan(
     weeks_list = extract_weeks_payload(weekly_plan)
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
     inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
+
+    # 🌟 Ak sme prepísali AKTUÁLNY týždeň (overwrite=True), jeho nový riadok
+    # má actual_stats={} aj keď obsahuje už odtrénované dni (pondelok->dnes) -
+    # ten starý riadok s dopočítaným actual_stats bol zmazaný spolu s
+    # db_delete_current_and_future_weekly_plans vyššie. Dopočítame ich naspäť
+    # hneď teraz, inak by progres v bežiacom týždni zostal nulový až do
+    # ďalšej synchronizácie novej aktivity (čo môže byť o niekoľko dní).
+    if overwrite:
+        try:
+            service_sync_weekly_volume_for_date(
+                user_id=user_id, target_date=_date.today().isoformat(), ctx=ctx
+            )
+        except Exception as e:
+            print(f"❌ [WEEKLY] resync current week actual_stats failed: {repr(e)}")
 
     # Označí ephemeral poznámku ako použitú
     if context.get("ephemeral_note_id"):
