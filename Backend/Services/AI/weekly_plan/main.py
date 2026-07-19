@@ -167,19 +167,25 @@ def service_generate_weekly_plan(
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
     inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
 
-    # 🌟 Ak sme prepísali AKTUÁLNY týždeň (overwrite=True), jeho nový riadok
-    # má actual_stats={} aj keď obsahuje už odtrénované dni (pondelok->dnes) -
-    # ten starý riadok s dopočítaným actual_stats bol zmazaný spolu s
-    # db_delete_current_and_future_weekly_plans vyššie. Dopočítame ich naspäť
-    # hneď teraz, inak by progres v bežiacom týždni zostal nulový až do
-    # ďalšej synchronizácie novej aktivity (čo môže byť o niekoľko dní).
+    # 🌟 Po replane prepočítame actual_stats pre VŠETKY týždne v pláne (nie len
+    # aktuálny) - staršie týždne mohli mať nesprávne/nulové actual_stats z
+    # predošlých generovaní pred týmto fixom, a je to lacná operácia (pár
+    # DB queries navyše), takže robíme to vždy pre istotu konzistencie.
     if overwrite:
         try:
-            service_sync_weekly_volume_for_date(
-                user_id=user_id, target_date=_date.today().isoformat(), ctx=ctx
-            )
+            all_weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+            for w in all_weeks:
+                w_start = w.get("week_start")
+                if not w_start:
+                    continue
+                try:
+                    service_sync_weekly_volume_for_date(
+                        user_id=user_id, target_date=w_start, ctx=ctx
+                    )
+                except Exception as e:
+                    print(f"❌ [WEEKLY] resync week_index={w.get('week_index')} failed: {repr(e)}")
         except Exception as e:
-            print(f"❌ [WEEKLY] resync current week actual_stats failed: {repr(e)}")
+            print(f"❌ [WEEKLY] resync all weeks failed: {repr(e)}")
 
     # Označí ephemeral poznámku ako použitú
     if context.get("ephemeral_note_id"):
