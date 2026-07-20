@@ -1172,6 +1172,7 @@ export const sk = {
       noPlan: "Nemáš aktívny tréningový plán. Najprv vygeneruj plán.",
       resultDaily: "Týždeň aktualizovaný",
       resultWeekly: "Plán pregenerovaný",
+      coachReplyLabel: "Odpoveď trénera",
     },
   },
   coachAthleteState: {
@@ -2684,7 +2685,9 @@ export const sk = {
       hrChange: "Zmena tepu",
       wasFaster: "bol rýchlejší",
       hadLowerHr: "mal nižší tep",
+      selectTwoHint: "Vyber 2 aktivity na porovnanie",
     },
+
     detail: {
       btnFavoriteSet: "Pridať k obľúbeným",
       btnFavoriteUnset: "V obľúbených",

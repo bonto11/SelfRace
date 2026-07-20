@@ -11,7 +11,14 @@ export async function apiGenerateWeeklyPlan(
   userId: number,
   userUuid: string,
   opts: WeeklyPlanGenerateOptions = {}
-): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
+): Promise<{
+  success: boolean;
+  status?: string;
+  error_code?: string;
+  message?: string;
+  data?: any;
+  coach_reply?: string | null;
+}> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
@@ -53,7 +60,17 @@ export async function apiGenerateWeeklyPlan(
     return { success: true, status: "QUEUED" };
   }
 
-  return await runAsyncJobWithPolling(userId, jobId);
+  const pollResult = await runAsyncJobWithPolling(userId, jobId);
+
+  // 🌟 coach_reply je súčasť service_generate_weekly_plan response (resp.coach_reply),
+  // ktoré sa dostane sem cez job.result -> data. runAsyncJobWithPolling ho vracia
+  // v poli 'data', vyťahujeme ho na top-level pre jednoduchší prístup na FE.
+  const coachReply =
+    pollResult?.data?.coach_reply ??
+    pollResult?.data?.result?.coach_reply ??
+    null;
+
+  return { ...pollResult, coach_reply: coachReply };
 }
 
 // ... (Zvyšok tvojho súboru, napr. apiGetLatestWeeklyPlan a typy, ostáva rovnaký ako si poslal) ...

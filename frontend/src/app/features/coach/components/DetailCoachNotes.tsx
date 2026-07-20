@@ -51,6 +51,7 @@ type LastReplan = {
   at: string;
   weekGoal?: string | null;
   weekNotes?: string | null;
+  coachReply?: string | null;
 };
 
 export default function DetailCoachNotes() {
@@ -258,6 +259,7 @@ export default function DetailCoachNotes() {
       setLastReplan({
         type: "weekly",
         at: new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
+        coachReply: wOut.coach_reply ?? null,
         ...summary,
       });
       toast.success(t("coachNotes.replan.successWeekly"));
@@ -470,6 +472,21 @@ export default function DetailCoachNotes() {
                       : t("coachNotes.replan.resultDaily")}{" "}
                     · {lastReplan.at}
                   </div>
+
+                  {/* 🌟 Priama odpoveď AI na poznámku (ak bola nejaká napísaná) - má
+                      prioritu nad všeobecným goal/notes zhrnutím týždňa, keďže
+                      priamo hovorí, čo AI so žiadosťou spravila. */}
+                  {lastReplan.coachReply && (
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] p-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 mb-1">
+                        {t("coachNotes.replan.coachReplyLabel")}
+                      </div>
+                      <div className="text-sm text-white/85 leading-relaxed">
+                        {lastReplan.coachReply}
+                      </div>
+                    </div>
+                  )}
+
                   {lastReplan.weekGoal && (
                     <div className="text-sm font-semibold text-white/90 leading-snug">
                       {lastReplan.weekGoal}

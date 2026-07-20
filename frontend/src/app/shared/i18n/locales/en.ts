@@ -1178,6 +1178,7 @@ export const en = {
       noPlan: "No active training plan. Generate a plan first.",
       resultDaily: "Week updated",
       resultWeekly: "Plan regenerated",
+      coachReplyLabel: "Coach´s reply",
     },
   },
   coachAthleteState: {
@@ -2694,7 +2695,9 @@ export const en = {
       hrChange: "HR change",
       wasFaster: "was faster",
       hadLowerHr: "had lower HR",
+      selectTwoHint: "Select 2 activities to compare",
     },
+
     detail: {
       btnFavoriteSet: "Add to favorites",
       btnFavoriteUnset: "In favorites",

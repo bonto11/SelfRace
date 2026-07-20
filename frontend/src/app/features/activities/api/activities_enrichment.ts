@@ -62,7 +62,6 @@ export async function apiRerunActivityReview(
       };
     }
 
-    // Skontrolujeme, či samotný status Jobu neskončil chybou
     const jobStatus = runJson?.data?.status || runJson?.job?.status || runJson?.status;
     if (jobStatus === "failed" || jobStatus === "error") {
       return {

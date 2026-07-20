@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
+from datetime import date as _date
 
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -22,6 +23,7 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
     db_clear_weekly_for_user_plan,
+    db_delete_current_and_future_weekly_plans,
     db_get_weekly_for_user_plan,
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats,
@@ -148,15 +150,42 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # Overwrite — vymaž staré týždne
+    # Overwrite — vymaž len AKTUÁLNY + BUDÚCE týždne (od dneška ďalej), aby
+    # zostal zachovaný progres v už UZAVRETÝCH minulých týždňoch. Predtým sa
+    # volalo db_clear_weekly_for_user_plan, ktoré mazalo úplne všetko vrátane
+    # histórie - to spôsobovalo, že po replane (napr. cez coach notes) zmizol
+    # odtrénovaný progres v minulých týždňoch.
     deleted_rows = 0
     if overwrite:
-        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        today_iso = _date.today().isoformat()
+        deleted_rows = db_delete_current_and_future_weekly_plans(
+            user_id=user_id, from_date_iso=today_iso, ctx=ctx
+        )
 
     # Ulož nové týždenné riadky
     weeks_list = extract_weeks_payload(weekly_plan)
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
     inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
+
+    # 🌟 Po replane prepočítame actual_stats pre VŠETKY týždne v pláne (nie len
+    # aktuálny) - staršie týždne mohli mať nesprávne/nulové actual_stats z
+    # predošlých generovaní pred týmto fixom, a je to lacná operácia (pár
+    # DB queries navyše), takže robíme to vždy pre istotu konzistencie.
+    if overwrite:
+        try:
+            all_weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+            for w in all_weeks:
+                w_start = w.get("week_start")
+                if not w_start:
+                    continue
+                try:
+                    service_sync_weekly_volume_for_date(
+                        user_id=user_id, target_date=w_start, ctx=ctx
+                    )
+                except Exception as e:
+                    print(f"❌ [WEEKLY] resync week_index={w.get('week_index')} failed: {repr(e)}")
+        except Exception as e:
+            print(f"❌ [WEEKLY] resync all weeks failed: {repr(e)}")
 
     # Označí ephemeral poznámku ako použitú
     if context.get("ephemeral_note_id"):
@@ -197,6 +226,7 @@ def service_generate_weekly_plan(
         "weeks": horizon_weeks,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
+        "coach_reply": weekly_plan.get("coach_reply") if isinstance(weekly_plan, dict) else None,
         "weekly_plan": weekly_plan,
         "error": None,
     }

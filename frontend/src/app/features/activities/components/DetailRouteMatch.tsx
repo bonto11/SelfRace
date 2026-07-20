@@ -30,7 +30,6 @@ import {
   shouldUseElevationAlignment,
   mergeSeriesForChart,
   average,
-  pctChange,
   type ResampledSeries,
 } from "@/app/features/activities/utils/routeStreamCompare";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
@@ -257,98 +256,111 @@ function OverlayChart({
 function ChangeSummary({
   currentLabel,
   previousLabel,
-  paceChangePct,
-  paceChangeSec,
-  hrChangePct,
+  currentPaceSec,
+  previousPaceSec,
+  currentHr,
+  previousHr,
 }: {
   currentLabel: string;
   previousLabel: string;
-  paceChangePct: number | null;
-  paceChangeSec: number | null;
-  hrChangePct: number | null;
+  currentPaceSec: number | null;
+  previousPaceSec: number | null;
+  currentHr: number | null;
+  previousHr: number | null;
 }) {
   const t = useT();
 
-  if (paceChangePct == null && hrChangePct == null) return null;
+  if (currentPaceSec == null && currentHr == null) return null;
 
-  // paceChangePct < 0 znamená current (najnovší dátum) má NIŽŠIE sekundy/km
-  // = RÝCHLEJŠIE tempo ako previous. Formulujeme explicitne, aby nebolo
-  // treba počítať smer v hlave.
-  const paceFasterLabel = paceChangePct != null && paceChangePct < 0 ? currentLabel : previousLabel;
-  const hrLowerLabel = hrChangePct != null && hrChangePct < 0 ? currentLabel : previousLabel;
+  const paceDiff =
+    currentPaceSec != null && previousPaceSec != null ? currentPaceSec - previousPaceSec : null;
+  const hrDiff = currentHr != null && previousHr != null ? currentHr - previousHr : null;
+
+  // Zápornejšie tempo (menej sekúnd/km) = rýchlejšie. Nižší priemerný tep = lepšie.
+  // Farbíme zeleno vždy keď je to zlepšenie voči predchádzajúcemu behu.
+  const paceIsBetter = paceDiff != null && paceDiff < 0;
+  const hrIsBetter = hrDiff != null && hrDiff < 0;
 
   return (
-    <div style={{ padding: "0 16px 12px" }}>
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        {paceChangePct != null && (
-          <div
-            style={{
-              flex: 1,
-              minWidth: 160,
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: appColors.backgroundAlt,
-              border: `1px solid ${appColors.surfaceCardBorder}`,
-            }}
-          >
-            <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
-              {t("sessions.routeMatch.paceChange")}
-            </div>
+    <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {previousPaceSec != null && currentPaceSec != null && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: appColors.backgroundAlt,
+            border: `1px solid ${appColors.surfaceCardBorder}`,
+          }}
+        >
+          <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
+            {t("sessions.routeMatch.paceChange")}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 3 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: appColors.textMuted }}>
+              {formatSecondsAsPace(previousPaceSec)}
+            </span>
+            <span style={{ fontSize: 13, color: appColors.textMuted }}>→</span>
+            <span style={{ fontSize: 17, fontWeight: 800, color: appColors.textPrimary }}>
+              {formatSecondsAsPace(currentPaceSec)}
+            </span>
+            <span style={{ fontSize: 12, color: appColors.textMuted }}>/km</span>
+          </div>
+          {paceDiff != null && (
             <div
               style={{
-                fontSize: 18,
-                fontWeight: 800,
-                color: "#4ade80",
-                marginTop: 2,
+                fontSize: 13,
+                fontWeight: 700,
+                color: paceIsBetter ? "#4ade80" : "#f87171",
+                marginTop: 3,
               }}
             >
-              {paceFasterLabel} {Math.abs(paceChangePct).toFixed(1)}%
+              {paceDiff < 0 ? "−" : "+"}
+              {formatSecondsAsPace(Math.abs(paceDiff))} /km
             </div>
-            {paceChangeSec != null && (
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#4ade80", marginTop: 1 }}>
-                −{formatSecondsAsPace(Math.abs(paceChangeSec))} /km
-              </div>
-            )}
-            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
-              {t("sessions.routeMatch.wasFaster")}
-            </div>
+          )}
+        </div>
+      )}
+
+      {previousHr != null && currentHr != null && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: appColors.backgroundAlt,
+            border: `1px solid ${appColors.surfaceCardBorder}`,
+          }}
+        >
+          <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
+            {t("sessions.routeMatch.hrChange")}
           </div>
-        )}
-        {hrChangePct != null && (
-          <div
-            style={{
-              flex: 1,
-              minWidth: 160,
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: appColors.backgroundAlt,
-              border: `1px solid ${appColors.surfaceCardBorder}`,
-            }}
-          >
-            <div style={{ fontSize: 10, color: appColors.textMuted, textTransform: "uppercase" }}>
-              {t("sessions.routeMatch.hrChange")}
-            </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 3 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: appColors.textMuted }}>
+              {Math.round(previousHr)}
+            </span>
+            <span style={{ fontSize: 13, color: appColors.textMuted }}>→</span>
+            <span style={{ fontSize: 17, fontWeight: 800, color: appColors.textPrimary }}>
+              {Math.round(currentHr)}
+            </span>
+            <span style={{ fontSize: 12, color: appColors.textMuted }}>bpm</span>
+          </div>
+          {hrDiff != null && (
             <div
               style={{
-                fontSize: 18,
-                fontWeight: 800,
-                color: "#4ade80",
-                marginTop: 2,
+                fontSize: 13,
+                fontWeight: 700,
+                color: hrIsBetter ? "#4ade80" : "#f87171",
+                marginTop: 3,
               }}
             >
-              {hrLowerLabel} {Math.abs(hrChangePct).toFixed(1)}%
+              {hrDiff < 0 ? "−" : "+"}
+              {Math.round(Math.abs(hrDiff))} bpm
             </div>
-            <div style={{ fontSize: 11, color: appColors.textMuted, marginTop: 2 }}>
-              {t("sessions.routeMatch.hadLowerHr")}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: appColors.textMuted }}>
+        {previousLabel} → {currentLabel}
       </div>
     </div>
   );
@@ -369,10 +381,32 @@ function ComparisonPanel({
   const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
 
-  // Posledné N aktivít (activities už prichádzajú zoradené od najnovšej z BE)
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    // Defaultne posledné 2 (activities už prichádzajú zoradené od najnovšej)
+    setSelectedIds(activities.slice(0, MAX_OVERLAY_ACTIVITIES).map((a) => a.activity_id));
+  }, [activities]);
+
+  const toggleSelected = (activityId: number) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(activityId)) {
+        return prev.filter((id) => id !== activityId);
+      }
+      if (prev.length >= MAX_OVERLAY_ACTIVITIES) {
+        // Nahradí najstarší výber novým (posuvné okno max 2 výberov)
+        return [...prev.slice(1), activityId];
+      }
+      return [...prev, activityId];
+    });
+  };
+
   const targetActivities = useMemo(
-    () => activities.slice(0, MAX_OVERLAY_ACTIVITIES),
-    [activities],
+    () =>
+      activities
+        .filter((a) => selectedIds.includes(a.activity_id))
+        .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? "")),
+    [activities, selectedIds],
   );
 
   useEffect(() => {
@@ -428,14 +462,6 @@ function ComparisonPanel({
     [overlaySeries],
   );
 
-  if (overlaySeries) {
-    console.log("[ComparisonPanel][debug]", {
-      overlaySeriesLengths: overlaySeries.map((s) => s.length),
-      overlaySeriesSample: overlaySeries.map((s) => s.slice(0, 3)),
-      chartDataSample: chartData.slice(0, 5),
-    });
-  }
-
   const legendLabels = targetActivities.map((a) => fmtShortDate(a.updated_at));
 
   const [visible, setVisible] = useState<boolean[]>([]);
@@ -450,16 +476,11 @@ function ComparisonPanel({
   const changeStats = useMemo(() => {
     if (!overlaySeries || overlaySeries.length < 2) return null;
     // index 0 = najnovšia (current), index 1 = predchádzajúca (previous)
-    const currentPace = average(overlaySeries[0].map((p) => p.paceSecPerKm));
-    const previousPace = average(overlaySeries[1].map((p) => p.paceSecPerKm));
-    const currentHr = average(overlaySeries[0].map((p) => p.hr));
-    const previousHr = average(overlaySeries[1].map((p) => p.hr));
-
     return {
-      paceChangePct: pctChange(currentPace, previousPace),
-      paceChangeSec:
-        currentPace != null && previousPace != null ? currentPace - previousPace : null,
-      hrChangePct: pctChange(currentHr, previousHr),
+      currentPaceSec: average(overlaySeries[0].map((p) => p.paceSecPerKm)),
+      previousPaceSec: average(overlaySeries[1].map((p) => p.paceSecPerKm)),
+      currentHr: average(overlaySeries[0].map((p) => p.hr)),
+      previousHr: average(overlaySeries[1].map((p) => p.hr)),
     };
   }, [overlaySeries]);
 
@@ -497,9 +518,10 @@ function ComparisonPanel({
             <ChangeSummary
               currentLabel={legendLabels[0]}
               previousLabel={legendLabels[1]}
-              paceChangePct={changeStats.paceChangePct}
-              paceChangeSec={changeStats.paceChangeSec}
-              hrChangePct={changeStats.hrChangePct}
+              currentPaceSec={changeStats.currentPaceSec}
+              previousPaceSec={changeStats.previousPaceSec}
+              currentHr={changeStats.currentHr}
+              previousHr={changeStats.previousHr}
             />
           )}
 
@@ -533,35 +555,90 @@ function ComparisonPanel({
         </>
       )}
 
+      <div style={{ padding: "0 16px 4px" }}>
+        <span style={{ fontSize: 11, color: appColors.textMuted }}>
+          {t("sessions.routeMatch.selectTwoHint")}
+        </span>
+      </div>
+
       <div style={{ marginTop: overlaySeries ? 4 : 0 }}>
-        {activities.map((a) => (
-          <div
-            key={a.activity_id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "10px 16px",
-              borderTop: `1px solid ${appColors.divider}`,
-            }}
-          >
-            <span style={{ fontSize: 13, color: appColors.textMuted }}>
-              {fmtShortDate(a.updated_at)}
-            </span>
-            <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
-              {a.moving_time_s != null && (
-                <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
-                  {fmtSecondsHMS(a.moving_time_s)}
+        {activities.map((a) => {
+          const paceLabel =
+            a.average_speed_mps != null && a.average_speed_mps > 0
+              ? `${formatSecondsAsPace(1000 / a.average_speed_mps)} /km`
+              : null;
+          const hrLabel =
+            a.avg_hr_bpm != null && Number(a.avg_hr_bpm) > 0
+              ? `${Math.round(Number(a.avg_hr_bpm))} bpm`
+              : null;
+          const isSelected = selectedIds.includes(a.activity_id);
+
+          return (
+            <button
+              key={a.activity_id}
+              type="button"
+              onClick={() => toggleSelected(a.activity_id)}
+              className="w-full text-left"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 16px",
+                borderTop: `1px solid ${appColors.divider}`,
+                gap: 12,
+                flexWrap: "wrap",
+                background: isSelected ? appColors.surfaceCardHover : "transparent",
+                border: "none",
+                borderTopWidth: 1,
+                borderTopStyle: "solid",
+                borderTopColor: appColors.divider,
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 4,
+                    border: `1.5px solid ${isSelected ? appColors.chartRun : appColors.surfaceCardBorder}`,
+                    background: isSelected ? appColors.chartRun : "transparent",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: 13, color: appColors.textMuted, flexShrink: 0 }}>
+                  {fmtShortDate(a.updated_at)}
                 </span>
-              )}
-              {a.distance_m != null && (
-                <span style={{ fontSize: 12, color: appColors.textMuted }}>
-                  {formatDistance(a.distance_m)}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {a.moving_time_s != null && (
+                  <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+                    {fmtSecondsHMS(a.moving_time_s)}
+                  </span>
+                )}
+                {a.distance_m != null && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>
+                    {formatDistance(a.distance_m)}
+                  </span>
+                )}
+                {paceLabel && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>{paceLabel}</span>
+                )}
+                {hrLabel && (
+                  <span style={{ fontSize: 12, color: appColors.textMuted }}>{hrLabel}</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

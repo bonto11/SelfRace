@@ -331,11 +331,11 @@ def db_get_activities_for_route_match(
 ) -> List[Dict[str, Any]]:
     """
     Vráti všetky aktivity s daným potvrdeným route_match názvom — pre
-    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m a
-    average_speed_mps z activities_summary (enrichment tieto stĺpce nemá,
-    resp. distance_m má len ako denormalizovanú kópiu) - aby FE vedelo
-    zobraziť tempo/rýchlosť a prevýšenie pri porovnaní jednotlivých behov
-    tej istej trate.
+    "podobné behy" widget/detail porovnanie. Dopĺňa elevation_gain_m,
+    average_speed_mps A skutočný dátum aktivity (date) z activities_summary
+    (enrichment tieto stĺpce nemá, resp. jeho 'updated_at' je len časová
+    pečiatka posledného zápisu riadku, NIE dátum kedy sa beh reálne odohral -
+    to spôsobovalo posun dátumov o deň/viac vo FE zobrazení).
     """
     from DB.activities_summary import db_get_summary_for_activities
 
@@ -348,7 +348,6 @@ def db_get_activities_for_route_match(
         )
         .eq("user_id", int(user_id))
         .eq("route_match", route_match)
-        .order("updated_at", desc=True)
         .execute()
     )
     enrich_rows = res.data or []
@@ -363,6 +362,15 @@ def db_get_activities_for_route_match(
         s = summary_by_id.get(int(r["activity_id"])) or {}
         r["elevation_gain_m"] = s.get("elevation_gain_m")
         r["average_speed_mps"] = s.get("average_speed_mps")
+        # Nahrádzame updated_at (enrichment riadok metadata) skutočným
+        # dátumom aktivity zo summary - to je to, čo chce FE zobraziť.
+        if s.get("date") is not None:
+            r["updated_at"] = s.get("date")
+
+    # Zoradenie podľa SKUTOČNÉHO dátumu aktivity (nie podľa poradia v DB),
+    # od najnovšej po najstaršiu - dôležité pre "current vs previous"
+    # porovnanie v ComparisonPanel na FE.
+    enrich_rows.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
 
     return enrich_rows
 

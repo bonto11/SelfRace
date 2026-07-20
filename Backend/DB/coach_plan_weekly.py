@@ -1,3 +1,4 @@
+# DB/coach_plan_weekly.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -38,6 +39,10 @@ def db_clear_weekly_for_user_plan(
 ) -> int:
     """
     DELETE všetkých weekly riadkov daného plánu pre usera.
+    POZOR: Maže úplne všetko vrátane histórie (minulých týždňov). Používaj
+    len pri úplnom resete plánu od nuly - pri bežnom replane cez
+    service_generate_weekly_plan sa namiesto tejto funkcie používa
+    db_delete_current_and_future_weekly_plans, ktorá zachováva históriu.
     """
     sb = get_sb(ctx, caller="coach_plan_weekly.db_clear_weekly_for_user_plan")
 
@@ -197,3 +202,38 @@ def db_delete_future_weekly_plans(
     except Exception as e:
         print("[DB-COACH-WEEKLY] delete future error:", repr(e))
         return False
+
+
+def db_delete_current_and_future_weekly_plans(
+    user_id: int,
+    from_date_iso: str,
+    *,
+    ctx: AuthCtx,
+) -> int:
+    """
+    Vymaže týždenné riadky, ktoré OBSAHUJÚ from_date_iso alebo začínajú po ňom
+    (t.j. aktuálny prebiehajúci týždeň aj všetky budúce). Minulé, už uzavreté
+    týždne (week_end < from_date_iso) ostávajú netknuté - zachováva sa história
+    a progres (actual_stats) v nich.
+
+    Používa sa pri replane weekly plánu (napr. cez coach notes úpravu) -
+    plán sa má prepočítať od "teraz" ďalej vrátane zvyšku aktuálneho týždňa,
+    ale nesmie zmazať už uzavreté minulé týždne. Rozdiel oproti
+    db_delete_future_weekly_plans (tá necháva aj aktuálny týždeň netknutý,
+    táto ho tiež prepočíta nanovo).
+    """
+    sb = get_sb(ctx, caller="coach_plan_weekly.db_delete_current_and_future_weekly_plans")
+    date_only = from_date_iso[:10]
+
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .delete()
+            .eq("user_id", user_id)
+            .gte("week_end", date_only)  # týždeň sa ešte neskončil (aktuálny alebo budúci)
+            .execute()
+        )
+        return len(res.data or [])
+    except Exception as e:  # noqa: BLE001
+        print("[DB-COACH-WEEKLY] delete current+future error:", repr(e))
+        return 0

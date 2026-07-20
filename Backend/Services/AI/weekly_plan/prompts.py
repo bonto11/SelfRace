@@ -74,6 +74,83 @@ def _time_format_rule() -> str:
     )
 
 
+def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]], is_replan: bool) -> str:
+    """
+    Kritické pravidlo: AI NESMIE počítať kalendárne dátumy/dni v týždni sama
+    (LLM na to nie sú spoľahlivé - viedlo to k nesprávnemu určeniu dňa v týždni,
+    napr. pri identifikácii dňa preteku). Presné hranice každého týždňa (vždy
+    pondelok-nedeľa, okrem prípadne kratšieho prvého týždňa) sú vypočítané
+    v Pythone a musia sa použiť doslovne, nie prepočítavať.
+
+    Explicitne tiež označuje, ktorý week_index zodpovedá DNEŠKU - keď atlét
+    v coach_notes píše "tento týždeň", myslí presne tento week_index.
+
+    Pri REPLANE week_index NEZAČÍNA na 1 - pokračuje od existujúceho čísla
+    (napr. ak už prebehli týždne 1-2, prvý týždeň v tomto zozname môže byť
+    week_index 3). AI generuje LEN tieto vymenované týždne, nič naviac a nič
+    s nižším week_index.
+    """
+    if not week_boundaries:
+        return ""
+    lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
+    if is_replan:
+        lines.append(
+            "This is a REPLAN of an existing plan. Earlier weeks (lower week_index than "
+            "listed below) already happened and are CLOSED - do NOT generate them, do NOT "
+            "reuse their week_index numbers. Generate ONLY the exact week_index values "
+            "listed below, starting from the current week."
+        )
+    lines.append(
+        "You MUST use these EXACT week_start/week_end dates for each week_index. "
+        "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
+        "LLMs are unreliable at this and it causes wrong race-day weekday "
+        "identification. Copy these values verbatim into your output:"
+    )
+    today_iso = date.today().isoformat()
+    current_week_index: Optional[int] = None
+    for wb in week_boundaries:
+        marker = ""
+        if wb["week_start"] <= today_iso <= wb["week_end"]:
+            current_week_index = wb["week_index"]
+            marker = "  <-- TODAY falls in this week"
+        lines.append(
+            f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}{marker}"
+        )
+    if current_week_index is not None:
+        lines.append(
+            f"\nCRITICAL: Today is {today_iso}, which is week_index {current_week_index}. "
+            f"When the athlete's notes say 'this week', 'tento týždeň', 'aktuálny týždeň', "
+            f"or similar, they mean week_index {current_week_index} EXACTLY — not any other "
+            f"week. When they say 'next week', 'ďalší týždeň', they mean week_index "
+            f"{current_week_index + 1}. Do not misassign the deload/build phase to the "
+            f"wrong week_index — this is a common and critical mistake to avoid."
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _past_weeks_summary_rule(past_weeks: List[Dict[str, Any]]) -> str:
+    """
+    Krátky súhrn už uzavretých minulých týždňov (pri replane) - AI ich
+    NEGENERUJE znova, ale môže sa na periodizáciu odvolávať (napr. vedieť
+    že predošlý týždeň bol build, takže tento môže byť recovery).
+    """
+    if not past_weeks:
+        return ""
+    lines = ["\n--- PAST WEEKS (ALREADY HAPPENED, READ-ONLY CONTEXT) ---"]
+    lines.append(
+        "These weeks already occurred and are closed. Do NOT include them in your "
+        "output. Use them only to understand recent periodization/training history:"
+    )
+    for w in past_weeks:
+        phase = w.get("load_phase") or "?"
+        goal = w.get("goal") or ""
+        lines.append(
+            f"  - week_index {w.get('week_index')} ({w.get('week_start')} to "
+            f"{w.get('week_end')}): {phase} — {goal}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 # ============================================================
 # PREFS EXTRACTION
 # ============================================================
@@ -424,8 +501,20 @@ def build_prompts_for_weekly(
         if terrain:
             details_parts.append(f"{terrain} terrain")
         details = f" ({', '.join(details_parts)})" if details_parts else ""
+
+        # Python-vypočítaný presný deň v týždni (LLM si to nesmie počítať samo).
+        race_date_str = _safe_date(next_race.get("date"))
+        weekday_str = ""
+        if race_date_str:
+            try:
+                race_weekday = date.fromisoformat(race_date_str).strftime("%A")
+                weekday_str = f" — {race_weekday} (calculated by system, do not recompute)"
+            except Exception:
+                pass
+
         race_hint = (
-            f"\n- KEY RACE: {next_race.get('name')} in {next_race.get('days_until_race')} days{details}."
+            f"\n- KEY RACE: {next_race.get('name')} on {race_date_str or 'unknown date'}{weekday_str}, "
+            f"in {next_race.get('days_until_race')} days{details}."
             f" Target: {next_race.get('target_time')}. "
             "Build taper 2-3 weeks before. Adjust periodization accordingly.\n"
         )
@@ -506,12 +595,24 @@ def build_prompts_for_weekly(
                 lines.append(f"  {i}. {n}")
         if ephemeral_note:
             lines.append(f"\nOne-time instruction for THIS plan only:\n  → {ephemeral_note}")
+        lines.append(
+            "\nCRITICAL: You MUST fill 'coach_reply' in your output — 2-3 sentences "
+            "directly addressing this note. Explicitly say what you changed because of "
+            "it, OR if you deliberately did NOT do what they asked (e.g. because of "
+            "taper/periodization/race timing), say so clearly and explain what you did "
+            "instead. The athlete needs to know whether their request was applied or not "
+            "— do not leave this ambiguous."
+        )
         notes_rule = "\n".join(lines) + "\n\n"
 
     sports_restriction = (
         f"- ALLOWED SPORTS: {', '.join(final_sports_list)}.\n"
         "- ONLY populate planned_stats for listed sports. Set others to 0."
     )
+
+    week_boundaries = ctx.get("week_boundaries") or []
+    is_replan = bool(ctx.get("is_replan"))
+    past_weeks_summary = ctx.get("past_weeks_summary") or []
 
     system_txt = (
         "You are an elite endurance coaching assistant. "
@@ -531,6 +632,8 @@ def build_prompts_for_weekly(
         + sports_restriction + "\n"
         + "- Volume guidelines:\n"
         + volume_hint
+        + _week_boundaries_rule(week_boundaries, is_replan)
+        + _past_weeks_summary_rule(past_weeks_summary)
         + race_hint
         + beginner_protocol
         + special_reason_rule
@@ -552,11 +655,12 @@ def _weekly_schema() -> str:
 {
   "schema_version": 1,
   "generated_at": "ISO-8601 timestamp",
+  "coach_reply": "string | null — ONLY if the athlete left a note (ephemeral_note or sticky_notes): 2-3 sentences DIRECTLY addressing what they asked. Explicitly confirm what you changed because of it, OR explain why you did NOT make that specific change (e.g. periodization/taper reasons) and what you did instead. If no athlete note was provided, set this to null.",
   "weeks": [
     {
       "week_index": number,
-      "week_start": "YYYY-MM-DD",
-      "week_end": "YYYY-MM-DD",
+      "week_start": "YYYY-MM-DD - MUST match context.week_boundaries EXACTLY for this week_index, do not calculate yourself",
+      "week_end": "YYYY-MM-DD - MUST match context.week_boundaries EXACTLY for this week_index, do not calculate yourself",
       "goal": "1 punchy sentence",
       "focus": "Short technical tag",
       "load_phase": "Base Aerobic" | "Build" | "Peak" | "Recovery" | "Taper" | "Race",
