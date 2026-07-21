@@ -223,3 +223,76 @@ def get_claude_models() -> List[str]:
         "claude-opus-4-6",
         "claude-opus-4-7",
     ]
+    
+def call_claude_vision_json(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    image_base64: str,
+    image_media_type: str = "image/jpeg",
+    model: Optional[str] = None,
+    max_completion_tokens: int = 2000,
+) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
+    """
+    Rovnaké ako call_claude_json, ale posiela aj obrázok (base64) spolu
+    s textovým promptom - pre vision extraction úlohy (napr. čítanie
+    hodnôt z fotky InBody/iného body scan reportu). Anthropic API prijíma
+    'content' ako pole blokov namiesto plain stringu, keď je súčasťou
+    obrázok - image blok ide pred text blok (odporúčanie Anthropic
+    dokumentácie pre lepšiu presnosť).
+
+    Vracia rovnaký (data, trace, error_message) tvar ako call_claude_json.
+    """
+    resolved_model = model or CLAUDE_MODEL_DEFAULT
+    trace: Dict[str, Any] = {
+        "provider": "claude",
+        "model_requested": resolved_model,
+        "attempts_raw": [],
+    }
+
+    try:
+        message = _client.messages.create(
+            model=resolved_model,
+            max_tokens=max_completion_tokens,
+            system=system_prompt,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": image_media_type,
+                                "data": image_base64,
+                            },
+                        },
+                        {"type": "text", "text": user_prompt},
+                    ],
+                }
+            ],
+        )
+    except Exception as e:
+        trace["attempts_raw"].append({"error": str(e)})
+        trace["ok_provider"] = "claude"
+        trace["ok_model"] = resolved_model
+        return None, trace, f"Claude vision request failed: {e}"
+
+    raw_text = "".join(
+        block.text for block in message.content if getattr(block, "type", None) == "text"
+    )
+    trace["attempts_raw"].append({"raw_text": raw_text})
+
+    usage = getattr(message, "usage", None)
+    if usage is not None:
+        trace["input_tokens"] = getattr(usage, "input_tokens", None)
+        trace["output_tokens"] = getattr(usage, "output_tokens", None)
+
+    trace["ok_provider"] = "claude"
+    trace["ok_model"] = resolved_model
+
+    parsed = _extract_json_object(raw_text)
+    if parsed is None:
+        return None, trace, "Claude vision response was not valid JSON."
+
+    return parsed, trace, None
