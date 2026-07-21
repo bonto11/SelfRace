@@ -231,29 +231,35 @@ def call_claude_vision_json(
     image_base64: str,
     image_media_type: str = "image/jpeg",
     model: Optional[str] = None,
-    max_completion_tokens: int = 2000,
-) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[str]]:
+    max_tokens: int = 2000,
+) -> AiResult[Dict[str, Any]]:
     """
-    Rovnaké ako call_claude_json, ale posiela aj obrázok (base64) spolu
-    s textovým promptom - pre vision extraction úlohy (napr. čítanie
-    hodnôt z fotky InBody/iného body scan reportu). Anthropic API prijíma
-    'content' ako pole blokov namiesto plain stringu, keď je súčasťou
-    obrázok - image blok ide pred text blok (odporúčanie Anthropic
-    dokumentácie pre lepšiu presnosť).
+    Rovnaké ako claude_call_json_model, ale posiela aj obrázok (base64) spolu
+    s textovým promptom - pre vision extraction úlohy (napr. čítanie hodnôt
+    z fotky InBody/iného body scan reportu). Anthropic API prijíma 'content'
+    ako pole blokov namiesto plain stringu, keď je súčasťou obrázok - image
+    blok ide pred text blok (odporúčanie Anthropic dokumentácie pre lepšiu
+    presnosť). Bez cross-model fallback slučky (na rozdiel od
+    claude_call_json_model) - vision extraction je jednorazová akcia
+    iniciovaná userom, nie kritická cesta vyžadujúca retry naprieč modelmi.
+    """
+    client = _get_client()
+    models = _models_priority(model)
+    resolved_model = models[0] if models else "claude-haiku-4-5"
 
-    Vracia rovnaký (data, trace, error_message) tvar ako call_claude_json.
-    """
-    resolved_model = model or CLAUDE_MODEL_DEFAULT
     trace: Dict[str, Any] = {
         "provider": "claude",
-        "model_requested": resolved_model,
-        "attempts_raw": [],
+        "models_tried": [resolved_model],
+        "attempts": [],
+        "usage": None,
+        "ok_model": None,
     }
 
+    started = time.time()
     try:
-        message = _client.messages.create(
+        resp = client.messages.create(
             model=resolved_model,
-            max_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
             system=system_prompt,
             messages=[
                 {
@@ -273,26 +279,72 @@ def call_claude_vision_json(
             ],
         )
     except Exception as e:
-        trace["attempts_raw"].append({"error": str(e)})
-        trace["ok_provider"] = "claude"
-        trace["ok_model"] = resolved_model
-        return None, trace, f"Claude vision request failed: {e}"
+        dur_ms = int((time.time() - started) * 1000)
+        err = f"{e.__class__.__name__}: {e}"
+        trace["attempts"].append({
+            "model": resolved_model, "attempt": 1, "ok": False,
+            "duration_ms": dur_ms, "error": err,
+        })
+        return AiResult(
+            ok=False,
+            data=None,
+            provider="claude",
+            model=resolved_model,
+            error=AiError(code="ai_claude_vision_failed", message=err),
+            trace=trace,
+        )
 
-    raw_text = "".join(
-        block.text for block in message.content if getattr(block, "type", None) == "text"
-    )
-    trace["attempts_raw"].append({"raw_text": raw_text})
+    raw = ""
+    if resp.content and len(resp.content) > 0:
+        raw = "".join(
+            getattr(block, "text", "") for block in resp.content
+            if getattr(block, "type", None) == "text"
+        ).strip()
 
-    usage = getattr(message, "usage", None)
-    if usage is not None:
-        trace["input_tokens"] = getattr(usage, "input_tokens", None)
-        trace["output_tokens"] = getattr(usage, "output_tokens", None)
+    dur_ms = int((time.time() - started) * 1000)
+    finish_reason = str(getattr(resp, "stop_reason", "UNKNOWN"))
 
-    trace["ok_provider"] = "claude"
+    if not raw:
+        err = f"Claude returned empty text. Stop reason: {finish_reason}"
+        trace["attempts"].append({
+            "model": resolved_model, "attempt": 1, "ok": False,
+            "duration_ms": dur_ms, "error": err,
+        })
+        return AiResult(
+            ok=False, data=None, provider="claude", model=resolved_model,
+            error=AiError(code="ai_claude_vision_empty", message=err), trace=trace,
+        )
+
+    parsed, cleaned, raw_keep = parse_ai_json(raw)
+    ok = isinstance(parsed, dict)
+
+    trace["attempts"].append({
+        "model": resolved_model,
+        "attempt": 1,
+        "ok": ok,
+        "duration_ms": dur_ms,
+        "raw_preview": raw[:600] + ("...[truncated]" if len(raw) > 600 else ""),
+    })
+
+    if not ok:
+        print("\n" + "=" * 50)
+        print(f"[CLAUDE VISION DEV] STOP REASON: {finish_reason}")
+        print("[CLAUDE VISION DEV] FULL RAW OUTPUT START:")
+        print(raw)
+        print("[CLAUDE VISION DEV] FULL RAW OUTPUT END")
+        print("=" * 50 + "\n")
+        err = f"Invalid JSON. Stop reason: {finish_reason}"
+        return AiResult(
+            ok=False, data=None, provider="claude", model=resolved_model,
+            error=AiError(code="ai_claude_vision_invalid_json", message=err), trace=trace,
+        )
+
     trace["ok_model"] = resolved_model
+    u = _extract_usage(resp)
+    if u:
+        trace["usage"] = u
 
-    parsed = _extract_json_object(raw_text)
-    if parsed is None:
-        return None, trace, "Claude vision response was not valid JSON."
-
-    return parsed, trace, None
+    return AiResult(
+        ok=True, data=parsed, error=None,
+        provider="claude", model=resolved_model, trace=trace,
+    )
