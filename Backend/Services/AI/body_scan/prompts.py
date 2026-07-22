@@ -79,6 +79,10 @@ def build_prompts_for_body_scan_extraction() -> Tuple[str, str]:
         "Lean Analysis') and 'Fat Mass' (or 'Segmental Fat Analysis'). Each has a kg value, "
         "a percentage value, and often an evaluation label (e.g. 'Under', 'Normal', 'Over') "
         "underneath. Map left/right exactly as shown - do not mirror or swap sides.\n"
+        "- 'eval' fields inside segmental_analysis MUST always be one of the "
+        "English words 'Under', 'Normal', 'Over' - regardless of what language "
+        "the report itself is printed in (translate if needed, never invent "
+        "other words).\n"
         "- 'extraction_confidence': your own honest assessment of how clearly readable "
         "the photo was overall ('high' if sharp and well-lit, 'low' if blurry/glare/cut off).\n"
         "- Ignore any 'Calorie Expenditure of Exercise' table if present - not needed.\n\n"
@@ -87,6 +91,7 @@ def build_prompts_for_body_scan_extraction() -> Tuple[str, str]:
         "Composition Analysis' and 'Muscle-Fat Analysis' sections (e.g. '89.0 "
         "(65.4~88.4)' means weight_range_min=65.4, weight_range_max=88.4). "
         "Extract these ranges exactly as printed.\n"
+
         "SCHEMA:\n"
         + _schema()
         + "\n\nReturn ONLY raw JSON."

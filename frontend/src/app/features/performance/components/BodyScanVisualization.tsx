@@ -3,7 +3,20 @@
 
 import * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 import type { BodyScan, SegmentalPart } from "@/app/features/performance/types/bodyScan";
+
+/* ============================================================ */
+/* HELPERS - preklad eval labelu cez i18n katalóg (nie natvrdo) */
+/* ============================================================ */
+
+export function evalLabelKey(evalLabel: string | null): "bodyScan.eval.under" | "bodyScan.eval.normal" | "bodyScan.eval.over" | null {
+  const l = (evalLabel || "").toLowerCase();
+  if (l === "under") return "bodyScan.eval.under";
+  if (l === "over") return "bodyScan.eval.over";
+  if (l === "normal") return "bodyScan.eval.normal";
+  return null;
+}
 
 /* ============================================================ */
 /* HORIZONTÁLNY BAR (Under / Normal / Over škála, presne ako InBody) */
@@ -18,6 +31,7 @@ type BarProps = {
 };
 
 function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
+  const t = useT();
   if (value == null || normalMin == null || normalMax == null) return null;
 
   const scaleMax = Math.max(normalMax * 1.6, value * 1.15);
@@ -27,10 +41,12 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
   const normalEndPct = pct(normalMax);
   const valuePct = pct(value);
 
-  const status =
-    value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
+  const statusEn = value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
   const statusColor =
-    status === "Normal" ? "#4ade80" : status === "Under" ? "#facc15" : "#f97316";
+    statusEn === "Normal" ? "#4ade80" : statusEn === "Under" ? "#facc15" : "#f97316";
+  const statusLabel = t(
+    statusEn === "Under" ? "bodyScan.eval.under" : statusEn === "Over" ? "bodyScan.eval.over" : "bodyScan.eval.normal",
+  );
 
   return (
     <div style={{ marginBottom: 14 }}>
@@ -38,7 +54,7 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
         <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary }}>{label}</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>
           {value}
-          {unit} · {status}
+          {unit} · {statusLabel}
         </span>
       </div>
       <div
@@ -75,7 +91,7 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>0</span>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>
-          {normalMin}–{normalMax} (priemer)
+          {normalMin}–{normalMax} ({t("bodyScan.average")})
         </span>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>{Math.round(scaleMax)}</span>
       </div>
@@ -88,6 +104,7 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
 /* ============================================================ */
 
 function VisceralFatBar({ level }: { level: number | null }) {
+  const t = useT();
   if (level == null) return null;
   const maxScale = 20;
   const pct = Math.min(100, (level / maxScale) * 100);
@@ -97,7 +114,7 @@ function VisceralFatBar({ level }: { level: number | null }) {
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary }}>
-          Úroveň viscerálneho tuku
+          {t("bodyScan.visceralFat")}
         </span>
         <span style={{ fontSize: 12, fontWeight: 700, color }}>{level}</span>
       </div>
@@ -123,9 +140,9 @@ function VisceralFatBar({ level }: { level: number | null }) {
         />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-        <span style={{ fontSize: 10, color: appColors.textMuted }}>Low</span>
+        <span style={{ fontSize: 10, color: appColors.textMuted }}>{t("bodyScan.low")}</span>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>10</span>
-        <span style={{ fontSize: 10, color: appColors.textMuted }}>High</span>
+        <span style={{ fontSize: 10, color: appColors.textMuted }}>{t("bodyScan.high")}</span>
       </div>
     </div>
   );
@@ -136,6 +153,7 @@ function VisceralFatBar({ level }: { level: number | null }) {
 /* ============================================================ */
 
 function ScoreBadge({ score }: { score: number | null }) {
+  const t = useT();
   if (score == null) return null;
   const color = score >= 80 ? "#4ade80" : score >= 60 ? "#facc15" : "#f97316";
 
@@ -153,7 +171,7 @@ function ScoreBadge({ score }: { score: number | null }) {
       }}
     >
       <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
-        InBody skóre
+        {t("bodyScan.inbodyScore")}
       </span>
       <span style={{ fontSize: 20, fontWeight: 800, color }}>
         {score}
@@ -176,11 +194,9 @@ function segmentColor(evalLabel: string | null, kind: "lean" | "fat"): string {
   const l = (evalLabel || "").toLowerCase();
   if (l === "normal" || l === "") return appColors.textPrimary; // akurát = biele/neutrálne
   if (kind === "lean") {
-    // Svaly: viac je dobré
-    return l === "over" ? "#4ade80" : "#f97316"; // Over=zelené, Under=červené
+    return l === "over" ? "#4ade80" : "#f97316"; // Svaly: Over=zelené, Under=červené
   }
-  // Tuk: menej je dobré
-  return l === "under" ? "#4ade80" : "#f97316"; // Under=zelené, Over=červené
+  return l === "under" ? "#4ade80" : "#f97316"; // Tuk: Under=zelené, Over=červené
 }
 
 function BodyDiagram({
@@ -195,12 +211,11 @@ function BodyDiagram({
   return (
     <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
       <svg viewBox="0 0 200 220" width="220" height="240">
-        {/* Panáčik: ruky vystreté do strán (~45°), nohy rovno dole, centrované */}
         {/* Hlava */}
         <circle cx="100" cy="24" r="14" fill={appColors.surfaceCardBorder} />
         {/* Trup */}
         <rect x="82" y="42" width="36" height="62" rx="10" fill={appColors.surfaceCardBorder} />
-        {/* Ľavá ruka (vystretá diagonálne von) */}
+        {/* Ľavá ruka - vystretá von a hore, symetrické "V" s pravou */}
         <rect
           x="44"
           y="48"
@@ -208,7 +223,7 @@ function BodyDiagram({
           height="58"
           rx="7"
           fill={appColors.surfaceCardBorder}
-          transform="rotate(-35 51 77)"
+          transform="rotate(35 51 77)"
         />
         {/* Pravá ruka */}
         <rect
@@ -218,7 +233,7 @@ function BodyDiagram({
           height="58"
           rx="7"
           fill={appColors.surfaceCardBorder}
-          transform="rotate(35 148 77)"
+          transform="rotate(-35 148 77)"
         />
         {/* Nohy */}
         <rect x="83" y="106" width="15" height="90" rx="7" fill={appColors.surfaceCardBorder} />
@@ -260,6 +275,7 @@ function BodyDiagram({
 /* ============================================================ */
 
 export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
+  const t = useT();
   const segmental = scan.segmental_analysis;
 
   return (
@@ -278,24 +294,24 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
             marginBottom: 10,
           }}
         >
-          Analýza svalov a tuku
+          {t("bodyScan.sections.muscleFat")}
         </div>
         <ScaleBar
-          label="Váha"
+          label={t("bodyScan.fields.weight")}
           value={scan.weight_kg}
           normalMin={scan.weight_range_min}
           normalMax={scan.weight_range_max}
           unit=" kg"
         />
         <ScaleBar
-          label="Kostrové svalstvo (SMM)"
+          label={t("bodyScan.fields.smm")}
           value={scan.skeletal_muscle_mass_kg}
           normalMin={scan.smm_range_min}
           normalMax={scan.smm_range_max}
           unit=" kg"
         />
         <ScaleBar
-          label="Telesný tuk"
+          label={t("bodyScan.fields.bodyFatMass")}
           value={scan.body_fat_mass_kg}
           normalMin={scan.body_fat_mass_range_min}
           normalMax={scan.body_fat_mass_range_max}
@@ -315,11 +331,11 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
             marginBottom: 10,
           }}
         >
-          Analýza obezity
+          {t("bodyScan.sections.obesity")}
         </div>
         <ScaleBar label="BMI" value={scan.bmi} normalMin={18.5} normalMax={25} />
         <ScaleBar
-          label="% telesného tuku (PBF)"
+          label={t("bodyScan.fields.pbf")}
           value={scan.pbf_percent}
           normalMin={10}
           normalMax={20}
@@ -344,7 +360,7 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
               textAlign: "center",
             }}
           >
-            Segmentálna analýza svalov
+            {t("bodyScan.sections.segmentalLean")}
           </div>
           <BodyDiagram segments={segmental.lean} kind="lean" />
 
@@ -360,7 +376,7 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
               textAlign: "center",
             }}
           >
-            Segmentálna analýza tuku
+            {t("bodyScan.sections.segmentalFat")}
           </div>
           <BodyDiagram segments={segmental.fat} kind="fat" />
         </div>

@@ -26,74 +26,74 @@ import {
   apiDeleteBodyScan,
 } from "@/app/features/performance/api/bodyScan";
 import type { BodyScan, BodyScanUploadResult } from "@/app/features/performance/types/bodyScan";
-import BodyScanVisualization from "@/app/features/performance/components/BodyScanVisualization";
+import BodyScanVisualization, { evalLabelKey } from "@/app/features/performance/components/BodyScanVisualization";
 
 /* ============================================================ */
 /* REVIEW SECTIONS - rozdelené presne podľa kategórií z InBody fotky */
 /* ============================================================ */
 
-type ReviewFieldDef = { key: keyof BodyScan; label: string; unit?: string };
-type ReviewSection = { title: string; fields: ReviewFieldDef[] };
+type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unit?: string };
+type ReviewSection = { titleKey: string; fields: ReviewFieldDef[] };
 
 const REVIEW_SECTIONS: ReviewSection[] = [
   {
-    title: "Analýza zloženia tela",
+    titleKey: "bodyScan.sections.bodyComposition",
     fields: [
-      { key: "total_body_water_l", label: "Celková voda v tele", unit: "l" },
-      { key: "protein_kg", label: "Proteín", unit: "kg" },
-      { key: "mineral_kg", label: "Minerály", unit: "kg" },
-      { key: "body_fat_mass_kg", label: "Telesný tuk", unit: "kg" },
-      { key: "weight_kg", label: "Váha", unit: "kg" },
+      { key: "total_body_water_l", labelKey: "bodyScan.fields.totalBodyWater", unit: "l" },
+      { key: "protein_kg", labelKey: "bodyScan.fields.protein", unit: "kg" },
+      { key: "mineral_kg", labelKey: "bodyScan.fields.mineral", unit: "kg" },
+      { key: "body_fat_mass_kg", labelKey: "bodyScan.fields.bodyFatMass", unit: "kg" },
+      { key: "weight_kg", labelKey: "bodyScan.fields.weight", unit: "kg" },
     ],
   },
   {
-    title: "Analýza svalov a tuku",
+    titleKey: "bodyScan.sections.muscleFat",
     fields: [
-      { key: "skeletal_muscle_mass_kg", label: "Kostrové svalstvo (SMM)", unit: "kg" },
+      { key: "skeletal_muscle_mass_kg", labelKey: "bodyScan.fields.smm", unit: "kg" },
     ],
   },
   {
-    title: "Analýza obezity",
+    titleKey: "bodyScan.sections.obesity",
     fields: [
-      { key: "bmi", label: "BMI (Index telesnej hmotnosti)" },
-      { key: "pbf_percent", label: "Percento telesného tuku (PBF)", unit: "%" },
+      { key: "bmi", labelKey: "bodyScan.fields.bmi" },
+      { key: "pbf_percent", labelKey: "bodyScan.fields.pbf", unit: "%" },
     ],
   },
   {
-    title: "Ostatné parametre",
+    titleKey: "bodyScan.sections.other",
     fields: [
-      { key: "waist_hip_ratio", label: "Pomer pása k bokom" },
-      { key: "visceral_fat_level", label: "Úroveň viscerálneho tuku" },
-      { key: "basal_metabolic_rate_kcal", label: "Bazálny metabolizmus (BMR)", unit: "kcal" },
-      { key: "inbody_score", label: "InBody skóre" },
-      { key: "obesity_degree_percent", label: "Stupeň obezity", unit: "%" },
-      { key: "smi", label: "Index kostrového svalstva (SMI)" },
+      { key: "waist_hip_ratio", labelKey: "bodyScan.fields.waistHipRatio" },
+      { key: "visceral_fat_level", labelKey: "bodyScan.fields.visceralFatLevel" },
+      { key: "basal_metabolic_rate_kcal", labelKey: "bodyScan.fields.bmr", unit: "kcal" },
+      { key: "inbody_score", labelKey: "bodyScan.fields.inbodyScore" },
+      { key: "obesity_degree_percent", labelKey: "bodyScan.fields.obesityDegree", unit: "%" },
+      { key: "smi", labelKey: "bodyScan.fields.smi" },
     ],
   },
   {
-    title: "Normálne rozsahy (z papiera)",
+    titleKey: "bodyScan.sections.ranges",
     fields: [
-      { key: "weight_range_min", label: "Váha - dolná hranica", unit: "kg" },
-      { key: "weight_range_max", label: "Váha - horná hranica", unit: "kg" },
-      { key: "smm_range_min", label: "SMM - dolná hranica", unit: "kg" },
-      { key: "smm_range_max", label: "SMM - horná hranica", unit: "kg" },
-      { key: "body_fat_mass_range_min", label: "Telesný tuk - dolná hranica", unit: "kg" },
-      { key: "body_fat_mass_range_max", label: "Telesný tuk - horná hranica", unit: "kg" },
+      { key: "weight_range_min", labelKey: "bodyScan.fields.weightRangeMin", unit: "kg" },
+      { key: "weight_range_max", labelKey: "bodyScan.fields.weightRangeMax", unit: "kg" },
+      { key: "smm_range_min", labelKey: "bodyScan.fields.smmRangeMin", unit: "kg" },
+      { key: "smm_range_max", labelKey: "bodyScan.fields.smmRangeMax", unit: "kg" },
+      { key: "body_fat_mass_range_min", labelKey: "bodyScan.fields.bodyFatMassRangeMin", unit: "kg" },
+      { key: "body_fat_mass_range_max", labelKey: "bodyScan.fields.bodyFatMassRangeMax", unit: "kg" },
     ],
   },
 ];
 
 const ALL_REVIEW_FIELDS: ReviewFieldDef[] = REVIEW_SECTIONS.flatMap((s) => s.fields);
 
-const SEGMENT_LABELS: {
+const SEGMENT_LABEL_KEYS: {
   key: "left_arm" | "right_arm" | "trunk" | "left_leg" | "right_leg";
-  label: string;
+  labelKey: string;
 }[] = [
-  { key: "left_arm", label: "Ľavá ruka" },
-  { key: "right_arm", label: "Pravá ruka" },
-  { key: "trunk", label: "Trup" },
-  { key: "left_leg", label: "Ľavá noha" },
-  { key: "right_leg", label: "Pravá noha" },
+  { key: "left_arm", labelKey: "bodyScan.segments.leftArm" },
+  { key: "right_arm", labelKey: "bodyScan.segments.rightArm" },
+  { key: "trunk", labelKey: "bodyScan.segments.trunk" },
+  { key: "left_leg", labelKey: "bodyScan.segments.leftLeg" },
+  { key: "right_leg", labelKey: "bodyScan.segments.rightLeg" },
 ];
 
 /* ─── SEGMENTAL SECTION (read-only, len na kontrolu pri review) ─── */
@@ -107,6 +107,7 @@ function SegmentalSection({
     | Record<string, { kg: number | null; pct: number | null; eval: string | null }>
     | undefined;
 }) {
+  const t = useT();
   if (!segments) return null;
   return (
     <div>
@@ -114,9 +115,10 @@ function SegmentalSection({
         {title}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        {SEGMENT_LABELS.map(({ key, label }) => {
+        {SEGMENT_LABEL_KEYS.map(({ key, labelKey }) => {
           const seg = segments[key];
           if (!seg) return null;
+          const evalKey = evalLabelKey(seg.eval);
           return (
             <div
               key={key}
@@ -127,13 +129,13 @@ function SegmentalSection({
                 border: `1px solid ${appColors.surfaceCardBorder}`,
               }}
             >
-              <div style={{ fontSize: 11, color: appColors.textMuted }}>{label}</div>
+              <div style={{ fontSize: 11, color: appColors.textMuted }}>{t(labelKey as any)}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary, marginTop: 2 }}>
                 {seg.kg != null ? `${seg.kg} kg` : "—"}
                 {seg.pct != null && (
                   <span style={{ fontSize: 11, fontWeight: 400, color: appColors.textMuted }}>
                     {" "}
-                    ({seg.pct}% {seg.eval || ""})
+                    ({seg.pct}% {evalKey ? t(evalKey as any) : ""})
                   </span>
                 )}
               </div>
@@ -223,9 +225,9 @@ function ReviewPanel({
         </div>
 
         {REVIEW_SECTIONS.map((section) => (
-          <div key={section.title}>
+          <div key={section.titleKey}>
             <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
-              {section.title}
+              {t(section.titleKey as any)}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {section.fields.map((f) => {
@@ -240,7 +242,7 @@ function ReviewPanel({
                         marginBottom: 4,
                       }}
                     >
-                      {f.label} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
+                      {t(f.labelKey as any)} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
                     </label>
                     <input
                       type="number"
@@ -269,8 +271,8 @@ function ReviewPanel({
 
         {segmental && (
           <>
-            <SegmentalSection title="Segmentálna analýza svalov" segments={segmental.lean} />
-            <SegmentalSection title="Segmentálna analýza tuku" segments={segmental.fat} />
+            <SegmentalSection title={t("bodyScan.sections.segmentalLean")} segments={segmental.lean} />
+            <SegmentalSection title={t("bodyScan.sections.segmentalFat")} segments={segmental.fat} />
           </>
         )}
 
@@ -415,7 +417,6 @@ function HistoryRow({
         justifyContent: "space-between",
         alignItems: "center",
         padding: "10px 16px",
-        borderTop: `1px solid ${appColors.divider}`,
         background: isSelected ? appColors.surfaceCardHover : "transparent",
         border: "none",
         borderTopWidth: 1,
@@ -482,8 +483,6 @@ export default function DetailBodyScan() {
     loadScans();
   }, [loadScans]);
 
-  // Auto-vyber najnovší scan po načítaní zoznamu (ak ešte nič nie je vybrané,
-  // alebo vybraný scan už v zozname neexistuje napr. po zmazaní).
   React.useEffect(() => {
     if (scans.length === 0) {
       setSelectedScan(null);
