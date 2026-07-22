@@ -1,4 +1,4 @@
-# Routes_FE/body_scan.py
+# Routes/body_scan.py
 from fastapi import APIRouter, Request, UploadFile, File
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
