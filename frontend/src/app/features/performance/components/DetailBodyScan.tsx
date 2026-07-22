@@ -44,45 +44,46 @@ import BodyScanVisualization, { evalLabelKey } from "@/app/features/performance/
 /* z papiera, automaticky ulozene AI extrakciou, nie na upravu) */
 /* ============================================================ */
 
-type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unitKey?: string };
+type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unitKey?: string; step?: number };
 type ReviewSection = { titleKey: string; fields: ReviewFieldDef[] };
 
 const REVIEW_SECTIONS: ReviewSection[] = [
   {
     titleKey: "bodyScan.sections.bodyComposition",
     fields: [
-      { key: "total_body_water_l", labelKey: "bodyScan.fields.totalBodyWater", unitKey: "common.units.liter" },
-      { key: "protein_kg", labelKey: "bodyScan.fields.protein", unitKey: "common.units.kg" },
-      { key: "mineral_kg", labelKey: "bodyScan.fields.mineral", unitKey: "common.units.kg" },
-      { key: "body_fat_mass_kg", labelKey: "bodyScan.fields.bodyFatMass", unitKey: "common.units.kg" },
-      { key: "weight_kg", labelKey: "bodyScan.fields.weight", unitKey: "common.units.kg" },
+      { key: "total_body_water_l", labelKey: "bodyScan.fields.totalBodyWater", unitKey: "common.units.liter", step: 0.1 },
+      { key: "protein_kg", labelKey: "bodyScan.fields.protein", unitKey: "common.units.kg", step: 0.1 },
+      { key: "mineral_kg", labelKey: "bodyScan.fields.mineral", unitKey: "common.units.kg", step: 0.01 },
+      { key: "body_fat_mass_kg", labelKey: "bodyScan.fields.bodyFatMass", unitKey: "common.units.kg", step: 0.1 },
+      { key: "weight_kg", labelKey: "bodyScan.fields.weight", unitKey: "common.units.kg", step: 0.1 },
     ],
   },
   {
     titleKey: "bodyScan.sections.muscleFat",
     fields: [
-      { key: "skeletal_muscle_mass_kg", labelKey: "bodyScan.fields.smm", unitKey: "common.units.kg" },
+      { key: "skeletal_muscle_mass_kg", labelKey: "bodyScan.fields.smm", unitKey: "common.units.kg", step: 0.1 },
     ],
   },
   {
     titleKey: "bodyScan.sections.obesity",
     fields: [
-      { key: "bmi", labelKey: "bodyScan.fields.bmi" },
-      { key: "pbf_percent", labelKey: "bodyScan.fields.pbf", unitKey: "common.units.pct" },
+      { key: "bmi", labelKey: "bodyScan.fields.bmi", step: 0.1 },
+      { key: "pbf_percent", labelKey: "bodyScan.fields.pbf", unitKey: "common.units.pct", step: 0.1 },
     ],
   },
   {
     titleKey: "bodyScan.sections.other",
     fields: [
-      { key: "waist_hip_ratio", labelKey: "bodyScan.fields.waistHipRatio" },
-      { key: "visceral_fat_level", labelKey: "bodyScan.fields.visceralFatLevel" },
-      { key: "basal_metabolic_rate_kcal", labelKey: "bodyScan.fields.bmr" },
-      { key: "inbody_score", labelKey: "bodyScan.fields.inbodyScore" },
-      { key: "obesity_degree_percent", labelKey: "bodyScan.fields.obesityDegree", unitKey: "common.units.pct" },
-      { key: "smi", labelKey: "bodyScan.fields.smi" },
+      { key: "waist_hip_ratio", labelKey: "bodyScan.fields.waistHipRatio", step: 0.01 },
+      { key: "visceral_fat_level", labelKey: "bodyScan.fields.visceralFatLevel", step: 1 },
+      { key: "basal_metabolic_rate_kcal", labelKey: "bodyScan.fields.bmr", step: 1 },
+      { key: "inbody_score", labelKey: "bodyScan.fields.inbodyScore", step: 1 },
+      { key: "obesity_degree_percent", labelKey: "bodyScan.fields.obesityDegree", unitKey: "common.units.pct", step: 0.1 },
+      { key: "smi", labelKey: "bodyScan.fields.smi", step: 0.1 },
     ],
   },
 ];
+
 
 const ALL_REVIEW_FIELDS: ReviewFieldDef[] = REVIEW_SECTIONS.flatMap((s) => s.fields);
 
@@ -149,18 +150,21 @@ function SegmentalEditSection({
             >
               <div style={{ fontSize: 11, color: appColors.textMuted }}>{t(labelKey as any)}</div>
               <div style={{ display: "flex", gap: 6 }}>
-                <NumberField
+              <NumberField
                   value={seg.kg}
                   onChange={(v) => onChange(key, { ...seg, kg: v === "" ? null : v })}
                   unit={t("common.units.kg")}
+                  step={0.01}
                   variant="editable"
                 />
                 <NumberField
                   value={seg.pct}
                   onChange={(v) => onChange(key, { ...seg, pct: v === "" ? null : v })}
                   unit={t("common.units.pct")}
+                  step={0.1}
                   variant="editable"
                 />
+
               </div>
               <SelectField
                 value={seg.eval ?? ""}
@@ -294,8 +298,10 @@ function ReviewPanel({
                       value={values[f.key as string]}
                       onChange={(v) => handleChange(f.key as string, v === "" ? null : v)}
                       unit={f.unitKey ? t(f.unitKey as any) : undefined}
+                      step={f.step}
                       variant="editable"
                     />
+
                   </div>
                 );
               })}
