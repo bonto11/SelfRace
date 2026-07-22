@@ -4,7 +4,10 @@
 import * as React from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
-import type { BodyScan, SegmentalPart } from "@/app/features/performance/types/bodyScan";
+import type {
+  BodyScan,
+  SegmentalPart,
+} from "@/app/features/performance/types/bodyScan";
 
 /* ============================================================ */
 /* HELPERS - case-insensitive preklad eval labelu cez i18n katalóg */
@@ -12,7 +15,11 @@ import type { BodyScan, SegmentalPart } from "@/app/features/performance/types/b
 
 export function evalLabelKey(
   evalLabel: string | null,
-): "bodyScan.eval.under" | "bodyScan.eval.normal" | "bodyScan.eval.over" | null {
+):
+  | "bodyScan.eval.under"
+  | "bodyScan.eval.normal"
+  | "bodyScan.eval.over"
+  | null {
   const l = (evalLabel || "").trim().toLowerCase();
   if (l === "under") return "bodyScan.eval.under";
   if (l === "over") return "bodyScan.eval.over";
@@ -24,15 +31,31 @@ export function evalLabelKey(
 /* HORIZONTÁLNY BAR (Under / Normal / Over škála, presne ako InBody) */
 /* ============================================================ */
 
+// Nahraď typ a funkciu ScaleBar v BodyScanVisualization.tsx týmto:
+
 type BarProps = {
   label: string;
   value: number | null;
   normalMin: number | null;
   normalMax: number | null;
   unit?: string;
+  /**
+   * "center" (default) = ísť mimo normal rozsahu (hocktorým smerom) je zle,
+   *   napr. Váha, Telesný tuk, BMI, PBF.
+   * "higher_better" = nad normal rozsahom je DOBRE (zelené), pod je zle,
+   *   napr. SMM (kostrové svalstvo) - viac svalov nie je problém.
+   */
+  direction?: "center" | "higher_better";
 };
 
-function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
+function ScaleBar({
+  label,
+  value,
+  normalMin,
+  normalMax,
+  unit = "",
+  direction = "center",
+}: BarProps) {
   const t = useT();
   if (value == null || normalMin == null || normalMax == null) return null;
 
@@ -45,14 +68,31 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
 
   const statusEn: "Under" | "Normal" | "Over" =
     value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
+
   const statusColor =
-    statusEn === "Normal" ? "#4ade80" : statusEn === "Under" ? "#facc15" : "#f97316";
+    statusEn === "Normal"
+      ? "#4ade80"
+      : direction === "higher_better"
+        ? statusEn === "Over"
+          ? "#4ade80" // viac ako priemer = dobre (napr. SMM)
+          : "#f97316" // menej ako priemer = zle
+        : statusEn === "Under"
+          ? "#facc15"
+          : "#f97316";
+
   const statusKey = evalLabelKey(statusEn)!;
   const statusLabel = t(statusKey as any);
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 4,
+          gap: 8,
+        }}
+      >
         <span
           style={{
             fontSize: 12,
@@ -65,7 +105,15 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
         >
           {label}
         </span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, whiteSpace: "nowrap", flexShrink: 0 }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: statusColor,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
           {value}
           {unit} · {statusLabel}
         </span>
@@ -101,12 +149,20 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
           }}
         />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 2,
+        }}
+      >
         <span style={{ fontSize: 10, color: appColors.textMuted }}>0</span>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>
           {normalMin}–{normalMax} ({t("bodyScan.average")})
         </span>
-        <span style={{ fontSize: 10, color: appColors.textMuted }}>{Math.round(scaleMax)}</span>
+        <span style={{ fontSize: 10, color: appColors.textMuted }}>
+          {Math.round(scaleMax)}
+        </span>
       </div>
     </div>
   );
@@ -125,8 +181,20 @@ function VisceralFatBar({ level }: { level: number | null }) {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 4,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: appColors.textPrimary,
+          }}
+        >
           {t("bodyScan.visceralFat")}
         </span>
         <span style={{ fontSize: 12, fontWeight: 700, color }}>{level}</span>
@@ -152,10 +220,20 @@ function VisceralFatBar({ level }: { level: number | null }) {
           }}
         />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-        <span style={{ fontSize: 10, color: appColors.textMuted }}>{t("bodyScan.low")}</span>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 2,
+        }}
+      >
+        <span style={{ fontSize: 10, color: appColors.textMuted }}>
+          {t("bodyScan.low")}
+        </span>
         <span style={{ fontSize: 10, color: appColors.textMuted }}>10</span>
-        <span style={{ fontSize: 10, color: appColors.textMuted }}>{t("bodyScan.high")}</span>
+        <span style={{ fontSize: 10, color: appColors.textMuted }}>
+          {t("bodyScan.high")}
+        </span>
       </div>
     </div>
   );
@@ -183,12 +261,18 @@ function ScoreBadge({ score }: { score: number | null }) {
         marginBottom: 14,
       }}
     >
-      <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
+      <span
+        style={{ fontSize: 12, fontWeight: 700, color: appColors.textMuted }}
+      >
         {t("bodyScan.inbodyScore")}
       </span>
       <span style={{ fontSize: 20, fontWeight: 800, color }}>
         {score}
-        <span style={{ fontSize: 12, fontWeight: 500, color: appColors.textMuted }}>/100</span>
+        <span
+          style={{ fontSize: 12, fontWeight: 500, color: appColors.textMuted }}
+        >
+          /100
+        </span>
       </span>
     </div>
   );
@@ -214,64 +298,123 @@ function BodyDiagram({
   segments: Record<string, SegmentalPart> | undefined;
   kind: "lean" | "fat";
 }) {
+  const t = useT();
   if (!segments) return null;
 
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
-      <svg viewBox="0 0 200 220" width="220" height="240">
-        {/* Hlava */}
-        <circle cx="100" cy="24" r="14" fill={appColors.surfaceCardBorder} />
-        {/* Trup */}
-        <rect x="82" y="42" width="36" height="62" rx="10" fill={appColors.surfaceCardBorder} />
-        {/* Ľavá ruka - "/" tvar: hore pri ramene, dole smerom von od tela */}
-        <rect
-          x="44"
-          y="48"
-          width="15"
-          height="58"
-          rx="7"
-          fill={appColors.surfaceCardBorder}
-          transform="rotate(-35 51 77)"
-        />
-        {/* Pravá ruka - "\" tvar: zrkadlovo */}
-        <rect
-          x="141"
-          y="48"
-          width="15"
-          height="58"
-          rx="7"
-          fill={appColors.surfaceCardBorder}
-          transform="rotate(35 148 77)"
-        />
-        {/* Nohy - "|" rovno dole */}
-        <rect x="83" y="106" width="15" height="90" rx="7" fill={appColors.surfaceCardBorder} />
-        <rect x="102" y="106" width="15" height="90" rx="7" fill={appColors.surfaceCardBorder} />
+  const renderLabel = (
+    key: "left_arm" | "right_arm" | "trunk" | "left_leg" | "right_leg",
+    labelKey: string,
+    x: number,
+    y: number,
+    anchor: "start" | "middle" | "end",
+  ) => {
+    const seg = segments[key];
+    if (!seg) return null;
+    const color = segmentColor(seg.eval, kind);
+    const statusKey = evalLabelKey(seg.eval);
 
-        {/* Hodnoty - na okrajoch, mimo tela */}
-        {segments.left_arm && (
-          <text x="8" y="105" fontSize="12" fontWeight={700} textAnchor="start" fill={segmentColor(segments.left_arm.eval, kind)}>
-            {segments.left_arm.kg != null ? `${segments.left_arm.kg}kg` : "—"}
+    return (
+      <g>
+        <text
+          x={x}
+          y={y}
+          fontSize="9"
+          fontWeight={700}
+          textAnchor={anchor}
+          fill={appColors.textMuted}
+          style={{ textTransform: "uppercase", letterSpacing: "0.02em" }}
+        >
+          {t(labelKey as any)}
+        </text>
+        <text
+          x={x}
+          y={y + 13}
+          fontSize="13"
+          fontWeight={800}
+          textAnchor={anchor}
+          fill={color}
+        >
+          {seg.kg != null ? `${seg.kg}kg` : "—"}
+        </text>
+        {statusKey && (
+          <text
+            x={x}
+            y={y + 26}
+            fontSize="9"
+            fontWeight={600}
+            textAnchor={anchor}
+            fill={color}
+          >
+            {t(statusKey as any)}
           </text>
         )}
-        {segments.right_arm && (
-          <text x="192" y="105" fontSize="12" fontWeight={700} textAnchor="end" fill={segmentColor(segments.right_arm.eval, kind)}>
-            {segments.right_arm.kg != null ? `${segments.right_arm.kg}kg` : "—"}
-          </text>
-        )}
-        {segments.trunk && (
-          <text x="100" y="76" fontSize="12" fontWeight={700} textAnchor="middle" fill={segmentColor(segments.trunk.eval, kind)}>
-            {segments.trunk.kg != null ? `${segments.trunk.kg}kg` : "—"}
-          </text>
-        )}
-        {segments.left_leg && (
-          <text x="60" y="155" fontSize="12" fontWeight={700} textAnchor="end" fill={segmentColor(segments.left_leg.eval, kind)}>
-            {segments.left_leg.kg != null ? `${segments.left_leg.kg}kg` : "—"}
-          </text>
-        )}
-        {segments.right_leg && (
-          <text x="140" y="155" fontSize="12" fontWeight={700} textAnchor="start" fill={segmentColor(segments.right_leg.eval, kind)}>
-            {segments.right_leg.kg != null ? `${segments.right_leg.kg}kg` : "—"}
-          </text>
+      </g>
+    );
+  };
+
+  return (
+    <div
+      style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}
+    >
+      <svg viewBox="0 0 260 260" width="260" height="260">
+        {/* Hlava */}
+        <circle cx="130" cy="24" r="14" fill={appColors.surfaceCardBorder} />
+        {/* Trup */}
+        <rect
+          x="112"
+          y="42"
+          width="36"
+          height="62"
+          rx="10"
+          fill={appColors.surfaceCardBorder}
+        />
+        {/* Ľavá ruka - vodorovne von od tela ("-" tvar, otočené o 90° oproti predošlej verzii) */}
+        <rect
+          x="60"
+          y="48"
+          width="50"
+          height="14"
+          rx="7"
+          fill={appColors.surfaceCardBorder}
+        />
+        {/* Pravá ruka */}
+        <rect
+          x="150"
+          y="48"
+          width="50"
+          height="14"
+          rx="7"
+          fill={appColors.surfaceCardBorder}
+        />
+        {/* Nohy */}
+        <rect
+          x="113"
+          y="106"
+          width="15"
+          height="90"
+          rx="7"
+          fill={appColors.surfaceCardBorder}
+        />
+        <rect
+          x="132"
+          y="106"
+          width="15"
+          height="90"
+          rx="7"
+          fill={appColors.surfaceCardBorder}
+        />
+
+        {/* Popisky - na okrajoch, s label + kg + status */}
+        {renderLabel("left_arm", "bodyScan.segments.leftArm", 8, 60, "start")}
+        {renderLabel("right_arm", "bodyScan.segments.rightArm", 252, 60, "end")}
+        {renderLabel("trunk", "bodyScan.segments.trunk", 130, 130, "middle")}
+        {renderLabel("left_leg", "bodyScan.segments.leftLeg", 60, 165, "start")}
+        {renderLabel(
+          "right_leg",
+          "bodyScan.segments.rightLeg",
+          200,
+          165,
+          "end",
         )}
       </svg>
     </div>
@@ -316,6 +459,7 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
           normalMin={scan.smm_range_min}
           normalMax={scan.smm_range_max}
           unit=" kg"
+          direction="higher_better"
         />
         <ScaleBar
           label={t("bodyScan.fields.bodyFatMass")}
@@ -339,7 +483,12 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
         >
           {t("bodyScan.sections.obesity")}
         </div>
-        <ScaleBar label="BMI" value={scan.bmi} normalMin={18.5} normalMax={25} />
+        <ScaleBar
+          label="BMI"
+          value={scan.bmi}
+          normalMin={18.5}
+          normalMax={25}
+        />
         <ScaleBar
           label={t("bodyScan.fields.pbfShort")}
           value={scan.pbf_percent}
