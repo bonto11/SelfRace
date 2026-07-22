@@ -519,6 +519,17 @@ const EMPTY_MANUAL_SCAN: BodyScan = {
   smm_range_max: null,
   body_fat_mass_range_min: null,
   body_fat_mass_range_max: null,
+  total_body_water_range_min: null,
+  total_body_water_range_max: null,
+  weight_percent: null,
+  weight_scale_min: null,
+  weight_scale_max: null,
+  smm_percent: null,
+  smm_scale_min: null,
+  smm_scale_max: null,
+  body_fat_mass_percent: null,
+  body_fat_mass_scale_min: null,
+  body_fat_mass_scale_max: null,
   segmental_analysis: EMPTY_SEGMENTAL,
   raw_extraction: null,
   source_image_path: null,
@@ -528,6 +539,7 @@ const EMPTY_MANUAL_SCAN: BodyScan = {
   created_at: "",
   updated_at: "",
 };
+
 
 export default function DetailBodyScan() {
   const { userId } = useUserId();
