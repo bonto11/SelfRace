@@ -1,4 +1,4 @@
-// src/features/prefs/api/thresholds.ts
+// src/features/performance/api/thresholds.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 import type { UserThresholdRow } from "@/app/features/performance/types/thresholdsTypes";
 
