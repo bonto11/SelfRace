@@ -471,8 +471,8 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
         <ScaleBar
           label={t("bodyScan.fields.smmShort")}
           value={scan.skeletal_muscle_mass_kg}
-          normalMin={scan.smm_range_min}
-          normalMax={scan.smm_range_max}
+          normalMin={scan.skeletal_muscle_mass_kg != null ? scan.skeletal_muscle_mass_kg * 0.85 : null}
+          normalMax={scan.skeletal_muscle_mass_kg != null ? scan.skeletal_muscle_mass_kg * 1.15 : null}
           unit=" kg"
           direction="higher_better"
         />
