@@ -39,6 +39,13 @@ export type BodyScan = {
   body_fat_mass_kg: number | null;
   skeletal_muscle_mass_kg: number | null;
 
+  weight_range_min: number | null;
+  weight_range_max: number | null;
+  smm_range_min: number | null;
+  smm_range_max: number | null;
+  body_fat_mass_range_min: number | null;
+  body_fat_mass_range_max: number | null;
+
   bmi: number | null;
   pbf_percent: number | null;
 

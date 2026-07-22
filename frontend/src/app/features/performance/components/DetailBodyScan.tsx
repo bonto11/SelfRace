@@ -26,6 +26,7 @@ import {
   apiDeleteBodyScan,
 } from "@/app/features/performance/api/bodyScan";
 import type { BodyScan, BodyScanUploadResult } from "@/app/features/performance/types/bodyScan";
+import BodyScanVisualization from "@/app/features/performance/components/BodyScanVisualization";
 
 /* ============================================================ */
 /* REVIEW SECTIONS - rozdelené presne podľa kategórií z InBody fotky */
@@ -69,6 +70,17 @@ const REVIEW_SECTIONS: ReviewSection[] = [
       { key: "smi", label: "Index kostrového svalstva (SMI)" },
     ],
   },
+  {
+    title: "Normálne rozsahy (z papiera)",
+    fields: [
+      { key: "weight_range_min", label: "Váha - dolná hranica", unit: "kg" },
+      { key: "weight_range_max", label: "Váha - horná hranica", unit: "kg" },
+      { key: "smm_range_min", label: "SMM - dolná hranica", unit: "kg" },
+      { key: "smm_range_max", label: "SMM - horná hranica", unit: "kg" },
+      { key: "body_fat_mass_range_min", label: "Telesný tuk - dolná hranica", unit: "kg" },
+      { key: "body_fat_mass_range_max", label: "Telesný tuk - horná hranica", unit: "kg" },
+    ],
+  },
 ];
 
 const ALL_REVIEW_FIELDS: ReviewFieldDef[] = REVIEW_SECTIONS.flatMap((s) => s.fields);
@@ -84,7 +96,7 @@ const SEGMENT_LABELS: {
   { key: "right_leg", label: "Pravá noha" },
 ];
 
-/* ─── SEGMENTAL SECTION (read-only, len na kontrolu) ─── */
+/* ─── SEGMENTAL SECTION (read-only, len na kontrolu pri review) ─── */
 
 function SegmentalSection({
   title,
@@ -133,7 +145,7 @@ function SegmentalSection({
   );
 }
 
-/* ─── EDITABLE FIELD ROW (review pred potvrdením) ─── */
+/* ─── REVIEW PANEL (pred potvrdením) ─── */
 
 function ReviewPanel({
   draft,
@@ -380,17 +392,36 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
   );
 }
 
-/* ─── HISTÓRIA ─── */
+/* ─── HISTÓRIA (klikateľná - vyberie scan na zobrazenie vizualizácie) ─── */
 
-function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number) => void }) {
+function HistoryRow({
+  scan,
+  onDelete,
+  onSelect,
+  isSelected,
+}: {
+  scan: BodyScan;
+  onDelete: (id: number) => void;
+  onSelect: (scan: BodyScan) => void;
+  isSelected: boolean;
+}) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => onSelect(scan)}
+      className="w-full text-left"
       style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         padding: "10px 16px",
         borderTop: `1px solid ${appColors.divider}`,
+        background: isSelected ? appColors.surfaceCardHover : "transparent",
+        border: "none",
+        borderTopWidth: 1,
+        borderTopStyle: "solid",
+        borderTopColor: appColors.divider,
+        cursor: "pointer",
       }}
     >
       <span style={{ fontSize: 13, color: appColors.textMuted }}>{fmtDate(scan.scan_date)}</span>
@@ -405,15 +436,18 @@ function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number)
             {scan.pbf_percent.toFixed(1)}% PBF
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => onDelete(scan.id)}
-          style={{ fontSize: 14, opacity: 0.5, background: "none", border: "none" }}
+        <span
+          role="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(scan.id);
+          }}
+          style={{ fontSize: 14, opacity: 0.5 }}
         >
           🗑️
-        </button>
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -431,6 +465,8 @@ export default function DetailBodyScan() {
   const [scans, setScans] = React.useState<BodyScan[]>([]);
   const [loading, setLoading] = React.useState(true);
 
+  const [selectedScan, setSelectedScan] = React.useState<BodyScan | null>(null);
+
   const loadScans = React.useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -445,6 +481,19 @@ export default function DetailBodyScan() {
   React.useEffect(() => {
     loadScans();
   }, [loadScans]);
+
+  // Auto-vyber najnovší scan po načítaní zoznamu (ak ešte nič nie je vybrané,
+  // alebo vybraný scan už v zozname neexistuje napr. po zmazaní).
+  React.useEffect(() => {
+    if (scans.length === 0) {
+      setSelectedScan(null);
+      return;
+    }
+    setSelectedScan((prev) => {
+      if (prev && scans.some((s) => s.id === prev.id)) return prev;
+      return scans[scans.length - 1];
+    });
+  }, [scans]);
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -531,6 +580,18 @@ export default function DetailBodyScan() {
         <>
           <BodyScanTrendChart scans={scans} />
 
+          {selectedScan && (
+            <section
+              className={CARD}
+              style={{ ...SURFACE_CARD_STYLE, marginBottom: 12, padding: "14px 16px" }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: appColors.textPrimary, marginBottom: 10 }}>
+                {fmtDate(selectedScan.scan_date)}
+              </div>
+              <BodyScanVisualization scan={selectedScan} />
+            </section>
+          )}
+
           <section className={CARD} style={SURFACE_CARD_STYLE}>
             <div style={{ padding: "12px 16px 8px", fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
               {t("bodyScan.historyTitle")}
@@ -541,7 +602,13 @@ export default function DetailBodyScan() {
               </p>
             ) : (
               [...scans].reverse().map((s) => (
-                <HistoryRow key={s.id} scan={s} onDelete={handleDelete} />
+                <HistoryRow
+                  key={s.id}
+                  scan={s}
+                  onDelete={handleDelete}
+                  onSelect={setSelectedScan}
+                  isSelected={selectedScan?.id === s.id}
+                />
               ))
             )}
           </section>

@@ -44,6 +44,12 @@ _DIRECT_FIELDS = (
     "inbody_score",
     "obesity_degree_percent",
     "smi",
+    "weight_range_min",
+    "weight_range_max",
+    "smm_range_min",
+    "smm_range_max",
+    "body_fat_mass_range_min",
+    "body_fat_mass_range_max",
 )
 
 

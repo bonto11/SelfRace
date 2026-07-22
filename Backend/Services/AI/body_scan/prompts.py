@@ -16,6 +16,12 @@ def _schema() -> str:
   "mineral_kg": number | null,
   "body_fat_mass_kg": number | null,
   "skeletal_muscle_mass_kg": number | null,
+  "weight_range_min": number | null,
+  "weight_range_max": number | null,
+  "smm_range_min": number | null,
+  "smm_range_max": number | null,
+  "body_fat_mass_range_min": number | null,
+  "body_fat_mass_range_max": number | null,
   "bmi": number | null,
   "pbf_percent": number | null,
   "waist_hip_ratio": number | null,
@@ -76,6 +82,11 @@ def build_prompts_for_body_scan_extraction() -> Tuple[str, str]:
         "- 'extraction_confidence': your own honest assessment of how clearly readable "
         "the photo was overall ('high' if sharp and well-lit, 'low' if blurry/glare/cut off).\n"
         "- Ignore any 'Calorie Expenditure of Exercise' table if present - not needed.\n\n"
+        "- Weight, SMM (Skeletal Muscle Mass), and Body Fat Mass each have a "
+        "'Normal range' shown in parentheses right next to the value in 'Body "
+        "Composition Analysis' and 'Muscle-Fat Analysis' sections (e.g. '89.0 "
+        "(65.4~88.4)' means weight_range_min=65.4, weight_range_max=88.4). "
+        "Extract these ranges exactly as printed.\n"
         "SCHEMA:\n"
         + _schema()
         + "\n\nReturn ONLY raw JSON."
