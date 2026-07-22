@@ -44,31 +44,31 @@ import BodyScanVisualization, { evalLabelKey } from "@/app/features/performance/
 /* z papiera, automaticky ulozene AI extrakciou, nie na upravu) */
 /* ============================================================ */
 
-type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unit?: string };
+type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unitKey?: string };
 type ReviewSection = { titleKey: string; fields: ReviewFieldDef[] };
 
 const REVIEW_SECTIONS: ReviewSection[] = [
   {
     titleKey: "bodyScan.sections.bodyComposition",
     fields: [
-      { key: "total_body_water_l", labelKey: "bodyScan.fields.totalBodyWater", unit: "l" },
-      { key: "protein_kg", labelKey: "bodyScan.fields.protein", unit: "kg" },
-      { key: "mineral_kg", labelKey: "bodyScan.fields.mineral", unit: "kg" },
-      { key: "body_fat_mass_kg", labelKey: "bodyScan.fields.bodyFatMass", unit: "kg" },
-      { key: "weight_kg", labelKey: "bodyScan.fields.weight", unit: "kg" },
+      { key: "total_body_water_l", labelKey: "bodyScan.fields.totalBodyWater", unitKey: "common.units.liter" },
+      { key: "protein_kg", labelKey: "bodyScan.fields.protein", unitKey: "common.units.kg" },
+      { key: "mineral_kg", labelKey: "bodyScan.fields.mineral", unitKey: "common.units.kg" },
+      { key: "body_fat_mass_kg", labelKey: "bodyScan.fields.bodyFatMass", unitKey: "common.units.kg" },
+      { key: "weight_kg", labelKey: "bodyScan.fields.weight", unitKey: "common.units.kg" },
     ],
   },
   {
     titleKey: "bodyScan.sections.muscleFat",
     fields: [
-      { key: "skeletal_muscle_mass_kg", labelKey: "bodyScan.fields.smm", unit: "kg" },
+      { key: "skeletal_muscle_mass_kg", labelKey: "bodyScan.fields.smm", unitKey: "common.units.kg" },
     ],
   },
   {
     titleKey: "bodyScan.sections.obesity",
     fields: [
       { key: "bmi", labelKey: "bodyScan.fields.bmi" },
-      { key: "pbf_percent", labelKey: "bodyScan.fields.pbf", unit: "%" },
+      { key: "pbf_percent", labelKey: "bodyScan.fields.pbf", unitKey: "common.units.pct" },
     ],
   },
   {
@@ -76,9 +76,9 @@ const REVIEW_SECTIONS: ReviewSection[] = [
     fields: [
       { key: "waist_hip_ratio", labelKey: "bodyScan.fields.waistHipRatio" },
       { key: "visceral_fat_level", labelKey: "bodyScan.fields.visceralFatLevel" },
-      { key: "basal_metabolic_rate_kcal", labelKey: "bodyScan.fields.bmr", unit: "kcal" },
+      { key: "basal_metabolic_rate_kcal", labelKey: "bodyScan.fields.bmr" },
       { key: "inbody_score", labelKey: "bodyScan.fields.inbodyScore" },
-      { key: "obesity_degree_percent", labelKey: "bodyScan.fields.obesityDegree", unit: "%" },
+      { key: "obesity_degree_percent", labelKey: "bodyScan.fields.obesityDegree", unitKey: "common.units.pct" },
       { key: "smi", labelKey: "bodyScan.fields.smi" },
     ],
   },
@@ -151,14 +151,14 @@ function SegmentalEditSection({
               <div style={{ display: "flex", gap: 6 }}>
                 <NumberField
                   value={seg.kg}
-                  onChange={(v) => onChange(key, { ...seg, kg: v })}
-                  unit="kg"
+                  onChange={(v) => onChange(key, { ...seg, kg: v === "" ? null : v })}
+                  unit={t("common.units.kg")}
                   variant="editable"
                 />
                 <NumberField
                   value={seg.pct}
-                  onChange={(v) => onChange(key, { ...seg, pct: v })}
-                  unit="%"
+                  onChange={(v) => onChange(key, { ...seg, pct: v === "" ? null : v })}
+                  unit={t("common.units.pct")}
                   variant="editable"
                 />
               </div>
@@ -288,12 +288,12 @@ function ReviewPanel({
                         marginBottom: 4,
                       }}
                     >
-                      {t(f.labelKey as any)} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
+                      {t(f.labelKey as any)} {isUnreadable && "⚠️"}
                     </label>
                     <NumberField
                       value={values[f.key as string]}
-                      onChange={(v) => handleChange(f.key as string, v)}
-                      unit={f.unit}
+                      onChange={(v) => handleChange(f.key as string, v === "" ? null : v)}
+                      unit={f.unitKey ? t(f.unitKey as any) : undefined}
                       variant="editable"
                     />
                   </div>
