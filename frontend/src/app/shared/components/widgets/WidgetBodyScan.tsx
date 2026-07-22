@@ -22,6 +22,13 @@ import type { BodyScan } from "@/app/features/performance/types/bodyScan";
 
 type Props = { onOpen?: () => void; onOpenDetail?: () => void };
 
+function scoreColor(score: number | null): string {
+  if (score == null) return appColors.brandPrimary;
+  if (score >= 80) return "#4ade80";
+  if (score >= 60) return "#facc15";
+  return "#f97316";
+}
+
 export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
@@ -46,10 +53,13 @@ export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
     };
   }, [userId]);
 
+  const score = scan?.inbody_score ?? null;
   const weight = scan?.weight_kg ?? null;
   const pbf = scan?.pbf_percent ?? null;
   const skeletalMuscle = scan?.skeletal_muscle_mass_kg ?? null;
   const updatedAt = scan?.scan_date ?? null;
+
+  const accent = scoreColor(score);
 
   return (
     <WidgetCard
@@ -57,7 +67,7 @@ export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
       tooltip={t("bodyScan.widget.tooltip")}
       onOpen={handleOpen}
       interactive={!!handleOpen}
-      accent={appColors.brandPrimary}
+      accent={accent}
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
@@ -76,13 +86,24 @@ export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
           </div>
 
           <div className={WIDGET_VALUE_ROW}>
-            <div className={WIDGET_VALUE_MAIN}>
-              {weight != null ? weight.toFixed(1) : "—"}
-              <span className={WIDGET_VALUE_UNIT}> {t("common.units.kg")}</span>
+            <div className={WIDGET_VALUE_MAIN} style={{ color: accent }}>
+              {score != null ? score : "—"}
+              <span className={WIDGET_VALUE_UNIT} style={{ color: accent }}>
+                {" "}
+                /100
+              </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-y-2 gap-x-2 mt-2 pt-2 border-t border-white/5">
+          <div className="grid grid-cols-3 gap-y-2 gap-x-2 mt-2 pt-2 border-t border-white/5">
+            <div>
+              <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">
+                {t("common.units.kg")}
+              </div>
+              <div className="text-sm font-bold tracking-tight text-white/90 tabular-nums">
+                {weight != null ? weight.toFixed(1) : "—"}
+              </div>
+            </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">
                 {t("bodyScan.widget.pbf")}
@@ -96,7 +117,7 @@ export default function WidgetBodyScan({ onOpen, onOpenDetail }: Props) {
                 {t("bodyScan.widget.smm")}
               </div>
               <div className="text-sm font-bold tracking-tight text-white/90 tabular-nums">
-                {skeletalMuscle != null ? `${skeletalMuscle.toFixed(1)} kg` : "—"}
+                {skeletalMuscle != null ? `${skeletalMuscle.toFixed(1)}` : "—"}
               </div>
             </div>
           </div>

@@ -2575,7 +2575,7 @@ export const en = {
   },
   bodyScan: {
     title: "Body Composition",
-    uploadButton: "📷 Upload InBody scan",
+    uploadButton: "📷 Upload scan",
     errorUpload: "Upload failed",
     errorConfirm: "Confirmation failed",
     confirmSuccess: "Scan saved",
@@ -2585,7 +2585,7 @@ export const en = {
     chartPbf: "Body fat %",
     widget: {
       title: "Body Composition",
-      tooltip: "Latest InBody scan",
+      tooltip: "Latest scan",
       empty: "No scans yet",
       pbf: "Fat %",
       smm: "Muscle",

@@ -2567,7 +2567,7 @@ export const sk = {
   },
   bodyScan: {
     title: "Telesné zloženie",
-    uploadButton: "📷 Nahrať InBody sken",
+    uploadButton: "📷 Nahrať sken",
     errorUpload: "Nahranie zlyhalo",
     errorConfirm: "Potvrdenie zlyhalo",
     confirmSuccess: "Sken uložený",
@@ -2577,7 +2577,7 @@ export const sk = {
     chartPbf: "% telesného tuku",
     widget: {
       title: "Telesné zloženie",
-      tooltip: "Posledný InBody sken",
+      tooltip: "Posledný sken",
       empty: "Zatiaľ žiadny sken",
       pbf: "% tuku",
       smm: "Svaly",
