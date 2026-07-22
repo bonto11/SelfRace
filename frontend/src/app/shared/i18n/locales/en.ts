@@ -1487,6 +1487,28 @@ export const en = {
     },
   },
   coachPrefs: {
+  plan: {
+    sectionTitle: "Training Plan",
+    generateButton: "Generate plan",
+    activateButton: "Activate plan",
+    cancelButton: "Cancel plan",
+    goToDaily: "Daily plan",
+    goToWeekly: "Weekly plan",
+    stepState: "Analyzing you as an athlete...",
+    stepWeekly: "Generating weekly plan...",
+    stepDaily: "Generating today's sessions...",
+    generateSuccess: "Plan generated",
+    activateSuccess: "Plan activated",
+    cancelSuccess: "Plan cancelled",
+    cancelConfirmTitle: "Cancel plan?",
+    cancelConfirmMessage: "This will cancel your active plan. Are you sure you want to continue?",
+    cancelConfirmOk: "Cancel",
+    errorState: "Analysis failed",
+    errorWeekly: "Weekly generation failed",
+    errorDaily: "Daily generation failed",
+    errorActivate: "Activation failed",
+    errorCancel: "Cancellation failed",
+  },
     widget: {
       title: "Coach settings",
       tooltip: [
