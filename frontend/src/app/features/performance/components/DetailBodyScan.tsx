@@ -292,7 +292,6 @@ function ReviewPanel({
 
       <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
         <DateField
-          label={t("bodyScan.review.scanDate")}
           value={values.scan_date}
           onChange={(v) => handleChange("scan_date", v)}
           variant="editable"
