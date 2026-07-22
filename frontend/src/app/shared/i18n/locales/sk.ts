@@ -135,6 +135,7 @@ export const sk = {
       pct: "%",
       kadenceRun: "krokov/min",
       kadenceBike: "ot/min",
+      liter: "l",
     },
     metrics: {
       trimp: "Záťaž (Trimp)",
