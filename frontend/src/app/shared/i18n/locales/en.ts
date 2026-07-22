@@ -2625,7 +2625,6 @@ export const en = {
       muscleFat: "Muscle-Fat Analysis",
       obesity: "Obesity Analysis",
       other: "Other Parameters",
-      ranges: "Normal Ranges (from report)",
       segmentalLean: "Segmental Lean Analysis",
       segmentalFat: "Segmental Fat Analysis",
     },

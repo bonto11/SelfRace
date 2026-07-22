@@ -2617,7 +2617,6 @@ export const sk = {
       muscleFat: "Analýza svalov a tuku",
       obesity: "Analýza obezity",
       other: "Ostatné parametre",
-      ranges: "Normálne rozsahy (z papiera)",
       segmentalLean: "Segmentálna analýza svalov",
       segmentalFat: "Segmentálna analýza tuku",
     },

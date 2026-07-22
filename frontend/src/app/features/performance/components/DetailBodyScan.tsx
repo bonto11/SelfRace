@@ -77,17 +77,6 @@ const REVIEW_SECTIONS: ReviewSection[] = [
       { key: "smi", labelKey: "bodyScan.fields.smi" },
     ],
   },
-  {
-    titleKey: "bodyScan.sections.ranges",
-    fields: [
-      { key: "weight_range_min", labelKey: "bodyScan.fields.weightRangeMin", unit: "kg" },
-      { key: "weight_range_max", labelKey: "bodyScan.fields.weightRangeMax", unit: "kg" },
-      { key: "smm_range_min", labelKey: "bodyScan.fields.smmRangeMin", unit: "kg" },
-      { key: "smm_range_max", labelKey: "bodyScan.fields.smmRangeMax", unit: "kg" },
-      { key: "body_fat_mass_range_min", labelKey: "bodyScan.fields.bodyFatMassRangeMin", unit: "kg" },
-      { key: "body_fat_mass_range_max", labelKey: "bodyScan.fields.bodyFatMassRangeMax", unit: "kg" },
-    ],
-  },
 ];
 
 const ALL_REVIEW_FIELDS: ReviewFieldDef[] = REVIEW_SECTIONS.flatMap((s) => s.fields);
