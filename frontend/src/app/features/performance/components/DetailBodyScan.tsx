@@ -291,11 +291,16 @@ function ReviewPanel({
       </div>
 
       <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <DateField
-          value={values.scan_date}
-          onChange={(v) => handleChange("scan_date", v)}
-          variant="editable"
-        />
+        <div>
+          <label style={{ fontSize: 11, color: appColors.textMuted, display: "block", marginBottom: 4 }}>
+            {t("bodyScan.review.scanDate")}
+          </label>
+          <DateField
+            value={values.scan_date}
+            onChange={(v) => handleChange("scan_date", v ?? "")}
+            variant="editable"
+          />
+        </div>
 
         {REVIEW_SECTIONS.map((section) => (
           <div key={section.titleKey}>
