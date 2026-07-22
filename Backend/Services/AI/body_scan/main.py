@@ -32,10 +32,21 @@ _DIRECT_FIELDS = (
     "weight_kg",
     "height_cm",
     "total_body_water_l",
+    "total_body_water_range_min",
+    "total_body_water_range_max",
     "protein_kg",
     "mineral_kg",
     "body_fat_mass_kg",
     "skeletal_muscle_mass_kg",
+    "weight_percent",
+    "weight_scale_min",
+    "weight_scale_max",
+    "smm_percent",
+    "smm_scale_min",
+    "smm_scale_max",
+    "body_fat_mass_percent",
+    "body_fat_mass_scale_min",
+    "body_fat_mass_scale_max",
     "bmi",
     "pbf_percent",
     "waist_hip_ratio",
@@ -44,13 +55,8 @@ _DIRECT_FIELDS = (
     "inbody_score",
     "obesity_degree_percent",
     "smi",
-    "weight_range_min",
-    "weight_range_max",
-    "smm_range_min",
-    "smm_range_max",
-    "body_fat_mass_range_min",
-    "body_fat_mass_range_max",
 )
+
 
 
 def _now_iso() -> str:
