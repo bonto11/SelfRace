@@ -131,7 +131,7 @@ export const sk = {
       weeksAbbrev: "t",
       ms: "ms",
       hr: "úderov/min",
-      pace: "s/km",
+      pace: "min/km",
       pct: "%",
       kadenceRun: "krokov/min",
       kadenceBike: "ot/min",
