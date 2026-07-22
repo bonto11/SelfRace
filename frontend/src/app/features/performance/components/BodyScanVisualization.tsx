@@ -59,15 +59,19 @@ function ScaleBar({
   const t = useT();
   if (value == null || normalMin == null || normalMax == null) return null;
 
-  const scaleMax = Math.max(normalMax * 1.6, value * 1.15);
+  // Defenzíva: ak AI extrakcia omylom vráti min/max obrátene, opravíme poradie
+  const realMin = Math.min(normalMin, normalMax);
+  const realMax = Math.max(normalMin, normalMax);
+
+  const scaleMax = Math.max(realMax * 1.6, value * 1.15);
   const pct = (v: number) => Math.min(100, Math.max(0, (v / scaleMax) * 100));
 
-  const normalStartPct = pct(normalMin);
-  const normalEndPct = pct(normalMax);
+  const normalStartPct = pct(realMin);
+  const normalEndPct = pct(realMax);
   const valuePct = pct(value);
 
   const statusEn: "Under" | "Normal" | "Over" =
-    value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
+    value < realMin ? "Under" : value > realMax ? "Over" : "Normal";
 
   const statusColor =
     statusEn === "Normal"
@@ -403,18 +407,29 @@ function BodyDiagram({
           rx="7"
           fill={appColors.surfaceCardBorder}
         />
-
         {/* Popisky - na okrajoch, s label + kg + status */}
-        {renderLabel("left_arm", "bodyScan.segments.leftArm", 8, 60, "start")}
-        {renderLabel("right_arm", "bodyScan.segments.rightArm", 252, 60, "end")}
-        {renderLabel("trunk", "bodyScan.segments.trunk", 130, 130, "middle")}
-        {renderLabel("left_leg", "bodyScan.segments.leftLeg", 60, 165, "start")}
+        {renderLabel("left_arm", "bodyScan.segments.leftArm", 55, 60, "middle")}
+        {renderLabel(
+          "right_arm",
+          "bodyScan.segments.rightArm",
+          205,
+          60,
+          "middle",
+        )}
+        {renderLabel("trunk", "bodyScan.segments.trunk", 130, 70, "middle")}
+        {renderLabel(
+          "left_leg",
+          "bodyScan.segments.leftLeg",
+          75,
+          165,
+          "middle",
+        )}
         {renderLabel(
           "right_leg",
           "bodyScan.segments.rightLeg",
-          200,
+          185,
           165,
-          "end",
+          "middle",
         )}
       </svg>
     </div>
