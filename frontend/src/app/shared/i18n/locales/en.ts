@@ -134,6 +134,7 @@ export const en = {
       pct: "%",
       kadenceRun: "spm",
       kadenceBike: "rpm",
+      liter: "l",
     },
     metrics: {
       trimp: "Training load (Trimp)",
