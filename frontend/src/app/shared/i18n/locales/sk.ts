@@ -2565,6 +2565,32 @@ export const sk = {
       disconnectFailed: "Odpojenie Stravy zlyhalo.",
     },
   },
+  bodyScan: {
+    title: "Telesné zloženie",
+    uploadButton: "📷 Nahrať InBody sken",
+    errorUpload: "Nahranie zlyhalo",
+    errorConfirm: "Potvrdenie zlyhalo",
+    confirmSuccess: "Sken uložený",
+    historyTitle: "História",
+    trendTitle: "Vývoj",
+    chartWeight: "Váha",
+    chartPbf: "% telesného tuku",
+    widget: {
+      title: "Telesné zloženie",
+      tooltip: "Posledný InBody sken",
+      empty: "Zatiaľ žiadny sken",
+      pbf: "% tuku",
+      smm: "Svaly",
+    },
+    review: {
+      title: "Skontroluj hodnoty",
+      hint: "Over si prosím vyčítané hodnoty pred uložením.",
+      lowConfidenceHint:
+        "Fotka bola menej čitateľná — over si hodnoty pozorne.",
+      scanDate: "Dátum merania",
+      confirm: "Potvrdiť a uložiť",
+    },
+  },
   sessions: {
     preview: {
       title: "Náhľad tréningu",

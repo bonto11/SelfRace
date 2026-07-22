@@ -12,10 +12,11 @@ import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
 import WidgetPB from "@/app/shared/components/widgets/WidgetPB";
 import WidgetBodyFat from "@/app/shared/components/widgets/WidgetBodyFat";
 import WidgetVO2Max from "@/app/shared/components/widgets/WidgetVO2Max";
-import WidgetBodyWeight from "@/app/shared/components/widgets/WidgetBodyWeight"; // 👈 Pridaný nový widget
+import WidgetBodyWeight from "@/app/shared/components/widgets/WidgetBodyWeight";
 import WidgetZonesHR from "@/app/shared/components/widgets/WidgetZonesHR";
 import WidgetZonesPaces from "@/app/shared/components/widgets/WidgetZonesPaces";
 import WidgetEstTopPaces from "@/app/shared/components/widgets/WidgetEstTopPaces";
+import WidgetBodyScan from "@/app/shared/components/widgets/WidgetBodyScan";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -43,7 +44,6 @@ export default function PerformancePage() {
   const t = useT();
   const router = useRouter();
   
-  // Získame globálne nastavenie pokročilého režimu
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
@@ -54,19 +54,16 @@ export default function PerformancePage() {
       rightSlot={<RefreshIconBtn />}
       showPoweredByStrava={false}
     >
-      {/* Globálny prepínač režimu zobrazenia */}
       <div className="mb-4">
         <ShowAdvancedToggle />
       </div>
 
       <div className={PAGE_GRID_2}>
-        {/* 1. SEKCIA: Výsledky a Osobáky (Vždy viditeľné) */}
         <WidgetEstTopPaces
           onOpenDetail={() => router.push("/performance/estTopPaces")}
         />
         <WidgetPB onOpenDetail={() => router.push("/performance/pb")} />
 
-        {/* 2. SEKCIA: Tréningové metriky (Len v Advanced režime) */}
         {showAdvanced && (
           <>
             <WidgetZonesHR
@@ -78,7 +75,6 @@ export default function PerformancePage() {
           </>
         )}
 
-        {/* 3. SEKCIA: Biometria (Viditeľné vždy, menia vnútorný vizuál) */}
         <WidgetVO2Max 
           showAdvanced={showAdvanced} 
           onOpenDetail={() => router.push("/performance/vo2max")} 
@@ -91,6 +87,10 @@ export default function PerformancePage() {
 
         <WidgetBodyFat
           onOpenDetail={() => router.push("/performance/bodyfat")}
+        />
+
+        <WidgetBodyScan
+          onOpenDetail={() => router.push("/performance/bodyScan")}
         />
       </div>
     </PageShell>

@@ -2573,6 +2573,32 @@ export const en = {
       disconnectFailed: "Disconnecting Strava failed.",
     },
   },
+  bodyScan: {
+    title: "Body Composition",
+    uploadButton: "📷 Upload InBody scan",
+    errorUpload: "Upload failed",
+    errorConfirm: "Confirmation failed",
+    confirmSuccess: "Scan saved",
+    historyTitle: "History",
+    trendTitle: "Trend",
+    chartWeight: "Weight",
+    chartPbf: "Body fat %",
+    widget: {
+      title: "Body Composition",
+      tooltip: "Latest InBody scan",
+      empty: "No scans yet",
+      pbf: "Fat %",
+      smm: "Muscle",
+    },
+    review: {
+      title: "Check the values",
+      hint: "Please verify the extracted values before saving.",
+      lowConfidenceHint:
+        "The photo was harder to read — check values carefully.",
+      scanDate: "Scan date",
+      confirm: "Confirm & save",
+    },
+  },
   sessions: {
     preview: {
       title: "Session preview",
