@@ -12,16 +12,21 @@ def _schema() -> str:
   "weight_kg": number | null,
   "height_cm": number | null,
   "total_body_water_l": number | null,
+  "total_body_water_range_min": number | null,
+  "total_body_water_range_max": number | null,
   "protein_kg": number | null,
   "mineral_kg": number | null,
   "body_fat_mass_kg": number | null,
   "skeletal_muscle_mass_kg": number | null,
-  "weight_range_min": number | null,
-  "weight_range_max": number | null,
-  "smm_range_min": number | null,
-  "smm_range_max": number | null,
-  "body_fat_mass_range_min": number | null,
-  "body_fat_mass_range_max": number | null,
+  "weight_percent": number | null,
+  "weight_scale_min": number | null,
+  "weight_scale_max": number | null,
+  "smm_percent": number | null,
+  "smm_scale_min": number | null,
+  "smm_scale_max": number | null,
+  "body_fat_mass_percent": number | null,
+  "body_fat_mass_scale_min": number | null,
+  "body_fat_mass_scale_max": number | null,
   "bmi": number | null,
   "pbf_percent": number | null,
   "waist_hip_ratio": number | null,
@@ -47,7 +52,7 @@ def _schema() -> str:
     }
   },
   "extraction_confidence": "high" | "medium" | "low",
-  "unreadable_fields": ["string"] 
+  "unreadable_fields": ["string"]
 }
 """.strip()
 
@@ -74,28 +79,36 @@ def build_prompts_for_body_scan_extraction() -> Tuple[str, str]:
         "- NEVER invent or guess a number you cannot clearly read.\n"
         "- 'scan_date': convert the printed test date to ISO 'YYYY-MM-DD' format "
         "regardless of the original format (e.g. '06.21.2026' -> '2026-06-21').\n"
+        "- 'total_body_water_range_min/max': the (min~max) range printed next to "
+        "Total Body Water in the 'Body Composition Analysis' table (same format "
+        "as weight_range would use for Weight, e.g. '58.5 (43.3~52.9)' means "
+        "total_body_water_l=58.5, total_body_water_range_min=43.3, "
+        "total_body_water_range_max=52.9).\n"
+        "- The 'Muscle-Fat Analysis' section has THREE horizontal percentage bars: "
+        "Weight, SMM (Skeletal Muscle Mass), and Body Fat Mass. Each bar has its "
+        "OWN numeric scale printed above it (a row of numbers from a minimum on the "
+        "left to a maximum on the right, e.g. Weight's scale might read '55 70 85 "
+        "100 115 130 145 160 175 190 205', SMM's scale might read '70 80 90 100 110 "
+        "120 130 140 150 160 170', Body Fat Mass's scale might read '40 60 80 100 "
+        "160 220 280 340 400 460 520'). For EACH of these three bars independently: "
+        "read the scale's leftmost number as its 'scale_min' and rightmost number as "
+        "its 'scale_max'. Then determine the percentage where the dark/filled bar "
+        "indicator visually ends on that specific scale (where the '100' tick mark "
+        "represents exactly 100%) - report this as '_percent' (e.g. weight_percent, "
+        "smm_percent, body_fat_mass_percent). These three percentages are INDEPENDENT "
+        "of each other and independent of any kg value elsewhere on the report - read "
+        "each bar's own indicator position on its own scale.\n"
         "- 'segmental_analysis': the report typically shows a body silhouette with left/"
         "right arm, trunk, and left/right leg values for both 'Lean Mass' (or 'Segmental "
         "Lean Analysis') and 'Fat Mass' (or 'Segmental Fat Analysis'). Each has a kg value, "
         "a percentage value, and often an evaluation label (e.g. 'Under', 'Normal', 'Over') "
         "underneath. Map left/right exactly as shown - do not mirror or swap sides.\n"
-        "- 'eval' fields inside segmental_analysis MUST always be one of the "
-        "English words 'Under', 'Normal', 'Over' - regardless of what language "
-        "the report itself is printed in (translate if needed, never invent "
-        "other words).\n"
-        "- For weight_range_min/max, smm_range_min/max, body_fat_mass_range_min/max: "
-        "ALWAYS put the smaller number in '_min' and the larger number in '_max', "
-        "regardless of which order they appear in the parentheses on the report "
-        "(e.g. '(41.6~14.2)' printed on the report still means min=14.2, max=41.6).\n"
+        "- 'eval' fields inside segmental_analysis MUST always be one of the English "
+        "words 'Under', 'Normal', 'Over' - regardless of what language the report "
+        "itself is printed in (translate if needed, never invent other words).\n"
         "- 'extraction_confidence': your own honest assessment of how clearly readable "
         "the photo was overall ('high' if sharp and well-lit, 'low' if blurry/glare/cut off).\n"
         "- Ignore any 'Calorie Expenditure of Exercise' table if present - not needed.\n\n"
-        "- Weight, SMM (Skeletal Muscle Mass), and Body Fat Mass each have a "
-        "'Normal range' shown in parentheses right next to the value in 'Body "
-        "Composition Analysis' and 'Muscle-Fat Analysis' sections (e.g. '89.0 "
-        "(65.4~88.4)' means weight_range_min=65.4, weight_range_max=88.4). "
-        "Extract these ranges exactly as printed.\n"
-
         "SCHEMA:\n"
         + _schema()
         + "\n\nReturn ONLY raw JSON."
