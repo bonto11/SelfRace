@@ -15,6 +15,7 @@ import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
+import DateField from "@/app/shared/ui/components/DateField";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -23,9 +24,9 @@ import { fmtDate } from "@/app/shared/utils/time";
 import {
   apiUploadBodyScan,
   apiConfirmBodyScan,
+  apiCreateManualBodyScan,
   apiGetBodyScansForTrend,
   apiDeleteBodyScan,
-  apiCreateManualBodyScan,
 } from "@/app/features/performance/api/bodyScan";
 import type {
   BodyScan,
@@ -37,6 +38,8 @@ import BodyScanVisualization, { evalLabelKey } from "@/app/features/performance/
 
 /* ============================================================ */
 /* REVIEW SECTIONS - rozdelené presne podľa kategórií z InBody fotky */
+/* (rozsahy min/max sa NEZOBRAZUJU tu - su to referencne hodnoty */
+/* z papiera, automaticky ulozene AI extrakciou, nie na upravu) */
 /* ============================================================ */
 
 type ReviewFieldDef = { key: keyof BodyScan; labelKey: string; unit?: string };
@@ -126,7 +129,7 @@ function SegmentalEditSection({
       <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
         {title}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
         {SEGMENT_LABEL_KEYS.map(({ key, labelKey }) => {
           const seg = values[key] ?? { kg: null, pct: null, eval: null };
           return (
@@ -288,32 +291,19 @@ function ReviewPanel({
       </div>
 
       <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <div>
-          <label style={{ fontSize: 11, color: appColors.textMuted, display: "block", marginBottom: 4 }}>
-            {t("bodyScan.review.scanDate")}
-          </label>
-          <input
-            type="date"
-            value={values.scan_date}
-            onChange={(e) => handleChange("scan_date", e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 8,
-              background: appColors.backgroundAlt,
-              border: `1px solid ${appColors.surfaceCardBorder}`,
-              color: appColors.textPrimary,
-              fontSize: 13,
-            }}
-          />
-        </div>
+        <DateField
+          label={t("bodyScan.review.scanDate")}
+          value={values.scan_date}
+          onChange={(v) => handleChange("scan_date", v)}
+          variant="editable"
+        />
 
         {REVIEW_SECTIONS.map((section) => (
           <div key={section.titleKey}>
             <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
               {t(section.titleKey as any)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {section.fields.map((f) => {
                 const isUnreadable = unreadable.has(f.key as string);
                 return (
@@ -324,11 +314,7 @@ function ReviewPanel({
                         color: isUnreadable ? "#f59e0b" : appColors.textMuted,
                         display: "block",
                         marginBottom: 4,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
                       }}
-                      title={`${t(f.labelKey as any)} ${f.unit ? `(${f.unit})` : ""}`}
                     >
                       {t(f.labelKey as any)} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
                     </label>
@@ -348,6 +334,7 @@ function ReviewPanel({
                         }`,
                         color: appColors.textPrimary,
                         fontSize: 13,
+                        boxSizing: "border-box",
                       }}
                     />
                   </div>
@@ -652,42 +639,41 @@ export default function DetailBodyScan() {
     });
   };
 
-// Nahraď handleConfirm v DetailBodyScan.tsx týmto:
-const handleConfirm = async (corrections: Partial<BodyScan>) => {
-  if (!userId || !draft) return;
-  setConfirming(true);
-  try {
-    if (isManualEntry) {
-      const { scan_date, segmental_analysis, ...fields } = corrections;
-      const scan = await apiCreateManualBodyScan(
-        Number(userId),
-        scan_date || new Date().toISOString().slice(0, 10),
-        fields,
-        segmental_analysis,
-      );
+  const handleConfirm = async (corrections: Partial<BodyScan>) => {
+    if (!userId || !draft) return;
+    setConfirming(true);
+    try {
+      if (isManualEntry) {
+        const { scan_date, segmental_analysis, ...fields } = corrections;
+        const scan = await apiCreateManualBodyScan(
+          Number(userId),
+          scan_date || new Date().toISOString().slice(0, 10),
+          fields,
+          segmental_analysis,
+        );
+        if (!scan) {
+          toast.error(t("bodyScan.errorConfirm"));
+          return;
+        }
+        toast.success(t("bodyScan.confirmSuccess"));
+        setDraft(null);
+        setIsManualEntry(false);
+        await loadScans();
+        return;
+      }
+
+      const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
       if (!scan) {
         toast.error(t("bodyScan.errorConfirm"));
         return;
       }
       toast.success(t("bodyScan.confirmSuccess"));
       setDraft(null);
-      setIsManualEntry(false);
       await loadScans();
-      return;
+    } finally {
+      setConfirming(false);
     }
-
-    const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
-    if (!scan) {
-      toast.error(t("bodyScan.errorConfirm"));
-      return;
-    }
-    toast.success(t("bodyScan.confirmSuccess"));
-    setDraft(null);
-    await loadScans();
-  } finally {
-    setConfirming(false);
-  }
-};
+  };
 
   const handleDelete = async (scanId: number) => {
     if (!userId) return;
