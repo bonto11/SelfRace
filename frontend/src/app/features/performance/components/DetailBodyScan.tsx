@@ -14,6 +14,7 @@ import {
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
+import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -24,8 +25,14 @@ import {
   apiConfirmBodyScan,
   apiGetBodyScansForTrend,
   apiDeleteBodyScan,
+  apiCreateManualBodyScan,
 } from "@/app/features/performance/api/bodyScan";
-import type { BodyScan, BodyScanUploadResult } from "@/app/features/performance/types/bodyScan";
+import type {
+  BodyScan,
+  BodyScanUploadResult,
+  SegmentalAnalysis,
+  SegmentalPart,
+} from "@/app/features/performance/types/bodyScan";
 import BodyScanVisualization, { evalLabelKey } from "@/app/features/performance/components/BodyScanVisualization";
 
 /* ============================================================ */
@@ -96,19 +103,35 @@ const SEGMENT_LABEL_KEYS: {
   { key: "right_leg", labelKey: "bodyScan.segments.rightLeg" },
 ];
 
-/* ─── SEGMENTAL SECTION (read-only, len na kontrolu pri review) ─── */
+const EMPTY_SEGMENTAL: SegmentalAnalysis = {
+  lean: {
+    left_arm: { kg: null, pct: null, eval: null },
+    right_arm: { kg: null, pct: null, eval: null },
+    trunk: { kg: null, pct: null, eval: null },
+    left_leg: { kg: null, pct: null, eval: null },
+    right_leg: { kg: null, pct: null, eval: null },
+  },
+  fat: {
+    left_arm: { kg: null, pct: null, eval: null },
+    right_arm: { kg: null, pct: null, eval: null },
+    trunk: { kg: null, pct: null, eval: null },
+    left_leg: { kg: null, pct: null, eval: null },
+    right_leg: { kg: null, pct: null, eval: null },
+  },
+};
 
-function SegmentalSection({
+/* ─── EDITOVATEĽNÁ SEGMENTÁLNA SEKCIA ─── */
+
+function SegmentalEditSection({
   title,
-  segments,
+  values,
+  onChange,
 }: {
   title: string;
-  segments:
-    | Record<string, { kg: number | null; pct: number | null; eval: string | null }>
-    | undefined;
+  values: Record<string, SegmentalPart>;
+  onChange: (key: string, part: SegmentalPart) => void;
 }) {
   const t = useT();
-  if (!segments) return null;
   return (
     <div>
       <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
@@ -116,9 +139,7 @@ function SegmentalSection({
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         {SEGMENT_LABEL_KEYS.map(({ key, labelKey }) => {
-          const seg = segments[key];
-          if (!seg) return null;
-          const evalKey = evalLabelKey(seg.eval);
+          const seg = values[key] ?? { kg: null, pct: null, eval: null };
           return (
             <div
               key={key}
@@ -127,18 +148,73 @@ function SegmentalSection({
                 borderRadius: 8,
                 background: appColors.backgroundAlt,
                 border: `1px solid ${appColors.surfaceCardBorder}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
               }}
             >
               <div style={{ fontSize: 11, color: appColors.textMuted }}>{t(labelKey as any)}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary, marginTop: 2 }}>
-                {seg.kg != null ? `${seg.kg} kg` : "—"}
-                {seg.pct != null && (
-                  <span style={{ fontSize: 11, fontWeight: 400, color: appColors.textMuted }}>
-                    {" "}
-                    ({seg.pct}% {evalKey ? t(evalKey as any) : ""})
-                  </span>
-                )}
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="kg"
+                  value={seg.kg == null ? "" : String(seg.kg)}
+                  onChange={(e) =>
+                    onChange(key, {
+                      ...seg,
+                      kg: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                  style={{
+                    width: "50%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: appColors.backgroundMain,
+                    border: `1px solid ${appColors.surfaceCardBorder}`,
+                    color: appColors.textPrimary,
+                    fontSize: 12,
+                  }}
+                />
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="%"
+                  value={seg.pct == null ? "" : String(seg.pct)}
+                  onChange={(e) =>
+                    onChange(key, {
+                      ...seg,
+                      pct: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                  style={{
+                    width: "50%",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: appColors.backgroundMain,
+                    border: `1px solid ${appColors.surfaceCardBorder}`,
+                    color: appColors.textPrimary,
+                    fontSize: 12,
+                  }}
+                />
               </div>
+              <select
+                value={seg.eval ?? ""}
+                onChange={(e) => onChange(key, { ...seg, eval: e.target.value || null })}
+                style={{
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  background: appColors.backgroundMain,
+                  border: `1px solid ${appColors.surfaceCardBorder}`,
+                  color: appColors.textPrimary,
+                  fontSize: 12,
+                }}
+              >
+                <option value="">—</option>
+                <option value="Under">{t("bodyScan.eval.under")}</option>
+                <option value="Normal">{t("bodyScan.eval.normal")}</option>
+                <option value="Over">{t("bodyScan.eval.over")}</option>
+              </select>
             </div>
           );
         })}
@@ -147,18 +223,20 @@ function SegmentalSection({
   );
 }
 
-/* ─── REVIEW PANEL (pred potvrdením) ─── */
+/* ─── REVIEW / MANUAL ENTRY PANEL ─── */
 
 function ReviewPanel({
   draft,
   onCancel,
   onConfirm,
   confirming,
+  isManual,
 }: {
   draft: BodyScanUploadResult;
   onCancel: () => void;
   onConfirm: (corrections: Partial<BodyScan>) => void;
   confirming: boolean;
+  isManual?: boolean;
 }) {
   const t = useT();
   const [values, setValues] = React.useState<Record<string, string>>(() => {
@@ -170,11 +248,25 @@ function ReviewPanel({
     return init;
   });
 
+  const [segmental, setSegmental] = React.useState<SegmentalAnalysis>(
+    draft.scan.segmental_analysis ?? EMPTY_SEGMENTAL,
+  );
+
   const unreadable = new Set(draft.unreadable_fields ?? []);
-  const segmental = draft.scan.segmental_analysis;
 
   const handleChange = (key: string, val: string) => {
     setValues((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleSegmentChange = (
+    kind: "lean" | "fat",
+    key: string,
+    part: SegmentalPart,
+  ) => {
+    setSegmental((prev) => ({
+      ...prev,
+      [kind]: { ...prev[kind], [key]: part },
+    }));
   };
 
   const handleSubmit = () => {
@@ -187,6 +279,7 @@ function ReviewPanel({
     if (values.scan_date) {
       corrections.scan_date = values.scan_date;
     }
+    corrections.segmental_analysis = segmental;
     onConfirm(corrections);
   };
 
@@ -194,12 +287,14 @@ function ReviewPanel({
     <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginBottom: 12 }}>
       <div style={{ padding: "14px 16px" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
-          {t("bodyScan.review.title")}
+          {isManual ? t("bodyScan.manual.title") : t("bodyScan.review.title")}
         </div>
         <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 4 }}>
-          {draft.extraction_confidence === "low"
-            ? t("bodyScan.review.lowConfidenceHint")
-            : t("bodyScan.review.hint")}
+          {isManual
+            ? t("bodyScan.manual.hint")
+            : draft.extraction_confidence === "low"
+              ? t("bodyScan.review.lowConfidenceHint")
+              : t("bodyScan.review.hint")}
         </div>
       </div>
 
@@ -240,7 +335,11 @@ function ReviewPanel({
                         color: isUnreadable ? "#f59e0b" : appColors.textMuted,
                         display: "block",
                         marginBottom: 4,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
+                      title={`${t(f.labelKey as any)} ${f.unit ? `(${f.unit})` : ""}`}
                     >
                       {t(f.labelKey as any)} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
                     </label>
@@ -269,12 +368,16 @@ function ReviewPanel({
           </div>
         ))}
 
-        {segmental && (
-          <>
-            <SegmentalSection title={t("bodyScan.sections.segmentalLean")} segments={segmental.lean} />
-            <SegmentalSection title={t("bodyScan.sections.segmentalFat")} segments={segmental.fat} />
-          </>
-        )}
+        <SegmentalEditSection
+          title={t("bodyScan.sections.segmentalLean")}
+          values={segmental.lean}
+          onChange={(key, part) => handleSegmentChange("lean", key, part)}
+        />
+        <SegmentalEditSection
+          title={t("bodyScan.sections.segmentalFat")}
+          values={segmental.fat}
+          onChange={(key, part) => handleSegmentChange("fat", key, part)}
+        />
 
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={confirming}>
@@ -454,6 +557,43 @@ function HistoryRow({
 
 /* ─── HLAVNÝ KOMPONENT ─── */
 
+const EMPTY_MANUAL_SCAN: BodyScan = {
+  id: -1,
+  user_id: 0,
+  scan_date: new Date().toISOString().slice(0, 10),
+  scan_time: null,
+  scan_source: "manual",
+  weight_kg: null,
+  height_cm: null,
+  total_body_water_l: null,
+  protein_kg: null,
+  mineral_kg: null,
+  body_fat_mass_kg: null,
+  skeletal_muscle_mass_kg: null,
+  bmi: null,
+  pbf_percent: null,
+  waist_hip_ratio: null,
+  visceral_fat_level: null,
+  basal_metabolic_rate_kcal: null,
+  inbody_score: null,
+  obesity_degree_percent: null,
+  smi: null,
+  weight_range_min: null,
+  weight_range_max: null,
+  smm_range_min: null,
+  smm_range_max: null,
+  body_fat_mass_range_min: null,
+  body_fat_mass_range_max: null,
+  segmental_analysis: EMPTY_SEGMENTAL,
+  raw_extraction: null,
+  source_image_path: null,
+  confirmed_by_user: false,
+  manually_edited: true,
+  ai_model_used: null,
+  created_at: "",
+  updated_at: "",
+};
+
 export default function DetailBodyScan() {
   const { userId } = useUserId();
   const t = useT();
@@ -461,6 +601,7 @@ export default function DetailBodyScan() {
 
   const [uploading, setUploading] = React.useState(false);
   const [draft, setDraft] = React.useState<BodyScanUploadResult | null>(null);
+  const [isManualEntry, setIsManualEntry] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
 
   const [scans, setScans] = React.useState<BodyScan[]>([]);
@@ -506,33 +647,72 @@ export default function DetailBodyScan() {
         toast.error(t("bodyScan.errorUpload"));
         return;
       }
+      setIsManualEntry(false);
       setDraft(result);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleConfirm = async (corrections: Partial<BodyScan>) => {
-    if (!userId || !draft) return;
-    setConfirming(true);
-    try {
-      const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
+  const handleStartManualEntry = () => {
+    setIsManualEntry(true);
+    setDraft({
+      scan: EMPTY_MANUAL_SCAN,
+      extraction_confidence: null,
+      unreadable_fields: [],
+    });
+  };
+
+// Nahraď handleConfirm v DetailBodyScan.tsx týmto:
+const handleConfirm = async (corrections: Partial<BodyScan>) => {
+  if (!userId || !draft) return;
+  setConfirming(true);
+  try {
+    if (isManualEntry) {
+      const { scan_date, segmental_analysis, ...fields } = corrections;
+      const scan = await apiCreateManualBodyScan(
+        Number(userId),
+        scan_date || new Date().toISOString().slice(0, 10),
+        fields,
+        segmental_analysis,
+      );
       if (!scan) {
         toast.error(t("bodyScan.errorConfirm"));
         return;
       }
       toast.success(t("bodyScan.confirmSuccess"));
       setDraft(null);
+      setIsManualEntry(false);
       await loadScans();
-    } finally {
-      setConfirming(false);
+      return;
     }
-  };
+
+    const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
+    if (!scan) {
+      toast.error(t("bodyScan.errorConfirm"));
+      return;
+    }
+    toast.success(t("bodyScan.confirmSuccess"));
+    setDraft(null);
+    await loadScans();
+  } finally {
+    setConfirming(false);
+  }
+};
 
   const handleDelete = async (scanId: number) => {
     if (!userId) return;
-    const ok = await apiDeleteBodyScan(Number(userId), scanId);
-    if (ok) {
+    const ok = await confirm({
+      title: t("bodyScan.deleteConfirm.title"),
+      message: t("bodyScan.deleteConfirm.message"),
+      okText: t("bodyScan.deleteConfirm.ok"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    const deleted = await apiDeleteBodyScan(Number(userId), scanId);
+    if (deleted) {
       toast.success(t("common.done"));
       await loadScans();
     } else {
@@ -551,23 +731,38 @@ export default function DetailBodyScan() {
       />
 
       {!draft && (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="w-full mb-3"
-        >
-          {uploading ? <LoadingSpinner size="button" /> : t("bodyScan.uploadButton")}
-        </Button>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex-1"
+          >
+            {uploading ? <LoadingSpinner size="button" /> : t("bodyScan.uploadButton")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleStartManualEntry}
+            disabled={uploading}
+            className="flex-1"
+          >
+            {t("bodyScan.manualButton")}
+          </Button>
+        </div>
       )}
 
       {draft && (
         <ReviewPanel
           draft={draft}
-          onCancel={() => setDraft(null)}
+          onCancel={() => {
+            setDraft(null);
+            setIsManualEntry(false);
+          }}
           onConfirm={handleConfirm}
           confirming={confirming}
+          isManual={isManualEntry}
         />
       )}
 

@@ -2575,6 +2575,18 @@ export const sk = {
     trendTitle: "Vývoj",
     chartWeight: "Váha",
     chartPbf: "% telesného tuku",
+    manualButton: "✏️ Zapísať ručne",
+    manual: {
+      title: "Ručný zápis",
+      hint: "Zadaj hodnoty ručne, žiadna fotka sa nepoužije.",
+      notImplementedYet: "Ukladanie ešte nie je pripravené.",
+    },
+    deleteConfirm: {
+      title: "Zmazať záznam?",
+      message:
+        "Táto akcia sa nedá vrátiť späť. Naozaj chceš tento sken zmazať?",
+      ok: "Zmazať",
+    },
     widget: {
       title: "Telesné zloženie",
       tooltip: "Posledný sken",
@@ -2616,8 +2628,10 @@ export const sk = {
       bodyFatMass: "Telesný tuk",
       weight: "Váha",
       smm: "Kostrové svalstvo (SMM)",
+      smmShort: "Kostrové svalstvo",
       bmi: "BMI (Index telesnej hmotnosti)",
       pbf: "Percento telesného tuku (PBF)",
+      pbfShort: "% tuku (PBF)",
       waistHipRatio: "Pomer pása k bokom",
       visceralFatLevel: "Úroveň viscerálneho tuku",
       bmr: "Bazálny metabolizmus (BMR)",

@@ -211,3 +211,42 @@ export async function apiDeleteBodyScan(
     return false;
   }
 }
+
+/**
+ * POST /body-scan/:user_id/manual
+ * - vytvorí scan priamo z ručne zadaných hodnôt, bez fotky/AI extrakcie
+ */
+export async function apiCreateManualBodyScan(
+  userId: number,
+  scanDate: string,
+  fields: Partial<BodyScan>,
+  segmentalAnalysis?: BodyScan["segmental_analysis"],
+): Promise<BodyScan | null> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/body-scan/${encodeURIComponent(String(userId))}/manual`;
+
+  try {
+    type ResponseShape = BodyScanApiSuccess<{ scan: BodyScan }> | BodyScanApiFail | null;
+
+    const json = await callBackend<ResponseShape>(path, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scan_date: scanDate,
+        fields,
+        segmental_analysis: segmentalAnalysis ?? null,
+      }),
+    });
+
+    if (!json || json.success === false) {
+      return null;
+    }
+
+    return json.data.scan ?? null;
+  } catch (e) {
+    console.error("[BODYSCAN][apiCreateManualBodyScan] ERROR", e);
+    return null;
+  }
+}

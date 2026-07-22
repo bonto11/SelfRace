@@ -2583,6 +2583,18 @@ export const en = {
     trendTitle: "Trend",
     chartWeight: "Weight",
     chartPbf: "Body fat %",
+    manualButton: "✏️ Enter manually",
+    manual: {
+      title: "Manual entry",
+      hint: "Enter values manually, no photo will be used.",
+      notImplementedYet: "Saving is not ready yet.",
+    },
+    deleteConfirm: {
+      title: "Delete record?",
+      message:
+        "This action cannot be undone. Are you sure you want to delete this scan?",
+      ok: "Delete",
+    },
     widget: {
       title: "Body Composition",
       tooltip: "Latest scan",
@@ -2624,8 +2636,10 @@ export const en = {
       bodyFatMass: "Body Fat Mass",
       weight: "Weight",
       smm: "Skeletal Muscle Mass (SMM)",
+      smmShort: "Skeletal Muscle",
       bmi: "BMI (Body Mass Index)",
       pbf: "Percent Body Fat (PBF)",
+      pbfShort: "Fat % (PBF)",
       waistHipRatio: "Waist-Hip Ratio",
       visceralFatLevel: "Visceral Fat Level",
       bmr: "Basal Metabolic Rate (BMR)",

@@ -12,6 +12,7 @@ from Services.AI.body_scan.main import (
     service_get_latest_body_scan,
     service_get_body_scans_for_trend,
     service_delete_body_scan,
+    service_create_manual_body_scan,
 )
 
 router = APIRouter(prefix="/body-scan", tags=["body-scan"])
@@ -35,14 +36,12 @@ async def upload_body_scan(
     Nahrá fotku body scan (InBody) reportu, extrahuje dáta cez AI vision,
     a vráti draft (nepotvrdený) záznam na review pred uložením do trendov.
     """
-    print(f"🟡 [ROUTE][body_scan.upload] START user_id={user_id} filename={file.filename} content_type={file.content_type}")
 
     ctx = require_user(get_auth_ctx(req))
-    print(f"🟡 [ROUTE][body_scan.upload] ctx obtained, mode={getattr(ctx, 'mode', None)}")
 
     try:
         image_bytes = await file.read()
-        print(f"🟡 [ROUTE][body_scan.upload] read {len(image_bytes)} bytes")
+
     except Exception as e:
         print(f"❌ [ROUTE][body_scan.upload] file.read() failed: {repr(e)}")
         return {
@@ -71,8 +70,6 @@ async def upload_body_scan(
             "error_code": "unhandled_exception",
             "message": str(e),
         }
-
-    print(f"🟡 [ROUTE][body_scan.upload] service result ok={out.get('ok')} code={out.get('code')} message={out.get('message')}")
 
     if not out.get("ok"):
         return {
@@ -141,7 +138,7 @@ def edit_body_scan(
     return {"success": True, "data": out, "error_code": None, "message": None}
 
 
-# 🌟 DÔLEŽITÉ: táto route MUSÍ byť pred "/{user_id}/{scan_id}" nižšie, inak
+#  DÔLEŽITÉ: táto route MUSÍ byť pred "/{user_id}/{scan_id}" nižšie, inak
 # FastAPI skúsi "latest" naparsovať ako int scan_id a padne s 422.
 @router.get("/{user_id}/latest")
 def get_latest_body_scan(
@@ -211,3 +208,36 @@ def delete_body_scan(
         "error_code": None if out.get("ok") else "REQUEST_FAILED",
         "message": None,
     }
+
+class ManualBodyScanPayload(BaseModel):
+    scan_date: str
+    fields: Dict[str, Any]
+    segmental_analysis: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{user_id}/manual")
+def create_manual_body_scan(
+    user_id: int,
+    payload: ManualBodyScanPayload,
+    req: Request,
+) -> Dict[str, Any]:
+    """Vytvorí body scan priamo z ručne zadaných hodnôt, bez AI extrakcie/fotky."""
+    ctx = require_user(get_auth_ctx(req))
+
+    out = service_create_manual_body_scan(
+        user_id=user_id,
+        scan_date=payload.scan_date,
+        fields=payload.fields,
+        segmental_analysis=payload.segmental_analysis,
+        ctx=ctx,
+    )
+
+    if not out.get("ok"):
+        return {
+            "success": False,
+            "data": None,
+            "error_code": out.get("code") or "REQUEST_FAILED",
+            "message": None,
+        }
+
+    return {"success": True, "data": out, "error_code": None, "message": None}

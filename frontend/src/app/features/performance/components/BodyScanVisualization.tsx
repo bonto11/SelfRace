@@ -7,11 +7,13 @@ import { useT } from "@/app/shared/i18n/useT";
 import type { BodyScan, SegmentalPart } from "@/app/features/performance/types/bodyScan";
 
 /* ============================================================ */
-/* HELPERS - preklad eval labelu cez i18n katalóg (nie natvrdo) */
+/* HELPERS - case-insensitive preklad eval labelu cez i18n katalóg */
 /* ============================================================ */
 
-export function evalLabelKey(evalLabel: string | null): "bodyScan.eval.under" | "bodyScan.eval.normal" | "bodyScan.eval.over" | null {
-  const l = (evalLabel || "").toLowerCase();
+export function evalLabelKey(
+  evalLabel: string | null,
+): "bodyScan.eval.under" | "bodyScan.eval.normal" | "bodyScan.eval.over" | null {
+  const l = (evalLabel || "").trim().toLowerCase();
   if (l === "under") return "bodyScan.eval.under";
   if (l === "over") return "bodyScan.eval.over";
   if (l === "normal") return "bodyScan.eval.normal";
@@ -41,18 +43,29 @@ function ScaleBar({ label, value, normalMin, normalMax, unit = "" }: BarProps) {
   const normalEndPct = pct(normalMax);
   const valuePct = pct(value);
 
-  const statusEn = value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
+  const statusEn: "Under" | "Normal" | "Over" =
+    value < normalMin ? "Under" : value > normalMax ? "Over" : "Normal";
   const statusColor =
     statusEn === "Normal" ? "#4ade80" : statusEn === "Under" ? "#facc15" : "#f97316";
-  const statusLabel = t(
-    statusEn === "Under" ? "bodyScan.eval.under" : statusEn === "Over" ? "bodyScan.eval.over" : "bodyScan.eval.normal",
-  );
+  const statusKey = evalLabelKey(statusEn)!;
+  const statusLabel = t(statusKey as any);
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, gap: 8 }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: appColors.textPrimary,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {label}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, whiteSpace: "nowrap", flexShrink: 0 }}>
           {value}
           {unit} · {statusLabel}
         </span>
@@ -182,21 +195,16 @@ function ScoreBadge({ score }: { score: number | null }) {
 }
 
 /* ============================================================ */
-/* PANÁČIK (segmentálna analýza) */
+/* PANÁČIK (segmentálna analýza) - ruky v tvare "/ | \" (dole šikmo) */
 /* ============================================================ */
 
-/**
- * Farba pre segmentálnu hodnotu podľa toho, či ide o SVALY (viac = dobré,
- * teda "Over" je zelené) alebo TUK (menej = dobré, "Under" je zelené).
- * "Normal"/akurát = biele/neutrálne, nie automaticky zelené.
- */
 function segmentColor(evalLabel: string | null, kind: "lean" | "fat"): string {
-  const l = (evalLabel || "").toLowerCase();
-  if (l === "normal" || l === "") return appColors.textPrimary; // akurát = biele/neutrálne
+  const l = (evalLabel || "").trim().toLowerCase();
+  if (l === "normal" || l === "") return appColors.textPrimary;
   if (kind === "lean") {
-    return l === "over" ? "#4ade80" : "#f97316"; // Svaly: Over=zelené, Under=červené
+    return l === "over" ? "#4ade80" : "#f97316";
   }
-  return l === "under" ? "#4ade80" : "#f97316"; // Tuk: Under=zelené, Over=červené
+  return l === "under" ? "#4ade80" : "#f97316";
 }
 
 function BodyDiagram({
@@ -215,7 +223,7 @@ function BodyDiagram({
         <circle cx="100" cy="24" r="14" fill={appColors.surfaceCardBorder} />
         {/* Trup */}
         <rect x="82" y="42" width="36" height="62" rx="10" fill={appColors.surfaceCardBorder} />
-        {/* Ľavá ruka - vystretá von a hore, symetrické "V" s pravou */}
+        {/* Ľavá ruka - "/" tvar: hore pri ramene, dole smerom von od tela */}
         <rect
           x="44"
           y="48"
@@ -223,9 +231,9 @@ function BodyDiagram({
           height="58"
           rx="7"
           fill={appColors.surfaceCardBorder}
-          transform="rotate(35 51 77)"
+          transform="rotate(-35 51 77)"
         />
-        {/* Pravá ruka */}
+        {/* Pravá ruka - "\" tvar: zrkadlovo */}
         <rect
           x="141"
           y="48"
@@ -233,20 +241,20 @@ function BodyDiagram({
           height="58"
           rx="7"
           fill={appColors.surfaceCardBorder}
-          transform="rotate(-35 148 77)"
+          transform="rotate(35 148 77)"
         />
-        {/* Nohy */}
+        {/* Nohy - "|" rovno dole */}
         <rect x="83" y="106" width="15" height="90" rx="7" fill={appColors.surfaceCardBorder} />
         <rect x="102" y="106" width="15" height="90" rx="7" fill={appColors.surfaceCardBorder} />
 
         {/* Hodnoty - na okrajoch, mimo tela */}
         {segments.left_arm && (
-          <text x="8" y="80" fontSize="12" fontWeight={700} textAnchor="start" fill={segmentColor(segments.left_arm.eval, kind)}>
+          <text x="8" y="105" fontSize="12" fontWeight={700} textAnchor="start" fill={segmentColor(segments.left_arm.eval, kind)}>
             {segments.left_arm.kg != null ? `${segments.left_arm.kg}kg` : "—"}
           </text>
         )}
         {segments.right_arm && (
-          <text x="192" y="80" fontSize="12" fontWeight={700} textAnchor="end" fill={segmentColor(segments.right_arm.eval, kind)}>
+          <text x="192" y="105" fontSize="12" fontWeight={700} textAnchor="end" fill={segmentColor(segments.right_arm.eval, kind)}>
             {segments.right_arm.kg != null ? `${segments.right_arm.kg}kg` : "—"}
           </text>
         )}
@@ -282,7 +290,6 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <ScoreBadge score={scan.inbody_score} />
 
-      {/* 1. Muscle-Fat Analysis */}
       <div style={{ marginBottom: 6 }}>
         <div
           style={{
@@ -304,7 +311,7 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
           unit=" kg"
         />
         <ScaleBar
-          label={t("bodyScan.fields.smm")}
+          label={t("bodyScan.fields.smmShort")}
           value={scan.skeletal_muscle_mass_kg}
           normalMin={scan.smm_range_min}
           normalMax={scan.smm_range_max}
@@ -319,7 +326,6 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
         />
       </div>
 
-      {/* 2. Obesity Analysis */}
       <div style={{ marginBottom: 6 }}>
         <div
           style={{
@@ -335,7 +341,7 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
         </div>
         <ScaleBar label="BMI" value={scan.bmi} normalMin={18.5} normalMax={25} />
         <ScaleBar
-          label={t("bodyScan.fields.pbf")}
+          label={t("bodyScan.fields.pbfShort")}
           value={scan.pbf_percent}
           normalMin={10}
           normalMax={20}
@@ -343,10 +349,8 @@ export default function BodyScanVisualization({ scan }: { scan: BodyScan }) {
         />
       </div>
 
-      {/* 3. Visceral Fat Level */}
       <VisceralFatBar level={scan.visceral_fat_level} />
 
-      {/* 4. Panáčik so segmentálnou analýzou */}
       {segmental && (
         <div style={{ marginTop: 8 }}>
           <div

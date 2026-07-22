@@ -18,6 +18,7 @@ def _now_iso() -> str:
 # INSERT
 # =========================
 
+# Zmena v DB/body_scans.py - db_insert_body_scan signature
 def db_insert_body_scan(
     user_id: int,
     *,
@@ -29,14 +30,9 @@ def db_insert_body_scan(
     source_image_path: Optional[str] = None,
     ai_model_used: Optional[str] = None,
     confirmed_by_user: bool = False,
+    manually_edited: bool = False,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Vloží nový body scan (InBody alebo iný budúci typ). 'fields' obsahuje
-    priamo mapovateľné stĺpce (weight_kg, bmi, pbf_percent, ...) - volajúci
-    (service vrstva) je zodpovedný za to, aby fields obsahoval len platné
-    stĺpce tabuľky.
-    """
     sb = get_sb(ctx, caller="body_scans.db_insert_body_scan")
 
     row: Dict[str, Any] = {
@@ -49,7 +45,7 @@ def db_insert_body_scan(
         "source_image_path": source_image_path,
         "ai_model_used": ai_model_used,
         "confirmed_by_user": confirmed_by_user,
-        "manually_edited": False,
+        "manually_edited": manually_edited, 
     }
 
     try:
@@ -59,8 +55,6 @@ def db_insert_body_scan(
     except Exception as e:
         print("[DB-BODYSCAN] insert error:", repr(e))
         return None
-
-
 # =========================
 # READ - single
 # =========================

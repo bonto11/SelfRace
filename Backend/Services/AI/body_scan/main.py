@@ -96,7 +96,6 @@ def service_upload_and_extract_body_scan(
     content_type: str,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    print(f"🟡 [BODY_SCAN][service] START user_id={user_id} content_type={content_type} bytes={len(image_bytes)}")
 
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
@@ -110,11 +109,9 @@ def service_upload_and_extract_body_scan(
     image_path = _upload_image_to_storage(
         user_id=user_id, image_bytes=image_bytes, content_type=content_type, ctx=ctx
     )
-    print(f"🟡 [BODY_SCAN][service] image_path={image_path} (None = storage upload failed, continuing anyway)")
 
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     media_type = content_type if content_type.startswith("image/") else "image/jpeg"
-    print(f"🟡 [BODY_SCAN][service] base64 length={len(image_b64)} media_type={media_type}")
 
     try:
         extracted, trace, err_msg = generate_body_scan_extraction(
@@ -132,8 +129,6 @@ def service_upload_and_extract_body_scan(
     if not extracted:
         print(f"❌ [BODY_SCAN][service] extraction failed: {err_msg}")
         return {"ok": False, "code": "ai_extraction_failed", "message": err_msg}
-
-    print(f"🟡 [BODY_SCAN][service] extracted fields: {extracted}")
 
     usage = extract_usage_from_trace(trace, model_fallback=trace.get("ok_model"))
     if usage:
@@ -158,8 +153,6 @@ def service_upload_and_extract_body_scan(
     direct_fields = _extract_direct_fields(extracted)
     segmental = extracted.get("segmental_analysis")
 
-    print(f"🟡 [BODY_SCAN][service] inserting row: scan_date={scan_date} direct_fields={direct_fields}")
-
     try:
         row = db_insert_body_scan(
             user_id,
@@ -178,8 +171,6 @@ def service_upload_and_extract_body_scan(
         import traceback
         traceback.print_exc()
         return {"ok": False, "code": "db_insert_exception", "message": str(e)}
-
-    print(f"🟡 [BODY_SCAN][service] db_insert_body_scan returned: {'row' if row else 'None'}")
 
     if not row:
         return {"ok": False, "code": "db_insert_failed"}
@@ -272,3 +263,39 @@ def service_delete_body_scan(
 ) -> Dict[str, Any]:
     ok = db_delete_body_scan(user_id, scan_id, ctx=ctx)
     return {"ok": ok}
+
+def service_create_manual_body_scan(
+    *,
+    user_id: int,
+    scan_date: str,
+    fields: Dict[str, Any],
+    segmental_analysis: Optional[Dict[str, Any]] = None,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Vytvorí body scan záznam priamo z ručne zadaných hodnôt, bez AI vision
+    extrakcie a bez fotky. Rovno POTVRDENÝ (confirmed_by_user=True), keďže
+    used ho zadáva vedome sám - žiadny draft/review krok netreba.
+    'fields' obsahuje len platné stĺpce tabuľky (rovnaký filter ako pri
+    AI extrakcii - _DIRECT_FIELDS).
+    """
+    direct_fields = {k: v for k, v in fields.items() if k in _DIRECT_FIELDS}
+
+    row = db_insert_body_scan(
+        user_id,
+        scan_date=scan_date,
+        fields=direct_fields,
+        scan_source="manual",
+        segmental_analysis=segmental_analysis,
+        raw_extraction=None,
+        source_image_path=None,
+        ai_model_used=None,
+        confirmed_by_user=True,
+        manually_edited=True,
+        ctx=ctx,
+    )
+
+    if not row:
+        return {"ok": False, "code": "db_insert_failed"}
+
+    return {"ok": True, "scan": row}
