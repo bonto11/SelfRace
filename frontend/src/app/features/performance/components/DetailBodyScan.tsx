@@ -26,7 +26,10 @@ import {
   apiGetBodyScansForTrend,
   apiDeleteBodyScan,
 } from "@/app/features/performance/api/bodyScan";
-import type { BodyScan, BodyScanUploadResult } from "@/app/features/performance/types/bodyScan";
+import type {
+  BodyScan,
+  BodyScanUploadResult,
+} from "@/app/features/performance/types/bodyScan";
 
 /* ─── EDITABLE FIELD ROW (review pred potvrdením) ─── */
 
@@ -60,7 +63,9 @@ function ReviewPanel({
 }) {
   const t = useT();
   const [values, setValues] = React.useState<Record<string, string>>(() => {
-    const init: Record<string, string> = { scan_date: draft.scan.scan_date ?? "" };
+    const init: Record<string, string> = {
+      scan_date: draft.scan.scan_date ?? "",
+    };
     for (const f of REVIEW_FIELDS) {
       const v = draft.scan[f.key];
       init[f.key as string] = v == null ? "" : String(v);
@@ -88,9 +93,18 @@ function ReviewPanel({
   };
 
   return (
-    <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginBottom: 12 }}>
+    <section
+      className={CARD}
+      style={{ ...SURFACE_CARD_STYLE, marginBottom: 12 }}
+    >
       <div style={{ padding: "14px 16px" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: appColors.textPrimary,
+          }}
+        >
           {t("bodyScan.review.title")}
         </div>
         <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 4 }}>
@@ -100,9 +114,23 @@ function ReviewPanel({
         </div>
       </div>
 
-      <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        style={{
+          padding: "0 16px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
         <div>
-          <label style={{ fontSize: 11, color: appColors.textMuted, display: "block", marginBottom: 4 }}>
+          <label
+            style={{
+              fontSize: 11,
+              color: appColors.textMuted,
+              display: "block",
+              marginBottom: 4,
+            }}
+          >
             {t("bodyScan.review.scanDate")}
           </label>
           <input
@@ -121,7 +149,9 @@ function ReviewPanel({
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+        >
           {REVIEW_FIELDS.map((f) => {
             const isUnreadable = unreadable.has(f.key as string);
             return (
@@ -140,7 +170,9 @@ function ReviewPanel({
                   type="number"
                   inputMode="decimal"
                   value={values[f.key as string]}
-                  onChange={(e) => handleChange(f.key as string, e.target.value)}
+                  onChange={(e) =>
+                    handleChange(f.key as string, e.target.value)
+                  }
                   placeholder="—"
                   style={{
                     width: "100%",
@@ -160,7 +192,12 @@ function ReviewPanel({
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={confirming}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onCancel}
+            disabled={confirming}
+          >
             {t("common.cancel")}
           </Button>
           <Button
@@ -170,7 +207,11 @@ function ReviewPanel({
             disabled={confirming}
             className="flex-1"
           >
-            {confirming ? <LoadingSpinner size="button" /> : t("bodyScan.review.confirm")}
+            {confirming ? (
+              <LoadingSpinner size="button" />
+            ) : (
+              t("bodyScan.review.confirm")
+            )}
           </Button>
         </div>
       </div>
@@ -196,7 +237,10 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
   if (chartData.length < 2) return null;
 
   return (
-    <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginBottom: 12, padding: "14px 16px" }}>
+    <section
+      className={CARD}
+      style={{ ...SURFACE_CARD_STYLE, marginBottom: 12, padding: "14px 16px" }}
+    >
       <div
         style={{
           fontSize: 11,
@@ -211,8 +255,15 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
       </div>
       <div style={{ width: "100%", height: 180 }}>
         <ResponsiveContainer>
-          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={appColors.divider} vertical={false} />
+          <LineChart
+            data={chartData}
+            margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={appColors.divider}
+              vertical={false}
+            />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10, fill: appColors.textMuted }}
@@ -265,12 +316,30 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
       </div>
       <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 10, height: 2, background: appColors.chartRun, display: "inline-block" }} />
-          <span style={{ fontSize: 11, color: appColors.textMuted }}>{t("bodyScan.chartWeight")}</span>
+          <span
+            style={{
+              width: 10,
+              height: 2,
+              background: appColors.chartRun,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 11, color: appColors.textMuted }}>
+            {t("bodyScan.chartWeight")}
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 10, height: 2, background: appColors.chartBike, display: "inline-block" }} />
-          <span style={{ fontSize: 11, color: appColors.textMuted }}>{t("bodyScan.chartPbf")}</span>
+          <span
+            style={{
+              width: 10,
+              height: 2,
+              background: appColors.chartBike,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 11, color: appColors.textMuted }}>
+            {t("bodyScan.chartPbf")}
+          </span>
         </div>
       </div>
     </section>
@@ -279,7 +348,13 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
 
 /* ─── HISTÓRIA ─── */
 
-function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number) => void }) {
+function HistoryRow({
+  scan,
+  onDelete,
+}: {
+  scan: BodyScan;
+  onDelete: (id: number) => void;
+}) {
   const t = useT();
   return (
     <div
@@ -291,10 +366,18 @@ function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number)
         borderTop: `1px solid ${appColors.divider}`,
       }}
     >
-      <span style={{ fontSize: 13, color: appColors.textMuted }}>{fmtDate(scan.scan_date)}</span>
+      <span style={{ fontSize: 13, color: appColors.textMuted }}>
+        {fmtDate(scan.scan_date)}
+      </span>
       <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
         {scan.weight_kg != null && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: appColors.textPrimary,
+            }}
+          >
             {scan.weight_kg.toFixed(1)} kg
           </span>
         )}
@@ -306,7 +389,12 @@ function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number)
         <button
           type="button"
           onClick={() => onDelete(scan.id)}
-          style={{ fontSize: 14, opacity: 0.5, background: "none", border: "none" }}
+          style={{
+            fontSize: 14,
+            opacity: 0.5,
+            background: "none",
+            border: "none",
+          }}
         >
           🗑️
         </button>
@@ -366,7 +454,11 @@ export default function DetailBodyScan() {
     if (!userId || !draft) return;
     setConfirming(true);
     try {
-      const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
+      const scan = await apiConfirmBodyScan(
+        Number(userId),
+        draft.scan.id,
+        corrections,
+      );
       if (!scan) {
         toast.error(t("bodyScan.errorConfirm"));
         return;
@@ -398,7 +490,6 @@ export default function DetailBodyScan() {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: "none" }}
         onChange={handleFileSelected}
       />
@@ -411,7 +502,11 @@ export default function DetailBodyScan() {
           disabled={uploading}
           className="w-full mb-3"
         >
-          {uploading ? <LoadingSpinner size="button" /> : t("bodyScan.uploadButton")}
+          {uploading ? (
+            <LoadingSpinner size="button" />
+          ) : (
+            t("bodyScan.uploadButton")
+          )}
         </Button>
       )}
 
@@ -433,17 +528,32 @@ export default function DetailBodyScan() {
           <BodyScanTrendChart scans={scans} />
 
           <section className={CARD} style={SURFACE_CARD_STYLE}>
-            <div style={{ padding: "12px 16px 8px", fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
+            <div
+              style={{
+                padding: "12px 16px 8px",
+                fontSize: 12,
+                fontWeight: 700,
+                color: appColors.textMuted,
+              }}
+            >
               {t("bodyScan.historyTitle")}
             </div>
             {scans.length === 0 ? (
-              <p style={{ padding: "0 16px 16px", fontSize: 13, color: appColors.textMuted }}>
+              <p
+                style={{
+                  padding: "0 16px 16px",
+                  fontSize: 13,
+                  color: appColors.textMuted,
+                }}
+              >
                 {t("bodyScan.widget.empty")}
               </p>
             ) : (
-              [...scans].reverse().map((s) => (
-                <HistoryRow key={s.id} scan={s} onDelete={handleDelete} />
-              ))
+              [...scans]
+                .reverse()
+                .map((s) => (
+                  <HistoryRow key={s.id} scan={s} onDelete={handleDelete} />
+                ))
             )}
           </section>
         </>
