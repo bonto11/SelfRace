@@ -45,6 +45,7 @@ import ThresholdsSection from "@/app/features/prefs/components/sections/Threshol
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 
 import {
   PANEL_STACK,
@@ -247,8 +248,7 @@ export default function CoachPreferencies() {
         ...rest,
         start_date: !startIso || startIso < minIso ? minIso : startIso,
         secondary_mix: (local.secondary_mix ?? [])
-          .filter((x) => x.role !== "none" && Number(x.share_pct) > 0)
-          .map((x) => ({ ...x, share_pct: Number(x.share_pct) || 0 })),
+          .filter((x) => x.role !== "none" && Number(x.share_pct) > 0),
       };
 
       if (normalized.targets) {
@@ -498,6 +498,8 @@ export default function CoachPreferencies() {
           {t("common.refresh")}
         </Button>
       </div>
+
+      <PlanLifecycleSection />
     </div>
   );
 }
