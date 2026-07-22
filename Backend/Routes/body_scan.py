@@ -35,17 +35,44 @@ async def upload_body_scan(
     Nahrá fotku body scan (InBody) reportu, extrahuje dáta cez AI vision,
     a vráti draft (nepotvrdený) záznam na review pred uložením do trendov.
     """
-    ctx = require_user(get_auth_ctx(req))
+    print(f"🟡 [ROUTE][body_scan.upload] START user_id={user_id} filename={file.filename} content_type={file.content_type}")
 
-    image_bytes = await file.read()
+    ctx = require_user(get_auth_ctx(req))
+    print(f"🟡 [ROUTE][body_scan.upload] ctx obtained, mode={getattr(ctx, 'mode', None)}")
+
+    try:
+        image_bytes = await file.read()
+        print(f"🟡 [ROUTE][body_scan.upload] read {len(image_bytes)} bytes")
+    except Exception as e:
+        print(f"❌ [ROUTE][body_scan.upload] file.read() failed: {repr(e)}")
+        return {
+            "success": False,
+            "data": None,
+            "error_code": "file_read_failed",
+            "message": str(e),
+        }
+
     content_type = file.content_type or "image/jpeg"
 
-    out = service_upload_and_extract_body_scan(
-        user_id=user_id,
-        image_bytes=image_bytes,
-        content_type=content_type,
-        ctx=ctx,
-    )
+    try:
+        out = service_upload_and_extract_body_scan(
+            user_id=user_id,
+            image_bytes=image_bytes,
+            content_type=content_type,
+            ctx=ctx,
+        )
+    except Exception as e:
+        print(f"❌ [ROUTE][body_scan.upload] service call raised exception: {repr(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "data": None,
+            "error_code": "unhandled_exception",
+            "message": str(e),
+        }
+
+    print(f"🟡 [ROUTE][body_scan.upload] service result ok={out.get('ok')} code={out.get('code')} message={out.get('message')}")
 
     if not out.get("ok"):
         return {
@@ -114,6 +141,27 @@ def edit_body_scan(
     return {"success": True, "data": out, "error_code": None, "message": None}
 
 
+# 🌟 DÔLEŽITÉ: táto route MUSÍ byť pred "/{user_id}/{scan_id}" nižšie, inak
+# FastAPI skúsi "latest" naparsovať ako int scan_id a padne s 422.
+@router.get("/{user_id}/latest")
+def get_latest_body_scan(
+    user_id: int,
+    req: Request,
+) -> Dict[str, Any]:
+    ctx = require_user(get_auth_ctx(req))
+    scan = service_get_latest_body_scan(user_id=user_id, ctx=ctx)
+
+    if not scan:
+        return {
+            "success": False,
+            "data": None,
+            "error_code": "NOT_FOUND",
+            "message": "No body scans found.",
+        }
+
+    return {"success": True, "data": scan, "error_code": None, "message": None}
+
+
 @router.get("/{user_id}/{scan_id}")
 def get_body_scan(
     user_id: int,
@@ -129,25 +177,6 @@ def get_body_scan(
             "data": None,
             "error_code": "NOT_FOUND",
             "message": "Body scan not found.",
-        }
-
-    return {"success": True, "data": scan, "error_code": None, "message": None}
-
-
-@router.get("/{user_id}/latest")
-def get_latest_body_scan(
-    user_id: int,
-    req: Request,
-) -> Dict[str, Any]:
-    ctx = require_user(get_auth_ctx(req))
-    scan = service_get_latest_body_scan(user_id=user_id, ctx=ctx)
-
-    if not scan:
-        return {
-            "success": False,
-            "data": None,
-            "error_code": "NOT_FOUND",
-            "message": "No body scans found.",
         }
 
     return {"success": True, "data": scan, "error_code": None, "message": None}
