@@ -22,33 +22,118 @@ import { fmtDate } from "@/app/shared/utils/time";
 import {
   apiUploadBodyScan,
   apiConfirmBodyScan,
-  apiEditBodyScan,
   apiGetBodyScansForTrend,
   apiDeleteBodyScan,
 } from "@/app/features/performance/api/bodyScan";
-import type {
-  BodyScan,
-  BodyScanUploadResult,
-} from "@/app/features/performance/types/bodyScan";
+import type { BodyScan, BodyScanUploadResult } from "@/app/features/performance/types/bodyScan";
+
+/* ============================================================ */
+/* REVIEW SECTIONS - rozdelené presne podľa kategórií z InBody fotky */
+/* ============================================================ */
+
+type ReviewFieldDef = { key: keyof BodyScan; label: string; unit?: string };
+type ReviewSection = { title: string; fields: ReviewFieldDef[] };
+
+const REVIEW_SECTIONS: ReviewSection[] = [
+  {
+    title: "Analýza zloženia tela",
+    fields: [
+      { key: "total_body_water_l", label: "Celková voda v tele", unit: "l" },
+      { key: "protein_kg", label: "Proteín", unit: "kg" },
+      { key: "mineral_kg", label: "Minerály", unit: "kg" },
+      { key: "body_fat_mass_kg", label: "Telesný tuk", unit: "kg" },
+      { key: "weight_kg", label: "Váha", unit: "kg" },
+    ],
+  },
+  {
+    title: "Analýza svalov a tuku",
+    fields: [
+      { key: "skeletal_muscle_mass_kg", label: "Kostrové svalstvo (SMM)", unit: "kg" },
+    ],
+  },
+  {
+    title: "Analýza obezity",
+    fields: [
+      { key: "bmi", label: "BMI (Index telesnej hmotnosti)" },
+      { key: "pbf_percent", label: "Percento telesného tuku (PBF)", unit: "%" },
+    ],
+  },
+  {
+    title: "Ostatné parametre",
+    fields: [
+      { key: "waist_hip_ratio", label: "Pomer pása k bokom" },
+      { key: "visceral_fat_level", label: "Úroveň viscerálneho tuku" },
+      { key: "basal_metabolic_rate_kcal", label: "Bazálny metabolizmus (BMR)", unit: "kcal" },
+      { key: "inbody_score", label: "InBody skóre" },
+      { key: "obesity_degree_percent", label: "Stupeň obezity", unit: "%" },
+      { key: "smi", label: "Index kostrového svalstva (SMI)" },
+    ],
+  },
+];
+
+const ALL_REVIEW_FIELDS: ReviewFieldDef[] = REVIEW_SECTIONS.flatMap((s) => s.fields);
+
+const SEGMENT_LABELS: {
+  key: "left_arm" | "right_arm" | "trunk" | "left_leg" | "right_leg";
+  label: string;
+}[] = [
+  { key: "left_arm", label: "Ľavá ruka" },
+  { key: "right_arm", label: "Pravá ruka" },
+  { key: "trunk", label: "Trup" },
+  { key: "left_leg", label: "Ľavá noha" },
+  { key: "right_leg", label: "Pravá noha" },
+];
+
+/* ─── SEGMENTAL SECTION (read-only, len na kontrolu) ─── */
+
+function SegmentalSection({
+  title,
+  segments,
+}: {
+  title: string;
+  segments:
+    | Record<string, { kg: number | null; pct: number | null; eval: string | null }>
+    | undefined;
+}) {
+  if (!segments) return null;
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
+        {title}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        {SEGMENT_LABELS.map(({ key, label }) => {
+          const seg = segments[key];
+          if (!seg) return null;
+          return (
+            <div
+              key={key}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: appColors.backgroundAlt,
+                border: `1px solid ${appColors.surfaceCardBorder}`,
+              }}
+            >
+              <div style={{ fontSize: 11, color: appColors.textMuted }}>{label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary, marginTop: 2 }}>
+                {seg.kg != null ? `${seg.kg} kg` : "—"}
+                {seg.pct != null && (
+                  <span style={{ fontSize: 11, fontWeight: 400, color: appColors.textMuted }}>
+                    {" "}
+                    ({seg.pct}% {seg.eval || ""})
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /* ─── EDITABLE FIELD ROW (review pred potvrdením) ─── */
-
-const REVIEW_FIELDS: { key: keyof BodyScan; label: string; unit?: string }[] = [
-  { key: "weight_kg", label: "Váha", unit: "kg" },
-  { key: "bmi", label: "BMI" },
-  { key: "pbf_percent", label: "PBF", unit: "%" },
-  { key: "skeletal_muscle_mass_kg", label: "SMM", unit: "kg" },
-  { key: "body_fat_mass_kg", label: "Tuk", unit: "kg" },
-  { key: "total_body_water_l", label: "Voda", unit: "l" },
-  { key: "protein_kg", label: "Proteín", unit: "kg" },
-  { key: "mineral_kg", label: "Minerály", unit: "kg" },
-  { key: "waist_hip_ratio", label: "Waist-Hip Ratio" },
-  { key: "visceral_fat_level", label: "Viscerálny tuk" },
-  { key: "basal_metabolic_rate_kcal", label: "BMR", unit: "kcal" },
-  { key: "inbody_score", label: "InBody Score" },
-  { key: "obesity_degree_percent", label: "Obesity Degree", unit: "%" },
-  { key: "smi", label: "SMI" },
-];
 
 function ReviewPanel({
   draft,
@@ -63,10 +148,8 @@ function ReviewPanel({
 }) {
   const t = useT();
   const [values, setValues] = React.useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {
-      scan_date: draft.scan.scan_date ?? "",
-    };
-    for (const f of REVIEW_FIELDS) {
+    const init: Record<string, string> = { scan_date: draft.scan.scan_date ?? "" };
+    for (const f of ALL_REVIEW_FIELDS) {
       const v = draft.scan[f.key];
       init[f.key as string] = v == null ? "" : String(v);
     }
@@ -74,6 +157,7 @@ function ReviewPanel({
   });
 
   const unreadable = new Set(draft.unreadable_fields ?? []);
+  const segmental = draft.scan.segmental_analysis;
 
   const handleChange = (key: string, val: string) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -81,7 +165,7 @@ function ReviewPanel({
 
   const handleSubmit = () => {
     const corrections: Partial<BodyScan> = {};
-    for (const f of REVIEW_FIELDS) {
+    for (const f of ALL_REVIEW_FIELDS) {
       const raw = values[f.key as string];
       const num = raw === "" ? null : Number(raw);
       corrections[f.key] = (Number.isFinite(num as number) ? num : null) as any;
@@ -93,18 +177,9 @@ function ReviewPanel({
   };
 
   return (
-    <section
-      className={CARD}
-      style={{ ...SURFACE_CARD_STYLE, marginBottom: 12 }}
-    >
+    <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginBottom: 12 }}>
       <div style={{ padding: "14px 16px" }}>
-        <div
-          style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: appColors.textPrimary,
-          }}
-        >
+        <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
           {t("bodyScan.review.title")}
         </div>
         <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 4 }}>
@@ -114,23 +189,9 @@ function ReviewPanel({
         </div>
       </div>
 
-      <div
-        style={{
-          padding: "0 16px 12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
+      <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
-          <label
-            style={{
-              fontSize: 11,
-              color: appColors.textMuted,
-              display: "block",
-              marginBottom: 4,
-            }}
-          >
+          <label style={{ fontSize: 11, color: appColors.textMuted, display: "block", marginBottom: 4 }}>
             {t("bodyScan.review.scanDate")}
           </label>
           <input
@@ -149,55 +210,60 @@ function ReviewPanel({
           />
         </div>
 
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
-        >
-          {REVIEW_FIELDS.map((f) => {
-            const isUnreadable = unreadable.has(f.key as string);
-            return (
-              <div key={f.key as string}>
-                <label
-                  style={{
-                    fontSize: 11,
-                    color: isUnreadable ? "#f59e0b" : appColors.textMuted,
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  {f.label} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={values[f.key as string]}
-                  onChange={(e) =>
-                    handleChange(f.key as string, e.target.value)
-                  }
-                  placeholder="—"
-                  style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    background: appColors.backgroundAlt,
-                    border: `1px solid ${
-                      isUnreadable ? "#f59e0b55" : appColors.surfaceCardBorder
-                    }`,
-                    color: appColors.textPrimary,
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
+        {REVIEW_SECTIONS.map((section) => (
+          <div key={section.title}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: appColors.textPrimary, marginBottom: 6 }}>
+              {section.title}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {section.fields.map((f) => {
+                const isUnreadable = unreadable.has(f.key as string);
+                return (
+                  <div key={f.key as string}>
+                    <label
+                      style={{
+                        fontSize: 11,
+                        color: isUnreadable ? "#f59e0b" : appColors.textMuted,
+                        display: "block",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {f.label} {f.unit ? `(${f.unit})` : ""} {isUnreadable && "⚠️"}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={values[f.key as string]}
+                      onChange={(e) => handleChange(f.key as string, e.target.value)}
+                      placeholder="—"
+                      style={{
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: appColors.backgroundAlt,
+                        border: `1px solid ${
+                          isUnreadable ? "#f59e0b55" : appColors.surfaceCardBorder
+                        }`,
+                        color: appColors.textPrimary,
+                        fontSize: 13,
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
 
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onCancel}
-            disabled={confirming}
-          >
+        {segmental && (
+          <>
+            <SegmentalSection title="Segmentálna analýza svalov" segments={segmental.lean} />
+            <SegmentalSection title="Segmentálna analýza tuku" segments={segmental.fat} />
+          </>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={confirming}>
             {t("common.cancel")}
           </Button>
           <Button
@@ -207,11 +273,7 @@ function ReviewPanel({
             disabled={confirming}
             className="flex-1"
           >
-            {confirming ? (
-              <LoadingSpinner size="button" />
-            ) : (
-              t("bodyScan.review.confirm")
-            )}
+            {confirming ? <LoadingSpinner size="button" /> : t("bodyScan.review.confirm")}
           </Button>
         </div>
       </div>
@@ -237,10 +299,7 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
   if (chartData.length < 2) return null;
 
   return (
-    <section
-      className={CARD}
-      style={{ ...SURFACE_CARD_STYLE, marginBottom: 12, padding: "14px 16px" }}
-    >
+    <section className={CARD} style={{ ...SURFACE_CARD_STYLE, marginBottom: 12, padding: "14px 16px" }}>
       <div
         style={{
           fontSize: 11,
@@ -255,15 +314,8 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
       </div>
       <div style={{ width: "100%", height: 180 }}>
         <ResponsiveContainer>
-          <LineChart
-            data={chartData}
-            margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={appColors.divider}
-              vertical={false}
-            />
+          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={appColors.divider} vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10, fill: appColors.textMuted }}
@@ -316,30 +368,12 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
       </div>
       <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span
-            style={{
-              width: 10,
-              height: 2,
-              background: appColors.chartRun,
-              display: "inline-block",
-            }}
-          />
-          <span style={{ fontSize: 11, color: appColors.textMuted }}>
-            {t("bodyScan.chartWeight")}
-          </span>
+          <span style={{ width: 10, height: 2, background: appColors.chartRun, display: "inline-block" }} />
+          <span style={{ fontSize: 11, color: appColors.textMuted }}>{t("bodyScan.chartWeight")}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span
-            style={{
-              width: 10,
-              height: 2,
-              background: appColors.chartBike,
-              display: "inline-block",
-            }}
-          />
-          <span style={{ fontSize: 11, color: appColors.textMuted }}>
-            {t("bodyScan.chartPbf")}
-          </span>
+          <span style={{ width: 10, height: 2, background: appColors.chartBike, display: "inline-block" }} />
+          <span style={{ fontSize: 11, color: appColors.textMuted }}>{t("bodyScan.chartPbf")}</span>
         </div>
       </div>
     </section>
@@ -348,14 +382,7 @@ function BodyScanTrendChart({ scans }: { scans: BodyScan[] }) {
 
 /* ─── HISTÓRIA ─── */
 
-function HistoryRow({
-  scan,
-  onDelete,
-}: {
-  scan: BodyScan;
-  onDelete: (id: number) => void;
-}) {
-  const t = useT();
+function HistoryRow({ scan, onDelete }: { scan: BodyScan; onDelete: (id: number) => void }) {
   return (
     <div
       style={{
@@ -366,18 +393,10 @@ function HistoryRow({
         borderTop: `1px solid ${appColors.divider}`,
       }}
     >
-      <span style={{ fontSize: 13, color: appColors.textMuted }}>
-        {fmtDate(scan.scan_date)}
-      </span>
+      <span style={{ fontSize: 13, color: appColors.textMuted }}>{fmtDate(scan.scan_date)}</span>
       <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
         {scan.weight_kg != null && (
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: appColors.textPrimary,
-            }}
-          >
+          <span style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
             {scan.weight_kg.toFixed(1)} kg
           </span>
         )}
@@ -389,12 +408,7 @@ function HistoryRow({
         <button
           type="button"
           onClick={() => onDelete(scan.id)}
-          style={{
-            fontSize: 14,
-            opacity: 0.5,
-            background: "none",
-            border: "none",
-          }}
+          style={{ fontSize: 14, opacity: 0.5, background: "none", border: "none" }}
         >
           🗑️
         </button>
@@ -454,11 +468,7 @@ export default function DetailBodyScan() {
     if (!userId || !draft) return;
     setConfirming(true);
     try {
-      const scan = await apiConfirmBodyScan(
-        Number(userId),
-        draft.scan.id,
-        corrections,
-      );
+      const scan = await apiConfirmBodyScan(Number(userId), draft.scan.id, corrections);
       if (!scan) {
         toast.error(t("bodyScan.errorConfirm"));
         return;
@@ -482,8 +492,6 @@ export default function DetailBodyScan() {
     }
   };
 
-  const latestScan = scans[scans.length - 1] ?? null;
-
   return (
     <>
       <input
@@ -502,11 +510,7 @@ export default function DetailBodyScan() {
           disabled={uploading}
           className="w-full mb-3"
         >
-          {uploading ? (
-            <LoadingSpinner size="button" />
-          ) : (
-            t("bodyScan.uploadButton")
-          )}
+          {uploading ? <LoadingSpinner size="button" /> : t("bodyScan.uploadButton")}
         </Button>
       )}
 
@@ -528,32 +532,17 @@ export default function DetailBodyScan() {
           <BodyScanTrendChart scans={scans} />
 
           <section className={CARD} style={SURFACE_CARD_STYLE}>
-            <div
-              style={{
-                padding: "12px 16px 8px",
-                fontSize: 12,
-                fontWeight: 700,
-                color: appColors.textMuted,
-              }}
-            >
+            <div style={{ padding: "12px 16px 8px", fontSize: 12, fontWeight: 700, color: appColors.textMuted }}>
               {t("bodyScan.historyTitle")}
             </div>
             {scans.length === 0 ? (
-              <p
-                style={{
-                  padding: "0 16px 16px",
-                  fontSize: 13,
-                  color: appColors.textMuted,
-                }}
-              >
+              <p style={{ padding: "0 16px 16px", fontSize: 13, color: appColors.textMuted }}>
                 {t("bodyScan.widget.empty")}
               </p>
             ) : (
-              [...scans]
-                .reverse()
-                .map((s) => (
-                  <HistoryRow key={s.id} scan={s} onDelete={handleDelete} />
-                ))
+              [...scans].reverse().map((s) => (
+                <HistoryRow key={s.id} scan={s} onDelete={handleDelete} />
+              ))
             )}
           </section>
         </>
