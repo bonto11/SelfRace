@@ -1313,21 +1313,7 @@ export const sk = {
     },
     lockReason:
       "Plán je spustený – teraz sa neprepočítavajú nové varianty. Pre zmenu treba najprv tento plán ukončiť.",
-    actions: {
-      analyze: "Vyhodnotiť trénovanosť",
-      analyzing: "Analyzuje sa…",
-      generateWeekly: "Pripraviť týždennú kostru",
-      generatingWeekly: "Pripravuje sa…",
-      generateDaily: "Rozpísať tréningy na dni",
-      generatingDaily: "Rozpisuje sa…",
-      startPlan: "Spustiť tréningový plán",
-      startingPlan: "Spúšťa sa plán…",
-      activePlan: "Plán je spustený",
-      openPlan: "Zobraziť rozpis",
-      cancelPlan: "Ukončiť tento plán",
-      cancellingPlan: "Ukončuje sa…",
-      history: "História plánov",
-    },
+
     confirmCancel: {
       title: "Naozaj ukončiť tento plán?",
       message:
@@ -1487,9 +1473,6 @@ export const sk = {
       cancelButton: "Zrušiť plán",
       goToDaily: "Denný plán",
       goToWeekly: "Týždenný plán",
-      stepState: "Analyzujem teba ako atléta...",
-      stepWeekly: "Generujem týždenný plán...",
-      stepDaily: "Generujem dnešné tréningy...",
       generateSuccess: "Plán vygenerovaný",
       activateSuccess: "Plán aktivovaný",
       cancelSuccess: "Plán zrušený",
@@ -1505,6 +1488,9 @@ export const sk = {
       step1of3: "Krok 1/3 · Analyzujem teba ako športovca...",
       step2of3: "Krok 2/3 · Navrhujem týždenný plán...",
       step3of3: "Krok 3/3 · Navrhujem denné tréningy...",
+      startPlan: "Spustiť tréningový plán",
+      cancelPlan: "Ukončiť tento plán",
+
     },
     widget: {
       title: "Nastavenia trénera",

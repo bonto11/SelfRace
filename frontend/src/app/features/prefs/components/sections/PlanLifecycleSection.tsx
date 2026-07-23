@@ -28,10 +28,6 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 /* ============================================================ */
 /* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
 /* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
-/* Logika prevzata 1:1 z povodneho WidgetCoachActions.tsx, len   */
-/* zlucena pod jedno "Vygenerovat plan" tlacidlo namiesto troch  */
-/* samostatnych krokov ktore mylili userov.                      */
-/*                                                                */
 /* Sekcia je VZDY viditeľná (nie skryta pred prvym Save):        */
 /* - Weekly/Daily prekliky vzdy klikatelne                      */
 /* - "Vygenerovat" vzdy zobrazene (ked plan nie je aktivny),      */
@@ -312,7 +308,7 @@ export default function PlanLifecycleSection({
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPlan.actions.openPlan" as any)}
+              {t("coachPrefs.plan.goToDaily" as any)}
             </Button>
             <Button
               variant="secondary"
@@ -357,7 +353,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "start" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.startPlan" as any)
+                t("coachPrefs.plan.startPlan" as any)
               )}
             </Button>
           )}
@@ -374,7 +370,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "cancel" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.cancelPlan" as any)
+                t("coachPrefs.plan.cancelPlan" as any)
               )}
             </Button>
           )}
