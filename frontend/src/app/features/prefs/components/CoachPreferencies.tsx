@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CoachPrefs,
   SportKind,
@@ -8,7 +8,6 @@ import type {
   RunTargets,
   SecondaryMix,
 } from "@/app/features/prefs/types/prefs";
-import type { DayAbbrev } from "@/app/shared/types/day";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -20,10 +19,6 @@ import {
 import Button from "@/app/shared/ui/components/Button";
 import { NO_X } from "@/app/shared/ui/tokens";
 
-import {
-  apiFetchUserPref,
-  apiUpsertUserPref,
-} from "@/app/features/prefs/api/prefs";
 import {
   apiFetchUserZonesLatest,
   apiSaveUserZones,
@@ -85,6 +80,10 @@ export default function CoachPreferencies() {
   );
 
   const [isFemale, setIsFemale] = useState(false);
+
+  // 🌟 Sekcia s generovanim/aktivaciou/zrusenim planu je skryta, kym used
+  // aspon raz uspesne neulozi prefs (Save) - predtym nedava zmysel plan
+  // generovat, keďže by sa generoval zo starych/nedeforestovanych hodnot.
   const [planSectionUnlocked, setPlanSectionUnlocked] = useState(false);
 
   useEffect(() => {
@@ -106,7 +105,6 @@ export default function CoachPreferencies() {
         const zones = (zonesRaw ?? null) as any;
         const thrRows = (thrRowsRaw ?? []) as any[];
 
-        // Vyhodnotenie pohlavia zo Static Profilu
         const sex = staticProfile?.sex?.toUpperCase() || "";
         setIsFemale(sex === "F");
 
@@ -175,7 +173,7 @@ export default function CoachPreferencies() {
       intensity_model,
       training_blocks,
       hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
-      womens_health: incoming.womens_health, 
+      womens_health: incoming.womens_health,
     };
   };
 
@@ -233,7 +231,7 @@ export default function CoachPreferencies() {
     });
   };
 
-    const onSave = async () => {
+  const onSave = async () => {
     if (!userId) return;
     try {
       const minIso = MIN_PLAN_START();
@@ -290,16 +288,7 @@ export default function CoachPreferencies() {
       await saveCoachPrefs(userId, normalizedClean);
       toast.success(t("prefs.info.saveSuccess"));
       dirtyRef.current = false;
-      setPlanSectionUnlocked(true); // 🌟 odomkne sekciu s plánom až po úspešnom Save
-    } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
-    }
-  };
-
-      const { external_activities: _ext2, ...normalizedClean } = normalized;
-      await saveCoachPrefs(userId, normalizedClean);
-      toast.success(t("prefs.info.saveSuccess"));
-      dirtyRef.current = false;
+      setPlanSectionUnlocked(true);
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
     }
@@ -510,7 +499,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-     <PlanLifecycleSection isVisible={planSectionUnlocked} />
+      <PlanLifecycleSection isVisible={planSectionUnlocked} />
     </div>
   );
 }
