@@ -16,6 +16,7 @@ class WeeklyGenerateConfig(BaseModel):
     - debug: či vrátiť aj debug trace z AI
     """
     overwrite: bool = True
+    full_reset: bool = False
     state_id: Optional[int] = None
     weeks: Optional[int] = None
     model: Optional[str] = None

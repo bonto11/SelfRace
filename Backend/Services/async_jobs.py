@@ -245,6 +245,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 overwrite=bool(payload.get("overwrite", True)),
+                full_reset=bool(payload.get("full_reset", False)),
                 state_id=payload.get("state_id"),
                 weeks=payload.get("weeks"),
                 model=payload.get("model"),

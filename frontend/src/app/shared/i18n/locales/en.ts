@@ -1508,7 +1508,9 @@ export const en = {
     errorWeekly: "Weekly generation failed",
     errorDaily: "Daily generation failed",
     errorActivate: "Activation failed",
-    errorCancel: "Cancellation failed",
+    errorCancel: "Cancellation failed",step1of3: "Step 1/3 · Analyzing you as an athlete...",
+step2of3: "Step 2/3 · Building your weekly plan...",
+step3of3: "Step 3/3 · Laying out daily sessions...",
   },
     widget: {
       title: "Coach settings",

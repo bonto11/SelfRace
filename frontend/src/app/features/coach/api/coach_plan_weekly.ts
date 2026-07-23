@@ -1,16 +1,22 @@
 // src/features/coach/api/coach_plan_weekly.ts
-import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBackend";
+import {
+  callBackend,
+  runAsyncJobWithPolling,
+} from "@/app/shared/utils/callBackend";
 
 export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
-  state_id?: number | null; 
-  weeks?: number | null; 
+  state_id?: number | null;
+  weeks?: number | null;
+  full_reset?: boolean; // 🌟 kompletné vymazanie vrátane minulých týždňov - použi
+  // LEN pri prvotnom generovaní z Prefs (plán ešte nie je
+  // aktívny), nie pri bežnom replane bežiaceho plánu.
 };
 
 export async function apiGenerateWeeklyPlan(
   userId: number,
   userUuid: string,
-  opts: WeeklyPlanGenerateOptions = {}
+  opts: WeeklyPlanGenerateOptions = {},
 ): Promise<{
   success: boolean;
   status?: string;
@@ -28,6 +34,7 @@ export async function apiGenerateWeeklyPlan(
       overwrite: opts.overwrite ?? true,
       state_id: opts.state_id ?? null,
       weeks: opts.weeks ?? null,
+      full_reset: opts.full_reset ?? false,
     },
     priority: 100,
     max_attempts: 1,
@@ -44,7 +51,11 @@ export async function apiGenerateWeeklyPlan(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateWeeklyPlan][enqueue] ERROR", err);
-    return { success: false, error_code: "enqueue_failed", message: "Network error" };
+    return {
+      success: false,
+      error_code: "enqueue_failed",
+      message: "Network error",
+    };
   }
 
   if (!enqueueJson?.success) {
@@ -62,9 +73,6 @@ export async function apiGenerateWeeklyPlan(
 
   const pollResult = await runAsyncJobWithPolling(userId, jobId);
 
-  // 🌟 coach_reply je súčasť service_generate_weekly_plan response (resp.coach_reply),
-  // ktoré sa dostane sem cez job.result -> data. runAsyncJobWithPolling ho vracia
-  // v poli 'data', vyťahujeme ho na top-level pre jednoduchší prístup na FE.
   const coachReply =
     pollResult?.data?.coach_reply ??
     pollResult?.data?.result?.coach_reply ??
@@ -73,7 +81,6 @@ export async function apiGenerateWeeklyPlan(
   return { ...pollResult, coach_reply: coachReply };
 }
 
-// ... (Zvyšok tvojho súboru, napr. apiGetLatestWeeklyPlan a typy, ostáva rovnaký ako si poslal) ...
 export type WeeklyPlanWeek = {
   week_index: number;
   week_start: string | null;
@@ -81,8 +88,8 @@ export type WeeklyPlanWeek = {
   goal?: string | null;
   focus?: string | null;
   load_phase?: string | null;
-  planned_stats?: Record<string, number> | null; 
-  actual_stats?: Record<string, number> | null;  
+  planned_stats?: Record<string, number> | null;
+  actual_stats?: Record<string, number> | null;
   notes?: string | null;
   raw_json?: any;
 };
@@ -91,7 +98,9 @@ export type WeeklyPlanLatest = {
   weeks: WeeklyPlanWeek[];
 };
 
-export async function apiGetLatestWeeklyPlan(userId: number): Promise<WeeklyPlanLatest | null> {
+export async function apiGetLatestWeeklyPlan(
+  userId: number,
+): Promise<WeeklyPlanLatest | null> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-weekly/latest/${encodeURIComponent(String(userId))}`;
