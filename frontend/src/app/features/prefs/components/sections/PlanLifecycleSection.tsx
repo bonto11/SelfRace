@@ -36,7 +36,11 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
-export default function PlanLifecycleSection({ isVisible }: { isVisible: boolean }) {
+export default function PlanLifecycleSection({
+  canGenerate,
+}: {
+  canGenerate: boolean;
+}) {
   const router = useRouter();
   const { userId, userUuid } = useUserId();
   const t = useT();
@@ -207,8 +211,6 @@ export default function PlanLifecycleSection({ isVisible }: { isVisible: boolean
     return null;
   }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
-  if (!isVisible) return null;
-
   return (
     <div
       style={{
@@ -276,84 +278,78 @@ export default function PlanLifecycleSection({ isVisible }: { isVisible: boolean
 
       {!isMedicalSuspend && (
         <>
-          {isPlanActive ? (
-            <>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => router.push("/coach/ai/dailyPlan")}
-                  disabled={isGlobalLoading}
-                  className="flex-1"
-                >
-                  {t("coachPlan.actions.openPlan" as any)}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => router.push("/coach/ai/weeklyPlan")}
-                  disabled={isGlobalLoading}
-                  className="flex-1"
-                >
-                  {t("coachPrefs.plan.goToWeekly" as any)}
-                </Button>
-              </div>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleCancelPlan}
-                disabled={!canCancel}
-                className="w-full"
-              >
-                {loadingKind === "cancel" ? (
-                  <LoadingSpinner size="button" />
-                ) : (
-                  t("coachPlan.actions.cancelPlan" as any)
-                )}
-              </Button>
-            </>
-          ) : isFullyGenerated ? (
-            <>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleStartPlan}
-                disabled={!!startDisabledReason || isGlobalLoading}
-                title={startDisabledReason ?? undefined}
-                className="w-full"
-              >
-                {loadingKind === "start" ? (
-                  <LoadingSpinner size="button" />
-                ) : (
-                  t("coachPlan.actions.startPlan" as any)
-                )}
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCancelPlan}
-                disabled={!canCancel}
-                className="w-full mt-2"
-              >
-                {loadingKind === "cancel" ? (
-                  <LoadingSpinner size="button" />
-                ) : (
-                  t("coachPlan.actions.cancelPlan" as any)
-                )}
-              </Button>
-            </>
-          ) : (
+          {/* Prekliky na Weekly/Daily - VZDY viditeľné, nezavisle od stavu planu */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push("/coach/ai/dailyPlan")}
+              disabled={isGlobalLoading}
+              className="flex-1"
+            >
+              {t("coachPlan.actions.openPlan" as any)}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push("/coach/ai/weeklyPlan")}
+              disabled={isGlobalLoading}
+              className="flex-1"
+            >
+              {t("coachPrefs.plan.goToWeekly" as any)}
+            </Button>
+          </div>
+
+          {/* Vygenerovat - VZDY viditelne, enabled len ked NIE JE aktivny plan
+              A zaroven mame vyplneny race alebo start_date */}
+          {!isPlanActive && (
             <Button
               variant="primary"
               size="sm"
               onClick={handleGenerate}
-              disabled={isGlobalLoading}
-              className="w-full"
+              disabled={isGlobalLoading || !canGenerate}
+              title={!canGenerate ? t("coachPrefs.plan.needRaceOrDate" as any) : undefined}
+              className="w-full mb-2"
             >
               {loadingKind === "generate" ? (
                 <LoadingSpinner size="button" />
               ) : (
                 t("coachPrefs.plan.generateButton" as any)
+              )}
+            </Button>
+          )}
+
+          {/* Aktivovat - viditelne len ked je plan plne vygenerovany ale este nie aktivny */}
+          {!isPlanActive && isFullyGenerated && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleStartPlan}
+              disabled={!!startDisabledReason || isGlobalLoading}
+              title={startDisabledReason ?? undefined}
+              className="w-full mb-2"
+            >
+              {loadingKind === "start" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                t("coachPlan.actions.startPlan" as any)
+              )}
+            </Button>
+          )}
+
+          {/* Zrusit - viditelne/enabled len ked je plan AKTIVNY */}
+          {isPlanActive && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleCancelPlan}
+              disabled={!canCancel}
+              className="w-full"
+            >
+              {loadingKind === "cancel" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                t("coachPlan.actions.cancelPlan" as any)
               )}
             </Button>
           )}

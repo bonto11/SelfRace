@@ -81,10 +81,11 @@ export default function CoachPreferencies() {
 
   const [isFemale, setIsFemale] = useState(false);
 
-  // 🌟 Sekcia s generovanim/aktivaciou/zrusenim planu je skryta, kym used
-  // aspon raz uspesne neulozi prefs (Save) - predtym nedava zmysel plan
-  // generovat, keďže by sa generoval zo starych/nedeforestovanych hodnot.
-  const [planSectionUnlocked, setPlanSectionUnlocked] = useState(false);
+  const canGeneratePlan = useMemo(() => {
+    const hasStartDate = !!(local.start_date && local.start_date.trim());
+    const hasRace = Array.isArray(local.targets?.run?.races) && local.targets!.run!.races!.length > 0;
+    return hasStartDate || hasRace;
+  }, [local.start_date, local.targets]);
 
   useEffect(() => {
     if (!userId) return;
@@ -288,7 +289,6 @@ export default function CoachPreferencies() {
       await saveCoachPrefs(userId, normalizedClean);
       toast.success(t("prefs.info.saveSuccess"));
       dirtyRef.current = false;
-      setPlanSectionUnlocked(true);
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
     }
@@ -499,7 +499,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-      <PlanLifecycleSection isVisible={planSectionUnlocked} />
+      <PlanLifecycleSection canGenerate={canGeneratePlan} />
     </div>
   );
 }
