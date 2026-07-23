@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CoachPrefs,
   SportKind,
@@ -40,7 +40,6 @@ import ThresholdsSection from "@/app/features/prefs/components/sections/Threshol
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
-import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 
 import {
   PANEL_STACK,
@@ -492,8 +491,6 @@ export default function CoachPreferencies() {
           {t("common.refresh")}
         </Button>
       </div>
-
-      <PlanLifecycleSection prefs={local} />
     </div>
   );
 }
