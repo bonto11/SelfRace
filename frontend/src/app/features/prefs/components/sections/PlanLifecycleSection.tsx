@@ -36,7 +36,7 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
-export default function PlanLifecycleSection() {
+export default function PlanLifecycleSection({ isVisible }: { isVisible: boolean }) {
   const router = useRouter();
   const { userId, userUuid } = useUserId();
   const t = useT();
@@ -206,6 +206,8 @@ export default function PlanLifecycleSection() {
     if (!hasDaily) return t("coachPlan.errors.needDaily" as any);
     return null;
   }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
+
+  if (!isVisible) return null;
 
   return (
     <div
