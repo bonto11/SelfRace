@@ -75,6 +75,7 @@ def service_generate_weekly_plan(
     user_id: int,
     *,
     ctx: AuthCtx,
+    full_reset: bool = False,
     overwrite: bool = True,
     state_id: Optional[int] = None,
     weeks: Optional[int] = None,
@@ -88,6 +89,12 @@ def service_generate_weekly_plan(
     Po úspešnom generovaní označí ephemeral poznámku ako použitú.
     model=None = provider použije default z ENV.
     reason = špeciálny dôvod generovania (health_resolved_return, health_recovery_mild atď.)
+
+    full_reset=True: PLNÉ vymazanie všetkých existujúcich weekly riadkov
+    (vrátane minulých/uzavretých), použi len keď plán ešte NIE JE aktívny
+    (used generuje odznova pred prvým spustením). Ak plán už beží a ide o
+    bežný replan, full_reset musí byť False (default), aby sa zachovala
+    história už odtrénovaných týždňov.
     """
     # Kvóta check
     if is_user_over_token_quota(user_id, ctx=ctx):
@@ -105,7 +112,9 @@ def service_generate_weekly_plan(
         ctx=ctx,
         state_id=state_id,
         weeks=weeks,
+        full_reset=full_reset,
     )
+
 
     context_payload = context["context_payload"]
     state_bundle = context["state_bundle"]
@@ -150,13 +159,15 @@ def service_generate_weekly_plan(
         ctx=ctx,
     )
 
-    # Overwrite — vymaž len AKTUÁLNY + BUDÚCE týždne (od dneška ďalej), aby
-    # zostal zachovaný progres v už UZAVRETÝCH minulých týždňoch. Predtým sa
-    # volalo db_clear_weekly_for_user_plan, ktoré mazalo úplne všetko vrátane
-    # histórie - to spôsobovalo, že po replane (napr. cez coach notes) zmizol
-    # odtrénovaný progres v minulých týždňoch.
     deleted_rows = 0
-    if overwrite:
+    if full_reset:
+        # Plán ešte nie je aktívny - kompletné vymazanie vrátane minulých
+        # týždňov, aby opakované generovanie z Prefs nepridávalo duplicitné
+        # týždne (napr. druhý klik na "Vygenerovať plán" pred aktiváciou by
+        # inak pridal týždne 15-28 vedľa existujúcich 1-14 namiesto ich
+        # nahradenia).
+        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+    elif overwrite:
         today_iso = _date.today().isoformat()
         deleted_rows = db_delete_current_and_future_weekly_plans(
             user_id=user_id, from_date_iso=today_iso, ctx=ctx

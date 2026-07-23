@@ -28,10 +28,12 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 /* ============================================================ */
 /* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
 /* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
-/* Logika prevzata 1:1 z povodneho WidgetCoachActions.tsx, len   */
-/* zlucena pod jedno "Vygenerovat plan" tlacidlo namiesto troch  */
-/* samostatnych krokov ktore mylili userov (napr. zabudli ist    */
-/* naspat aktivovat plan po vygenerovani).                       */
+/* Sekcia je VZDY viditeľná (nie skryta pred prvym Save):        */
+/* - Weekly/Daily prekliky vzdy klikatelne                      */
+/* - "Vygenerovat" vzdy zobrazene (ked plan nie je aktivny),      */
+/*   ale enabled len ked su vyplnene prefs (canGenerate prop)     */
+/* - "Aktivovat" len po plnom vygenerovani                       */
+/* - "Zrusit" len ked je plan AKTIVNY                            */
 /* ============================================================ */
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
@@ -55,6 +57,10 @@ export default function PlanLifecycleSection({
 
   const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
+
+  // 🌟 "Na hulváta" progress odhad pre generovanie - žiadny reálny BE
+  // progress tracking, len časovač (~20s na krok). Čisto kozmetické.
+  const [loadingStepLabel, setLoadingStepLabel] = useState<string | null>(null);
 
   const loading = loadingKind !== null && loadingKind !== "status";
   const isMedicalSuspend = maxInjurySeverity >= 7;
@@ -110,12 +116,23 @@ export default function PlanLifecycleSection({
     fetchStatus();
   }, [fetchStatus]);
 
-  // Sekvenčné generovanie: analyze -> weekly -> daily (week 1), všetky tri
-  // pod jedným tlačidlom namiesto troch oddelených krokov.
+  // Sekvenčné generovanie: analyze -> weekly (full_reset) -> daily (week 1).
+  // full_reset: true zaisťuje, že opakované generovanie z Prefs (pred prvým
+  // spustením plánu) kompletne premaže predošlý draft namiesto pridávania
+  // duplicitných týždňov vedľa neho.
   const handleGenerate = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend || loading) return;
     setError(null);
     setLoadingKind("generate");
+
+    setLoadingStepLabel(t("coachPrefs.plan.step1of3" as any));
+    const stepTimer2 = setTimeout(() => {
+      setLoadingStepLabel(t("coachPrefs.plan.step2of3" as any));
+    }, 20000);
+    const stepTimer3 = setTimeout(() => {
+      setLoadingStepLabel(t("coachPrefs.plan.step3of3" as any));
+    }, 40000);
+
     try {
       const analyzeOut = await apiAnalyzeAthleteState(userId, userUuid);
       if (!analyzeOut?.success) {
@@ -133,6 +150,7 @@ export default function PlanLifecycleSection({
       await apiEnsureCoachPlanStartFuture(userId);
       const weeklyOut = await apiGenerateWeeklyPlan(userId, userUuid, {
         overwrite: true,
+        full_reset: true,
         state_id: stateId,
       });
       if (!weeklyOut?.success) {
@@ -154,9 +172,12 @@ export default function PlanLifecycleSection({
     } catch (e: any) {
       setError(formatAiError(e));
     } finally {
+      clearTimeout(stepTimer2);
+      clearTimeout(stepTimer3);
       setLoadingKind(null);
+      setLoadingStepLabel(null);
     }
-  }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading]);
+  }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading, t]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId || isMedicalSuspend) return;
@@ -278,7 +299,7 @@ export default function PlanLifecycleSection({
 
       {!isMedicalSuspend && (
         <>
-          {/* Prekliky na Weekly/Daily - VZDY viditeľné, nezavisle od stavu planu */}
+          {/* Prekliky na Weekly/Daily - VŽDY viditeľné, nezávisle od stavu plánu */}
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <Button
               variant="secondary"
@@ -287,7 +308,7 @@ export default function PlanLifecycleSection({
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPlan.actions.openPlan" as any)}
+              {t("coachPrefs.plan.goToDaily" as any)}
             </Button>
             <Button
               variant="secondary"
@@ -300,8 +321,8 @@ export default function PlanLifecycleSection({
             </Button>
           </div>
 
-          {/* Vygenerovat - VZDY viditelne, enabled len ked NIE JE aktivny plan
-              A zaroven mame vyplneny race alebo start_date */}
+          {/* Vygenerovať - VŽDY viditeľné (keď plán nie je aktívny), enabled
+              len keď sú vyplnené prefs (race alebo start_date) */}
           {!isPlanActive && (
             <Button
               variant="primary"
@@ -319,7 +340,7 @@ export default function PlanLifecycleSection({
             </Button>
           )}
 
-          {/* Aktivovat - viditelne len ked je plan plne vygenerovany ale este nie aktivny */}
+          {/* Aktivovať - viditeľné len keď je plán plne vygenerovaný, ale ešte nie aktívny */}
           {!isPlanActive && isFullyGenerated && (
             <Button
               variant="primary"
@@ -332,12 +353,12 @@ export default function PlanLifecycleSection({
               {loadingKind === "start" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.startPlan" as any)
+                t("coachPrefs.plan.startPlan" as any)
               )}
             </Button>
           )}
 
-          {/* Zrusit - viditelne/enabled len ked je plan AKTIVNY */}
+          {/* Zrušiť - viditeľné/enabled len keď je plán AKTÍVNY */}
           {isPlanActive && (
             <Button
               variant="danger"
@@ -349,7 +370,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "cancel" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.cancelPlan" as any)
+                t("coachPrefs.plan.cancelPlan" as any)
               )}
             </Button>
           )}
@@ -357,7 +378,9 @@ export default function PlanLifecycleSection({
           {loading && (
             <div className="text-[10px] text-center opacity-60 italic py-1 mt-2">
               <span className="animate-pulse block text-white/80">
-                {(t as any)(`coachPlan.widget.loading.msg${loadingMsgIdx}`)}
+                {loadingKind === "generate" && loadingStepLabel
+                  ? loadingStepLabel
+                  : (t as any)(`coachPlan.widget.loading.msg${loadingMsgIdx}`)}
               </span>
             </div>
           )}

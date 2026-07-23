@@ -219,6 +219,7 @@ def build_weekly_context_from_db(
     ctx: AuthCtx,
     state_id: Optional[int],
     weeks: Optional[int],
+    full_reset: bool = False,
 ) -> Dict[str, Any]:
     """
     Zostaví kompletný context_payload pre weekly plan generátor.
@@ -274,7 +275,13 @@ def build_weekly_context_from_db(
     # padá DNEŠOK, a zachovávame nadväzujúce číslovanie week_index podľa
     # toho, čo už v DB existuje (aby FE zoznam týždňov nadväzoval plynulo).
     existing_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-    is_replan = len(existing_rows) > 0
+    # 🌟 full_reset=True znamená, že sa chystáme kompletne premazať staré
+    # riadky (v service_generate_weekly_plan, hneď po tomto builderi) - preto
+    # sa tu SPRÁVAME, akoby žiadne staré dáta neboli, aby week_index začínal
+    # znova od 1 a race_hint/dátumy vychádzali zo skutočného start_date z
+    # prefs, nie z kontinuácie starého (čoskoro zmazaného) plánu.
+    is_replan = len(existing_rows) > 0 and not full_reset
+
 
     current_week_index_offset = 1
     start_date_for_weeks: Optional[str] = None

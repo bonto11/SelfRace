@@ -30,6 +30,7 @@ def generate_weekly_plan(
             user_id=user_id,
             ctx=ctx,
             overwrite=payload.overwrite,
+            full_reset=payload.full_reset,
             state_id=payload.state_id,
             weeks=payload.weeks,
             model=payload.model,

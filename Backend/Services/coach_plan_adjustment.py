@@ -303,6 +303,7 @@ def service_coach_autoadjust_after_update(
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
                 overwrite=True,
+                full_reset=False,
                 state_id=state_id,
                 weeks=None,
                 model=None,
