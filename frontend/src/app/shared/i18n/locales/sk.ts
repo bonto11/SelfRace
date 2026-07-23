@@ -967,7 +967,7 @@ export const sk = {
       eventsTitle: "Iné plány a udalosti:",
       eventsDesc:
         "Plánovaná túra, futbal alebo dovolenka? Po zadaní cez 'Iné aktivity' sa zohľadnia v rozpise.",
-      genTitle: "Tvorba plánu:",
+      genTitle: "Vytváranie plánu:",
       genDesc:
         "Najprv treba vyhodnotiť aktuálnu trénovanosť, potom si vytvoriť týždenný a denný plán, spustiť ho a môže sa začať!",
     },
