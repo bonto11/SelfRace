@@ -85,6 +85,7 @@ export default function CoachPreferencies() {
   );
 
   const [isFemale, setIsFemale] = useState(false);
+  const [planSectionUnlocked, setPlanSectionUnlocked] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -232,7 +233,7 @@ export default function CoachPreferencies() {
     });
   };
 
-  const onSave = async () => {
+    const onSave = async () => {
     if (!userId) return;
     try {
       const minIso = MIN_PLAN_START();
@@ -284,6 +285,16 @@ export default function CoachPreferencies() {
         }
         normalized.targets = Object.keys(cleaned).length ? cleaned : undefined;
       }
+
+      const { external_activities: _ext2, ...normalizedClean } = normalized;
+      await saveCoachPrefs(userId, normalizedClean);
+      toast.success(t("prefs.info.saveSuccess"));
+      dirtyRef.current = false;
+      setPlanSectionUnlocked(true); // 🌟 odomkne sekciu s plánom až po úspešnom Save
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
+    }
+  };
 
       const { external_activities: _ext2, ...normalizedClean } = normalized;
       await saveCoachPrefs(userId, normalizedClean);
@@ -499,7 +510,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-      <PlanLifecycleSection />
+     <PlanLifecycleSection isVisible={planSectionUnlocked} />
     </div>
   );
 }
