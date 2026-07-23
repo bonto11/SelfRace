@@ -1489,7 +1489,7 @@ export const sk = {
       step2of3: "Krok 2/3 · Navrhujem týždenný plán...",
       step3of3: "Krok 3/3 · Navrhujem denné tréningy...",
       startPlan: "Spustiť tréningový plán",
-      cancelPlan: "Ukončiť tento plán",
+      cancelPlan: "Ukončiť tento plá",
 
     },
     widget: {
