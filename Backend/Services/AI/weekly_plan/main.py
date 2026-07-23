@@ -112,7 +112,9 @@ def service_generate_weekly_plan(
         ctx=ctx,
         state_id=state_id,
         weeks=weeks,
+        full_reset=full_reset,
     )
+
 
     context_payload = context["context_payload"]
     state_bundle = context["state_bundle"]
