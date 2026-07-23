@@ -499,7 +499,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-      {/* <PlanLifecycleSection canGenerate={canGeneratePlan} /> */}
+      <PlanLifecycleSection canGenerate={canGeneratePlan} />
     </div>
   );
 }
