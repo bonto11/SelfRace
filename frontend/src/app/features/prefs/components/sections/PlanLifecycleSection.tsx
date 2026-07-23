@@ -1,161 +1,211 @@
-// src/app/features/coach/components/PlanLifecycleSection.tsx
+// src/app/features/prefs/components/sections/PlanLifecycleSection.tsx
 "use client";
 
-import * as React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 
-import { apiAnalyzeAthleteState } from "@/app/features/coach/api/coach_athlete_state";
+import { apiEnsureCoachPlanStartFuture } from "@/app/features/prefs/api/prefs";
+import {
+  apiAnalyzeAthleteState,
+  apiGetLatestAthleteState,
+} from "@/app/features/coach/api/coach_athlete_state";
+import {
+  apiActivePlanSave,
+  apiActivePlanCancel,
+  apiActivePlanStatus,
+} from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
-import {
-  apiActivePlanStatus,
-  apiActivatePlan,
-  apiCancelPlan,
-} from "@/app/features/coach/api/coach_plan_active";
+import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_log";
 
 /* ============================================================ */
-/* PLAN LIFECYCLE SEKCIA - zjednotene generovanie/aktivacia/zrusenie */
-/* (nahradza predtym samostatny WidgetCoachActions s 3 tlacidlami) */
-/*                                                                */
-/* Stavy:                                                        */
-/*  1. Ziadny plan este nie je vygenerovany  -> "Vygenerovat plan" */
-/*  2. Plan je vygenerovany, ale nie aktivny -> "Aktivovat plan"   */
-/*  3. Plan je aktivny -> prekliky na Daily/Weekly + "Zrusit plan" */
+/* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
+/* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
+/* Logika prevzata 1:1 z povodneho WidgetCoachActions.tsx, len   */
+/* zlucena pod jedno "Vygenerovat plan" tlacidlo namiesto troch  */
+/* samostatnych krokov ktore mylili userov (napr. zabudli ist    */
+/* naspat aktivovat plan po vygenerovani).                       */
 /* ============================================================ */
 
-type GenerateStep = "state" | "weekly" | "daily" | null;
+type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
 export default function PlanLifecycleSection() {
-  const t = useT();
   const router = useRouter();
   const { userId, userUuid } = useUserId();
+  const t = useT();
 
-  const [status, setStatus] = React.useState<{
-    has_active_plan: boolean;
-    is_generated: boolean;
-  } | null>(null);
-  const [statusLoading, setStatusLoading] = React.useState(true);
+  const [latestStateId, setLatestStateId] = useState<number | null>(null);
+  const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [generating, setGenerating] = React.useState(false);
-  const [generateStep, setGenerateStep] = React.useState<GenerateStep>(null);
-  const [activating, setActivating] = React.useState(false);
-  const [cancelling, setCancelling] = React.useState(false);
+  const [isPlanActive, setIsPlanActive] = useState(false);
+  const [hasWeekly, setHasWeekly] = useState(false);
+  const [hasDaily, setHasDaily] = useState(false);
 
-  const loadStatus = React.useCallback(async () => {
+  const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
+
+  const loading = loadingKind !== null && loadingKind !== "status";
+  const isMedicalSuspend = maxInjurySeverity >= 7;
+
+  useEffect(() => {
+    if (loading) {
+      setLoadingMsgIdx(Math.floor(Math.random() * 4) + 1);
+    }
+  }, [loading]);
+
+  const formatAiError = useCallback(
+    (out: any): string => {
+      if (!out) return t("api.ai_errors.generic_error" as any);
+      const code = out?.error_code || out?.code || "generic_error";
+      const errorKey = `api.ai_errors.${code}`;
+      const translated = t(errorKey as any);
+      if (translated && translated !== errorKey) return translated;
+      return out?.message || t("api.ai_errors.generic_error" as any);
+    },
+    [t],
+  );
+
+  const fetchStatus = useCallback(async () => {
     if (!userId) return;
-    setStatusLoading(true);
+    setLoadingKind("status");
     try {
-      const out = await apiActivePlanStatus(Number(userId));
-      setStatus(out);
-    } catch (e) {
-      console.error("[PlanLifecycle] status error", e);
+      const [state, planStatus, healthLogs] = await Promise.all([
+        apiGetLatestAthleteState(userId).catch(() => null),
+        apiActivePlanStatus(userId).catch(() => null),
+        apiGetActiveHealthLogs(userId).catch(() => []),
+      ]);
+
+      if (state && typeof state.id === "number") setLatestStateId(state.id);
+
+      if (planStatus) {
+        setIsPlanActive(!!planStatus.has_active);
+        setHasWeekly(!!planStatus.has_weekly_data);
+        setHasDaily(!!planStatus.has_daily_data);
+      }
+
+      if (healthLogs && healthLogs.length > 0) {
+        const maxSev = Math.max(...healthLogs.map((l: any) => l.severity || 0));
+        setMaxInjurySeverity(maxSev);
+      } else {
+        setMaxInjurySeverity(0);
+      }
     } finally {
-      setStatusLoading(false);
+      setLoadingKind(null);
     }
   }, [userId]);
 
-  React.useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
-  // Sekvenčné generovanie: athlete state -> weekly plan -> daily plan (week 1).
-  // Všetky tri MUSIA prebehnúť v tomto poradí, aby vznikol funkčný plán -
-  // preto je to teraz jedno tlačidlo namiesto troch oddelených krokov, ktoré
-  // mätúco vyžadovali ručné poradie a návrat medzi widgetmi.
-  const handleGenerate = async () => {
-    if (!userId || !userUuid || generating) return;
-    setGenerating(true);
+  // Sekvenčné generovanie: analyze -> weekly -> daily (week 1), všetky tri
+  // pod jedným tlačidlom namiesto troch oddelených krokov.
+  const handleGenerate = useCallback(async () => {
+    if (!userId || !userUuid || isMedicalSuspend || loading) return;
+    setError(null);
+    setLoadingKind("generate");
     try {
-      setGenerateStep("state");
-      const stateOut = await apiAnalyzeAthleteState(Number(userId), userUuid);
-      if (!stateOut.success) {
-        toast.error(stateOut.message || t("coachPrefs.plan.errorState"));
+      const analyzeOut = await apiAnalyzeAthleteState(userId, userUuid);
+      if (!analyzeOut?.success) {
+        setError(formatAiError(analyzeOut));
         return;
       }
+      const sid =
+        (analyzeOut as any).data?.state_id ??
+        (analyzeOut as any).state_id ??
+        (analyzeOut as any).state?.id ??
+        null;
+      const stateId = typeof sid === "number" ? sid : latestStateId;
+      if (typeof sid === "number") setLatestStateId(sid);
 
-      setGenerateStep("weekly");
-      const weeklyOut = await apiGenerateWeeklyPlan(Number(userId), userUuid, {
+      await apiEnsureCoachPlanStartFuture(userId);
+      const weeklyOut = await apiGenerateWeeklyPlan(userId, userUuid, {
         overwrite: true,
+        state_id: stateId,
       });
-      if (!weeklyOut.success) {
-        toast.error(weeklyOut.message || t("coachPrefs.plan.errorWeekly"));
+      if (!weeklyOut?.success) {
+        setError(formatAiError(weeklyOut));
         return;
       }
+      setHasWeekly(true);
 
-      setGenerateStep("daily");
-      const dailyOut = await apiGenerateDailyForWeek(Number(userId), userUuid, {
+      await apiEnsureCoachPlanStartFuture(userId);
+      const dailyOut = await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: 1,
         overwrite: true,
       });
-      if (!dailyOut.success) {
-        toast.error(dailyOut.message || t("coachPrefs.plan.errorDaily"));
+      if (!dailyOut?.success) {
+        setError(formatAiError(dailyOut));
         return;
       }
-
-      toast.success(t("coachPrefs.plan.generateSuccess"));
-      await loadStatus();
+      setHasDaily(true);
+    } catch (e: any) {
+      setError(formatAiError(e));
     } finally {
-      setGenerating(false);
-      setGenerateStep(null);
+      setLoadingKind(null);
     }
-  };
+  }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading]);
 
-  const handleActivate = async () => {
-    if (!userId || activating) return;
-    setActivating(true);
+  const handleStartPlan = useCallback(async () => {
+    if (!userId || isMedicalSuspend) return;
+    setError(null);
+    setLoadingKind("start");
     try {
-      const out = await apiActivatePlan(Number(userId));
-      if (!out.success) {
-        toast.error(out.message || t("coachPrefs.plan.errorActivate"));
-        return;
+      const res = await apiActivePlanSave(userId, {});
+      if (res.success) {
+        await fetchStatus();
+      } else {
+        setError(res.error || t("coachPlan.errors.genericStart" as any));
       }
-      toast.success(t("coachPrefs.plan.activateSuccess"));
-      await loadStatus();
+    } catch (e: any) {
+      setError(e?.message || String(e));
     } finally {
-      setActivating(false);
+      setLoadingKind(null);
     }
-  };
+  }, [userId, isMedicalSuspend, fetchStatus, t]);
 
-  const handleCancel = async () => {
-    if (!userId || cancelling) return;
+  const handleCancelPlan = useCallback(async () => {
+    if (!userId) return;
     const ok = await confirm({
-      title: t("coachPrefs.plan.cancelConfirmTitle"),
-      message: t("coachPrefs.plan.cancelConfirmMessage"),
-      okText: t("coachPrefs.plan.cancelConfirmOk"),
-      cancelText: t("common.cancel"),
+      title: t("coachPlan.confirmCancel.title" as any),
+      message: t("coachPlan.confirmCancel.message" as any),
+      okText: t("coachPlan.confirmCancel.ok" as any),
+      cancelText: t("coachPlan.confirmCancel.cancel" as any),
       tone: "danger",
     });
     if (!ok) return;
 
-    setCancelling(true);
+    setLoadingKind("cancel");
     try {
-      const out = await apiCancelPlan(Number(userId));
-      if (!out.success) {
-        toast.error(out.message || t("coachPrefs.plan.errorCancel"));
-        return;
-      }
-      toast.success(t("coachPrefs.plan.cancelSuccess"));
-      await loadStatus();
+      await apiActivePlanCancel(userId);
+      await fetchStatus();
+    } catch (e: any) {
+      setError(e?.message || String(e));
     } finally {
-      setCancelling(false);
+      setLoadingKind(null);
     }
-  };
+  }, [userId, t, fetchStatus]);
 
-  const generateStepLabel =
-    generateStep === "state"
-      ? t("coachPrefs.plan.stepState")
-      : generateStep === "weekly"
-        ? t("coachPrefs.plan.stepWeekly")
-        : generateStep === "daily"
-          ? t("coachPrefs.plan.stepDaily")
-          : null;
+  const isGlobalLoading = loading;
+  const isFullyGenerated = !!latestStateId && hasWeekly && hasDaily;
+  const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
+
+  const startDisabledReason = useMemo(() => {
+    if (isMedicalSuspend) return t("coachPlan.errors.medicalBlocked" as any);
+    if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
+    if (!latestStateId) return t("coachPlan.errors.needAnalyze" as any);
+    if (!hasWeekly) return t("coachPlan.errors.needWeekly" as any);
+    if (!hasDaily) return t("coachPlan.errors.needDaily" as any);
+    return null;
+  }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
   return (
     <div
@@ -175,74 +225,142 @@ export default function PlanLifecycleSection() {
           marginBottom: 10,
         }}
       >
-        {t("coachPrefs.plan.sectionTitle")}
+        {t("coachPlan.widget.title" as any)}
       </div>
 
-      {statusLoading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 12 }}>
-          <LoadingSpinner size="button" />
-        </div>
-      ) : status?.has_active_plan ? (
-        <>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push("/coach/dailyPlan")}
-              className="flex-1"
-            >
-              {t("coachPrefs.plan.goToDaily")}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push("/coach/weeklyPlan")}
-              className="flex-1"
-            >
-              {t("coachPrefs.plan.goToWeekly")}
-            </Button>
-          </div>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={handleCancel}
-            disabled={cancelling}
-            className="w-full"
-          >
-            {cancelling ? <LoadingSpinner size="button" /> : t("coachPrefs.plan.cancelButton")}
-          </Button>
-        </>
-      ) : status?.is_generated ? (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleActivate}
-          disabled={activating}
-          className="w-full"
+      {isMedicalSuspend && (
+        <div
+          className="mb-2 p-3 rounded-xl border"
+          style={{
+            backgroundColor: `${appColors.statusError}1A`,
+            borderColor: `${appColors.statusError}33`,
+            color: appColors.statusError,
+          }}
         >
-          {activating ? <LoadingSpinner size="button" /> : t("coachPrefs.plan.activateButton")}
-        </Button>
-      ) : (
-        <>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">🛑</span>
+            <strong className="text-sm">
+              {t("coachPlan.widget.medicalSuspendBanner.title" as any)}
+            </strong>
+          </div>
+          <p className="text-xs opacity-90 leading-relaxed mb-3">
+            {(t("coachPlan.widget.medicalSuspendBanner.text" as any) as string).replace(
+              "{{severity}}",
+              String(maxInjurySeverity),
+            )}
+          </p>
           <Button
-            variant="primary"
             size="sm"
-            onClick={handleGenerate}
-            disabled={generating}
+            variant="danger"
+            onClick={() => router.push("/coach/health")}
             className="w-full"
           >
-            {generating ? <LoadingSpinner size="button" /> : t("coachPrefs.plan.generateButton")}
+            {t("coachPlan.widget.medicalSuspendBanner.action" as any)}
           </Button>
-          {generating && generateStepLabel && (
-            <div
-              style={{
-                fontSize: 11,
-                color: appColors.textMuted,
-                textAlign: "center",
-                marginTop: 6,
-              }}
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            fontSize: 12,
+            color: appColors.statusError,
+            marginBottom: 8,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {!isMedicalSuspend && (
+        <>
+          {isPlanActive ? (
+            <>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push("/coach/ai/dailyPlan")}
+                  disabled={isGlobalLoading}
+                  className="flex-1"
+                >
+                  {t("coachPlan.actions.openPlan" as any)}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push("/coach/ai/weeklyPlan")}
+                  disabled={isGlobalLoading}
+                  className="flex-1"
+                >
+                  {t("coachPrefs.plan.goToWeekly" as any)}
+                </Button>
+              </div>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleCancelPlan}
+                disabled={!canCancel}
+                className="w-full"
+              >
+                {loadingKind === "cancel" ? (
+                  <LoadingSpinner size="button" />
+                ) : (
+                  t("coachPlan.actions.cancelPlan" as any)
+                )}
+              </Button>
+            </>
+          ) : isFullyGenerated ? (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleStartPlan}
+                disabled={!!startDisabledReason || isGlobalLoading}
+                title={startDisabledReason ?? undefined}
+                className="w-full"
+              >
+                {loadingKind === "start" ? (
+                  <LoadingSpinner size="button" />
+                ) : (
+                  t("coachPlan.actions.startPlan" as any)
+                )}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCancelPlan}
+                disabled={!canCancel}
+                className="w-full mt-2"
+              >
+                {loadingKind === "cancel" ? (
+                  <LoadingSpinner size="button" />
+                ) : (
+                  t("coachPlan.actions.cancelPlan" as any)
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGlobalLoading}
+              className="w-full"
             >
-              {generateStepLabel}
+              {loadingKind === "generate" ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                t("coachPrefs.plan.generateButton" as any)
+              )}
+            </Button>
+          )}
+
+          {loading && (
+            <div className="text-[10px] text-center opacity-60 italic py-1 mt-2">
+              <span className="animate-pulse block text-white/80">
+                {(t as any)(`coachPlan.widget.loading.msg${loadingMsgIdx}`)}
+              </span>
             </div>
           )}
         </>
