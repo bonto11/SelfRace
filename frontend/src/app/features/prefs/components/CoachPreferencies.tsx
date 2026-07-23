@@ -81,12 +81,6 @@ export default function CoachPreferencies() {
 
   const [isFemale, setIsFemale] = useState(false);
 
-  const canGeneratePlan = useMemo(() => {
-    const hasStartDate = !!(local.start_date && local.start_date.trim());
-    const hasRace = Array.isArray(local.targets?.run?.races) && local.targets!.run!.races!.length > 0;
-    return hasStartDate || hasRace;
-  }, [local.start_date, local.targets]);
-
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -499,7 +493,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-      <PlanLifecycleSection canGenerate={canGeneratePlan} />
+      <PlanLifecycleSection prefs={local} />
     </div>
   );
 }
