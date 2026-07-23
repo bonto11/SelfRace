@@ -38,11 +38,20 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 export default function PlanLifecycleSection({
-  canGenerate,
+  prefs,
 }: {
-  canGenerate: boolean;
+  prefs: { start_date?: string | null; targets?: { run?: { races?: any[] } } };
 }) {
+  const canGenerate = useMemo(() => {
+    const hasStartDate = !!(prefs?.start_date && prefs.start_date.trim());
+    const races = prefs?.targets?.run?.races;
+    const hasRace = Array.isArray(races) && races.length > 0;
+    return hasStartDate || hasRace;
+  }, [prefs?.start_date, prefs?.targets]);
+
   const router = useRouter();
   const { userId, userUuid } = useUserId();
   const t = useT();
