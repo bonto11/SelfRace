@@ -400,6 +400,11 @@ export default function CoachPreferencies() {
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
       
+      <PlanStartSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
 
       <div style={{ color: "white", padding: 12 }}>
         TEST s PlanStartSection — loaded pref: {JSON.stringify(pref).slice(0, 100)}

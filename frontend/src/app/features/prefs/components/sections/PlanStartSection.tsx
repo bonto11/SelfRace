@@ -75,153 +75,17 @@ type Props = {
   markDirty: () => void;
 };
 
-export function PlanStartSection({ local, setLocal, markDirty }: Props) {
-  const t = useT();
-  const [open, setOpen] = useState(true);
-
-  const minStart = MIN_PLAN_START();
-  const start = local.start_date ?? "";
-  const end = local.end_date ?? "";
-  const weeksVal =
-    local.weeks != null && !Number.isNaN(local.weeks)
-      ? String(local.weeks)
-      : "";
-
-  const applyStart = (next: string) => {
-    markDirty();
-    setLocal((prev) => {
-      const base = { ...prev, start_date: next || null };
-
-      if (base.weeks) {
-        return {
-          ...base,
-          end_date: addWeeksISO(next, Number(base.weeks)),
-        };
-      }
-
-      if (base.end_date) {
-        return {
-          ...base,
-          weeks: diffWeeks(next, base.end_date),
-        };
-      }
-
-      return base;
-    });
-  };
-
-  const applyEnd = (next: string) => {
-    markDirty();
-    setLocal((prev) => {
-      const base = { ...prev, end_date: next || null };
-      if (base.start_date && base.end_date) {
-        return {
-          ...base,
-          weeks: diffWeeks(base.start_date, base.end_date),
-        };
-      }
-      return base;
-    });
-  };
-
-  const applyWeeks = (val: number) => {
-    markDirty();
-    if (!Number.isFinite(val) || val <= 0) return;
-    setLocal((prev) => ({
-      ...prev,
-      weeks: Math.round(val),
-      end_date: prev.start_date
-        ? addWeeksISO(prev.start_date, Math.round(val))
-        : prev.end_date,
-    }));
-  };
-
-  const previewText = useMemo(
-    () =>
-      `${start || "—"} · ${end || "—"} · ${weeksVal ? `${weeksVal}${t("common.units.weeksAbbrev")}` : "—"}`,
-    [start, end, weeksVal, t],
-  );
-
-  const guardStart = (iso: string | null) => {
-    if (iso && iso < minStart) {
-      toast.error(t("prefs.sections.planStartSection.errors.minStart").replace("{{date}}", minStart));
-      applyStart(minStart);
-      return;
-    }
-    applyStart(iso || "");
-  };
-
+export function PlanStartSection({ local, setLocal, markDirty }: any) {
   return (
     <InputsCard
-      title={
-        <div className="flex items-center gap-2">
-          <span>{t("prefs.sections.planStartSection.widget.title")}</span>
-          <TooltipIcon text={t("prefs.sections.planStartSection.widget.tooltip")} />
-        </div>
-      }
-      subtitle={t("prefs.sections.planStartSection.subtitle")}
-      preview={previewText}
-      open={open}
-      onOpenChange={setOpen}
+      title="TEST TITLE"
+      subtitle="test subtitle"
+      preview="test preview"
+      open={true}
+      onOpenChange={() => {}}
       backdropVariant="default"
-      always={
-        <div className="text-xs" style={{ color: appColors.textMuted }}>
-          {t("prefs.sections.planStartSection.minStartLabel")}: {minStart}
-        </div>
-      }
     >
-      <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.startLabel")}</div>
-            <DateField value={start || null} onChange={guardStart} />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.endLabel")}</div>
-            <DateField
-              value={end || null}
-              onChange={(v) => applyEnd(v || "")}
-            />
-          </section>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>
-              {t("prefs.sections.planStartSection.horizonLabel")}
-            </div>
-            <NumberField
-              min={1}
-              max={52}
-              step={1}
-              unit={t("common.units.weeksAbbrev")}
-              value={local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : ""}
-              onChange={(val) => val !== "" && applyWeeks(val)}
-            />
-          </section>
-
-          <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.quickActionsLabel")}</div>
-            <div className={FORM_GRID_SPLIT}>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => applyStart(DEFAULT_PLAN_START())}
-              >
-                D+2
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => applyStart(MIN_PLAN_START())}
-              >
-                {t("prefs.sections.planStartSection.tomorrow")}
-              </Button>
-            </div>
-          </section>
-        </div>
-      </div>
+      <div style={{ color: "white" }}>prázdny obsah</div>
     </InputsCard>
   );
 }
