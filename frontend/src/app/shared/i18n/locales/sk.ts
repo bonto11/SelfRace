@@ -1260,6 +1260,18 @@ export const sk = {
       text: "Plán bol pozastavený kvôli bolesti ({{severity}}/10).",
       action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
     },
+    history: {
+      pageTitle: "História plánov",
+      empty: "Zatiaľ žiadne staršie plány.",
+      completed: "Úspešne dokončené",
+      canceled: "Predčasne ukončené",
+      plan: "Tréningový plán",
+      trained: "Odtrénované:",
+      runned: "Nabehané",
+      movementTime: "Celkový čas v pohybe",
+      strength: "Silové tréningy",
+    },
+
   },
   monthlySummary: {
     title: "Mesačný prehľad",
