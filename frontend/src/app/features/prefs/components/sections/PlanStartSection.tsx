@@ -94,7 +94,12 @@ export function PlanStartSection({ local, setLocal, markDirty }: any) {
 
   return (
     <InputsCard
-      title="TEST TITLE"
+      title={
+        <div className="flex items-center gap-2">
+          <span>TEST TITLE</span>
+          <TooltipIcon text="test tooltip text" />
+        </div>
+      }
       subtitle="test subtitle"
       preview="test preview"
       open={open}
@@ -110,6 +115,9 @@ export function PlanStartSection({ local, setLocal, markDirty }: any) {
         value={weeksVal}
         onChange={(val) => val !== "" && applyWeeks(val)}
       />
+      <Button size="sm" variant="secondary" onClick={() => applyStart("2026-08-01")}>
+        Test tlačidlo
+      </Button>
     </InputsCard>
   );
 }
