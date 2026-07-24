@@ -31,6 +31,7 @@ import {
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
+import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
 import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
@@ -40,6 +41,7 @@ import ThresholdsSection from "@/app/features/prefs/components/sections/Threshol
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 
 import {
   PANEL_STACK,
@@ -404,10 +406,13 @@ export default function CoachPreferencies() {
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
-  // 🔴 DIAGNOSTIKA: PlanStartSection aj PlanLifecycleSection uplne odstranene
-  // (import aj render), aby sme overili ci je vinnikom niektory z nich.
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
+      <PlanStartSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
       <GoalSection
         local={local}
         setPref={setPref}
@@ -486,6 +491,8 @@ export default function CoachPreferencies() {
           {t("common.refresh")}
         </Button>
       </div>
+
+      <PlanLifecycleSection prefs={local} />
     </div>
   );
 }
