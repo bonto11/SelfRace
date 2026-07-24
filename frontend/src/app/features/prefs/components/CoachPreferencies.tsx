@@ -35,6 +35,7 @@ import {
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens/panels";
 
+import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 /* ---- local DTOs ---- */
 
 type CoachPrefsExtended = CoachPrefs & {
@@ -398,10 +399,14 @@ export default function CoachPreferencies() {
   // samotná logika/hooky, alebo až renderovanie niektorej sekcie.
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
+      <PlanStartSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+
       <div style={{ color: "white", padding: 12 }}>
-        FULL LOGIC TEST — loaded pref: {JSON.stringify(pref).slice(0, 100)}
-        <br />
-        showAdv: {String(showAdv)}, addOnSports: {addOnSports.length}, lthrBpm: {String(lthrBpm)}
+        TEST s PlanStartSection — loaded pref: {JSON.stringify(pref).slice(0, 100)}
       </div>
 
       <div
