@@ -29,11 +29,8 @@ import {
   apiSaveUserThresholds,
 } from "@/app/features/performance/api/thresholds";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
-// 🔴 DIAGNOSTIKA: zakomentovane na test
-// import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
-// { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
 import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
@@ -43,7 +40,6 @@ import ThresholdsSection from "@/app/features/prefs/components/sections/Threshol
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
-import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 
 import {
   PANEL_STACK,
@@ -83,25 +79,6 @@ export default function CoachPreferencies() {
   );
 
   const [isFemale, setIsFemale] = useState(false);
-
-  // 🔴 DIAGNOSTIKA: cely tento blok (hasActivePlan state + useEffect)
-  // zakomentovany na test, ci je prave toto vinnik miznutia headeru.
-  // const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
-  //
-  // useEffect(() => {
-  //   if (!userId) return;
-  //   let alive = true;
-  //   apiActivePlanStatus(userId)
-  //     .then((s) => {
-  //       if (alive) setHasActivePlan(!!s?.has_active);
-  //     })
-  //     .catch(() => {
-  //       if (alive) setHasActivePlan(false);
-  //     });
-  //   return () => {
-  //     alive = false;
-  //   };
-  // }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -427,11 +404,10 @@ export default function CoachPreferencies() {
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
+  // 🔴 DIAGNOSTIKA: PlanStartSection aj PlanLifecycleSection uplne odstranene
+  // (import aj render), aby sme overili ci je vinnikom niektory z nich.
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      {/* 🔴 DIAGNOSTIKA: banner + podmienene poradie zakomentovane, navrat
-          na jednoduchu vzdy-rovnaku strukturu bez hasActivePlan vetvenia */}
-
       <GoalSection
         local={local}
         setPref={setPref}
@@ -510,8 +486,6 @@ export default function CoachPreferencies() {
           {t("common.refresh")}
         </Button>
       </div>
-
-      <PlanLifecycleSection prefs={local} />
     </div>
   );
 }
