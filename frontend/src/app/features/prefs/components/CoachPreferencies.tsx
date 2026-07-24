@@ -35,7 +35,6 @@ import { SportsSection } from "@/app/features/prefs/components/sections/SportsSe
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
 import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
-import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
 
 import {
   PANEL_STACK,
@@ -317,7 +316,6 @@ export default function CoachPreferencies() {
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
       />
-      <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
 
       <div
         className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
