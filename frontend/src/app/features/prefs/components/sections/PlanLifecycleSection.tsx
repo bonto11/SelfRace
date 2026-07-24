@@ -28,9 +28,6 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 /* ============================================================ */
 /* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
 /* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
-/* Logika prevzata 1:1 z povodneho WidgetCoachActions.tsx, len   */
-/* zlucena pod jedno "Vygenerovat plan" tlacidlo namiesto troch  */
-/* samostatnych krokov ktore mylili userov.                      */
 /*                                                                */
 /* Sekcia je VZDY viditeľná (nie skryta pred prvym Save):        */
 /* - Weekly/Daily prekliky vzdy klikatelne                      */
@@ -38,6 +35,7 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 /*   ale enabled len ked su vyplnene prefs (canGenerate/prefs)    */
 /* - "Aktivovat" len po plnom vygenerovani                       */
 /* - "Zrusit" len ked je plan AKTIVNY                            */
+/*                                                                */
 /* ============================================================ */
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
@@ -136,12 +134,12 @@ export default function PlanLifecycleSection({
     setError(null);
     setLoadingKind("generate");
 
-    setLoadingStepLabel(t("coachPrefs.plan.step1of3" as any));
+    setLoadingStepLabel(t("prefs.sections.planLifecycleSection.step1of3" as any));
     const stepTimer2 = setTimeout(() => {
-      setLoadingStepLabel(t("coachPrefs.plan.step2of3" as any));
+      setLoadingStepLabel(t("prefs.sections.planLifecycleSection.step2of3" as any));
     }, 20000);
     const stepTimer3 = setTimeout(() => {
-      setLoadingStepLabel(t("coachPrefs.plan.step3of3" as any));
+      setLoadingStepLabel(t("prefs.sections.planLifecycleSection.step3of3" as any));
     }, 40000);
 
     try {
@@ -199,7 +197,7 @@ export default function PlanLifecycleSection({
       if (res.success) {
         await fetchStatus();
       } else {
-        setError(res.error || t("coachPlan.errors.genericStart" as any));
+        setError(res.error || t("prefs.sections.planLifecycleSection.errors.genericStart" as any));
       }
     } catch (e: any) {
       setError(e?.message || String(e));
@@ -211,10 +209,10 @@ export default function PlanLifecycleSection({
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
     const ok = await confirm({
-      title: t("coachPlan.confirmCancel.title" as any),
-      message: t("coachPlan.confirmCancel.message" as any),
-      okText: t("coachPlan.confirmCancel.ok" as any),
-      cancelText: t("coachPlan.confirmCancel.cancel" as any),
+      title: t("prefs.sections.planLifecycleSection.confirmCancel.title" as any),
+      message: t("prefs.sections.planLifecycleSection.confirmCancel.message" as any),
+      okText: t("prefs.sections.planLifecycleSection.confirmCancel.ok" as any),
+      cancelText: t("prefs.sections.planLifecycleSection.confirmCancel.cancel" as any),
       tone: "danger",
     });
     if (!ok) return;
@@ -235,11 +233,11 @@ export default function PlanLifecycleSection({
   const canCancel = (hasWeekly || hasDaily || isPlanActive) && !isGlobalLoading;
 
   const startDisabledReason = useMemo(() => {
-    if (isMedicalSuspend) return t("coachPlan.errors.medicalBlocked" as any);
-    if (isPlanActive) return t("coachPlan.errors.alreadyActive" as any);
-    if (!latestStateId) return t("coachPlan.errors.needAnalyze" as any);
-    if (!hasWeekly) return t("coachPlan.errors.needWeekly" as any);
-    if (!hasDaily) return t("coachPlan.errors.needDaily" as any);
+    if (isMedicalSuspend) return t("prefs.sections.planLifecycleSection.errors.medicalBlocked" as any);
+    if (isPlanActive) return t("prefs.sections.planLifecycleSection.errors.alreadyActive" as any);
+    if (!latestStateId) return t("prefs.sections.planLifecycleSection.errors.needAnalyze" as any);
+    if (!hasWeekly) return t("prefs.sections.planLifecycleSection.errors.needWeekly" as any);
+    if (!hasDaily) return t("prefs.sections.planLifecycleSection.errors.needDaily" as any);
     return null;
   }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
 
@@ -261,7 +259,7 @@ export default function PlanLifecycleSection({
           marginBottom: 10,
         }}
       >
-        {t("coachPlan.title" as any)}
+        {t("prefs.sections.planLifecycleSection.title" as any)}
       </div>
 
       {isMedicalSuspend && (
@@ -276,11 +274,11 @@ export default function PlanLifecycleSection({
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">🛑</span>
             <strong className="text-sm">
-              {t("coachPlan.medicalSuspendBanner.title" as any)}
+              {t("prefs.sections.planLifecycleSection.medicalSuspendBanner.title" as any)}
             </strong>
           </div>
           <p className="text-xs opacity-90 leading-relaxed mb-3">
-            {(t("coachPlan.medicalSuspendBanner.text" as any) as string).replace(
+            {(t("prefs.sections.planLifecycleSection.medicalSuspendBanner.text" as any) as string).replace(
               "{{severity}}",
               String(maxInjurySeverity),
             )}
@@ -291,7 +289,7 @@ export default function PlanLifecycleSection({
             onClick={() => router.push("/coach/health")}
             className="w-full"
           >
-            {t("coachPlan.medicalSuspendBanner.action" as any)}
+            {t("prefs.sections.planLifecycleSection.medicalSuspendBanner.action" as any)}
           </Button>
         </div>
       )}
@@ -319,7 +317,7 @@ export default function PlanLifecycleSection({
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPlan.actions.openPlan" as any)}
+              {t("prefs.sections.planLifecycleSection.actions.openPlan" as any)}
             </Button>
             <Button
               variant="secondary"
@@ -328,7 +326,7 @@ export default function PlanLifecycleSection({
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPrefs.plan.goToWeekly" as any)}
+              {t("prefs.sections.planLifecycleSection.goToWeekly" as any)}
             </Button>
           </div>
 
@@ -340,13 +338,17 @@ export default function PlanLifecycleSection({
               size="sm"
               onClick={handleGenerate}
               disabled={isGlobalLoading || !canGenerate}
-              title={!canGenerate ? t("coachPrefs.plan.needRaceOrDate" as any) : undefined}
+              title={
+                !canGenerate
+                  ? t("prefs.sections.planLifecycleSection.needRaceOrDate" as any)
+                  : undefined
+              }
               className="w-full mb-2"
             >
               {loadingKind === "generate" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPrefs.plan.generateButton" as any)
+                t("prefs.sections.planLifecycleSection.generateButton" as any)
               )}
             </Button>
           )}
@@ -364,7 +366,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "start" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.startPlan" as any)
+                t("prefs.sections.planLifecycleSection.actions.startPlan" as any)
               )}
             </Button>
           )}
@@ -381,7 +383,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "cancel" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPlan.actions.cancelPlan" as any)
+                t("prefs.sections.planLifecycleSection.actions.cancelPlan" as any)
               )}
             </Button>
           )}
@@ -391,10 +393,20 @@ export default function PlanLifecycleSection({
               <span className="animate-pulse block text-white/80">
                 {loadingKind === "generate" && loadingStepLabel
                   ? loadingStepLabel
-                  : (t as any)(`coachPlan.loading.msg${loadingMsgIdx}`)}
+                  : (t as any)(`prefs.sections.planLifecycleSection.loading.msg${loadingMsgIdx}`)}
               </span>
             </div>
           )}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push("/coach/history")}
+            disabled={isGlobalLoading}
+            className="w-full mt-2"
+          >
+            {t("prefs.sections.planLifecycleSection.historyButton" as any)}
+          </Button>
         </>
       )}
     </div>

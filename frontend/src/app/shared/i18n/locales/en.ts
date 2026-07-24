@@ -346,6 +346,10 @@ export const en = {
 
   prefs: {
     title: "Training preferences",
+    noActivePlanBanner: {
+      title: "No trainer set up yet",
+      text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
+    },
     actions: {
       showAdvanced: "Show advanced options",
       hideAdvanced: "Hide advanced options",
@@ -364,6 +368,50 @@ export const en = {
       title: "Training settings",
     },
     sections: {
+      planLifecycleSection: {
+        title: "Plan Creation",
+        goToWeekly: "Weekly plan",
+        generateButton: "Generate plan",
+        needRaceOrDate:
+          "First fill in a plan start date or a race in the settings above.",
+        loading: {
+          msg1: "Fine-tuning your form requires focus...",
+          msg2: "Calculating millions of running scenarios. Good time to check your shoelaces.",
+          msg3: "The new plan will be worth it!",
+          msg4: "Analyzing data. This will take a moment, progress matters.",
+        },
+        actions: {
+          openPlan: "Daily plan",
+          startPlan: "Start training plan",
+          cancelPlan: "Cancel plan",
+        },
+        confirmCancel: {
+          title: "Really end this plan?",
+          message:
+            "This step cannot be undone. The current schedule will be archived among ended plans.",
+          ok: "End plan",
+          cancel: "Cancel",
+        },
+        medicalSuspendBanner: {
+          title: "Training stop-state",
+          text: "The plan was paused due to pain ({{severity}}/10).",
+          action:
+            "Only clear the injury from your profile once a doctor clears you for training.",
+        },
+        errors: {
+          genericStart: "This plan could not be started.",
+          medicalBlocked:
+            "A plan cannot be created due to an injury. Please recover first.",
+          alreadyActive: "A plan is already running.",
+          needAnalyze: "Fitness must be evaluated first.",
+          needWeekly: "Weekly outline is missing.",
+          needDaily: "Daily schedule is missing.",
+        },
+        step1of3: "Step 1/3 · Analyzing you as an athlete...",
+        step2of3: "Step 2/3 · Building your weekly plan...",
+        step3of3: "Step 3/3 · Laying out daily sessions...",
+        historyButton: "Plan history",
+      },
       daysSection: {
         subtitle: "Rest days and preferences for the long run.",
         previewDaysOff: "Rest days",
@@ -1253,79 +1301,6 @@ export const en = {
     },
   },
 
-  coachPlan: {
-    title: "Plan Creation",
-    status: {
-      active: "Active plan",
-      both: "Both weekly and daily schedule ready ✓",
-      weeklyOnly: "Weekly outline ✓",
-      dailyOnly: "Daily schedule ✓",
-      none: "No plan yet",
-    },
-    actions: {
-      openPlan: "Daily plan",
-      startPlan: "Start training plan",
-      cancelPlan: "Cancel plan",
-    },
-    prefs: {
-      empty: "No settings yet",
-      goal: "Goal",
-      weeks: "Number of weeks",
-      main: "Sport",
-    },
-    lockReason:
-      "The plan is running – new variants aren't recalculated now. To make changes, end this plan first.",
-    confirmCancel: {
-      title: "Really end this plan?",
-      message:
-        "This step cannot be undone. The current schedule will be archived among ended plans.",
-      ok: "End plan",
-      cancel: "Cancel",
-    },
-    requirements: {
-      title: "To get started, you need:",
-      analyze: "analysis",
-      weekly: "weekly outline",
-      daily: "daily schedule",
-    },
-    errors: {
-      missingUserId: "Couldn't identify the account.",
-      alreadyActive: "A plan is already running.",
-      needAnalyze: "Fitness must be evaluated first.",
-      needBoth: "Both weekly and daily schedule must be prepared first.",
-      needWeekly: "Weekly outline is missing.",
-      needDaily: "Daily schedule is missing.",
-      genericStart: "This plan could not be started.",
-      medicalBlocked:
-        "A plan cannot be created due to an injury. Please recover first.",
-      aiQuota:
-        "This month's time is used up. Tokens spent: {{tokens}}. You can continue at the start of next month or reach out via contact.",
-    },
-    loading: {
-      msg1: "Fine-tuning your form requires focus...",
-      msg2: "Calculating millions of running scenarios. Good time to check your shoelaces.",
-      msg3: "The new plan will be worth it!",
-      msg4: "Analyzing data. This will take a moment, progress matters.",
-    },
-    medicalSuspendBanner: {
-      title: "Training stop-state",
-      text: "The plan was paused due to pain ({{severity}}/10).",
-      action:
-        "Only clear the injury from your profile once a doctor clears you for training.",
-    },
-    history: {
-      pageTitle: "Plan History",
-      empty: "No older plans yet.",
-      completed: "Successfully completed",
-      canceled: "Cancelled early",
-      plan: "Training plan",
-      trained: "Trained:",
-      runned: "Distance covered",
-      movementTime: "Total time in motion",
-      strength: "Strength sessions",
-    },
-
-  },
   monthlySummary: {
     title: "Monthly Summary",
     noData: "No data for this month",
@@ -1440,6 +1415,17 @@ export const en = {
       empty: "You have no postponed workouts.",
       actionReschedule: "Reschedule",
     },
+  },
+  coachPlanHistory: {
+    title: " Plan history",
+    empty: "No older plans yet.",
+    completed: "Successfully completed",
+    canceled: "Cancelled early",
+    plan: "Training plan",
+    trained: "Trained:",
+    runned: "Distance covered",
+    movementTime: "Total time in motion",
+    strength: "Strength sessions",
   },
   coachPrefs: {
     plan: {

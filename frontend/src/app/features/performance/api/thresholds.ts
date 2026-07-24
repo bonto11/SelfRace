@@ -72,8 +72,6 @@ export async function apiFetchUserThresholdsLatest(
     String(userId)
   )}/thresholds/latest`;
 
-  console.debug("[thresholds][GET latest] ->", path);
-
   try {
     const json = (await callBackend<ApiRows | ApiFail>(path, {
       method: "GET",

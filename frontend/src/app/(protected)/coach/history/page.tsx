@@ -1,3 +1,4 @@
+// src/app/coach/history/page.tsx
 "use client";
 
 import PageShell from "@/app/shared/ui/components/PageShell";
@@ -9,7 +10,7 @@ export default function CoachPlanHistoryPage() {
   
   return (
     <PageShell 
-      title={t("coachPlan.history.pageTitle" as any) || "História Plánov"} 
+      title={t("coachPlanHistory.title" as any)} 
       showBack 
       showPoweredByStrava={false}
     >
