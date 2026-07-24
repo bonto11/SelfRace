@@ -30,6 +30,12 @@ import {
 } from "@/app/features/performance/api/thresholds";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
+import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
+import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
+import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
+import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
+
 import {
   PANEL_STACK,
   PANEL_ACTIONS_INLINE,
@@ -276,12 +282,39 @@ export default function CoachPreferencies() {
   };
 
   const pref = prefDefaults(local);
+  const mainSport: SportKind | "" = (local.main_sport ?? "") as any;
+  const addOnSports: SportKind[] = useMemo(() => {
+    const v = (local as any).add_on_sports;
+    return Array.isArray(v) ? (v as SportKind[]) : [];
+  }, [local]);
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      <div style={{ color: "white", padding: 12 }}>
-        HOLA KOSTRA — ziadne sekcie, len state a handlery
-      </div>
+      <GoalSection
+        local={local}
+        setPref={setPref}
+        upsertRunTargets={upsertRunTargets}
+      />
+      <SportsSection
+        local={local}
+        mainSport={mainSport}
+        addOnSports={addOnSports}
+        setPref={setPref}
+      />
+      <VolumeSection volume={local.volume} setPref={setPref} />
+      <StrengthSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+      <DaysSection
+        daysOff={pref.days_off}
+        longRunDays={pref.long_run_days}
+        womensHealth={pref.womens_health}
+        isFemale={isFemale}
+        toggleInArray={toggleInArray}
+        setPrefNested={setPrefNested}
+      />
 
       <div
         className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
