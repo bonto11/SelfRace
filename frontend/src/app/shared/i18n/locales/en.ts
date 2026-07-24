@@ -1254,107 +1254,18 @@ export const en = {
   },
 
   coachPlan: {
-    widget: {
-      title: "Plan creation",
-      tooltip: [
-        "Control panel. The whole process has 3 main steps:",
-        "",
-        "1) State evaluation",
-        "• Looks at training history and recovery. Estimates how much load the body can handle right now.",
-        "",
-        "2) Weekly skeleton preparation",
-        "• Maps out prep phases and the overall character of individual weeks (when to push and when to rest).",
-        "",
-        "3) Daily breakdown",
-        "• Breaks every week down into details – generates specific training units for each day.",
-        "",
-        "Then just start the plan! This 'locks' the schedule so things aren't accidentally changed in the middle of ongoing training.",
-        "",
-        "⚠️ Important:",
-        "• The time for recalculations is limited within the subscription. Unnecessary plan regenerations should not be overused.",
-        "• Generate a new plan only when a change is truly needed (e.g., a new goal or return after a long break).",
-      ].join("\n"),
-      note: "Analyze fitness, create the schedule, and then start the active plan.",
-      timeNote:
-        "Preparing the plan can take up to 3 minutes, please be patient.",
-      loading: {
-        msg1: "Dialing in form takes focus...",
-        msg2: "Calculating millions of running scenarios. Time to check shoelaces.",
-        msg3: "The new schedule is going to be worth it!",
-        msg4: "Analyzing data. It takes a moment, progress is important.",
-      },
-      tokenWarning: {
-        title: "Saving time:",
-        text: "Every new plan uses a bit of the monthly limit. Don't regenerate plans unnecessarily. The balance can be found in the section",
-        link: "Subscription",
-        shortText: "Regenerating plans wisely saves allocated time.",
-      },
-
-      status: {
-        medicalSuspend: "TRAINING PAUSED (INJURY)",
-        success: "Done!",
-        missing: "Missing for now",
-      },
-      errors: {
-        medicalBlocked:
-          "Due to an injury, a plan cannot be created. Please heal up first.",
-      },
-      medicalSuspendBanner: {
-        title: "Training on hold",
-        text: "The plan was paused due to pain ({{severity}}/10).",
-        action:
-          "Only delete the injury in the profile when a doctor clears training.",
-      },
+    title: "Plan Creation",
+    loading: {
+      msg1: "Fine-tuning your form requires focus...",
+      msg2: "Calculating millions of running scenarios. Good time to check your shoelaces.",
+      msg3: "The new plan will be worth it!",
+      msg4: "Analyzing data. This will take a moment, progress matters.",
     },
-    status: {
-      active: "Current plan",
-      both: "Weekly and daily schedule present ✓",
-      weeklyOnly: "Weekly skeleton ✓",
-      dailyOnly: "Daily schedule ✓",
-      none: "No plan yet",
-    },
-    prefs: {
-      empty: "No settings yet",
-      goal: "Goal",
-      weeks: "Number of weeks",
-      main: "Sport",
-    },
-    lockReason:
-      "The plan is running – new variants cannot be recalculated now. To change, this plan must be ended first.",
-    confirmCancel: {
-      title: "Really end this plan?",
-      message:
-        "This step cannot be undone. The current schedule will be archived among completed plans.",
-      ok: "End plan",
-      cancel: "Cancel",
-    },
-    requirements: {
-      title: "To get started, the following is needed:",
-      analyze: "analysis",
-      weekly: "weekly skeleton",
-      daily: "daily schedule",
-    },
-    history: {
-      pageTitle: "Plan history",
-      empty: "No older plans yet.",
-      completed: "Successfully completed",
-      canceled: "Ended early",
-      plan: "Training plan",
-      trained: "Trained:",
-      runned: "Distance run",
-      movementTime: "Total moving time",
-      strength: "Strength workouts",
-    },
-    errors: {
-      missingUserId: "Could not identify the account.",
-      alreadyActive: "The plan is already running.",
-      needAnalyze: "Fitness must be evaluated first.",
-      needBoth: "Weekly and daily schedule must be prepared first.",
-      needWeekly: "Weekly skeleton is missing.",
-      needDaily: "Daily schedule is missing.",
-      genericStart: "This plan could not be started.",
-      aiQuota:
-        "Time for this month is exhausted. Credits used: {{tokens}}. Can be used again at the start of a new month or via contact.",
+    medicalSuspendBanner: {
+      title: "Training stop-state",
+      text: "The plan was paused due to pain ({{severity}}/10).",
+      action:
+        "Only clear the injury from your profile once a doctor clears you for training.",
     },
   },
   monthlySummary: {
@@ -1497,6 +1408,8 @@ export const en = {
       step3of3: "Step 3/3 · Laying out daily sessions...",
       startPlan: "Start training plan",
       cancelPlan: "End this plan",
+      needRaceOrDate:
+        "First fill in a plan start date or a race in the settings above.",
     },
     widget: {
       title: "Coach settings",

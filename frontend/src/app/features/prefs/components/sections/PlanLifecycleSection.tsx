@@ -28,32 +28,35 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 /* ============================================================ */
 /* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
 /* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
+/* Logika prevzata 1:1 z povodneho WidgetCoachActions.tsx, len   */
+/* zlucena pod jedno "Vygenerovat plan" tlacidlo namiesto troch  */
+/* samostatnych krokov ktore mylili userov.                      */
+/*                                                                */
 /* Sekcia je VZDY viditeľná (nie skryta pred prvym Save):        */
 /* - Weekly/Daily prekliky vzdy klikatelne                      */
 /* - "Vygenerovat" vzdy zobrazene (ked plan nie je aktivny),      */
-/*   ale enabled len ked su vyplnene prefs (canGenerate prop)     */
+/*   ale enabled len ked su vyplnene prefs (canGenerate/prefs)    */
 /* - "Aktivovat" len po plnom vygenerovani                       */
 /* - "Zrusit" len ked je plan AKTIVNY                            */
 /* ============================================================ */
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
-
 export default function PlanLifecycleSection({
   prefs,
 }: {
   prefs: { start_date?: string | null; targets?: { run?: { races?: any[] } } };
 }) {
+  const router = useRouter();
+  const { userId, userUuid } = useUserId();
+  const t = useT();
+
   const canGenerate = useMemo(() => {
     const hasStartDate = !!(prefs?.start_date && prefs.start_date.trim());
     const races = prefs?.targets?.run?.races;
     const hasRace = Array.isArray(races) && races.length > 0;
     return hasStartDate || hasRace;
   }, [prefs?.start_date, prefs?.targets]);
-
-  const router = useRouter();
-  const { userId, userUuid } = useUserId();
-  const t = useT();
 
   const [latestStateId, setLatestStateId] = useState<number | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
@@ -258,7 +261,7 @@ export default function PlanLifecycleSection({
           marginBottom: 10,
         }}
       >
-        {t("coachPlan.widget.title" as any)}
+        {t("coachPlan.title" as any)}
       </div>
 
       {isMedicalSuspend && (
@@ -273,11 +276,11 @@ export default function PlanLifecycleSection({
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">🛑</span>
             <strong className="text-sm">
-              {t("coachPlan.widget.medicalSuspendBanner.title" as any)}
+              {t("coachPlan.medicalSuspendBanner.title" as any)}
             </strong>
           </div>
           <p className="text-xs opacity-90 leading-relaxed mb-3">
-            {(t("coachPlan.widget.medicalSuspendBanner.text" as any) as string).replace(
+            {(t("coachPlan.medicalSuspendBanner.text" as any) as string).replace(
               "{{severity}}",
               String(maxInjurySeverity),
             )}
@@ -288,7 +291,7 @@ export default function PlanLifecycleSection({
             onClick={() => router.push("/coach/health")}
             className="w-full"
           >
-            {t("coachPlan.widget.medicalSuspendBanner.action" as any)}
+            {t("coachPlan.medicalSuspendBanner.action" as any)}
           </Button>
         </div>
       )}
@@ -316,7 +319,7 @@ export default function PlanLifecycleSection({
               disabled={isGlobalLoading}
               className="flex-1"
             >
-              {t("coachPrefs.plan.goToDaily" as any)}
+              {t("coachPlan.actions.openPlan" as any)}
             </Button>
             <Button
               variant="secondary"
@@ -361,7 +364,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "start" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPrefs.plan.startPlan" as any)
+                t("coachPlan.actions.startPlan" as any)
               )}
             </Button>
           )}
@@ -378,7 +381,7 @@ export default function PlanLifecycleSection({
               {loadingKind === "cancel" ? (
                 <LoadingSpinner size="button" />
               ) : (
-                t("coachPrefs.plan.cancelPlan" as any)
+                t("coachPlan.actions.cancelPlan" as any)
               )}
             </Button>
           )}
@@ -388,7 +391,7 @@ export default function PlanLifecycleSection({
               <span className="animate-pulse block text-white/80">
                 {loadingKind === "generate" && loadingStepLabel
                   ? loadingStepLabel
-                  : (t as any)(`coachPlan.widget.loading.msg${loadingMsgIdx}`)}
+                  : (t as any)(`coachPlan.loading.msg${loadingMsgIdx}`)}
               </span>
             </div>
           )}
