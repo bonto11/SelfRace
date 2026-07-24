@@ -345,6 +345,10 @@ export const sk = {
 
   prefs: {
     title: "Tréningové preferencie",
+    noActivePlanBanner: {
+      title: "Zatiaľ nemáš nastaveného trénera",
+      text: "Vyplň svoje tréningové preferencie nižšie a potom dole požiadaj o návrh plánu a spusti ho.",
+    },
     actions: {
       showAdvanced: "Zobraziť rozšírené možnosti",
       hideAdvanced: "Skryť rozšírené možnosti",
@@ -404,6 +408,7 @@ export const sk = {
         step1of3: "Krok 1/3 · Analyzujem teba ako športovca...",
         step2of3: "Krok 2/3 · Navrhujem týždenný plán...",
         step3of3: "Krok 3/3 · Navrhujem denné tréningy...",
+        historyButton: "História plánov",
       },
       daysSection: {
         subtitle: "Dni voľna a preferencie pre dlhý tréning.",

@@ -346,6 +346,10 @@ export const en = {
 
   prefs: {
     title: "Training preferences",
+    noActivePlanBanner: {
+      title: "No trainer set up yet",
+      text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
+    },
     actions: {
       showAdvanced: "Show advanced options",
       hideAdvanced: "Hide advanced options",
@@ -406,6 +410,7 @@ export const en = {
         step1of3: "Step 1/3 · Analyzing you as an athlete...",
         step2of3: "Step 2/3 · Building your weekly plan...",
         step3of3: "Step 3/3 · Laying out daily sessions...",
+        historyButton: "Plan history",
       },
       daysSection: {
         subtitle: "Rest days and preferences for the long run.",

@@ -29,6 +29,7 @@ import {
   apiSaveUserThresholds,
 } from "@/app/features/performance/api/thresholds";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
+import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
 import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
@@ -81,6 +82,27 @@ export default function CoachPreferencies() {
   );
 
   const [isFemale, setIsFemale] = useState(false);
+
+  // 🌟 Stav aktivneho planu - riadi poradie sekcii (ked je plan aktivny,
+  // PlanLifecycleSection ide hore a PlanStartSection je defaultne zabalena;
+  // ked plan nie je, zobrazi sa banner + PlanStartSection otvorena hore).
+  // null = este nezistene (pociatocny loading stav).
+  const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    apiActivePlanStatus(userId)
+      .then((s) => {
+        if (alive) setHasActivePlan(!!s?.has_active);
+      })
+      .catch(() => {
+        if (alive) setHasActivePlan(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -408,11 +430,35 @@ export default function CoachPreferencies() {
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      <PlanStartSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
+      {hasActivePlan === true && <PlanLifecycleSection prefs={local} />}
+
+      {hasActivePlan === false && (
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.03)",
+            marginBottom: 4,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+            {t("prefs.noActivePlanBanner.title")}
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.75, lineHeight: 1.4 }}>
+            {t("prefs.noActivePlanBanner.text")}
+          </div>
+        </div>
+      )}
+
+      {hasActivePlan !== null && (
+        <PlanStartSection
+          local={local}
+          setLocal={setLocal}
+          markDirty={markDirty}
+          defaultOpen={!hasActivePlan}
+        />
+      )}
       <GoalSection
         local={local}
         setPref={setPref}
@@ -492,7 +538,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
-      <PlanLifecycleSection prefs={local} />
+      {hasActivePlan !== true && <PlanLifecycleSection prefs={local} />}
     </div>
   );
 }

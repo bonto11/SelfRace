@@ -73,11 +73,17 @@ type Props = {
   local: any;
   setLocal: (fn: (prev: any) => any) => void;
   markDirty: () => void;
+  defaultOpen?: boolean;
 };
 
-export function PlanStartSection({ local, setLocal, markDirty }: Props) {
+export function PlanStartSection({
+  local,
+  setLocal,
+  markDirty,
+  defaultOpen = true,
+}: Props) {
   const t = useT();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
 
   const minStart = MIN_PLAN_START();
   const start = local.start_date ?? "";
