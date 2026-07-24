@@ -156,30 +156,30 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>{t("prefs.sections.planStartSection.widget.title")}</span>
-          <TooltipIcon text={t("prefs.sections.planStartSection.widget.tooltip")} />
+          <span>Začiatok plánu</span>
+          <TooltipIcon text="Nastav dátum začiatku a konca tréningového plánu." />
         </div>
       }
-      subtitle={t("prefs.sections.planStartSection.subtitle")}
+      subtitle="Kedy má plán začať a ako dlho má trvať"
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
       always={
         <div className="text-xs" style={{ color: appColors.textMuted }}>
-          {t("prefs.sections.planStartSection.minStartLabel")}: {minStart}
+          Najskorší možný dátum: {minStart}
         </div>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.startLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Dátum začiatku</div>
             <DateField value={start || null} onChange={guardStart} />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.endLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Dátum konca</div>
             <DateField
               value={end || null}
               onChange={applyEnd}
@@ -190,7 +190,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>
-              {t("prefs.sections.planStartSection.horizonLabel")}
+              Dĺžka plánu (týždne)
             </div>
             <NumberField
               min={1}
@@ -203,7 +203,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>{t("prefs.sections.planStartSection.quickActionsLabel")}</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>Rýchle akcie</div>
             <div className={FORM_GRID_SPLIT}>
               <Button
                 size="sm"
@@ -217,7 +217,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
                 variant="secondary"
                 onClick={() => applyStart(MIN_PLAN_START())}
               >
-                {t("prefs.sections.planStartSection.tomorrow")}
+                Zajtra
               </Button>
             </div>
           </section>
