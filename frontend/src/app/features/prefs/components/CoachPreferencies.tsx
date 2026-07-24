@@ -30,12 +30,24 @@ import {
 } from "@/app/features/performance/api/thresholds";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
+import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
+import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
+import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
+import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
+import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
+import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
+import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
+import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
+import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
+import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
+import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
+
 import {
   PANEL_STACK,
   PANEL_ACTIONS_INLINE,
 } from "@/app/shared/ui/tokens/panels";
 
-import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 /* ---- local DTOs ---- */
 
 type CoachPrefsExtended = CoachPrefs & {
@@ -394,21 +406,79 @@ export default function CoachPreferencies() {
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
-  // 🔴 DIAGNOSTIKA: celá logika hore je pôvodná, nezmenená. JSX nižšie
-  // zámerne NEVYKRESĽUJE žiadne sekcie - testujeme, či problém spôsobuje
-  // samotná logika/hooky, alebo až renderovanie niektorej sekcie.
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      
       <PlanStartSection
         local={local}
         setLocal={setLocal}
         markDirty={markDirty}
       />
+      <GoalSection
+        local={local}
+        setPref={setPref}
+        upsertRunTargets={upsertRunTargets}
+      />
+      <SportsSection
+        local={local}
+        mainSport={mainSport}
+        addOnSports={addOnSports}
+        setPref={setPref}
+      />
+      <VolumeSection volume={local.volume} setPref={setPref} />
+      <StrengthSection
+        local={local}
+        setLocal={setLocal}
+        markDirty={markDirty}
+      />
+      <DaysSection
+        daysOff={pref.days_off}
+        longRunDays={pref.long_run_days}
+        womensHealth={pref.womens_health}
+        isFemale={isFemale}
+        toggleInArray={toggleInArray}
+        setPrefNested={setPrefNested}
+      />
+      <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
+      <ZonesSection
+        zones={local.zones}
+        lthrBpm={lthrBpm}
+        onZonesChange={handleZonesChange}
+        onSaveZonesToDB={handleSaveZonesToDB}
+        calcMode={pref.hr_zone_calc_mode ?? "manual"}
+        onCalcModeChange={(m) =>
+          setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+        }
+      />
+      <ThresholdsSection
+        thresholds={local.thresholds}
+        latestList={local.thresholds_latest ?? []}
+        onChange={handleThresholdsChange}
+        onSaveToDB={handleSaveThresholdsToDB}
+      />
 
-      <div style={{ color: "white", padding: 12 }}>
-        TEST s PlanStartSection — loaded pref: {JSON.stringify(pref).slice(0, 100)}
+      <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
+        <button
+          type="button"
+          onClick={() => setShowAdv((s) => !s)}
+          aria-expanded={showAdv}
+          className="text-sm underline opacity-80 hover:opacity-100"
+        >
+          {showAdv
+            ? t("prefs.actions.hideAdvanced")
+            : t("prefs.actions.showAdvanced")}
+        </button>
       </div>
+
+      {showAdv && (
+        <>
+          <FocusAvoidSection
+            local={local}
+            setPref={setPref}
+            toggleInArray={toggleInArray}
+          />
+          <RehabSection local={local} setPref={setPref} />
+        </>
+      )}
 
       <div
         className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
@@ -421,6 +491,8 @@ export default function CoachPreferencies() {
           {t("common.refresh")}
         </Button>
       </div>
+
+      <PlanLifecycleSection prefs={local} />
     </div>
   );
 }

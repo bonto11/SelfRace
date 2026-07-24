@@ -1255,6 +1255,52 @@ export const en = {
 
   coachPlan: {
     title: "Plan Creation",
+    status: {
+      active: "Active plan",
+      both: "Both weekly and daily schedule ready ✓",
+      weeklyOnly: "Weekly outline ✓",
+      dailyOnly: "Daily schedule ✓",
+      none: "No plan yet",
+    },
+    actions: {
+      openPlan: "Daily plan",
+      startPlan: "Start training plan",
+      cancelPlan: "Cancel plan",
+    },
+    prefs: {
+      empty: "No settings yet",
+      goal: "Goal",
+      weeks: "Number of weeks",
+      main: "Sport",
+    },
+    lockReason:
+      "The plan is running – new variants aren't recalculated now. To make changes, end this plan first.",
+    confirmCancel: {
+      title: "Really end this plan?",
+      message:
+        "This step cannot be undone. The current schedule will be archived among ended plans.",
+      ok: "End plan",
+      cancel: "Cancel",
+    },
+    requirements: {
+      title: "To get started, you need:",
+      analyze: "analysis",
+      weekly: "weekly outline",
+      daily: "daily schedule",
+    },
+    errors: {
+      missingUserId: "Couldn't identify the account.",
+      alreadyActive: "A plan is already running.",
+      needAnalyze: "Fitness must be evaluated first.",
+      needBoth: "Both weekly and daily schedule must be prepared first.",
+      needWeekly: "Weekly outline is missing.",
+      needDaily: "Daily schedule is missing.",
+      genericStart: "This plan could not be started.",
+      medicalBlocked:
+        "A plan cannot be created due to an injury. Please recover first.",
+      aiQuota:
+        "This month's time is used up. Tokens spent: {{tokens}}. You can continue at the start of next month or reach out via contact.",
+    },
     loading: {
       msg1: "Fine-tuning your form requires focus...",
       msg2: "Calculating millions of running scenarios. Good time to check your shoelaces.",

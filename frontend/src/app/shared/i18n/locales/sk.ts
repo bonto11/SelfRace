@@ -1249,6 +1249,52 @@ export const sk = {
 
   coachPlan: {
     title: "Tvorba plánu",
+    status: {
+      active: "Aktuálny plán",
+      both: "Je tu týždenný aj denný rozpis ✓",
+      weeklyOnly: "Týždenná kostra ✓",
+      dailyOnly: "Denný rozpis ✓",
+      none: "Zatiaľ bez plánu",
+    },
+    actions: {
+      openPlan: "Denný plán",
+      startPlan: "Spustiť tréningový plán",
+      cancelPlan: "Zrušiť plán",
+    },
+    prefs: {
+      empty: "Zatiaľ bez nastavení",
+      goal: "Cieľ",
+      weeks: "Počet týždňov",
+      main: "Šport",
+    },
+    lockReason:
+      "Plán je spustený – teraz sa neprepočítavajú nové varianty. Pre zmenu treba najprv tento plán ukončiť.",
+    confirmCancel: {
+      title: "Naozaj ukončiť tento plán?",
+      message:
+        "Tento krok sa nebude dať vrátiť späť. Aktuálny rozpis sa archivuje medzi ukončené plány.",
+      ok: "Ukončiť plán",
+      cancel: "Zrušiť",
+    },
+    requirements: {
+      title: "Aby sa mohlo začať, je potrebná:",
+      analyze: "analýza",
+      weekly: "týždenná kostra",
+      daily: "denný rozpis",
+    },
+    errors: {
+      missingUserId: "Nepodarilo sa identifikovať účet.",
+      alreadyActive: "Plán už beží.",
+      needAnalyze: "Najprv sa musí vyhodnotiť trénovanosť.",
+      needBoth: "Najprv treba pripraviť týždenný aj denný rozpis.",
+      needWeekly: "Chýba týždenná kostra.",
+      needDaily: "Chýba denný rozpis.",
+      genericStart: "Tento plán sa nepodarilo spustiť.",
+      medicalBlocked:
+        "Kvôli zraneniu nie je možné vytvoriť plán. Najprv sa prosím vylieč.",
+      aiQuota:
+        "Čas na tento mesiac je už vyčerpaný. Počet minutých kreditov: {{tokens}}. Možné opäť využiť začiatkom nového mesiaca alebo napíš cez kontakt.",
+    },
     loading: {
       msg1: "Ladenie formy si vyžaduje sústredenie...",
       msg2: "Prepočítavajú sa milióny bežeckých scenárov. Zatiaľ je čas skontrolovať si šnúrky.",
@@ -1271,7 +1317,6 @@ export const sk = {
       movementTime: "Celkový čas v pohybe",
       strength: "Silové tréningy",
     },
-
   },
   monthlySummary: {
     title: "Mesačný prehľad",
