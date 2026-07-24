@@ -76,6 +76,12 @@ type Props = {
 };
 
 export function PlanStartSection({ local, setLocal, markDirty }: any) {
+  const start = local.start_date ?? "";
+  const applyStart = (next: string | null) => {
+    markDirty();
+    setLocal((prev: any) => ({ ...prev, start_date: next || null }));
+  };
+
   return (
     <InputsCard
       title="TEST TITLE"
@@ -85,7 +91,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: any) {
       onOpenChange={() => {}}
       backdropVariant="default"
     >
-      <div style={{ color: "white" }}>prázdny obsah</div>
+      <DateField value={start || null} onChange={applyStart} />
     </InputsCard>
   );
 }
