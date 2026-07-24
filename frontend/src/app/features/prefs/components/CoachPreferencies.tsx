@@ -288,7 +288,6 @@ export default function CoachPreferencies() {
     return Array.isArray(v) ? (v as SportKind[]) : [];
   }, [local]);
 
-
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
       <GoalSection
