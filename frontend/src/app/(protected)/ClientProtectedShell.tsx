@@ -2,6 +2,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -35,6 +37,58 @@ import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
+/* ============================================================ */
+/* HEADER HEALTH CHECK - obchadzkove riesenie: po kazdej zmene   */
+/* stranky (nezavisle OD SPOSOBU navigacie - Sidebar, bottom bar, */
+/* Link, router.push kdekolvek v appke) skontroluje, ci je header */
+/* realne viditelny v DOM. Ak nie je (poskodeny React strom kvoli */
+/* neosetrenej chybe niekde vo vnutri stranky), spravi TVRDY      */
+/* RELOAD - jediny sposob, ktory garantovane obnovi cisty stav,   */
+/* keдze plny browser reload vytvori uplne novy React strom.      */
+/* Poistka proti nekonecnemu loopu: max 1 auto-reload za 3s.      */
+/* ============================================================ */
+function useHeaderHealthCheck() {
+  const pathname = usePathname();
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      const headerEl = document.querySelector("[data-app-header]");
+      const isVisible =
+        !!headerEl &&
+        (headerEl as HTMLElement).offsetHeight > 0 &&
+        window.getComputedStyle(headerEl as HTMLElement).display !== "none" &&
+        window.getComputedStyle(headerEl as HTMLElement).visibility !== "hidden";
+
+      if (!isVisible) {
+        const guardKey = "header_reload_guard";
+        const lastReload = sessionStorage.getItem(guardKey);
+        const now = Date.now();
+
+        if (lastReload && now - Number(lastReload) < 3000) {
+          console.error(
+            "[HeaderHealthCheck] Header stale chyba aj po reloade - nerobim dalsi pokus (ochrana proti loopu).",
+          );
+          return;
+        }
+
+        sessionStorage.setItem(guardKey, String(now));
+        console.error(
+          "[HeaderHealthCheck] Header nie je viditelny po navigacii - robim tvrdy reload.",
+        );
+        window.location.reload();
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
+  }, [pathname]);
+}
+
 export default function ClientProtectedShell({
   children,
 }: {
@@ -42,6 +96,8 @@ export default function ClientProtectedShell({
 }) {
   const t = useT();
   const { userId } = useUserId();
+
+  useHeaderHealthCheck();
 
   return (
     <>
@@ -86,6 +142,7 @@ export default function ClientProtectedShell({
 
                   <div className="relative z-10 flex flex-col h-full">
                     <header
+                      data-app-header
                       className="shrink-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
                       style={{
                         background: appColors.backgroundAlt,
