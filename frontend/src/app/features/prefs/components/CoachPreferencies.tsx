@@ -35,6 +35,9 @@ import { SportsSection } from "@/app/features/prefs/components/sections/SportsSe
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
 import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
+import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
+import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
+import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
 
 import {
   PANEL_STACK,
@@ -288,6 +291,82 @@ export default function CoachPreferencies() {
     return Array.isArray(v) ? (v as SportKind[]) : [];
   }, [local]);
 
+  const handleZonesChange = (z: any) => {
+    setLocal((prev) => ({ ...prev, zones: z }));
+    markDirty();
+  };
+
+  const handleSaveZonesToDB = async (z: any) => {
+    if (!userId) return;
+    try {
+      const savedZones = await apiSaveUserZones(userId, z ?? {});
+      const freshPrefsFromDB = await refreshCoachPrefsFromDB(userId);
+      const currentModeInUI = local.preferences?.hr_zone_calc_mode ?? "manual";
+
+      const normalizedPrefs = {
+        ...freshPrefsFromDB,
+        preferences: {
+          ...prefDefaults(freshPrefsFromDB as any),
+          hr_zone_calc_mode: currentModeInUI,
+        },
+      } as CoachPrefs;
+
+      await saveCoachPrefs(userId, normalizedPrefs);
+
+      setLocal((prev) => ({
+        ...prev,
+        zones: savedZones ?? z,
+        preferences: normalizedPrefs.preferences,
+      }));
+
+      toast.success(t("prefs.info.zonesSaved"));
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));
+    }
+  };
+
+  const handleThresholdsChange = (th: any) => {
+    setLocal((prev) => ({ ...prev, thresholds: th }));
+    markDirty();
+  };
+
+  const handleSaveThresholdsToDB = async (th: any) => {
+    if (!userId) return;
+    try {
+      const saved = await apiSaveUserThresholds(userId, th ?? {});
+      setLocal((prev) => {
+        const latest = Array.isArray(prev.thresholds_latest)
+          ? prev.thresholds_latest
+          : [];
+        const keySaved = `${(saved?.sport ?? th.sport ?? "running").toLowerCase()}|${(saved?.threshold_type ?? th.threshold_type ?? "LT2").toLowerCase()}`;
+        const filtered = latest.filter(
+          (r: any) =>
+            `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}` !==
+            keySaved,
+        );
+        const mergedRow = { ...(th ?? {}), ...(saved ?? {}) };
+        return {
+          ...prev,
+          thresholds: mergedRow,
+          thresholds_latest: [mergedRow, ...filtered],
+        };
+      });
+      toast.success(t("prefs.info.thresholdSaved"));
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("api.prefs.thresholdsSaveFailed"));
+    }
+  };
+
+  const lthrBpm: number | null = useMemo(() => {
+    const draft = Number(local?.thresholds?.hr_bpm);
+    if (Number.isFinite(draft) && draft > 0) return draft;
+    const rows = (local.thresholds_latest ?? []) as any[];
+    const lt2 = rows.find(
+      (r) => String(r.threshold_type).toUpperCase() === "LT2",
+    );
+    return lt2?.hr_bpm ?? null;
+  }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
+
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
       <GoalSection
@@ -314,6 +393,23 @@ export default function CoachPreferencies() {
         isFemale={isFemale}
         toggleInArray={toggleInArray}
         setPrefNested={setPrefNested}
+      />
+      <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
+      <ZonesSection
+        zones={local.zones}
+        lthrBpm={lthrBpm}
+        onZonesChange={handleZonesChange}
+        onSaveZonesToDB={handleSaveZonesToDB}
+        calcMode={pref.hr_zone_calc_mode ?? "manual"}
+        onCalcModeChange={(m) =>
+          setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+        }
+      />
+      <ThresholdsSection
+        thresholds={local.thresholds}
+        latestList={local.thresholds_latest ?? []}
+        onChange={handleThresholdsChange}
+        onSaveToDB={handleSaveThresholdsToDB}
       />
 
       <div
