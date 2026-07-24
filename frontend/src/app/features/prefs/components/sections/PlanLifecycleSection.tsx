@@ -38,7 +38,6 @@ import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_lo
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function PlanLifecycleSection({
   prefs,
