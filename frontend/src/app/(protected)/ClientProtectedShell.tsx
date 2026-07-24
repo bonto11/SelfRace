@@ -34,6 +34,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
+import GlobalErrorCatcher from "@/app/shared/ui/components/GlobalErrorCatcher";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
@@ -101,6 +102,7 @@ export default function ClientProtectedShell({
 
   return (
     <>
+      <GlobalErrorCatcher />
       <UserPrefsBootstrapper />
       <UserSettingsBootstrapper />
 
