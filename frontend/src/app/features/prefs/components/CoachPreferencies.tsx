@@ -30,21 +30,6 @@ import {
 } from "@/app/features/performance/api/thresholds";
 import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 
-import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
-// 🔴 DIAGNOSTIKA: zakomentovane na test
-// import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
-import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
-import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
-import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
-import { RulesSection } from "@/app/features/prefs/components/sections/RulesSection";
-import ZonesSection from "@/app/features/prefs/components/sections/ZonesSection";
-import ThresholdsSection from "@/app/features/prefs/components/sections/ThresholdsSection";
-import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
-import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
-import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
-// 🔴 DIAGNOSTIKA: zakomentovane na test
-// import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
-
 import {
   PANEL_STACK,
   PANEL_ACTIONS_INLINE,
@@ -246,40 +231,6 @@ export default function CoachPreferencies() {
           .filter((x) => x.role !== "none" && Number(x.share_pct) > 0),
       };
 
-      if (normalized.targets) {
-        const trg = normalized.targets as any;
-        const cleaned: any = {};
-        if (trg.run) cleaned.run = trg.run;
-        if (
-          trg.ride &&
-          (trg.ride.weekly_time_target_min != null ||
-            (trg.ride.focus && trg.ride.focus !== "endurance"))
-        )
-          cleaned.ride = trg.ride;
-        if (
-          trg.strength &&
-          (trg.strength.sessions_per_week != null ||
-            (trg.strength.focus && trg.strength.focus !== "general"))
-        )
-          cleaned.strength = trg.strength;
-        if (
-          trg.swim &&
-          (trg.swim.weekly_time_target_min != null ||
-            (trg.swim.sessions_per_week != null &&
-              Number(trg.swim.sessions_per_week) > 0) ||
-            (trg.swim.focus && trg.swim.focus !== "technique"))
-        ) {
-          cleaned.swim = {
-            ...trg.swim,
-            sessions_per_week:
-              trg.swim.sessions_per_week != null
-                ? Number(trg.swim.sessions_per_week)
-                : null,
-          };
-        }
-        normalized.targets = Object.keys(cleaned).length ? cleaned : undefined;
-      }
-
       const { external_activities: _ext2, ...normalizedClean } = normalized;
       await saveCoachPrefs(userId, normalizedClean);
       toast.success(t("prefs.info.saveSuccess"));
@@ -325,159 +276,12 @@ export default function CoachPreferencies() {
   };
 
   const pref = prefDefaults(local);
-  const [showAdv, setShowAdv] = useState(false);
-  const mainSport: SportKind | "" = (local.main_sport ?? "") as any;
-  const addOnSports: SportKind[] = useMemo(() => {
-    const v = (local as any).add_on_sports;
-    return Array.isArray(v) ? (v as SportKind[]) : [];
-  }, [local]);
 
-  const handleZonesChange = (z: any) => {
-    setLocal((prev) => ({ ...prev, zones: z }));
-    markDirty();
-  };
-
-  const handleSaveZonesToDB = async (z: any) => {
-    if (!userId) return;
-    try {
-      const savedZones = await apiSaveUserZones(userId, z ?? {});
-      const freshPrefsFromDB = await refreshCoachPrefsFromDB(userId);
-      const currentModeInUI = local.preferences?.hr_zone_calc_mode ?? "manual";
-
-      const normalizedPrefs = {
-        ...freshPrefsFromDB,
-        preferences: {
-          ...prefDefaults(freshPrefsFromDB as any),
-          hr_zone_calc_mode: currentModeInUI,
-        },
-      } as CoachPrefs;
-
-      await saveCoachPrefs(userId, normalizedPrefs);
-
-      setLocal((prev) => ({
-        ...prev,
-        zones: savedZones ?? z,
-        preferences: normalizedPrefs.preferences,
-      }));
-
-      toast.success(t("prefs.info.zonesSaved"));
-    } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.prefs.zonesSaveFailed"));
-    }
-  };
-
-  const handleThresholdsChange = (th: any) => {
-    setLocal((prev) => ({ ...prev, thresholds: th }));
-    markDirty();
-  };
-
-  const handleSaveThresholdsToDB = async (th: any) => {
-    if (!userId) return;
-    try {
-      const saved = await apiSaveUserThresholds(userId, th ?? {});
-      setLocal((prev) => {
-        const latest = Array.isArray(prev.thresholds_latest)
-          ? prev.thresholds_latest
-          : [];
-        const keySaved = `${(saved?.sport ?? th.sport ?? "running").toLowerCase()}|${(saved?.threshold_type ?? th.threshold_type ?? "LT2").toLowerCase()}`;
-        const filtered = latest.filter(
-          (r: any) =>
-            `${(r.sport ?? "").toLowerCase()}|${(r.threshold_type ?? "").toLowerCase()}` !==
-            keySaved,
-        );
-        const mergedRow = { ...(th ?? {}), ...(saved ?? {}) };
-        return {
-          ...prev,
-          thresholds: mergedRow,
-          thresholds_latest: [mergedRow, ...filtered],
-        };
-      });
-      toast.success(t("prefs.info.thresholdSaved"));
-    } catch (e: any) {
-      toast.error(t(e?.message as any) || t("api.prefs.thresholdsSaveFailed"));
-    }
-  };
-
-  const lthrBpm: number | null = useMemo(() => {
-    const draft = Number(local?.thresholds?.hr_bpm);
-    if (Number.isFinite(draft) && draft > 0) return draft;
-    const rows = (local.thresholds_latest ?? []) as any[];
-    const lt2 = rows.find(
-      (r) => String(r.threshold_type).toUpperCase() === "LT2",
-    );
-    return lt2?.hr_bpm ?? null;
-  }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
-
-  // 🔴 DIAGNOSTIKA: PlanStartSection aj PlanLifecycleSection uplne odstranene
-  // (import aj render), aby sme overili ci je vinnikom niektory z nich.
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
-      <GoalSection
-        local={local}
-        setPref={setPref}
-        upsertRunTargets={upsertRunTargets}
-      />
-      <SportsSection
-        local={local}
-        mainSport={mainSport}
-        addOnSports={addOnSports}
-        setPref={setPref}
-      />
-      <VolumeSection volume={local.volume} setPref={setPref} />
-      <StrengthSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
-      <DaysSection
-        daysOff={pref.days_off}
-        longRunDays={pref.long_run_days}
-        womensHealth={pref.womens_health}
-        isFemale={isFemale}
-        toggleInArray={toggleInArray}
-        setPrefNested={setPrefNested}
-      />
-      <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
-      <ZonesSection
-        zones={local.zones}
-        lthrBpm={lthrBpm}
-        onZonesChange={handleZonesChange}
-        onSaveZonesToDB={handleSaveZonesToDB}
-        calcMode={pref.hr_zone_calc_mode ?? "manual"}
-        onCalcModeChange={(m) =>
-          setPrefNested("preferences.hr_zone_calc_mode" as any, m)
-        }
-      />
-      <ThresholdsSection
-        thresholds={local.thresholds}
-        latestList={local.thresholds_latest ?? []}
-        onChange={handleThresholdsChange}
-        onSaveToDB={handleSaveThresholdsToDB}
-      />
-
-      <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
-        <button
-          type="button"
-          onClick={() => setShowAdv((s) => !s)}
-          aria-expanded={showAdv}
-          className="text-sm underline opacity-80 hover:opacity-100"
-        >
-          {showAdv
-            ? t("prefs.actions.hideAdvanced")
-            : t("prefs.actions.showAdvanced")}
-        </button>
+      <div style={{ color: "white", padding: 12 }}>
+        HOLA KOSTRA — ziadne sekcie, len state a handlery
       </div>
-
-      {showAdv && (
-        <>
-          <FocusAvoidSection
-            local={local}
-            setPref={setPref}
-            toggleInArray={toggleInArray}
-          />
-          <RehabSection local={local} setPref={setPref} />
-        </>
-      )}
 
       <div
         className={[PANEL_ACTIONS_INLINE, "pt-4 border-t"].join(" ")}
