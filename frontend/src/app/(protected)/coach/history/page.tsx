@@ -9,7 +9,7 @@ export default function CoachPlanHistoryPage() {
   
   return (
     <PageShell 
-      title={t("coachPlan.history.pageTitle" as any) || "História Plánov"} 
+      title={t("coachPlanHistory.title" as any)} 
       showBack 
       showPoweredByStrava={false}
     >

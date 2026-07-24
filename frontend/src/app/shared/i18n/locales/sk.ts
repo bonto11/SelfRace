@@ -363,6 +363,48 @@ export const sk = {
       title: "Tréningové nastavenia",
     },
     sections: {
+      planLifecycleSection: {
+        title: "Tvorba plánu",
+        goToWeekly: "Týždenný plán",
+        generateButton: "Vygenerovať plán",
+        needRaceOrDate:
+          "Najprv vyplň dátum začiatku plánu alebo pretek v nastaveniach vyššie.",
+        loading: {
+          msg1: "Ladenie formy si vyžaduje sústredenie...",
+          msg2: "Prepočítavajú sa milióny bežeckých scenárov. Zatiaľ je čas skontrolovať si šnúrky.",
+          msg3: "Nový rozpis bude stáť za to!",
+          msg4: "Analyzujú sa dáta. Chvíľu to potrvá, progres je dôležitý.",
+        },
+        actions: {
+          openPlan: "Denný plán",
+          startPlan: "Spustiť tréningový plán",
+          cancelPlan: "Zrušiť plán",
+        },
+        confirmCancel: {
+          title: "Naozaj ukončiť tento plán?",
+          message:
+            "Tento krok sa nebude dať vrátiť späť. Aktuálny rozpis sa archivuje medzi ukončené plány.",
+          ok: "Ukončiť plán",
+          cancel: "Zrušiť",
+        },
+        medicalSuspendBanner: {
+          title: "Tréningový stop-stav",
+          text: "Plán bol pozastavený kvôli bolesti ({{severity}}/10).",
+          action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
+        },
+        errors: {
+          genericStart: "Tento plán sa nepodarilo spustiť.",
+          medicalBlocked:
+            "Kvôli zraneniu nie je možné vytvoriť plán. Najprv sa prosím vylieč.",
+          alreadyActive: "Plán už beží.",
+          needAnalyze: "Najprv sa musí vyhodnotiť trénovanosť.",
+          needWeekly: "Chýba týždenná kostra.",
+          needDaily: "Chýba denný rozpis.",
+        },
+        step1of3: "Krok 1/3 · Analyzujem teba ako športovca...",
+        step2of3: "Krok 2/3 · Navrhujem týždenný plán...",
+        step3of3: "Krok 3/3 · Navrhujem denné tréningy...",
+      },
       daysSection: {
         subtitle: "Dni voľna a preferencie pre dlhý tréning.",
         previewDaysOff: "Voľné dni",
@@ -1247,77 +1289,6 @@ export const sk = {
     },
   },
 
-  coachPlan: {
-    title: "Tvorba plánu",
-    status: {
-      active: "Aktuálny plán",
-      both: "Je tu týždenný aj denný rozpis ✓",
-      weeklyOnly: "Týždenná kostra ✓",
-      dailyOnly: "Denný rozpis ✓",
-      none: "Zatiaľ bez plánu",
-    },
-    actions: {
-      openPlan: "Denný plán",
-      startPlan: "Spustiť tréningový plán",
-      cancelPlan: "Zrušiť plán",
-    },
-    prefs: {
-      empty: "Zatiaľ bez nastavení",
-      goal: "Cieľ",
-      weeks: "Počet týždňov",
-      main: "Šport",
-    },
-    lockReason:
-      "Plán je spustený – teraz sa neprepočítavajú nové varianty. Pre zmenu treba najprv tento plán ukončiť.",
-    confirmCancel: {
-      title: "Naozaj ukončiť tento plán?",
-      message:
-        "Tento krok sa nebude dať vrátiť späť. Aktuálny rozpis sa archivuje medzi ukončené plány.",
-      ok: "Ukončiť plán",
-      cancel: "Zrušiť",
-    },
-    requirements: {
-      title: "Aby sa mohlo začať, je potrebná:",
-      analyze: "analýza",
-      weekly: "týždenná kostra",
-      daily: "denný rozpis",
-    },
-    errors: {
-      missingUserId: "Nepodarilo sa identifikovať účet.",
-      alreadyActive: "Plán už beží.",
-      needAnalyze: "Najprv sa musí vyhodnotiť trénovanosť.",
-      needBoth: "Najprv treba pripraviť týždenný aj denný rozpis.",
-      needWeekly: "Chýba týždenná kostra.",
-      needDaily: "Chýba denný rozpis.",
-      genericStart: "Tento plán sa nepodarilo spustiť.",
-      medicalBlocked:
-        "Kvôli zraneniu nie je možné vytvoriť plán. Najprv sa prosím vylieč.",
-      aiQuota:
-        "Čas na tento mesiac je už vyčerpaný. Počet minutých kreditov: {{tokens}}. Možné opäť využiť začiatkom nového mesiaca alebo napíš cez kontakt.",
-    },
-    loading: {
-      msg1: "Ladenie formy si vyžaduje sústredenie...",
-      msg2: "Prepočítavajú sa milióny bežeckých scenárov. Zatiaľ je čas skontrolovať si šnúrky.",
-      msg3: "Nový rozpis bude stáť za to!",
-      msg4: "Analyzujú sa dáta. Chvíľu to potrvá, progres je dôležitý.",
-    },
-    medicalSuspendBanner: {
-      title: "Tréningový stop-stav",
-      text: "Plán bol pozastavený kvôli bolesti ({{severity}}/10).",
-      action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
-    },
-    history: {
-      pageTitle: "História plánov",
-      empty: "Zatiaľ žiadne staršie plány.",
-      completed: "Úspešne dokončené",
-      canceled: "Predčasne ukončené",
-      plan: "Tréningový plán",
-      trained: "Odtrénované:",
-      runned: "Nabehané",
-      movementTime: "Celkový čas v pohybe",
-      strength: "Silové tréningy",
-    },
-  },
   monthlySummary: {
     title: "Mesačný prehľad",
     noData: "Žiadne dáta za tento mesiac",
@@ -1432,6 +1403,17 @@ export const sk = {
       empty: "Nemáte žiadne odložené tréningy.",
       actionReschedule: "Naplánovať znova",
     },
+  },
+  coachPlanHistory: {
+    title: "História Plánov",
+    empty: "Zatiaľ žiadne staršie plány.",
+    completed: "Úspešne dokončené",
+    canceled: "Predčasne ukončené",
+    plan: "Tréningový plán",
+    trained: "Odtrénované:",
+    runned: "Nabehané",
+    movementTime: "Celkový čas v pohybe",
+    strength: "Silové tréningy",
   },
   coachPrefs: {
     plan: {

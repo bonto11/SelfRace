@@ -78,7 +78,7 @@ export default function ListCoachPlanHistory() {
     return (
       <div className={SESSION_CARD} style={SESSION_CARD_STYLE}>
         <div className={[PANEL_PAD, "text-center opacity-70"].join(" ")}>
-          {t("coachPlan.history.empty")}
+          {t("coachPlanHistory.empty")}
         </div>
       </div>
     );
@@ -93,7 +93,7 @@ export default function ListCoachPlanHistory() {
         
         const isCompleted = plan.status === "completed";
         const statusColor = isCompleted ? appColors.statusSuccess : appColors.statusError;
-        const statusLabel = isCompleted ? t("coachPlan.history.completed") : t("coachPlan.history.canceled");
+        const statusLabel = isCompleted ? t("coachPlanHistory.completed") : t("coachPlanHistory.canceled");
 
         return (
           <section key={plan.id} className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -101,7 +101,7 @@ export default function ListCoachPlanHistory() {
               <div className="flex justify-between items-start w-full">
                 <div>
                   <div className={PANEL_SECTION_TITLE}>
-                    {plan.main_sport ? plan.main_sport.toUpperCase() : t("coachPlan.history.plan")}
+                    {plan.main_sport ? plan.main_sport.toUpperCase() : t("coachPlanHistory.plan")}
                   </div>
                   <div className={PANEL_SECTION_SUBTITLE}>
                     {formatDate(plan.start_date)} – {formatDate(plan.end_date)}
@@ -119,7 +119,7 @@ export default function ListCoachPlanHistory() {
             <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
               {/* Celkové info o týždňoch */}
               <div className={PANEL_PREVIEW}>
-                {t("coachPlan.history.trained")} <strong className="text-white">{stats.weeks_tracked || 0}</strong> z {plan.weeks_total || stats.weeks_total_planned || "?"} týždňov
+                {t("coachPlanHistory.trained")} <strong className="text-white">{stats.weeks_tracked || 0}</strong> z {plan.weeks_total || stats.weeks_total_planned || "?"} týždňov
               </div>
 
               {/* Štatistiky Grid */}
@@ -128,7 +128,7 @@ export default function ListCoachPlanHistory() {
                 {planned.run_distance_km > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.runned")} (${t("common.units.km")})`}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlanHistory.runned")} (${t("common.units.km")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{actual.run_distance_km || 0}</span>
                         <span className="text-sm opacity-50 mb-1">/ {planned.run_distance_km}</span>
@@ -141,7 +141,7 @@ export default function ListCoachPlanHistory() {
                 {planned.run_time_min > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.movementTime")} (${t("common.units.hour")})`}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlanHistory.movementTime")} (${t("common.units.hour")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{((actual.run_time_min || 0) / 60).toFixed(1)}</span>
                         <span className="text-sm opacity-50 mb-1">/ {((planned.run_time_min || 0) / 60).toFixed(1)}</span>
@@ -154,7 +154,7 @@ export default function ListCoachPlanHistory() {
                 {planned.strength_time_min > 0 && (
                   <div className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                     <div className="p-3">
-                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlan.history.strength")} (${t("common.units.hour")})`}</div>
+                      <div className={PANEL_SECTION_SUBTITLE}>{`${t("coachPlanHistory.strength")} (${t("common.units.hour")})`}</div>
                       <div className="flex items-end gap-2">
                         <span className="text-xl font-bold">{((actual.strength_time_min || 0) / 60).toFixed(1)}</span>
                         <span className="text-sm opacity-50 mb-1">/ {((planned.strength_time_min || 0) / 60).toFixed(1)}</span>
