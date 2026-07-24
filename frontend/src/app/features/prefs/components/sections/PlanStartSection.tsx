@@ -145,7 +145,12 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
 
   const guardStart = (iso: string | null) => {
     if (iso && iso < minStart) {
-      toast.error(t("prefs.sections.planStartSection.errors.minStart").replace("{{date}}", minStart));
+      toast.error(
+        t("prefs.sections.planStartSection.errors.minStart").replace(
+          "{{date}}",
+          minStart,
+        ),
+      );
       applyStart(minStart);
       return;
     }
@@ -156,54 +161,66 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>Začiatok plánu</span>
-          <TooltipIcon text="Nastav dátum začiatku a konca tréningového plánu." />
+          <span>{t("prefs.sections.planStartSection.widget.title")}</span>
+          <TooltipIcon
+            text={t("prefs.sections.planStartSection.widget.tooltip")}
+          />
         </div>
       }
-      subtitle="Kedy má plán začať a ako dlho má trvať"
+      subtitle={t("prefs.sections.planStartSection.subtitle")}
       preview={previewText}
       open={open}
       onOpenChange={setOpen}
       backdropVariant="default"
       always={
         <div className="text-xs" style={{ color: appColors.textMuted }}>
-          Najskorší možný dátum: {minStart}
+          {t("prefs.sections.planStartSection.minStartLabel")}: {minStart}
         </div>
       }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Dátum začiatku</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.planStartSection.startLabel")}
+            </div>
             <DateField value={start || null} onChange={guardStart} />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Dátum konca</div>
-            <DateField
-              value={end || null}
-              onChange={applyEnd}
-            />
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.planStartSection.endLabel")}
+            </div>
+            <DateField value={end || null} onChange={applyEnd} />
           </section>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <section className={SECTION} style={SECTION_STYLE}>
             <div className={INPUTS_CARD_LABEL_SM_1}>
-              Dĺžka plánu (týždne)
+              {t("prefs.sections.planStartSection.horizonLabel")}
             </div>
             <NumberField
               min={1}
               max={52}
               step={1}
               unit={t("common.units.weeksAbbrev")}
-              value={local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : ""}
+              value={
+                local.weeks != null && !Number.isNaN(local.weeks)
+                  ? local.weeks
+                  : ""
+              }
               onChange={(val) => val !== "" && applyWeeks(val)}
+              placeholder={t(
+                "prefs.sections.planStartSection.horizonPlaceholder",
+              )}
             />
           </section>
 
           <section className={SECTION} style={SECTION_STYLE}>
-            <div className={INPUTS_CARD_LABEL_SM_1}>Rýchle akcie</div>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.planStartSection.quickActionsLabel")}
+            </div>
             <div className={FORM_GRID_SPLIT}>
               <Button
                 size="sm"
@@ -217,7 +234,7 @@ export function PlanStartSection({ local, setLocal, markDirty }: Props) {
                 variant="secondary"
                 onClick={() => applyStart(MIN_PLAN_START())}
               >
-                Zajtra
+                {t("prefs.sections.planStartSection.tomorrow")}
               </Button>
             </div>
           </section>
