@@ -42,6 +42,7 @@ import ThresholdsSection from "@/app/features/prefs/components/sections/Threshol
 import { FocusAvoidSection } from "@/app/features/prefs/components/sections/FocusAvoidSection";
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
+import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
 
 import {
   PANEL_STACK,
@@ -429,6 +430,7 @@ export default function CoachPreferencies() {
 
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
+      {hasActivePlan === true && <PlanLifecycleSection prefs={local} />}
 
       {hasActivePlan === false && (
         <div
@@ -536,6 +538,7 @@ export default function CoachPreferencies() {
         </Button>
       </div>
 
+      {hasActivePlan !== true && <PlanLifecycleSection prefs={local} />}
     </div>
   );
 }
