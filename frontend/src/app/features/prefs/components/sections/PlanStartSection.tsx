@@ -76,10 +76,20 @@ type Props = {
 };
 
 export function PlanStartSection({ local, setLocal, markDirty }: any) {
+  const [open, setOpen] = useState(true);
+
   const start = local.start_date ?? "";
   const applyStart = (next: string | null) => {
     markDirty();
     setLocal((prev: any) => ({ ...prev, start_date: next || null }));
+  };
+
+  const weeksVal =
+    local.weeks != null && !Number.isNaN(local.weeks) ? local.weeks : "";
+  const applyWeeks = (val: number) => {
+    markDirty();
+    if (!Number.isFinite(val) || val <= 0) return;
+    setLocal((prev: any) => ({ ...prev, weeks: Math.round(val) }));
   };
 
   return (
@@ -87,11 +97,19 @@ export function PlanStartSection({ local, setLocal, markDirty }: any) {
       title="TEST TITLE"
       subtitle="test subtitle"
       preview="test preview"
-      open={true}
-      onOpenChange={() => {}}
+      open={open}
+      onOpenChange={setOpen}
       backdropVariant="default"
     >
       <DateField value={start || null} onChange={applyStart} />
+      <NumberField
+        min={1}
+        max={52}
+        step={1}
+        unit="t"
+        value={weeksVal}
+        onChange={(val) => val !== "" && applyWeeks(val)}
+      />
     </InputsCard>
   );
 }
