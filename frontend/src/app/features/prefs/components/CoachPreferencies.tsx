@@ -33,7 +33,7 @@ import { apiGetStaticProfile } from "@/app/features/performance/api/static";
 // import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
 import { GoalSection } from "@/app/features/prefs/components/sections/GoalSection";
-import { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
+// { PlanStartSection } from "@/app/features/prefs/components/sections/PlanStartSection";
 import { SportsSection } from "@/app/features/prefs/components/sections/SportsSection";
 import { StrengthSection } from "@/app/features/prefs/components/sections/StrengthSection";
 import { DaysSection } from "@/app/features/prefs/components/sections/DaysSection";
@@ -432,11 +432,6 @@ export default function CoachPreferencies() {
       {/* 🔴 DIAGNOSTIKA: banner + podmienene poradie zakomentovane, navrat
           na jednoduchu vzdy-rovnaku strukturu bez hasActivePlan vetvenia */}
 
-      <PlanStartSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
       <GoalSection
         local={local}
         setPref={setPref}
