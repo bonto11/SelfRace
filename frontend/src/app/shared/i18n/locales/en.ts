@@ -1267,6 +1267,18 @@ export const en = {
       action:
         "Only clear the injury from your profile once a doctor clears you for training.",
     },
+    history: {
+      pageTitle: "Plan History",
+      empty: "No older plans yet.",
+      completed: "Successfully completed",
+      canceled: "Cancelled early",
+      plan: "Training plan",
+      trained: "Trained:",
+      runned: "Distance covered",
+      movementTime: "Total time in motion",
+      strength: "Strength sessions",
+    },
+
   },
   monthlySummary: {
     title: "Monthly Summary",
