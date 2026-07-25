@@ -3,8 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import {
@@ -26,27 +25,52 @@ const ITEMS: ItemDef[] = [
   { id: "calendar",    href: "/calendar",    translationKey: "calendar.title" },
 ];
 
-// 🌟 Synchrónny scroll reset PRED navigáciou (nie reaktívne po zmene pathname
-// cez useEffect - to malo timing problém, spúšťalo sa skôr, než sa nový
-// obsah stránky stihol vykresliť, takže scroll sa "prepočítal" nanovo).
-// Volané priamo v onClick, teda ešte kým je stará stránka v DOM a
-// scrollHeight je stabilný - garantovane resetuje pozíciu skôr, než
-// Next.js začne meniť obsah.
 function resetAppScroll() {
   document.getElementById("app-scroll-desktop")?.scrollTo({ top: 0, left: 0 });
   document.getElementById("app-scroll-mobile")?.scrollTo({ top: 0, left: 0 });
 }
 
+// 🌟 OBCHÁDZKOVÉ RIEŠENIE: "Späť" tlačidlo/gesto spoľahlivo vyčistí zaseknutý
+// scroll/layout stav (dôvod nateraz neznámy), zatiaľ čo priama SPA navigácia
+// (Link/router.push) na inú stránku ho zdedí. Preto pri kliku na spodné menu
+// najprv urobíme history.back() (vyčistí stav), a hneď nato presmerujeme na
+// skutočný cieľ - rovnaký efekt ako ručné "Späť + klik znova", len automaticky.
+function navigateWithBackFirst(
+  router: ReturnType<typeof useRouter>,
+  currentPath: string,
+  targetHref: string,
+) {
+  if (currentPath === targetHref) {
+    resetAppScroll();
+    return;
+  }
+
+  if (typeof window !== "undefined" && window.history.length > 1) {
+    window.history.back();
+    // Krátky delay, aby sa back-navigácia stihla spracovať skôr, než
+    // pushneme dopredu na skutočný cieľ.
+    setTimeout(() => {
+      router.push(targetHref);
+    }, 60);
+  } else {
+    router.push(targetHref);
+  }
+}
+
 function BottomNavItem({ id, href, translationKey }: ItemDef) {
   const t = useT();
+  const router = useRouter();
   const pathname = usePathname();
   const isActive = pathname === href || pathname.startsWith(href + "/");
   const label = t(translationKey as any);
 
   return (
-    <Link
+    <a
       href={href}
-      onClick={resetAppScroll}
+      onClick={(e) => {
+        e.preventDefault();
+        navigateWithBackFirst(router, pathname, href);
+      }}
       className="flex flex-col items-center min-w-[60px]"
       aria-label={label}
     >
@@ -67,7 +91,7 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       >
         {label}
       </span>
-    </Link>
+    </a>
   );
 }
 
