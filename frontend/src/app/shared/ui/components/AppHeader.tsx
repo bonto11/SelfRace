@@ -111,13 +111,7 @@ export default function AppHeader({
       // miesto, nizsia vrstva) - inline style nizsie ma vyssiu prioritu nez
       // Tailwind trieda, takze ho posunie PRESNE POD globalny header miesto
       // toho, aby sa s nim prekryval.
-      style={
-        sticky
-          ? { top: "calc(56px + env(safe-area-inset-top))" }
-          : undefined
-      }
-      role="banner"
-    >
+    
       <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
         <div
           className={cx(APPBAR_PILL, innerClassName)}
