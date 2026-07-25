@@ -1,8 +1,8 @@
+// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
@@ -32,7 +32,14 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
   const label = t(translationKey as any);
 
   return (
-    <Link
+    // 🌟 OBCHÁDZKOVÉ RIEŠENIE: obyčajný <a href> namiesto next/link <Link>.
+    // next/link robí klientskú SPA navigáciu, ktorá NEZNIČÍ ClientProtectedShell
+    // (definovaný v layout.tsx, takže medzi stránkami PRETRVÁVA) - ak sa jeho
+    // vnútorný scroll/layout stav raz "zasekne" (napr. po návšteve dlhej stránky
+    // ako /coach/prefs), SPA navigácia ho nevyčistí. Obyčajný <a> vynúti PLNÝ
+    // RELOAD prehliadača, čo vytvorí úplne nový, čistý stav zaručene vždy -
+    // za cenu krátkeho záblesku načítania namiesto instantného prepnutia.
+    <a
       href={href}
       className="flex flex-col items-center min-w-[60px]"
       aria-label={label}
@@ -54,7 +61,7 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       >
         {label}
       </span>
-    </Link>
+    </a>
   );
 }
 
@@ -92,16 +99,6 @@ function BottomBarContent() {
 }
 
 export default function MobileBottomBar() {
-  // FIX: renderované cez React portal priamo do document.body.
-  // Predtým bola lišta síce "position: fixed", ale stále súčasťou React
-  // stromu vnoreného pod viacero rodičovských divov v ClientProtectedShell.
-  // Ak čokoľvek nad ňou (aj dočasne, napr. animácia/transition triedou)
-  // dostane CSS transform/filter/will-change, prehliadač podľa CSS
-  // špecifikácie vytvorí nový "containing block" a fixed potomkovia sa
-  // zrazu viažu na TOHO rodiča namiesto viewportu - navigácia potom
-  // "pláva" so scrollom namiesto toho, aby zostala prilepená dole.
-  // Portál do document.body toto úplne vylučuje, lebo lišta už nie je
-  // potomkom žiadneho z tých divov.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
