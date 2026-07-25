@@ -17,6 +17,10 @@ type Props = {
   showPoweredByStrava: boolean;
 };
 
+// 🌟 Odhad vysky AppHeader "pilulky" (title + back button riadok) - pouzite
+// na odsadenie obsahu, aby nezacinal schovany pod novym fixed page-headerom.
+const PAGE_HEADER_HEIGHT_PX = 72;
+
 export default function PageShell({
   title,
   showBack = false,
@@ -38,7 +42,10 @@ export default function PageShell({
         showPoweredByStrava={showPoweredByStrava}
       />
 
-      <div className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}>
+      <div
+        className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}
+        style={{ paddingTop: PAGE_HEADER_HEIGHT_PX }}
+      >
         {variant === "stack" ? (
           <div className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}>
             {children}
