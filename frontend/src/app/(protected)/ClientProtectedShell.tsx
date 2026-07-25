@@ -2,6 +2,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -15,7 +17,6 @@ import UserSettingsBootstrapper from "@/app/shared/i18n/UserSettingsBootstrapper
 
 import ToastHost from "@/app/shared/ui/components/Toast";
 import ConfirmHost from "@/app/shared/ui/components/Confirm";
-import ErrorBoundary from "@/app/shared/ui/components/ErrorBoundary";
 
 import { CoachDataProvider } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { ActivityDataProvider } from "@/app/shared/components/dataProviders/ActivityDataProvider";
@@ -35,10 +36,6 @@ import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
 
-// Vyska headeru - pouzita aj na padding-top scrollovatelnych oblasti,
-// aby obsah nezacinal POD fixed headerom.
-const HEADER_HEIGHT_PX = 56; // zodpoveda h-14 (14 * 4px = 56px)
-
 export default function ClientProtectedShell({
   children,
 }: {
@@ -46,6 +43,18 @@ export default function ClientProtectedShell({
 }) {
   const t = useT();
   const { userId } = useUserId();
+  const pathname = usePathname();
+
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+
+  // 🌟 Doplnková poistka (reaktívna) k synchrónnemu resetu v onClick
+  // handleroch (MobileBottomBar, Sidebar) - pre pripady navigacie, ktora
+  // nejde cez tie kliky (napr. router.push() odniekial inam, browser back).
+  useEffect(() => {
+    desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
 
   return (
     <>
@@ -66,104 +75,74 @@ export default function ClientProtectedShell({
                   </>
                 )}
 
-                {/* 🌟 PEVNY LAYOUT: Header je teraz position:fixed, UPLNE ODPOJENY
-                    od flex/scroll stromu ktory obsahuje {children}. Presne tak,
-                    ako uz bol MobileBottomBar (portal do document.body, fixed) -
-                    ten NIKDY nezmizol, aj ked header ano. Dovod: ak nieco vo
-                    vnutri {children} sposobi neocakavany layout/overflow/scroll
-                    chaos (aj bez JS chyby, cisto CSS), fixed elementy VZDY
-                    zostavaju viditelne relativne k VIEWPORTU, nezavisle od
-                    akehokolvek chaosu v rodicovskom/súrodeneckom flex kontexte.
-                    Cena: kazda page potrebuje padding-top rovny vyske headeru,
-                    aby obsah nezacinal schovany pod nim. */}
-
-                <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                  <AppBackdrop />
-                </div>
-
-                {/* FIXNY HEADER - vzdy navrchu, nezavisle od scroll/layout stavu stranky */}
-                <header
-                  className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
-                  style={{
-                    background: appColors.backgroundAlt,
-                    borderBottom: `1px solid ${appColors.divider}`,
-                    paddingTop: "env(safe-area-inset-top)" as any,
-                  }}
-                >
-                  <Link
-                    href="/activities"
-                    className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
-                    style={{ color: appColors.textPrimary }}
-                    aria-label={t("activities.goTo")}
-                  >
-                    <Image
-                      src="/logo/actual/selfrace_logo.svg"
-                      alt="SelfRace"
-                      width={135}
-                      height={35}
-                      priority
-                      className="h-6 w-auto opacity-95"
-                    />
-                  </Link>
-
-                  <div className="flex items-center gap-2">
-                    <LangSelector variant="editable" size="xs" />
-                    <UserMenu />
-                  </div>
-                </header>
-
-                {/* Obsah pod fixnym headerom - vlastny scroll kontext, padding-top
-                    kompenzuje vysku headeru (+ safe area), aby nic nezacinalo
-                    schovane pod nim. */}
+                {/* 🌟 SCROLL-LOCK FIX (iOS PWA): tento wrapper je LOKÁLNY pre chránenú
+                    časť appky (nemení globálny html/body v globals.css/layout.tsx,
+                    ktoré ostávajú nedotknuté pre verejné stránky mimo (protected)).
+                    height: 100dvh + overflow: hidden tu znamená, že TENTO div sa
+                    sám nikdy nescrolluje - scroll prebieha výhradne vo vnútornom
+                    <main> nižšie (overflow-y: auto). Keďže telo stránky (body/html)
+                    sa vôbec nehýbe, iOS WebKit nemá príležitosť "odlepiť" fixed
+                    MobileBottomBar od viewportu pri scrollovaní (známy, dlho
+                    neopravený bug v iOS PWA standalone mode s position:fixed). */}
                 <div
-                  className="relative z-10"
+                  className="flex flex-col relative"
                   style={{
-                    paddingTop: `calc(${HEADER_HEIGHT_PX}px + env(safe-area-inset-top))`,
                     height: "100dvh",
-                    display: "flex",
-                    flexDirection: "column",
+                    overflow: "hidden",
+                    background: appColors.backgroundMain,
                     color: appColors.textPrimary,
                   }}
                 >
-                  <div className="flex-1 flex flex-col relative min-h-0">
-                    <div
-                      className={["hidden lg:grid h-full min-h-0", SHELL_GRID].join(" ")}
-                    >
-                      <Sidebar />
-                      {/* Scrollovateľná oblasť (desktop) */}
-                      <div className="flex flex-col h-full min-h-0 overflow-y-auto">
-                        <main className="flex-1 p-3 lg:p-4 pb-4">
-                          <ErrorBoundary>{children}</ErrorBoundary>
-                        </main>
-                        <AppFooter />
-                      </div>
-                    </div>
-
-                    {/* Scrollovateľná oblasť (mobile) - MobileBottomBar (fixed,
-                        portál do body) je mimo tohto stromu, nekríži sa so
-                        scrollom tu. */}
-                    <div className="lg:hidden flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-contain">
-                      <main className="flex-1 p-3 pb-24">
-                        <ErrorBoundary>{children}</ErrorBoundary>
-                      </main>
-                      <div className="pb-28">
-                        <AppFooter />
-                      </div>
-                    </div>
+                  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                    <AppBackdrop />
                   </div>
-                </div>
 
-                {/* Bottom Bar - uz bol fixed/portal, ziadna zmena */}
-                <MobileBottomBar />
+                  <div className="relative z-10 flex flex-col h-full">
+                    <header
+                      data-app-header
+                      className="shrink-0 z-30 h-14 flex items-center justify-between px-3 lg:px-4 gap-3 backdrop-blur"
+                      style={{
+                        background: appColors.backgroundAlt,
+                        borderBottom: `1px solid ${appColors.divider}`,
+                        paddingTop: "env(safe-area-inset-top)" as any,
+                      }}
+                    >
+                      <Link
+                        href="/activities"
+                        className="flex items-center gap-2 min-w-0 rounded-lg px-1 py-1 transition-colors"
+                        style={{ color: appColors.textPrimary }}
+                        aria-label={t("activities.goTo")}
+                      >
+                        <Image
+                          src="/logo/actual/selfrace_logo.svg"
+                          alt="SelfRace"
+                          width={135}
+                          height={35}
+                          priority
+                          className="h-6 w-auto opacity-95"
+                        />
+                      </Link>
 
-              </PerformanceDataProvider>
-            </RecoveryDataProvider>
-          </ActivityDataProvider>
-        </CoachDataProvider>
-      </SidebarProvider>
+                      <div className="flex items-center gap-2">
+                        <LangSelector variant="editable" size="xs" />
+                        <UserMenu />
+                      </div>
+                    </header>
 
-      <ToastHost />
-      <ConfirmHost />
-    </>
-  );
-}
+                    <div className="flex-1 flex flex-col relative min-h-0">
+                      <div
+                        className={["hidden lg:grid h-full min-h-0", SHELL_GRID].join(" ")}
+                      >
+                        <Sidebar />
+                        {/* Scrollovateľná oblasť (desktop): len tento div má overflow-y:auto */}
+                        <div
+                          ref={desktopScrollRef}
+                          id="app-scroll-desktop"
+                          className="flex flex-col h-full min-h-0 overflow-y-auto"
+                        >
+                          <main className="flex-1 p-3 lg:p-4 pb-4">
+                            {children}
+                          </main>
+                          <AppFooter />
+                        </div>
+                      
