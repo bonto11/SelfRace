@@ -1,6 +1,7 @@
 // src/shared/components/ui/AppHeader.tsx
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -36,11 +37,11 @@ type Props = {
   rightSlot?: React.ReactNode;
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
+  // 🌟 NOVÝ prop - zavolá sa so skutočnou výškou headeru po vykreslení,
+  // aby ho PageShell mohol použiť na presné odsadenie obsahu.
+  onHeightChange?: (heightPx: number) => void;
 };
 
-// 🌟 Odhad vysky globalneho headeru (ClientProtectedShell) - h-14 = 56px.
-// Pouzite tu, aby sa tento vnutorny AppHeader zavesil PRESNE POD neho ako
-// fixed element, nezavisle od nespolahliveho sticky/scroll spravania.
 const GLOBAL_HEADER_HEIGHT_PX = 56;
 
 export default function AppHeader({
@@ -57,8 +58,24 @@ export default function AppHeader({
   rightSlot,
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
+  onHeightChange,
 }: Props) {
   const router = useRouter();
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onHeightChange || !wrapRef.current) return;
+
+    const el = wrapRef.current;
+    const report = () => onHeightChange(el.offsetHeight);
+
+    report();
+
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, [onHeightChange, title]);
 
   const goBack = () => {
     onBack?.();
@@ -103,6 +120,7 @@ export default function AppHeader({
 
   return (
     <div
+      ref={wrapRef}
       className={cx(!sticky && APPBAR_WRAP, className)}
       style={
         sticky
