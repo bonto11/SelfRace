@@ -48,9 +48,6 @@ export default function ClientProtectedShell({
   const desktopScrollRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
 
-  // 🌟 Doplnková poistka (reaktívna) k synchrónnemu resetu v onClick
-  // handleroch (MobileBottomBar, Sidebar) - pre pripady navigacie, ktora
-  // nejde cez tie kliky (napr. router.push() odniekial inam, browser back).
   useEffect(() => {
     desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
@@ -75,15 +72,6 @@ export default function ClientProtectedShell({
                   </>
                 )}
 
-                {/* 🌟 SCROLL-LOCK FIX (iOS PWA): tento wrapper je LOKÁLNY pre chránenú
-                    časť appky (nemení globálny html/body v globals.css/layout.tsx,
-                    ktoré ostávajú nedotknuté pre verejné stránky mimo (protected)).
-                    height: 100dvh + overflow: hidden tu znamená, že TENTO div sa
-                    sám nikdy nescrolluje - scroll prebieha výhradne vo vnútornom
-                    <main> nižšie (overflow-y: auto). Keďže telo stránky (body/html)
-                    sa vôbec nehýbe, iOS WebKit nemá príležitosť "odlepiť" fixed
-                    MobileBottomBar od viewportu pri scrollovaní (známy, dlho
-                    neopravený bug v iOS PWA standalone mode s position:fixed). */}
                 <div
                   className="flex flex-col relative"
                   style={{
@@ -134,7 +122,6 @@ export default function ClientProtectedShell({
                         className={["hidden lg:grid h-full min-h-0", SHELL_GRID].join(" ")}
                       >
                         <Sidebar />
-                        {/* Scrollovateľná oblasť (desktop): len tento div má overflow-y:auto */}
                         <div
                           ref={desktopScrollRef}
                           id="app-scroll-desktop"
@@ -145,4 +132,34 @@ export default function ClientProtectedShell({
                           </main>
                           <AppFooter />
                         </div>
-                      
+                      </div>
+
+                      <div
+                        ref={mobileScrollRef}
+                        id="app-scroll-mobile"
+                        className="lg:hidden flex-1 flex flex-col min-h-0 overflow-y-auto overscroll-contain"
+                      >
+                        <main className="flex-1 p-3 pb-24">
+                          {children}
+                        </main>
+                        <div className="pb-28">
+                          <AppFooter />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <MobileBottomBar />
+
+              </PerformanceDataProvider>
+            </RecoveryDataProvider>
+          </ActivityDataProvider>
+        </CoachDataProvider>
+      </SidebarProvider>
+
+      <ToastHost />
+      <ConfirmHost />
+    </>
+  );
+}
