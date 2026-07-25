@@ -30,11 +30,16 @@ function resetAppScroll() {
   document.getElementById("app-scroll-mobile")?.scrollTo({ top: 0, left: 0 });
 }
 
-// 🌟 OBCHÁDZKOVÉ RIEŠENIE: "Späť" tlačidlo/gesto spoľahlivo vyčistí zaseknutý
-// scroll/layout stav (dôvod nateraz neznámy), zatiaľ čo priama SPA navigácia
-// (Link/router.push) na inú stránku ho zdedí. Preto pri kliku na spodné menu
-// najprv urobíme history.back() (vyčistí stav), a hneď nato presmerujeme na
-// skutočný cieľ - rovnaký efekt ako ručné "Späť + klik znova", len automaticky.
+// 🌟 OBCHÁDZKOVÉ RIEŠENIE: back-first trik aplikujeme LEN ked odchadzame
+// z VNORENEJ stránky (napr. /coach/prefs - viac ako 1 segment v URL) - teda
+// tam, kde sa zaseknutý scroll/layout stav realne prejavuje. Na "korenovych"
+// URL (napr. /activities, /coach - presne 1 segment) je normalna SPA
+// navigacia uplne v poriadku, ziadny zbytocny "skok cez inu stranku".
+function isNestedPath(path: string): boolean {
+  const segments = path.split("/").filter(Boolean);
+  return segments.length > 1;
+}
+
 function navigateWithBackFirst(
   router: ReturnType<typeof useRouter>,
   currentPath: string,
@@ -45,10 +50,14 @@ function navigateWithBackFirst(
     return;
   }
 
-  if (typeof window !== "undefined" && window.history.length > 1) {
+  const shouldUseBackFirst = isNestedPath(currentPath);
+
+  if (
+    shouldUseBackFirst &&
+    typeof window !== "undefined" &&
+    window.history.length > 1
+  ) {
     window.history.back();
-    // Krátky delay, aby sa back-navigácia stihla spracovať skôr, než
-    // pushneme dopredu na skutočný cieľ.
     setTimeout(() => {
       router.push(targetHref);
     }, 60);
@@ -99,6 +108,7 @@ function BottomBarContent() {
   const t = useT();
 
   return (
+    // id="mobile-bottom-nav" — TrendRHR (a iné grafy) ho priamo schovajú/ukážu cez DOM
     <nav
       id="mobile-bottom-nav"
       className={[
@@ -128,6 +138,16 @@ function BottomBarContent() {
 }
 
 export default function MobileBottomBar() {
+  // FIX: renderované cez React portal priamo do document.body.
+  // Predtým bola lišta síce "position: fixed", ale stále súčasťou React
+  // stromu vnoreného pod viacero rodičovských divov v ClientProtectedShell.
+  // Ak čokoľvek nad ňou (aj dočasne, napr. animácia/transition triedou)
+  // dostane CSS transform/filter/will-change, prehliadač podľa CSS
+  // špecifikácie vytvorí nový "containing block" a fixed potomkovia sa
+  // zrazu viažu na TOHO rodiča namiesto viewportu - navigácia potom
+  // "pláva" so scrollom namiesto toho, aby zostala prilepená dole.
+  // Portál do document.body toto úplne vylučuje, lebo lišta už nie je
+  // potomkom žiadneho z tých divov.
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
