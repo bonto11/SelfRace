@@ -102,9 +102,8 @@ export default function AppHeader({
       ? STRAVA_ASSETS.poweredBySvg_orange
       : STRAVA_ASSETS.poweredBySvg_white;
 
-  return (
-    <div
-      className={cx(sticky && APPBAR_WRAP, className)}
+    return (
+    <div className={cx(sticky && APPBAR_WRAP, className)} role="banner">
       // 🌟 Globálny header (ClientProtectedShell) je teraz position:fixed,
       // vysoky 56px (h-14) + safe-area-inset-top. Tento vnutorny AppHeader
       // je TIEZ sticky s vlastnym top (z APPBAR_WRAP triedy, zvycajne top-0),
