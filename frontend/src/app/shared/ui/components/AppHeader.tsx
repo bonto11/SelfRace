@@ -20,7 +20,7 @@ import {
   APPBAR_BRAND_IMG,
 } from "@/app/shared/ui/tokens/header";
 
-import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava"; // ✅ NEW
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 
 type Props = {
   title?: string;
@@ -34,11 +34,14 @@ type Props = {
   container?: boolean;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
-
-  // ✅ NEW
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
 };
+
+// 🌟 Odhad vysky globalneho headeru (ClientProtectedShell) - h-14 = 56px.
+// Pouzite tu, aby sa tento vnutorny AppHeader zavesil PRESNE POD neho ako
+// fixed element, nezavisle od nespolahliveho sticky/scroll spravania.
+const GLOBAL_HEADER_HEIGHT_PX = 56;
 
 export default function AppHeader({
   title,
@@ -52,8 +55,6 @@ export default function AppHeader({
   container = false,
   onBack,
   rightSlot,
-
-  // ✅ NEW
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
 }: Props) {
@@ -100,8 +101,22 @@ export default function AppHeader({
       ? STRAVA_ASSETS.poweredBySvg_orange
       : STRAVA_ASSETS.poweredBySvg_white;
 
-    return (
-    <div className={cx(sticky && APPBAR_WRAP, className)} role="banner">
+  return (
+    <div
+      className={cx(!sticky && APPBAR_WRAP, className)}
+      style={
+        sticky
+          ? {
+              position: "fixed",
+              top: `calc(${GLOBAL_HEADER_HEIGHT_PX}px + env(safe-area-inset-top))`,
+              left: 0,
+              right: 0,
+              zIndex: 40,
+            }
+          : undefined
+      }
+      role="banner"
+    >
       <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
         <div
           className={cx(APPBAR_PILL, innerClassName)}
