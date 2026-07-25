@@ -17,9 +17,10 @@ type Props = {
   showPoweredByStrava: boolean;
 };
 
-// 🌟 Odhad vysky AppHeader "pilulky" (title + back button riadok) - pouzite
-// na odsadenie obsahu, aby nezacinal schovany pod novym fixed page-headerom.
-const PAGE_HEADER_HEIGHT_PX = 72;
+// Rozumny fallback kym sa nezmeria skutocna vyska (pri prvom rendri, kym
+// ResizeObserver este nenahlasil realnu hodnotu) - lepsie mat mierne priveľký
+// padding na zlomok sekundy nez ziadny.
+const FALLBACK_HEADER_HEIGHT_PX = 76;
 
 export default function PageShell({
   title,
@@ -32,6 +33,8 @@ export default function PageShell({
   children,
   showPoweredByStrava,
 }: Props) {
+  const [headerHeight, setHeaderHeight] = React.useState(FALLBACK_HEADER_HEIGHT_PX);
+
   return (
     <>
       <AppHeader
@@ -40,11 +43,12 @@ export default function PageShell({
         container={headerContainer}
         rightSlot={rightSlot}
         showPoweredByStrava={showPoweredByStrava}
+        onHeightChange={setHeaderHeight}
       />
 
       <div
         className={[PAGE_CONTAINER, className].filter(Boolean).join(" ")}
-        style={{ paddingTop: PAGE_HEADER_HEIGHT_PX }}
+        style={{ paddingTop: headerHeight }}
       >
         {variant === "stack" ? (
           <div className={[PAGE_STACK, contentClassName].filter(Boolean).join(" ")}>
