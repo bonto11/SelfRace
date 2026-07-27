@@ -9,7 +9,7 @@ import Image from "next/image";
 
 import Sidebar from "@/app/features/Toolbars/components/Sidebar";
 import UserMenu from "@/app/features/auth/components/UserMenu";
-import { SidebarProvider } from "@/app/features/Toolbars/hooks/useSidebar";
+import { SidebarProvider, useSidebar } from "@/app/features/Toolbars/hooks/useSidebar";
 import MobileBottomBar from "@/app/features/Toolbars/components/MobileBottomBar";
 
 import UserPrefsBootstrapper from "@/app/shared/bootstrap/userPrefsBootstrap";
@@ -48,10 +48,18 @@ export default function ClientProtectedShell({
   const desktopScrollRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
 
+  // 🔧 FIX: len selector na setOpen (stabilná referencia, nespôsobí re-render
+  // pri každej zmene "open"). Toto je poistka proti tomu, aby globálny
+  // sidebar "open" flag zostal zaseknutý na true po interakcii s nejakým
+  // widgetom (napr. InputsCard) a naťahal sa aj na iné obrazovky —
+  // presne to spôsobovalo miznutie AppHeader/Sidebar.
+  const setSidebarOpen = useSidebar((s) => s.setOpen);
+
   useEffect(() => {
     desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  }, [pathname]);
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
   return (
     <>
