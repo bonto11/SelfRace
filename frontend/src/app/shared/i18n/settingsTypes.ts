@@ -1,3 +1,4 @@
+//i18n/settingsTypes
 export type AppLang = "sk" | "en" | "fr" | "de" | "es" | "it";
 
 export type UserSettingsV1 = {

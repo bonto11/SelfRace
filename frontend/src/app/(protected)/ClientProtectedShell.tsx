@@ -48,16 +48,38 @@ export default function ClientProtectedShell({
   const desktopScrollRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
 
-  // 🔧 FIX: len selector na setOpen (stabilná referencia, nespôsobí re-render
-  // pri každej zmene "open"). Toto je poistka proti tomu, aby globálny
-  // sidebar "open" flag zostal zaseknutý na true po interakcii s nejakým
-  // widgetom (napr. InputsCard) a naťahal sa aj na iné obrazovky —
-  // presne to spôsobovalo miznutie AppHeader/Sidebar.
   const setSidebarOpen = useSidebar((s) => s.setOpen);
+
+  // 🔧 ROOT FIX: <html>/<body> nemajú vlastný overflow:hidden — len jeden
+  // vnútorný div ho má (cez inline style nižšie). Ich min-height:100dvh
+  // dovolí obsahu vyrásť nad výšku viewportu (napr. pri fokuse na input /
+  // natívny picker), čím sa CELÝ DOKUMENT stane scrollovateľný. Keď sa to
+  // raz stane, appka to nikdy nerestne (reset sa doteraz robil len na
+  // #app-scroll-mobile / #app-scroll-desktop, nikdy na window), takže to
+  // zostane "zaseknuté" presne o výšku headeru, kým nenavigueš preč
+  // (Next.js reset) alebo nespravíš hard refresh.
+  //
+  // Potvrdené priamo nameraním: window.scrollY = 56 (presne výška headeru),
+  // pričom oba named scroll containery boli na 0.
+  //
+  // Fix: kým je tento shell zmountovaný (čiže si prihlásený), <html> je
+  // explicitne uzamknuté na overflow:hidden — scroll smie ísť LEN cez
+  // #app-scroll-mobile / #app-scroll-desktop, tak ako to appka aj zamýšľa.
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevOverflow = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    // Poistka navyše: aj keby sa okno napriek hornému fixu niekedy posunulo,
+    // pri každej zmene routy sa vynúti späť na 0.
+    window.scrollTo(0, 0);
     setSidebarOpen(false);
   }, [pathname, setSidebarOpen]);
 
