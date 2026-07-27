@@ -8,6 +8,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { apiGetPlanByActivityId, type DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
 import SportBadge, { getSportColor } from "@/app/shared/ui/components/SportBadge";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import { ComponentVariant } from "@/app/features/activities/types/activities";
 import { DetailSession } from "@/app/shared/components/session/DetailSession";
@@ -32,6 +33,18 @@ import {
   SESSION_FLUSH_DETAIL,
   SESSION_FLUSH_DETAIL_STYLE,
 } from "@/app/shared/ui/tokens";
+
+/* ---------- i18n helper ---------- */
+
+/**
+ * t(key) || fallback nefunguje spoľahlivo, ak t() pri chýbajúcom kľúči
+ * vráti samotný kľúč (bežné správanie) — vtedy je "pravdivý" a fallback
+ * sa nikdy nepoužije. trOr() to rieši porovnaním výsledku s kľúčom.
+ */
+function trOr(t: (key: any) => string, key: string, fallback: string): string {
+  const val = t(key as any);
+  return typeof val === "string" && val && val !== key ? val : fallback;
+}
 
 /* ========================================================= */
 /* KIND: "session" = plan a/alebo activity (jednotny model)  */
@@ -158,6 +171,15 @@ export type BestsSession = Base & {
   distanceStr?: string | null;
   avgHr?: number | null;
   maxHr?: number | null;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  // 🌟 PB freshness (viď PB_VALID_DAYS v prompts.py / bests.ts) — voliteľné,
+  // ak sú vyplnené a isExpired=true, zobrazí sa pod SportBadge pill
+  // "X · starý rekord" namiesto pôvodného odseknutého overlay badge.
+  isExpired?: boolean;
+  ageLabel?: string | null;
 };
 
 export type ExternalSession = Base & {
@@ -250,6 +272,7 @@ export default function SessionCard({
   const [planLookupLoading, setPlanLookupLoading] = useState(false);
 
   const isSession = item.kind === "session";
+  const isBests = item.kind === "bests";
   const baseHasPlan = isSession && (item as SessionItem).planId != null;
   const baseHasActivity = isSession && (item as SessionItem).activityId != null;
 
@@ -402,6 +425,8 @@ export default function SessionCard({
     setShowReschedule(false);
   };
 
+  const bestsExpired = isBests && (item as BestsSession).isExpired && (item as BestsSession).ageLabel;
+
   return (
     <section
       className={[SESSION_CARD, SESSION_CARD_HOVER, SESSION_VARIANT_PAD[variant]].join(
@@ -454,6 +479,27 @@ export default function SessionCard({
                   style={SESSION_PLAN_STATUS_STYLE[effectiveStatus]}
                 >
                   {t(`sessions.status.${effectiveStatus}` as any)}
+                </span>
+              )}
+
+              {/* 🌟 PB freshness badge — pod SportBadge pill, len pre bests + expired.
+                  Bežný flow layoutu (nie position:absolute), takže ho card
+                  overflow-hidden už neodreže. */}
+              {bestsExpired && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                  style={{
+                    borderColor: appColors.statusWarning,
+                    color: appColors.statusWarning,
+                    background: "transparent",
+                  }}
+                  title={trOr(
+                    t,
+                    "PB.expiredTooltip",
+                    "Tento rekord je už starší, forma sa odvtedy mohla zmeniť.",
+                  )}
+                >
+                  {(item as BestsSession).ageLabel} · {trOr(t, "PB.old", "starý rekord")}
                 </span>
               )}
             </div>

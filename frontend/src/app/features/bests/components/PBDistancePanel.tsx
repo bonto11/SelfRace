@@ -1,3 +1,4 @@
+// src/app/features/bests/components/PBDistancePanel.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,7 +9,13 @@ import {
   apiDeleteBest,
 } from "@/app/features/bests/api/bests";
 
-import { distanceOptions, distanceLabel } from "@/app/features/bests/utils/bests";
+import {
+  distanceOptions,
+  distanceLabel,
+  daysAgoFromDate,
+  isBestExpired,
+  formatAgeLabel,
+} from "@/app/features/bests/utils/bests";
 
 import type {
   Sport,
@@ -28,7 +35,6 @@ import DateField from "@/app/shared/ui/components/DateField";
 import TimeField from "@/app/shared/ui/components/TimeField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import SwipeRow from "@/app/shared/ui/components/SwipeRow";
-import PBAgeBadge from "@/app/features/bests/components/PBAgeBadge";
 
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
@@ -81,6 +87,12 @@ export type PBDistancePanelProps = {
  * (sport, title, activity sports, max vzdialenosti, favorite hook).
  * PBStrength ostáva samostatný, keďže má úplne iný tvar formulára
  * (hodnota + jednotka namiesto času).
+ *
+ * 🌟 PB freshness (starý rekord badge) sa už NErieši cez externý overlay
+ * wrapper (PBAgeBadge) — to sa orezávalo o overflow-hidden karty. Teraz sa
+ * days_ago/is_expired/ageLabel počíta priamo tu a posiela ako props do
+ * SessionCard, ktorá si badge vykreslí sama v bežnom layout flow, pod
+ * SportBadge pill.
  */
 export default function PBDistancePanel({
   sport,
@@ -346,6 +358,11 @@ export default function PBDistancePanel({
               const dist = distanceLabel(b.distance_m, sport);
               const isFav = b.distance_m === favM;
 
+              // 🌟 vek/expired sa počíta tu a posiela priamo do SessionCard
+              const daysAgo = b.days_ago ?? daysAgoFromDate(b.achieved_at);
+              const expired = isBestExpired(b);
+              const ageLabel = formatAgeLabel(daysAgo);
+
               const doEdit = () => {
                 setForm({
                   distance_m: String(b.distance_m),
@@ -393,12 +410,12 @@ export default function PBDistancePanel({
                       onToggleFavorite: toggleFav,
                       onEdit: doEdit,
                       onDelete: doDelete,
+                      isExpired: expired,
+                      ageLabel,
                     } as any
                   }
                 />
               );
-
-              const wrappedCard = <PBAgeBadge best={b}>{card}</PBAgeBadge>;
 
               if (isTouch) {
                 return (
@@ -408,12 +425,12 @@ export default function PBDistancePanel({
                     onEdit={doEdit}
                     onDelete={doDelete}
                   >
-                    {wrappedCard}
+                    {card}
                   </SwipeRow>
                 );
               }
 
-              return <li key={b.distance_m}>{wrappedCard}</li>;
+              return <li key={b.distance_m}>{card}</li>;
             })}
 
           {rows.length === 0 && !loading && (
