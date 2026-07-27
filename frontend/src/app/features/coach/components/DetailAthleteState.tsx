@@ -406,8 +406,8 @@ export default function DetailAthleteState() {
       circle={false}
     >
       {analyzing
-        ? t("coach.state.analyzing" as any) || "Analyzujem..."
-        : t("coach.state.analyzeNow" as any) || "Analyzovať teraz"}
+        ? t("coach.state.analyzing" as any)
+        : t("coach.state.analyzeNow" as any)}
     </Button>
   );
 
