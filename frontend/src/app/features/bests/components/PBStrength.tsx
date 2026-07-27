@@ -7,7 +7,12 @@ import {
   apiSaveBest,
   apiDeleteBest,
 } from "@/app/features/bests/api/bests";
-import { distanceOptions } from "@/app/features/bests/utils/bests";
+import {
+  distanceOptions,
+  daysAgoFromDate,
+  isBestExpired,
+  formatAgeLabel,
+} from "@/app/features/bests/utils/bests";
 import type { UserBest } from "@/app/features/bests/types/bests";
 import { useFavoritePBStrength } from "@/app/features/bests/hooks/useFavoritePBStrength";
 
@@ -21,7 +26,6 @@ import SelectField from "@/app/shared/ui/components/SelectField";
 import DateField from "@/app/shared/ui/components/DateField";
 import TextField from "@/app/shared/ui/components/TextField";
 import SwipeRow from "@/app/shared/ui/components/SwipeRow";
-import PBAgeBadge from "@/app/features/bests/components/PBAgeBadge";
 
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
@@ -291,6 +295,13 @@ export default function PBStrength() {
               const dist = getExerciseName(b.distance_m);
               const isFav = b.distance_m === favoriteM;
 
+              // 🌟 vek/expired sa počíta tu a posiela priamo do SessionCard
+              // (rovnaká logika ako v PBDistancePanel — jedna spoločná
+              // pravda, žiadny externý overlay wrapper)
+              const daysAgo = b.days_ago ?? daysAgoFromDate(b.achieved_at);
+              const expired = isBestExpired(b);
+              const ageLabel = formatAgeLabel(daysAgo);
+
               const doEdit = () => {
                 const [val, unit] = (b.time_str || " ").split(" ");
                 setForm({
@@ -332,12 +343,12 @@ export default function PBStrength() {
                       onToggleFavorite: toggleFav,
                       onEdit: doEdit,
                       onDelete: doDelete,
+                      isExpired: expired,
+                      ageLabel,
                     } as any
                   }
                 />
               );
-
-              const wrappedCard = <PBAgeBadge best={b}>{card}</PBAgeBadge>;
 
               if (isTouch) {
                 return (
@@ -347,11 +358,11 @@ export default function PBStrength() {
                     onEdit={doEdit}
                     onDelete={doDelete}
                   >
-                    {wrappedCard}
+                    {card}
                   </SwipeRow>
                 );
               }
-              return <li key={b.distance_m}>{wrappedCard}</li>;
+              return <li key={b.distance_m}>{card}</li>;
             })}
         </ul>
       </div>
