@@ -11,6 +11,9 @@ import {
 import {
   distanceOptions,
   distanceLabel,
+  daysAgoFromDate,
+  isBestExpired,
+  formatAgeLabel,
 } from "@/app/features/bests/utils/bests";
 
 import type {
@@ -35,6 +38,7 @@ import NumberField from "@/app/shared/ui/components/NumberField";
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -130,7 +134,9 @@ export default function PBSwim() {
       const m = Number(form.distance_m);
       const sec = hhmmssToSec(form.time_str.trim());
       const payload: any = {
-        sport: "swimming",
+        // 🐛 FIX: bolo "swimming", ale fetch/delete používajú "swim" —
+        // po uložení sa PB po refreshi nezobrazilo (iný sport string v DB).
+        sport: "swim",
         distance_m: m,
         ...(Number.isFinite(sec)
           ? { time_sec: sec }
@@ -322,6 +328,10 @@ export default function PBSwim() {
               const dist = distanceLabel(b.distance_m, "swim");
               const isFav = b.distance_m === favoriteM;
 
+              const daysAgo = b.days_ago ?? daysAgoFromDate(b.achieved_at);
+              const expired = isBestExpired(b);
+              const ageLabel = formatAgeLabel(daysAgo);
+
               const doEdit = () => {
                 setForm({
                   distance_m: String(b.distance_m),
@@ -360,7 +370,7 @@ export default function PBSwim() {
                       kind: "bests",
                       title: dist,
                       dateIso: isoDateOnly(b.achieved_at),
-                      sport: "swimming",
+                      sport: "swim",
                       activityId: actId ?? 0,
                       timeStr: timeDB,
                       distanceStr: dist.replace("— ", ""),
@@ -374,6 +384,28 @@ export default function PBSwim() {
                 />
               );
 
+              const wrappedCard = (
+                <div className="relative">
+                  {expired && ageLabel && (
+                    <div
+                      className="absolute -top-2 right-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                      style={{
+                        background: appColors.backgroundAlt,
+                        color: appColors.statusWarning,
+                        border: `1px solid ${appColors.statusWarning}`,
+                      }}
+                      title={
+                        t("PB.expiredTooltip" as any) ||
+                        "Tento rekord je už starší, forma sa odvtedy mohla zmeniť."
+                      }
+                    >
+                      {ageLabel} · {t("PB.old" as any) || "starý rekord"}
+                    </div>
+                  )}
+                  {card}
+                </div>
+              );
+
               if (isTouch) {
                 return (
                   <SwipeRow
@@ -382,11 +414,11 @@ export default function PBSwim() {
                     onEdit={doEdit}
                     onDelete={doDelete}
                   >
-                    {card}
+                    {wrappedCard}
                   </SwipeRow>
                 );
               }
-              return <li key={b.distance_m}>{card}</li>;
+              return <li key={b.distance_m}>{wrappedCard}</li>;
             })}
 
           {rows.length === 0 && !loading && (

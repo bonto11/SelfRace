@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, date
 
 from Modules.Supabase.auth import AuthCtx
 from DB.activities_summary import db_get_activity_summary_one
@@ -12,16 +12,52 @@ from DB.user_bests import (
     db_delete_user_best,
 )
 
-# povolené vzdialenosti podľa športu
+# Povolené vzdialenosti podľa športu.
+# MUSÍ zodpovedať DISTANCE_OPTIONS_BY_SPORT vo FE
+# (src/app/features/bests/utils/bests.ts) — len čísla (m), bez labelov.
 STD_DISTANCES_BY_SPORT: dict[str, list[int]] = {
     "run": [400, 1000, 5000, 10000, 20000, 21097, 30000, 42195, 50000],
-    # "bike": [...],
-    # "skate": [...],
+    "ride": [10000, 20000, 40000, 50000, 90000, 100000, 160934, 180000],
+    "swim": [100, 400, 750, 1000, 1500, 1900, 3800, 5000],
+    "triathlon": [25750, 51500, 113000, 226000],
+    # strength/hyrox nie sú vzdialenosti, ale interné kódy cvikov/formátov
+    # (1RM, max reps, atď.) — rovnaká konvencia ako vo FE.
+    "strength": [1, 2, 3, 4, 5, 6, 7],
+    "ocr": [5000, 10000, 21000, 50000],
+    "hyrox": [1, 2, 3, 4],
+    "skate": [],  # zatiaľ bez pevného zoznamu -> allowed_distances() neobmedzuje
 }
+
+# Hranica "aktuálny" vs "potenciál/expired" pre osobné rekordy.
+# MUSÍ zodpovedať PB_VALID_DAYS v Services/AI/athlete_state/prompts.py,
+# aby FE aj AI videli rovnakú vec.
+PB_VALID_DAYS = 180
 
 
 def allowed_distances(sport: str) -> List[int]:
     return STD_DISTANCES_BY_SPORT.get(sport, [])
+
+
+def _days_ago_from_date(date_str: Optional[str]) -> Optional[int]:
+    """Vypočíta počet dní od zadaného ISO dátumu po dnešok."""
+    if not date_str:
+        return None
+    try:
+        d = date.fromisoformat(str(date_str)[:10])
+        return (date.today() - d).days
+    except Exception:
+        return None
+
+
+def _pb_freshness(date_str: Optional[str]) -> Tuple[Optional[int], bool]:
+    """
+    Vráti (days_ago, is_expired) pre daný dátum PB.
+    Chýbajúci/nevalidný dátum sa FAIL-SAFE považuje za is_expired=True
+    (nikdy nechceme, aby neznámy vek dopadol ako "čerstvý").
+    """
+    days_ago = _days_ago_from_date(date_str)
+    is_expired = days_ago is None or days_ago > PB_VALID_DAYS
+    return days_ago, is_expired
 
 
 def service_fetch_user_bests(
@@ -33,12 +69,18 @@ def service_fetch_user_bests(
     Vysoko-úrovňový fetch:
       - zavolá DB vrstvu
       - dopočíta time_str z best_time_s
+      - dopočíta days_ago a is_expired (pre FE badge "starý rekord")
     """
-    
+
     rows = db_fetch_user_bests(user_id, sport, ctx=ctx)
     for r in rows:
         best_time_s = r.get("best_time_s") or 0
         r["time_str"] = seconds_to_hhmmss(best_time_s)
+
+        date_str = r.get("achieved_at") or r.get("updated_at")
+        days_ago, is_expired = _pb_freshness(date_str)
+        r["days_ago"] = days_ago
+        r["is_expired"] = is_expired
     return rows
 
 
@@ -129,7 +171,7 @@ def service_upsert_user_best(
         if summary:
             if row.get("total_distance_m") is None:
                 row["total_distance_m"] = int(summary.get("distance_m") or 0) or None
-            
+
             if row.get("total_time_s") is None:
                 # Uprednostníme moving_time, ak nie je, vezmeme elapsed
                 row["total_time_s"] = int(summary.get("moving_time_s") or summary.get("elapsed_time_s") or 0) or None
@@ -138,6 +180,11 @@ def service_upsert_user_best(
 
     best_time_s = saved.get("best_time_s") or row["best_time_s"]
     saved["time_str"] = seconds_to_hhmmss(best_time_s)
+
+    date_str = saved.get("achieved_at") or saved.get("updated_at")
+    days_ago, is_expired = _pb_freshness(date_str)
+    saved["days_ago"] = days_ago
+    saved["is_expired"] = is_expired
 
     return saved
 
@@ -160,35 +207,50 @@ def service_build_bests_block_for_analysis(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Minimalizované PB pre AI:
-      { run: [...], ride: [...] } – zatiaľ len run.
+    Minimalizované PB pre AI, pre všetky športy zo STD_DISTANCES_BY_SPORT.
+    Do výstupu sa pridá kľúč pre daný šport IBA ak má user reálne aspoň
+    jeden záznam — žiadne prázdne "ride": [] navyše v kontexte pre AI.
+
+    Každý záznam obsahuje days_ago a is_expired (rovnaká logika ako FE),
+    aby ich AI (Services/AI/athlete_state/prompts.py) vedela odlíšiť
+    aktuálny stav od starého potenciálu.
 
     Režimy:
       - service=False: RLS (require_jwt + RLS klient).
       - service=True: service DB klient (user_jwt forward, bez require_jwt).
     """
 
-    out: Dict[str, List[Dict[str, Any]]] = {"run": [], "ride": []}
+    out: Dict[str, List[Dict[str, Any]]] = {}
 
-    # priamo DB vrstva, ale so service flagom
-    run_rows = db_fetch_user_bests(
-        user_id,
-        "run",
-        ctx=ctx,
-    )
-    for r in run_rows:
-        best_time_s = r.get("best_time_s") or 0
-        time_str = seconds_to_hhmmss(best_time_s)
+    for sport in STD_DISTANCES_BY_SPORT.keys():
+        try:
+            rows = db_fetch_user_bests(user_id, sport, ctx=ctx)
+        except Exception:
+            # šport zatiaľ nemá DB podporu / iný problém -> preskoč, nezhoď celý request
+            continue
 
-        out["run"].append(
-            {
-                "distance_m": r.get("distance_m"),
-                "best_time_s": best_time_s,
-                "time_str": time_str,
-                "date": r.get("achieved_at") or r.get("updated_at"),
-            }
-        )
+        if not rows:
+            continue
 
-    # ak neskôr pridáš bike, doplníš aj "ride"
+        sport_bests: List[Dict[str, Any]] = []
+        for r in rows:
+            best_time_s = r.get("best_time_s") or 0
+            time_str = seconds_to_hhmmss(best_time_s)
+            date_str = r.get("achieved_at") or r.get("updated_at")
+            days_ago, is_expired = _pb_freshness(date_str)
+
+            sport_bests.append(
+                {
+                    "distance_m": r.get("distance_m"),
+                    "best_time_s": best_time_s,
+                    "time_str": time_str,
+                    "date": date_str,
+                    "days_ago": days_ago,
+                    "is_expired": is_expired,
+                }
+            )
+
+        if sport_bests:
+            out[sport] = sport_bests
 
     return out

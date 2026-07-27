@@ -11,6 +11,9 @@ import {
 import {
   distanceOptions,
   distanceLabel,
+  daysAgoFromDate,
+  isBestExpired,
+  formatAgeLabel,
 } from "@/app/features/bests/utils/bests";
 
 import type {
@@ -35,6 +38,7 @@ import NumberField from "@/app/shared/ui/components/NumberField";
 import { useIsTouch } from "@/app/shared/utils/detection";
 import type { MiniActivity } from "@/app/features/activities/types/activities";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   PANEL_STACK,
@@ -83,7 +87,8 @@ export default function PBHyrox() {
     if (!userId) return;
     setLoading(true);
     try {
-      setRows(await apiGetBests(userId, "run"));
+      // 🐛 FIX: bolo "run", má byť "hyrox"
+      setRows(await apiGetBests(userId, "hyrox"));
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.bests.loadFailed"));
     } finally {
@@ -107,7 +112,8 @@ export default function PBHyrox() {
   const distanceSelectOptions = useMemo(() => {
     return [
       { value: "", label: `— ${t("PB.chooseDist")}  —` },
-      ...distanceOptions("run").map((o) => ({
+      // 🐛 FIX: bolo distanceOptions("run"), má byť "hyrox"
+      ...distanceOptions("hyrox").map((o) => ({
         value: String(o.m),
         label: o.label,
       })),
@@ -115,7 +121,7 @@ export default function PBHyrox() {
   }, [t]);
 
   const previewText = useMemo(() => {
-    const favLabel = distanceLabel(favoriteM, "run");
+    const favLabel = distanceLabel(favoriteM, "hyrox");
     const count = rows.length;
     return count > 0
       ? `${t("PB.favorite")}: ${favLabel} · ${count} ${t("PB.recordsCount") || "záznamov"}`
@@ -129,7 +135,8 @@ export default function PBHyrox() {
       const m = Number(form.distance_m);
       const sec = hhmmssToSec(form.time_str.trim());
       const payload: any = {
-        sport: "run",
+        // 🐛 FIX: bolo "run", má byť "hyrox"
+        sport: "hyrox",
         distance_m: m,
         ...(Number.isFinite(sec)
           ? { time_sec: sec }
@@ -167,7 +174,7 @@ export default function PBHyrox() {
   const handleDelete = async (m: number) => {
     const ok = await confirm({
       title: t("PB.removeTitle"),
-      message: `${t("PB.removeMessage")}\n(${distanceLabel(m, "run")})`,
+      message: `${t("PB.removeMessage")}\n(${distanceLabel(m, "hyrox")})`,
       okText: t("PB.removeConfirm"),
       cancelText: t("PB.removeCancel"),
       tone: "danger",
@@ -175,7 +182,8 @@ export default function PBHyrox() {
     if (!ok || !userId) return;
 
     try {
-      await apiDeleteBest(userId, m, "run");
+      // 🐛 FIX: bolo "run", má byť "hyrox"
+      await apiDeleteBest(userId, m, "hyrox");
       toast.success(t("PB.deleted"));
       await refresh();
     } catch (e: any) {
@@ -235,7 +243,7 @@ export default function PBHyrox() {
               <ActivitySelector
                 userId={userId ?? null}
                 dateIso={form.achieved_at}
-                sports={["run", "mixed"]}
+                sports={["workout", "mixed"]}
                 value={form.activity_id ? Number(form.activity_id) : ""}
                 onChange={(v) =>
                   setForm((f) => ({
@@ -320,8 +328,12 @@ export default function PBHyrox() {
                 b.best_time_s != null
                   ? secToHHMMSS(b.best_time_s)
                   : (b.time_str ?? "—");
-              const dist = distanceLabel(b.distance_m, "run");
+              const dist = distanceLabel(b.distance_m, "hyrox");
               const isFav = b.distance_m === favoriteM;
+
+              const daysAgo = b.days_ago ?? daysAgoFromDate(b.achieved_at);
+              const expired = isBestExpired(b);
+              const ageLabel = formatAgeLabel(daysAgo);
 
               const doEdit = () => {
                 setForm({
@@ -361,7 +373,7 @@ export default function PBHyrox() {
                       kind: "bests",
                       title: dist,
                       dateIso: isoDateOnly(b.achieved_at),
-                      sport: "run",
+                      sport: "hyrox",
                       activityId: actId ?? 0,
                       timeStr: timeDB,
                       distanceStr: dist.replace("— ", ""),
@@ -375,6 +387,28 @@ export default function PBHyrox() {
                 />
               );
 
+              const wrappedCard = (
+                <div className="relative">
+                  {expired && ageLabel && (
+                    <div
+                      className="absolute -top-2 right-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                      style={{
+                        background: appColors.backgroundAlt,
+                        color: appColors.statusWarning,
+                        border: `1px solid ${appColors.statusWarning}`,
+                      }}
+                      title={
+                        t("PB.expiredTooltip" as any) ||
+                        "Tento rekord je už starší, forma sa odvtedy mohla zmeniť."
+                      }
+                    >
+                      {ageLabel} · {t("PB.old" as any) || "starý rekord"}
+                    </div>
+                  )}
+                  {card}
+                </div>
+              );
+
               if (isTouch) {
                 return (
                   <SwipeRow
@@ -383,12 +417,12 @@ export default function PBHyrox() {
                     onEdit={doEdit}
                     onDelete={doDelete}
                   >
-                    {card}
+                    {wrappedCard}
                   </SwipeRow>
                 );
               }
 
-              return <li key={b.distance_m}>{card}</li>;
+              return <li key={b.distance_m}>{wrappedCard}</li>;
             })}
 
           {rows.length === 0 && !loading && (

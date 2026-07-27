@@ -119,6 +119,25 @@ def _no_raw_technical_values_rule() -> str:
     )
 
 
+PB_VALID_DAYS = 180  # hranica "aktuálny" vs "potenciál" pre osobné rekordy
+
+
+def _pb_validity_rule() -> str:
+    """
+    Vysvetlí AI, ako pracovať s bests, ktoré sú označené is_expired=true
+    (staršie ako PB_VALID_DAYS) — má ich brať ako signál dlhodobého
+    potenciálu, nie ako aktuálny fyzický stav.
+    """
+    return (
+        "- PERSONAL BEST VALIDITY: Each entry in 'bests' has 'days_ago' and 'is_expired'. "
+        "Entries with is_expired=true are OLD (over 180 days) and must NOT be treated as the athlete's "
+        "current ability or used to calibrate current paces/capability level. Treat them only as evidence "
+        "of long-term potential/ceiling — if you reference one in free text, explicitly mention its age "
+        "(e.g. 'pred X mesiacmi si dosiahol...') and frame it as past potential, never as a current state. "
+        "Only entries with is_expired=false represent current fitness and may be used for calibration.\n"
+    )
+
+
 def _days_until(date_str: Optional[str]) -> Optional[int]:
     """Vráti počet dní do dátumu od dnes."""
     if not date_str:
@@ -222,16 +241,37 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 if isinstance(w, dict) and int(w.get("week_index_from_now", -99)) >= -4
             ]
 
-    # --- bests — preskočí záznamy staršie ako 180 dní ---
+    # --- bests — pridá is_expired flag namiesto tvrdého orezania na 180 dní ---
+    # POZOR: chýbajúci "days_ago" sa NESMIE brať ako 0 (dnes) — to bol bug,
+    # kvôli ktorému staré rekordy bez vyplneného days_ago prešli ako čerstvé.
+    # Chýbajúci údaj = neznámy vek = radšej ho označiť ako expired (fail-safe).
     bests = out.get("bests")
     if isinstance(bests, dict):
         for sport_key, items in bests.items():
             if not isinstance(items, list):
                 continue
-            bests[sport_key] = [
-                b for b in items
-                if isinstance(b, dict) and int(b.get("days_ago", 0)) <= 180
-            ]
+            cleaned_items: List[Dict[str, Any]] = []
+            for b in items:
+                if not isinstance(b, dict):
+                    continue
+                raw_days_ago = b.get("days_ago")
+                if raw_days_ago is None:
+                    days_ago = None
+                else:
+                    try:
+                        days_ago = int(raw_days_ago)
+                    except (TypeError, ValueError):
+                        days_ago = None
+                # neznámy vek -> fail-safe, nech to AI nepovažuje za čerstvé
+                is_expired = days_ago is None or days_ago > PB_VALID_DAYS
+                # ignoruj úplne extrémne staré/nevalidné (>365 dní) — už nedávajú zmysel ani ako "potenciál"
+                if days_ago is not None and days_ago > 365:
+                    continue
+                b2 = dict(b)
+                b2["days_ago"] = days_ago
+                b2["is_expired"] = is_expired
+                cleaned_items.append(b2)
+            bests[sport_key] = cleaned_items
 
     # --- latest_paces — odstráni DB metadata ---
     paces = out.get("latest_paces")
@@ -385,6 +425,7 @@ def build_prompts_for_analyze(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
+        + _pb_validity_rule()
         + lthr_rule
         + race_hint
         + beginner_hint

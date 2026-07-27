@@ -12,6 +12,8 @@ export type UserBest = {
   achieved_at?: string | null; // YYYY-MM-DD alebo ISO
   total_distance_m?: number | null;
   total_time_s?: number | null;
+  days_ago?: number | null;
+  is_expired?: boolean | null;
 };
 
 export type typePB = {

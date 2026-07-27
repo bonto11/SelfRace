@@ -70,6 +70,10 @@ export const CANONICAL_DISTANCES = [400, 1000, 5000, 21097, 42195] as const;
 export const RUN_DISTANCE_OPTIONS = DISTANCE_OPTIONS_BY_SPORT.run;
 export const RUN_DISTANCES_M = RUN_DISTANCE_OPTIONS.map((d) => d.m) as readonly number[];
 
+// Hranica "aktuálny" vs "potenciál/expired" pre PB.
+// MUSÍ zodpovedať PB_VALID_DAYS v backend prompts.py / user_bests_service.py.
+export const PB_VALID_DAYS = 180;
+
 export function distanceOptions(sport: Sport = "run"): readonly DistanceOption[] {
   return DISTANCE_OPTIONS_BY_SPORT[sport];
 }
@@ -89,6 +93,46 @@ export function distanceLabel(m: number, sport: Sport = "run"): string {
   return Number.isInteger(km) ? `${km} km` : `${km.toFixed(1)} km`;
 }
 
+/**
+ * Počet dní od zadaného dátumu po dnešok. null = neznámy/nevalidný dátum.
+ */
+export function daysAgoFromDate(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  const iso = dateStr.length <= 10 ? `${dateStr}T00:00:00` : dateStr;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * true/false, či je PB už "starý" (nad PB_VALID_DAYS).
+ * Ak backend už poslal is_expired, použije sa priamo (jeden zdroj pravdy).
+ * Inak sa dopočíta z achieved_at — FAIL-SAFE: neznámy dátum = expired=true,
+ * aby sa nikdy tichým pádom nepovažoval za "čerstvý".
+ */
+export function isBestExpired(b: {
+  is_expired?: boolean | null;
+  achieved_at?: string | null;
+}): boolean {
+  if (typeof b.is_expired === "boolean") return b.is_expired;
+  const days = daysAgoFromDate(b.achieved_at);
+  return days == null ? true : days > PB_VALID_DAYS;
+}
+
+/**
+ * Krátky label veku PB pre badge, napr. "11 mes.", "1 r 2 mes.".
+ */
+export function formatAgeLabel(days: number | null): string | null {
+  if (days == null) return null;
+  if (days < 30) return `${days} d`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months} mes.`;
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return remMonths > 0 ? `${years} r ${remMonths} mes.` : `${years} r`;
+}
+
 export function normalizeRow(r: any): UserBest {
   return {
     sport: (r?.sport as Sport) ?? "run",
@@ -100,6 +144,8 @@ export function normalizeRow(r: any): UserBest {
     achieved_at: r?.achieved_at ?? null,
     total_distance_m: r?.total_distance_m ?? null,
     total_time_s: r?.total_time_s ?? null,
+    days_ago: r?.days_ago ?? null,
+    is_expired: typeof r?.is_expired === "boolean" ? r.is_expired : null,
   };
 }
 
