@@ -1,9 +1,9 @@
+// src/app/features/Toolbars/components/MobileBottomBar.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import {
@@ -25,15 +25,61 @@ const ITEMS: ItemDef[] = [
   { id: "calendar",    href: "/calendar",    translationKey: "calendar.title" },
 ];
 
+function resetAppScroll() {
+  document.getElementById("app-scroll-desktop")?.scrollTo({ top: 0, left: 0 });
+  document.getElementById("app-scroll-mobile")?.scrollTo({ top: 0, left: 0 });
+}
+
+// 🌟 OBCHÁDZKOVÉ RIEŠENIE: back-first trik aplikujeme LEN ked odchadzame
+// z VNORENEJ stránky (napr. /coach/prefs - viac ako 1 segment v URL) - teda
+// tam, kde sa zaseknutý scroll/layout stav realne prejavuje. Na "korenovych"
+// URL (napr. /activities, /coach - presne 1 segment) je normalna SPA
+// navigacia uplne v poriadku, ziadny zbytocny "skok cez inu stranku".
+function isNestedPath(path: string): boolean {
+  const segments = path.split("/").filter(Boolean);
+  return segments.length > 1;
+}
+
+function navigateWithBackFirst(
+  router: ReturnType<typeof useRouter>,
+  currentPath: string,
+  targetHref: string,
+) {
+  if (currentPath === targetHref) {
+    resetAppScroll();
+    return;
+  }
+
+  const shouldUseBackFirst = isNestedPath(currentPath);
+
+  if (
+    shouldUseBackFirst &&
+    typeof window !== "undefined" &&
+    window.history.length > 1
+  ) {
+    window.history.back();
+    setTimeout(() => {
+      router.push(targetHref);
+    }, 60);
+  } else {
+    router.push(targetHref);
+  }
+}
+
 function BottomNavItem({ id, href, translationKey }: ItemDef) {
   const t = useT();
+  const router = useRouter();
   const pathname = usePathname();
   const isActive = pathname === href || pathname.startsWith(href + "/");
   const label = t(translationKey as any);
 
   return (
-    <Link
+    <a
       href={href}
+      onClick={(e) => {
+        e.preventDefault();
+        navigateWithBackFirst(router, pathname, href);
+      }}
       className="flex flex-col items-center min-w-[60px]"
       aria-label={label}
     >
@@ -54,7 +100,7 @@ function BottomNavItem({ id, href, translationKey }: ItemDef) {
       >
         {label}
       </span>
-    </Link>
+    </a>
   );
 }
 

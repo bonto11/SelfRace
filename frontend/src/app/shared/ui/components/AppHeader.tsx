@@ -1,6 +1,7 @@
 // src/shared/components/ui/AppHeader.tsx
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -15,14 +16,12 @@ import {
   APPBAR_ROW,
   APPBAR_TITLE,
   APPBAR_RIGHT,
-
-  // ✅ NEW tokens
   APPBAR_TITLE_STACK,
   APPBAR_BRAND_WRAP,
   APPBAR_BRAND_IMG,
 } from "@/app/shared/ui/tokens/header";
 
-import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava"; // ✅ NEW
+import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 
 type Props = {
   title?: string;
@@ -36,11 +35,14 @@ type Props = {
   container?: boolean;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
-
-  // ✅ NEW
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
+  // 🌟 NOVÝ prop - zavolá sa so skutočnou výškou headeru po vykreslení,
+  // aby ho PageShell mohol použiť na presné odsadenie obsahu.
+  onHeightChange?: (heightPx: number) => void;
 };
+
+const GLOBAL_HEADER_HEIGHT_PX = 56;
 
 export default function AppHeader({
   title,
@@ -54,12 +56,26 @@ export default function AppHeader({
   container = false,
   onBack,
   rightSlot,
-
-  // ✅ NEW
   showPoweredByStrava = false,
   poweredByStravaVariant = "white",
+  onHeightChange,
 }: Props) {
   const router = useRouter();
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!onHeightChange || !wrapRef.current) return;
+
+    const el = wrapRef.current;
+    const report = () => onHeightChange(el.offsetHeight);
+
+    report();
+
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, [onHeightChange, title]);
 
   const goBack = () => {
     onBack?.();
@@ -103,7 +119,22 @@ export default function AppHeader({
       : STRAVA_ASSETS.poweredBySvg_white;
 
   return (
-    <div className={cx(sticky && APPBAR_WRAP, className)} role="banner">
+    <div
+      ref={wrapRef}
+      className={cx(!sticky && APPBAR_WRAP, className)}
+      style={
+        sticky
+          ? {
+              position: "fixed",
+              top: `calc(${GLOBAL_HEADER_HEIGHT_PX}px + env(safe-area-inset-top))`,
+              left: 0,
+              right: 0,
+              zIndex: 40,
+            }
+          : undefined
+      }
+      role="banner"
+    >
       <div className={cx(container ? PAGE_CONTAINER : "", APPBAR_INNER)}>
         <div
           className={cx(APPBAR_PILL, innerClassName)}
