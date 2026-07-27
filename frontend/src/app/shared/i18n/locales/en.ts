@@ -973,10 +973,10 @@ export const en = {
         "For the best performance, it is recommended to save this app to the phone's home screen. It will run faster and without browser distractions:",
       iosTitle: "For iPhone (Safari):",
       iosDesc:
-        "Tap the share icon at the bottom and select 'Add to Home Screen'.",
+        "Tap '...' in the right, 'Share' and 'Add to Home Screen'.",
       androidTitle: "For Android (Chrome):",
       androidDesc:
-        "Tap the three dots in the top right and select 'Add to Home screen'.",
+        "Tap '...' in the right and select 'Add to Home screen'.",
       ps: "Tip: This guide can always be found in the profile menu.",
     },
     notifications: {
@@ -2422,6 +2422,8 @@ export const en = {
       noTipsDesc: "Specific advice will appear after the next analysis.",
       vo2maxDesc: "Fitness estimate based on performances.",
       noCapabilities: "Specific abilities have not been estimated yet.",
+      analyzing: "Analyzing...",
+      analyzeNow: "Analyze now",
     },
     weekly: {
       errorLoad: "Weekly schedule could not be loaded.",

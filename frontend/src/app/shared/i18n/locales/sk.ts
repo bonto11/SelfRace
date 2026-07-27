@@ -965,9 +965,9 @@ export const sk = {
       desc1:
         "Pre ten najlepší chod sa odporúča uložiť si túto aplikáciu na plochu telefónu. Bude fungovať rýchlejšie a bez rušivých prvkov prehliadača:",
       iosTitle: "Pre iPhone (Safari):",
-      iosDesc: "Klikni dole na ikonu zdieľania a zvoľ 'Pridať na plochu'.",
+      iosDesc: "Klikni vpravo na '...', 'Zdielať', a 'Pridať na plochu'.",
       androidTitle: "Pre Android (Chrome):",
-      androidDesc: "Klikni na tri bodky vpravo hore a zvoľ 'Pridať na plochu'.",
+      androidDesc: "Klikni vpravo na '...' a 'Pridať na plochu'.",
       ps: "Tip: Tohto sprievodcu nájdeš kedykoľvek v menu profilu.",
     },
     notifications: {
@@ -2415,6 +2415,8 @@ export const sk = {
       noTipsDesc: "Konkrétne rady sa objavia po ďalšej analýze.",
       vo2maxDesc: "Odhad kondície podľa výkonov.",
       noCapabilities: "Zatiaľ neboli odhadnuté konkrétne schopnosti.",
+      analyzing: "Analyzujem...",
+      analyzeNow: "Analyzovať teraz",
     },
     weekly: {
       errorLoad: "Týždenný rozpis sa nepodarilo načítať.",

@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteState,
@@ -395,6 +396,21 @@ export default function DetailAthleteState() {
   const hasRisksOrTips = (userSummary.risks && userSummary.risks.length > 0) || 
                          (userSummary.suggestions_short && userSummary.suggestions_short.length > 0);
 
+  const analyzeButton = (
+    <Button
+      variant="primary"
+      size="md"
+      onClick={handleAnalyze}
+      disabled={analyzing || !userId || !userUuid}
+      leftIcon={analyzing ? <LoadingSpinner size="button" /> : undefined}
+      circle={false}
+    >
+      {analyzing
+        ? t("coach.state.analyzing" as any) || "Analyzujem..."
+        : t("coach.state.analyzeNow" as any) || "Analyzovať teraz"}
+    </Button>
+  );
+
   if (!userId)
     return (
       <Card
@@ -423,15 +439,11 @@ export default function DetailAthleteState() {
         <div className={PANEL_PREVIEW}>
           {error ?? t("coach.state.noDataDesc" as any)}
         </div>
-        <div className={[PANEL_PAD].join(" ")}>
-          <AnalyzeButton
-            analyzing={analyzing}
-            onClick={handleAnalyze}
-            t={t}
-          />
+        <div className="flex flex-col items-center gap-2 mt-3">
+          {analyzeButton}
           {analyzeError && (
             <div
-              className={[PANEL_PREVIEW, "text-pretty mt-2"].join(" ")}
+              className={[PANEL_PREVIEW, "text-pretty"].join(" ")}
               style={{ color: appColors.statusError }}
             >
               {analyzeError}
@@ -664,7 +676,7 @@ export default function DetailAthleteState() {
       {/* 🆕 6. MANUÁLNA ANALÝZA (vždy na spodku) */}
       <Card footer={false}>
         <div className="flex flex-col items-center gap-2 py-1">
-          <AnalyzeButton analyzing={analyzing} onClick={handleAnalyze} t={t} />
+          {analyzeButton}
           {analyzeError && (
             <div
               className={[PANEL_PREVIEW, "text-pretty text-center"].join(" ")}
@@ -677,43 +689,5 @@ export default function DetailAthleteState() {
       </Card>
 
     </div>
-  );
-}
-
-/* ---------- analyze button ---------- */
-
-function AnalyzeButton({
-  analyzing,
-  onClick,
-  t,
-}: {
-  analyzing: boolean;
-  onClick: () => void;
-  t: any;
-}) {
-  const style: CSSProperties = {
-    background: appColors.statusInfo,
-    color: "#fff",
-    opacity: analyzing ? 0.7 : 1,
-    cursor: analyzing ? "not-allowed" : "pointer",
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={analyzing}
-      className="w-full max-w-xs rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-opacity"
-      style={style}
-    >
-      {analyzing ? (
-        <>
-          <LoadingSpinner size="button" />
-          {t("coach.state.analyzing" as any) || "Analyzujem..."}
-        </>
-      ) : (
-        t("coach.state.analyzeNow" as any) || "Analyzovať teraz"
-      )}
-    </button>
   );
 }
