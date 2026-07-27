@@ -10,6 +10,7 @@ from DB.notifications import (
     db_upsert_push_subscription,
     db_get_user_subscriptions,
     db_delete_push_subscription,
+    db_mark_push_subscription_success,
 )
 from Modules.Supabase.auth import AuthCtx
 
@@ -172,6 +173,11 @@ def service_send_push_notification(
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": VAPID_CLAIM_EMAIL},
             )
+            # 🌟 Jediný spoľahlivý signál "táto subscription reálne žije" —
+            # zajtrajší cron sa bude vedieť podľa tohto rozhodnúť, ktoré
+            # riadky sú dávno mŕtve (nikdy neúspešné / dávno naposledy
+            # úspešné) a zmazať ich.
+            db_mark_push_subscription_success(endpoint=sub["endpoint"], ctx=ctx)
             success_count += 1
         except WebPushException as ex:
             status = ex.response.status_code if ex.response is not None else None
