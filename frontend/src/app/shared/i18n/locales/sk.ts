@@ -1034,6 +1034,8 @@ export const sk = {
   },
   PB: {
     title: "Rekordy",
+    old: "starý rekord",
+    expiredTooltip: "Tento rekord je už starší, forma sa odvtedy mohla zmeniť.",
     chooseDist: "vyber vzdialenosť",
     chooseExercise: "vyber cvik",
     saved: "Rekord je uložený",

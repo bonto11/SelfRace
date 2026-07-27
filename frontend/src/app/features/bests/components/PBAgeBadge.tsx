@@ -39,11 +39,10 @@ export default function PBAgeBadge({ best, children }: PBAgeBadgeProps) {
             border: `1px solid ${appColors.statusWarning}`,
           }}
           title={
-            t("PB.expiredTooltip" as any) ||
-            "Tento rekord je už starší, forma sa odvtedy mohla zmeniť."
+            t("PB.expiredTooltip" as any)
           }
         >
-          {ageLabel} · {t("PB.old" as any) || "starý rekord"}
+          {ageLabel} · {t("PB.old" as any)}
         </div>
       )}
       {children}

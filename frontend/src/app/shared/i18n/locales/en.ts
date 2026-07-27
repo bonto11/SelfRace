@@ -1043,6 +1043,8 @@ export const en = {
   },
   PB: {
     title: "Records",
+      old: "Old record",
+    expiredTooltip: "This record is older, your form may be changed since then.",
     chooseDist: "choose distance",
     chooseExercise: "choose exercise",
     saved: "Record saved",
