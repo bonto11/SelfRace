@@ -1,11 +1,12 @@
 // src/app/features/coach/components/DetailAthleteState.tsx
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetLatestAthleteState,
+  apiAnalyzeAthleteState,
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
 import { useT } from "@/app/shared/i18n/useT";
@@ -244,36 +245,73 @@ function Bar({
 /* ---------- main ---------- */
 
 export default function DetailAthleteState() {
-  const { userId } = useUserId();
+  // ⚠️ Over, či useUserId() naozaj vracia aj userUuid — apiAnalyzeAthleteState ho vyžaduje
+  const { userId, userUuid } = useUserId() as any;
   const t = useT();
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 🆕 Stav pre manuálnu analýzu
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   
   // 🛡️ Náš MASTER stav ťahaný z Providera
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    (async () => {
+  const loadState = useCallback(
+    async (alive: { current: boolean } | null = null) => {
+      if (!userId) return;
       setLoading(true);
       setError(null);
       try {
         const r = await apiGetLatestAthleteState(userId);
-        if (alive) setRow(r ?? null);
+        if (!alive || alive.current) setRow(r ?? null);
       } catch (e: any) {
-        if (alive)
+        if (!alive || alive.current)
           setError(t(e?.message as any) || t("coach.state.errorLoad" as any));
       } finally {
-        if (alive) setLoading(false);
+        if (!alive || alive.current) setLoading(false);
       }
-    })();
+    },
+    [userId, t],
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+    const alive = { current: true };
+    loadState(alive);
     return () => {
-      alive = false;
+      alive.current = false;
     };
-  }, [userId, t]);
+  }, [userId, loadState]);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!userId || !userUuid || analyzing) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await apiAnalyzeAthleteState(userId, userUuid);
+      if (!res?.success) {
+        setAnalyzeError(
+          (res?.message && t(res.message as any)) ||
+            t("coach.state.analyzeError" as any) ||
+            "Analýza zlyhala.",
+        );
+        setAnalyzing(false);
+        return;
+      }
+      // ✅ Podľa zadania: po úspešnej analýze zrefreshni celú obrazovku
+      window.location.reload();
+    } catch (e: any) {
+      console.error("[Coach][DetailAthleteState] handleAnalyze ERROR", e);
+      setAnalyzeError(
+        t(e?.message as any) || t("coach.state.analyzeError" as any) || "Analýza zlyhala.",
+      );
+      setAnalyzing(false);
+    }
+  }, [userId, userUuid, analyzing, t]);
 
   const parsed = useMemo(() => {
     if (!row || !row.state)
@@ -384,6 +422,21 @@ export default function DetailAthleteState() {
       >
         <div className={PANEL_PREVIEW}>
           {error ?? t("coach.state.noDataDesc" as any)}
+        </div>
+        <div className={[PANEL_PAD].join(" ")}>
+          <AnalyzeButton
+            analyzing={analyzing}
+            onClick={handleAnalyze}
+            t={t}
+          />
+          {analyzeError && (
+            <div
+              className={[PANEL_PREVIEW, "text-pretty mt-2"].join(" ")}
+              style={{ color: appColors.statusError }}
+            >
+              {analyzeError}
+            </div>
+          )}
         </div>
       </Card>
     );
@@ -608,6 +661,59 @@ export default function DetailAthleteState() {
         </Card>
       )}
 
+      {/* 🆕 6. MANUÁLNA ANALÝZA (vždy na spodku) */}
+      <Card footer={false}>
+        <div className="flex flex-col items-center gap-2 py-1">
+          <AnalyzeButton analyzing={analyzing} onClick={handleAnalyze} t={t} />
+          {analyzeError && (
+            <div
+              className={[PANEL_PREVIEW, "text-pretty text-center"].join(" ")}
+              style={{ color: appColors.statusError }}
+            >
+              {analyzeError}
+            </div>
+          )}
+        </div>
+      </Card>
+
     </div>
+  );
+}
+
+/* ---------- analyze button ---------- */
+
+function AnalyzeButton({
+  analyzing,
+  onClick,
+  t,
+}: {
+  analyzing: boolean;
+  onClick: () => void;
+  t: any;
+}) {
+  const style: CSSProperties = {
+    background: appColors.statusInfo,
+    color: "#fff",
+    opacity: analyzing ? 0.7 : 1,
+    cursor: analyzing ? "not-allowed" : "pointer",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={analyzing}
+      className="w-full max-w-xs rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-opacity"
+      style={style}
+    >
+      {analyzing ? (
+        <>
+          <LoadingSpinner size="button" />
+          {t("coach.state.analyzing" as any) || "Analyzujem..."}
+        </>
+      ) : (
+        t("coach.state.analyzeNow" as any) || "Analyzovať teraz"
+      )}
+    </button>
   );
 }
