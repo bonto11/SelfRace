@@ -50,6 +50,75 @@ def _time_format_rule() -> str:
     )
 
 
+def _duration_minutes_format_rule() -> str:
+    """
+    Pravidlo pre formátovanie tréningového objemu/trvania zadaného v MINÚTACH
+    (napr. weekly_minutes_min/max, celkový týždenný objem) vo voľnom texte.
+    Odlišné od _time_format_rule(), ktoré rieši sekundy (tempá, časy pretekov).
+    """
+    return (
+        "- VOLUME/DURATION IN MINUTES FORMAT: Never write raw minute values for training volume or duration "
+        "in free text (e.g. do NOT write '573 minút'). Always convert to hours and minutes: "
+        "use 'H h MM min' format (e.g. 573 minutes -> '9 h 33 min', 90 minutes -> '1 h 30 min'). "
+        "Omit the hours part if it is zero (e.g. 45 minutes -> '45 min'), and omit the minutes part "
+        "if it is exactly zero (e.g. 120 minutes -> '2 h', not '2 h 0 min').\n"
+    )
+
+
+def _terrain_variability_rule() -> str:
+    """
+    Pravidlo, aby AI nezamieňala terénnu variabilitu tempa (kopce, trail) so
+    skutočnou únavou/rizikom preťaženia.
+    """
+    return (
+        "- TERRAIN-AWARE VARIABILITY: If last_activities/segments show trail or hilly running "
+        "(elevation gain, technical/uneven terrain), do NOT interpret the resulting pace or HR "
+        "variability (slower uphill, faster downhill, uneven splits) as fatigue or injury risk on its own. "
+        "Terrain-driven pace changes are expected and normal. Only raise fatigue_level or injury_risk based on "
+        "genuine physiological signals — e.g. elevated HR at easy effort, declining performance across comparable "
+        "terrain/conditions over time, poor recovery trends, or explicit subjective signals — not from pace "
+        "variability caused by elevation or technical terrain alone.\n"
+    )
+
+
+def _terminology_rule(lang_label: str) -> str:
+    """
+    Zabráni prenikaniu anglických koučovacích termínov do SK/CS textu.
+    """
+    if lang_label == "English":
+        return ""
+    if lang_label == "Czech":
+        return (
+            "- TERMINOLOGY: Do NOT leave English coaching terms untranslated in free text. Use Czech equivalents, "
+            "for example: 'fatigue' -> 'únava', 'hard session(s)' -> 'náročný trénink / náročné tréninky', "
+            "'threshold' -> 'práh / prahový', 'recovery' -> 'regenerace', 'base' -> 'základ / základní fáze', "
+            "'volume' -> 'objem', 'intensity' -> 'intenzita', 'injury risk' -> 'riziko zranění', 'block' -> 'blok', "
+            "'taper' -> 'tapering / odlehčení'. Never mix untranslated English jargon into Czech sentences.\n"
+        )
+    return (
+        "- TERMINOLOGY: Do NOT leave English coaching terms untranslated in free text. Use Slovak equivalents, "
+        "for example: 'fatigue' -> 'únava', 'hard session(s)' -> 'náročný tréning / náročné tréningy', "
+        "'threshold' -> 'prah / prahový', 'recovery' -> 'regenerácia', 'base' -> 'základ / základná fáza', "
+        "'volume' -> 'objem', 'intensity' -> 'intenzita', 'injury risk' -> 'riziko zranenia', 'block' -> 'blok', "
+        "'taper' -> 'tapering / odľahčenie'. Never mix untranslated English jargon into Slovak sentences.\n"
+    )
+
+
+def _no_raw_technical_values_rule() -> str:
+    """
+    Zabráni tomu, aby interné boolean hodnoty/field names unikli priamo do
+    voľného textu (napr. "zmena z false na true").
+    """
+    return (
+        "- NO RAW TECHNICAL VALUES IN TEXT: Never write literal booleans, field names, or internal codes "
+        "in free text (e.g. do NOT write 'true', 'false', 'should_soften', 'zmena z false na true', "
+        "'weekly_replan_reason'). Always translate such internal state into a meaningful, human-readable sentence "
+        "explaining what actually changed and why it matters to the athlete "
+        "(e.g. instead of 'soften_next_days: false -> true', explain that the plan will now be softened over the "
+        "next days because of detected fatigue).\n"
+    )
+
+
 def _days_until(date_str: Optional[str]) -> Optional[int]:
     """Vráti počet dní do dátumu od dnes."""
     if not date_str:
@@ -312,6 +381,10 @@ def build_prompts_for_analyze(
         "- Use recent_load, recovery, external_events and last_activities for fatigue/injury risk.\n"
         "- SEGMENTS: If 'segments' are present in last_activities, use them to assess pacing consistency and capability.\n"
         + _time_format_rule()
+        + _duration_minutes_format_rule()
+        + _terminology_rule(lang_label)
+        + _no_raw_technical_values_rule()
+        + _terrain_variability_rule()
         + lthr_rule
         + race_hint
         + beginner_hint
@@ -375,6 +448,10 @@ def build_prompts_for_progress(
         f"- {second_person_note} Always speak directly to the athlete in 2nd person.\n"
         "- Keep string arrays short and impactful.\n"
         + _time_format_rule()
+        + _duration_minutes_format_rule()
+        + _terminology_rule(lang_label)
+        + _no_raw_technical_values_rule()
+        + _terrain_variability_rule()
         + "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
