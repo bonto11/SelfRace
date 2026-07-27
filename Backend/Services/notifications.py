@@ -129,6 +129,13 @@ def service_delete_push_subscription(
 # UNIVERZÁLNY ODOSIELATEĽ
 # =====================================================================
 
+# Push služby (FCM/Apple/Mozilla) hlásia "táto subscription už neexistuje"
+# buď ako 410 Gone (najčastejšie), alebo 404 Not Found (niektoré edge-casy,
+# najmä pri FCM endpointoch). Oboje znamená to isté: zariadenie/appka bola
+# zmazaná/preinštalovaná alebo subscription bola inak zrušená -> vymaž ju
+# z DB hneď, nečakaj na ďalší pokus.
+STALE_SUBSCRIPTION_STATUS_CODES = (404, 410)
+
 
 def service_send_push_notification(
     user_id: int,
@@ -167,10 +174,16 @@ def service_send_push_notification(
             )
             success_count += 1
         except WebPushException as ex:
-            if ex.response is not None and ex.response.status_code == 410:
+            status = ex.response.status_code if ex.response is not None else None
+            if status in STALE_SUBSCRIPTION_STATUS_CODES:
+                # 🌟 FIX: predtým len 410. Niektoré push endpointy (najmä
+                # FCM) vedia pre zaniknutú subscription vrátiť aj 404 -
+                # oboje treba mazať rovnako, inak zombie subscription
+                # zostane v DB a appka bude tváriť, že notifikácie fungujú,
+                # hoci zariadenie už neexistuje (presne bug, čo riešime).
                 db_delete_push_subscription(endpoint=sub["endpoint"], ctx=ctx)
             else:
-                print(f"[Push Error] ❌ {repr(ex)}")
+                print(f"[Push Error] ❌ status={status} {repr(ex)}")
             error_count += 1
 
     return {"success": True, "sent": success_count, "failed": error_count}
