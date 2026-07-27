@@ -13,7 +13,18 @@ type Props = {
   userId: number | null;
 };
 
-// Pomocná funkcia na dekódovanie VAPID kľúča
+// 🌟 FIX: "dismissed" sa teraz sleduje aj lokálne (localStorage), nie len
+// v DB per-user flagu (push_prompt_dismissed). Dôvod: DB flag je viazaný
+// na USERA, nie na KONKRÉTNU INŠTALÁCIU appky. Keď si niekto appku z plochy
+// zmaže a stiahne znova (hlavne iOS "Add to Home Screen"), Notification.
+// permission sa resetne na "default" a live subscription zanikne, ale DB
+// flag push_prompt_dismissed=true (z predošlej inštalácie) ostáva ->
+// prompt sa už nikdy neukáže, hoci táto inštalácia notifikácie reálne
+// nemá. localStorage sa pri zmazaní appky (na rozdiel od DB) prirodzene
+// vynuluje spolu s ňou, takže presne kopíruje životný cyklus inštalácie —
+// je to správne miesto na "dismissed PRE TOTO zariadenie".
+const LOCAL_DISMISS_KEY = "sr.push_prompt_dismissed_local";
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
@@ -25,6 +36,25 @@ function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+async function silentResubscribe(userId: number): Promise<boolean> {
+  try {
+    await navigator.serviceWorker.register("/sw.js");
+    const reg = await navigator.serviceWorker.ready;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return false;
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+    await apiSavePushSubscription(userId, sub.toJSON());
+    return true;
+  } catch (e) {
+    console.error("Tichá obnova push subscription zlyhala", e);
+    return false;
+  }
 }
 
 export default function PushNotificationPrompt({ userId }: Props) {
@@ -39,14 +69,12 @@ export default function PushNotificationPrompt({ userId }: Props) {
 
     const checkAndShow = async () => {
       try {
-        // 1. Zistíme, či je appka stiahnutá na ploche (PWA standalone)
-        const isStandalone = 
-          window.matchMedia("(display-mode: standalone)").matches || 
+        const isStandalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
           (window.navigator as any).standalone === true;
-        
+
         if (!isStandalone) return;
 
-        // 2. Kontrola plnej podpory notifikácií a Service Workerov
         if (
           !("Notification" in window) ||
           !("serviceWorker" in navigator) ||
@@ -54,17 +82,46 @@ export default function PushNotificationPrompt({ userId }: Props) {
         ) {
           return;
         }
-        
-        // Ak už užívateľ dal "Block" alebo "Allow", popup neukazujeme
-        if (Notification.permission !== "default") return;
 
-        // 3. Kontrola v databáze (či už videl onboarding a či tento popup už neodmietol)
+        // OS/prehliadač natvrdo zakázal -> nedá sa to programaticky obísť.
+        if (Notification.permission === "denied") return;
+
+        // 🌟 Skutočná pravda o TOMTO zariadení — má reálnu, živú subscription
+        // (nie len OS povolenie)? Toto odlíši "granted, ale subscription sa
+        // stratila" od skutočne funkčného stavu.
+        let hasLocalSubscription = false;
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          const sub = await reg?.pushManager.getSubscription();
+          hasLocalSubscription = !!sub;
+        } catch {
+          hasLocalSubscription = false;
+        }
+
+        if (Notification.permission === "granted") {
+          if (hasLocalSubscription) {
+            // Táto inštalácia má reálne fungujúce notifikácie -> nič neukazuj.
+            return;
+          }
+          // 🌟 Permission je granted, ale subscription chýba (napr. reset SW
+          // registrácie) -> tichá obnova na pozadí, žiadny modal. User už
+          // raz povolil, netreba sa ho znova pýtať.
+          await silentResubscribe(userId);
+          return;
+        }
+
+        // Sem sa dostaneme len keď permission === "default"
+        // (nikdy sa nepýtalo, alebo reset po reinštalácii appky).
         const currentSettings = (await apiFetchUserPref(userId, "user.settings")) || {};
-        
         if (!currentSettings.onboarding_seen) return;
-        if (currentSettings.push_prompt_dismissed) return;
 
-        // 4. Zobraziť s malým zdržaním
+        // 🌟 FIX: "dismissed" sa číta z localStorage (per-install), nie z DB
+        // (per-user) — pozri komentár pri LOCAL_DISMISS_KEY vyššie.
+        const dismissedLocally =
+          typeof window !== "undefined" &&
+          window.localStorage.getItem(LOCAL_DISMISS_KEY) === "1";
+        if (dismissedLocally) return;
+
         setTimeout(() => {
           if (alive) setShowPrompt(true);
         }, 3000);
@@ -82,6 +139,9 @@ export default function PushNotificationPrompt({ userId }: Props) {
 
   const markAsDismissed = async () => {
     setShowPrompt(false);
+    try {
+      window.localStorage.setItem(LOCAL_DISMISS_KEY, "1");
+    } catch {}
     if (!userId) return;
     try {
       const currentSettings = (await apiFetchUserPref(userId, "user.settings")) || {};
@@ -97,42 +157,30 @@ export default function PushNotificationPrompt({ userId }: Props) {
 
   const handleAllow = async () => {
     if (!userId) return;
-    
+
     setIsLoading(true);
-    
+
     try {
-      // 1. Vypýtame si systémové povolenie
       const permission = await Notification.requestPermission();
-      
+
       if (permission !== "granted") {
         toast.error("Upozornenia boli zamietnuté.");
         markAsDismissed();
         return;
       }
 
-      // 2. Zaregistrujeme Service Worker a počkáme, kým bude pripravený
-      await navigator.serviceWorker.register("/sw.js");
-      const reg = await navigator.serviceWorker.ready;
-      
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidKey) throw new Error("Chýba NEXT_PUBLIC_VAPID_PUBLIC_KEY v .env súbore");
-
-      // 3. Vytvoríme Push Subscription od prehliadača
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
-      });
-
-      // 4. Uložíme Subscription do databázy (tak, ako to robí tvoj NotificationPanel)
-      await apiSavePushSubscription(userId, subscription.toJSON());
-      
-      toast.success("Upozornenia boli úspešne aktivované!");
+      const ok = await silentResubscribe(userId);
+      if (ok) {
+        toast.success("Upozornenia boli úspešne aktivované!");
+      } else {
+        toast.error("Nastala chyba pri aktivácii upozornení.");
+      }
     } catch (error: any) {
       console.error("Push subscription error:", error);
       toast.error("Nastala chyba pri aktivácii upozornení.");
     } finally {
       setIsLoading(false);
-      markAsDismissed(); // Vždy to na konci skryjeme a zapíšeme do DB
+      markAsDismissed();
     }
   };
 
@@ -153,11 +201,11 @@ export default function PushNotificationPrompt({ userId }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         </div>
-        
+
         <h3 className="text-xl font-bold text-white mb-2">
           {t("pushPrompt.title") as string}
         </h3>
-        
+
         <p className="text-sm opacity-80 mb-6 leading-relaxed">
           {t("pushPrompt.desc") as string}
         </p>
@@ -171,7 +219,7 @@ export default function PushNotificationPrompt({ userId }: Props) {
           >
             {t("pushPrompt.later") as string}
           </Button>
-          
+
           <Button
             onClick={handleAllow}
             variant="primary"
