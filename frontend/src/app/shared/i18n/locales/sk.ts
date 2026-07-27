@@ -2432,6 +2432,7 @@ export const sk = {
       weeksSubtitle:
         "Detaily každého bloku. Prúžok ukazuje nabehané kilometre.",
       noGoalShort: "Zatiaľ bez konkrétneho cieľa",
+      phase:"Fáza",
       phases: {
         base: "Základná vytrvalosť (Base)",
         build: "Budovanie kondície (Build)",

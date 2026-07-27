@@ -2438,6 +2438,7 @@ export const en = {
       weeksTitle: "Breakdown by weeks",
       weeksSubtitle: "Details of each block. The bar shows running kilometers.",
       noGoalShort: "No specific goal yet",
+      phase:"Phase",
       phases: {
         base: "Base endurance",
         build: "Building fitness (Build)",
