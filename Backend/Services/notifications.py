@@ -384,7 +384,7 @@ def service_notify_new_activity(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         user_id=user_id,
         title=t["new_activity_title"],
         body=t["new_activity_body"],
-        url="/calendar",
+        url="/activities/session",
         ctx=ctx,
     )
 
