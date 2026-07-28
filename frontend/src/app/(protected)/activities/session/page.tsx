@@ -13,8 +13,7 @@ import { PANEL_PREVIEW } from "@/app/shared/ui/tokens";
  * flow.
  */
 export default function ActivitySessionDetailPage() {
-  const params = useParams();
-  const activityId = params?.activityId;
+  
 
   return (
     <PageShell title="Aktivita" showBack showPoweredByStrava={false}>
