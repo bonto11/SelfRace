@@ -315,4 +315,49 @@ def db_get_activities_for_streak(
     except Exception as e:
         print("[DB-STREAK] error:", repr(e))
         return []
- 
+
+def db_get_last_activity_summary(
+    ctx: AuthCtx, user_id: int
+) -> Optional[Dict[str, Any]]:
+    """
+    Vráti kompletný summary riadok pre NAJNOVŠIU aktivitu daného usera.
+    Na rozdiel od db_get_last_activity_start (tá vracia len dátum) toto
+    vracia celý riadok, priamo použiteľný ako 'summary' časť bundle-u.
+    """
+    sb = get_sb(ctx, caller="activities_summary.db_get_last_activity_summary")
+    res = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .select("*")
+        .eq("user_id", user_id)
+        .is_("deleted_at", None)
+        .order("date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    data = res.data or []
+    return data[0] if data else None
+
+
+def db_get_activities_summary_today(
+    ctx: AuthCtx, user_id: int
+) -> List[Dict[str, Any]]:
+    """
+    Vráti všetky summary riadky pre aktivity z DNEŠNÉHO dňa (UTC dátum).
+    Ak by si neskôr chcel podľa timezone usera, treba to riešiť na service
+    vrstve — tu k user prefs prístup nemáme.
+    """
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    tomorrow_iso = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
+
+    sb = get_sb(ctx, caller="activities_summary.db_get_activities_summary_today")
+    res = (
+        sb.table(TABLE_ACTIVITIES_SUMMARY)
+        .select("*")
+        .eq("user_id", user_id)
+        .is_("deleted_at", None)
+        .gte("date", today_iso)
+        .lt("date", tomorrow_iso)
+        .order("date", desc=True)
+        .execute()
+    )
+    return res.data or []
