@@ -51,8 +51,8 @@ export default function ActivitiesPage() {
     >
       <div className={PAGE_GRID_2}>
         <WidgetLastActivity
-          onOpenDetail={(activityId) =>
-            router.push(`/activities/session/${activityId}`)
+          onOpenDetail={() =>
+            router.push(`/activities/session`)
           }
         />
         <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
