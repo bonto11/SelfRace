@@ -5,11 +5,10 @@ import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
-  apiGetLastActivityBundle,
-  type ActivityBundle,
-} from "@/app/features/activities/api/analytics_activities";
+  useActivityData,
+  type ActivityBundleNormalized,
+} from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
@@ -41,21 +40,16 @@ type Props = {
   onOpenDetail?: (activityId: number) => void;
 };
 
-/**
- * Widget poslednej aktivity — teraz cez /analytics/lastActivity bundle
- * (summary+enrichment+streams+laps+splits), nie starý apiFetchRange.
- * Obsah zatiaľ: sport badge, dátum, názov, vzdialenosť (ak je), trvanie.
- */
 export default function WidgetLastActivity({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
+  const { getLastActivity } = useActivityData();
   const t = useT();
   const [loading, setLoading] = useState(true);
-  const [bundle, setBundle] = useState<ActivityBundle | null>(null);
+  const [bundle, setBundle] = useState<ActivityBundleNormalized | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
     let alive = true;
-    apiGetLastActivityBundle(userId)
+    setLoading(true);
+    getLastActivity()
       .then((b) => {
         if (alive) setBundle(b);
       })
@@ -66,7 +60,7 @@ export default function WidgetLastActivity({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [getLastActivity]);
 
   const s = bundle?.summary ?? null;
   const activityId = s?.activity_id ?? null;
