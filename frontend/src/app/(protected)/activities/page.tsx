@@ -14,6 +14,7 @@ import WidgetPareto8020 from "@/app/shared/components/widgets/WidgetPareto8020";
 import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActivitiesCalendar";
 import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlySummary";
 import WidgetRouteMatch from "@/app/shared/components/widgets/WidgetRouteMatch";
+import WidgetLastActivity from "@/app/shared/components/widgets/WidgetLastActivity";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -49,6 +50,11 @@ export default function ActivitiesPage() {
       rightSlot={<RefreshIconBtn />}
     >
       <div className={PAGE_GRID_2}>
+        <WidgetLastActivity
+          onOpenDetail={(activityId) =>
+            router.push(`/activities/session/${activityId}`)
+          }
+        />
         <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
         <WidgetMonthlySummary
           onOpenDetail={() => router.push("/activities/monthlySummary")}
