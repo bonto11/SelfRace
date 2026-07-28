@@ -16,9 +16,9 @@ export default function ActivitySessionDetailPage() {
   
 
   return (
-    <PageShell title="Aktivita" showBack showPoweredByStrava={false}>
+    <PageShell title="Aktivita" showBack showPoweredByStrava={true}>
       <div className={PANEL_PREVIEW}>
-        Detail pripravujeme. (ID aktivity: {String(activityId ?? "—")})
+        Detail pripravujeme.
       </div>
     </PageShell>
   );
