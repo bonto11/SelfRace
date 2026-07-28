@@ -26,6 +26,8 @@ import {
   apiFetchParetoWidget,
   apiFetchParetoTrend,
   apiFetchActivityExtrasCombined,
+  apiGetLastActivityBundle,
+  apiGetTodayActivitiesBundle,
 } from "@/app/features/activities/api/analytics_activities";
 import type {
   ParetoTrendResponse,
@@ -53,6 +55,12 @@ function extrasKey(activityId: number) {
 }
 function enrichmentKey(activityId: number) {
   return `ACT:ENRICH:v1:${activityId}`;
+}
+function lastActivityKey(userId: number) {
+  return `ACT:LAST:v1:${userId}`;
+}
+function todayActivitiesKey(userId: number) {
+  return `ACT:TODAY:v1:${userId}`;
 }
 
 function saveRange(
@@ -197,6 +205,70 @@ function loadExtras(activityId: number): ActivityExtrasCombined | null {
   }
 }
 
+/* ------------------------------ cache helpers (Last / Today bundle) ------------------------------ */
+
+export type ActivityBundleNormalized = {
+  summary: ActivityRow | null;
+  enrichment: ActivityEnrichment | null;
+  streams: StreamsData | null;
+  laps: any[];
+  splits: any[];
+};
+
+function normalizeBundle(raw: any): ActivityBundleNormalized {
+  return {
+    summary: raw?.summary ?? null,
+    enrichment: raw?.enrichment ?? null,
+    streams: normalizeStreams(raw?.streams) ?? null,
+    laps: Array.isArray(raw?.laps) ? raw.laps : [],
+    splits: Array.isArray(raw?.splits) ? raw.splits : [],
+  };
+}
+
+function saveLastActivity(userId: number, data: ActivityBundleNormalized | null) {
+  if (!hasSesssioStorage()) return;
+  try {
+    sessionStorage.setItem(
+      lastActivityKey(userId),
+      JSON.stringify({ at: Date.now(), data }),
+    );
+  } catch {}
+}
+
+function loadLastActivity(userId: number): ActivityBundleNormalized | null {
+  if (!hasSesssioStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(lastActivityKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveTodayActivities(userId: number, data: ActivityBundleNormalized[]) {
+  if (!hasSesssioStorage()) return;
+  try {
+    sessionStorage.setItem(
+      todayActivitiesKey(userId),
+      JSON.stringify({ at: Date.now(), data }),
+    );
+  } catch {}
+}
+
+function loadTodayActivities(userId: number): ActivityBundleNormalized[] | null {
+  if (!hasSesssioStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(todayActivitiesKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.data) ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------ helpers ------------------------------ */
 
 function toCsvSportParam(
@@ -244,6 +316,12 @@ type Ctx = {
     activityId: number,
     opts?: FetchOpts,
   ) => Promise<ActivityEnrichment | null>;
+
+  // 🌟 nové: bundle (summary+enrichment+streams+laps+splits) pre
+  // WidgetLastActivity / WidgetTodayActivities, rovnaký cache pattern ako
+  // getExtras/getEnrichment vyššie.
+  getLastActivity: (opts?: FetchOpts) => Promise<ActivityBundleNormalized | null>;
+  getTodayActivities: (opts?: FetchOpts) => Promise<ActivityBundleNormalized[]>;
 
   rolling7: (metric: Metric) => Rolling7;
 
@@ -424,6 +502,56 @@ export function ActivityDataProvider({
   [userId, t],
 );
 
+  const getLastActivity = useCallback(
+    async (opts?: FetchOpts): Promise<ActivityBundleNormalized | null> => {
+      if (userId == null) return null;
+
+      const fetch = !!opts?.fetch;
+
+      if (!fetch) {
+        const cached = loadLastActivity(userId);
+        if (cached) return cached;
+      }
+
+      try {
+        const raw = await apiGetLastActivityBundle(userId);
+        if (!raw) return null;
+
+        const normalized = normalizeBundle(raw);
+        saveLastActivity(userId, normalized);
+        return normalized;
+      } catch (err: any) {
+        console.error("[DataProvider] getLastActivity failed:", t(err?.message as any));
+        return null;
+      }
+    },
+    [userId, t],
+  );
+
+  const getTodayActivities = useCallback(
+    async (opts?: FetchOpts): Promise<ActivityBundleNormalized[]> => {
+      if (userId == null) return [];
+
+      const fetch = !!opts?.fetch;
+
+      if (!fetch) {
+        const cached = loadTodayActivities(userId);
+        if (cached) return cached;
+      }
+
+      try {
+        const rawList = await apiGetTodayActivitiesBundle(userId);
+        const normalized = rawList.map(normalizeBundle);
+        saveTodayActivities(userId, normalized);
+        return normalized;
+      } catch (err: any) {
+        console.error("[DataProvider] getTodayActivities failed:", t(err?.message as any));
+        return [];
+      }
+    },
+    [userId, t],
+  );
+
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
       const endLast = todayLocalISO(); 
@@ -575,6 +703,8 @@ export function ActivityDataProvider({
       getSummary,
       getExtras,
       getEnrichment,
+      getLastActivity,
+      getTodayActivities,
       rolling7,
       getParetoWidget,
       getParetoTrend,
@@ -590,6 +720,8 @@ export function ActivityDataProvider({
       getSummary,
       getExtras,
       getEnrichment,
+      getLastActivity,
+      getTodayActivities,
       rolling7,
       getParetoWidget,
       getParetoTrend,
