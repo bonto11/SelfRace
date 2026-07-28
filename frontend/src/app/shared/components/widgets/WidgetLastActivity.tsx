@@ -1,47 +1,18 @@
 // src/app/shared/components/widgets/WidgetLastActivity.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useUserId } from "@/app/shared/hooks/useUserId";
-import { apiFetchRange } from "@/app/features/activities/api/activities_summary";
-import type { ActivityRow } from "@/app/features/activities/types/activities";
-import SportBadge from "@/app/shared/ui/components/SportBadge";
+import { useEffect, useState } from "react";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import { useT } from "@/app/shared/i18n/useT";
-
+import SportBadge from "@/app/shared/ui/components/SportBadge";
+import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
-  WIDGET_CARD,
-  WIDGET_CARD_STYLE,
-  WIDGET_CARD_INTERACTIVE,
-  WIDGET_INNER,
-  WIDGET_TITLE,
-  WIDGET_HINT,
-  WIDGET_HINT_STYLE,
-  WIDGET_LOADING_CENTER,
-  WIDGET_EMPTY_TEXT,
-  WIDGET_ERROR_TEXT,
-  WIDGET_ERROR_TEXT_STYLE,
-  WIDGET_KV_GRID,
-  WIDGET_KV_LABEL,
-  WIDGET_KV_VALUE,
-} from "@/app/shared/ui/tokens";
-
-type Props = {
-  /** Zavolá sa po kliknutí na widget, s ID poslednej aktivity. */
-  onOpenDetail: (activityId: number) => void;
-  /** Koľko dní dozadu hľadať poslednú aktivitu (default 60). */
-  lookbackDays?: number;
-};
-
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+  apiGetLastActivityBundle,
+  type ActivityBundle,
+} from "@/app/features/activities/api/analytics_activities";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
+import { useT } from "@/app/shared/i18n/useT";
 
 function prettySkDate(iso?: string | null): string {
   if (!iso) return "—";
@@ -53,139 +24,106 @@ function prettySkDate(iso?: string | null): string {
   });
 }
 
+function formatDuration(s?: number | null): string | null {
+  if (!s) return null;
+  const h = Math.floor(s / 3600);
+  const m = Math.round((s % 3600) / 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")} h` : `${m} min`;
+}
+
+function formatDistance(m?: number | null): string | null {
+  if (!m) return null;
+  const km = m / 1000;
+  return `${km.toFixed(km < 10 ? 2 : 1)} km`;
+}
+
+type Props = {
+  onOpenDetail?: (activityId: number) => void;
+};
+
 /**
- * Widget zobrazujúci poslednú aktivitu (naprieč všetkými športmi).
- * Klik zavolá onOpenDetail(activityId) — presmerovanie rieši rodič
- * (activities/page.tsx), rovnako ako pri ostatných widgetoch.
+ * Widget poslednej aktivity — teraz cez /analytics/lastActivity bundle
+ * (summary+enrichment+streams+laps+splits), nie starý apiFetchRange.
+ * Obsah zatiaľ: sport badge, dátum, názov, vzdialenosť (ak je), trvanie.
  */
-export default function WidgetLastActivity({
-  onOpenDetail,
-  lookbackDays = 60,
-}: Props) {
+export default function WidgetLastActivity({ onOpenDetail }: Props) {
   const { userId } = useUserId();
   const t = useT();
-  const [rows, setRows] = useState<ActivityRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bundle, setBundle] = useState<ActivityBundle | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    setLoading(true);
-    setError(null);
-    apiFetchRange(userId, isoDaysAgo(lookbackDays), todayIso())
-      .then((r) => {
-        if (alive) setRows(r);
+    apiGetLastActivityBundle(userId)
+      .then((b) => {
+        if (alive) setBundle(b);
       })
-      .catch((e: any) => {
-        if (alive)
-          setError(
-            t(e?.message as any) || t("common.errors.loadFailed" as any),
-          );
-      })
+      .catch((e) => console.error("[WidgetLastActivity]", e))
       .finally(() => {
         if (alive) setLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [userId, lookbackDays, t]);
+  }, [userId]);
 
-  // apiFetchRange vracia zoradené vzostupne podľa dátumu -> posledný prvok
-  // je najnovšia aktivita.
-  const last = useMemo(
-    () => (rows.length > 0 ? rows[rows.length - 1] : null),
-    [rows],
-  );
-
-  const activityId = last?.activity_id ?? null;
-  const sport = last?.sport_type_fe ?? last?.sport_type_ovrd ?? last?.sport_type ?? null;
-  const title = last?.name ?? null;
-
-  // ActivityRow nemá hotové distance_str/time_str — odvodíme ich priamo
-  // z distance_m / moving_time_s (presné mená polí podľa activities.ts).
-  const distanceStr = useMemo(() => {
-    if (!last?.distance_m) return null;
-    const km = last.distance_m / 1000;
-    return `${km.toFixed(km < 10 ? 2 : 1)} km`;
-  }, [last?.distance_m]);
-
-  const timeStr = useMemo(() => {
-    const s = last?.moving_time_s ?? last?.elapsed_time_s;
-    if (!s) return null;
-    const h = Math.floor(s / 3600);
-    const m = Math.round((s % 3600) / 60);
-    return h > 0 ? `${h}:${String(m).padStart(2, "0")} h` : `${m} min`;
-  }, [last?.moving_time_s, last?.elapsed_time_s]);
-
-  const handleClick = () => {
-    if (activityId != null) onOpenDetail(Number(activityId));
-  };
+  const s = bundle?.summary ?? null;
+  const activityId = s?.activity_id ?? null;
+  const sport = s?.sport_type_ovrd ?? s?.sport_type_fe ?? s?.sport_type ?? null;
+  const distanceStr = formatDistance(s?.distance_m);
+  const durationStr = formatDuration(s?.moving_time_s ?? s?.elapsed_time_s);
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={!activityId}
-      className={[WIDGET_CARD, WIDGET_CARD_INTERACTIVE, "text-left w-full"].join(
-        " ",
-      )}
-      style={WIDGET_CARD_STYLE}
+    <WidgetCard
+      title={t("activities.lastActivity.title" as any) || "Posledná aktivita"}
+      tooltip={t("activities.lastActivity.tooltip" as any) || undefined}
+      accent="none"
+      onOpen={activityId != null ? () => onOpenDetail?.(activityId) : undefined}
+      interactive={!!onOpenDetail && activityId != null}
+      minH={160}
     >
-      <div className={WIDGET_INNER}>
-        <div className="flex items-center justify-between gap-2">
-          <div className={WIDGET_TITLE}>
-            {t("activities.lastActivity.title" as any) || "Posledná aktivita"}
-          </div>
-          {sport && <SportBadge sport={sport as any} />}
+      {loading ? (
+        <div className={WIDGET_LOADING_WRAP}>
+          <LoadingSpinner size="widget" />
         </div>
-
-        {loading && (
-          <div className={WIDGET_LOADING_CENTER}>
-            <LoadingSpinner size="widget" />
+      ) : !s ? (
+        <p className={WIDGET_EMPTY}>
+          {t("activities.lastActivity.empty" as any) || "Zatiaľ žiadna aktivita."}
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            {sport && <SportBadge sport={sport as any} />}
+            <span style={{ fontSize: 11, color: appColors.textMuted }}>
+              {prettySkDate(s.date)}
+            </span>
           </div>
-        )}
 
-        {!loading && error && (
-          <div className={WIDGET_ERROR_TEXT} style={WIDGET_ERROR_TEXT_STYLE}>
-            {error}
+          <p style={{ fontSize: 15, fontWeight: 600, marginTop: 6, lineHeight: 1.3 }}>
+            {s.name || "—"}
+          </p>
+
+          <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+            {distanceStr && (
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{distanceStr}</div>
+                <div style={{ fontSize: 10, color: appColors.textMuted }}>
+                  {t("sessions.card.distance" as any) || "Vzdialenosť"}
+                </div>
+              </div>
+            )}
+            {durationStr && (
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{durationStr}</div>
+                <div style={{ fontSize: 10, color: appColors.textMuted }}>
+                  {t("sessions.card.time" as any) || "Trvanie"}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {!loading && !error && !last && (
-          <div className={WIDGET_EMPTY_TEXT}>
-            {t("activities.lastActivity.empty" as any) ||
-              "Zatiaľ žiadna aktivita."}
-          </div>
-        )}
-
-        {!loading && !error && last && (
-          <>
-            <div className={WIDGET_HINT} style={WIDGET_HINT_STYLE}>
-              {prettySkDate(last.date)}
-              {title ? ` · ${title}` : ""}
-            </div>
-            <div className={WIDGET_KV_GRID}>
-              {distanceStr && (
-                <>
-                  <div className={WIDGET_KV_LABEL}>
-                    {t("sessions.card.distance" as any) || "Vzdialenosť"}
-                  </div>
-                  <div className={WIDGET_KV_VALUE}>{distanceStr}</div>
-                </>
-              )}
-              {timeStr && (
-                <>
-                  <div className={WIDGET_KV_LABEL}>
-                    {t("sessions.card.time" as any) || "Čas"}
-                  </div>
-                  <div className={WIDGET_KV_VALUE}>{timeStr}</div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </button>
+        </>
+      )}
+    </WidgetCard>
   );
 }
