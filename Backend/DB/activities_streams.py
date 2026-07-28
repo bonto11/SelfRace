@@ -181,3 +181,54 @@ def db_upsert_stream_arrays(
         .upsert(payload, on_conflict="user_id,activity_id")
         .execute()
     )
+    
+def db_get_streams_batch(
+    user_id: int,
+    activity_ids: List[int],
+    *,
+    ctx: AuthCtx,
+) -> Dict[int, Dict[str, Any]]:
+    """
+    Batch verzia db_get_streams_one — analogicky k
+    db_get_activity_laps_batch/db_get_activity_splits_batch. Potrebná pre
+    "aktivity za dnešok" bundle, kde môže byť viac než jedna aktivita.
+    Vracia {activity_id: row}, iba platné (nie expirované) záznamy.
+    """
+    if not activity_ids:
+        return {}
+
+    sb = get_sb(ctx, caller="activities_streams.db_get_streams_batch")
+    now = _now_iso()
+
+    res = (
+        sb.table(TABLE_ACTIVITIES_STREAMS)
+        .select(
+            "activity_id,"
+            "expires_at,"
+            "time_s,"
+            "heartrate_bpm,"
+            "cadence_rpm,"
+            "power_w,"
+            "distance_m,"
+            "altitude_m,"
+            "speed_mps,"
+            "grade_smooth,"
+            "temp_c,"
+            "moving"
+        )
+        .eq("user_id", user_id)
+        .in_("activity_id", list(set(int(x) for x in activity_ids)))
+        .gt("expires_at", now)
+        .execute()
+    )
+
+    out: Dict[int, Dict[str, Any]] = {}
+    for row in res.data or []:
+        aid = row.get("activity_id")
+        if aid is None:
+            continue
+        try:
+            out[int(aid)] = row
+        except Exception:
+            pass
+    return out
