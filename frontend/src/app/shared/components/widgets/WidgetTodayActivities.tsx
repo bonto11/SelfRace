@@ -5,11 +5,10 @@ import { useEffect, useState } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
-import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
-  apiGetTodayActivitiesBundle,
-  type ActivityBundle,
-} from "@/app/features/activities/api/analytics_activities";
+  useActivityData,
+  type ActivityBundleNormalized,
+} from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { WIDGET_LOADING_WRAP, WIDGET_EMPTY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
@@ -31,21 +30,16 @@ type Props = {
   onOpenDetail?: (activityId: number) => void;
 };
 
-/**
- * Zoznam všetkých aktivít z DNEŠNÉHO dňa. Na rozdiel od WidgetLastActivity
- * môže obsahovať viac riadkov naraz -> celá karta nie je jeden klikací
- * celok, každý riadok je klikací zvlášť (vlastné activityId).
- */
 export default function WidgetTodayActivities({ onOpenDetail }: Props) {
-  const { userId } = useUserId();
+  const { getTodayActivities } = useActivityData();
   const t = useT();
   const [loading, setLoading] = useState(true);
-  const [bundles, setBundles] = useState<ActivityBundle[]>([]);
+  const [bundles, setBundles] = useState<ActivityBundleNormalized[]>([]);
 
   useEffect(() => {
-    if (!userId) return;
     let alive = true;
-    apiGetTodayActivitiesBundle(userId)
+    setLoading(true);
+    getTodayActivities()
       .then((rows) => {
         if (alive) setBundles(rows);
       })
@@ -56,7 +50,7 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [getTodayActivities]);
 
   return (
     <WidgetCard
