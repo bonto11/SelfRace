@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import WidgetCard from "@/app/shared/components/ui/WidgetCard";
+import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import {
