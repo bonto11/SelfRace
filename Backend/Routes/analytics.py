@@ -14,7 +14,10 @@ from Services.analytics_pareto8020 import (
 from Services.coach_streak import service_get_streak
 
 from Services.analytics import (
-    service_get_activity_detail,service_get_activity_extras_cached_or_fetch
+    service_get_activity_detail,
+    service_get_activity_extras_cached_or_fetch,
+    service_get_last_activity_bundle,
+    service_get_today_activities_bundle,
 )
 from Schemas.analytics import WeeklyAnalyticsResponse
 from Services.activities_streams import service_get_streams_cached_or_fetch  # podľa toho kde to dáš
@@ -212,4 +215,37 @@ def get_coach_streak(user_id: int, req: Request) -> Dict[str, Any]:
         data = service_get_streak(user_id=user_id, ctx=ctx)
         return {"success": True, "data": data}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------- LAST ACTIVITY / TODAY BUNDLE ----------------------
+# Pre WidgetLastActivity a jeho detail stránku - balík
+# (summary + enrichment + streams + laps + splits) na jeden request,
+# namiesto skladania z viacerých volaní na FE strane.
+
+@router.get("/lastActivity/{user_id}")
+def get_last_activity(req: Request, user_id: int) -> Dict[str, Any]:
+    """
+    Balík pre POSLEDNÚ aktivitu daného usera.
+    data = null, ak user ešte nemá žiadnu aktivitu.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        bundle = service_get_last_activity_bundle(user_id=user_id, ctx=ctx)
+        return {"success": True, "data": bundle}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/todayActivities/{user_id}")
+def get_today_activities(req: Request, user_id: int) -> Dict[str, Any]:
+    """
+    Zoznam balíkov (rovnaký tvar ako /lastActivity) pre všetky aktivity
+    daného usera z dnešného dňa. data = [] ak dnes nič nebolo.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        bundles = service_get_today_activities_bundle(user_id=user_id, ctx=ctx)
+        return {"success": True, "data": bundles}
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
