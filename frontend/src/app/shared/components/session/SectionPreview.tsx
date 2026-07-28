@@ -234,10 +234,8 @@ export default function SectionPreview({
   };
 
   // Read-only režim (session už nie je editovateľná - je v minulosti alebo
-  // done/missed/postponed): zobrazíme históriu konverzácie, žiadny formulár.
-  // Predtým sa sekcia úplne skryla ak thread bol prázdny - teraz Preview je
-  // vždy viditeľná sekcia pre plán (len bez formulára a s placeholder textom),
-  // nech je jasné že táto session žiadny preview nemala.
+  // done/missed/postponed): história hore, "read only" hláška ako uzatvárajúca
+  // poznámka dole (rovnaký chat-style princíp ako editovateľná vetva nižšie).
   if (!isEditable) {
     return (
       <ActivitySectionShell
@@ -245,26 +243,27 @@ export default function SectionPreview({
         defaultOpen={false}
         items={[]}
       >
-        <div className="text-xs font-medium opacity-50 mb-3">
-          {t("sessions.preview.readOnlyNote")}
-        </div>
-        {thread.length > 0 ? (
-          <div className="space-y-3">
-            {thread.map((entry, idx) =>
+        <div className="space-y-3">
+          {thread.length > 0 ? (
+            thread.map((entry, idx) =>
               entry.role === "assistant" ? (
                 <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
               ) : (
                 <UserBubble key={`u-${idx}`} entry={entry} t={t} />
               ),
-            )}
-          </div>
-        ) : (
-          <div className="py-6 text-center border border-dashed border-white/10 rounded-lg">
-            <p className="text-sm opacity-50">
-              {t("sessions.preview.noPreviewPlaceholder")}
-            </p>
-          </div>
-        )}
+            )
+          ) : (
+            <div className="py-6 text-center border border-dashed border-white/10 rounded-lg">
+              <p className="text-sm opacity-50">
+                {t("sessions.preview.noPreviewPlaceholder")}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs font-medium opacity-50 mt-4 pt-3 border-t border-white/10">
+          {t("sessions.preview.readOnlyNote")}
+        </div>
       </ActivitySectionShell>
     );
   }
@@ -275,23 +274,26 @@ export default function SectionPreview({
       defaultOpen={thread.length === 0}
       items={[]}
     >
-      <div className="flex items-center justify-between min-h-[32px]">
-        <div className="text-xs font-medium opacity-70">
-          {!hasPreview ? (
-            <span>{t("sessions.preview.statusNoPreview")}</span>
-          ) : (
-            <span>
-              {(
-                t("sessions.review.statusReviewCount") ||
-                "Version {{version}} / {{max}}"
-              )
-                .replace("{{version}}", String(previewVersion))
-                .replace("{{max}}", String(maxVersions))}
-            </span>
-          )}
-        </div>
+      {/* 1. CHAT HISTÓRIA — chronologicky, úplne hore */}
+      <div className="space-y-3">
+        {thread.length > 0
+          ? thread.map((entry, idx) =>
+              entry.role === "assistant" ? (
+                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
+              ) : (
+                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
+              ),
+            )
+          : !busyGen && (
+              <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
+                <p className="text-sm opacity-50">
+                  {t("sessions.preview.noPreviewPlaceholder")}
+                </p>
+              </div>
+            )}
       </div>
 
+      {/* 2. COMPOSER — textarea + tlačidlo "Opýtať sa", vždy POD históriou */}
       {tierCode === "free" ? (
         <div className="mt-4 mb-2 p-3.5 rounded-xl border border-white/10 bg-white/5 flex flex-col gap-1.5 animate-in fade-in">
           <div className="flex items-center gap-2 text-sm font-medium text-white/80">
@@ -360,6 +362,7 @@ export default function SectionPreview({
         </div>
       )}
 
+      {/* 3. Chybové/úspešné hlášky */}
       {uiError && (
         <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-200">
           {uiError}
@@ -371,22 +374,22 @@ export default function SectionPreview({
         </div>
       )}
 
-      <div className="mt-6 space-y-3">
-        {thread.length > 0
-          ? thread.map((entry, idx) =>
-              entry.role === "assistant" ? (
-                <AssistantBubble key={`a-${idx}`} entry={entry} t={t} />
-              ) : (
-                <UserBubble key={`u-${idx}`} entry={entry} t={t} />
-              ),
-            )
-          : !busyGen && (
-              <div className="py-8 text-center border border-dashed border-white/10 rounded-lg">
-                <p className="text-sm opacity-50">
-                  {t("sessions.preview.noPreviewPlaceholder")}
-                </p>
-              </div>
-            )}
+      {/* 4. STATUS — vždy úplne na konci */}
+      <div className="flex items-center justify-between min-h-[32px] mt-4 pt-3 border-t border-white/10">
+        <div className="text-xs font-medium opacity-70">
+          {!hasPreview ? (
+            <span>{t("sessions.preview.statusNoPreview")}</span>
+          ) : (
+            <span>
+              {(
+                t("sessions.review.statusReviewCount") ||
+                "Version {{version}} / {{max}}"
+              )
+                .replace("{{version}}", String(previewVersion))
+                .replace("{{max}}", String(maxVersions))}
+            </span>
+          )}
+        </div>
       </div>
     </ActivitySectionShell>
   );
