@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import type { ReactNode } from "react";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import AppFooter from "@/app/shared/ui/components/AppFooter";
 import { SettingsProvider } from "@/app/shared/i18n/SettingsProvider";
 import { TooltipProvider } from "@/app/shared/ui/components/Tooltip";
 import SessionGuard from "@/app/shared/ui/components/SessionGuard";
@@ -30,12 +29,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  // 🌟 FIX (Android/Chrome only — Safari/WebKit toto nemá implementované
-  // vôbec, viď https://bugs.webkit.org/show_bug.cgi?id=259770): pri
-  // otvorení klávesnice zmenší layout (100dvh) namiesto posúvania
-  // viewportu. Pre iOS rieši rovnaký problém JS fix vo
-  // ClientProtectedShell.tsx (window.visualViewport + --app-vh),
-  // ten dvaja dokopy pokrývajú obe platformy.
   interactiveWidget: "resizes-content",
 };
 
@@ -65,16 +58,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 na iOS krátky návod. Musí byť POD SettingsProvider, keďže používa useT(). */}
             <InAppBrowserBanner />
 
-            <div
-              style={{
-                minHeight: "100dvh",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-              <AppFooter />
-            </div>
+            {children}
           </TooltipProvider>
         </SettingsProvider>
       </body>
