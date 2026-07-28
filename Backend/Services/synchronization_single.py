@@ -375,7 +375,7 @@ def service_sync_single_activity(
     # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
     if imported > 0:
         try:
-            service_notify_new_activity(user_id=user_id, ctx=ctx)
+            service_notify_new_activity(user_id=user_id, activity_id=aid,ctx=ctx)
         except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] New activity notification failed id={aid}: {e}")
 
