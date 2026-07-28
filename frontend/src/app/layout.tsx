@@ -30,6 +30,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // 🌟 FIX (Android/Chrome only — Safari/WebKit toto nemá implementované
+  // vôbec, viď https://bugs.webkit.org/show_bug.cgi?id=259770): pri
+  // otvorení klávesnice zmenší layout (100dvh) namiesto posúvania
+  // viewportu. Pre iOS rieši rovnaký problém JS fix vo
+  // ClientProtectedShell.tsx (window.visualViewport + --app-vh),
+  // ten dvaja dokopy pokrývajú obe platformy.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
