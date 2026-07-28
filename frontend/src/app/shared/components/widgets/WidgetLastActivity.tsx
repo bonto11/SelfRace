@@ -57,13 +57,6 @@ function prettySkDate(iso?: string | null): string {
  * Widget zobrazujúci poslednú aktivitu (naprieč všetkými športmi).
  * Klik zavolá onOpenDetail(activityId) — presmerovanie rieši rodič
  * (activities/page.tsx), rovnako ako pri ostatných widgetoch.
- *
- * 🔍 PREDPOKLAD (over si to): ActivityRow má pole `id` alebo `activity_id`
- * pre ID aktivity a `distance_str`/`distanceStr`, `time_str`/`timeStr` pre
- * zobrazenie. Nevidel som `activities/utils/activity.ts`
- * (normalizeActivityRow), takže mapovanie nižšie skús preveriť — je
- * schválne na jednom mieste (premenné activityId/distanceStr/timeStr/title),
- * aby sa dalo ľahko opraviť, ak sa názvy polí nezhodujú.
  */
 export default function WidgetLastActivity({
   onOpenDetail,
@@ -105,11 +98,25 @@ export default function WidgetLastActivity({
     [rows],
   );
 
-  const activityId = (last as any)?.id ?? (last as any)?.activity_id ?? null;
-  const distanceStr =
-    (last as any)?.distance_str ?? (last as any)?.distanceStr ?? null;
-  const timeStr = (last as any)?.time_str ?? (last as any)?.timeStr ?? null;
-  const title = (last as any)?.title ?? (last as any)?.name ?? null;
+  const activityId = last?.activity_id ?? null;
+  const sport = last?.sport_type_fe ?? last?.sport_type_ovrd ?? last?.sport_type ?? null;
+  const title = last?.name ?? null;
+
+  // ActivityRow nemá hotové distance_str/time_str — odvodíme ich priamo
+  // z distance_m / moving_time_s (presné mená polí podľa activities.ts).
+  const distanceStr = useMemo(() => {
+    if (!last?.distance_m) return null;
+    const km = last.distance_m / 1000;
+    return `${km.toFixed(km < 10 ? 2 : 1)} km`;
+  }, [last?.distance_m]);
+
+  const timeStr = useMemo(() => {
+    const s = last?.moving_time_s ?? last?.elapsed_time_s;
+    if (!s) return null;
+    const h = Math.floor(s / 3600);
+    const m = Math.round((s % 3600) / 60);
+    return h > 0 ? `${h}:${String(m).padStart(2, "0")} h` : `${m} min`;
+  }, [last?.moving_time_s, last?.elapsed_time_s]);
 
   const handleClick = () => {
     if (activityId != null) onOpenDetail(Number(activityId));
@@ -130,7 +137,7 @@ export default function WidgetLastActivity({
           <div className={WIDGET_TITLE}>
             {t("activities.lastActivity.title" as any) || "Posledná aktivita"}
           </div>
-          {last?.sport && <SportBadge sport={last.sport as any} />}
+          {sport && <SportBadge sport={sport as any} />}
         </div>
 
         {loading && (
