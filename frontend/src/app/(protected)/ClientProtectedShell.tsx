@@ -50,21 +50,7 @@ export default function ClientProtectedShell({
 
   const setSidebarOpen = useSidebar((s) => s.setOpen);
 
-  // 🔧 ROOT FIX: <html>/<body> nemajú vlastný overflow:hidden — len jeden
-  // vnútorný div ho má (cez inline style nižšie). Ich min-height:100dvh
-  // dovolí obsahu vyrásť nad výšku viewportu (napr. pri fokuse na input /
-  // natívny picker), čím sa CELÝ DOKUMENT stane scrollovateľný. Keď sa to
-  // raz stane, appka to nikdy nerestne (reset sa doteraz robil len na
-  // #app-scroll-mobile / #app-scroll-desktop, nikdy na window), takže to
-  // zostane "zaseknuté" presne o výšku headeru, kým nenavigueš preč
-  // (Next.js reset) alebo nespravíš hard refresh.
-  //
-  // Potvrdené priamo nameraním: window.scrollY = 56 (presne výška headeru),
-  // pričom oba named scroll containery boli na 0.
-  //
-  // Fix: kým je tento shell zmountovaný (čiže si prihlásený), <html> je
-  // explicitne uzamknuté na overflow:hidden — scroll smie ísť LEN cez
-  // #app-scroll-mobile / #app-scroll-desktop, tak ako to appka aj zamýšľa.
+  // Uzamknutý overflow na <html> — pozri predošlý fix (window-level scroll).
   useEffect(() => {
     const html = document.documentElement;
     const prevOverflow = html.style.overflow;
@@ -74,11 +60,39 @@ export default function ClientProtectedShell({
     };
   }, []);
 
+  // 🔧 NOVÝ FIX: iOS pri otvorení klávesnice posúva VIZUÁLNY viewport
+  // (visualViewport), nie document/window scroll — to je úplne iný
+  // mechanizmus, na OS úrovni, ktorý CSS overflow:hidden vôbec nerieši.
+  // Preto sa header "odsunul" presne len pri focuse na input a vrátil sa
+  // až pri prepnutí obrazovky (nový render resetol visualViewport).
+  //
+  // Namiesto snahy "vrátiť to späť" po fakte, naviažeme výšku appky priamo
+  // na aktuálnu visuálnu výšku (--app-vh) — appka sa tak vždy presne
+  // prispôsobí, aj s otvorenou klávesnicou, takže sa nemá čo posúvať.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return; // starší prehliadač bez podpory -> ostáva fallback 100dvh
+
+    const setAppVh = () => {
+      document.documentElement.style.setProperty("--app-vh", `${vv.height}px`);
+      // poistka navyše: ak by OS napriek tomu niečo posunul na document
+      // úrovni, vynúť to späť na 0.
+      window.scrollTo(0, 0);
+    };
+
+    setAppVh();
+    vv.addEventListener("resize", setAppVh);
+    vv.addEventListener("scroll", setAppVh);
+
+    return () => {
+      vv.removeEventListener("resize", setAppVh);
+      vv.removeEventListener("scroll", setAppVh);
+    };
+  }, []);
+
   useEffect(() => {
     desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-    // Poistka navyše: aj keby sa okno napriek hornému fixu niekedy posunulo,
-    // pri každej zmene routy sa vynúti späť na 0.
     window.scrollTo(0, 0);
     setSidebarOpen(false);
   }, [pathname, setSidebarOpen]);
@@ -105,7 +119,11 @@ export default function ClientProtectedShell({
                 <div
                   className="flex flex-col relative"
                   style={{
-                    height: "100dvh",
+                    // 🔧 FIX: namiesto statického 100dvh sa výška naviaže na
+                    // --app-vh (aktuálna visuálna výška z visualViewport),
+                    // s fallbackom na 100dvh kým JS efekt vyššie nenabehne
+                    // alebo ak visualViewport API nie je podporované.
+                    height: "var(--app-vh, 100dvh)",
                     overflow: "hidden",
                     background: appColors.backgroundMain,
                     color: appColors.textPrimary,
