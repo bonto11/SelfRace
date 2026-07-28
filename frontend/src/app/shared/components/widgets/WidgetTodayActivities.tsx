@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import {
@@ -68,7 +68,7 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
           {t("todayActivities.empty" as any) || "Dnes zatiaľ žiadna aktivita."}
         </p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
           {bundles.map((b) => {
             const s = b.summary;
             if (!s) return null;
@@ -84,23 +84,28 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
                 disabled={!onOpenDetail}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
+                  flexDirection: "column",
+                  gap: 5,
                   width: "100%",
                   textAlign: "left",
-                  padding: "6px 8px",
-                  borderRadius: 10,
+                  padding: "14px 16px",
+                  borderRadius: 14,
                   background: appColors.backgroundAlt,
                   border: `1px solid ${appColors.surfaceCardBorder}`,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  {sport && <SportBadge sport={sport as any} />}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
                   <span
                     style={{
-                      fontSize: 13,
-                      fontWeight: 600,
+                      fontSize: 15,
+                      fontWeight: 700,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -108,10 +113,14 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
                   >
                     {s.name || "—"}
                   </span>
+                  {sport && <SportBadge sport={sport as any} />}
                 </div>
-                <div style={{ fontSize: 11, color: appColors.textMuted, whiteSpace: "nowrap" }}>
-                  {[distanceStr, durationStr].filter(Boolean).join(" · ")}
-                </div>
+
+                {(distanceStr || durationStr) && (
+                  <div style={{ fontSize: 13, color: appColors.textMuted }}>
+                    {[distanceStr, durationStr].filter(Boolean).join(" · ")}
+                  </div>
+                )}
               </button>
             );
           })}
