@@ -1739,6 +1739,12 @@ export const en = {
       similar: "≈ Similar level as previous week",
     },
   },
+  todayActivities: {
+      title: "Today activities",
+      tooltip: "Preview of all activities, which you done today.",
+      empty: "Today no activity yet."
+    }
+  },
   HRV: {
     title: "Heart rate variability (HRV)",
     widget: {
