@@ -10,9 +10,10 @@ import {
   WeeklyMonoStrainRow,
   WeeklyMonoStrainApiResponse,
 } from "@/app/features/activities/types/MonoStrain";
-import type { StreamsData } from "@/app/features/activities/types/activities";
+import type { StreamsData, ActivityRow } from "@/app/features/activities/types/activities";
 import type { ParetoTrendResponse } from "@/app/features/activities/types/pareto";
 import type { ActivityExtrasCombined } from "@/app/features/activities/types/activities";
+import type { ActivityEnrichment } from "@/app/features/activities/types/activities_enrichment";
 
 function wlNum(v: any): number {
   return Number.isFinite(+v) ? +v : 0;
@@ -233,6 +234,57 @@ export async function apiFetchActivityExtrasCombined(
     return { streams, laps, splits, source: s1 === s2 ? s1 : "mixed", fetched };
   } catch (err: any) {
     console.error("[Analytics API] apiFetchActivityExtrasCombined ERROR", err);
+    throw new Error("api.common.fetchFailed");
+  }
+}
+
+/* ========================= LAST ACTIVITY / TODAY BUNDLE ========================= */
+
+/**
+ * Tvar zodpovedá presne tomu, čo skladá _build_activity_bundles() na
+ * backende (Services/analytics.py).
+ *
+ * 🔍 POZOR pri `streams`: backend ho berie priamo z db_get_streams_batch,
+ * čo je SUROVÝ DB riadok (heartrate_bpm, time_s, ...), NIE prehodené na
+ * StreamsData tvar (hr, duration_s...) — to prehodenie sa zjavne deje v
+ * Services/activities_streams.py (service_get_streams_cached_or_fetch),
+ * ktorý som nevidel. Kým ho nepošleš, nechávam `streams` ako `any`, nech
+ * netvrdím zhodu so StreamsData, ktorú som neoveril.
+ */
+export type ActivityBundle = {
+  summary: ActivityRow | null;
+  enrichment: ActivityEnrichment | null;
+  streams: any | null;
+  laps: any[];
+  splits: any[];
+};
+
+export async function apiGetLastActivityBundle(
+  userId: number,
+): Promise<ActivityBundle | null> {
+  if (!userId) throw new Error("api.activities.missingUserId");
+  const path = `/analytics/lastActivity/${encodeURIComponent(String(userId))}`;
+  try {
+    const json = await callBackend<any>(path, { method: "GET", cache: "no-store" });
+    if (!json?.success) return null;
+    return (json.data as ActivityBundle) ?? null;
+  } catch (err: any) {
+    console.error("[Analytics API] apiGetLastActivityBundle ERROR", err);
+    throw new Error("api.common.fetchFailed");
+  }
+}
+
+export async function apiGetTodayActivitiesBundle(
+  userId: number,
+): Promise<ActivityBundle[]> {
+  if (!userId) throw new Error("api.activities.missingUserId");
+  const path = `/analytics/todayActivities/${encodeURIComponent(String(userId))}`;
+  try {
+    const json = await callBackend<any>(path, { method: "GET", cache: "no-store" });
+    if (!json?.success) return [];
+    return Array.isArray(json.data) ? (json.data as ActivityBundle[]) : [];
+  } catch (err: any) {
+    console.error("[Analytics API] apiGetTodayActivitiesBundle ERROR", err);
     throw new Error("api.common.fetchFailed");
   }
 }
