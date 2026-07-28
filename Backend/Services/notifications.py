@@ -376,7 +376,11 @@ def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[st
     )
 
 
-def service_notify_new_activity(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+def service_notify_new_activity(
+    user_id: int,
+    activity_id: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
     """Pošle notifikáciu keď je nová aktivita importovaná a pripravená na pozretie."""
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
@@ -384,9 +388,10 @@ def service_notify_new_activity(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
         user_id=user_id,
         title=t["new_activity_title"],
         body=t["new_activity_body"],
-        url="/activities/session",
+        url=f"/activities/detail/{activity_id}",
         ctx=ctx,
     )
+
 
 
 def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
