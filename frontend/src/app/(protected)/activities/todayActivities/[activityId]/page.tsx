@@ -1,4 +1,4 @@
-// src/app/(protected)/activities/detail/[activityId]/page.tsx
+// src/app/(protected)/activities/todayActivities/[activityId]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
