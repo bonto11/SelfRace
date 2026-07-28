@@ -1740,9 +1740,9 @@ export const en = {
     },
   },
   todayActivities: {
-      title: "Today activities",
-      tooltip: "Preview of all activities, which you done today.",
-      empty: "Today no activity yet."
+    title: "Today's activities",
+    tooltip: "Overview of all activities you completed today.",
+    empty: "No activities yet today."
   },
   HRV: {
     title: "Heart rate variability (HRV)",
