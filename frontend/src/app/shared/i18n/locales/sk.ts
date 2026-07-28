@@ -1728,6 +1728,14 @@ export const sk = {
       compareText: "{{sign}}{{pct}} % oproti predošlým 7 dňom",
     },
   },
+{
+  todayActivities: {
+    title: "Dnešné aktivity",
+    tooltip: "Prehľad všetkých aktivít, ktoré si dnes dokončil.",
+    empty: "Dnes zatiaľ žiadna aktivita."
+  }
+},
+
   HRV: {
     title: "Variabilita tepu (HRV)",
     widget: {
