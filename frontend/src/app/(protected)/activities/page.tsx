@@ -52,7 +52,7 @@ export default function ActivitiesPage() {
       <div className={PAGE_GRID_2}>
         <WidgetTodayActivities
           onOpenDetail={(activityId) =>
-            router.push(`/activities/detail/${activityId}`)
+            router.push(`/activities/todayActivities/${activityId}`)
           }
         />
         <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
