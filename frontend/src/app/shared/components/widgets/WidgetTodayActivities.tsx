@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import WidgetCard from "@/app/shared/ui/components/WidgetCard";
+import WidgetCard from "@/app/shared/components/ui/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import SportBadge from "@/app/shared/ui/components/SportBadge";
 import {
@@ -54,8 +54,8 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("activities.today.title" as any) || "Dnešné aktivity"}
-      tooltip={t("activities.today.tooltip" as any) || undefined}
+      title={t("todayActivities.title" as any) || "Dnešné aktivity"}
+      tooltip={t("todayActivities.tooltip" as any) || undefined}
       accent="none"
       minH={160}
     >
@@ -65,7 +65,7 @@ export default function WidgetTodayActivities({ onOpenDetail }: Props) {
         </div>
       ) : bundles.length === 0 ? (
         <p className={WIDGET_EMPTY}>
-          {t("activities.today.empty" as any) || "Dnes zatiaľ žiadna aktivita."}
+          {t("todayActivities.empty" as any) || "Dnes zatiaľ žiadna aktivita."}
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
