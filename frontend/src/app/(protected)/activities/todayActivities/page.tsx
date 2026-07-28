@@ -8,16 +8,6 @@ import { PANEL_PREVIEW } from "@/app/shared/ui/tokens";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 
-/**
- * 🚧 Zatiaľ surové dáta (JSON dump) — layout/dizajn doplníme neskôr.
- * Ťahá dáta výhradne cez ActivityDataProvider (getSummary/getEnrichment/
- * getExtras) — žiadne nové API volania, presne rovnaký vzor ako zvyšok appky.
- *
- * POZOR: getSummary číta z už načítaného 90-dňového rozsahu v providery
- * (rows). Ak by activityId bolo staršie než tento rozsah, summary vyjde
- * null — enrichment/extras sa aj tak natiahnu (tie fungujú per-ID nezávisle
- * od rozsahu).
- */
 export default function ActivityDetailPage() {
   const params = useParams();
   const activityId = params?.activityId ? Number(params.activityId) : null;
