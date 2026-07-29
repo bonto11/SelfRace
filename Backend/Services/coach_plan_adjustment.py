@@ -241,8 +241,20 @@ def service_coach_autoadjust_after_update(
             "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
-    # ✅ 1. Zjemniť (Soften) pre obmedzenia a fázy cyklu so Severity < 7
-    if force_reason in ["health_mild_restriction", "manual_review", "health_menstruation"]:
+    # ✅ 1. Zjemniť (Soften) pre SKUTOČNÉ zdravotné obmedzenia a fázy cyklu
+    # (Severity < 7, hlásené cez Health log) — tu fixných 7 dní ostáva ako
+    # bezpečný default, to je zámer.
+    #
+    # 🔧 FIX: "manual_review" tu už NIE JE. Predtým sa každý review, ktorý AI
+    # označilo ako needs_caution/injury (viď async_jobs.py), automaticky
+    # zmäkčil na fixných 7 dní — bez ohľadu na to, akú mieru pozornosti si
+    # to skutočne zaslúžilo. Review jednej aktivity nemá dostatočný prehľad
+    # (vidí len 14 dní histórie, nie HRV trendy/recovery/42-dňový load), aby
+    # malo samo rozhodovať "na koľko dní zmäkčiť". Teraz namiesto toho
+    # spadne do "klasickej" vetvy nižšie, ktorá zavolá plnú athlete_state
+    # analýzu — tá už MÁ celý kontext a vlastný, správne odstupňovaný
+    # plan_adjustment.soften_next_days (should_soften/days/reason).
+    if force_reason in ["health_mild_restriction", "health_menstruation"]:
         soften_should = True 
         soften_days = 7 
         soften_reason = f"Health limitation or Cycle phase triggered soften. Reason: {force_reason}"
@@ -256,7 +268,8 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Klasický auto-adjust (žiadny force)
+    # 3. Klasický auto-adjust (žiadny force ALEBO "manual_review" — review
+    # zavolalo needs_caution/injury a nechá plnú analýzu rozhodnúť mieru).
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
