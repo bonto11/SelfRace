@@ -24,7 +24,7 @@ from Services.maintenance import (
     service_cleanup_expired_activity_details,
 )
 from Services.coach_plan_active import service_complete_due_active_plans
-from Services.app_subscription import service_apply_due_subscription_changes
+from Services.notifications import service_apply_due_subscription_changes
 
 
 def service_run_master_scheduler(
