@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from pywebpush import webpush, WebPushException
 from DB.notifications import (
     db_upsert_push_subscription,
     db_get_user_subscriptions,
+    db_get_subscription_by_id,
+    db_get_subscriptions_with_try,
     db_delete_push_subscription,
-    db_mark_push_subscription_success,
+    db_mark_push_subscription_try,
+    db_mark_push_subscription_received,
 )
 from Modules.Supabase.auth import AuthCtx
 
@@ -126,36 +129,33 @@ def service_delete_push_subscription(
     return {"success": True, "message": "Odber bol úspešne vymazaný."}
 
 
+def service_mark_push_received(sub_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Volá sa z nového backend endpointu, na ktorý posiela fetch() Service
+    Worker (public/sw.js) v momente, keď reálne dostane push event - teda
+    keď zariadenie (aj na pozadí, bez otvorenia appky) fyzicky prijme
+    notifikáciu. Toto je jediný nesporný dôkaz životnosti subscription -
+    nezávislý od toho, čo o nej hovorí Apple/FCM serveru pri odosielaní.
+    """
+    db_mark_push_subscription_received(sub_id=sub_id, ctx=ctx)
+    return {"success": True}
+
+
 # =====================================================================
 # UNIVERZALNY ODOSIELATEL
 # =====================================================================
 
-# Push sluzby (FCM/Apple/Mozilla) hlasia "tato subscription uz neexistuje"
-# bud ako 410 Gone (najcastejsie), alebo 404 Not Found (niektore edge-casy,
-# najma pri FCM endpointoch). Oboje znamena to iste: zariadenie/appka bola
-# zmazana/preinstalovana alebo subscription bola inak zrusena -> vymaz ju
-# z DB hned, necakaj na dalsi pokus.
 STALE_SUBSCRIPTION_STATUS_CODES = (404, 410)
 
-# 🌟 FIX: pywebpush() bez explicitneho ttl posiela ttl=0 ("doruc hned alebo
-# zahod"). Windows Notification Service (WNS - Edge/Windows desktop push)
-# ma s touto hodnotou zdokumentovany konflikt so svojou vlastnou cache
-# politikou -> kazdy push na WNS endpoint padal na "400 Ttl value conflicts
-# with X-WNS-Cache-Policy" (videt v logoch: X-WNS-ERROR-DESCRIPTION,
-# X-WNS-STATUS=dropped). Explicitny kladny TTL tento konflikt odstrani.
-# Apple/FCM/Mozilla s tymto problem nemaju, ale posielame ho vsade rovnako -
-# neskodi im to a je to jednotne.
-PUSH_DEFAULT_TTL_SECONDS = 86400  # 1 den - trening/pripomienka ma zmysel do jedneho dna
+PUSH_DEFAULT_TTL_SECONDS = 86400  # 1 den
+
+# Prah pre cron cistenie: ak od posledneho POKUSU (last_try_at) uplynul viac
+# ako tento pocet dni bez toho, aby zariadenie cez SW potvrdilo prijatie
+# (last_received_at), subscription sa povazuje za mrtvu.
+PUSH_STALE_GAP_DAYS = 1
 
 
 def _describe_push_service(endpoint: str) -> str:
-    """
-    Rozpozna push sluzbu/platformu priamo z domeny endpointu - bez toho
-    by si v logoch nevedel, ci ide o iOS (Apple), Android/Chrome (FCM),
-    Firefox (Mozilla), alebo Windows/Edge desktop (WNS). Rozne sluzby sa
-    aj rozne spravaju (napr. Apple vie nahlasit 410 s oneskorenim oproti
-    FCM; WNS ma vlastny TTL/Cache-Policy konflikt - viz PUSH_DEFAULT_TTL_SECONDS).
-    """
     e = (endpoint or "").lower()
     if "web.push.apple.com" in e:
         return "apple"
@@ -169,12 +169,6 @@ def _describe_push_service(endpoint: str) -> str:
 
 
 def _endpoint_fingerprint(endpoint: str) -> str:
-    """
-    Kratky identifikator endpointu pre logy - poslednych 12 znakov.
-    Endpoint samotny je citlivy/dlhy token (funguje ako pristupovy kluc
-    k odoslaniu notifikacie danemu zariadeniu), preto ho nikdy nelogujeme
-    cely - len tento "odtlacok" na rozlisenie instancii v logoch.
-    """
     if not endpoint:
         return "?"
     return endpoint[-12:]
@@ -182,6 +176,20 @@ def _endpoint_fingerprint(endpoint: str) -> str:
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(s: Optional[str]) -> Optional[datetime]:
+    """Bezpecne parsuje ISO timestamp string z DB na timezone-aware datetime."""
+    if not s or not isinstance(s, str):
+        return None
+    try:
+        s2 = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s2)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
 
 
 def service_send_push_notification(
@@ -193,28 +201,24 @@ def service_send_push_notification(
 ) -> Dict[str, Any]:
     """
     POZOR na interpretaciu vysledku: "success" tu znamena, ze push sluzba
-    (Apple/FCM/Mozilla) POZIADAVKU PRIJALA (zvycajne HTTP 200/201) - nie ze
-    sa notifikacia realne dorucila na zariadenie. Web Push protokol vo
-    vseobecnosti nevracia potvrdenie o doruceni. Apple vie prijat poziadavku
-    aj pre uz neplatny token a zlyhanie (404/410) nahlasi az o par pokusov
-    neskor - preto sa moze stat, ze DB kratkodobo ukazuje "uspesne odoslane"
-    aj pre zariadenie, ktore appku uz nema. Toto je limitacia protokolu, nie
-    chyba v tejto funkcii - presne preto mame last_success_at + planovany
-    cron na postupne cistenie davno-neuspesnych zaznamov.
+    (Apple/FCM/Mozilla) POZIADAVKU PRIJALA - nie ze sa notifikacia realne
+    dorucila na zariadenie. Skutocny dokaz dorucenia je last_received_at,
+    ktory nastavuje VYLUCNE Service Worker (public/sw.js) cez samostatny
+    ack endpoint, ked realne dostane push event. last_try_at sa naopak
+    nastavuje VZDY tu, pri kazdom pokuse, bez ohladu na vysledok - to je
+    vstup pre denny cleanup cron (service_cron_cleanup_stale_push_subscriptions).
     """
     subs = db_get_user_subscriptions(user_id=user_id, ctx=ctx)
     if not subs:
         print(f"[Push][user={user_id}] no subscriptions in DB, nothing to send")
         return {"success": False, "message": "User has no active subscriptions."}
 
-    payload = json.dumps(
-        {
-            "title": title,
-            "body": body,
-            "url": url,
-            "icon": "/logo/actual/selfrace_icon.svg",
-        }
-    )
+    base_payload = {
+        "title": title,
+        "body": body,
+        "url": url,
+        "icon": "/logo/actual/selfrace_icon.svg",
+    }
 
     success_count = 0
     error_count = 0
@@ -232,6 +236,11 @@ def service_send_push_notification(
         fp = _endpoint_fingerprint(endpoint)
         log_prefix = f"[Push][user={user_id}][sub_id={sub_id}][service={service_name}][ep=...{fp}]"
 
+        # sub_id sa vklada priamo do payloadu - Service Worker ho precita
+        # a posle spat v ack requeste, takze server presne vie, KTORA
+        # subscription realne dostala push (ziadne parovanie podla endpointu).
+        payload = json.dumps({**base_payload, "sub_id": sub_id})
+
         sub_info = {
             "endpoint": endpoint,
             "keys": {"p256dh": sub.get("p256dh"), "auth": sub.get("auth")},
@@ -245,6 +254,13 @@ def service_send_push_notification(
             "status_code": None,
         }
 
+        # Zaznamenaj POKUS uz teraz - bez ohladu na to, co sa stane nizsie
+        # (aj keby webpush() zhodil nieco uplne nepredvidane).
+        try:
+            db_mark_push_subscription_try(endpoint=endpoint, ctx=ctx)
+        except Exception as e:
+            print(f"{log_prefix} WARN failed to record last_try_at: {repr(e)}")
+
         try:
             res = webpush(
                 subscription_info=sub_info,
@@ -256,10 +272,9 @@ def service_send_push_notification(
             status_code = getattr(res, "status_code", None)
             print(
                 f"{log_prefix} OK status={status_code} "
-                "(push server accepted the request - toto NEZARUCUJE dorucenie "
-                "na zariadenie, len ze push sluzba prijala poziadavku)"
+                "(push server prijal poziadavku - cakame na SW ack pre "
+                "skutocne potvrdenie dorucenia)"
             )
-            db_mark_push_subscription_success(endpoint=endpoint, ctx=ctx)
             success_count += 1
             entry["ok"] = True
             entry["status_code"] = status_code
@@ -285,11 +300,6 @@ def service_send_push_notification(
             )
 
             if status in STALE_SUBSCRIPTION_STATUS_CODES:
-                # Niektore push endpointy (najma FCM) vedia pre zaniknutu
-                # subscription vratit aj 404, nielen 410 - oboje treba mazat
-                # rovnako, inak zombie subscription zostane v DB a appka
-                # bude tvarit, ze notifikacie funguju, hoci zariadenie uz
-                # neexistuje.
                 db_delete_push_subscription(endpoint=endpoint, ctx=ctx)
                 print(f"{log_prefix} deleted stale subscription (status={status})")
 
@@ -298,10 +308,6 @@ def service_send_push_notification(
             entry["error"] = repr(ex)
 
         except Exception as ex:  # noqa: BLE001
-            # FIX: predtym sa odchytavalo LEN WebPushException - akakolvek
-            # ina chyba (network timeout, DNS zlyhanie, chyba VAPID claims...)
-            # by zhodila cely cyklus a dalsie subscriptions daneho usera by sa
-            # vobec neskusili odoslat. Teraz sa zaloguje a pokracuje dalej.
             print(f"{log_prefix} FAIL unexpected_error exception={repr(ex)}")
             error_count += 1
             entry["error"] = repr(ex)
@@ -319,6 +325,112 @@ def service_send_push_notification(
         "failed": error_count,
         "details": details,
     }
+
+
+def service_send_test_to_subscription(
+    user_id: int,
+    sub_id: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Pošle skutočnú push notifikáciu len na JEDNU konkrétnu subscription.
+    Ponechané ako debug nástroj, ale odkedy máme last_received_at cez SW
+    ack, na bežné rozlíšenie "ktorá inštancia žije" už netreba - to teraz
+    rieši cron automaticky.
+    """
+    sub = db_get_subscription_by_id(sub_id, user_id=user_id, ctx=ctx)
+    if not sub:
+        return {"success": False, "message": f"Subscription id={sub_id} pre user_id={user_id} nenájdená."}
+
+    endpoint = sub.get("endpoint") or ""
+    service_name = _describe_push_service(endpoint)
+    fp = _endpoint_fingerprint(endpoint)
+    print(
+        f"[Push][TEST][user={user_id}][sub_id={sub_id}][service={service_name}][ep=...{fp}] "
+        "sending single test push"
+    )
+
+    payload = json.dumps(
+        {
+            "title": "Test — ktoré zariadenie?",
+            "body": f"Ak toto vidíš, sub_id={sub_id} je aktuálne zariadenie.",
+            "url": "/activities",
+            "icon": "/logo/actual/selfrace_icon.svg",
+            "sub_id": sub_id,
+        }
+    )
+    sub_info = {
+        "endpoint": endpoint,
+        "keys": {"p256dh": sub.get("p256dh"), "auth": sub.get("auth")},
+    }
+
+    try:
+        db_mark_push_subscription_try(endpoint=endpoint, ctx=ctx)
+    except Exception as e:
+        print(f"[Push][TEST][sub_id={sub_id}] WARN failed to record last_try_at: {repr(e)}")
+
+    try:
+        res = webpush(
+            subscription_info=sub_info,
+            data=payload,
+            ttl=PUSH_DEFAULT_TTL_SECONDS,
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": VAPID_CLAIM_EMAIL},
+        )
+        status_code = getattr(res, "status_code", None)
+        print(f"[Push][TEST][sub_id={sub_id}] OK status={status_code}")
+        return {"success": True, "sub_id": sub_id, "service": service_name, "status_code": status_code}
+    except WebPushException as ex:
+        status = ex.response.status_code if ex.response is not None else None
+        print(f"[Push][TEST][sub_id={sub_id}] FAIL status={status} exception={repr(ex)}")
+        return {"success": False, "sub_id": sub_id, "service": service_name, "status_code": status, "error": repr(ex)}
+
+
+def service_cron_cleanup_stale_push_subscriptions(ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    Volať raz denne. Porovná last_try_at (kedy sme naposledy SKÚSILI
+    poslať) s last_received_at (kedy zariadenie REÁLNE potvrdilo prijatie
+    cez Service Worker). Ak je rozdiel väčší ako PUSH_STALE_GAP_DAYS,
+    subscription sa považuje za mŕtvu a zmaže sa.
+
+    last_received_at == NULL (nikdy nepotvrdilo) sa berie ako "nekonečne
+    dávno" (epoch 1970) - teda akákoľvek subscription, ktorá bola skúšaná
+    a nikdy nepotvrdila prijatie dlhšie než prah, sa zmaže. Čerstvo
+    vytvorená subscription (prvý pokus prebehol práve teraz) tento prah
+    ešte nedosiahne, takže sa omylom hneď nezmaže.
+    """
+    threshold = timedelta(days=PUSH_STALE_GAP_DAYS)
+    subs = db_get_subscriptions_with_try(ctx=ctx)
+
+    checked = 0
+    deleted = 0
+    deleted_details: List[Dict[str, Any]] = []
+
+    for sub in subs:
+        checked += 1
+        last_try = _parse_iso(sub.get("last_try_at"))
+        if not last_try:
+            continue
+
+        last_received = _parse_iso(sub.get("last_received_at"))
+        reference = last_received or datetime(1970, 1, 1, tzinfo=timezone.utc)
+        gap = last_try - reference
+
+        if gap > threshold:
+            endpoint = sub.get("endpoint")
+            sub_id = sub.get("id")
+            user_id = sub.get("user_id")
+            print(
+                f"[Push][cleanup] deleting stale sub_id={sub_id} user_id={user_id} "
+                f"gap={gap} (last_try_at={sub.get('last_try_at')}, "
+                f"last_received_at={sub.get('last_received_at')})"
+            )
+            db_delete_push_subscription(endpoint=endpoint, ctx=ctx)
+            deleted += 1
+            deleted_details.append({"sub_id": sub_id, "user_id": user_id, "gap_seconds": gap.total_seconds()})
+
+    print(f"[Push][cleanup] done: checked={checked} deleted={deleted}")
+    return {"success": True, "checked": checked, "deleted": deleted, "deleted_details": deleted_details}
 
 
 # =====================================================================
