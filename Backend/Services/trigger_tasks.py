@@ -1,4 +1,4 @@
-# Services/scheduler.py — aktualizovaná verzia
+# Services/trigger_tasks.py — aktualizovaná verzia
 from __future__ import annotations
 
 from datetime import datetime
