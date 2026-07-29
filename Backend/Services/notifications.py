@@ -137,13 +137,24 @@ def service_delete_push_subscription(
 # z DB hned, necakaj na dalsi pokus.
 STALE_SUBSCRIPTION_STATUS_CODES = (404, 410)
 
+# 🌟 FIX: pywebpush() bez explicitneho ttl posiela ttl=0 ("doruc hned alebo
+# zahod"). Windows Notification Service (WNS - Edge/Windows desktop push)
+# ma s touto hodnotou zdokumentovany konflikt so svojou vlastnou cache
+# politikou -> kazdy push na WNS endpoint padal na "400 Ttl value conflicts
+# with X-WNS-Cache-Policy" (videt v logoch: X-WNS-ERROR-DESCRIPTION,
+# X-WNS-STATUS=dropped). Explicitny kladny TTL tento konflikt odstrani.
+# Apple/FCM/Mozilla s tymto problem nemaju, ale posielame ho vsade rovnako -
+# neskodi im to a je to jednotne.
+PUSH_DEFAULT_TTL_SECONDS = 86400  # 1 den - trening/pripomienka ma zmysel do jedneho dna
+
 
 def _describe_push_service(endpoint: str) -> str:
     """
     Rozpozna push sluzbu/platformu priamo z domeny endpointu - bez toho
     by si v logoch nevedel, ci ide o iOS (Apple), Android/Chrome (FCM),
-    alebo Firefox (Mozilla). Rozne sluzby sa aj rozne spravaju (napr.
-    Apple vie nahlasit 410 s oneskorenim oproti FCM).
+    Firefox (Mozilla), alebo Windows/Edge desktop (WNS). Rozne sluzby sa
+    aj rozne spravaju (napr. Apple vie nahlasit 410 s oneskorenim oproti
+    FCM; WNS ma vlastny TTL/Cache-Policy konflikt - viz PUSH_DEFAULT_TTL_SECONDS).
     """
     e = (endpoint or "").lower()
     if "web.push.apple.com" in e:
@@ -152,6 +163,8 @@ def _describe_push_service(endpoint: str) -> str:
         return "fcm"
     if "updates.push.services.mozilla.com" in e:
         return "mozilla"
+    if "notify.windows.com" in e or "wns" in e:
+        return "windows"
     return "unknown"
 
 
@@ -236,6 +249,7 @@ def service_send_push_notification(
             res = webpush(
                 subscription_info=sub_info,
                 data=payload,
+                ttl=PUSH_DEFAULT_TTL_SECONDS,
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": VAPID_CLAIM_EMAIL},
             )
