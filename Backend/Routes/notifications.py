@@ -156,24 +156,3 @@ async def push_received_ack(
         # odpoveď), stačí to zalogovať.
         print(f"[Push][ack] failed for sub_id={sub_id}: {repr(e)}")
         raise HTTPException(status_code=500, detail="internal error")
-
-
-@router.post("/cron/cleanup-stale-subscriptions")
-async def cron_cleanup_stale_subscriptions(
-    x_api_key: str | None = Header(default=None),
-):
-    """
-    Volať raz denne (Railway cron -> HTTP POST na tento endpoint).
-    Zmaže push subscriptions, kde od posledného pokusu o odoslanie
-    (last_try_at) uplynul viac ako PUSH_STALE_GAP_DAYS bez toho, aby
-    zariadenie cez Service Worker potvrdilo prijatie (last_received_at).
-    Chránené API kľúčom rovnako ako /global.
-    """
-    _require_api_key(x_api_key)
-    ctx = service_ctx("notifications.cron_cleanup")
-
-    try:
-        result = service_cron_cleanup_stale_push_subscriptions(ctx=ctx)
-        return JSONResponse({"ok": True, "result": result})
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
