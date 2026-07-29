@@ -27,7 +27,7 @@ from Modules.Supabase.client import get_service_client
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
 # =====================================================================
-# LOKÁLNE PREKLADY PRE PUSH NOTIFIKÁCIE
+# LOKALNE PREKLADY PRE PUSH NOTIFIKACIE
 # =====================================================================
 PUSH_TRANSLATIONS = {
     "sk": {
@@ -79,12 +79,12 @@ PUSH_TRANSLATIONS = {
 }
 
 # =====================================================================
-# POMOCNÉ FUNKCIE
+# POMOCNE FUNKCIE
 # =====================================================================
 
 
 def _get_user_language(user_id: int, ctx: AuthCtx) -> str:
-    """Zistí preferovaný jazyk užívateľa z DB. Fallback je 'en'."""
+    """Zisti preferovany jazyk uzivatela z DB. Fallback je 'en'."""
     pref = db_get_pref_single(user_id=user_id, key="user.settings", ctx=ctx)
     if pref and isinstance(pref.get("value"), dict):
         lang = pref["value"].get("language")
@@ -127,23 +127,23 @@ def service_delete_push_subscription(
 
 
 # =====================================================================
-# UNIVERZÁLNY ODOSIELATEĽ
+# UNIVERZALNY ODOSIELATEL
 # =====================================================================
 
-# Push služby (FCM/Apple/Mozilla) hlásia "táto subscription už neexistuje"
-# buď ako 410 Gone (najčastejšie), alebo 404 Not Found (niektoré edge-casy,
-# najmä pri FCM endpointoch). Oboje znamená to isté: zariadenie/appka bola
-# zmazaná/preinštalovaná alebo subscription bola inak zrušená -> vymaž ju
-# z DB hneď, nečakaj na ďalší pokus.
+# Push sluzby (FCM/Apple/Mozilla) hlasia "tato subscription uz neexistuje"
+# bud ako 410 Gone (najcastejsie), alebo 404 Not Found (niektore edge-casy,
+# najma pri FCM endpointoch). Oboje znamena to iste: zariadenie/appka bola
+# zmazana/preinstalovana alebo subscription bola inak zrusena -> vymaz ju
+# z DB hned, necakaj na dalsi pokus.
 STALE_SUBSCRIPTION_STATUS_CODES = (404, 410)
 
 
 def _describe_push_service(endpoint: str) -> str:
     """
-    Rozpozná push službu/platformu priamo z domény endpointu — bez toho
-    by si v logoch nevedel, či ide o iOS (Apple), Android/Chrome (FCM),
-    alebo Firefox (Mozilla). Rôzne služby sa aj rôzne správajú (napr.
-    Apple vie nahlásiť 410 s oneskorením oproti FCM).
+    Rozpozna push sluzbu/platformu priamo z domeny endpointu - bez toho
+    by si v logoch nevedel, ci ide o iOS (Apple), Android/Chrome (FCM),
+    alebo Firefox (Mozilla). Rozne sluzby sa aj rozne spravaju (napr.
+    Apple vie nahlasit 410 s oneskorenim oproti FCM).
     """
     e = (endpoint or "").lower()
     if "web.push.apple.com" in e:
@@ -157,10 +157,10 @@ def _describe_push_service(endpoint: str) -> str:
 
 def _endpoint_fingerprint(endpoint: str) -> str:
     """
-    Krátky identifikátor endpointu pre logy — posledných 12 znakov.
-    Endpoint samotný je citlivý/dlhý token (funguje ako prístupový kľúč
-    k odoslaniu notifikácie danému zariadeniu), preto ho nikdy nelogujeme
-    celý — len tento "odtlačok" na rozlíšenie inštancií v logoch.
+    Kratky identifikator endpointu pre logy - poslednych 12 znakov.
+    Endpoint samotny je citlivy/dlhy token (funguje ako pristupovy kluc
+    k odoslaniu notifikacie danemu zariadeniu), preto ho nikdy nelogujeme
+    cely - len tento "odtlacok" na rozlisenie instancii v logoch.
     """
     if not endpoint:
         return "?"
@@ -179,15 +179,15 @@ def service_send_push_notification(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    POZOR na interpretáciu výsledku: "success" tu znamená, že push služba
-    (Apple/FCM/Mozilla) POŽIADAVKU PRIJALA (zvyčajne HTTP 200/201) — nie že
-    sa notifikácia reálne doručila na zariadenie. Web Push protokol vo
-    všeobecnosti nevracia potvrdenie o doručení. Apple vie prijať požiadavku
-    aj pre už neplatný token a zlyhanie (404/410) nahlási až o pár pokusov
-    neskôr — preto sa môže stať, že DB krátkodobo ukazuje "úspešne odoslané"
-    aj pre zariadenie, ktoré appku už nemá. Toto je limitácia protokolu, nie
-    chyba v tejto funkcii — presne preto máme last_success_at + plánovaný
-    cron na postupné čistenie dávno-neúspešných záznamov.
+    POZOR na interpretaciu vysledku: "success" tu znamena, ze push sluzba
+    (Apple/FCM/Mozilla) POZIADAVKU PRIJALA (zvycajne HTTP 200/201) - nie ze
+    sa notifikacia realne dorucila na zariadenie. Web Push protokol vo
+    vseobecnosti nevracia potvrdenie o doruceni. Apple vie prijat poziadavku
+    aj pre uz neplatny token a zlyhanie (404/410) nahlasi az o par pokusov
+    neskor - preto sa moze stat, ze DB kratkodobo ukazuje "uspesne odoslane"
+    aj pre zariadenie, ktore appku uz nema. Toto je limitacia protokolu, nie
+    chyba v tejto funkcii - presne preto mame last_success_at + planovany
+    cron na postupne cistenie davno-neuspesnych zaznamov.
     """
     subs = db_get_user_subscriptions(user_id=user_id, ctx=ctx)
     if not subs:
@@ -242,8 +242,8 @@ def service_send_push_notification(
             status_code = getattr(res, "status_code", None)
             print(
                 f"{log_prefix} OK status={status_code} "
-                "(push server accepted the request — toto NEZARUČUJE doručenie "
-                "na zariadenie, len že push služba prijala požiadavku)"
+                "(push server accepted the request - toto NEZARUCUJE dorucenie "
+                "na zariadenie, len ze push sluzba prijala poziadavku)"
             )
             db_mark_push_subscription_success(endpoint=endpoint, ctx=ctx)
             success_count += 1
@@ -271,11 +271,11 @@ def service_send_push_notification(
             )
 
             if status in STALE_SUBSCRIPTION_STATUS_CODES:
-                # 🌟 Niektoré push endpointy (najmä FCM) vedia pre zaniknutú
-                # subscription vrátiť aj 404, nielen 410 — oboje treba mazať
+                # Niektore push endpointy (najma FCM) vedia pre zaniknutu
+                # subscription vratit aj 404, nielen 410 - oboje treba mazat
                 # rovnako, inak zombie subscription zostane v DB a appka
-                # bude tváriť, že notifikácie fungujú, hoci zariadenie už
-                # neexistuje (presne bug, čo riešime).
+                # bude tvarit, ze notifikacie funguju, hoci zariadenie uz
+                # neexistuje.
                 db_delete_push_subscription(endpoint=endpoint, ctx=ctx)
                 print(f"{log_prefix} deleted stale subscription (status={status})")
 
@@ -284,10 +284,10 @@ def service_send_push_notification(
             entry["error"] = repr(ex)
 
         except Exception as ex:  # noqa: BLE001
-            # 🌟 FIX: predtým sa odchytávalo LEN WebPushException — akákoľvek
-            # iná chyba (network timeout, DNS zlyhanie, chyba VAPID claims...)
-            # by zhodila celý cyklus a ďalšie subscriptions daného usera by sa
-            # vôbec neskúsili odoslať. Teraz sa zaloguje a pokračuje ďalej.
+            # FIX: predtym sa odchytavalo LEN WebPushException - akakolvek
+            # ina chyba (network timeout, DNS zlyhanie, chyba VAPID claims...)
+            # by zhodila cely cyklus a dalsie subscriptions daneho usera by sa
+            # vobec neskusili odoslat. Teraz sa zaloguje a pokracuje dalej.
             print(f"{log_prefix} FAIL unexpected_error exception={repr(ex)}")
             error_count += 1
             entry["error"] = repr(ex)
@@ -313,7 +313,7 @@ def service_send_push_notification(
 
 
 def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
-    """Volané z denného cronu o 11:00."""
+    """Volane z denneho cronu o 11:00."""
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     users = db_list_users_for_cron(ctx=ctx)
     total_sent = 0
@@ -328,3 +328,297 @@ def service_cron_notify_recovery(ctx: AuthCtx) -> Dict[str, Any]:
             res = service_send_push_notification(
                 user_id=user_id,
                 title=t["recovery_title"],
+                body=t["recovery_body"],
+                url="/recovery",
+                ctx=ctx,
+            )
+            total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent}
+
+
+def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volane z hodinoveho cronu."""
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
+
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+        pending = db_get_unreviewed_activities_for_push(user_id=user_id, ctx=ctx)
+        if not pending:
+            continue
+        lang = _get_user_language(user_id, ctx)
+        t = PUSH_TRANSLATIONS[lang]
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=t["review_title"],
+            body=t["review_body"],
+            url="/calendar",
+            ctx=ctx,
+        )
+        total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent}
+
+
+def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volane z denneho cronu o 19:00."""
+    today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
+
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+        if db_has_uncompleted_daily_sessions(
+            user_id=user_id, plan_date=today_iso, ctx=ctx
+        ):
+            lang = _get_user_language(user_id, ctx)
+            t = PUSH_TRANSLATIONS[lang]
+            res = service_send_push_notification(
+                user_id=user_id,
+                title=t["training_title"],
+                body=t["training_body"],
+                url="/coach/ai/dailyPlan",
+                ctx=ctx,
+            )
+            total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent}
+
+
+def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
+    """Volane 1. dna v mesiaci o 09:00. Generuje AI review a notifikuje userov."""
+    now = datetime.now(timezone.utc)
+    year = now.year - 1 if now.month == 1 else now.year
+    month = 12 if now.month == 1 else now.month - 1
+
+    users = db_list_users_for_cron(ctx=ctx)
+    total_generated = 0
+    total_notified = 0
+
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+
+        try:
+            result = service_generate_monthly_review(
+                user_id=user_id,
+                year=year,
+                month=month,
+                ctx=ctx,
+                save_result=True,
+            )
+        except Exception as e:
+            print(f"[MONTHLY-CRON] user={user_id} generate failed: {e}")
+            continue
+
+        if not result.get("ok"):
+            continue
+
+        total_generated += 1
+
+        try:
+            lang = _get_user_language(user_id, ctx)
+            t = PUSH_TRANSLATIONS[lang]
+            res = service_send_push_notification(
+                user_id=user_id,
+                title=t["monthly_summary_title"],
+                body=t["monthly_summary_body"],
+                url="/activities/monthlySummary",
+                ctx=ctx,
+            )
+            total_notified += res.get("sent", 0)
+        except Exception as e:
+            print(f"[MONTHLY-CRON] user={user_id} notify failed: {e}")
+
+    return {
+        "success": True,
+        "year": year,
+        "month": month,
+        "generated": total_generated,
+        "notified": total_notified,
+        "users_checked": len(users),
+    }
+
+
+# =====================================================================
+# EVENT NOTIFIKACIE
+# =====================================================================
+
+
+def service_notify_monthly_summary_done(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    """Posle notifikaciu po manualnom vygenerovani mesacneho suhrnu."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["monthly_summary_title"],
+        body=t["monthly_summary_body"],
+        url="/activities/monthlySummary",
+        ctx=ctx,
+    )
+
+
+def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["autorecovery_applied_title"],
+        body=t["autorecovery_applied_body"],
+        url="/coach/ai/dailyPlan",
+        ctx=ctx,
+    )
+
+
+def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["progress_title"],
+        body=t["progress_body"],
+        url="/coach/ai/progress",
+        ctx=ctx,
+    )
+
+
+def service_notify_new_activity(
+    user_id: int,
+    activity_id: int,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """Posle notifikaciu ked je nova aktivita importovana a pripravena na pozretie."""
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["new_activity_title"],
+        body=t["new_activity_body"],
+        url=f"/activities/detail/{activity_id}",
+        ctx=ctx,
+    )
+
+
+
+def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["test_title"],
+        body=t["test_body"],
+        url="/activities",
+        ctx=ctx,
+    )
+
+
+def service_cron_notify_check_ai(admin_email: str, ctx: AuthCtx) -> Dict[str, Any]:
+    is_ok, warning_message = get_ai_health_status()
+    if is_ok:
+        return {"success": True, "message": "Všetky AI modely sú dostupné."}
+
+    sb = get_service_client()
+    user_resp = (
+        sb.table("users")
+        .select("id")
+        .eq("mail_address", admin_email)
+        .single()
+        .execute()
+    )
+    admin_id = user_resp.data.get("id") if user_resp.data else None
+    if not admin_id:
+        raise ValueError(f"Admin email {admin_email} nenájdený v DB.")
+
+    push_result = service_send_push_notification(
+        user_id=int(admin_id),
+        title="⚠️ AI Model Výpadok",
+        body=warning_message,
+        url="/hq-secure-zone",
+        ctx=ctx,
+    )
+    return {
+        "success": True,
+        "message": "Problém detegovaný.",
+        "push_details": push_result,
+    }
+
+
+def service_notify_global(
+    messages: Dict[str, Dict[str, str]], ctx: AuthCtx
+) -> Dict[str, Any]:
+    if not messages:
+        return {"success": False, "sent": 0, "message": "Prázdny payload správ."}
+
+    users = db_list_users_for_cron(ctx=ctx)
+    total_sent = 0
+
+    for u in users:
+        user_id = u.get("id")
+        if not user_id:
+            continue
+        lang = _get_user_language(user_id, ctx)
+        user_msg = (
+            messages.get(lang)
+            or messages.get("en")
+            or next(iter(messages.values()), None)
+        )
+        if not user_msg:
+            continue
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=user_msg.get("title", "Oznámenie"),
+            body=user_msg.get("body", ""),
+            url=user_msg.get("url", "/"),
+            ctx=ctx,
+        )
+        total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent}
+
+def service_notify_new_record(
+    user_id: int,
+    records: List[Dict[str, Any]],
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Posle notifikaciu za KAZDY novy rekord v zozname (zvycajne 1, ale
+    jedna aktivita moze prekonat viac segmentov naraz).
+    """
+    if not records:
+        return {"success": False, "message": "No records to notify."}
+
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+
+    total_sent = 0
+    for rec in records:
+        rec_type = rec.get("type", "")
+        label = rec.get("label", "")
+        value_fmt = rec.get("value_fmt", "")
+        delta_fmt = rec.get("delta_fmt")
+
+        if rec_type == "total_distance":
+            body = t["new_record_body_distance"].format(value=value_fmt, delta=delta_fmt or "—")
+        elif rec_type == "total_time":
+            body = t["new_record_body_time"].format(value=value_fmt, delta=delta_fmt or "—")
+        elif delta_fmt:
+            body = t["new_record_body_with_delta"].format(delta=delta_fmt, label=label, value=value_fmt)
+        else:
+            body = t["new_record_body_no_delta"].format(label=label, value=value_fmt)
+
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=t["new_record_title"],
+            body=body,
+            url="/performance/pb",
+            ctx=ctx,
+        )
+        total_sent += res.get("sent", 0)
+
+    return {"success": True, "sent": total_sent, "records_notified": len(records)}
