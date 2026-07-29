@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
@@ -17,18 +17,12 @@ def db_upsert_push_subscription(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Upsert na (user_id, endpoint).
-
-    🌟 FIX: created_at sa už NEPOSIELA v payloade — necháva sa na DB
-    DEFAULT now(), takže sa nastaví LEN pri prvom INSERTe. Predtým sa
-    posielal nanovo pri každom volaní, čím sa pri opakovanom upserte
-    (rovnaký endpoint) tichy prepisoval na aktuálny čas — "kedy vznikla"
-    tak v skutočnosti znamenalo "kedy sa naposledy upsertlo".
-
-    updated_at sa naopak nastavuje VŽDY — hovorí "kedy klient naposledy
-    potvrdil, že toto je jeho aktuálna subscription" (nezamieňať s
-    last_success_at nižšie, čo hovorí "kedy sme jej naposledy naozaj
-    DORUČILI notifikáciu").
+    Upsert na (user_id, endpoint). created_at sa neposiela (DB DEFAULT,
+    nastavi sa len pri prvom INSERTe). updated_at sa nastavuje VZDY -
+    hovori kedy klient naposledy potvrdil (subscribe()/resubscribe), ze
+    toto je jeho aktualna subscription. Toto je nezavisle od
+    last_try_at / last_received_at nizsie, ktore sledujeme na
+    server-send resp. SW-ack strane.
     """
     sb = get_sb(ctx, caller="notifications.db_upsert_push_subscription")
 
@@ -48,22 +42,39 @@ def db_upsert_push_subscription(
     return rec
 
 
-def db_mark_push_subscription_success(
+def db_mark_push_subscription_try(
     endpoint: str,
     *,
     ctx: AuthCtx,
 ) -> None:
     """
-    Zavolá sa po KAŽDOM úspešnom webpush() doručení (viď
-    Services/notifications.py -> service_send_push_notification).
-    Toto je jediný spoľahlivý signál "táto subscription reálne žije" —
-    created_at/updated_at hovoria len o tom, kedy si klient MYSLEL, že je
-    prihlásený, nie či sa to niekam naozaj doručilo.
+    Zavola sa VZDY, ked sa server pokusi poslat push na tuto subscription -
+    bez ohladu na vysledok (aj 400/401/timeout). Toto je "last_try_at" -
+    vstup pre cron cistenie: rozdiel medzi tymto a last_received_at hovori,
+    ci to zariadenie realne dostava notifikacie, alebo len akceptuje
+    poziadavky bez toho, aby sa co i len pokusilo dorucit (Apple problem).
     """
-    sb = get_sb(ctx, caller="notifications.db_mark_push_subscription_success")
+    sb = get_sb(ctx, caller="notifications.db_mark_push_subscription_try")
     sb.table(TABLE_PUSH_NOTIFICATIONS).update(
-        {"last_success_at": datetime.now(timezone.utc).isoformat()}
+        {"last_try_at": datetime.now(timezone.utc).isoformat()}
     ).eq("endpoint", endpoint).execute()
+
+
+def db_mark_push_subscription_received(
+    sub_id: int,
+    *,
+    ctx: AuthCtx,
+) -> None:
+    """
+    Zavola sa LEN zo Service Workera (push event handler v public/sw.js),
+    ked zariadenie REALNE dostane push - jediny nesporny dokaz zivotnosti,
+    nezavisly od toho, co hovori push sluzba serveru pri odoslani (Apple
+    vie prijat 2xx aj pre uz mrtvu subscription).
+    """
+    sb = get_sb(ctx, caller="notifications.db_mark_push_subscription_received")
+    sb.table(TABLE_PUSH_NOTIFICATIONS).update(
+        {"last_received_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", sub_id).execute()
 
 
 def db_get_user_subscriptions(
@@ -76,6 +87,48 @@ def db_get_user_subscriptions(
         sb.table(TABLE_PUSH_NOTIFICATIONS)
         .select("*")
         .eq("user_id", user_id)
+        .execute()
+    )
+    return list(res.data or [])
+
+
+def db_get_subscription_by_id(
+    sub_id: int,
+    *,
+    user_id: int,
+    ctx: AuthCtx,
+) -> Optional[Dict[str, Any]]:
+    """
+    Nacita JEDEN konkretny subscription riadok podla id (a user_id, aby si
+    nemohol poslat test na cudzi riadok).
+    """
+    sb = get_sb(ctx, caller="notifications.db_get_subscription_by_id")
+    res = (
+        sb.table(TABLE_PUSH_NOTIFICATIONS)
+        .select("*")
+        .eq("id", sub_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    rows = list(res.data or [])
+    return rows[0] if rows else None
+
+
+def db_get_subscriptions_with_try(
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    Vsetky subscriptions, co uz aspon raz boli skusene poslat
+    (last_try_at nie je null) - vstup pre denny cleanup cron.
+    Tie, co sa este nikdy neskusali poslat, cron vobec nezaujimaju.
+    """
+    sb = get_sb(ctx, caller="notifications.db_get_subscriptions_with_try")
+    res = (
+        sb.table(TABLE_PUSH_NOTIFICATIONS)
+        .select("*")
+        .not_.is_("last_try_at", "null")
         .execute()
     )
     return list(res.data or [])
