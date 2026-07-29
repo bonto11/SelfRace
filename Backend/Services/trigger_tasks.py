@@ -1,4 +1,4 @@
-# Services/scheduler.py — aktualizovaná verzia
+# Services/triger_tasks.py — aktualizovaná verzia
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,6 +13,7 @@ from Services.notifications import (
     service_cron_notify_training,
     service_cron_notify_check_ai,
     service_cron_notify_monthly_summary,
+    service_cron_cleanup_stale_push_subscriptions,
 )
 from Services.AI.athlete_state.main import service_run_weekly_athlete_state
 from DB.users import db_force_logout_all_users
@@ -64,6 +65,10 @@ def service_run_master_scheduler(
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
             service_cron_notify_monthly_summary(ctx=ctx)
+        elif task == "cleanup-stale-push-subscriptions":
+            # 🌟 NOVÉ: manuálne otestovanie čistenia mŕtvych push subscriptions
+            # (last_try_at vs. last_received_at) bez čakania na 01:00.
+            service_cron_cleanup_stale_push_subscriptions(ctx=ctx)
         else:
             raise ValueError(f"Neznáma úloha: {task}")
 
@@ -88,6 +93,10 @@ def service_run_master_scheduler(
             (lambda: service_apply_due_subscription_changes(ctx=ctx),                "subscriptions"),
             (lambda: service_account_hard_delete(ctx=ctx, dry_run=False),            "hard_delete"),
             (lambda: service_complete_due_active_plans(ctx=ctx),                     "plan_complete"),
+            # 🌟 NOVÉ: raz denne zmaže push subscriptions, kde od posledného
+            # pokusu (last_try_at) uplynul viac než PUSH_STALE_GAP_DAYS bez
+            # potvrdenia prijatia cez Service Worker (last_received_at).
+            (lambda: service_cron_cleanup_stale_push_subscriptions(ctx=ctx),         "push_cleanup"),
         ]:
             try:
                 fn()
