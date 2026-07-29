@@ -299,15 +299,38 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             )
 
             source = payload.get("source")
-            
+
             if source == "user":
-                print(f"[WORKER] Manual review detected for user {user_id}. Enqueuing autoadjust.")
-                _enqueue_autoadjust_debounced(
-                    ctx=ctx,
-                    user_id=user_id,
-                    delay_sec=5,
-                    force_reason="manual_review" 
-                )
+                # FIX: predtym sa autoadjust (a teda zmakcenie celeho tyzdna,
+                # daily_soften) spustal po KAZDOM manualnom review, bez ohladu
+                # na to, co review skutocne obsahovalo - aj ked AI vyhodnotilo
+                # review ako uplne v poriadku (needs_caution=false, ziadne
+                # zranenie). Teraz sa spusti LEN ak review samo signalizuje
+                # dovod na obavu (needs_caution) alebo nahlasene zranenie -
+                # presne na to tie polia AI review uz aj tak pocita.
+                review_data = _as_dict((result or {}).get("data"))
+                review_flags = _as_dict(review_data.get("flags"))
+                review_meta = _as_dict(review_data.get("meta"))
+                needs_caution = bool(review_flags.get("needs_caution"))
+                injury_reported = bool(review_meta.get("injury_reported"))
+
+                if needs_caution or injury_reported:
+                    print(
+                        f"[WORKER] Review flagged concern for user {user_id} "
+                        f"(needs_caution={needs_caution}, injury_reported={injury_reported}). "
+                        "Enqueuing autoadjust."
+                    )
+                    _enqueue_autoadjust_debounced(
+                        ctx=ctx,
+                        user_id=user_id,
+                        delay_sec=5,
+                        force_reason="manual_review"
+                    )
+                else:
+                    print(
+                        f"[WORKER] Manual review for user {user_id} had no concerning "
+                        "flags - skipping autoadjust."
+                    )
 
         elif job_type == "sync":
             from Services.synchronization_bulk import import_activities_bulk
