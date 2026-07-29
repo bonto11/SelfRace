@@ -1,5 +1,9 @@
 // public/sw.js
 
+// URL backend endpointu, kam SW hlási "reálne som dostal push".
+// Uprav podľa skutočnej domény tvojho FastAPI backendu (Railway).
+const PUSH_ACK_URL = "https://TVOJ-BACKEND-URL/notifications/push/received";
+
 self.addEventListener('push', function (event) {
   if (event.data) {
     try {
@@ -10,14 +14,37 @@ self.addEventListener('push', function (event) {
         badge: data.badge || '/icon.png',
         vibrate: [200, 100, 200],
         data: {
-          // Tu príde tá tvoja cieľová URL, napr. '/activities'
-          url: data.url || '/' 
+          url: data.url || '/',
+          sub_id: data.sub_id ?? null,
         }
       };
-      
-      event.waitUntil(
-        self.registration.showNotification(data.title || 'Nová správa', options)
-      );
+
+      const showAndAck = async () => {
+        await self.registration.showNotification(data.title || 'Nová správa', options);
+
+        // 🌟 Potvrď backendu, že táto konkrétna subscription REÁLNE
+        // dostala push — nezávisle od toho, čo o nej hovorí Apple/FCM
+        // serveru pri odosielaní. Nepotrebuje žiadnu user interakciu
+        // (funguje aj keď appka nie je otvorená) — beží čisto na
+        // pozadí v Service Workeri.
+        if (data.sub_id != null) {
+          try {
+            await fetch(PUSH_ACK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sub_id: data.sub_id }),
+              keepalive: true,
+            });
+          } catch (e) {
+            // Sieť môže byť dočasne nedostupná — to je OK, jednoducho sa
+            // to nezaznamená ako "received" a cron to zmaže, ak sa to
+            // nezopakuje ani pri ďalšom pokuse.
+            console.error("Push ack fetch zlyhal:", e);
+          }
+        }
+      };
+
+      event.waitUntil(showAndAck());
     } catch (e) {
       console.error("Chyba pri spracovaní push dát:", e);
     }
@@ -27,29 +54,19 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
-  // Vybudujeme plnú URL adresu, kam chceme usera poslať
   const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
 
   event.waitUntil(
-    // 1. Pozrieme sa, či už náhodou PWA apka nie je otvorená na pozadí
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
-      
-      // Ak je otvorená, nájdeme ju
       if (windowClients.length > 0) {
         const client = windowClients[0];
-        
-        // Vytiahneme ju z pozadia do popredia (Focus)
         if ('focus' in client) {
           client.focus();
         }
-        
-        // Presmerujeme ju na požadovanú URL (napr. /activities)
         if ('navigate' in client) {
           return client.navigate(urlToOpen);
         }
       }
-      
-      // 2. Ak apka bola úplne "zabitá" (vyswipeovaná), otvoríme ju nanovo
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
