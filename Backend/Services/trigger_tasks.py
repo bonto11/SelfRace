@@ -1,4 +1,4 @@
-# Services/triger_tasks.py — aktualizovaná verzia
+# Services/scheduler.py — aktualizovaná verzia
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,7 +13,6 @@ from Services.notifications import (
     service_cron_notify_training,
     service_cron_notify_check_ai,
     service_cron_notify_monthly_summary,
-    service_cron_cleanup_stale_push_subscriptions,
 )
 from Services.AI.athlete_state.main import service_run_weekly_athlete_state
 from DB.users import db_force_logout_all_users
@@ -24,7 +23,7 @@ from Services.maintenance import (
     service_cleanup_expired_activity_details,
 )
 from Services.coach_plan_active import service_complete_due_active_plans
-from Services.notifications import service_apply_due_subscription_changes
+from Services.app_subscription import service_apply_due_subscription_changes
 
 
 def service_run_master_scheduler(
@@ -65,8 +64,6 @@ def service_run_master_scheduler(
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
             service_cron_notify_monthly_summary(ctx=ctx)
-        elif task == "cleanup-stale-push-subscriptions":
-            service_cron_cleanup_stale_push_subscriptions(ctx=ctx)
         else:
             raise ValueError(f"Neznáma úloha: {task}")
 
@@ -91,7 +88,6 @@ def service_run_master_scheduler(
             (lambda: service_apply_due_subscription_changes(ctx=ctx),                "subscriptions"),
             (lambda: service_account_hard_delete(ctx=ctx, dry_run=False),            "hard_delete"),
             (lambda: service_complete_due_active_plans(ctx=ctx),                     "plan_complete"),
-            #(lambda: service_cron_cleanup_stale_push_subscriptions(ctx=ctx),         "push_cleanup"),
         ]:
             try:
                 fn()
