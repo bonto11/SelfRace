@@ -2763,6 +2763,9 @@ export const en = {
       wasFaster: "was faster",
       hadLowerHr: "had lower HR",
       selectTwoHint: "Select 2 activities to compare",
+      "errNoStreams": "This activity has no stored GPS/stream data.",
+      "errNoDistance": "Missing distance stream (no GPS distance data).",
+      "errPartialDistance": "Distance stream is incomplete."
     },
 
     detail: {
