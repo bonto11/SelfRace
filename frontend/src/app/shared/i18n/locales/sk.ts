@@ -2754,6 +2754,9 @@ export const sk = {
       wasFaster: "bol rýchlejší",
       hadLowerHr: "mal nižší tep",
       selectTwoHint: "Vyber 2 aktivity na porovnanie",
+      "errNoStreams": "Aktivita nemá uložené GPS/stream dáta.",
+      "errNoDistance": "Chýba distance stream (bez GPS vzdialenosti).",
+      "errPartialDistance": "Distance stream je neúplný — chýba časť GPS dát."
     },
 
     detail: {
