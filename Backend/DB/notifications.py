@@ -18,9 +18,8 @@ def db_upsert_push_subscription(
 ) -> Dict[str, Any]:
     """
     Upsert na (user_id, endpoint). created_at sa neposiela (DB DEFAULT,
-    nastavi sa len pri prvom INSERTe). updated_at sa nastavuje VZDY -
-    hovori kedy klient naposledy potvrdil (subscribe()/resubscribe), ze
-    toto je jeho aktualna subscription. Toto je nezavisle od
+    nastavi sa len pri prvom INSERTe).
+    Toto je nezavisle od
     last_try_at / last_received_at nizsie, ktore sledujeme na
     server-send resp. SW-ack strane.
     """
@@ -31,7 +30,6 @@ def db_upsert_push_subscription(
         "endpoint": endpoint,
         "p256dh": p256dh,
         "auth": auth,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     sb.table(TABLE_PUSH_NOTIFICATIONS).upsert(

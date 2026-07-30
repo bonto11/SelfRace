@@ -124,9 +124,7 @@ async def notify_global(
 async def push_received_ack(
     payload: Dict[str, Any] = Body(...),
 ):
-    # 🌟 Zaloguje ÚPLNE KAŽDÝ pokus, aj keby bol payload nezmyselný —
-    # ak sa toto v Railway logoch nikdy neobjaví, request sem vôbec
-    # nedorazil (problém je na FE strane, viď sw.js debug vyššie).
+    # Zaloguje ÚPLNE KAŽDÝ pokus, aj keby bol payload nezmyselný
     print(f"[Push][ack] incoming request, payload={payload!r}")
 
     sub_id = payload.get("sub_id")
