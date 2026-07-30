@@ -13,7 +13,6 @@ from Services.notifications import (
     service_notify_test,
     service_notify_global,
     service_mark_push_received,
-    service_cron_cleanup_stale_push_subscriptions,
 )
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
