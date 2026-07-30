@@ -30,6 +30,7 @@ import {
   shouldUseElevationAlignment,
   mergeSeriesForChart,
   average,
+  diagnoseStream,
   type ResampledSeries,
 } from "@/app/features/activities/utils/routeStreamCompare";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
@@ -276,8 +277,6 @@ function ChangeSummary({
     currentPaceSec != null && previousPaceSec != null ? currentPaceSec - previousPaceSec : null;
   const hrDiff = currentHr != null && previousHr != null ? currentHr - previousHr : null;
 
-  // Zápornejšie tempo (menej sekúnd/km) = rýchlejšie. Nižší priemerný tep = lepšie.
-  // Farbíme zeleno vždy keď je to zlepšenie voči predchádzajúcemu behu.
   const paceIsBetter = paceDiff != null && paceDiff < 0;
   const hrIsBetter = hrDiff != null && hrDiff < 0;
 
@@ -380,6 +379,7 @@ function ComparisonPanel({
 
   const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
+  const [overlayWarnings, setOverlayWarnings] = useState<string[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -413,19 +413,52 @@ function ComparisonPanel({
     let alive = true;
     if (targetActivities.length < 2) {
       setOverlaySeries(null);
+      setOverlayWarnings([]);
       return;
     }
 
     setOverlayLoading(true);
+    setOverlayWarnings([]);
+
     Promise.all(
       targetActivities.map((a) =>
-        apiFetchActivityStreams(userId, a.activity_id, true).catch(() => null),
+        apiFetchActivityStreams(userId, a.activity_id, true).catch((e) => {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[RouteCompare] streams fetch zlyhal pre aktivitu ${a.activity_id}`,
+            e,
+          );
+          return null;
+        }),
       ),
     )
       .then((results) => {
         if (!alive) return;
 
         const rawStreamsList = results.map((r) => r?.streams ?? null);
+
+        // Diagnostika: pre každú aktivitu presne vieme, PREČO chýbajú dáta,
+        // namiesto toho aby krivka len ticho zmizla z grafu.
+        const warnings: string[] = [];
+        rawStreamsList.forEach((s, idx) => {
+          const diag = diagnoseStream(s);
+          if (!diag.ok) {
+            const label = fmtShortDate(targetActivities[idx]?.updated_at ?? null);
+            const reasonText =
+              diag.reason === "no_streams"
+                ? t("sessions.routeMatch.errNoStreams")
+                : diag.reason === "no_distance"
+                  ? t("sessions.routeMatch.errNoDistance")
+                  : t("sessions.routeMatch.errPartialDistance");
+            warnings.push(`${label}: ${reasonText}`);
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[RouteCompare] aktivita ${targetActivities[idx]?.activity_id} (${label}) - ${diag.reason}`,
+              s,
+            );
+          }
+        });
+        setOverlayWarnings(warnings);
 
         // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
         // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
@@ -455,7 +488,7 @@ function ComparisonPanel({
     return () => {
       alive = false;
     };
-  }, [targetActivities, userId]);
+  }, [targetActivities, userId, t]);
 
   const chartData = useMemo(
     () => (overlaySeries ? mergeSeriesForChart(overlaySeries) : []),
@@ -507,6 +540,24 @@ function ComparisonPanel({
       {overlayLoading && (
         <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
           <LoadingSpinner size="widget" />
+        </div>
+      )}
+
+      {!overlayLoading && overlayWarnings.length > 0 && (
+        <div
+          style={{
+            margin: "0 16px 8px",
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "rgba(248,113,113,0.08)",
+            border: "1px solid rgba(248,113,113,0.25)",
+          }}
+        >
+          {overlayWarnings.map((w, i) => (
+            <div key={i} style={{ fontSize: 12, color: "#f87171" }}>
+              {w}
+            </div>
+          ))}
         </div>
       )}
 
