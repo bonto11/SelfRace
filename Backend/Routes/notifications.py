@@ -124,34 +124,24 @@ async def notify_global(
 async def push_received_ack(
     payload: Dict[str, Any] = Body(...),
 ):
-    """
-    Volá VÝHRADNE Service Worker (public/sw.js) z 'push' event handlera,
-    v momente keď zariadenie reálne dostane push — nezávisle od toho, čo
-    o subscription hovorí Apple/FCM serveru pri odosielaní (Apple vie
-    prijať 2xx aj pre už mŕtvu subscription). Toto je jediný nesporný
-    dôkaz životnosti subscription — nastavuje last_received_at.
+    # 🌟 Zaloguje ÚPLNE KAŽDÝ pokus, aj keby bol payload nezmyselný —
+    # ak sa toto v Railway logoch nikdy neobjaví, request sem vôbec
+    # nedorazil (problém je na FE strane, viď sw.js debug vyššie).
+    print(f"[Push][ack] incoming request, payload={payload!r}")
 
-    ⚠️ ZÁMERNE bez autentifikácie (require_user/API kľúč) — Service Worker
-    beží mimo bežného stránkového kontextu a nemá jednoducho dostupný JWT
-    token ani sa doň nedá bezpečne vložiť MAINTENANCE_API_KEY (je to
-    verejný statický JS súbor, ktokoľvek by si ho vedel prečítať priamo
-    z prehliadača). Riziko je nízke: sub_id samo osebe nie je citlivé a
-    v najhoršom prípade niekto oneskorí zmazanie jedného konkrétneho
-    riadku v cleanup crone.
-    """
     sub_id = payload.get("sub_id")
     if sub_id is None:
+        print("[Push][ack] WARN missing sub_id in payload")
         raise HTTPException(status_code=400, detail="missing sub_id")
 
     try:
         ctx = service_ctx("notifications.push_received")
         result = service_mark_push_received(sub_id=int(sub_id), ctx=ctx)
+        print(f"[Push][ack] OK sub_id={sub_id} result={result}")
         return result
     except (TypeError, ValueError):
+        print(f"[Push][ack] FAIL sub_id={sub_id!r} is not a valid integer")
         raise HTTPException(status_code=400, detail="sub_id must be an integer")
     except Exception as e:  # noqa: BLE001
-        # Zámerne nevraciame 500 s detailmi navonok - je to fire-and-forget
-        # volanie zo Service Workera (má keepalive:true, ale nikto nečíta
-        # odpoveď), stačí to zalogovať.
-        print(f"[Push][ack] failed for sub_id={sub_id}: {repr(e)}")
+        print(f"[Push][ack] FAIL sub_id={sub_id}: {repr(e)}")
         raise HTTPException(status_code=500, detail="internal error")

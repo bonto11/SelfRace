@@ -1,13 +1,14 @@
 // public/sw.js
-
-// URL backend endpointu, kam SW hlási "reálne som dostal push".
-// Uprav podľa skutočnej domény tvojho FastAPI backendu (Railway).
-const PUSH_ACK_URL = "https://TVOJ-BACKEND-URL/notifications/push/received";
+const PUSH_ACK_URL = "https://api.selfrace.com/notifications/push/received";
 
 self.addEventListener('push', function (event) {
+  console.log("[SW][push] event received, has data:", !!event.data);
+
   if (event.data) {
     try {
       const data = event.data.json();
+      console.log("[SW][push] parsed data:", data);
+
       const options = {
         body: data.body,
         icon: data.icon || '/icon.png',
@@ -21,33 +22,38 @@ self.addEventListener('push', function (event) {
 
       const showAndAck = async () => {
         await self.registration.showNotification(data.title || 'Nová správa', options);
+        console.log("[SW][push] notification shown");
 
-        // 🌟 Potvrď backendu, že táto konkrétna subscription REÁLNE
-        // dostala push — nezávisle od toho, čo o nej hovorí Apple/FCM
-        // serveru pri odosielaní. Nepotrebuje žiadnu user interakciu
-        // (funguje aj keď appka nie je otvorená) — beží čisto na
-        // pozadí v Service Workeri.
         if (data.sub_id != null) {
+          console.log("[SW][push] sending ack for sub_id=", data.sub_id, "to", PUSH_ACK_URL);
           try {
-            await fetch(PUSH_ACK_URL, {
+            const res = await fetch(PUSH_ACK_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ sub_id: data.sub_id }),
               keepalive: true,
             });
+            console.log("[SW][push] ack response status:", res.status, res.ok);
           } catch (e) {
-            // Sieť môže byť dočasne nedostupná — to je OK, jednoducho sa
-            // to nezaznamená ako "received" a cron to zmaže, ak sa to
-            // nezopakuje ani pri ďalšom pokuse.
-            console.error("Push ack fetch zlyhal:", e);
+            // 🌟 Toto je najdôležitejší log v celom reťazci — ak sa URL
+            // nedá vôbec dosiahnuť (zlá doména, DNS zlyhanie a pod.),
+            // backend sa o pokuse nikdy nedozvie a v jeho logoch nebude
+            // vôbec nič. Skontroluj tento riadok v konzole (DevTools ->
+            // Application -> Service Workers, alebo bežná Console počas
+            // aktívneho SW).
+            console.error("[SW][push] ack fetch FAILED:", e, "URL was:", PUSH_ACK_URL);
           }
+        } else {
+          console.warn("[SW][push] no sub_id in payload, cannot ack");
         }
       };
 
       event.waitUntil(showAndAck());
     } catch (e) {
-      console.error("Chyba pri spracovaní push dát:", e);
+      console.error("[SW][push] Chyba pri spracovaní push dát:", e);
     }
+  } else {
+    console.warn("[SW][push] event.data is empty");
   }
 });
 
