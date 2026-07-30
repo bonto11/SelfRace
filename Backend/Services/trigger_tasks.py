@@ -21,6 +21,7 @@ from Services.maintenance import (
     service_cleanup_deleted_activities,
     service_account_hard_delete,
     service_cleanup_expired_activity_details,
+    service_cleanup_stale_push_subscriptions
 )
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
@@ -44,6 +45,8 @@ def service_run_master_scheduler(
         if task == "cleanup-deleted-activities":
             service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30)
             service_cleanup_expired_activity_details(ctx=ctx)
+        elif task == "cleanup-notifications-stale":
+            service_cleanup_stale_push_subscriptions(ctx=ctx)    
         elif task == "app-subscriptions-apply":
             service_apply_due_subscription_changes(ctx=ctx)
         elif task == "account-hard-delete":
@@ -86,6 +89,7 @@ def service_run_master_scheduler(
             (lambda: service_cleanup_deleted_activities(ctx=ctx, cutoff_days=30),    "cleanup_deleted"),
             (lambda: service_cleanup_expired_activity_details(ctx=ctx),              "cleanup_details"),
             (lambda: service_apply_due_subscription_changes(ctx=ctx),                "subscriptions"),
+            (lambda: service_cleanup_stale_push_subscriptions(ctx=ctx),                "notifications"),
             (lambda: service_account_hard_delete(ctx=ctx, dry_run=False),            "hard_delete"),
             (lambda: service_complete_due_active_plans(ctx=ctx),                     "plan_complete"),
         ]:
@@ -120,7 +124,6 @@ def service_run_master_scheduler(
 
     # 4. MESAČNÝ SÚHRN — 1. deň v mesiaci o 09:00
     if day == 1 and hour == 9:
-        print("[SCHEDULER] 📊 1. deň v mesiaci 09:00 — spúšťam mesačný súhrn.")
         try:
             service_cron_notify_monthly_summary(ctx=ctx)
         except Exception as e:

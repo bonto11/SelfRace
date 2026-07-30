@@ -10,7 +10,6 @@ from DB.notifications import (
     db_upsert_push_subscription,
     db_get_user_subscriptions,
     db_get_subscription_by_id,
-    db_get_subscriptions_with_try,
     db_delete_push_subscription,
     db_mark_push_subscription_try,
     db_mark_push_subscription_received,
@@ -149,11 +148,6 @@ STALE_SUBSCRIPTION_STATUS_CODES = (404, 410)
 
 PUSH_DEFAULT_TTL_SECONDS = 86400  # 1 den
 
-# Prah pre cron cistenie: ak od posledneho POKUSU (last_try_at) uplynul viac
-# ako tento pocet dni bez toho, aby zariadenie cez SW potvrdilo prijatie
-# (last_received_at), subscription sa povazuje za mrtvu.
-PUSH_STALE_GAP_DAYS = 1
-
 
 def _describe_push_service(endpoint: str) -> str:
     e = (endpoint or "").lower()
@@ -178,20 +172,6 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _parse_iso(s: Optional[str]) -> Optional[datetime]:
-    """Bezpecne parsuje ISO timestamp string z DB na timezone-aware datetime."""
-    if not s or not isinstance(s, str):
-        return None
-    try:
-        s2 = s.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s2)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except Exception:
-        return None
-
-
 def service_send_push_notification(
     user_id: int,
     title: str,
@@ -206,7 +186,8 @@ def service_send_push_notification(
     ktory nastavuje VYLUCNE Service Worker (public/sw.js) cez samostatny
     ack endpoint, ked realne dostane push event. last_try_at sa naopak
     nastavuje VZDY tu, pri kazdom pokuse, bez ohladu na vysledok - to je
-    vstup pre denny cleanup cron (service_cron_cleanup_stale_push_subscriptions).
+    vstup pre denny cleanup cron (service_cleanup_stale_push_subscriptions
+    v Services/maintenance.py).
     """
     subs = db_get_user_subscriptions(user_id=user_id, ctx=ctx)
     if not subs:
@@ -384,53 +365,6 @@ def service_send_test_to_subscription(
         status = ex.response.status_code if ex.response is not None else None
         print(f"[Push][TEST][sub_id={sub_id}] FAIL status={status} exception={repr(ex)}")
         return {"success": False, "sub_id": sub_id, "service": service_name, "status_code": status, "error": repr(ex)}
-
-
-def service_cron_cleanup_stale_push_subscriptions(ctx: AuthCtx) -> Dict[str, Any]:
-    """
-    Volať raz denne. Porovná last_try_at (kedy sme naposledy SKÚSILI
-    poslať) s last_received_at (kedy zariadenie REÁLNE potvrdilo prijatie
-    cez Service Worker). Ak je rozdiel väčší ako PUSH_STALE_GAP_DAYS,
-    subscription sa považuje za mŕtvu a zmaže sa.
-
-    last_received_at == NULL (nikdy nepotvrdilo) sa berie ako "nekonečne
-    dávno" (epoch 1970) - teda akákoľvek subscription, ktorá bola skúšaná
-    a nikdy nepotvrdila prijatie dlhšie než prah, sa zmaže. Čerstvo
-    vytvorená subscription (prvý pokus prebehol práve teraz) tento prah
-    ešte nedosiahne, takže sa omylom hneď nezmaže.
-    """
-    threshold = timedelta(days=PUSH_STALE_GAP_DAYS)
-    subs = db_get_subscriptions_with_try(ctx=ctx)
-
-    checked = 0
-    deleted = 0
-    deleted_details: List[Dict[str, Any]] = []
-
-    for sub in subs:
-        checked += 1
-        last_try = _parse_iso(sub.get("last_try_at"))
-        if not last_try:
-            continue
-
-        last_received = _parse_iso(sub.get("last_received_at"))
-        reference = last_received or datetime(1970, 1, 1, tzinfo=timezone.utc)
-        gap = last_try - reference
-
-        if gap > threshold:
-            endpoint = sub.get("endpoint")
-            sub_id = sub.get("id")
-            user_id = sub.get("user_id")
-            print(
-                f"[Push][cleanup] deleting stale sub_id={sub_id} user_id={user_id} "
-                f"gap={gap} (last_try_at={sub.get('last_try_at')}, "
-                f"last_received_at={sub.get('last_received_at')})"
-            )
-            db_delete_push_subscription(endpoint=endpoint, ctx=ctx)
-            deleted += 1
-            deleted_details.append({"sub_id": sub_id, "user_id": user_id, "gap_seconds": gap.total_seconds()})
-
-    print(f"[Push][cleanup] done: checked={checked} deleted={deleted}")
-    return {"success": True, "checked": checked, "deleted": deleted, "deleted_details": deleted_details}
 
 
 # =====================================================================
