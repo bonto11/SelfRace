@@ -16,11 +16,6 @@ export type ResampledSeries = {
 
 type Point = { d: number; t: number; hr: number | null; alt: number | null };
 
-const DEBUG = true; // vypni na false, keď to doladíš
-
-function dbg(...args: any[]) {
-  if (DEBUG) console.log("[routeStreamCompare]", ...args);
-}
 
 /* ============================================================ */
 /* SPOLOČNÉ: parsovanie raw streamov na čisté (d, t, hr, alt) body */
@@ -69,12 +64,6 @@ function toPoints(raw: RawStreams, label: string = "?"): Point[] {
   const hr = getHrArray(raw);
   const alt = getAltitudeArray(raw);
 
-  dbg(`toPoints[${label}] input lengths`, {
-    time: time.length,
-    dist: dist.length,
-    hr: hr.length,
-    alt: alt.length,
-  });
 
   const points: Point[] = [];
   let lastD = -1;
@@ -100,13 +89,6 @@ function toPoints(raw: RawStreams, label: string = "?"): Point[] {
     lastD = d;
   }
 
-  dbg(`toPoints[${label}] output`, {
-    pointCount: points.length,
-    skippedNullDist,
-    skippedNonMonotonic,
-    firstPoint: points[0],
-    lastPoint: points[points.length - 1],
-  });
 
   if (points.length < 2 && time.length > 0) {
     console.warn(
@@ -170,7 +152,6 @@ export function resampleStreamByDistance(
 ): ResampledSeries[] {
   const points = toPoints(raw, label);
   if (points.length < 2) {
-    dbg(`resampleStreamByDistance[${label}] -> [] (menej ako 2 body)`);
     return [];
   }
 
@@ -191,12 +172,6 @@ export function resampleStreamByDistance(
       })(),
     });
   }
-
-  dbg(`resampleStreamByDistance[${label}] output`, {
-    rows: out.length,
-    maxKm,
-    sample: out.slice(0, 3),
-  });
 
   return out;
 }
@@ -279,9 +254,7 @@ function matchByElevation(
   // v nadmorskej výške), použi VŠETKY segmenty bez ohľadu na smer - lepší
   // nepresný match ako úplne prázdna krivka.
   if (!candidateSegs.length) {
-    dbg(
-      `matchByElevation: žiadny segment v zhodnom smere (ref=${refSeg.direction}), fallback na všetky smery`,
-    );
+
     candidateSegs = otherSegments.map((s, idx) => ({ seg: s, idx }));
   }
 
@@ -322,20 +295,13 @@ export function resampleByElevationMatch(
   const otherPoints = toPoints(otherRaw, "other");
 
   if (refPoints.length < 2 || otherPoints.length < 2) {
-    dbg("resampleByElevationMatch: nedostatok bodov, vraciam prázdne série", {
-      refPoints: refPoints.length,
-      otherPoints: otherPoints.length,
-    });
     return { reference: [], matched: [] };
   }
 
   const refSegments = buildElevationSegments(refPoints);
   const otherSegments = buildElevationSegments(otherPoints);
 
-  dbg("resampleByElevationMatch segments", {
-    refSegments: refSegments.length,
-    otherSegments: otherSegments.length,
-  });
+
 
   const maxKm = refPoints[refPoints.length - 1].d;
   const reference: ResampledSeries[] = [];
@@ -378,11 +344,6 @@ export function resampleByElevationMatch(
     }
   }
 
-  dbg("resampleByElevationMatch output", {
-    referenceRows: reference.length,
-    matchedRows: matched.length,
-    unmatchedCount,
-  });
 
   return { reference, matched };
 }
@@ -390,18 +351,18 @@ export function resampleByElevationMatch(
 export function shouldUseElevationAlignment(raw: RawStreams): boolean {
   const points = toPoints(raw, "shouldUseElevationAlignment-check");
   if (points.length < 2) {
-    dbg("shouldUseElevationAlignment -> false (menej ako 2 body)");
+
     return false;
   }
   const totalKm = points[points.length - 1].d;
   if (totalKm <= 0) {
-    dbg("shouldUseElevationAlignment -> false (totalKm <= 0)");
+
     return false;
   }
   const gain = totalElevationGain(points);
   const gainPerKm = gain / totalKm;
   const result = gainPerKm > 5;
-  dbg("shouldUseElevationAlignment", { totalKm, gain, gainPerKm, result });
+
   return result;
 }
 
@@ -412,10 +373,6 @@ export function shouldUseElevationAlignment(raw: RawStreams): boolean {
 export function mergeSeriesForChart(
   seriesList: ResampledSeries[][],
 ): Record<string, any>[] {
-  dbg(
-    "mergeSeriesForChart input lengths",
-    seriesList.map((s) => s.length),
-  );
 
   const maxLen = Math.max(...seriesList.map((s) => s.length), 0);
   const rows: Record<string, any>[] = [];
@@ -432,8 +389,6 @@ export function mergeSeriesForChart(
     });
     rows.push(row);
   }
-
-  dbg("mergeSeriesForChart output", { rows: rows.length, sample: rows.slice(0, 2) });
 
   return rows;
 }

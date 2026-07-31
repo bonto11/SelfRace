@@ -3,10 +3,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set
+from zoneinfo import ZoneInfo
 
 from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_ACTIVITIES_SUMMARY
+
+BA_TZ = ZoneInfo("Europe/Bratislava")
 
 FIELDS = (
     "activity_id,name,date,"
@@ -224,6 +227,7 @@ def db_get_summary_for_activities(
     )
     return res.data or []
 
+
 def db_fetch_window_activity_ids(
     *,
     user_id: int,
@@ -262,7 +266,8 @@ def db_fetch_window_activity_ids(
         return ids
     except Exception:
         return []
-        
+
+
 def db_get_activities_for_month(
     user_id: int,
     year: int,
@@ -272,9 +277,10 @@ def db_get_activities_for_month(
 ) -> "List[Dict[str, Any]]":
     """Všetky aktivity za daný mesiac — len polia potrebné pre monthly summary."""
     from calendar import monthrange
+
     _, last_day = monthrange(year, month)
     date_from = f"{year}-{month:02d}-01"
-    date_to   = f"{year}-{month:02d}-{last_day:02d}"
+    date_to = f"{year}-{month:02d}-{last_day:02d}"
 
     sb = get_sb(ctx, caller="activities_summary.db_get_activities_for_month")
     res = (
@@ -291,6 +297,7 @@ def db_get_activities_for_month(
     )
     return res.data or []
 
+
 def db_get_activities_for_streak(
     user_id: int,
     *,
@@ -299,6 +306,7 @@ def db_get_activities_for_streak(
 ) -> List[Dict[str, Any]]:
     """Všetky aktivity za posledný rok — dátum + čas pohybu pre streak výpočet."""
     from datetime import datetime, timezone, timedelta
+
     since = (datetime.now(timezone.utc) - timedelta(days=days_back)).date().isoformat()
     sb = get_sb(ctx, caller="activities_summary.db_get_activities_for_streak")
     try:
@@ -315,6 +323,7 @@ def db_get_activities_for_streak(
     except Exception as e:
         print("[DB-STREAK] error:", repr(e))
         return []
+
 
 def db_get_last_activity_summary(
     ctx: AuthCtx, user_id: int
@@ -338,16 +347,24 @@ def db_get_last_activity_summary(
     return data[0] if data else None
 
 
-def db_get_activities_summary_today(
-    ctx: AuthCtx, user_id: int
-) -> List[Dict[str, Any]]:
+def db_get_activities_summary_today(ctx: AuthCtx, user_id: int) -> List[Dict[str, Any]]:
     """
-    Vráti všetky summary riadky pre aktivity z DNEŠNÉHO dňa (UTC dátum).
-    Ak by si neskôr chcel podľa timezone usera, treba to riešiť na service
-    vrstve — tu k user prefs prístup nemáme.
+    Vráti všetky summary riadky pre aktivity z DNEŠNÉHO dňa podľa
+    bratislavského (SK/CZ) času, nie UTC — inak by sa aktivita spravená
+    tesne po polnoci lokálneho času (napr. 00:15 SEČ = 22:15/23:15 UTC
+    predchádzajúceho dňa) nesprávne priradila k včerajšku, alebo naopak.
     """
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    tomorrow_iso = (datetime.now(timezone.utc) + timedelta(days=1)).date().isoformat()
+    now_local = datetime.now(BA_TZ)
+    today_local_date = now_local.date()
+    tomorrow_local_date = today_local_date + timedelta(days=1)
+
+    # Hranice dňa v lokálnom čase, prevedené na UTC pre porovnanie s DB
+    # (predpoklad: stĺpec 'date' je timestamptz, uložený v UTC).
+    start_local = datetime.combine(today_local_date, datetime.min.time(), tzinfo=BA_TZ)
+    end_local = datetime.combine(tomorrow_local_date, datetime.min.time(), tzinfo=BA_TZ)
+
+    today_iso = start_local.astimezone(timezone.utc).isoformat()
+    tomorrow_iso = end_local.astimezone(timezone.utc).isoformat()
 
     sb = get_sb(ctx, caller="activities_summary.db_get_activities_summary_today")
     res = (

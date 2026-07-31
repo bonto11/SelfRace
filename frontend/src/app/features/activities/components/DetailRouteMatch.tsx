@@ -46,11 +46,6 @@ const LINE_COLORS = [appColors.chartRun, appColors.chartBike];
 
 const MAX_OVERLAY_ACTIVITIES = 2;
 
-const DEBUG = true; // vypni na false, keď to doladíš
-
-function dbg(...args: any[]) {
-  if (DEBUG) console.log("[RouteCompare]", ...args);
-}
 
 /* ─── HELPERS ─── */
 
@@ -392,7 +387,6 @@ function ComparisonPanel({
   useEffect(() => {
     // Defaultne posledné 2 (activities už prichádzajú zoradené od najnovšej)
     const defaults = activities.slice(0, MAX_OVERLAY_ACTIVITIES).map((a) => a.activity_id);
-    dbg("init selectedIds (defaultne posledné 2)", defaults);
     setSelectedIds(defaults);
   }, [activities]);
 
@@ -406,7 +400,6 @@ function ComparisonPanel({
       } else {
         next = [...prev, activityId];
       }
-      dbg("toggleSelected", { clicked: activityId, prev, next });
       return next;
     });
   };
@@ -421,19 +414,8 @@ function ComparisonPanel({
 
   useEffect(() => {
     let alive = true;
-    console.group("[RouteCompare] effect run");
-    dbg(
-      "targetActivities (poradie ako idú do overlaySeries)",
-      targetActivities.map((a, idx) => ({
-        idx,
-        activity_id: a.activity_id,
-        updated_at: a.updated_at,
-      })),
-    );
 
     if (targetActivities.length < 2) {
-      dbg("menej ako 2 vybrané aktivity -> overlaySeries = null");
-      console.groupEnd();
       setOverlaySeries(null);
       setOverlayWarnings([]);
       return;
@@ -446,13 +428,6 @@ function ComparisonPanel({
       targetActivities.map((a) =>
         apiFetchActivityStreams(userId, a.activity_id, true)
           .then((r) => {
-            dbg(`fetch OK activity_id=${a.activity_id}`, {
-              hasStreams: !!r?.streams,
-              source: r?.source,
-              fetched: r?.fetched,
-              time_s_len: r?.streams?.time_s?.length,
-              distance_m_len: r?.streams?.distance_m?.length,
-            });
             return r;
           })
           .catch((e) => {
@@ -463,20 +438,10 @@ function ComparisonPanel({
     )
       .then((results) => {
         if (!alive) {
-          dbg("effect už nie je alive, ignorujem výsledok");
-          console.groupEnd();
           return;
         }
 
         const rawStreamsList = results.map((r) => r?.streams ?? null);
-        dbg(
-          "rawStreamsList po fetchi (poradie = targetActivities poradie)",
-          rawStreamsList.map((s, idx) => ({
-            idx,
-            activity_id: targetActivities[idx]?.activity_id,
-            present: !!s,
-          })),
-        );
 
         // Diagnostika: pre každú aktivitu presne vieme, PREČO chýbajú dáta,
         // namiesto toho aby krivka len ticho zmizla z grafu.
@@ -511,21 +476,14 @@ function ComparisonPanel({
           rawStreamsList[1] &&
           shouldUseElevationAlignment(rawStreamsList[0])
         ) {
-          dbg("-> vetva: elevation-aligned (kopcovitá trať)");
           const { reference, matched } = resampleByElevationMatch(
             rawStreamsList[0],
             rawStreamsList[1],
           );
-          dbg("elevation-aligned výsledok", {
-            referenceRows: reference.length,
-            matchedRows: matched.length,
-          });
           setOverlaySeries([reference, matched]);
-          console.groupEnd();
           return;
         }
 
-        dbg("-> vetva: distance-aligned (fallback)");
         const series = rawStreamsList.map((s, idx) =>
           s
             ? resampleStreamByDistance(
@@ -535,12 +493,7 @@ function ComparisonPanel({
               )
             : [],
         );
-        dbg(
-          "distance-aligned výsledok",
-          series.map((s, idx) => ({ idx, rows: s.length })),
-        );
         setOverlaySeries(series);
-        console.groupEnd();
       })
       .finally(() => {
         if (alive) setOverlayLoading(false);
@@ -772,7 +725,6 @@ export default function DetailRouteMatch() {
     let alive = true;
     apiGetRouteOverview(Number(userId))
       .then((rows) => {
-        dbg("apiGetRouteOverview", rows);
         if (alive) setRoutes(rows);
       })
       .catch((e) => console.error("[DetailRouteMatch]", e))
@@ -786,12 +738,10 @@ export default function DetailRouteMatch() {
 
   const handleSelect = async (routeName: string) => {
     if (!userId) return;
-    dbg("handleSelect route_match=", routeName);
     setSelected(routeName);
     setComparisonLoading(true);
     try {
       const out = await apiCompareRouteMatch(Number(userId), routeName);
-      dbg("apiCompareRouteMatch result", out);
       setComparison(out);
     } finally {
       setComparisonLoading(false);

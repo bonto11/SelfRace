@@ -321,7 +321,10 @@ def service_send_test_to_subscription(
     """
     sub = db_get_subscription_by_id(sub_id, user_id=user_id, ctx=ctx)
     if not sub:
-        return {"success": False, "message": f"Subscription id={sub_id} pre user_id={user_id} nenájdená."}
+        return {
+            "success": False,
+            "message": f"Subscription id={sub_id} pre user_id={user_id} nenájdená.",
+        }
 
     endpoint = sub.get("endpoint") or ""
     service_name = _describe_push_service(endpoint)
@@ -348,7 +351,9 @@ def service_send_test_to_subscription(
     try:
         db_mark_push_subscription_try(endpoint=endpoint, ctx=ctx)
     except Exception as e:
-        print(f"[Push][TEST][sub_id={sub_id}] WARN failed to record last_try_at: {repr(e)}")
+        print(
+            f"[Push][TEST][sub_id={sub_id}] WARN failed to record last_try_at: {repr(e)}"
+        )
 
     try:
         res = webpush(
@@ -360,11 +365,24 @@ def service_send_test_to_subscription(
         )
         status_code = getattr(res, "status_code", None)
         print(f"[Push][TEST][sub_id={sub_id}] OK status={status_code}")
-        return {"success": True, "sub_id": sub_id, "service": service_name, "status_code": status_code}
+        return {
+            "success": True,
+            "sub_id": sub_id,
+            "service": service_name,
+            "status_code": status_code,
+        }
     except WebPushException as ex:
         status = ex.response.status_code if ex.response is not None else None
-        print(f"[Push][TEST][sub_id={sub_id}] FAIL status={status} exception={repr(ex)}")
-        return {"success": False, "sub_id": sub_id, "service": service_name, "status_code": status, "error": repr(ex)}
+        print(
+            f"[Push][TEST][sub_id={sub_id}] FAIL status={status} exception={repr(ex)}"
+        )
+        return {
+            "success": False,
+            "sub_id": sub_id,
+            "service": service_name,
+            "status_code": status,
+            "error": repr(ex),
+        }
 
 
 # =====================================================================
@@ -565,7 +583,6 @@ def service_notify_new_activity(
     )
 
 
-
 def service_notify_test(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
@@ -641,6 +658,7 @@ def service_notify_global(
 
     return {"success": True, "sent": total_sent}
 
+
 def service_notify_new_record(
     user_id: int,
     records: List[Dict[str, Any]],
@@ -664,11 +682,17 @@ def service_notify_new_record(
         delta_fmt = rec.get("delta_fmt")
 
         if rec_type == "total_distance":
-            body = t["new_record_body_distance"].format(value=value_fmt, delta=delta_fmt or "—")
+            body = t["new_record_body_distance"].format(
+                value=value_fmt, delta=delta_fmt or "—"
+            )
         elif rec_type == "total_time":
-            body = t["new_record_body_time"].format(value=value_fmt, delta=delta_fmt or "—")
+            body = t["new_record_body_time"].format(
+                value=value_fmt, delta=delta_fmt or "—"
+            )
         elif delta_fmt:
-            body = t["new_record_body_with_delta"].format(delta=delta_fmt, label=label, value=value_fmt)
+            body = t["new_record_body_with_delta"].format(
+                delta=delta_fmt, label=label, value=value_fmt
+            )
         else:
             body = t["new_record_body_no_delta"].format(label=label, value=value_fmt)
 

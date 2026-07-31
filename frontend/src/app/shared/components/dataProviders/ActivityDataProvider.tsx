@@ -29,12 +29,8 @@ import {
   apiGetLastActivityBundle,
   apiGetTodayActivitiesBundle,
 } from "@/app/features/activities/api/analytics_activities";
-import type {
-  ParetoTrendResponse,
-} from "@/app/features/activities/types/pareto";
-import type {
-  ActivityExtrasCombined,
-} from "@/app/features/activities/types/activities";
+import type { ParetoTrendResponse } from "@/app/features/activities/types/pareto";
+import type { ActivityExtrasCombined } from "@/app/features/activities/types/activities";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -59,8 +55,8 @@ function enrichmentKey(activityId: number) {
 function lastActivityKey(userId: number) {
   return `ACT:LAST:v1:${userId}`;
 }
-function todayActivitiesKey(userId: number) {
-  return `ACT:TODAY:v1:${userId}`;
+function todayActivitiesKey(userId: number, dateIso: string) {
+  return `ACT:TODAY:v1:${userId}:${dateIso}`;
 }
 
 function saveRange(
@@ -225,7 +221,10 @@ function normalizeBundle(raw: any): ActivityBundleNormalized {
   };
 }
 
-function saveLastActivity(userId: number, data: ActivityBundleNormalized | null) {
+function saveLastActivity(
+  userId: number,
+  data: ActivityBundleNormalized | null,
+) {
   if (!hasSesssioStorage()) return;
   try {
     sessionStorage.setItem(
@@ -247,20 +246,27 @@ function loadLastActivity(userId: number): ActivityBundleNormalized | null {
   }
 }
 
-function saveTodayActivities(userId: number, data: ActivityBundleNormalized[]) {
+function saveTodayActivities(
+  userId: number,
+  dateIso: string,
+  data: ActivityBundleNormalized[],
+) {
   if (!hasSesssioStorage()) return;
   try {
     sessionStorage.setItem(
-      todayActivitiesKey(userId),
+      todayActivitiesKey(userId, dateIso),
       JSON.stringify({ at: Date.now(), data }),
     );
   } catch {}
 }
 
-function loadTodayActivities(userId: number): ActivityBundleNormalized[] | null {
+function loadTodayActivities(
+  userId: number,
+  dateIso: string,
+): ActivityBundleNormalized[] | null {
   if (!hasSesssioStorage()) return null;
   try {
-    const raw = sessionStorage.getItem(todayActivitiesKey(userId));
+    const raw = sessionStorage.getItem(todayActivitiesKey(userId, dateIso));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed?.data) ? parsed.data : null;
@@ -320,7 +326,9 @@ type Ctx = {
   // 🌟 nové: bundle (summary+enrichment+streams+laps+splits) pre
   // WidgetLastActivity / WidgetTodayActivities, rovnaký cache pattern ako
   // getExtras/getEnrichment vyššie.
-  getLastActivity: (opts?: FetchOpts) => Promise<ActivityBundleNormalized | null>;
+  getLastActivity: (
+    opts?: FetchOpts,
+  ) => Promise<ActivityBundleNormalized | null>;
   getTodayActivities: (opts?: FetchOpts) => Promise<ActivityBundleNormalized[]>;
 
   rolling7: (metric: Metric) => Rolling7;
@@ -386,12 +394,13 @@ export function ActivityDataProvider({
       setLoading(true);
       try {
         const res = await apiFetchRange(userId, rangeStart, rangeEnd);
-        const activities = Array.isArray(res) ? res : ((res as any)?.data || []);
-        
+        const activities = Array.isArray(res) ? res : (res as any)?.data || [];
+
         setRows(activities);
-        saveRange(userId, rangeStart, rangeEnd, activities); 
+        saveRange(userId, rangeStart, rangeEnd, activities);
       } catch (err: any) {
-        const translatedError = t(err?.message as any) || t("api.common.fetchFailed");
+        const translatedError =
+          t(err?.message as any) || t("api.common.fetchFailed");
         toast.error(translatedError);
       } finally {
         setLoading(false);
@@ -464,43 +473,49 @@ export function ActivityDataProvider({
         if (!fetch && res) saveExtras(activityId, res);
         return out;
       } catch (err: any) {
-        console.error("getExtras Provider fetch error:", t(err?.message as any));
-        return { streams: null, laps: [], splits: [] }; 
+        console.error(
+          "getExtras Provider fetch error:",
+          t(err?.message as any),
+        );
+        return { streams: null, laps: [], splits: [] };
       }
     },
     [userId, t],
   );
 
   const getEnrichment = useCallback(
-  async (
-    activityId: number,
-    opts?: FetchOpts,
-  ): Promise<ActivityEnrichment | null> => {
-    if (userId == null || !activityId) return null;
+    async (
+      activityId: number,
+      opts?: FetchOpts,
+    ): Promise<ActivityEnrichment | null> => {
+      if (userId == null || !activityId) return null;
 
-    const fetch = !!opts?.fetch;
+      const fetch = !!opts?.fetch;
 
-    if (!fetch) {
-      const cached = loadEnrichment(activityId);
-      if (cached) {
-        return cached;
+      if (!fetch) {
+        const cached = loadEnrichment(activityId);
+        if (cached) {
+          return cached;
+        }
       }
-    }
 
-    try {
-      const data = await apiGetActivityEnrichment(userId, activityId);
+      try {
+        const data = await apiGetActivityEnrichment(userId, activityId);
 
-      if (data) {
-        saveEnrichment(activityId, data);
+        if (data) {
+          saveEnrichment(activityId, data);
+        }
+        return data;
+      } catch (err: any) {
+        console.error(
+          "[DataProvider] getEnrichment failed:",
+          t(err?.message as any),
+        );
+        return null;
       }
-      return data;
-    } catch (err: any) {
-      console.error("[DataProvider] getEnrichment failed:", t(err?.message as any));
-      return null;
-    }
-  },
-  [userId, t],
-);
+    },
+    [userId, t],
+  );
 
   const getLastActivity = useCallback(
     async (opts?: FetchOpts): Promise<ActivityBundleNormalized | null> => {
@@ -521,7 +536,10 @@ export function ActivityDataProvider({
         saveLastActivity(userId, normalized);
         return normalized;
       } catch (err: any) {
-        console.error("[DataProvider] getLastActivity failed:", t(err?.message as any));
+        console.error(
+          "[DataProvider] getLastActivity failed:",
+          t(err?.message as any),
+        );
         return null;
       }
     },
@@ -533,19 +551,23 @@ export function ActivityDataProvider({
       if (userId == null) return [];
 
       const fetch = !!opts?.fetch;
+      const today = todayLocalISO(); // už je importované hore
 
       if (!fetch) {
-        const cached = loadTodayActivities(userId);
+        const cached = loadTodayActivities(userId, today);
         if (cached) return cached;
       }
 
       try {
         const rawList = await apiGetTodayActivitiesBundle(userId);
         const normalized = rawList.map(normalizeBundle);
-        saveTodayActivities(userId, normalized);
+        saveTodayActivities(userId, today, normalized);
         return normalized;
       } catch (err: any) {
-        console.error("[DataProvider] getTodayActivities failed:", t(err?.message as any));
+        console.error(
+          "[DataProvider] getTodayActivities failed:",
+          t(err?.message as any),
+        );
         return [];
       }
     },
@@ -554,16 +576,16 @@ export function ActivityDataProvider({
 
   const rolling7 = useCallback(
     (metric: Metric): Rolling7 => {
-      const endLast = todayLocalISO(); 
+      const endLast = todayLocalISO();
       const startPrev = addDaysIso(endLast, -13);
-      
+
       const dayKeys: string[] = [];
       for (let i = 0; i < 14; i++) {
         dayKeys.push(addDaysIso(startPrev, i));
       }
 
       const daily = new Map<string, number>(dayKeys.map((k) => [k, 0]));
-      
+
       if (!Array.isArray(rows)) {
         return createEmptyRolling7(dayKeys);
       }
@@ -572,13 +594,13 @@ export function ActivityDataProvider({
         if (!r || !r.date) continue;
 
         let localDateString = "";
-        
+
         try {
           let safeDateStr = String(r.date).replace(" ", "T");
           if (safeDateStr.endsWith("+00")) safeDateStr += ":00";
-          
+
           const dateObj = new Date(safeDateStr);
-          
+
           if (isNaN(dateObj.getTime())) {
             localDateString = String(r.date).slice(0, 10);
           } else {
@@ -609,7 +631,7 @@ export function ActivityDataProvider({
               ((r as any).trimp_other ?? 0);
           inc = Number(trimp) || 0;
         }
-        
+
         daily.set(localDateString, (daily.get(localDateString) || 0) + inc);
       }
 
@@ -668,7 +690,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoWidget(userId, daysParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto widget error:", t(err?.message as any));
-        return null; 
+        return null;
       }
     },
     [userId, t],
@@ -685,7 +707,7 @@ export function ActivityDataProvider({
         return await apiFetchParetoTrend(userId, weeksParam, sportCsv);
       } catch (err: any) {
         console.error("Pareto trend error:", t(err?.message as any));
-        return { trend: [], availableSports: [] }; 
+        return { trend: [], availableSports: [] };
       }
     },
     [userId, t],
@@ -742,14 +764,14 @@ function createEmptyRolling7(dayKeys: string[]): Rolling7 {
       sum: 0,
       mono: null,
       strain: null,
-      daily: [0,0,0,0,0,0,0],
+      daily: [0, 0, 0, 0, 0, 0, 0],
       range: { start: dayKeys[7], end: dayKeys[13] },
     },
     prev: {
       sum: 0,
       mono: null,
       strain: null,
-      daily: [0,0,0,0,0,0,0],
+      daily: [0, 0, 0, 0, 0, 0, 0],
       range: { start: dayKeys[0], end: dayKeys[6] },
     },
   };

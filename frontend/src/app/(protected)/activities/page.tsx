@@ -52,7 +52,7 @@ export default function ActivitiesPage() {
       <div className={PAGE_GRID_2}>
         <WidgetTodayActivities
           onOpenDetail={(activityId) =>
-            router.push(`/activities/todayActivities/${activityId}`)
+            router.push(`/activities/detail/${activityId}`)
           }
         />
         <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
@@ -69,7 +69,9 @@ export default function ActivitiesPage() {
           onOpenTrend={() => router.push("/activities/pareto")}
           weeks={2}
         />
-        <WidgetRouteMatch onOpenDetail={() => router.push("/activities/routes")} />
+        <WidgetRouteMatch
+          onOpenDetail={() => router.push("/activities/routes")}
+        />
         <WidgetActivitiesCalendar />
       </div>
     </PageShell>
