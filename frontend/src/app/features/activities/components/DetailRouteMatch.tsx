@@ -444,6 +444,7 @@ function ComparisonPanel({
 
     Promise.all(
       targetActivities.map((a) =>
+<<<<<<< HEAD
         apiFetchActivityStreams(userId, a.activity_id, true)
           .then((r) => {
             dbg(`fetch OK activity_id=${a.activity_id}`, {
@@ -459,6 +460,16 @@ function ComparisonPanel({
             console.error(`[RouteCompare] fetch FAILED activity_id=${a.activity_id}`, e);
             return null;
           }),
+=======
+        apiFetchActivityStreams(userId, a.activity_id, true).catch((e) => {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[RouteCompare] streams fetch zlyhal pre aktivitu ${a.activity_id}`,
+            e,
+          );
+          return null;
+        }),
+>>>>>>> a458931f9f588b0490bd95271c06414202cfa089
       ),
     )
       .then((results) => {
@@ -494,6 +505,29 @@ function ComparisonPanel({
                   ? "Chýba distance stream (bez GPS vzdialenosti)."
                   : "Distance stream je neúplný.";
             warnings.push(`${label}: ${reasonText}`);
+          }
+        });
+        setOverlayWarnings(warnings);
+
+        // Diagnostika: pre každú aktivitu presne vieme, PREČO chýbajú dáta,
+        // namiesto toho aby krivka len ticho zmizla z grafu.
+        const warnings: string[] = [];
+        rawStreamsList.forEach((s, idx) => {
+          const diag = diagnoseStream(s);
+          if (!diag.ok) {
+            const label = fmtShortDate(targetActivities[idx]?.updated_at ?? null);
+            const reasonText =
+              diag.reason === "no_streams"
+                ? t("sessions.routeMatch.errNoStreams")
+                : diag.reason === "no_distance"
+                  ? t("sessions.routeMatch.errNoDistance")
+                  : t("sessions.routeMatch.errPartialDistance");
+            warnings.push(`${label}: ${reasonText}`);
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[RouteCompare] aktivita ${targetActivities[idx]?.activity_id} (${label}) - ${diag.reason}`,
+              s,
+            );
           }
         });
         setOverlayWarnings(warnings);

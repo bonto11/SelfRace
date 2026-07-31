@@ -27,6 +27,12 @@ function dbg(...args: any[]) {
 /* ============================================================ */
 
 function getDistanceArray(raw: RawStreams): (number | null)[] {
+<<<<<<< HEAD
+=======
+  // BE stream response môže vracať distance pod rôznymi kľúčmi podľa toho,
+  // či ide o surový DB riadok (napr. "distance") alebo prehodený StreamsData
+  // tvar ("distance_m") - rovnaký problém ako pri hr/heartrate_bpm nižšie.
+>>>>>>> a458931f9f588b0490bd95271c06414202cfa089
   if (Array.isArray(raw.distance_m)) return raw.distance_m;
   const anyRaw = raw as any;
   if (Array.isArray(anyRaw.distance)) return anyRaw.distance;
@@ -49,12 +55,21 @@ function getAltitudeArray(raw: RawStreams): (number | null)[] {
   return [];
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * Diagnostika pre volajúci komponent: povie presne PREČO aktivita
+ * nemá použiteľné dáta na vykreslenie, namiesto tichého prázdneho poľa.
+ * Použi v ComparisonPanel na zobrazenie konkrétnej chybovej hlášky.
+ */
+>>>>>>> a458931f9f588b0490bd95271c06414202cfa089
 export function diagnoseStream(raw: RawStreams | null | undefined): {
   ok: boolean;
   reason: "no_streams" | "no_distance" | "too_short" | "ok";
 } {
   if (!raw) return { ok: false, reason: "no_streams" };
   const dist = getDistanceArray(raw);
+<<<<<<< HEAD
   const time = raw.time_s ?? [];
   if (!time.length) return { ok: false, reason: "no_streams" };
   const validDistCount = dist.filter((d) => d != null && Number.isFinite(d)).length;
@@ -75,6 +90,21 @@ function toPoints(raw: RawStreams, label: string = "?"): Point[] {
     hr: hr.length,
     alt: alt.length,
   });
+=======
+  const time = raw.time_s ?? [];
+  if (!time.length) return { ok: false, reason: "no_streams" };
+  const validDistCount = dist.filter((d) => d != null && Number.isFinite(d)).length;
+  if (validDistCount < 2) return { ok: false, reason: "no_distance" };
+  if (validDistCount < time.length * 0.5) return { ok: false, reason: "too_short" };
+  return { ok: true, reason: "ok" };
+}
+
+function toPoints(raw: RawStreams): Point[] {
+  const time = raw.time_s ?? [];
+  const dist = getDistanceArray(raw);
+  const hr = getHrArray(raw);
+  const alt = getAltitudeArray(raw);
+>>>>>>> a458931f9f588b0490bd95271c06414202cfa089
 
   const points: Point[] = [];
   let lastD = -1;
@@ -100,6 +130,7 @@ function toPoints(raw: RawStreams, label: string = "?"): Point[] {
     lastD = d;
   }
 
+<<<<<<< HEAD
   dbg(`toPoints[${label}] output`, {
     pointCount: points.length,
     skippedNullDist,
@@ -111,6 +142,12 @@ function toPoints(raw: RawStreams, label: string = "?"): Point[] {
   if (points.length < 2 && time.length > 0) {
     console.warn(
       `[routeStreamCompare] toPoints[${label}]: nepodarilo sa zostaviť body z distance_m ` +
+=======
+  if (points.length < 2 && time.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[routeStreamCompare] toPoints: nepodarilo sa zostaviť body z distance_m " +
+>>>>>>> a458931f9f588b0490bd95271c06414202cfa089
         `(time_s má ${time.length} vzoriek, distance dalo ${points.length} platných bodov). ` +
         "Aktivita pravdepodobne nemá GPS/distance stream.",
     );
