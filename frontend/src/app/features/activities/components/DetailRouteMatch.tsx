@@ -444,7 +444,6 @@ function ComparisonPanel({
 
     Promise.all(
       targetActivities.map((a) =>
-<<<<<<< HEAD
         apiFetchActivityStreams(userId, a.activity_id, true)
           .then((r) => {
             dbg(`fetch OK activity_id=${a.activity_id}`, {
@@ -460,16 +459,6 @@ function ComparisonPanel({
             console.error(`[RouteCompare] fetch FAILED activity_id=${a.activity_id}`, e);
             return null;
           }),
-=======
-        apiFetchActivityStreams(userId, a.activity_id, true).catch((e) => {
-          // eslint-disable-next-line no-console
-          console.error(
-            `[RouteCompare] streams fetch zlyhal pre aktivitu ${a.activity_id}`,
-            e,
-          );
-          return null;
-        }),
->>>>>>> a458931f9f588b0490bd95271c06414202cfa089
       ),
     )
       .then((results) => {
@@ -488,26 +477,6 @@ function ComparisonPanel({
             present: !!s,
           })),
         );
-
-        const warnings: string[] = [];
-        rawStreamsList.forEach((s, idx) => {
-          const diag = diagnoseStream(s);
-          dbg(
-            `diagnoseStream idx=${idx} activity_id=${targetActivities[idx]?.activity_id}`,
-            diag,
-          );
-          if (!diag.ok) {
-            const label = fmtShortDate(targetActivities[idx]?.updated_at ?? null);
-            const reasonText =
-              diag.reason === "no_streams"
-                ? "Aktivita nemá uložené GPS/stream dáta."
-                : diag.reason === "no_distance"
-                  ? "Chýba distance stream (bez GPS vzdialenosti)."
-                  : "Distance stream je neúplný.";
-            warnings.push(`${label}: ${reasonText}`);
-          }
-        });
-        setOverlayWarnings(warnings);
 
         // Diagnostika: pre každú aktivitu presne vieme, PREČO chýbajú dáta,
         // namiesto toho aby krivka len ticho zmizla z grafu.
