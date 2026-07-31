@@ -30,6 +30,7 @@ import {
   shouldUseElevationAlignment,
   mergeSeriesForChart,
   average,
+  diagnoseStream,
   type ResampledSeries,
 } from "@/app/features/activities/utils/routeStreamCompare";
 import { fmtSecondsHMS } from "@/app/shared/utils/time";
@@ -44,6 +45,12 @@ const SPORT_ICON: Record<string, string> = {
 const LINE_COLORS = [appColors.chartRun, appColors.chartBike];
 
 const MAX_OVERLAY_ACTIVITIES = 2;
+
+const DEBUG = true; // vypni na false, keď to doladíš
+
+function dbg(...args: any[]) {
+  if (DEBUG) console.log("[RouteCompare]", ...args);
+}
 
 /* ─── HELPERS ─── */
 
@@ -276,8 +283,6 @@ function ChangeSummary({
     currentPaceSec != null && previousPaceSec != null ? currentPaceSec - previousPaceSec : null;
   const hrDiff = currentHr != null && previousHr != null ? currentHr - previousHr : null;
 
-  // Zápornejšie tempo (menej sekúnd/km) = rýchlejšie. Nižší priemerný tep = lepšie.
-  // Farbíme zeleno vždy keď je to zlepšenie voči predchádzajúcemu behu.
   const paceIsBetter = paceDiff != null && paceDiff < 0;
   const hrIsBetter = hrDiff != null && hrDiff < 0;
 
@@ -380,24 +385,29 @@ function ComparisonPanel({
 
   const [overlaySeries, setOverlaySeries] = useState<ResampledSeries[][] | null>(null);
   const [overlayLoading, setOverlayLoading] = useState(false);
+  const [overlayWarnings, setOverlayWarnings] = useState<string[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   useEffect(() => {
     // Defaultne posledné 2 (activities už prichádzajú zoradené od najnovšej)
-    setSelectedIds(activities.slice(0, MAX_OVERLAY_ACTIVITIES).map((a) => a.activity_id));
+    const defaults = activities.slice(0, MAX_OVERLAY_ACTIVITIES).map((a) => a.activity_id);
+    dbg("init selectedIds (defaultne posledné 2)", defaults);
+    setSelectedIds(defaults);
   }, [activities]);
 
   const toggleSelected = (activityId: number) => {
     setSelectedIds((prev) => {
+      let next: number[];
       if (prev.includes(activityId)) {
-        return prev.filter((id) => id !== activityId);
+        next = prev.filter((id) => id !== activityId);
+      } else if (prev.length >= MAX_OVERLAY_ACTIVITIES) {
+        next = [...prev.slice(1), activityId];
+      } else {
+        next = [...prev, activityId];
       }
-      if (prev.length >= MAX_OVERLAY_ACTIVITIES) {
-        // Nahradí najstarší výber novým (posuvné okno max 2 výberov)
-        return [...prev.slice(1), activityId];
-      }
-      return [...prev, activityId];
+      dbg("toggleSelected", { clicked: activityId, prev, next });
+      return next;
     });
   };
 
@@ -411,21 +421,82 @@ function ComparisonPanel({
 
   useEffect(() => {
     let alive = true;
+    console.group("[RouteCompare] effect run");
+    dbg(
+      "targetActivities (poradie ako idú do overlaySeries)",
+      targetActivities.map((a, idx) => ({
+        idx,
+        activity_id: a.activity_id,
+        updated_at: a.updated_at,
+      })),
+    );
+
     if (targetActivities.length < 2) {
+      dbg("menej ako 2 vybrané aktivity -> overlaySeries = null");
+      console.groupEnd();
       setOverlaySeries(null);
+      setOverlayWarnings([]);
       return;
     }
 
     setOverlayLoading(true);
+    setOverlayWarnings([]);
+
     Promise.all(
       targetActivities.map((a) =>
-        apiFetchActivityStreams(userId, a.activity_id, true).catch(() => null),
+        apiFetchActivityStreams(userId, a.activity_id, true)
+          .then((r) => {
+            dbg(`fetch OK activity_id=${a.activity_id}`, {
+              hasStreams: !!r?.streams,
+              source: r?.source,
+              fetched: r?.fetched,
+              time_s_len: r?.streams?.time_s?.length,
+              distance_m_len: r?.streams?.distance_m?.length,
+            });
+            return r;
+          })
+          .catch((e) => {
+            console.error(`[RouteCompare] fetch FAILED activity_id=${a.activity_id}`, e);
+            return null;
+          }),
       ),
     )
       .then((results) => {
-        if (!alive) return;
+        if (!alive) {
+          dbg("effect už nie je alive, ignorujem výsledok");
+          console.groupEnd();
+          return;
+        }
 
         const rawStreamsList = results.map((r) => r?.streams ?? null);
+        dbg(
+          "rawStreamsList po fetchi (poradie = targetActivities poradie)",
+          rawStreamsList.map((s, idx) => ({
+            idx,
+            activity_id: targetActivities[idx]?.activity_id,
+            present: !!s,
+          })),
+        );
+
+        const warnings: string[] = [];
+        rawStreamsList.forEach((s, idx) => {
+          const diag = diagnoseStream(s);
+          dbg(
+            `diagnoseStream idx=${idx} activity_id=${targetActivities[idx]?.activity_id}`,
+            diag,
+          );
+          if (!diag.ok) {
+            const label = fmtShortDate(targetActivities[idx]?.updated_at ?? null);
+            const reasonText =
+              diag.reason === "no_streams"
+                ? "Aktivita nemá uložené GPS/stream dáta."
+                : diag.reason === "no_distance"
+                  ? "Chýba distance stream (bez GPS vzdialenosti)."
+                  : "Distance stream je neúplný.";
+            warnings.push(`${label}: ${reasonText}`);
+          }
+        });
+        setOverlayWarnings(warnings);
 
         // Elevation-zarovnané porovnanie len pri presne 2 aktivitách a keď
         // referenčná (najnovšia) trať má dosť prevýšenia (>5 m/km, t.j. >50m
@@ -437,16 +508,36 @@ function ComparisonPanel({
           rawStreamsList[1] &&
           shouldUseElevationAlignment(rawStreamsList[0])
         ) {
+          dbg("-> vetva: elevation-aligned (kopcovitá trať)");
           const { reference, matched } = resampleByElevationMatch(
             rawStreamsList[0],
             rawStreamsList[1],
           );
+          dbg("elevation-aligned výsledok", {
+            referenceRows: reference.length,
+            matchedRows: matched.length,
+          });
           setOverlaySeries([reference, matched]);
+          console.groupEnd();
           return;
         }
 
-        const series = rawStreamsList.map((s) => (s ? resampleStreamByDistance(s) : []));
+        dbg("-> vetva: distance-aligned (fallback)");
+        const series = rawStreamsList.map((s, idx) =>
+          s
+            ? resampleStreamByDistance(
+                s,
+                0.25,
+                `activity_${targetActivities[idx]?.activity_id}`,
+              )
+            : [],
+        );
+        dbg(
+          "distance-aligned výsledok",
+          series.map((s, idx) => ({ idx, rows: s.length })),
+        );
         setOverlaySeries(series);
+        console.groupEnd();
       })
       .finally(() => {
         if (alive) setOverlayLoading(false);
@@ -455,7 +546,7 @@ function ComparisonPanel({
     return () => {
       alive = false;
     };
-  }, [targetActivities, userId]);
+  }, [targetActivities, userId, t]);
 
   const chartData = useMemo(
     () => (overlaySeries ? mergeSeriesForChart(overlaySeries) : []),
@@ -507,6 +598,24 @@ function ComparisonPanel({
       {overlayLoading && (
         <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
           <LoadingSpinner size="widget" />
+        </div>
+      )}
+
+      {!overlayLoading && overlayWarnings.length > 0 && (
+        <div
+          style={{
+            margin: "0 16px 8px",
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "rgba(248,113,113,0.08)",
+            border: "1px solid rgba(248,113,113,0.25)",
+          }}
+        >
+          {overlayWarnings.map((w, i) => (
+            <div key={i} style={{ fontSize: 12, color: "#f87171" }}>
+              {w}
+            </div>
+          ))}
         </div>
       )}
 
@@ -660,6 +769,7 @@ export default function DetailRouteMatch() {
     let alive = true;
     apiGetRouteOverview(Number(userId))
       .then((rows) => {
+        dbg("apiGetRouteOverview", rows);
         if (alive) setRoutes(rows);
       })
       .catch((e) => console.error("[DetailRouteMatch]", e))
@@ -673,10 +783,12 @@ export default function DetailRouteMatch() {
 
   const handleSelect = async (routeName: string) => {
     if (!userId) return;
+    dbg("handleSelect route_match=", routeName);
     setSelected(routeName);
     setComparisonLoading(true);
     try {
       const out = await apiCompareRouteMatch(Number(userId), routeName);
+      dbg("apiCompareRouteMatch result", out);
       setComparison(out);
     } finally {
       setComparisonLoading(false);

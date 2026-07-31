@@ -16,28 +16,81 @@ export type ResampledSeries = {
 
 type Point = { d: number; t: number; hr: number | null; alt: number | null };
 
+const DEBUG = true; // vypni na false, keď to doladíš
+
+function dbg(...args: any[]) {
+  if (DEBUG) console.log("[routeStreamCompare]", ...args);
+}
+
 /* ============================================================ */
 /* SPOLOČNÉ: parsovanie raw streamov na čisté (d, t, hr, alt) body */
 /* ============================================================ */
 
-function toPoints(raw: RawStreams): Point[] {
+function getDistanceArray(raw: RawStreams): (number | null)[] {
+  if (Array.isArray(raw.distance_m)) return raw.distance_m;
+  const anyRaw = raw as any;
+  if (Array.isArray(anyRaw.distance)) return anyRaw.distance;
+  if (Array.isArray(anyRaw.distances_m)) return anyRaw.distances_m;
+  return [];
+}
+
+function getHrArray(raw: RawStreams): (number | null)[] {
+  if (Array.isArray(raw.hr)) return raw.hr;
+  const anyRaw = raw as any;
+  if (Array.isArray(anyRaw.heartrate_bpm)) return anyRaw.heartrate_bpm;
+  return [];
+}
+
+function getAltitudeArray(raw: RawStreams): (number | null)[] {
+  if (Array.isArray(raw.altitude_m)) return raw.altitude_m;
+  const anyRaw = raw as any;
+  if (Array.isArray(anyRaw.elevation_m)) return anyRaw.elevation_m;
+  if (Array.isArray(anyRaw.altitude)) return anyRaw.altitude;
+  return [];
+}
+
+export function diagnoseStream(raw: RawStreams | null | undefined): {
+  ok: boolean;
+  reason: "no_streams" | "no_distance" | "too_short" | "ok";
+} {
+  if (!raw) return { ok: false, reason: "no_streams" };
+  const dist = getDistanceArray(raw);
   const time = raw.time_s ?? [];
-  const dist = raw.distance_m ?? [];
-  // BE stream response môže vracať HR pod kľúčom "hr" ALEBO "heartrate_bpm"
-  // (rovnaký nesúlad ošetruje ActivityDataProvider.normalizeStreams) - preto
-  // fallback, inak by hr vychádzalo vždy null pri druhom formáte odpovede.
-  const hr: (number | null)[] = Array.isArray(raw.hr)
-    ? raw.hr
-    : Array.isArray((raw as any).heartrate_bpm)
-      ? (raw as any).heartrate_bpm
-      : [];
-  const alt = raw.altitude_m ?? [];
+  if (!time.length) return { ok: false, reason: "no_streams" };
+  const validDistCount = dist.filter((d) => d != null && Number.isFinite(d)).length;
+  if (validDistCount < 2) return { ok: false, reason: "no_distance" };
+  if (validDistCount < time.length * 0.5) return { ok: false, reason: "too_short" };
+  return { ok: true, reason: "ok" };
+}
+
+function toPoints(raw: RawStreams, label: string = "?"): Point[] {
+  const time = raw.time_s ?? [];
+  const dist = getDistanceArray(raw);
+  const hr = getHrArray(raw);
+  const alt = getAltitudeArray(raw);
+
+  dbg(`toPoints[${label}] input lengths`, {
+    time: time.length,
+    dist: dist.length,
+    hr: hr.length,
+    alt: alt.length,
+  });
 
   const points: Point[] = [];
   let lastD = -1;
+  let skippedNullDist = 0;
+  let skippedNonMonotonic = 0;
+
   for (let i = 0; i < time.length; i++) {
     const d = dist[i];
-    if (d == null || !Number.isFinite(d) || d < lastD) continue;
+    if (d == null || !Number.isFinite(d)) {
+      skippedNullDist++;
+      continue;
+    }
+    if (d < lastD) {
+      skippedNonMonotonic++;
+      continue;
+    }
     points.push({
       d: d / 1000,
       t: time[i],
@@ -46,6 +99,23 @@ function toPoints(raw: RawStreams): Point[] {
     });
     lastD = d;
   }
+
+  dbg(`toPoints[${label}] output`, {
+    pointCount: points.length,
+    skippedNullDist,
+    skippedNonMonotonic,
+    firstPoint: points[0],
+    lastPoint: points[points.length - 1],
+  });
+
+  if (points.length < 2 && time.length > 0) {
+    console.warn(
+      `[routeStreamCompare] toPoints[${label}]: nepodarilo sa zostaviť body z distance_m ` +
+        `(time_s má ${time.length} vzoriek, distance dalo ${points.length} platných bodov). ` +
+        "Aktivita pravdepodobne nemá GPS/distance stream.",
+    );
+  }
+
   return points;
 }
 
@@ -96,9 +166,13 @@ function paceAtKm(points: Point[], targetKm: number, stepKm: number): number | n
 export function resampleStreamByDistance(
   raw: RawStreams,
   stepKm: number = 0.25,
+  label: string = "?",
 ): ResampledSeries[] {
-  const points = toPoints(raw);
-  if (points.length < 2) return [];
+  const points = toPoints(raw, label);
+  if (points.length < 2) {
+    dbg(`resampleStreamByDistance[${label}] -> [] (menej ako 2 body)`);
+    return [];
+  }
 
   const maxKm = points[points.length - 1].d;
   const out: ResampledSeries[] = [];
@@ -117,6 +191,12 @@ export function resampleStreamByDistance(
       })(),
     });
   }
+
+  dbg(`resampleStreamByDistance[${label}] output`, {
+    rows: out.length,
+    maxKm,
+    sample: out.slice(0, 3),
+  });
 
   return out;
 }
@@ -227,19 +307,29 @@ export function resampleByElevationMatch(
   otherRaw: RawStreams,
   stepKm: number = 0.25,
 ): { reference: ResampledSeries[]; matched: ResampledSeries[] } {
-  const refPoints = toPoints(referenceRaw);
-  const otherPoints = toPoints(otherRaw);
+  const refPoints = toPoints(referenceRaw, "ref");
+  const otherPoints = toPoints(otherRaw, "other");
 
   if (refPoints.length < 2 || otherPoints.length < 2) {
+    dbg("resampleByElevationMatch: nedostatok bodov, vraciam prázdne série", {
+      refPoints: refPoints.length,
+      otherPoints: otherPoints.length,
+    });
     return { reference: [], matched: [] };
   }
 
   const refSegments = buildElevationSegments(refPoints);
   const otherSegments = buildElevationSegments(otherPoints);
 
+  dbg("resampleByElevationMatch segments", {
+    refSegments: refSegments.length,
+    otherSegments: otherSegments.length,
+  });
+
   const maxKm = refPoints[refPoints.length - 1].d;
   const reference: ResampledSeries[] = [];
   const matched: ResampledSeries[] = [];
+  let unmatchedCount = 0;
 
   for (let km = 0; km <= maxKm; km += stepKm) {
     const { lo } = findSurrounding(refPoints, km);
@@ -267,6 +357,7 @@ export function resampleByElevationMatch(
         elevation: matchedPoint.alt != null ? Math.round(matchedPoint.alt) : null,
       });
     } else {
+      unmatchedCount++;
       matched.push({
         distanceKm: Math.round(km * 100) / 100,
         hr: null,
@@ -276,16 +367,31 @@ export function resampleByElevationMatch(
     }
   }
 
+  dbg("resampleByElevationMatch output", {
+    referenceRows: reference.length,
+    matchedRows: matched.length,
+    unmatchedCount,
+  });
+
   return { reference, matched };
 }
 
 export function shouldUseElevationAlignment(raw: RawStreams): boolean {
-  const points = toPoints(raw);
-  if (points.length < 2) return false;
+  const points = toPoints(raw, "shouldUseElevationAlignment-check");
+  if (points.length < 2) {
+    dbg("shouldUseElevationAlignment -> false (menej ako 2 body)");
+    return false;
+  }
   const totalKm = points[points.length - 1].d;
-  if (totalKm <= 0) return false;
+  if (totalKm <= 0) {
+    dbg("shouldUseElevationAlignment -> false (totalKm <= 0)");
+    return false;
+  }
   const gain = totalElevationGain(points);
-  return gain / totalKm > 5;
+  const gainPerKm = gain / totalKm;
+  const result = gainPerKm > 5;
+  dbg("shouldUseElevationAlignment", { totalKm, gain, gainPerKm, result });
+  return result;
 }
 
 /* ============================================================ */
@@ -295,6 +401,11 @@ export function shouldUseElevationAlignment(raw: RawStreams): boolean {
 export function mergeSeriesForChart(
   seriesList: ResampledSeries[][],
 ): Record<string, any>[] {
+  dbg(
+    "mergeSeriesForChart input lengths",
+    seriesList.map((s) => s.length),
+  );
+
   const maxLen = Math.max(...seriesList.map((s) => s.length), 0);
   const rows: Record<string, any>[] = [];
 
@@ -310,6 +421,8 @@ export function mergeSeriesForChart(
     });
     rows.push(row);
   }
+
+  dbg("mergeSeriesForChart output", { rows: rows.length, sample: rows.slice(0, 2) });
 
   return rows;
 }
