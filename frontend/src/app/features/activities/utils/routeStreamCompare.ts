@@ -270,9 +270,20 @@ function matchByElevation(
   const refSeg = refSegments[refSegIdx];
   const refSegPosition = refSegIdx / Math.max(1, refSegments.length - 1);
 
-  const candidateSegs = otherSegments
+  let candidateSegs = otherSegments
     .map((s, idx) => ({ seg: s, idx }))
     .filter(({ seg }) => seg.direction === refSeg.direction);
+
+  // Fallback: ak sa nenájde segment v ZHODNOM smere (typicky keď má trať
+  // len 1 celkový segment a jeho smer sa medzi dvoma behmi líši kvôli šumu
+  // v nadmorskej výške), použi VŠETKY segmenty bez ohľadu na smer - lepší
+  // nepresný match ako úplne prázdna krivka.
+  if (!candidateSegs.length) {
+    dbg(
+      `matchByElevation: žiadny segment v zhodnom smere (ref=${refSeg.direction}), fallback na všetky smery`,
+    );
+    candidateSegs = otherSegments.map((s, idx) => ({ seg: s, idx }));
+  }
 
   if (!candidateSegs.length) return null;
 
