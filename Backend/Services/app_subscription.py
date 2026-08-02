@@ -373,10 +373,10 @@ def service_start_pro_trial(
     if active:
         return {"success": False, "detail": "User already has an active subscription."}
 
-    # 2. Vypočítame dátumy (dnes + 14 dní)
+    # 2. Vypočítame dátumy (dnes + 31 dní)
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
-    end_iso = (now + timedelta(days=14)).isoformat()
+    end_iso = (now + timedelta(days=31)).isoformat()
 
     # 3. Vytvoríme ACTIVE trial
     new_active = db_insert_app_user_subscription(
