@@ -101,7 +101,6 @@ def service_insert_or_update_recovery(
     user_id = int(payload["user_id"])
     date_iso = str(payload["date"])[:10]
 
-    # ✅ patch = iba polia ktoré chceme uložiť (bez identity)
     patch: Dict[str, Any] = {
         k: v for k, v in payload.items() if k not in _ID_KEYS
     }
@@ -117,7 +116,7 @@ def service_insert_or_update_recovery(
 
         updated_row = db_update_recovery(rec_id, patch, ctx=ctx)
         
-        # NOVÉ: Po úspešnom update skontrolujeme, či nepotrebuje zmeniť dnešný tréning
+        # Po úspešnom update skontrolujeme, či nepotrebuje zmeniť dnešný tréning
         service_check_recovery_and_adjust(user_id=user_id, ctx=ctx)
         
         return {

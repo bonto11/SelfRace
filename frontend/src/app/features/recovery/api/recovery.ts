@@ -23,14 +23,6 @@ export async function apiFetchRecovery(
 
     const normalized: RecoveryRow[] = arr
       .map((r) => {
-        // Nový priamy boolean stĺpec (alcohol_consumed). Fallback na starý
-        // objemový zápis (alcohol_volume_ml > 0), ak by v DB ešte zostali
-        // staré riadky uložené pred touto zmenou.
-        const alcoholConsumed =
-          r?.alcohol_consumed != null
-            ? !!r.alcohol_consumed
-            : Number.isFinite(Number(r?.alcohol_volume_ml)) && Number(r?.alcohol_volume_ml) > 0;
-
         return {
           date: isoDate(r?.date),
           RHR_bpm: r?.RHR_bpm ?? null,
@@ -42,7 +34,7 @@ export async function apiFetchRecovery(
 
           caffeine_8h: !!r?.caffeine_8h,
           food_2h_before: !!r?.food_2h_before,
-          alcohol_consumed: alcoholConsumed,
+          alcohol_consumed: !!r?.alcohol_consumed,
         };
       })
       .sort((a, b) => a.date.localeCompare(b.date));
