@@ -1,4 +1,4 @@
-// src/features/coach/components/prefs/RecoveryInputs.tsx
+// src/features/recovery/components/RecoveryInputs.tsx
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -21,7 +21,6 @@ import { useRecoveryData } from "@/app/shared/components/dataProviders/RecoveryD
 import {
   SECTION,
   FORM_GRID_TWO,
-  FORM_GRID_SPLIT,
   PANEL_STACK,
   SECTION_STYLE,
   INPUTS_CARD_DATE_ROW,
@@ -104,8 +103,7 @@ export default function RecoveryInputs() {
   // Faktory
   const [lateFood, setLateFood] = useState(false);
   const [lateCaffeine, setLateCaffeine] = useState(false);
-  const [alcoholVolume, setAlcoholVolume] = useState<number | "">("");
-  const [alcoholType, setAlcoholType] = useState<number | "">("");
+  const [alcoholConsumed, setAlcoholConsumed] = useState(false);
   const [comments, setComments] = useState("");
 
   // ============================================================
@@ -125,8 +123,7 @@ export default function RecoveryInputs() {
       setSleepStart(existing.sleep_start_time ? normalizeTime(existing.sleep_start_time) : "");
       setLateFood(Boolean(existing.food_2h_before));
       setLateCaffeine(Boolean(existing.caffeine_8h));
-      setAlcoholVolume((existing as any).alcohol_volume_ml ?? "");
-      setAlcoholType((existing as any).alcohol_type_pct ?? "");
+      setAlcoholConsumed(Boolean((existing as any).alcohol_consumed));
       setComments(existing.comments ?? "");
     } else {
       // Nový deň — biometrika z posledného záznamu, faktory resetuj
@@ -141,8 +138,7 @@ export default function RecoveryInputs() {
       setSleepStart(last?.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
       setLateFood(false);
       setLateCaffeine(false);
-      setAlcoholVolume("");
-      setAlcoholType("");
+      setAlcoholConsumed(false);
       setComments("");
     }
   }, [date, rows]);
@@ -166,8 +162,7 @@ export default function RecoveryInputs() {
     setSleepStart(last.sleep_start_time ? normalizeTime(last.sleep_start_time) : "");
     setLateFood(Boolean(last.food_2h_before));
     setLateCaffeine(Boolean(last.caffeine_8h));
-    setAlcoholVolume((last as any).alcohol_volume_ml ?? "");
-    setAlcoholType((last as any).alcohol_type_pct ?? "");
+    setAlcoholConsumed(Boolean((last as any).alcohol_consumed));
     setComments(last.comments ?? "");
   }
 
@@ -182,8 +177,7 @@ export default function RecoveryInputs() {
     setSleepStart("");
     setLateFood(false);
     setLateCaffeine(false);
-    setAlcoholVolume("");
-    setAlcoholType("");
+    setAlcoholConsumed(false);
     setComments("");
   }
 
@@ -206,8 +200,7 @@ export default function RecoveryInputs() {
       sleep_start_time: sleepStart && sleepStart !== "00:00" ? sleepStart : null,
       food_2h_before: Boolean(lateFood),
       caffeine_8h: Boolean(lateCaffeine),
-      alcohol_volume_ml: toNumberOrNull(alcoholVolume),
-      alcohol_type_pct: toNumberOrNull(alcoholType),
+      alcohol_consumed: Boolean(alcoholConsumed),
       comments: comments.trim() || null,
     };
 
@@ -373,27 +366,13 @@ export default function RecoveryInputs() {
                     disabled={saving}
                     label={t("recovery.inputs.lateCaffeineLabel")}
                   />
-                </div>
-
-                {/* Alkohol */}
-                <div className="mt-3">
-                  <div className={INPUTS_CARD_LABEL_SM_1} style={{ color: appColors.textMuted }}>
-                    {t("recovery.inputs.alcoholLabel")}
-                  </div>
-                  <div className={FORM_GRID_SPLIT}>
-                    <NumberField
-                      min={0} max={2000} step={50}
-                      unit="ml"
-                      value={alcoholVolume} disabled={saving}
-                      onChange={setAlcoholVolume}
-                    />
-                    <NumberField
-                      min={0} max={80} step={1}
-                      unit={t("common.units.pct")}
-                      value={alcoholType} disabled={saving}
-                      onChange={setAlcoholType}
-                    />
-                  </div>
+                  <Checkbox
+                    containerClassName={INPUTS_CARD_CHECK_ROW_MB}
+                    checked={alcoholConsumed}
+                    onChange={(e) => setAlcoholConsumed(e.currentTarget.checked)}
+                    disabled={saving}
+                    label={t("recovery.inputs.alcoholLabel")}
+                  />
                 </div>
 
                 {/* Poznámka */}
