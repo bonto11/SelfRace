@@ -2139,7 +2139,7 @@ export const en = {
       factorsSection: "What affected the stats?",
       lateFoodLabel: "Food less than 2h before bed",
       lateCaffeineLabel: "Coffee less than 8h before bed",
-      alcoholLabel: "Alcohol (amount and percentage)",
+      alcoholLabel: "Alcohol",
       noteLabel: "Night note",
       notePlaceholder: "Stress at work, illness, late workout...",
       hrvMaxLabel: "Maximum HRV",

@@ -2127,7 +2127,7 @@ export const sk = {
       factorsSection: "Čo ovplyvnilo štatistiky?",
       lateFoodLabel: "Jedlo menej ako 2h pred spaním",
       lateCaffeineLabel: "Káva menej ako 8h pred spaním",
-      alcoholLabel: "Alkohol (množstvo a percentá)",
+      alcoholLabel: "Alkohol",
       noteLabel: "Poznámka k noci",
       notePlaceholder: "Stres v práci, choroba, neskorý tréning...",
       hrvMaxLabel: "Maximálna HRV",
