@@ -45,7 +45,7 @@ export default function OnboardingPage() {
         </div>
       ),
     },
-    // ✅ NOVÁ SEKCIA PRE NOTIFIKÁCIE PRIDANÁ SEM
+
     {
       id: "notifications",
       tabLabel: t("onboarding.notifications.tab" as any),

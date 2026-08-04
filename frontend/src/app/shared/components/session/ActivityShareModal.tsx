@@ -120,7 +120,7 @@ export default function ActivityShareModal({
   const [showPace, setShowPace] = useState(true);
   const [showElev, setShowElev] = useState(true);
   const [showTime, setShowTime] = useState(true);
-  const [showDate, setShowDate] = useState(true); // ✅ Nový state pre dátum
+  const [showDate, setShowDate] = useState(true);
 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [displayMode, setDisplayMode] = useState<"icon" | "text" | "both">("both");
@@ -139,7 +139,7 @@ export default function ActivityShareModal({
         setShowPace(p.showPace ?? true);
         setShowElev(p.showElev ?? true);
         setShowTime(p.showTime ?? true);
-        setShowDate(p.showDate ?? true); // ✅ Načítanie preferencie dátumu
+        setShowDate(p.showDate ?? true);
         setTheme(p.theme ?? "dark");
         setDisplayMode(p.displayMode ?? "both");
         setBgMode(p.bgMode ?? "solid");
@@ -151,7 +151,7 @@ export default function ActivityShareModal({
     if (!mounted) return;
     localStorage.setItem(
       "selfrace_share_prefs",
-      JSON.stringify({ showHr, showPace, showElev, showTime, showDate, theme, displayMode, bgMode }) // ✅ Uloženie preferencie
+      JSON.stringify({ showHr, showPace, showElev, showTime, showDate, theme, displayMode, bgMode })
     );
   }, [showHr, showPace, showElev, showTime, showDate, theme, displayMode, bgMode, mounted]);
 
@@ -328,7 +328,6 @@ export default function ActivityShareModal({
               fontFamily: "sans-serif" 
             }}
           >
-            {/* ✅ Zelený pásik zmizne, ak je pozadie transparentné */}
             {bgMode !== "transparent" && <div style={{ height: "6px", width: "100%", backgroundColor: appColors.brandPrimary }} />}
 
             <div style={{ padding: "36px 28px 46px 28px", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -349,7 +348,6 @@ export default function ActivityShareModal({
                 <h2 style={{ fontSize: "24px", fontWeight: 900, textTransform: "uppercase", color: textColor, margin: 0, lineHeight: 1.2, letterSpacing: "0.02em" }}>
                   {title}
                 </h2>
-                {/* ✅ Odstránená "Chôdza" a pridaný prepínač pre zobrazenie dátumu */}
                 {showDate && dateStr && (
                   <div style={{ fontSize: "11px", textTransform: "uppercase", fontWeight: "bold", color: textColor, opacity: 0.5, marginTop: "8px", letterSpacing: "0.15em" }}>
                     {dateStr}
@@ -419,7 +417,6 @@ export default function ActivityShareModal({
               <Checkbox checked={showPace} onChange={(e) => setShowPace(e.currentTarget.checked)} label={speedOrPaceLabel} disabled={isExporting} />
               <Checkbox checked={showTime} onChange={(e) => setShowTime(e.currentTarget.checked)} label={t("common.metrics.time")} disabled={isExporting} />
               <Checkbox checked={showElev} onChange={(e) => setShowElev(e.currentTarget.checked)} label={t("common.metrics.elevation")} disabled={isExporting} />
-              {/* ✅ Nový prepínač pre dátum */}
               <Checkbox checked={showDate} onChange={(e) => setShowDate(e.currentTarget.checked)} label={t("share.showDate" as any)} disabled={isExporting} />
             </div>
           </div>

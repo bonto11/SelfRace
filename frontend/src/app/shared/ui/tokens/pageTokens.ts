@@ -31,7 +31,6 @@ export const PAGE_GRID_3 =
 export const PAGE_GRID_2 =
   "grid grid-cols-1 md:grid-cols-2 gap-4";
 
-/* ✅ intro text (jednotný štýl pre popisy pod headerom) */
 export const PAGE_INTRO = "text-sm opacity-70";
 
 export const PAGE_INTRO_TITLE = "text-base font-semibold";

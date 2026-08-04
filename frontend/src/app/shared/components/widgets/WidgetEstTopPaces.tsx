@@ -17,7 +17,6 @@ import {
 
 type Props = { onOpenDetail?: () => void };
 
-// ✅ OPRAVENÉ: Funkcia teraz spracováva sekundy namiesto minút
 function formatRaceTime(seconds?: number | null) {
   if (!seconds || !Number.isFinite(seconds)) return "—";
   
@@ -53,24 +52,20 @@ export default function WidgetEstTopPaces({ onOpenDetail }: Props) {
           <div className="grid grid-cols-2 gap-y-4 gap-x-2">
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">5 km</div>
-              {/* ✅ Zmenené na _s */}
               <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_5k_time_s)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">10 km</div>
-              {/* ✅ Zmenené na _s */}
               <div className={WIDGET_VALUE_MAIN}>{formatRaceTime(latestPace?.est_10k_time_s)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">Polmaratón</div>
-              {/* ✅ Zmenené na _half_marathon_time_s */}
               <div className="text-xl font-bold tracking-tight text-white/90 tabular-nums leading-none">
                 {formatRaceTime(latestPace?.est_half_marathon_time_s)}
               </div>
             </div>
             <div>
               <div className="text-[10px] uppercase font-bold opacity-50 tracking-wider mb-0.5">Maratón</div>
-              {/* ✅ Zmenené na _marathon_time_s */}
               <div className="text-xl font-bold tracking-tight text-white/90 tabular-nums leading-none">
                 {formatRaceTime(latestPace?.est_marathon_time_s)}
               </div>

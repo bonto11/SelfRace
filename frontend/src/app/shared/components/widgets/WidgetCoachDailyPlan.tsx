@@ -105,7 +105,6 @@ function buildUiState(
 }
 
 export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
-  // ✅ isChecking v akcii
   const { userId, isChecking } = useUserId();
   const t = useT();
   const { lang } = useSettings();
@@ -122,7 +121,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // ✅ Nezaťažujeme backend predčasne
     if (!userId || isChecking) return;
 
     let alive = true;
@@ -181,7 +179,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
     return () => {
       alive = false;
     };
-  }, [userId, t, isChecking]); // ✅ Pridali sme dependency
+  }, [userId, t, isChecking]);
 
   const ui = useMemo(
     () => buildUiState(overview, injurySeverity),

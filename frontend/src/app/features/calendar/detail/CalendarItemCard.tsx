@@ -52,7 +52,6 @@ function statusLabel(status: CalendarPlanStatus, t: any) {
 }
 
 function statusStyle(status: CalendarPlanStatus): React.CSSProperties {
-  // ✅ no tailwind emerald/orange; use appColors only
   if (status === "done") {
     return {
       borderColor: appColors.statusInfo,

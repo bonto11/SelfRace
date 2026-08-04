@@ -303,7 +303,6 @@ export default function DetailAthleteState() {
         setAnalyzing(false);
         return;
       }
-      // ✅ Podľa zadania: po úspešnej analýze zrefreshni celú obrazovku
       window.location.reload();
     } catch (e: any) {
       console.error("[Coach][DetailAthleteState] handleAnalyze ERROR", e);

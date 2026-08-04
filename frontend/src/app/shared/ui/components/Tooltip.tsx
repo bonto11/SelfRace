@@ -58,7 +58,7 @@ function TooltipHost({
   React.useEffect(() => {
     if (!state.open) return;
 
-    // ✅ Zablokujeme scrollovanie stránky pod tooltipom
+    // Zablokujeme scrollovanie stránky pod tooltipom
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -69,7 +69,7 @@ function TooltipHost({
     
     return () => {
       document.removeEventListener("keydown", onKey);
-      // ✅ Po zatvorení tooltipu scrollovanie vrátime späť
+      //  Po zatvorení tooltipu scrollovanie vrátime späť
       document.body.style.overflow = originalOverflow;
     };
   }, [state.open, onClose]);
@@ -98,9 +98,9 @@ function TooltipHost({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(520px, 92vw)",
-          maxHeight: "90vh", // ✅ Maximálna výška tooltipu
-          display: "flex", // ✅ Flex layout
-          flexDirection: "column", // ✅ Pod sebou
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
           borderRadius: 18,
           background: appColors.surfaceCard,
           border: `1px solid ${appColors.surfaceCardBorder}`,
@@ -114,15 +114,14 @@ function TooltipHost({
             fontSize: 14,
             lineHeight: 1.45,
             whiteSpace: "pre-wrap",
-            overflowY: "auto", // ✅ Povolenie scrollu pre dlhý text
-            overscrollBehavior: "contain", // ✅ Zabráni potiahnutiu stránky na iOS
-            paddingRight: 4, // Drobná medzera pre scrollbar
+            overflowY: "auto", 
+            overscrollBehavior: "contain",
+            paddingRight: 4, 
           }}
         >
           {state.text}
         </div>
 
-        {/* ✅ shrink-0 zabezpečí, že OK tlačidlo text nikdy nevytlačí von */}
         <div className="mt-3 flex justify-end shrink-0 pt-2">
           <button
             type="button"
@@ -154,7 +153,7 @@ export function TooltipIcon({
   const { openTooltip } = useTooltip();
 
   return (
-    <div // ✅ ZMENENÉ z <button> na <div>, aby nevznikal Hydration error vnoreného buttonu.
+    <div 
       role="button"
       tabIndex={0}
       aria-label={title}
@@ -182,8 +181,8 @@ export function TooltipIcon({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        cursor: "pointer", // ✅ Pridaný kurzor, aby to vizuálne pôsobilo ako button
-        flexShrink: 0, // ✅ Zabezpečí, že sa "i" ikona nestlačí ak je vedľa dlhšieho textu
+        cursor: "pointer",
+        flexShrink: 0,
       }}
     >
       <span

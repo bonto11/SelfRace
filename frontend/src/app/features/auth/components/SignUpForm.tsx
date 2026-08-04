@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation"; // ✅ Pridaný router pre automatické presmerovanie
+import { useRouter } from "next/navigation";
 
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 import Button from "@/app/shared/ui/components/Button";
@@ -37,7 +37,7 @@ import { useT } from "@/app/shared/i18n/useT";
 
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
-  const router = useRouter(); // ✅ Inicializácia routra
+  const router = useRouter();
   
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
@@ -63,7 +63,6 @@ export default function SignUpForm() {
     setMsg(null);
     setIsOk(false);
 
-    // ✅ Supabase signup volanie
     const { data, error } = await sb.auth.signUp({
       email,
       password: pwd,

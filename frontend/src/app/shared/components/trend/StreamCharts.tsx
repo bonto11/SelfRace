@@ -368,12 +368,12 @@ export function ActivityStreamCharts({ streams, compact = false, sportHint }: Ac
         </button>
       </div>
 
-      {/* ✅ HORNÝ SLIDER (zobrazí sa vždy, keď je aspoň 1 graf) */}
+      {/* HORNÝ SLIDER (zobrazí sa vždy, keď je aspoň 1 graf) */}
       {activeCharts.length > 0 && renderMiniMapZoom("top-brush")}
       
       <div className="mt-6">{activeCharts.map(chart => <div key={chart.key}>{chart.render()}</div>)}</div>
       
-      {/* ✅ SPODNÝ SLIDER (zobrazí sa len vtedy, ak je grafov viac ako 1) */}
+      {/* SPODNÝ SLIDER (zobrazí sa len vtedy, ak je grafov viac ako 1) */}
       {activeCharts.length > 1 && renderMiniMapZoom("bottom-brush")}
     </div>
   );

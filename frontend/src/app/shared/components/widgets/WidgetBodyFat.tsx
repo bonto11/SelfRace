@@ -8,7 +8,7 @@ import Pill from "@/app/shared/ui/components/Pill";
 import { getBodyFatBands } from "@/app/shared/utils/bands";
 import { fmtDate } from "@/app/shared/utils/time";
 import { usePerformanceData } from "@/app/shared/components/dataProviders/PerformanceDataProvider";
-import { useUserId } from "@/app/shared/hooks/useUserId"; // ✅ Pridaný import
+import { useUserId } from "@/app/shared/hooks/useUserId";
 
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
@@ -53,8 +53,7 @@ function classifyBodyFat(sex: "M" | "F", t: (key: any) => string, pct?: number |
 export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
   const handleOpen = onOpen ?? onOpenDetail;
   const t = useT();
-  const { isChecking } = useUserId(); // ✅ Využitie isChecking
-  
+  const { isChecking } = useUserId(); 
   const { data, loading } = usePerformanceData();
   const { bodyFatLatest, vo2MeasuredLatest } = data; 
 
@@ -76,7 +75,6 @@ export default function WidgetBodyFat({ onOpen, onOpenDetail }: Props) {
       minH={168}
       innerClassName={NO_X_OVERFLOW}
     >
-      {/* ✅ Kým overujeme userId, alebo kým data provider fetchuje, zobrazíme len spinner */}
       {isChecking || (loading && !bodyFatLatest) ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />

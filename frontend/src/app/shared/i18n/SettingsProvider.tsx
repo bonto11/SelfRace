@@ -31,10 +31,8 @@ type SettingsCtx = {
 
 const SettingsContext = createContext<SettingsCtx | null>(null);
 
-// ✅ jediný LS key
 const LS_KEY = "sr.settings.v1";
 
-// ✅ defaulty (upravené)
 const DEFAULT_SETTINGS: UserSettingsV1 = {
   units: "metric",
   language: "en",
@@ -107,10 +105,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ? (patch as (p: UserSettingsV1) => UserSettingsV1)(prev)
             : ({ ...prev, ...(patch as Partial<UserSettingsV1>) } as UserSettingsV1);
 
-        // ✅ vždy do LS
         safeWriteV1(next);
 
-        // ✅ ak máme userId, tak aj do DB (best-effort)
         const uid = userIdRef.current;
         if (uid) {
           // neblokuj UI
@@ -141,7 +137,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   
     if (!dbVal || typeof dbVal !== "object") {
-      // ✅ DB prázdne -> beriem LS alebo default (nie React state)
       const local = safeReadV1() ?? { ...DEFAULT_SETTINGS, language: guessLang() };
       setSettingsState(local);
       safeWriteV1(local);
@@ -149,7 +144,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       return;
     }
   
-    // ✅ DB má -> DB je source of truth po login
     const merged: UserSettingsV1 = {
       ...DEFAULT_SETTINGS,
       ...dbVal,

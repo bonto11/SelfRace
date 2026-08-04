@@ -137,10 +137,10 @@ export default function SelectField({
       stopPropagation: () => {},
     };
 
-    // ✅ nič nerozbije: staré usage s onChange funguje
+    //  nič nerozbije: staré usage s onChange funguje
     onChange?.(evt);
 
-    // ✅ nové usage (TrendPareto8020) funguje aj bez onChange
+    // nové usage (TrendPareto8020) funguje aj bez onChange
     onValueChange?.(next);
   }
 

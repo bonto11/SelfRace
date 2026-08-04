@@ -42,7 +42,6 @@ def _ensure_latest_plan_meta(
         raise ValueError("No generated plan meta found for this user.")
     return meta
 
-# ✅ OPRAVA: Posielame meta_id
 def service_save_active_plan(
     user_id: int,
     payload: Dict[str, Any],

@@ -59,7 +59,6 @@ def service_get_user_app_subscription_status(
         ctx=ctx,
     )
 
-    # ✅ AUTO-TRIAL LOGIKA (BEZPEČNÁ A OPTIMALIZOVANÁ)
     # Ak nemá aktívny plán, skontrolujeme, či je to úplne nový používateľ
     if not active:
         # Vytiahneme len 1 záznam z histórie. Ak vráti prázdne pole, je to nováčik.

@@ -128,7 +128,6 @@ def openai_call_json_model(
                     last_err = "OpenAI returned invalid JSON"
                     continue
 
-                # ✅ usage tokeny
                 usage_obj = getattr(resp, "usage", None)
                 if usage_obj is not None:
                     trace["usage"] = {

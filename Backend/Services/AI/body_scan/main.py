@@ -58,7 +58,6 @@ _DIRECT_FIELDS = (
 )
 
 
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -77,8 +76,6 @@ def _upload_image_to_storage(
     ext = "jpg" if "jpeg" in content_type or "jpg" in content_type else "png"
     path = f"{user_id}/{uuid.uuid4().hex}.{ext}"
 
-    print(f"🟡 [BODY_SCAN][storage] uploading to bucket='{STORAGE_BUCKET}' path='{path}' size={len(image_bytes)} bytes")
-
     try:
         sb = get_sb(ctx, caller="body_scan.upload_image")
         sb.storage.from_(STORAGE_BUCKET).upload(
@@ -86,11 +83,12 @@ def _upload_image_to_storage(
             image_bytes,
             {"content-type": content_type},
         )
-        print(f"✅ [BODY_SCAN][storage] upload OK path='{path}'")
+
         return path
     except Exception as e:
         print(f"❌ [BODY_SCAN][storage] upload FAILED: {repr(e)}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -125,12 +123,17 @@ def service_upload_and_extract_body_scan(
             image_media_type=media_type,
         )
     except Exception as e:
-        print(f"❌ [BODY_SCAN][service] generate_body_scan_extraction RAISED: {repr(e)}")
+        print(
+            f"❌ [BODY_SCAN][service] generate_body_scan_extraction RAISED: {repr(e)}"
+        )
         import traceback
+
         traceback.print_exc()
         return {"ok": False, "code": "ai_extraction_exception", "message": str(e)}
 
-    print(f"🟡 [BODY_SCAN][service] extraction result: extracted={'YES' if extracted else 'NO'} err_msg={err_msg} trace_keys={list(trace.keys()) if trace else None}")
+    print(
+        f"🟡 [BODY_SCAN][service] extraction result: extracted={'YES' if extracted else 'NO'} err_msg={err_msg} trace_keys={list(trace.keys()) if trace else None}"
+    )
 
     if not extracted:
         print(f"❌ [BODY_SCAN][service] extraction failed: {err_msg}")
@@ -155,7 +158,9 @@ def service_upload_and_extract_body_scan(
         except Exception as e:
             print(f"❌ [AI_BILLING] body_scan error: {repr(e)}")
 
-    scan_date = extracted.get("scan_date") or datetime.now(timezone.utc).date().isoformat()
+    scan_date = (
+        extracted.get("scan_date") or datetime.now(timezone.utc).date().isoformat()
+    )
     direct_fields = _extract_direct_fields(extracted)
     segmental = extracted.get("segmental_analysis")
 
@@ -175,13 +180,12 @@ def service_upload_and_extract_body_scan(
     except Exception as e:
         print(f"❌ [BODY_SCAN][service] db_insert_body_scan RAISED: {repr(e)}")
         import traceback
+
         traceback.print_exc()
         return {"ok": False, "code": "db_insert_exception", "message": str(e)}
 
     if not row:
         return {"ok": False, "code": "db_insert_failed"}
-
-    print(f"✅ [BODY_SCAN][service] DONE, scan id={row.get('id')}")
 
     return {
         "ok": True,
@@ -223,7 +227,9 @@ def service_edit_body_scan(
     if not fields:
         return {"ok": False, "code": "empty_fields"}
 
-    ok = db_update_body_scan(user_id, scan_id, fields=fields, mark_manually_edited=True, ctx=ctx)
+    ok = db_update_body_scan(
+        user_id, scan_id, fields=fields, mark_manually_edited=True, ctx=ctx
+    )
     if not ok:
         return {"ok": False, "code": "update_failed"}
 
@@ -269,6 +275,7 @@ def service_delete_body_scan(
 ) -> Dict[str, Any]:
     ok = db_delete_body_scan(user_id, scan_id, ctx=ctx)
     return {"ok": ok}
+
 
 def service_create_manual_body_scan(
     *,

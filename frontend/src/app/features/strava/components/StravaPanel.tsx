@@ -62,7 +62,6 @@ export default function StravaPanel() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // ✅ Zjednodušené - nepotrebujeme riešiť API_URL
   const stravaConnectUrl = useMemo(() => {
     if (!userId) return null;
     return getStravaConnectUrl(userId);

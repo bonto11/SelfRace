@@ -317,7 +317,7 @@ def service_sync_single_activity(
 
     mark_strava_ever_synced_now(ctx=ctx,user_id=user_id)
     
-    # ✅ ---------- 5) PREPOČET WEEKLY PLÁNU ----------
+    # ---------- 5) PREPOČET WEEKLY PLÁNU ----------
     # Vytiahneme dátum aktivity, aby sme vedeli, ktorý týždeň máme prepočítať
     act_date = row.get("date")
     if act_date:
@@ -331,7 +331,7 @@ def service_sync_single_activity(
         except Exception as e:
             print(f"[SYNC:single] Weekly volume recalculation failed id={aid}: {e}")
 
-            # ✅ ---------- 6) KONTROLA REKORDOV ----------
+            #  ---------- 6) KONTROLA REKORDOV ----------
     try:
         print(f"[SYNC:single] Checking records for activity_id={aid}...")
 
@@ -358,7 +358,7 @@ def service_sync_single_activity(
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] Records check failed id={aid}: {e}")
 
-    # ✅ ---------- 6.5) ROUTE AUTO-MATCH (pomenované trate) ----------
+    #  ---------- 6.5) ROUTE AUTO-MATCH (pomenované trate) ----------
     # Beží pri importe AJ update (re-sync, napr. Strava opravila dáta),
     # rovnako pri jednorazovom aj opakovanom volaní. Service funkcia interne
     # nič nerobí (early-exit), ak už aktivita má POTVRDENÝ route_match -
@@ -372,7 +372,7 @@ def service_sync_single_activity(
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] Route auto-match failed id={aid}: {e}")
 
-    # ✅ ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
+    #  ---------- 7) NOTIFIKÁCIA – NOVÁ AKTIVITA ----------
     if imported > 0:
         try:
             service_notify_new_activity(user_id=user_id, activity_id=aid,ctx=ctx)

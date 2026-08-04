@@ -45,7 +45,6 @@ def service_weekly_analytics(
     # ---------------- HR parametre (sex, HR_max) ----------------
     sex: Optional[str] = db_fetch_user_sex(user_id, ctx=ctx)
     
-    # ✅ NOVÝ SPÔSOB VYTIAHNUTIA HR_MAX cez nové DB API
     hr_row = db_get_latest_metric(user_id, "hr_max", ctx=ctx)
     hr_max: Optional[float] = float(hr_row["value_num"]) if hr_row and hr_row.get("value_num") else None
 

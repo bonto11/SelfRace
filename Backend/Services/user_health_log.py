@@ -33,7 +33,6 @@ def service_save_health_logs(user_id: int, logs_payload: List[Dict[str, Any]], c
         event_type = str(item.get("event_type", "")).strip().lower()
         severity = int(item.get("severity", 5))
         
-        # ✅ Pridaná menštruácia medzi povolené typy, aby to nepadlo na 400/500
         if event_type not in ["injury", "illness", "fatigue", "menstruation"]:
             raise ValueError(f"Invalid event_type: {event_type}")
         if severity < 1 or severity > 10:

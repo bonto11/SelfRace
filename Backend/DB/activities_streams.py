@@ -38,7 +38,7 @@ def db_get_streams_one(
         )
         .eq("user_id", user_id)
         .eq("activity_id", activity_id)
-        .gt("expires_at", _now_iso())  # ✅ Bezpečné porovnanie s Python časom
+        .gt("expires_at", _now_iso())
         .limit(1)
         .execute()
     )
@@ -106,7 +106,7 @@ def db_upsert_streams_with_sport(
     """
     sb = get_sb(ctx, caller="activities_streams.db_upsert_streams_with_sport")
 
-    # ✅ TRIK: Najprv potichu zmažeme záznam (ak existuje)
+    # Najprv potichu zmažeme záznam (ak existuje)
     try:
         sb.table(TABLE_ACTIVITIES_STREAMS).delete().eq("user_id", int(user_id)).eq("activity_id", int(activity_id)).execute()
     except Exception as e:

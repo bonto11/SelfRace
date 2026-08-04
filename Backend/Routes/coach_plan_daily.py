@@ -59,7 +59,6 @@ def generate_daily_for_week(
             ctx=ctx,
         )
 
-        # ✅ Skontrolujeme vnútorné "ok" z workera
         if not result.get("ok"):
             return {
                 "success": False,

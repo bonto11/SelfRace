@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from Modules.Supabase.client import get_sb
-from Modules.Supabase.auth import AuthCtx, service_ctx  # ✅ pridaj service_ctx
+from Modules.Supabase.auth import AuthCtx, service_ctx
 from Configs.config import TABLE_ASYNC_JOBS
 
 
@@ -14,7 +14,7 @@ def _now_iso() -> str:
 
 def _sb_service(caller: str):
     """
-    ✅ ALWAYS service role client (bypass RLS).
+    ALWAYS service role client (bypass RLS).
     ctx z FE tu ignorujeme zámerne.
     """
     return get_sb(service_ctx(caller=caller), caller=caller)

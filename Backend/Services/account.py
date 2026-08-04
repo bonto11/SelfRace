@@ -80,7 +80,6 @@ def service_request_account_delete(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    ✅ nový safe flow:
     - okamžite odpoj Stravu + vymaž Strava data (best effort)
     - okamžite zruš Stripe predplatné (cancel at period end)
     - vytvor delete request (grace 7 dní)
@@ -111,7 +110,7 @@ def service_request_account_delete(
         "requested_at": row.get("requested_at"),
         "grace_days": DELETE_GRACE_DAYS,
         "strava_disconnect": strava_res,
-        "stripe_disconnect": stripe_res, # ✅ Pridáme do výstupu pre debugging
+        "stripe_disconnect": stripe_res,
     }
 
 

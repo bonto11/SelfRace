@@ -15,7 +15,7 @@ from DB.async_jobs import (
     db_pick_next_queued_job_for_user,
 )
 from Services.async_jobs import service_execute_job
-from Modules.Supabase.auth import service_ctx  # ✅ service-only ctx
+from Modules.Supabase.auth import service_ctx 
 
 WORKER_ID = os.getenv("ASYNC_WORKER_ID", "worker-1")
 CHAIN_LIMIT = int(os.getenv("ASYNC_CHAIN_LIMIT", "10"))
@@ -59,7 +59,7 @@ def _run_user_chain(ctx, user_id: int) -> int:
 
 
 def main() -> None:
-    ctx = service_ctx(f"async_worker:{WORKER_ID}")  # ✅ jediný zdroj pravdy
+    ctx = service_ctx(f"async_worker:{WORKER_ID}")
 
     idle = IDLE_MIN
     print(f"[ASYNC-WORKER] started worker_id={WORKER_ID} chain_limit={CHAIN_LIMIT}")

@@ -74,7 +74,6 @@ def db_get_active_plan_meta_for_user(
         print("[DB-COACH-META] active_plan_meta error:", repr(e))
         return None
 
-# ✅ OPRAVA: Pridané meta_id pre presný update!
 def db_update_plan_status(
     user_id: int,
     meta_id: int, 

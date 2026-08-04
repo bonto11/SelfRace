@@ -33,10 +33,6 @@ type RunJobResponse = {
   error?: string | null;
 };
 
-/**
- * ✅ NOVÉ: ide cez async_jobs rovnako ako ai_analyze
- * job_type = "sync"
- */
 export async function apiSyncActivities(
   userId: number,
   opts: SyncActivitiesOptions = {}
@@ -49,7 +45,7 @@ export async function apiSyncActivities(
   const enqueueBody = {
     job_type: "sync",
     payload: {
-      trigger: "manual", // ✅ tvoja autorita (decide_sync_plan)
+      trigger: "manual",
       // voliteľné: nechaj, ak chceš override – inak worker ignoruje / alebo použije ako fallback
       force_last_days:
         typeof opts.forceLastDays === "number" ? opts.forceLastDays : null,
@@ -112,7 +108,6 @@ export async function apiSyncActivities(
     throw new Error("Sync job finished but result payload is empty/invalid");
   }
 
-  // ✅ import_activities_bulk vracia { ok, plan, stats, range }
   const stats = (result as any).stats;
 
   if (!stats || typeof stats !== "object") {

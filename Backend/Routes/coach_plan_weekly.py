@@ -36,7 +36,6 @@ def generate_weekly_plan(
             model=payload.model,
         )
         
-        # ✅ Skontrolujeme vnútorné "ok" z workera
         if not result.get("ok"):
              return {
                  "success": False, 

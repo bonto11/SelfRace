@@ -384,7 +384,7 @@ async def strava_webhook_handler(request: Request):
 # =================================================
 @router.get("/oauth/start")
 async def strava_oauth_start(user_id: int = Query(..., description="SelfRace user_id")):
-    # ✅ PRECHECK cooldown (server-side)
+    # PRECHECK cooldown (server-side)
     try:
         st = (
             supabase.table(TABLE_STRAVA_ACCOUNTS)

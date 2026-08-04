@@ -15,7 +15,6 @@ from DB.notifications import (
 )
 from Services.supabase_auth_admin import admin_delete_auth_users
 
-# ✅ používame generický enqueue
 from Services.async_jobs import service_enqueue_job
 from Modules.Supabase.auth import AuthCtx
 
@@ -47,7 +46,6 @@ def service_weekly_athlete_state_analysis(
         if not user_id or not auth_uid:
             continue
 
-        # ✅ iba enqueue, nič viac
         resp = service_enqueue_job(
             user_id=int(user_id),
             job_type="ai_analyze",

@@ -42,7 +42,6 @@ def create_checkout_session(
                 "quantity": 1,
             }],
             mode="subscription",
-            # ✅ OPRAVENÁ NÁVRATOVÁ URL
             success_url=f"{FRONTEND_URL}/subscription?status=success",
             cancel_url=f"{FRONTEND_URL}/subscription?status=canceled",
             client_reference_id=str(user_id),
@@ -76,7 +75,6 @@ def create_portal_session(user_id: int, req: Request) -> Dict[str, Any]:
     try:
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
-            # ✅ OPRAVENÁ NÁVRATOVÁ URL
             return_url=f"{FRONTEND_URL}/subscription",
         )
         return {"ok": True, "portal_url": session.url}

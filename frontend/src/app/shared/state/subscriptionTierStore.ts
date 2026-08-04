@@ -51,7 +51,7 @@ export function subscribeSubscriptionTier(listener: Listener): () => void {
   };
 }
 
-// ✅ Pridáme funkciu pre bezpečné vymazanie (použijeme pri odhlásení)
+// Pridáme funkciu pre bezpečné vymazanie (použijeme pri odhlásení)
 export function clearSubscriptionTier() {
   currentTier = "free";
   try {

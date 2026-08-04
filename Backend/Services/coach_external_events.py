@@ -123,7 +123,6 @@ def _normalize_event_input(user_id: int, ev: Dict[str, Any]) -> Dict[str, Any]:
         "title": str(ev.get("title") or "").strip() or "Externá aktivita",
         "sport": ev.get("sport") or None,
 
-        # ✅ new source of truth
         "weekday_int": weekday_int,
 
         # optional legacy column (keep if your DB still has it)

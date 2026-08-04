@@ -48,7 +48,7 @@ export function niceLabelForDay(d: DayAbbrev): string {
 }
 
 /**
- * ✅ Robustný parser: podporí number aj stringy (wed, Wed, wednesday, streda, ...).
+ * Robustný parser: podporí number aj stringy (wed, Wed, wednesday, streda, ...).
  * Vracia 1..7 alebo null.
  */
 export function normalizeWeekdayToInt(x: unknown): WeekdayInt | null {

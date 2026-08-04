@@ -30,7 +30,6 @@ import {
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
-// ✅ OPRAVENÉ: Formátovač teraz prijíma sekundy a robí z nich H:MM:SS
 const formatRaceTime = (seconds: number) => {
   if (!seconds) return "—";
   const h = Math.floor(seconds / 3600);
@@ -102,7 +101,6 @@ export default function TrendEstTopPaces() {
     const r = rowMap.get(dISO);
     return {
       label: new Date(dISO).toLocaleDateString("sk-SK"),
-      // ✅ OPRAVENÉ kľúče pre časy v sekundách
       t5k: r?.est_5k_time_s ?? null,
       t10k: r?.est_10k_time_s ?? null,
       t21k: r?.est_half_marathon_time_s ?? null,
@@ -138,7 +136,6 @@ export default function TrendEstTopPaces() {
           <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={appColors.chartGrid} />
             <XAxis dataKey="label" tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-            {/* ✅ OPRAVENÁ: Zobrazenie menšieho času (rýchlejšieho preteku) dole, pomalšieho hore */}
             <YAxis tickFormatter={formatRaceTime} tick={{ fill: appColors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: appColors.textMuted, strokeDasharray: "5 5" }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }} />

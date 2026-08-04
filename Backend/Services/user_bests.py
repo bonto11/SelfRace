@@ -148,7 +148,6 @@ def service_upsert_user_best(
     if ach != "__MISSING__":
         row["achieved_at"] = ach if (isinstance(ach, str) and ach.strip()) else None
 
-    # ✅ PRIDANÉ PRE WIDGET (Toto už máš)
     tot_dist = payload.get("total_distance_m", "__MISSING__")
     if tot_dist != "__MISSING__":
         try:

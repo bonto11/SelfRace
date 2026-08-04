@@ -122,7 +122,6 @@ export default function WidgetCard({
               <span className="sr-only">Widget</span>
             )}
 
-            {/* ✅ single standard tooltip icon in header (replaces "otvoriť detail") */}
             {showTooltip ? <TooltipIcon text={tooltipText} /> : null}
           </div>
         )}

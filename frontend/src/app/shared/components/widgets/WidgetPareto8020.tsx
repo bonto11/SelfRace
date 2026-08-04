@@ -118,7 +118,7 @@ export default function WidgetPareto8020({
           <LoadingSpinner size="widget" />
         </div>
       ) : T === 0 ? (
-        // ✅ Pridaný fallback pre prípad, že graf nemá z čoho renderovať.
+        // fallback pre prípad, že graf nemá z čoho renderovať.
         // Týmto úplne obídeme chybu a ukážeme štandardné "Žiadne dáta" pekne na stred.
         <div className={WIDGET_EMPTY_TEXT}>
           {t("common.noData")}

@@ -212,7 +212,7 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # ✅ KRITICKÉ ZRANENIE / CHOROBA / MENŠTRUÁCIA (Severity >= 7 posiela tento flag)
+    # KRITICKÉ ZRANENIE / CHOROBA / MENŠTRUÁCIA (Severity >= 7 posiela tento flag)
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
         
@@ -241,16 +241,12 @@ def service_coach_autoadjust_after_update(
             "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
-    # ✅ 1. Zjemniť (Soften) pre SKUTOČNÉ zdravotné obmedzenia a fázy cyklu
+    #  1. Zjemniť (Soften) pre SKUTOČNÉ zdravotné obmedzenia a fázy cyklu
     # (Severity < 7, hlásené cez Health log) — tu fixných 7 dní ostáva ako
     # bezpečný default, to je zámer.
     #
-    # 🔧 FIX: "manual_review" tu už NIE JE. Predtým sa každý review, ktorý AI
-    # označilo ako needs_caution/injury (viď async_jobs.py), automaticky
-    # zmäkčil na fixných 7 dní — bez ohľadu na to, akú mieru pozornosti si
-    # to skutočne zaslúžilo. Review jednej aktivity nemá dostatočný prehľad
-    # (vidí len 14 dní histórie, nie HRV trendy/recovery/42-dňový load), aby
-    # malo samo rozhodovať "na koľko dní zmäkčiť". Teraz namiesto toho
+    # každý review, ktorý AI
+    # označilo ako needs_caution/injury (viď async_jobs.py), Teraz 
     # spadne do "klasickej" vetvy nižšie, ktorá zavolá plnú athlete_state
     # analýzu — tá už MÁ celý kontext a vlastný, správne odstupňovaný
     # plan_adjustment.soften_next_days (should_soften/days/reason).
@@ -295,7 +291,6 @@ def service_coach_autoadjust_after_update(
     if weekly_replan_should:
         print("[AUTOADJUST DEBUG] Starting Weekly Replan...")
         
-        # ✅ Pridanie health_menstruation do výnimiek (aby sa mu vyhol cooldown, ak by bolo treba)
         health_bypass = ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training", "health_menstruation"]
         
         if force_reason not in health_bypass and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
