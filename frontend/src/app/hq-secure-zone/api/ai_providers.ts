@@ -1,4 +1,6 @@
-import { callBackend } from "@/app/shared/utils/callBackend";
+"use client";
+
+import { triggerMaintenanceTask } from "../actions";
 
 export interface AiModelsData {
   openai: string[];
@@ -12,17 +14,9 @@ export interface AiModelsData {
 
 export async function apiFetchAiModels(): Promise<AiModelsData> {
   try {
-    const json = await callBackend<any>("/trigger/manual", {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.NEXT_PUBLIC_MAINTENANCE_API_KEY ?? "",
-      },
-      body: JSON.stringify({ task: "list-ai-models" }),
-    });
-
+    const json = await triggerMaintenanceTask("list-ai-models");
     const data = json?.data;
+
     if (!data) {
       throw new Error("Žiadne dáta z backendu");
     }
