@@ -12,20 +12,26 @@ export interface AiModelsData {
 
 export async function apiFetchAiModels(): Promise<AiModelsData> {
   try {
-    const json = await callBackend<any>("/maintenance/ai-models", {
-      method: "GET",
+    const json = await callBackend<any>("/trigger/manual", {
+      method: "POST",
       cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.NEXT_PUBLIC_MAINTENANCE_API_KEY ?? "",
+      },
+      body: JSON.stringify({ task: "list-ai-models" }),
     });
 
-    if (!json) {
+    const data = json?.data;
+    if (!data) {
       throw new Error("Žiadne dáta z backendu");
     }
 
     return {
-      openai: Array.isArray(json.openai) ? json.openai : [],
-      gemini: Array.isArray(json.gemini) ? json.gemini : [],
-      configured: json.configured || { openai: [], gemini: [] },
-      errors: Array.isArray(json.errors) ? json.errors : [],
+      openai: Array.isArray(data.openai) ? data.openai : [],
+      gemini: Array.isArray(data.gemini) ? data.gemini : [],
+      configured: data.configured || { openai: [], gemini: [] },
+      errors: Array.isArray(data.errors) ? data.errors : [],
     };
   } catch (err: any) {
     console.error("[Admin API] apiFetchAiModels ERROR", err);

@@ -244,7 +244,7 @@ def ai_call_json_model(
 # Claude zatiaľ nemá funkčné overenie dostupných modelov (get_claude_models
 # padá), takže ho z tejto kontroly dočasne vynechávame - v hlavnej ai_call_json_model
 # reťazi zostáva Claude aktívny, toto sa týka len /health a diagnostiky.
-_HEALTH_CHECK_PROVIDERS = {"openai", "gemini"}
+_HEALTH_CHECK_PROVIDERS = {"openai", "gemini", "claude"}
 
 
 def get_available_ai_models() -> Dict[str, Any]:

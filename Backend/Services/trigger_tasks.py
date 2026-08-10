@@ -23,6 +23,7 @@ from Services.maintenance import (
     service_cleanup_expired_activity_details,
     service_cleanup_stale_push_subscriptions
 )
+from Services.AI.provider.provider import get_available_ai_models
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
 
@@ -57,6 +58,9 @@ def service_run_master_scheduler(
             db_force_logout_all_users(ctx=ctx)
         elif task == "check-ai-models":
             service_cron_notify_check_ai(admin_email="patrikmbontar@gmail.com", ctx=ctx)
+        elif task == "list-ai-models":
+            models_data = get_available_ai_models()
+            return {"status": "executed_manual", "task": task, "data": models_data}
         elif task == "notify-review":
             service_cron_notify_review(ctx=ctx)
         elif task == "notify-recovery":
@@ -67,6 +71,7 @@ def service_run_master_scheduler(
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
             service_cron_notify_monthly_summary(ctx=ctx)
+            
         else:
             raise ValueError(f"Neznáma úloha: {task}")
 
