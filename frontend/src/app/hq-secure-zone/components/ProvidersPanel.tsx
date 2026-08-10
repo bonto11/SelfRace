@@ -60,7 +60,7 @@ export default function ProvidersPanel() {
           {/* Rýchly indikátor v zbalenom stave */}
           {!isOpen && models && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-green-900/30 text-green-500">
-              {models.openai.length + models.gemini.length} Modulov
+              {models.openai.length + models.gemini.length + models.claude.length} Modulov
             </span>
           )}
         </div>
@@ -93,7 +93,31 @@ export default function ProvidersPanel() {
 
           {models && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* CLAUDE */}
+              <div className="bg-black border border-gray-800 p-5 rounded-2xl flex flex-col">
+                <h3 className="text-orange-400 font-black uppercase tracking-widest mb-4 flex justify-between items-center border-b border-gray-800 pb-3">
+                  Anthropic Claude
+                  <span className="bg-orange-900/30 text-orange-500 px-2 py-1 rounded text-xs">
+                    {models.claude.length} available
+                  </span>
+                </h3>
               
+                {renderConfiguredModels(models.configured.claude, models.claude)}
+              
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Ostatné dostupné modely (statický zoznam):</p>
+                <div className="flex-1 overflow-y-auto max-h-64 pr-2 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+                  {models.claude.length === 0 ? (
+                    <span className="text-gray-600 text-sm italic">Žiadne dostupné modely</span>
+                  ) : (
+                    models.claude.filter(m => !models.configured.claude.includes(m)).map(m => (
+                      <div key={m} className="bg-gray-900 p-2.5 rounded-lg text-xs font-mono text-gray-400 border border-gray-800 hover:border-orange-500 hover:text-orange-400 transition-colors cursor-default">
+                        {m}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {/* GEMINI */}
               <div className="bg-black border border-gray-800 p-5 rounded-2xl flex flex-col">
                 <h3 className="text-blue-400 font-black uppercase tracking-widest mb-4 flex justify-between items-center border-b border-gray-800 pb-3">
@@ -143,6 +167,8 @@ export default function ProvidersPanel() {
                   )}
                 </div>
               </div>
+
+
 
               {/* CHYBY */}
               {models.errors.length > 0 && (
