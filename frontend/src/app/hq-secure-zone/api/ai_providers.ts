@@ -5,9 +5,11 @@ import { triggerMaintenanceTask } from "../actions";
 export interface AiModelsData {
   openai: string[];
   gemini: string[];
+  claude: string[];
   configured: {
     openai: string[];
     gemini: string[];
+    claude: string[];
   };
   errors: string[];
 }
@@ -24,7 +26,8 @@ export async function apiFetchAiModels(): Promise<AiModelsData> {
     return {
       openai: Array.isArray(data.openai) ? data.openai : [],
       gemini: Array.isArray(data.gemini) ? data.gemini : [],
-      configured: data.configured || { openai: [], gemini: [] },
+      claude: Array.isArray(data.claude) ? data.claude : [],
+      configured: data.configured || { openai: [], gemini: [], claude: [] },
       errors: Array.isArray(data.errors) ? data.errors : [],
     };
   } catch (err: any) {
