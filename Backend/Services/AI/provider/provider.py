@@ -241,13 +241,21 @@ def ai_call_json_model(
 # MONITORING / HEALTH
 # =============================================================================
 
+# Claude zatiaľ nemá funkčné overenie dostupných modelov (get_claude_models
+# padá), takže ho z tejto kontroly dočasne vynechávame - v hlavnej ai_call_json_model
+# reťazi zostáva Claude aktívny, toto sa týka len /health a diagnostiky.
+_HEALTH_CHECK_PROVIDERS = {"openai", "gemini"}
+
+
 def get_available_ai_models() -> Dict[str, Any]:
     """Zoznam modelov od každého providera + nakonfigurované modely."""
-    result: Dict[str, Any] = {p: [] for p in _VALID_PROVIDERS}
-    result["configured"] = {p: _get_provider_models(p) for p in _VALID_PROVIDERS}
+    result: Dict[str, Any] = {p: [] for p in _HEALTH_CHECK_PROVIDERS}
+    result["configured"] = {p: _get_provider_models(p) for p in _HEALTH_CHECK_PROVIDERS}
     result["errors"] = []
 
     for p, fn in _PROVIDER_MODELS.items():
+        if p not in _HEALTH_CHECK_PROVIDERS:
+            continue
         try:
             result[p] = fn()
         except Exception as e:
@@ -261,7 +269,7 @@ def check_configured_models_health() -> Dict[str, Any]:
     available = get_available_ai_models()
     missing: Dict[str, List[str]] = {}
 
-    for p in _VALID_PROVIDERS:
+    for p in _HEALTH_CHECK_PROVIDERS:
         available_models = available.get(p, [])
         missing[p] = [m for m in _get_provider_models(p) if m not in available_models]
 
