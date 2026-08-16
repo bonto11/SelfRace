@@ -330,3 +330,86 @@ def db_pick_next_queued_job_global(
             return locked
 
     return None
+    
+    
+    
+def db_update_job_progress(
+    job_id: int,
+    *,
+    progress: int,
+    cursor: Optional[Dict[str, Any]] = None,
+    ctx: AuthCtx,
+) -> Optional[Dict[str, Any]]:
+    """
+    Priebežný update behu - NEMENÍ status/finished_at, len progress a cursor.
+    Volať z dlho bežiacich jobov (napr. bulk sync), aby FE vedelo zobraziť
+    live progress a aby sa pri páde dalo pokračovať odtiaľ, kde sa prestalo.
+    """
+    fields: Dict[str, Any] = {
+        "progress": int(progress),
+        "updated_at": _now_iso(),
+    }
+    if cursor is not None:
+        fields["progress_cursor"] = cursor
+
+    try:
+        sb = _sb_service("async_jobs.db_update_job_progress")
+        res = sb.table(TABLE_ASYNC_JOBS).update(fields).eq("id", int(job_id)).execute()
+        data = res.data or []
+        return data[0] if data else None
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] update_progress error:", repr(e))
+        return None
+
+
+def db_get_last_failed_job_cursor(
+    user_id: int,
+    job_type: str,
+    *,
+    max_age_hours: int = 72,
+    ctx: AuthCtx,
+) -> Optional[Dict[str, Any]]:
+    """
+    Vráti progress_cursor z posledného FAILED jobu daného typu pre usera,
+    ak existuje a nie je príliš starý (inak by resume pokračoval podľa
+    dávno neplatného 'now' okna). Používa sa na resumable import.
+    """
+    try:
+        sb = _sb_service("async_jobs.db_get_last_failed_job_cursor")
+        res = (
+            sb.table(TABLE_ASYNC_JOBS)
+            .select("id, progress_cursor, created_at")
+            .eq("user_id", int(user_id))
+            .eq("job_type", str(job_type))
+            .eq("status", "failed")
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return None
+        row = rows[0]
+        cursor = row.get("progress_cursor")
+        if not cursor:
+            return None
+
+        created_raw = row.get("created_at")
+        if created_raw:
+            try:
+                s = str(created_raw).replace("Z", "+00:00")
+                created_dt = datetime.fromisoformat(s)
+                if created_dt.tzinfo is None:
+                    created_dt = created_dt.replace(tzinfo=timezone.utc)
+                age_hours = (
+                    datetime.now(timezone.utc) - created_dt
+                ).total_seconds() / 3600
+                if age_hours > max_age_hours:
+                    return None
+            except Exception:
+                pass
+
+        return cursor
+    except Exception as e:  # noqa: BLE001
+        print("[DB-JOBS] get_last_failed_cursor error:", repr(e))
+        return None
