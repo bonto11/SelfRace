@@ -127,12 +127,12 @@ INTERNAL_SERVICE_SECRET: str = env_required("SUPABASE_URL")
 # =============================================================================
 # STRAVA
 # =============================================================================
-STRAVA_BASE: str = env_required("STRAVA_BASE")
+STRAVA_BASE = env_optional("STRAVA_BASE", "https://www.strava.com/api/v3")
+
 STRAVA_CLIENT_ID: str = env_required("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET: str = env_required("STRAVA_CLIENT_SECRET")
 
 REDIRECT_URI = env_optional("STRAVA_REDIRECT_URI", "http://localhost:5000/exchange_token")
-
 
 STRAVA_RECONNECT_COOLDOWN_SECONDS = 24 * 3600
 
