@@ -216,3 +216,78 @@ export async function forceServerSignOut() {
 
   return { success: true };
 }
+
+export async function listUsersLite() {
+  await verifyAdmin();
+
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabaseAdmin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, mail_address")
+    .order("id", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((u: any) => ({
+    id: u.id,
+    email: u.mail_address || `Neznámy mail (ID: #${u.id})`,
+  }));
+}
+
+/* ---------- STRAVA ADMIN OVERRIDE ---------- */
+
+export async function getStravaOverride(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/api/strava/admin/override/${userId}`, {
+    method: "GET",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+    cache: "no-store",
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať override");
+  }
+  return result?.override ?? null;
+}
+
+export async function setStravaOverride(userId: number, days: number, note: string) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/api/strava/admin/override/${userId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    body: JSON.stringify({ days, note: note || null }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa nastaviť override");
+  }
+  return result;
+}
+
+export async function clearStravaOverride(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/api/strava/admin/override/${userId}`, {
+    method: "DELETE",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa vymazať override");
+  }
+  return result;
+}
