@@ -13,6 +13,8 @@ export type StravaStatus = {
   can_manual_import?: boolean | null;
   sync_import_window_days?: number | null;
   sync_import_max_activities?: number | null;
+  sync_import_kind?: string | null;
+  is_admin_override?: boolean | null;
   ever_synced_at?: string | null;
 };
 
@@ -65,6 +67,8 @@ export async function apiGetStravaStatus(userId: number): Promise<StravaStatus> 
         typeof json?.sync_import_window_days === "number" ? json.sync_import_window_days : null,
       sync_import_max_activities:
         typeof json?.sync_import_max_activities === "number" ? json.sync_import_max_activities : null,
+      sync_import_kind: json?.sync_import_kind ?? null,
+      is_admin_override: typeof json?.is_admin_override === "boolean" ? json.is_admin_override : null,
       ever_synced_at: json?.ever_synced_at ?? null,
     };
   } catch (e: any) {
