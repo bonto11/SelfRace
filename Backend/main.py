@@ -32,6 +32,7 @@ from Routes import (
     notifications,
     trigger,
     body_scan,
+    strava_admin,
 )
 
 app = FastAPI()
@@ -95,3 +96,6 @@ app.include_router(webhook_strava.router)
 
 app.include_router(webhook_stripe.router)
 app.include_router(billing_stripe.router)
+app.include_router(strava_admin_router)
+
+
