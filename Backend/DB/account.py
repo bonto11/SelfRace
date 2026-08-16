@@ -159,3 +159,66 @@ def get_strava_ever_synced_at_service(
         return None
 
     return _parse_timestamptz_to_dt(row.get("ever_synced_at"))
+
+def db_get_strava_admin_override(
+    user_id: int, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """Vráti aktívny admin override okna importu, ak existuje (inak None)."""
+    sb = get_sb(ctx, caller="account.db_get_strava_admin_override")
+    resp = (
+        sb.table(TABLE_STRAVA_ACCOUNTS)
+        .select("admin_override_days, admin_override_note, admin_override_granted_at")
+        .eq("user_id", int(user_id))
+        .limit(1)
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    row = rows[0] if rows else None
+    if not row or not row.get("admin_override_days"):
+        return None
+    return {
+        "days": int(row["admin_override_days"]),
+        "note": row.get("admin_override_note"),
+        "granted_at": row.get("admin_override_granted_at"),
+    }
+
+
+def db_set_strava_admin_override(
+    user_id: int, days: int, note: Optional[str], *, ctx: AuthCtx
+) -> bool:
+    """Nastaví jednorazový admin override okna importu pre usera (support case)."""
+    sb = get_sb(ctx, caller="account.db_set_strava_admin_override")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    resp = (
+        sb.table(TABLE_STRAVA_ACCOUNTS)
+        .update(
+            {
+                "admin_override_days": int(days),
+                "admin_override_note": note,
+                "admin_override_granted_at": now_iso,
+            }
+        )
+        .eq("user_id", int(user_id))
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return bool(rows)
+
+
+def db_clear_strava_admin_override(user_id: int, *, ctx: AuthCtx) -> bool:
+    """Vynuluje override - volať po úspešnom dobehnutí importu, čo ho spotreboval."""
+    sb = get_sb(ctx, caller="account.db_clear_strava_admin_override")
+    resp = (
+        sb.table(TABLE_STRAVA_ACCOUNTS)
+        .update(
+            {
+                "admin_override_days": None,
+                "admin_override_note": None,
+                "admin_override_granted_at": None,
+            }
+        )
+        .eq("user_id", int(user_id))
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return bool(rows)
