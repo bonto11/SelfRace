@@ -23,7 +23,7 @@ from Configs.config import (
     TABLE_STRAVA_ACCOUNTS
 )
 from Modules.Supabase.auth import service_ctx
-
+from DB.account import mark_strava_ever_synced_now, get_strava_ever_synced_at_service, db_get_strava_admin_override
 from DB.activities_summary import db_get_last_activity_start
 from Services.synchronization_utils import decide_sync_plan
 from Services.async_jobs import service_enqueue_job
@@ -529,7 +529,6 @@ async def strava_oauth_callback(
 @router.get("/status")
 async def strava_status(req: Request, user_id: int = Query(..., description="SelfRace user_id"), ):
 
-
     ctx = require_user(get_auth_ctx(req))
 
     try:
@@ -559,6 +558,8 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
             "can_manual_import": False,
             "sync_import_window_days": 0,
             "sync_import_max_activities": 0,
+            "sync_import_kind": None,
+            "is_admin_override": False,
             "ever_synced_at": None,
         }
 
@@ -579,12 +580,23 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
 
     sync_days = None
     sync_max = None
+    sync_kind = None
+    is_admin_override = False
 
     if connected:
         last_dt = db_get_last_activity_start(user_id=user_id, ctx=ctx)
-        plan = decide_sync_plan(last_activity_dt=last_dt, ever_synced_at=ever_synced_at)
+        override = db_get_strava_admin_override(user_id=user_id, ctx=ctx)
+        admin_override_days = override["days"] if override else None
+
+        plan = decide_sync_plan(
+            last_activity_dt=last_dt,
+            ever_synced_at=ever_synced_at,
+            admin_override_days=admin_override_days,
+        )
         sync_days = int(plan.days_back)
         sync_max = int(plan.max_activities)
+        sync_kind = plan.kind
+        is_admin_override = plan.kind == "admin_override"
 
     return {
         "connected": connected,
@@ -597,8 +609,11 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
         "can_manual_import": can_manual_import,
         "sync_import_window_days": sync_days,
         "sync_import_max_activities": sync_max,
+        "sync_import_kind": sync_kind,
+        "is_admin_override": is_admin_override,
         "ever_synced_at": ever_synced_at,
     }
+
 
 
 # =================================================
