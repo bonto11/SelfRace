@@ -23,6 +23,11 @@ import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active"
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
 import { apiSavePushSubscription } from "@/app/features/settings/api/notifications";
 
+const DEBUG = true;
+function dbg(...args: any[]) {
+  if (DEBUG) console.log("[WidgetOnboarding]", ...args);
+}
+
 type StepStatus = "done" | "active" | "locked";
 
 type WidgetOnboardingProps = {
@@ -59,29 +64,39 @@ export default function WidgetOnboarding({
   const [hasActivePlan, setHasActivePlan] = useState(false);
   const [planStatusLoading, setPlanStatusLoading] = useState(true);
 
-  /* ─── Coach prefs (heuristika na main_sport - žiadny dedikovaný flag v API) ─── */
+  /* ─── Coach prefs ─── */
   const [coachPrefsDone, setCoachPrefsDone] = useState(false);
   const [prefsStatusLoading, setPrefsStatusLoading] = useState(true);
 
-  /* ─── Notifikácie (reálny stav zo service workera, rovnaký flow ako NotificationPanel) ─── */
+  /* ─── Notifikácie ─── */
   const [pushSupported, setPushSupported] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushCheckDone, setPushCheckDone] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
 
-  /* ─── Bio (žiadne API na "hotovo" - len klik-based lokálny marker, nie zdroj pravdy) ─── */
+  /* ─── Bio ─── */
   const [bioVisited, setBioVisited] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    dbg("userId =", userId);
+    if (!userId) {
+      dbg("userId chýba, čakám - statusLoading/planStatusLoading/prefsStatusLoading zostávajú true");
+      return;
+    }
     let alive = true;
     setStatusLoading(true);
+    dbg("fetch: apiGetStravaStatus START");
     apiGetStravaStatus(userId)
       .then((s) => {
+        dbg("fetch: apiGetStravaStatus OK", s);
         if (alive) setStatus(s);
       })
-      .catch((e) => console.error("[WidgetOnboarding] strava status error:", e))
+      .catch((e) => {
+        console.error("[WidgetOnboarding] strava status error:", e);
+        dbg("fetch: apiGetStravaStatus FAILED", e);
+      })
       .finally(() => {
+        dbg("fetch: apiGetStravaStatus DONE, statusLoading -> false");
         if (alive) setStatusLoading(false);
       });
     return () => {
@@ -93,15 +108,19 @@ export default function WidgetOnboarding({
     if (!userId) return;
     let alive = true;
     setPlanStatusLoading(true);
+    dbg("fetch: apiActivePlanStatus START");
     apiActivePlanStatus(userId)
       .then((s) => {
+        dbg("fetch: apiActivePlanStatus OK", s);
         if (alive) setHasActivePlan(!!s?.has_active);
       })
       .catch((e) => {
         console.error("[WidgetOnboarding] plan status error:", e);
+        dbg("fetch: apiActivePlanStatus FAILED", e);
         if (alive) setHasActivePlan(false);
       })
       .finally(() => {
+        dbg("fetch: apiActivePlanStatus DONE, planStatusLoading -> false");
         if (alive) setPlanStatusLoading(false);
       });
     return () => {
@@ -113,15 +132,19 @@ export default function WidgetOnboarding({
     if (!userId) return;
     let alive = true;
     setPrefsStatusLoading(true);
+    dbg("fetch: refreshCoachPrefsFromDB START");
     refreshCoachPrefsFromDB(userId)
       .then((p: any) => {
+        dbg("fetch: refreshCoachPrefsFromDB OK, main_sport =", p?.main_sport);
         if (alive) setCoachPrefsDone(!!p?.main_sport);
       })
       .catch((e) => {
         console.error("[WidgetOnboarding] coach prefs status error:", e);
+        dbg("fetch: refreshCoachPrefsFromDB FAILED", e);
         if (alive) setCoachPrefsDone(false);
       })
       .finally(() => {
+        dbg("fetch: refreshCoachPrefsFromDB DONE, prefsStatusLoading -> false");
         if (alive) setPrefsStatusLoading(false);
       });
     return () => {
@@ -130,19 +153,35 @@ export default function WidgetOnboarding({
   }, [userId]);
 
   useEffect(() => {
+    dbg("push check START", {
+      hasWindow: typeof window !== "undefined",
+      hasServiceWorker: typeof navigator !== "undefined" && "serviceWorker" in navigator,
+      hasPushManager: typeof window !== "undefined" && "PushManager" in window,
+      isSecureContext: typeof window !== "undefined" ? window.isSecureContext : null,
+      standaloneDisplay:
+        typeof window !== "undefined" && window.matchMedia
+          ? window.matchMedia("(display-mode: standalone)").matches
+          : null,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    });
+
     if (
       typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
       "PushManager" in window
     ) {
       setPushSupported(true);
+      dbg("push check: PushManager je podporovaný, kontrolujem existujúcu subscription");
       navigator.serviceWorker.ready.then((reg) => {
         reg.pushManager.getSubscription().then((sub) => {
+          dbg("push check: existujúca subscription =", !!sub);
           if (sub) setPushSubscribed(true);
           setPushCheckDone(true);
         });
       });
     } else {
+      dbg("push check: PushManager NIE JE podporovaný v tomto prostredí (viď dôvody vyššie)");
+      setPushSupported(false);
       setPushCheckDone(true);
     }
   }, []);
@@ -155,6 +194,7 @@ export default function WidgetOnboarding({
   async function handleImport() {
     if (!userId || importBusy || !connected) return;
     setImportBusy(true);
+    dbg("import START");
     try {
       const days =
         typeof status?.sync_import_window_days === "number" &&
@@ -166,25 +206,35 @@ export default function WidgetOnboarding({
         forceLastDays: days,
         fetchDetails: true,
       });
+      dbg("import OK", stats);
 
       toast.success(
         `Import hotový • Nové: ${stats.imported ?? 0} • Aktualizované: ${stats.updated ?? 0}`,
       );
 
       const fresh = await apiGetStravaStatus(userId);
+      dbg("import: refetched status", fresh);
       setStatus(fresh);
     } catch (e: any) {
+      console.error("[WidgetOnboarding] import error:", e);
+      dbg("import FAILED", e);
       toast.error(e?.message || "Import zo Strava zlyhal.");
     } finally {
+      dbg("import DONE");
       setImportBusy(false);
     }
   }
 
   async function handleEnablePush() {
-    if (!userId || !pushSupported) return;
+    if (!userId || !pushSupported) {
+      dbg("handleEnablePush: skip, pushSupported =", pushSupported);
+      return;
+    }
     setPushLoading(true);
+    dbg("push enable START");
     try {
       const permission = await Notification.requestPermission();
+      dbg("push enable: permission =", permission);
       if (permission !== "granted") {
         toast.error("Notifikácie boli zamietnuté.");
         setPushLoading(false);
@@ -193,20 +243,25 @@ export default function WidgetOnboarding({
       await navigator.serviceWorker.register("/sw.js");
       const reg = await navigator.serviceWorker.ready;
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      dbg("push enable: vapidKey present =", !!vapidKey);
       if (!vapidKey) throw new Error("Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY");
 
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
+      dbg("push enable: subscription created", subscription.toJSON());
 
       await apiSavePushSubscription(userId, subscription.toJSON());
+      dbg("push enable: subscription saved to backend");
       setPushSubscribed(true);
       toast.success("Notifikácie zapnuté.");
     } catch (e: any) {
       console.error("[WidgetOnboarding] push error:", e);
+      dbg("push enable FAILED", e);
       toast.error("Nepodarilo sa zapnúť notifikácie.");
     } finally {
+      dbg("push enable DONE");
       setPushLoading(false);
     }
   }
@@ -214,8 +269,35 @@ export default function WidgetOnboarding({
   const initialLoading =
     statusLoading || planStatusLoading || prefsStatusLoading || !pushCheckDone;
 
-  // Notifikácie a Bio sú nepovinné - do "allDone" (kedy widget zmizne úplne)
-  // sa nepočítajú, presne ako bolo zadané.
+  useEffect(() => {
+    dbg("STATE SNAPSHOT", {
+      userId,
+      statusLoading,
+      planStatusLoading,
+      prefsStatusLoading,
+      pushCheckDone,
+      initialLoading,
+      connected,
+      importDone,
+      hasActivePlan,
+      coachPrefsDone,
+      pushSupported,
+      pushSubscribed,
+    });
+  }, [
+    userId,
+    statusLoading,
+    planStatusLoading,
+    prefsStatusLoading,
+    pushCheckDone,
+    connected,
+    importDone,
+    hasActivePlan,
+    coachPrefsDone,
+    pushSupported,
+    pushSubscribed,
+  ]);
+
   const allDone = connected && importDone && hasActivePlan;
 
   if (!initialLoading && allDone) return null;
@@ -227,7 +309,6 @@ export default function WidgetOnboarding({
       ? "active"
       : "locked";
 
-  // Nepovinné kroky - vždy dostupné, nič neblokujú a nič ich neblokuje.
   const stepNotifications: StepStatus = pushSubscribed ? "done" : "active";
   const stepBio: StepStatus = bioVisited ? "done" : "active";
 
@@ -320,6 +401,7 @@ export default function WidgetOnboarding({
                   variant="secondary"
                   disabled={!pushSupported || pushLoading}
                   onClick={handleEnablePush}
+                  title={!pushSupported ? "Push notifikácie nie sú v tomto prehliadači/kontexte podporované" : undefined}
                 >
                   {pushLoading ? (
                     <span className="inline-flex items-center gap-1">
