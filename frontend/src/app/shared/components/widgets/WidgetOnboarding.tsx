@@ -16,8 +16,9 @@ import {
   canConnectStravaNow,
   type StravaStatus,
 } from "@/app/features/strava/api/strava";
-import { apiSyncActivities } from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
+import ProgressBar from "@/app/shared/ui/components/ProgressBar";
+import { apiSyncActivities, type SyncProgress } from "@/app/features/strava/api/synchronization";
 
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
@@ -59,6 +60,7 @@ export default function WidgetOnboarding({
   const [status, setStatus] = useState<StravaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [importBusy, setImportBusy] = useState(false);
+  const [importProgress, setImportProgress] = useState<SyncProgress | null>(null);
 
   /* ─── Aktívny plán ─── */
   const [hasActivePlan, setHasActivePlan] = useState(false);
@@ -194,6 +196,7 @@ export default function WidgetOnboarding({
   async function handleImport() {
     if (!userId || importBusy || !connected) return;
     setImportBusy(true);
+    setImportProgress({ progress: 0, status: "queued" });
     dbg("import START");
     try {
       const days =
@@ -202,10 +205,14 @@ export default function WidgetOnboarding({
           ? status.sync_import_window_days
           : 7;
 
-      const stats: SyncActivitiesStats = await apiSyncActivities(userId, {
-        forceLastDays: days,
-        fetchDetails: true,
-      });
+      const stats: SyncActivitiesStats = await apiSyncActivities(
+        userId,
+        { forceLastDays: days, fetchDetails: true },
+        (p) => {
+          dbg("import progress", p);
+          setImportProgress(p);
+        },
+      );
       dbg("import OK", stats);
 
       toast.success(
@@ -222,6 +229,7 @@ export default function WidgetOnboarding({
     } finally {
       dbg("import DONE");
       setImportBusy(false);
+      setImportProgress(null);
     }
   }
 
@@ -369,22 +377,40 @@ export default function WidgetOnboarding({
             }
           />
 
-          <OnboardingStep
+                    <OnboardingStep
             status={stepStravaImport}
             title="Importuj aktivity zo Strava"
-            description="Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad."
+            description={
+              status?.sync_import_window_days
+                ? `Stiahneme posledných ${status.sync_import_window_days} dní${
+                    status?.is_admin_override ? " (rozšírené okno povolené podporou)" : ""
+                  }. Potrebuješ viac? Napíš na support@selfrace.com.`
+                : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad."
+            }
             action={
               stepStravaImport === "active" ? (
-                <Button size="sm" variant="secondary" disabled={importBusy} onClick={handleImport}>
-                  {importBusy ? (
-                    <span className="inline-flex items-center gap-1">
-                      <LoadingSpinner size="button" />
-                      Importujem...
-                    </span>
-                  ) : (
-                    "Importovať aktivity"
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <Button size="sm" variant="secondary" disabled={importBusy} onClick={handleImport}>
+                    {importBusy ? (
+                      <span className="inline-flex items-center gap-1">
+                        <LoadingSpinner size="button" />
+                        Importujem...
+                      </span>
+                    ) : (
+                      "Importovať aktivity"
+                    )}
+                  </Button>
+                  {importBusy && importProgress && (
+                    <ProgressBar
+                      value={importProgress.progress}
+                      label={
+                        importProgress.status === "queued"
+                          ? "Čaká sa na spustenie..."
+                          : `${importProgress.progress}%`
+                      }
+                    />
                   )}
-                </Button>
+                </div>
               ) : undefined
             }
           />
