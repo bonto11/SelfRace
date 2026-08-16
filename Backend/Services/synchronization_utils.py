@@ -23,7 +23,9 @@ from Configs.config import (
     QUICK_MAX,
     MANUAL_DAYS,
     MANUAL_MAX,
+    ADMIN_OVERRIDE_MAX_ACTIVITIES,
 )
+
 
 from Modules.Supabase.auth import AuthCtx
 
@@ -42,7 +44,18 @@ def decide_sync_plan(
     *,
     last_activity_dt: Optional[datetime],
     ever_synced_at: Optional[datetime],
+    admin_override_days: Optional[int] = None,
 ) -> SyncPlan:
+    # Admin override má vždy prednosť pred normálnou logikou - support case,
+    # kde adminovi napísal user, že potrebuje väčšie/iné okno importu.
+    if admin_override_days:
+        return SyncPlan(
+            kind="admin_override",
+            days_back=int(admin_override_days),
+            max_activities=ADMIN_OVERRIDE_MAX_ACTIVITIES,
+            reason="admin override window granted via support",
+        )
+
     if (last_activity_dt is None) and (ever_synced_at is None):
         return SyncPlan(
             kind="first",
@@ -67,7 +80,6 @@ def decide_sync_plan(
             reason="manual import from FE",
         )
 
-    # panel_init / quick / default
     return SyncPlan(
         kind="quick",
         days_back=QUICK_DAYS,
