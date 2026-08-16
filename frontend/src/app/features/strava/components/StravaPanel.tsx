@@ -6,10 +6,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import Button from "@/app/shared/ui/components/Button";
 import Checkbox from "@/app/shared/ui/components/Checkbox";
+import ProgressBar from "@/app/shared/ui/components/ProgressBar";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
-import { apiSyncActivities } from "@/app/features/strava/api/synchronization";
+import { apiSyncActivities, type SyncProgress } from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 
 import {
@@ -55,6 +56,8 @@ export default function StravaPanel() {
   const [status, setStatus] = useState<StravaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
+  const [importProgress, setImportProgress] = useState<SyncProgress | null>(null);
+
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
 
@@ -70,6 +73,7 @@ export default function StravaPanel() {
   const connected = !!status?.connected;
   const syncDays = status?.sync_import_window_days ?? null;
   const syncMax = status?.sync_import_max_activities ?? null;
+  const isAdminOverride = !!status?.is_admin_override;
 
   async function reloadStatus(uid: number) {
     setStatusLoading(true);
@@ -136,11 +140,13 @@ export default function StravaPanel() {
     const days = typeof syncDays === "number" && syncDays > 0 ? syncDays : 7;
 
     setBusy("import");
+    setImportProgress({ progress: 0, status: "queued" });
     try {
-      const stats: SyncActivitiesStats = await apiSyncActivities(userId, {
-        forceLastDays: days,
-        fetchDetails: true,
-      });
+      const stats: SyncActivitiesStats = await apiSyncActivities(
+        userId,
+        { forceLastDays: days, fetchDetails: true },
+        (p) => setImportProgress(p),
+      );
 
       const imp = stats.imported ?? 0;
       const upd = stats.updated ?? 0;
@@ -156,6 +162,7 @@ export default function StravaPanel() {
       toast.error(errorMsg);
     } finally {
       setBusy(null);
+      setImportProgress(null);
     }
   }
 
@@ -376,10 +383,38 @@ export default function StravaPanel() {
                       • <b>{syncMaxLabel}</b>
                     </>
                   ) : null}
+                  {isAdminOverride ? (
+                    <>
+                      {" "}
+                      <span style={{ color: appColors.textSecondary }}>
+                        (rozšírené okno povolené podporou)
+                      </span>
+                    </>
+                  ) : null}
                   .
                 </>
               ) : null}
             </p>
+
+            {importAllowed && !isAdminOverride && (
+              <p
+                style={{
+                  fontSize: 11,
+                  color: appColors.textMuted,
+                  marginTop: 2,
+                  marginBottom: 8,
+                }}
+              >
+                Potrebuješ importovať väčší rozsah? Napíš nám na{" "}
+                <a
+                  href="mailto:support@selfrace.com"
+                  style={{ color: appColors.textSecondary, textDecoration: "underline" }}
+                >
+                  support@selfrace.com
+                </a>
+                .
+              </p>
+            )}
 
             <Button
               size="sm"
@@ -396,6 +431,19 @@ export default function StravaPanel() {
                 `${t("strava.import.button")}${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
               )}
             </Button>
+
+            {busy === "import" && importProgress && (
+              <div style={{ marginTop: 10 }}>
+                <ProgressBar
+                  value={importProgress.progress}
+                  label={
+                    importProgress.status === "queued"
+                      ? "Čaká sa na spustenie..."
+                      : `Importujem... ${importProgress.progress}%`
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>
