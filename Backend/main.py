@@ -96,6 +96,6 @@ app.include_router(webhook_strava.router)
 
 app.include_router(webhook_stripe.router)
 app.include_router(billing_stripe.router)
-app.include_router(strava_admin_router)
+app.include_router(strava_admin.router)
 
 
