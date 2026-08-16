@@ -338,7 +338,9 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 trigger=str(payload.get("trigger") or "async_worker"),
+                job_id=job_id,  # ← nové, nech vie priebežne zapisovať progress/cursor
             )
+
 
         # -------------------------------
         # STRAVA PIPELINE
