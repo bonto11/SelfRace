@@ -61,18 +61,15 @@ def service_get_user_app_subscription_status(
 
     # Ak nemá aktívny plán, skontrolujeme, či je to úplne nový používateľ
     if not active:
-        # Vytiahneme len 1 záznam z histórie. Ak vráti prázdne pole, je to nováčik.
-        history = db_list_app_user_subscriptions(
-            user_id=user_id,
-            limit=1,
-            ctx=ctx,
-        )
+        history = db_list_app_user_subscriptions(user_id=user_id, limit=1, ctx=ctx)
         if not history:
-            # Udelíme mu 14-dňový trial
-            trial_res = service_start_pro_trial(user_id=user_id, ctx=ctx)
-            # Rovno použijeme vrátený objekt z insertu, neťaháme to znova z DB (rýchlejšie a stabilnejšie)
-            if trial_res.get("success"):
-                active = trial_res.get("subscription")
+            try:
+                trial_res = service_start_pro_trial(user_id=user_id, ctx=ctx)
+                if trial_res.get("success"):
+                    active = trial_res.get("subscription")
+            except Exception as e:
+                print("[APP_SUBSCRIPTION] trial insert race, refetching active:", repr(e))
+                active = db_get_active_app_subscription_for_user(user_id=user_id, ctx=ctx)
 
     effective_tier = "free"
     scheduled_change: Optional[Dict[str, Any]] = None
@@ -361,7 +358,7 @@ def service_start_pro_trial(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Aktivuje 14-dňový PRO trial pre nového používateľa.
+    Aktivuje 31-dňový PRO trial pre nového používateľa.
     """
     # 1. Skontrolujeme, či už náhodou nemá aktívne predplatné
     active = db_get_active_app_subscription_for_user(

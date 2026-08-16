@@ -559,6 +559,7 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
             "can_manual_import": False,
             "sync_import_window_days": 0,
             "sync_import_max_activities": 0,
+            "ever_synced_at": None,
         }
 
     ever_synced_at = row.get("ever_synced_at")
@@ -596,6 +597,7 @@ async def strava_status(req: Request, user_id: int = Query(..., description="Sel
         "can_manual_import": can_manual_import,
         "sync_import_window_days": sync_days,
         "sync_import_max_activities": sync_max,
+        "ever_synced_at": ever_synced_at,
     }
 
 

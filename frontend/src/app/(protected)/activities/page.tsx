@@ -7,6 +7,7 @@ import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 
+import WidgetOnboarding from "@/app/shared/components/widgets/WidgetOnboarding";
 import WidgetStreak from "@/app/shared/components/widgets/WidgetStreak";
 import WeeklyLoadWidget from "@/app/shared/components/widgets/WidgetWeeklyLoad";
 import MonoStrainWidget from "@/app/shared/components/widgets/WidgetMonoStrain";
@@ -49,6 +50,8 @@ export default function ActivitiesPage() {
       showPoweredByStrava
       rightSlot={<RefreshIconBtn />}
     >
+      <WidgetOnboarding />
+
       <div className={PAGE_GRID_2}>
         <WidgetTodayActivities
           onOpenDetail={(activityId) =>
