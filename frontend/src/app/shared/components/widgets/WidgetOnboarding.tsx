@@ -18,7 +18,10 @@ import {
 } from "@/app/features/strava/api/strava";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
 import ProgressBar from "@/app/shared/ui/components/ProgressBar";
-import { apiSyncActivities, type SyncProgress } from "@/app/features/strava/api/synchronization";
+import {
+  apiSyncActivities,
+  type SyncProgress,
+} from "@/app/features/strava/api/synchronization";
 
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
@@ -39,7 +42,9 @@ type WidgetOnboardingProps = {
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -60,7 +65,9 @@ export default function WidgetOnboarding({
   const [status, setStatus] = useState<StravaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [importBusy, setImportBusy] = useState(false);
-  const [importProgress, setImportProgress] = useState<SyncProgress | null>(null);
+  const [importProgress, setImportProgress] = useState<SyncProgress | null>(
+    null,
+  );
 
   /* ─── Aktívny plán ─── */
   const [hasActivePlan, setHasActivePlan] = useState(false);
@@ -82,7 +89,9 @@ export default function WidgetOnboarding({
   useEffect(() => {
     dbg("userId =", userId);
     if (!userId) {
-      dbg("userId chýba, čakám - statusLoading/planStatusLoading/prefsStatusLoading zostávajú true");
+      dbg(
+        "userId chýba, čakám - statusLoading/planStatusLoading/prefsStatusLoading zostávajú true",
+      );
       return;
     }
     let alive = true;
@@ -157,9 +166,11 @@ export default function WidgetOnboarding({
   useEffect(() => {
     dbg("push check START", {
       hasWindow: typeof window !== "undefined",
-      hasServiceWorker: typeof navigator !== "undefined" && "serviceWorker" in navigator,
+      hasServiceWorker:
+        typeof navigator !== "undefined" && "serviceWorker" in navigator,
       hasPushManager: typeof window !== "undefined" && "PushManager" in window,
-      isSecureContext: typeof window !== "undefined" ? window.isSecureContext : null,
+      isSecureContext:
+        typeof window !== "undefined" ? window.isSecureContext : null,
       standaloneDisplay:
         typeof window !== "undefined" && window.matchMedia
           ? window.matchMedia("(display-mode: standalone)").matches
@@ -173,16 +184,39 @@ export default function WidgetOnboarding({
       "PushManager" in window
     ) {
       setPushSupported(true);
-      dbg("push check: PushManager je podporovaný, kontrolujem existujúcu subscription");
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => {
-          dbg("push check: existujúca subscription =", !!sub);
-          if (sub) setPushSubscribed(true);
+      dbg(
+        "push check: PushManager je podporovaný, kontrolujem existujúcu registráciu",
+      );
+
+      // POZOR: navigator.serviceWorker.ready sa vyrieši LEN keď už existuje
+      // aktívny SW kontrolujúci stránku - u nového usera/prehliadača bez
+      // predtým registrovaného SW by čakal navždy. getRegistration() sa
+      // vyrieši hneď (vráti undefined, ak SW ešte neexistuje).
+      navigator.serviceWorker
+        .getRegistration()
+        .then((reg) => {
+          if (!reg) {
+            dbg(
+              "push check: žiadna SW registrácia zatiaľ neexistuje - beriem ako nezapnuté",
+            );
+            setPushCheckDone(true);
+            return;
+          }
+          return reg.pushManager.getSubscription().then((sub) => {
+            dbg("push check: existujúca subscription =", !!sub);
+            if (sub) setPushSubscribed(true);
+            setPushCheckDone(true);
+          });
+        })
+        .catch((e) => {
+          console.error("[WidgetOnboarding] push registration check error:", e);
+          dbg("push check FAILED", e);
           setPushCheckDone(true);
         });
-      });
     } else {
-      dbg("push check: PushManager NIE JE podporovaný v tomto prostredí (viď dôvody vyššie)");
+      dbg(
+        "push check: PushManager NIE JE podporovaný v tomto prostredí (viď dôvody vyššie)",
+      );
       setPushSupported(false);
       setPushCheckDone(true);
     }
@@ -344,7 +378,13 @@ export default function WidgetOnboarding({
       }}
     >
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: appColors.textPrimary }}>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: appColors.textPrimary,
+          }}
+        >
           Rozbehni sa so SelfRace
         </div>
         <div style={{ fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
@@ -369,7 +409,8 @@ export default function WidgetOnboarding({
                   size="sm"
                   disabled={!stravaConnectUrl || !canConnect}
                   onClick={() => {
-                    if (stravaConnectUrl) window.location.href = stravaConnectUrl;
+                    if (stravaConnectUrl)
+                      window.location.href = stravaConnectUrl;
                   }}
                   aria-label="Connect with Strava"
                 />
@@ -377,20 +418,29 @@ export default function WidgetOnboarding({
             }
           />
 
-                    <OnboardingStep
+          <OnboardingStep
             status={stepStravaImport}
             title="Importuj aktivity zo Strava"
             description={
               status?.sync_import_window_days
                 ? `Stiahneme posledných ${status.sync_import_window_days} dní${
-                    status?.is_admin_override ? " (rozšírené okno povolené podporou)" : ""
+                    status?.is_admin_override
+                      ? " (rozšírené okno povolené podporou)"
+                      : ""
                   }. Potrebuješ viac? Napíš na support@selfrace.com.`
                 : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad."
             }
             action={
               stepStravaImport === "active" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <Button size="sm" variant="secondary" disabled={importBusy} onClick={handleImport}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={importBusy}
+                    onClick={handleImport}
+                  >
                     {importBusy ? (
                       <span className="inline-flex items-center gap-1">
                         <LoadingSpinner size="button" />
@@ -427,7 +477,11 @@ export default function WidgetOnboarding({
                   variant="secondary"
                   disabled={!pushSupported || pushLoading}
                   onClick={handleEnablePush}
-                  title={!pushSupported ? "Push notifikácie nie sú v tomto prehliadači/kontexte podporované" : undefined}
+                  title={
+                    !pushSupported
+                      ? "Push notifikácie nie sú v tomto prehliadači/kontexte podporované"
+                      : undefined
+                  }
                 >
                   {pushLoading ? (
                     <span className="inline-flex items-center gap-1">
@@ -469,7 +523,11 @@ export default function WidgetOnboarding({
             description="Povedz nám o svojich cieľoch, dostupnom čase a skúsenostiach."
             action={
               stepCoachPrefs === "active" ? (
-                <Button size="sm" variant="secondary" onClick={() => router.push(coachPrefsHref)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => router.push(coachPrefsHref)}
+                >
                   Nastaviť
                 </Button>
               ) : undefined
@@ -482,7 +540,11 @@ export default function WidgetOnboarding({
             description="AI kouč ti pripraví tréningový plán na mieru."
             action={
               stepGeneratePlan === "active" ? (
-                <Button size="sm" variant="primary" onClick={() => router.push(generatePlanHref)}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => router.push(generatePlanHref)}
+                >
                   Generovať plán
                 </Button>
               ) : undefined
