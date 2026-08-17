@@ -76,7 +76,13 @@ export default function ActivitiesCalendar({
   const { plan } = useCoachData();
   const { rows: planRows } = plan;
 
-  const { rows: actRows } = useActivityData();
+  const { rows: actRows, ensureMonthLoaded } = useActivityData();
+
+  // dotiahni dáta pre aktuálne zobrazený mesiac, ak nie je pokrytý
+  // globálnym rolling rangeom providera (napr. mesiac spred 120 dní)
+  React.useEffect(() => {
+    void ensureMonthLoaded(year, month0);
+  }, [year, month0, ensureMonthLoaded]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
