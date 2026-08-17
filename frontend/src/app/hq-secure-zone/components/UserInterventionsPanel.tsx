@@ -2,16 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { listUsersLite } from "../actions";
-import StravaOverrideAction from "./StravaOverrideAction";
 
 type UserLite = { id: number; email: string };
 
-type ActionKey = "strava_import_override";
-// Neskôr sem pridáš napr. "subscription_tier_change"
+import StravaOverrideAction from "./StravaOverrideAction";
+import UserNotificationAction from "./UserNotificationAction";
+
+type ActionKey = "strava_import_override" | "send_notification";
 
 const ACTIONS: { value: ActionKey; label: string }[] = [
   { value: "strava_import_override", label: "Strava — okno importu (override)" },
+  { value: "send_notification", label: "Notifikácia — vybraným používateľom" },
 ];
+
 
 export default function UserInterventionsPanel() {
   const [isOpen, setIsOpen] = useState(false);
@@ -176,6 +179,10 @@ export default function UserInterventionsPanel() {
             {actionType === "strava_import_override" && (
               <StravaOverrideAction userIds={selectedIdsArr} usersById={usersById} />
             )}
+            {actionType === "send_notification" && (
+              <UserNotificationAction userIds={selectedIdsArr} usersById={usersById} />
+            )}
+            
           </div>
         </div>
       </div>
