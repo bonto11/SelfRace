@@ -706,3 +706,43 @@ def service_notify_new_record(
         total_sent += res.get("sent", 0)
 
     return {"success": True, "sent": total_sent, "records_notified": len(records)}
+    
+def service_notify_users(
+    user_ids: List[int], messages: Dict[str, Dict[str, str]], ctx: AuthCtx
+) -> Dict[str, Any]:
+    """
+    Rovnaké ako service_notify_global, ale posiela len vybraným user_ids
+    (admin intervencie na konkrétnych userov namiesto všetkých).
+    """
+    if not messages:
+        return {"success": False, "sent": 0, "message": "Prázdny payload správ."}
+    if not user_ids:
+        return {"success": False, "sent": 0, "message": "Prázdny zoznam user_ids."}
+
+    total_sent = 0
+    per_user: List[Dict[str, Any]] = []
+
+    for user_id in user_ids:
+        if not user_id:
+            continue
+        lang = _get_user_language(user_id, ctx)
+        user_msg = (
+            messages.get(lang)
+            or messages.get("en")
+            or next(iter(messages.values()), None)
+        )
+        if not user_msg:
+            continue
+        res = service_send_push_notification(
+            user_id=user_id,
+            title=user_msg.get("title", "Oznámenie"),
+            body=user_msg.get("body", ""),
+            url=user_msg.get("url", "/"),
+            ctx=ctx,
+        )
+        sent = res.get("sent", 0)
+        total_sent += sent
+        per_user.append({"user_id": user_id, "sent": sent, "failed": res.get("failed", 0)})
+
+    return {"success": True, "sent": total_sent, "per_user": per_user}
+
