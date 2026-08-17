@@ -429,28 +429,24 @@ export default function StravaPanel() {
               disabled={importDisabled}
               onClick={handleImportFromStrava}
             >
-              {busy === "import" && (
-                <div style={{ marginTop: 10 }}>
-                  <ProgressBar
-                    value={importProgress?.progress ?? 0}
-                    label={formatSyncProgressLabel(
-                      importProgress,
-                      "Importujem...",
-                    )}
-                  />
-                </div>
+              {busy === "import" ? (
+                <span className="inline-flex items-center gap-1">
+                  <LoadingSpinner size="button" />
+                  {t("strava.import.loading")}
+                </span>
+              ) : (
+                `${t("strava.import.button")}${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
               )}
             </Button>
 
-            {busy === "import" && importProgress && (
+            {busy === "import" && (
               <div style={{ marginTop: 10 }}>
                 <ProgressBar
-                  value={importProgress.progress}
-                  label={
-                    importProgress.status === "queued"
-                      ? "Čaká sa na spustenie..."
-                      : `Importujem... ${importProgress.progress}%`
-                  }
+                  value={importProgress?.progress ?? 0}
+                  label={formatSyncProgressLabel(
+                    importProgress,
+                    "Importujem...",
+                  )}
                 />
               </div>
             )}
