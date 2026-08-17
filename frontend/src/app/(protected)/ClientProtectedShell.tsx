@@ -35,6 +35,10 @@ import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationP
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
 
 import { useUserId } from "@/app/shared/hooks/useUserId";
+import {
+  AppHeaderOffsetProvider,
+  PROTECTED_GLOBAL_HEADER_HEIGHT_PX,
+} from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
 export default function ClientProtectedShell({
   children,
@@ -98,7 +102,7 @@ export default function ClientProtectedShell({
   }, [pathname, setSidebarOpen]);
 
   return (
-    <>
+    <AppHeaderOffsetProvider value={PROTECTED_GLOBAL_HEADER_HEIGHT_PX}>
       <UserPrefsBootstrapper />
       <UserSettingsBootstrapper />
 
@@ -119,10 +123,6 @@ export default function ClientProtectedShell({
                 <div
                   className="flex flex-col relative"
                   style={{
-                    // 🔧 FIX: namiesto statického 100dvh sa výška naviaže na
-                    // --app-vh (aktuálna visuálna výška z visualViewport),
-                    // s fallbackom na 100dvh kým JS efekt vyššie nenabehne
-                    // alebo ak visualViewport API nie je podporované.
                     height: "var(--app-vh, 100dvh)",
                     overflow: "hidden",
                     background: appColors.backgroundMain,
@@ -208,6 +208,6 @@ export default function ClientProtectedShell({
 
       <ToastHost />
       <ConfirmHost />
-    </>
+    </AppHeaderOffsetProvider>
   );
 }

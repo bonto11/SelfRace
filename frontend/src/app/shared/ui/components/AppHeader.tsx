@@ -22,6 +22,7 @@ import {
 } from "@/app/shared/ui/tokens/header";
 
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
+import { useAppHeaderOffset } from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
 type Props = {
   title?: string;
@@ -37,12 +38,10 @@ type Props = {
   rightSlot?: React.ReactNode;
   showPoweredByStrava?: boolean;
   poweredByStravaVariant?: "white" | "orange";
-  // 🌟 NOVÝ prop - zavolá sa so skutočnou výškou headeru po vykreslení,
+  // 🌟 zavolá sa so skutočnou výškou headeru po vykreslení,
   // aby ho PageShell mohol použiť na presné odsadenie obsahu.
   onHeightChange?: (heightPx: number) => void;
 };
-
-const GLOBAL_HEADER_HEIGHT_PX = 56;
 
 export default function AppHeader({
   title,
@@ -62,6 +61,11 @@ export default function AppHeader({
 }: Props) {
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Offset zhora - 56px na protected stránkach (pod globálnou hlavičkou s
+  // logom a UserMenu), 0 na stránkach mimo protected layoutu (žiadna taká
+  // hlavička tam nie je). Pozri AppHeaderOffsetContext.
+  const topOffsetPx = useAppHeaderOffset();
 
   useEffect(() => {
     if (!onHeightChange || !wrapRef.current) return;
@@ -126,7 +130,7 @@ export default function AppHeader({
         sticky
           ? {
               position: "fixed",
-              top: `calc(${GLOBAL_HEADER_HEIGHT_PX}px + env(safe-area-inset-top))`,
+              top: `calc(${topOffsetPx}px + env(safe-area-inset-top))`,
               left: 0,
               right: 0,
               zIndex: 40,
