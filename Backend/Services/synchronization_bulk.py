@@ -70,6 +70,7 @@ def import_activities_bulk(
     #    okno, ignorujeme akýkoľvek starý resume cursor a bežíme čerstvo.
     admin_override = db_get_strava_admin_override(user_id=user_id, ctx=ctx)
     admin_override_days = admin_override["days"] if admin_override else None
+    print(f"[SYNC_DEBUG] user_id={user_id} admin_override={admin_override} admin_override_days={admin_override_days}")
 
     resume_cursor = None
     if not admin_override_days:
@@ -128,6 +129,8 @@ def import_activities_bulk(
     to_upsert: List[Dict[str, Any]] = []
 
     page = start_page
+
+    print(f"[SYNC_DEBUG] user_id={user_id} FINAL plan: kind={plan_kind} days_back={plan_days_back} max_activities={max_activities} resumed={resumed}")
 
     while True:
         try:

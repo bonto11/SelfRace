@@ -10,8 +10,12 @@ import ProgressBar from "@/app/shared/ui/components/ProgressBar";
 import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
-import { apiSyncActivities, type SyncProgress } from "@/app/features/strava/api/synchronization";
+import {
+  apiSyncActivities,
+  type SyncProgress,
+} from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
+import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 
 import {
   apiGetStravaStatus,
@@ -56,7 +60,9 @@ export default function StravaPanel() {
   const [status, setStatus] = useState<StravaStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
 
-  const [importProgress, setImportProgress] = useState<SyncProgress | null>(null);
+  const [importProgress, setImportProgress] = useState<SyncProgress | null>(
+    null,
+  );
 
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState(false);
@@ -115,7 +121,7 @@ export default function StravaPanel() {
       } else if (reason === "reconnect_cooldown") {
         toast.error(
           reconnectAfter
-            ? `${t("strava.toasts.reconnectAfter")} ${reconnectAfter}`
+            ? `${t("strava.toasts.reconnectAfter")} ${parseAndFormatPrettyDate(reconnectAfter)}`
             : t("strava.toasts.reconnectCooldownDefault"),
           Infinity,
         );
@@ -243,7 +249,9 @@ export default function StravaPanel() {
   const importDisabled =
     !userId || busy === "import" || !connected || !importAllowed;
 
-  const reconnectAfterLabel = fmtIsoLocal(status?.reconnect_after ?? null);
+  const reconnectAfterLabel = parseAndFormatPrettyDate(
+    status?.reconnect_after ?? null,
+  );
 
   const syncWindowLabel =
     connected && typeof syncDays === "number" && syncDays > 0
@@ -408,7 +416,10 @@ export default function StravaPanel() {
                 Potrebuješ importovať väčší rozsah? Napíš nám na{" "}
                 <a
                   href="mailto:support@selfrace.com"
-                  style={{ color: appColors.textSecondary, textDecoration: "underline" }}
+                  style={{
+                    color: appColors.textSecondary,
+                    textDecoration: "underline",
+                  }}
                 >
                   support@selfrace.com
                 </a>

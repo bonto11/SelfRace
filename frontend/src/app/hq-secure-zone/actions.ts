@@ -291,3 +291,34 @@ export async function clearStravaOverride(userId: number) {
   }
   return result;
 }
+
+export async function getStravaAdminStatus(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/api/strava/admin/status/${userId}`, {
+    method: "GET",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+    cache: "no-store",
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať stav");
+  }
+  return result?.status ?? null;
+}
+
+export async function clearStravaReconnectCooldown(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/api/strava/admin/clear-cooldown/${userId}`, {
+    method: "POST",
+    headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa zrušiť cooldown");
+  }
+  return result;
+}

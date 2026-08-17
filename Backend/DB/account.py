@@ -174,15 +174,17 @@ def db_get_strava_admin_override(
     )
     rows = getattr(resp, "data", None) or []
     row = rows[0] if rows else None
+    print(f"[ADMIN_OVERRIDE_DEBUG] user_id={user_id} raw_row={row}")
     if not row or not row.get("admin_override_days"):
+        print(f"[ADMIN_OVERRIDE_DEBUG] user_id={user_id} -> NO override (row missing or days falsy)")
         return None
-    return {
+    result = {
         "days": int(row["admin_override_days"]),
         "note": row.get("admin_override_note"),
         "granted_at": row.get("admin_override_granted_at"),
     }
-
-
+    print(f"[ADMIN_OVERRIDE_DEBUG] user_id={user_id} -> override FOUND: {result}")
+    return result
 def db_set_strava_admin_override(
     user_id: int, days: int, note: Optional[str], *, ctx: AuthCtx
 ) -> bool:
@@ -222,3 +224,38 @@ def db_clear_strava_admin_override(user_id: int, *, ctx: AuthCtx) -> bool:
     )
     rows = getattr(resp, "data", None) or []
     return bool(rows)
+
+def db_admin_clear_strava_reconnect_cooldown(user_id: int, *, ctx: AuthCtx) -> bool:
+    """
+    Admin akcia: okamžite zruší reconnect cooldown (24h od deauthorized_at)
+    tým, že deauthorized_at nastaví na None. Nezasahuje do access/refresh
+    tokenov - tie ostávajú tak ako sú (zvyčajne purgnuté pri disconnecte),
+    takže user si aj tak musí prejsť OAuth flow znova, len naň nebude
+    čakať zvyšok cooldownu.
+    """
+    sb = get_sb(ctx, caller="account.db_admin_clear_strava_reconnect_cooldown")
+    resp = (
+        sb.table(TABLE_STRAVA_ACCOUNTS)
+        .update({"deauthorized_at": None})
+        .eq("user_id", int(user_id))
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return bool(rows)
+
+
+def db_get_strava_admin_status(user_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Raw stav pre admin diagnostiku - service-mode, obchádza RLS."""
+    sb = get_sb(ctx, caller="account.db_get_strava_admin_status")
+    resp = (
+        sb.table(TABLE_STRAVA_ACCOUNTS)
+        .select(
+            "athlete_id, expires_at, deauthorized_at, access_token, refresh_token, "
+            "ever_synced_at, admin_override_days, admin_override_note, admin_override_granted_at"
+        )
+        .eq("user_id", int(user_id))
+        .limit(1)
+        .execute()
+    )
+    rows = getattr(resp, "data", None) or []
+    return rows[0] if rows else None

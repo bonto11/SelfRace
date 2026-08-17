@@ -14,7 +14,12 @@ type AsyncJobRow = {
   progress: number;
   error: string | null;
   result: any | null;
-  progress_cursor?: any | null;
+  progress_cursor?: {
+    total_fetched?: number;
+    plan_max_activities?: number;
+    plan_days_back?: number;
+    plan_kind?: string;
+  } | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -43,6 +48,8 @@ export type SyncProgress = {
   progress: number; // 0-100
   status: string; // "queued" | "running" | "succeeded" | "failed"
   error?: string | null;
+  fetchedCount?: number | null;
+  maxActivities?: number | null;
 };
 
 export type SyncActivitiesStatsExt = SyncActivitiesStats & {
@@ -97,6 +104,23 @@ export async function apiSyncActivities(
 
   const jobId = enqueueJson.job.id;
 
+  function reportFromJob(job: AsyncJobRow) {
+    if (!onProgress) return;
+    onProgress({
+      progress: typeof job.progress === "number" ? job.progress : 0,
+      status: job.status,
+      error: job.error ?? null,
+      fetchedCount:
+        typeof job.progress_cursor?.total_fetched === "number"
+          ? job.progress_cursor.total_fetched
+          : null,
+      maxActivities:
+        typeof job.progress_cursor?.plan_max_activities === "number"
+          ? job.progress_cursor.plan_max_activities
+          : null,
+    });
+  }
+
   // 2) Súbežný polling na progress, kým beží /jobs/run (ten request samotný
   // je na backende blokujúci až do dokončenia jobu, takže progress vidíme
   // len cez samostatné /jobs/status requesty počas jeho behu).
@@ -112,13 +136,7 @@ export async function apiSyncActivities(
           { method: "GET", cache: "no-store" },
         );
         const job = statusJson?.job;
-        if (job && onProgress) {
-          onProgress({
-            progress: typeof job.progress === "number" ? job.progress : 0,
-            status: job.status,
-            error: job.error ?? null,
-          });
-        }
+        if (job) reportFromJob(job);
       } catch {
         // chyby pri pollingu ignorujeme, skúsime znova o sekundu
       }
@@ -147,7 +165,7 @@ export async function apiSyncActivities(
 
   if (!runJson?.success || !runJson.job) {
     const errMsg = runJson?.error || runJson?.job?.error || "Sync job run failed";
-    onProgress?.({ progress: runJson?.job?.progress ?? 0, status: "failed", error: errMsg });
+    if (runJson?.job) reportFromJob(runJson.job);
     throw new Error(errMsg);
   }
 
@@ -165,7 +183,13 @@ export async function apiSyncActivities(
     throw new Error("Sync job finished but stats are missing");
   }
 
-  onProgress?.({ progress: 100, status: "succeeded", error: null });
+  onProgress?.({
+    progress: 100,
+    status: "succeeded",
+    error: null,
+    fetchedCount: stats.fetched ?? null,
+    maxActivities: (result as any).plan?.max_activities ?? null,
+  });
 
   return {
     imported: stats.imported ?? 0,

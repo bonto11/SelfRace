@@ -9,6 +9,7 @@ import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
 
 import {
   apiGetStravaStatus,
@@ -32,6 +33,8 @@ function dbg(...args: any[]) {
   if (DEBUG) console.log("[WidgetOnboarding]", ...args);
 }
 
+const SUPPORT_NOTE = "Ak chceš niečo skôr alebo viac, neváhaj napísať na support@selfrace.com.";
+
 type StepStatus = "done" | "active" | "locked";
 
 type WidgetOnboardingProps = {
@@ -51,6 +54,15 @@ function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+function progressLabel(p: SyncProgress | null): string {
+  if (!p) return "Čaká sa na spustenie...";
+  if (p.status === "queued") return "Čaká sa na spustenie...";
+  if (typeof p.fetchedCount === "number" && typeof p.maxActivities === "number" && p.maxActivities > 0) {
+    return `${p.progress}% • ${p.fetchedCount}/${p.maxActivities} aktivít`;
+  }
+  return `${p.progress}%`;
 }
 
 export default function WidgetOnboarding({
@@ -188,10 +200,6 @@ export default function WidgetOnboarding({
         "push check: PushManager je podporovaný, kontrolujem existujúcu registráciu",
       );
 
-      // POZOR: navigator.serviceWorker.ready sa vyrieši LEN keď už existuje
-      // aktívny SW kontrolujúci stránku - u nového usera/prehliadača bez
-      // predtým registrovaného SW by čakal navždy. getRegistration() sa
-      // vyrieši hneď (vráti undefined, ak SW ešte neexistuje).
       navigator.serviceWorker
         .getRegistration()
         .then((reg) => {
@@ -226,7 +234,9 @@ export default function WidgetOnboarding({
   const stravaConnectUrl = userId ? getStravaConnectUrl(userId) : null;
   const canConnect = canConnectStravaNow(status);
   const importDone = !!status?.ever_synced_at;
-
+  const reconnectAfterLabel = status?.reconnect_after
+  ? parseAndFormatPrettyDate(status.reconnect_after)
+  : null;
   async function handleImport() {
     if (!userId || importBusy || !connected) return;
     setImportBusy(true);
@@ -365,6 +375,22 @@ export default function WidgetOnboarding({
       ? "active"
       : "locked";
 
+  const connectDescription = (() => {
+    if (connected) return "Tvoje aktivity sa budú automaticky synchronizovať.";
+    if (!canConnect && reconnectAfterLabel) {
+      return `Pripojenie je dočasne zablokované, skús to znova ${reconnectAfterLabel}. ${SUPPORT_NOTE}`;
+    }
+    return "Tvoje aktivity sa budú automaticky synchronizovať.";
+  })();
+
+  const importDescription = status?.sync_import_window_days
+    ? `Stiahneme posledných ${status.sync_import_window_days} dní${
+        status?.is_admin_override
+          ? " (rozšírené okno povolené podporou)"
+          : ""
+      }. ${SUPPORT_NOTE}`
+    : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad.";
+
   return (
     <section
       style={{
@@ -401,7 +427,7 @@ export default function WidgetOnboarding({
           <OnboardingStep
             status={stepStravaConnect}
             title="Pripoj Strava účet"
-            description="Tvoje aktivity sa budú automaticky synchronizovať."
+            description={connectDescription}
             action={
               stepStravaConnect !== "done" ? (
                 <Button
@@ -421,15 +447,7 @@ export default function WidgetOnboarding({
           <OnboardingStep
             status={stepStravaImport}
             title="Importuj aktivity zo Strava"
-            description={
-              status?.sync_import_window_days
-                ? `Stiahneme posledných ${status.sync_import_window_days} dní${
-                    status?.is_admin_override
-                      ? " (rozšírené okno povolené podporou)"
-                      : ""
-                  }. Potrebuješ viac? Napíš na support@selfrace.com.`
-                : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad."
-            }
+            description={importDescription}
             action={
               stepStravaImport === "active" ? (
                 <div
@@ -450,14 +468,10 @@ export default function WidgetOnboarding({
                       "Importovať aktivity"
                     )}
                   </Button>
-                  {importBusy && importProgress && (
+                  {importBusy && (
                     <ProgressBar
-                      value={importProgress.progress}
-                      label={
-                        importProgress.status === "queued"
-                          ? "Čaká sa na spustenie..."
-                          : `${importProgress.progress}%`
-                      }
+                      value={importProgress?.progress ?? 0}
+                      label={progressLabel(importProgress)}
                     />
                   )}
                 </div>

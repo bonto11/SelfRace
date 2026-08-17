@@ -46,9 +46,9 @@ def decide_sync_plan(
     ever_synced_at: Optional[datetime],
     admin_override_days: Optional[int] = None,
 ) -> SyncPlan:
-    # Admin override má vždy prednosť pred normálnou logikou - support case,
-    # kde adminovi napísal user, že potrebuje väčšie/iné okno importu.
+    print(f"[DECIDE_PLAN_DEBUG] last_activity_dt={last_activity_dt} ever_synced_at={ever_synced_at} admin_override_days={admin_override_days}")
     if admin_override_days:
+        print(f"[DECIDE_PLAN_DEBUG] -> using admin_override, days_back={admin_override_days}")
         return SyncPlan(
             kind="admin_override",
             days_back=int(admin_override_days),
