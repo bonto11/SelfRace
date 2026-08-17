@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from fastapi import APIRouter, HTTPException, Query, Depends, Request, BackgroundTasks
 
 from Schemas.async_jobs import (
     EnqueueJobPayload,
@@ -132,29 +132,60 @@ def run_job(
     req: Request,
     user_id: int,
     job_id: int,
+    background_tasks: BackgroundTasks,
 ) -> Dict[str, Any]:
+    """
+    DÔLEŽITÉ: tento endpoint už NEČAKÁ na dokončenie jobu synchrónne.
+
+    Predtým bežal celý job (napr. bulk sync stoviek/tisícok aktivít vrátane
+    enrichmentu) v rámci jedného HTTP requestu - pri dlhších behoch (1000+
+    aktivít) to prekračovalo proxy/gateway timeout, spojenie sa prerušilo
+    skôr než server stihol poslať response headers, a prehliadač to nahlásil
+    ako zavádzajúcu "CORS blocked" chybu (v skutočnosti šlo o prerušené
+    spojenie, nie o CORS problém) - job pritom na serveri bežal ďalej.
+
+    Teraz sa job spustí na pozadí (BackgroundTasks) a request sa vráti
+    okamžite. FE zisťuje finálny výsledok výhradne cez polling
+    /jobs/status/{user_id}/{job_id}, nie z odpovede tohto endpointu.
+    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
-        out = service_run_job_now(
-            user_id=user_id,
-            job_id=job_id,
-            worker_id="api_run",
-            ctx=ctx,
-        )
+
+        job = db_get_job_by_id(user_id=user_id, job_id=job_id, ctx=ctx)
+        if not job:
+            return {"success": False, "job": None, "error": "job_not_found"}
+
+        status = str(job.get("status") or "")
+        if status not in ("queued", "running"):
+            return {"success": False, "job": job, "error": f"job_not_runnable (status={status})"}
+
+        def _run_in_background(uid: int, jid: int) -> None:
+            try:
+                service_run_job_now(
+                    user_id=uid,
+                    job_id=jid,
+                    worker_id="api_run_bg",
+                    ctx=ctx,
+                )
+            except Exception as e:  # noqa: BLE001
+                print(f"[JOBS] background run failed user_id={uid} job_id={jid}: {e}")
+
+        background_tasks.add_task(_run_in_background, user_id, job_id)
+
         return {
-            "success": out.get("error") is None,
-            "job": out.get("job"),
-            "error": out.get("error"),
+            "success": True,
+            "job": job,
+            "error": None,
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/status/{user_id}/{job_id}")
 def get_job_status(req: Request, user_id: int, job_id: int):
     """
-    Vráti aktuálny stav asynchrónneho jobu. Používa sa na frontend polling, 
-    ak hlavný /jobs/run request spadne na timeoute.
+    Vráti aktuálny stav asynchrónneho jobu. Toto je teraz jediný spôsob,
+    ako FE zistí finálny výsledok dlho bežiaceho jobu (viď /run endpoint).
     """
     try:
         ctx = require_user(get_auth_ctx(req))
@@ -163,7 +194,6 @@ def get_job_status(req: Request, user_id: int, job_id: int):
         if not job:
             return {"success": False, "error_code": "NOT_FOUND", "message": "Job not found"}
         
-        # Očistíme sensitive dáta ak treba, alebo len vrátime job
         from Services.async_jobs import _scrub_dict
         clean_job = _scrub_dict(job)
         

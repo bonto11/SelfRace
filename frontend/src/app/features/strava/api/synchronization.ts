@@ -60,6 +60,12 @@ export type SyncActivitiesStatsExt = SyncActivitiesStats & {
   plan_kind?: string | null;
 };
 
+const POLL_INTERVAL_MS = 1200;
+// Poistka proti nekonečnému čakaniu, ak by job zostal trvalo zaseknutý
+// (napr. worker proces spadol) - 45 minút by malo pokryť aj veľmi veľké
+// importy (tisíce aktivít + enrichment).
+const MAX_POLL_MS = 45 * 60 * 1000;
+
 export async function apiSyncActivities(
   userId: number,
   opts: SyncActivitiesOptions = {},
@@ -125,55 +131,67 @@ export async function apiSyncActivities(
     });
   }
 
-  // 2) Súbežný polling na progress, kým beží /jobs/run (ten request samotný
-  // je na backende blokujúci až do dokončenia jobu, takže progress vidíme
-  // len cez samostatné /jobs/status requesty počas jeho behu).
-  let polling = true;
-
-  const pollLoop = async () => {
-    while (polling) {
-      await new Promise((r) => setTimeout(r, 1200));
-      if (!polling) break;
-      try {
-        const statusJson = await callBackend<JobStatusResponse>(
-          `/jobs/status/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`,
-          { method: "GET", cache: "no-store" },
-        );
-        const job = statusJson?.job;
-        if (job) reportFromJob(job);
-      } catch {
-        // chyby pri pollingu ignorujeme, skúsime znova o sekundu
-      }
-    }
-  };
-  void pollLoop();
-
-  // 3) RUN NOW (blokujúci request, dobehne až keď je job hotový)
+  // 2) TRIGGER RUN — server teraz spustí job na pozadí (BackgroundTasks) a
+  // vráti sa OKAMŽITE, nečaká na dokončenie. Toto je zámerné: dlho bežiace
+  // joby (bulk import stoviek/tisícok aktivít + enrichment) predtým
+  // prekračovali proxy timeout, čo prehliadač nahlásil ako zavádzajúcu
+  // "CORS blocked" chybu namiesto skutočného network/timeout problému.
   const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(
     String(jobId)
   )}`;
 
-  let runJson: RunJobResponse;
   try {
-    runJson = await callBackend<RunJobResponse>(runPath, {
+    await callBackend<RunJobResponse>(runPath, {
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: any) {
-    polling = false;
-    console.error("[Activities][apiSyncActivities] run ERROR", e);
+    console.error("[Activities][apiSyncActivities] run trigger ERROR", e);
     throw e instanceof Error ? e : new Error(String(e));
   }
-  polling = false;
 
-  if (!runJson?.success || !runJson.job) {
-    const errMsg = runJson?.error || runJson?.job?.error || "Sync job run failed";
-    if (runJson?.job) reportFromJob(runJson.job);
+  // 3) POLL až do dokončenia — toto je teraz JEDINÝ spôsob, ako zistíme
+  // finálny výsledok (progress aj status aj result/error).
+  const startedAt = Date.now();
+  let finalJob: AsyncJobRow | null = null;
+
+  while (Date.now() - startedAt < MAX_POLL_MS) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+    let statusJson: JobStatusResponse;
+    try {
+      statusJson = await callBackend<JobStatusResponse>(
+        `/jobs/status/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`,
+        { method: "GET", cache: "no-store" },
+      );
+    } catch (e) {
+      // sieťová chyba pri pollingu - skús znova o sekundu, nezhadzuj celý import
+      continue;
+    }
+
+    const job = statusJson?.job;
+    if (!job) continue;
+
+    reportFromJob(job);
+
+    if (job.status === "succeeded" || job.status === "failed") {
+      finalJob = job;
+      break;
+    }
+  }
+
+  if (!finalJob) {
+    onProgress?.({ progress: 0, status: "failed", error: "timeout" });
+    throw new Error("Sync job did not finish in time");
+  }
+
+  if (finalJob.status === "failed") {
+    const errMsg = finalJob.error || "Sync job run failed";
     throw new Error(errMsg);
   }
 
-  const result = runJson.job.result;
+  const result = finalJob.result;
 
   if (!result || typeof result !== "object") {
     onProgress?.({ progress: 0, status: "failed", error: "empty_result" });
