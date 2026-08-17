@@ -7,6 +7,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -294,6 +295,17 @@ function toCsvSportParam(
   return list.length ? list.join(",") : "all";
 }
 
+function toIsoDateLocal(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function monthKey(year: number, month0: number): string {
+  return `${year}-${String(month0 + 1).padStart(2, "0")}`;
+}
+
 /* ------------------------------ Context ------------------------------ */
 
 type FetchOpts = { fetch?: boolean };
@@ -347,6 +359,11 @@ type Ctx = {
     weeks: number,
     sport?: string | string[] | null,
   ) => Promise<ParetoTrendResponse>;
+
+  // 🌟 nové: zabezpečí, že daný mesiac (kalendárny, 1.–posledný deň) je
+  // pokrytý v `rows`. Ak je celý v rámci rolling `rangeStart..rangeEnd`,
+  // nič sa nedeje. Inak dotiahne len chýbajúci mesiac a zmerguje do rows.
+  ensureMonthLoaded: (year: number, month0: number) => Promise<void>;
 };
 
 const ActivityDataContext = createContext<Ctx | null>(null);
@@ -416,6 +433,73 @@ export function ActivityDataProvider({
     }
     void fetchRange(false);
   }, [userId, rangeStart, rangeEnd, fetchRange]);
+
+  // ------------------------------ ensureMonthLoaded ------------------------------
+  // sledovanie, ktoré mesiace už boli explicitne dotiahnuté (a ktoré práve fetchujeme)
+  const loadedMonthsRef = useRef<Set<string>>(new Set());
+  const inFlightMonthsRef = useRef<Set<string>>(new Set());
+
+  // reset pri zmene používateľa (nové rows, iný kontext)
+  useEffect(() => {
+    loadedMonthsRef.current.clear();
+    inFlightMonthsRef.current.clear();
+  }, [userId]);
+
+  const ensureMonthLoaded = useCallback(
+    async (year: number, month0: number) => {
+      if (userId == null) return;
+
+      const key = monthKey(year, month0);
+
+      const firstOfMonth = new Date(year, month0, 1);
+      const lastOfMonth = new Date(year, month0 + 1, 0);
+      const monthStart = toIsoDateLocal(firstOfMonth);
+      const monthEnd = toIsoDateLocal(lastOfMonth);
+
+      // mesiac je celý v rámci globálneho rolling rangeu -> netreba nič robiť
+      if (monthStart >= rangeStart && monthEnd <= rangeEnd) return;
+
+      // už dotiahnuté alebo práve prebieha fetch
+      if (loadedMonthsRef.current.has(key)) return;
+      if (inFlightMonthsRef.current.has(key)) return;
+
+      inFlightMonthsRef.current.add(key);
+      try {
+        let activities: ActivityRow[];
+
+        const cached = loadRange(userId, monthStart, monthEnd);
+        if (cached && Array.isArray(cached)) {
+          activities = cached;
+        } else {
+          const res = await apiFetchRange(userId, monthStart, monthEnd);
+          activities = Array.isArray(res) ? res : (res as any)?.data || [];
+          saveRange(userId, monthStart, monthEnd, activities);
+        }
+
+        setRows((prev) => {
+          const merged = new Map<string, ActivityRow>();
+          for (const r of prev) {
+            const id = (r as any)?.activity_id;
+            merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
+          }
+          for (const r of activities) {
+            const id = (r as any)?.activity_id;
+            merged.set(id != null ? `id:${id}` : JSON.stringify(r), r);
+          }
+          return Array.from(merged.values());
+        });
+
+        loadedMonthsRef.current.add(key);
+      } catch (err: any) {
+        const translatedError =
+          t(err?.message as any) || t("api.common.fetchFailed");
+        toast.error(translatedError);
+      } finally {
+        inFlightMonthsRef.current.delete(key);
+      }
+    },
+    [userId, rangeStart, rangeEnd, t],
+  );
 
   const weeks = useMemo(() => aggregateWeeks(rows), [rows]);
 
@@ -730,6 +814,7 @@ export function ActivityDataProvider({
       rolling7,
       getParetoWidget,
       getParetoTrend,
+      ensureMonthLoaded,
     }),
     [
       rangeStart,
@@ -747,6 +832,7 @@ export function ActivityDataProvider({
       rolling7,
       getParetoWidget,
       getParetoTrend,
+      ensureMonthLoaded,
     ],
   );
 
