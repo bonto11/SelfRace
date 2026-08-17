@@ -33,7 +33,8 @@ function dbg(...args: any[]) {
   if (DEBUG) console.log("[WidgetOnboarding]", ...args);
 }
 
-const SUPPORT_NOTE = "Ak chceš niečo skôr alebo viac, neváhaj napísať na support@selfrace.com.";
+const SUPPORT_NOTE =
+  "Ak chceš niečo skôr alebo viac, neváhaj napísať na support@selfrace.com.";
 
 type StepStatus = "done" | "active" | "locked";
 
@@ -59,7 +60,11 @@ function urlBase64ToUint8Array(base64String: string) {
 function progressLabel(p: SyncProgress | null): string {
   if (!p) return "Čaká sa na spustenie...";
   if (p.status === "queued") return "Čaká sa na spustenie...";
-  if (typeof p.fetchedCount === "number" && typeof p.maxActivities === "number" && p.maxActivities > 0) {
+  if (
+    typeof p.fetchedCount === "number" &&
+    typeof p.maxActivities === "number" &&
+    p.maxActivities > 0
+  ) {
     return `${p.progress}% • ${p.fetchedCount}/${p.maxActivities} aktivít`;
   }
   return `${p.progress}%`;
@@ -233,10 +238,20 @@ export default function WidgetOnboarding({
   const connected = !!status?.connected;
   const stravaConnectUrl = userId ? getStravaConnectUrl(userId) : null;
   const canConnect = canConnectStravaNow(status);
-  const importDone = !!status?.ever_synced_at;
+  // Dôležité: ever_synced_at sa nikdy nereseneuje (má to tak zostať - je to
+  // anti-abuse ochrana proti opakovanému disconnect/reconnect kvôli Strava
+  // limitom), takže samotné nestačí ako signál "dáta sú tu". Kombinujeme ho
+  // s connected (nemôže byť "done", keď je Strava odpojená - v DB nemôžeme
+  // nič mať) a s sync_import_kind, ktorý BE počíta priamo z reálnej
+  // prítomnosti aktivít v activities_summary (last_activity_dt), takže presne
+  // odzrkadľuje, či dáta reálne existujú, aj po reconnecte s vymazanými dátami.
+  const importDone =
+    connected &&
+    (status?.sync_import_kind === "manual" ||
+      status?.sync_import_kind === "quick");
   const reconnectAfterLabel = status?.reconnect_after
-  ? parseAndFormatPrettyDate(status.reconnect_after)
-  : null;
+    ? parseAndFormatPrettyDate(status.reconnect_after)
+    : null;
   async function handleImport() {
     if (!userId || importBusy || !connected) return;
     setImportBusy(true);
@@ -385,9 +400,7 @@ export default function WidgetOnboarding({
 
   const importDescription = status?.sync_import_window_days
     ? `Stiahneme posledných ${status.sync_import_window_days} dní${
-        status?.is_admin_override
-          ? " (rozšírené okno povolené podporou)"
-          : ""
+        status?.is_admin_override ? " (rozšírené okno povolené podporou)" : ""
       }. ${SUPPORT_NOTE}`
     : "Stiahneme tvoje posledné tréningy, aby mal kouč o tebe prehľad.";
 
