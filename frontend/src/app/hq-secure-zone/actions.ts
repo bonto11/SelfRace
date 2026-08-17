@@ -322,3 +322,30 @@ export async function clearStravaReconnectCooldown(userId: number) {
   }
   return result;
 }
+
+export async function sendUserNotification(userIds: number[], payload: any) {
+  await verifyAdmin();
+
+  if (!userIds || userIds.length === 0) {
+    throw new Error("Nie je vybraný žiadny používateľ");
+  }
+
+  const response = await fetch(`${API_URL}/notifications/user`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    body: JSON.stringify({
+      user_ids: userIds,
+      ...payload,
+    }),
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.detail || "Chyba pri odosielaní notifikácie");
+  }
+
+  return { success: true, result };
+}
