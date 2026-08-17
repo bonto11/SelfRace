@@ -12,6 +12,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiSyncActivities,
+  formatSyncProgressLabel,
   type SyncProgress,
 } from "@/app/features/strava/api/synchronization";
 import type { SyncActivitiesStats } from "@/app/features/activities/types/synchronization";
@@ -46,11 +47,6 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 type BusyKind = "import" | "disconnect" | null;
-
-function fmtIsoLocal(iso?: string | null): string | null {
-  if (!iso) return null;
-  return iso;
-}
 
 export default function StravaPanel() {
   const { userId } = useUserId();
@@ -93,7 +89,6 @@ export default function StravaPanel() {
     }
   }
 
-  
   useEffect(() => {
     if (!userId) {
       setStatus(null);
@@ -434,13 +429,16 @@ export default function StravaPanel() {
               disabled={importDisabled}
               onClick={handleImportFromStrava}
             >
-              {busy === "import" ? (
-                <span className="inline-flex items-center gap-1">
-                  <LoadingSpinner size="button" />
-                  {t("strava.import.loading")}
-                </span>
-              ) : (
-                `${t("strava.import.button")}${importAllowed && syncWindowLabel ? ` (${syncWindowLabel})` : ""}`
+              {busy === "import" && (
+                <div style={{ marginTop: 10 }}>
+                  <ProgressBar
+                    value={importProgress?.progress ?? 0}
+                    label={formatSyncProgressLabel(
+                      importProgress,
+                      "Importujem...",
+                    )}
+                  />
+                </div>
               )}
             </Button>
 

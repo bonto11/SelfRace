@@ -18,7 +18,9 @@ type AsyncJobRow = {
     total_fetched?: number;
     plan_max_activities?: number;
     plan_days_back?: number;
+    days_covered?: number;
     plan_kind?: string;
+    phase?: string;
   } | null;
   created_at: string;
   started_at: string | null;
@@ -48,8 +50,9 @@ export type SyncProgress = {
   progress: number; // 0-100
   status: string; // "queued" | "running" | "succeeded" | "failed"
   error?: string | null;
-  fetchedCount?: number | null;
-  maxActivities?: number | null;
+  daysCovered?: number | null;
+  planDaysBack?: number | null;
+  phase?: string | null;
 };
 
 export type SyncActivitiesStatsExt = SyncActivitiesStats & {
@@ -110,14 +113,15 @@ export async function apiSyncActivities(
       progress: typeof job.progress === "number" ? job.progress : 0,
       status: job.status,
       error: job.error ?? null,
-      fetchedCount:
-        typeof job.progress_cursor?.total_fetched === "number"
-          ? job.progress_cursor.total_fetched
+      daysCovered:
+        typeof job.progress_cursor?.days_covered === "number"
+          ? job.progress_cursor.days_covered
           : null,
-      maxActivities:
-        typeof job.progress_cursor?.plan_max_activities === "number"
-          ? job.progress_cursor.plan_max_activities
+      planDaysBack:
+        typeof job.progress_cursor?.plan_days_back === "number"
+          ? job.progress_cursor.plan_days_back
           : null,
+      phase: job.progress_cursor?.phase ?? null,
     });
   }
 
@@ -187,8 +191,9 @@ export async function apiSyncActivities(
     progress: 100,
     status: "succeeded",
     error: null,
-    fetchedCount: stats.fetched ?? null,
-    maxActivities: (result as any).plan?.max_activities ?? null,
+    daysCovered: (result as any).plan?.days_back ?? null,
+    planDaysBack: (result as any).plan?.days_back ?? null,
+    phase: "done",
   });
 
   return {
@@ -199,4 +204,16 @@ export async function apiSyncActivities(
     resumed: !!(result as any).resumed,
     plan_kind: (result as any).plan?.kind ?? null,
   };
+}
+
+export function formatSyncProgressLabel(p: SyncProgress | null, prefix?: string): string {
+  const pre = prefix ? `${prefix} ` : "";
+  if (!p) return "Čaká sa na spustenie...";
+  if (p.status === "queued") return "Čaká sa na spustenie...";
+  if (p.phase === "enriching") return `${pre}${p.progress}% • spracúvam stiahnuté aktivity...`;
+  if (p.phase === "finalizing") return `${pre}${p.progress}% • dokončujem...`;
+  if (typeof p.daysCovered === "number" && typeof p.planDaysBack === "number" && p.planDaysBack > 0) {
+    return `${pre}${p.progress}% • ${p.daysCovered}/${p.planDaysBack} dní`;
+  }
+  return `${pre}${p.progress}%`;
 }

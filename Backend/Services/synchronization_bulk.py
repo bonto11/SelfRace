@@ -31,13 +31,18 @@ from DB.account import (
 from Services.synchronization_single import _get_access_token_for_user
 from Configs.config import STRAVA_RESUME_CURSOR_MAX_AGE_HOURS
 
+DEBUG = True
+
+
+def _dbg(*args: Any) -> None:
+    if DEBUG:
+        print("[SYNC_DEBUG]", *args)
+
 
 def _classify_strava_fetch_error(e: Exception) -> str:
     """
     Snaží sa dať chybe čitateľný dôvod (najmä 403 - dev tier/subscription
     problém, alebo 429 - rate limit), namiesto surového repr() reťazca.
-    Best-effort: ak StravaActivitiesClient hádže niečo iné než
-    requests-style výnimku s .response, spadneme na generický popis.
     """
     resp = getattr(e, "response", None)
     status = getattr(resp, "status_code", None) if resp is not None else None
@@ -48,6 +53,48 @@ def _classify_strava_fetch_error(e: Exception) -> str:
     if status is not None:
         return f"strava_http_{status}: {e}"
     return f"{type(e).__name__}: {e}"
+
+
+def _epoch_from_iso(iso_str: Optional[str]) -> Optional[int]:
+    """Best-effort parse zo Strava ISO timestampu (napr. start_date) na epoch."""
+    if not iso_str:
+        return None
+    try:
+        s = str(iso_str).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    except Exception:
+        return None
+
+
+def _days_progress_pct(
+    *,
+    now_epoch: int,
+    after_epoch: int,
+    oldest_seen_epoch: Optional[int],
+    cap: int = 95,
+) -> int:
+    """
+    Progress podľa toho, koľko dní dozadu sme už pokryli - nie podľa počtu
+    aktivít voči umelému stropu (max_activities je len bezpečnostný limit,
+    nie skutočný počet aktivít, ktoré user má - takže X/Y aktivít vedelo
+    ostať navždy nízke aj keď je import v skutočnosti hotový).
+    Cap na 95%, aby zvyšných pár % ostalo pre enrichment fázu.
+    """
+    total_span = now_epoch - after_epoch
+    if total_span <= 0 or oldest_seen_epoch is None:
+        return 0
+    covered = now_epoch - oldest_seen_epoch
+    pct = int(covered / total_span * 100)
+    return max(0, min(cap, pct))
+
+
+def _days_covered(now_epoch: int, oldest_seen_epoch: Optional[int]) -> int:
+    if oldest_seen_epoch is None:
+        return 0
+    return max(0, int((now_epoch - oldest_seen_epoch) / 86400))
 
 
 # -----------------------------------------------------------------------------
@@ -62,6 +109,7 @@ def import_activities_bulk(
 ) -> Dict[str, Any]:
 
     now = datetime.now(timezone.utc)
+    now_epoch = int(now.timestamp())
 
     resumed = False
     is_admin_override = False
@@ -70,7 +118,7 @@ def import_activities_bulk(
     #    okno, ignorujeme akýkoľvek starý resume cursor a bežíme čerstvo.
     admin_override = db_get_strava_admin_override(user_id=user_id, ctx=ctx)
     admin_override_days = admin_override["days"] if admin_override else None
-    print(f"[SYNC_DEBUG] user_id={user_id} admin_override={admin_override} admin_override_days={admin_override_days}")
+    _dbg(f"user_id={user_id} admin_override={admin_override} admin_override_days={admin_override_days}")
 
     resume_cursor = None
     if not admin_override_days:
@@ -92,6 +140,7 @@ def import_activities_bulk(
         plan_kind = f"resumed:{resume_cursor.get('plan_kind', 'unknown')}"
         reason = "resumed from previous failed attempt"
         since_iso = datetime.fromtimestamp(after_epoch, tz=timezone.utc).strftime("%Y-%m-%d")
+        oldest_seen_epoch: Optional[int] = int(resume_cursor.get("oldest_seen_epoch") or before_epoch)
     else:
         last_dt = db_get_last_activity_start(ctx=ctx, user_id=user_id)
         ever_synced_at = get_strava_ever_synced_at_service(ctx=ctx, user_id=user_id)
@@ -103,7 +152,7 @@ def import_activities_bulk(
 
         is_admin_override = plan.kind == "admin_override"
 
-        before_epoch = int(now.timestamp())
+        before_epoch = now_epoch
         after_epoch = int((now - timedelta(days=plan.days_back)).timestamp())
         since_iso = (now - timedelta(days=plan.days_back)).strftime("%Y-%m-%d")
         start_page = 1
@@ -112,6 +161,7 @@ def import_activities_bulk(
         plan_days_back = plan.days_back
         plan_kind = plan.kind
         reason = plan.reason
+        oldest_seen_epoch = before_epoch
 
     access_token = _get_access_token_for_user(user_id)
     if not access_token:
@@ -130,7 +180,33 @@ def import_activities_bulk(
 
     page = start_page
 
-    print(f"[SYNC_DEBUG] user_id={user_id} FINAL plan: kind={plan_kind} days_back={plan_days_back} max_activities={max_activities} resumed={resumed}")
+    _dbg(f"user_id={user_id} FINAL plan: kind={plan_kind} days_back={plan_days_back} max_activities={max_activities} resumed={resumed}")
+
+    def _save_progress_cursor(next_page: int) -> None:
+        if not job_id:
+            return
+        pct = _days_progress_pct(
+            now_epoch=now_epoch,
+            after_epoch=after_epoch,
+            oldest_seen_epoch=oldest_seen_epoch,
+        )
+        days_covered = _days_covered(now_epoch, oldest_seen_epoch)
+        db_update_job_progress(
+            job_id=job_id,
+            progress=pct,
+            cursor={
+                "after_epoch": after_epoch,
+                "before_epoch": before_epoch,
+                "next_page": next_page,
+                "total_fetched": total_fetched,
+                "plan_kind": plan_kind,
+                "plan_days_back": plan_days_back,
+                "plan_max_activities": max_activities,
+                "oldest_seen_epoch": oldest_seen_epoch,
+                "days_covered": days_covered,
+            },
+            ctx=ctx,
+        )
 
     while True:
         try:
@@ -143,30 +219,20 @@ def import_activities_bulk(
         except Exception as e:
             # Ulož cursor PRED re-raise, nech vieme na ďalšom pokuse
             # pokračovať presne od tejto (neúspešnej) strany.
-            if job_id:
-                progress_pct = (
-                    min(99, int(total_fetched / max_activities * 100))
-                    if max_activities
-                    else 0
-                )
-                db_update_job_progress(
-                    job_id=job_id,
-                    progress=progress_pct,
-                    cursor={
-                        "after_epoch": after_epoch,
-                        "before_epoch": before_epoch,
-                        "next_page": page,  # retry tú istú stranu nabudúce
-                        "total_fetched": total_fetched,
-                        "plan_kind": plan_kind,
-                        "plan_days_back": plan_days_back,
-                        "plan_max_activities": max_activities,
-                    },
-                    ctx=ctx,
-                )
+            _save_progress_cursor(next_page=page)
             raise RuntimeError(_classify_strava_fetch_error(e)) from e
 
         if not items:
             break
+
+        # Posledná položka na stránke je časovo najstaršia (Strava vracia
+        # aktivity zoradené od najnovšej) - používame ju ako indikátor, ako
+        # ďaleko dozadu sme sa už dostali, pre percentuálny progress podľa dní.
+        last_item_epoch = _epoch_from_iso(
+            items[-1].get("start_date") or items[-1].get("start_date_local")
+        )
+        if last_item_epoch is not None:
+            oldest_seen_epoch = last_item_epoch
 
         for a in items:
             if total_fetched >= max_activities:
@@ -198,26 +264,7 @@ def import_activities_bulk(
             )
             to_upsert.clear()
 
-        if job_id:
-            progress_pct = (
-                min(99, int(total_fetched / max_activities * 100))
-                if max_activities
-                else 0
-            )
-            db_update_job_progress(
-                job_id=job_id,
-                progress=progress_pct,
-                cursor={
-                    "after_epoch": after_epoch,
-                    "before_epoch": before_epoch,
-                    "next_page": page + 1,
-                    "total_fetched": total_fetched,
-                    "plan_kind": plan_kind,
-                    "plan_days_back": plan_days_back,
-                    "plan_max_activities": max_activities,
-                },
-                ctx=ctx,
-            )
+        _save_progress_cursor(next_page=page + 1)
 
         if total_fetched >= max_activities:
             break
@@ -225,11 +272,53 @@ def import_activities_bulk(
         page += 1
 
     # ---------- ENRICHMENT ----------
+    # Fetch aktivít je hotový (aj keby Strava vrátila menej aktivít než
+    # max_activities strop) - posunieme progress na 95%, nech FE nezostane
+    # zaseknuté na nízkom % počas potenciálne dlhej enrichment fázy
+    # (streams download pre každú aktivitu).
+    if job_id:
+        db_update_job_progress(
+            job_id=job_id,
+            progress=95,
+            cursor={
+                "after_epoch": after_epoch,
+                "before_epoch": before_epoch,
+                "next_page": page + 1,
+                "total_fetched": total_fetched,
+                "plan_kind": plan_kind,
+                "plan_days_back": plan_days_back,
+                "plan_max_activities": max_activities,
+                "oldest_seen_epoch": oldest_seen_epoch,
+                "days_covered": plan_days_back,
+                "phase": "enriching",
+            },
+            ctx=ctx,
+        )
+
     enrich_activities_after_import(
         user_id=user_id,
         since_iso_for_scan=since_iso,
         ctx=ctx,
     )
+
+    if job_id:
+        db_update_job_progress(
+            job_id=job_id,
+            progress=99,
+            cursor={
+                "after_epoch": after_epoch,
+                "before_epoch": before_epoch,
+                "next_page": page + 1,
+                "total_fetched": total_fetched,
+                "plan_kind": plan_kind,
+                "plan_days_back": plan_days_back,
+                "plan_max_activities": max_activities,
+                "oldest_seen_epoch": oldest_seen_epoch,
+                "days_covered": plan_days_back,
+                "phase": "finalizing",
+            },
+            ctx=ctx,
+        )
 
     mark_strava_ever_synced_now(ctx=ctx, user_id=user_id)
 

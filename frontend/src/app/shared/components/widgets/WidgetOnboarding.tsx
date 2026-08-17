@@ -21,9 +21,9 @@ import type { SyncActivitiesStats } from "@/app/features/activities/types/synchr
 import ProgressBar from "@/app/shared/ui/components/ProgressBar";
 import {
   apiSyncActivities,
+  formatSyncProgressLabel,
   type SyncProgress,
 } from "@/app/features/strava/api/synchronization";
-
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 import { refreshCoachPrefsFromDB } from "@/app/features/prefs/utils/prefs";
 import { apiSavePushSubscription } from "@/app/features/settings/api/notifications";
@@ -55,19 +55,6 @@ function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
-}
-
-function progressLabel(p: SyncProgress | null): string {
-  if (!p) return "Čaká sa na spustenie...";
-  if (p.status === "queued") return "Čaká sa na spustenie...";
-  if (
-    typeof p.fetchedCount === "number" &&
-    typeof p.maxActivities === "number" &&
-    p.maxActivities > 0
-  ) {
-    return `${p.progress}% • ${p.fetchedCount}/${p.maxActivities} aktivít`;
-  }
-  return `${p.progress}%`;
 }
 
 export default function WidgetOnboarding({
@@ -484,7 +471,7 @@ export default function WidgetOnboarding({
                   {importBusy && (
                     <ProgressBar
                       value={importProgress?.progress ?? 0}
-                      label={progressLabel(importProgress)}
+                      label={formatSyncProgressLabel(importProgress)}
                     />
                   )}
                 </div>
