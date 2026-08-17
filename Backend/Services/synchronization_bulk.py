@@ -74,14 +74,14 @@ def _days_progress_pct(
     now_epoch: int,
     after_epoch: int,
     oldest_seen_epoch: Optional[int],
-    cap: int = 95,
+    cap: int = 50,
 ) -> int:
     """
     Progress podľa toho, koľko dní dozadu sme už pokryli - nie podľa počtu
     aktivít voči umelému stropu (max_activities je len bezpečnostný limit,
-    nie skutočný počet aktivít, ktoré user má - takže X/Y aktivít vedelo
-    ostať navždy nízke aj keď je import v skutočnosti hotový).
-    Cap na 95%, aby zvyšných pár % ostalo pre enrichment fázu.
+    nie skutočný počet aktivít, ktoré user má). Fetch fáza zaberá 0-50%
+    z celkového progresu, zvyšných 50-99% patrí enrichment fáze
+    (streams download, zóny, plan-match).
     """
     total_span = now_epoch - after_epoch
     if total_span <= 0 or oldest_seen_epoch is None:
@@ -271,15 +271,17 @@ def import_activities_bulk(
 
         page += 1
 
+    
+
     # ---------- ENRICHMENT ----------
-    # Fetch aktivít je hotový (aj keby Strava vrátila menej aktivít než
-    # max_activities strop) - posunieme progress na 95%, nech FE nezostane
-    # zaseknuté na nízkom % počas potenciálne dlhej enrichment fázy
-    # (streams download pre každú aktivitu).
+    # Fetch fáza je hotová (zaberala 0-50%) - nastavíme explicitný checkpoint
+    # na 50%, nech enrichment fáza (streams download pre každú aktivitu)
+    # vždy štartuje z rovnakého bodu, aj keby posledný cursor save z fetch
+    # slučky z nejakého dôvodu nedosiahol presne 50.
     if job_id:
         db_update_job_progress(
             job_id=job_id,
-            progress=95,
+            progress=50,
             cursor={
                 "after_epoch": after_epoch,
                 "before_epoch": before_epoch,
@@ -299,6 +301,7 @@ def import_activities_bulk(
         user_id=user_id,
         since_iso_for_scan=since_iso,
         ctx=ctx,
+        job_id=job_id,
     )
 
     if job_id:

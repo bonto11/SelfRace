@@ -10,7 +10,7 @@ from Services.activity_zones import (
     preview_zones_for_activities,
     upsert_enrichment_minutes,
 )
-
+from DB.async_jobs import db_update_job_progress
 from DB.activities_summary import (
     db_get_recent_activity_ids,
 )
@@ -46,9 +46,13 @@ def decide_sync_plan(
     ever_synced_at: Optional[datetime],
     admin_override_days: Optional[int] = None,
 ) -> SyncPlan:
-    print(f"[DECIDE_PLAN_DEBUG] last_activity_dt={last_activity_dt} ever_synced_at={ever_synced_at} admin_override_days={admin_override_days}")
+    print(
+        f"[DECIDE_PLAN_DEBUG] last_activity_dt={last_activity_dt} ever_synced_at={ever_synced_at} admin_override_days={admin_override_days}"
+    )
     if admin_override_days:
-        print(f"[DECIDE_PLAN_DEBUG] -> using admin_override, days_back={admin_override_days}")
+        print(
+            f"[DECIDE_PLAN_DEBUG] -> using admin_override, days_back={admin_override_days}"
+        )
         return SyncPlan(
             kind="admin_override",
             days_back=int(admin_override_days),
@@ -414,12 +418,12 @@ def _decide_laps_or_splits(
 # -----------------------------------------------------------------------------
 # Spoločná enrichment logika (streams + zóny + plan_match)
 # -----------------------------------------------------------------------------
-
 def enrich_activities_for_ids(
     user_id: int,
     activity_ids: List[int],
     *,
     ctx: AuthCtx,
+    job_id: Optional[int] = None,
 ) -> None:
     """
     Enrichment pipeline pre zoznam aktivít:
@@ -429,38 +433,75 @@ def enrich_activities_for_ids(
 
     - ak service=False → RLS režim, vyžaduje JWT
     - ak service=True  → používame service klientov, JWT len forwardneme (typicky None)
+
+    Ak je job_id zadané, priebežne posúva progress (95 -> 99%) po dávkach,
+    nech to vo FE nevyzerá zaseknuté počas potenciálne dlhého sťahovania
+    streams pre všetky aktivity naraz.
     """
     if not activity_ids:
         print("[SYNC] enrich: no activity ids, skipping")
         return
 
+    CHUNK_SIZE = 15
+    chunks = [
+        activity_ids[i : i + CHUNK_SIZE]
+        for i in range(0, len(activity_ids), CHUNK_SIZE)
+    ]
+    total_chunks = len(chunks)
+
+    def _report_chunk_progress(done_chunks: int) -> None:
+        if not job_id or total_chunks == 0:
+            return
+        # rozsah 50-99%, fetch fáza už zaberala 0-50%
+        frac = done_chunks / total_chunks
+        pct = 50 + int(frac * 49)
+        db_update_job_progress(
+            job_id=job_id,
+            progress=min(99, pct),
+            cursor={
+                "phase": "enriching",
+                "enrich_chunks_done": done_chunks,
+                "enrich_chunks_total": total_chunks,
+                "enrich_activities_total": len(activity_ids),
+            },
+            ctx=ctx,
+        )
+
+    _report_chunk_progress(0)
+
     try:
-        fetch_and_optionally_store_batch(
-            user_id,
-            activity_ids,
-            store=True,
-            ctx=ctx,
-        )
+        all_minutes_items: List[Dict[str, Any]] = []
 
-        prev = preview_zones_for_activities(
-            user_id,
-            activity_ids,
-            fetch_if_missing=False,
-            ctx=ctx,
-        )
+        for idx, chunk in enumerate(chunks, start=1):
+            fetch_and_optionally_store_batch(
+                user_id,
+                chunk,
+                store=True,
+                ctx=ctx,
+            )
 
-        to_save = [
-            it for it in (prev.get("items") or []) if it.get("ok") and it.get("minutes")
-        ]
+            prev = preview_zones_for_activities(
+                user_id,
+                chunk,
+                fetch_if_missing=False,
+                ctx=ctx,
+            )
+            to_save = [
+                it
+                for it in (prev.get("items") or [])
+                if it.get("ok") and it.get("minutes")
+            ]
+            all_minutes_items.extend(to_save)
+
+            _report_chunk_progress(idx)
 
         upsert_enrichment_minutes(
             user_id,
-            to_save,
+            all_minutes_items,
             ctx=ctx,
         )
 
         try:
-
             from Services.async_jobs import service_enqueue_job, service_run_job_now
 
             enqueue = service_enqueue_job(
@@ -500,6 +541,7 @@ def enrich_activities_after_import(
     since_iso_for_scan: str,
     *,
     ctx: AuthCtx,
+    job_id: Optional[int] = None,
 ) -> None:
     """
     Wrapper: vyberie recent IDs od since_iso_for_scan a pustí enrichment.
@@ -521,6 +563,7 @@ def enrich_activities_after_import(
             user_id=user_id,
             activity_ids=ids_recent,
             ctx=ctx,
+            job_id=job_id,
         )
     except Exception as e:
         print(f"[SYNC] enrich wrapper failed: {e}")
