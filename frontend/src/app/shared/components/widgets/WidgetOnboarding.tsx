@@ -449,7 +449,7 @@ export default function WidgetOnboarding({
             title="Importuj aktivity zo Strava"
             description={importDescription}
             action={
-              stepStravaImport === "active" ? (
+              connected ? (
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
