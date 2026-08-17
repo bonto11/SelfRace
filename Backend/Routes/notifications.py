@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import Any, Dict
+from __future__ import annotations 
 
 from fastapi import APIRouter, Body, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -12,8 +10,10 @@ from Services.notifications import (
     service_delete_push_subscription,
     service_notify_test,
     service_notify_global,
+    service_notify_users,
     service_mark_push_received,
 )
+from typing import List, Any, Dict
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -143,3 +143,26 @@ async def push_received_ack(
     except Exception as e:  # noqa: BLE001
         print(f"[Push][ack] FAIL sub_id={sub_id}: {repr(e)}")
         raise HTTPException(status_code=500, detail="internal error")
+        
+@router.post("/user")
+async def notify_users(
+    user_ids: List[int] = Body(...),
+    messages: Dict[str, Dict[str, str]] = Body(...),
+    x_api_key: str | None = Header(default=None),
+):
+    """
+    Endpoint na poslanie push notifikácie len vybraným user_ids.
+    Chránené pomocou MAINTENANCE_API_KEY (rovnako ako /global).
+    """
+    _require_api_key(x_api_key)
+    ctx = service_ctx("notifications.user")
+
+    try:
+        result = service_notify_users(
+            user_ids=user_ids,
+            messages=messages,
+            ctx=ctx,
+        )
+        return JSONResponse({"ok": True, "result": result})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
