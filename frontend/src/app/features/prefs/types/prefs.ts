@@ -298,7 +298,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     training_blocks: {},
     hr_zone_calc_mode: "manual",
     womens_health: { sync_enabled: false, cycle_length_days: 28, next_cycle_start: null },
-    detailed_mode: true,
+    detailed_mode: false,
   },
 
   strength_settings: {
