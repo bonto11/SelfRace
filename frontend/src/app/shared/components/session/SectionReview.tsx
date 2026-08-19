@@ -24,6 +24,7 @@ import {
 
 import type { SessionItem } from "./SessionCard";
 import { ActivitySectionShell } from "./DetailActivity";
+import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 
 type Props = {
   item: SessionItem;
@@ -272,6 +273,7 @@ export default function SectionReview({ item, activityId }: Props) {
   const [uiError, setUiError] = useState<string | null>(null);
   const [apiNote, setApiNote] = useState<string | null>(null);
   const [refreshLocked, setRefreshLocked] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   const loadData = async (forceFetch: boolean = false) => {
     if (!userId || !activityId) return;
@@ -326,6 +328,7 @@ export default function SectionReview({ item, activityId }: Props) {
     if (!userId || !activityId || busyGen) return;
     setUiError(null);
     setApiNote(null);
+    setQuotaExceeded(false);
 
     if (!isEligible) {
       setUiError(t("sessions.review.errorTooOld"));
@@ -357,6 +360,8 @@ export default function SectionReview({ item, activityId }: Props) {
         const code = out?.error_code || "generic_error";
         const errorKey = `api.ai_errors.${code}`;
         const translatedError = t(errorKey as any);
+
+        if (code === "ai_quota_exceeded") setQuotaExceeded(true);
 
         if (translatedError && translatedError !== errorKey) {
           setUiError(translatedError);
@@ -395,6 +400,8 @@ export default function SectionReview({ item, activityId }: Props) {
       defaultOpen={!hasReview && isEligible}
       items={[]}
     >
+      <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />
+
       {/* 1. CHAT HISTÓRIA — chronologicky, úplne hore */}
       <div className="space-y-3">
         {busyLoad ? (

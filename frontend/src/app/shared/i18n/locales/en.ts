@@ -319,6 +319,14 @@ export const en = {
     footer:
       "You can connect Strava in the settings after successful registration.",
   },
+  billing: {
+  usageWarning: {
+    noSubscriptionTitle: "No active subscription",
+    noSubscriptionDesc: "You need an active subscription to use AI features (plan generation, workout reviews).",
+    lowTokensTitle: "Your AI credits are running low",
+    lowTokensDesc: "You're about to run out of AI quota this month. Consider upgrading your plan.",
+  },
+},
   userMenu: {
     settings: "Settings",
     bio: "Profile (Bio)",

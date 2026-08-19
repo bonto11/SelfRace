@@ -22,6 +22,7 @@ import {
 } from "@/app/shared/config";
 
 import { ActivitySectionShell } from "@/app/shared/components/session/DetailActivity";
+import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 
 type Props = {
   sessionId: number;
@@ -160,6 +161,7 @@ export default function SectionPreview({
   const [busyGen, setBusyGen] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [apiNote, setApiNote] = useState<string | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   const canAskByTier = maxVersions > 1;
   const canAskByCount = previewVersion < maxVersions;
@@ -170,6 +172,7 @@ export default function SectionPreview({
     if (!userId || !sessionId || busyGen) return;
     setUiError(null);
     setApiNote(null);
+    setQuotaExceeded(false);
 
     if (commentTooLong) {
       setUiError(t("sessions.review.errorCommentLong"));
@@ -195,6 +198,8 @@ export default function SectionPreview({
         const code = out?.error_code || "generic_error";
         const errorKey = `api.ai_errors.${code}`;
         const translatedError = t(errorKey as any);
+
+        if (code === "ai_quota_exceeded") setQuotaExceeded(true);
 
         if (translatedError && translatedError !== errorKey) {
           setUiError(translatedError);
@@ -243,6 +248,8 @@ export default function SectionPreview({
         defaultOpen={false}
         items={[]}
       >
+        <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />
+
         <div className="space-y-3">
           {thread.length > 0 ? (
             thread.map((entry, idx) =>
@@ -274,6 +281,8 @@ export default function SectionPreview({
       defaultOpen={thread.length === 0}
       items={[]}
     >
+      <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />
+
       {/* 1. CHAT HISTÓRIA — chronologicky, úplne hore */}
       <div className="space-y-3">
         {thread.length > 0

@@ -35,7 +35,7 @@ import {
 } from "@/app/features/coach/api/coach_plan_daily";
 
 import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
-
+import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 type Props = {
   onOpenDetail?: () => void;
 };
@@ -231,6 +231,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
           {!ui.hasAnyPlan ? (
             <div className={WIDGET_EMPTY_TEXT}>
+              <AiUsageWarningBanner className="mb-2" />
               {t("coachDaily.widget.missingData")}
             </div>
           ) : (

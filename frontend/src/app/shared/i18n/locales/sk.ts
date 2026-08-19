@@ -328,6 +328,14 @@ export const sk = {
     logoff: "Odhlásiť sa",
     showTutorial: "Zobraziť sprievodcu",
   },
+  billing: {
+  usageWarning: {
+    noSubscriptionTitle: "Nemáš aktívne predplatné",
+    noSubscriptionDesc: "Na využívanie AI funkcií (generovanie plánov, review tréningov) potrebuješ aktívne predplatné.",
+    lowTokensTitle: "Dochádzajú ti AI kredity",
+    lowTokensDesc: "Tento mesiac ti čoskoro dôjde AI kvóta. Zváž upgrade predplatného.",
+  },
+},
   share: {
     generating: "Pripravujem fotku...",
     generatingWarning: "Obrázok sa ešte generuje, vydrž prosím sekundu.",

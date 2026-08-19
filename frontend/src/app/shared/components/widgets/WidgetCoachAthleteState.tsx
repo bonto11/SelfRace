@@ -23,7 +23,7 @@ import {
   apiGetLatestAthleteState,
   type AthleteStateRecord,
 } from "@/app/features/coach/api/coach_athlete_state";
-
+import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
 
 type Props = {
@@ -45,7 +45,9 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
     };
   }
 
-  const s: any = row.state.ai_state ? row.state : (row.state.analysis || row.state);
+  const s: any = row.state.ai_state
+    ? row.state
+    : row.state.analysis || row.state;
   const aiState = s.ai_state || {};
   const userSummary = s.user_summary || {};
 
@@ -59,8 +61,16 @@ function extractUiState(row: AthleteStateRecord | null): UiState {
 function pickAccent(ui: UiState) {
   const fat = (ui.fatigueLabel || "").toLowerCase();
   const inj = (ui.injuryLabel || "").toLowerCase();
-  const hasHigh = fat.includes("high") || inj.includes("high") || fat.includes("vysok") || inj.includes("vysok");
-  const hasMod = fat.includes("moder") || inj.includes("moder") || fat.includes("stred") || inj.includes("stred");
+  const hasHigh =
+    fat.includes("high") ||
+    inj.includes("high") ||
+    fat.includes("vysok") ||
+    inj.includes("vysok");
+  const hasMod =
+    fat.includes("moder") ||
+    inj.includes("moder") ||
+    fat.includes("stred") ||
+    inj.includes("stred");
 
   if (hasHigh) return appColors.stateDanger;
   if (hasMod) return appColors.stateWarning;
@@ -72,7 +82,7 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
   const [row, setRow] = useState<AthleteStateRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const t = useT();
 
   useEffect(() => {
@@ -85,12 +95,18 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
         const r = await apiGetLatestAthleteState(userId);
         if (alive) setRow(r ?? null);
       } catch (e: any) {
-        if (alive) setError(t(e?.message as any) || t("coachAthleteState.widget.errorFailedLoad" as any));
+        if (alive)
+          setError(
+            t(e?.message as any) ||
+              t("coachAthleteState.widget.errorFailedLoad" as any),
+          );
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [userId, t, isChecking]);
 
   const ui = useMemo(() => extractUiState(row), [row]);
@@ -122,20 +138,25 @@ export default function WidgetCoachAthleteState({ onOpenDetail }: Props) {
           <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
-        <div className={WIDGET_INFO_TEXT}>
-          {t("widget.missingUserId")}
-        </div>
+        <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
       ) : !row ? (
         <div className={WIDGET_EMPTY_TEXT}>
+          <AiUsageWarningBanner className="mb-2" />
           {t("coachAthleteState.widget.missingData")}
         </div>
       ) : (
         <>
           <div className={WIDGET_KV_GRID}>
-            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.fatigue")}</div>
+            <div className={WIDGET_KV_LABEL}>
+              {" "}
+              {t("coachAthleteState.widget.fatigue")}
+            </div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.fatigueLabel)}</div>
 
-            <div className={WIDGET_KV_LABEL}> {t("coachAthleteState.widget.injuryRisk")}</div>
+            <div className={WIDGET_KV_LABEL}>
+              {" "}
+              {t("coachAthleteState.widget.injuryRisk")}
+            </div>
             <div className={WIDGET_KV_VALUE}>{getLvl(ui.injuryLabel)}</div>
           </div>
 

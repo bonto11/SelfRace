@@ -24,6 +24,7 @@ import {
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
 import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_log";
+import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 
 /* ============================================================ */
 /* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
@@ -59,6 +60,7 @@ export default function PlanLifecycleSection({
   const [latestStateId, setLatestStateId] = useState<number | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   const [isPlanActive, setIsPlanActive] = useState(false);
   const [hasWeekly, setHasWeekly] = useState(false);
@@ -132,6 +134,7 @@ export default function PlanLifecycleSection({
   const handleGenerate = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend || loading) return;
     setError(null);
+    setQuotaExceeded(false);
     setLoadingKind("generate");
 
     setLoadingStepLabel(t("prefs.sections.planLifecycleSection.step1of3" as any));
@@ -146,6 +149,7 @@ export default function PlanLifecycleSection({
       const analyzeOut = await apiAnalyzeAthleteState(userId, userUuid);
       if (!analyzeOut?.success) {
         setError(formatAiError(analyzeOut));
+        if ((analyzeOut as any)?.code === "ai_quota_exceeded") setQuotaExceeded(true);
         return;
       }
       const sid =
@@ -164,6 +168,7 @@ export default function PlanLifecycleSection({
       });
       if (!weeklyOut?.success) {
         setError(formatAiError(weeklyOut));
+        if ((weeklyOut as any)?.code === "ai_quota_exceeded") setQuotaExceeded(true);
         return;
       }
       setHasWeekly(true);
@@ -175,6 +180,7 @@ export default function PlanLifecycleSection({
       });
       if (!dailyOut?.success) {
         setError(formatAiError(dailyOut));
+        if ((dailyOut as any)?.code === "ai_quota_exceeded") setQuotaExceeded(true);
         return;
       }
       setHasDaily(true);
@@ -261,6 +267,8 @@ export default function PlanLifecycleSection({
       >
         {t("prefs.sections.planLifecycleSection.title" as any)}
       </div>
+
+      <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />
 
       {isMedicalSuspend && (
         <div

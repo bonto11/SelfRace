@@ -33,7 +33,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import OnboardingWizard from "@/app/shared/ui/components/OnboardingWizard";
 import PushNotificationPrompt from "@/app/shared/ui/components/PushNotificationPrompt";
 import PwaInstallBanner from "@/app/shared/ui/components/PwaInstallBanner";
-
+import AiUsageWarningBadge from "@/app/features/billing/components/AiUsageWarningBadge";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   AppHeaderOffsetProvider,
@@ -161,6 +161,7 @@ export default function ClientProtectedShell({
 
                       <div className="flex items-center gap-2">
                         <LangSelector variant="editable" size="xs" />
+                        <AiUsageWarningBadge />
                         <UserMenu />
                       </div>
                     </header>
