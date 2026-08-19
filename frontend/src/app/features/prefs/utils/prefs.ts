@@ -227,7 +227,7 @@ export function normalizeCoachPrefs(
       detailed_mode:
         typeof incomingPrefs.detailed_mode === "boolean"
           ? incomingPrefs.detailed_mode
-          : (DEFAULT_PREFS.preferences!.detailed_mode ?? true),
+          : (DEFAULT_PREFS.preferences!.detailed_mode ?? false),
     };
 
     const mainSport: SportKind | null =
