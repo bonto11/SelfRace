@@ -265,6 +265,8 @@ export const sk = {
     yourMail: "email@adresa.sk",
     sending: "Posielam…",
     sentResetMail: "Poslať e-mail na zmenu hesla",
+    backToSignIn: "Späť na prihlásenie",
+    backToHome: "Späť na úvodnú stránku",
   },
   signIn: {
     checkMail:
@@ -1731,8 +1733,8 @@ export const sk = {
   todayActivities: {
     title: "Dnešné aktivity",
     tooltip: "Prehľad všetkých aktivít, ktoré si dnes dokončil.",
-    empty: "Dnes zatiaľ žiadna aktivita."
-},
+    empty: "Dnes zatiaľ žiadna aktivita.",
+  },
 
   HRV: {
     title: "Variabilita tepu (HRV)",
@@ -2440,7 +2442,7 @@ export const sk = {
       weeksSubtitle:
         "Detaily každého bloku. Prúžok ukazuje nabehané kilometre.",
       noGoalShort: "Zatiaľ bez konkrétneho cieľa",
-      phase:"Fáza",
+      phase: "Fáza",
       phases: {
         base: "Základná vytrvalosť (Base)",
         build: "Budovanie kondície (Build)",
@@ -2754,9 +2756,9 @@ export const sk = {
       wasFaster: "bol rýchlejší",
       hadLowerHr: "mal nižší tep",
       selectTwoHint: "Vyber 2 aktivity na porovnanie",
-      "errNoStreams": "Aktivita nemá uložené GPS/stream dáta.",
-      "errNoDistance": "Chýba distance stream (bez GPS vzdialenosti).",
-      "errPartialDistance": "Distance stream je neúplný — chýba časť GPS dát."
+      errNoStreams: "Aktivita nemá uložené GPS/stream dáta.",
+      errNoDistance: "Chýba distance stream (bez GPS vzdialenosti).",
+      errPartialDistance: "Distance stream je neúplný — chýba časť GPS dát.",
     },
 
     detail: {

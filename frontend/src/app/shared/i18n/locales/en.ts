@@ -264,6 +264,8 @@ export const en = {
     yourMail: "email@address.com",
     sending: "Sending…",
     sentResetMail: "Send password reset email",
+    backToSignIn: "Back to sign in",
+    backToHome: "Back to home",
   },
   signIn: {
     checkMail:
@@ -972,11 +974,9 @@ export const en = {
       desc1:
         "For the best performance, it is recommended to save this app to the phone's home screen. It will run faster and without browser distractions:",
       iosTitle: "For iPhone (Safari):",
-      iosDesc:
-        "Tap '...' in the right, 'Share' and 'Add to Home Screen'.",
+      iosDesc: "Tap '...' in the right, 'Share' and 'Add to Home Screen'.",
       androidTitle: "For Android (Chrome):",
-      androidDesc:
-        "Tap '...' in the right and select 'Add to Home screen'.",
+      androidDesc: "Tap '...' in the right and select 'Add to Home screen'.",
       ps: "Tip: This guide can always be found in the profile menu.",
     },
     notifications: {
@@ -1043,8 +1043,9 @@ export const en = {
   },
   PB: {
     title: "Records",
-      old: "Old record",
-    expiredTooltip: "This record is older, your form may be changed since then.",
+    old: "Old record",
+    expiredTooltip:
+      "This record is older, your form may be changed since then.",
     chooseDist: "choose distance",
     chooseExercise: "choose exercise",
     saved: "Record saved",
@@ -1742,7 +1743,7 @@ export const en = {
   todayActivities: {
     title: "Today's activities",
     tooltip: "Overview of all activities you completed today.",
-    empty: "No activities yet today."
+    empty: "No activities yet today.",
   },
   HRV: {
     title: "Heart rate variability (HRV)",
@@ -2445,7 +2446,7 @@ export const en = {
       weeksTitle: "Breakdown by weeks",
       weeksSubtitle: "Details of each block. The bar shows running kilometers.",
       noGoalShort: "No specific goal yet",
-      phase:"Phase",
+      phase: "Phase",
       phases: {
         base: "Base endurance",
         build: "Building fitness (Build)",
@@ -2763,9 +2764,9 @@ export const en = {
       wasFaster: "was faster",
       hadLowerHr: "had lower HR",
       selectTwoHint: "Select 2 activities to compare",
-      "errNoStreams": "This activity has no stored GPS/stream data.",
-      "errNoDistance": "Missing distance stream (no GPS distance data).",
-      "errPartialDistance": "Distance stream is incomplete."
+      errNoStreams: "This activity has no stored GPS/stream data.",
+      errNoDistance: "Missing distance stream (no GPS distance data).",
+      errPartialDistance: "Distance stream is incomplete.",
     },
 
     detail: {

@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
+import Link from "next/link";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
 
 import Button from "@/app/shared/ui/components/Button";
@@ -24,6 +25,7 @@ import {
   AUTH_NOTICE_ERROR_STYLE,
 } from "@/app/shared/ui/tokens/auth";
 import { FRONTEND_URL } from "@/app/shared/config";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 
 export default function ForgotPasswordPage() {
@@ -68,15 +70,19 @@ export default function ForgotPasswordPage() {
   return (
     <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
       <div className={AUTH_SHELL}>
-        <form onSubmit={submit} className={AUTH_CARD} style={AUTH_CARD_STYLE}>
-          <header className={AUTH_HEADER}>
+        <form
+          onSubmit={submit}
+          className={[AUTH_CARD, "space-y-6"].join(" ")}
+          style={AUTH_CARD_STYLE}
+        >
+          <header className={[AUTH_HEADER, "space-y-2"].join(" ")}>
             <h1 className={AUTH_TITLE}>{t("forgotPassword.forgotPassword")}</h1>
             <p className={AUTH_TEXT}>
               {t("forgotPassword.fillYourMail")}
             </p>
           </header>
 
-          <div className={AUTH_FIELD}>
+          <div className={[AUTH_FIELD, "space-y-2"].join(" ")}>
             <label className={AUTH_LABEL}>{t("forgotPassword.mail")}</label>
             <TextField
               type="email"
@@ -103,6 +109,28 @@ export default function ForgotPasswordPage() {
           <Button type="submit" variant="primary" block disabled={sending}>
             {sending ? t("forgotPassword.sending") : t("forgotPassword.sentResetMail")}
           </Button>
+
+          <div className="pt-2 flex flex-col items-center gap-3 text-sm">
+            <Link
+              href="/signin"
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold transition-colors w-full"
+              style={{
+                background: appColors.buttonGhostBg,
+                color: appColors.textPrimary,
+                border: `1px solid ${appColors.surfaceCardBorder}`,
+              }}
+            >
+              {t("forgotPassword.backToSignIn")}
+            </Link>
+
+            <Link
+              href="/"
+              className="hover:underline transition-all"
+              style={{ color: appColors.textSecondary }}
+            >
+              {t("forgotPassword.backToHome")}
+            </Link>
+          </div>
         </form>
       </div>
     </main>
