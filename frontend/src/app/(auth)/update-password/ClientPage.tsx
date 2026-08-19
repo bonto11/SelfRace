@@ -35,7 +35,7 @@ import {
 import { useT } from "@/app/shared/i18n/useT";
 
 type Phase = "boot" | "ready" | "saving" | "done";
-
+type TKey = Parameters<ReturnType<typeof useT>>[0];
 export default function ClientPage() {
   const sb = getSupabaseBrowser();
   const router = useRouter();
@@ -126,7 +126,24 @@ export default function ClientPage() {
     };
   }, [sb, sp]);
 
-  const strength = useMemo(() => scorePassword(pwd1, email), [pwd1, email]);
+  // 🔧 scorePassword je teraz čistá funkcia (žiadne hooky vo vnútri).
+  // Preklady sa aplikujú tu, na top-level komponentu.
+  const rawStrength = useMemo(() => computePasswordScore(pwd1, email), [pwd1, email]);
+
+  const scoreLabels = [
+    t("updatePassword.score.veryWeak"),
+    t("updatePassword.score.weak"),
+    t("updatePassword.score.average"),
+    t("updatePassword.score.strong"),
+    t("updatePassword.score.veryStrong"),
+  ];
+
+  const strength = {
+    score: rawStrength.score,
+    label: scoreLabels[rawStrength.score],
+    hint: rawStrength.tipKeys.map((k) => t(k)).join(", "),
+  };
+
   const match = pwd1.length > 0 && pwd1 === pwd2;
   const canSubmit = match && strength.score >= 3;
 
@@ -324,7 +341,7 @@ async function syncSessionToServer(sb: ReturnType<typeof getSupabaseBrowser>) {
 function PasswordStrengthMeter({
   strength,
 }: {
-  strength: ReturnType<typeof scorePassword>;
+  strength: { score: number; label: string; hint: string };
 }) {
   const steps = 5; // 0..4
   return (
@@ -383,9 +400,14 @@ function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
   );
 }
 
-function scorePassword(pwd: string, email?: string) {
+// 🔧 Čistá funkcia — žiadne hooky, žiadne t(). Vracia score a zoznam
+// tip-kľúčov (nie preložený text), aby sa dala bezpečne volať z useMemo.
+function computePasswordScore(
+  pwd: string,
+  email?: string,
+): { score: number; tipKeys: TKey[] } {
   const len = pwd.length;
-  const t = useT();
+
   let score = 0;
   if (len >= 8) score++;
   if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
@@ -401,27 +423,17 @@ function scorePassword(pwd: string, email?: string) {
 
   score = Math.max(0, Math.min(4, score));
 
-  const label = [
-    t("updatePassword.score.veryWeak"),
-    t("updatePassword.score.weak"),
-    t("updatePassword.score.average"),
-    t("updatePassword.score.strong"),
-    t("updatePassword.score.veryStrong"),
-  ][score];
-  let hint = "";
-
+  const tipKeys: TKey[] = [];
   if (score < 3) {
-    const tips: string[] = [];
-    if (len < 12) tips.push(t("updatePassword.tips.atLeastChar"));
-    if (!/[A-Z]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Small"));
-    if (!/[a-z]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Big"));
-    if (!/[0-9]/.test(pwd)) tips.push(t("updatePassword.tips.atLeast1Num"));
+    if (len < 12) tipKeys.push("updatePassword.tips.atLeastChar");
+    if (!/[A-Z]/.test(pwd)) tipKeys.push("updatePassword.tips.atLeast1Small");
+    if (!/[a-z]/.test(pwd)) tipKeys.push("updatePassword.tips.atLeast1Big");
+    if (!/[0-9]/.test(pwd)) tipKeys.push("updatePassword.tips.atLeast1Num");
     if (!/[^A-Za-z0-9]/.test(pwd))
-      tips.push(t("updatePassword.tips.atLeast1Special"));
+      tipKeys.push("updatePassword.tips.atLeast1Special");
     if (local && lowers.includes(local))
-      tips.push(t("updatePassword.tips.noMainName"));
-    hint = tips.join(", ");
+      tipKeys.push("updatePassword.tips.noMainName");
   }
 
-  return { score, label, hint };
+  return { score, tipKeys };
 }
