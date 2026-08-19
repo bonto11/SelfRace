@@ -203,7 +203,7 @@ export function normalizeCoachPrefs(
     const intensity_model = normalizeIntensityModel(incomingPrefs, anyIn);
     const training_blocks = normalizeTrainingBlocks(incomingPrefs, anyIn);
 
-    const prefs: Preferences = {
+        const prefs: Preferences = {
       days_off:
         incomingPrefs.days_off ??
         anyIn.days_off ??
@@ -224,6 +224,10 @@ export function normalizeCoachPrefs(
         incomingPrefs.hr_zone_calc_mode ??
         DEFAULT_PREFS.preferences!.hr_zone_calc_mode,
       womens_health: incomingPrefs.womens_health ?? DEFAULT_PREFS.preferences!.womens_health,
+      detailed_mode:
+        typeof incomingPrefs.detailed_mode === "boolean"
+          ? incomingPrefs.detailed_mode
+          : (DEFAULT_PREFS.preferences!.detailed_mode ?? true),
     };
 
     const mainSport: SportKind | null =

@@ -11,6 +11,7 @@ from Configs.config import (
 )
 
 from Services.AI.athlete_state.builders import build_input_from_db
+from Services.AI.prefs_defaults import apply_basic_mode_defaults
 from DB.coach_athlete_state import (
     db_get_state_by_id,
     db_get_latest_state_for_user,
@@ -232,6 +233,11 @@ def build_weekly_context_from_db(
         analyze_input = {}
 
     prefs_ai = _extract_prefs(analyze_input)
+    # 🌟 NOVÉ: ak user nemá zapnutý detailed_mode, doplní sa rozumnými
+    # defaultami (strength 2x/týždeň full gym, long run nedeľa, atď.) —
+    # rovnaká logika a rovnaké defaulty ako v daily builderi, aby weekly
+    # a daily plán boli medzi sebou konzistentné.
+    prefs_ai = apply_basic_mode_defaults(prefs_ai)
 
     # External events — berieme z analyze_input ak už tam sú, inak fresh fetch
     external_events_block = analyze_input.get("external_events")

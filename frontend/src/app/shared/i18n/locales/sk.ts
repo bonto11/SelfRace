@@ -351,6 +351,10 @@ export const sk = {
       title: "Zatiaľ nemáš nastaveného trénera",
       text: "Vyplň svoje tréningové preferencie nižšie a potom dole požiadaj o návrh plánu a spusti ho.",
     },
+    detailedMode: {
+      title: "Chcem nastaviť tréning detailne",
+      text: "Zapni, ak chceš doladiť šport, objem, silový tréning, dni, zóny a ďalšie. Inak použijeme rozumné defaulty.",
+    },
     actions: {
       showAdvanced: "Zobraziť rozšírené možnosti",
       hideAdvanced: "Skryť rozšírené možnosti",
@@ -483,6 +487,9 @@ export const sk = {
       goalSection: {
         title: "Cieľ",
         subtitle: "Hlavný športový cieľ a preteky na prípravu.",
+        mainSportTitle: "Hlavný šport",
+        mainSportTooltip: "Šport, na ktorý sa má plán primárne zamerať.",
+        previewSport: "Šport",
         overallTitle: "2. Celkový tréningový smer",
         overallTooltip:
           "Určuje celkové smerovanie. Ak sa pridajú hlavné preteky (Priorita A), kalendár sa im automaticky prispôsobí.",
@@ -514,6 +521,11 @@ export const sk = {
         removeBtn: "Odstrániť",
         none: "Žiadny",
         enums: {
+          sport: {
+            run: "Beh",
+            ride: "Bicykel",
+            swim: "Plávanie",
+          },
           overall: {
             improve_speed: "Zrýchlenie",
             improve_endurance: "Zlepšenie vytrvalosti",

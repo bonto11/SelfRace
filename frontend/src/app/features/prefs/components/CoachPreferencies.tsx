@@ -19,6 +19,7 @@ import {
 
 import Button from "@/app/shared/ui/components/Button";
 import { NO_X } from "@/app/shared/ui/tokens";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 import {
   apiFetchUserZonesLatest,
@@ -68,6 +69,72 @@ function isoTodayPlus(days: number): string {
 }
 const DEFAULT_PLAN_START = () => isoTodayPlus(2);
 const MIN_PLAN_START = () => isoTodayPlus(1);
+
+/* ---- detailed mode toggle (malý switch, appColors) ---- */
+
+function DetailedModeToggle({
+  checked,
+  onToggle,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const t = useT();
+  return (
+    <div
+      className={PANEL_ACTIONS_INLINE}
+      style={{
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "14px 16px",
+        borderRadius: 12,
+        border: `1px solid ${appColors.surfaceCardBorder}`,
+        background: appColors.surfaceCard,
+        marginBottom: 4,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+          {t("prefs.detailedMode.title")}
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.75, color: appColors.textSecondary }}>
+          {t("prefs.detailedMode.text")}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={onToggle}
+        style={{
+          width: 46,
+          height: 26,
+          borderRadius: 999,
+          border: `1px solid ${appColors.surfaceCardBorder}`,
+          background: checked ? appColors.buttonMainBg : appColors.surfaceSolid,
+          position: "relative",
+          cursor: "pointer",
+          flexShrink: 0,
+          transition: "background 0.2s ease",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: 2,
+            left: checked ? 22 : 2,
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            background: checked ? appColors.buttonMainText : appColors.textMuted,
+            transition: "left 0.2s ease",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
 
 export default function CoachPreferencies() {
   const { userId } = useUserId();
@@ -192,6 +259,10 @@ export default function CoachPreferencies() {
       training_blocks,
       hr_zone_calc_mode: incoming.hr_zone_calc_mode ?? "manual",
       womens_health: incoming.womens_health,
+      detailed_mode:
+        typeof incoming.detailed_mode === "boolean"
+          ? incoming.detailed_mode
+          : false,
     };
   };
 
@@ -459,70 +530,87 @@ export default function CoachPreferencies() {
           defaultOpen={!hasActivePlan}
         />
       )}
+
       <GoalSection
         local={local}
         setPref={setPref}
         upsertRunTargets={upsertRunTargets}
       />
-      <SportsSection
-        local={local}
-        mainSport={mainSport}
-        addOnSports={addOnSports}
-        setPref={setPref}
-      />
-      <VolumeSection volume={local.volume} setPref={setPref} />
-      <StrengthSection
-        local={local}
-        setLocal={setLocal}
-        markDirty={markDirty}
-      />
-      <DaysSection
-        daysOff={pref.days_off}
-        longRunDays={pref.long_run_days}
-        womensHealth={pref.womens_health}
-        isFemale={isFemale}
-        toggleInArray={toggleInArray}
-        setPrefNested={setPrefNested}
-      />
-      <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
-      <ZonesSection
-        zones={local.zones}
-        lthrBpm={lthrBpm}
-        onZonesChange={handleZonesChange}
-        onSaveZonesToDB={handleSaveZonesToDB}
-        calcMode={pref.hr_zone_calc_mode ?? "manual"}
-        onCalcModeChange={(m) =>
-          setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+
+      {/* 🌟 NOVÉ: toggle pre detailný prístup, uložený v preferences.detailed_mode */}
+      <DetailedModeToggle
+        checked={!!pref.detailed_mode}
+        onToggle={() =>
+          setPrefNested(
+            "preferences.detailed_mode" as any,
+            !pref.detailed_mode,
+          )
         }
       />
-      <ThresholdsSection
-        thresholds={local.thresholds}
-        latestList={local.thresholds_latest ?? []}
-        onChange={handleThresholdsChange}
-        onSaveToDB={handleSaveThresholdsToDB}
-      />
 
-      <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
-        <button
-          type="button"
-          onClick={() => setShowAdv((s) => !s)}
-          aria-expanded={showAdv}
-          className="text-sm underline opacity-80 hover:opacity-100"
-        >
-          {showAdv
-            ? t("prefs.actions.hideAdvanced")
-            : t("prefs.actions.showAdvanced")}
-        </button>
-      </div>
-
-      {showAdv && (
+      {pref.detailed_mode && (
         <>
-          <FocusAvoidSection
+          <SportsSection
             local={local}
+            mainSport={mainSport}
+            addOnSports={addOnSports}
             setPref={setPref}
-            toggleInArray={toggleInArray}
           />
-          <RehabSection local={local} setPref={setPref} />
+          <VolumeSection volume={local.volume} setPref={setPref} />
+          <StrengthSection
+            local={local}
+            setLocal={setLocal}
+            markDirty={markDirty}
+          />
+          <DaysSection
+            daysOff={pref.days_off}
+            longRunDays={pref.long_run_days}
+            womensHealth={pref.womens_health}
+            isFemale={isFemale}
+            toggleInArray={toggleInArray}
+            setPrefNested={setPrefNested}
+          />
+          <RulesSection pref={pref} setLocal={setLocal} markDirty={markDirty} />
+          <ZonesSection
+            zones={local.zones}
+            lthrBpm={lthrBpm}
+            onZonesChange={handleZonesChange}
+            onSaveZonesToDB={handleSaveZonesToDB}
+            calcMode={pref.hr_zone_calc_mode ?? "manual"}
+            onCalcModeChange={(m) =>
+              setPrefNested("preferences.hr_zone_calc_mode" as any, m)
+            }
+          />
+          <ThresholdsSection
+            thresholds={local.thresholds}
+            latestList={local.thresholds_latest ?? []}
+            onChange={handleThresholdsChange}
+            onSaveToDB={handleSaveThresholdsToDB}
+          />
+
+          <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
+            <button
+              type="button"
+              onClick={() => setShowAdv((s) => !s)}
+              aria-expanded={showAdv}
+              className="text-sm underline opacity-80 hover:opacity-100"
+            >
+              {showAdv
+                ? t("prefs.actions.hideAdvanced")
+                : t("prefs.actions.showAdvanced")}
+            </button>
+          </div>
+
+          {showAdv && (
+            <>
+              <FocusAvoidSection
+                local={local}
+                setPref={setPref}
+                toggleInArray={toggleInArray}
+              />
+              <RehabSection local={local} setPref={setPref} />
+            </>
+          )}
         </>
       )}
 

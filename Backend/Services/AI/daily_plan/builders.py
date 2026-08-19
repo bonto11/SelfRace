@@ -2,14 +2,9 @@
 from __future__ import annotations
 
 import copy
-from datetime import date, datetime, timezone, timedelta
+from datetime import date
 from typing import Any, Dict, Optional, List
 
-from Services.user_thresholds import service_build_thresholds_block_for_analysis
-from Services.user_zones import service_build_zones_block_for_analysis
-from Services.user_recovery import service_build_recovery_block_for_analysis
-from Services.analytics_RecentLoad import service_build_recent_load_block_for_analysis
-from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.coach_external_events import service_list_external_events_window
 from Services.coach_strength_mapper import prepare_strength_context_for_ai
 
@@ -17,7 +12,7 @@ from DB.user_pace_history import db_get_latest_paces
 from DB.coach_athlete_state import db_get_latest_state_for_user
 from DB.coach_plan_weekly import db_get_week_row_for_plan
 from Services.coach_user_notes import service_get_notes_for_builder
-
+from Services.AI.prefs_defaults import apply_basic_mode_defaults
 from Services.AI.athlete_state.builders import build_input_from_db
 
 from Modules.Supabase.auth import AuthCtx
@@ -25,6 +20,15 @@ from Configs.config import WEEKDAY_TO_ABBR
 
 _ALLOWED_SESSION_SPORTS = {"run", "ride", "strength", "swim", "other"}
 _ALLOWED_EXTERNAL_INTENSITIES = {"hard", "medium", "easy"}
+
+# ============================================================
+# BASIC MODE DEFAULTS (detailed_mode == False / chýba)
+# ============================================================
+
+DEFAULT_STRENGTH_SESSIONS_PER_WEEK = 2
+DEFAULT_LONG_RUN_DAYS = ["Sun"]
+DEFAULT_STRENGTH_EQUIPMENT_MODE = "full_gym"
+DEFAULT_STRENGTH_LOCATION = "gym"
 
 
 # ============================================================
@@ -367,6 +371,10 @@ def build_daily_context_from_db(
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
 
     prefs_ai = flatten_prefs_for_ai(analyze_input)
+    # 🌟 NOVÉ: ak user nemá zapnutý detailed_mode, doplní sa rozumnými
+    # defaultami (strength 2x/týždeň full gym, long run nedeľa, atď.)
+    prefs_ai = apply_basic_mode_defaults(prefs_ai)
+
     targets_ai = extract_targets_from_prefs(prefs_ai)
     is_returning_beginner = check_is_returning_beginner(analyze_input)
 

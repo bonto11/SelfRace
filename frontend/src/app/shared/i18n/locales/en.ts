@@ -352,6 +352,10 @@ export const en = {
       title: "No trainer set up yet",
       text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
     },
+    detailedMode: {
+      title: "I want to fine-tune my training",
+      text: "Turn this on to adjust sport, volume, strength training, days, zones and more. Otherwise we'll use sensible defaults.",
+    },
     actions: {
       showAdvanced: "Show advanced options",
       hideAdvanced: "Hide advanced options",
@@ -485,6 +489,9 @@ export const en = {
       goalSection: {
         title: "Goal",
         subtitle: "Main sports goal and preparation races.",
+        mainSportTitle: "Main sport",
+        mainSportTooltip: "The sport your plan should primarily focus on.",
+        previewSport: "Sport",
         overallTitle: "2. Overall training direction",
         overallTooltip:
           "Determines the overall direction. If main races (Priority A) are added, the calendar will automatically adapt to them.",
@@ -516,6 +523,11 @@ export const en = {
         removeBtn: "Remove",
         none: "None",
         enums: {
+          sport: {
+            run: "Running",
+            ride: "Cycling",
+            swim: "Swimming",
+          },
           overall: {
             improve_speed: "Speed improvement",
             improve_endurance: "Endurance improvement",
@@ -633,7 +645,8 @@ export const en = {
         },
         hints: {
           foot: "Where exactly? Heel, arch, or closer to the toes?",
-          ankle: "Is it a sprain, or pain on the inside or outside?",
+          ankle:
+            "Is it a sprain, or pain on the inside or outside?",
           achilles:
             "Does the tendon itself hurt, or closer to the heel attachment?",
           shin: "Does the front bone hurt or the inner edge of the shin?",

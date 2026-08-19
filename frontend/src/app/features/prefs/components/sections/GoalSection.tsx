@@ -14,8 +14,11 @@ import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { PANEL_STACK, INPUTS_CARD_BODY } from "@/app/shared/ui/tokens";
 import { useT } from "@/app/shared/i18n/useT";
+import type { SportKind } from "@/app/features/prefs/types/prefs";
 
 /* ─────────────────────── constants ─────────────────────── */
+
+const SPORTS: SportKind[] = ["run", "ride", "swim"];
 
 const OVERALL_GOALS = [
   "improve_speed",
@@ -92,6 +95,8 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
 
   /* ---------- labels mapping ---------- */
 
+  const getSportLabel = (s: SportKind) =>
+    (t as any)(`prefs.sections.goalSection.enums.sport.${s}`);
   const getOverallLabel = (g: string) =>
     (t as any)(`prefs.sections.goalSection.enums.overall.${g}`);
   const getRaceGoalLabel = (rg: string) =>
@@ -137,7 +142,13 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
     ? getOverallLabel(overallGoal)
     : t("prefs.sections.goalSection.none");
 
+  const mainSport: SportKind | null = (local.main_sport ?? null) as any;
+  const mainSportLabel = mainSport ? getSportLabel(mainSport) : null;
+
   const previewParts = [
+    mainSportLabel
+      ? `${t("prefs.sections.goalSection.previewSport")}: ${mainSportLabel}`
+      : null,
     `${t("prefs.sections.goalSection.previewGoal")}: ${overallLabel}`,
     racePreview
       ? `${t("prefs.sections.goalSection.previewKeyRace")}: ${racePreview}`
@@ -246,7 +257,31 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* 1. KEY RACES */}
+        {/* 1. MAIN SPORT */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs font-medium opacity-70">
+            <span>{t("prefs.sections.goalSection.mainSportTitle")}</span>
+            <TooltipIcon
+              text={t("prefs.sections.goalSection.mainSportTooltip")}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {SPORTS.map((s) => (
+              <Button
+                key={s}
+                size="sm"
+                variant="prefs"
+                active={mainSport === s}
+                onClick={() => setPref("main_sport", s)}
+              >
+                {getSportLabel(s)}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. KEY RACES */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-medium opacity-70">
@@ -498,7 +533,7 @@ export function GoalSection({ local, setPref, upsertRunTargets }: Props) {
           </div>
         </div>
 
-        {/* 2. OVERALL GOAL */}
+        {/* 3. OVERALL GOAL */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2 text-xs font-medium opacity-70">
             <span>{t("prefs.sections.goalSection.overallTitle")}</span>
