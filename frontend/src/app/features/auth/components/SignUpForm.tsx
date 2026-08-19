@@ -38,7 +38,7 @@ import { useT } from "@/app/shared/i18n/useT";
 export default function SignUpForm() {
   const sb = getSupabaseBrowser();
   const router = useRouter();
-  
+
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [name, setName] = useState("");
@@ -46,7 +46,7 @@ export default function SignUpForm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [isOk, setIsOk] = useState<boolean>(false);
   const t = useT();
-  
+
   // explicit consent
   const [agreeRisk, setAgreeRisk] = useState(false);
 
@@ -68,8 +68,9 @@ export default function SignUpForm() {
       password: pwd,
       options: {
         data: { full_name: name },
-        // Návratová adresa po kliknutí na link v maily
-        emailRedirectTo: `${window.location.origin}/activities`,
+        // Návratová adresa po kliknutí na link v maily — spracuje token
+        // cez verifyOtp a až potom presmeruje na /activities.
+        emailRedirectTo: `${window.location.origin}/confirm-email`,
       },
     });
 
@@ -161,7 +162,10 @@ export default function SignUpForm() {
         {/* explicitný checkbox (must-check) */}
         <label
           className={CHECKBOX_ROW}
-          style={{ ...(FORM_TEXT_VARS as any), ...(CHECKBOX_BOX_EDITABLE_STYLE as any) }}
+          style={{
+            ...(FORM_TEXT_VARS as any),
+            ...(CHECKBOX_BOX_EDITABLE_STYLE as any),
+          }}
         >
           <input
             type="checkbox"
@@ -169,11 +173,14 @@ export default function SignUpForm() {
             checked={agreeRisk}
             onChange={(e) => setAgreeRisk(e.currentTarget.checked)}
           />
-          <span className={CHECKBOX_LABEL} style={{ color: appColors.textSecondary }}>
+          <span
+            className={CHECKBOX_LABEL}
+            style={{ color: appColors.textSecondary }}
+          >
             {t("signUp.confirmMedical")}
-            
+
             <span className={CHECKBOX_HINT}>
-               {t("signUp.confirmMedicalHint")}
+              {t("signUp.confirmMedicalHint")}
             </span>
           </span>
         </label>
@@ -181,7 +188,9 @@ export default function SignUpForm() {
         {msg ? (
           <div
             className={AUTH_FEEDBACK}
-            style={isOk ? AUTH_FEEDBACK_SUCCESS_STYLE : AUTH_FEEDBACK_ERROR_STYLE}
+            style={
+              isOk ? AUTH_FEEDBACK_SUCCESS_STYLE : AUTH_FEEDBACK_ERROR_STYLE
+            }
           >
             {msg}
           </div>

@@ -211,6 +211,18 @@ export const en = {
   terms: {
     title: "Terms of Service",
   },
+  confirmEmail: {
+    title: "Confirm Registration",
+    success: "Account confirmed",
+    verifying: "Verifying your account...",
+    redirecting: "Redirecting you to the app...",
+    errorHint:
+      "Verification failed. Try clicking the link in the email again, or request a new one.",
+    error: {
+      generic: "Verification failed.",
+      missingParams: "The link is missing required verification data.",
+    },
+  },
   updatePassword: {
     title: "Change password",
     error: {
@@ -645,8 +657,7 @@ export const en = {
         },
         hints: {
           foot: "Where exactly? Heel, arch, or closer to the toes?",
-          ankle:
-            "Is it a sprain, or pain on the inside or outside?",
+          ankle: "Is it a sprain, or pain on the inside or outside?",
           achilles:
             "Does the tendon itself hurt, or closer to the heel attachment?",
           shin: "Does the front bone hurt or the inner edge of the shin?",

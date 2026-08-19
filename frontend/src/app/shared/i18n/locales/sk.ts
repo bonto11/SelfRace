@@ -213,6 +213,18 @@ export const sk = {
   terms: {
     title: "Obchodné podmienky",
   },
+  confirmEmail: {
+    title: "Potvrdenie registrácie",
+    success: "Účet potvrdený",
+    verifying: "Overujem tvoj účet...",
+    redirecting: "Presmerúvam ťa do appky...",
+    errorHint:
+      "Overenie sa nepodarilo. Skús kliknúť na odkaz z e-mailu znova, alebo si vyžiadaj nový.",
+    error: {
+      generic: "Overenie sa nepodarilo.",
+      missingParams: "V odkaze chýbajú potrebné údaje na overenie.",
+    },
+  },
   updatePassword: {
     title: "Zmena hesla",
     error: {
