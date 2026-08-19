@@ -33,6 +33,7 @@ import {
   AUTH_HINT,
 } from "@/app/shared/ui/tokens/auth";
 import { useT } from "@/app/shared/i18n/useT";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 
 type Phase = "boot" | "ready" | "saving" | "done";
 type TKey = Parameters<ReturnType<typeof useT>>[0];
@@ -344,32 +345,44 @@ function PasswordStrengthMeter({
   strength: { score: number; label: string; hint: string };
 }) {
   const steps = 5; // 0..4
+
+  const activeColor =
+    strength.score <= 1
+      ? appColors.statusError
+      : strength.score === 2
+        ? appColors.stateWarning
+        : appColors.statusSuccess;
+
   return (
     <div className={AUTH_FIELD}>
       <div className={AUTH_METER_ROW}>
-        {Array.from({ length: steps }).map((_, i) => (
-          <div
-            key={i}
-            className={[
-              AUTH_METER_BAR,
-              i < strength.score ? "bg-success" : "bg-surface",
-              "border-border",
-            ].join(" ")}
-          />
-        ))}
+        {Array.from({ length: steps }).map((_, i) => {
+          const filled = i < strength.score;
+          return (
+            <div
+              key={i}
+              className={AUTH_METER_BAR}
+              style={{
+                background: filled ? activeColor : "transparent",
+                border: `1px solid ${filled ? activeColor : appColors.surfaceCardBorder}`,
+              }}
+            />
+          );
+        })}
       </div>
 
-      <div className={[AUTH_METER_LABEL, "text-muted"].join(" ")}>
+      <div className={AUTH_METER_LABEL} style={{ color: appColors.textMuted }}>
         Sila hesla:{" "}
-        <span className="text-text font-medium">{strength.label}</span>
+        <span style={{ color: activeColor, fontWeight: 600 }}>
+          {strength.label}
+        </span>
         {strength.hint && (
-          <span className="opacity-80"> — {strength.hint}</span>
+          <span style={{ opacity: 0.8 }}> — {strength.hint}</span>
         )}
       </div>
     </div>
   );
 }
-
 function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
   const t = useT();
   const reqs = [
