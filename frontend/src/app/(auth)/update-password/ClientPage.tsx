@@ -32,11 +32,12 @@ import {
   AUTH_REQ_LIST,
   AUTH_HINT,
 } from "@/app/shared/ui/tokens/auth";
-import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useT } from "@/app/shared/i18n/useT";
 
 type Phase = "boot" | "ready" | "saving" | "done";
 type TKey = Parameters<ReturnType<typeof useT>>[0];
+
 export default function ClientPage() {
   const sb = getSupabaseBrowser();
   const router = useRouter();
@@ -238,7 +239,7 @@ export default function ClientPage() {
                 {t("updatePassword.newPassword")}
               </label>
 
-              <div className={AUTH_PWD_ROW}>
+              <div className={AUTH_PWD_ROW} style={{ position: "relative" }}>
                 <TextField
                   type={show ? "text" : "password"}
                   placeholder={t("updatePassword.fillNewPassword")}
@@ -252,7 +253,13 @@ export default function ClientPage() {
                   type="button"
                   onClick={() => setShow((s) => !s)}
                   className={AUTH_PWD_TOGGLE}
-                  style={AUTH_PWD_TOGGLE_STYLE}
+                  style={{
+                    ...AUTH_PWD_TOGGLE_STYLE,
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}
                   aria-label={
                     show
                       ? t("updatePassword.showPassword")
@@ -357,7 +364,7 @@ function PasswordStrengthMeter({
     <div className={AUTH_FIELD}>
       <div className={AUTH_METER_ROW}>
         {Array.from({ length: steps }).map((_, i) => {
-          const filled = i < strength.score;
+          const filled = i <= strength.score;
           return (
             <div
               key={i}
@@ -383,6 +390,7 @@ function PasswordStrengthMeter({
     </div>
   );
 }
+
 function RequirementsList({ pwd, email }: { pwd: string; email: string }) {
   const t = useT();
   const reqs = [
