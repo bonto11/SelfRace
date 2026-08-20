@@ -349,3 +349,97 @@ export async function sendUserNotification(userIds: number[], payload: any) {
 
   return { success: true, result };
 }
+
+/* ---------- APP SUBSCRIPTION ADMIN ---------- */
+
+export async function listAppSubscriptionTiersAdmin() {
+  await verifyAdmin();
+
+  const response = await fetch(`${API_URL}/app/subscription/tiers`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": MAINTENANCE_API_KEY as string,
+    },
+    cache: "no-store",
+  });
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať zoznam tierov");
+  }
+  return result.items ?? [];
+}
+
+export async function getAppSubscriptionStatusAdmin(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(
+    `${API_URL}/app/subscription/status/${userId}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": MAINTENANCE_API_KEY as string,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať stav predplatného");
+  }
+  return result.status ?? null;
+}
+
+export async function setAppSubscriptionTierAdmin(
+  userId: number,
+  tierCode: string,
+  opts?: { periodEndIso?: string | null; note?: string | null },
+) {
+  await verifyAdmin();
+
+  const response = await fetch(
+    `${API_URL}/app/subscription/set-tier/${userId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": MAINTENANCE_API_KEY as string,
+      },
+      body: JSON.stringify({
+        tier_code: tierCode,
+        ...(opts?.periodEndIso ? { period_end: opts.periodEndIso } : {}),
+        ...(opts?.note ? { note: opts.note } : {}),
+      }),
+    },
+  );
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa nastaviť predplatné");
+  }
+  return result;
+}
+
+export async function cancelScheduledSubscriptionChangeAdmin(userId: number) {
+  await verifyAdmin();
+
+  const response = await fetch(
+    `${API_URL}/app/subscription/cancel-scheduled/${userId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": MAINTENANCE_API_KEY as string,
+      },
+    },
+  );
+
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa zrušiť naplánovanú zmenu");
+  }
+  return result;
+}

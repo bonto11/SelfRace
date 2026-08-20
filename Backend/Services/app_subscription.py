@@ -117,111 +117,6 @@ def service_list_user_app_subscriptions(
         ctx=ctx,
     )
 
-
-# ---------- DEV: manuálne prepnutie tieru ----------
-
-
-def service_set_user_app_subscription_tier_manual(
-    *,
-    user_id: int,
-    tier_code: str,
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    tier_code = tier_code.strip().lower()
-    if not tier_code:
-        raise ValueError("tier_code is required")
-
-    if tier_code != "free":
-        tier = db_get_app_subscription_tier_by_code(
-            code=tier_code,
-            ctx=ctx,
-        )
-        if not tier:
-            raise ValueError(f"Unknown subscription tier: {tier_code!r}")
-    else:
-        tier = None
-
-    now = datetime.now(timezone.utc)
-    now_iso = now.isoformat()
-
-    active = db_get_active_app_subscription_for_user(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
-    current_code = str(active.get("tier_code")) if active else "free"
-    current_rank = _tier_rank(current_code)
-    new_rank = _tier_rank(tier_code)
-
-    new_active: Optional[Dict[str, Any]] = None
-
-    if tier_code != "free" and (not active or new_rank > current_rank):
-        # ---------- UPGRADE (alebo prvé platené členstvo) ----------
-        if active and active.get("id"):
-            db_update_app_user_subscription_status(
-                subscription_id=int(active["id"]),
-                status="cancelled",
-                current_period_end=now_iso,
-                ctx=ctx,
-            )
-
-        start_iso = now_iso
-        end_iso = (now + timedelta(days=30)).isoformat()
-
-        new_active = db_insert_app_user_subscription(
-            user_id=user_id,
-            tier_code=tier_code,
-            status="active",
-            current_period_start=start_iso,
-            current_period_end=end_iso,
-            cancel_at_period_end=False,
-            external_customer_id=None,
-            external_subscription_id=None,
-            meta={"source": "manual_dev_upgrade"},
-            ctx=ctx,
-        )
-
-    elif active and active.get("id"):
-        # ---------- DOWNGRADE alebo prechod na FREE (cancel) ----------
-        period_end_raw = active.get("current_period_end")
-        if isinstance(period_end_raw, str):
-            period_end_iso = period_end_raw
-        else:
-            period_end_iso = (now + timedelta(days=30)).isoformat()
-
-        meta = dict(active.get("meta") or {})
-        if tier_code == "free":
-            meta["pending_downgrade_to"] = "free"
-            meta["pending_cancel"] = True
-        else:
-            meta["pending_downgrade_to"] = tier_code
-
-        updated = db_update_app_user_subscription_status(
-            subscription_id=int(active["id"]),
-            status="active",
-            current_period_end=period_end_iso,
-            cancel_at_period_end=True,
-            meta_patch=meta,
-            ctx=ctx,
-        )
-        new_active = updated
-    else:
-        # free -> free, nič
-        new_active = active
-
-    status = service_get_user_app_subscription_status(
-        user_id=user_id,
-        ctx=ctx,
-    )
-
-    return {
-        "user": None,
-        "active_subscription": new_active,
-        "tier": tier,
-        "status": status,
-    }
-
-
 # ---------- CRON: aplikovanie plánovaných zmien ----------
 
 
@@ -393,3 +288,132 @@ def service_start_pro_trial(
     )
 
     return {"success": True, "trial_end": end_iso, "subscription": new_active}
+
+def service_set_user_app_subscription_tier_manual(
+    *,
+    user_id: int,
+    tier_code: str,
+    period_end_iso: Optional[str] = None,
+    note: Optional[str] = None,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    tier_code = tier_code.strip().lower()
+    if not tier_code:
+        raise ValueError("tier_code is required")
+
+    if tier_code != "free":
+        tier = db_get_app_subscription_tier_by_code(
+            code=tier_code,
+            ctx=ctx,
+        )
+        if not tier:
+            raise ValueError(f"Unknown subscription tier: {tier_code!r}")
+    else:
+        tier = None
+
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    active = db_get_active_app_subscription_for_user(
+        user_id=user_id,
+        ctx=ctx,
+    )
+
+    current_code = str(active.get("tier_code")) if active else "free"
+    current_rank = _tier_rank(current_code)
+    new_rank = _tier_rank(tier_code)
+
+    new_active: Optional[Dict[str, Any]] = None
+
+    # 🌟 NOVÉ: ak admin zadal vlastný dátum vypršania, použije sa namiesto
+    # natvrdo +30 dní. Musí byť v budúcnosti, inak sa ignoruje (fallback).
+    custom_end_dt: Optional[datetime] = None
+    if period_end_iso:
+        try:
+            parsed = datetime.fromisoformat(period_end_iso.replace("Z", "+00:00"))
+            if parsed > now:
+                custom_end_dt = parsed
+            else:
+                print(
+                    f"[APP_SUBSCRIPTION] ignoring period_end_iso in the past: {period_end_iso!r}"
+                )
+        except Exception as e:
+            print(f"[APP_SUBSCRIPTION] invalid period_end_iso {period_end_iso!r}: {repr(e)}")
+
+    meta_extra: Dict[str, Any] = {}
+    if note:
+        meta_extra["admin_note"] = note
+
+    if tier_code != "free" and (not active or new_rank > current_rank):
+        # ---------- UPGRADE (alebo prvé platené členstvo) ----------
+        if active and active.get("id"):
+            db_update_app_user_subscription_status(
+                subscription_id=int(active["id"]),
+                status="cancelled",
+                current_period_end=now_iso,
+                ctx=ctx,
+            )
+
+        start_iso = now_iso
+        end_iso = (
+            custom_end_dt.isoformat()
+            if custom_end_dt
+            else (now + timedelta(days=30)).isoformat()
+        )
+
+        new_active = db_insert_app_user_subscription(
+            user_id=user_id,
+            tier_code=tier_code,
+            status="active",
+            current_period_start=start_iso,
+            current_period_end=end_iso,
+            cancel_at_period_end=False,
+            external_customer_id=None,
+            external_subscription_id=None,
+            meta={"source": "manual_dev_upgrade", **meta_extra},
+            ctx=ctx,
+        )
+
+    elif active and active.get("id"):
+        # ---------- DOWNGRADE alebo prechod na FREE (cancel) ----------
+        if custom_end_dt:
+            period_end_iso_final = custom_end_dt.isoformat()
+        else:
+            period_end_raw = active.get("current_period_end")
+            if isinstance(period_end_raw, str):
+                period_end_iso_final = period_end_raw
+            else:
+                period_end_iso_final = (now + timedelta(days=30)).isoformat()
+
+        meta = dict(active.get("meta") or {})
+        meta.update(meta_extra)
+        if tier_code == "free":
+            meta["pending_downgrade_to"] = "free"
+            meta["pending_cancel"] = True
+        else:
+            meta["pending_downgrade_to"] = tier_code
+
+        updated = db_update_app_user_subscription_status(
+            subscription_id=int(active["id"]),
+            status="active",
+            current_period_end=period_end_iso_final,
+            cancel_at_period_end=True,
+            meta_patch=meta,
+            ctx=ctx,
+        )
+        new_active = updated
+    else:
+        # free -> free, nič
+        new_active = active
+
+    status = service_get_user_app_subscription_status(
+        user_id=user_id,
+        ctx=ctx,
+    )
+
+    return {
+        "user": None,
+        "active_subscription": new_active,
+        "tier": tier,
+        "status": status,
+    }

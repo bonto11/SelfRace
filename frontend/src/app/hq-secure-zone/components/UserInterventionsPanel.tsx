@@ -7,12 +7,17 @@ type UserLite = { id: number; email: string };
 
 import StravaOverrideAction from "./StravaOverrideAction";
 import UserNotificationAction from "./UserNotificationAction";
+import AdminSubscriptionAction from "./AdminSubscriptionAction";
 
-type ActionKey = "strava_import_override" | "send_notification";
+type ActionKey =
+  | "strava_import_override"
+  | "send_notification"
+  | "manage_subscription";
 
 const ACTIONS: { value: ActionKey; label: string }[] = [
   { value: "strava_import_override", label: "Strava — okno importu (override)" },
   { value: "send_notification", label: "Notifikácia — vybraným používateľom" },
+  { value: "manage_subscription", label: "Predplatné — zmena tieru" },
 ];
 
 
@@ -181,6 +186,9 @@ export default function UserInterventionsPanel() {
             )}
             {actionType === "send_notification" && (
               <UserNotificationAction userIds={selectedIdsArr} usersById={usersById} />
+            )}
+            {actionType === "manage_subscription" && (
+              <AdminSubscriptionAction userIds={selectedIdsArr} usersById={usersById} />
             )}
             
           </div>
