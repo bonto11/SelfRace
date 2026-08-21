@@ -69,6 +69,12 @@ function ClientPage() {
   // je aktívny, najdôležitejšie je nastaviť prefs a spustiť plán (Prefs hore).
   // Keď je aktívny, najdôležitejšie sú aktuálne treningy (Daily/Weekly hore),
   // keďže prefs a analyzovanie atléta sa už menia len zriedka.
+  //
+  // WidgetCoachPlanSummary je v OBOCH vetvách - je to čisto UI widget, ktorý
+  // sa sám skryje (vráti null), ak pre usera ešte neexistuje žiadny sumár.
+  // Je to zámerné: keď sa plán práve dokončí, hasActivePlan sa okamžite
+  // prepne na false, takže widget musí byť viditeľný aj v "bez aktívneho
+  // plánu" vetve, inak by user svoj čerstvo vygenerovaný sumár nikdy neuvidel.
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -128,6 +134,7 @@ function ClientPage() {
           <WidgetUpcomingRace onOpenDetail={() => router.push("/coach/race-countdown")} />
           <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
           <WidgetCoachAIProgress onOpenDetail={() => router.push("/coach/ai/progress")} />
+          <WidgetCoachPlanSummary onOpenDetail={() => router.push("/coach/ai/planSummary")} />
 
           {showAdvanced && (
             <>
