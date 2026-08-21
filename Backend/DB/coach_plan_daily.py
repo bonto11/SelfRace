@@ -612,3 +612,37 @@ def db_get_daily_session_by_activity_id(
     except Exception as e:
         print("[DB-COACH-DAILY] get_daily_session_by_activity_id error:", repr(e))
         return None
+    
+def db_get_last_planned_daily_session_for_user(
+    user_id: int, *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """
+    Vráti poslednú (chronologicky) NEODPOČINKOVÚ session v aktuálnom dennom
+    pláne používateľa - t.j. posledný reálny tréning, ktorý plán obsahuje.
+    Rest dni (duration_min NULL/0) sa preskakujú.
+
+    Používa sa na detekciu konca plánu nezávisle od toho, či existuje
+    cieľový pretek - ak sa naimportovaná aktivita dátumom zhoduje s
+    plan_date tejto session, plán je hotový.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_last_planned_daily_session_for_user")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("*")
+            .eq("user_id", int(user_id))
+            .order("plan_date", desc=True)
+            .order("session_index", desc=True)
+            .limit(20)
+            .execute()
+        )
+        rows = res.data or []
+        for row in rows:
+            dur = row.get("duration_min")
+            is_rest = dur is None or int(dur) == 0
+            if not is_rest:
+                return row
+        return None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_last_planned_daily_session error:", repr(e))
+        return None

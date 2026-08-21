@@ -97,6 +97,7 @@ TABLE_COACH_PLAN_WEEKLY = "coach_plan_weekly"
 TABLE_COACH_PLAN_META = "coach_plan_meta"
 TABLE_COACH_STRENGTH_HISTORY = "coach_strength_history"
 TABLE_COACH_EXTERNAL_EVENTS = "coach_external_events"
+TABLE_COACH_PLAN_SUMMARIES = "coach_plan_summaries"
 
 TABLE_STRAVA_ACCOUNTS = "strava_accounts"
 TABLE_ACCOUNT_DELETE_REQ = "account_delete_requests"

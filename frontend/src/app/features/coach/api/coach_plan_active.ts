@@ -201,3 +201,127 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
     throw new Error("api.coach.planHistoryFailed");
   }
 }
+
+/* ========================= TYPES ========================= */
+
+export type PlanSummaryRecord = {
+  id: number;
+  user_id: number;
+  plan_meta_id: number;
+  activity_id: number | null;
+
+  race_name: string | null;
+  race_date: string | null;
+  race_target_time: string | null;
+  race_actual_time_s: number | null;
+  race_target_distance_km: number | null;
+  race_actual_distance_km: number | null;
+
+  weeks_tracked: number | null;
+  planned_stats: Record<string, number> | null;
+  actual_stats: Record<string, number> | null;
+
+  ai_headline: string | null;
+  ai_summary_text: string | null;
+  raw_ai_json: {
+    headline?: string;
+    summary_text?: string;
+    achieved_target?: boolean | null;
+    highlights?: string[];
+    areas_to_improve?: string[];
+    next_cycle_advice?: string;
+  } | null;
+
+  trigger_type: "race_match" | "last_session_match" | "manual";
+  is_plan_completed: boolean;
+
+  created_at: string;
+};
+
+type ListPlanSummariesResult = {
+  success: boolean;
+  items?: PlanSummaryRecord[];
+  detail?: string | null;
+  error?: string | null;
+};
+
+type LatestPlanSummaryResult = {
+  success: boolean;
+  item?: PlanSummaryRecord | null;
+  detail?: string | null;
+  error?: string | null;
+};
+
+type MilestoneSummaryResult = {
+  ok: boolean;
+  reason?: string;
+  data?: PlanSummaryRecord;
+};
+
+/* ========================= LIST ========================= */
+export async function apiListPlanSummaries(
+  userId: number,
+): Promise<PlanSummaryRecord[]> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/coach-plan-active/plan-summaries/${encodeURIComponent(String(userId))}`;
+
+  try {
+    const json = await callBackend<ListPlanSummariesResult>(path, {
+      method: "GET",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!json?.success) throw new Error("api.coach.planSummaryListFailed");
+    return json.items ?? [];
+  } catch (e: any) {
+    console.error("[Coach][apiListPlanSummaries] ERROR", e);
+    throw new Error("api.coach.planSummaryListFailed");
+  }
+}
+
+/* ========================= LATEST ========================= */
+export async function apiGetLatestPlanSummary(
+  userId: number,
+): Promise<PlanSummaryRecord | null> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/coach-plan-active/plan-summaries/${encodeURIComponent(String(userId))}/latest`;
+
+  try {
+    const json = await callBackend<LatestPlanSummaryResult>(path, {
+      method: "GET",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!json?.success) throw new Error("api.coach.planSummaryLatestFailed");
+    return json.item ?? null;
+  } catch (e: any) {
+    console.error("[Coach][apiGetLatestPlanSummary] ERROR", e);
+    throw new Error("api.coach.planSummaryLatestFailed");
+  }
+}
+
+/* ========================= GENERATE (manuálny milestone) ========================= */
+export async function apiGenerateMilestoneSummary(
+  userId: number,
+): Promise<MilestoneSummaryResult> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const path = `/coach-plan-active/milestone-summary/${encodeURIComponent(String(userId))}`;
+
+  try {
+    const json = await callBackend<MilestoneSummaryResult>(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+    });
+
+    return json;
+  } catch (e: any) {
+    console.error("[Coach][apiGenerateMilestoneSummary] ERROR", e);
+    throw new Error("api.coach.milestoneSummaryFailed");
+  }
+}

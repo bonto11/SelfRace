@@ -320,13 +320,15 @@ export const en = {
       "You can connect Strava in the settings after successful registration.",
   },
   billing: {
-  usageWarning: {
-    noSubscriptionTitle: "No active subscription",
-    noSubscriptionDesc: "You need an active subscription to use AI features (plan generation, workout reviews).",
-    lowTokensTitle: "Your AI credits are running low",
-    lowTokensDesc: "You're about to run out of AI quota this month. Consider upgrading your plan.",
+    usageWarning: {
+      noSubscriptionTitle: "No active subscription",
+      noSubscriptionDesc:
+        "You need an active subscription to use AI features (plan generation, workout reviews).",
+      lowTokensTitle: "Your AI credits are running low",
+      lowTokensDesc:
+        "You're about to run out of AI quota this month. Consider upgrading your plan.",
+    },
   },
-},
   userMenu: {
     settings: "Settings",
     bio: "Profile (Bio)",
@@ -1449,6 +1451,33 @@ export const en = {
         "List of workouts you saved for later, waiting to be rescheduled.",
       empty: "You have no postponed workouts.",
       actionReschedule: "Reschedule",
+    },
+  },
+  coachPlanSummary: {
+    title: "Training Summary",
+    noDataTitle: "No summary yet",
+    noDataDesc:
+      "Generate your first training summary, or wait for it to be created automatically once your plan is completed.",
+    errorLoad: "Failed to load summaries.",
+    errorNoActivePlan: "You don't have an active training plan.",
+    generateNow: "Generate summary now",
+    generating: "Generating...",
+    generateError: "Generation failed.",
+    checkpointTitle: "Progress checkpoint",
+    tagCompleted: "Completed plan",
+    tagCheckpoint: "Progress checkpoint",
+    targetTime: "Target time",
+    actualTime: "Actual time",
+    highlights: "What went well",
+    areasToImprove: "What to work on",
+    nextCycleAdvice: "Advice for next cycle",
+    widget: {
+      title: "Training Summary",
+      tooltip:
+        "AI evaluation of your training — after completing a plan, or anytime on demand.",
+      missingData: "No summary yet. Open the detail and generate one.",
+      errorFailedLoad: "Failed to load summary.",
+      summary: "Open to see the detailed summary.",
     },
   },
   coachPlanHistory: {

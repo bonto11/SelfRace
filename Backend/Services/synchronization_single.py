@@ -36,7 +36,7 @@ from Services.synchronization_utils import enrich_activities_for_ids
 from Configs.config import (
     TABLE_STRAVA_ACCOUNTS
 )
-
+from Services.coach_plan_completion import service_check_and_generate_plan_summary
 from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
 from Services.notifications import service_notify_new_activity
 from Services.records_check import service_check_activity_records
@@ -378,6 +378,18 @@ def service_sync_single_activity(
             service_notify_new_activity(user_id=user_id, activity_id=aid,ctx=ctx)
         except Exception as e:  # noqa: BLE001
             print(f"[SYNC:single] New activity notification failed id={aid}: {e}")
+
+        #  ---------- 8) KONTROLA DOKONČENIA PLÁNU (hlavný pretek) ----------
+    # Musí byť úplne posledný krok a plne izolovaný - akékoľvek zlyhanie tu
+    # nesmie ovplyvniť výsledok importu aktivity (imported/updated/skipped/fetched).
+    try:
+        service_check_and_generate_plan_summary(
+            user_id=user_id,
+            activity=row,
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] Plan completion check failed id={aid}: {repr(e)}")
 
     return {
         "imported": int(imported),

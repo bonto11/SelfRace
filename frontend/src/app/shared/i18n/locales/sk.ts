@@ -329,13 +329,15 @@ export const sk = {
     showTutorial: "Zobraziť sprievodcu",
   },
   billing: {
-  usageWarning: {
-    noSubscriptionTitle: "Nemáš aktívne predplatné",
-    noSubscriptionDesc: "Na využívanie AI funkcií (generovanie plánov, review tréningov) potrebuješ aktívne predplatné.",
-    lowTokensTitle: "Dochádzajú ti AI kredity",
-    lowTokensDesc: "Tento mesiac ti čoskoro dôjde AI kvóta. Zváž upgrade predplatného.",
+    usageWarning: {
+      noSubscriptionTitle: "Nemáš aktívne predplatné",
+      noSubscriptionDesc:
+        "Na využívanie AI funkcií (generovanie plánov, review tréningov) potrebuješ aktívne predplatné.",
+      lowTokensTitle: "Dochádzajú ti AI kredity",
+      lowTokensDesc:
+        "Tento mesiac ti čoskoro dôjde AI kvóta. Zváž upgrade predplatného.",
+    },
   },
-},
   share: {
     generating: "Pripravujem fotku...",
     generatingWarning: "Obrázok sa ešte generuje, vydrž prosím sekundu.",
@@ -1443,6 +1445,33 @@ export const sk = {
         "Zoznam tréningov, ktoré si si odložil na neskôr a čakajú na nové naplánovanie.",
       empty: "Nemáte žiadne odložené tréningy.",
       actionReschedule: "Naplánovať znova",
+    },
+  },
+  coachPlanSummary: {
+    title: "Sumár prípravy",
+    noDataTitle: "Zatiaľ žiadny sumár",
+    noDataDesc:
+      "Vygeneruj si prvý sumár svojej prípravy, alebo počkaj, kým sa vytvorí automaticky po dokončení plánu.",
+    errorLoad: "Nepodarilo sa načítať sumáre.",
+    errorNoActivePlan: "Nemáš aktívny tréningový plán.",
+    generateNow: "Vygenerovať sumár teraz",
+    generating: "Generujem...",
+    generateError: "Generovanie zlyhalo.",
+    checkpointTitle: "Priebežný checkpoint",
+    tagCompleted: "Dokončený plán",
+    tagCheckpoint: "Priebežný sumár",
+    targetTime: "Cieľový čas",
+    actualTime: "Dosiahnutý čas",
+    highlights: "Čo sa podarilo",
+    areasToImprove: "Na čom zamakať",
+    nextCycleAdvice: "Odporúčanie na ďalší cyklus",
+    widget: {
+      title: "Sumár prípravy",
+      tooltip:
+        "AI zhodnotenie tvojej prípravy — po dokončení plánu, alebo kedykoľvek na požiadanie.",
+      missingData: "Zatiaľ nemáš žiadny sumár. Otvor detail a vygeneruj si ho.",
+      errorFailedLoad: "Nepodarilo sa načítať sumár.",
+      summary: "Otvorením zobrazíš detailný sumár.",
     },
   },
   coachPlanHistory: {

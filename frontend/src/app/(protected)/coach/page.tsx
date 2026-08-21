@@ -25,6 +25,8 @@ import WidgetCoachAIDaily from "@/app/shared/components/widgets/WidgetCoachDaily
 import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachProgress";
 import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance";
 import WidgetCoachNotes from "@/app/shared/components/widgets/WidgetCoachNotes";
+import WidgetCoachPlanSummary from "@/app/shared/components/widgets/WidgetCoachPlanSummary";
+
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -106,6 +108,7 @@ function ClientPage() {
           <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
           <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
           <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
+          <WidgetCoachPlanSummary onOpenDetail={() => router.push("/coach/ai/planSummary")} />
 
           {showAdvanced && (
             <>

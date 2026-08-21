@@ -14,6 +14,11 @@ from Services.coach_plan_active import (
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 from DB.coach_plan_daily import db_get_planned_range_rows
+from Services.coach_plan_completion import service_generate_milestone_summary_on_demand
+from DB.coach_plan_summaries import (
+    db_list_plan_summaries_for_user,
+    db_get_latest_plan_summary_for_user,
+)
 
 router = APIRouter()
 
@@ -188,3 +193,47 @@ async def get_plan_history(
         raise HTTPException(
             status_code=500, detail=f"get_plan_history ERROR: {e}"
         )
+
+@router.post("/coach-plan-active/milestone-summary/{user_id}")
+def generate_milestone_summary(
+    req: Request,
+    user_id: int,
+):
+    """
+    Manuálny 'checkpoint' sumár prípravy - kedykoľvek, bez ohľadu na
+    dokončenie plánu. Plán zostáva active, nič sa nearchivuje.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+       
+        result = service_generate_milestone_summary_on_demand(user_id=user_id, ctx=ctx)
+        return result
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.get("/coach-plan-active/plan-summaries/{user_id}")
+def list_plan_summaries(
+    req: Request,
+    user_id: int,
+):
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        items = db_list_plan_summaries_for_user(user_id=user_id, ctx=ctx)
+        return {"success": True, "items": items}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/coach-plan-active/plan-summaries/{user_id}/latest")
+def get_latest_plan_summary(
+    req: Request,
+    user_id: int,
+):
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        row = db_get_latest_plan_summary_for_user(user_id=user_id, ctx=ctx)
+        return {"success": True, "item": row}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
