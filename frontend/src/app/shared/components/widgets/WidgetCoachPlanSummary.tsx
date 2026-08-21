@@ -1,4 +1,4 @@
-// src/app/features/coach/components/WidgetCoachPlanSummary.tsx
+// src/app/shared/components/widgets/WidgetCoachPlanSummary.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,7 +19,7 @@ import {
 import {
   apiGetLatestPlanSummary,
   type PlanSummaryRecord,
-} from "@/app/features/coach/api/coach_plan_active";
+} from "@/app/features/coach/api/coach_plan_summaries";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -68,12 +68,6 @@ export default function WidgetCoachPlanSummary({ onOpenDetail }: Props) {
   }, [userId, t, isChecking]);
 
   const accent = useMemo(() => pickAccent(row), [row]);
-
-  // 🌟 Widget sa zobrazuje len keď existuje aspoň jeden sumár (žiadny sumár
-  // = user nikdy nedokončil plán ani si nevyžiadal manuálny checkpoint).
-  if (!loading && !isChecking && !error && userId && !row) {
-    return null;
-  }
 
   return (
     <WidgetCard
