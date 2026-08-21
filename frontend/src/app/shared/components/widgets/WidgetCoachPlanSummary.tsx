@@ -19,7 +19,7 @@ import {
 import {
   apiGetLatestPlanSummary,
   type PlanSummaryRecord,
-} from "@/app/features/coach/api/coach_plan_summaries";
+} from "@/app/features/coach/api/coach_plan_active";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 import { useT } from "@/app/shared/i18n/useT";
 
