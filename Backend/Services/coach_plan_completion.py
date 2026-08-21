@@ -173,6 +173,8 @@ def _build_and_save_summary(
     is_plan_completed: bool,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
+    from datetime import date
+
     meta_id = meta.get("id")
 
     weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
@@ -186,6 +188,21 @@ def _build_and_save_summary(
     activity_distance_km = float(distance_m) / 1000.0 if distance_m else None
     actual_time_s = int(moving_time_s) if moving_time_s else None
     target_km = _target_distance_km(matching_race) if matching_race else None
+
+    # 🌟 KRITICKÉ: weekly_trend posielaný do AI sa filtruje LEN na týždne,
+    # ktoré už reálne prebehli alebo prebiehajú (week_end <= dnes). Bez
+    # tohto filtra AI vidí aj BUDÚCE týždne plánu (tie sa v DB vytvárajú
+    # vopred pre celý cyklus naraz) s prirodzene prázdnym actual_stats, a
+    # mylne si to vyloží ako "user prestal trénovať X týždňov pred
+    # pretekom" - presne tento bug spôsobil nezmyselný "6 týždňov bez
+    # aktivity" text pri checkpointe tesne pred pretekom.
+    today_iso = date.today().isoformat()
+
+    def _week_end_str(w: Dict[str, Any]) -> str:
+        return str(w.get("week_end") or "")[:10]
+
+    elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
+    future_weeks_count = len(weeks) - len(elapsed_weeks)
 
     summary_row: Dict[str, Any] = {
         "user_id": user_id,
@@ -215,7 +232,9 @@ def _build_and_save_summary(
             plan_end_date=meta.get("end_date"),
             weeks_total=meta.get("weeks_total"),
             aggregated=aggregated,
-            weeks=weeks,
+            weeks=elapsed_weeks,  # 🌟 len prebehnuté/prebiehajúce, nie celý plán
+            future_weeks_count=future_weeks_count,
+            today_iso=today_iso,
             actual_time_s=actual_time_s,
             target_km=target_km,
             actual_km=activity_distance_km,
@@ -253,8 +272,9 @@ def _build_and_save_summary(
             )
         except Exception as e:  # noqa: BLE001
             print(f"[PLAN_COMPLETION] archive_plan_meta failed user_id={user_id}: {repr(e)}")
-            
+
     return saved
+
 
 
 # ============================================================
