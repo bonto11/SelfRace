@@ -43,6 +43,8 @@ def _build_prompts(
     weeks_total: Optional[int],
     aggregated: Dict[str, Any],
     weeks: List[Dict[str, Any]],
+    future_weeks_count: int,
+    today_iso: str,
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
@@ -91,6 +93,7 @@ def _build_prompts(
     ]
 
     data: Dict[str, Any] = {
+        "today": today_iso,
         "plan": {
             "start_date": plan_start_date,
             "end_date": plan_end_date,
@@ -102,18 +105,22 @@ def _build_prompts(
             "planned_stats": aggregated["planned"],
             "actual_stats": aggregated["actual"],
         },
-        "weekly_trend": week_trend,
+        # 🌟 weekly_trend obsahuje LEN týždne, ktoré už prebehli alebo
+        # prebiehajú (week_end <= today). Zvyšné týždne plánu (future_weeks_count)
+        # ešte len prídu - nie sú tu zámerne, NIE preto, že by sa v nich
+        # netrénovalo.
+        "weekly_trend_elapsed_only": week_trend,
+        "future_weeks_not_yet_happened": future_weeks_count,
     }
 
     if has_race:
-        race_has_result = actual_time_s is not None
         data["race"] = {
             "name": race.get("name"),
             "date": race.get("date"),
             "priority": race.get("priority"),
             "race_type": race.get("race_type"),
             "target_time": race.get("target_time"),
-            "already_happened": race_has_result,
+            "already_happened": race.get("already_happened"),
             "actual_time_s": actual_time_s,
             "actual_time_formatted": _format_time_s(actual_time_s),
             "target_distance_km": target_km,
@@ -138,9 +145,6 @@ def _build_prompts(
   "next_cycle_advice": "2-3 sentences of concrete advice for what comes next."
 }"""
 
-    if has_race and race.get("already_happened" ) is not False:
-        pass  # placeholder, real logic below via python var
-
     if has_race:
         race_rule = (
             "- If race.already_happened is true, compare actual_time_s to target_time "
@@ -155,6 +159,16 @@ def _build_prompts(
             "null if that's not a meaningful signal.\n"
         )
 
+    future_rule = (
+        "- CRITICAL: 'weekly_trend_elapsed_only' contains ONLY weeks up to 'today' "
+        f"({today_iso}). There are {future_weeks_count} additional week(s) in this plan "
+        "that have NOT happened yet - they are simply not included because they are in "
+        "the future, NOT because the athlete stopped training. NEVER claim the athlete "
+        "'stopped training for N weeks' or similar based on weeks missing from this "
+        "list - those weeks don't exist yet. Only comment on gaps or inconsistency "
+        "WITHIN the weeks actually present in weekly_trend_elapsed_only.\n"
+    )
+
     user = (
         "Write a training summary for the cycle below.\n\n"
         f"DATA:\n{json.dumps(data, ensure_ascii=False, default=str)}\n\n"
@@ -162,8 +176,9 @@ def _build_prompts(
         f"RULES:\n"
         f"- Language: {lang_rule}\n"
         + race_rule
-        + "- Use weekly_trend to spot consistency patterns (e.g. dropped volume mid-cycle, "
-        "strong taper, missed sessions) rather than just reciting totals.\n"
+        + future_rule
+        + "- Use weekly_trend_elapsed_only to spot consistency patterns (e.g. dropped "
+        "volume mid-cycle, strong taper, missed sessions) rather than just reciting totals.\n"
         "- DO NOT list numbers already visible in cycle_totals - provide INSIGHTS.\n"
         "- Return ONLY valid raw JSON."
     )
@@ -185,6 +200,8 @@ def service_generate_plan_completion_summary(
     weeks_total: Optional[int] = None,
     aggregated: Dict[str, Any],
     weeks: List[Dict[str, Any]],
+    future_weeks_count: int = 0,
+    today_iso: Optional[str] = None,
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
@@ -193,17 +210,17 @@ def service_generate_plan_completion_summary(
 ) -> Dict[str, Any]:
     """
     Generuje AI sumár tréningového cyklu (analogicky k
-    service_generate_monthly_review). Funguje pre:
-    - dokončený plán (is_plan_completed=True) - Path A/B automatický trigger
-    - priebežný checkpoint (is_plan_completed=False) - manuálny FE trigger
-    - s pretekom (race) alebo bez neho (použije sa goal_kind)
-
-    Vracia {"ok": bool, "data": {...}} alebo {"ok": False, "reason": ...,
-    "error": ...} pri zlyhaní.
+    service_generate_monthly_review). 'weeks' by mali obsahovať LEN
+    prebehnuté/prebiehajúce týždne (filtrovanie robí volajúci v
+    coach_plan_completion.py), 'future_weeks_count' hovorí AI koľko
+    ďalších týždňov ešte príde - aby nesprávne neinterpretovala chýbajúce
+    budúce týždne ako prerušenie tréningu.
     """
     TAG = f"[PLAN-COMPLETION][user={user_id}]"
 
-    # doplň already_happened flag priamo do race dictu pre prompt builder
+    from datetime import date as _date
+    resolved_today = today_iso or _date.today().isoformat()
+
     race_for_prompt = dict(race) if race else None
     if race_for_prompt is not None:
         race_for_prompt["already_happened"] = actual_time_s is not None
@@ -218,6 +235,8 @@ def service_generate_plan_completion_summary(
         weeks_total=weeks_total,
         aggregated=aggregated,
         weeks=weeks,
+        future_weeks_count=future_weeks_count,
+        today_iso=resolved_today,
         actual_time_s=actual_time_s,
         target_km=target_km,
         actual_km=actual_km,
