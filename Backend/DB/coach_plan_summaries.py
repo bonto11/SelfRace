@@ -3,9 +3,19 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from Modules.Supabase.client import get_sb
+from Modules.Supabase.client import get_service_client
 from Modules.Supabase.auth import AuthCtx
 from Configs.config import TABLE_COACH_PLAN_SUMMARIES
+
+# 🌟 Tabuľka coach_plan_summaries má RLS zapnuté BEZ policies (rovnaký
+# vzor ako user_deletions) - je to čisto backend-spravovaný záznam, ku
+# ktorému bežný user nemá pristupovať priamo cez RLS. Preto tu VŽDY
+# používame service klienta, bez ohľadu na to, aký ctx prišiel zvonku
+# (user JWT z FE requestu, alebo service_ctx z importu/cronu). Autorizácia
+# "je toto tvoj user_id" sa rieši na úrovni endpointu (require_user + filter
+# na user_id z JWT), nie na úrovni DB RLS pre túto konkrétnu tabuľku.
+
+_sb = get_service_client()
 
 
 def db_insert_plan_summary(
@@ -13,9 +23,8 @@ def db_insert_plan_summary(
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(ctx, caller="coach_plan_summaries.db_insert_plan_summary")
     try:
-        res = sb.table(TABLE_COACH_PLAN_SUMMARIES).insert(row).execute()
+        res = _sb.table(TABLE_COACH_PLAN_SUMMARIES).insert(row).execute()
         rows = res.data or []
         return rows[0] if rows else None
     except Exception as e:  # noqa: BLE001
@@ -30,10 +39,9 @@ def db_get_summary_exists_for_plan(
 ) -> bool:
     """Poistka proti duplicitám - ak by sa import spustil viackrát pre tú
     istú aktivitu (re-sync), nechceme vygenerovať dva sumáre pre ten istý plán."""
-    sb = get_sb(ctx, caller="coach_plan_summaries.db_get_summary_exists_for_plan")
     try:
         res = (
-            sb.table(TABLE_COACH_PLAN_SUMMARIES)
+            _sb.table(TABLE_COACH_PLAN_SUMMARIES)
             .select("id")
             .eq("plan_meta_id", plan_meta_id)
             .limit(1)
@@ -50,10 +58,9 @@ def db_list_plan_summaries_for_user(
     *,
     ctx: AuthCtx,
 ) -> List[Dict[str, Any]]:
-    sb = get_sb(ctx, caller="coach_plan_summaries.db_list_plan_summaries_for_user")
     try:
         res = (
-            sb.table(TABLE_COACH_PLAN_SUMMARIES)
+            _sb.table(TABLE_COACH_PLAN_SUMMARIES)
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -70,10 +77,9 @@ def db_get_latest_plan_summary_for_user(
     *,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    sb = get_sb(ctx, caller="coach_plan_summaries.db_get_latest_plan_summary_for_user")
     try:
         res = (
-            sb.table(TABLE_COACH_PLAN_SUMMARIES)
+            _sb.table(TABLE_COACH_PLAN_SUMMARIES)
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
