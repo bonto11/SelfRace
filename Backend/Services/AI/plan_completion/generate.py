@@ -33,6 +33,7 @@ def _format_time_s(seconds: Optional[int]) -> Optional[str]:
     return f"{m}:{s:02d}"
 
 
+
 def _build_prompts(
     *,
     lang: str,
@@ -45,6 +46,7 @@ def _build_prompts(
     weeks: List[Dict[str, Any]],
     future_weeks_count: int,
     today_iso: str,
+    unmatched_activities: List[Dict[str, Any]],
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
@@ -78,7 +80,8 @@ def _build_prompts(
             else "overall progress toward the athlete's stated goal (no specific race - "
             "this is a general fitness/speed/endurance improvement cycle). "
         )
-        + "Be specific, honest, and encouraging. "
+        + "Be specific, honest, and encouraging, but fair - do not scold the athlete for "
+        "things the data doesn't actually show. "
         "Return ONE valid JSON object only. No markdown. No extra text."
     )
 
@@ -105,12 +108,9 @@ def _build_prompts(
             "planned_stats": aggregated["planned"],
             "actual_stats": aggregated["actual"],
         },
-        # 🌟 weekly_trend obsahuje LEN týždne, ktoré už prebehli alebo
-        # prebiehajú (week_end <= today). Zvyšné týždne plánu (future_weeks_count)
-        # ešte len prídu - nie sú tu zámerne, NIE preto, že by sa v nich
-        # netrénovalo.
         "weekly_trend_elapsed_only": week_trend,
         "future_weeks_not_yet_happened": future_weeks_count,
+        "other_activities_not_matched_to_plan": unmatched_activities,
     }
 
     if has_race:
@@ -164,9 +164,21 @@ def _build_prompts(
         f"({today_iso}). There are {future_weeks_count} additional week(s) in this plan "
         "that have NOT happened yet - they are simply not included because they are in "
         "the future, NOT because the athlete stopped training. NEVER claim the athlete "
-        "'stopped training for N weeks' or similar based on weeks missing from this "
-        "list - those weeks don't exist yet. Only comment on gaps or inconsistency "
-        "WITHIN the weeks actually present in weekly_trend_elapsed_only.\n"
+        "'stopped training for N weeks' based on weeks missing from this list.\n"
+    )
+
+    unmatched_rule = (
+        "- CRITICAL: 'other_activities_not_matched_to_plan' lists REAL activities the "
+        "athlete actually completed (from Strava) that simply weren't linked to a "
+        "specific planned session in the app - e.g. a long run instead of a scheduled "
+        "interval session, or an extra free run. 'weekly_trend_elapsed_only'/'actual_stats' "
+        "ONLY count matched sessions, so they can look artificially low even when the "
+        "athlete trained a lot. ALWAYS factor in 'other_activities_not_matched_to_plan' "
+        "before concluding the athlete under-trained or was inconsistent - if it shows "
+        "meaningful volume, acknowledge that training happened, just not exactly as "
+        "prescribed (e.g. swapping intervals for long runs), and comment on that pattern "
+        "specifically rather than implying inactivity.\n"
+        if unmatched_activities else ""
     )
 
     user = (
@@ -177,8 +189,9 @@ def _build_prompts(
         f"- Language: {lang_rule}\n"
         + race_rule
         + future_rule
-        + "- Use weekly_trend_elapsed_only to spot consistency patterns (e.g. dropped "
-        "volume mid-cycle, strong taper, missed sessions) rather than just reciting totals.\n"
+        + unmatched_rule
+        + "- Use weekly_trend_elapsed_only to spot consistency patterns rather than just "
+        "reciting totals.\n"
         "- DO NOT list numbers already visible in cycle_totals - provide INSIGHTS.\n"
         "- Return ONLY valid raw JSON."
     )
@@ -202,20 +215,13 @@ def service_generate_plan_completion_summary(
     weeks: List[Dict[str, Any]],
     future_weeks_count: int = 0,
     today_iso: Optional[str] = None,
+    unmatched_activities: Optional[List[Dict[str, Any]]] = None,
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
     is_plan_completed: bool = True,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Generuje AI sumár tréningového cyklu (analogicky k
-    service_generate_monthly_review). 'weeks' by mali obsahovať LEN
-    prebehnuté/prebiehajúce týždne (filtrovanie robí volajúci v
-    coach_plan_completion.py), 'future_weeks_count' hovorí AI koľko
-    ďalších týždňov ešte príde - aby nesprávne neinterpretovala chýbajúce
-    budúce týždne ako prerušenie tréningu.
-    """
     TAG = f"[PLAN-COMPLETION][user={user_id}]"
 
     from datetime import date as _date
@@ -237,6 +243,7 @@ def service_generate_plan_completion_summary(
         weeks=weeks,
         future_weeks_count=future_weeks_count,
         today_iso=resolved_today,
+        unmatched_activities=unmatched_activities or [],
         actual_time_s=actual_time_s,
         target_km=target_km,
         actual_km=actual_km,
