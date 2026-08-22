@@ -1,13 +1,18 @@
 # Services/coach_plan_completion.py
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.auth import AuthCtx
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_archive_plan_meta
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
-from DB.coach_plan_daily import db_get_last_planned_daily_session_for_user
+from DB.coach_plan_daily import (
+    db_get_last_planned_daily_session_for_user,
+    db_get_compliance_stats,
+    db_get_unmatched_activities,
+)
 from DB.coach_plan_summaries import (
     db_insert_plan_summary,
     db_get_summary_exists_for_plan,
@@ -32,13 +37,10 @@ DISTANCE_TOLERANCE_PCT = 0.10  # ±10 %
 
 def _target_distance_km(race: Dict[str, Any]) -> Optional[float]:
     """
-    Vytiahne cieľovú vzdialenosť pretekov v km.
-
     custom_distance_km je hodnota, ktorú user zadal pri voľbe 'other'/'ultra'
     (frontend GoalSection.tsx). Pri štandardných voľbách (5k/10k/half/
     marathon) je custom_distance_km null a reálna vzdialenosť sa odvodí
-    z race_goal -> RACE_GOAL_KM (prepis toho, čo user zvolil kliknutím,
-    nie vymyslený katalóg).
+    z race_goal -> RACE_GOAL_KM (prepis toho, čo user zvolil kliknutím).
     """
     custom = race.get("custom_distance_km")
     if isinstance(custom, (int, float)) and custom > 0:
@@ -64,9 +66,9 @@ def _find_matching_race(
     activity_distance_km: float,
 ) -> Optional[Dict[str, Any]]:
     """
-    Nájde AKÝKOĽVEK pretek (bez ohľadu na prioritu - A, B, C, D...) z
-    prefs.targets.run.races, ktorého dátum sa PRESNE zhoduje s dátumom
-    aktivity a vzdialenosť je v tolerancii ±10 %.
+    Nájde AKÝKOĽVEK pretek (bez ohľadu na prioritu) z prefs.targets.run.races,
+    ktorého dátum sa PRESNE zhoduje s dátumom aktivity a vzdialenosť je v
+    tolerancii ±10 %.
     """
     act_date_only = str(activity_date_iso)[:10]
 
@@ -90,10 +92,8 @@ def _find_matching_race(
 
 def _pick_primary_race(prefs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
-    Pre manuálny (on-demand) trigger vyberá "hlavný" pretek na zobrazenie v
-    sumári - uprednostní prioritu A, potom B, C, D..., inak prvý v zozname.
-    Nemá vplyv na automatickú detekciu dokončenia (tá berie hociktorý pretek
-    podľa dátumu+vzdialenosti, nie podľa priority).
+    Pre manuálny (on-demand) trigger vyberá "hlavný" pretek na zobrazenie -
+    uprednostní prioritu A, potom B, C, D..., inak prvý v zozname.
     """
     races = _all_races(prefs)
     if not races:
@@ -105,6 +105,7 @@ def _pick_primary_race(prefs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     )
     return races_sorted[0]
 
+
 # ============================================================
 # END-OF-PLAN HELPER (nezávislé od preteku)
 # ============================================================
@@ -115,13 +116,6 @@ def _is_last_plan_session_match(
     *,
     ctx: AuthCtx,
 ) -> bool:
-    """
-    Plán sa považuje za dokončený vtedy, keď naimportovaná aktivita dátumom
-    zodpovedá poslednej reálnej (nie rest-day) tréningovej session v
-    aktuálnom dennom pláne. Toto je NEZÁVISLÉ od toho, či existuje cieľový
-    pretek - platí to aj keď pretek je, len vychádza na iný dátum než koniec
-    plánu (typický prípad: pretek o týždeň, plán beží ešte mesiac).
-    """
     last_session = db_get_last_planned_daily_session_for_user(user_id, ctx=ctx)
     if not last_session:
         return False
@@ -133,11 +127,10 @@ def _is_last_plan_session_match(
 
 
 # ============================================================
-# STATS AGGREGATION
+# STATS AGGREGATION (z coach_plan_weekly - len napárované session)
 # ============================================================
 
 def _aggregate_weekly_stats(weeks: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Sčíta planned_stats/actual_stats naprieč všetkými týždňami plánu."""
     final_planned: Dict[str, float] = {}
     final_actual: Dict[str, float] = {}
 
@@ -160,6 +153,148 @@ def _aggregate_weekly_stats(weeks: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 # ============================================================
+# UNMATCHED ACTIVITIES AGGREGATION (Strava aktivity nenapárované na plán)
+# ============================================================
+
+def _canonical_sport(s: Any) -> str:
+    if not s:
+        return "other"
+    v = str(s).lower()
+    if v in ("run", "trail", "trail_run") or v.startswith("run"):
+        return "run"
+    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
+        return "ride"
+    if "swim" in v:
+        return "swim"
+    if "strength" in v or "gym" in v or "weight" in v:
+        return "strength"
+    return "other"
+
+
+def _aggregate_unmatched_activities(
+    *, user_id: int, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú
+    session v coach_plan_daily - za celé obdobie aktívneho plánu, podľa
+    športu: počet, celková vzdialenosť/čas, priemerné tempo, priemerný tep.
+
+    Toto je KRITICKÉ pre AI kontext - actual_stats z coach_plan_weekly počíta
+    len z napárovaných session, takže ak user trénoval, ale inak než plán
+    predpisoval (napr. dlhý beh namiesto intervalov, voľný beh navyše), tie
+    kilometre/minúty sa v actual_stats vôbec neobjavia. Bez tejto agregácie
+    AI mylne tvrdí "nič si netrénoval", hoci reálne trénoval, len inak.
+    """
+    raw = db_get_unmatched_activities(user_id, ctx=ctx, days=180)
+    if not raw:
+        return []
+
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for a in raw:
+        sport = _canonical_sport(a.get("sport_type_fe") or a.get("sport_type"))
+        b = buckets.setdefault(sport, {
+            "sport": sport,
+            "count": 0,
+            "distance_m_sum": 0.0,
+            "moving_time_s_sum": 0.0,
+            "hr_sum": 0.0,
+            "hr_count": 0,
+        })
+        b["count"] += 1
+        try:
+            b["distance_m_sum"] += float(a.get("distance_m") or 0)
+        except (TypeError, ValueError):
+            pass
+        try:
+            b["moving_time_s_sum"] += float(a.get("moving_time_s") or 0)
+        except (TypeError, ValueError):
+            pass
+        hr = a.get("average_heartrate_bpm")
+        if hr:
+            try:
+                b["hr_sum"] += float(hr)
+                b["hr_count"] += 1
+            except (TypeError, ValueError):
+                pass
+
+    out: List[Dict[str, Any]] = []
+    for b in buckets.values():
+        dist_km = round(b["distance_m_sum"] / 1000.0, 2) if b["distance_m_sum"] else 0.0
+        time_min = round(b["moving_time_s_sum"] / 60.0, 1) if b["moving_time_s_sum"] else 0.0
+        avg_pace_s_per_km = (
+            round(b["moving_time_s_sum"] / (b["distance_m_sum"] / 1000.0))
+            if b["distance_m_sum"] > 0 and b["sport"] in ("run", "ride")
+            else None
+        )
+        avg_hr = round(b["hr_sum"] / b["hr_count"]) if b["hr_count"] > 0 else None
+        out.append({
+            "sport": b["sport"],
+            "count": b["count"],
+            "total_distance_km": dist_km,
+            "total_time_min": time_min,
+            "avg_pace_s_per_km": avg_pace_s_per_km,
+            "avg_hr_bpm": avg_hr,
+        })
+
+    out.sort(key=lambda x: x["count"], reverse=True)
+    return out
+
+
+# ============================================================
+# HARD STATS (deterministicky, bez AI)
+# ============================================================
+
+def _compute_hard_stats(
+    *,
+    user_id: int,
+    elapsed_weeks: List[Dict[str, Any]],
+    aggregated: Dict[str, Any],
+    unmatched_activities: List[Dict[str, Any]],
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    weeks_tracked = len(elapsed_weeks)
+
+    compliance = db_get_compliance_stats(user_id, ctx=ctx)
+    done = int(compliance.get("done") or 0)
+    missed = int(compliance.get("missed") or 0)
+    postponed = int(compliance.get("postponed") or 0)
+    planned = int(compliance.get("planned") or 0)
+    total_sessions = done + missed + postponed
+    completion_pct = round((done / total_sessions) * 100, 1) if total_sessions > 0 else None
+
+    actual_totals = aggregated.get("actual") or {}
+    planned_totals = aggregated.get("planned") or {}
+
+    weekly_averages: Dict[str, float] = {}
+    if weeks_tracked > 0:
+        for k, v in actual_totals.items():
+            if isinstance(v, (int, float)):
+                weekly_averages[k] = round(v / weeks_tracked, 2)
+
+    total_time_min = sum(
+        v for k, v in actual_totals.items()
+        if isinstance(v, (int, float)) and k.endswith("_time_min")
+    )
+    avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
+
+    return {
+        "weeks_tracked": weeks_tracked,
+        "compliance": {
+            "done": done,
+            "missed": missed,
+            "postponed": postponed,
+            "planned_remaining": planned,
+            "completion_pct": completion_pct,
+        },
+        "planned_totals": planned_totals,
+        "actual_totals": actual_totals,
+        "weekly_averages": weekly_averages,
+        "avg_session_duration_min": avg_session_duration_min,
+        "unmatched_activities": unmatched_activities,
+    }
+
+
+# ============================================================
 # SHARED BUILDER (spoločné pre auto aj manuálny trigger)
 # ============================================================
 
@@ -173,8 +308,6 @@ def _build_and_save_summary(
     is_plan_completed: bool,
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    from datetime import date
-
     meta_id = meta.get("id")
 
     weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
@@ -189,13 +322,6 @@ def _build_and_save_summary(
     actual_time_s = int(moving_time_s) if moving_time_s else None
     target_km = _target_distance_km(matching_race) if matching_race else None
 
-    # 🌟 KRITICKÉ: weekly_trend posielaný do AI sa filtruje LEN na týždne,
-    # ktoré už reálne prebehli alebo prebiehajú (week_end <= dnes). Bez
-    # tohto filtra AI vidí aj BUDÚCE týždne plánu (tie sa v DB vytvárajú
-    # vopred pre celý cyklus naraz) s prirodzene prázdnym actual_stats, a
-    # mylne si to vyloží ako "user prestal trénovať X týždňov pred
-    # pretekom" - presne tento bug spôsobil nezmyselný "6 týždňov bez
-    # aktivity" text pri checkpointe tesne pred pretekom.
     today_iso = date.today().isoformat()
 
     def _week_end_str(w: Dict[str, Any]) -> str:
@@ -203,6 +329,19 @@ def _build_and_save_summary(
 
     elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
     future_weeks_count = len(weeks) - len(elapsed_weeks)
+
+    # 🌟 Nenapárované aktivity - AI musí vidieť, že user reálne trénoval,
+    # aj keď to plán "nezapočítal" (napr. dlhé behy namiesto intervalov)
+    unmatched_activities = _aggregate_unmatched_activities(user_id=user_id, ctx=ctx)
+
+    # 🌟 Tvrdé čísla nezávislé od AI
+    hard_stats = _compute_hard_stats(
+        user_id=user_id,
+        elapsed_weeks=elapsed_weeks,
+        aggregated=aggregated,
+        unmatched_activities=unmatched_activities,
+        ctx=ctx,
+    )
 
     summary_row: Dict[str, Any] = {
         "user_id": user_id,
@@ -219,6 +358,7 @@ def _build_and_save_summary(
         "weeks_tracked": len(weeks),
         "planned_stats": aggregated["planned"],
         "actual_stats": aggregated["actual"],
+        "hard_stats": hard_stats,
         "trigger_type": trigger_type,
         "is_plan_completed": is_plan_completed,
     }
@@ -232,9 +372,10 @@ def _build_and_save_summary(
             plan_end_date=meta.get("end_date"),
             weeks_total=meta.get("weeks_total"),
             aggregated=aggregated,
-            weeks=elapsed_weeks,  # 🌟 len prebehnuté/prebiehajúce, nie celý plán
+            weeks=elapsed_weeks,
             future_weeks_count=future_weeks_count,
             today_iso=today_iso,
+            unmatched_activities=unmatched_activities,
             actual_time_s=actual_time_s,
             target_km=target_km,
             actual_km=activity_distance_km,
@@ -255,7 +396,6 @@ def _build_and_save_summary(
 
     if is_plan_completed and meta_id:
         try:
-            from datetime import datetime, timezone
             fallback_ended_at = datetime.now(timezone.utc).isoformat()
             db_archive_plan_meta(
                 user_id=user_id,
@@ -276,7 +416,6 @@ def _build_and_save_summary(
     return saved
 
 
-
 # ============================================================
 # ENTRYPOINT A: AUTOMATICKÁ DETEKCIA (volaná z importu aktivity)
 # ============================================================
@@ -287,18 +426,6 @@ def service_check_and_generate_plan_summary(
     activity: Dict[str, Any],
     ctx: AuthCtx,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Zavolať po importe/update KAŽDEJ aktivity. Plán sa považuje za
-    dokončený, ak aktivita zodpovedá:
-      - hociktorému pretek(u) v prefs (dátum presne + vzdialenosť ±10%,
-        bez ohľadu na prioritu A/B/C/D), ALEBO
-      - poslednej reálnej (nie rest-day) tréningovej session v pláne.
-    Ak sedí oboje naraz (pretek pripadá presne na posledný deň plánu),
-    vygeneruje sa sumár LEN RAZ.
-
-    Vracia None ak nedošlo k zhode. Volajúci (synchronization_single.py)
-    musí tento call obaliť try/except - chyba tu nesmie zhodiť import.
-    """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta or meta.get("status") != "active":
         return None
@@ -307,7 +434,6 @@ def service_check_and_generate_plan_summary(
     if not meta_id:
         return None
 
-    # poistka proti duplicitám (re-sync tej istej aktivity / opakovaný webhook)
     if db_get_summary_exists_for_plan(plan_meta_id=meta_id, ctx=ctx):
         return None
 
@@ -350,12 +476,6 @@ def service_generate_milestone_summary_on_demand(
     user_id: int,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Vygeneruje "checkpoint" sumár prípravy KEDYKOĽVEK na požiadanie usera,
-    bez ohľadu na to, či je plán dokončený. Plán zostáva 'active', nič sa
-    nearchivuje - toto je len momentka aktuálneho progresu. Vyžaduje
-    aktívny plán (inak vráti chybu).
-    """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta or meta.get("status") != "active":
         return {"ok": False, "reason": "no_active_plan"}
