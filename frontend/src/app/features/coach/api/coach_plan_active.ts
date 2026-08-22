@@ -47,6 +47,8 @@ export type ActivePlanStatus = {
   error?: string | null;
 };
 
+
+
 type SimpleSuccess = {
   success: boolean;
   detail?: string | null;
@@ -203,7 +205,22 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
 }
 
 /* ========================= TYPES ========================= */
+export type PlanSummaryHardStats = {
+  weeks_tracked: number;
+  compliance: {
+    done: number;
+    missed: number;
+    postponed: number;
+    planned_remaining: number;
+    completion_pct: number | null;
+  };
+  planned_totals: Record<string, number>;
+  actual_totals: Record<string, number>;
+  weekly_averages: Record<string, number>;
+  avg_session_duration_min: number | null;
+};
 
+ 
 export type PlanSummaryRecord = {
   id: number;
   user_id: number;
@@ -236,6 +253,7 @@ export type PlanSummaryRecord = {
   is_plan_completed: boolean;
 
   created_at: string;
+  hard_stats: PlanSummaryHardStats | null;
 };
 
 type ListPlanSummariesResult = {

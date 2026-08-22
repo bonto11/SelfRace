@@ -7,7 +7,6 @@ from Modules.Supabase.auth import AuthCtx
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_archive_plan_meta
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
-from DB.coach_plan_daily import db_get_last_planned_daily_session_for_user
 from DB.coach_plan_summaries import (
     db_insert_plan_summary,
     db_get_summary_exists_for_plan,
@@ -15,6 +14,10 @@ from DB.coach_plan_summaries import (
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.AI.plan_completion.generate import service_generate_plan_completion_summary
 
+from DB.coach_plan_daily import (
+    db_get_last_planned_daily_session_for_user,
+    db_get_compliance_stats,
+)
 
 RACE_GOAL_KM: Dict[str, float] = {
     "5k": 5.0,
@@ -189,13 +192,6 @@ def _build_and_save_summary(
     actual_time_s = int(moving_time_s) if moving_time_s else None
     target_km = _target_distance_km(matching_race) if matching_race else None
 
-    # 🌟 KRITICKÉ: weekly_trend posielaný do AI sa filtruje LEN na týždne,
-    # ktoré už reálne prebehli alebo prebiehajú (week_end <= dnes). Bez
-    # tohto filtra AI vidí aj BUDÚCE týždne plánu (tie sa v DB vytvárajú
-    # vopred pre celý cyklus naraz) s prirodzene prázdnym actual_stats, a
-    # mylne si to vyloží ako "user prestal trénovať X týždňov pred
-    # pretekom" - presne tento bug spôsobil nezmyselný "6 týždňov bez
-    # aktivity" text pri checkpointe tesne pred pretekom.
     today_iso = date.today().isoformat()
 
     def _week_end_str(w: Dict[str, Any]) -> str:
@@ -203,6 +199,14 @@ def _build_and_save_summary(
 
     elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
     future_weeks_count = len(weeks) - len(elapsed_weeks)
+
+    # 🌟 Tvrdé čísla nezávislé od AI - počítané vždy rovnako z DB
+    hard_stats = _compute_hard_stats(
+        user_id=user_id,
+        elapsed_weeks=elapsed_weeks,
+        aggregated=aggregated,
+        ctx=ctx,
+    )
 
     summary_row: Dict[str, Any] = {
         "user_id": user_id,
@@ -219,6 +223,7 @@ def _build_and_save_summary(
         "weeks_tracked": len(weeks),
         "planned_stats": aggregated["planned"],
         "actual_stats": aggregated["actual"],
+        "hard_stats": hard_stats,
         "trigger_type": trigger_type,
         "is_plan_completed": is_plan_completed,
     }
@@ -232,7 +237,7 @@ def _build_and_save_summary(
             plan_end_date=meta.get("end_date"),
             weeks_total=meta.get("weeks_total"),
             aggregated=aggregated,
-            weeks=elapsed_weeks,  # 🌟 len prebehnuté/prebiehajúce, nie celý plán
+            weeks=elapsed_weeks,
             future_weeks_count=future_weeks_count,
             today_iso=today_iso,
             actual_time_s=actual_time_s,
@@ -275,7 +280,57 @@ def _build_and_save_summary(
 
     return saved
 
+def _compute_hard_stats(
+    *,
+    user_id: int,
+    elapsed_weeks: List[Dict[str, Any]],
+    aggregated: Dict[str, Any],
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu - compliance,
+    súčty a priemery na týždeň. Nezávislé od AI narrácie, počíta sa vždy
+    rovnako a presne z DB dát.
+    """
+    weeks_tracked = len(elapsed_weeks)
 
+    compliance = db_get_compliance_stats(user_id, ctx=ctx)
+    done = int(compliance.get("done") or 0)
+    missed = int(compliance.get("missed") or 0)
+    postponed = int(compliance.get("postponed") or 0)
+    planned = int(compliance.get("planned") or 0)
+    total_sessions = done + missed + postponed
+    completion_pct = round((done / total_sessions) * 100, 1) if total_sessions > 0 else None
+
+    actual_totals = aggregated.get("actual") or {}
+    planned_totals = aggregated.get("planned") or {}
+
+    weekly_averages: Dict[str, float] = {}
+    if weeks_tracked > 0:
+        for k, v in actual_totals.items():
+            if isinstance(v, (int, float)):
+                weekly_averages[k] = round(v / weeks_tracked, 2)
+
+    total_time_min = sum(
+        v for k, v in actual_totals.items()
+        if isinstance(v, (int, float)) and k.endswith("_time_min")
+    )
+    avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
+
+    return {
+        "weeks_tracked": weeks_tracked,
+        "compliance": {
+            "done": done,
+            "missed": missed,
+            "postponed": postponed,
+            "planned_remaining": planned,
+            "completion_pct": completion_pct,
+        },
+        "planned_totals": planned_totals,
+        "actual_totals": actual_totals,
+        "weekly_averages": weekly_averages,
+        "avg_session_duration_min": avg_session_duration_min,
+    }
 
 # ============================================================
 # ENTRYPOINT A: AUTOMATICKÁ DETEKCIA (volaná z importu aktivity)

@@ -1479,6 +1479,14 @@ export const en = {
       errorFailedLoad: "Failed to load summary.",
       summary: "Open to see the detailed summary.",
     },
+    stats: {
+      completion: "Plan completion",
+      sessionsDone: "Sessions completed",
+      avgSessionDuration: "Avg session duration",
+      totalRunKm: "Total distance run",
+      avgRunKmPerWeek: "Avg km/week",
+      totalStrengthMin: "Total strength time",
+    },
   },
   coachPlanHistory: {
     title: " Plan history",

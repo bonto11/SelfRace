@@ -1473,6 +1473,14 @@ export const sk = {
       errorFailedLoad: "Nepodarilo sa načítať sumár.",
       summary: "Otvorením zobrazíš detailný sumár.",
     },
+    stats: {
+      completion: "Splnenosť plánu",
+      sessionsDone: "Odtrénované tréningy",
+      avgSessionDuration: "Priemerná dĺžka tréningu",
+      totalRunKm: "Celkovo nabehané",
+      avgRunKmPerWeek: "Priemer km/týždeň",
+      totalStrengthMin: "Celkovo posilňovanie",
+    },
   },
   coachPlanHistory: {
     title: "História Plánov",

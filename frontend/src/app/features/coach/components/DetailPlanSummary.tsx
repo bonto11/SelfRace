@@ -248,6 +248,7 @@ export default function DetailPlanSummary() {
     <div className={PANEL_STACK}>
       {items.map((row) => {
         const ai = row.raw_ai_json;
+        const hs = row.hard_stats;
         return (
           <Card
             key={row.id}
@@ -284,6 +285,61 @@ export default function DetailPlanSummary() {
                   valueColor={achievedColor(ai?.achieved_target)}
                 />
               </div>
+            )}
+
+            {/* 🌟 TVRDÉ DÁTA Z BE — nezávislé od AI, počítané vždy rovnako z DB */}
+            {hs && (
+              <Subcard title={t("coachPlanSummary.stats.title" as any)}>
+                <div className="grid gap-3 md:grid-cols-3 min-w-0">
+                  <Subcard
+                    title={t("coachPlanSummary.stats.completion" as any)}
+                    value={
+                      hs.compliance.completion_pct != null
+                        ? `${hs.compliance.completion_pct}%`
+                        : "—"
+                    }
+                  />
+                  <Subcard
+                    title={t("coachPlanSummary.stats.sessionsDone" as any)}
+                    value={hs.compliance.done}
+                  />
+                  <Subcard
+                    title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
+                    value={
+                      hs.avg_session_duration_min != null
+                        ? `${hs.avg_session_duration_min} min`
+                        : "—"
+                    }
+                  />
+
+                  {hs.actual_totals.run_distance_km != null && (
+                    <Subcard
+                      title={t("coachPlanSummary.stats.totalRunKm" as any)}
+                      value={`${hs.actual_totals.run_distance_km} km`}
+                    />
+                  )}
+                  {hs.weekly_averages.run_distance_km != null && (
+                    <Subcard
+                      title={t("coachPlanSummary.stats.avgRunKmPerWeek" as any)}
+                      value={`${hs.weekly_averages.run_distance_km} km`}
+                    />
+                  )}
+                  {hs.actual_totals.strength_time_min != null && (
+                    <Subcard
+                      title={t("coachPlanSummary.stats.totalStrengthMin" as any)}
+                      value={`${hs.actual_totals.strength_time_min} min`}
+                    />
+                  )}
+                </div>
+
+                <div className="text-xs opacity-60 mt-2">
+                  {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs.weeks_tracked}
+                  {" · "}
+                  {t("coachPlanSummary.stats.missed" as any)}: {hs.compliance.missed}
+                  {" · "}
+                  {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
+                </div>
+              </Subcard>
             )}
 
             {ai?.highlights && ai.highlights.length > 0 && (
