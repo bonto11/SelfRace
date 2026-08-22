@@ -47,8 +47,6 @@ export type ActivePlanStatus = {
   error?: string | null;
 };
 
-
-
 type SimpleSuccess = {
   success: boolean;
   detail?: string | null;
@@ -204,9 +202,8 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
   }
 }
 
-/* ========================= TYPES ========================= */
-<<<<<<< HEAD
-=======
+/* ========================= PLAN SUMMARY TYPES ========================= */
+
 export type UnmatchedActivityAgg = {
   sport: string;
   count: number;
@@ -216,7 +213,6 @@ export type UnmatchedActivityAgg = {
   avg_hr_bpm: number | null;
 };
 
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 export type PlanSummaryHardStats = {
   weeks_tracked: number;
   compliance: {
@@ -230,13 +226,9 @@ export type PlanSummaryHardStats = {
   actual_totals: Record<string, number>;
   weekly_averages: Record<string, number>;
   avg_session_duration_min: number | null;
-<<<<<<< HEAD
-=======
   unmatched_activities: UnmatchedActivityAgg[];
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 };
 
- 
 export type PlanSummaryRecord = {
   id: number;
   user_id: number;
@@ -331,6 +323,7 @@ export async function apiGetLatestPlanSummary(
     });
 
     if (!json?.success) throw new Error("api.coach.planSummaryLatestFailed");
+    console.log("[PlanSummary][DEBUG] latest item from BE:", json.item);
     return json.item ?? null;
   } catch (e: any) {
     console.error("[Coach][apiGetLatestPlanSummary] ERROR", e);
@@ -353,6 +346,7 @@ export async function apiGenerateMilestoneSummary(
       cache: "no-store",
     });
 
+    console.log("[PlanSummary][DEBUG] generate milestone response:", json);
     return json;
   } catch (e: any) {
     console.error("[Coach][apiGenerateMilestoneSummary] ERROR", e);

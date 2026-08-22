@@ -8,14 +8,11 @@ from Modules.Supabase.auth import AuthCtx
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_archive_plan_meta
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
-<<<<<<< HEAD
-=======
 from DB.coach_plan_daily import (
     db_get_last_planned_daily_session_for_user,
     db_get_compliance_stats,
     db_get_unmatched_activities,
 )
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 from DB.coach_plan_summaries import (
     db_insert_plan_summary,
     db_get_summary_exists_for_plan,
@@ -23,10 +20,6 @@ from DB.coach_plan_summaries import (
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.AI.plan_completion.generate import service_generate_plan_completion_summary
 
-from DB.coach_plan_daily import (
-    db_get_last_planned_daily_session_for_user,
-    db_get_compliance_stats,
-)
 
 RACE_GOAL_KM: Dict[str, float] = {
     "5k": 5.0,
@@ -193,6 +186,7 @@ def _aggregate_unmatched_activities(
     AI mylne tvrdí "nič si netrénoval", hoci reálne trénoval, len inak.
     """
     raw = db_get_unmatched_activities(user_id, ctx=ctx, days=180)
+    print(f"[PLAN_COMPLETION][DEBUG] unmatched raw activities count: {len(raw)}")
     if not raw:
         return []
 
@@ -244,6 +238,7 @@ def _aggregate_unmatched_activities(
         })
 
     out.sort(key=lambda x: x["count"], reverse=True)
+    print(f"[PLAN_COMPLETION][DEBUG] unmatched aggregated: {out}")
     return out
 
 
@@ -259,6 +254,11 @@ def _compute_hard_stats(
     unmatched_activities: List[Dict[str, Any]],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
+    """
+    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu - compliance,
+    súčty a priemery na týždeň. Nezávislé od AI narrácie, počíta sa vždy
+    rovnako a presne z DB dát.
+    """
     weeks_tracked = len(elapsed_weeks)
 
     compliance = db_get_compliance_stats(user_id, ctx=ctx)
@@ -284,7 +284,7 @@ def _compute_hard_stats(
     )
     avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
 
-    return {
+    result = {
         "weeks_tracked": weeks_tracked,
         "compliance": {
             "done": done,
@@ -299,6 +299,8 @@ def _compute_hard_stats(
         "avg_session_duration_min": avg_session_duration_min,
         "unmatched_activities": unmatched_activities,
     }
+    print(f"[PLAN_COMPLETION][DEBUG] hard_stats computed: {result}")
+    return result
 
 
 # ============================================================
@@ -336,24 +338,21 @@ def _build_and_save_summary(
 
     elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
     future_weeks_count = len(weeks) - len(elapsed_weeks)
+    print(
+        f"[PLAN_COMPLETION][DEBUG] weeks total={len(weeks)} elapsed={len(elapsed_weeks)} "
+        f"future={future_weeks_count} today={today_iso}"
+    )
 
-<<<<<<< HEAD
-    # 🌟 Tvrdé čísla nezávislé od AI - počítané vždy rovnako z DB
-=======
-    # 🌟 Nenapárované aktivity - AI musí vidieť, že user reálne trénoval,
+    # Nenapárované aktivity - AI musí vidieť, že user reálne trénoval,
     # aj keď to plán "nezapočítal" (napr. dlhé behy namiesto intervalov)
     unmatched_activities = _aggregate_unmatched_activities(user_id=user_id, ctx=ctx)
 
-    # 🌟 Tvrdé čísla nezávislé od AI
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
+    # Tvrdé čísla nezávislé od AI
     hard_stats = _compute_hard_stats(
         user_id=user_id,
         elapsed_weeks=elapsed_weeks,
         aggregated=aggregated,
-<<<<<<< HEAD
-=======
         unmatched_activities=unmatched_activities,
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
         ctx=ctx,
     )
 
@@ -406,7 +405,9 @@ def _build_and_save_summary(
     except Exception as e:  # noqa: BLE001
         print(f"[PLAN_COMPLETION] AI narrative generation failed user_id={user_id}: {repr(e)}")
 
+    print(f"[PLAN_COMPLETION][DEBUG] summary_row before insert: {summary_row}")
     saved = db_insert_plan_summary(summary_row, ctx=ctx)
+    print(f"[PLAN_COMPLETION][DEBUG] saved row id: {saved.get('id') if saved else None}")
 
     if is_plan_completed and meta_id:
         try:
@@ -429,61 +430,7 @@ def _build_and_save_summary(
 
     return saved
 
-def _compute_hard_stats(
-    *,
-    user_id: int,
-    elapsed_weeks: List[Dict[str, Any]],
-    aggregated: Dict[str, Any],
-    ctx: AuthCtx,
-) -> Dict[str, Any]:
-    """
-    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu - compliance,
-    súčty a priemery na týždeň. Nezávislé od AI narrácie, počíta sa vždy
-    rovnako a presne z DB dát.
-    """
-    weeks_tracked = len(elapsed_weeks)
 
-<<<<<<< HEAD
-    compliance = db_get_compliance_stats(user_id, ctx=ctx)
-    done = int(compliance.get("done") or 0)
-    missed = int(compliance.get("missed") or 0)
-    postponed = int(compliance.get("postponed") or 0)
-    planned = int(compliance.get("planned") or 0)
-    total_sessions = done + missed + postponed
-    completion_pct = round((done / total_sessions) * 100, 1) if total_sessions > 0 else None
-
-    actual_totals = aggregated.get("actual") or {}
-    planned_totals = aggregated.get("planned") or {}
-
-    weekly_averages: Dict[str, float] = {}
-    if weeks_tracked > 0:
-        for k, v in actual_totals.items():
-            if isinstance(v, (int, float)):
-                weekly_averages[k] = round(v / weeks_tracked, 2)
-
-    total_time_min = sum(
-        v for k, v in actual_totals.items()
-        if isinstance(v, (int, float)) and k.endswith("_time_min")
-    )
-    avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
-
-    return {
-        "weeks_tracked": weeks_tracked,
-        "compliance": {
-            "done": done,
-            "missed": missed,
-            "postponed": postponed,
-            "planned_remaining": planned,
-            "completion_pct": completion_pct,
-        },
-        "planned_totals": planned_totals,
-        "actual_totals": actual_totals,
-        "weekly_averages": weekly_averages,
-        "avg_session_duration_min": avg_session_duration_min,
-    }
-
-=======
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 # ============================================================
 # ENTRYPOINT A: AUTOMATICKÁ DETEKCIA (volaná z importu aktivity)
 # ============================================================

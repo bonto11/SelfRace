@@ -1480,6 +1480,7 @@ export const sk = {
       totalRunKm: "Celkovo nabehané",
       avgRunKmPerWeek: "Priemer km/týždeň",
       totalStrengthMin: "Celkovo posilňovanie",
+      unmatchedTitle: "Ostatné aktivity (mimo plánu)",
     },
   },
   coachPlanHistory: {

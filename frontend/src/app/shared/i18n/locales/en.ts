@@ -1486,6 +1486,7 @@ export const en = {
       totalRunKm: "Total distance run",
       avgRunKmPerWeek: "Avg km/week",
       totalStrengthMin: "Total strength time",
+      unmatchedTitle: "Other activities (outside plan)",
     },
   },
   coachPlanHistory: {

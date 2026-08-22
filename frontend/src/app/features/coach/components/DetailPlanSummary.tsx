@@ -164,6 +164,8 @@ export default function DetailPlanSummary() {
     setError(null);
     try {
       const r = await apiGetLatestPlanSummary(userId);
+      console.log("[DetailPlanSummary][DEBUG] loaded row:", r);
+      console.log("[DetailPlanSummary][DEBUG] hard_stats:", r?.hard_stats);
       setRow(r);
     } catch (e: any) {
       setError(t(e?.message as any) || t("coachPlanSummary.errorLoad" as any));
@@ -264,34 +266,6 @@ export default function DetailPlanSummary() {
 
   return (
     <div className={PANEL_STACK}>
-<<<<<<< HEAD
-      {items.map((row) => {
-        const ai = row.raw_ai_json;
-        const hs = row.hard_stats;
-        return (
-          <Card
-            key={row.id}
-            title={row.race_name || t("coachPlanSummary.checkpointTitle" as any)}
-            subtitle={[
-              formatDate(row.race_date, t),
-              row.is_plan_completed
-                ? t("coachPlanSummary.tagCompleted" as any)
-                : t("coachPlanSummary.tagCheckpoint" as any),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          >
-            {ai?.headline && (
-              <p className={PANEL_PREVIEW} style={{ fontWeight: 600 }}>
-                {ai.headline}
-              </p>
-            )}
-            {ai?.summary_text && (
-              <p className={[PANEL_PREVIEW, "text-pretty"].join(" ")}>
-                {ai.summary_text}
-              </p>
-            )}
-=======
       <Card
         title={row.race_name || t("coachPlanSummary.checkpointTitle" as any)}
         subtitle={[
@@ -313,7 +287,6 @@ export default function DetailPlanSummary() {
             {ai.summary_text}
           </p>
         )}
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 
         {(row.race_target_time || row.race_actual_time_s) && (
           <div className="grid gap-3 md:grid-cols-2 min-w-0">
@@ -329,7 +302,7 @@ export default function DetailPlanSummary() {
           </div>
         )}
 
-        {/* 🌟 TVRDÉ DÁTA Z BE */}
+        {/* TVRDÉ DÁTA Z BE — nezávislé od AI, počítané vždy rovnako z DB */}
         {hs && (
           <Subcard title={t("coachPlanSummary.stats.title" as any)}>
             <div className="grid gap-3 md:grid-cols-3 min-w-0">
@@ -407,72 +380,6 @@ export default function DetailPlanSummary() {
           </Subcard>
         )}
 
-<<<<<<< HEAD
-            {/* 🌟 TVRDÉ DÁTA Z BE — nezávislé od AI, počítané vždy rovnako z DB */}
-            {hs && (
-              <Subcard title={t("coachPlanSummary.stats.title" as any)}>
-                <div className="grid gap-3 md:grid-cols-3 min-w-0">
-                  <Subcard
-                    title={t("coachPlanSummary.stats.completion" as any)}
-                    value={
-                      hs.compliance.completion_pct != null
-                        ? `${hs.compliance.completion_pct}%`
-                        : "—"
-                    }
-                  />
-                  <Subcard
-                    title={t("coachPlanSummary.stats.sessionsDone" as any)}
-                    value={hs.compliance.done}
-                  />
-                  <Subcard
-                    title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
-                    value={
-                      hs.avg_session_duration_min != null
-                        ? `${hs.avg_session_duration_min} min`
-                        : "—"
-                    }
-                  />
-
-                  {hs.actual_totals.run_distance_km != null && (
-                    <Subcard
-                      title={t("coachPlanSummary.stats.totalRunKm" as any)}
-                      value={`${hs.actual_totals.run_distance_km} km`}
-                    />
-                  )}
-                  {hs.weekly_averages.run_distance_km != null && (
-                    <Subcard
-                      title={t("coachPlanSummary.stats.avgRunKmPerWeek" as any)}
-                      value={`${hs.weekly_averages.run_distance_km} km`}
-                    />
-                  )}
-                  {hs.actual_totals.strength_time_min != null && (
-                    <Subcard
-                      title={t("coachPlanSummary.stats.totalStrengthMin" as any)}
-                      value={`${hs.actual_totals.strength_time_min} min`}
-                    />
-                  )}
-                </div>
-
-                <div className="text-xs opacity-60 mt-2">
-                  {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs.weeks_tracked}
-                  {" · "}
-                  {t("coachPlanSummary.stats.missed" as any)}: {hs.compliance.missed}
-                  {" · "}
-                  {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
-                </div>
-              </Subcard>
-            )}
-
-            {ai?.highlights && ai.highlights.length > 0 && (
-              <Subcard title={t("coachPlanSummary.highlights" as any)}>
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {ai.highlights.map((h, i) => (
-                    <li key={i} className="text-pretty">{h}</li>
-                  ))}
-                </ul>
-              </Subcard>
-            )}
-=======
         {ai?.highlights && ai.highlights.length > 0 && (
           <Subcard title={t("coachPlanSummary.highlights" as any)}>
             <ul className="list-disc list-inside text-sm space-y-1">
@@ -482,7 +389,6 @@ export default function DetailPlanSummary() {
             </ul>
           </Subcard>
         )}
->>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 
         {ai?.areas_to_improve && ai.areas_to_improve.length > 0 && (
           <Subcard title={t("coachPlanSummary.areasToImprove" as any)}>
