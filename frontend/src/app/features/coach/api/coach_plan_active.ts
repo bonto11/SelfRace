@@ -205,6 +205,18 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
 }
 
 /* ========================= TYPES ========================= */
+<<<<<<< HEAD
+=======
+export type UnmatchedActivityAgg = {
+  sport: string;
+  count: number;
+  total_distance_km: number;
+  total_time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
+};
+
+>>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 export type PlanSummaryHardStats = {
   weeks_tracked: number;
   compliance: {
@@ -218,6 +230,10 @@ export type PlanSummaryHardStats = {
   actual_totals: Record<string, number>;
   weekly_averages: Record<string, number>;
   avg_session_duration_min: number | null;
+<<<<<<< HEAD
+=======
+  unmatched_activities: UnmatchedActivityAgg[];
+>>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 };
 
  

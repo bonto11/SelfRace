@@ -6,7 +6,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
-  apiListPlanSummaries,
+  apiGetLatestPlanSummary,
   apiGenerateMilestoneSummary,
   type PlanSummaryRecord,
 } from "@/app/features/coach/api/coach_plan_active";
@@ -28,7 +28,7 @@ import {
   SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
 
-/* ---------- building blocks (rovnaké ako v DetailAthleteState) ---------- */
+/* ---------- building blocks ---------- */
 
 function Card({
   title,
@@ -102,7 +102,7 @@ function Subcard({
 
 /* ---------- helpers ---------- */
 
-function formatDate(iso: string | null, t: any) {
+function formatDate(iso: string | null) {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("sk-SK", {
@@ -124,11 +124,26 @@ function formatTimeS(seconds: number | null): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function formatPaceSPerKm(s: number | null): string {
+  if (!s || s <= 0) return "—";
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${m}:${String(sec).padStart(2, "0")} /km`;
+}
+
 function achievedColor(achieved: boolean | null | undefined): string | undefined {
   if (achieved === true) return appColors.statusSuccess;
   if (achieved === false) return appColors.stateWarning;
   return undefined;
 }
+
+const SPORT_LABEL: Record<string, string> = {
+  run: "Beh",
+  ride: "Bicykel",
+  swim: "Plávanie",
+  strength: "Posilňovanie",
+  other: "Iné",
+};
 
 /* ---------- main ---------- */
 
@@ -136,20 +151,20 @@ export default function DetailPlanSummary() {
   const { userId } = useUserId() as any;
   const t = useT();
 
-  const [items, setItems] = useState<PlanSummaryRecord[]>([]);
+  const [row, setRow] = useState<PlanSummaryRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  const loadItems = useCallback(async () => {
+  const loadLatest = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(null);
     try {
-      const rows = await apiListPlanSummaries(userId);
-      setItems(rows);
+      const r = await apiGetLatestPlanSummary(userId);
+      setRow(r);
     } catch (e: any) {
       setError(t(e?.message as any) || t("coachPlanSummary.errorLoad" as any));
     } finally {
@@ -158,8 +173,8 @@ export default function DetailPlanSummary() {
   }, [userId, t]);
 
   useEffect(() => {
-    loadItems();
-  }, [loadItems]);
+    loadLatest();
+  }, [loadLatest]);
 
   const handleGenerate = useCallback(async () => {
     if (!userId || generating) return;
@@ -176,13 +191,13 @@ export default function DetailPlanSummary() {
         setGenerating(false);
         return;
       }
-      await loadItems();
+      await loadLatest();
       setGenerating(false);
     } catch (e: any) {
       setGenerateError(t(e?.message as any) || t("coachPlanSummary.generateError" as any));
       setGenerating(false);
     }
-  }, [userId, generating, loadItems, t]);
+  }, [userId, generating, loadLatest, t]);
 
   const generateButton = (
     <Button
@@ -217,7 +232,7 @@ export default function DetailPlanSummary() {
       </section>
     );
 
-  if (error || items.length === 0)
+  if (error || !row)
     return (
       <div className={PANEL_STACK}>
         <Card
@@ -244,8 +259,12 @@ export default function DetailPlanSummary() {
       </div>
     );
 
+  const ai = row.raw_ai_json;
+  const hs = row.hard_stats;
+
   return (
     <div className={PANEL_STACK}>
+<<<<<<< HEAD
       {items.map((row) => {
         const ai = row.raw_ai_json;
         const hs = row.hard_stats;
@@ -272,21 +291,123 @@ export default function DetailPlanSummary() {
                 {ai.summary_text}
               </p>
             )}
+=======
+      <Card
+        title={row.race_name || t("coachPlanSummary.checkpointTitle" as any)}
+        subtitle={[
+          formatDate(row.race_date),
+          row.is_plan_completed
+            ? t("coachPlanSummary.tagCompleted" as any)
+            : t("coachPlanSummary.tagCheckpoint" as any),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      >
+        {ai?.headline && (
+          <p className={PANEL_PREVIEW} style={{ fontWeight: 600 }}>
+            {ai.headline}
+          </p>
+        )}
+        {ai?.summary_text && (
+          <p className={[PANEL_PREVIEW, "text-pretty"].join(" ")}>
+            {ai.summary_text}
+          </p>
+        )}
+>>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 
-            {(row.race_target_time || row.race_actual_time_s) && (
-              <div className="grid gap-3 md:grid-cols-2 min-w-0">
+        {(row.race_target_time || row.race_actual_time_s) && (
+          <div className="grid gap-3 md:grid-cols-2 min-w-0">
+            <Subcard
+              title={t("coachPlanSummary.targetTime" as any)}
+              value={row.race_target_time || "—"}
+            />
+            <Subcard
+              title={t("coachPlanSummary.actualTime" as any)}
+              value={formatTimeS(row.race_actual_time_s)}
+              valueColor={achievedColor(ai?.achieved_target)}
+            />
+          </div>
+        )}
+
+        {/* 🌟 TVRDÉ DÁTA Z BE */}
+        {hs && (
+          <Subcard title={t("coachPlanSummary.stats.title" as any)}>
+            <div className="grid gap-3 md:grid-cols-3 min-w-0">
+              <Subcard
+                title={t("coachPlanSummary.stats.completion" as any)}
+                value={
+                  hs.compliance.completion_pct != null
+                    ? `${hs.compliance.completion_pct}%`
+                    : "—"
+                }
+              />
+              <Subcard
+                title={t("coachPlanSummary.stats.sessionsDone" as any)}
+                value={hs.compliance.done}
+              />
+              <Subcard
+                title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
+                value={
+                  hs.avg_session_duration_min != null
+                    ? `${hs.avg_session_duration_min} min`
+                    : "—"
+                }
+              />
+
+              {hs.actual_totals.run_distance_km != null && (
                 <Subcard
-                  title={t("coachPlanSummary.targetTime" as any)}
-                  value={row.race_target_time || "—"}
+                  title={t("coachPlanSummary.stats.totalRunKm" as any)}
+                  value={`${hs.actual_totals.run_distance_km} km`}
                 />
+              )}
+              {hs.weekly_averages.run_distance_km != null && (
                 <Subcard
-                  title={t("coachPlanSummary.actualTime" as any)}
-                  value={formatTimeS(row.race_actual_time_s)}
-                  valueColor={achievedColor(ai?.achieved_target)}
+                  title={t("coachPlanSummary.stats.avgRunKmPerWeek" as any)}
+                  value={`${hs.weekly_averages.run_distance_km} km`}
                 />
+              )}
+              {hs.actual_totals.strength_time_min != null && (
+                <Subcard
+                  title={t("coachPlanSummary.stats.totalStrengthMin" as any)}
+                  value={`${hs.actual_totals.strength_time_min} min`}
+                />
+              )}
+            </div>
+
+            <div className="text-xs opacity-60 mt-2">
+              {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs.weeks_tracked}
+              {" · "}
+              {t("coachPlanSummary.stats.missed" as any)}: {hs.compliance.missed}
+              {" · "}
+              {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
+            </div>
+
+            {hs.unmatched_activities.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <div className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">
+                  {t("coachPlanSummary.stats.unmatchedTitle" as any)}
+                </div>
+                <div className="space-y-1.5">
+                  {hs.unmatched_activities.map((u) => (
+                    <div key={u.sport} className="flex justify-between text-sm gap-2">
+                      <span className="opacity-80">
+                        {SPORT_LABEL[u.sport] || u.sport} · {u.count}×
+                      </span>
+                      <span className="text-right opacity-70">
+                        {u.total_distance_km > 0 && `${u.total_distance_km} km · `}
+                        {u.total_time_min} min
+                        {u.avg_pace_s_per_km && ` · ${formatPaceSPerKm(u.avg_pace_s_per_km)}`}
+                        {u.avg_hr_bpm && ` · ${u.avg_hr_bpm} bpm`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
+          </Subcard>
+        )}
 
+<<<<<<< HEAD
             {/* 🌟 TVRDÉ DÁTA Z BE — nezávislé od AI, počítané vždy rovnako z DB */}
             {hs && (
               <Subcard title={t("coachPlanSummary.stats.title" as any)}>
@@ -351,25 +472,34 @@ export default function DetailPlanSummary() {
                 </ul>
               </Subcard>
             )}
+=======
+        {ai?.highlights && ai.highlights.length > 0 && (
+          <Subcard title={t("coachPlanSummary.highlights" as any)}>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              {ai.highlights.map((h, i) => (
+                <li key={i} className="text-pretty">{h}</li>
+              ))}
+            </ul>
+          </Subcard>
+        )}
+>>>>>>> 208cae25f63f6ff377226badf96ddbcd3fdfde73
 
-            {ai?.areas_to_improve && ai.areas_to_improve.length > 0 && (
-              <Subcard title={t("coachPlanSummary.areasToImprove" as any)}>
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  {ai.areas_to_improve.map((a, i) => (
-                    <li key={i} className="text-pretty">{a}</li>
-                  ))}
-                </ul>
-              </Subcard>
-            )}
+        {ai?.areas_to_improve && ai.areas_to_improve.length > 0 && (
+          <Subcard title={t("coachPlanSummary.areasToImprove" as any)}>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              {ai.areas_to_improve.map((a, i) => (
+                <li key={i} className="text-pretty">{a}</li>
+              ))}
+            </ul>
+          </Subcard>
+        )}
 
-            {ai?.next_cycle_advice && (
-              <Subcard title={t("coachPlanSummary.nextCycleAdvice" as any)}>
-                <p className="text-sm text-pretty">{ai.next_cycle_advice}</p>
-              </Subcard>
-            )}
-          </Card>
-        );
-      })}
+        {ai?.next_cycle_advice && (
+          <Subcard title={t("coachPlanSummary.nextCycleAdvice" as any)}>
+            <p className="text-sm text-pretty">{ai.next_cycle_advice}</p>
+          </Subcard>
+        )}
+      </Card>
 
       <Card footer={false}>
         <div className="flex flex-col items-center gap-2 py-1">
