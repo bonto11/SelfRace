@@ -209,6 +209,7 @@ export type SportStatsRow = {
   distance_km: number;
   time_min: number;
   avg_pace_s_per_km: number | null;
+  avg_speed_kmh: number | null;
   avg_hr_bpm: number | null;
 };
 
@@ -218,8 +219,10 @@ export type UnmatchedActivitySport = {
   total_distance_km: number;
   total_time_min: number;
   avg_pace_s_per_km: number | null;
+  avg_speed_kmh: number | null;
   avg_hr_bpm: number | null;
 };
+
 
 // 🔧 hard_stats môže prísť aj v STAROM tvare (riadky vygenerované pred touto
 // zmenou), preto sú všetky pod-polia OPTIONAL - FE (DetailPlanSummary) na to
