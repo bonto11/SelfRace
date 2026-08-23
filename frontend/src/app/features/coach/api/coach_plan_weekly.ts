@@ -11,6 +11,9 @@ export type WeeklyPlanGenerateOptions = {
   full_reset?: boolean; // 🌟 kompletné vymazanie vrátane minulých týždňov - použi
   // LEN pri prvotnom generovaní z Prefs (plán ešte nie je
   // aktívny), nie pri bežnom replane bežiaceho plánu.
+  target_end_date?: string | null; // 🌟 YYYY-MM-DD z date pickera (Coach Notes
+  // -> Veľká zmena) - BE z toho vždy deterministicky dopočíta počet týždňov,
+  // skráti alebo predĺži plán presne k tomuto dátumu. Má prioritu pred `weeks`.
 };
 
 export async function apiGenerateWeeklyPlan(
@@ -35,6 +38,7 @@ export async function apiGenerateWeeklyPlan(
       state_id: opts.state_id ?? null,
       weeks: opts.weeks ?? null,
       full_reset: opts.full_reset ?? false,
+      target_end_date: opts.target_end_date ?? null,
     },
     priority: 100,
     max_attempts: 1,
