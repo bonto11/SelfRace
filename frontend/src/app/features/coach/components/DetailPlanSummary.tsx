@@ -1,7 +1,7 @@
 // src/app/features/coach/components/DetailPlanSummary.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -10,7 +10,6 @@ import {
   apiGenerateMilestoneSummary,
   type PlanSummaryRecord,
   type SportStatsRow,
-  type UnmatchedActivitySport,
 } from "@/app/features/coach/api/coach_plan_active";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -26,8 +25,6 @@ import {
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
   ACCORDION_FOOTER_BAR_MUTED,
-  SESSION_SUBCARD,
-  SESSION_SUBCARD_STYLE,
 } from "@/app/shared/ui/tokens";
 
 /* ---------- building blocks ---------- */
@@ -69,36 +66,6 @@ function Card({
       )}
       {footer && <div className={ACCORDION_FOOTER_BAR_MUTED} />}
     </section>
-  );
-}
-
-function Subcard({
-  title,
-  value,
-  children,
-  valueColor,
-}: {
-  title: string;
-  value?: React.ReactNode;
-  children?: React.ReactNode;
-  valueColor?: string;
-}) {
-  return (
-    <div className={[SESSION_SUBCARD, "min-w-0 w-full"].join(" ")} style={SESSION_SUBCARD_STYLE}>
-      <div className={[PANEL_PAD, PANEL_INNER_STACK].join(" ")}>
-        <div className="flex flex-wrap justify-between items-baseline gap-2">
-          <div className={[PANEL_SECTION_SUBTITLE, "whitespace-nowrap"].join(" ")}>
-            {title}
-          </div>
-          {value != null && (
-            <div className={PANEL_SECTION_TITLE} style={{ fontSize: "0.9rem", color: valueColor }}>
-              {value}
-            </div>
-          )}
-        </div>
-        {children && <div className={PANEL_INNER_STACK}>{children}</div>}
-      </div>
-    </div>
   );
 }
 
@@ -149,42 +116,83 @@ function achievedColor(achieved: boolean | null | undefined): string | undefined
   return undefined;
 }
 
-const SPORT_LABEL: Record<string, string> = {
-  run: "Beh",
-  ride: "Bicykel",
-  swim: "Plávanie",
-  strength: "Posilňovanie",
-  other: "Iné",
+const SPORT_META: Record<string, { label: string; icon: string }> = {
+  run: { label: "Beh", icon: "🏃" },
+  ride: { label: "Bicykel", icon: "🚴" },
+  swim: { label: "Plávanie", icon: "🏊" },
+  strength: { label: "Posilňovanie", icon: "🏋️" },
+  other: { label: "Iné", icon: "⚡" },
 };
 
-/* ---------- sport stats table (znovupoužiteľná pre plan/combined/unmatched) ---------- */
+/* ---------- sport row card ---------- */
 
-function SportStatsTable({
-  rows,
-}: {
-  rows: (SportStatsRow | UnmatchedActivitySport)[] | null | undefined;
-}) {
-  if (!rows || rows.length === 0) return null;
+function SportRowCard({ row }: { row: SportStatsRow }) {
+  const meta = SPORT_META[row.sport] || { label: row.sport, icon: "⚡" };
+
+  const metrics: { label: string; value: string }[] = [];
+  if (row.distance_km > 0) metrics.push({ label: "Vzdialenosť", value: `${row.distance_km} km` });
+  metrics.push({ label: "Čas", value: formatMinutes(row.time_min) });
+  if (row.avg_pace_s_per_km) metrics.push({ label: "Tempo", value: formatPaceSPerKm(row.avg_pace_s_per_km) });
+  if (row.avg_speed_kmh) metrics.push({ label: "Rýchlosť", value: `${row.avg_speed_kmh} km/h` });
+  if (row.avg_hr_bpm) metrics.push({ label: "Tep", value: `${row.avg_hr_bpm} bpm` });
 
   return (
-    <div className="space-y-1.5">
-      {rows.map((r) => {
-        const distanceKm = "distance_km" in r ? r.distance_km : r.total_distance_km;
-        const timeMin = "time_min" in r ? r.time_min : r.total_time_min;
-        const count = "count" in r ? r.count : null;
-        return (
-          <div key={r.sport} className="flex justify-between text-sm gap-2">
-            <span className="opacity-80">
-              {SPORT_LABEL[r.sport] || r.sport}
-              {count != null ? ` · ${count}×` : ""}
-            </span>
-            <span className="text-right opacity-70">
-              {distanceKm > 0 && `${distanceKm} km · `}
-              {formatMinutes(timeMin)}
-              {r.avg_pace_s_per_km ? ` · ${formatPaceSPerKm(r.avg_pace_s_per_km)}` : ""}
-              {r.avg_hr_bpm ? ` · ${r.avg_hr_bpm} bpm` : ""}
-            </span>
+    <div
+      className="rounded-xl px-4 py-3"
+      style={{
+        background: appColors.surfaceSolid,
+        border: `1px solid ${appColors.surfaceCardBorder}`,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg leading-none">{meta.icon}</span>
+        <span className="text-sm font-bold" style={{ color: appColors.textPrimary }}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+        {metrics.map((m) => (
+          <div key={m.label} className="min-w-[70px]">
+            <div className="text-[10px] uppercase tracking-wide opacity-50">{m.label}</div>
+            <div className="text-sm font-semibold" style={{ color: appColors.textPrimary }}>
+              {m.value}
+            </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- toggle: Celkovo / Len plán ---------- */
+
+function StatsScopeToggle({
+  scope,
+  onChange,
+}: {
+  scope: "combined" | "plan";
+  onChange: (s: "combined" | "plan") => void;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-full p-0.5"
+      style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+    >
+      {(["combined", "plan"] as const).map((opt) => {
+        const active = scope === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt)}
+            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            style={{
+              background: active ? appColors.buttonMainBg : "transparent",
+              color: active ? appColors.buttonMainText : appColors.textSecondary,
+            }}
+          >
+            {opt === "combined" ? "Celkovo" : "Len plán"}
+          </button>
         );
       })}
     </div>
@@ -203,6 +211,8 @@ export default function DetailPlanSummary() {
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const [scope, setScope] = useState<"combined" | "plan">("combined");
 
   const loadLatest = useCallback(async () => {
     if (!userId) return;
@@ -308,17 +318,13 @@ export default function DetailPlanSummary() {
   const ai = row.raw_ai_json;
   const hs = row.hard_stats;
 
-  // 🔧 Defenzívne prístupy - hs môže byť starý tvar (pred refaktorom
-  // hard_stats na plan_stats/combined_stats/unmatched_stats), preto VŠADE
-  // optional chaining s fallbackom, aby stránka nikdy nespadla ani na
-  // starých riadkoch v DB.
   const compliance = hs?.compliance;
   const planStatsBySport = hs?.plan_stats?.by_sport ?? [];
   const combinedStatsBySport = hs?.combined_stats?.by_sport ?? [];
-  const unmatchedCount = hs?.unmatched_stats?.count ?? 0;
-  const unmatchedBySport = hs?.unmatched_stats?.by_sport ?? [];
   const avgSessionDuration =
     hs?.plan_stats?.avg_session_duration_min ?? hs?.avg_session_duration_min ?? null;
+
+  const activeSportRows = scope === "combined" ? combinedStatsBySport : planStatsBySport;
 
   return (
     <div className={PANEL_STACK}>
@@ -346,90 +352,131 @@ export default function DetailPlanSummary() {
 
         {(row.race_target_time || row.race_actual_time_s) && (
           <div className="grid gap-3 md:grid-cols-2 min-w-0">
-            <Subcard
-              title={t("coachPlanSummary.targetTime" as any)}
-              value={row.race_target_time || "—"}
-            />
-            <Subcard
-              title={t("coachPlanSummary.actualTime" as any)}
-              value={formatTimeS(row.race_actual_time_s)}
-              valueColor={achievedColor(ai?.achieved_target)}
-            />
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-[10px] uppercase tracking-wide opacity-50 mb-1">
+                {t("coachPlanSummary.targetTime" as any)}
+              </div>
+              <div className="text-base font-bold" style={{ color: appColors.textPrimary }}>
+                {row.race_target_time || "—"}
+              </div>
+            </div>
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-[10px] uppercase tracking-wide opacity-50 mb-1">
+                {t("coachPlanSummary.actualTime" as any)}
+              </div>
+              <div
+                className="text-base font-bold"
+                style={{ color: achievedColor(ai?.achieved_target) ?? appColors.textPrimary }}
+              >
+                {formatTimeS(row.race_actual_time_s)}
+              </div>
+            </div>
           </div>
         )}
 
         {compliance && (
-          <>
-            <div className="grid gap-3 md:grid-cols-3 min-w-0">
-              <Subcard
-                title={t("coachPlanSummary.stats.completion" as any)}
-                value={
-                  compliance.completion_pct != null
-                    ? `${compliance.completion_pct}%`
-                    : "—"
-                }
-              />
-              <Subcard
-                title={t("coachPlanSummary.stats.sessionsDone" as any)}
-                value={compliance.done}
-              />
-              <Subcard
-                title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
-                value={formatMinutes(avgSessionDuration)}
-              />
+          <div className="grid gap-3 md:grid-cols-3 min-w-0">
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-[10px] uppercase tracking-wide opacity-50 mb-1">
+                {t("coachPlanSummary.stats.completion" as any)}
+              </div>
+              <div className="text-base font-bold" style={{ color: appColors.textPrimary }}>
+                {compliance.completion_pct != null ? `${compliance.completion_pct}%` : "—"}
+              </div>
             </div>
-            <div className="text-xs opacity-60">
-              {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs?.weeks_tracked ?? "—"}
-              {" · "}
-              {t("coachPlanSummary.stats.missed" as any)}: {compliance.missed}
-              {" · "}
-              {t("coachPlanSummary.stats.postponed" as any)}: {compliance.postponed}
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-[10px] uppercase tracking-wide opacity-50 mb-1">
+                {t("coachPlanSummary.stats.sessionsDone" as any)}
+              </div>
+              <div className="text-base font-bold" style={{ color: appColors.textPrimary }}>
+                {compliance.done}
+              </div>
             </div>
-          </>
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
+            >
+              <div className="text-[10px] uppercase tracking-wide opacity-50 mb-1">
+                {t("coachPlanSummary.stats.avgSessionDuration" as any)}
+              </div>
+              <div className="text-base font-bold" style={{ color: appColors.textPrimary }}>
+                {formatMinutes(avgSessionDuration)}
+              </div>
+            </div>
+          </div>
         )}
 
-        {planStatsBySport.length > 0 && (
-          <Subcard title={t("coachPlanSummary.stats.planStatsTitle" as any)}>
-            <SportStatsTable rows={planStatsBySport} />
-          </Subcard>
+        {compliance && (
+          <div className="text-xs opacity-60">
+            {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs?.weeks_tracked ?? "—"}
+            {" · "}
+            {t("coachPlanSummary.stats.missed" as any)}: {compliance.missed}
+            {" · "}
+            {t("coachPlanSummary.stats.postponed" as any)}: {compliance.postponed}
+          </div>
         )}
 
-        {combinedStatsBySport.length > 0 && (
-          <Subcard title={t("coachPlanSummary.stats.combinedStatsTitle" as any)}>
-            <SportStatsTable rows={combinedStatsBySport} />
-          </Subcard>
-        )}
-
-        {unmatchedCount > 0 && (
-          <Subcard title={t("coachPlanSummary.stats.unmatchedTitle" as any)}>
-            <SportStatsTable rows={unmatchedBySport} />
-          </Subcard>
+        {activeSportRows.length > 0 && (
+          <div className="space-y-2.5 pt-1">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider opacity-60">
+                {t("coachPlanSummary.stats.bySportTitle" as any)}
+              </div>
+              <StatsScopeToggle scope={scope} onChange={setScope} />
+            </div>
+            <div className="space-y-2">
+              {activeSportRows.map((r) => (
+                <SportRowCard key={r.sport} row={r} />
+              ))}
+            </div>
+          </div>
         )}
 
         {ai?.highlights && ai.highlights.length > 0 && (
-          <Subcard title={t("coachPlanSummary.highlights" as any)}>
-            <ul className="list-disc list-inside text-sm space-y-1">
+          <div className="space-y-2 pt-2">
+            <div className="text-xs font-bold uppercase tracking-wider opacity-60">
+              {t("coachPlanSummary.highlights" as any)}
+            </div>
+            <ul className="list-disc list-inside text-sm space-y-1 opacity-90">
               {ai.highlights.map((h, i) => (
                 <li key={i} className="text-pretty">{h}</li>
               ))}
             </ul>
-          </Subcard>
+          </div>
         )}
 
         {ai?.areas_to_improve && ai.areas_to_improve.length > 0 && (
-          <Subcard title={t("coachPlanSummary.areasToImprove" as any)}>
-            <ul className="list-disc list-inside text-sm space-y-1">
+          <div className="space-y-2 pt-2">
+            <div className="text-xs font-bold uppercase tracking-wider opacity-60">
+              {t("coachPlanSummary.areasToImprove" as any)}
+            </div>
+            <ul className="list-disc list-inside text-sm space-y-1 opacity-90">
               {ai.areas_to_improve.map((a, i) => (
                 <li key={i} className="text-pretty">{a}</li>
               ))}
             </ul>
-          </Subcard>
+          </div>
         )}
 
         {ai?.next_cycle_advice && (
-          <Subcard title={t("coachPlanSummary.nextCycleAdvice" as any)}>
-            <p className="text-sm text-pretty">{ai.next_cycle_advice}</p>
-          </Subcard>
+          <div className="space-y-2 pt-2">
+            <div className="text-xs font-bold uppercase tracking-wider opacity-60">
+              {t("coachPlanSummary.nextCycleAdvice" as any)}
+            </div>
+            <p className="text-sm opacity-90 text-pretty">{ai.next_cycle_advice}</p>
+          </div>
         )}
       </Card>
 
