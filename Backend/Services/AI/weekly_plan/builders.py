@@ -293,6 +293,31 @@ def _compute_current_week_index_for_replan(
     return current_week_index_offset, start_date_for_weeks
 
 
+def _compute_horizon_weeks_for_target_end_date(
+    start_date_for_weeks: str,
+    target_end_date: str,
+    *,
+    max_safety_weeks: int = 52,
+) -> int:
+    """
+    🌟 "Skrátiť/predĺžiť plán" cez date picker (Coach Notes -> Veľká zmena).
+    Athlete vyberie cieľový koncový dátum plánu (predvyplnený aktuálnym
+    koncom plánu, môže ho zmeniť). BE z tohto dátumu VŽDY deterministicky
+    dopočíta presný počet týždňov (horizon_weeks) - nezávisle od toho, čo
+    prípadne napíše do textovej poznámky. Text poznámky ostáva len ako
+    dôvod/štýl pre AI (napr. "mám menej času"), nie ako zdroj počtu týždňov.
+
+    Vráti week_index prvého (od start_date_for_weeks počítaného) týždňa,
+    ktorého week_end >= target_end_date - t.j. koľko týždňov treba
+    vygenerovať, aby posledný pokryl zvolený koncový dátum.
+    """
+    probe = compute_week_boundaries(start_date_for_weeks, max_safety_weeks)
+    for wb in probe:
+        if wb["week_end"] >= target_end_date:
+            return wb["week_index"]
+    return max_safety_weeks
+
+
 # ============================================================
 # MAIN BUILDER
 # ============================================================
@@ -304,6 +329,7 @@ def build_weekly_context_from_db(
     state_id: Optional[int],
     weeks: Optional[int],
     full_reset: bool = False,
+    target_end_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Zostaví kompletný context_payload pre weekly plan generátor.
@@ -351,10 +377,6 @@ def build_weekly_context_from_db(
     except Exception as e:
         print(f"❌ [WEEKLY][builder] coach notes fetch failed: {repr(e)}")
 
-    # Horizon weeks — z parametra alebo prefs, oklipovaný na min/max
-    raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
-    horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
-
     # 🌟 REPLAN DETECTION: ak už existujú weekly riadky pre tohto usera, ide
     # o replan existujúceho plánu, nie o prvotné vytvorenie. Pri replane
     # NESMIEME znova generovať už uzavreté minulé týždne (spôsobovalo to
@@ -384,6 +406,23 @@ def build_weekly_context_from_db(
         start_date_for_weeks = _safe_date(
             prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
         )
+
+    # 🌟 Horizon weeks:
+    # - Ak athlete zvolil cieľový koncový dátum v date pickeri (Coach Notes ->
+    #   Veľká zmena), horizon_weeks sa dopočíta PRESNE z toho dátumu - toto
+    #   má prioritu, ide o explicitnú vôľu athléta (skrátiť/predĺžiť plán).
+    # - Inak fallback na pôvodné správanie: parameter/prefs, oklipovaný na
+    #   business min/max z configu.
+    if target_end_date and start_date_for_weeks:
+        horizon_weeks = max(
+            1,
+            _compute_horizon_weeks_for_target_end_date(
+                start_date_for_weeks, target_end_date
+            ),
+        )
+    else:
+        raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
+        horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
     # Presné, Python-vypočítané hranice týždňov (pondelok-nedeľa, prvý
     # týždeň môže byť kratší podľa start_date) - AI ich dostane ako fakt cez
@@ -418,6 +457,11 @@ def build_weekly_context_from_db(
             "ephemeral_note": coach_notes.get("ephemeral_note"),
         },
     }
+
+    if target_end_date:
+        # Len informatívne pre AI (napr. do coach_reply "skrátili sme plán do
+        # X") - samotný počet týždňov je už definitívne vyriešený vyššie.
+        context_payload["target_end_date"] = target_end_date
 
     # Pri replane pošleme AI aj krátky súhrn UŽ UZAVRETÝCH minulých týždňov
     # (goal/load_phase/actual_stats) ako kontext - AI ich nemá generovať
