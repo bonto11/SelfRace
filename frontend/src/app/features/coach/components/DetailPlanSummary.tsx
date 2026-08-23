@@ -126,14 +126,14 @@ function formatTimeS(seconds: number | null): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function formatPaceSPerKm(s: number | null): string {
+function formatPaceSPerKm(s: number | null | undefined): string {
   if (!s || s <= 0) return "—";
   const m = Math.floor(s / 60);
   const sec = Math.round(s % 60);
   return `${m}:${String(sec).padStart(2, "0")} /km`;
 }
 
-function formatMinutes(min: number | null): string {
+function formatMinutes(min: number | null | undefined): string {
   if (!min || min <= 0) return "—";
   if (min >= 60) {
     const h = Math.floor(min / 60);
@@ -162,7 +162,7 @@ const SPORT_LABEL: Record<string, string> = {
 function SportStatsTable({
   rows,
 }: {
-  rows: (SportStatsRow | UnmatchedActivitySport)[];
+  rows: (SportStatsRow | UnmatchedActivitySport)[] | null | undefined;
 }) {
   if (!rows || rows.length === 0) return null;
 
@@ -181,8 +181,8 @@ function SportStatsTable({
             <span className="text-right opacity-70">
               {distanceKm > 0 && `${distanceKm} km · `}
               {formatMinutes(timeMin)}
-              {r.avg_pace_s_per_km && ` · ${formatPaceSPerKm(r.avg_pace_s_per_km)}`}
-              {r.avg_hr_bpm && ` · ${r.avg_hr_bpm} bpm`}
+              {r.avg_pace_s_per_km ? ` · ${formatPaceSPerKm(r.avg_pace_s_per_km)}` : ""}
+              {r.avg_hr_bpm ? ` · ${r.avg_hr_bpm} bpm` : ""}
             </span>
           </div>
         );
@@ -308,6 +308,18 @@ export default function DetailPlanSummary() {
   const ai = row.raw_ai_json;
   const hs = row.hard_stats;
 
+  // 🔧 Defenzívne prístupy - hs môže byť starý tvar (pred refaktorom
+  // hard_stats na plan_stats/combined_stats/unmatched_stats), preto VŠADE
+  // optional chaining s fallbackom, aby stránka nikdy nespadla ani na
+  // starých riadkoch v DB.
+  const compliance = hs?.compliance;
+  const planStatsBySport = hs?.plan_stats?.by_sport ?? [];
+  const combinedStatsBySport = hs?.combined_stats?.by_sport ?? [];
+  const unmatchedCount = hs?.unmatched_stats?.count ?? 0;
+  const unmatchedBySport = hs?.unmatched_stats?.by_sport ?? [];
+  const avgSessionDuration =
+    hs?.plan_stats?.avg_session_duration_min ?? hs?.avg_session_duration_min ?? null;
+
   return (
     <div className={PANEL_STACK}>
       <Card
@@ -346,56 +358,52 @@ export default function DetailPlanSummary() {
           </div>
         )}
 
-        {hs && (
+        {compliance && (
           <>
-            {/* Compliance — celkovo, nezávislé od športu */}
             <div className="grid gap-3 md:grid-cols-3 min-w-0">
               <Subcard
                 title={t("coachPlanSummary.stats.completion" as any)}
                 value={
-                  hs.compliance.completion_pct != null
-                    ? `${hs.compliance.completion_pct}%`
+                  compliance.completion_pct != null
+                    ? `${compliance.completion_pct}%`
                     : "—"
                 }
               />
               <Subcard
                 title={t("coachPlanSummary.stats.sessionsDone" as any)}
-                value={hs.compliance.done}
+                value={compliance.done}
               />
               <Subcard
                 title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
-                value={formatMinutes(hs.plan_stats.avg_session_duration_min)}
+                value={formatMinutes(avgSessionDuration)}
               />
             </div>
             <div className="text-xs opacity-60">
-              {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs.weeks_tracked}
+              {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs?.weeks_tracked ?? "—"}
               {" · "}
-              {t("coachPlanSummary.stats.missed" as any)}: {hs.compliance.missed}
+              {t("coachPlanSummary.stats.missed" as any)}: {compliance.missed}
               {" · "}
-              {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
+              {t("coachPlanSummary.stats.postponed" as any)}: {compliance.postponed}
             </div>
-
-            {/* ŠTATISTIKY PLÁNU — len napárované session, rozpad po športe */}
-            {hs.plan_stats.by_sport.length > 0 && (
-              <Subcard title={t("coachPlanSummary.stats.planStatsTitle" as any)}>
-                <SportStatsTable rows={hs.plan_stats.by_sport} />
-              </Subcard>
-            )}
-
-            {/* CELKOVÉ ŠTATISTIKY — plán + ostatné dokopy, rozpad po športe */}
-            {hs.combined_stats.by_sport.length > 0 && (
-              <Subcard title={t("coachPlanSummary.stats.combinedStatsTitle" as any)}>
-                <SportStatsTable rows={hs.combined_stats.by_sport} />
-              </Subcard>
-            )}
-
-            {/* OSTATNÉ AKTIVITY MIMO PLÁNU */}
-            {hs.unmatched_stats.count > 0 && (
-              <Subcard title={t("coachPlanSummary.stats.unmatchedTitle" as any)}>
-                <SportStatsTable rows={hs.unmatched_stats.by_sport} />
-              </Subcard>
-            )}
           </>
+        )}
+
+        {planStatsBySport.length > 0 && (
+          <Subcard title={t("coachPlanSummary.stats.planStatsTitle" as any)}>
+            <SportStatsTable rows={planStatsBySport} />
+          </Subcard>
+        )}
+
+        {combinedStatsBySport.length > 0 && (
+          <Subcard title={t("coachPlanSummary.stats.combinedStatsTitle" as any)}>
+            <SportStatsTable rows={combinedStatsBySport} />
+          </Subcard>
+        )}
+
+        {unmatchedCount > 0 && (
+          <Subcard title={t("coachPlanSummary.stats.unmatchedTitle" as any)}>
+            <SportStatsTable rows={unmatchedBySport} />
+          </Subcard>
         )}
 
         {ai?.highlights && ai.highlights.length > 0 && (
