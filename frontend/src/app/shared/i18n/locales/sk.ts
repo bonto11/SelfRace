@@ -1259,8 +1259,8 @@ export const sk = {
       resultDaily: "Týždeň aktualizovaný",
       resultWeekly: "Plán pregenerovaný",
       coachReplyLabel: "Odpoveď trénera",
-      endDateLabel: “Koniec plánu”,
-      endDateHint: “Skráť alebo predĺž plán zmenou dátumu — zvyšné týždne sa tomu prispôsobia.”,
+      endDateLabel: "Koniec plánu",
+      endDateHint: "Skráť alebo predĺž plán zmenou dátumu — zvyšné týždne sa tomu prispôsobia.",
     },
   },
   coachAthleteState: {
