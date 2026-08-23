@@ -89,9 +89,18 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]], is_replan: bool
     (napr. ak už prebehli týždne 1-2, prvý týždeň v tomto zozname môže byť
     week_index 3). AI generuje LEN tieto vymenované týždne, nič naviac a nič
     s nižším week_index.
+
+    🌟 EXPLICITNÝ POČET: pridané tvrdé pravidlo "output EXACTLY N weeks" -
+    predtým sa stávalo, že pri skrátenom pláne (athlete zvolil skorší
+    target_end_date cez date picker) si AI aj tak dogenerovala vlastný
+    recovery/nový base blok NAVYŠE za posledný požadovaný týždeň, akoby
+    dostala voľnú ruku na dĺžku. Backend síce takéto navyše týždne teraz
+    tvrdo zahadzuje (hard truncation v main.py), ale je lepšie, ak sa tomu
+    AI vyhne už v generovaní.
     """
     if not week_boundaries:
         return ""
+    n = len(week_boundaries)
     lines = ["\n--- WEEK BOUNDARIES (CRITICAL - DO NOT RECALCULATE) ---"]
     if is_replan:
         lines.append(
@@ -100,6 +109,15 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]], is_replan: bool
             "reuse their week_index numbers. Generate ONLY the exact week_index values "
             "listed below, starting from the current week."
         )
+    lines.append(
+        f"You MUST output EXACTLY {n} week object(s) in the 'weeks' array - one for each "
+        f"week_index listed below, NO MORE and NO FEWER. This is a HARD LIMIT, not a "
+        f"suggestion. Do NOT add extra weeks for a new training block, a post-race recovery "
+        f"phase, or anything else beyond this exact list - even if the plan feels "
+        f"'incomplete' to you, even if a race falls near the last listed week, and even if "
+        f"you would normally continue periodization further. If the athlete wanted the plan "
+        f"shortened to end here, respect that exactly - do not compensate by extending it."
+    )
     lines.append(
         "You MUST use these EXACT week_start/week_end dates for each week_index. "
         "Do NOT calculate, adjust, or guess calendar dates or weekdays yourself — "
@@ -116,6 +134,11 @@ def _week_boundaries_rule(week_boundaries: List[Dict[str, Any]], is_replan: bool
         lines.append(
             f"  - week_index {wb['week_index']}: {wb['week_start']} to {wb['week_end']}{marker}"
         )
+    lines.append(
+        f"\nThe list above has exactly {n} entries. Your 'weeks' array must have exactly "
+        f"{n} entries too, with week_index values matching this list one-to-one - no other "
+        f"week_index is valid."
+    )
     if current_week_index is not None:
         lines.append(
             f"\nCRITICAL: Today is {today_iso}, which is week_index {current_week_index}. "
@@ -149,6 +172,26 @@ def _past_weeks_summary_rule(past_weeks: List[Dict[str, Any]]) -> str:
             f"{w.get('week_end')}): {phase} — {goal}"
         )
     return "\n".join(lines) + "\n"
+
+
+def _target_end_date_rule(target_end_date: Optional[str], week_boundaries: List[Dict[str, Any]]) -> str:
+    """
+    🌟 Athlete si v UI (date picker, Coach Notes -> Veľká zmena) explicitne
+    zvolil, kedy má plán skončiť. Toto je len INFORMATÍVNE pre AI (aby vedela
+    prečo je plán krátky a mohla to zohľadniť v coach_reply/poslednom
+    týždni - napr. správne umiestniť taper), samotný počet týždňov je už
+    definitívne vyriešený cez week_boundaries vyššie.
+    """
+    if not target_end_date or not week_boundaries:
+        return ""
+    return (
+        "\n--- ATHLETE-CHOSEN PLAN END DATE ---\n"
+        f"The athlete explicitly chose {target_end_date} as the new end date for this plan "
+        "(via a date picker) - this is WHY the week list above is short/shortened. Design the "
+        "last listed week appropriately for this being the END of the plan (e.g. taper if a "
+        "race falls near it, or a sensible wind-down otherwise) - but still do NOT add any "
+        "week beyond the last one listed above.\n"
+    )
 
 
 # ============================================================
@@ -418,7 +461,7 @@ def minify_weekly_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             }
 
     # Meta polia
-    for k in ("weeks", "replan_trigger", "generate_reason"):
+    for k in ("weeks", "replan_trigger", "generate_reason", "target_end_date"):
         if k in context:
             ctx2[k] = context[k]
 
@@ -613,6 +656,7 @@ def build_prompts_for_weekly(
     week_boundaries = ctx.get("week_boundaries") or []
     is_replan = bool(ctx.get("is_replan"))
     past_weeks_summary = ctx.get("past_weeks_summary") or []
+    target_end_date = ctx.get("target_end_date")
 
     system_txt = (
         "You are an elite endurance coaching assistant. "
@@ -633,6 +677,7 @@ def build_prompts_for_weekly(
         + "- Volume guidelines:\n"
         + volume_hint
         + _week_boundaries_rule(week_boundaries, is_replan)
+        + _target_end_date_rule(target_end_date, week_boundaries)
         + _past_weeks_summary_rule(past_weeks_summary)
         + race_hint
         + beginner_protocol
