@@ -211,6 +211,89 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 
 
 # ============================================================
+# 🌟 REPLAN WEEK-INDEX ANCHOR (deterministický, kalendárový)
+# ============================================================
+
+def _compute_current_week_index_for_replan(
+    existing_rows: List[Dict[str, Any]],
+) -> tuple[int, str]:
+    """
+    Vypočíta (current_week_index_offset, start_date_for_weeks) pre replan
+    VÝHRADNE z kalendára — nikdy z toho, aký najvyšší week_index náhodou
+    leží v DB.
+
+    PREČO: pôvodná logika hľadala riadok kde week_start <= dnešok <= week_end,
+    a ak ho nenašla (napr. medzera medzi týždňami spôsobená starším bugom,
+    alebo oneskorené pregenerovanie), spravila `max(existing week_index) + 1`.
+    To je nespoľahlivé — ak v tabuľke ostal osirotený/starý riadok s vysokým
+    week_index (napr. z predošlého chybného generovania), replan naň naviazal
+    a vznikol skok v číslovaní (napr. 7 -> 18) aj rast celkového počtu
+    týždňov pri opakovanom pregenerovaní (10 -> 12 -> 15), lebo nové týždne
+    sa nikdy neprekryli s existujúcimi a teda ich nenahradili.
+
+    Namiesto toho: zoberieme week_start týždňa s week_index == 1 (skutočný,
+    pôvodný začiatok plánu) ako pevný "anchor" a dopočítame, do ktorého
+    kalendárneho týždňa padá dnešok, rovnakou logikou ako
+    compute_week_boundaries. Výsledok je vždy rovnaký bez ohľadu na to, aké
+    (prípadne poškodené) riadky momentálne existujú v DB.
+    """
+    today_iso = date.today().isoformat()
+
+    anchor_row = min(
+        (r for r in existing_rows if r.get("week_index") == 1 and r.get("week_start")),
+        key=lambda r: str(r["week_start"]),
+        default=None,
+    )
+    if not anchor_row:
+        # Núdzový fallback — week_index=1 riadok chýba (nemalo by nastať pri
+        # zdravých dátach). Zoberieme riadok s najnižším week_index ako anchor,
+        # aspoň relatívne konzistentne.
+        rows_with_start = [r for r in existing_rows if r.get("week_start")]
+        anchor_row = min(
+            rows_with_start,
+            key=lambda r: int(r.get("week_index") or 0),
+            default=None,
+        )
+
+    if not anchor_row:
+        # Úplne bez použiteľných dát — správaj sa ako pri prvom generovaní.
+        return 1, today_iso
+
+    anchor_start = str(anchor_row["week_start"])
+    anchor_index = int(anchor_row.get("week_index") or 1)
+
+    try:
+        anchor_date = date.fromisoformat(anchor_start[:10])
+    except Exception:
+        return 1, today_iso
+
+    if date.today() < anchor_date:
+        # Dnešok je pred pôvodným začiatkom plánu (nemalo by nastať) — poistka.
+        return anchor_index, anchor_start
+
+    days_since_anchor = (date.today() - anchor_date).days
+    # Dostatočne veľký horizont, aby určite pokryl dnešok, aj keby plán
+    # výrazne mešká oproti tomu, čo je aktuálne v DB.
+    safety_horizon = max(4, (days_since_anchor // 7) + 4)
+
+    probe_boundaries = compute_week_boundaries(anchor_start, safety_horizon)
+    current_probe = next(
+        (b for b in probe_boundaries if b["week_start"] <= today_iso <= b["week_end"]),
+        None,
+    )
+    if not current_probe:
+        # Nemalo by sa stať vďaka safety_horizon, ale poistka nech nič nezhodí.
+        current_probe = probe_boundaries[-1]
+
+    # probe_boundaries číslujú od 1 → posunieme o (anchor_index - 1), aby
+    # výsledné číslovanie nadväzovalo na pôvodné, historické week_index.
+    current_week_index_offset = current_probe["week_index"] + anchor_index - 1
+    start_date_for_weeks = current_probe["week_start"]
+
+    return current_week_index_offset, start_date_for_weeks
+
+
+# ============================================================
 # MAIN BUILDER
 # ============================================================
 
@@ -276,10 +359,7 @@ def build_weekly_context_from_db(
     # o replan existujúceho plánu, nie o prvotné vytvorenie. Pri replane
     # NESMIEME znova generovať už uzavreté minulé týždne (spôsobovalo to
     # duplicity - staré riadky s week_end v minulosti sa nemažú, ale AI ich
-    # aj tak vygenerovala znova s rovnakými dátumami). Namiesto pôvodného
-    # plan start_date z prefs preto začíname od pondelka týždňa, do ktorého
-    # padá DNEŠOK, a zachovávame nadväzujúce číslovanie week_index podľa
-    # toho, čo už v DB existuje (aby FE zoznam týždňov nadväzoval plynulo).
+    # aj tak vygenerovala znova s rovnakými dátumami).
     existing_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
     # 🌟 full_reset=True znamená, že sa chystáme kompletne premazať staré
     # riadky (v service_generate_weekly_plan, hneď po tomto builderi) - preto
@@ -288,29 +368,18 @@ def build_weekly_context_from_db(
     # prefs, nie z kontinuácie starého (čoskoro zmazaného) plánu.
     is_replan = len(existing_rows) > 0 and not full_reset
 
-
     current_week_index_offset = 1
     start_date_for_weeks: Optional[str] = None
 
     if is_replan:
-        today_iso = date.today().isoformat()
-        current_row = next(
-            (
-                r for r in existing_rows
-                if r.get("week_start") and r.get("week_end")
-                and str(r["week_start"]) <= today_iso <= str(r["week_end"])
-            ),
-            None,
+        # 🌟 FIX: week_index pre "dnešok" sa počíta ČISTO z kalendára,
+        # ukotvený na pôvodnom week_index=1 starte — nie z toho, aký
+        # najvyšší index náhodou existuje v DB. Pozri docstring funkcie
+        # _compute_current_week_index_for_replan pre detailné vysvetlenie
+        # bugu (skok 7 -> 18, rastúci weeks_total pri opakovanom replane).
+        current_week_index_offset, start_date_for_weeks = (
+            _compute_current_week_index_for_replan(existing_rows)
         )
-        if current_row:
-            current_week_index_offset = int(current_row.get("week_index") or 1)
-            start_date_for_weeks = str(current_row["week_start"])
-        else:
-            # Dnešok nepadá do žiadneho existujúceho týždňa (napr. plán sa
-            # skončil) - pokračuj hneď za posledným existujúcim týždňom.
-            max_index_row = max(existing_rows, key=lambda r: int(r.get("week_index") or 0))
-            current_week_index_offset = int(max_index_row.get("week_index") or 0) + 1
-            start_date_for_weeks = today_iso
     else:
         start_date_for_weeks = _safe_date(
             prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
