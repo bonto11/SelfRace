@@ -168,8 +168,9 @@ def _aggregate_weekly_stats(weeks: List[Dict[str, Any]]) -> Dict[str, Any]:
 def _group_plan_stats_by_sport(actual_totals: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Rozpad actual_stats z coach_plan_weekly (napárované session) podľa
-    športu. avg_pace_s_per_km sa počíta LEN v rámci jedného športu
-    (run alebo ride) - nikdy sa nemieša beh s bicyklom.
+    športu. Beh -> tempo (s/km), bicykel -> rýchlosť (km/h) - toto sú
+    fyzikálne iné veličiny a nedávalo zmysel počítať bicyklu "tempo".
+    Nikdy sa nič nemieša naprieč športmi.
     """
     out: List[Dict[str, Any]] = []
     for sport, cfg in PLAN_SPORT_FIELDS.items():
@@ -183,15 +184,19 @@ def _group_plan_stats_by_sport(actual_totals: Dict[str, Any]) -> List[Dict[str, 
             continue
 
         avg_pace = None
-        if sport in ("run", "ride") and distance_km > 0:
+        avg_speed_kmh = None
+        if sport == "run" and distance_km > 0:
             avg_pace = round((time_min * 60) / distance_km)
+        elif sport == "ride" and time_min > 0:
+            avg_speed_kmh = round(distance_km / (time_min / 60.0), 1)
 
         out.append({
             "sport": sport,
             "distance_km": round(distance_km, 2) if distance_km else 0.0,
             "time_min": round(time_min, 1) if time_min else 0.0,
             "avg_pace_s_per_km": avg_pace,
-            "avg_hr_bpm": None,  # weekly agregát nemá HR dáta k dispozícii
+            "avg_speed_kmh": avg_speed_kmh,
+            "avg_hr_bpm": None,
         })
 
     out.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
@@ -203,10 +208,8 @@ def _merge_by_sport(
     unmatched_by_sport: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """
-    Sčíta plán + nenapárované aktivity PER ŠPORT (nikdy naprieč športmi).
-    Tempo sa dopočíta z kombinovanej vzdialenosti/času v rámci toho istého
-    športu - to je v poriadku (napr. súčet všetkých behov), na rozdiel od
-    miešania behu s bicyklom, čo bol pôvodný problém.
+    Sčíta plán + nenapárované aktivity PER ŠPORT. Beh -> tempo, bicykel ->
+    rýchlosť - nikdy sa nemieša naprieč športmi ani veličinami.
     """
     merged: Dict[str, Dict[str, Any]] = {}
 
@@ -224,17 +227,17 @@ def _merge_by_sport(
         m["distance_km"] += row.get("total_distance_km", 0.0)
         m["time_min"] += row.get("total_time_min", 0.0)
         if row.get("avg_hr_bpm") and row.get("count"):
-            # HR z unmatched aktivít je jediný zdroj HR, ktorý máme -
-            # plán (weekly aggregate) HR vôbec neuchováva. Váhované podľa
-            # počtu aktivít, z ktorých bol ten priemer pôvodne spočítaný.
             m["hr_weighted_sum"] += row["avg_hr_bpm"] * row["count"]
             m["hr_weight"] += row["count"]
 
     out: List[Dict[str, Any]] = []
     for sport, m in merged.items():
         avg_pace = None
-        if sport in ("run", "ride") and m["distance_km"] > 0:
+        avg_speed_kmh = None
+        if sport == "run" and m["distance_km"] > 0:
             avg_pace = round((m["time_min"] * 60) / m["distance_km"])
+        elif sport == "ride" and m["time_min"] > 0:
+            avg_speed_kmh = round(m["distance_km"] / (m["time_min"] / 60.0), 1)
         avg_hr = round(m["hr_weighted_sum"] / m["hr_weight"]) if m["hr_weight"] > 0 else None
 
         out.append({
@@ -242,11 +245,13 @@ def _merge_by_sport(
             "distance_km": round(m["distance_km"], 2),
             "time_min": round(m["time_min"], 1),
             "avg_pace_s_per_km": avg_pace,
+            "avg_speed_kmh": avg_speed_kmh,
             "avg_hr_bpm": avg_hr,
         })
 
     out.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
     return out
+
 
 
 # ============================================================
@@ -332,25 +337,32 @@ def _aggregate_unmatched_activities(
             except (TypeError, ValueError):
                 pass
 
-    by_sport: List[Dict[str, Any]] = []
-    for b in buckets.values():
-        dist_km = round(b["distance_m_sum"] / 1000.0, 2) if b["distance_m_sum"] else 0.0
-        time_min = round(b["moving_time_s_sum"] / 60.0, 1) if b["moving_time_s_sum"] else 0.0
-        avg_pace = (
-            round(b["moving_time_s_sum"] / (b["distance_m_sum"] / 1000.0))
-            if b["distance_m_sum"] > 0 and b["sport"] in ("run", "ride")
-            else None
-        )
-        avg_hr = round(b["hr_sum"] / b["hr_count"]) if b["hr_count"] > 0 else None
-        by_sport.append({
-            "sport": b["sport"],
-            "count": b["count"],
-            "total_distance_km": dist_km,
-            "total_time_min": time_min,
-            "avg_pace_s_per_km": avg_pace,
-            "avg_hr_bpm": avg_hr,
-        })
-    by_sport.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
+        by_sport: List[Dict[str, Any]] = []
+            for b in buckets.values():
+                dist_km = round(b["distance_m_sum"] / 1000.0, 2) if b["distance_m_sum"] else 0.0
+                time_min = round(b["moving_time_s_sum"] / 60.0, 1) if b["moving_time_s_sum"] else 0.0
+                avg_pace = (
+                    round(b["moving_time_s_sum"] / (b["distance_m_sum"] / 1000.0))
+                    if b["distance_m_sum"] > 0 and b["sport"] == "run"
+                    else None
+                )
+                avg_speed_kmh = (
+                    round((b["distance_m_sum"] / 1000.0) / (b["moving_time_s_sum"] / 3600.0), 1)
+                    if b["moving_time_s_sum"] > 0 and b["sport"] == "ride"
+                    else None
+                )
+                avg_hr = round(b["hr_sum"] / b["hr_count"]) if b["hr_count"] > 0 else None
+                by_sport.append({
+                    "sport": b["sport"],
+                    "count": b["count"],
+                    "total_distance_km": dist_km,
+                    "total_time_min": time_min,
+                    "avg_pace_s_per_km": avg_pace,
+                    "avg_speed_kmh": avg_speed_kmh,
+                    "avg_hr_bpm": avg_hr,
+                })
+            by_sport.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
+
 
     return {
         "count": len(raw),
