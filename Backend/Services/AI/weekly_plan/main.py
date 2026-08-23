@@ -82,6 +82,7 @@ def service_generate_weekly_plan(
     model: Optional[str] = None,
     override_start_date: Optional[str] = None,
     reason: Optional[str] = None,
+    target_end_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre generovanie weekly meta-plánu.
@@ -95,6 +96,10 @@ def service_generate_weekly_plan(
     (used generuje odznova pred prvým spustením). Ak plán už beží a ide o
     bežný replan, full_reset musí byť False (default), aby sa zachovala
     história už odtrénovaných týždňov.
+
+    target_end_date: 🌟 athlete si v UI (Coach Notes -> Veľká zmena) vyberie
+    dátum cez date picker, predvyplnený aktuálnym koncom plánu - toto skráti
+    alebo predĺži plán presne na daný dátum. Má prioritu pred `weeks`.
     """
     # Kvóta check
     if is_user_over_token_quota(user_id, ctx=ctx):
@@ -113,6 +118,7 @@ def service_generate_weekly_plan(
         state_id=state_id,
         weeks=weeks,
         full_reset=full_reset,
+        target_end_date=target_end_date,
     )
 
 
@@ -155,6 +161,7 @@ def service_generate_weekly_plan(
             "state_id": used_state_id,
             "requested_weeks": weeks,
             "horizon_weeks": horizon_weeks,
+            "target_end_date": target_end_date,
         },
         ctx=ctx,
     )
