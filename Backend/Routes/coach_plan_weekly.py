@@ -34,6 +34,7 @@ def generate_weekly_plan(
             state_id=payload.state_id,
             weeks=payload.weeks,
             model=payload.model,
+            target_end_date=payload.target_end_date,
         )
         
         if not result.get("ok"):
