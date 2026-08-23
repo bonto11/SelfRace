@@ -250,6 +250,11 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 weeks=payload.get("weeks"),
                 model=payload.get("model"),
                 reason=payload.get("reason"),
+                # 🌟 date picker (Coach Notes -> Veľká zmena): athlete zvolený
+                # nový koncový dátum plánu. Ak je None, BE sa správa presne
+                # ako doteraz (žiadna zmena pre klasický replan bez zámeru
+                # skrátiť/predĺžiť).
+                target_end_date=payload.get("target_end_date"),
             )
 
         elif job_type == "daily_generate":
