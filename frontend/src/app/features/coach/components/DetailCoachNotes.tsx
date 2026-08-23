@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
+import DateField from "@/app/shared/ui/components/DateField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -76,7 +77,7 @@ export default function DetailCoachNotes() {
   // 🌟 Dĺžka plánu (date picker pri "Veľká zmena") — predvyplnený aktuálnym
   // koncom plánu, athlete môže zmeniť. BE z toho vždy deterministicky
   // dopočíta počet týždňov, nezávisle od textu poznámky.
-  const [targetEndDate, setTargetEndDate] = useState<string>("");
+  const [targetEndDate, setTargetEndDate] = useState<string | null>(null);
   const [targetEndDateLoaded, setTargetEndDateLoaded] = useState(false);
 
   // Plan status
@@ -274,7 +275,7 @@ export default function DetailCoachNotes() {
         // 🌟 dátum z pickera ide vždy, ak ho athlete nezmenil je to jednoducho
         // rovnaký dátum ako doteraz - BE si horizon dopočíta rovnako, žiadna
         // zmena správania pre bežný "Veľká zmena" bez úmyslu skrátiť/predĺžiť.
-        target_end_date: targetEndDate || null,
+        target_end_date: targetEndDate,
       });
       if (!wOut.success) {
         toast.error(wOut.message ?? t("coachNotes.replan.error"));
@@ -454,12 +455,10 @@ export default function DetailCoachNotes() {
                 <div className="text-xs font-medium opacity-60 mb-2">
                   {t("coachNotes.replan.endDateLabel")}
                 </div>
-                <input
-                  type="date"
-                  className="w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none"
+                <DateField
                   value={targetEndDate}
+                  onChange={setTargetEndDate}
                   min={todayIso}
-                  onChange={(e) => setTargetEndDate(e.target.value)}
                   disabled={!!replanning}
                 />
                 <div className="text-[10px] text-white/30 mt-1 leading-tight">
