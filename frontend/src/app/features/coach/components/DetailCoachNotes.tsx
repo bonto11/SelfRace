@@ -73,6 +73,12 @@ export default function DetailCoachNotes() {
   const [replanning, setReplanning] = useState<"daily" | "weekly" | null>(null);
   const [lastReplan, setLastReplan] = useState<LastReplan | null>(null);
 
+  // 🌟 Dĺžka plánu (date picker pri "Veľká zmena") — predvyplnený aktuálnym
+  // koncom plánu, athlete môže zmeniť. BE z toho vždy deterministicky
+  // dopočíta počet týždňov, nezávisle od textu poznámky.
+  const [targetEndDate, setTargetEndDate] = useState<string>("");
+  const [targetEndDateLoaded, setTargetEndDateLoaded] = useState(false);
+
   // Plan status
   const [planActive, setPlanActive] = useState(false);
   const [planStatusLoading, setPlanStatusLoading] = useState(true);
@@ -102,6 +108,20 @@ export default function DetailCoachNotes() {
       .catch(() => setPlanActive(false))
       .finally(() => setPlanStatusLoading(false));
   }, [userId]);
+
+  // 🌟 Predvyplnenie date pickera aktuálnym koncom plánu (posledný týždeň)
+  useEffect(() => {
+    if (!userId || targetEndDateLoaded) return;
+    apiGetLatestWeeklyPlan(userId)
+      .then((plan) => {
+        const weeks = plan?.weeks ?? [];
+        if (weeks.length === 0) return;
+        const last = weeks[weeks.length - 1];
+        if (last?.week_end) setTargetEndDate(last.week_end.slice(0, 10));
+      })
+      .catch(() => {})
+      .finally(() => setTargetEndDateLoaded(true));
+  }, [userId, targetEndDateLoaded]);
 
   /* ---- Sticky CRUD ---- */
 
@@ -249,7 +269,13 @@ export default function DetailCoachNotes() {
     setLastReplan(null);
     try {
       await _saveEphemeralIfNeeded();
-      const wOut = await apiGenerateWeeklyPlan(userId, userUuid, { overwrite: true });
+      const wOut = await apiGenerateWeeklyPlan(userId, userUuid, {
+        overwrite: true,
+        // 🌟 dátum z pickera ide vždy, ak ho athlete nezmenil je to jednoducho
+        // rovnaký dátum ako doteraz - BE si horizon dopočíta rovnako, žiadna
+        // zmena správania pre bežný "Veľká zmena" bez úmyslu skrátiť/predĺžiť.
+        target_end_date: targetEndDate || null,
+      });
       if (!wOut.success) {
         toast.error(wOut.message ?? t("coachNotes.replan.error"));
         return;
@@ -264,6 +290,9 @@ export default function DetailCoachNotes() {
       });
       toast.success(t("coachNotes.replan.successWeekly"));
       await fetchData();
+      // Po úspešnom replane si znova natiahneme aktuálny koniec plánu (mohol
+      // sa zmeniť, ak athlete plán skrátil/predĺžil).
+      setTargetEndDateLoaded(false);
     } catch {
       toast.error(t("coachNotes.replan.error"));
     } finally {
@@ -272,6 +301,8 @@ export default function DetailCoachNotes() {
   };
 
   if (!userId) return null;
+
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   return (
     <div className={PANEL_STACK}>
@@ -414,6 +445,26 @@ export default function DetailCoachNotes() {
                     {replanNote.length} / {MAX_REPLAN_CHARS}
                   </div>
                 )}
+              </div>
+
+              {/* 🌟 Dĺžka plánu — len pri "Veľká zmena", predvyplnená aktuálnym
+                  koncom plánu. Athlete ju môže zmeniť, aby plán skrátil alebo
+                  predĺžil presne k danému dátumu. */}
+              <div>
+                <div className="text-xs font-medium opacity-60 mb-2">
+                  {t("coachNotes.replan.endDateLabel")}
+                </div>
+                <input
+                  type="date"
+                  className="w-full rounded bg-white/5 border border-white/10 p-3 text-sm text-white focus:border-white/30 focus:outline-none"
+                  value={targetEndDate}
+                  min={todayIso}
+                  onChange={(e) => setTargetEndDate(e.target.value)}
+                  disabled={!!replanning}
+                />
+                <div className="text-[10px] text-white/30 mt-1 leading-tight">
+                  {t("coachNotes.replan.endDateHint")}
+                </div>
               </div>
 
               {/* 2 tlačidlá */}
