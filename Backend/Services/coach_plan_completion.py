@@ -30,6 +30,19 @@ RACE_GOAL_KM: Dict[str, float] = {
 
 DISTANCE_TOLERANCE_PCT = 0.10  # ±10 %
 
+# Poradie športov na zobrazenie - konzistentné naprieč plan_stats/combined_stats/unmatched_stats
+SPORT_DISPLAY_ORDER: Dict[str, int] = {"run": 0, "ride": 1, "swim": 2, "strength": 3, "other": 4}
+
+# Mapovanie kanonického športu na kľúče v coach_plan_weekly.actual_stats
+# (POZOR: plán ukladá bicykel pod kľúčom "bike_*", nie "ride_*" - preto je
+# tu explicitná mapa, aby sme to nepomiešali s canonical "ride" názvom).
+PLAN_SPORT_FIELDS: Dict[str, Dict[str, Any]] = {
+    "run": {"distance_key": "run_distance_km", "distance_unit_div": 1.0, "time_key": "run_time_min"},
+    "ride": {"distance_key": "bike_distance_km", "distance_unit_div": 1.0, "time_key": "bike_time_min"},
+    "swim": {"distance_key": "swim_distance_m", "distance_unit_div": 1000.0, "time_key": "swim_time_min"},
+    "strength": {"distance_key": None, "distance_unit_div": None, "time_key": "strength_time_min"},
+}
+
 
 # ============================================================
 # RACE HELPERS
@@ -152,15 +165,105 @@ def _aggregate_weekly_stats(weeks: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"planned": final_planned, "actual": final_actual}
 
 
+def _group_plan_stats_by_sport(actual_totals: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Rozpad actual_stats z coach_plan_weekly (napárované session) podľa
+    športu. avg_pace_s_per_km sa počíta LEN v rámci jedného športu
+    (run alebo ride) - nikdy sa nemieša beh s bicyklom.
+    """
+    out: List[Dict[str, Any]] = []
+    for sport, cfg in PLAN_SPORT_FIELDS.items():
+        time_min = float(actual_totals.get(cfg["time_key"]) or 0)
+        distance_km = 0.0
+        if cfg["distance_key"]:
+            raw = float(actual_totals.get(cfg["distance_key"]) or 0)
+            distance_km = raw / cfg["distance_unit_div"]
+
+        if not time_min and not distance_km:
+            continue
+
+        avg_pace = None
+        if sport in ("run", "ride") and distance_km > 0:
+            avg_pace = round((time_min * 60) / distance_km)
+
+        out.append({
+            "sport": sport,
+            "distance_km": round(distance_km, 2) if distance_km else 0.0,
+            "time_min": round(time_min, 1) if time_min else 0.0,
+            "avg_pace_s_per_km": avg_pace,
+            "avg_hr_bpm": None,  # weekly agregát nemá HR dáta k dispozícii
+        })
+
+    out.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
+    return out
+
+
+def _merge_by_sport(
+    plan_by_sport: List[Dict[str, Any]],
+    unmatched_by_sport: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Sčíta plán + nenapárované aktivity PER ŠPORT (nikdy naprieč športmi).
+    Tempo sa dopočíta z kombinovanej vzdialenosti/času v rámci toho istého
+    športu - to je v poriadku (napr. súčet všetkých behov), na rozdiel od
+    miešania behu s bicyklom, čo bol pôvodný problém.
+    """
+    merged: Dict[str, Dict[str, Any]] = {}
+
+    for row in plan_by_sport:
+        merged[row["sport"]] = {
+            "distance_km": row.get("distance_km", 0.0),
+            "time_min": row.get("time_min", 0.0),
+            "hr_weighted_sum": 0.0,
+            "hr_weight": 0,
+        }
+
+    for row in unmatched_by_sport:
+        s = row["sport"]
+        m = merged.setdefault(s, {"distance_km": 0.0, "time_min": 0.0, "hr_weighted_sum": 0.0, "hr_weight": 0})
+        m["distance_km"] += row.get("total_distance_km", 0.0)
+        m["time_min"] += row.get("total_time_min", 0.0)
+        if row.get("avg_hr_bpm") and row.get("count"):
+            # HR z unmatched aktivít je jediný zdroj HR, ktorý máme -
+            # plán (weekly aggregate) HR vôbec neuchováva. Váhované podľa
+            # počtu aktivít, z ktorých bol ten priemer pôvodne spočítaný.
+            m["hr_weighted_sum"] += row["avg_hr_bpm"] * row["count"]
+            m["hr_weight"] += row["count"]
+
+    out: List[Dict[str, Any]] = []
+    for sport, m in merged.items():
+        avg_pace = None
+        if sport in ("run", "ride") and m["distance_km"] > 0:
+            avg_pace = round((m["time_min"] * 60) / m["distance_km"])
+        avg_hr = round(m["hr_weighted_sum"] / m["hr_weight"]) if m["hr_weight"] > 0 else None
+
+        out.append({
+            "sport": sport,
+            "distance_km": round(m["distance_km"], 2),
+            "time_min": round(m["time_min"], 1),
+            "avg_pace_s_per_km": avg_pace,
+            "avg_hr_bpm": avg_hr,
+        })
+
+    out.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
+    return out
+
+
 # ============================================================
 # UNMATCHED ACTIVITIES AGGREGATION (Strava aktivity nenapárované na plán)
 # ============================================================
 
 def _canonical_sport(s: Any) -> str:
+    """
+    Normalizácia športu do 5 skupín. 'run' zámerne zahŕňa trail_run aj
+    obstacle_run (OCR) - beh je beh bez ohľadu na terén/prekážky. Predtým
+    tu bol bug: startswith("run") nechytilo "obstacle_run" (nezačína na
+    "run"), takže OCR aktivity padali do "other" - opravené na "run" in v.
+    """
     if not s:
         return "other"
     v = str(s).lower()
-    if v in ("run", "trail", "trail_run") or v.startswith("run"):
+    if "run" in v or v.startswith("trail"):
         return "run"
     if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
         return "ride"
@@ -178,35 +281,20 @@ def _aggregate_unmatched_activities(
     Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú
     session v coach_plan_daily - za celé obdobie aktívneho plánu.
 
-    Vracia jeden CELKOVÝ súhrn (count, distance, time, avg pace, avg HR) pre
-    zobrazenie na FE, plus 'by_sport' breakdown pre AI kontext (užitočnejší
-    detail pre naráciu než pre UI).
-
-    Toto je KRITICKÉ pre AI kontext - actual_stats z coach_plan_weekly počíta
-    len z napárovaných session, takže ak user trénoval, ale inak než plán
-    predpisoval (napr. dlhý beh namiesto intervalov, voľný beh navyše), tie
-    kilometre/minúty sa v actual_stats vôbec neobjavia. Bez tejto agregácie
-    AI mylne tvrdí "nič si netrénoval", hoci reálne trénoval, len inak.
+    Zámerne NEOBSAHUJE žiadny "blended" priemer tempa/tepu naprieč športmi -
+    tempo/tep sa počíta VÝHRADNE v rámci by_sport (napr. len beh, len
+    bicykel), nikdy nie ako priemer cez všetky športy dokopy (to by dávalo
+    nezmyselné číslo, napr. "priemerné tempo 3:xx/km" spočítané z behu aj
+    bicykla naraz).
     """
     raw = db_get_unmatched_activities(user_id, ctx=ctx, days=180)
 
     if not raw:
-        return {
-            "count": 0,
-            "total_distance_km": 0.0,
-            "total_time_min": 0.0,
-            "avg_pace_s_per_km": None,
-            "avg_hr_bpm": None,
-            "by_sport": [],
-        }
+        return {"count": 0, "total_distance_km": 0.0, "total_time_min": 0.0, "by_sport": []}
 
     buckets: Dict[str, Dict[str, Any]] = {}
     overall_distance_m = 0.0
     overall_time_s = 0.0
-    overall_pace_distance_m = 0.0  # len run/ride pre pace priemer
-    overall_pace_time_s = 0.0
-    overall_hr_sum = 0.0
-    overall_hr_count = 0
 
     for a in raw:
         sport = _canonical_sport(a.get("sport_type_fe") or a.get("sport_type"))
@@ -236,17 +324,11 @@ def _aggregate_unmatched_activities(
         except (TypeError, ValueError):
             pass
 
-        if sport in ("run", "ride") and dist_m > 0 and time_s > 0:
-            overall_pace_distance_m += dist_m
-            overall_pace_time_s += time_s
-
         hr = a.get("average_heartrate_bpm")
         if hr:
             try:
                 b["hr_sum"] += float(hr)
                 b["hr_count"] += 1
-                overall_hr_sum += float(hr)
-                overall_hr_count += 1
             except (TypeError, ValueError):
                 pass
 
@@ -268,21 +350,12 @@ def _aggregate_unmatched_activities(
             "avg_pace_s_per_km": avg_pace,
             "avg_hr_bpm": avg_hr,
         })
-    by_sport.sort(key=lambda x: x["count"], reverse=True)
-
-    overall_avg_pace = (
-        round(overall_pace_time_s / (overall_pace_distance_m / 1000.0))
-        if overall_pace_distance_m > 0
-        else None
-    )
-    overall_avg_hr = round(overall_hr_sum / overall_hr_count) if overall_hr_count > 0 else None
+    by_sport.sort(key=lambda x: SPORT_DISPLAY_ORDER.get(x["sport"], 99))
 
     return {
         "count": len(raw),
         "total_distance_km": round(overall_distance_m / 1000.0, 2) if overall_distance_m else 0.0,
         "total_time_min": round(overall_time_s / 60.0, 1) if overall_time_s else 0.0,
-        "avg_pace_s_per_km": overall_avg_pace,
-        "avg_hr_bpm": overall_avg_hr,
         "by_sport": by_sport,
     }
 
@@ -300,9 +373,15 @@ def _compute_hard_stats(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu - compliance,
-    súčty a priemery na týždeň. Nezávislé od AI narrácie, počíta sa vždy
-    rovnako a presne z DB dát.
+    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu.
+
+    Vracia TRI oddelené bloky:
+    - plan_stats: len napárované session (z coach_plan_weekly), rozpad po športe
+    - unmatched_stats: aktivity mimo plánu, rozpad po športe
+    - combined_stats: súčet oboch, rozpad po športe (aby si nič nemusel
+      ručne sčítavať)
+
+    Tempo/tep sa NIKDY nepočíta naprieč rôznymi športmi.
     """
     weeks_tracked = len(elapsed_weeks)
 
@@ -317,17 +396,17 @@ def _compute_hard_stats(
     actual_totals = aggregated.get("actual") or {}
     planned_totals = aggregated.get("planned") or {}
 
-    weekly_averages: Dict[str, float] = {}
-    if weeks_tracked > 0:
-        for k, v in actual_totals.items():
-            if isinstance(v, (int, float)):
-                weekly_averages[k] = round(v / weeks_tracked, 2)
-
+    # priemerná dĺžka session naprieč všetkými športmi JE v poriadku -
+    # je to priemer dĺžky trvania (minúty), nie priemer tempa/rýchlosti,
+    # takže tu žiadny "mixing sports" problém nie je.
     total_time_min = sum(
         v for k, v in actual_totals.items()
         if isinstance(v, (int, float)) and k.endswith("_time_min")
     )
     avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
+
+    plan_by_sport = _group_plan_stats_by_sport(actual_totals)
+    combined_by_sport = _merge_by_sport(plan_by_sport, unmatched_activities.get("by_sport", []))
 
     return {
         "weeks_tracked": weeks_tracked,
@@ -338,11 +417,20 @@ def _compute_hard_stats(
             "planned_remaining": planned,
             "completion_pct": completion_pct,
         },
+        "plan_stats": {
+            "by_sport": plan_by_sport,
+            "avg_session_duration_min": avg_session_duration_min,
+        },
+        "unmatched_stats": {
+            "count": unmatched_activities.get("count", 0),
+            "by_sport": unmatched_activities.get("by_sport", []),
+        },
+        "combined_stats": {
+            "by_sport": combined_by_sport,
+        },
+        # zachované pre AI kontext / debug, FE ich priamo nezobrazuje
         "planned_totals": planned_totals,
         "actual_totals": actual_totals,
-        "weekly_averages": weekly_averages,
-        "avg_session_duration_min": avg_session_duration_min,
-        "unmatched_activities": unmatched_activities,
     }
 
 
@@ -386,7 +474,7 @@ def _build_and_save_summary(
     # aj keď to plán "nezapočítal" (napr. dlhé behy namiesto intervalov)
     unmatched_activities = _aggregate_unmatched_activities(user_id=user_id, ctx=ctx)
 
-    # Tvrdé čísla nezávislé od AI
+    # Tvrdé čísla nezávislé od AI, rozpad po športe
     hard_stats = _compute_hard_stats(
         user_id=user_id,
         elapsed_weeks=elapsed_weeks,
