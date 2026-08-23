@@ -1496,6 +1496,9 @@ export const en = {
       unmatchedAvgPace: "Average pace",
       unmatchedAvgHr: "Average heart rate",
       unmatchedCount: "Activity count",
+planStatsTitle: "Štatistiky plánu",
+combinedStatsTitle: "Celkové štatistiky (plán + ostatné)",
+
     },
   },
   coachPlanHistory: {
