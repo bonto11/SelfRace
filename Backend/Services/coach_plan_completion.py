@@ -173,11 +173,14 @@ def _canonical_sport(s: Any) -> str:
 
 def _aggregate_unmatched_activities(
     *, user_id: int, ctx: AuthCtx
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
     Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú
-    session v coach_plan_daily - za celé obdobie aktívneho plánu, podľa
-    športu: počet, celková vzdialenosť/čas, priemerné tempo, priemerný tep.
+    session v coach_plan_daily - za celé obdobie aktívneho plánu.
+
+    Vracia jeden CELKOVÝ súhrn (count, distance, time, avg pace, avg HR) pre
+    zobrazenie na FE, plus 'by_sport' breakdown pre AI kontext (užitočnejší
+    detail pre naráciu než pre UI).
 
     Toto je KRITICKÉ pre AI kontext - actual_stats z coach_plan_weekly počíta
     len z napárovaných session, takže ak user trénoval, ale inak než plán
@@ -186,11 +189,25 @@ def _aggregate_unmatched_activities(
     AI mylne tvrdí "nič si netrénoval", hoci reálne trénoval, len inak.
     """
     raw = db_get_unmatched_activities(user_id, ctx=ctx, days=180)
-    print(f"[PLAN_COMPLETION][DEBUG] unmatched raw activities count: {len(raw)}")
+
     if not raw:
-        return []
+        return {
+            "count": 0,
+            "total_distance_km": 0.0,
+            "total_time_min": 0.0,
+            "avg_pace_s_per_km": None,
+            "avg_hr_bpm": None,
+            "by_sport": [],
+        }
 
     buckets: Dict[str, Dict[str, Any]] = {}
+    overall_distance_m = 0.0
+    overall_time_s = 0.0
+    overall_pace_distance_m = 0.0  # len run/ride pre pace priemer
+    overall_pace_time_s = 0.0
+    overall_hr_sum = 0.0
+    overall_hr_count = 0
+
     for a in raw:
         sport = _canonical_sport(a.get("sport_type_fe") or a.get("sport_type"))
         b = buckets.setdefault(sport, {
@@ -202,44 +219,72 @@ def _aggregate_unmatched_activities(
             "hr_count": 0,
         })
         b["count"] += 1
+
+        dist_m = 0.0
         try:
-            b["distance_m_sum"] += float(a.get("distance_m") or 0)
+            dist_m = float(a.get("distance_m") or 0)
+            b["distance_m_sum"] += dist_m
+            overall_distance_m += dist_m
         except (TypeError, ValueError):
             pass
+
+        time_s = 0.0
         try:
-            b["moving_time_s_sum"] += float(a.get("moving_time_s") or 0)
+            time_s = float(a.get("moving_time_s") or 0)
+            b["moving_time_s_sum"] += time_s
+            overall_time_s += time_s
         except (TypeError, ValueError):
             pass
+
+        if sport in ("run", "ride") and dist_m > 0 and time_s > 0:
+            overall_pace_distance_m += dist_m
+            overall_pace_time_s += time_s
+
         hr = a.get("average_heartrate_bpm")
         if hr:
             try:
                 b["hr_sum"] += float(hr)
                 b["hr_count"] += 1
+                overall_hr_sum += float(hr)
+                overall_hr_count += 1
             except (TypeError, ValueError):
                 pass
 
-    out: List[Dict[str, Any]] = []
+    by_sport: List[Dict[str, Any]] = []
     for b in buckets.values():
         dist_km = round(b["distance_m_sum"] / 1000.0, 2) if b["distance_m_sum"] else 0.0
         time_min = round(b["moving_time_s_sum"] / 60.0, 1) if b["moving_time_s_sum"] else 0.0
-        avg_pace_s_per_km = (
+        avg_pace = (
             round(b["moving_time_s_sum"] / (b["distance_m_sum"] / 1000.0))
             if b["distance_m_sum"] > 0 and b["sport"] in ("run", "ride")
             else None
         )
         avg_hr = round(b["hr_sum"] / b["hr_count"]) if b["hr_count"] > 0 else None
-        out.append({
+        by_sport.append({
             "sport": b["sport"],
             "count": b["count"],
             "total_distance_km": dist_km,
             "total_time_min": time_min,
-            "avg_pace_s_per_km": avg_pace_s_per_km,
+            "avg_pace_s_per_km": avg_pace,
             "avg_hr_bpm": avg_hr,
         })
+    by_sport.sort(key=lambda x: x["count"], reverse=True)
 
-    out.sort(key=lambda x: x["count"], reverse=True)
-    print(f"[PLAN_COMPLETION][DEBUG] unmatched aggregated: {out}")
-    return out
+    overall_avg_pace = (
+        round(overall_pace_time_s / (overall_pace_distance_m / 1000.0))
+        if overall_pace_distance_m > 0
+        else None
+    )
+    overall_avg_hr = round(overall_hr_sum / overall_hr_count) if overall_hr_count > 0 else None
+
+    return {
+        "count": len(raw),
+        "total_distance_km": round(overall_distance_m / 1000.0, 2) if overall_distance_m else 0.0,
+        "total_time_min": round(overall_time_s / 60.0, 1) if overall_time_s else 0.0,
+        "avg_pace_s_per_km": overall_avg_pace,
+        "avg_hr_bpm": overall_avg_hr,
+        "by_sport": by_sport,
+    }
 
 
 # ============================================================
@@ -251,7 +296,7 @@ def _compute_hard_stats(
     user_id: int,
     elapsed_weeks: List[Dict[str, Any]],
     aggregated: Dict[str, Any],
-    unmatched_activities: List[Dict[str, Any]],
+    unmatched_activities: Dict[str, Any],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
@@ -284,7 +329,7 @@ def _compute_hard_stats(
     )
     avg_session_duration_min = round(total_time_min / done, 1) if done > 0 else None
 
-    result = {
+    return {
         "weeks_tracked": weeks_tracked,
         "compliance": {
             "done": done,
@@ -299,8 +344,6 @@ def _compute_hard_stats(
         "avg_session_duration_min": avg_session_duration_min,
         "unmatched_activities": unmatched_activities,
     }
-    print(f"[PLAN_COMPLETION][DEBUG] hard_stats computed: {result}")
-    return result
 
 
 # ============================================================
@@ -338,10 +381,6 @@ def _build_and_save_summary(
 
     elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
     future_weeks_count = len(weeks) - len(elapsed_weeks)
-    print(
-        f"[PLAN_COMPLETION][DEBUG] weeks total={len(weeks)} elapsed={len(elapsed_weeks)} "
-        f"future={future_weeks_count} today={today_iso}"
-    )
 
     # Nenapárované aktivity - AI musí vidieť, že user reálne trénoval,
     # aj keď to plán "nezapočítal" (napr. dlhé behy namiesto intervalov)
@@ -405,9 +444,7 @@ def _build_and_save_summary(
     except Exception as e:  # noqa: BLE001
         print(f"[PLAN_COMPLETION] AI narrative generation failed user_id={user_id}: {repr(e)}")
 
-    print(f"[PLAN_COMPLETION][DEBUG] summary_row before insert: {summary_row}")
     saved = db_insert_plan_summary(summary_row, ctx=ctx)
-    print(f"[PLAN_COMPLETION][DEBUG] saved row id: {saved.get('id') if saved else None}")
 
     if is_plan_completed and meta_id:
         try:

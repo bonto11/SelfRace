@@ -213,22 +213,6 @@ export type UnmatchedActivityAgg = {
   avg_hr_bpm: number | null;
 };
 
-export type PlanSummaryHardStats = {
-  weeks_tracked: number;
-  compliance: {
-    done: number;
-    missed: number;
-    postponed: number;
-    planned_remaining: number;
-    completion_pct: number | null;
-  };
-  planned_totals: Record<string, number>;
-  actual_totals: Record<string, number>;
-  weekly_averages: Record<string, number>;
-  avg_session_duration_min: number | null;
-  unmatched_activities: UnmatchedActivityAgg[];
-};
-
 export type PlanSummaryRecord = {
   id: number;
   user_id: number;
@@ -284,6 +268,40 @@ type MilestoneSummaryResult = {
   data?: PlanSummaryRecord;
 };
 
+export type UnmatchedActivitySport = {
+  sport: string;
+  count: number;
+  total_distance_km: number;
+  total_time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
+};
+
+export type UnmatchedActivitiesSummary = {
+  count: number;
+  total_distance_km: number;
+  total_time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
+  by_sport: UnmatchedActivitySport[];
+};
+
+export type PlanSummaryHardStats = {
+  weeks_tracked: number;
+  compliance: {
+    done: number;
+    missed: number;
+    postponed: number;
+    planned_remaining: number;
+    completion_pct: number | null;
+  };
+  planned_totals: Record<string, number>;
+  actual_totals: Record<string, number>;
+  weekly_averages: Record<string, number>;
+  avg_session_duration_min: number | null;
+  unmatched_activities: UnmatchedActivitiesSummary;
+};
+
 /* ========================= LIST ========================= */
 export async function apiListPlanSummaries(
   userId: number,
@@ -323,7 +341,7 @@ export async function apiGetLatestPlanSummary(
     });
 
     if (!json?.success) throw new Error("api.coach.planSummaryLatestFailed");
-    console.log("[PlanSummary][DEBUG] latest item from BE:", json.item);
+
     return json.item ?? null;
   } catch (e: any) {
     console.error("[Coach][apiGetLatestPlanSummary] ERROR", e);
@@ -346,7 +364,6 @@ export async function apiGenerateMilestoneSummary(
       cache: "no-store",
     });
 
-    console.log("[PlanSummary][DEBUG] generate milestone response:", json);
     return json;
   } catch (e: any) {
     console.error("[Coach][apiGenerateMilestoneSummary] ERROR", e);

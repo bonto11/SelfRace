@@ -131,19 +131,21 @@ function formatPaceSPerKm(s: number | null): string {
   return `${m}:${String(sec).padStart(2, "0")} /km`;
 }
 
+function formatMinutes(min: number | null): string {
+  if (!min || min <= 0) return "—";
+  if (min >= 60) {
+    const h = Math.floor(min / 60);
+    const m = Math.round(min % 60);
+    return m > 0 ? `${h} h ${m} min` : `${h} h`;
+  }
+  return `${Math.round(min)} min`;
+}
+
 function achievedColor(achieved: boolean | null | undefined): string | undefined {
   if (achieved === true) return appColors.statusSuccess;
   if (achieved === false) return appColors.stateWarning;
   return undefined;
 }
-
-const SPORT_LABEL: Record<string, string> = {
-  run: "Beh",
-  ride: "Bicykel",
-  swim: "Plávanie",
-  strength: "Posilňovanie",
-  other: "Iné",
-};
 
 /* ---------- main ---------- */
 
@@ -164,8 +166,6 @@ export default function DetailPlanSummary() {
     setError(null);
     try {
       const r = await apiGetLatestPlanSummary(userId);
-      console.log("[DetailPlanSummary][DEBUG] loaded row:", r);
-      console.log("[DetailPlanSummary][DEBUG] hard_stats:", r?.hard_stats);
       setRow(r);
     } catch (e: any) {
       setError(t(e?.message as any) || t("coachPlanSummary.errorLoad" as any));
@@ -263,6 +263,7 @@ export default function DetailPlanSummary() {
 
   const ai = row.raw_ai_json;
   const hs = row.hard_stats;
+  const ua = hs?.unmatched_activities;
 
   return (
     <div className={PANEL_STACK}>
@@ -320,11 +321,7 @@ export default function DetailPlanSummary() {
               />
               <Subcard
                 title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
-                value={
-                  hs.avg_session_duration_min != null
-                    ? `${hs.avg_session_duration_min} min`
-                    : "—"
-                }
+                value={formatMinutes(hs.avg_session_duration_min)}
               />
 
               {hs.actual_totals.run_distance_km != null && (
@@ -342,7 +339,7 @@ export default function DetailPlanSummary() {
               {hs.actual_totals.strength_time_min != null && (
                 <Subcard
                   title={t("coachPlanSummary.stats.totalStrengthMin" as any)}
-                  value={`${hs.actual_totals.strength_time_min} min`}
+                  value={formatMinutes(hs.actual_totals.strength_time_min)}
                 />
               )}
             </div>
@@ -355,25 +352,36 @@ export default function DetailPlanSummary() {
               {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
             </div>
 
-            {hs.unmatched_activities.length > 0 && (
+            {ua && ua.count > 0 && (
               <div className="mt-3 pt-3 border-t border-white/10">
                 <div className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">
                   {t("coachPlanSummary.stats.unmatchedTitle" as any)}
                 </div>
-                <div className="space-y-1.5">
-                  {hs.unmatched_activities.map((u) => (
-                    <div key={u.sport} className="flex justify-between text-sm gap-2">
-                      <span className="opacity-80">
-                        {SPORT_LABEL[u.sport] || u.sport} · {u.count}×
-                      </span>
-                      <span className="text-right opacity-70">
-                        {u.total_distance_km > 0 && `${u.total_distance_km} km · `}
-                        {u.total_time_min} min
-                        {u.avg_pace_s_per_km && ` · ${formatPaceSPerKm(u.avg_pace_s_per_km)}`}
-                        {u.avg_hr_bpm && ` · ${u.avg_hr_bpm} bpm`}
-                      </span>
-                    </div>
-                  ))}
+                <div className="grid gap-3 md:grid-cols-2 min-w-0">
+                  <Subcard
+                    title={t("coachPlanSummary.stats.unmatchedCount" as any)}
+                    value={ua.count}
+                  />
+                  <Subcard
+                    title={t("coachPlanSummary.stats.unmatchedTotalKm" as any)}
+                    value={ua.total_distance_km > 0 ? `${ua.total_distance_km} km` : "—"}
+                  />
+                  <Subcard
+                    title={t("coachPlanSummary.stats.unmatchedTotalTime" as any)}
+                    value={formatMinutes(ua.total_time_min)}
+                  />
+                  {ua.avg_pace_s_per_km != null && (
+                    <Subcard
+                      title={t("coachPlanSummary.stats.unmatchedAvgPace" as any)}
+                      value={formatPaceSPerKm(ua.avg_pace_s_per_km)}
+                    />
+                  )}
+                  {ua.avg_hr_bpm != null && (
+                    <Subcard
+                      title={t("coachPlanSummary.stats.unmatchedAvgHr" as any)}
+                      value={`${ua.avg_hr_bpm} bpm`}
+                    />
+                  )}
                 </div>
               </div>
             )}

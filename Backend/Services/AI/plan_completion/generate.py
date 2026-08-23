@@ -46,7 +46,7 @@ def _build_prompts(
     weeks: List[Dict[str, Any]],
     future_weeks_count: int,
     today_iso: str,
-    unmatched_activities: List[Dict[str, Any]],
+    unmatched_activities: Dict[str, Any],
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
@@ -178,7 +178,7 @@ def _build_prompts(
         "meaningful volume, acknowledge that training happened, just not exactly as "
         "prescribed (e.g. swapping intervals for long runs), and comment on that pattern "
         "specifically rather than implying inactivity.\n"
-        if unmatched_activities else ""
+        if unmatched_activities.get("count", 0) > 0 else ""
     )
 
     user = (
@@ -215,7 +215,7 @@ def service_generate_plan_completion_summary(
     weeks: List[Dict[str, Any]],
     future_weeks_count: int = 0,
     today_iso: Optional[str] = None,
-    unmatched_activities: Optional[List[Dict[str, Any]]] = None,
+    unmatched_activities: Optional[Dict[str, Any]] = None,
     actual_time_s: Optional[int],
     target_km: Optional[float],
     actual_km: Optional[float],
@@ -243,7 +243,7 @@ def service_generate_plan_completion_summary(
         weeks=weeks,
         future_weeks_count=future_weeks_count,
         today_iso=resolved_today,
-        unmatched_activities=unmatched_activities or [],
+        unmatched_activities=unmatched_activities or {"count": 0, "by_sport": []},
         actual_time_s=actual_time_s,
         target_km=target_km,
         actual_km=actual_km,
