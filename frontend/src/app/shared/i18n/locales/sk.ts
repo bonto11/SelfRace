@@ -1490,6 +1490,9 @@ export const sk = {
       unmatchedAvgPace: "Priemerné tempo",
       unmatchedAvgHr: "Priemerný tep",
       unmatchedCount: "Počet aktivít",
+planStatsTitle: "Štatistiky plánu",
+combinedStatsTitle: "Celkové štatistiky (plán + ostatné)",
+
     },
   },
   coachPlanHistory: {
