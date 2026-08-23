@@ -268,14 +268,7 @@ type MilestoneSummaryResult = {
   data?: PlanSummaryRecord;
 };
 
-export type UnmatchedActivitySport = {
-  sport: string;
-  count: number;
-  total_distance_km: number;
-  total_time_min: number;
-  avg_pace_s_per_km: number | null;
-  avg_hr_bpm: number | null;
-};
+
 
 export type UnmatchedActivitiesSummary = {
   count: number;
@@ -284,6 +277,23 @@ export type UnmatchedActivitiesSummary = {
   avg_pace_s_per_km: number | null;
   avg_hr_bpm: number | null;
   by_sport: UnmatchedActivitySport[];
+};
+
+export type SportStatsRow = {
+  sport: string;
+  distance_km: number;
+  time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
+};
+
+export type UnmatchedActivitySport = {
+  sport: string;
+  count: number;
+  total_distance_km: number;
+  total_time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
 };
 
 export type PlanSummaryHardStats = {
@@ -295,12 +305,21 @@ export type PlanSummaryHardStats = {
     planned_remaining: number;
     completion_pct: number | null;
   };
+  plan_stats: {
+    by_sport: SportStatsRow[];
+    avg_session_duration_min: number | null;
+  };
+  unmatched_stats: {
+    count: number;
+    by_sport: UnmatchedActivitySport[];
+  };
+  combined_stats: {
+    by_sport: SportStatsRow[];
+  };
   planned_totals: Record<string, number>;
   actual_totals: Record<string, number>;
-  weekly_averages: Record<string, number>;
-  avg_session_duration_min: number | null;
-  unmatched_activities: UnmatchedActivitiesSummary;
 };
+
 
 /* ========================= LIST ========================= */
 export async function apiListPlanSummaries(
