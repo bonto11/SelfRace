@@ -204,13 +204,52 @@ export async function apiGetCoachPlanHistory(userId: number | string): Promise<a
 
 /* ========================= PLAN SUMMARY TYPES ========================= */
 
-export type UnmatchedActivityAgg = {
+export type SportStatsRow = {
+  sport: string;
+  distance_km: number;
+  time_min: number;
+  avg_pace_s_per_km: number | null;
+  avg_hr_bpm: number | null;
+};
+
+export type UnmatchedActivitySport = {
   sport: string;
   count: number;
   total_distance_km: number;
   total_time_min: number;
   avg_pace_s_per_km: number | null;
   avg_hr_bpm: number | null;
+};
+
+// 🔧 hard_stats môže prísť aj v STAROM tvare (riadky vygenerované pred touto
+// zmenou), preto sú všetky pod-polia OPTIONAL - FE (DetailPlanSummary) na to
+// musí byť odolné a nespadnúť pri chýbajúcich kľúčoch.
+export type PlanSummaryHardStats = {
+  weeks_tracked?: number;
+  compliance?: {
+    done: number;
+    missed: number;
+    postponed: number;
+    planned_remaining: number;
+    completion_pct: number | null;
+  };
+  plan_stats?: {
+    by_sport: SportStatsRow[];
+    avg_session_duration_min: number | null;
+  };
+  unmatched_stats?: {
+    count: number;
+    by_sport: UnmatchedActivitySport[];
+  };
+  combined_stats?: {
+    by_sport: SportStatsRow[];
+  };
+  planned_totals?: Record<string, number>;
+  actual_totals?: Record<string, number>;
+  // staré polia (pred refaktorom) - ponechané len aby TS neprotestoval,
+  // ak by sa niekde ešte objavili v starých riadkoch
+  avg_session_duration_min?: number | null;
+  unmatched_activities?: any;
 };
 
 export type PlanSummaryRecord = {
@@ -267,59 +306,6 @@ type MilestoneSummaryResult = {
   reason?: string;
   data?: PlanSummaryRecord;
 };
-
-
-
-export type UnmatchedActivitiesSummary = {
-  count: number;
-  total_distance_km: number;
-  total_time_min: number;
-  avg_pace_s_per_km: number | null;
-  avg_hr_bpm: number | null;
-  by_sport: UnmatchedActivitySport[];
-};
-
-export type SportStatsRow = {
-  sport: string;
-  distance_km: number;
-  time_min: number;
-  avg_pace_s_per_km: number | null;
-  avg_hr_bpm: number | null;
-};
-
-export type UnmatchedActivitySport = {
-  sport: string;
-  count: number;
-  total_distance_km: number;
-  total_time_min: number;
-  avg_pace_s_per_km: number | null;
-  avg_hr_bpm: number | null;
-};
-
-export type PlanSummaryHardStats = {
-  weeks_tracked: number;
-  compliance: {
-    done: number;
-    missed: number;
-    postponed: number;
-    planned_remaining: number;
-    completion_pct: number | null;
-  };
-  plan_stats: {
-    by_sport: SportStatsRow[];
-    avg_session_duration_min: number | null;
-  };
-  unmatched_stats: {
-    count: number;
-    by_sport: UnmatchedActivitySport[];
-  };
-  combined_stats: {
-    by_sport: SportStatsRow[];
-  };
-  planned_totals: Record<string, number>;
-  actual_totals: Record<string, number>;
-};
-
 
 /* ========================= LIST ========================= */
 export async function apiListPlanSummaries(
