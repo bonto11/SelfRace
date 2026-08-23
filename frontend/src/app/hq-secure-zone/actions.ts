@@ -443,3 +443,44 @@ export async function cancelScheduledSubscriptionChangeAdmin(userId: number) {
   }
   return result;
 }
+
+export async function getActivitiesWrappedAdminStatus(userId: number) {
+  await verifyAdmin();
+  const response = await fetch(
+    `${API_URL}/activities-wrapped/admin/status/${userId}`,
+    {
+      method: "GET",
+      headers: { "x-api-key": MAINTENANCE_API_KEY as string },
+      cache: "no-store",
+    },
+  );
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.detail || "Nepodarilo sa načítať stav wrapped");
+  }
+  return result;
+}
+
+export async function unlockActivitiesWrappedAdmin(
+  userId: number,
+  label: string,
+  validDays: number,
+) {
+  await verifyAdmin();
+  const response = await fetch(
+    `${API_URL}/activities-wrapped/admin/unlock/${userId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": MAINTENANCE_API_KEY as string,
+      },
+      body: JSON.stringify({ label: label || null, valid_days: validDays }),
+    },
+  );
+  const result = await response.json().catch(() => null);
+  if (!response.ok || !result?.ok) {
+    throw new Error(result?.detail || "Nepodarilo sa odomknúť wrapped");
+  }
+  return result;
+}

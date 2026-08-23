@@ -1705,6 +1705,43 @@ export const en = {
       deleted: "All records were deleted.",
     },
   },
+  activitiesWrapped: {
+    title: "Activities Summary",
+    noDataTitle: "Nothing yet",
+    noDataDesc:
+      "When a new summary becomes available (e.g. around a race or at year's end), we'll let you know here.",
+    lockedNote:
+      "You don't currently have a new summary unlocked. You can still browse older summaries below.",
+    formTitle: "Create a new summary",
+    titleLabel: "Title",
+    titlePlaceholder: "e.g. Spartan Ultra preparation",
+    rangeStartLabel: "From",
+    rangeEndLabel: "To",
+    generateNow: "Generate summary",
+    generating: "Generating...",
+    generateError: "Generation failed.",
+    errorNoActiveTrigger: "Creating a new summary isn't available right now.",
+    errorInvalidRange: "Check the selected date range.",
+    historyTitle: "Summary history",
+    noHistory: "No summaries yet.",
+    widget: {
+      title: "Activities Summary",
+      tooltip:
+        "Overview of your activities for a chosen period — counts, distance, time, pace and heart rate.",
+      newAvailable: "A new summary is available!",
+      missingData: "You don't have any summary yet.",
+      errorFailedLoad: "Failed to load summary.",
+    },
+    stats: {
+      count: "Activity count",
+      totalDistance: "Total distance",
+      totalTime: "Total time",
+      totalElevation: "Total elevation",
+      avgPace: "Average pace",
+      avgHr: "Average heart rate",
+      bySportTitle: "By sport",
+    },
+  },
   monoStrain: {
     title: "Monotony and strain",
     widget: {
@@ -3009,6 +3046,9 @@ export const en = {
       unknownError: "An unexpected error occurred.",
       saveSuccess: "Saved.",
       saveFailed: "Could not be saved.",
+    },
+    activitiesWrapped: {
+      statusFailed: "Failed to load summary status.",
     },
     ai_errors: {
       activity_not_found: "Workout was not found.",

@@ -8,19 +8,26 @@ type UserLite = { id: number; email: string };
 import StravaOverrideAction from "./StravaOverrideAction";
 import UserNotificationAction from "./UserNotificationAction";
 import AdminSubscriptionAction from "./AdminSubscriptionAction";
+import ActivitiesWrappedUnlockAction from "./ActivitiesWrappedUnlockAction";
 
 type ActionKey =
   | "strava_import_override"
   | "send_notification"
-  | "manage_subscription";
+  | "manage_subscription"
+  | "unlock_activities_wrapped";
 
 const ACTIONS: { value: ActionKey; label: string }[] = [
-  { value: "strava_import_override", label: "Strava — okno importu (override)" },
+  {
+    value: "strava_import_override",
+    label: "Strava — okno importu (override)",
+  },
   { value: "send_notification", label: "Notifikácia — vybraným používateľom" },
   { value: "manage_subscription", label: "Predplatné — zmena tieru" },
+  {
+    value: "unlock_activities_wrapped",
+    label: "Activities Wrapped — odomknúť popup",
+  },
 ];
-
-
 export default function UserInterventionsPanel() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -29,7 +36,9 @@ export default function UserInterventionsPanel() {
   const [search, setSearch] = useState("");
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [actionType, setActionType] = useState<ActionKey>("strava_import_override");
+  const [actionType, setActionType] = useState<ActionKey>(
+    "strava_import_override",
+  );
 
   useEffect(() => {
     if (!isOpen || users.length > 0) return;
@@ -86,7 +95,8 @@ export default function UserInterventionsPanel() {
       >
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-black text-white uppercase italic">
-            <span className="text-amber-500 mr-3">🛠️</span> Zásahy do používateľov
+            <span className="text-amber-500 mr-3">🛠️</span> Zásahy do
+            používateľov
           </h2>
           {!isOpen && selectedIds.size > 0 && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-amber-900/30 text-amber-400">
@@ -94,15 +104,29 @@ export default function UserInterventionsPanel() {
             </span>
           )}
         </div>
-        <div className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div
+          className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : "rotate-0"}`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </div>
       </div>
 
       {/* ROZBALENÝ OBSAH */}
-      <div className={`transition-all duration-500 ease-in-out ${isOpen ? "max-h-[3000px] opacity-100 border-t border-gray-800" : "max-h-0 opacity-0 overflow-hidden"}`}>
+      <div
+        className={`transition-all duration-500 ease-in-out ${isOpen ? "max-h-[3000px] opacity-100 border-t border-gray-800" : "max-h-0 opacity-0 overflow-hidden"}`}
+      >
         <div className="p-6 md:p-8 space-y-8">
           {/* 1. VÝBER POUŽÍVATEĽOV */}
           <div className="space-y-3">
@@ -134,9 +158,13 @@ export default function UserInterventionsPanel() {
 
             <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-800 divide-y divide-gray-800 bg-black/30">
               {usersLoading ? (
-                <div className="text-center text-gray-600 text-xs py-6 animate-pulse">Načítavam používateľov...</div>
+                <div className="text-center text-gray-600 text-xs py-6 animate-pulse">
+                  Načítavam používateľov...
+                </div>
               ) : filteredUsers.length === 0 ? (
-                <div className="text-center text-gray-600 text-xs py-6">Žiadni používatelia.</div>
+                <div className="text-center text-gray-600 text-xs py-6">
+                  Žiadni používatelia.
+                </div>
               ) : (
                 filteredUsers.map((u) => (
                   <label
@@ -182,15 +210,29 @@ export default function UserInterventionsPanel() {
               3. Detaily a uloženie
             </p>
             {actionType === "strava_import_override" && (
-              <StravaOverrideAction userIds={selectedIdsArr} usersById={usersById} />
+              <StravaOverrideAction
+                userIds={selectedIdsArr}
+                usersById={usersById}
+              />
             )}
             {actionType === "send_notification" && (
-              <UserNotificationAction userIds={selectedIdsArr} usersById={usersById} />
+              <UserNotificationAction
+                userIds={selectedIdsArr}
+                usersById={usersById}
+              />
             )}
             {actionType === "manage_subscription" && (
-              <AdminSubscriptionAction userIds={selectedIdsArr} usersById={usersById} />
+              <AdminSubscriptionAction
+                userIds={selectedIdsArr}
+                usersById={usersById}
+              />
             )}
-            
+            {actionType === "unlock_activities_wrapped" && (
+              <ActivitiesWrappedUnlockAction
+                userIds={selectedIdsArr}
+                usersById={usersById}
+              />
+            )}
           </div>
         </div>
       </div>

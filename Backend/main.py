@@ -33,6 +33,7 @@ from Routes import (
     trigger,
     body_scan,
     strava_admin,
+    activities_wrapped,
 )
 
 app = FastAPI()
@@ -77,6 +78,7 @@ app.include_router(activities_enrichment.router)
 app.include_router(analytics.router)
 app.include_router(synchronization.router)
 app.include_router(monthly_summary.router)
+app.include_router(activities_wrapped.router)
 
 app.include_router(coach_plan_daily.router)
 app.include_router(coach_plan_weekly.router)

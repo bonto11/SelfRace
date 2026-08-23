@@ -1694,6 +1694,40 @@ export const sk = {
       deleted: "Všetky záznamy boli vymazané.",
     },
   },
+  activitiesWrapped: {
+  title: "Súhrn aktivít",
+  noDataTitle: "Zatiaľ nič",
+  noDataDesc: "Keď bude dostupný nový súhrn (napr. pred/po pretekoch alebo na konci roka), dáme ti vedieť tu.",
+  lockedNote: "Momentálne nemáš odomknuté vytvorenie nového súhrnu. Môžeš si však prezrieť staršie súhrny nižšie.",
+  formTitle: "Vytvoriť nový súhrn",
+  titleLabel: "Názov",
+  titlePlaceholder: "napr. Príprava na Spartan Ultra",
+  rangeStartLabel: "Od",
+  rangeEndLabel: "Do",
+  generateNow: "Vygenerovať súhrn",
+  generating: "Generujem...",
+  generateError: "Generovanie zlyhalo.",
+  errorNoActiveTrigger: "Momentálne nie je dostupné vytvorenie nového súhrnu.",
+  errorInvalidRange: "Skontroluj zadaný dátumový rozsah.",
+  historyTitle: "História súhrnov",
+  noHistory: "Zatiaľ žiadne súhrny.",
+  widget: {
+    title: "Súhrn aktivít",
+    tooltip: "Prehľad tvojich aktivít za vybrané obdobie — počty, kilometre, čas, tempo aj tep.",
+    newAvailable: "Nový súhrn je dostupný!",
+    missingData: "Zatiaľ nemáš žiadny súhrn.",
+    errorFailedLoad: "Nepodarilo sa načítať súhrn.",
+  },
+  stats: {
+    count: "Počet aktivít",
+    totalDistance: "Celková vzdialenosť",
+    totalTime: "Celkový čas",
+    totalElevation: "Celkové prevýšenie",
+    avgPace: "Priemerné tempo",
+    avgHr: "Priemerný tep",
+    bySportTitle: "Podľa športu",
+  },
+},
   monoStrain: {
     title: "Monotónnosť a námaha",
     widget: {
@@ -3002,6 +3036,9 @@ export const sk = {
       saveSuccess: "Uložené.",
       saveFailed: "Nepodarilo sa uložiť.",
     },
+     activitiesWrapped: {
+    statusFailed: "Nepodarilo sa načítať stav súhrnu.",
+  },
     ai_errors: {
       activity_not_found: "Tréning sa nenašiel.",
       activity_too_old:

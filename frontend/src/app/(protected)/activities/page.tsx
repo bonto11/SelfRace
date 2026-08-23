@@ -16,6 +16,7 @@ import WidgetActivitiesCalendar from "@/app/shared/components/widgets/WidgetActi
 import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlySummary";
 import WidgetRouteMatch from "@/app/shared/components/widgets/WidgetRouteMatch";
 import WidgetTodayActivities from "@/app/shared/components/widgets/WidgetTodayActivities";
+import WidgetActivitiesWrapped from "@/app/shared/components/widgets/WidgetActivitiesWrapped";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -58,6 +59,7 @@ export default function ActivitiesPage() {
             router.push(`/activities/detail/${activityId}`)
           }
         />
+        <WidgetActivitiesWrapped onOpenDetail={() => router.push("/activities/wrapped")} />
         <WidgetStreak onOpenDetail={() => router.push("/activities/streak")} />
         <WidgetMonthlySummary
           onOpenDetail={() => router.push("/activities/monthlySummary")}

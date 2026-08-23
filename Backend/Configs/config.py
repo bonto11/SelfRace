@@ -75,6 +75,8 @@ TABLE_ACTIVITIES_STREAMS = "activities_streams"
 TABLE_ACTIVITIES_SPLITS = "activities_splits"
 TABLE_ACTIVITIES_LAPS = "activities_laps"
 TABLE_ACTIVITIES_RAW = "activities_raw"
+TABLE_ACTIVITIES_WRAPPED_TRIGGERS = "activities_wrapped_triggers"
+TABLE_ACTIVITIES_WRAPPED_SUMMARIES = "activities_wrapped_summaries"
 
 TABLE_USERS = "users"
 TABLE_PROFILE_STATIC = "profile_static"
