@@ -1265,6 +1265,9 @@ export const en = {
       resultDaily: "Week updated",
       resultWeekly: "Plan regenerated",
       coachReplyLabel: "Coach´s reply",
+endDateLabel: "Plan end date",
+endDateHint: "Shorten or extend the plan by changing the date — the remaining weeks will adjust to fit.",
+
     },
   },
   coachAthleteState: {
