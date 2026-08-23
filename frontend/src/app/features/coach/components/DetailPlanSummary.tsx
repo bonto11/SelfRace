@@ -1,7 +1,7 @@
 // src/app/features/coach/components/DetailPlanSummary.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -175,7 +175,7 @@ function StatsScopeToggle({
 }) {
   return (
     <div
-      className="inline-flex rounded-full p-0.5"
+      className="inline-flex shrink-0 rounded-full p-0.5"
       style={{ background: appColors.surfaceSolid, border: `1px solid ${appColors.surfaceCardBorder}` }}
     >
       {(["combined", "plan"] as const).map((opt) => {
@@ -185,7 +185,7 @@ function StatsScopeToggle({
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap"
             style={{
               background: active ? appColors.buttonMainBg : "transparent",
               color: active ? appColors.buttonMainText : appColors.textSecondary,
@@ -430,8 +430,8 @@ export default function DetailPlanSummary() {
 
         {activeSportRows.length > 0 && (
           <div className="space-y-2.5 pt-1">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-bold uppercase tracking-wider opacity-60">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-xs font-bold uppercase tracking-wider opacity-60 flex-1 min-w-[100px]">
                 {t("coachPlanSummary.stats.bySportTitle" as any)}
               </div>
               <StatsScopeToggle scope={scope} onChange={setScope} />
