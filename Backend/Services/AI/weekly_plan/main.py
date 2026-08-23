@@ -127,6 +127,16 @@ def service_generate_weekly_plan(
     horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
 
+    # 🌟 DEBUG: vidieť presne, aký horizon/target_end_date/boundaries sa
+    # poslali AI - kľúčové pri debugovaní "skrátenia plánu" cez date picker.
+    print(
+        f"[WEEKLY-PLAN][user={user_id}] target_end_date={target_end_date!r} "
+        f"weeks_param={weeks!r} horizon_weeks={horizon_weeks} "
+        f"is_replan={context_payload.get('is_replan')} "
+        f"week_boundaries="
+        f"{[(wb.get('week_index'), wb.get('week_start'), wb.get('week_end')) for wb in (context_payload.get('week_boundaries') or [])]}"
+    )
+
     # Špeciálny dôvod generovania — ovplyvní prompt
     if reason:
         context_payload["generate_reason"] = reason
@@ -182,6 +192,41 @@ def service_generate_weekly_plan(
 
     # Ulož nové týždenné riadky
     weeks_list = extract_weeks_payload(weekly_plan)
+
+    # 🌟 HARD TRUNCATION: LLM niekedy nerešpektuje presný počet týždňov z
+    # week_boundaries - typicky pri skrátení plánu (target_end_date) si
+    # "dogeneruje" vlastný recovery/base blok navyše namiesto toho, aby sa
+    # zastavila presne na požadovanom dátume. BE preto NIKDY neverí AI počtu
+    # týždňov - čokoľvek s week_index mimo pôvodne zadaného rozsahu sa
+    # zahodí, nezávisle od toho, čo model vrátil.
+    allowed_indices = {
+        int(wb.get("week_index"))
+        for wb in (context_payload.get("week_boundaries") or [])
+        if wb.get("week_index") is not None
+    }
+    if allowed_indices:
+        before_count = len(weeks_list)
+        weeks_list = [
+            w for w in weeks_list
+            if isinstance(w, dict) and int(w.get("week_index") or -1) in allowed_indices
+        ]
+        dropped = before_count - len(weeks_list)
+        if dropped > 0:
+            print(
+                f"[WEEKLY-PLAN][user={user_id}] AI vrátila {dropped} týždňov "
+                f"NAVYŠE mimo požadovaného rozsahu (allowed={sorted(allowed_indices)}) "
+                "- zahodené, aby sa rešpektoval target_end_date/horizon_weeks."
+            )
+        returned_indices = {
+            int(w.get("week_index")) for w in weeks_list if w.get("week_index") is not None
+        }
+        missing = allowed_indices - returned_indices
+        if missing:
+            print(
+                f"[WEEKLY-PLAN][user={user_id}] AI NEvygenerovala týždne "
+                f"{sorted(missing)} z požadovaného rozsahu - v pláne budú chýbať."
+            )
+
     rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
     inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
 
