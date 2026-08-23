@@ -9,6 +9,8 @@ import {
   apiGetLatestPlanSummary,
   apiGenerateMilestoneSummary,
   type PlanSummaryRecord,
+  type SportStatsRow,
+  type UnmatchedActivitySport,
 } from "@/app/features/coach/api/coach_plan_active";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -147,6 +149,48 @@ function achievedColor(achieved: boolean | null | undefined): string | undefined
   return undefined;
 }
 
+const SPORT_LABEL: Record<string, string> = {
+  run: "Beh",
+  ride: "Bicykel",
+  swim: "Plávanie",
+  strength: "Posilňovanie",
+  other: "Iné",
+};
+
+/* ---------- sport stats table (znovupoužiteľná pre plan/combined/unmatched) ---------- */
+
+function SportStatsTable({
+  rows,
+}: {
+  rows: (SportStatsRow | UnmatchedActivitySport)[];
+}) {
+  if (!rows || rows.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      {rows.map((r) => {
+        const distanceKm = "distance_km" in r ? r.distance_km : r.total_distance_km;
+        const timeMin = "time_min" in r ? r.time_min : r.total_time_min;
+        const count = "count" in r ? r.count : null;
+        return (
+          <div key={r.sport} className="flex justify-between text-sm gap-2">
+            <span className="opacity-80">
+              {SPORT_LABEL[r.sport] || r.sport}
+              {count != null ? ` · ${count}×` : ""}
+            </span>
+            <span className="text-right opacity-70">
+              {distanceKm > 0 && `${distanceKm} km · `}
+              {formatMinutes(timeMin)}
+              {r.avg_pace_s_per_km && ` · ${formatPaceSPerKm(r.avg_pace_s_per_km)}`}
+              {r.avg_hr_bpm && ` · ${r.avg_hr_bpm} bpm`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ---------- main ---------- */
 
 export default function DetailPlanSummary() {
@@ -263,7 +307,6 @@ export default function DetailPlanSummary() {
 
   const ai = row.raw_ai_json;
   const hs = row.hard_stats;
-  const ua = hs?.unmatched_activities;
 
   return (
     <div className={PANEL_STACK}>
@@ -303,9 +346,9 @@ export default function DetailPlanSummary() {
           </div>
         )}
 
-        {/* TVRDÉ DÁTA Z BE — nezávislé od AI, počítané vždy rovnako z DB */}
         {hs && (
-          <Subcard title={t("coachPlanSummary.stats.title" as any)}>
+          <>
+            {/* Compliance — celkovo, nezávislé od športu */}
             <div className="grid gap-3 md:grid-cols-3 min-w-0">
               <Subcard
                 title={t("coachPlanSummary.stats.completion" as any)}
@@ -321,30 +364,10 @@ export default function DetailPlanSummary() {
               />
               <Subcard
                 title={t("coachPlanSummary.stats.avgSessionDuration" as any)}
-                value={formatMinutes(hs.avg_session_duration_min)}
+                value={formatMinutes(hs.plan_stats.avg_session_duration_min)}
               />
-
-              {hs.actual_totals.run_distance_km != null && (
-                <Subcard
-                  title={t("coachPlanSummary.stats.totalRunKm" as any)}
-                  value={`${hs.actual_totals.run_distance_km} km`}
-                />
-              )}
-              {hs.weekly_averages.run_distance_km != null && (
-                <Subcard
-                  title={t("coachPlanSummary.stats.avgRunKmPerWeek" as any)}
-                  value={`${hs.weekly_averages.run_distance_km} km`}
-                />
-              )}
-              {hs.actual_totals.strength_time_min != null && (
-                <Subcard
-                  title={t("coachPlanSummary.stats.totalStrengthMin" as any)}
-                  value={formatMinutes(hs.actual_totals.strength_time_min)}
-                />
-              )}
             </div>
-
-            <div className="text-xs opacity-60 mt-2">
+            <div className="text-xs opacity-60">
               {t("coachPlanSummary.stats.weeksTracked" as any)}: {hs.weeks_tracked}
               {" · "}
               {t("coachPlanSummary.stats.missed" as any)}: {hs.compliance.missed}
@@ -352,40 +375,27 @@ export default function DetailPlanSummary() {
               {t("coachPlanSummary.stats.postponed" as any)}: {hs.compliance.postponed}
             </div>
 
-            {ua && ua.count > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/10">
-                <div className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">
-                  {t("coachPlanSummary.stats.unmatchedTitle" as any)}
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 min-w-0">
-                  <Subcard
-                    title={t("coachPlanSummary.stats.unmatchedCount" as any)}
-                    value={ua.count}
-                  />
-                  <Subcard
-                    title={t("coachPlanSummary.stats.unmatchedTotalKm" as any)}
-                    value={ua.total_distance_km > 0 ? `${ua.total_distance_km} km` : "—"}
-                  />
-                  <Subcard
-                    title={t("coachPlanSummary.stats.unmatchedTotalTime" as any)}
-                    value={formatMinutes(ua.total_time_min)}
-                  />
-                  {ua.avg_pace_s_per_km != null && (
-                    <Subcard
-                      title={t("coachPlanSummary.stats.unmatchedAvgPace" as any)}
-                      value={formatPaceSPerKm(ua.avg_pace_s_per_km)}
-                    />
-                  )}
-                  {ua.avg_hr_bpm != null && (
-                    <Subcard
-                      title={t("coachPlanSummary.stats.unmatchedAvgHr" as any)}
-                      value={`${ua.avg_hr_bpm} bpm`}
-                    />
-                  )}
-                </div>
-              </div>
+            {/* ŠTATISTIKY PLÁNU — len napárované session, rozpad po športe */}
+            {hs.plan_stats.by_sport.length > 0 && (
+              <Subcard title={t("coachPlanSummary.stats.planStatsTitle" as any)}>
+                <SportStatsTable rows={hs.plan_stats.by_sport} />
+              </Subcard>
             )}
-          </Subcard>
+
+            {/* CELKOVÉ ŠTATISTIKY — plán + ostatné dokopy, rozpad po športe */}
+            {hs.combined_stats.by_sport.length > 0 && (
+              <Subcard title={t("coachPlanSummary.stats.combinedStatsTitle" as any)}>
+                <SportStatsTable rows={hs.combined_stats.by_sport} />
+              </Subcard>
+            )}
+
+            {/* OSTATNÉ AKTIVITY MIMO PLÁNU */}
+            {hs.unmatched_stats.count > 0 && (
+              <Subcard title={t("coachPlanSummary.stats.unmatchedTitle" as any)}>
+                <SportStatsTable rows={hs.unmatched_stats.by_sport} />
+              </Subcard>
+            )}
+          </>
         )}
 
         {ai?.highlights && ai.highlights.length > 0 && (
