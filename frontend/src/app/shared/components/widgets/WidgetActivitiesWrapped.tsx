@@ -12,7 +12,6 @@ import {
   WIDGET_ERROR_TEXT,
   WIDGET_ERROR_SUB,
   WIDGET_INFO_TEXT,
-  WIDGET_SUMMARY_TEXT,
 } from "@/app/shared/ui/tokens";
 
 import {
@@ -36,6 +35,29 @@ function formatMinutes(min: number | null): string {
     return m > 0 ? `${h} h ${m} min` : `${h} h`;
   }
   return `${Math.round(min)} min`;
+}
+
+// 🌟 NOVÉ: label/value riadok - rovnaká typografická logika ako Subcard v
+// detaile (drobný uppercase label + tučná hodnota), len kompaktnejšie pre
+// widget. Dáta idú pod sebou (jeden riadok = jedna metrika), nie zlepené do
+// jedného odseku so "·" oddeľovačmi ako predtým.
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span
+        className="text-[11px] font-medium uppercase tracking-wide"
+        style={{ color: appColors.textMuted }}
+      >
+        {label}
+      </span>
+      <span
+        className="text-sm font-bold whitespace-nowrap"
+        style={{ color: appColors.textPrimary }}
+      >
+        {value}
+      </span>
+    </div>
+  );
 }
 
 export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
@@ -111,13 +133,7 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {/* 🌟 FIX: banner "nový súhrn dostupný" a posledné vygenerované
-              dáta sa už NEVYLUČUJÚ navzájom (predtým bola len jedna ALEBO
-              druhá vetva) - ak je aktívny trigger AJ existuje história,
-              zobrazí sa oboje naraz. Athlete tak vidí "máš nový k dispozícii"
-              a zároveň naposledy vygenerované čísla, nie jedno na úkor
-              druhého. */}
+        <div className="flex flex-col gap-3">
           {status?.can_generate && (
             <div
               className="text-sm font-bold"
@@ -126,15 +142,39 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
               🎉 {t("activitiesWrapped.widget.newAvailable")}
             </div>
           )}
+
           {latest && (
-            <div>
-              <div className="text-xs opacity-60 mb-1">{latest.title}</div>
-              <p className={WIDGET_SUMMARY_TEXT}>
-                {latest.hard_stats.total_distance_km} km ·{" "}
-                {formatMinutes(latest.hard_stats.total_time_min)} ·{" "}
-                {latest.hard_stats.count}{" "}
-                {t("activitiesWrapped.stats.count" as any).toLowerCase()}
-              </p>
+            <div className="flex flex-col gap-2">
+              <div
+                className="text-sm font-bold leading-snug"
+                style={{ color: appColors.textPrimary }}
+              >
+                {latest.title}
+              </div>
+
+              {/* 🌟 Jemný oddeľovač medzi nadpisom a dátami, len ak je nad
+                  ním aj "nový dostupný" banner - inak by pôsobil zbytočne. */}
+              <div
+                className="flex flex-col gap-1.5 pt-1"
+                style={{
+                  borderTop: status?.can_generate
+                    ? `1px solid ${appColors.divider}`
+                    : undefined,
+                }}
+              >
+                <StatRow
+                  label={t("activitiesWrapped.stats.totalDistance" as any)}
+                  value={`${latest.hard_stats.total_distance_km} km`}
+                />
+                <StatRow
+                  label={t("activitiesWrapped.stats.totalTime" as any)}
+                  value={formatMinutes(latest.hard_stats.total_time_min)}
+                />
+                <StatRow
+                  label={t("activitiesWrapped.stats.count" as any)}
+                  value={String(latest.hard_stats.count)}
+                />
+              </div>
             </div>
           )}
         </div>
