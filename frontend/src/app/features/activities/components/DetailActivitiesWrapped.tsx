@@ -223,15 +223,26 @@ export default function DetailActivitiesWrapped() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-    const loadStatus = useCallback(async () => {
-    if (!userId) return;
+  const loadStatus = useCallback(async () => {
+    // 🌟 DEBUG
+    console.log("[WrappedDetail] loadStatus called, userId=", userId);
+    if (!userId) {
+      console.log("[WrappedDetail] loadStatus BAILED OUT - no userId yet");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const r = await apiGetActivitiesWrappedStatus(userId);
-      // 🌟 DEBUG
-      console.log("[WrappedDetail] userId=", userId, "raw status response:", r);
-      console.log("[WrappedDetail] can_generate=", r?.can_generate, "history_length=", r?.history?.length ?? 0);
+      console.log("[WrappedDetail] raw status response:", r);
+      console.log(
+        "[WrappedDetail] can_generate=",
+        r?.can_generate,
+        "active_trigger=",
+        r?.active_trigger,
+        "history_length=",
+        r?.history?.length ?? 0,
+      );
       setStatus(r);
     } catch (e: any) {
       console.log("[WrappedDetail] fetch ERROR:", e);
@@ -241,7 +252,19 @@ export default function DetailActivitiesWrapped() {
     }
   }, [userId, t]);
 
+  // 🌟 FIX: toto tu úplne chýbalo - loadStatus() sa nikdy nezavolala pri
+  // mounte, takže status ostal navždy null a canGenerate navždy false,
+  // nezávisle od toho, čo backend vracia (widget to malo, detail nie -
+  // presne to spôsobovalo "widget odomknutý, detail stále zamknutý").
+  useEffect(() => {
+    console.log("[WrappedDetail] useEffect fired (mount / loadStatus identity changed), userId=", userId);
+    loadStatus();
+  }, [loadStatus]);
+
   const canGenerate = !!status?.can_generate;
+
+  // 🌟 DEBUG
+  console.log("[WrappedDetail] render, canGenerate=", canGenerate, "status=", status);
 
   const handleGenerate = useCallback(async () => {
     if (!userId || generating || !canGenerate) return;
