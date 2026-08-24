@@ -63,6 +63,11 @@ export default function CronMasterPanel() {
       group: "AI & Plans",
     },
     {
+      id: "activities-wrapped-scan",
+      label: "Scan Races (Activities Wrapped)",
+      group: "AI & Plans",
+    },
+    {
       id: "check-ai-models",
       label: "Monitor AI Models Health",
       group: "AI & Plans",
