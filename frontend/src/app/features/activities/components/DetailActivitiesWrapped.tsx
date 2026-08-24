@@ -223,23 +223,23 @@ export default function DetailActivitiesWrapped() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  const loadStatus = useCallback(async () => {
+    const loadStatus = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(null);
     try {
       const r = await apiGetActivitiesWrappedStatus(userId);
+      // 🌟 DEBUG
+      console.log("[WrappedDetail] userId=", userId, "raw status response:", r);
+      console.log("[WrappedDetail] can_generate=", r?.can_generate, "history_length=", r?.history?.length ?? 0);
       setStatus(r);
     } catch (e: any) {
+      console.log("[WrappedDetail] fetch ERROR:", e);
       setError(t(e?.message as any) || t("activitiesWrapped.widget.errorFailedLoad" as any));
     } finally {
       setLoading(false);
     }
   }, [userId, t]);
-
-  useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
 
   const canGenerate = !!status?.can_generate;
 

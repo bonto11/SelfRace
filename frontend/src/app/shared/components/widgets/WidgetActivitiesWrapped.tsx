@@ -42,8 +42,11 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       setError(null);
       try {
         const r = await apiGetActivitiesWrappedStatus(userId);
+        // 🌟 DEBUG
+        console.log("[WrappedWidget] userId=", userId, "raw status response:", r);
         if (alive) setStatus(r);
       } catch (e: any) {
+        console.log("[WrappedWidget] fetch ERROR:", e);
         if (alive)
           setError(
             t(e?.message as any) ||
@@ -64,6 +67,28 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
   }, [status]);
 
   const latest = status?.history?.[0] ?? null;
+
+  // 🌟 DEBUG — presne podľa ktorej vetvy sa widget rozhoduje niečo zobraziť
+  console.log("[WrappedWidget] render decision:", {
+    loading,
+    isChecking,
+    error,
+    userId,
+    can_generate: status?.can_generate,
+    history_length: status?.history?.length ?? 0,
+    latest,
+    branch: loading || isChecking
+      ? "loading"
+      : error
+      ? "error"
+      : !userId
+      ? "no_user"
+      : status?.can_generate
+      ? "can_generate (🎉 nové k dispozícii)"
+      : latest
+      ? "latest (posledný wrapped z histórie)"
+      : "empty",
+  });
 
   return (
     <WidgetCard
