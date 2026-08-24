@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import type { ExternalEvent } from "@/app/features/coach/types/externalEvents";
-import { detectSport } from "@/app/shared/utils/sports";
+import { detectSport } from "@/app/shared/utils/sportMeta";
 
 import type {
   CalendarMapState,

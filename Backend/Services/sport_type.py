@@ -6,11 +6,29 @@ RUN = {"Run", "VirtualRun", "TrailRun"}
 RIDE = {"Ride", "VirtualRide", "EBikeRide", "Velomobile", "GravelRide"}
 STRENGTH = {"WeightTraining", "Crossfit"}
 SKATE = {"InlineSkate", "IceSkate"}
-MIXED = {"Elliptical", "Rowing", "StairStepper", "Workout", "Yoga"}
+# 🌟 "Workout" už nie je v MIXED - má vlastnú špeciálnu vetvu nižšie
+# (rieši distance/speed heuristikou), takže by tu bol mŕtvy/nedosiahnuteľný
+# kód. MIXED teraz obsahuje len skutočne "kombinované" cardio stroje.
+MIXED = {"Elliptical", "Rowing", "StairStepper"}
 WALK = {"Walk"}
 HIKE = {"Hike"}
 SWIM = {"Swim"}
 SOCCER = {"Soccer", "Football"}  # Strava používa "Soccer"
+
+# 🌟 NOVÉ kategórie - predtým padali do "other" (Padel, Pickleball,
+# Badminton, HighIntensityIntervalTraining, Surfing, RockClimbing,
+# AlpineSki) alebo do všeobecného "mixed" (Yoga - nedávalo zmysel spolu s
+# Elliptical/Rowing). Pilates pridané ako vlastná kategória z rovnakého
+# dôvodu ako Yoga - je dosť odlišná disciplína na samostatnú kartu.
+HIIT = {"HighIntensityIntervalTraining"}
+PADEL = {"Padel"}
+PICKLEBALL = {"Pickleball"}
+BADMINTON = {"Badminton"}
+YOGA = {"Yoga"}
+PILATES = {"Pilates"}
+SURFING = {"Surfing", "Windsurf", "Kitesurf"}
+ROCK_CLIMBING = {"RockClimbing"}
+ALPINE_SKI = {"AlpineSki", "BackcountrySki", "NordicSki", "Snowboard"}
 
 _name_kw = {
     "soccer": r"(futbal|soccer|football)",
@@ -21,6 +39,14 @@ _name_kw = {
     "walk": r"(walk|prechádz)",
     "hike": r"(hike|tur)",
     "swim": r"(swim|pláv|plav)",
+    "hiit": r"(hiit|interval)",
+    "padel": r"(padel)",
+    "pickleball": r"(pickleball)",
+    "badminton": r"(badminton)",
+    "yoga": r"(yoga|joga)",
+    "pilates": r"(pilates)",
+    "surfing": r"(surf)",
+    "rock_climbing": r"(climb|lezeni|boulder)",
 }
 _name_re = {k: re.compile(v, re.IGNORECASE) for k, v in _name_kw.items()}
 
@@ -32,8 +58,11 @@ def infer_sport_type_fe(
     moving_time_s: Optional[float] = None,
 ) -> str:
     """
-    FE kategórie: run | ride | strength | soccer | skate | walk | hike | swim | mixed | other
-    + špeciálna logika pre 'Workout': ak je tam aj zmysluplný pohyb (distance/speed), ide do 'mixed'.
+    FE kategórie: run | ride | strength | soccer | skate | walk | hike |
+    swim | hiit | padel | pickleball | badminton | yoga | pilates |
+    surfing | rock_climbing | alpine_ski | mixed | other
+    + špeciálna logika pre 'Workout': ak je tam aj zmysluplný pohyb
+    (distance/speed), ide do 'mixed'.
     """
     st = (sport_type or "").strip()
     nm = (name or "").strip()
@@ -64,6 +93,24 @@ def infer_sport_type_fe(
         return "hike"
     if st in SWIM:
         return "swim"
+    if st in HIIT:
+        return "hiit"
+    if st in PADEL:
+        return "padel"
+    if st in PICKLEBALL:
+        return "pickleball"
+    if st in BADMINTON:
+        return "badminton"
+    if st in YOGA:
+        return "yoga"
+    if st in PILATES:
+        return "pilates"
+    if st in SURFING:
+        return "surfing"
+    if st in ROCK_CLIMBING:
+        return "rock_climbing"
+    if st in ALPINE_SKI:
+        return "alpine_ski"
 
     # 'Workout' je špeciálny prípad (často silový tréning)
     if st == "Workout":
@@ -74,7 +121,7 @@ def infer_sport_type_fe(
             return "mixed"
         return "strength"
 
-    # ostatné, čo som dával do MIXED (Elliptical/Rowing/StairStepper/Yoga/Workout) -> mixed
+    # ostatné, čo som dával do MIXED (Elliptical/Rowing/StairStepper) -> mixed
     if st in MIXED:
         return "mixed"
 
@@ -96,6 +143,22 @@ def infer_sport_type_fe(
             return "hike"
         if _name_re["swim"].search(nm):
             return "swim"
+        if _name_re["hiit"].search(nm):
+            return "hiit"
+        if _name_re["padel"].search(nm):
+            return "padel"
+        if _name_re["pickleball"].search(nm):
+            return "pickleball"
+        if _name_re["badminton"].search(nm):
+            return "badminton"
+        if _name_re["yoga"].search(nm):
+            return "yoga"
+        if _name_re["pilates"].search(nm):
+            return "pilates"
+        if _name_re["surfing"].search(nm):
+            return "surfing"
+        if _name_re["rock_climbing"].search(nm):
+            return "rock_climbing"
 
     # 3) fallback
     return "other"

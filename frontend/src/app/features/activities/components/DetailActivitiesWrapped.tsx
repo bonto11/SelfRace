@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
+import DateField from "@/app/shared/ui/components/DateField";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import {
   apiGetActivitiesWrappedStatus,
@@ -14,6 +15,7 @@ import {
 } from "@/app/features/activities/api/activities_wrapped";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { getSportLabel, getSportIcon, getSportColor } from "@/app/shared/utils/sportMeta";
 
 import {
   PANEL_SURFACE,
@@ -132,47 +134,37 @@ function formatPaceSPerKm(s: number | null): string {
   return `${m}:${String(sec).padStart(2, "0")} /km`;
 }
 
-// 🌟 Športy kde dáva zmysel rýchlosť (km/h) namiesto tempa (min/km) — najmä
-// bicykel. Prepočítané z existujúceho avg_pace_s_per_km (sekundy na km),
-// keďže to je v rámci JEDNÉHO športu (nie miešané naprieč viacerými), takže
-// prepočet je matematicky v poriadku - backend meniť netreba.
-const SPEED_SPORTS = new Set(["ride", "bike", "cycling"]);
-
-function formatPaceOrSpeed(sport: string, paceSPerKm: number | null): string {
-  if (!paceSPerKm || paceSPerKm <= 0) return "—";
-  if (SPEED_SPORTS.has(sport)) {
-    const kmh = 3600 / paceSPerKm;
-    return `${kmh.toFixed(1)} km/h`;
-  }
-  return formatPaceSPerKm(paceSPerKm);
-}
-
-const SPORT_LABEL: Record<string, string> = {
-  run: "Beh",
-  ride: "Bicykel",
-  swim: "Plávanie",
-  strength: "Posilňovanie",
-  other: "Iné",
-};
-
-const SPORT_ICON: Record<string, string> = {
-  run: "🏃",
-  ride: "🚴",
-  swim: "🏊",
-  strength: "🏋️",
-  other: "⚡",
-};
-
 /* ---------- per-šport karta ---------- */
+
+// 🌟 Farebná ikonková bublina - farba je vždy len appColors.chartXxx token
+// (cez getSportColor), nikdy raw hex/rgb priamo v komponente. "33" prípona
+// je alfa kanál (~20% krytie) aplikovaný na hex token pre jemný podklad,
+// samotná farba stále pochádza výhradne z palety.
+function SportIconBadge({ icon, color }: { icon: string; color: string }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full shrink-0"
+      style={{ width: 28, height: 28, background: `${color}33`, color }}
+    >
+      {icon}
+    </span>
+  );
+}
 
 function SportCard({ sp }: { sp: ActivitiesWrappedSport }) {
   const t = useT();
-  const label = SPORT_LABEL[sp.sport] || sp.sport;
-  const icon = SPORT_ICON[sp.sport] || "•";
+  const label = getSportLabel(t, sp.sport);
+  const icon = getSportIcon(sp.sport);
+  const color = getSportColor(sp.sport);
 
   return (
     <Card
-      title={`${icon} ${label}`}
+      title={
+        <span className="inline-flex items-center gap-2">
+          <SportIconBadge icon={icon} color={color} />
+          {label}
+        </span>
+      }
       subtitle={`${sp.count}×`}
     >
       <div className="grid gap-3 md:grid-cols-3 min-w-0">
@@ -192,9 +184,8 @@ function SportCard({ sp }: { sp: ActivitiesWrappedSport }) {
             value={`${sp.total_elevation_m} m`}
           />
         )}
-        {/* 🌟 Teraz priamo z backendu - avg_speed_kmh pre bicykel,
-            avg_pace_s_per_km pre beh. Žiadny FE prepočet, žiadna
-            duplicitná logika, ktorá by sa mohla rozísť s BE. */}
+        {/* Priamo z backendu - avg_speed_kmh pre bicykel, avg_pace_s_per_km
+            pre beh. Žiadny FE prepočet. */}
         {sp.avg_speed_kmh != null && (
           <Subcard
             title={t("activitiesWrapped.stats.avgSpeed" as any)}
@@ -224,7 +215,7 @@ function SummaryCard({ s }: { s: ActivitiesWrappedSummary }) {
   const t = useT();
   const hs = s.hard_stats;
 
-  // 🌟 Zoradené podľa total_time_min zostupne - šport s najväčším časom
+  // Zoradené podľa total_time_min zostupne - šport s najväčším časom
   // (typicky hlavný šport athléta) ide prvý.
   const sortedBySport = [...(hs.by_sport || [])].sort(
     (a, b) => (b.total_time_min || 0) - (a.total_time_min || 0),
@@ -236,14 +227,10 @@ function SummaryCard({ s }: { s: ActivitiesWrappedSummary }) {
         title={s.title}
         subtitle={`${formatDate(s.range_start)} — ${formatDate(s.range_end)}`}
       >
-        {/*
-          🌟 FIX: avg_pace_s_per_km na TOMTO (celkovom, naprieč všetkými
-          športmi) leveli sa už nezobrazuje - miešanie behu (min/km) a
-          bicykla (km/h) do jedného čísla nedáva zmysel a bolo to zavádzajúce.
-          Na tejto úrovni dávajú zmysel len súčty/priemery, ktoré sú medzi
-          športmi porovnateľné: počet, vzdialenosť, čas, prevýšenie, HR.
-          Pace/rýchlosť sú teraz len na jednotlivých per-šport kartách nižšie.
-        */}
+        {/* Celkový avg_pace_s_per_km sa na tejto úrovni nezobrazuje -
+            miešanie behu a bicykla do jedného čísla nedáva zmysel. Len
+            hodnoty porovnateľné naprieč športmi: počet, vzdialenosť, čas,
+            prevýšenie, HR. Pace/rýchlosť sú len na per-šport kartách nižšie. */}
         <div className="grid gap-3 md:grid-cols-3 min-w-0">
           <Subcard
             title={t("activitiesWrapped.stats.count" as any)}
@@ -270,7 +257,7 @@ function SummaryCard({ s }: { s: ActivitiesWrappedSummary }) {
         </div>
       </Card>
 
-      {/* 🌟 Per-šport karty, každá samostatne, zoradené podľa času */}
+      {/* Per-šport karty, každá samostatne, zoradené podľa času */}
       {sortedBySport.map((sp) => (
         <SportCard key={sp.sport} sp={sp} />
       ))}
@@ -289,8 +276,8 @@ export default function DetailActivitiesWrapped() {
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
-  const [rangeStart, setRangeStart] = useState("");
-  const [rangeEnd, setRangeEnd] = useState("");
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -334,8 +321,8 @@ export default function DetailActivitiesWrapped() {
         return;
       }
       setTitle("");
-      setRangeStart("");
-      setRangeEnd("");
+      setRangeStart(null);
+      setRangeEnd(null);
       await loadStatus();
       setGenerating(false);
     } catch (e: any) {
@@ -405,34 +392,21 @@ export default function DetailActivitiesWrapped() {
             <span className="text-xs opacity-70">
               {t("activitiesWrapped.rangeStartLabel" as any)}
             </span>
-            <input
-              type="date"
+            <DateField
               value={rangeStart}
-              onChange={(e) => setRangeStart(e.target.value)}
+              onChange={setRangeStart}
               disabled={!canGenerate || generating}
-              className="rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-40"
-              style={{
-                background: appColors.surfaceSolid,
-                border: `1px solid ${appColors.surfaceCardBorder}`,
-                color: appColors.textPrimary,
-              }}
             />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs opacity-70">
               {t("activitiesWrapped.rangeEndLabel" as any)}
             </span>
-            <input
-              type="date"
+            <DateField
               value={rangeEnd}
-              onChange={(e) => setRangeEnd(e.target.value)}
+              onChange={setRangeEnd}
               disabled={!canGenerate || generating}
-              className="rounded-lg px-3 py-2 text-sm outline-none disabled:opacity-40"
-              style={{
-                background: appColors.surfaceSolid,
-                border: `1px solid ${appColors.surfaceCardBorder}`,
-                color: appColors.textPrimary,
-              }}
+              min={rangeStart ?? undefined}
             />
           </label>
         </div>

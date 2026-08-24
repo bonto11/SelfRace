@@ -20,9 +20,9 @@ from DB.activities_summary import db_get_activities_recent
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.notifications import service_notify_activities_wrapped_unlocked
 
-RACE_WINDOW_BEFORE_DAYS = 7   # pretek o 3 dni alebo menej -> odomkni
-RACE_WINDOW_AFTER_DAYS = 7    # pretek pred max 7 dňami -> stále odomknuté
-TRIGGER_VALID_DAYS = 10       # ako dlho zostáva trigger aktívny od vytvorenia (cron)
+RACE_WINDOW_BEFORE_DAYS = 4   # pretek o x dni alebo menej -> odomkni
+RACE_WINDOW_AFTER_DAYS = 4    # pretek pred max x dňami -> stále odomknuté
+TRIGGER_VALID_DAYS = 8       # ako dlho zostáva trigger aktívny od vytvorenia (cron)
 
 # 🌟 Ktoré metriky dávajú pre daný šport zmysel - beh sa meria tempom
 # (min/km), bicykel rýchlosťou (km/h). Iné športy (plávanie, posilňovanie,
@@ -32,18 +32,25 @@ SPEED_SPORTS = {"ride"}
 
 
 def _canonical_sport(s: Any) -> str:
+    """
+    🌟 ZJEDNODUŠENÉ: sport_type_fe je už normalizovaný, pre FE pripravený
+    názov športu (single source of truth naprieč zdrojmi - Garmin/Apple/
+    Whoop atď. by mali byť už zmapované na spoločné mená skôr, než sa
+    dostanú sem). Táto funkcia už NEROBÍ žiadnu vlastnú heuristiku
+    (žiadne "startswith", žiadne zlučovanie trail/run, žiadne lowercase
+    normalizovanie) - len prevezme hodnotu tak, ako prišla, a použije ju
+    priamo ako bucket kľúč. "other" je fallback len pre úplne chýbajúcu
+    hodnotu.
+
+    ĎALŠÍ KROK (zatiaľ NEROBENÉ tu): overiť, či sport_type_fe naozaj
+    konzistentne mapuje naprieč rôznymi zdrojmi (Garmin vs Apple Watch vs
+    Whoop) na rovnaké mená - ak nie, treba to opraviť na strane, kde sa
+    sport_type_fe napĺňa (import/sync pipeline), nie tu heuristikami.
+    """
     if not s:
         return "other"
-    v = str(s).lower()
-    if v in ("run", "trail", "trail_run") or v.startswith("run"):
-        return "run"
-    if v in ("ride", "bike", "cycle") or v.startswith(("ride", "bike", "cycle")):
-        return "ride"
-    if "swim" in v:
-        return "swim"
-    if "strength" in v or "gym" in v or "weight" in v:
-        return "strength"
-    return "other"
+    v = str(s).strip()
+    return v if v else "other"
 
 
 # ============================================================
@@ -184,9 +191,15 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         avg_speed_kmh: Optional[float] = None
         if b["distance_m_sum"] > 0 and b["moving_time_s_sum"] > 0:
             dist_km_b = b["distance_m_sum"] / 1000.0
-            if b["sport"] in PACE_SPORTS:
+            # 🌟 Porovnanie case-insensitive - bucket kľúč (b["sport"]) sa
+            # zobrazuje vo FE presne tak, ako prišiel v sport_type_fe (bez
+            # akejkoľvek úpravy), ale klasifikácia pace/speed nesmie zlyhať
+            # len kvôli inej veľkosti písmen naprieč zdrojmi (Garmin/Apple/
+            # Whoop).
+            sport_lower = b["sport"].lower()
+            if sport_lower in PACE_SPORTS:
                 avg_pace = round(b["moving_time_s_sum"] / dist_km_b)
-            elif b["sport"] in SPEED_SPORTS:
+            elif sport_lower in SPEED_SPORTS:
                 time_h_b = b["moving_time_s_sum"] / 3600.0
                 avg_speed_kmh = round(dist_km_b / time_h_b, 1) if time_h_b > 0 else None
 

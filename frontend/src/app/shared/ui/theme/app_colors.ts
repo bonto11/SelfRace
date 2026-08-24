@@ -134,6 +134,22 @@ export const appColors = {
   chartSkate: natur.chartLine6,
   chartWalk: natur.chartLine7,
   chartOther: natur.chartLine8,
+  // 🌟 NOVÉ - doplnené pre kategórie, ktoré predtým nemali vlastnú farbu
+  // v grafoch vôbec (hike, soccer boli tiché medzery) alebo padali do
+  // other/mixed a teraz majú vlastný sport_type_fe (hiit, padel,
+  // pickleball, badminton, yoga, pilates, surfing, rock_climbing,
+  // alpine_ski) - pozri Services/sport_type.py.
+  chartHike: natur.chartLine9,
+  chartSoccer: natur.chartLine10,
+  chartHiit: natur.chartLine11,
+  chartPadel: natur.chartLine12,
+  chartPickleball: natur.chartLine13,
+  chartBadminton: natur.chartLine14,
+  chartYoga: natur.chartLine15,
+  chartPilates: natur.chartLine16,
+  chartSurfing: natur.chartLine17,
+  chartRockClimbing: natur.chartLine18,
+  chartAlpineSki: natur.chartLine19,
 
   //State
   stateExcellent: natur.stateExcellent,

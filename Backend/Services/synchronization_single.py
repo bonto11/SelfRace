@@ -322,7 +322,6 @@ def service_sync_single_activity(
     act_date = row.get("date")
     if act_date:
         try:
-            print(f"[SYNC:single] Triggering weekly volume recalculation for {act_date}...")
             service_sync_weekly_volume_for_date(
                 user_id=user_id, 
                 target_date=str(act_date), 

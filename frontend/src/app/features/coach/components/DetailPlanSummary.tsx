@@ -13,6 +13,7 @@ import {
 } from "@/app/features/coach/api/coach_plan_active";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { getSportLabel, getSportIcon, getSportColor } from "@/app/shared/utils/sportMeta";
 
 import {
   PANEL_SURFACE,
@@ -116,25 +117,24 @@ function achievedColor(achieved: boolean | null | undefined): string | undefined
   return undefined;
 }
 
-const SPORT_META: Record<string, { label: string; icon: string }> = {
-  run: { label: "Beh", icon: "🏃" },
-  ride: { label: "Bicykel", icon: "🚴" },
-  swim: { label: "Plávanie", icon: "🏊" },
-  strength: { label: "Posilňovanie", icon: "🏋️" },
-  other: { label: "Iné", icon: "⚡" },
-};
-
 /* ---------- sport row card ---------- */
 
+// 🌟 Rovnaký princíp ako v DetailActivitiesWrapped.tsx - farba vždy len cez
+// appColors.chartXxx token (getSportColor), label cez i18n katalóg
+// "sports.*" (getSportLabel), žiadny lokálny SPORT_META dictionary a žiadny
+// raw hex/rgb priamo tu.
 function SportRowCard({ row }: { row: SportStatsRow }) {
-  const meta = SPORT_META[row.sport] || { label: row.sport, icon: "⚡" };
+  const t = useT();
+  const label = getSportLabel(t, row.sport);
+  const icon = getSportIcon(row.sport);
+  const color = getSportColor(row.sport);
 
   const metrics: { label: string; value: string }[] = [];
-  if (row.distance_km > 0) metrics.push({ label: "Vzdialenosť", value: `${row.distance_km} km` });
-  metrics.push({ label: "Čas", value: formatMinutes(row.time_min) });
-  if (row.avg_pace_s_per_km) metrics.push({ label: "Tempo", value: formatPaceSPerKm(row.avg_pace_s_per_km) });
-  if (row.avg_speed_kmh) metrics.push({ label: "Rýchlosť", value: `${row.avg_speed_kmh} km/h` });
-  if (row.avg_hr_bpm) metrics.push({ label: "Tep", value: `${row.avg_hr_bpm} bpm` });
+  if (row.distance_km > 0) metrics.push({ label: t("activitiesWrapped.stats.totalDistance" as any), value: `${row.distance_km} km` });
+  metrics.push({ label: t("activitiesWrapped.stats.totalTime" as any), value: formatMinutes(row.time_min) });
+  if (row.avg_pace_s_per_km) metrics.push({ label: t("activitiesWrapped.stats.avgPace" as any), value: formatPaceSPerKm(row.avg_pace_s_per_km) });
+  if (row.avg_speed_kmh) metrics.push({ label: t("activitiesWrapped.stats.avgSpeed" as any), value: `${row.avg_speed_kmh} km/h` });
+  if (row.avg_hr_bpm) metrics.push({ label: t("activitiesWrapped.stats.avgHr" as any), value: `${row.avg_hr_bpm} bpm` });
 
   return (
     <div
@@ -145,9 +145,14 @@ function SportRowCard({ row }: { row: SportStatsRow }) {
       }}
     >
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-lg leading-none">{meta.icon}</span>
+        <span
+          className="inline-flex items-center justify-center rounded-full shrink-0"
+          style={{ width: 24, height: 24, background: `${color}33`, color, fontSize: "0.8rem" }}
+        >
+          {icon}
+        </span>
         <span className="text-sm font-bold" style={{ color: appColors.textPrimary }}>
-          {meta.label}
+          {label}
         </span>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-1.5">

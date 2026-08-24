@@ -77,7 +77,7 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
 
   const latest = status?.history?.[0] ?? null;
 
-  // 🌟 Widget sa nevykreslí vôbec, ak feature nie je pre usera povolená
+  // Widget sa nevykreslí vôbec, ak feature nie je pre usera povolená
   // (can_generate=false) A zároveň nemá žiadnu históriu.
   if (!loading && !isChecking && !error && userId && !status?.can_generate && !latest) {
     return null;
@@ -103,25 +103,34 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
-      ) : status?.can_generate ? (
-        <div
-          className="text-sm font-bold"
-          style={{ color: appColors.statusSuccess }}
-        >
-          🎉 {t("activitiesWrapped.widget.newAvailable")}
-        </div>
       ) : (
-        <>
-          <div className="text-xs opacity-60 mb-1">{latest!.title}</div>
-          {/* 🌟 Pridaný čas vedľa vzdialenosti/počtu - "spoločné" hodnoty
-              (distance, time, count), žiadny miešaný pace naprieč športmi. */}
-          <p className={WIDGET_SUMMARY_TEXT}>
-            {latest!.hard_stats.total_distance_km} km ·{" "}
-            {formatMinutes(latest!.hard_stats.total_time_min)} ·{" "}
-            {latest!.hard_stats.count}{" "}
-            {t("activitiesWrapped.stats.count" as any).toLowerCase()}
-          </p>
-        </>
+        <div className="flex flex-col gap-2">
+          {/* 🌟 FIX: banner "nový súhrn dostupný" a posledné vygenerované
+              dáta sa už NEVYLUČUJÚ navzájom (predtým bola len jedna ALEBO
+              druhá vetva) - ak je aktívny trigger AJ existuje história,
+              zobrazí sa oboje naraz. Athlete tak vidí "máš nový k dispozícii"
+              a zároveň naposledy vygenerované čísla, nie jedno na úkor
+              druhého. */}
+          {status?.can_generate && (
+            <div
+              className="text-sm font-bold"
+              style={{ color: appColors.statusSuccess }}
+            >
+              🎉 {t("activitiesWrapped.widget.newAvailable")}
+            </div>
+          )}
+          {latest && (
+            <div>
+              <div className="text-xs opacity-60 mb-1">{latest.title}</div>
+              <p className={WIDGET_SUMMARY_TEXT}>
+                {latest.hard_stats.total_distance_km} km ·{" "}
+                {formatMinutes(latest.hard_stats.total_time_min)} ·{" "}
+                {latest.hard_stats.count}{" "}
+                {t("activitiesWrapped.stats.count" as any).toLowerCase()}
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </WidgetCard>
   );
