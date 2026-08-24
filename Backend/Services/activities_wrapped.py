@@ -20,7 +20,7 @@ from DB.activities_summary import db_get_activities_recent
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.notifications import service_notify_activities_wrapped_unlocked
 
-RACE_WINDOW_BEFORE_DAYS = 3   # pretek o 3 dni alebo menej -> odomkni
+RACE_WINDOW_BEFORE_DAYS = 7   # pretek o 3 dni alebo menej -> odomkni
 RACE_WINDOW_AFTER_DAYS = 7    # pretek pred max 7 dňami -> stále odomknuté
 TRIGGER_VALID_DAYS = 10       # ako dlho zostáva trigger aktívny od vytvorenia (cron)
 
