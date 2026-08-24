@@ -25,6 +25,19 @@ type Props = {
   onOpenDetail?: () => void;
 };
 
+// 🌟 Rovnaká logika ako v detaile — widget zámerne NEUKAZUJE pace/rýchlosť
+// (miešanie behu a bicykla nedáva zmysel), len hodnoty, ktoré sú medzi
+// športmi porovnateľné a dajú sa sčítať: vzdialenosť, čas, počet.
+function formatMinutes(min: number | null): string {
+  if (!min || min <= 0) return "—";
+  if (min >= 60) {
+    const h = Math.floor(min / 60);
+    const m = Math.round(min % 60);
+    return m > 0 ? `${h} h ${m} min` : `${h} h`;
+  }
+  return `${Math.round(min)} min`;
+}
+
 export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
   const { userId, isChecking } = useUserId();
   const [status, setStatus] = useState<ActivitiesWrappedStatus | null>(null);
@@ -64,14 +77,8 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
 
   const latest = status?.history?.[0] ?? null;
 
-  // 🌟 FIX: widget sa nesmie zobraziť vôbec, ak feature nie je pre usera
-  // povolená (can_generate=false) A zároveň nemá žiadnu históriu (history
-  // prázdne / neexistuje žiadny riadok v DB). Predtým táto kombinácia padala
-  // do "else" vetvy nižšie a vykreslila WidgetCard s placeholder textom
-  // "missingData" - takže sa widget zobrazoval úplne každému, nezávisle od
-  // toho, či má na feature vôbec nárok. Loading/error/no-user stavy sa
-  // naďalej zobrazujú normálne (to sú prechodné/technické stavy, nie
-  // rozhodnutie o oprávnení).
+  // 🌟 Widget sa nevykreslí vôbec, ak feature nie je pre usera povolená
+  // (can_generate=false) A zároveň nemá žiadnu históriu.
   if (!loading && !isChecking && !error && userId && !status?.can_generate && !latest) {
     return null;
   }
@@ -106,8 +113,11 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       ) : (
         <>
           <div className="text-xs opacity-60 mb-1">{latest!.title}</div>
+          {/* 🌟 Pridaný čas vedľa vzdialenosti/počtu - "spoločné" hodnoty
+              (distance, time, count), žiadny miešaný pace naprieč športmi. */}
           <p className={WIDGET_SUMMARY_TEXT}>
             {latest!.hard_stats.total_distance_km} km ·{" "}
+            {formatMinutes(latest!.hard_stats.total_time_min)} ·{" "}
             {latest!.hard_stats.count}{" "}
             {t("activitiesWrapped.stats.count" as any).toLowerCase()}
           </p>

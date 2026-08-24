@@ -26,6 +26,7 @@ from Services.maintenance import (
 from Services.AI.provider.provider import get_available_ai_models
 from Services.coach_plan_active import service_complete_due_active_plans
 from Services.app_subscription import service_apply_due_subscription_changes
+from Services.activities_wrapped import service_run_activities_wrapped_trigger_scan
 
 
 def service_run_master_scheduler(
@@ -71,7 +72,12 @@ def service_run_master_scheduler(
             service_run_weekly_athlete_state(max_users=0, ctx=ctx)
         elif task == "monthly-summary":
             service_cron_notify_monthly_summary(ctx=ctx)
-            
+        elif task == "activities-wrapped-scan":
+            # 🌟 NOVÉ: manuálne spustenie skenu pretekov pre Activities
+            # Wrapped triggery - užitočné na test bez čakania na polnoc.
+            result = service_run_activities_wrapped_trigger_scan(ctx=ctx)
+            return {"status": "executed_manual", "task": task, "data": result}
+
         else:
             raise ValueError(f"Neznáma úloha: {task}")
 
@@ -102,6 +108,19 @@ def service_run_master_scheduler(
                 fn()
             except Exception as e:
                 print(f"[SCHEDULER] ❌ {name}: {e}")
+
+    # 1b. ACTIVITIES WRAPPED — sken pretekov (POLNOC, 00:00)
+    # 🌟 NOVÉ: každý deň o polnoci skontroluje, či niekomu padá pretek do
+    # blízkeho dátumového okna (RACE_WINDOW_BEFORE_DAYS/AFTER_DAYS v
+    # Services/activities_wrapped.py) - ak áno, vytvorí trigger (odomkne mu
+    # generovanie súhrnu v appke) a rovno mu pošle aj push notifikáciu
+    # (service_notify_activities_wrapped_unlocked, volané priamo vnútri
+    # service_run_activities_wrapped_trigger_scan).
+    if hour == 0:
+        try:
+            service_run_activities_wrapped_trigger_scan(ctx=ctx)
+        except Exception as e:
+            print(f"[SCHEDULER] ❌ activities_wrapped_scan: {e}")
 
     # 2. KAŽDOHODINOVÁ KONTROLA
     try:

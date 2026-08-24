@@ -1729,6 +1729,7 @@ export const sk = {
     totalTime: "Celkový čas",
     totalElevation: "Celkové prevýšenie",
     avgPace: "Priemerné tempo",
+    avgSpeed: "Priemerná rýchlosť",
     avgHr: "Priemerný tep",
     bySportTitle: "Podľa športu",
   },

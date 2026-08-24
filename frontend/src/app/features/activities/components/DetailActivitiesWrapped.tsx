@@ -10,6 +10,7 @@ import {
   apiGenerateActivitiesWrapped,
   type ActivitiesWrappedStatus,
   type ActivitiesWrappedSummary,
+  type ActivitiesWrappedSport,
 } from "@/app/features/activities/api/activities_wrapped";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -131,6 +132,21 @@ function formatPaceSPerKm(s: number | null): string {
   return `${m}:${String(sec).padStart(2, "0")} /km`;
 }
 
+// 🌟 Športy kde dáva zmysel rýchlosť (km/h) namiesto tempa (min/km) — najmä
+// bicykel. Prepočítané z existujúceho avg_pace_s_per_km (sekundy na km),
+// keďže to je v rámci JEDNÉHO športu (nie miešané naprieč viacerými), takže
+// prepočet je matematicky v poriadku - backend meniť netreba.
+const SPEED_SPORTS = new Set(["ride", "bike", "cycling"]);
+
+function formatPaceOrSpeed(sport: string, paceSPerKm: number | null): string {
+  if (!paceSPerKm || paceSPerKm <= 0) return "—";
+  if (SPEED_SPORTS.has(sport)) {
+    const kmh = 3600 / paceSPerKm;
+    return `${kmh.toFixed(1)} km/h`;
+  }
+  return formatPaceSPerKm(paceSPerKm);
+}
+
 const SPORT_LABEL: Record<string, string> = {
   run: "Beh",
   ride: "Bicykel",
@@ -139,71 +155,126 @@ const SPORT_LABEL: Record<string, string> = {
   other: "Iné",
 };
 
+const SPORT_ICON: Record<string, string> = {
+  run: "🏃",
+  ride: "🚴",
+  swim: "🏊",
+  strength: "🏋️",
+  other: "⚡",
+};
+
+/* ---------- per-šport karta ---------- */
+
+function SportCard({ sp }: { sp: ActivitiesWrappedSport }) {
+  const t = useT();
+  const label = SPORT_LABEL[sp.sport] || sp.sport;
+  const icon = SPORT_ICON[sp.sport] || "•";
+
+  return (
+    <Card
+      title={`${icon} ${label}`}
+      subtitle={`${sp.count}×`}
+    >
+      <div className="grid gap-3 md:grid-cols-3 min-w-0">
+        {sp.total_distance_km > 0 && (
+          <Subcard
+            title={t("activitiesWrapped.stats.totalDistance" as any)}
+            value={`${sp.total_distance_km} km`}
+          />
+        )}
+        <Subcard
+          title={t("activitiesWrapped.stats.totalTime" as any)}
+          value={formatMinutes(sp.total_time_min)}
+        />
+        {sp.total_elevation_m > 0 && (
+          <Subcard
+            title={t("activitiesWrapped.stats.totalElevation" as any)}
+            value={`${sp.total_elevation_m} m`}
+          />
+        )}
+        {/* 🌟 Teraz priamo z backendu - avg_speed_kmh pre bicykel,
+            avg_pace_s_per_km pre beh. Žiadny FE prepočet, žiadna
+            duplicitná logika, ktorá by sa mohla rozísť s BE. */}
+        {sp.avg_speed_kmh != null && (
+          <Subcard
+            title={t("activitiesWrapped.stats.avgSpeed" as any)}
+            value={`${sp.avg_speed_kmh} km/h`}
+          />
+        )}
+        {sp.avg_pace_s_per_km != null && (
+          <Subcard
+            title={t("activitiesWrapped.stats.avgPace" as any)}
+            value={formatPaceSPerKm(sp.avg_pace_s_per_km)}
+          />
+        )}
+        {sp.avg_hr_bpm != null && (
+          <Subcard
+            title={t("activitiesWrapped.stats.avgHr" as any)}
+            value={`${sp.avg_hr_bpm} bpm`}
+          />
+        )}
+      </div>
+    </Card>
+  );
+}
+
 /* ---------- summary detail card ---------- */
 
 function SummaryCard({ s }: { s: ActivitiesWrappedSummary }) {
   const t = useT();
   const hs = s.hard_stats;
 
-  return (
-    <Card
-      title={s.title}
-      subtitle={`${formatDate(s.range_start)} — ${formatDate(s.range_end)}`}
-    >
-      <div className="grid gap-3 md:grid-cols-3 min-w-0">
-        <Subcard
-          title={t("activitiesWrapped.stats.count" as any)}
-          value={hs.count}
-        />
-        <Subcard
-          title={t("activitiesWrapped.stats.totalDistance" as any)}
-          value={hs.total_distance_km > 0 ? `${hs.total_distance_km} km` : "—"}
-        />
-        <Subcard
-          title={t("activitiesWrapped.stats.totalTime" as any)}
-          value={formatMinutes(hs.total_time_min)}
-        />
-        <Subcard
-          title={t("activitiesWrapped.stats.totalElevation" as any)}
-          value={hs.total_elevation_m > 0 ? `${hs.total_elevation_m} m` : "—"}
-        />
-        {hs.avg_pace_s_per_km != null && (
-          <Subcard
-            title={t("activitiesWrapped.stats.avgPace" as any)}
-            value={formatPaceSPerKm(hs.avg_pace_s_per_km)}
-          />
-        )}
-        {hs.avg_hr_bpm != null && (
-          <Subcard
-            title={t("activitiesWrapped.stats.avgHr" as any)}
-            value={`${hs.avg_hr_bpm} bpm`}
-          />
-        )}
-      </div>
+  // 🌟 Zoradené podľa total_time_min zostupne - šport s najväčším časom
+  // (typicky hlavný šport athléta) ide prvý.
+  const sortedBySport = [...(hs.by_sport || [])].sort(
+    (a, b) => (b.total_time_min || 0) - (a.total_time_min || 0),
+  );
 
-      {hs.by_sport.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-white/10">
-          <div className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">
-            {t("activitiesWrapped.stats.bySportTitle" as any)}
-          </div>
-          <div className="space-y-1.5">
-            {hs.by_sport.map((sp) => (
-              <div key={sp.sport} className="flex justify-between text-sm gap-2">
-                <span className="opacity-80">
-                  {SPORT_LABEL[sp.sport] || sp.sport} · {sp.count}×
-                </span>
-                <span className="text-right opacity-70">
-                  {sp.total_distance_km > 0 && `${sp.total_distance_km} km · `}
-                  {formatMinutes(sp.total_time_min)}
-                  {sp.avg_pace_s_per_km && ` · ${formatPaceSPerKm(sp.avg_pace_s_per_km)}`}
-                  {sp.avg_hr_bpm && ` · ${sp.avg_hr_bpm} bpm`}
-                </span>
-              </div>
-            ))}
-          </div>
+  return (
+    <div className={PANEL_STACK}>
+      <Card
+        title={s.title}
+        subtitle={`${formatDate(s.range_start)} — ${formatDate(s.range_end)}`}
+      >
+        {/*
+          🌟 FIX: avg_pace_s_per_km na TOMTO (celkovom, naprieč všetkými
+          športmi) leveli sa už nezobrazuje - miešanie behu (min/km) a
+          bicykla (km/h) do jedného čísla nedáva zmysel a bolo to zavádzajúce.
+          Na tejto úrovni dávajú zmysel len súčty/priemery, ktoré sú medzi
+          športmi porovnateľné: počet, vzdialenosť, čas, prevýšenie, HR.
+          Pace/rýchlosť sú teraz len na jednotlivých per-šport kartách nižšie.
+        */}
+        <div className="grid gap-3 md:grid-cols-3 min-w-0">
+          <Subcard
+            title={t("activitiesWrapped.stats.count" as any)}
+            value={hs.count}
+          />
+          <Subcard
+            title={t("activitiesWrapped.stats.totalDistance" as any)}
+            value={hs.total_distance_km > 0 ? `${hs.total_distance_km} km` : "—"}
+          />
+          <Subcard
+            title={t("activitiesWrapped.stats.totalTime" as any)}
+            value={formatMinutes(hs.total_time_min)}
+          />
+          <Subcard
+            title={t("activitiesWrapped.stats.totalElevation" as any)}
+            value={hs.total_elevation_m > 0 ? `${hs.total_elevation_m} m` : "—"}
+          />
+          {hs.avg_hr_bpm != null && (
+            <Subcard
+              title={t("activitiesWrapped.stats.avgHr" as any)}
+              value={`${hs.avg_hr_bpm} bpm`}
+            />
+          )}
         </div>
-      )}
-    </Card>
+      </Card>
+
+      {/* 🌟 Per-šport karty, každá samostatne, zoradené podľa času */}
+      {sortedBySport.map((sp) => (
+        <SportCard key={sp.sport} sp={sp} />
+      ))}
+    </div>
   );
 }
 
@@ -224,47 +295,24 @@ export default function DetailActivitiesWrapped() {
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
-    // 🌟 DEBUG
-    console.log("[WrappedDetail] loadStatus called, userId=", userId);
-    if (!userId) {
-      console.log("[WrappedDetail] loadStatus BAILED OUT - no userId yet");
-      return;
-    }
+    if (!userId) return;
     setLoading(true);
     setError(null);
     try {
       const r = await apiGetActivitiesWrappedStatus(userId);
-      console.log("[WrappedDetail] raw status response:", r);
-      console.log(
-        "[WrappedDetail] can_generate=",
-        r?.can_generate,
-        "active_trigger=",
-        r?.active_trigger,
-        "history_length=",
-        r?.history?.length ?? 0,
-      );
       setStatus(r);
     } catch (e: any) {
-      console.log("[WrappedDetail] fetch ERROR:", e);
       setError(t(e?.message as any) || t("activitiesWrapped.widget.errorFailedLoad" as any));
     } finally {
       setLoading(false);
     }
   }, [userId, t]);
 
-  // 🌟 FIX: toto tu úplne chýbalo - loadStatus() sa nikdy nezavolala pri
-  // mounte, takže status ostal navždy null a canGenerate navždy false,
-  // nezávisle od toho, čo backend vracia (widget to malo, detail nie -
-  // presne to spôsobovalo "widget odomknutý, detail stále zamknutý").
   useEffect(() => {
-    console.log("[WrappedDetail] useEffect fired (mount / loadStatus identity changed), userId=", userId);
     loadStatus();
   }, [loadStatus]);
 
   const canGenerate = !!status?.can_generate;
-
-  // 🌟 DEBUG
-  console.log("[WrappedDetail] render, canGenerate=", canGenerate, "status=", status);
 
   const handleGenerate = useCallback(async () => {
     if (!userId || generating || !canGenerate) return;

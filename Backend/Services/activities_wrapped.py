@@ -18,10 +18,17 @@ from DB.activities_wrapped import (
 )
 from DB.activities_summary import db_get_activities_recent
 from Services.user_prefs import service_load_coach_prefs_for_analysis
+from Services.notifications import service_notify_activities_wrapped_unlocked
 
 RACE_WINDOW_BEFORE_DAYS = 3   # pretek o 3 dni alebo menej -> odomkni
 RACE_WINDOW_AFTER_DAYS = 7    # pretek pred max 7 dňami -> stále odomknuté
 TRIGGER_VALID_DAYS = 10       # ako dlho zostáva trigger aktívny od vytvorenia (cron)
+
+# 🌟 Ktoré metriky dávajú pre daný šport zmysel - beh sa meria tempom
+# (min/km), bicykel rýchlosťou (km/h). Iné športy (plávanie, posilňovanie,
+# ostatné) egal jednotku nemajú, tak sa im pace/speed jednoducho nepočíta.
+PACE_SPORTS = {"run"}
+SPEED_SPORTS = {"ride"}
 
 
 def _canonical_sport(s: Any) -> str:
@@ -113,8 +120,6 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
     overall_distance_m = 0.0
     overall_time_s = 0.0
     overall_elevation_m = 0.0
-    overall_pace_distance_m = 0.0
-    overall_pace_time_s = 0.0
     overall_hr_sum = 0.0
     overall_hr_count = 0
 
@@ -131,7 +136,6 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         })
         b["count"] += 1
 
-        dist_m = 0.0
         try:
             dist_m = float(a.get("distance_m") or 0)
             b["distance_m_sum"] += dist_m
@@ -139,7 +143,6 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             pass
 
-        time_s = 0.0
         try:
             time_s = float(a.get("moving_time_s") or 0)
             b["moving_time_s_sum"] += time_s
@@ -154,9 +157,13 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             pass
 
-        if sport in ("run", "ride") and dist_m > 0 and time_s > 0:
-            overall_pace_distance_m += dist_m
-            overall_pace_time_s += time_s
+        # 🌟 FIX: predtým sa sem pripočítavala aj vzdialenosť/čas z "ride",
+        # aby sa z toho ďalej dole spočítal JEDEN spoločný "overall pace" pre
+        # beh+bicykel dokopy - to je fyzikálne nezmyselné (tempo min/km a
+        # rýchlosť km/h sú iné jednotky, miešanie ich do jedného čísla dávalo
+        # zavádzajúci výsledok). Overall pace sa už vôbec nepočíta - pozri
+        # nižšie, kde je natvrdo None. Pace/rýchlosť majú zmysel len PER
+        # ŠPORT (samostatné buckety nižšie), nikdy naprieč viacerými.
 
         hr = a.get("average_heartrate_bpm")
         if hr:
@@ -172,11 +179,17 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
     for b in buckets.values():
         dist_km = round(b["distance_m_sum"] / 1000.0, 2) if b["distance_m_sum"] else 0.0
         time_min = round(b["moving_time_s_sum"] / 60.0, 1) if b["moving_time_s_sum"] else 0.0
-        avg_pace = (
-            round(b["moving_time_s_sum"] / (b["distance_m_sum"] / 1000.0))
-            if b["distance_m_sum"] > 0 and b["sport"] in ("run", "ride")
-            else None
-        )
+
+        avg_pace: Optional[int] = None
+        avg_speed_kmh: Optional[float] = None
+        if b["distance_m_sum"] > 0 and b["moving_time_s_sum"] > 0:
+            dist_km_b = b["distance_m_sum"] / 1000.0
+            if b["sport"] in PACE_SPORTS:
+                avg_pace = round(b["moving_time_s_sum"] / dist_km_b)
+            elif b["sport"] in SPEED_SPORTS:
+                time_h_b = b["moving_time_s_sum"] / 3600.0
+                avg_speed_kmh = round(dist_km_b / time_h_b, 1) if time_h_b > 0 else None
+
         avg_hr = round(b["hr_sum"] / b["hr_count"]) if b["hr_count"] > 0 else None
         by_sport.append({
             "sport": b["sport"],
@@ -185,15 +198,15 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
             "total_time_min": time_min,
             "total_elevation_m": round(b["elevation_m_sum"]) if b["elevation_m_sum"] else 0,
             "avg_pace_s_per_km": avg_pace,
+            "avg_speed_kmh": avg_speed_kmh,
             "avg_hr_bpm": avg_hr,
         })
-    by_sport.sort(key=lambda x: x["count"], reverse=True)
+    # 🌟 Zoradené podľa total_time_min zostupne - hlavný šport athléta
+    # (typicky ten, čomu venuje najviac času) ide prvý. FE si toto poradie
+    # aj tak nezávisle prepočítava, ale nech je konzistentné aj tu (napr. pre
+    # iné budúce použitia tohto endpointu, admin panel a pod.).
+    by_sport.sort(key=lambda x: x["total_time_min"], reverse=True)
 
-    overall_avg_pace = (
-        round(overall_pace_time_s / (overall_pace_distance_m / 1000.0))
-        if overall_pace_distance_m > 0
-        else None
-    )
     overall_avg_hr = round(overall_hr_sum / overall_hr_count) if overall_hr_count > 0 else None
 
     return {
@@ -201,7 +214,11 @@ def _aggregate_activities(activities: List[Dict[str, Any]]) -> Dict[str, Any]:
         "total_distance_km": round(overall_distance_m / 1000.0, 2) if overall_distance_m else 0.0,
         "total_time_min": round(overall_time_s / 60.0, 1) if overall_time_s else 0.0,
         "total_elevation_m": round(overall_elevation_m) if overall_elevation_m else 0,
-        "avg_pace_s_per_km": overall_avg_pace,
+        # 🌟 FIX: natvrdo None - miešaný pace naprieč športmi sa už nepočíta
+        # (pozri komentár vyššie v cykle). Pole ostáva v odpovedi kvôli
+        # spätnej kompatibilite typu na FE, ale reálnu hodnotu už nikdy
+        # neobsahuje.
+        "avg_pace_s_per_km": None,
         "avg_hr_bpm": overall_avg_hr,
         "by_sport": by_sport,
     }
@@ -267,6 +284,19 @@ def service_run_activities_wrapped_trigger_scan(*, ctx: AuthCtx) -> Dict[str, An
                     ctx=ctx,
                 )
                 created += 1
+
+                # 🌟 NOVÉ: hneď ako sa userovi odomkne súhrn, pošli mu aj
+                # push notifikáciu - nech sa o tom dozvie, nemusí čakať kým
+                # si to sám všimne v appke.
+                try:
+                    service_notify_activities_wrapped_unlocked(
+                        uid, ctx=ctx, trigger_label=race_name
+                    )
+                except Exception as e:  # noqa: BLE001
+                    print(
+                        f"[ACTIVITIES_WRAPPED][cron] notify failed for "
+                        f"user_id={uid}: {repr(e)}"
+                    )
         except Exception as e:  # noqa: BLE001
             print(f"[ACTIVITIES_WRAPPED][cron] user_id={uid} failed: {repr(e)}")
 

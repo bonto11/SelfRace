@@ -7,6 +7,7 @@ export type ActivitiesWrappedSport = {
   total_time_min: number;
   total_elevation_m: number;
   avg_pace_s_per_km: number | null;
+  avg_speed_kmh: number | null;
   avg_hr_bpm: number | null;
 };
 

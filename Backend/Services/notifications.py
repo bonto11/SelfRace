@@ -47,6 +47,8 @@ PUSH_TRANSLATIONS = {
         "autorecovery_applied_body": "Dnes si mal horšiu noc. Zmenili sme tvoj tréning na ľahkú regeneráciu.",
         "monthly_summary_title": "Mesačný prehľad je hotový 📊",
         "monthly_summary_body": "Tvoj tréningový súhrn za minulý mesiac je pripravený. Pozri si, čo sa podarilo!",
+        "activities_wrapped_title": "Nový súhrn aktivít je dostupný 🎉",
+        "activities_wrapped_body": "Máš pretek v blízkych dňoch - vygeneruj si súhrn svojej prípravy!",
         "new_activity_title": "Nová aktivita je v appke! 🏃",
         "new_activity_body": "Tvoja nová aktivita bola pridaná. Pozri si detaily.",
         "new_record_title": "Nový osobný rekord! 🏆",
@@ -70,6 +72,8 @@ PUSH_TRANSLATIONS = {
         "autorecovery_applied_body": "You had a rough night. We changed today's training to a light recovery session.",
         "monthly_summary_title": "Monthly summary ready 📊",
         "monthly_summary_body": "Your training summary for last month is ready. Check out what you achieved!",
+        "activities_wrapped_title": "New activities summary available 🎉",
+        "activities_wrapped_body": "You have a race coming up soon - generate a summary of your preparation!",
         "new_activity_title": "New activity imported! 🏃",
         "new_activity_body": "Your new activity was added. Check out the details.",
         "new_record_title": "New personal record! 🏆",
@@ -542,6 +546,36 @@ def service_notify_monthly_summary_done(user_id: int, ctx: AuthCtx) -> Dict[str,
     )
 
 
+def service_notify_activities_wrapped_unlocked(
+    user_id: int,
+    ctx: AuthCtx,
+    trigger_label: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: Posle notifikáciu, keď sa userovi odomkne možnosť vygenerovať
+    Activities Wrapped súhrn (typicky race_window trigger z nočného cronu -
+    pretek mu padá do blízkeho dátumového okna). Volá sa priamo zo
+    service_run_activities_wrapped_trigger_scan v Services/activities_wrapped.py
+    hneď po vytvorení nového triggera pre daného usera.
+
+    url: "/activities/wrapped" — over si prosím, že toto je skutočná cesta
+    na detail Activities Wrapped v appke (podľa vzoru "/activities/monthlySummary"
+    pre mesačný súhrn); ak je iná, uprav tu.
+    """
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+    body = t["activities_wrapped_body"]
+    if trigger_label:
+        body = f"{body} ({trigger_label})"
+    return service_send_push_notification(
+        user_id=user_id,
+        title=t["activities_wrapped_title"],
+        body=body,
+        url="/activities/wrapped",
+        ctx=ctx,
+    )
+
+
 def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     lang = _get_user_language(user_id, ctx)
     t = PUSH_TRANSLATIONS[lang]
@@ -745,4 +779,3 @@ def service_notify_users(
         per_user.append({"user_id": user_id, "sent": sent, "failed": res.get("failed", 0)})
 
     return {"success": True, "sent": total_sent, "per_user": per_user}
-
