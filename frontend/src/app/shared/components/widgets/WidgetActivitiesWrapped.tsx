@@ -12,7 +12,6 @@ import {
   WIDGET_ERROR_TEXT,
   WIDGET_ERROR_SUB,
   WIDGET_INFO_TEXT,
-  WIDGET_EMPTY_TEXT,
   WIDGET_SUMMARY_TEXT,
 } from "@/app/shared/ui/tokens";
 
@@ -42,11 +41,8 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
       setError(null);
       try {
         const r = await apiGetActivitiesWrappedStatus(userId);
-        // 🌟 DEBUG
-        console.log("[WrappedWidget] userId=", userId, "raw status response:", r);
         if (alive) setStatus(r);
       } catch (e: any) {
-        console.log("[WrappedWidget] fetch ERROR:", e);
         if (alive)
           setError(
             t(e?.message as any) ||
@@ -68,27 +64,17 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
 
   const latest = status?.history?.[0] ?? null;
 
-  // 🌟 DEBUG — presne podľa ktorej vetvy sa widget rozhoduje niečo zobraziť
-  console.log("[WrappedWidget] render decision:", {
-    loading,
-    isChecking,
-    error,
-    userId,
-    can_generate: status?.can_generate,
-    history_length: status?.history?.length ?? 0,
-    latest,
-    branch: loading || isChecking
-      ? "loading"
-      : error
-      ? "error"
-      : !userId
-      ? "no_user"
-      : status?.can_generate
-      ? "can_generate (🎉 nové k dispozícii)"
-      : latest
-      ? "latest (posledný wrapped z histórie)"
-      : "empty",
-  });
+  // 🌟 FIX: widget sa nesmie zobraziť vôbec, ak feature nie je pre usera
+  // povolená (can_generate=false) A zároveň nemá žiadnu históriu (history
+  // prázdne / neexistuje žiadny riadok v DB). Predtým táto kombinácia padala
+  // do "else" vetvy nižšie a vykreslila WidgetCard s placeholder textom
+  // "missingData" - takže sa widget zobrazoval úplne každému, nezávisle od
+  // toho, či má na feature vôbec nárok. Loading/error/no-user stavy sa
+  // naďalej zobrazujú normálne (to sú prechodné/technické stavy, nie
+  // rozhodnutie o oprávnení).
+  if (!loading && !isChecking && !error && userId && !status?.can_generate && !latest) {
+    return null;
+  }
 
   return (
     <WidgetCard
@@ -117,19 +103,15 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
         >
           🎉 {t("activitiesWrapped.widget.newAvailable")}
         </div>
-      ) : latest ? (
+      ) : (
         <>
-          <div className="text-xs opacity-60 mb-1">{latest.title}</div>
+          <div className="text-xs opacity-60 mb-1">{latest!.title}</div>
           <p className={WIDGET_SUMMARY_TEXT}>
-            {latest.hard_stats.total_distance_km} km ·{" "}
-            {latest.hard_stats.count}{" "}
+            {latest!.hard_stats.total_distance_km} km ·{" "}
+            {latest!.hard_stats.count}{" "}
             {t("activitiesWrapped.stats.count" as any).toLowerCase()}
           </p>
         </>
-      ) : (
-        <div className={WIDGET_EMPTY_TEXT}>
-          {t("activitiesWrapped.widget.missingData")}
-        </div>
       )}
     </WidgetCard>
   );
