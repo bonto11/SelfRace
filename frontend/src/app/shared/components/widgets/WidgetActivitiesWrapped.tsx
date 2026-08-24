@@ -79,7 +79,14 @@ export default function WidgetActivitiesWrapped({ onOpenDetail }: Props) {
 
   // Widget sa nevykreslí vôbec, ak feature nie je pre usera povolená
   // (can_generate=false) A zároveň nemá žiadnu históriu.
-  if (!loading && !isChecking && !error && userId && !status?.can_generate && !latest) {
+  if (
+    !loading &&
+    !isChecking &&
+    !error &&
+    userId &&
+    !status?.can_generate &&
+    !latest
+  ) {
     return null;
   }
 

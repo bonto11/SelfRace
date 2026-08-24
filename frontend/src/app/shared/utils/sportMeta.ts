@@ -84,7 +84,7 @@ export function getSportColor(sport: string): string {
 // t = useT() z volajúcej komponenty. Kľúče v katalógu: "sports.run",
 // "sports.ride", "sports.strength" atď. (pozri i18n sk/en katalóg).
 export function getSportLabel(t: (key: any) => string, sport: string): string {
-  const key = `sports.${sport}`;
+  const key = `common.sports.${sport}`;
   const translated = t(key as any);
   if (translated && translated !== key) return translated;
   return prettifySport(sport);
