@@ -68,8 +68,14 @@ export default function WidgetOnboarding({
     null,
   );
 
-  /* ─── Aktívny plán ─── */
-  const [hasActivePlan, setHasActivePlan] = useState(false);
+  /* ─── Plán ─── */
+  // 🌟 FIX: predtým "hasActivePlan" čítal has_active, čo je False aj po
+  // ÚSPEŠNOM dokončení plánu (status prejde na "completed") - onboarding
+  // widget sa tak nesprávne znova zobrazil starým userom, čo už celý flow
+  // raz absolvovali. Teraz čítame has_any_plan (má NIEKEDY vytvorený
+  // čokoľvek - active/completed/generated/canceled), čo správne rozlišuje
+  // "úplne nový user" od "user, čo si plán práve dokončil/zrušil".
+  const [hasAnyPlan, setHasAnyPlan] = useState(false);
   const [planStatusLoading, setPlanStatusLoading] = useState(true);
 
   /* ─── Coach prefs ─── */
@@ -112,11 +118,11 @@ export default function WidgetOnboarding({
     setPlanStatusLoading(true);
     apiActivePlanStatus(userId)
       .then((s) => {
-        if (alive) setHasActivePlan(!!s?.has_active);
+        if (alive) setHasAnyPlan(!!s?.has_any_plan);
       })
       .catch((e) => {
         console.error("[WidgetOnboarding] plan status error:", e);
-        if (alive) setHasActivePlan(false);
+        if (alive) setHasAnyPlan(false);
       })
       .finally(() => {
         if (alive) setPlanStatusLoading(false);
@@ -264,7 +270,7 @@ export default function WidgetOnboarding({
   const initialLoading =
     statusLoading || planStatusLoading || prefsStatusLoading || !pushCheckDone;
 
-  const allDone = connected && importDone && hasActivePlan;
+  const allDone = connected && importDone && hasAnyPlan;
 
   if (!initialLoading && allDone) return null;
 
@@ -283,7 +289,7 @@ export default function WidgetOnboarding({
     : importDone
       ? "active"
       : "locked";
-  const stepGeneratePlan: StepStatus = hasActivePlan
+  const stepGeneratePlan: StepStatus = hasAnyPlan
     ? "done"
     : coachPrefsDone
       ? "active"

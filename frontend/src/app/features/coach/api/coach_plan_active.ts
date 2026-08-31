@@ -40,6 +40,11 @@ export type ReorderUpdate = {
 export type ActivePlanStatus = {
   success: boolean;
   has_active: boolean;
+  has_any_plan?: boolean; // 🌟 NOVÉ - má user NIEKEDY vytvorený čo i len
+  // jeden plán (active/completed/generated/canceled), nezávisle od
+  // aktuálneho statusu. Používaj toto pre onboarding "už si to raz
+  // dokončil" logiku, nie has_active - has_active je False aj po úspešnom
+  // dokončení plánu, čo by inak onboarding nesprávne znova zobrazilo.
   has_weekly_data?: boolean;
   has_daily_data?: boolean;
   meta?: any;

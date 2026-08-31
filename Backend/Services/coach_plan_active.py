@@ -174,9 +174,20 @@ def service_get_active_plan_status(
         has_active = False
         meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
 
+    # NOVÉ: has_any_plan = user má NIEKEDY vytvorený čo i len jeden
+    # coach_plan_meta záznam, bez ohľadu na status (active/completed/
+    # generated/canceled). Slúži na odlíšenie "nový user, čo nikdy nič
+    # nevygeneroval" (onboarding sa má zobraziť) od "user, čo mal plán a ten
+    # sa medzitým dokončil/zrušil" (onboarding sa už nemá vracať späť -
+    # presne toto predtým spôsobovalo, že onboarding widget znova naskočil
+    # po úspešnom dokončení plánu, keďže has_active správne prešlo na
+    # False, ale FE to interpretoval ako "ešte nikdy nemal plán").
+    has_any_plan = meta is not None
+
     if not meta:
         return {
             "has_active": False,
+            "has_any_plan": False,
             "has_weekly_data": False,
             "has_daily_data": False,
             "meta": None,
@@ -191,6 +202,7 @@ def service_get_active_plan_status(
 
     return {
         "has_active": has_active,
+        "has_any_plan": has_any_plan,
         "has_weekly_data": has_weekly,
         "has_daily_data": has_daily,
         "meta": meta,
