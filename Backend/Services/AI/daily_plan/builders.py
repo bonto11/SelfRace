@@ -312,9 +312,17 @@ def _build_external_block(
 # ============================================================
 
 def build_daily_rows_from_ai(
-    user_id: int, daily_plan: Dict[str, Any]
+    user_id: int,
+    daily_plan: Dict[str, Any],
+    plan_meta_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Prevedie AI daily output na DB riadky pre coach_plan_daily tabuľku."""
+    """
+    Prevedie AI daily output na DB riadky pre coach_plan_daily tabuľku.
+
+    plan_meta_id: NOVÉ - ak je zadaný, zapíše sa priamo do každého riadku
+    (bežný prípad - pri dennom generovaní VŽDY existuje meta záznam,
+    keďže denný plán sa generuje až po weekly, ktorý meta vytvoril).
+    """
     days = daily_plan.get("days") or []
     rows: List[Dict[str, Any]] = []
     if not isinstance(days, list):
@@ -334,7 +342,7 @@ def build_daily_rows_from_ai(
             if not isinstance(s, dict):
                 continue
             sport_safe = _coerce_session_sport(s.get("sport") or "other")
-            rows.append({
+            row: Dict[str, Any] = {
                 "user_id": user_id,
                 "plan_date": date_str[:10],
                 "sport": sport_safe,
@@ -348,7 +356,10 @@ def build_daily_rows_from_ai(
                 "session_index": int(s.get("session_index") or idx),
                 "payload": s.get("payload"),
                 "activity_id": None,
-            })
+            }
+            if plan_meta_id is not None:
+                row["plan_meta_id"] = plan_meta_id
+            rows.append(row)
     return rows
 
 
@@ -360,19 +371,20 @@ def build_daily_context_from_db(
     user_id: int,
     *,
     week_index: int,
+    plan_meta_id: Optional[int],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Zostaví kompletný context_payload pre daily plan generátor.
-    Načíta analyze_input, athlete_state, week_row, external_events a strength menu.
-    Strength menu sa načíta len ak má user strength v pláne.
+
+    plan_meta_id: NOVÉ - ktorému konkrétnemu plánu tento week_index patrí.
+    Doteraz sa week_index hľadal naprieč VŠETKÝMI plánmi usera - ak mal
+    rozbehnutý draft aj aktívny plán s rovnakým week_index, mohol sa
+    načítať nesprávny week_row.
     """
-    # Plný analyze input — recovery, recent_load, zones, thresholds, last_activities
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx) or {}
 
     prefs_ai = flatten_prefs_for_ai(analyze_input)
-    # 🌟 NOVÉ: ak user nemá zapnutý detailed_mode, doplní sa rozumnými
-    # defaultami (strength 2x/týždeň full gym, long run nedeľa, atď.)
     prefs_ai = apply_basic_mode_defaults(prefs_ai)
 
     targets_ai = extract_targets_from_prefs(prefs_ai)
@@ -384,9 +396,8 @@ def build_daily_context_from_db(
 
     latest_paces = db_get_latest_paces(user_id=user_id, ctx=ctx)
 
-    # Týždenný meta riadok z DB
     week_row = db_get_week_row_for_plan(
-        user_id=user_id, week_index=week_index, ctx=ctx
+        user_id=user_id, plan_meta_id=plan_meta_id, week_index=week_index, ctx=ctx
     )
     week_meta: Dict[str, Any] = {
         "week_index": week_index,
@@ -399,7 +410,6 @@ def build_daily_context_from_db(
         "planned_minutes": week_row.get("planned_minutes") if week_row else None,
     }
 
-    # External events — len ak vieme dátumy týždňa
     external_block: Optional[Dict[str, Any]] = None
     external_fetch_error: Optional[str] = None
     if week_meta.get("week_start") and week_meta.get("week_end"):
@@ -419,13 +429,11 @@ def build_daily_context_from_db(
         except Exception as e:
             external_fetch_error = repr(e)
 
-    # Athlete state
     state_row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
     athlete_state_json = (state_row or {}).get("state_json") or {}
     if isinstance(athlete_state_json, dict):
         athlete_state_json["is_returning_beginner"] = is_returning_beginner
 
-    # Strength menu — len ak má user strength v pláne (šetrí DB call)
     strength_ai_menu: Any = None
     if _has_strength_in_plan(prefs_ai):
         try:
@@ -451,7 +459,6 @@ def build_daily_context_from_db(
         except Exception as e:
             print(f"[DAILY][builder] strength menu fetch failed: {repr(e)}")
 
-    # Coach notes — sticky + ephemeral pre AI
     coach_notes = {"sticky_notes": [], "ephemeral_note": None, "ephemeral_note_id": None}
     try:
         coach_notes = service_get_notes_for_builder(user_id=user_id, ctx=ctx)

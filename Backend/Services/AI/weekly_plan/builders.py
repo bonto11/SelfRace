@@ -56,15 +56,7 @@ def compute_week_boundaries(
 ) -> List[Dict[str, Any]]:
     """
     Vypočíta presné (week_index, week_start, week_end) hranice pre každý týždeň
-    v pláne, deterministicky v Pythone (AI si dátumy/dni v týždni nesmie počítať
-    samo - LLM na to nie sú spoľahlivé, viedlo to k nesprávnym dňom v týždni,
-    napr. pri identifikácii dňa preteku).
-
-    - Ak start_date_str chýba, berie sa dnešok.
-    - PRVÝ týždeň (week_index=1 v tomto výstupe, offsetuje sa neskôr pri
-      replane): od start_date po najbližšiu nedeľu (môže byť kratší ako 7
-      dní, nikdy nie dlhší).
-    - KAŽDÝ ĎALŠÍ týždeň: vždy presne pondelok -> nedeľa (7 dní).
+    v pláne, deterministicky v Pythone.
     """
     if start_date_str:
         try:
@@ -76,8 +68,6 @@ def compute_week_boundaries(
 
     boundaries: List[Dict[str, Any]] = []
 
-    # Najbližšia nedeľa od start (vrátane, ak start je už nedeľa). weekday():
-    # Monday=0 ... Sunday=6.
     days_until_sunday = (6 - start.weekday()) % 7
     first_week_end = start + timedelta(days=days_until_sunday)
 
@@ -87,7 +77,7 @@ def compute_week_boundaries(
         "week_end": first_week_end.isoformat(),
     })
 
-    cursor = first_week_end + timedelta(days=1)  # ďalší pondelok
+    cursor = first_week_end + timedelta(days=1)
     for i in range(2, horizon_weeks + 1):
         week_end = cursor + timedelta(days=6)
         boundaries.append({
@@ -110,11 +100,6 @@ def load_athlete_state_for_plan(
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Načíta athlete state pre generovanie plánu.
-    Preferuje state_id ak je zadaný, inak berie posledný.
-    Vyhodí ValueError ak žiadny neexistuje.
-    """
     row: Optional[Dict[str, Any]] = None
     if state_id is not None:
         row = db_get_state_by_id(state_id, ctx=ctx)
@@ -141,10 +126,6 @@ def load_athlete_state_for_plan(
 # ============================================================
 
 def _extract_prefs(context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Vytiahne prefs dict z contextu — skúša analyze_input_min aj root context.
-    Unwrapuje vnorený 'value' kľúč ak existuje.
-    """
     for source in (
         _as_dict(context.get("analyze_input_min")),
         _as_dict(context.get("analyze_input")),
@@ -162,14 +143,8 @@ def _extract_prefs(context: Dict[str, Any]) -> Dict[str, Any]:
 # ============================================================
 
 def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Osekáva analyze_input pre weekly plán — odstráni polia
-    ktoré sú redundantné (posielané samostatne v context_payload).
-    Zachováva last_activities s kľúčovými metrikami.
-    """
     ai: Dict[str, Any] = dict(analyze_input) if isinstance(analyze_input, dict) else {}
 
-    # Interné polia
     u = ai.get("user")
     if isinstance(u, dict):
         u2 = dict(u)
@@ -177,7 +152,6 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
             u2.pop(k, None)
         ai["user"] = u2
 
-    # last_activities — zachováme len kľúčové metriky
     la = ai.get("last_activities")
     if isinstance(la, list):
         trimmed: List[Dict[str, Any]] = []
@@ -203,7 +177,6 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
                 break
         ai["last_activities"] = trimmed
 
-    # Posielané samostatne v context_payload — redundantné tu
     for k in ("prefs", "thresholds", "zones", "bests", "streams", "laps", "splits"):
         ai.pop(k, None)
 
@@ -211,7 +184,7 @@ def _minify_analyze_input_for_weekly(analyze_input: Dict[str, Any]) -> Dict[str,
 
 
 # ============================================================
-# 🌟 REPLAN WEEK-INDEX ANCHOR (deterministický, kalendárový)
+# REPLAN WEEK-INDEX ANCHOR (deterministický, kalendárový)
 # ============================================================
 
 def _compute_current_week_index_for_replan(
@@ -219,23 +192,10 @@ def _compute_current_week_index_for_replan(
 ) -> tuple[int, str]:
     """
     Vypočíta (current_week_index_offset, start_date_for_weeks) pre replan
-    VÝHRADNE z kalendára — nikdy z toho, aký najvyšší week_index náhodou
-    leží v DB.
-
-    PREČO: pôvodná logika hľadala riadok kde week_start <= dnešok <= week_end,
-    a ak ho nenašla (napr. medzera medzi týždňami spôsobená starším bugom,
-    alebo oneskorené pregenerovanie), spravila `max(existing week_index) + 1`.
-    To je nespoľahlivé — ak v tabuľke ostal osirotený/starý riadok s vysokým
-    week_index (napr. z predošlého chybného generovania), replan naň naviazal
-    a vznikol skok v číslovaní (napr. 7 -> 18) aj rast celkového počtu
-    týždňov pri opakovanom pregenerovaní (10 -> 12 -> 15), lebo nové týždne
-    sa nikdy neprekryli s existujúcimi a teda ich nenahradili.
-
-    Namiesto toho: zoberieme week_start týždňa s week_index == 1 (skutočný,
-    pôvodný začiatok plánu) ako pevný "anchor" a dopočítame, do ktorého
-    kalendárneho týždňa padá dnešok, rovnakou logikou ako
-    compute_week_boundaries. Výsledok je vždy rovnaký bez ohľadu na to, aké
-    (prípadne poškodené) riadky momentálne existujú v DB.
+    VÝHRADNE z kalendára, ukotvený na week_index=1 starte TOHTO PLÁNU
+    (existing_rows už prichádzajú scoped podľa plan_meta_id z volajúceho -
+    pozri build_weekly_context_from_db nižšie - takže tu už nehrozí, že by
+    anchor prišiel z iného, nesúvisiaceho plánu).
     """
     today_iso = date.today().isoformat()
 
@@ -245,9 +205,6 @@ def _compute_current_week_index_for_replan(
         default=None,
     )
     if not anchor_row:
-        # Núdzový fallback — week_index=1 riadok chýba (nemalo by nastať pri
-        # zdravých dátach). Zoberieme riadok s najnižším week_index ako anchor,
-        # aspoň relatívne konzistentne.
         rows_with_start = [r for r in existing_rows if r.get("week_start")]
         anchor_row = min(
             rows_with_start,
@@ -256,7 +213,6 @@ def _compute_current_week_index_for_replan(
         )
 
     if not anchor_row:
-        # Úplne bez použiteľných dát — správaj sa ako pri prvom generovaní.
         return 1, today_iso
 
     anchor_start = str(anchor_row["week_start"])
@@ -268,12 +224,9 @@ def _compute_current_week_index_for_replan(
         return 1, today_iso
 
     if date.today() < anchor_date:
-        # Dnešok je pred pôvodným začiatkom plánu (nemalo by nastať) — poistka.
         return anchor_index, anchor_start
 
     days_since_anchor = (date.today() - anchor_date).days
-    # Dostatočne veľký horizont, aby určite pokryl dnešok, aj keby plán
-    # výrazne mešká oproti tomu, čo je aktuálne v DB.
     safety_horizon = max(4, (days_since_anchor // 7) + 4)
 
     probe_boundaries = compute_week_boundaries(anchor_start, safety_horizon)
@@ -282,11 +235,8 @@ def _compute_current_week_index_for_replan(
         None,
     )
     if not current_probe:
-        # Nemalo by sa stať vďaka safety_horizon, ale poistka nech nič nezhodí.
         current_probe = probe_boundaries[-1]
 
-    # probe_boundaries číslujú od 1 → posunieme o (anchor_index - 1), aby
-    # výsledné číslovanie nadväzovalo na pôvodné, historické week_index.
     current_week_index_offset = current_probe["week_index"] + anchor_index - 1
     start_date_for_weeks = current_probe["week_start"]
 
@@ -299,18 +249,7 @@ def _compute_horizon_weeks_for_target_end_date(
     *,
     max_safety_weeks: int = 52,
 ) -> int:
-    """
-    🌟 "Skrátiť/predĺžiť plán" cez date picker (Coach Notes -> Veľká zmena).
-    Athlete vyberie cieľový koncový dátum plánu (predvyplnený aktuálnym
-    koncom plánu, môže ho zmeniť). BE z tohto dátumu VŽDY deterministicky
-    dopočíta presný počet týždňov (horizon_weeks) - nezávisle od toho, čo
-    prípadne napíše do textovej poznámky. Text poznámky ostáva len ako
-    dôvod/štýl pre AI (napr. "mám menej času"), nie ako zdroj počtu týždňov.
-
-    Vráti week_index prvého (od start_date_for_weeks počítaného) týždňa,
-    ktorého week_end >= target_end_date - t.j. koľko týždňov treba
-    vygenerovať, aby posledný pokryl zvolený koncový dátum.
-    """
+    """"Skrátiť/predĺžiť plán" cez date picker (Coach Notes -> Veľká zmena)."""
     probe = compute_week_boundaries(start_date_for_weeks, max_safety_weeks)
     for wb in probe:
         if wb["week_end"] >= target_end_date:
@@ -328,27 +267,26 @@ def build_weekly_context_from_db(
     ctx: AuthCtx,
     state_id: Optional[int],
     weeks: Optional[int],
+    plan_meta_id: Optional[int],
     full_reset: bool = False,
     target_end_date: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Zostaví kompletný context_payload pre weekly plan generátor.
-    Načíta analyze_input z DB (ťažký call), athlete_state, external_events
-    a coach_user_notes (sticky + ephemeral).
+
+    plan_meta_id: NOVÉ - ktorému konkrétnemu plánu (coach_plan_meta.id)
+    tento replan patrí. Pri full_reset (prvotné generovanie) je zvyčajne
+    None, keďže meta záznam ešte neexistuje - existing_rows preto vyjde
+    prázdny a is_replan=False, čo je presne to, čo chceme (žiadny replan
+    logika, žiadny anchor z cudzieho plánu).
     """
-    # Plný analyze input — potrebujeme last_activities, recovery, recent_load
     analyze_input = build_input_from_db(user_id=user_id, ctx=ctx)
     if not isinstance(analyze_input, dict):
         analyze_input = {}
 
     prefs_ai = _extract_prefs(analyze_input)
-    # 🌟 NOVÉ: ak user nemá zapnutý detailed_mode, doplní sa rozumnými
-    # defaultami (strength 2x/týždeň full gym, long run nedeľa, atď.) —
-    # rovnaká logika a rovnaké defaulty ako v daily builderi, aby weekly
-    # a daily plán boli medzi sebou konzistentné.
     prefs_ai = apply_basic_mode_defaults(prefs_ai)
 
-    # External events — berieme z analyze_input ak už tam sú, inak fresh fetch
     external_events_block = analyze_input.get("external_events")
     if external_events_block is None:
         try:
@@ -358,47 +296,32 @@ def build_weekly_context_from_db(
         except Exception:
             external_events_block = None
 
-    # Athlete state — posledný alebo podľa state_id
     state_bundle = load_athlete_state_for_plan(
         user_id=user_id, state_id=state_id, ctx=ctx
     )
     used_state_id = state_bundle["state_id"]
     athlete_state = state_bundle["state"]
 
-    # Beginner flag do athlete_state
     is_returning_beginner = _check_is_returning_beginner(analyze_input)
     if isinstance(athlete_state, dict):
         athlete_state["is_returning_beginner"] = is_returning_beginner
 
-    # Coach notes — sticky + ephemeral pre AI context
     coach_notes = {"sticky_notes": [], "ephemeral_note": None, "ephemeral_note_id": None}
     try:
         coach_notes = service_get_notes_for_builder(user_id=user_id, ctx=ctx)
     except Exception as e:
         print(f"❌ [WEEKLY][builder] coach notes fetch failed: {repr(e)}")
 
-    # 🌟 REPLAN DETECTION: ak už existujú weekly riadky pre tohto usera, ide
-    # o replan existujúceho plánu, nie o prvotné vytvorenie. Pri replane
-    # NESMIEME znova generovať už uzavreté minulé týždne (spôsobovalo to
-    # duplicity - staré riadky s week_end v minulosti sa nemažú, ale AI ich
-    # aj tak vygenerovala znova s rovnakými dátumami).
-    existing_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-    # 🌟 full_reset=True znamená, že sa chystáme kompletne premazať staré
-    # riadky (v service_generate_weekly_plan, hneď po tomto builderi) - preto
-    # sa tu SPRÁVAME, akoby žiadne staré dáta neboli, aby week_index začínal
-    # znova od 1 a race_hint/dátumy vychádzali zo skutočného start_date z
-    # prefs, nie z kontinuácie starého (čoskoro zmazaného) plánu.
+    # FIX: existing_rows sa teraz načíta SCOPED na plan_meta_id, nie
+    # naprieč všetkými plánmi usera - toto je presne to miesto, kde predtým
+    # unikol anchor z nesúvisiaceho draftu do replanu aktívneho plánu.
+    existing_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     is_replan = len(existing_rows) > 0 and not full_reset
 
     current_week_index_offset = 1
     start_date_for_weeks: Optional[str] = None
 
     if is_replan:
-        # 🌟 FIX: week_index pre "dnešok" sa počíta ČISTO z kalendára,
-        # ukotvený na pôvodnom week_index=1 starte — nie z toho, aký
-        # najvyšší index náhodou existuje v DB. Pozri docstring funkcie
-        # _compute_current_week_index_for_replan pre detailné vysvetlenie
-        # bugu (skok 7 -> 18, rastúci weeks_total pri opakovanom replane).
         current_week_index_offset, start_date_for_weeks = (
             _compute_current_week_index_for_replan(existing_rows)
         )
@@ -407,12 +330,6 @@ def build_weekly_context_from_db(
             prefs_ai.get("start_date") or prefs_ai.get("plan_start_date")
         )
 
-    # 🌟 Horizon weeks:
-    # - Ak athlete zvolil cieľový koncový dátum v date pickeri (Coach Notes ->
-    #   Veľká zmena), horizon_weeks sa dopočíta PRESNE z toho dátumu - toto
-    #   má prioritu, ide o explicitnú vôľu athléta (skrátiť/predĺžiť plán).
-    # - Inak fallback na pôvodné správanie: parameter/prefs, oklipovaný na
-    #   business min/max z configu.
     if target_end_date and start_date_for_weeks:
         horizon_weeks = max(
             1,
@@ -424,10 +341,6 @@ def build_weekly_context_from_db(
         raw_weeks = int(weeks or prefs_ai.get("weeks") or COACH_PLAN_DEFAULT_WEEKS)
         horizon_weeks = max(COACH_PLAN_MIN_WEEKS, min(raw_weeks, COACH_PLAN_MAX_WEEKS))
 
-    # Presné, Python-vypočítané hranice týždňov (pondelok-nedeľa, prvý
-    # týždeň môže byť kratší podľa start_date) - AI ich dostane ako fakt cez
-    # prompt, nesmie si dátumy/dni v týždni počítať sama. Pri replane sa
-    # week_index posunie tak, aby nadväzoval na existujúce číslovanie.
     raw_boundaries = compute_week_boundaries(start_date_for_weeks, horizon_weeks)
     week_boundaries = [
         {**wb, "week_index": wb["week_index"] + current_week_index_offset - 1}
@@ -459,13 +372,8 @@ def build_weekly_context_from_db(
     }
 
     if target_end_date:
-        # Len informatívne pre AI (napr. do coach_reply "skrátili sme plán do
-        # X") - samotný počet týždňov je už definitívne vyriešený vyššie.
         context_payload["target_end_date"] = target_end_date
 
-    # Pri replane pošleme AI aj krátky súhrn UŽ UZAVRETÝCH minulých týždňov
-    # (goal/load_phase/actual_stats) ako kontext - AI ich nemá generovať
-    # znova, ale môže sa na ne odvolávať (napr. "pokračujeme v build fáze").
     if is_replan:
         past_weeks_summary = [
             {
@@ -501,7 +409,6 @@ def build_weekly_context_from_db(
 # ============================================================
 
 def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
-    """Vytiahne zoznam týždenných riadkov z AI outputu — zvláda rôzne formáty."""
     if isinstance(weekly_plan, dict):
         for key in ("weeks", "plan"):
             val = weekly_plan.get(key)
@@ -516,14 +423,20 @@ def extract_weeks_payload(weekly_plan: Any) -> List[Dict[str, Any]]:
 def build_weekly_rows_from_ai(
     user_id: int,
     weeks_list: List[Dict[str, Any]],
+    plan_meta_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Prevedie AI weekly output na DB riadky pre coach_plan_weekly tabuľku."""
+    """
+    plan_meta_id: NOVÉ - ak už poznáme (replan existujúceho plánu), zapíše
+    sa priamo do každého riadku. Pri prvotnom generovaní (None) ostane v
+    riadku chýbať a doplní sa AŽ PO vytvorení meta záznamu cez
+    db_set_plan_meta_id_for_weekly_rows (pozri main.py).
+    """
     rows: List[Dict[str, Any]] = []
     for idx, w in enumerate(weeks_list, start=1):
         if not isinstance(w, dict):
             continue
         week_index = int(w.get("week_index") or idx)
-        rows.append({
+        row: Dict[str, Any] = {
             "user_id": user_id,
             "week_index": week_index,
             "week_start": w.get("week_start"),
@@ -535,5 +448,8 @@ def build_weekly_rows_from_ai(
             "actual_stats": {},
             "notes": w.get("notes"),
             "raw_json": w,
-        })
+        }
+        if plan_meta_id is not None:
+            row["plan_meta_id"] = plan_meta_id
+        rows.append(row)
     return rows

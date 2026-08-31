@@ -116,13 +116,15 @@ def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Op
         "hrv_prev_7_21d_avg": mean(prev_vals) if prev_vals else None,
     }
 
-def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
+def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx) -> Dict[str, Any]:
     today_iso = date.today().isoformat()
-    
+
     try:
-        # ČÍTANIE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
-        sessions = db_get_planned_range_rows(user_id=user_id, date_from=today_iso, date_to=today_iso, ctx=ctx)
-        
+        # FIX: teraz scoped na plan_meta_id (predtým čítalo naprieč
+        # všetkými plánmi usera - autorecovery mohla omylom upraviť
+        # "dnešnú session" nesúvisiaceho draftu namiesto aktívneho plánu).
+        sessions = db_get_planned_range_rows(user_id=user_id, plan_meta_id=plan_meta_id, date_from=today_iso, date_to=today_iso, ctx=ctx)
+
         if not sessions:
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_rest_day"}
         
@@ -162,10 +164,8 @@ def _apply_autorecovery_to_today(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
             "payload": payload
         }
         
-        # UPDATE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
         db_update_daily_session_data(user_id=user_id, session_id=int(first_session["id"]), update_data=update_data, ctx=ctx)
         
-        # VYMAZANIE CEZ DB ROUTU NAMIESTO PRIAMEHO SB
         for extra_session in sessions[1:]:
             db_delete_daily_session(user_id=user_id, session_id=int(extra_session["id"]), ctx=ctx)
             
@@ -189,18 +189,28 @@ def service_coach_autoadjust_after_update(
     
     print(f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}")
 
+    # FIX (ROOT CAUSE): plan_meta_id sa zisťuje RAZ, hneď na začiatku, a
+    # posiela sa do ÚPLNE VŠETKÝCH volaní nižšie (weekly generate, daily
+    # generate, daily extend, autorecovery, weekly rows lookup). Predtým sa
+    # nikde neposielal - každá DB funkcia si čítala/mazala naprieč VŠETKÝMI
+    # plánmi usera, takže ak mal user rozbehnutý nedokončený draft (napr. z
+    # testovania skrátenia plánu) SÚČASNE s aktívnym plánom, autoadjust
+    # aktívneho plánu si "požičal" week_index/dátumy z toho draftu -
+    # presne toto spôsobilo, že ultra beh 29.8. nikdy neukončil plán.
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    if not meta:
+        print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
+        return {"changed": False, "mode": "no_plan"}
+    plan_meta_id = meta.get("id")
+    print(f"[AUTOADJUST DEBUG] Resolved plan_meta_id={plan_meta_id} (status={meta.get('status')}, start={meta.get('start_date')}, end={meta.get('end_date')})")
+
     if force_reason == "autorecovery":
-        return _apply_autorecovery_to_today(user_id=user_id, ctx=ctx)
+        return _apply_autorecovery_to_today(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
 
     today = date.today()
 
     be_flags = _compute_be_flags_recent_load(user_id=user_id, window_days=42, ctx=ctx)
     recovery_debug = _compute_recovery_debug(user_id=user_id, ctx=ctx)
-
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-    if not meta:
-        print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
-        return {"changed": False, "mode": "no_plan"}
 
     meta_created = _to_date(meta.get("created_at") or meta.get("generated_at"))
     weekly_age_days = (today - meta_created).days if meta_created else None
@@ -223,14 +233,15 @@ def service_coach_autoadjust_after_update(
         
         db_clear_daily_for_user_range(
             user_id=user_id,
-            date_from=(today + timedelta(days=1)).isoformat(), 
+            plan_meta_id=plan_meta_id,
+            date_from=(today + timedelta(days=1)).isoformat(),
             date_to=(today + timedelta(days=100)).isoformat(),
             ctx=ctx,
-            global_user_clear=True
         )
         
         db_delete_future_weekly_plans(
              user_id=user_id,
+             plan_meta_id=plan_meta_id,
              from_date_iso=next_monday.isoformat(),
              ctx=ctx
         )
@@ -242,14 +253,6 @@ def service_coach_autoadjust_after_update(
         }
 
     #  1. Zjemniť (Soften) pre SKUTOČNÉ zdravotné obmedzenia a fázy cyklu
-    # (Severity < 7, hlásené cez Health log) — tu fixných 7 dní ostáva ako
-    # bezpečný default, to je zámer.
-    #
-    # každý review, ktorý AI
-    # označilo ako needs_caution/injury (viď async_jobs.py), Teraz 
-    # spadne do "klasickej" vetvy nižšie, ktorá zavolá plnú athlete_state
-    # analýzu — tá už MÁ celý kontext a vlastný, správne odstupňovaný
-    # plan_adjustment.soften_next_days (should_soften/days/reason).
     if force_reason in ["health_mild_restriction", "health_menstruation"]:
         soften_should = True 
         soften_days = 7 
@@ -264,8 +267,7 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Klasický auto-adjust (žiadny force ALEBO "manual_review" — review
-    # zavolalo needs_caution/injury a nechá plnú analýzu rozhodnúť mieru).
+    # 3. Klasický auto-adjust
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -301,10 +303,10 @@ def service_coach_autoadjust_after_update(
         else:
             db_clear_daily_for_user_range(
                 user_id=user_id,
+                plan_meta_id=plan_meta_id,
                 date_from=today.isoformat(),
                 date_to=(today + timedelta(days=100)).isoformat(),
                 ctx=ctx,
-                global_user_clear=True
             )
             print("[AUTOADJUST DEBUG] Cleared future daily plan rows.")
 
@@ -316,11 +318,13 @@ def service_coach_autoadjust_after_update(
                 weeks=None,
                 model=None,
                 override_start_date=None, 
+                plan_meta_id=plan_meta_id,
                 ctx=ctx,
             )
-            print(f"[AUTOADJUST DEBUG] Weekly generator finished. Success: {weekly_resp.get('success')}")
-            
-            weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
+            print(f"[AUTOADJUST DEBUG] Weekly generator finished. Success: {weekly_resp.get('ok')}")
+            plan_meta_id = weekly_resp.get("plan_meta_id") or plan_meta_id
+
+            weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
             
             cur_idx = _find_current_week_index(weekly_rows, today=today)
             if cur_idx is None and weekly_rows:
@@ -334,6 +338,7 @@ def service_coach_autoadjust_after_update(
             daily_res = service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
+                plan_meta_id=plan_meta_id,
                 model=None,
                 drop_past_days=False, 
                 reason=force_reason or "weekly_replan",
@@ -344,6 +349,7 @@ def service_coach_autoadjust_after_update(
 
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
+                plan_meta_id=plan_meta_id,
                 min_horizon_days=MIN_DAILY_HORIZON_AFTER_WEEKLY,
                 ctx=ctx,
             )
@@ -352,6 +358,7 @@ def service_coach_autoadjust_after_update(
                 "changed": True,
                 "mode": "weekly_replan",
                 "reason": weekly_replan_reason or "weekly plan re-generated",
+                "plan_meta_id": plan_meta_id,
                 "plan_adjustment": plan_adjustment,
                 "daily_extend": daily_extend,
                 "daily_result_debug": daily_res
@@ -359,7 +366,7 @@ def service_coach_autoadjust_after_update(
 
     if soften_should:
         print("[AUTOADJUST DEBUG] Starting Daily Soften...")
-        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
+        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
         if not isinstance(weekly_rows, list):
             weekly_rows = []
             
@@ -372,6 +379,7 @@ def service_coach_autoadjust_after_update(
         daily_resp = service_generate_daily_week(
             user_id=user_id, 
             week_index=cur_idx, 
+            plan_meta_id=plan_meta_id,
             model=None, 
             drop_past_days=False, 
             reason=force_reason or "soften",
@@ -384,6 +392,7 @@ def service_coach_autoadjust_after_update(
             "mode": "daily_soften",
             "reason": soften_reason,
             "affected_week_index": cur_idx,
+            "plan_meta_id": plan_meta_id,
             "daily_result": {"week_index": daily_resp.get("week_index"), "debug": daily_resp}
         }
 
@@ -402,6 +411,12 @@ def service_reschedule_daily_plan(
             horizon_days=horizon_days,
             ctx=ctx,
         )
+
+    # FIX: reschedule (presúvanie tréningov v kalendári) potrebuje
+    # plan_meta_id, aby db_reschedule_daily_sessions_bulk správne počítalo
+    # obsadenosť dní / rest-day kolízie v rámci TOHTO plánu.
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    plan_meta_id = meta.get("id") if meta else None
 
     cleaned: List[Dict[str, Any]] = []
     for m in moves:
@@ -431,6 +446,7 @@ def service_reschedule_daily_plan(
 
     out = db_reschedule_daily_sessions_bulk(
         user_id=user_id,
+        plan_meta_id=plan_meta_id,
         moves=cleaned,
         max_per_day=2,
         ctx=ctx,
@@ -441,6 +457,7 @@ def service_reschedule_daily_plan(
 
     return service_get_daily_overview(
         user_id=user_id,
+        plan_meta_id=plan_meta_id,
         horizon_days=horizon_days,
         ctx=ctx,
     )

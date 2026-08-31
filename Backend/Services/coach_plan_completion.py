@@ -30,12 +30,8 @@ RACE_GOAL_KM: Dict[str, float] = {
 
 DISTANCE_TOLERANCE_PCT = 0.10  # ±10 %
 
-# Poradie športov na zobrazenie - konzistentné naprieč plan_stats/combined_stats/unmatched_stats
 SPORT_DISPLAY_ORDER: Dict[str, int] = {"run": 0, "ride": 1, "swim": 2, "strength": 3, "other": 4}
 
-# Mapovanie kanonického športu na kľúče v coach_plan_weekly.actual_stats
-# (POZOR: plán ukladá bicykel pod kľúčom "bike_*", nie "ride_*" - preto je
-# tu explicitná mapa, aby sme to nepomiešali s canonical "ride" názvom).
 PLAN_SPORT_FIELDS: Dict[str, Dict[str, Any]] = {
     "run": {"distance_key": "run_distance_km", "distance_unit_div": 1.0, "time_key": "run_time_min"},
     "ride": {"distance_key": "bike_distance_km", "distance_unit_div": 1.0, "time_key": "bike_time_min"},
@@ -49,12 +45,6 @@ PLAN_SPORT_FIELDS: Dict[str, Dict[str, Any]] = {
 # ============================================================
 
 def _target_distance_km(race: Dict[str, Any]) -> Optional[float]:
-    """
-    custom_distance_km je hodnota, ktorú user zadal pri voľbe 'other'/'ultra'
-    (frontend GoalSection.tsx). Pri štandardných voľbách (5k/10k/half/
-    marathon) je custom_distance_km null a reálna vzdialenosť sa odvodí
-    z race_goal -> RACE_GOAL_KM (prepis toho, čo user zvolil kliknutím).
-    """
     custom = race.get("custom_distance_km")
     if isinstance(custom, (int, float)) and custom > 0:
         return float(custom)
@@ -78,11 +68,6 @@ def _find_matching_race(
     activity_date_iso: str,
     activity_distance_km: float,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Nájde AKÝKOĽVEK pretek (bez ohľadu na prioritu) z prefs.targets.run.races,
-    ktorého dátum sa PRESNE zhoduje s dátumom aktivity a vzdialenosť je v
-    tolerancii ±10 %.
-    """
     act_date_only = str(activity_date_iso)[:10]
 
     for race in _all_races(prefs):
@@ -104,10 +89,6 @@ def _find_matching_race(
 
 
 def _pick_primary_race(prefs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Pre manuálny (on-demand) trigger vyberá "hlavný" pretek na zobrazenie -
-    uprednostní prioritu A, potom B, C, D..., inak prvý v zozname.
-    """
     races = _all_races(prefs)
     if not races:
         return None
@@ -125,11 +106,20 @@ def _pick_primary_race(prefs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def _is_last_plan_session_match(
     user_id: int,
+    plan_meta_id: Optional[int],
     activity_date_iso: str,
     *,
     ctx: AuthCtx,
 ) -> bool:
-    last_session = db_get_last_planned_daily_session_for_user(user_id, ctx=ctx)
+    """
+    FIX (ROOT CAUSE): posledná session sa teraz hľadá SCOPED na
+    plan_meta_id tohto konkrétneho (aktívneho) plánu, nie naprieč
+    všetkými plánmi usera. Predtým, keď mal user rozbehnutý nedokončený
+    draft s neskoršími dátumami, táto funkcia našla poslednú session
+    z DRAFTU (nie z aktívneho plánu), takže sa aktívny plán nikdy
+    neoznačil za dokončený, aj keď reálne bol.
+    """
+    last_session = db_get_last_planned_daily_session_for_user(user_id, plan_meta_id, ctx=ctx)
     if not last_session:
         return False
 
@@ -166,12 +156,6 @@ def _aggregate_weekly_stats(weeks: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _group_plan_stats_by_sport(actual_totals: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Rozpad actual_stats z coach_plan_weekly (napárované session) podľa
-    športu. Beh -> tempo (s/km), bicykel -> rýchlosť (km/h) - toto sú
-    fyzikálne iné veličiny a nedávalo zmysel počítať bicyklu "tempo".
-    Nikdy sa nič nemieša naprieč športmi.
-    """
     out: List[Dict[str, Any]] = []
     for sport, cfg in PLAN_SPORT_FIELDS.items():
         time_min = float(actual_totals.get(cfg["time_key"]) or 0)
@@ -207,10 +191,6 @@ def _merge_by_sport(
     plan_by_sport: List[Dict[str, Any]],
     unmatched_by_sport: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """
-    Sčíta plán + nenapárované aktivity PER ŠPORT (nikdy naprieč športmi).
-    Beh -> tempo, bicykel -> rýchlosť.
-    """
     merged: Dict[str, Dict[str, Any]] = {}
 
     for row in plan_by_sport:
@@ -227,9 +207,6 @@ def _merge_by_sport(
         m["distance_km"] += row.get("total_distance_km", 0.0)
         m["time_min"] += row.get("total_time_min", 0.0)
         if row.get("avg_hr_bpm") and row.get("count"):
-            # HR z unmatched aktivít je jediný zdroj HR, ktorý máme -
-            # plán (weekly aggregate) HR vôbec neuchováva. Váhované podľa
-            # počtu aktivít, z ktorých bol ten priemer pôvodne spočítaný.
             m["hr_weighted_sum"] += row["avg_hr_bpm"] * row["count"]
             m["hr_weight"] += row["count"]
 
@@ -257,14 +234,10 @@ def _merge_by_sport(
 
 
 # ============================================================
-# UNMATCHED ACTIVITIES AGGREGATION (Strava aktivity nenapárované na plán)
+# UNMATCHED ACTIVITIES AGGREGATION
 # ============================================================
 
 def _canonical_sport(s: Any) -> str:
-    """
-    Normalizácia športu do 5 skupín. 'run' zámerne zahŕňa trail_run aj
-    obstacle_run (OCR) - beh je beh bez ohľadu na terén/prekážky.
-    """
     if not s:
         return "other"
     v = str(s).lower()
@@ -280,16 +253,10 @@ def _canonical_sport(s: Any) -> str:
 
 
 def _aggregate_unmatched_activities(
-    *, user_id: int, ctx: AuthCtx
+    *, user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx
 ) -> Dict[str, Any]:
-    """
-    Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú
-    session v coach_plan_daily - za celé obdobie aktívneho plánu.
-
-    Beh -> tempo (s/km), bicykel -> rýchlosť (km/h). Zámerne NEOBSAHUJE
-    žiadny "blended" priemer naprieč rôznymi športmi.
-    """
-    raw = db_get_unmatched_activities(user_id, ctx=ctx, days=180)
+    """Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú session TOHTO plánu."""
+    raw = db_get_unmatched_activities(user_id, plan_meta_id, ctx=ctx, days=180)
 
     if not raw:
         return {"count": 0, "total_distance_km": 0.0, "total_time_min": 0.0, "by_sport": []}
@@ -375,24 +342,15 @@ def _aggregate_unmatched_activities(
 def _compute_hard_stats(
     *,
     user_id: int,
+    plan_meta_id: Optional[int],
     elapsed_weeks: List[Dict[str, Any]],
     aggregated: Dict[str, Any],
     unmatched_activities: Dict[str, Any],
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """
-    Deterministicky (bez AI) vypočítané tvrdé čísla k cyklu.
-
-    Vracia TRI oddelené bloky:
-    - plan_stats: len napárované session (z coach_plan_weekly), rozpad po športe
-    - unmatched_stats: aktivity mimo plánu, rozpad po športe
-    - combined_stats: súčet oboch, rozpad po športe
-
-    Tempo/rýchlosť/tep sa NIKDY nepočíta naprieč rôznymi športmi.
-    """
     weeks_tracked = len(elapsed_weeks)
 
-    compliance = db_get_compliance_stats(user_id, ctx=ctx)
+    compliance = db_get_compliance_stats(user_id, plan_meta_id, ctx=ctx)
     done = int(compliance.get("done") or 0)
     missed = int(compliance.get("missed") or 0)
     postponed = int(compliance.get("postponed") or 0)
@@ -438,7 +396,7 @@ def _compute_hard_stats(
 
 
 # ============================================================
-# SHARED BUILDER (spoločné pre auto aj manuálny trigger)
+# SHARED BUILDER
 # ============================================================
 
 def _build_and_save_summary(
@@ -453,7 +411,7 @@ def _build_and_save_summary(
 ) -> Optional[Dict[str, Any]]:
     meta_id = meta.get("id")
 
-    weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+    weeks = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
     aggregated = _aggregate_weekly_stats(weeks)
     prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx)
 
@@ -473,10 +431,11 @@ def _build_and_save_summary(
     elapsed_weeks = [w for w in weeks if _week_end_str(w) and _week_end_str(w) <= today_iso]
     future_weeks_count = len(weeks) - len(elapsed_weeks)
 
-    unmatched_activities = _aggregate_unmatched_activities(user_id=user_id, ctx=ctx)
+    unmatched_activities = _aggregate_unmatched_activities(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
 
     hard_stats = _compute_hard_stats(
         user_id=user_id,
+        plan_meta_id=meta_id,
         elapsed_weeks=elapsed_weeks,
         aggregated=aggregated,
         unmatched_activities=unmatched_activities,
@@ -589,7 +548,9 @@ def service_check_and_generate_plan_summary(
         activity_distance_km = float(distance_m) / 1000.0
         matching_race = _find_matching_race(prefs, str(activity_date), activity_distance_km)
 
-    is_last_session = _is_last_plan_session_match(user_id, str(activity_date), ctx=ctx)
+    # FIX: teraz scoped na tento konkrétny meta_id - pozri docstring
+    # _is_last_plan_session_match vyššie.
+    is_last_session = _is_last_plan_session_match(user_id, meta_id, str(activity_date), ctx=ctx)
 
     if not matching_race and not is_last_session:
         return None

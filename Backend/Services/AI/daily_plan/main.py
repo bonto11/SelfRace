@@ -13,6 +13,7 @@ from DB.coach_plan_daily import (
     db_update_daily_session_data,
 )
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     get_user_monthly_usage_tokens,
@@ -84,6 +85,14 @@ def _log_ai_usage(
         print(f"[AI_BILLING] daily_plan error: {repr(e)}")
 
 
+def _resolve_plan_meta_id(user_id: int, plan_meta_id: Optional[int], *, ctx: AuthCtx) -> Optional[int]:
+    """Ak nebol plan_meta_id explicitne poslaný, dohľadá aktívny plán usera."""
+    if plan_meta_id is not None:
+        return plan_meta_id
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    return meta.get("id") if meta else None
+
+
 # ============================================================
 # GENERATE DAILY WEEK
 # ============================================================
@@ -92,21 +101,27 @@ def service_generate_daily_week(
     user_id: int,
     *,
     week_index: int,
+    plan_meta_id: Optional[int] = None,
     model: Optional[str] = None,
     drop_past_days: bool = False,
     reason: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Generuje denný tréningový plán pre daný týždeň.
-    model=None = provider použije default z ENV.
-    drop_past_days=True = vynechá dni pred dneškom (pri auto-extend).
-    reason = špeciálny dôvod generovania pre prompt.
+    Generuje denný tréningový plán pre daný týždeň DANÉHO PLÁNU.
+
+    plan_meta_id: NOVÉ - ak nie je zadaný, dohľadá sa aktívny plán usera
+    (zachováva staré správanie pre volania, ktoré ho ešte neposielajú).
+
+    FIX: predtým sa week_index hľadal a daily riadky ukladali naprieč
+    VŠETKÝMI plánmi usera bez rozlíšenia - to bol jeden z hlavných zdrojov
+    kontaminácie medzi aktívnym plánom a nedokončenými draftmi.
     """
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
 
-    # Kvóta check
+    plan_meta_id = _resolve_plan_meta_id(user_id, plan_meta_id, ctx=ctx)
+
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
@@ -116,10 +131,10 @@ def service_generate_daily_week(
             "used_tokens_this_month": used,
         }
 
-    # Builder
     context = build_daily_context_from_db(
         user_id=user_id,
         week_index=week_index,
+        plan_meta_id=plan_meta_id,
         ctx=ctx,
     )
     context_payload = context["context_payload"]
@@ -129,7 +144,6 @@ def service_generate_daily_week(
     if reason:
         context_payload["generate_reason"] = reason
 
-    # AI generovanie
     ai_plan, trace, err_msg = generate_daily_week_json(
         context_payload=context_payload,
         model=model,
@@ -155,14 +169,12 @@ def service_generate_daily_week(
     days: List[Dict[str, Any]] = ai_plan.get("days") or []
     if len(days) == 0:
         return {"ok": False, "code": "daily_plan_empty", "message": "AI vrátil prázdny plán."}
-    
-    # Billing
+
     model_used = str(trace.get("ok_model") or ai_plan.get("model") or "unknown")
     _log_ai_usage(user_id, trace, model_used, week_index, ctx)
 
     ai_plan = _reindex_sessions_per_day(ai_plan)
 
-    # Strength history
     try:
         extract_and_save_ai_strength_history(
             user_id=user_id, ai_daily_plan=ai_plan, ctx=ctx
@@ -170,7 +182,6 @@ def service_generate_daily_week(
     except Exception as e:
         print(f"[STRENGTH_MAPPER] error: {repr(e)}")
 
-    # Dátumový rozsah pre clear
     dates: List[str] = []
     for d in days:
         if not isinstance(d, dict):
@@ -186,14 +197,13 @@ def service_generate_daily_week(
     if drop_past_days and date_from and date_from < today_iso:
         date_from = today_iso
 
-    # Clear a insert
     deleted_rows = 0
     if date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
-            user_id=user_id, date_from=date_from, date_to=date_to, ctx=ctx
+            user_id=user_id, plan_meta_id=plan_meta_id, date_from=date_from, date_to=date_to, ctx=ctx
         )
 
-    rows_to_insert = build_daily_rows_from_ai(user_id=user_id, daily_plan=ai_plan)
+    rows_to_insert = build_daily_rows_from_ai(user_id=user_id, daily_plan=ai_plan, plan_meta_id=plan_meta_id)
     if drop_past_days:
         rows_to_insert = [
             r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso
@@ -201,9 +211,9 @@ def service_generate_daily_week(
 
     inserted_rows = 0
     if rows_to_insert:
-        inserted_rows = db_insert_daily_rows(rows_to_insert, ctx=ctx)
-        
-    # Označí ephemeral poznámku ako použitú
+        inserted_rows_data = db_insert_daily_rows(rows_to_insert, ctx=ctx)
+        inserted_rows = len(inserted_rows_data)
+
     if context.get("ephemeral_note_id"):
         try:
             service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
@@ -214,6 +224,7 @@ def service_generate_daily_week(
         "ok": True,
         "daily_plan": ai_plan,
         "week_index": week_index,
+        "plan_meta_id": plan_meta_id,
         "week_start": ai_plan.get("week_start") or week_meta.get("week_start"),
         "week_end": ai_plan.get("week_end") or week_meta.get("week_end"),
         "state_id": (state_row or {}).get("id"),
@@ -233,15 +244,18 @@ def service_get_daily_overview(
     user_id: int,
     horizon_days: int = 7,
     *,
+    plan_meta_id: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """Načíta denný prehľad tréningov pre daný horizont."""
+    """Načíta denný prehľad tréningov DANÉHO PLÁNU pre daný horizont."""
     if horizon_days <= 0:
         horizon_days = 7
 
+    plan_meta_id = _resolve_plan_meta_id(user_id, plan_meta_id, ctx=ctx)
+
     rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id, horizon_days=horizon_days, ctx=ctx
+            user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=horizon_days, ctx=ctx
         )
         or []
     )
@@ -301,20 +315,23 @@ def service_auto_extend_daily_plan(
     user_id: int,
     *,
     min_horizon_days: int = 4,
+    plan_meta_id: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Automaticky rozšíri denný plán ak zostáva menej ako min_horizon_days dní.
-    Pri aktuálnom týždni zachová odtrénované dni (drop_past_days=True).
+    Automaticky rozšíri denný plán DANÉHO PLÁNU ak zostáva menej ako
+    min_horizon_days dní. Pri aktuálnom týždni zachová odtrénované dni.
     """
     if min_horizon_days <= 0:
         min_horizon_days = 6
+
+    plan_meta_id = _resolve_plan_meta_id(user_id, plan_meta_id, ctx=ctx)
 
     today = date.today()
 
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
+            user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
         )
         or []
     )
@@ -336,7 +353,7 @@ def service_auto_extend_daily_plan(
         }
 
     weekly_rows: List[Dict[str, Any]] = (
-        db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx) or []
+        db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
     )
     if not weekly_rows:
         return {
@@ -364,7 +381,6 @@ def service_auto_extend_daily_plan(
 
         if ws <= last_date <= we:
             current_week_index = int(w.get("week_index") or 0)
-            # Ak v tomto týždni ešte ostali dni po last_date, doplň ich
             if we > last_date:
                 target_weeks.append(current_week_index)
         elif ws > last_date:
@@ -387,6 +403,7 @@ def service_auto_extend_daily_plan(
         res = service_generate_daily_week(
             user_id=user_id,
             week_index=week_idx,
+            plan_meta_id=plan_meta_id,
             model=None,
             drop_past_days=is_current_week,
             reason="refill_auto_extend",
@@ -395,10 +412,9 @@ def service_auto_extend_daily_plan(
         if res.get("ok"):
             generated.append(week_idx)
 
-        # Refresh days_left po každom generovaní
         daily_rows = (
             db_list_daily_for_user_horizon(
-                user_id=user_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
+                user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
             )
             or []
         )
@@ -434,6 +450,8 @@ def service_update_daily_session_status(
 ) -> Dict[str, Any]:
     """
     Spracuje manuálne zásahy do denného tréningu: Postpone, Match, Unmatch.
+    Nezmenené - operuje na konkrétnom session_id, ktoré je už jednoznačné
+    bez ohľadu na to, ktorému plánu patrí.
     """
     update_data: Dict[str, Any] = {}
 

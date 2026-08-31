@@ -22,13 +22,18 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 
 from DB.coach_plan_weekly import (
     db_insert_weekly_rows,
+    db_set_plan_meta_id_for_weekly_rows,
     db_clear_weekly_for_user_plan,
     db_delete_current_and_future_weekly_plans,
     db_get_weekly_for_user_plan,
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats,
 )
-from DB.coach_plan_meta import db_insert_plan_meta_generated
+from DB.coach_plan_meta import (
+    db_insert_plan_meta_generated,
+    db_get_active_plan_meta_for_user,
+    db_get_latest_plan_meta_for_user,
+)
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -83,25 +88,30 @@ def service_generate_weekly_plan(
     override_start_date: Optional[str] = None,
     reason: Optional[str] = None,
     target_end_date: Optional[str] = None,
+    plan_meta_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre generovanie weekly meta-plánu.
-    Kontroluje kvótu, zostaví kontext, zavolá AI, uloží výsledky.
-    Po úspešnom generovaní označí ephemeral poznámku ako použitú.
-    model=None = provider použije default z ENV.
-    reason = špeciálny dôvod generovania (health_resolved_return, health_recovery_mild atď.)
 
-    full_reset=True: PLNÉ vymazanie všetkých existujúcich weekly riadkov
-    (vrátane minulých/uzavretých), použi len keď plán ešte NIE JE aktívny
-    (used generuje odznova pred prvým spustením). Ak plán už beží a ide o
-    bežný replan, full_reset musí byť False (default), aby sa zachovala
-    história už odtrénovaných týždňov.
+    plan_meta_id: NOVÉ - ktorému konkrétnemu plánu (coach_plan_meta.id) tento
+    replan patrí.
+    - full_reset=True (prvotné generovanie z Prefs, plán ešte neaktívny):
+      plan_meta_id sa ignoruje na vstupe - vždy vzniká NOVÝ meta záznam AŽ
+      PO úspešnom vygenerovaní (lebo jeho start_date/end_date/weeks_total sa
+      počíta z reálneho AI výstupu). Weekly riadky sa najprv vložia bez
+      plan_meta_id a hneď potom sa im dopíše cez
+      db_set_plan_meta_id_for_weekly_rows.
+    - full_reset=False (replan existujúceho plánu): ak volajúci explicitne
+      pošle plan_meta_id, použije sa presne ten. Ak nie, service si sám
+      dohľadá aktívny/najnovší meta záznam usera (zachováva pôvodné
+      správanie pre volania, ktoré ešte plan_meta_id neposielajú).
 
-    target_end_date: 🌟 athlete si v UI (Coach Notes -> Veľká zmena) vyberie
-    dátum cez date picker, predvyplnený aktuálnym koncom plánu - toto skráti
-    alebo predĺži plán presne na daný dátum. Má prioritu pred `weeks`.
+    FIX oproti predošlej verzii: predtým sa weekly riadky nijako
+    nepriraďovali ku konkrétnemu plánu - viedlo to k tomu, že replan
+    aktívneho plánu mohol omylom čítať/mazať/prepisovať dáta úplne iného
+    (napr. nedokončeného draftu) plánu toho istého usera. Pozri root-cause
+    analýzu v chate (plán 61 vs. draft 71/72/73/75).
     """
-    # Kvóta check
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
@@ -111,43 +121,49 @@ def service_generate_weekly_plan(
             "used_tokens_this_month": used,
         }
 
-    # Builder — zostaví context z DB (vrátane coach_notes)
+    existing_meta: Optional[Dict[str, Any]] = None
+    if not full_reset and plan_meta_id is None:
+        existing_meta = (
+            db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+            or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        )
+        plan_meta_id = existing_meta.get("id") if existing_meta else None
+    elif full_reset:
+        # Prvotné generovanie - meta ešte neexistuje, vždy vznikne nový.
+        plan_meta_id = None
+
+    # Builder — zostaví context z DB (vrátane coach_notes), scoped na plan_meta_id
     context = build_weekly_context_from_db(
         user_id=user_id,
         ctx=ctx,
         state_id=state_id,
         weeks=weeks,
+        plan_meta_id=plan_meta_id,
         full_reset=full_reset,
         target_end_date=target_end_date,
     )
-
 
     context_payload = context["context_payload"]
     state_bundle = context["state_bundle"]
     horizon_weeks = context["horizon_weeks"]
     used_state_id = state_bundle["state_id"]
 
-    # 🌟 DEBUG: vidieť presne, aký horizon/target_end_date/boundaries sa
-    # poslali AI - kľúčové pri debugovaní "skrátenia plánu" cez date picker.
     print(
-        f"[WEEKLY-PLAN][user={user_id}] target_end_date={target_end_date!r} "
-        f"weeks_param={weeks!r} horizon_weeks={horizon_weeks} "
-        f"is_replan={context_payload.get('is_replan')} "
+        f"[WEEKLY-PLAN][user={user_id}] plan_meta_id={plan_meta_id!r} "
+        f"target_end_date={target_end_date!r} weeks_param={weeks!r} "
+        f"horizon_weeks={horizon_weeks} is_replan={context_payload.get('is_replan')} "
         f"week_boundaries="
         f"{[(wb.get('week_index'), wb.get('week_start'), wb.get('week_end')) for wb in (context_payload.get('week_boundaries') or [])]}"
     )
 
-    # Špeciálny dôvod generovania — ovplyvní prompt
     if reason:
         context_payload["generate_reason"] = reason
 
-    # Override start dátum — napr. pri injury replan
     if override_start_date:
         if isinstance(context_payload.get("prefs"), dict):
             context_payload["prefs"]["plan_start_date"] = override_start_date
         context_payload["replan_trigger"] = "critical_injury_override"
 
-    # AI generovanie
     weekly_plan, trace, err_msg = generate_weekly_plan_json(
         context_payload=context_payload,
         model=model,
@@ -164,7 +180,6 @@ def service_generate_weekly_plan(
 
     model_used = str(trace.get("ok_model") or weekly_plan.get("model") or "unknown")
 
-    # Billing
     _log_ai_usage(
         user_id, trace, model_used, "coach.generate_weekly_plan",
         meta={
@@ -172,37 +187,31 @@ def service_generate_weekly_plan(
             "requested_weeks": weeks,
             "horizon_weeks": horizon_weeks,
             "target_end_date": target_end_date,
+            "plan_meta_id": plan_meta_id,
         },
         ctx=ctx,
     )
 
     deleted_rows = 0
     if full_reset:
-        # Plán ešte nie je aktívny - kompletné vymazanie vrátane minulých
-        # týždňov, aby opakované generovanie z Prefs nepridávalo duplicitné
-        # týždne (napr. druhý klik na "Vygenerovať plán" pred aktiváciou by
-        # inak pridal týždne 15-28 vedľa existujúcich 1-14 namiesto ich
-        # nahradenia).
-        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        # plan_meta_id je tu vždy None (nový plán) - db_clear s None je no-op
+        # (nemá čo mazať, žiadny predošlý meta pre tento konkrétny nový plán
+        # neexistuje). Staré nedokončené drafty tohto usera TÝMTO nemažeme -
+        # to je samostatná téma (čistenie osirotených 'generated' meta
+        # záznamov), zámerne mimo rozsahu tejto zmeny.
+        deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     elif overwrite:
         today_iso = _date.today().isoformat()
         deleted_rows = db_delete_current_and_future_weekly_plans(
-            user_id=user_id, from_date_iso=today_iso, ctx=ctx
+            user_id=user_id, plan_meta_id=plan_meta_id, from_date_iso=today_iso, ctx=ctx
         )
 
-    # Ulož nové týždenné riadky
     weeks_list = extract_weeks_payload(weekly_plan)
 
-    # 🌟 HARD TRUNCATION: LLM niekedy nerešpektuje presný počet týždňov z
-    # week_boundaries - typicky pri skrátení plánu (target_end_date) si
-    # "dogeneruje" vlastný recovery/base blok navyše namiesto toho, aby sa
-    # zastavila presne na požadovanom dátume. BE preto NIKDY neverí AI počtu
-    # týždňov - čokoľvek s week_index mimo pôvodne zadaného rozsahu sa
-    # zahodí, nezávisle od toho, čo model vrátil.
     allowed_indices = {
-        int(wb.get("week_index"))
+        int(idx)
         for wb in (context_payload.get("week_boundaries") or [])
-        if wb.get("week_index") is not None
+        if (idx := wb.get("week_index")) is not None
     }
     if allowed_indices:
         before_count = len(weeks_list)
@@ -215,10 +224,10 @@ def service_generate_weekly_plan(
             print(
                 f"[WEEKLY-PLAN][user={user_id}] AI vrátila {dropped} týždňov "
                 f"NAVYŠE mimo požadovaného rozsahu (allowed={sorted(allowed_indices)}) "
-                "- zahodené, aby sa rešpektoval target_end_date/horizon_weeks."
+                "- zahodené."
             )
         returned_indices = {
-            int(w.get("week_index")) for w in weeks_list if w.get("week_index") is not None
+            int(idx) for w in weeks_list if (idx := w.get("week_index")) is not None
         }
         missing = allowed_indices - returned_indices
         if missing:
@@ -227,37 +236,16 @@ def service_generate_weekly_plan(
                 f"{sorted(missing)} z požadovaného rozsahu - v pláne budú chýbať."
             )
 
-    rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list)
-    inserted_rows = db_insert_weekly_rows(rows, ctx=ctx)
+    rows = build_weekly_rows_from_ai(user_id=user_id, weeks_list=weeks_list, plan_meta_id=plan_meta_id)
+    inserted_rows_data = db_insert_weekly_rows(rows, ctx=ctx)
+    inserted_rows = len(inserted_rows_data)
 
-    # 🌟 Po replane prepočítame actual_stats pre VŠETKY týždne v pláne (nie len
-    # aktuálny) - staršie týždne mohli mať nesprávne/nulové actual_stats z
-    # predošlých generovaní pred týmto fixom, a je to lacná operácia (pár
-    # DB queries navyše), takže robíme to vždy pre istotu konzistencie.
-    if overwrite:
-        try:
-            all_weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-            for w in all_weeks:
-                w_start = w.get("week_start")
-                if not w_start:
-                    continue
-                try:
-                    service_sync_weekly_volume_for_date(
-                        user_id=user_id, target_date=w_start, ctx=ctx
-                    )
-                except Exception as e:
-                    print(f"❌ [WEEKLY] resync week_index={w.get('week_index')} failed: {repr(e)}")
-        except Exception as e:
-            print(f"❌ [WEEKLY] resync all weeks failed: {repr(e)}")
-
-    # Označí ephemeral poznámku ako použitú
     if context.get("ephemeral_note_id"):
         try:
             service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
         except Exception as e:
             print(f"❌ [WEEKLY] consume ephemeral error: {repr(e)}")
 
-    # Plan meta
     plan_meta_dict = (
         weekly_plan.get("plan_meta") if isinstance(weekly_plan, dict) else {}
     ) or {}
@@ -273,13 +261,41 @@ def service_generate_weekly_plan(
             or None
         )
 
-    meta_row = db_insert_plan_meta_generated(
-        user_id=user_id,
-        weeks_total=len(weeks_list) or horizon_weeks,
-        start_date=start_date,
-        end_date=end_date,
-        ctx=ctx,
-    )
+    meta_row: Optional[Dict[str, Any]] = existing_meta
+
+    if plan_meta_id is None:
+        # Prvotné generovanie - meta záznam vzniká TERAZ, s reálnymi
+        # dátami z toho, čo AI naozaj vygenerovala. Hneď potom dopíšeme
+        # jeho id na práve vložené weekly riadky.
+        meta_row = db_insert_plan_meta_generated(
+            user_id=user_id,
+            weeks_total=len(weeks_list) or horizon_weeks,
+            start_date=start_date,
+            end_date=end_date,
+            ctx=ctx,
+        )
+        new_meta_id = meta_row.get("id") if meta_row else None
+        if new_meta_id is not None:
+            row_ids = [r["id"] for r in inserted_rows_data if r.get("id") is not None]
+            db_set_plan_meta_id_for_weekly_rows(row_ids, new_meta_id, ctx=ctx)
+            plan_meta_id = new_meta_id
+
+    # Po replane prepočítame actual_stats pre VŠETKY týždne TOHTO plánu
+    if overwrite:
+        try:
+            all_weeks = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
+            for w in all_weeks:
+                w_start = w.get("week_start")
+                if not w_start:
+                    continue
+                try:
+                    service_sync_weekly_volume_for_date(
+                        user_id=user_id, plan_meta_id=plan_meta_id, target_date=w_start, ctx=ctx
+                    )
+                except Exception as e:
+                    print(f"❌ [WEEKLY] resync week_index={w.get('week_index')} failed: {repr(e)}")
+        except Exception as e:
+            print(f"❌ [WEEKLY] resync all weeks failed: {repr(e)}")
 
     resp: Dict[str, Any] = {
         "ok": True,
@@ -287,6 +303,7 @@ def service_generate_weekly_plan(
         "model": model_used,
         "overwrite": True,
         "weeks": horizon_weeks,
+        "plan_meta_id": plan_meta_id,
         "inserted_rows": inserted_rows,
         "deleted_rows": deleted_rows,
         "coach_reply": weekly_plan.get("coach_reply") if isinstance(weekly_plan, dict) else None,
@@ -304,10 +321,19 @@ def service_generate_weekly_plan(
 # ============================================================
 
 def service_get_latest_weekly_plan(
-    user_id: int, *, ctx: AuthCtx
+    user_id: int, plan_meta_id: Optional[int] = None, *, ctx: AuthCtx
 ) -> Optional[Dict[str, Any]]:
-    """Načíta aktuálny weekly plán z DB."""
-    rows = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+    """
+    Načíta weekly plán z DB.
+
+    plan_meta_id: NOVÉ - ak nie je zadaný, dohľadá si aktívny/najnovší meta
+    záznam sám (zachováva staré správanie pre volania bez tejto informácie).
+    """
+    if plan_meta_id is None:
+        meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        plan_meta_id = meta.get("id") if meta else None
+
+    rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     if not rows:
         return None
 
@@ -336,14 +362,21 @@ def service_sync_weekly_volume_for_date(
     user_id: int,
     target_date: str,
     *,
+    plan_meta_id: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    Synchronizuje actual_stats pre týždeň obsahujúci target_date.
-    Načíta aktivity z DB a spočíta objemy podľa sportu.
+    Synchronizuje actual_stats pre týždeň TOHTO PLÁNU obsahujúci target_date.
+    plan_meta_id: NOVÉ - ak None, dohľadá aktívny plán usera sám (zachováva
+    staré správanie pre volania, ktoré ho ešte neposielajú, napr. sync
+    jednotlivej aktivity zo Stravy).
     """
+    if plan_meta_id is None:
+        meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        plan_meta_id = meta.get("id") if meta else None
+
     week_row = db_get_weekly_row_by_date(
-        user_id=user_id, target_date_iso=target_date, ctx=ctx
+        user_id=user_id, plan_meta_id=plan_meta_id, target_date_iso=target_date, ctx=ctx
     )
     if not week_row:
         return {
