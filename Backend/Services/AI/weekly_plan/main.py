@@ -122,15 +122,28 @@ def service_generate_weekly_plan(
         }
 
     existing_meta: Optional[Dict[str, Any]] = None
-    if not full_reset and plan_meta_id is None:
+    if full_reset:
+        # 🌟 NOVÉ (defense-in-depth): FE už skrýva tlačidlo "Vygenerovať" keď
+        # je plán aktívny (PlanLifecycleSection.tsx: `{!isPlanActive && ...}`),
+        # ale backend to doteraz vôbec nekontroloval - priame API volanie
+        # (alebo retry jobu) by full_reset prešlo aj s aktívnym plánom a
+        # vytvorilo by sa nechcené súbežné dianie. Tu to teraz natvrdo
+        # odmietneme.
+        active_meta_guard = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        if active_meta_guard:
+            return {
+                "ok": False,
+                "code": "active_plan_exists",
+                "message": "Máš už aktívny plán - najprv ho zruš alebo nechaj doviesť do konca, než vygeneruješ nový.",
+            }
+        # Prvotné generovanie - meta ešte neexistuje, vždy vznikne nový.
+        plan_meta_id = None
+    elif plan_meta_id is None:
         existing_meta = (
             db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
             or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
         )
         plan_meta_id = existing_meta.get("id") if existing_meta else None
-    elif full_reset:
-        # Prvotné generovanie - meta ešte neexistuje, vždy vznikne nový.
-        plan_meta_id = None
 
     # Builder — zostaví context z DB (vrátane coach_notes), scoped na plan_meta_id
     context = build_weekly_context_from_db(

@@ -87,14 +87,18 @@ def service_cancel_active_plan(
     meta_id = int(meta_id)
 
     if current_status == "generated":
-        db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-        db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        # FIX: teraz scoped na TENTO meta_id (predtým mazalo VŠETKY weekly/
+        # daily riadky usera bez ohľadu na plán - zrušenie jedného draftu by
+        # tak mohlo zmazať dáta iného, napr. aktívneho, plánu toho istého
+        # usera).
+        db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+        db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
         db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
         db_delete_plan_meta(user_id=user_id, ctx=ctx, meta_id=meta_id)
         return {"meta": None, "archived": False, "deleted": True}
 
     if current_status == "active":
-        weeks = db_get_weekly_for_user_plan(user_id=user_id, ctx=ctx)
+        weeks = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
         
         final_planned = {}
         final_actual = {}
@@ -131,8 +135,9 @@ def service_cancel_active_plan(
             ctx=ctx
         )
 
-        db_clear_weekly_for_user_plan(user_id=user_id, ctx=ctx)
-        db_clear_daily_for_user_plan(user_id=user_id, ctx=ctx)
+        # FIX: scoped na tento meta_id - pozri komentár vyššie pri "generated".
+        db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+        db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
         db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
 
         return {"meta": meta_id, "archived": archived, "deleted": True}
@@ -177,8 +182,12 @@ def service_get_active_plan_status(
             "meta": None,
         }
 
-    has_weekly = db_check_weekly_data_exists(user_id=user_id, ctx=ctx)
-    has_daily = db_check_daily_data_exists(user_id=user_id, ctx=ctx)
+    meta_id = meta.get("id")
+    # FIX: scoped na tento konkrétny plán, nie "má user vôbec kdekoľvek
+    # nejaké weekly/daily riadky" (čo mohlo predtým ukázať True aj vtedy,
+    # keď mal aktívny plán prázdny a dáta patrili len osirotenému draftu).
+    has_weekly = db_check_weekly_data_exists(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+    has_daily = db_check_daily_data_exists(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
 
     return {
         "has_active": has_active,
@@ -188,7 +197,6 @@ def service_get_active_plan_status(
     }
 
 def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
-    # OPRAVA: Použijeme lokálny čas, nie UTC!
     tz_ba = ZoneInfo("Europe/Bratislava")
     today_iso = datetime.now(tz_ba).date().isoformat()
     

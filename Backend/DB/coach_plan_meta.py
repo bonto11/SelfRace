@@ -172,3 +172,31 @@ def db_get_plan_history_for_user(
     except Exception as e:
         print("[DB-COACH-META] get_plan_history error:", repr(e))
         return []
+
+def db_get_generated_plan_metas_for_user(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> List[Dict[str, Any]]:
+    """
+    NOVÉ: vráti VŠETKY nedokončené (status='generated', ešte neaktivované)
+    meta záznamy usera - nie len posledný. Používa sa pri prvotnom
+    generovaní (full_reset=True) na vyčistenie starých draftov pred
+    vytvorením nového, aby sa nehromadili (presne toto spôsobilo pôvodný
+    incident - opakované kliky na "Vygenerovať" vytvorili 71/72/73/75 bez
+    toho, aby sa predošlé draft záznamy niekedy zmazali).
+    """
+    sb = get_sb(ctx, caller="coach_plan_meta.db_get_generated_plan_metas_for_user")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_META)
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("status", "generated")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-META] get_generated_plan_metas error:", repr(e))
+        return []
