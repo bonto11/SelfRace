@@ -14,6 +14,7 @@ from Services.coach_plan_active import (
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 from DB.coach_plan_daily import db_get_planned_range_rows
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Services.coach_plan_completion import service_generate_milestone_summary_on_demand
 from DB.coach_plan_summaries import (
     db_list_plan_summaries_for_user,
@@ -127,14 +128,25 @@ def get_plan_range(
     """
     Vráti všetky plánované sessions (coach_plan_daily) pre usera
     v danom dátumovom intervale.
+
+    🌟 FIX: predtým čítalo naprieč VŠETKÝMI plánmi usera (žiadny
+    plan_meta_id scope) - presne toto bolo to chýbajúce miesto, čo
+    spôsobilo crash po zavedení plan_meta_id (parameter mal default None,
+    takže nespadlo, ale ani nebolo scoped). Teraz si dohľadá aktívny plán a
+    pošle jeho id ako scope - rovnaký vzor ako v Services/AI/daily_plan/main.py
+    (_resolve_plan_meta_id).
     """
     try:
         ctx = require_user(get_auth_ctx(req))
+
+        active_meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        plan_meta_id = active_meta.get("id") if active_meta else None
 
         rows = db_get_planned_range_rows(
             user_id=user_id,
             date_from=date_from,
             date_to=date_to,
+            plan_meta_id=plan_meta_id,
             ctx=ctx,
         )
     except Exception as e:  # noqa: BLE001

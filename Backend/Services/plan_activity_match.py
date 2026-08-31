@@ -9,6 +9,7 @@ from DB.coach_plan_daily import (
     db_get_planned_range_rows,
     db_link_session_to_activity,
 )
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 
 from DB.activities_summary import db_get_summary_for_activities
 
@@ -256,6 +257,12 @@ def auto_map_plans_for_activities(
 
     - RLS režim:  service=False, user_jwt povinný → require_jwt
     - service režim (webhook/job): service=True, user_jwt môže byť None
+
+    FIX: predtým db_get_planned_range_rows čítalo plánované session
+    naprieč VŠETKÝMI plánmi usera (žiadny plan_meta_id scope) - druhé z
+    dvoch chýbajúcich miest po zavedení plan_meta_id (parameter mal default
+    None, takže to nespadalo, ale ani nebolo scoped). Teraz si dohľadá
+    aktívny plán pred čítaním - rovnaký vzor ako inde v celej oprave.
     """
 
     if not activity_ids:
@@ -286,11 +293,18 @@ def auto_map_plans_for_activities(
     min_d = str(min(act_dates) - timedelta(days=days_window))
     max_d = str(max(act_dates) + timedelta(days=days_window))
 
+    # NOVÉ: dohľadaj aktívny plán usera - plánované session sa majú
+    # čítať LEN z toho, nie naprieč všetkými plánmi (aktívny + prípadné
+    # nedokončené drafty).
+    active_meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    plan_meta_id = active_meta.get("id") if active_meta else None
+
     # 2) plánované session v rozmedzí – cez db_get_planned_range_rows
     plan_rows = db_get_planned_range_rows(
         user_id=user_id,
         date_from=min_d,
         date_to=max_d,
+        plan_meta_id=plan_meta_id,
         ctx=ctx,
     )
     if not plan_rows:
