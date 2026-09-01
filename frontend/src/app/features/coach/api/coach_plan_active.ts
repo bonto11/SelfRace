@@ -288,7 +288,7 @@ export type PlanSummaryRecord = {
     next_cycle_advice?: string;
   } | null;
 
-  trigger_type: "race_match" | "last_session_match" | "manual";
+  trigger_type: "race_match" | "last_session_match" | "manual" | "date_expired";
   is_plan_completed: boolean;
 
   created_at: string;

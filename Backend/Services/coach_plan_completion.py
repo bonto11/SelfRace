@@ -7,12 +7,14 @@ from typing import Any, Dict, List, Optional
 from Modules.Supabase.auth import AuthCtx
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user, db_archive_plan_meta
-from DB.coach_plan_weekly import db_get_weekly_for_user_plan
+from DB.coach_plan_weekly import db_get_weekly_for_user_plan, db_clear_weekly_for_user_plan
 from DB.coach_plan_daily import (
     db_get_last_planned_daily_session_for_user,
     db_get_compliance_stats,
     db_get_unmatched_activities,
+    db_clear_daily_for_user_plan,
 )
+from DB.coach_strength_history import db_clear_strength_history_for_user
 from DB.coach_plan_summaries import (
     db_insert_plan_summary,
     db_get_summary_exists_for_plan,
@@ -119,7 +121,7 @@ def _is_last_plan_session_match(
     z DRAFTU (nie z aktívneho plánu), takže sa aktívny plán nikdy
     neoznačil za dokončený, aj keď reálne bol.
     """
-    last_session = db_get_last_planned_daily_session_for_user(user_id, plan_meta_id, ctx=ctx)
+    last_session = db_get_last_planned_daily_session_for_user(user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     if not last_session:
         return False
 
@@ -256,7 +258,7 @@ def _aggregate_unmatched_activities(
     *, user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx
 ) -> Dict[str, Any]:
     """Agreguje Strava aktivity, ktoré NIE SÚ napárované na žiadnu naplánovanú session TOHTO plánu."""
-    raw = db_get_unmatched_activities(user_id, plan_meta_id, ctx=ctx, days=180)
+    raw = db_get_unmatched_activities(user_id, plan_meta_id=plan_meta_id, ctx=ctx, days=180)
 
     if not raw:
         return {"count": 0, "total_distance_km": 0.0, "total_time_min": 0.0, "by_sport": []}
@@ -350,7 +352,7 @@ def _compute_hard_stats(
 ) -> Dict[str, Any]:
     weeks_tracked = len(elapsed_weeks)
 
-    compliance = db_get_compliance_stats(user_id, plan_meta_id, ctx=ctx)
+    compliance = db_get_compliance_stats(user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     done = int(compliance.get("done") or 0)
     missed = int(compliance.get("missed") or 0)
     postponed = int(compliance.get("postponed") or 0)
@@ -509,6 +511,17 @@ def _build_and_save_summary(
                 ended_at=str(activity_date) if activity_date else fallback_ended_at,
                 ctx=ctx,
             )
+            # NOVÉ: po úspešnej archivácii vyčisti weekly/daily/strength
+            # históriu tohto konkrétneho plánu - presne to isté, čo robí
+            # service_cancel_active_plan (coach_plan_active.py) pri
+            # manuálnom zrušení/dokončení. Predtým táto (aktivitou spustená)
+            # cesta uzavretia plán len archivovala, ale weekly/daily riadky
+            # nechávala v DB navždy ležať - teraz vždy zostane len agregovaný
+            # summary (coach_plan_summaries + final_stats v coach_plan_meta),
+            # rovnako ako pri cron-based dokončení podľa end_date.
+            db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=int(meta_id), ctx=ctx)
+            db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=int(meta_id), ctx=ctx)
+            db_clear_strength_history_for_user(user_id=user_id, ctx=ctx)
         except Exception as e:  # noqa: BLE001
             print(f"[PLAN_COMPLETION] archive_plan_meta failed user_id={user_id}: {repr(e)}")
 
@@ -598,3 +611,52 @@ def service_generate_milestone_summary_on_demand(
         return {"ok": False, "reason": "save_failed"}
 
     return {"ok": True, "data": saved}
+
+
+# ============================================================
+# ENTRYPOINT C: UZAVRETIE PODĽA DÁTUMU (volané z nočného cronu)
+# ============================================================
+
+def service_complete_plan_due_to_date(
+    *,
+    user_id: int,
+    ctx: AuthCtx,
+) -> Optional[Dict[str, Any]]:
+    """
+    Uzavrie AKTÍVNY plán usera, ktorému už vypršal end_date - volané z
+    nočného cronu (service_complete_due_active_plans v coach_plan_active.py).
+
+    ZJEDNOTENIE: predtým táto cesta (podľa dátumu) len archivovala meta a
+    mazala weekly/daily cez service_cancel_active_plan, bez AI summary -
+    zatiaľ čo uzavretie cez aktivitu (service_check_and_generate_plan_summary)
+    generovalo pekný AI text. Teraz idú OBE cesty cez ten istý
+    _build_and_save_summary, takže robia identickú vec (archivácia +
+    vyčistenie weekly/daily/strength + AI summary) - líši sa len
+    trigger_type ("date_expired" namiesto "race_match"/"last_session_match")
+    a to, že tu nemáme konkrétnu aktivitu - matching race sa skúsi nájsť ako
+    "primárny" pretek z prefs (rovnaká logika ako pri manuálnom milestone
+    summary), inak ostane None.
+    """
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    if not meta or meta.get("status") != "active":
+        return None
+
+    meta_id = meta.get("id")
+    if not meta_id:
+        return None
+
+    if db_get_summary_exists_for_plan(plan_meta_id=meta_id, ctx=ctx):
+        return None
+
+    prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx)
+    primary_race = _pick_primary_race(prefs)
+
+    return _build_and_save_summary(
+        user_id=user_id,
+        meta=meta,
+        matching_race=primary_race,
+        activity=None,
+        trigger_type="date_expired",
+        is_plan_completed=True,
+        ctx=ctx,
+    )

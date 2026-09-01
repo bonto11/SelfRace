@@ -27,6 +27,7 @@ from DB.coach_plan_weekly import (
     db_get_weekly_for_user_plan,
 )
 from DB.coach_strength_history import db_clear_strength_history_for_user
+from Services.coach_plan_completion import service_complete_plan_due_to_date
 
 
 def _ensure_latest_plan_meta(
@@ -219,7 +220,13 @@ def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
 
     for uid in users_to_complete:
         try:
-            service_cancel_active_plan(user_id=uid, target_status="completed", ctx=ctx)
+            # ZJEDNOTENÉ: predtým volalo service_cancel_active_plan(...,
+            # target_status="completed") - archivovalo a čistilo, ale žiadny
+            # AI summary. Teraz ide cez rovnakú cestu ako uzavretie preteka/
+            # aktivitou (Services/coach_plan_completion.py), takže obe cesty
+            # robia identickú vec: archivácia + vyčistenie weekly/daily/
+            # strength + AI summary (coach_plan_summaries riadok).
+            service_complete_plan_due_to_date(user_id=uid, ctx=ctx)
             processed += 1
         except Exception as e:
             print(f"[MAINTENANCE] Failed to complete plan for user {uid}: {repr(e)}")
