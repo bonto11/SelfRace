@@ -40,7 +40,7 @@ export default function ClientPage() {
       const type = sp.get("type");
       const email = sp.get("email");
 
-      // 1) Manuálny signup token (rovnaký princíp ako recovery pri update-password)
+      // 1) Manuálny signup token
       if (token && type === "signup" && email) {
         const { error } = await sb.auth.verifyOtp({
           type: "signup",
@@ -53,31 +53,41 @@ export default function ClientPage() {
             setErr(error.message);
             setPhase("error");
           }
+          // Presmerovanie na signin aj v prípade chyby po 3 sekundách
+          setTimeout(() => router.replace("/signin"), 3000);
           return;
         }
 
+        // Ak chceš, aby sa užívateľ musel na 100% prihlásiť znova ručne,
+        // môžeš ho tu pre istotu odhlásiť: await sb.auth.signOut();
+        // Zatiaľ tu ponechávame sync (pre istotu) a posielame na signin.
         await syncSessionToServer(sb);
+        
         if (mounted) setPhase("success");
-        setTimeout(() => router.replace("/activities"), 600);
+        // Predĺžený čas, aby si stihol prečítať správu a presmerovanie na /signin
+        setTimeout(() => router.replace("/signin"), 2000); 
         return;
       }
 
-      // 2) Fallback — PKCE code (ak by niekedy prišiel aj tento formát)
+      // 2) Fallback — PKCE code
       const code = sp.get("code");
       if (code) {
         try {
           // @ts-ignore
           const r1 = await sb.auth.exchangeCodeForSession(code);
           if (r1?.error) throw r1.error;
+          
           await syncSessionToServer(sb);
+          
           if (mounted) setPhase("success");
-          setTimeout(() => router.replace("/activities"), 600);
+          setTimeout(() => router.replace("/signin"), 2000);
           return;
         } catch (e: any) {
           if (mounted) {
             setErr(e?.message || t("confirmEmail.error.generic"));
             setPhase("error");
           }
+          setTimeout(() => router.replace("/signin"), 3000);
           return;
         }
       }
@@ -86,14 +96,18 @@ export default function ClientPage() {
       const { data } = await sb.auth.getSession();
       if (data.session) {
         if (mounted) setPhase("success");
-        setTimeout(() => router.replace("/activities"), 600);
+        // Ak je už prihlásený, pošleme ho na aktivity alebo signin. 
+        // Necháme signin - ak má session, samotná signin stránka by ho mala hodiť do appky.
+        setTimeout(() => router.replace("/signin"), 1500);
         return;
       }
 
+      // 4) Chýbajú parametre
       if (mounted) {
         setErr(t("confirmEmail.error.missingParams"));
         setPhase("error");
       }
+      setTimeout(() => router.replace("/signin"), 3000);
     })();
 
     return () => {
@@ -109,11 +123,14 @@ export default function ClientPage() {
             <h1 className={AUTH_TITLE}>
               {phase === "success"
                 ? t("confirmEmail.success")
+                : phase === "error" 
+                ? t("confirmEmail.errorTitle") || "Chyba overenia" 
                 : t("confirmEmail.title")}
             </h1>
             <p className={AUTH_TEXT}>
               {phase === "verifying" && t("confirmEmail.verifying")}
-              {phase === "success" && t("confirmEmail.redirecting")}
+              {/* Možno budeš chcieť zmeniť preklad v locales z "Redirecting to app..." na "Presmerúvam na prihlásenie..." */}
+              {phase === "success" && t("confirmEmail.redirecting")} 
               {phase === "error" && t("confirmEmail.errorHint")}
             </p>
           </header>
@@ -122,6 +139,13 @@ export default function ClientPage() {
             <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_ERROR_STYLE}>
               {err}
             </div>
+          )}
+          
+          {/* Ak by si chcel pridať tlačidlo na rýchlejší prechod */}
+          {phase === "error" && (
+             <button onClick={() => router.replace("/signin")} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
+                Prejsť na prihlásenie
+             </button>
           )}
         </div>
       </div>
