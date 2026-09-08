@@ -115,7 +115,7 @@ export default function ClientPage() {
     };
   }, [sb, sp, router, t]);
 
-  return (
+    return (
     <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
       <div className={AUTH_SHELL}>
         <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
@@ -124,12 +124,11 @@ export default function ClientPage() {
               {phase === "success"
                 ? t("confirmEmail.success")
                 : phase === "error" 
-                ? t("confirmEmail.errorTitle") || "Chyba overenia" 
+                ? t("confirmEmail.errorTitle" as any) || "Chyba overenia" 
                 : t("confirmEmail.title")}
             </h1>
             <p className={AUTH_TEXT}>
               {phase === "verifying" && t("confirmEmail.verifying")}
-              {/* Možno budeš chcieť zmeniť preklad v locales z "Redirecting to app..." na "Presmerúvam na prihlásenie..." */}
               {phase === "success" && t("confirmEmail.redirecting")} 
               {phase === "error" && t("confirmEmail.errorHint")}
             </p>
@@ -141,7 +140,6 @@ export default function ClientPage() {
             </div>
           )}
           
-          {/* Ak by si chcel pridať tlačidlo na rýchlejší prechod */}
           {phase === "error" && (
              <button onClick={() => router.replace("/signin")} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
                 Prejsť na prihlásenie
