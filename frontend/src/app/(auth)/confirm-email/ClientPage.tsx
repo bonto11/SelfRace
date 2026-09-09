@@ -58,14 +58,14 @@ export default function ClientPage() {
           return;
         }
 
-        // Ak chceš, aby sa užívateľ musel na 100% prihlásiť znova ručne,
-        // môžeš ho tu pre istotu odhlásiť: await sb.auth.signOut();
-        // Zatiaľ tu ponechávame sync (pre istotu) a posielame na signin.
-        await syncSessionToServer(sb);
-        
+        // 🛡️ verifyOtp nás potichu prihlási — nechceme aktívnu session,
+        // user sa má vždy prihlásiť manuálne cez /signin (heslom), inak
+        // hrozí nesprávne nasynchronizovaný profil (bug so zobrazením "user").
+        await sb.auth.signOut();
+
         if (mounted) setPhase("success");
         // Predĺžený čas, aby si stihol prečítať správu a presmerovanie na /signin
-        setTimeout(() => router.replace("/signin"), 2000); 
+        setTimeout(() => router.replace("/signin"), 2000);
         return;
       }
 
@@ -76,9 +76,9 @@ export default function ClientPage() {
           // @ts-ignore
           const r1 = await sb.auth.exchangeCodeForSession(code);
           if (r1?.error) throw r1.error;
-          
-          await syncSessionToServer(sb);
-          
+
+          await sb.auth.signOut();
+
           if (mounted) setPhase("success");
           setTimeout(() => router.replace("/signin"), 2000);
           return;
@@ -95,9 +95,8 @@ export default function ClientPage() {
       // 3) Už je prihlásený (napr. druhé kliknutie na ten istý link)
       const { data } = await sb.auth.getSession();
       if (data.session) {
+        await sb.auth.signOut();
         if (mounted) setPhase("success");
-        // Ak je už prihlásený, pošleme ho na aktivity alebo signin. 
-        // Necháme signin - ak má session, samotná signin stránka by ho mala hodiť do appky.
         setTimeout(() => router.replace("/signin"), 1500);
         return;
       }
@@ -115,7 +114,7 @@ export default function ClientPage() {
     };
   }, [sb, sp, router, t]);
 
-    return (
+  return (
     <main className={[AUTH_PAGE, AUTH_PAGE_PAD].join(" ")}>
       <div className={AUTH_SHELL}>
         <div className={[AUTH_CARD, AUTH_STACK].join(" ")} style={AUTH_CARD_STYLE}>
@@ -123,13 +122,13 @@ export default function ClientPage() {
             <h1 className={AUTH_TITLE}>
               {phase === "success"
                 ? t("confirmEmail.success")
-                : phase === "error" 
-                ? t("confirmEmail.errorTitle" as any) || "Chyba overenia" 
+                : phase === "error"
+                ? t("confirmEmail.errorTitle" as any) || "Chyba overenia"
                 : t("confirmEmail.title")}
             </h1>
             <p className={AUTH_TEXT}>
               {phase === "verifying" && t("confirmEmail.verifying")}
-              {phase === "success" && t("confirmEmail.redirecting")} 
+              {phase === "success" && t("confirmEmail.redirecting")}
               {phase === "error" && t("confirmEmail.errorHint")}
             </p>
           </header>
@@ -139,34 +138,14 @@ export default function ClientPage() {
               {err}
             </div>
           )}
-          
+
           {phase === "error" && (
-             <button onClick={() => router.replace("/signin")} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
-                Prejsť na prihlásenie
-             </button>
+            <button onClick={() => router.replace("/signin")} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
+              Prejsť na prihlásenie
+            </button>
           )}
         </div>
       </div>
     </main>
   );
-}
-
-/* ----------------- helpers ----------------- */
-
-async function syncSessionToServer(sb: ReturnType<typeof getSupabaseBrowser>) {
-  try {
-    const { data } = await sb.auth.getSession();
-    if (data.session) {
-      await fetch("/api/auth/set-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "SIGNED_IN",
-          session: data.session,
-        }),
-      });
-    }
-  } catch {
-    /* ignore */
-  }
 }
