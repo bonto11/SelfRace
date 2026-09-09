@@ -23,6 +23,25 @@ import { useT } from "@/app/shared/i18n/useT";
 
 type Phase = "verifying" | "success" | "error";
 
+/**
+ * 🛡️ Obchádza "tichý štít" v supabaseBrowser.ts, ktorý blokuje
+ * storage.removeItem() pre auth-token kľúč (a teda aj sb.auth.signOut()
+ * ho reálne nezmaže). Pracuje priamo s natívnym window.localStorage,
+ * takže wrapper vôbec neobíde — je to jediný spôsob, ako z tohto flow
+ * garantovane odstrániť session zo signup-verifikácie bez zásahu
+ * do zdieľaného supabaseBrowser.ts.
+ */
+function hardClearSupabaseSession() {
+  if (typeof window === "undefined") return;
+  try {
+    Object.keys(window.localStorage)
+      .filter((k) => k.startsWith("sb-") && k.includes("auth-token"))
+      .forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function ClientPage() {
   const sb = getSupabaseBrowser();
   const router = useRouter();
@@ -53,19 +72,17 @@ export default function ClientPage() {
             setErr(error.message);
             setPhase("error");
           }
-          // Presmerovanie na signin aj v prípade chyby po 3 sekundách
           setTimeout(() => router.replace("/signin"), 3000);
           return;
         }
 
-        // 🛡️ verifyOtp nás potichu prihlási — nechceme aktívnu session,
-        // user sa má vždy prihlásiť manuálne cez /signin (heslom), inak
-        // hrozí nesprávne nasynchronizovaný profil (bug so zobrazením "user").
+        // verifyOtp nás potichu prihlási — nechceme aktívnu session,
+        // user sa má vždy prihlásiť manuálne cez /signin (heslom).
         await sb.auth.signOut();
+        hardClearSupabaseSession();
 
         if (mounted) setPhase("success");
-        // Predĺžený čas, aby si stihol prečítať správu a presmerovanie na /signin
-        setTimeout(() => router.replace("/signin"), 2000);
+        setTimeout(() => router.replace("/signin"), 2200);
         return;
       }
 
@@ -78,9 +95,10 @@ export default function ClientPage() {
           if (r1?.error) throw r1.error;
 
           await sb.auth.signOut();
+          hardClearSupabaseSession();
 
           if (mounted) setPhase("success");
-          setTimeout(() => router.replace("/signin"), 2000);
+          setTimeout(() => router.replace("/signin"), 2200);
           return;
         } catch (e: any) {
           if (mounted) {
@@ -96,8 +114,9 @@ export default function ClientPage() {
       const { data } = await sb.auth.getSession();
       if (data.session) {
         await sb.auth.signOut();
+        hardClearSupabaseSession();
         if (mounted) setPhase("success");
-        setTimeout(() => router.replace("/signin"), 1500);
+        setTimeout(() => router.replace("/signin"), 1800);
         return;
       }
 
