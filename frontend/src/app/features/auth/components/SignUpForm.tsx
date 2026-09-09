@@ -68,9 +68,9 @@ export default function SignUpForm() {
       password: pwd,
       options: {
         data: { full_name: name },
-        // Návratová adresa po kliknutí na link v maily — spracuje token
-        // cez verifyOtp a až potom presmeruje na /activities.
-        emailRedirectTo: `${window.location.origin}/confirm-email`,
+        // Návratová adresa po kliknutí na link v maily — token spracuje
+        // priamo /signin (verifyOtp + hard signOut, viď SignInForm.tsx).
+        emailRedirectTo: `${window.location.origin}/signin`,
       },
     });
 

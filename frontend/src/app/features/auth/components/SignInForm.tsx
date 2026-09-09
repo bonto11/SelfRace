@@ -37,22 +37,65 @@ export default function SignInForm() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [confirmInfo, setConfirmInfo] = useState<string | null>(null);
 
   const sp = useSearchParams();
   const info = sp.get("checkEmail") === "1" ? t("signIn.checkMail") : null;
 
-  // 🛡️ Klientská poistka: Ak sem príde a je už prihlásený, ukážeme Splash Screen a teleportujeme ho
   useEffect(() => {
-    const checkAuth = async () => {
+    let mounted = true;
+
+    const run = async () => {
+      const token = sp.get("token");
+      const type = sp.get("type");
+      const emailParam = sp.get("email");
+
+      // 🛡️ Prišli sme z potvrdzovacieho mailu (signup)
+      if (token && type === "signup" && emailParam) {
+        const { error } = await sb.auth.verifyOtp({
+          type: "signup",
+          email: emailParam,
+          token,
+        });
+
+        // verifyOtp nás potichu prihlási — to nechceme, chceme vždy manuálny login
+        await sb.auth.signOut();
+
+        // vyčistíme URL, nech tam nezostanú tokeny
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.search = "";
+          url.hash = "";
+          window.history.replaceState({}, "", url.toString());
+        }
+
+        if (mounted) {
+          if (error) {
+            setErr(error.message || t("signIn.loginFailed"));
+          } else {
+            setConfirmInfo(t("signIn.checkMail")); // alebo vlastný string "Email potvrdený, prihlás sa"
+            setEmail(emailParam);
+          }
+          setIsAuthChecking(false);
+        }
+        return;
+      }
+
+      // Bežný vstup na /signin — ak už existuje reálna session, hoď ho do appky
       const { data } = await sb.auth.getSession();
       if (data.session?.user) {
         router.replace("/activities");
-      } else {
+      } else if (mounted) {
         setIsAuthChecking(false);
       }
     };
-    checkAuth();
-  }, [router, sb]);
+
+    run();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router, sb, sp, t]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -89,7 +132,11 @@ export default function SignInForm() {
       description={t("signIn.loginDescription")}
     >
       <form onSubmit={submit} className={AUTH_FORM}>
-        {info ? (
+        {confirmInfo ? (
+          <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_INFO_STYLE}>
+            {confirmInfo}
+          </div>
+        ) : info ? (
           <div className={AUTH_FEEDBACK} style={AUTH_FEEDBACK_INFO_STYLE}>
             {info}
           </div>
@@ -169,7 +216,6 @@ export default function SignInForm() {
             }}
           />
         </div>
-
         <p
           className="mt-2 text-[11px] text-center"
           style={{ color: appColors.textMuted }}
