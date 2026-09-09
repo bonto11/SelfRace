@@ -223,7 +223,7 @@ export const en = {
     title: "Confirm Registration",
     success: "Account confirmed",
     verifying: "Verifying your account...",
-    redirecting: "Redirecting you to the app...",
+    redirecting: "Great, your account is active. We're redirecting you to login — sign in and get started.",
     errorHint:
       "Verification failed. Try clicking the link in the email again, or request a new one.",
     error: {

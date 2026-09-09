@@ -1,3 +1,5 @@
+
+//shared/api/appUserIdServer
 import { cookies } from "next/headers";
 
 /** Pre server komponenty: rýchlo načítaj interné userId z HttpOnly cookie. */

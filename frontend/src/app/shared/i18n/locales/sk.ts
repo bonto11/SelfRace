@@ -225,7 +225,7 @@ export const sk = {
     title: "Potvrdenie registrácie",
     success: "Účet potvrdený",
     verifying: "Overujem tvoj účet...",
-    redirecting: "Presmerúvam ťa do appky...",
+    redirecting: "Skvelé, tvoj účet je aktívny. Presmerúvame ťa na prihlásenie — prihlás sa a môžeš začať.",
     errorHint:
       "Overenie sa nepodarilo. Skús kliknúť na odkaz z e-mailu znova, alebo si vyžiadaj nový.",
     error: {
