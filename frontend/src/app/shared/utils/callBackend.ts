@@ -30,15 +30,20 @@ export async function callBackend<T = any>(
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
+const TERMINAL_STATUSES = ["succeeded", "failed", "error"];
+
+function extractJobStatus(json: any): string | undefined {
+  return json?.job?.status || json?.data?.status || json?.status;
+}
+
 export async function runAsyncJobWithPolling(
   userId: number | string,
   jobId: number | string,
-  maxPollAttempts = 12, 
+  maxPollAttempts = 24,
   pollIntervalMs = 5000
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
   const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
   let runJson: any;
-  let needsPolling = false;
 
   try {
     runJson = await callBackend(runPath, {
@@ -47,14 +52,26 @@ export async function runAsyncJobWithPolling(
       cache: "no-store",
     });
   } catch (err) {
-    console.warn(`[JobRunner] HTTP Timeout na /jobs/run. Spúšťam Polling pre job ${jobId}...`);
-    needsPolling = true;
+    console.warn(`[JobRunner] HTTP chyba na /jobs/run pre job ${jobId}, prechádzam na polling.`, err);
+    runJson = null;
   }
 
-  if (needsPolling || !runJson?.success) {
+  // 🛡️ KĽÚČOVÁ OPRAVA: /jobs/run teraz VŽDY vracia response okamžite
+  // (job beží na pozadí cez BackgroundTasks) - HTTP success:true
+  // NEZNAMENÁ, že job doletel do cieľa. Musíme sa pozrieť na skutočný
+  // status jobu samotného a pollovať, kým nedôjde do terminálneho stavu
+  // (predtým sa polling preskočil vždy, keď /run vrátilo success:true,
+  // čo bolo prakticky vždy - preto sa výsledok hlásil ako hotový hneď
+  // v prvej sekunde, aj keď job ešte len začal bežať).
+  let jobStatus = runJson ? extractJobStatus(runJson) : undefined;
+  let needsPolling = !runJson?.success || !jobStatus || !TERMINAL_STATUSES.includes(jobStatus);
+
+  if (needsPolling) {
+    let reachedTerminal = false;
+
     for (let i = 0; i < maxPollAttempts; i++) {
       await new Promise((res) => setTimeout(res, pollIntervalMs));
-      
+
       try {
         const statusPath = `/jobs/status/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
         const pollRes = await callBackend(statusPath, {
@@ -62,30 +79,30 @@ export async function runAsyncJobWithPolling(
           headers: { "content-type": "application/json" },
           cache: "no-store",
         });
-        
-        const jobStatus = pollRes?.job?.status || pollRes?.data?.status;
-        
-        if (jobStatus && jobStatus !== "running" && jobStatus !== "queued") {
+
+        const polledStatus = extractJobStatus(pollRes);
+
+        if (polledStatus && TERMINAL_STATUSES.includes(polledStatus)) {
           runJson = pollRes;
-          needsPolling = false;
-          break; 
+          reachedTerminal = true;
+          break;
         }
       } catch (pollErr) {
         console.warn(`[JobRunner] Chyba pri pollingu:`, pollErr);
       }
     }
-    
-    if (needsPolling) {
-      return { 
-        success: false, 
-        error_code: "REQUEST_TIMEOUT", 
-        message: "Úloha trvá príliš dlho, prosím obnovte stránku neskôr a skontrolujte históriu." 
+
+    if (!reachedTerminal) {
+      return {
+        success: false,
+        error_code: "REQUEST_TIMEOUT",
+        message: "Úloha trvá príliš dlho, prosím obnovte stránku neskôr a skontrolujte históriu."
       };
     }
   }
 
   const innerResult = runJson?.job?.result || runJson?.data?.result || runJson?.result;
-  
+
   if (innerResult && innerResult.ok === false) {
     return {
       success: false,
@@ -94,18 +111,18 @@ export async function runAsyncJobWithPolling(
     };
   }
 
-  const jobStatus = runJson?.job?.status || runJson?.data?.status || runJson?.status;
-  if (jobStatus === "failed" || jobStatus === "error") {
+  const finalStatus = extractJobStatus(runJson);
+  if (finalStatus === "failed" || finalStatus === "error") {
     return {
       success: false,
       error_code: "ai_generation_failed",
-      message: "Úloha na pozadí zlyhala."
+      message: runJson?.job?.error || runJson?.error || "Úloha na pozadí zlyhala."
     };
   }
 
-  return { 
-    success: true, 
-    status: "SUCCESS", 
-    data: innerResult 
+  return {
+    success: true,
+    status: "SUCCESS",
+    data: innerResult
   };
 }
