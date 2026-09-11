@@ -1,6 +1,6 @@
 // src/app/features/activities/api/activities_enrichment.ts
-import { callBackend } from "@/app/shared/utils/callBackend";
-import { runJobAndWait, type JobRecord } from "@/app/shared/api/jobs";
+// src/app/features/activities/api/activities_enrichment.ts
+import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBackend";
 import type {
   ActivityEnrichment
 } from "@/app/features/activities/types/activities_enrichment";
@@ -8,8 +8,7 @@ import type {
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean },
-  onProgress?: (job: JobRecord) => void,
+  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean }
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string }> {
   if (!userId) throw new Error("api.activities.missingUserId");
 
@@ -36,36 +35,12 @@ export async function apiRerunActivityReview(
     };
   }
 
-  const jobId = enqueueJson.data?.job_id || enqueueJson.job_id;
+  const jobId = enqueueJson.data?.job_id || enqueueJson.job_id || enqueueJson.job?.id;
   if (!jobId) {
     return { success: true, status: "QUEUED" };
   }
 
-  const finalJob = await runJobAndWait(userId, jobId, { onProgress });
-
-  if (!finalJob) {
-    // timeout - job stále beží na pozadí, prestali sme čakať na jeho koniec
-    return { success: true, status: "PROCESSING" };
-  }
-
-  if (finalJob.status === "failed") {
-    return {
-      success: false,
-      error_code: "ai_generation_failed",
-      message: finalJob.error || "Úloha na pozadí zlyhala.",
-    };
-  }
-
-  const innerResult = finalJob.result;
-  if (innerResult && innerResult.ok === false) {
-    return {
-      success: false,
-      error_code: innerResult.code || "ai_generation_failed",
-      message: innerResult.message,
-    };
-  }
-
-  return { success: true, status: "SUCCESS" };
+  return await runAsyncJobWithPolling(userId, jobId);
 }
 
 export async function apiGetActivityEnrichment(
