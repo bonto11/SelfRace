@@ -1,5 +1,6 @@
 // src/app/features/activities/api/activities_enrichment.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
+import { runJobAndWait, type JobRecord } from "@/app/shared/api/jobs";
 import type {
   ActivityEnrichment
 } from "@/app/features/activities/types/activities_enrichment";
@@ -7,7 +8,8 @@ import type {
 export async function apiRerunActivityReview(
   userId: number,
   activityId: number,
-  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean }
+  opts: { comment?: string | null; model?: string | null; has_new_injury?: boolean; is_race_effort?: boolean },
+  onProgress?: (job: JobRecord) => void,
 ): Promise<{ success: boolean; status?: string; error_code?: string; message?: string }> {
   if (!userId) throw new Error("api.activities.missingUserId");
 
@@ -39,44 +41,31 @@ export async function apiRerunActivityReview(
     return { success: true, status: "QUEUED" };
   }
 
-  const runPath = `/jobs/run/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(jobId))}`;
+  const finalJob = await runJobAndWait(userId, jobId, { onProgress });
 
-  try {
-    const runJson = await callBackend<any>(runPath, {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!runJson?.success) {
-      console.warn("[AR] Sync Run HTTP Failed", runJson);
-      return { success: true, status: "PROCESSING" };
-    }
-
-    const innerResult = runJson?.data?.result || runJson?.job?.result || runJson?.result;
-    if (innerResult && innerResult.ok === false) {
-      return {
-        success: false,
-        error_code: innerResult.code || "ai_generation_failed",
-        message: innerResult.message
-      };
-    }
-
-    const jobStatus = runJson?.data?.status || runJson?.job?.status || runJson?.status;
-    if (jobStatus === "failed" || jobStatus === "error") {
-      return {
-        success: false,
-        error_code: "ai_generation_failed",
-        message: "Úloha na pozadí zlyhala."
-      };
-    }
-
-    return { success: true, status: "SUCCESS" };
-
-  } catch (e) {
-    console.error("[AR] Sync Run Network Error", e);
-    return { success: true, status: "QUEUED" };
+  if (!finalJob) {
+    // timeout - job stále beží na pozadí, prestali sme čakať na jeho koniec
+    return { success: true, status: "PROCESSING" };
   }
+
+  if (finalJob.status === "failed") {
+    return {
+      success: false,
+      error_code: "ai_generation_failed",
+      message: finalJob.error || "Úloha na pozadí zlyhala.",
+    };
+  }
+
+  const innerResult = finalJob.result;
+  if (innerResult && innerResult.ok === false) {
+    return {
+      success: false,
+      error_code: innerResult.code || "ai_generation_failed",
+      message: innerResult.message,
+    };
+  }
+
+  return { success: true, status: "SUCCESS" };
 }
 
 export async function apiGetActivityEnrichment(
