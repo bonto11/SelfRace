@@ -173,10 +173,18 @@ export default function PlanLifecycleSection({
       }
       setHasWeekly(true);
 
+      // 🌟 FIX: plan_meta_id novo vytvoreného draftu sa musí poslať ďalej
+      // do daily generovania - predtým sa toto vôbec neposielalo, takže
+      // service_generate_daily_week si sám hľadal "aktívny" plán, ktorý
+      // ale čerstvý draft ešte nie je (je len 'generated'), a daily riadky
+      // preto dostali plan_meta_id=NULL.
+      const newPlanMetaId = (weeklyOut as any)?.plan_meta_id ?? null;
+
       await apiEnsureCoachPlanStartFuture(userId);
       const dailyOut = await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: 1,
         overwrite: true,
+        plan_meta_id: newPlanMetaId,
       });
       if (!dailyOut?.success) {
         setError(formatAiError(dailyOut));
