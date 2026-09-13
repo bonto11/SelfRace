@@ -250,21 +250,25 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 weeks=payload.get("weeks"),
                 model=payload.get("model"),
                 reason=payload.get("reason"),
-                # 🌟 date picker (Coach Notes -> Veľká zmena): athlete zvolený
-                # nový koncový dátum plánu. Ak je None, BE sa správa presne
-                # ako doteraz (žiadna zmena pre klasický replan bez zámeru
-                # skrátiť/predĺžiť).
                 target_end_date=payload.get("target_end_date"),
+                plan_meta_id=payload.get("plan_meta_id"),
             )
 
         elif job_type == "daily_generate":
+            # 🌟 FIX: plan_meta_id sa teraz prenáša z payloadu (FE ho posiela
+            # priamo z výsledku predošlého weekly_generate volania). Predtým
+            # sa toto vôbec neposielalo, service_generate_daily_week si preto
+            # sám dohľadával "aktívny" plán - ale čerstvo vygenerovaný draft
+            # ešte NIE JE aktívny (len 'generated'), takže dohľadanie zlyhalo
+            # a daily riadky sa vložili s plan_meta_id=NULL.
             result = service_generate_daily_week(
                 user_id=user_id,
                 ctx=ctx,
                 week_index=int(payload["week_index"]),
+                plan_meta_id=payload.get("plan_meta_id"),
                 model=payload.get("model"),
                 drop_past_days=bool(payload.get("drop_past_days", False)),
-                reason=payload.get("reason"), # <--- ZMENA: PRIDANÉ
+                reason=payload.get("reason"),
             )
 
         elif job_type == "plan_match":
@@ -306,13 +310,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             source = payload.get("source")
 
             if source == "user":
-                # FIX: predtym sa autoadjust (a teda zmakcenie celeho tyzdna,
-                # daily_soften) spustal po KAZDOM manualnom review, bez ohladu
-                # na to, co review skutocne obsahovalo - aj ked AI vyhodnotilo
-                # review ako uplne v poriadku (needs_caution=false, ziadne
-                # zranenie). Teraz sa spusti LEN ak review samo signalizuje
-                # dovod na obavu (needs_caution) alebo nahlasene zranenie -
-                # presne na to tie polia AI review uz aj tak pocita.
                 review_data = _as_dict((result or {}).get("data"))
                 review_flags = _as_dict(review_data.get("flags"))
                 review_meta = _as_dict(review_data.get("meta"))
@@ -343,7 +340,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 trigger=str(payload.get("trigger") or "async_worker"),
-                job_id=job_id,  # ← nové, nech vie priebežne zapisovať progress/cursor
+                job_id=job_id,
             )
 
 
@@ -357,7 +354,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
             fetch_details = bool(payload.get("fetch_details", True))
 
-            # 1) DATA IMPORT
             result = service_sync_single_activity(
                 user_id=int(user_id),
                 strava_activity_id=int(activity_id),
@@ -365,7 +361,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 ctx=ctx,
             )
             
-            # 2) OPTIONAL hooks (plan match)
             if bool(payload.get("enqueue_plan_match", False)):
                 try:
                     service_enqueue_job(
