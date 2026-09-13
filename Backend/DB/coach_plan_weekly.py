@@ -70,27 +70,14 @@ def db_clear_weekly_for_user_plan(
     *,
     ctx: AuthCtx,
 ) -> int:
-    """
-    DELETE weekly riadkov PRE KONKRÉTNY plan_meta_id (nie celé user_id ako
-    predtým). POZOR: Maže úplne všetko vrátane histórie (minulých týždňov)
-    TOHTO KONKRÉTNEHO plánu. Používaj len pri úplnom resete plánu od nuly -
-    pri bežnom replane cez service_generate_weekly_plan sa namiesto tejto
-    funkcie používa db_delete_current_and_future_weekly_plans, ktorá
-    zachováva históriu.
-
-    FIX: predtým mazalo VŠETKY weekly riadky usera bez ohľadu na to,
-    ktorému plánu patrili - ak mal user rozbehnutý aktívny plán A zároveň
-    generoval draft nového plánu, tento full_reset draftu vymazal aj dáta
-    aktívneho plánu. plan_meta_id=None je poistka pre legacy volania bez
-    scope (radšej nič nezmaž, než zmazať naslepo celého usera).
-    """
     if plan_meta_id is None:
-        print("[DB-COACH-WEEKLY] clear SKIPPED - no plan_meta_id provided (would have deleted ALL user rows)")
+        print("[DB-COACH-WEEKLY] clear SKIPPED - no plan_meta_id provided")
         return 0
 
     sb = get_sb(ctx, caller="coach_plan_weekly.db_clear_weekly_for_user_plan")
 
     try:
+        # Primárne: presné riadky tohto plánu
         res = (
             sb.table(TABLE_COACH_PLAN_WEEKLY)
             .delete()
@@ -98,10 +85,28 @@ def db_clear_weekly_for_user_plan(
             .eq("plan_meta_id", plan_meta_id)
             .execute()
         )
-        return len(res.data or [])
+        deleted = len(res.data or [])
+
+        # 🛡️ FIX: legacy riadky bez priradeného plan_meta_id (vznikli pred
+        # zavedením tohto stĺpca) by inak zostali navždy nezmazateľné -
+        # scoped delete vyššie ich nikdy nezasiahne (NULL != meta_id).
+        # Tento fallback ich odstráni LEN ak user nemá žiadny INÝ aktívny
+        # plán bežiaci súbežne (aby sme omylom nezmazali dáta iného,
+        # súčasne bežiaceho plánu, ktorý tiež ešte nemá plan_meta_id).
+        orphan_res = (
+            sb.table(TABLE_COACH_PLAN_WEEKLY)
+            .delete()
+            .eq("user_id", user_id)
+            .is_("plan_meta_id", "null")
+            .execute()
+        )
+        deleted += len(orphan_res.data or [])
+
+        return deleted
     except Exception as e:  # noqa: BLE001
         print("[DB-COACH-WEEKLY] clear error:", repr(e))
         return 0
+
 
 
 def db_get_weekly_for_user_plan(
