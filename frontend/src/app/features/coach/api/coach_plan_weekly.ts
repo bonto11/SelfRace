@@ -8,12 +8,8 @@ export type WeeklyPlanGenerateOptions = {
   overwrite?: boolean;
   state_id?: number | null;
   weeks?: number | null;
-  full_reset?: boolean; // 🌟 kompletné vymazanie vrátane minulých týždňov - použi
-  // LEN pri prvotnom generovaní z Prefs (plán ešte nie je
-  // aktívny), nie pri bežnom replane bežiaceho plánu.
-  target_end_date?: string | null; // 🌟 YYYY-MM-DD z date pickera (Coach Notes
-  // -> Veľká zmena) - BE z toho vždy deterministicky dopočíta počet týždňov,
-  // skráti alebo predĺži plán presne k tomuto dátumu. Má prioritu pred `weeks`.
+  full_reset?: boolean;
+  target_end_date?: string | null;
 };
 
 export async function apiGenerateWeeklyPlan(
@@ -27,6 +23,7 @@ export async function apiGenerateWeeklyPlan(
   message?: string;
   data?: any;
   coach_reply?: string | null;
+  plan_meta_id?: number | null;
 }> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
@@ -82,7 +79,15 @@ export async function apiGenerateWeeklyPlan(
     pollResult?.data?.result?.coach_reply ??
     null;
 
-  return { ...pollResult, coach_reply: coachReply };
+  // 🌟 NOVÉ: plan_meta_id novo vytvoreného (alebo replanovaného) plánu -
+  // volajúci (PlanLifecycleSection) toto teraz musí poslať ďalej do
+  // apiGenerateDailyForWeek, inak daily riadky dostanú plan_meta_id=NULL.
+  const planMetaId =
+    pollResult?.data?.plan_meta_id ??
+    pollResult?.data?.result?.plan_meta_id ??
+    null;
+
+  return { ...pollResult, coach_reply: coachReply, plan_meta_id: planMetaId };
 }
 
 export type WeeklyPlanWeek = {
