@@ -29,10 +29,13 @@ from DB.coach_plan_weekly import (
     db_get_weekly_row_by_date,
     db_update_weekly_actual_stats,
 )
+from DB.coach_plan_daily import db_clear_daily_for_user_plan
 from DB.coach_plan_meta import (
     db_insert_plan_meta_generated,
     db_get_active_plan_meta_for_user,
     db_get_latest_plan_meta_for_user,
+    db_get_generated_plan_metas_for_user,
+    db_delete_plan_meta,
 )
 from Modules.Supabase.auth import AuthCtx
 
@@ -93,7 +96,7 @@ def service_generate_weekly_plan(
     """
     Hlavný service pre generovanie weekly meta-plánu.
 
-    plan_meta_id: NOVÉ - ktorému konkrétnemu plánu (coach_plan_meta.id) tento
+    plan_meta_id: ktorému konkrétnemu plánu (coach_plan_meta.id) tento
     replan patrí.
     - full_reset=True (prvotné generovanie z Prefs, plán ešte neaktívny):
       plan_meta_id sa ignoruje na vstupe - vždy vzniká NOVÝ meta záznam AŽ
@@ -101,16 +104,16 @@ def service_generate_weekly_plan(
       počíta z reálneho AI výstupu). Weekly riadky sa najprv vložia bez
       plan_meta_id a hneď potom sa im dopíše cez
       db_set_plan_meta_id_for_weekly_rows.
+
+      🌟 FIX: pred vytvorením nového draftu sa teraz VŽDY vyčistia
+      všetky staré nedokončené drafty (status='generated') tohto usera -
+      predtým sa nemazali vôbec (plan_meta_id=None pri full_reset robilo
+      db_clear_weekly_for_user_plan no-op), takže sa hromadili navždy
+      (draft 79 zostal v DB aj po vygenerovaní draftu 80).
     - full_reset=False (replan existujúceho plánu): ak volajúci explicitne
       pošle plan_meta_id, použije sa presne ten. Ak nie, service si sám
       dohľadá aktívny/najnovší meta záznam usera (zachováva pôvodné
       správanie pre volania, ktoré ešte plan_meta_id neposielajú).
-
-    FIX oproti predošlej verzii: predtým sa weekly riadky nijako
-    nepriraďovali ku konkrétnemu plánu - viedlo to k tomu, že replan
-    aktívneho plánu mohol omylom čítať/mazať/prepisovať dáta úplne iného
-    (napr. nedokončeného draftu) plánu toho istého usera. Pozri root-cause
-    analýzu v chate (plán 61 vs. draft 71/72/73/75).
     """
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
@@ -123,12 +126,10 @@ def service_generate_weekly_plan(
 
     existing_meta: Optional[Dict[str, Any]] = None
     if full_reset:
-        # 🌟 NOVÉ (defense-in-depth): FE už skrýva tlačidlo "Vygenerovať" keď
-        # je plán aktívny (PlanLifecycleSection.tsx: `{!isPlanActive && ...}`),
-        # ale backend to doteraz vôbec nekontroloval - priame API volanie
-        # (alebo retry jobu) by full_reset prešlo aj s aktívnym plánom a
-        # vytvorilo by sa nechcené súbežné dianie. Tu to teraz natvrdo
-        # odmietneme.
+        # Defense-in-depth: FE už skrýva tlačidlo "Vygenerovať" keď je plán
+        # aktívny, ale backend to doteraz vôbec nekontroloval - priame API
+        # volanie (alebo retry jobu) by full_reset prešlo aj s aktívnym
+        # plánom a vytvorilo by sa nechcené súbežné dianie.
         active_meta_guard = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
         if active_meta_guard:
             return {
@@ -136,6 +137,20 @@ def service_generate_weekly_plan(
                 "code": "active_plan_exists",
                 "message": "Máš už aktívny plán - najprv ho zruš alebo nechaj doviesť do konca, než vygeneruješ nový.",
             }
+
+        # 🌟 FIX: vyčisti VŠETKY staré nedokončené drafty (status='generated')
+        # tohto usera pred vytvorením nového - mažeme ich weekly aj daily
+        # riadky a nakoniec aj samotný meta záznam.
+        old_drafts = db_get_generated_plan_metas_for_user(user_id=user_id, ctx=ctx)
+        for old in old_drafts:
+            old_id = old.get("id")
+            if old_id is None:
+                continue
+            db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
+            db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
+            db_delete_plan_meta(user_id=user_id, meta_id=old_id, ctx=ctx)
+            print(f"[WEEKLY-PLAN][user={user_id}] cleaned up stale draft plan_meta_id={old_id}")
+
         # Prvotné generovanie - meta ešte neexistuje, vždy vznikne nový.
         plan_meta_id = None
     elif plan_meta_id is None:
@@ -208,10 +223,7 @@ def service_generate_weekly_plan(
     deleted_rows = 0
     if full_reset:
         # plan_meta_id je tu vždy None (nový plán) - db_clear s None je no-op
-        # (nemá čo mazať, žiadny predošlý meta pre tento konkrétny nový plán
-        # neexistuje). Staré nedokončené drafty tohto usera TÝMTO nemažeme -
-        # to je samostatná téma (čistenie osirotených 'generated' meta
-        # záznamov), zámerne mimo rozsahu tejto zmeny.
+        # (staré drafty už boli vyčistené vyššie, pred generovaním).
         deleted_rows = db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
     elif overwrite:
         today_iso = _date.today().isoformat()
@@ -339,7 +351,7 @@ def service_get_latest_weekly_plan(
     """
     Načíta weekly plán z DB.
 
-    plan_meta_id: NOVÉ - ak nie je zadaný, dohľadá si aktívny/najnovší meta
+    plan_meta_id: ak nie je zadaný, dohľadá si aktívny/najnovší meta
     záznam sám (zachováva staré správanie pre volania bez tejto informácie).
     """
     if plan_meta_id is None:
@@ -380,9 +392,9 @@ def service_sync_weekly_volume_for_date(
 ) -> Dict[str, Any]:
     """
     Synchronizuje actual_stats pre týždeň TOHTO PLÁNU obsahujúci target_date.
-    plan_meta_id: NOVÉ - ak None, dohľadá aktívny plán usera sám (zachováva
-    staré správanie pre volania, ktoré ho ešte neposielajú, napr. sync
-    jednotlivej aktivity zo Stravy).
+    plan_meta_id: ak None, dohľadá aktívny plán usera sám (zachováva staré
+    správanie pre volania, ktoré ho ešte neposielajú, napr. sync jednotlivej
+    aktivity zo Stravy).
     """
     if plan_meta_id is None:
         meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
