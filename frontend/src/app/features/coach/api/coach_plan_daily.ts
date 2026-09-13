@@ -4,6 +4,7 @@ import { callBackend, runAsyncJobWithPolling } from "@/app/shared/utils/callBack
 export type DailyWeekGenerateOptions = {
   week_index: number;
   overwrite?: boolean;
+  plan_meta_id?: number | null;
 };
 
 export async function apiGenerateDailyForWeek(
@@ -19,6 +20,11 @@ export async function apiGenerateDailyForWeek(
     payload: {
       week_index: opts.week_index,
       overwrite: opts.overwrite ?? true,
+      // 🌟 NOVÉ: plan_meta_id sa musí posielať explicitne z FE - ak sme
+      // práve vygenerovali nový draft (weekly_generate vrátil plan_meta_id),
+      // ten draft ešte NIE JE aktívny, takže backend by si ho sám cez
+      // "aktívny plán" nikdy nenašiel a daily riadky by dostali NULL.
+      plan_meta_id: opts.plan_meta_id ?? null,
       debug: true,
     },
     priority: 100,
