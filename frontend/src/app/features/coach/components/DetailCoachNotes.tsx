@@ -224,7 +224,7 @@ export default function DetailCoachNotes() {
 
   /* ---- Uprav dni ---- */
 
-  const handleReplanDaily = async () => {
+    const handleReplanDaily = async () => {
     if (!userId || !userUuid || replanning || !planActive) return;
     setReplanning("daily");
     setLastReplan(null);
@@ -234,6 +234,12 @@ export default function DetailCoachNotes() {
       const out = await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: weekIndex,
         overwrite: true,
+        // 🌟 FIX: bez tohto sa pri regenerovaní v strede týždňa prepíšu aj
+        // už odtrénované dni (pondelok/utorok atď.) niečím, čo si AI
+        // vymyslí naslepo. drop_past_days zabezpečí, že sa dotknú len dni
+        // od dnešného dátumu ďalej - presne rovnaký princíp, aký už
+        // používa service_auto_extend_daily_plan pre aktuálny týždeň.
+        drop_past_days: true,
       });
       if (!out.success) {
         toast.error(out.message ?? t("coachNotes.replan.error"));
