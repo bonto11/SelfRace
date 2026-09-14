@@ -595,19 +595,24 @@ def build_prompts_for_daily(
         weekly_volume_line = (
             f"- WEEKLY VOLUME: Plan target is {planned_minutes} min. "
             f"External events: {ext_minutes_total} min. "
-            "CRITICAL: NEVER exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
+            "CRITICAL: NEVER exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. "
+            "If ATHLETE INSTRUCTIONS above exclude a sport, this volume target no longer applies "
+            "to that sport's minutes — do not try to 'make up' the excluded sport's volume with it.\n"
         )
     elif isinstance(volume_value, (int, float)) and volume_mode == "weekly_hours":
         tgt = int(volume_value * 60)
         weekly_volume_line = (
             f"- WEEKLY VOLUME: Long-term goal is {tgt} min/week. "
             f"External events: {ext_minutes_total} min. "
-            "CRITICAL: NEVER exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
+            "CRITICAL: NEVER exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. "
+            "If ATHLETE INSTRUCTIONS above exclude a sport, this volume target no longer applies "
+            "to that sport's minutes.\n"
         )
     else:
         weekly_volume_line = (
             "- WEEKLY VOLUME: Infer from recent_load. "
-            "DO NOT exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`.\n"
+            "DO NOT exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. "
+            "If ATHLETE INSTRUCTIONS above exclude a sport, do not compensate its volume with another sport.\n"
         )
 
     # Rules
@@ -641,9 +646,18 @@ def build_prompts_for_daily(
         f"- STRENGTH: Target {strength_str}. Use sport='strength'. "
         "If two_a_day disabled and lack days — REDUCE strength sessions. DO NOT sacrifice rest days.\n\n"
     )
+
+    # 🌟 FIX (ROOT CAUSE #2): táto vetva bola PREDTÝM nepodmienečná — vždy
+    # naplánovala 1 long run, ak bol run main_sport, úplne bez ohľadu na to,
+    # či athlete instructions run vylúčili. Presne toto vynucovalo "1x long
+    # run" v dennom pláne aj napriek jasnej poznámke "žiadny beh". Teraz je
+    # explicitne podmienená a odkazuje na ATHLETE INSTRUCTIONS.
     long_run_rule = (
-        f"- LONG RUN: If run is main sport, 1 long run "
-        f"(pref: {', '.join(long_run_days) if long_run_days else 'none'}).\n\n"
+        f"- LONG RUN: Unless ATHLETE INSTRUCTIONS above exclude or restrict running, and if run is "
+        f"the main sport, include 1 long run "
+        f"(pref: {', '.join(long_run_days) if long_run_days else 'none'}). "
+        "If running is excluded by ATHLETE INSTRUCTIONS, skip this rule entirely — do NOT schedule "
+        "any long run, or any run, this week.\n\n"
     )
     back_to_back_rule = (
         "- AVOID BACK-TO-BACK HARD: YES (Strict).\n"
@@ -656,7 +670,8 @@ def build_prompts_for_daily(
     if other_sports:
         multi_sport_rule = (
             f"- MULTI-SPORT: Sports: {', '.join(final_sports_list)}. "
-            f"Schedule {', '.join(other_sports)} sessions too.\n\n"
+            f"Schedule {', '.join(other_sports)} sessions too — UNLESS ATHLETE INSTRUCTIONS above "
+            "exclude one of these sports, in which case skip it entirely.\n\n"
         )
 
     beginner_rule = (
@@ -698,19 +713,19 @@ def build_prompts_for_daily(
 
     special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
 
-    # 🌟 ATHLETE INSTRUCTIONS (sticky + ephemeral notes) — najvyššia priorita.
+    # 🌟 ATHLETE INSTRUCTIONS (sticky + ephemeral notes) — najvyššia priorita,
+    # explicitne nadraďuje default main_sport/ALLOWED SPORTS/LONG RUN pravidlá.
     #
-    # FIX (ROOT CAUSE): táto premenná sa doteraz VYPOČÍTALA, ale nikdy sa
-    # nepridala do finálneho user_txt (chýbajúci "+ notes_rule" v skladaní
-    # promptu nižšie) — poznámka sa tak k AI dostala len ako pasívne dáta v
-    # CONTEXT_JSON (coach_notes), nie ako záväzná inštrukcia v tele promptu.
-    # Presne preto AI poznámku "vzala na vedomie" vo weekly texte (kde ju
-    # explicitne generuje), ale v daily plánovaní ju ignorovala a naplánovala
-    # beh aj napriek jasnej žiadosti "žiadny beh tento týždeň".
-    #
-    # Zároveň sprísnené znenie: explicitne prikazuje AI vynechať aj main_sport,
-    # ak si to athlete vyžiadal, uprednostniť menej sessions pred porušením
-    # pokynu, a prípadné náhrady (napr. chôdzu) označiť ako voliteľné.
+    # FIX HISTÓRIA:
+    # 1) Táto sekcia sa predtým vypočítala, ale nikdy sa nepridala do
+    #    finálneho promptu (chýbajúce "+ notes_rule" pri skladaní user_txt).
+    # 2) Po oprave #1 stále prehrávala proti dvom NEPODMIENENÝM pravidlám
+    #    nižšie (long_run_rule vždy pridalo 1 long run pre main_sport;
+    #    sports_restriction vždy explicitne vypísalo main_sport ako
+    #    "ALLOWED") — model mal teda dve protirečiace si inštrukcie a
+    #    v praxi sa riadil tou nižšie/konkrétnejšou. Teraz sú long_run_rule,
+    #    multi_sport_rule aj sports_restriction podmienené a explicitne
+    #    odkazujú späť na ATHLETE INSTRUCTIONS, takže si už neprotirečia.
     coach_notes = _as_dict(context_payload.get("coach_notes"))
     sticky_notes = coach_notes.get("sticky_notes") or []
     ephemeral_note = coach_notes.get("ephemeral_note")
@@ -718,24 +733,37 @@ def build_prompts_for_daily(
     notes_rule = ""
     if sticky_notes or ephemeral_note:
         lines = [
-            "--- ATHLETE INSTRUCTIONS (HIGHEST PRIORITY — OVERRIDES DEFAULTS BELOW) ---",
-            "The athlete has left direct instructions. These OVERRIDE the default sport "
-            "selection, main_sport, and session count rules described later in this prompt.",
+            "--- ATHLETE INSTRUCTIONS (HIGHEST PRIORITY — OVERRIDES EVERYTHING BELOW) ---",
+            "The athlete has left direct instructions below. These OVERRIDE the default "
+            "main_sport, ALLOWED SPORTS, LONG RUN, and MULTI-SPORT rules that follow later "
+            "in this prompt, even though those rules will mention the athlete's usual main "
+            "sport by name (e.g. 'Main Sport: run'). A label further down saying a sport is "
+            "the 'main sport' or 'allowed' does NOT cancel an exclusion stated here.",
             "",
             "CRITICAL ENFORCEMENT RULES:",
             "1. If an instruction restricts or excludes a sport (e.g. 'no running this week', "
-            "'skip cycling'), you MUST NOT schedule ANY session for that sport this week — "
-            "even if it is the athlete's main_sport. This overrides the MULTI-SPORT and "
-            "sport-selection rules below.",
-            "2. It is ALWAYS better to schedule FEWER sessions (or more rest days) than to "
-            "violate an athlete instruction. Do not 'fill the gap' with the restricted sport "
-            "just to hit a volume or session-count target.",
-            "3. If you replace the restricted sport with an alternative activity that is not "
-            "strictly required (e.g. a light walk), it MUST be clearly marked as optional in "
+            "'skip cycling', 'chcem pokoj od behania'), you MUST NOT schedule ANY session for "
+            "that sport this week — including long runs, easy runs, or recovery runs — even "
+            "though it is listed as the athlete's main_sport elsewhere in this prompt.",
+            "2. It is ALWAYS better to schedule FEWER sessions (or more rest days, or more of "
+            "an allowed sport like strength) than to violate an athlete instruction. Do not "
+            "'fill the gap' with the restricted sport just to hit a volume or session-count "
+            "target, and do not treat the excluded sport's usual weekly minutes as something "
+            "that must be replaced 1:1 by another sport.",
+            "3. If you add an alternative activity that is not strictly required to replace the "
+            "restricted sport (e.g. a light walk), it MUST be clearly marked as optional in "
             "`notes` (e.g. 'Voliteľná prechádzka, ak sa cítiš na to' / 'Optional, only if you feel like it').",
-            "4. If the athlete's instruction leaves only one sport available (e.g. only strength "
-            "remains after excluding running), plan ONLY that sport plus rest days — do not "
-            "invent sessions for other sports to compensate.",
+            "4. If the instruction leaves only one sport realistically available (e.g. only "
+            "strength remains after excluding running and the athlete does not cycle/swim), "
+            "plan ONLY that sport plus rest days — do not invent sessions for other sports to "
+            "compensate, and it is fine for the week to have fewer total sessions than usual.",
+            "5. Exception — safety ceiling: if an instruction requests something excessive or "
+            "unsafe (e.g. running a marathon distance every day, zero rest days for weeks), "
+            "do NOT follow it literally. Instead, honor its clear underlying intent (more of "
+            "that sport / higher priority for it) within safe volume and recovery limits from "
+            "`athlete_state.ai_state.volume_tolerance`, and briefly note in `notes` why it was "
+            "moderated. This exception applies ONLY to unsafe volume/intensity requests — it "
+            "does NOT apply to requests to REDUCE or EXCLUDE a sport (rule 1 always applies in full).",
             "",
         ]
         if sticky_notes:
@@ -746,11 +774,12 @@ def build_prompts_for_daily(
             lines.append(f"\nOne-time instruction for THIS week only:\n  → {ephemeral_note}")
         notes_rule = "\n".join(lines) + "\n\n"
 
-    # Athlete notes rule
     sports_restriction = (
-        f"- ALLOWED SPORTS: {', '.join(final_sports_list)}. "
-        "ONLY populate sessions for listed sports. NOTE: if ATHLETE INSTRUCTIONS above "
-        "restrict one of these sports, that restriction takes priority over this list.\n\n"
+        f"- ALLOWED SPORTS (default, before athlete instructions): {', '.join(final_sports_list)}. "
+        "ONLY populate sessions for listed sports. IMPORTANT: if ATHLETE INSTRUCTIONS above "
+        "restrict or exclude one of these sports (including the main sport), that exclusion "
+        "takes full priority over this list — remove the excluded sport from consideration "
+        "entirely, do not just reduce it.\n\n"
     )
 
     context_for_ai = minify_daily_context_for_ai(context_payload)
@@ -764,12 +793,12 @@ def build_prompts_for_daily(
     user_txt = (
         f"Generate a weekly plan.\n"
         f"Week: {week_index} ({week_start} .. {week_end})\n"
-        f"Main Sport: {main_sport}\n"
-        f"All Sports: {', '.join(final_sports_list)}\n"
+        f"Main Sport (default, may be overridden by ATHLETE INSTRUCTIONS below): {main_sport}\n"
+        f"All Sports (default, may be overridden by ATHLETE INSTRUCTIONS below): {', '.join(final_sports_list)}\n"
         f"External events: {ext_count}\n\n"
-        # 🌟 notes_rule ide ako PRVÁ vec po základných info riadkoch — pred
-        # DATE INTEGRITY aj pred akoukoľvek default sport/rest logikou, aby
-        # mala model najvyššiu prioritu pri čítaní promptu.
+        # 🌟 notes_rule ide hneď po základných info riadkoch — pred DATE
+        # INTEGRITY aj pred akoukoľvek default sport/rest logikou, aby mala
+        # model najvyššiu prioritu pri čítaní promptu.
         + notes_rule
         + "- DATE INTEGRITY: Use ONLY dates inside the given Week range.\n\n"
         "- EXTERNAL EVENTS (CRITICAL - OVERRIDE EVERYTHING): Check `external_events`. "
