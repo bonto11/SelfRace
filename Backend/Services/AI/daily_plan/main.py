@@ -96,6 +96,7 @@ def _resolve_plan_meta_id(user_id: int, plan_meta_id: Optional[int], *, ctx: Aut
 # GENERATE DAILY WEEK
 # ============================================================
 
+
 def service_generate_daily_week(
     user_id: int,
     *,
@@ -104,17 +105,16 @@ def service_generate_daily_week(
     model: Optional[str] = None,
     drop_past_days: bool = False,
     reason: Optional[str] = None,
+    consume_ephemeral: bool = True,  # 🌟 NOVÉ
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Generuje denný tréningový plán pre daný týždeň DANÉHO PLÁNU.
 
-    plan_meta_id: NOVÉ - ak nie je zadaný, dohľadá sa aktívny plán usera
-    (zachováva staré správanie pre volania, ktoré ho ešte neposielajú).
-
-    FIX: predtým sa week_index hľadal a daily riadky ukladali naprieč
-    VŠETKÝMI plánmi usera bez rozlíšenia - to bol jeden z hlavných zdrojov
-    kontaminácie medzi aktívnym plánom a nedokončenými draftmi.
+    consume_ephemeral: NOVÉ — ak False, jednorazová poznámka sa NEODMAZE
+    po tomto volaní (zostane "pending" pre ďalšie generovanie v tom istom
+    reťazci, napr. service_replan_current_week_and_extend nižšie). Default
+    True zachováva pôvodné správanie pre všetky ostatné volania.
     """
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
@@ -213,7 +213,13 @@ def service_generate_daily_week(
         inserted_rows_data = db_insert_daily_rows(rows_to_insert, ctx=ctx)
         inserted_rows = len(inserted_rows_data)
 
-    if context.get("ephemeral_note_id"):
+    # 🌟 FIX: spotreba ephemeral poznámky je teraz podmienená - keď
+    # service_replan_current_week_and_extend reťazí viacero generovaní
+    # (aktuálny týždeň + prípadný auto-extend budúceho), chceme, aby
+    # poznámka platila pre CELÝ reťazec, nie len pre prvé volanie. Preto sa
+    # tu môže táto spotreba zámerne preskočiť a urobí sa raz, na konci,
+    # volajúcou funkciou.
+    if consume_ephemeral and context.get("ephemeral_note_id"):
         try:
             service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
         except Exception as e:
@@ -233,7 +239,6 @@ def service_generate_daily_week(
         "deleted_rows": deleted_rows,
         "error": None,
     }
-
 
 # ============================================================
 # READ
@@ -315,11 +320,18 @@ def service_auto_extend_daily_plan(
     *,
     min_horizon_days: int = 4,
     plan_meta_id: Optional[int] = None,
+    consume_ephemeral: bool = True,  # 🌟 NOVÉ
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Automaticky rozšíri denný plán DANÉHO PLÁNU ak zostáva menej ako
     min_horizon_days dní. Pri aktuálnom týždni zachová odtrénované dni.
+
+    consume_ephemeral: NOVÉ — prenáša sa do každého vnútorného volania
+    service_generate_daily_week. Default True (bežné automatické volanie
+    po synchronizácii aktivity si poznámku spotrebuje samo, ako doteraz).
+    False sa používa len z service_replan_current_week_and_extend, kde
+    poznámku spotrebúva až volajúci, na úplnom konci reťazca.
     """
     if min_horizon_days <= 0:
         min_horizon_days = 6
@@ -406,6 +418,7 @@ def service_auto_extend_daily_plan(
             model=None,
             drop_past_days=is_current_week,
             reason="refill_auto_extend",
+            consume_ephemeral=consume_ephemeral,  # 🌟 NOVÉ - prenesené ďalej
             ctx=ctx,
         )
         if res.get("ok"):
@@ -474,3 +487,62 @@ def service_update_daily_session_status(
         raise ValueError("Session not found or update failed")
 
     return {"success": True, "data": row, "message": "Session updated successfully"}
+    
+def service_replan_current_week_and_extend(
+    user_id: int,
+    *,
+    week_index: int,
+    plan_meta_id: Optional[int] = None,
+    model: Optional[str] = None,
+    min_horizon_days: Optional[int] = None,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: "Uprav dni" v jednom atomickom kroku.
+
+    1. Regeneruje aktuálny týždeň (week_index) bez zásahu do minulosti
+       (drop_past_days=True).
+    2. Skontroluje horizont a ak treba, automaticky dogeneruje aj ďalší
+       týždeň (rovnaký mechanizmus ako po synchronizácii aktivity).
+    3. Ephemeral (jednorazová) poznámka sa spotrebuje AŽ NA KONCI, raz -
+       vďaka tomu platí pre celý reťazec (aktuálny týždeň AJ prípadný
+       dogenerovaný budúci), nie len pre prvý krok.
+
+    Ak krok 1 zlyhá, krok 2 sa vôbec nespustí a poznámka sa nespotrebuje
+    (zostáva "pending" pre ďalší pokus).
+    """
+    current = service_generate_daily_week(
+        user_id=user_id,
+        week_index=week_index,
+        plan_meta_id=plan_meta_id,
+        model=model,
+        drop_past_days=True,
+        reason="manual_replan",
+        consume_ephemeral=False,
+        ctx=ctx,
+    )
+    if not current.get("ok"):
+        return current
+
+    resolved_plan_meta_id = current.get("plan_meta_id") or plan_meta_id
+
+    extend_result = service_auto_extend_daily_plan(
+        user_id=user_id,
+        plan_meta_id=resolved_plan_meta_id,
+        min_horizon_days=min_horizon_days or COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
+        consume_ephemeral=False,
+        ctx=ctx,
+    )
+
+    try:
+        service_consume_pending_ephemeral(user_id=user_id, ctx=ctx)
+    except Exception as e:
+        print(f"❌ [DAILY] final consume ephemeral error: {repr(e)}")
+
+    return {
+        "ok": True,
+        "current_week": current,
+        "extend": extend_result,
+        "week_index": week_index,
+        "plan_meta_id": resolved_plan_meta_id,
+    }
