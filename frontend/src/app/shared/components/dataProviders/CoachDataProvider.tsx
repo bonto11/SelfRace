@@ -20,6 +20,10 @@ import {
 import { apiGetBests } from "@/app/features/bests/api/bests";
 import { secToHHMMSS, todayISO, addDays } from "@/app/shared/utils/time";
 import { fetchPlanRangeApi } from "@/app/features/coach/api/planApi";
+import {
+  apiGetLatestWeeklyPlan,
+  type WeeklyPlanLatest,
+} from "@/app/features/coach/api/coach_plan_weekly";
 import { useT } from "@/app/shared/i18n/useT";
 
 /* ----------------- PB mapovanie ----------------- */
@@ -67,6 +71,12 @@ type PlanSubCtx = {
   selectPlanByRange: (start: string, end: string) => PlanRow[];
 };
 
+type WeeklySubCtx = {
+  plan: WeeklyPlanLatest | null;
+  loading: boolean;
+  refresh: (force?: boolean) => Promise<void>;
+};
+
 /* ----------------- Typ kontextu ----------------- */
 
 type CoachCtx = {
@@ -78,8 +88,17 @@ type CoachCtx = {
   refresh: (force?: boolean) => Promise<void>;
   savePrefs: (next: CoachPrefs) => Promise<void>;
 
-  // plán
+  // plán (denný, riadky)
   plan: PlanSubCtx;
+
+  // 🌟 NOVÉ: weekly plán, ako súčasť tej istej globálnej dátovej vrstvy -
+  // predtým ho WidgetCoachWeeklyPlan a DetailWeeklyPlan fetchovali každý
+  // sám nezávisle (vlastný useEffect na mount), takže kliknutie na globálne
+  // "refresh" tlačidlo (RefreshIconBtn -> refreshCoach) ich vôbec
+  // neobnovilo - dáta sa updatli až po plnom odhlásení/prihlásení
+  // (remount). Presunutím fetchu sem sa weekly plán obnoví presne vtedy,
+  // keď sa obnoví aj zvyšok (refresh()).
+  weekly: WeeklySubCtx;
 };
 
 const CoachDataContext = createContext<CoachCtx | null>(null);
@@ -144,7 +163,7 @@ export function CoachDataProvider({
     [userId]
   );
 
-  // -------- plán --------
+  // -------- plán (denné riadky) --------
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [planLoading, setPlanLoading] = useState(false);
 
@@ -181,12 +200,37 @@ export function CoachDataProvider({
     [planRows]
   );
 
+  // -------- weekly plán --------
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanLatest | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+
+  const refreshWeekly = useCallback(
+    async (_force = false): Promise<void> => {
+      if (userId == null) {
+        setWeeklyPlan(null);
+        return;
+      }
+
+      setWeeklyLoading(true);
+      try {
+        const r = await apiGetLatestWeeklyPlan(userId);
+        setWeeklyPlan(r ?? null);
+      } catch (e: any) {
+        console.error("[WEEKLY][provider] fetch ERROR", t(e?.message as any));
+        setWeeklyPlan(null);
+      } finally {
+        setWeeklyLoading(false);
+      }
+    },
+    [userId, t]
+  );
+
   // -------- spoločný refresh --------
   const refresh = useCallback(
     async (force = false) => {
-      await Promise.all([refreshCoachCore(), refreshPlan(force)]);
+      await Promise.all([refreshCoachCore(), refreshPlan(force), refreshWeekly(force)]);
     },
-    [refreshCoachCore, refreshPlan]
+    [refreshCoachCore, refreshPlan, refreshWeekly]
   );
 
   // init / zmena usera alebo rozsahu
@@ -195,6 +239,7 @@ export function CoachDataProvider({
       setPrefs(DEFAULT_PREFS);
       setPbRun([]);
       setPlanRows([]);
+      setWeeklyPlan(null);
       setCoachLoading(false);
       return;
     }
@@ -203,7 +248,7 @@ export function CoachDataProvider({
 
   const value = useMemo<CoachCtx>(
     () => ({
-      loading: coachLoading || planLoading,
+      loading: coachLoading || planLoading || weeklyLoading,
 
       prefs,
       pbRun,
@@ -219,10 +264,17 @@ export function CoachDataProvider({
         refresh: refreshPlan,
         selectPlanByRange,
       },
+
+      weekly: {
+        plan: weeklyPlan,
+        loading: weeklyLoading,
+        refresh: refreshWeekly,
+      },
     }),
     [
       coachLoading,
       planLoading,
+      weeklyLoading,
       prefs,
       pbRun,
       refresh,
@@ -232,6 +284,8 @@ export function CoachDataProvider({
       planRows,
       refreshPlan,
       selectPlanByRange,
+      weeklyPlan,
+      refreshWeekly,
     ]
   );
 
