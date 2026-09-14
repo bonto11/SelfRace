@@ -301,3 +301,64 @@ export async function apiGetPlanByActivityId(
     return null;
   }
 }
+
+// 🌟 NOVÉ: kombinovaná operácia "Uprav dni" - regeneruje aktuálny týždeň
+// (bez zásahu do minulosti) A hneď nato skontroluje horizont, prípadne
+// dogeneruje aj ďalší týždeň. Ephemeral poznámka sa spotrebuje až na konci
+// celého reťazca, takže platí pre všetko, čo sa v rámci tohto volania
+// vygeneruje - nie len pre prvý (aktuálny) týždeň.
+export type ReplanDailyAndExtendOptions = {
+  week_index: number;
+  plan_meta_id?: number | null;
+  min_horizon_days?: number;
+};
+
+export async function apiReplanDailyAndExtend(
+  userId: number,
+  userUuid: string,
+  opts: ReplanDailyAndExtendOptions
+): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
+  const enqueueBody = {
+    job_type: "daily_replan_and_extend",
+    payload: {
+      week_index: opts.week_index,
+      plan_meta_id: opts.plan_meta_id ?? null,
+      ...(opts.min_horizon_days ? { min_horizon_days: opts.min_horizon_days } : {}),
+    },
+    priority: 100,
+    max_attempts: 1,
+    dedupe_key: `daily_replan_and_extend_week_${opts.week_index}`,
+  };
+
+  let enqueueJson: any;
+  try {
+    enqueueJson = await callBackend(enqueuePath, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(enqueueBody),
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiReplanDailyAndExtend][enqueue] ERROR", err);
+    return { success: false, error_code: "enqueue_failed", message: "Network error" };
+  }
+
+  if (!enqueueJson?.success) {
+    return {
+      success: false,
+      error_code: enqueueJson?.error_code || "REQUEST_FAILED",
+      message: enqueueJson?.message || "Nepodarilo sa zaradiť požiadavku.",
+    };
+  }
+
+  const jobId = enqueueJson.job?.id || enqueueJson.data?.job_id;
+  if (!jobId) {
+    return { success: true, status: "QUEUED" };
+  }
+
+  return await runAsyncJobWithPolling(userId, jobId);
+}
+
