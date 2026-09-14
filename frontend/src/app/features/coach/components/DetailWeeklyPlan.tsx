@@ -1,17 +1,14 @@
 // src/app/features/coach/components/DetailWeeklyPlan.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import {
-  apiGetLatestWeeklyPlan,
-  type WeeklyPlanLatest,
-  type WeeklyPlanWeek,
-} from "@/app/features/coach/api/coach_plan_weekly";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
+import type { WeeklyPlanWeek } from "@/app/features/coach/api/coach_plan_weekly";
 import { useT } from "@/app/shared/i18n/useT";
-import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle"; // 👈 IMPORT NOVÉHO KOMPONENTU
-import { useSettings } from "@/app/shared/i18n/SettingsProvider"; // 👈 IMPORT SETTINGS PROVIDERA
+import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
+import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 
 import {
   PANEL_STACK,
@@ -140,34 +137,16 @@ function Card({
 export default function DetailWeeklyPlan() {
   const { userId } = useUserId();
   const t = useT();
-  
-  const { settings } = useSettings() as any; // 👈 Načítanie settings
-  const showAdvanced = settings?.show_advanced ?? false; // 👈 Extrahovanie stavu
 
-  const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
 
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetLatestWeeklyPlan(userId);
-        if (alive) setPlan(r ?? null);
-      } catch (e: any) {
-        if (alive)
-          setError(t(e?.message as any) || t("coach.weekly.errorLoad"));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [userId, t]);
+  // 🌟 FIX: weekly plán teraz z globálneho CoachDataProvider namiesto
+  // vlastného nezávislého fetchu - predtým sa detail neaktualizoval po
+  // kliknutí na globálne refresh tlačidlo, len po plnom relogu.
+  const {
+    weekly: { plan, loading },
+  } = useCoachData();
 
   const view = useMemo(() => {
     if (!plan?.weeks?.length)
@@ -218,22 +197,21 @@ export default function DetailWeeklyPlan() {
         </div>
       </section>
     );
-  if (error || !plan || !view.weeksSorted.length)
+  if (!plan || !view.weeksSorted.length)
     return (
       <Card
         title={t("coachWeekly.title")}
         subtitle={t("coach.weekly.noPlanTitle")}
       >
         <div className={PANEL_PREVIEW}>
-          {error ?? t("coach.weekly.noPlanDesc")}
+          {t("coach.weekly.noPlanDesc")}
         </div>
       </Card>
     );
 
   return (
     <div className={PANEL_STACK}>
-      
-      {/* Nahradenie Toggle za globálny */}
+
       {view.weeksSorted.length > 0 && (
         <ShowAdvancedToggle />
       )}
@@ -335,7 +313,7 @@ export default function DetailWeeklyPlan() {
                   {/* 🔐 POKROČILÉ DETAILNÉ INFO (Poznámky + Bary Objomov) */}
                   {showAdvanced && (
                     <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                      
+
                       {/* 🔐 Schované poznámky */}
                       {w.notes && (
                         <div className="text-xs italic opacity-70 mb-2">
