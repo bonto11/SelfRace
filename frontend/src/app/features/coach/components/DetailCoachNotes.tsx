@@ -19,7 +19,7 @@ import {
   apiDeleteNote, apiAddEphemeral,
   type CoachNotesData, type StickyNote,
 } from "@/app/features/coach/api/coach_user_notes";
-import { apiGenerateDailyForWeek, apiExtendDailyPlan } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGenerateDailyForWeek, apiReplanDailyAndExtend } from "@/app/features/coach/api/coach_plan_daily";
 import { apiGenerateWeeklyPlan, apiGetLatestWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
@@ -224,32 +224,29 @@ export default function DetailCoachNotes() {
 
   /* ---- Uprav dni ---- */
 
-      const handleReplanDaily = async () => {
+      
+  /* ---- Uprav dni ---- */
+
+  const handleReplanDaily = async () => {
     if (!userId || !userUuid || replanning || !planActive) return;
     setReplanning("daily");
     setLastReplan(null);
     try {
       await _saveEphemeralIfNeeded();
       const weekIndex = await _getCurrentWeekIndex();
-      const out = await apiGenerateDailyForWeek(userId, userUuid, {
+
+      // 🌟 FIX: jedno kombinované volanie namiesto dvoch oddelených
+      // (apiGenerateDailyForWeek + apiExtendDailyPlan). Predtým sa
+      // ephemeral poznámka spotrebovala hneď po prvom volaní, takže
+      // prípadný automatický extend do ďalšieho týždňa ju už nevidel.
+      // Teraz sa spotrebuje až na konci celého BE reťazca (viď
+      // service_replan_current_week_and_extend).
+      const out = await apiReplanDailyAndExtend(userId, userUuid, {
         week_index: weekIndex,
-        overwrite: true,
-        // 🌟 FIX: nikdy neprepisuj už odtrénované dni tohto týždňa.
-        drop_past_days: true,
       });
       if (!out.success) {
         toast.error(out.message ?? t("coachNotes.replan.error"));
         return;
-      }
-
-      // 🌟 NOVÉ: po úprave aktuálneho týždňa skontroluj horizont a prípadne
-      // automaticky dogeneruj aj ďalší týždeň (rovnaký mechanizmus, aký
-      // beží automaticky po synchronizácii aktivity). Ak horizont stačí,
-      // toto je no-op (changed: false) - bezpečné volať vždy.
-      try {
-        await apiExtendDailyPlan(userId);
-      } catch (e) {
-        console.warn("[CoachNotes] auto-extend after daily replan failed", e);
       }
 
       const summary = await _fetchCurrentWeekSummary();
@@ -266,6 +263,7 @@ export default function DetailCoachNotes() {
       setReplanning(null);
     }
   };
+
 
 
   /* ---- Veľká zmena ---- */
