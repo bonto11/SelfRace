@@ -5,6 +5,7 @@ export type DailyWeekGenerateOptions = {
   week_index: number;
   overwrite?: boolean;
   plan_meta_id?: number | null;
+  drop_past_days?: boolean;
 };
 
 export async function apiGenerateDailyForWeek(
