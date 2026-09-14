@@ -21,11 +21,16 @@ export async function apiGenerateDailyForWeek(
     payload: {
       week_index: opts.week_index,
       overwrite: opts.overwrite ?? true,
-      // 🌟 NOVÉ: plan_meta_id sa musí posielať explicitne z FE - ak sme
-      // práve vygenerovali nový draft (weekly_generate vrátil plan_meta_id),
-      // ten draft ešte NIE JE aktívny, takže backend by si ho sám cez
-      // "aktívny plán" nikdy nenašiel a daily riadky by dostali NULL.
+      // 🌟 plan_meta_id sa musí posielať explicitne z FE - ak sme práve
+      // vygenerovali nový draft (weekly_generate vrátil plan_meta_id), ten
+      // draft ešte NIE JE aktívny, takže backend by si ho sám cez "aktívny
+      // plán" nikdy nenašiel a daily riadky by dostali NULL.
       plan_meta_id: opts.plan_meta_id ?? null,
+      // 🌟 FIX: bez tohto sa pri regenerovaní v strede týždňa prepíšu aj
+      // už odtrénované dni (pondelok/utorok atď.) niečím, čo si AI vymyslí
+      // naslepo. drop_past_days zabezpečí, že sa dotknú len dni od
+      // dnešného dátumu ďalej.
+      drop_past_days: opts.drop_past_days ?? false,
       debug: true,
     },
     priority: 100,
@@ -43,6 +48,58 @@ export async function apiGenerateDailyForWeek(
     });
   } catch (err: any) {
     console.error("[Coach][apiGenerateDailyForWeek][enqueue] ERROR", err);
+    return { success: false, error_code: "enqueue_failed", message: "Network error" };
+  }
+
+  if (!enqueueJson?.success) {
+    return {
+      success: false,
+      error_code: enqueueJson?.error_code || "REQUEST_FAILED",
+      message: enqueueJson?.message || "Nepodarilo sa zaradiť požiadavku.",
+    };
+  }
+
+  const jobId = enqueueJson.job?.id || enqueueJson.data?.job_id;
+  if (!jobId) {
+    return { success: true, status: "QUEUED" };
+  }
+
+  return await runAsyncJobWithPolling(userId, jobId);
+}
+
+// 🌟 NOVÉ: manuálne vyvolanie "continue" mechanizmu (rovnaký job, aký beží
+// automaticky po synchronizácii aktivity - service_auto_extend_daily_plan).
+// Ak zostáva menej dní než min_horizon_days (backend default z
+// COACH_PLAN_GENERATE_MIN_HORIZON_DAYS), dogeneruje ďalší potrebný
+// week_index. Ak horizont stačí, vráti sa bez zmeny (changed: false) -
+// bezpečné volať "na skusku" po každom manuálnom replane aktuálneho týždňa.
+export async function apiExtendDailyPlan(
+  userId: number,
+  opts: { min_horizon_days?: number } = {}
+): Promise<{ success: boolean; status?: string; error_code?: string; message?: string; data?: any }> {
+  if (!userId) throw new Error("api.common.missingUserAuth");
+
+  const enqueuePath = `/jobs/enqueue/${encodeURIComponent(String(userId))}`;
+  const enqueueBody = {
+    job_type: "daily_extend",
+    payload: {
+      ...(opts.min_horizon_days ? { min_horizon_days: opts.min_horizon_days } : {}),
+    },
+    priority: 90,
+    max_attempts: 1,
+    dedupe_key: `daily_extend:${userId}`,
+  };
+
+  let enqueueJson: any;
+  try {
+    enqueueJson = await callBackend(enqueuePath, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify(enqueueBody),
+    });
+  } catch (err: any) {
+    console.error("[Coach][apiExtendDailyPlan][enqueue] ERROR", err);
     return { success: false, error_code: "enqueue_failed", message: "Network error" };
   }
 
