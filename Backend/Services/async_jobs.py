@@ -43,6 +43,7 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "weekly_generate",
     "daily_generate",
     "daily_extend",
+    "daily_replan_and_extend",
     "plan_match",
     "activity_review",
     "sync",  # bulk sync/import
@@ -60,6 +61,7 @@ NOTIFY_ON_FINISH_JOB_TYPES: Set[str] = {
     "weekly_generate",
     "daily_generate",
     "activity_review",
+    "daily_replan_and_extend",
     "sync",
     "coach_autoadjust",
 }
@@ -309,6 +311,18 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 drop_past_days=bool(payload.get("drop_past_days", False)),
                 reason=payload.get("reason"),
             )
+    
+        elif job_type == "daily_replan_and_extend":
+            from Services.AI.daily_plan.main import service_replan_current_week_and_extend
+            result = service_replan_current_week_and_extend(
+                user_id=user_id,
+                week_index=int(payload["week_index"]),
+                plan_meta_id=payload.get("plan_meta_id"),
+                model=payload.get("model"),
+                min_horizon_days=payload.get("min_horizon_days"),
+                ctx=ctx,
+            )
+
 
         elif job_type == "plan_match":
             result = auto_map_plans_for_activities(
