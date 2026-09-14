@@ -29,6 +29,9 @@ from Modules.Supabase.client import get_service_client
 from Services.synchronization_single import service_sync_single_activity
 from Services.coach_plan_adjustment import service_coach_autoadjust_after_update
 
+# 🌟 NOVÉ: push notifikácia po dokončení jobu
+from Services.notifications import service_notify_job_finished
+
 supabase = get_service_client()
 
 # ============================================================
@@ -46,6 +49,19 @@ ALLOWED_JOB_TYPES: Set[str] = {
     "strava_sync_activity",  # sync single + enqueue followups (review only)
     "mark_activity_deleted",  # only marks deleted_at
     "coach_autoadjust",  # debounced per user
+}
+
+# 🌟 NOVÉ: len tieto job_type dostanú push notifikáciu o dokončení (úspech
+# aj zlyhanie). Zvyšné (plan_match, daily_extend, mark_activity_deleted,
+# strava_sync_activity) sú interné/chained kroky bez samostatného
+# user-facing výsledku - notifikovať o nich by len zbytočne spamovalo.
+NOTIFY_ON_FINISH_JOB_TYPES: Set[str] = {
+    "ai_analyze",
+    "weekly_generate",
+    "daily_generate",
+    "activity_review",
+    "sync",
+    "coach_autoadjust",
 }
 
 SENSITIVE_KEYS: Set[str] = {
@@ -75,6 +91,35 @@ def _scrub_dict(x: Any) -> Any:
     if isinstance(x, list):
         return [_scrub_dict(v) for v in x]
     return x
+
+
+def _notify_job_finished_best_effort(
+    *, ctx: AuthCtx, user_id: int, job_type: str, ok: bool, payload: Dict[str, Any]
+) -> None:
+    """
+    🌟 NOVÉ: wrapper okolo service_notify_job_finished - nikdy nesmie
+    zhodiť samotný job (notifikácia je len "nice to have", nie kritická
+    súčasť výsledku). Pre activity_review notifikujeme LEN ak ho reálne
+    vyžiadal user ("source": "user") - automatické review po každom
+    synchronizovanom tréningu (source="auto") by inak spamovalo pushmi
+    po každom importe zo Stravy.
+    """
+    if job_type not in NOTIFY_ON_FINISH_JOB_TYPES:
+        return
+
+    if job_type == "activity_review" and payload.get("source") != "user":
+        return
+
+    try:
+        service_notify_job_finished(
+            user_id=user_id,
+            job_type=job_type,
+            ok=ok,
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[JOB-NOTIFY] failed job_type={job_type} user_id={user_id}: {repr(e)}")
+
 
 def _enqueue_autoadjust_debounced(
     ctx: AuthCtx, *, user_id: int, delay_sec: int = 120, force_reason: Optional[str] = None
@@ -255,12 +300,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             )
 
         elif job_type == "daily_generate":
-            # 🌟 FIX: plan_meta_id sa teraz prenáša z payloadu (FE ho posiela
-            # priamo z výsledku predošlého weekly_generate volania). Predtým
-            # sa toto vôbec neposielalo, service_generate_daily_week si preto
-            # sám dohľadával "aktívny" plán - ale čerstvo vygenerovaný draft
-            # ešte NIE JE aktívny (len 'generated'), takže dohľadanie zlyhalo
-            # a daily riadky sa vložili s plan_meta_id=NULL.
             result = service_generate_daily_week(
                 user_id=user_id,
                 ctx=ctx,
@@ -409,6 +448,12 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             progress=100,
             ctx=ctx,
         )
+
+        # 🌟 NOVÉ: push notifikácia o úspešnom dokončení (best-effort).
+        _notify_job_finished_best_effort(
+            ctx=ctx, user_id=user_id, job_type=job_type, ok=True, payload=payload
+        )
+
         return {"ok": True}
 
     except Exception as e:  # noqa: BLE001
@@ -420,6 +465,14 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             progress=100,
             ctx=ctx,
         )
+
+        # 🌟 NOVÉ: push notifikácia o zlyhaní (best-effort) - user sa dozvie,
+        # že má skúsiť znova, namiesto donekonečna čakať na výsledok, ktorý
+        # nikdy nepríde.
+        _notify_job_finished_best_effort(
+            ctx=ctx, user_id=user_id, job_type=job_type, ok=False, payload=payload
+        )
+
         return {"ok": False, "error": str(e)}
 
 
