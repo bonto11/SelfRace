@@ -698,15 +698,46 @@ def build_prompts_for_daily(
 
     special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
 
-    # Athlete notes rule
+    # 🌟 ATHLETE INSTRUCTIONS (sticky + ephemeral notes) — najvyššia priorita.
+    #
+    # FIX (ROOT CAUSE): táto premenná sa doteraz VYPOČÍTALA, ale nikdy sa
+    # nepridala do finálneho user_txt (chýbajúci "+ notes_rule" v skladaní
+    # promptu nižšie) — poznámka sa tak k AI dostala len ako pasívne dáta v
+    # CONTEXT_JSON (coach_notes), nie ako záväzná inštrukcia v tele promptu.
+    # Presne preto AI poznámku "vzala na vedomie" vo weekly texte (kde ju
+    # explicitne generuje), ale v daily plánovaní ju ignorovala a naplánovala
+    # beh aj napriek jasnej žiadosti "žiadny beh tento týždeň".
+    #
+    # Zároveň sprísnené znenie: explicitne prikazuje AI vynechať aj main_sport,
+    # ak si to athlete vyžiadal, uprednostniť menej sessions pred porušením
+    # pokynu, a prípadné náhrady (napr. chôdzu) označiť ako voliteľné.
     coach_notes = _as_dict(context_payload.get("coach_notes"))
     sticky_notes = coach_notes.get("sticky_notes") or []
     ephemeral_note = coach_notes.get("ephemeral_note")
 
     notes_rule = ""
     if sticky_notes or ephemeral_note:
-        lines = ["--- ATHLETE INSTRUCTIONS (CRITICAL — MUST FOLLOW) ---",
-                 "The athlete has left direct instructions. Respect them throughout the plan.\n"]
+        lines = [
+            "--- ATHLETE INSTRUCTIONS (HIGHEST PRIORITY — OVERRIDES DEFAULTS BELOW) ---",
+            "The athlete has left direct instructions. These OVERRIDE the default sport "
+            "selection, main_sport, and session count rules described later in this prompt.",
+            "",
+            "CRITICAL ENFORCEMENT RULES:",
+            "1. If an instruction restricts or excludes a sport (e.g. 'no running this week', "
+            "'skip cycling'), you MUST NOT schedule ANY session for that sport this week — "
+            "even if it is the athlete's main_sport. This overrides the MULTI-SPORT and "
+            "sport-selection rules below.",
+            "2. It is ALWAYS better to schedule FEWER sessions (or more rest days) than to "
+            "violate an athlete instruction. Do not 'fill the gap' with the restricted sport "
+            "just to hit a volume or session-count target.",
+            "3. If you replace the restricted sport with an alternative activity that is not "
+            "strictly required (e.g. a light walk), it MUST be clearly marked as optional in "
+            "`notes` (e.g. 'Voliteľná prechádzka, ak sa cítiš na to' / 'Optional, only if you feel like it').",
+            "4. If the athlete's instruction leaves only one sport available (e.g. only strength "
+            "remains after excluding running), plan ONLY that sport plus rest days — do not "
+            "invent sessions for other sports to compensate.",
+            "",
+        ]
         if sticky_notes:
             lines.append("Permanent (every plan):")
             for i, n in enumerate(sticky_notes, 1):
@@ -715,9 +746,11 @@ def build_prompts_for_daily(
             lines.append(f"\nOne-time instruction for THIS week only:\n  → {ephemeral_note}")
         notes_rule = "\n".join(lines) + "\n\n"
 
+    # Athlete notes rule
     sports_restriction = (
         f"- ALLOWED SPORTS: {', '.join(final_sports_list)}. "
-        "ONLY populate sessions for listed sports.\n\n"
+        "ONLY populate sessions for listed sports. NOTE: if ATHLETE INSTRUCTIONS above "
+        "restrict one of these sports, that restriction takes priority over this list.\n\n"
     )
 
     context_for_ai = minify_daily_context_for_ai(context_payload)
@@ -734,7 +767,11 @@ def build_prompts_for_daily(
         f"Main Sport: {main_sport}\n"
         f"All Sports: {', '.join(final_sports_list)}\n"
         f"External events: {ext_count}\n\n"
-        "- DATE INTEGRITY: Use ONLY dates inside the given Week range.\n\n"
+        # 🌟 notes_rule ide ako PRVÁ vec po základných info riadkoch — pred
+        # DATE INTEGRITY aj pred akoukoľvek default sport/rest logikou, aby
+        # mala model najvyššiu prioritu pri čítaní promptu.
+        + notes_rule
+        + "- DATE INTEGRITY: Use ONLY dates inside the given Week range.\n\n"
         "- EXTERNAL EVENTS (CRITICAL - OVERRIDE EVERYTHING): Check `external_events`. "
         "If events exist, MUST schedule them on exact dates with sport='other', kind='other', session_type='external_event'. NEVER ignore.\n\n"
         "- RACE SCHEDULING (CRITICAL):\n"
