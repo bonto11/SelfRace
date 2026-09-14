@@ -56,6 +56,39 @@ PUSH_TRANSLATIONS = {
         "new_record_body_no_delta": "Nový čas na {label}: {value}.",
         "new_record_body_distance": "Nová najdlhšia vzdialenosť: {value} (o {delta} viac).",
         "new_record_body_time": "Nový najdlhší čas: {value} (o {delta} viac).",
+
+        # 🌟 NOVÉ: dokončenie asynchrónnych jobov (bežia na pozadí, user
+        # môže medzitým appku zavrieť alebo robiť niečo iné - notifikácia
+        # ho informuje, keď je výsledok reálne pripravený).
+        "job_ai_analyze_success_title": "Analýza atléta je hotová 🧠",
+        "job_ai_analyze_success_body": "Tvoja nová analýza výkonnosti je pripravená.",
+        "job_ai_analyze_failed_title": "Analýza atléta zlyhala ⚠️",
+        "job_ai_analyze_failed_body": "Nepodarilo sa vygenerovať analýzu. Skús to prosím znova.",
+
+        "job_weekly_generate_success_title": "Týždenný plán je hotový 🗓️",
+        "job_weekly_generate_success_body": "Nový týždenný plán bol vygenerovaný a čaká na teba.",
+        "job_weekly_generate_failed_title": "Generovanie týždenného plánu zlyhalo ⚠️",
+        "job_weekly_generate_failed_body": "Nepodarilo sa vygenerovať týždenný plán. Skús to prosím znova.",
+
+        "job_daily_generate_success_title": "Denný plán je hotový 📅",
+        "job_daily_generate_success_body": "Nový denný tréningový plán je pripravený.",
+        "job_daily_generate_failed_title": "Generovanie denného plánu zlyhalo ⚠️",
+        "job_daily_generate_failed_body": "Nepodarilo sa vygenerovať denný plán. Skús to prosím znova.",
+
+        "job_activity_review_success_title": "Review tréningu je hotové 📝",
+        "job_activity_review_success_body": "AI vyhodnotenie tvojho tréningu je pripravené.",
+        "job_activity_review_failed_title": "Review tréningu zlyhalo ⚠️",
+        "job_activity_review_failed_body": "Nepodarilo sa vygenerovať review. Skús to prosím znova.",
+
+        "job_sync_success_title": "Import aktivít dokončený ✅",
+        "job_sync_success_body": "Tvoje aktivity zo Stravy boli úspešne naimportované.",
+        "job_sync_failed_title": "Import aktivít zlyhal ⚠️",
+        "job_sync_failed_body": "Nepodarilo sa naimportovať aktivity. Skús to prosím znova.",
+
+        "job_coach_autoadjust_success_title": "Tréningový plán bol upravený 🩹",
+        "job_coach_autoadjust_success_body": "Na základe tvojho zdravotného záznamu sme upravili tvoj tréningový plán.",
+        "job_coach_autoadjust_failed_title": "Úprava plánu zlyhala ⚠️",
+        "job_coach_autoadjust_failed_body": "Nepodarilo sa automaticky upraviť tvoj plán. Skontroluj ho prosím ručne.",
     },
     "en": {
         "recovery_title": "Morning Recovery Reminder 🔋",
@@ -81,7 +114,57 @@ PUSH_TRANSLATIONS = {
         "new_record_body_no_delta": "New time for {label}: {value}.",
         "new_record_body_distance": "New longest distance: {value} ({delta} more).",
         "new_record_body_time": "New longest time: {value} ({delta} more).",
+
+        # 🌟 NEW: async job completion (runs in background, user might
+        # leave the app or close it meanwhile - the notification informs
+        # them once the result is actually ready).
+        "job_ai_analyze_success_title": "Athlete analysis is ready 🧠",
+        "job_ai_analyze_success_body": "Your new performance analysis is ready.",
+        "job_ai_analyze_failed_title": "Athlete analysis failed ⚠️",
+        "job_ai_analyze_failed_body": "We couldn't generate your analysis. Please try again.",
+
+        "job_weekly_generate_success_title": "Weekly plan is ready 🗓️",
+        "job_weekly_generate_success_body": "Your new weekly plan has been generated and is waiting for you.",
+        "job_weekly_generate_failed_title": "Weekly plan generation failed ⚠️",
+        "job_weekly_generate_failed_body": "We couldn't generate your weekly plan. Please try again.",
+
+        "job_daily_generate_success_title": "Daily plan is ready 📅",
+        "job_daily_generate_success_body": "Your new daily training plan is ready.",
+        "job_daily_generate_failed_title": "Daily plan generation failed ⚠️",
+        "job_daily_generate_failed_body": "We couldn't generate your daily plan. Please try again.",
+
+        "job_activity_review_success_title": "Training review is ready 📝",
+        "job_activity_review_success_body": "Your AI training review is ready.",
+        "job_activity_review_failed_title": "Training review failed ⚠️",
+        "job_activity_review_failed_body": "We couldn't generate your review. Please try again.",
+
+        "job_sync_success_title": "Activity import complete ✅",
+        "job_sync_success_body": "Your Strava activities were imported successfully.",
+        "job_sync_failed_title": "Activity import failed ⚠️",
+        "job_sync_failed_body": "We couldn't import your activities. Please try again.",
+
+        "job_coach_autoadjust_success_title": "Training plan adjusted 🩹",
+        "job_coach_autoadjust_success_body": "Based on your health log, we adjusted your training plan.",
+        "job_coach_autoadjust_failed_title": "Plan adjustment failed ⚠️",
+        "job_coach_autoadjust_failed_body": "We couldn't automatically adjust your plan. Please check it manually.",
     },
+}
+
+# =====================================================================
+# KONFIGURACIA URL PRE JOB-COMPLETION NOTIFIKACIE
+# =====================================================================
+# 🌟 NOVÉ: pre ktoré job_type sa vôbec posiela notifikácia po dokončení,
+# a kam má notifikácia viesť po kliknutí. Joby, ktoré nie sú v tomto
+# zozname (napr. plan_match, daily_extend, mark_activity_deleted -
+# interné/chained joby bez priameho user-facing výsledku), notifikáciu
+# nikdy neposielajú.
+JOB_NOTIFY_URL: Dict[str, str] = {
+    "ai_analyze": "/coach/ai/athleteState",
+    "weekly_generate": "/coach/ai/weeklyPlan",
+    "daily_generate": "/coach/ai/dailyPlan",
+    "activity_review": "/calendar",
+    "sync": "/activities",
+    "coach_autoadjust": "/coach/ai/dailyPlan",
 }
 
 # =====================================================================
@@ -387,6 +470,64 @@ def service_send_test_to_subscription(
             "status_code": status,
             "error": repr(ex),
         }
+
+
+# =====================================================================
+# JOB-COMPLETION NOTIFIKACIA (NOVÉ)
+# =====================================================================
+
+
+def service_notify_job_finished(
+    user_id: int,
+    job_type: str,
+    ok: bool,
+    ctx: AuthCtx,
+    url_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Pošle používateľovi notifikáciu o tom, že asynchrónny job (bežiaci na
+    pozadí cez BackgroundTasks) sa dokončil - úspešne alebo neúspešne.
+
+    Volá sa z async_jobs.py po každom dokončení jobu, ktorého job_type je
+    v JOB_NOTIFY_URL (t.j. má zmysel informovať usera priamo - napr.
+    vygenerovanie plánu, import aktivít, review, autoadjust po zdravotnom
+    zázname). Interné/chained joby (plan_match, daily_extend,
+    mark_activity_deleted) v tomto zozname zámerne nie sú - nemajú
+    samostatný user-facing výsledok, o ktorom by malo zmysel notifikovať.
+
+    Best-effort: zlyhanie tejto funkcie (napr. chýbajúce preklady,
+    chýbajúca subscription) nesmie zhodiť samotný job - volajúci ju má
+    obaliť do try/except.
+    """
+    url = url_override or JOB_NOTIFY_URL.get(job_type)
+    if not url:
+        return {
+            "success": False,
+            "message": f"No notify config for job_type={job_type}",
+        }
+
+    lang = _get_user_language(user_id, ctx)
+    t = PUSH_TRANSLATIONS[lang]
+
+    status_key = "success" if ok else "failed"
+    title_key = f"job_{job_type}_{status_key}_title"
+    body_key = f"job_{job_type}_{status_key}_body"
+
+    title = t.get(title_key)
+    body = t.get(body_key)
+    if not title or not body:
+        return {
+            "success": False,
+            "message": f"Missing translation for {title_key}/{body_key}",
+        }
+
+    return service_send_push_notification(
+        user_id=user_id,
+        title=title,
+        body=body,
+        url=url,
+        ctx=ctx,
+    )
 
 
 # =====================================================================
