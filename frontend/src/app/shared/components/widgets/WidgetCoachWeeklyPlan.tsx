@@ -1,26 +1,21 @@
 // src/app/features/coach/components/WidgetCoachWeeklyPlan.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import {
   WIDGET_CENTER_SPINNER,
-  WIDGET_ERROR_BLOCK,
-  WIDGET_ERROR_SUB,
   WIDGET_EMPTY_TEXT,
   WIDGET_INFO_GRID_SM,
   WIDGET_LABEL_MUTED_SM,
   WIDGET_VALUE_STRONG_SM,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetLatestWeeklyPlan,
-  type WeeklyPlanLatest,
-  type WeeklyPlanWeek,
-} from "@/app/features/coach/api/coach_plan_weekly";
+import type { WeeklyPlanLatest, WeeklyPlanWeek } from "@/app/features/coach/api/coach_plan_weekly";
 import { toDate } from "@/app/shared/utils/time";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
 type Props = { onOpenDetail?: () => void };
@@ -146,32 +141,11 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
   const { userId } = useUserId();
   const t = useT();
 
-  const [plan, setPlan] = useState<WeeklyPlanLatest | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const r = await apiGetLatestWeeklyPlan(userId);
-        if (alive) setPlan(r ?? null);
-      } catch (e: any) {
-        if (alive)
-          setError(
-            t(e?.message as any) || t("coachWeekly.widget.errorFetch" as any),
-          );
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [userId, t]);
+  // 🌟 FIX: weekly plán teraz z globálneho CoachDataProvider namiesto
+  // vlastného nezávislého fetchu (rovnaký dôvod ako pri WidgetCoachDailyPlan).
+  const {
+    weekly: { plan, loading },
+  } = useCoachData();
 
   const ui = useMemo(() => buildUiState(plan, t), [plan, t]);
 
@@ -195,11 +169,6 @@ export default function WidgetCoachWeeklyPlan({ onOpenDetail }: Props) {
       {loading ? (
         <div className={WIDGET_CENTER_SPINNER}>
           <LoadingSpinner size="widget" />
-        </div>
-      ) : error ? (
-        <div className={WIDGET_ERROR_BLOCK}>
-          {t("coachWeekly.widget.errorTitle")}
-          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_EMPTY_TEXT}>{t("widget.missingUserId")}</div>
