@@ -1,7 +1,7 @@
 // src/app/features/coach/components/WidgetCoachDailyPlan.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import WidgetCard from "@/app/shared/ui/components/WidgetCard";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { parseAndFormatPrettyDate } from "@/app/shared/utils/time";
@@ -9,6 +9,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { useT } from "@/app/shared/i18n/useT";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import {
   WIDGET_LOADING_CENTER,
@@ -28,35 +29,28 @@ import {
   WIDGET_TRUNCATE,
 } from "@/app/shared/ui/tokens";
 
-import {
-  apiGetDailyOverview,
-  type DailyOverview,
-  type DailyPlanDay,
-} from "@/app/features/coach/api/coach_plan_daily";
-
-import { apiFetchUserPref } from "@/app/features/prefs/api/prefs";
+import type { PlanRow } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
+
 type Props = {
   onOpenDetail?: () => void;
 };
 
 type UiState = {
-  horizonDays: number;
   daysCount: number;
   sessionsCount: number;
   todayLabel: string | null;
-  todaySessions: DailyPlanDay["sessions"] | null;
+  todaySessions: PlanRow[] | null;
   isMedicalSuspend: boolean;
   maxInjurySeverity: number;
   hasAnyPlan: boolean;
 };
 
 function buildUiState(
-  overview: DailyOverview | null,
+  rows: PlanRow[],
   injurySeverity: number,
 ): UiState {
-  const base = {
-    horizonDays: 0,
+  const base: UiState = {
     daysCount: 0,
     sessionsCount: 0,
     todayLabel: null,
@@ -66,22 +60,29 @@ function buildUiState(
     hasAnyPlan: false,
   };
 
-  if (!overview || !overview.days?.length) {
+  if (!rows.length) {
     return base;
   }
 
-  const days = overview.days;
   const todayStr = new Date().toISOString().slice(0, 10);
+
+  // zoskup podľa dátumu, presne ako predtým robil DailyOverview.days
+  const byDate = new Map<string, PlanRow[]>();
+  for (const r of rows) {
+    const d = String(r.plan_date).slice(0, 10);
+    if (!byDate.has(d)) byDate.set(d, []);
+    byDate.get(d)!.push(r);
+  }
 
   let futureActiveDaysCount = 0;
   let futureSessionsCount = 0;
 
-  for (const d of days) {
-    if (d.date < todayStr) continue;
+  for (const [date, sessions] of byDate.entries()) {
+    if (date < todayStr) continue;
 
-    const sessionCountForDay = d.sessions?.length ?? 0;
+    const sessionCountForDay = sessions.length;
     if (sessionCountForDay > 0) {
-      const hasRealWorkout = d.sessions!.some(
+      const hasRealWorkout = sessions.some(
         (s) => s.session_type?.toLowerCase() !== "rest",
       );
       if (hasRealWorkout) {
@@ -91,16 +92,15 @@ function buildUiState(
     }
   }
 
-  const todayDay = days.find((d) => d.date === todayStr) ?? null;
+  const todaySessions = byDate.get(todayStr) ?? [];
 
   return {
     ...base,
     hasAnyPlan: true,
-    horizonDays: overview.horizon_days ?? days.length,
     daysCount: futureActiveDaysCount,
     sessionsCount: futureSessionsCount,
-    todayLabel: todayDay?.date ?? null,
-    todaySessions: todayDay?.sessions ?? [],
+    todayLabel: byDate.has(todayStr) ? todayStr : null,
+    todaySessions,
   };
 }
 
@@ -109,81 +109,52 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
   const t = useT();
   const { lang } = useSettings();
 
-  const [overview, setOverview] = useState<DailyOverview | null>(null);
+  // 🌟 FIX: dáta teraz idú z globálneho CoachDataProvider (plan.rows,
+  // prefs.injuries) namiesto vlastného nezávislého fetchu - predtým
+  // widget nikdy nereagoval na kliknutie na globálne refresh tlačidlo
+  // (RefreshIconBtn -> refreshCoach), obnovil sa až po plnom relogu.
+  const {
+    plan: { rows: planRows, loading: planLoading },
+    prefs,
+    loading: coachLoading,
+  } = useCoachData();
 
-  const [injurySeverity, setInjurySeverity] = useState<number>(0);
-  const [activeInjury, setActiveInjury] = useState<{
-    severity: number;
-    text: string;
-  } | null>(null);
+  const loading = coachLoading || planLoading;
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const injurySeverity = useMemo(() => {
+    const injuries = prefs?.injuries;
+    if (!Array.isArray(injuries) || injuries.length === 0) return 0;
+    const maxInjury = injuries.reduce(
+      (prev: any, current: any) =>
+        (current.severity || 0) > (prev.severity || 0) ? current : prev,
+      { severity: 0 },
+    );
+    return maxInjury?.severity > 0 ? maxInjury.severity : 0;
+  }, [prefs?.injuries]);
 
-  useEffect(() => {
-    if (!userId || isChecking) return;
+  const activeInjury = useMemo(() => {
+    const injuries = prefs?.injuries;
+    if (!Array.isArray(injuries) || injuries.length === 0) return null;
+    const maxInjury = injuries.reduce(
+      (prev: any, current: any) =>
+        (current.severity || 0) > (prev.severity || 0) ? current : prev,
+      { severity: 0 },
+    );
+    if (!maxInjury || !(maxInjury.severity > 0)) return null;
 
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [planRes, prefsRes] = await Promise.all([
-          apiGetDailyOverview(userId).catch(() => null),
-          apiFetchUserPref(userId, "coach.prefs").catch(() => null),
-        ]);
+    const areaKey = `prefs.sections.injuriesSection.areas.${maxInjury.area}`;
+    const areaTrans = (t as any)(areaKey);
+    const areaLabel = areaTrans === areaKey ? maxInjury.area : areaTrans;
 
-        if (alive) {
-          if (planRes) setOverview(planRes);
-
-          if (
-            prefsRes &&
-            Array.isArray(prefsRes.injuries) &&
-            prefsRes.injuries.length > 0
-          ) {
-            const maxInjury = prefsRes.injuries.reduce(
-              (prev: any, current: any) => {
-                return (current.severity || 0) > (prev.severity || 0)
-                  ? current
-                  : prev;
-              },
-              { severity: 0 },
-            );
-
-            if (maxInjury && maxInjury.severity > 0) {
-              setInjurySeverity(maxInjury.severity);
-              const areaKey = `prefs.sections.injuriesSection.areas.${maxInjury.area}`;
-              const areaTrans = (t as any)(areaKey);
-              const areaLabel = areaTrans === areaKey ? maxInjury.area : areaTrans;
-              
-              setActiveInjury({
-                severity: maxInjury.severity,
-                text: `${areaLabel} (${maxInjury.severity}/10)`,
-              });
-            } else {
-              setInjurySeverity(0);
-              setActiveInjury(null);
-            }
-          } else {
-            setInjurySeverity(0);
-            setActiveInjury(null);
-          }
-        }
-      } catch (e: any) {
-        if (alive) setError(t(e?.message as any) || t("coachDaily.widget.errorFetch" as any));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
+    return {
+      severity: maxInjury.severity,
+      text: `${areaLabel} (${maxInjury.severity}/10)`,
     };
-  }, [userId, t, isChecking]);
+  }, [prefs?.injuries, t]);
 
   const ui = useMemo(
-    () => buildUiState(overview, injurySeverity),
-    [overview, injurySeverity],
+    () => buildUiState(planRows, injurySeverity),
+    [planRows, injurySeverity],
   );
 
   return (
@@ -198,11 +169,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
       {loading || isChecking ? (
         <div className={WIDGET_LOADING_CENTER}>
           <LoadingSpinner size="widget" />
-        </div>
-      ) : error ? (
-        <div className={WIDGET_ERROR_TEXT}>
-          {t("widget.errorLoad")}
-          <div className={WIDGET_ERROR_SUB}>{error}</div>
         </div>
       ) : !userId ? (
         <div className={WIDGET_INFO_TEXT}>{t("widget.missingUserId")}</div>
@@ -239,7 +205,6 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
               <div className={WIDGET_KV_GRID}>
                 <div className={WIDGET_KV_LABEL}>
                   {t("coachDaily.widget.labelDays")}
-
                 </div>
                 <div className={WIDGET_KV_VALUE}>
                   {ui.daysCount} / {ui.sessionsCount}
@@ -249,7 +214,7 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
               {ui.todaySessions && ui.todaySessions.length > 0 && (
                 <div className={WIDGET_SUMMARY_WRAP}>
                   <div className={WIDGET_SUMMARY_HEAD}>
-                    {t("coachDaily.widget.summary")} 
+                    {t("coachDaily.widget.summary")}
                     {ui.todayLabel && ` (${parseAndFormatPrettyDate(ui.todayLabel, lang)})`}
                   </div>
 
