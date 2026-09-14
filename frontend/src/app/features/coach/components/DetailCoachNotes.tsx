@@ -19,7 +19,7 @@ import {
   apiDeleteNote, apiAddEphemeral,
   type CoachNotesData, type StickyNote,
 } from "@/app/features/coach/api/coach_user_notes";
-import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
+import { apiGenerateDailyForWeek, apiExtendDailyPlan } from "@/app/features/coach/api/coach_plan_daily";
 import { apiGenerateWeeklyPlan, apiGetLatestWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiActivePlanStatus } from "@/app/features/coach/api/coach_plan_active";
 
@@ -224,7 +224,7 @@ export default function DetailCoachNotes() {
 
   /* ---- Uprav dni ---- */
 
-    const handleReplanDaily = async () => {
+      const handleReplanDaily = async () => {
     if (!userId || !userUuid || replanning || !planActive) return;
     setReplanning("daily");
     setLastReplan(null);
@@ -234,17 +234,24 @@ export default function DetailCoachNotes() {
       const out = await apiGenerateDailyForWeek(userId, userUuid, {
         week_index: weekIndex,
         overwrite: true,
-        // 🌟 FIX: bez tohto sa pri regenerovaní v strede týždňa prepíšu aj
-        // už odtrénované dni (pondelok/utorok atď.) niečím, čo si AI
-        // vymyslí naslepo. drop_past_days zabezpečí, že sa dotknú len dni
-        // od dnešného dátumu ďalej - presne rovnaký princíp, aký už
-        // používa service_auto_extend_daily_plan pre aktuálny týždeň.
+        // 🌟 FIX: nikdy neprepisuj už odtrénované dni tohto týždňa.
         drop_past_days: true,
       });
       if (!out.success) {
         toast.error(out.message ?? t("coachNotes.replan.error"));
         return;
       }
+
+      // 🌟 NOVÉ: po úprave aktuálneho týždňa skontroluj horizont a prípadne
+      // automaticky dogeneruj aj ďalší týždeň (rovnaký mechanizmus, aký
+      // beží automaticky po synchronizácii aktivity). Ak horizont stačí,
+      // toto je no-op (changed: false) - bezpečné volať vždy.
+      try {
+        await apiExtendDailyPlan(userId);
+      } catch (e) {
+        console.warn("[CoachNotes] auto-extend after daily replan failed", e);
+      }
+
       const summary = await _fetchCurrentWeekSummary();
       setLastReplan({
         type: "daily",
@@ -259,6 +266,7 @@ export default function DetailCoachNotes() {
       setReplanning(null);
     }
   };
+
 
   /* ---- Veľká zmena ---- */
 
