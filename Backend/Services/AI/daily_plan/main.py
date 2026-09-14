@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
-
-from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS
+from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS, COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
 from Services.AI.daily_plan.generate import generate_daily_week_json
 from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
