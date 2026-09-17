@@ -483,6 +483,58 @@ def _daily_schema(lang_label: str) -> str:
 }}
 """.strip()
 
+def _build_strength_structure_rule(equipment_mode: Optional[str]) -> str:
+    """
+    🌟 FIX: predtým táto inštrukcia nehovorila nič o tom, ako rozdeliť
+    záťažové vs bodyweight cviky medzi bloky - AI si teda vyberala
+    "bezpečné" bodyweight/prehab cviky aj do hlavnej časti tréningu, aj
+    keď mal athlete full gym vybavenie. Teraz explicitne viaže výber na
+    'loaded' pole z strength_ai_menu (viď coach_strength_mapper.py).
+    """
+    if equipment_mode in ("full_gym", "minimal"):
+        load_note = (
+            "  - CRITICAL: 'strength_main_part' MUST consist primarily of exercises with "
+            "'loaded': true from 'strength_ai_menu' (compound barbell/dumbbell/kettlebell/machine "
+            "lifts). Do NOT fill 'strength_main_part' mostly with 'loaded': false (bodyweight-only) "
+            "exercises when the athlete has gym/load equipment available - that is a planning error.\n"
+        )
+    else:
+        load_note = (
+            "  - Equipment is limited/none - bodyweight and minimal-equipment exercises are the "
+            "correct choice throughout, not a fallback.\n"
+        )
+    return (
+        "- STRENGTH STRUCTURE: Use 'strength_ai_menu' exercise_ids only (from 'available_catalog').\n"
+        "  - Distribute into 'activation' (1-2 - light bodyweight/mobility, prepares the body), "
+        "'strength_main_part' (3-5 - the actual training stimulus), 'add_ons' (1-3 - accessory/core/calves).\n"
+        + load_note +
+        "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+    )
+
+
+def _build_strength_focus_rule(is_strength_primary_focus: bool) -> str:
+    """
+    🌟 NOVÉ: samostatné pravidlo pre athlete, ktorého hlavným (alebo
+    jediným) športom je strength - napr. main_sport == 'strength', alebo
+    included_sports neobsahuje žiadny endurance šport. Predtým sa strength
+    vždy generoval len ako "doplnok" k behu/bike/swim bez ohľadu na to,
+    či to bol jediný šport athlete - chýbala periodizácia a progresia.
+    """
+    if not is_strength_primary_focus:
+        return ""
+    return (
+        "\n--- STRENGTH IS THE ATHLETE'S PRIMARY FOCUS ---\n"
+        "- The athlete's plan is NOT built around an endurance sport this week - strength "
+        "training itself is the primary goal, not an accessory to running/cycling/swimming.\n"
+        "- Apply real progressive-overload thinking: vary rep ranges across sessions this week "
+        "(e.g. one session lower-rep/heavier 4-6 reps, another moderate 8-12 reps) rather than "
+        "repeating the same sets/reps every session.\n"
+        "- Prioritize compound 'loaded': true lifts (squat, deadlift, press, row family) as the "
+        "core of every 'strength_main_part' - this is a real strength-training week, not injury "
+        "prevention or activation work.\n"
+        "- It is appropriate to schedule more strength sessions per week than the usual endurance-"
+        "supplement default, as long as REST DAYS and TWO-A-DAY rules above are still respected.\n"
+    )
 
 # ============================================================
 # HLAVNÁ FUNKCIA
@@ -705,11 +757,15 @@ def build_prompts_for_daily(
         "  - NEVER use alternate field names like `repeats`, `intervals`, `work_min`, or nested variants — "
         "the app parses ONLY `rounds`, `work`, and `rest` exactly as specified above.\n\n"
     )
-    strength_structure_rule = (
-        "- STRENGTH STRUCTURE: Use 'strength_ai_menu' exercise_ids. "
-        "Distribute into 'activation' (1-2), 'strength_main_part' (3-5), 'add_ons' (1-3).\n"
-        "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+    strength_ai_menu = _as_dict(constraints.get("strength_ai_menu"))
+    equipment_mode_for_prompt = strength_ai_menu.get("equipment_mode")
+    strength_structure_rule = _build_strength_structure_rule(equipment_mode_for_prompt)
+
+    is_strength_primary_focus = (
+        "strength" in final_sports_list
+        and not any(s in final_sports_list for s in ("run", "ride", "swim"))
     )
+    strength_focus_rule = _build_strength_focus_rule(is_strength_primary_focus)
 
     special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
 
@@ -819,6 +875,7 @@ def build_prompts_for_daily(
         + _terminology_rule(lang_label)
         + endurance_structure_rule
         + strength_structure_rule
+        + strength_focus_rule
         + f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
         + f"- TRAINING BLOCKS: {', '.join(k for k, v in blocks.items() if v) or 'none'}.\n\n"
         + weekly_volume_line
