@@ -18,6 +18,12 @@ const GEAR_OPTIONS = [
   "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel"
 ] as const;
 
+// 🌟 NOVÉ: krokovanie dĺžky session v 15-min skokoch, rozsah 30-90 min.
+const DURATION_STEP = 15;
+const DURATION_MIN = 30;
+const DURATION_MAX = 90;
+const DURATION_DEFAULT = 60;
+
 export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const t = useT();
   const settings = local.strength_settings ?? {};
@@ -26,6 +32,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const mode: string | null = settings.equipment_mode ?? null;
   const available: string[] = Array.isArray(settings.available) ? settings.available : [];
   const sessionsPerWeek: number | null = settings.sessions_per_week != null ? Number(settings.sessions_per_week) : null;
+  // 🌟 NOVÉ
+  const sessionDurationMin: number = settings.session_duration_min != null ? Number(settings.session_duration_min) : DURATION_DEFAULT;
 
   const previewText = useMemo(() => {
     // FIX: Pretypovanie t na any pri dynamických kľúčoch
@@ -40,14 +48,24 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         ? available.map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")
         : `${available.slice(0, 3).map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")} +${gearCount - 3} ${t("common.more")}`;
 
-    return `${t("prefs.sections.strengthSection.previewSessions")}: ${spw} • ${t("prefs.sections.strengthSection.previewLocation")}: ${locText} • ${t("prefs.sections.strengthSection.previewMode")}: ${modeText} | ${t("prefs.sections.strengthSection.previewGear")} (${gearCount}): ${listShort}`;
-  }, [location, mode, available, sessionsPerWeek, t]);
+    return `${t("prefs.sections.strengthSection.previewSessions")}: ${spw} • ${t("prefs.sections.strengthSection.previewDuration")}: ${sessionDurationMin} ${t("common.units.min")} • ${t("prefs.sections.strengthSection.previewLocation")}: ${locText} • ${t("prefs.sections.strengthSection.previewMode")}: ${modeText} | ${t("prefs.sections.strengthSection.previewGear")} (${gearCount}): ${listShort}`;
+  }, [location, mode, available, sessionsPerWeek, sessionDurationMin, t]);
 
   const setSessionsPerWeek = (next: number | null) => {
     markDirty();
     setLocal((p: any) => ({
       ...p,
       strength_settings: { ...(p.strength_settings ?? {}), sessions_per_week: next },
+    }));
+  };
+
+  // 🌟 NOVÉ
+  const setSessionDurationMin = (next: number) => {
+    const clamped = Math.max(DURATION_MIN, Math.min(DURATION_MAX, next));
+    markDirty();
+    setLocal((p: any) => ({
+      ...p,
+      strength_settings: { ...(p.strength_settings ?? {}), session_duration_min: clamped },
     }));
   };
 
@@ -104,6 +122,20 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
               <Button type="button" size="sm" variant="prefs" active={sessionsPerWeek == null} onClick={() => setSessionsPerWeek(null)} title={t("prefs.sections.strengthSection.btnUnset")}>—</Button>
             </div>
             <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.currentLabel")}: {sessionsPerWeek ?? 2}</div>
+          </div>
+
+          {/* 🌟 NOVÉ: dĺžka jednej session */}
+          <div>
+            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+              <span>{t("prefs.sections.strengthSection.durationLabel")}</span>
+              <TooltipIcon text={t("prefs.sections.strengthSection.durationTooltip")} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin - DURATION_STEP)} disabled={sessionDurationMin <= DURATION_MIN} title={t("prefs.sections.strengthSection.btnDecrease")}>−</Button>
+              <div className="min-w-[56px] text-center text-sm font-semibold">{sessionDurationMin} {t("common.units.min")}</div>
+              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin + DURATION_STEP)} disabled={sessionDurationMin >= DURATION_MAX} title={t("prefs.sections.strengthSection.btnIncrease")}>+</Button>
+            </div>
+            <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.durationHint")}</div>
           </div>
 
           <div>
