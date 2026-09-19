@@ -313,5 +313,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     equipment_mode: "full_gym",
     available: [],
     sessions_per_week: 2,
+    session_duration_min: 60,
   },
+
 };
