@@ -488,12 +488,14 @@ def _build_strength_structure_rule(
     target_duration_min: int,
 ) -> str:
     """
-    🌟 FIX (v2): predtým táto inštrukcia nehovorila nič o tom, ako rozdeliť
-    záťažové vs bodyweight cviky (opravené skôr), ale ANI nič o CIEĽOVEJ
-    DĹŽKE session - AI si teda sama zvolila počet sérií/pauz bez väzby na
-    reálny čas, čo systematicky vychádzalo na 35-40 min namiesto
-    očakávanej hodiny. Teraz musí AI explicitne spočítať odhadovaný čas
-    štruktúry a prispôsobiť POČET cvikov/sérií cieľovej dĺžke, nie naopak.
+    🌟 FIX (v3): target_duration_min sa teraz viaže LEN na 'activation' +
+    'strength_main_part' - to je "jadro" tréningu, ktoré má sedieť na
+    athlete's zadaný čas. 'add_ons' sú vždy VOLITEĽNÝ bonus navyše, mimo
+    tohto počítania - ak vyjde čas presne na cieľ, add_ons môžu chýbať
+    úplne a nič sa nedeje; ak athlete má čas navyše, add_ons ho vyplnia.
+    (Predošlá v2 verzia počítala aj add_ons do cieľovej dĺžky, čo nútilo
+    AI buď naťahovať doplnky umelo, alebo skracovať hlavnú časť, aby sa
+    zmestili doplnky do rovnakého času.)
     """
     if equipment_mode in ("full_gym", "minimal"):
         load_note = (
@@ -513,24 +515,33 @@ def _build_strength_structure_rule(
         "'strength_main_part' (3-5 - the actual training stimulus), 'add_ons' (1-3 - accessory/core/calves).\n"
         + load_note +
         "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
-        "- STRENGTH SESSION DURATION (CRITICAL): The athlete's target duration for a strength "
-        f"session is {target_duration_min} minutes, and this MUST be the actual, real time the "
-        "prescribed structure takes - not just the number written in `duration_min`.\n"
-        "  - Estimate real time as: sum of every set's work time + every set's rest_s (converted "
-        "to minutes) across activation, strength_main_part, and add_ons, plus a short implicit "
-        "transition/setup time between exercises (roughly 1 minute per exercise).\n"
-        f"  - If this estimate comes out well under {target_duration_min} minutes, you MUST add "
-        "more sets, more exercises (still within the 1-2 / 3-5 / 1-3 counts above, e.g. use the "
-        "upper end of each range), and/or realistic compound-lift rest periods (90-180s for heavy "
-        f"compound lifts) until the real time reasonably matches {target_duration_min} minutes - "
-        "do NOT simply write a bigger `duration_min` number without a structure that actually "
-        "takes that long.\n"
+        "- STRENGTH SESSION DURATION (CRITICAL): The athlete's target duration is "
+        f"{target_duration_min} minutes for the CORE of the session only - that is 'activation' + "
+        "'strength_main_part' combined. 'add_ons' are ALWAYS optional and OUTSIDE this target - "
+        "they are extra work for when the athlete has spare time/energy, not a requirement to hit "
+        f"the {target_duration_min}-minute goal. It is completely fine, and expected, for a session "
+        "with few or no add_ons to still be a complete, well-formed training session.\n"
+        "  - Estimate real time for 'activation' + 'strength_main_part' as: sum of every set's work "
+        "time + every set's rest_s (converted to minutes), plus a short implicit transition/setup "
+        "time between exercises (roughly 1 minute per exercise). Do NOT include 'add_ons' in this "
+        "calculation.\n"
+        f"  - If this estimate (activation + strength_main_part only) comes out well under "
+        f"{target_duration_min} minutes, add more sets, more exercises (within the 1-2 / 3-5 counts "
+        "above, e.g. use the upper end of each range), and/or realistic compound-lift rest periods "
+        "(90-180s for heavy compound lifts) until it reasonably matches the target - do NOT pad the "
+        "session by inflating 'add_ons' instead, and do NOT simply write a bigger `duration_min` "
+        "number without a structure that actually takes that long.\n"
         f"  - If the estimate comes out well over {target_duration_min} minutes, trim exercises or "
-        "sets rather than cutting rest periods below safe/effective ranges (60s minimum for "
-        "accessory work, 90s minimum for heavy compound lifts).\n"
-        "  - Set the session's `duration_min` field to this estimated real time (it should closely "
-        f"match {target_duration_min}, not be an arbitrary round number).\n\n"
+        "sets from 'strength_main_part' rather than cutting rest periods below safe/effective ranges "
+        "(60s minimum for accessory work, 90s minimum for heavy compound lifts).\n"
+        "  - Include 'add_ons' only when they fit naturally as a light bonus after the core work - "
+        "if you include them, add roughly their own time (a few minutes) on top of the target, "
+        "which is expected and fine.\n"
+        "  - Set the session's `duration_min` field to activation + strength_main_part time PLUS "
+        "add_ons time if present (i.e. the full realistic session length as the athlete would "
+        "experience it, not just the core target).\n\n"
     )
+
 
 
 
