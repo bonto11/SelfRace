@@ -483,13 +483,17 @@ def _daily_schema(lang_label: str) -> str:
 }}
 """.strip()
 
-def _build_strength_structure_rule(equipment_mode: Optional[str]) -> str:
+def _build_strength_structure_rule(
+    equipment_mode: Optional[str],
+    target_duration_min: int,
+) -> str:
     """
-    🌟 FIX: predtým táto inštrukcia nehovorila nič o tom, ako rozdeliť
-    záťažové vs bodyweight cviky medzi bloky - AI si teda vyberala
-    "bezpečné" bodyweight/prehab cviky aj do hlavnej časti tréningu, aj
-    keď mal athlete full gym vybavenie. Teraz explicitne viaže výber na
-    'loaded' pole z strength_ai_menu (viď coach_strength_mapper.py).
+    🌟 FIX (v2): predtým táto inštrukcia nehovorila nič o tom, ako rozdeliť
+    záťažové vs bodyweight cviky (opravené skôr), ale ANI nič o CIEĽOVEJ
+    DĹŽKE session - AI si teda sama zvolila počet sérií/pauz bez väzby na
+    reálny čas, čo systematicky vychádzalo na 35-40 min namiesto
+    očakávanej hodiny. Teraz musí AI explicitne spočítať odhadovaný čas
+    štruktúry a prispôsobiť POČET cvikov/sérií cieľovej dĺžke, nie naopak.
     """
     if equipment_mode in ("full_gym", "minimal"):
         load_note = (
@@ -509,7 +513,25 @@ def _build_strength_structure_rule(equipment_mode: Optional[str]) -> str:
         "'strength_main_part' (3-5 - the actual training stimulus), 'add_ons' (1-3 - accessory/core/calves).\n"
         + load_note +
         "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+        "- STRENGTH SESSION DURATION (CRITICAL): The athlete's target duration for a strength "
+        f"session is {target_duration_min} minutes, and this MUST be the actual, real time the "
+        "prescribed structure takes - not just the number written in `duration_min`.\n"
+        "  - Estimate real time as: sum of every set's work time + every set's rest_s (converted "
+        "to minutes) across activation, strength_main_part, and add_ons, plus a short implicit "
+        "transition/setup time between exercises (roughly 1 minute per exercise).\n"
+        f"  - If this estimate comes out well under {target_duration_min} minutes, you MUST add "
+        "more sets, more exercises (still within the 1-2 / 3-5 / 1-3 counts above, e.g. use the "
+        "upper end of each range), and/or realistic compound-lift rest periods (90-180s for heavy "
+        f"compound lifts) until the real time reasonably matches {target_duration_min} minutes - "
+        "do NOT simply write a bigger `duration_min` number without a structure that actually "
+        "takes that long.\n"
+        f"  - If the estimate comes out well over {target_duration_min} minutes, trim exercises or "
+        "sets rather than cutting rest periods below safe/effective ranges (60s minimum for "
+        "accessory work, 90s minimum for heavy compound lifts).\n"
+        "  - Set the session's `duration_min` field to this estimated real time (it should closely "
+        f"match {target_duration_min}, not be an arbitrary round number).\n\n"
     )
+
 
 
 def _build_strength_focus_rule(is_strength_primary_focus: bool) -> str:
@@ -759,7 +781,14 @@ def build_prompts_for_daily(
     )
     strength_ai_menu = _as_dict(constraints.get("strength_ai_menu"))
     equipment_mode_for_prompt = strength_ai_menu.get("equipment_mode")
-    strength_structure_rule = _build_strength_structure_rule(equipment_mode_for_prompt)
+    # 🌟 NOVÉ: cieľová dĺžka session z constraints (builder ju vždy vyplní,
+    # aj defaultom, takže tu je vždy platné číslo).
+    strength_duration_target = _safe_int(
+        constraints.get("strength_session_duration_min_target"), 60, min_v=15, max_v=180
+    )
+    strength_structure_rule = _build_strength_structure_rule(
+        equipment_mode_for_prompt, strength_duration_target
+    )
 
     is_strength_primary_focus = (
         "strength" in final_sports_list
