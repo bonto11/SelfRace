@@ -314,7 +314,12 @@ export const DEFAULT_PREFS: CoachPrefs = {
     available: [],
     sessions_per_week: 2,
     session_duration_min: 60,
+    goal: "general_resilience",
+    experience_level: "intermediate",
+    disliked_exercises: [],
+    reference_lifts: null,
   },
+
 
 };
 
