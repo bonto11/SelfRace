@@ -99,9 +99,14 @@ export default function StrengthLogEditor({
   const latest = useRef({ exercises, completed, note, sessionDate, title });
   latest.current = { exercises, completed, note, sessionDate, title };
 
-  /* --- load --- */
+    /* --- load --- */
   useEffect(() => {
-    if (!userId || !sessionId) return;
+    // 🌟 Bez sessionId nemáme čo načítať - zhodíme loading, nech komponent
+    // nevisí na nekonečnom spinneri (stávalo sa pri renderovaní bez propu).
+    if (!userId || !sessionId) {
+      setLoading(false);
+      return;
+    }
     let alive = true;
     (async () => {
       setLoading(true);
@@ -120,6 +125,7 @@ export default function StrengthLogEditor({
       alive = false;
     };
   }, [userId, sessionId]);
+
 
   /* --- autosave --- */
   const scheduleSave = useCallback(() => {
