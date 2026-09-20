@@ -187,22 +187,34 @@ def db_list_daily_for_user_horizon(
         print("[DB-COACH-DAILY] db_list_daily_for_user_horizon error:", repr(e))
         return []
 
-
 def db_clear_daily_for_user_plan(user_id: int, plan_meta_id: Optional[int], *, ctx: AuthCtx) -> int:
     """
     FIX: predtým mazalo VŠETKY daily riadky usera bez ohľadu na plán -
     teraz scoped na plan_meta_id (None = poistka, nezmaže nič naslepo).
+
+    🌟 NOVÉ: riadky, ktoré obsahujú strength_log (reálne odcvičené série),
+    sa NIKDY nemažú - namiesto toho sa im zruší väzba na plán
+    (plan_meta_id = NULL) a zostávajú v DB ako trvalý historický záznam.
+    Bez tohto by sa pri každom cancel/complete plánu stratila celá
+    história zdvihov, ktorá je zdrojom pravdy pre progresívne preťaženie.
     """
     if plan_meta_id is None:
         print("[DB-COACH-DAILY] clear_plan SKIPPED - no plan_meta_id provided")
         return 0
     sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_plan")
     try:
+        # 1) Osirotiť (nie zmazať) riadky s odcvičeným logom
+        sb.table(TABLE_COACH_PLAN_DAILY).update({"plan_meta_id": None}).eq(
+            "user_id", user_id
+        ).eq("plan_meta_id", plan_meta_id).not_.is_("strength_log", "null").execute()
+
+        # 2) Zmazať zvyšok
         res = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .delete()
             .eq("user_id", user_id)
             .eq("plan_meta_id", plan_meta_id)
+            .is_("strength_log", "null")
             .execute()
         )
         return len(res.data or [])
@@ -220,18 +232,31 @@ def db_clear_daily_for_user_range(
     ctx: AuthCtx,
 ) -> int:
     """
-    FIX: pridaný plan_meta_id scope. Predtým malo aj mŕtvy nepoužívaný
-    parameter global_user_clear (nikdy sa v query nepoužil) - odstránený,
-    volania s ním boli aktualizované na nový signature.
+    🌟 NOVÉ: rovnako ako vyššie - riadky s odcvičeným strength_log sa
+    pri regenerovaní plánu nemažú, len sa odpoja od plánu. Inak by
+    "Uprav dni" prepísalo aj to, čo si už reálne odcvičil.
     """
     sb = get_sb(ctx, caller="coach_plan_daily.db_clear_daily_for_user_range")
     try:
+        orphan_q = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .update({"plan_meta_id": None})
+            .eq("user_id", user_id)
+            .gte("plan_date", date_from)
+            .lte("plan_date", date_to)
+            .not_.is_("strength_log", "null")
+        )
+        if plan_meta_id is not None:
+            orphan_q = orphan_q.eq("plan_meta_id", plan_meta_id)
+        orphan_q.execute()
+
         query = (
             sb.table(TABLE_COACH_PLAN_DAILY)
             .delete()
             .eq("user_id", user_id)
             .gte("plan_date", date_from)
             .lte("plan_date", date_to)
+            .is_("strength_log", "null")
         )
         if plan_meta_id is not None:
             query = query.eq("plan_meta_id", plan_meta_id)
@@ -240,7 +265,6 @@ def db_clear_daily_for_user_range(
     except Exception as e:
         print("[DB-COACH-DAILY] clear_range error:", repr(e))
         return 0
-
 
 def db_get_daily_session_by_id(user_id: int, id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
     # Nezmenené - jednoznačné cez (user_id, id)
@@ -779,3 +803,66 @@ def db_get_last_planned_daily_session_for_user(
     except Exception as e:
         print("[DB-COACH-DAILY] get_last_planned_daily_session error:", repr(e))
         return None
+
+def db_get_strength_log(user_id: int, session_id: int, *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+    """Načíta strength_log JSON pre jednu session."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_strength_log")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, strength_log")
+            .eq("id", int(session_id))
+            .eq("user_id", int(user_id))
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        return rows[0].get("strength_log") if rows else None
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_strength_log error:", repr(e))
+        return None
+
+
+def db_save_strength_log(
+    user_id: int, session_id: int, log: Dict[str, Any], *, ctx: AuthCtx
+) -> bool:
+    """Prepíše celý strength_log JSON pre jednu session (last-write-wins)."""
+    sb = get_sb(ctx, caller="coach_plan_daily.db_save_strength_log")
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .update({"strength_log": log, "updated_at": _now_iso()})
+            .eq("id", int(session_id))
+            .eq("user_id", int(user_id))
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print("[DB-COACH-DAILY] save_strength_log error:", repr(e))
+        return False
+
+
+def db_get_recent_strength_logs(
+    user_id: int, *, weeks_back: int = 8, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Vráti odcvičené silové session za posledných N týždňov (aj tie
+    odpojené od plánu - plan_meta_id IS NULL). Vstup pre progresiu
+    a pre AI kontext.
+    """
+    sb = get_sb(ctx, caller="coach_plan_daily.db_get_recent_strength_logs")
+    since = (datetime.now(timezone.utc) - timedelta(weeks=weeks_back)).date().isoformat()
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, plan_date, title, strength_log")
+            .eq("user_id", int(user_id))
+            .gte("plan_date", since)
+            .not_.is_("strength_log", "null")
+            .order("plan_date", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("[DB-COACH-DAILY] get_recent_strength_logs error:", repr(e))
+        return []
