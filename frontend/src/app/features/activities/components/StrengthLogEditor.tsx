@@ -15,6 +15,7 @@ import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
+  apiDeleteStrengthSession,
   apiListPlannedStrengthSessions,
   apiImportFromPlan,
   type StrengthExerciseLog,
@@ -114,6 +115,7 @@ export default function StrengthLogEditor({
   const [plannedSessions, setPlannedSessions] = useState<PlannedStrengthSession[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ exercises, completed, note, sessionDate, title });
@@ -175,6 +177,36 @@ export default function StrengthLogEditor({
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
+
+  // 🌟 Zmazanie celého zápisu. Po úspechu zavoláme onDeleted, ktorý
+  // v detail stránke presmeruje späť na zoznam.
+  const handleDeleteSession = useCallback(async () => {
+    if (!userId || !sessionId || deleting) return;
+
+    const ok = await confirm({
+      title: t("strengthLog.deleteConfirmTitle"),
+      message: t("strengthLog.deleteConfirmMessage"),
+      okText: t("common.delete"),
+      cancelText: t("common.cancel"),
+      tone: "danger",
+    });
+    if (!ok) return;
+
+    setDeleting(true);
+    // Zrušíme rozrobený autosave, nech neuloží niečo po zmazaní.
+    if (timer.current) clearTimeout(timer.current);
+
+    const done = await apiDeleteStrengthSession(Number(userId), sessionId);
+    setDeleting(false);
+
+    if (done) {
+      toast.success(t("common.deleted"));
+      onDeleted?.();
+    } else {
+      toast.error(t("strengthLog.deleteError"));
+    }
+  }, [userId, sessionId, deleting, t, onDeleted]);
+
 
   /* --- import z plánu --- */
   const openPlanPicker = useCallback(async () => {
@@ -659,6 +691,17 @@ export default function StrengthLogEditor({
             </span>
           ) : null}
         </div>
+
+        <Button
+          size="xs"
+          variant="danger"
+          onClick={handleDeleteSession}
+          disabled={deleting || !sessionId}
+          className="self-start mt-1"
+        >
+          {deleting ? <LoadingSpinner size="button" /> : t("strengthLog.deleteSession")}
+        </Button>
+
       </div>
     </div>
   );
