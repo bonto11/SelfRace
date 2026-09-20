@@ -14,6 +14,7 @@ from DB.strength_sessions import (
     db_update_strength_session,
     db_delete_strength_session,
     db_find_unmatched_strength_sessions_for_date,
+    db_list_planned_strength_sessions,
 )
 from DB.coach_plan_daily import db_get_daily_session_by_id_full
 
@@ -359,3 +360,60 @@ def service_get_exercise_progression(
 
     history.sort(key=lambda h: h["date"], reverse=True)
     return {"exercise_id": exercise_id, "history": history}
+    
+def service_list_planned_strength_sessions(
+    *, user_id: int, days_back: int = 14, days_forward: int = 7, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Zoznam naplánovaných silových tréningov na import. Vracia len tie,
+    ktoré reálne obsahujú nejaké cviky.
+    """
+    rows = db_list_planned_strength_sessions(
+        user_id, days_back=days_back, days_forward=days_forward, ctx=ctx
+    )
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        exercises = _seed_exercises_from_plan_structure(r.get("structure"))
+        if not exercises:
+            continue
+        out.append({
+            "id": r.get("id"),
+            "plan_date": str(r.get("plan_date"))[:10],
+            "title": r.get("title"),
+            "exercise_count": len(exercises),
+        })
+    return out
+
+
+def service_import_from_plan(
+    *, user_id: int, session_id: int, plan_session_id: int, ctx: AuthCtx
+) -> Dict[str, Any]:
+    """
+    Naimportuje kostru cvikov z naplánovanej session do existujúceho
+    zápisu. Prepíše doterajšie cviky - user je na to upozornený v UI.
+    Zároveň naviaže zápis na plán (plan_session_id) a prevezme názov,
+    ak zápis ešte žiadny nemá.
+    """
+    existing = db_get_strength_session(user_id, session_id, ctx=ctx)
+    if not existing:
+        return {"ok": False, "code": "session_not_found"}
+
+    plan = db_get_daily_session_by_id_full(user_id, int(plan_session_id), ctx=ctx)
+    if not plan:
+        return {"ok": False, "code": "plan_session_not_found"}
+
+    exercises = _seed_exercises_from_plan_structure(plan.get("structure"))
+    if not exercises:
+        return {"ok": False, "code": "plan_has_no_exercises"}
+
+    patch: Dict[str, Any] = {
+        "log": {"version": LOG_VERSION, "exercises": exercises},
+        "plan_session_id": int(plan_session_id),
+    }
+    if not existing.get("title") and plan.get("title"):
+        patch["title"] = plan["title"]
+
+    updated = db_update_strength_session(user_id, session_id, patch, ctx=ctx)
+    if not updated:
+        return {"ok": False, "code": "update_failed"}
+    return {"ok": True, "data": updated}
