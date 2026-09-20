@@ -38,7 +38,7 @@ const BLOCK_LABEL_KEY: Record<StrengthBlock, string> = {
 };
 
 type Props = {
-  sessionId: number;
+  sessionId?: number;
   showAdvanced?: boolean;
   onDeleted?: () => void;
 };
