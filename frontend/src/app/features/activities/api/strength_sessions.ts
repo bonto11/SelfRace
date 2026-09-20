@@ -188,3 +188,63 @@ export async function apiGetExerciseProgression(
     return [];
   }
 }
+
+/* ─── IMPORT Z PLÁNU ─── */
+
+export type PlannedStrengthSession = {
+  id: number;
+  plan_date: string;
+  title: string | null;
+  exercise_count: number;
+};
+
+/**
+ * Nedávne naplánované silové tréningy (coach_plan_daily, sport='strength'),
+ * z ktorých sa dá naimportovať kostra cvikov do zápisu.
+ */
+export async function apiListPlannedStrengthSessions(
+  userId: number,
+  opts: { days_back?: number; days_forward?: number } = {},
+): Promise<PlannedStrengthSession[]> {
+  if (!userId) return [];
+  const qs = new URLSearchParams();
+  qs.set("days_back", String(opts.days_back ?? 14));
+  qs.set("days_forward", String(opts.days_forward ?? 7));
+  try {
+    const json = await callBackend<any>(
+      `${base(userId)}/planned-sessions?${qs.toString()}`,
+      { method: "GET", cache: "no-store" },
+    );
+    return json?.success && Array.isArray(json.data) ? json.data : [];
+  } catch (e) {
+    console.error("[StrengthSessions] planned list error", e);
+    return [];
+  }
+}
+
+/**
+ * Naimportuje cviky z naplánovanej session do existujúceho zápisu.
+ * Prepíše aktuálne cviky (user je na to upozornený v UI).
+ */
+export async function apiImportFromPlan(
+  userId: number,
+  sessionId: number,
+  planSessionId: number,
+): Promise<StrengthSession | null> {
+  if (!userId || !sessionId || !planSessionId) return null;
+  try {
+    const json = await callBackend<any>(
+      `${base(userId)}/${sessionId}/import-from-plan`,
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_session_id: planSessionId }),
+      },
+    );
+    return json?.success ? (json.data as StrengthSession) : null;
+  } catch (e) {
+    console.error("[StrengthSessions] import error", e);
+    return null;
+  }
+}
