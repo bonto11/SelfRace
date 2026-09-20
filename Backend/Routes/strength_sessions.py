@@ -14,6 +14,8 @@ from Services.strength_sessions import (
     service_update_strength_session,
     service_delete_strength_session,
     service_get_exercise_progression,
+    service_list_planned_strength_sessions,
+    service_import_from_plan,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 
@@ -25,7 +27,9 @@ class CreateStrengthSessionPayload(BaseModel):
     title: Optional[str] = None
     plan_session_id: Optional[int] = None
     activity_id: Optional[int] = None
-
+    
+class ImportFromPlanPayload(BaseModel):
+    plan_session_id: int
 
 class UpdateStrengthSessionPayload(BaseModel):
     exercises: Optional[List[Dict[str, Any]]] = None
@@ -139,5 +143,37 @@ def delete_strength_session(req: Request, user_id: int, session_id: int) -> Dict
             user_id=user_id, session_id=session_id, ctx=ctx
         )
         return {"success": bool(result.get("ok")), "error_code": result.get("code")}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+        
+@router.get("/{user_id}/planned-sessions")
+def list_planned_sessions(
+    req: Request, user_id: int, days_back: int = 14, days_forward: int = 7
+) -> Dict[str, Any]:
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        rows = service_list_planned_strength_sessions(
+            user_id=user_id, days_back=days_back, days_forward=days_forward, ctx=ctx
+        )
+        return {"success": True, "data": rows}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{user_id}/{session_id}/import-from-plan")
+def import_from_plan(
+    req: Request, user_id: int, session_id: int, payload: ImportFromPlanPayload
+) -> Dict[str, Any]:
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        result = service_import_from_plan(
+            user_id=user_id,
+            session_id=session_id,
+            plan_session_id=payload.plan_session_id,
+            ctx=ctx,
+        )
+        if not result.get("ok"):
+            return {"success": False, "error_code": result.get("code"), "data": None}
+        return {"success": True, "data": result["data"]}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
