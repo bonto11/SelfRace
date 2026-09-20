@@ -168,3 +168,33 @@ def db_find_unmatched_strength_sessions_for_date(
     except Exception as e:  # noqa: BLE001
         print("[DB-STRENGTH] find_unmatched error:", repr(e))
         return []
+        
+def db_list_planned_strength_sessions(
+    user_id: int, *, days_back: int = 14, days_forward: int = 7, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Naplánované silové session z coach_plan_daily v okolí dneška -
+    zdroj pre import kostry cvikov do zápisu.
+    """
+    from Configs.config import TABLE_COACH_PLAN_DAILY
+
+    sb = get_sb(ctx, caller="strength_sessions.db_list_planned_strength_sessions")
+    today = datetime.now(timezone.utc).date()
+    date_from = (today - timedelta(days=int(days_back))).isoformat()
+    date_to = (today + timedelta(days=int(days_forward))).isoformat()
+
+    try:
+        res = (
+            sb.table(TABLE_COACH_PLAN_DAILY)
+            .select("id, plan_date, title, structure")
+            .eq("user_id", int(user_id))
+            .eq("sport", "strength")
+            .gte("plan_date", date_from)
+            .lte("plan_date", date_to)
+            .order("plan_date", desc=True)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-STRENGTH] list_planned error:", repr(e))
+        return []
