@@ -9,12 +9,18 @@ import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+import { confirm } from "@/app/shared/ui/components/Confirm";
+import { toast } from "@/app/shared/ui/components/Toast";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
+  apiListPlannedStrengthSessions,
+  apiImportFromPlan,
   type StrengthExerciseLog,
   type StrengthSetEntry,
   type StrengthBlock,
+  type PlannedStrengthSession,
 } from "@/app/features/activities/api/strength_sessions";
 import {
   PLAN_STRUCT_STACK,
@@ -71,6 +77,14 @@ function formatPlanned(
   );
 }
 
+function formatPlanDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+  const wd = d.toLocaleDateString("sk-SK", { weekday: "short" });
+  return `${wd} · ${day}`;
+}
+
 export default function StrengthLogEditor({
   sessionId,
   showAdvanced = false,
@@ -95,11 +109,17 @@ export default function StrengthLogEditor({
   const [pickerBlock, setPickerBlock] = useState<StrengthBlock>("strength_main_part");
   const [pickerQuery, setPickerQuery] = useState("");
 
+  // 🌟 Import z plánu
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const [plannedSessions, setPlannedSessions] = useState<PlannedStrengthSession[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef({ exercises, completed, note, sessionDate, title });
   latest.current = { exercises, completed, note, sessionDate, title };
 
-    /* --- load --- */
+  /* --- load --- */
   useEffect(() => {
     // 🌟 Bez sessionId nemáme čo načítať - zhodíme loading, nech komponent
     // nevisí na nekonečnom spinneri (stávalo sa pri renderovaní bez propu).
@@ -125,7 +145,6 @@ export default function StrengthLogEditor({
       alive = false;
     };
   }, [userId, sessionId]);
-
 
   /* --- autosave --- */
   const scheduleSave = useCallback(() => {
@@ -156,6 +175,52 @@ export default function StrengthLogEditor({
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
+
+  /* --- import z plánu --- */
+  const openPlanPicker = useCallback(async () => {
+    if (!userId) return;
+    setPlanPickerOpen(true);
+    setPlansLoading(true);
+    const rows = await apiListPlannedStrengthSessions(userId, {
+      days_back: 14,
+      days_forward: 7,
+    });
+    setPlannedSessions(rows);
+    setPlansLoading(false);
+  }, [userId]);
+
+  const handleImport = useCallback(
+    async (planSessionId: number) => {
+      if (!userId || !sessionId || importing) return;
+
+      // Ak už má user niečo zapísané, upozorníme - import prepíše zoznam.
+      const hasLoggedSets = exercises.some((ex) => (ex.sets ?? []).length > 0);
+      if (hasLoggedSets) {
+        const ok = await confirm({
+          title: t("strengthLog.importConfirmTitle"),
+          message: t("strengthLog.importConfirmMessage"),
+          okText: t("strengthLog.importFromPlan"),
+          cancelText: t("common.cancel"),
+          tone: "danger",
+        });
+        if (!ok) return;
+      }
+
+      setImporting(true);
+      const updated = await apiImportFromPlan(Number(userId), sessionId, planSessionId);
+      setImporting(false);
+
+      if (updated) {
+        setExercises(updated.log?.exercises ?? []);
+        if (updated.title) setTitle(updated.title);
+        setPlanPickerOpen(false);
+        toast.success(t("strengthLog.importSuccess"));
+      } else {
+        toast.error(t("strengthLog.importError"));
+      }
+    },
+    [userId, sessionId, importing, exercises, t],
+  );
 
   /* --- mutácie --- */
   const mutate = useCallback(
@@ -274,6 +339,65 @@ export default function StrengthLogEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 🌟 Akčný riadok: import z plánu + help tooltip vpravo hore */}
+      <div className="flex items-center justify-between gap-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={openPlanPicker}
+          disabled={importing || !sessionId}
+        >
+          {importing ? <LoadingSpinner size="button" /> : t("strengthLog.importFromPlan")}
+        </Button>
+
+        <TooltipIcon
+          text={t("strengthLog.help")}
+          title={t("strengthLog.helpTitle")}
+          size={26}
+        />
+      </div>
+
+      {/* Picker naplánovaných tréningov */}
+      {planPickerOpen && (
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2 animate-in fade-in">
+          <div className="text-xs font-semibold opacity-80">
+            {t("strengthLog.importPickerTitle")}
+          </div>
+
+          {plansLoading ? (
+            <div className="flex justify-center py-3">
+              <LoadingSpinner size="button" />
+            </div>
+          ) : plannedSessions.length === 0 ? (
+            <div className="text-xs opacity-40 py-2">{t("strengthLog.importNoPlans")}</div>
+          ) : (
+            <div className="max-h-[240px] overflow-y-auto flex flex-col gap-1">
+              {plannedSessions.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleImport(p.id)}
+                  disabled={importing}
+                  className="text-left px-3 py-2 rounded hover:bg-white/10 transition-colors"
+                >
+                  <div className="text-sm font-medium truncate">
+                    {p.title || t("strengthLog.widget.title")}
+                  </div>
+                  <div className="text-[11px] opacity-50 mt-0.5">
+                    {formatPlanDate(p.plan_date)} · {p.exercise_count}{" "}
+                    {t("strengthLog.exercisesUnit")}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <Button size="xs" variant="secondary" onClick={() => setPlanPickerOpen(false)}>
+            {t("common.cancel")}
+          </Button>
+        </div>
+      )}
+
       {/* Hlavička: dátum + názov */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
