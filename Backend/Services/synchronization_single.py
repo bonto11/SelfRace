@@ -41,7 +41,7 @@ from Services.AI.weekly_plan.main import service_sync_weekly_volume_for_date
 from Services.notifications import service_notify_new_activity
 from Services.records_check import service_check_activity_records
 from Services.route_match import service_auto_match_route_for_activity
-
+from Services.strength_sessions import service_match_strength_session_to_activity
 
 # -------------------------------------------------------------------
 # STRAVA TOKENS – helpery (čisto DB + OAuth refresh, žiadny legacy súbor)
@@ -315,7 +315,22 @@ def service_sync_single_activity(
     except Exception as e:  # noqa: BLE001
         print(f"[SYNC:single] enrichment failed id={aid}: {e}")
 
-    mark_strava_ever_synced_now(ctx=ctx,user_id=user_id)
+    mark_strava_ever_synced_now(ctx=ctx, user_id=user_id)
+
+    # ---------- 4.5) MATCH SILOVÉHO ZÁPISU NA AKTIVITU ----------
+    # Ak si user zapísal silový tréning v appke (strength_sessions) a teraz
+    # dorazila zodpovedajúca Strava aktivita z rovnakého dňa, prepojíme ich.
+    # Best-effort - zlyhanie nesmie ovplyvniť import aktivity.
+    try:
+        service_match_strength_session_to_activity(
+            user_id=user_id,
+            activity_id=aid,
+            activity_date=str(row.get("date") or "")[:10],
+            sport_type_fe=row.get("sport_type_fe"),
+            ctx=ctx,
+        )
+    except Exception as e:  # noqa: BLE001
+        print(f"[SYNC:single] Strength match failed id={aid}: {repr(e)}")
     
     # ---------- 5) PREPOČET WEEKLY PLÁNU ----------
     # Vytiahneme dátum aktivity, aby sme vedeli, ktorý týždeň máme prepočítať
