@@ -317,3 +317,56 @@ export const DEFAULT_PREFS: CoachPrefs = {
   },
 
 };
+
+/* -------- strength settings -------- */
+
+export type StrengthLocation = "gym" | "home" | "outdoor";
+export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
+
+/** Tréningový cieľ silového tréningu — riadi série, opakovania aj pauzy. */
+export type StrengthGoal =
+  | "max_strength"
+  | "hypertrophy"
+  | "strength_endurance"
+  | "power"
+  | "general_resilience";
+
+/** Skúsenosť v posilňovni (nie v hlavnom športe). */
+export type StrengthExperienceLevel = "beginner" | "intermediate" | "advanced";
+
+export type StrengthEquipmentKey =
+  | "dumbbells"
+  | "barbell"
+  | "kettlebell"
+  | "trx"
+  | "pullup_bar"
+  | "resistance_bands"
+  | "bench"
+  | "medicine_ball"
+  | "sandbag"
+  | "box"
+  | "abwheel"
+  | "other";
+
+/** Referenčné maximá (1RM) — vstup pre % based programovanie. */
+export type ReferenceLifts = {
+  squat_kg?: number | null;
+  deadlift_kg?: number | null;
+  bench_kg?: number | null;
+  ohp_kg?: number | null;
+};
+
+export type StrengthSettings = {
+  location?: StrengthLocation | null;
+  equipment_mode?: StrengthEquipmentMode | null;
+  available?: StrengthEquipmentKey[];
+  sessions_per_week?: number | null;
+  session_duration_min?: number | null;
+
+  // 🌟 NOVÉ: vstupy pre deterministickú vrstvu (Services/strength/)
+  goal?: StrengthGoal | null;
+  experience_level?: StrengthExperienceLevel | null;
+  /** exercise_id z katalógu, ktoré athlete nechce dostávať */
+  disliked_exercises?: string[];
+  reference_lifts?: ReferenceLifts | null;
+};
