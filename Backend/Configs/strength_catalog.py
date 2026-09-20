@@ -426,3 +426,24 @@ STRENGTH_EXERCISE_CATALOG = [
         "equipment": ["medicine_ball"],
     },
 ]
+
+# ============================================================
+# POMOCNÉ INDEXY (pripravené pre selector.py)
+# ============================================================
+
+CATALOG_BY_ID = {ex["id"]: ex for ex in STRENGTH_EXERCISE_CATALOG}
+
+ALL_PATTERNS = sorted({ex["pattern"] for ex in STRENGTH_EXERCISE_CATALOG})
+ALL_TARGETS = sorted({ex["target"] for ex in STRENGTH_EXERCISE_CATALOG})
+ALL_SPORT_TAGS = sorted({tag for ex in STRENGTH_EXERCISE_CATALOG for tag in ex["sport_tags"]})
+
+
+def get_exercise(exercise_id: str):
+    """Vráti cvik z katalógu podľa id, alebo None."""
+    return CATALOG_BY_ID.get(exercise_id)
+
+
+def is_loaded(exercise: dict) -> bool:
+    """True ak cvik vie byť zaťažený externou váhou (nie je bodyweight-only)."""
+    return exercise.get("load_type") != "bodyweight" or exercise.get("equipment") != ["none"]
+
