@@ -26,7 +26,6 @@ from Services.AI.daily_plan.builders import (
 
 from Services.coach_user_notes import service_consume_pending_ephemeral
 
-from Services.coach_strength_mapper import extract_and_save_ai_strength_history
 from Modules.Supabase.auth import AuthCtx
 
 
@@ -174,12 +173,13 @@ def service_generate_daily_week(
 
     ai_plan = _reindex_sessions_per_day(ai_plan)
 
-    try:
-        extract_and_save_ai_strength_history(
-            user_id=user_id, ai_daily_plan=ai_plan, ctx=ctx
-        )
-    except Exception as e:
-        print(f"[STRENGTH_MAPPER] error: {repr(e)}")
+    # 🌟 ODSTRÁNENÉ: extract_and_save_ai_strength_history (coach_strength_mapper).
+    # Kŕmilo len prepare_strength_context_for_ai (recency menu pre starý
+    # plochý AI výber cvikov), ktoré builders.py už nevolá od zapojenia
+    # deterministickej vrstvy (templates.py + selector.py). Overené, že
+    # coach_strength_mapper.py aj coach_strength_history sa nepoužívajú
+    # nikde inde v repe - bezpečné vypnúť. Recency/rotáciu teraz rieši
+    # build_usage_map() nad reálne odcvičenými strength_sessions.
 
     dates: List[str] = []
     for d in days:
