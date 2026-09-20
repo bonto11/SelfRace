@@ -1,4 +1,4 @@
-// src/app/shared/components/strength/StrengthLogEditor.tsx
+// src/app/features/activities/components/StrengthLogEditor.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
