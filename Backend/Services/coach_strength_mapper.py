@@ -23,12 +23,24 @@ def _is_equipment_available(
     if "none" in eqs:
         return True
 
-    # Ak nie je explicitne definovane vybavenie, berieme zakladne home veci
     if not available_equipment:
         home_basic = {"none", "resistance_bands", "trx", "abwheel", "pullup_bar"}
         return any(e in home_basic for e in eqs)
 
     return any(e in available_equipment for e in eqs)
+
+
+def _is_loaded_exercise(exercise: Dict[str, Any]) -> bool:
+    """
+    🌟 NOVÉ: True ak cvik VIE byť vykonaný so záťažou (nie je čisto
+    bodyweight-only). Rieši root cause problému, keď full_gym user
+    dostával takmer výhradne bodyweight/prehab cviky - katalóg aj
+    inštrukcie doteraz vôbec nerozlišovali "loaded" vs "bodyweight-only",
+    takže AI nemala žiadny signál uprednostniť záťažové zložené cviky
+    v hlavnej časti tréningu, keď má user full gym k dispozícii.
+    """
+    eqs = exercise.get("equipment") or []
+    return eqs != ["none"]
 
 
 def prepare_strength_context_for_ai(
@@ -37,81 +49,106 @@ def prepare_strength_context_for_ai(
     available_equipment: List[str],
     equipment_mode: Optional[str],
     injuries: List[Dict[str, Any]],
-    disliked_exercises: List[str],  # Zoznam neziaducich IDciek
+    disliked_exercises: List[str],
     ctx: AuthCtx
 ) -> Dict[str, Any]:
     """
     Vygeneruje inteligentné "Menu" cvikov pre AI na základe vybavenia a histórie.
     Toto menu sa priloží k payloadu pre OpenAI.
     """
-    
-    # 1. Zisti históriu za posledné 4 týždne
+
     history = db_get_strength_history_for_user(
         user_id=user_id,
         weeks_back=4,
         ctx=ctx
     ) or []
-    
-    # Množina cvikov, ktoré cvičil v poslednej dobe
+
     recent_ex_ids = {h.get("exercise_id") for h in history if h.get("exercise_id")}
-    
-    # 2. Skontroluj, či existujú nejaké aktívne zranenia
+
     has_injury = len(injuries) > 0
 
+    # 🌟 NOVÉ: pridaná kategória "functional" (Hyrox/OCR/triatlon)
     menu: Dict[str, List[Dict[str, Any]]] = {
         "core": [],
         "lower_quad": [],
         "lower_posterior": [],
-        "lower_calves": [], 
+        "lower_calves": [],
         "upper_push": [],
-        "upper_pull": []
+        "upper_pull": [],
+        "functional": [],
     }
 
-    # 3. Filtrovanie a budovanie menu
     for ex in STRENGTH_EXERCISE_CATALOG:
         ex_id = ex["id"]
         target = ex["target"]
 
-        # Filter A: Znechutené/Nechcené cviky
         if ex_id in disliked_exercises:
             continue
 
-        # Filter B: Dostupné vybavenie
         if not _is_equipment_available(ex, available_equipment, equipment_mode):
             continue
 
-        # Pripravíme objekt, ktorý pošleme AI (čím menej balastu, tým lepšie pre tokeny)
         ex_payload = {
             "id": ex_id,
-            "name": ex["name_en"]
+            "name": ex["name_en"],
+            # 🌟 NOVÉ: explicitný signál pre AI, či ide o záťažový cvik
+            "loaded": _is_loaded_exercise(ex),
         }
 
-        # Ak má zranenie, posielame všetko vhodné z vybavenia, neriešime rotáciu
         if has_injury:
             menu[target].append(ex_payload)
             continue
 
-        # Logika pre udržanie stability (Rotation Logic):
-        # Ak cvik cvičil nedávno, odporučíme ho AI ako primárnu voľbu pre stabilitu.
         if ex_id in recent_ex_ids:
             ex_payload["suggestion"] = "recent_use_keep_for_stability"
-            menu[target].insert(0, ex_payload) # Dáme ho na vrch zoznamu
+            menu[target].insert(0, ex_payload)
         else:
             menu[target].append(ex_payload)
 
-    # 4. Priložíme pokyny pre AI priamo do kontextu
+    # 🌟 NOVÉ: equipment_mode ide priamo do inštrukcií aj ako dáta, a
+    # inštrukcie teraz explicitne hovoria AI, aby pri full_gym/minimal
+    # uprednostnila záťažové zložené cviky v hlavnej časti tréningu.
+    equipment_mode_safe = equipment_mode or "unknown"
+
+    if has_injury:
+        priority_instructions = (
+            "The athlete has an active injury. Completely ignore load/progression "
+            "preferences below - pick the absolute safest exercises from this list "
+            "suitable for their condition, regardless of 'loaded' status."
+        )
+    elif equipment_mode_safe in ("full_gym", "minimal"):
+        priority_instructions = (
+            f"Equipment mode is '{equipment_mode_safe}'. The athlete has access to external "
+            "load (barbell/dumbbell/kettlebell/machine/cable). For 'strength_main_part', you "
+            "MUST primarily select exercises with 'loaded': true - prioritize compound "
+            "barbell/dumbbell lifts (squat, deadlift, press, row family) to build real strength "
+            "via progressive overload. Reserve exercises with 'loaded': false (bodyweight-only, "
+            "e.g. plank, bird-dog, glute bridge) mainly for 'activation' and light 'add_ons' "
+            "blocks, NOT as the main content of the session - a strength session dominated by "
+            "bodyweight-only exercises when full gym equipment is available is a planning error. "
+            "If the athlete has NOT trained an exercise marked 'suggestion': "
+            "'recent_use_keep_for_stability' recently, still prefer 'loaded': true options over "
+            "bodyweight ones of similar target."
+        )
+    else:
+        priority_instructions = (
+            f"Equipment mode is '{equipment_mode_safe}' (limited/no equipment). Build the "
+            "session from what is available in this catalog - bodyweight and minimal-equipment "
+            "exercises are the correct, expected choice here, not a compromise."
+        )
+
     instructions = (
         "This is the allowed exercise catalog. You MUST ONLY use 'id' from this catalog in your JSON. "
         "If the user has NO injuries, prioritize exercises with 'suggestion': 'recent_use_keep_for_stability' "
-        "to ensure progression. If the user HAS injuries, completely ignore stability suggestions and pick "
-        "the absolute safest exercises from this list suitable for their condition."
+        "to ensure progression, but this ranking is secondary to the load-priority rule below. "
+        + priority_instructions
     )
 
     return {
         "instructions": instructions,
+        "equipment_mode": equipment_mode_safe,
         "available_catalog": menu
     }
-
 
 def extract_and_save_ai_strength_history(
     user_id: int,

@@ -29,6 +29,9 @@ DEFAULT_STRENGTH_SESSIONS_PER_WEEK = 2
 DEFAULT_LONG_RUN_DAYS = ["Sun"]
 DEFAULT_STRENGTH_EQUIPMENT_MODE = "full_gym"
 DEFAULT_STRENGTH_LOCATION = "gym"
+# 🌟 NOVÉ: default cieľová dĺžka jednej strength session, ak user nemá
+# session_duration_min explicitne nastavené v prefs.
+DEFAULT_STRENGTH_SESSION_DURATION_MIN = 60
 
 
 # ============================================================
@@ -198,6 +201,23 @@ def _long_run_days_from_prefs(prefs: Dict[str, Any]) -> List[str]:
         return []
     return [d.strip() for d in days if isinstance(d, str) and d.strip()]
 
+def _strength_session_duration_from_prefs(prefs: Dict[str, Any]) -> int:
+    """
+    Vytiahne cieľovú dĺžku JEDNEJ strength session v minútach. Fallback na
+    DEFAULT_STRENGTH_SESSION_DURATION_MIN, ak user nemá nastavené (legacy
+    prefs bez tohto poľa, alebo basic mode).
+    """
+    strength_settings = prefs.get("strength_settings")
+    if isinstance(strength_settings, dict):
+        raw = strength_settings.get("session_duration_min")
+        if isinstance(raw, (int, float, str)):
+            try:
+                val = int(raw)
+                if val > 0:
+                    return val
+            except Exception:
+                pass
+    return DEFAULT_STRENGTH_SESSION_DURATION_MIN
 
 def _strength_sessions_target_from_prefs(prefs: Dict[str, Any]) -> Optional[int]:
     """Vytiahne cieľový počet silových tréningov za týždeň."""
@@ -482,10 +502,13 @@ def build_daily_context_from_db(
             "two_a_day_max_days_per_week": _two_a_day_cap_from_prefs(prefs_ai),
             "long_run_days": _long_run_days_from_prefs(prefs_ai),
             "strength_sessions_per_week_target": _strength_sessions_target_from_prefs(prefs_ai),
+            # 🌟 NOVÉ
+            "strength_session_duration_min_target": _strength_session_duration_from_prefs(prefs_ai),
             "external_events_must_be_included": True,
             "is_returning_beginner": is_returning_beginner,
             "strength_ai_menu": strength_ai_menu,
         },
+
         "coach_notes": {
             "sticky_notes": coach_notes.get("sticky_notes") or [],
             "ephemeral_note": coach_notes.get("ephemeral_note"),

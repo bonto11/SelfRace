@@ -164,7 +164,13 @@ export type StrengthSettings = {
   equipment_mode?: StrengthEquipmentMode | null;
   available?: StrengthEquipmentKey[];
   sessions_per_week?: number | null;
+  // 🌟 NOVÉ: cieľová dĺžka JEDNEJ strength session v minútach (vrátane
+  // aktivácie, hlavnej časti aj doplnkov). Bez tohto poľa AI nemala žiadny
+  // signál, ako dlho má tréning trvať, a systematicky generovala príliš
+  // krátke sessiony (35-40 min namiesto očakávanej hodiny).
+  session_duration_min?: number | null;
 };
+
 
 /* -------- rules -------- */
 
@@ -307,5 +313,7 @@ export const DEFAULT_PREFS: CoachPrefs = {
     equipment_mode: "full_gym",
     available: [],
     sessions_per_week: 2,
+    session_duration_min: 60,
   },
+
 };

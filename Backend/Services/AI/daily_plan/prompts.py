@@ -483,6 +483,91 @@ def _daily_schema(lang_label: str) -> str:
 }}
 """.strip()
 
+def _build_strength_structure_rule(
+    equipment_mode: Optional[str],
+    target_duration_min: int,
+) -> str:
+    """
+    🌟 FIX (v3): target_duration_min sa teraz viaže LEN na 'activation' +
+    'strength_main_part' - to je "jadro" tréningu, ktoré má sedieť na
+    athlete's zadaný čas. 'add_ons' sú vždy VOLITEĽNÝ bonus navyše, mimo
+    tohto počítania - ak vyjde čas presne na cieľ, add_ons môžu chýbať
+    úplne a nič sa nedeje; ak athlete má čas navyše, add_ons ho vyplnia.
+    (Predošlá v2 verzia počítala aj add_ons do cieľovej dĺžky, čo nútilo
+    AI buď naťahovať doplnky umelo, alebo skracovať hlavnú časť, aby sa
+    zmestili doplnky do rovnakého času.)
+    """
+    if equipment_mode in ("full_gym", "minimal"):
+        load_note = (
+            "  - CRITICAL: 'strength_main_part' MUST consist primarily of exercises with "
+            "'loaded': true from 'strength_ai_menu' (compound barbell/dumbbell/kettlebell/machine "
+            "lifts). Do NOT fill 'strength_main_part' mostly with 'loaded': false (bodyweight-only) "
+            "exercises when the athlete has gym/load equipment available - that is a planning error.\n"
+        )
+    else:
+        load_note = (
+            "  - Equipment is limited/none - bodyweight and minimal-equipment exercises are the "
+            "correct choice throughout, not a fallback.\n"
+        )
+    return (
+        "- STRENGTH STRUCTURE: Use 'strength_ai_menu' exercise_ids only (from 'available_catalog').\n"
+        "  - Distribute into 'activation' (1-2 - light bodyweight/mobility, prepares the body), "
+        "'strength_main_part' (3-5 - the actual training stimulus), 'add_ons' (1-3 - accessory/core/calves).\n"
+        + load_note +
+        "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+        "- STRENGTH SESSION DURATION (CRITICAL): The athlete's target duration is "
+        f"{target_duration_min} minutes for the CORE of the session only - that is 'activation' + "
+        "'strength_main_part' combined. 'add_ons' are ALWAYS optional and OUTSIDE this target - "
+        "they are extra work for when the athlete has spare time/energy, not a requirement to hit "
+        f"the {target_duration_min}-minute goal. It is completely fine, and expected, for a session "
+        "with few or no add_ons to still be a complete, well-formed training session.\n"
+        "  - Estimate real time for 'activation' + 'strength_main_part' as: sum of every set's work "
+        "time + every set's rest_s (converted to minutes), plus a short implicit transition/setup "
+        "time between exercises (roughly 1 minute per exercise). Do NOT include 'add_ons' in this "
+        "calculation.\n"
+        f"  - If this estimate (activation + strength_main_part only) comes out well under "
+        f"{target_duration_min} minutes, add more sets, more exercises (within the 1-2 / 3-5 counts "
+        "above, e.g. use the upper end of each range), and/or realistic compound-lift rest periods "
+        "(90-180s for heavy compound lifts) until it reasonably matches the target - do NOT pad the "
+        "session by inflating 'add_ons' instead, and do NOT simply write a bigger `duration_min` "
+        "number without a structure that actually takes that long.\n"
+        f"  - If the estimate comes out well over {target_duration_min} minutes, trim exercises or "
+        "sets from 'strength_main_part' rather than cutting rest periods below safe/effective ranges "
+        "(60s minimum for accessory work, 90s minimum for heavy compound lifts).\n"
+        "  - Include 'add_ons' only when they fit naturally as a light bonus after the core work - "
+        "if you include them, add roughly their own time (a few minutes) on top of the target, "
+        "which is expected and fine.\n"
+        "  - Set the session's `duration_min` field to activation + strength_main_part time PLUS "
+        "add_ons time if present (i.e. the full realistic session length as the athlete would "
+        "experience it, not just the core target).\n\n"
+    )
+
+
+
+
+def _build_strength_focus_rule(is_strength_primary_focus: bool) -> str:
+    """
+    🌟 NOVÉ: samostatné pravidlo pre athlete, ktorého hlavným (alebo
+    jediným) športom je strength - napr. main_sport == 'strength', alebo
+    included_sports neobsahuje žiadny endurance šport. Predtým sa strength
+    vždy generoval len ako "doplnok" k behu/bike/swim bez ohľadu na to,
+    či to bol jediný šport athlete - chýbala periodizácia a progresia.
+    """
+    if not is_strength_primary_focus:
+        return ""
+    return (
+        "\n--- STRENGTH IS THE ATHLETE'S PRIMARY FOCUS ---\n"
+        "- The athlete's plan is NOT built around an endurance sport this week - strength "
+        "training itself is the primary goal, not an accessory to running/cycling/swimming.\n"
+        "- Apply real progressive-overload thinking: vary rep ranges across sessions this week "
+        "(e.g. one session lower-rep/heavier 4-6 reps, another moderate 8-12 reps) rather than "
+        "repeating the same sets/reps every session.\n"
+        "- Prioritize compound 'loaded': true lifts (squat, deadlift, press, row family) as the "
+        "core of every 'strength_main_part' - this is a real strength-training week, not injury "
+        "prevention or activation work.\n"
+        "- It is appropriate to schedule more strength sessions per week than the usual endurance-"
+        "supplement default, as long as REST DAYS and TWO-A-DAY rules above are still respected.\n"
+    )
 
 # ============================================================
 # HLAVNÁ FUNKCIA
@@ -705,11 +790,22 @@ def build_prompts_for_daily(
         "  - NEVER use alternate field names like `repeats`, `intervals`, `work_min`, or nested variants — "
         "the app parses ONLY `rounds`, `work`, and `rest` exactly as specified above.\n\n"
     )
-    strength_structure_rule = (
-        "- STRENGTH STRUCTURE: Use 'strength_ai_menu' exercise_ids. "
-        "Distribute into 'activation' (1-2), 'strength_main_part' (3-5), 'add_ons' (1-3).\n"
-        "  - Title MUST reflect focus (e.g. 'Silový tréning - Nohy a Core').\n\n"
+    strength_ai_menu = _as_dict(constraints.get("strength_ai_menu"))
+    equipment_mode_for_prompt = strength_ai_menu.get("equipment_mode")
+    # 🌟 NOVÉ: cieľová dĺžka session z constraints (builder ju vždy vyplní,
+    # aj defaultom, takže tu je vždy platné číslo).
+    strength_duration_target = _safe_int(
+        constraints.get("strength_session_duration_min_target"), 60, min_v=15, max_v=180
     )
+    strength_structure_rule = _build_strength_structure_rule(
+        equipment_mode_for_prompt, strength_duration_target
+    )
+
+    is_strength_primary_focus = (
+        "strength" in final_sports_list
+        and not any(s in final_sports_list for s in ("run", "ride", "swim"))
+    )
+    strength_focus_rule = _build_strength_focus_rule(is_strength_primary_focus)
 
     special_reason_rule = _build_special_reason_rule(context_payload.get("generate_reason"))
 
@@ -819,6 +915,7 @@ def build_prompts_for_daily(
         + _terminology_rule(lang_label)
         + endurance_structure_rule
         + strength_structure_rule
+        + strength_focus_rule
         + f"- INTENSITY MODEL: {intensity_model}. Use Zones: {has_zones}\n\n"
         + f"- TRAINING BLOCKS: {', '.join(k for k, v in blocks.items() if v) or 'none'}.\n\n"
         + weekly_volume_line
