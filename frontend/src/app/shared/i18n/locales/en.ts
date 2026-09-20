@@ -3112,6 +3112,11 @@ export const en = {
   importSuccess: "Exercises imported from plan.",
   importError: "Import from plan failed.",
   exercisesUnit: "exercises",
+  deleteSession: "Delete session",
+  deleteConfirmTitle: "Delete this session?",
+  deleteConfirmMessage: "The record and all logged sets will be permanently removed. This cannot be undone.",
+  deleteError: "Delete failed, please retry",
+
 
   },
   activitySelector: {
