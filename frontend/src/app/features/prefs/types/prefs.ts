@@ -139,39 +139,6 @@ export interface SwimTargets {
   sessions_per_week?: number | null;
 }
 
-
-/* -------- strength settings -------- */
-
-export type StrengthLocation = "gym" | "home" | "outdoor";
-export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
-
-export type StrengthEquipmentKey =
-  | "dumbbells"
-  | "barbell"
-  | "kettlebell"
-  | "trx"
-  | "pullup_bar"
-  | "resistance_bands"
-  | "bench"
-  | "medicine_ball"
-  | "sandbag"
-  | "box"
-  | "abwheel"
-  | "other";
-
-export type StrengthSettings = {
-  location?: StrengthLocation | null;
-  equipment_mode?: StrengthEquipmentMode | null;
-  available?: StrengthEquipmentKey[];
-  sessions_per_week?: number | null;
-  // 🌟 NOVÉ: cieľová dĺžka JEDNEJ strength session v minútach (vrátane
-  // aktivácie, hlavnej časti aj doplnkov). Bez tohto poľa AI nemala žiadny
-  // signál, ako dlho má tréning trvať, a systematicky generovala príliš
-  // krátke sessiony (35-40 min namiesto očakávanej hodiny).
-  session_duration_min?: number | null;
-};
-
-
 /* -------- rules -------- */
 
 export type TwoADayPrefs = {
