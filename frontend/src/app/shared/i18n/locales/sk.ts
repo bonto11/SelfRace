@@ -3103,6 +3103,11 @@ strengthLog: {
   importSuccess: "Cviky boli načítané z plánu.",
   importError: "Import z plánu sa nepodaril.",
   exercisesUnit: "cvikov",
+  deleteSession: "Zmazať zápis",
+  deleteConfirmTitle: "Zmazať tento zápis?",
+  deleteConfirmMessage: "Záznam aj všetky zapísané série sa natrvalo odstránia. Túto akciu nie je možné vrátiť.",
+  deleteError: "Zmazanie sa nepodarilo, skús znova",
+
 
 },
   activitySelector: {
