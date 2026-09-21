@@ -91,13 +91,9 @@ type CoachCtx = {
   // plán (denný, riadky)
   plan: PlanSubCtx;
 
-  // 🌟 NOVÉ: weekly plán, ako súčasť tej istej globálnej dátovej vrstvy -
-  // predtým ho WidgetCoachWeeklyPlan a DetailWeeklyPlan fetchovali každý
-  // sám nezávisle (vlastný useEffect na mount), takže kliknutie na globálne
-  // "refresh" tlačidlo (RefreshIconBtn -> refreshCoach) ich vôbec
-  // neobnovilo - dáta sa updatli až po plnom odhlásení/prihlásení
-  // (remount). Presunutím fetchu sem sa weekly plán obnoví presne vtedy,
-  // keď sa obnoví aj zvyšok (refresh()).
+  // weekly plán, ako súčasť tej istej globálnej dátovej vrstvy - predtým
+  // ho WidgetCoachWeeklyPlan a DetailWeeklyPlan fetchovali každý sám
+  // nezávisle, takže globálny refresh ich neobnovil.
   weekly: WeeklySubCtx;
 };
 
@@ -108,6 +104,14 @@ export function useCoachData() {
   if (!ctx)
     throw new Error("useCoachData must be used within <CoachDataProvider>");
   return ctx;
+}
+
+// 🌟 NOVÉ: verzia bez throw - pre komponenty, ktoré môžu byť vykreslené aj
+// mimo providera (napr. PlanLifecycleSection v prefs). Vracia null, ak
+// provider nad komponentom nie je, takže volajúci môže bezpečne spraviť
+// `coach?.refresh(true)` po generovaní plánu.
+export function useCoachDataOptional(): CoachCtx | null {
+  return useContext(CoachDataContext);
 }
 
 /* ----------------- Provider ----------------- */

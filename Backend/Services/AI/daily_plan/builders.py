@@ -625,6 +625,10 @@ def build_daily_context_from_db(
                     injury_areas=injury_areas,
                     disliked_exercises=disliked,
                     sport_emphasis=sport_profile["emphasis"],
+                    # 🌟 NOVÉ: celý profil - selector z neho pridá extra
+                    # sloty (grip/carry pre OCR) a priority vzory na
+                    # dopĺňanie krátkej session do cieľovej dĺžky.
+                    sport_profile=sport_profile,
                     target_duration_min=duration_target,
                 )
                 strength_sessions_plan.append(session_plan)

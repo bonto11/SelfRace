@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
-import {
-  CoachDataProvider,
-  useCoachData,
-} from "@/app/shared/components/dataProviders/CoachDataProvider";
+// 🌟 ZMENA: už sa neimportuje CoachDataProvider - stránka používa globálny
+// provider z ClientProtectedShell.tsx. Predtým si tu obaľovala vlastnú
+// (druhú) inštanciu, ktorá prekryla globálnu: refresh na /coach obnovil len
+// tú vnorenú, kým Daily/Weekly detail stránky čítali globálnu, ktorá sa
+// načítala raz pri prihlásení - preto po generovaní ukazovali prázdno
+// a pomohlo až odhlásenie/prihlásenie.
+import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useUserId } from "@/app/shared/hooks/useUserId";
@@ -26,7 +29,6 @@ import WidgetCoachAIProgress from "@/app/shared/components/widgets/WidgetCoachPr
 import WidgetCoachPlanCompliance from "@/app/shared/components/widgets/WidgetCoachPlanCompliance";
 import WidgetCoachNotes from "@/app/shared/components/widgets/WidgetCoachNotes";
 import WidgetCoachPlanSummary from "@/app/shared/components/widgets/WidgetCoachPlanSummary";
-
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -58,23 +60,28 @@ function RefreshIconBtn() {
   );
 }
 
-function ClientPage() {
+// 🌟 ZMENA: bývalý ClientPage je teraz priamo default export stránky -
+// wrapper s vlastným providerom už netreba.
+export default function Page() {
   const router = useRouter();
   const t = useT();
   const { userId } = useUserId();
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  // 🌟 Poradie widgetov sa mení podľa toho, či má used aktívny plán - keď nie
+  // Weekly/daily dáta z globálneho providera - keď sa zmenia (refresh po
+  // generovaní, aktivácii, alebo cez RefreshIconBtn), zistíme stav plánu
+  // znova. Predtým sa hasActivePlan zistil len raz pri načítaní stránky.
+  const { weekly, plan } = useCoachData();
+
+  // Poradie widgetov sa mení podľa toho, či má user aktívny plán - keď nie
   // je aktívny, najdôležitejšie je nastaviť prefs a spustiť plán (Prefs hore).
-  // Keď je aktívny, najdôležitejšie sú aktuálne treningy (Daily/Weekly hore),
-  // keďže prefs a analyzovanie atléta sa už menia len zriedka.
+  // Keď je aktívny, najdôležitejšie sú aktuálne tréningy (Daily/Weekly hore).
   //
-  // WidgetCoachPlanSummary je v OBOCH vetvách - je to čisto UI widget, ktorý
-  // sa sám skryje (vráti null), ak pre usera ešte neexistuje žiadny sumár.
-  // Je to zámerné: keď sa plán práve dokončí, hasActivePlan sa okamžite
-  // prepne na false, takže widget musí byť viditeľný aj v "bez aktívneho
-  // plánu" vetve, inak by user svoj čerstvo vygenerovaný sumár nikdy neuvidel.
+  // WidgetCoachPlanSummary je v OBOCH vetvách - sám sa skryje (vráti null),
+  // ak sumár neexistuje. Keď sa plán práve dokončí, hasActivePlan sa prepne
+  // na false, takže widget musí byť viditeľný aj v "bez aktívneho plánu"
+  // vetve, inak by user čerstvo vygenerovaný sumár nikdy neuvidel.
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -90,7 +97,7 @@ function ClientPage() {
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, weekly.plan, plan.rows]);
 
   return (
     <PageShell
@@ -144,13 +151,5 @@ function ClientPage() {
         </div>
       )}
     </PageShell>
-  );
-}
-
-export default function Page() {
-  return (
-    <CoachDataProvider>
-      <ClientPage />
-    </CoachDataProvider>
   );
 }

@@ -10,6 +10,7 @@ import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
+import { useCoachDataOptional } from "@/app/shared/components/dataProviders/CoachDataProvider";
 
 import { apiEnsureCoachPlanStartFuture } from "@/app/features/prefs/api/prefs";
 import {
@@ -50,6 +51,16 @@ export default function PlanLifecycleSection({
   const { userId, userUuid } = useUserId();
   const t = useT();
 
+  // 🌟 NOVÉ: po generovaní / aktivácii / zrušení treba obnoviť globálne
+  // coach dáta (weekly + daily riadky). Predtým sa tu nastavili len lokálne
+  // flagy hasWeekly/hasDaily, provider ostal so starými (prázdnymi) dátami
+  // a Weekly/Daily stránky po prekliku ukazovali prázdno. Optional verzia,
+  // aby sekcia nepadla, ak by bola vykreslená mimo providera.
+  const coach = useCoachDataOptional();
+  const refreshCoach = useCallback(() => {
+    void coach?.refresh(true);
+  }, [coach]);
+
   const canGenerate = useMemo(() => {
     const hasStartDate = !!(prefs?.start_date && prefs.start_date.trim());
     const races = prefs?.targets?.run?.races;
@@ -69,7 +80,7 @@ export default function PlanLifecycleSection({
   const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
 
-  // 🌟 "Na hulváta" progress odhad pre generovanie - žiadny reálny BE
+  // "Na hulváta" progress odhad pre generovanie - žiadny reálny BE
   // progress tracking, len časovač (~20s na krok). Čisto kozmetické.
   const [loadingStepLabel, setLoadingStepLabel] = useState<string | null>(null);
 
@@ -173,11 +184,9 @@ export default function PlanLifecycleSection({
       }
       setHasWeekly(true);
 
-      // 🌟 FIX: plan_meta_id novo vytvoreného draftu sa musí poslať ďalej
-      // do daily generovania - predtým sa toto vôbec neposielalo, takže
-      // service_generate_daily_week si sám hľadal "aktívny" plán, ktorý
-      // ale čerstvý draft ešte nie je (je len 'generated'), a daily riadky
-      // preto dostali plan_meta_id=NULL.
+      // plan_meta_id novo vytvoreného draftu sa musí poslať ďalej do daily
+      // generovania - čerstvý draft ešte nie je aktívny, backend by si ho
+      // sám nenašiel a daily riadky by dostali plan_meta_id=NULL.
       const newPlanMetaId = (weeklyOut as any)?.plan_meta_id ?? null;
 
       await apiEnsureCoachPlanStartFuture(userId);
@@ -199,8 +208,12 @@ export default function PlanLifecycleSection({
       clearTimeout(stepTimer3);
       setLoadingKind(null);
       setLoadingStepLabel(null);
+      // 🌟 NOVÉ: obnov coach dáta vždy po pokuse o generovanie (aj pri
+      // čiastočnom úspechu - napr. weekly prebehol, daily padol, weekly
+      // dáta sú v DB a majú byť vidieť).
+      refreshCoach();
     }
-  }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading, t]);
+  }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading, t, refreshCoach]);
 
   const handleStartPlan = useCallback(async () => {
     if (!userId || isMedicalSuspend) return;
@@ -210,6 +223,8 @@ export default function PlanLifecycleSection({
       const res = await apiActivePlanSave(userId, {});
       if (res.success) {
         await fetchStatus();
+        // 🌟 NOVÉ: aktivácia mení, ktorý plán backend vracia ako aktívny
+        refreshCoach();
       } else {
         setError(res.error || t("prefs.sections.planLifecycleSection.errors.genericStart" as any));
       }
@@ -218,7 +233,7 @@ export default function PlanLifecycleSection({
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, isMedicalSuspend, fetchStatus, t]);
+  }, [userId, isMedicalSuspend, fetchStatus, t, refreshCoach]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
@@ -235,12 +250,14 @@ export default function PlanLifecycleSection({
     try {
       await apiActivePlanCancel(userId);
       await fetchStatus();
+      // 🌟 NOVÉ: po zrušení plánu vyčisti aj globálne coach dáta
+      refreshCoach();
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, t, fetchStatus]);
+  }, [userId, t, fetchStatus, refreshCoach]);
 
   const isGlobalLoading = loading;
   const isFullyGenerated = !!latestStateId && hasWeekly && hasDaily;
