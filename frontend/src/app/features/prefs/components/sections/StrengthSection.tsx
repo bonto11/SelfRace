@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Button from "@/app/shared/ui/components/Button";
 import InputsCard from "@/app/shared/ui/components/InputsCard";
+import TextField from "@/app/shared/ui/components/TextField";
+import NumberField from "@/app/shared/ui/components/NumberField";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
@@ -111,7 +113,10 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     patchSettings({ available: next });
   };
 
-  const setRefLift = (key: string, value: string) => {
+  // 🌟 ZMENA: NumberField posiela hodnotu priamo (string | number), nie
+  // ChangeEvent ako predtým surový <input> - signatúra zjednotená s tým,
+  // ako sa NumberField volá v ThresholdsSection.
+  const setRefLift = (key: string, value: string | number) => {
     const num = value === "" ? null : Number(value);
     patchSettings({
       reference_lifts: {
@@ -273,7 +278,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
           </div>
 
-          {/* 🌟 NOVÉ: referenčné maximá (1RM) */}
+          {/* 🌟 referenčné maximá (1RM) - teraz cez NumberField (rovnaký
+              vzor ako hr_bpm/power_watt v ThresholdsSection), namiesto
+              surového <input type="number"> */}
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.refLiftsLabel")}</span>
@@ -285,19 +292,13 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                   <div className="text-[11px] opacity-60 mb-1">
                     {(t as any)(`prefs.sections.strengthSection.refLifts.${key}`)}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="2.5"
-                      min="0"
-                      className="w-full rounded bg-white/5 border border-white/10 px-2 py-1.5 text-sm text-white text-center focus:border-white/30 focus:outline-none placeholder:text-white/20"
-                      placeholder="—"
-                      value={refLifts[key] ?? ""}
-                      onChange={(e) => setRefLift(key, e.target.value)}
-                    />
-                    <span className="text-[11px] opacity-50">kg</span>
-                  </div>
+                  <NumberField
+                    min={0}
+                    step={2.5}
+                    unit="kg"
+                    value={refLifts[key] ?? ""}
+                    onChange={(val) => setRefLift(key, val)}
+                  />
                 </div>
               ))}
             </div>
@@ -306,7 +307,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
           </div>
 
-          {/* 🌟 NOVÉ: nechcené cviky */}
+          {/* 🌟 nechcené cviky - vyhľadávanie teraz cez TextField namiesto
+              surového <input> */}
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.dislikedLabel")}</span>
@@ -336,9 +338,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
 
             {dislikePickerOpen ? (
               <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
-                <input
+                <TextField
                   autoFocus
-                  className="w-full rounded bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none placeholder:text-white/20"
                   placeholder={t("prefs.sections.strengthSection.dislikedSearch")}
                   value={dislikeQuery}
                   onChange={(e) => setDislikeQuery(e.target.value)}
