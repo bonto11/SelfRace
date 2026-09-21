@@ -318,17 +318,27 @@ def _sport_context_from_prefs(prefs: Dict[str, Any]) -> tuple[Optional[str], Opt
     """
     Vráti (main_sport, race_type, add_on_sports) pre resolve_sport_profile().
 
-    ⚠️ OVER SI TOTO: neviem s istotou presný kľúč v prefs pre main_sport /
-    race_type po presune "main sport" do GoalSection pri prefs refactore -
-    skús podľa toho, čo reálne posiela FE. Zlyhanie tu nie je fatálne
-    (resolve_sport_profile s None spadne na PROFILE_GENERAL), len sa
-    stratí šport-špecifický dôraz vo výbere cvikov.
+    🌟 OPRAVENÉ (overené na reálnom prefs JSON): main_sport je top-level
+    (`prefs.main_sport`), ale race_type NIE JE top-level - podľa CoachPrefs
+    typu (prefs.ts) žije v `prefs.targets.run.race_type` (RunTargets.race_type),
+    lebo race_type má zmysel len pre beh (Bike/SwimTargets ho nemajú).
+    Pôvodný odhad čítal `prefs.race_type`, čo v reálnych dátach neexistuje -
+    athlete s A-prioritným OCR pretekom (Spartan Race) by tak vždy dostal
+    PROFILE_RUNNING namiesto PROFILE_OCR (žiadny grip/carry/anti-rotation
+    dôraz vo výbere cvikov).
     """
     main_sport = prefs.get("main_sport")
-    race_type = prefs.get("race_type")
     if not isinstance(main_sport, str):
-        targets = prefs.get("targets")
-        main_sport = (targets or {}).get("main_sport") if isinstance(targets, dict) else None
+        targets_fallback = prefs.get("targets")
+        main_sport = (
+            (targets_fallback or {}).get("main_sport")
+            if isinstance(targets_fallback, dict) else None
+        )
+
+    targets = prefs.get("targets")
+    run_targets = (targets or {}).get("run") if isinstance(targets, dict) else None
+    race_type = (run_targets or {}).get("race_type") if isinstance(run_targets, dict) else None
+
     add_ons = prefs.get("add_on_sports") or prefs.get("included_sports") or []
     if not isinstance(add_ons, list):
         add_ons = []
