@@ -75,10 +75,6 @@ export default function TimeField({
   const maxDigits = segCount * 2;
   const segMaxes = [hh ? 23 : 59, 59, 59];
 
-  // 🌟 NOVÉ: ref na input, potrebný na ručnú opravu pozície kurzora po
-  // prekreslení (viď handleChange nižšie).
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
   // Interný stav sú vždy čisté číslice ("" keď prázdne), formátovanie na displeji je len derivát.
   const [digits, setDigits] = React.useState<string>(() => digitsOnly(value || ""));
 
@@ -103,20 +99,6 @@ export default function TimeField({
     // Počas písania posielame von len kompletné segmenty naformátované,
     // nekompletný posledný segment necháme tak ako je (bez orezania/paddingu).
     onChange(formatDigitsForDisplay(newDigits));
-
-    // 🌟 FIX: keď kód vloží dvojbodku pred aktuálnu pozíciu kurzora, prehliadač
-    // ponechá kurzor na PÔVODNEJ číselnej pozícii v novom (dlhšom) stringu -
-    // teda o jedno miesto skôr, než by mal byť (pred práve napísanou číslicou,
-    // nie za ňou). Ďalší napísaný znak sa potom vloží na zlé miesto a číslice
-    // sa premiešajú (napr. "05:30" napísané postupne skončí ako "05:03").
-    // Keďže sa v tomto poli vždy píše zľava doprava, po každej zmene natvrdo
-    // posunieme kurzor na koniec - presne tam, kam by ho užívateľ aj čakal.
-    requestAnimationFrame(() => {
-      const el = inputRef.current;
-      if (!el) return;
-      const pos = formatDigitsForDisplay(newDigits).length;
-      el.setSelectionRange(pos, pos);
-    });
   }
 
   function handleBlur() {
@@ -155,7 +137,6 @@ export default function TimeField({
 
       <div className="relative">
         <input
-          ref={inputRef}
           type="text"
           inputMode="numeric"
           value={displayValue}

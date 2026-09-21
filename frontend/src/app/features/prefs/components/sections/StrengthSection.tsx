@@ -1,382 +1,360 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Button from "@/app/shared/ui/components/Button";
-import InputsCard from "@/app/shared/ui/components/InputsCard";
-import TextField from "@/app/shared/ui/components/TextField";
-import NumberField from "@/app/shared/ui/components/NumberField";
-import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
-import { useT } from "@/app/shared/i18n/useT";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
+import { useEffect, useMemo, useState } from "react";
 
+import InputsCard from "@/app/shared/ui/components/InputsCard";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import NumberField from "@/app/shared/ui/components/NumberField";
+import TimeField from "@/app/shared/ui/components/TimeField";
+import Button from "@/app/shared/ui/components/Button";
+import { toast } from "@/app/shared/ui/components/Toast";
+import { useT } from "@/app/shared/i18n/useT";
+
+import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
+
+import {
+  SECTION,
+  SECTION_STYLE,
+  FORM_GRID_TWO,
+  PANEL_STACK,
+  INPUTS_CARD_BODY,
+  INPUTS_CARD_LABEL_SM_1,
+} from "@/app/shared/ui/tokens";
+
+/* ---------- pace helpers (mm:ss) ---------- */
+function paceToSec(v: string): number | null {
+  if (!v || !v.includes(":")) return null;
+  const [m, s] = v.split(":").map((x) => Number(x));
+  if (!Number.isFinite(m) || !Number.isFinite(s)) return null;
+  return m * 60 + s;
+}
+
+function secToPace(n: any): string {
+  const s = Number(n);
+  if (!Number.isFinite(s) || s <= 0) return "";
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+}
+
+// 🌟 NOVÉ: kompletné "mm:ss" (oba segmenty 2-ciferné). Len takú hodnotu
+// prepočítavame na sekundy a posielame do parentu - viď FIX nižšie.
+function isCompletePace(v: string): boolean {
+  return /^\d{2}:\d{2}$/.test(v);
+}
+
+/* ---------- types ---------- */
 type Props = {
-  local: any;
-  setLocal: (fn: (prev: any) => any) => void;
-  markDirty: () => void;
+  thresholds: any | undefined;
+  latestList?: any[];
+  onChange: (t: any) => void;
+  onSaveToDB?: (t: any) => Promise<void>;
 };
 
-const GEAR_OPTIONS = [
-  "dumbbells", "barbell", "kettlebell", "trx", "pullup_bar",
-  "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel"
+const normalizeSportKey = (s: any): string => {
+  const v = String(s || "").toLowerCase();
+  if (v === "run") return "running";
+  return v;
+};
+
+const makeComboKey = (sport: any, thrType: any): string =>
+  `${normalizeSportKey(sport)}|${String(thrType || "").toLowerCase()}`;
+
+const THR_SPORTS_VALUES = [
+  "running",
+  "ride",
+  "swimming",
+  "rowing",
+  "strength",
+  "other",
 ] as const;
 
-// 🌟 Cieľ silového tréningu - riadi série, opakovania aj pauzy
-// (Services/strength/schemes.py). Poradie od najľahšieho po najťažší.
-const GOAL_OPTIONS = [
-  "general_resilience",
-  "strength_endurance",
-  "hypertrophy",
-  "max_strength",
-  "power",
-] as const;
-
-// 🌟 Skúsenosť v posilňovni (nie v hlavnom športe) - riadi počet sérií,
-// technickú náročnosť povolených cvikov a vzdialenosť od zlyhania.
-const LEVEL_OPTIONS = ["beginner", "intermediate", "advanced"] as const;
-
-// 🌟 Referenčné maximá pre % based programovanie a odhad váh.
-const REFERENCE_LIFTS = ["squat_kg", "deadlift_kg", "bench_kg", "ohp_kg"] as const;
-
-const DURATION_STEP = 15;
-const DURATION_MIN = 30;
-const DURATION_MAX = 90;
-const DURATION_DEFAULT = 60;
-
-const GOAL_DEFAULT = "general_resilience";
-const LEVEL_DEFAULT = "intermediate";
-
-export function StrengthSection({ local, setLocal, markDirty }: Props) {
+export default function ThresholdsSection({
+  thresholds,
+  latestList = [],
+  onChange,
+  onSaveToDB,
+}: Props) {
   const t = useT();
-  const settings = local.strength_settings ?? {};
-  const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
+  const thr = thresholds ?? {};
+  const [open, setOpen] = useState(false);
 
-  const location: string | null = settings.location ?? null;
-  const mode: string | null = settings.equipment_mode ?? null;
-  const available: string[] = Array.isArray(settings.available) ? settings.available : [];
-  const sessionsPerWeek: number | null = settings.sessions_per_week != null ? Number(settings.sessions_per_week) : null;
-  const sessionDurationMin: number = settings.session_duration_min != null ? Number(settings.session_duration_min) : DURATION_DEFAULT;
+  const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km));
 
-  // 🌟 NOVÉ
-  const goal: string = settings.goal ?? GOAL_DEFAULT;
-  const level: string = settings.experience_level ?? LEVEL_DEFAULT;
-  const disliked: string[] = Array.isArray(settings.disliked_exercises) ? settings.disliked_exercises : [];
-  const refLifts: Record<string, number | null> = settings.reference_lifts ?? {};
+  // 🌟 FIX: predtým tento effect VŽDY prepísal paceStr zo sekúnd. Počas
+  // písania to robilo "05:3" -> 303 s -> "05:03" a TimeField si prepísal
+  // interné číslice, takže sa nedalo napísať 05:30. Teraz sa paceStr
+  // prepíše len vtedy, keď sa hodnota zvonku naozaj líši od toho, čo je
+  // v poli (load z DB, reset, zmena športu/typu).
+  useEffect(() => {
+    const target =
+      thr.pace_sec_km == null || thr.pace_sec_km === ""
+        ? null
+        : Number(thr.pace_sec_km);
+    setPaceStr((cur) => (paceToSec(cur) === target ? cur : secToPace(target)));
+  }, [thr.pace_sec_km]);
 
-  const [dislikeQuery, setDislikeQuery] = useState("");
-  const [dislikePickerOpen, setDislikePickerOpen] = useState(false);
+  const latestByCombo = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const r of Array.isArray(latestList) ? latestList : []) {
+      const key = makeComboKey(r.sport, r.threshold_type);
+      if (!map.has(key)) map.set(key, r);
+    }
+    return Array.from(map.values());
+  }, [latestList]);
 
-  const previewText = useMemo(() => {
-    const locText = location ? (t as any)(`prefs.sections.strengthSection.locations.${location}`) : "—";
-    const modeText = mode ? (t as any)(`prefs.sections.strengthSection.modes.${mode}`) : "—";
-    const goalText = (t as any)(`prefs.sections.strengthSection.goals.${goal}`);
-    const spw = sessionsPerWeek ?? "—";
-    const gearCount = available.length;
+  const preview = useMemo(() => {
+    const key = makeComboKey(
+      thr.sport ?? "running",
+      thr.threshold_type ?? "LT2",
+    );
+    const fromLatest = latestByCombo.find(
+      (r) => makeComboKey(r.sport, r.threshold_type) === key,
+    );
+    const src = { ...(fromLatest ?? {}), ...thr };
+    return {
+      sport: src.sport ?? "running",
+      type: src.threshold_type ?? "LT2",
+      hr: src.hr_bpm,
+      pace: secToPace(src.pace_sec_km),
+      pow: src.power_watt,
+    };
+  }, [thr, latestByCombo]);
 
-    const listShort = gearCount === 0
-      ? t("common.none")
-      : gearCount <= 3
-        ? available.map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")
-        : `${available.slice(0, 3).map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")} +${gearCount - 3} ${t("common.more")}`;
+  const getSportLabel = (s: string) =>
+    (t as any)(
+      `common.sports.${s === "running" ? "run" : s === "ride" ? "bike" : s}`,
+    );
 
-    return `${t("prefs.sections.strengthSection.previewGoal")}: ${goalText} • ${t("prefs.sections.strengthSection.previewSessions")}: ${spw} • ${t("prefs.sections.strengthSection.previewDuration")}: ${sessionDurationMin} ${t("common.units.min")} • ${t("prefs.sections.strengthSection.previewLocation")}: ${locText} • ${t("prefs.sections.strengthSection.previewMode")}: ${modeText} | ${t("prefs.sections.strengthSection.previewGear")} (${gearCount}): ${listShort}`;
-  }, [location, mode, available, sessionsPerWeek, sessionDurationMin, goal, t]);
+  const previewNode = (
+    <div className="flex flex-wrap gap-4 text-xs">
+      <div>
+        <span className="opacity-70 mr-1">
+          {t("prefs.sections.thresholdsSection.sportLabel")}:
+        </span>
+        <span className="font-semibold">{getSportLabel(preview.sport)}</span>
+      </div>
+      <div>
+        <span className="opacity-70 mr-1">
+          {t("prefs.sections.thresholdsSection.typeLabel")}:
+        </span>
+        <span className="font-semibold">{preview.type}</span>
+      </div>
+      {preview.hr != null && (
+        <div>
+          <span className="opacity-70 mr-1">HR:</span>
+          <span className="font-semibold">{Math.round(preview.hr)} bpm</span>
+        </div>
+      )}
+      {preview.pace && (
+        <div>
+          <span className="opacity-70 mr-1">{t("common.metrics.pace")}:</span>
+          <span className="font-semibold">{preview.pace} /km</span>
+        </div>
+      )}
+      {preview.pow != null && (
+        <div>
+          <span className="opacity-70 mr-1">{t("common.metrics.power")}:</span>
+          <span className="font-semibold">{Math.round(preview.pow)} W</span>
+        </div>
+      )}
+    </div>
+  );
 
-  /* ---- settery ---- */
+  const handleSaveToDB = async () => {
+    if (!onSaveToDB) return;
 
-  const patchSettings = (patch: Record<string, any>) => {
-    markDirty();
-    setLocal((p: any) => ({
-      ...p,
-      strength_settings: { ...(p.strength_settings ?? {}), ...patch },
-    }));
+    const hrOk = thr.hr_bpm == null || Number.isFinite(Number(thr.hr_bpm));
+    const paceOk =
+      thr.pace_sec_km == null ||
+      (Number.isFinite(Number(thr.pace_sec_km)) && Number(thr.pace_sec_km) > 0);
+    const powOk =
+      thr.power_watt == null ||
+      (Number.isFinite(Number(thr.power_watt)) && Number(thr.power_watt) > 0);
+
+    if (!hrOk || !paceOk || !powOk) {
+      toast.error(t("prefs.sections.thresholdsSection.errors.invalidValues"));
+      return;
+    }
+
+    await onSaveToDB(thr);
   };
-
-  const setSessionsPerWeek = (next: number | null) =>
-    patchSettings({ sessions_per_week: next });
-
-  const setSessionDurationMin = (next: number) =>
-    patchSettings({
-      session_duration_min: Math.max(DURATION_MIN, Math.min(DURATION_MAX, next)),
-    });
-
-  const setLocation = (next: string | null) => patchSettings({ location: next });
-  const setMode = (next: string | null) => patchSettings({ equipment_mode: next });
-  const setGoal = (next: string) => patchSettings({ goal: next });
-  const setLevel = (next: string) => patchSettings({ experience_level: next });
-
-  const toggleGear = (key: string) => {
-    const next = available.includes(key)
-      ? available.filter((k) => k !== key)
-      : [...available, key];
-    patchSettings({ available: next });
-  };
-
-  // 🌟 ZMENA: NumberField posiela hodnotu priamo (string | number), nie
-  // ChangeEvent ako predtým surový <input> - signatúra zjednotená s tým,
-  // ako sa NumberField volá v ThresholdsSection.
-  const setRefLift = (key: string, value: string | number) => {
-    const num = value === "" ? null : Number(value);
-    patchSettings({
-      reference_lifts: {
-        ...refLifts,
-        [key]: num != null && Number.isFinite(num) && num > 0 ? num : null,
-      },
-    });
-  };
-
-  const addDisliked = (exerciseId: string) => {
-    if (disliked.includes(exerciseId)) return;
-    patchSettings({ disliked_exercises: [...disliked, exerciseId] });
-    setDislikeQuery("");
-    setDislikePickerOpen(false);
-  };
-
-  const removeDisliked = (exerciseId: string) => {
-    patchSettings({
-      disliked_exercises: disliked.filter((id) => id !== exerciseId),
-    });
-  };
-
-  const dislikeOptions = useMemo(() => {
-    const q = dislikeQuery.trim().toLowerCase();
-    return Object.entries(STRENGTH_CATALOG_FE)
-      .map(([id, names]) => ({ id, name: (names as any)[lang] as string }))
-      .filter((o) => !disliked.includes(o.id))
-      .filter((o) => !q || o.name.toLowerCase().includes(q) || o.id.includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 30);
-  }, [dislikeQuery, disliked, lang]);
-
-  const resolveName = (id: string) =>
-    STRENGTH_CATALOG_FE[id]?.[lang] ?? id.replace(/_/g, " ");
 
   return (
     <InputsCard
       title={
         <div className="flex items-center gap-2">
-          <span>{t("prefs.sections.strengthSection.widget.title")}</span>
-          <TooltipIcon text={t("prefs.sections.strengthSection.widget.tooltip")} />
+          <span>{t("prefs.sections.thresholdsSection.widget.title")}</span>
+          <TooltipIcon
+            text={t("prefs.sections.thresholdsSection.widget.tooltip")}
+          />
         </div>
       }
-      subtitle={t("prefs.sections.strengthSection.subtitle")}
-      preview={previewText}
-      defaultOpen={false}
-      backdropVariant="default"
+      subtitle={t("prefs.sections.thresholdsSection.subtitle")}
+      preview={previewNode}
+      open={open}
+      onOpenChange={setOpen}
+      actions={
+        onSaveToDB ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            onClick={handleSaveToDB}
+          >
+            {t("prefs.sections.thresholdsSection.saveBtn")}
+          </Button>
+        ) : null
+      }
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* 🌟 NOVÉ: cieľ silového tréningu - najdôležitejšie nastavenie,
-            ide úplne hore, lebo riadi všetko ostatné */}
-        <div>
-          <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-            <span>{t("prefs.sections.strengthSection.goalLabel")}</span>
-            <TooltipIcon text={t("prefs.sections.strengthSection.goalTooltip")} />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {GOAL_OPTIONS.map((g) => (
-              <Button
-                key={g}
-                type="button"
-                size="sm"
-                variant="prefs"
-                active={goal === g}
-                onClick={() => setGoal(g)}
-              >
-                {(t as any)(`prefs.sections.strengthSection.goals.${g}`)}
-              </Button>
-            ))}
-          </div>
-          <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
-            {(t as any)(`prefs.sections.strengthSection.goalHints.${goal}`)}
-          </div>
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.sportLabel")}
+            </div>
+            <SelectField
+              value={thr.sport ?? "running"}
+              onChange={(e) => onChange({ ...thr, sport: e.target.value })}
+              options={THR_SPORTS_VALUES.map((v) => ({
+                value: v,
+                label: getSportLabel(v),
+              }))}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.typeLabel")}
+            </div>
+            <SelectField
+              value={thr.threshold_type ?? "LT2"}
+              onChange={(e) =>
+                onChange({ ...thr, threshold_type: e.target.value })
+              }
+              options={[
+                { value: "LT1", label: "LT1 (aerobic)" },
+                { value: "LT2", label: "LT2 (anaerobic / LTHR)" },
+                { value: "FTP", label: "FTP (cycling)" },
+              ]}
+            />
+          </section>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.sessionsLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.sessionsTooltip")} />
+        <div className={FORM_GRID_TWO}>
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.hrLabel")}
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionsPerWeek(Math.max(0, (sessionsPerWeek ?? 2) - 1))} title={t("prefs.sections.strengthSection.btnDecrease")}>−</Button>
-              <div className="min-w-[42px] text-center text-sm font-semibold">{sessionsPerWeek ?? 2}</div>
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionsPerWeek(Math.min(7, (sessionsPerWeek ?? 2) + 1))} title={t("prefs.sections.strengthSection.btnIncrease")}>+</Button>
-              <Button type="button" size="sm" variant="prefs" active={sessionsPerWeek == null} onClick={() => setSessionsPerWeek(null)} title={t("prefs.sections.strengthSection.btnUnset")}>—</Button>
-            </div>
-            <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.currentLabel")}: {sessionsPerWeek ?? 2}</div>
-          </div>
+            <NumberField
+              min={40}
+              max={220}
+              step={1}
+              unit={t("common.units.hr")}
+              value={thr.hr_bpm ?? ""}
+              onChange={(val) => onChange({ ...thr, hr_bpm: val === "" ? null : val })}
+            />
+          </section>
 
-          <div>
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.durationLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.durationTooltip")} />
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.paceLabel")}
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin - DURATION_STEP)} disabled={sessionDurationMin <= DURATION_MIN} title={t("prefs.sections.strengthSection.btnDecrease")}>−</Button>
-              <div className="min-w-[56px] text-center text-sm font-semibold">{sessionDurationMin} {t("common.units.min")}</div>
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin + DURATION_STEP)} disabled={sessionDurationMin >= DURATION_MAX} title={t("prefs.sections.strengthSection.btnIncrease")}>+</Button>
-            </div>
-            <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.durationHint")}</div>
-          </div>
+            <TimeField
+              hh={false} mm ss
+              value={paceStr}
+              onChange={(v) => {
+                setPaceStr(v);
+                // 🌟 FIX: do parentu len prázdna alebo kompletná "mm:ss"
+                // hodnota. Nekompletnú ("05:3") necháme len lokálne -
+                // TimeField ju pri blur sám doplní na "05:30" a vtedy sa
+                // uloží. Predtým sa "05:3" prepočítalo na 303 s a vrátilo
+                // späť ako "05:03".
+                if (v === "") {
+                  onChange({ ...thr, pace_sec_km: null });
+                } else if (isCompletePace(v)) {
+                  onChange({ ...thr, pace_sec_km: paceToSec(v) });
+                }
+              }}
+            />
+          </section>
 
-          {/* 🌟 NOVÉ: skúsenosť v posilke */}
-          <div>
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.levelLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.levelTooltip")} />
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.powerLabel")}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {LEVEL_OPTIONS.map((l) => (
-                <Button
-                  key={l}
-                  type="button"
-                  size="sm"
-                  variant="prefs"
-                  active={level === l}
-                  onClick={() => setLevel(l)}
+            <NumberField
+              min={0}
+              max={1000}
+              step={1}
+              unit={t("common.units.power")}
+              value={thr.power_watt ?? ""}
+              onChange={(val) => onChange({ ...thr, power_watt: val === "" ? null : val })}
+            />
+          </section>
+
+          <section className={SECTION} style={SECTION_STYLE}>
+            <div className={INPUTS_CARD_LABEL_SM_1}>
+              {t("prefs.sections.thresholdsSection.measurementLabel")}
+            </div>
+            <SelectField
+              value={thr.measurement_type ?? "estimate garmin"}
+              onChange={(e) =>
+                onChange({ ...thr, measurement_type: e.target.value })
+              }
+              options={[
+                {
+                  value: "lab test",
+                  label: t("prefs.sections.thresholdsSection.enums.measure.lab"),
+                },
+                {
+                  value: "field test",
+                  label: t("prefs.sections.thresholdsSection.enums.measure.field"),
+                },
+                { value: "estimate garmin", label: "Estimate – Garmin" },
+                { value: "estimate strava", label: "Estimate – Strava" },
+                {
+                  value: "coach estimate",
+                  label: t("prefs.sections.thresholdsSection.enums.measure.coach"),
+                },
+                { value: "other", label: t("common.sports.other") },
+              ]}
+            />
+          </section>
+        </div>
+
+        {latestByCombo.length > 0 && (
+          <div className="mt-1">
+            <div className="flex items-center gap-2">
+              <div className={INPUTS_CARD_LABEL_SM_1}>
+                {t("prefs.sections.thresholdsSection.dbTitle")}
+              </div>
+              <TooltipIcon
+                text={t("prefs.sections.thresholdsSection.dbTooltip")}
+              />
+            </div>
+
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {latestByCombo.map((r, i) => (
+                <li
+                  key={`${r.sport}-${r.threshold_type}-${i}`}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px]"
                 >
-                  {(t as any)(`prefs.sections.strengthSection.levels.${l}`)}
-                </Button>
+                  <span className="font-medium">{getSportLabel(r.sport)}</span>
+                  <span className="opacity-80"> · {r.threshold_type}</span>
+                  {r.hr_bpm ? <span> · {Math.round(r.hr_bpm)} bpm</span> : null}
+                  {r.pace_sec_km ? (
+                    <span> · {secToPace(r.pace_sec_km)} /km</span>
+                  ) : null}
+                  {r.pace_sec_km ? null : null}
+                  {r.power_watt ? (
+                    <span> · {Math.round(r.power_watt)} W</span>
+                  ) : null}
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
-
-          <div>
-            <div className="text-xs opacity-80 mb-1">{t("prefs.sections.strengthSection.locationLabel")}</div>
-            <div className="flex flex-wrap gap-2">
-              {["gym", "home", "outdoor"].map((loc) => (
-                <Button key={loc} type="button" size="sm" variant="prefs" active={location === loc} onClick={() => setLocation(location === loc ? null : loc)}>
-                  {(t as any)(`prefs.sections.strengthSection.locations.${loc}`)}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs opacity-80 mb-1">{t("prefs.sections.strengthSection.modeLabel")}</div>
-            <div className="flex flex-wrap gap-2">
-              {["none", "bodyweight", "minimal", "full_gym"].map((m) => (
-                <Button key={m} type="button" size="sm" variant="prefs" active={mode === m} onClick={() => setMode(mode === m ? null : m)}>
-                  {(t as any)(`prefs.sections.strengthSection.modes.${m}`)}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="md:col-span-3">
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.gearLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.gearTooltip")} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {GEAR_OPTIONS.map((key) => (
-                <Button key={key} type="button" size="xs" variant="prefs" active={available.includes(key)} onClick={() => toggleGear(key)} className="text-xs">
-                  {(t as any)(`prefs.sections.strengthSection.gear.${key}`)}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* 🌟 referenčné maximá (1RM) - teraz cez NumberField (rovnaký
-              vzor ako hr_bpm/power_watt v ThresholdsSection), namiesto
-              surového <input type="number"> */}
-          <div className="md:col-span-3">
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.refLiftsLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.refLiftsTooltip")} />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {REFERENCE_LIFTS.map((key) => (
-                <div key={key}>
-                  <div className="text-[11px] opacity-60 mb-1">
-                    {(t as any)(`prefs.sections.strengthSection.refLifts.${key}`)}
-                  </div>
-                  <NumberField
-                    min={0}
-                    step={2.5}
-                    unit="kg"
-                    value={refLifts[key] ?? ""}
-                    onChange={(val) => setRefLift(key, val)}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="text-[11px] opacity-60 mt-1.5">
-              {t("prefs.sections.strengthSection.refLiftsHint")}
-            </div>
-          </div>
-
-          {/* 🌟 nechcené cviky - vyhľadávanie teraz cez TextField namiesto
-              surového <input> */}
-          <div className="md:col-span-3">
-            <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-              <span>{t("prefs.sections.strengthSection.dislikedLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.dislikedTooltip")} />
-            </div>
-
-            {disliked.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {disliked.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => removeDisliked(id)}
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs capitalize transition-colors hover:bg-white/10"
-                    style={{
-                      borderColor: `${appColors.statusError}55`,
-                      color: appColors.textPrimary,
-                    }}
-                    title={t("common.delete")}
-                  >
-                    {resolveName(id)}
-                    <span style={{ color: appColors.statusError }}>×</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {dislikePickerOpen ? (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
-                <TextField
-                  autoFocus
-                  placeholder={t("prefs.sections.strengthSection.dislikedSearch")}
-                  value={dislikeQuery}
-                  onChange={(e) => setDislikeQuery(e.target.value)}
-                />
-                <div className="max-h-[200px] overflow-y-auto flex flex-col gap-1">
-                  {dislikeOptions.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => addDisliked(o.id)}
-                      className="text-left text-sm px-3 py-2 rounded hover:bg-white/10 transition-colors capitalize"
-                    >
-                      {o.name}
-                    </button>
-                  ))}
-                  {dislikeOptions.length === 0 && (
-                    <div className="text-xs opacity-40 px-3 py-2">
-                      {t("prefs.sections.strengthSection.dislikedNoMatch")}
-                    </div>
-                  )}
-                </div>
-                <Button size="xs" variant="secondary" onClick={() => setDislikePickerOpen(false)}>
-                  {t("common.cancel")}
-                </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                size="xs"
-                variant="prefs"
-                onClick={() => setDislikePickerOpen(true)}
-              >
-                + {t("prefs.sections.strengthSection.dislikedAdd")}
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </InputsCard>
   );
