@@ -66,6 +66,7 @@ PRIMARY_STICKY_DAYS = 42
 # FILTRE
 # ============================================================
 
+
 def _equipment_ok(
     exercise: Dict[str, Any],
     available_equipment: List[str],
@@ -124,6 +125,7 @@ def _pattern_matches(exercise: Dict[str, Any], slot: Dict[str, Any]) -> bool:
 # ============================================================
 # SKÓROVANIE
 # ============================================================
+
 
 def _days_since(iso_date: Optional[str]) -> Optional[int]:
     if not iso_date:
@@ -213,6 +215,7 @@ def _score_exercise(
 # HISTÓRIA
 # ============================================================
 
+
 def build_usage_map(recent_sessions: List[Dict[str, Any]]) -> Dict[str, int]:
     """
     Z logov (strength_sessions rows) vyrobí mapu exercise_id -> dni od
@@ -252,6 +255,7 @@ def build_usage_map(recent_sessions: List[Dict[str, Any]]) -> Dict[str, int]:
 # ============================================================
 # HLAVNÝ VÝBER
 # ============================================================
+
 
 def select_exercises_for_template(
     *,
@@ -351,9 +355,7 @@ def select_exercises_for_template(
             schemes.append(None)
             durations.append(0)
             continue
-        sch = get_scheme(
-            goal=goal, tier=slot["tier"], level=level, is_deload=is_deload
-        )
+        sch = get_scheme(goal=goal, tier=slot["tier"], level=level, is_deload=is_deload)
         schemes.append(sch)
         durations.append(estimate_exercise_duration_s(sch))
 
@@ -362,7 +364,7 @@ def select_exercises_for_template(
     triples = [
         (slot, ex, sch, dur)
         for slot, ex, sch, dur in zip(slots, chosen, schemes, durations)
-        if ex is not None
+        if ex is not None and sch is not None  # bolo: if ex is not None
     ]
 
     kept_slots = trim_slots_to_duration(
