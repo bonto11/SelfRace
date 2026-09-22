@@ -23,14 +23,18 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 
-def build_strength_count_rule(session_count: int) -> str:
+def build_strength_count_rule(session_count: int, endurance_is_primary: bool = True) -> str:
     """
-    Nahrádza pôvodné "STRENGTH: Target Nx per week". Cieľový počet už nie
-    je číslo, ktoré má AI dodržať pri PLÁNOVANÍ obsahu - je to presný
-    počet HOTOVÝCH session objektov v
-    `planning_constraints.strength_sessions_plan`, ktoré treba len
-    rozmiestniť na dni. AI už nerozhoduje KOĽKO strength sessions má byť
-    ani ČO v nich je.
+    🌟 PREPÍSANÉ: počet silových je STROP, nie kvóta.
+
+    Predtým prompt hovoril "naplánuj PRESNE N" a AI ich tlačila do týždňa aj
+    tam, kde na ne nebol priestor (ťažký drep deň pred prahovým behom, ťažký
+    hinge deň pred dlhým behom). Logika athléta je opačná: behať sa dá aj bez
+    posilky, pretek bez behu nie. Silové sa preto plánujú až do priestoru,
+    ktorý ostane po behoch a externých aktivitách.
+
+    endurance_is_primary=False (athlete nemá beh/bike/plávanie) - posilka JE
+    hlavný šport, vtedy sa počet drží.
     """
     if session_count <= 0:
         return (
@@ -38,13 +42,32 @@ def build_strength_count_rule(session_count: int) -> str:
             "(`planning_constraints.strength_sessions_plan` is empty). "
             "Do NOT invent any sport='strength' sessions.\n\n"
         )
+
+    if not endurance_is_primary:
+        return (
+            f"- STRENGTH (PRIMARY SPORT): {session_count} pre-built strength session(s) are "
+            "provided in `planning_constraints.strength_sessions_plan`. Strength IS this "
+            "athlete's main sport this week, so schedule ALL of them - one per array entry, "
+            "each on its own day. Respect the rest-day and two-a-day rules above.\n\n"
+        )
+
     return (
-        f"- STRENGTH: Exactly {session_count} pre-built strength session(s) are provided in "
-        "`planning_constraints.strength_sessions_plan` (see STRENGTH SESSION DATA rule below "
-        "for how to use them). Schedule EXACTLY this many sport='strength' sessions this week - "
-        "one per array entry, each on its own day. Do NOT add extra strength sessions and do NOT "
-        "drop any. If days are tight, reduce OTHER sports before dropping a strength session, but "
-        "never violate the rest-day/two-a-day rules above to fit them.\n\n"
+        "- STRENGTH (SUPPORTS THE MAIN SPORT - THE COUNT IS A CEILING, NOT A QUOTA): up to "
+        f"{session_count} pre-built strength session(s) are available in "
+        "`planning_constraints.strength_sessions_plan`. Use them in the given order (entry 0 "
+        "is the most important) and ONLY on days where they do not compromise the main sport "
+        f"or recovery. Scheduling FEWER than {session_count} is a CORRECT outcome when the "
+        "week is already full - never force them in.\n"
+        "  - PRIORITY ORDER when the week is tight: 1) external events (they have fixed "
+        "dates), 2) key main-sport sessions (long run, quality/interval/threshold), 3) easy "
+        "main-sport volume, 4) strength sessions, 5) rest days - a rest day is NEVER given up "
+        "to fit strength in.\n"
+        "  - Example: a week with a hard external event, two quality runs and a long run has "
+        "room for 1-2 strength sessions, not 3. Drop from the END of the array (keep entry 0).\n"
+        "  - If you drop one or more, add one short clause to the `notes` of the strength "
+        f"session you DID keep saying why (e.g. only 2 of {session_count} fit because of the "
+        "hard external event and two quality runs). Do not create an extra session just to "
+        "explain it.\n\n"
     )
 
 
@@ -108,13 +131,24 @@ def build_strength_structure_rule(
             "for those."
         )
 
+    # 🌟 ZMENA: pôvodné pravidlo bolo mäkké ("avoid ... when the week's shape
+    # allows") a AI ho v praxi obetovala - ťažký drep deň pred tempom, ťažký
+    # RDL deň pred dlhým behom. Teraz je tvrdé, s preferovaným umiestnením
+    # (hard days hard: posilka v ten istý deň ako kvalitný beh) a jasným
+    # pravidlom, čo robiť, keď sa to nedá (vynechať, nie porušiť).
     lines.append(
-        "  8. PLACEMENT: if a session's `strength_main_part` is dominated by squat/hinge/lunge/"
-        "calf patterns at primary or secondary tier (heavy, loaded lower-body work), avoid "
-        "scheduling it on the day immediately before a long run or a hard/interval running "
-        "session - eccentric muscle damage from heavy leg work can impair running economy for "
-        "up to 8 hours. Prefer the day after a quality run, or at least a rest/easy day between "
-        "them, when the week's shape allows it."
+        "  8. STRENGTH PLACEMENT (HARD RULE - same priority as REST DAYS): every pre-built "
+        "session here contains heavy lower-body work (primary-tier squat/hinge/lunge), so:\n"
+        "     - NEVER place a strength session on the day immediately BEFORE: an interval, "
+        "tempo or threshold run, a long run, a race, or an external event with intensity "
+        "hard. Heavy leg work impairs running economy and quality for the next day.\n"
+        "     - PREFERRED: the SAME day as a quality run (run first, strength at least 3 h "
+        "later - this uses a two-a-day slot and keeps easy days easy), or the day AFTER a "
+        "quality run or long run.\n"
+        "     - Keep at least one day between two strength sessions when possible.\n"
+        "     - Before finalizing, check every strength session against the NEXT day's "
+        "session. If any violates this rule, move it; if no valid day exists, drop it "
+        "(see STRENGTH count rule)."
     )
 
     return "\n".join(lines) + "\n\n"
