@@ -45,6 +45,7 @@ from Services.AI.daily_plan.prompts.rules_schedule import (
     build_multi_sport_rule,
     build_sports_restriction_rule,
     build_weekly_volume_line,
+    build_external_events_rule,
 )
 from Services.AI.daily_plan.prompts.rules_endurance import (
     check_has_zones,
@@ -223,9 +224,9 @@ def build_prompts_for_daily(
         # model najvyššiu prioritu pri čítaní promptu.
         + notes_rule
         + "- DATE INTEGRITY: Use ONLY dates inside the given Week range.\n\n"
-        "- EXTERNAL EVENTS (CRITICAL - OVERRIDE EVERYTHING): Check `external_events`. "
-        "If events exist, MUST schedule them on exact dates with sport='other', kind='other', session_type='external_event'. NEVER ignore.\n\n"
-        "- RACE SCHEDULING (CRITICAL):\n"
+        # 🌟 ZMENA: externé eventy - pravidlo aj podľa intenzity eventu
+        + build_external_events_rule()
+        + "- RACE SCHEDULING (CRITICAL):\n"
         "  1. Check `external_events` AND `prefs.targets.*.races`. If race has exact date in THIS week, schedule it.\n"
         "  2. If NO exact-date race this week — STRICTLY FORBIDDEN to invent race days.\n"
         "  3. Exception: Virtual Race ONLY at end of final week of entire macrocycle.\n\n"
@@ -252,7 +253,9 @@ def build_prompts_for_daily(
         "- Strength exercise notes: max 5 words.\n"
         "- DO NOT exceed 8000 tokens in output.\n"
         "\nCONTEXT_JSON:\n"
-        + json.dumps(context_for_ai, ensure_ascii=False)
+        # 🌟 ZMENA: kompaktný JSON (bez medzier za , a :) - menej tokenov,
+        # modelu na čitateľnosti nezáleží
+        + json.dumps(context_for_ai, ensure_ascii=False, separators=(",", ":"))
         + "\n\nSCHEMA:\n"
         + build_daily_schema(lang_label)
         + "\n\nRequirements:\n"

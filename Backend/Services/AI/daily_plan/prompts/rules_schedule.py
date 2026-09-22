@@ -94,3 +94,29 @@ def build_weekly_volume_line(
         "DO NOT exceed `athlete_state.ai_state.volume_tolerance.weekly_minutes_max`. "
         "If ATHLETE INSTRUCTIONS above exclude a sport, do not compensate its volume with another sport.\n"
     )
+
+
+def build_external_events_rule() -> str:
+    """
+    🌟 NOVÉ: externé aktivity (futbal, preteky mimo plánu, ...) sa predtým len
+    vložili na dátum. Teraz AI podľa intenzity eventu rozhodne, čo sa dá
+    naplánovať v ten deň a deň pred ním. Silové sessiony sú hotové kostry -
+    AI ich nemení, len ich presunie na vhodnejší deň.
+    """
+    return (
+        "- EXTERNAL EVENTS (CRITICAL - OVERRIDE EVERYTHING): Check `external_events`. "
+        "If events exist, MUST schedule them on exact dates with sport='other', kind='other', "
+        "session_type='external_event'. NEVER ignore.\n"
+        "- EXTERNAL EVENT LOAD: each event may have `intensity` (hard/medium/easy) and "
+        "`allow_other_training`. If `intensity` is missing, treat it as medium.\n"
+        "  - hard: counts as a HARD session. On that day schedule NO other hard session "
+        "(intervals, tempo, long run) and NO strength session whose strength_main_part is "
+        "dominated by heavy squat/hinge/lunge work. On the day BEFORE, avoid heavy lower-body "
+        "strength and quality runs.\n"
+        "  - medium: on that day at most an easy run or rest; no heavy lower-body strength.\n"
+        "  - easy: counts as easy aerobic load; plan the rest of the day normally.\n"
+        "  - allow_other_training=false: schedule NOTHING else on that day.\n"
+        "  - Strength sessions are pre-built - never modify them to fit around an event; "
+        "move them to a more suitable day instead.\n"
+        "  - ATHLETE INSTRUCTIONS above take priority over these defaults.\n\n"
+    )

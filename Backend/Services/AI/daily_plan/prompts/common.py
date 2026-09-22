@@ -125,6 +125,60 @@ def _terminology_rule(lang_label: str) -> str:
     )
 
 
+def _slim_strength_constraints(pc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: silová kostra obsahuje polia pre backend/logy (name_en,
+    load_type, unilateral, intensity_pct, rir, last_used_days_ago,
+    rozpočty, warnings, ...). AI z nej potrebuje len to, čo kopíruje do
+    výstupu (exercise_id, block, sets/reps/rest_s), čo používa pri
+    rozmiestnení (pattern, tier) a na title/duration. Orezanie ušetrí
+    ~55 % tokenov silovej kostry (3 sessiony: ~2.8k -> ~1.25k).
+    Progresný kontext: AI používa len záznamy so should_progress=true.
+    """
+    out = dict(pc)
+    plan = pc.get("strength_sessions_plan")
+    if isinstance(plan, list):
+        slim_plan: List[Dict[str, Any]] = []
+        for sess in plan:
+            if not isinstance(sess, dict):
+                continue
+            slim_plan.append({
+                "template_name_en": sess.get("template_name_en"),
+                "estimated_core_duration_min": sess.get("estimated_core_duration_min"),
+                "estimated_total_duration_min": sess.get("estimated_total_duration_min"),
+                "is_deload": True if sess.get("is_deload") else None,
+                "exercises": [
+                    {
+                        "exercise_id": e.get("exercise_id"),
+                        "block": e.get("block"),
+                        "pattern": e.get("pattern"),
+                        "tier": e.get("tier"),
+                        "planned": {
+                            k: (e.get("planned") or {}).get(k)
+                            for k in ("sets", "reps", "rest_s")
+                        },
+                    }
+                    for e in (sess.get("exercises") or [])
+                    if isinstance(e, dict)
+                ],
+            })
+        out["strength_sessions_plan"] = slim_plan
+
+    prog = pc.get("strength_progression_context")
+    if isinstance(prog, list):
+        out["strength_progression_context"] = [
+            {
+                "exercise_id": p.get("exercise_id"),
+                "should_progress": True,
+                "last_weight_kg": p.get("last_weight_kg"),
+                "suggested_weight_kg": p.get("suggested_weight_kg"),
+            }
+            for p in prog
+            if isinstance(p, dict) and p.get("should_progress")
+        ]
+    return out
+
+
 def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Osekáva daily context pred odoslaním do AI.
@@ -243,19 +297,27 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
             "is_returning_beginner": athlete_state.get("is_returning_beginner"),
         }
 
+    # 🌟 FIX: builder (_build_external_block) ukladá externé aktivity pod
+    # kľúč "occurrences", no tento kód ich hľadal len pod "events" /
+    # "window.events". Nenašiel nič a celý blok vyhodil - AI v prompte videla
+    # "External events: 1", ale v CONTEXT_JSON žiadny event, takže ho nemala
+    # kam naplánovať (napr. futbal v stredu vo výsledku chýbal). Teraz sa
+    # číta "occurrences" (primárne), s fallbackom na staré tvary.
     ext = context.get("external_events")
     if isinstance(ext, dict):
-        events: List[Dict[str, Any]] = []
-        if isinstance(ext.get("events"), list):
-            events = [e for e in ext["events"] if isinstance(e, dict)]
-        else:
+        raw_events: List[Dict[str, Any]] = []
+        for key in ("occurrences", "events"):
+            if isinstance(ext.get(key), list):
+                raw_events = [e for e in ext[key] if isinstance(e, dict)]
+                break
+        if not raw_events:
             win = ext.get("window")
             if isinstance(win, dict) and isinstance(win.get("events"), list):
-                events = [e for e in win["events"] if isinstance(e, dict)]
+                raw_events = [e for e in win["events"] if isinstance(e, dict)]
 
-        if events:
+        if raw_events:
             cleaned_events: List[Dict[str, Any]] = []
-            for e in events:
+            for e in raw_events:
                 dt = (
                     e.get("occurrence_date")
                     or e.get("date")
@@ -264,24 +326,29 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                     or e.get("start_date_iso")
                 )
                 dt_ymd = str(dt)[:10] if dt else None
+                base_fields = {
+                    "sport": e.get("session_sport") or e.get("sport") or e.get("sport_raw"),
+                    "sport_raw": e.get("sport_raw"),
+                    "title": e.get("title"),
+                    "duration_min": e.get("duration_min"),
+                    "priority": e.get("priority"),
+                    # 🌟 NOVÉ: intenzita a čas sú pre plánovanie okolo
+                    # eventu podstatné (tvrdý futbal = žiadny kvalitný beh
+                    # ani ťažké nohy v ten deň / deň predtým)
+                    "intensity": e.get("intensity"),
+                    "start_time_local": e.get("start_time_local"),
+                    "allow_other_training": e.get("allow_other_training"),
+                }
                 dft = e.get("days_from_today")
                 if dt_ymd is None and isinstance(dft, (int, float)):
-                    cleaned_events.append({
-                        "days_from_today": int(dft),
-                        "sport": e.get("sport"),
-                        "duration_min": e.get("duration_min"),
-                        "priority": e.get("priority"),
-                        "title": e.get("title"),
-                    })
+                    cleaned_events.append({"days_from_today": int(dft), **base_fields})
                     continue
                 if not dt_ymd:
                     continue
                 cleaned_events.append({
                     "occurrence_date": dt_ymd,
-                    "sport": e.get("sport"),
-                    "duration_min": e.get("duration_min"),
-                    "priority": e.get("priority"),
-                    "title": e.get("title"),
+                    "weekday": e.get("weekday"),
+                    **base_fields,
                 })
 
             win2 = ext.get("window")
@@ -295,10 +362,14 @@ def minify_daily_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
                 }
             else:
                 ctx2["external_events"] = {"events": cleaned_events}
+        # Ak nie sú žiadne eventy — external_events sa do ctx2 nevloží
 
     for k in ("week_meta", "replan_trigger", "generate_reason", "is_replan", "planning_constraints"):
         if k in context:
             ctx2[k] = context[k]
+    # 🌟 NOVÉ: orezaná silová kostra (viď _slim_strength_constraints)
+    if isinstance(ctx2.get("planning_constraints"), dict):
+        ctx2["planning_constraints"] = _slim_strength_constraints(ctx2["planning_constraints"])
 
     coach_notes = context.get("coach_notes")
     if isinstance(coach_notes, dict):
