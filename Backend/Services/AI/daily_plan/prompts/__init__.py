@@ -177,7 +177,11 @@ def build_prompts_for_daily(
     )
     rest_days_rule = build_rest_days_rule(days_off)
     two_a_day_rule = build_two_a_day_rule(two_enabled, two_cap)
-    strength_count_rule = build_strength_count_rule(strength_session_count)
+    # 🌟 NOVÉ: má athlete vôbec vytrvalostný šport? Ak nie, posilka je hlavný
+    # šport a počet sessión sa drží. Ak áno, počet je len strop - hlavný šport
+    # a externé aktivity majú prednosť (viď build_strength_count_rule).
+    endurance_is_primary = any(s in ("run", "ride", "swim") for s in final_sports_list)
+    strength_count_rule = build_strength_count_rule(strength_session_count, endurance_is_primary)
     long_run_rule = build_long_run_rule(long_run_days)
     back_to_back_rule = build_back_to_back_rule(avoid_back_to_back)
     multi_sport_rule = build_multi_sport_rule(final_sports_list, main_sport)
