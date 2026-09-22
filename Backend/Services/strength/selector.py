@@ -12,34 +12,36 @@ Poradie filtrov je tvrdé (cvik musí prejsť všetkými):
   2. contraindications - aktívne zranenia
   3. disliked       - explicitne odmietnuté cviky
   4. skill_demand   - technická náročnosť vs úroveň athléta
-  5. rep_suitability - hodí sa cvik na daný tréningový cieľ
-  6. pattern        - sedí na slot (alebo na jeho allow_patterns)
+  5. pattern        - sedí na slot (alebo na jeho allow_patterns)
+  6. rep_suitability - hodí sa cvik na rozsah opakovaní, ktorý mu schéma dá
+     (schéma vychádza z cieľa, takže toto je zároveň filter cieľa)
 
 Čo prejde, sa skóruje a berie sa najvyšší. Skóre rieši rotáciu:
-  - primary cviky sú "sticky" - ak sa nedávno cvičili, dostanú BONUS
-    (progresívne preťaženie potrebuje opakovanú expozíciu, inak sa
-    nedá merať progres ani pridávať váhu)
-  - accessory naopak dostanú PENALTU, ak boli nedávno - tie rotujeme
-    kvôli variabilite a pokrytiu slabších miest
+  - primary cviky sú "sticky" (progresia potrebuje opakovanú expozíciu)
+  - accessory rotujú (variabilita)
 
-🌟 ZMENY (v2):
-  - DOPĹŇANIE DO CIEĽOVEJ DĹŽKY: predtým sa session dala len orezať
-    (trim_slots_to_duration), nikdy doplniť. Šablóna full_body_a má 4 hlavné
-    sloty -> jadro vychádzalo ~27 min pri cieli 60 min (presne pôvodný
-    problém "30-35 min namiesto 60"). Teraz sa po výbere dopĺňa:
-      a) ďalšími cvikmi na nepokryté pohybové vzory (najprv šport profil,
-         potom všeobecné), max MAX_MAIN_EXERCISES v hlavnej časti,
-      b) potom sériami navyše (primary prvé), do SET_CAPS.
-    Deload týždeň sa nedopĺňa - má byť zámerne kratší.
-  - ŠPORT PROFIL: build_strength_session teraz aplikuje
-    apply_profile_to_template (extra sloty ako grip/carry pre OCR). Predtým
-    sa z profilu používal len sport_emphasis a extra sloty sa nikdy
-    nepridali.
-  - SKILL LIMIT: namiesto vlastnej tabuľky (_MAX_SKILL_BY_LEVEL, kde
-    intermediate = max "med" -> drep s veľkou činkou úplne vypadol) sa číta
-    max_skill_demand priamo zo schemes.LEVEL_ADJUSTMENTS - jeden zdroj pravdy.
-  - Výstup je zoradený podľa bloku (aktivácia -> hlavná časť -> doplnky),
-    aj keď extra sloty z profilu/doplňovania pribudli na koniec zoznamu.
+🌟 v3 - ROZPOČET TVRDÝCH SÉRIÍ NAMIESTO DOPĹŇANIA DO ČASU
+  v2 dopĺňala session sériami, kým nedosiahla cieľovú dĺžku. Výsledok:
+  25 tvrdých sérií, z toho 12 ťažké nohy - dvojnásobok toho, čo vytrvalec
+  potrebuje, a únava do behov. Teraz:
+    - objem riadi SESSION_HARD_SET_BUDGET (tvrdé = pracovné série
+      v aktivácii + hlavnej časti okrem prehab; rozcvičovacie série a
+      doplnky sa nerátajú),
+    - nohy majú vlastný strop LOWER_BODY_HARD_SET_CAP (drep/hinge/výpady),
+    - dĺžka z prefs je HORNÁ HRANICA, nie cieľ,
+    - pri prekročení sa najprv vyhodia sloty s najnižšou trim_priority,
+      potom sa uberajú série, primary cvik ostane najdlhšie,
+    - hlavný cvik dostane min. PRIMARY_MIN_SETS sérií (progresívny impulz),
+    - volume_factor (tapering pred pretekmi) a deload znižujú rozpočet
+      a session sa vtedy nedopĺňa.
+  Heuristika rozpočtu: prehľady o sile u vytrvalcov (Rønnestad & Mujika
+  2014, Blagrove a kol. 2018) typicky 4-6 cvikov x 2-4 série, 2-3x týždenne.
+  Samotné číslo 16 je odvodené z toho, nie z jednej štúdie.
+
+🌟 PRESNEJŠÍ ODHAD ČASU
+  - SESSION_WARMUP_S: všeobecná rozcvička pred tréningom,
+  - PRIMARY_RAMP_S: rozcvičovacie série pred hlavným cvikom so záťažou,
+  - jednostranné cviky (unilateral) rátajú prácu na obe strany.
 """
 
 from __future__ import annotations
@@ -53,9 +55,14 @@ from Services.strength.schemes import (
     LEVEL_INTERMEDIATE,
     LEVEL_ADJUSTMENTS,
     GOAL_GENERAL_RESILIENCE,
+    GOAL_MAX_STRENGTH,
+    GOAL_HYPERTROPHY,
+    GOAL_STRENGTH_ENDURANCE,
+    GOAL_POWER,
+    DELOAD_SETS_MULTIPLIER,
     get_scheme,
-    estimate_exercise_duration_s,
     is_deload_week,
+    _min_reps_from_range,
 )
 from Services.strength.templates import (
     BLOCK_ACTIVATION,
@@ -63,7 +70,6 @@ from Services.strength.templates import (
     BLOCK_ADDONS,
     _slot,
     pick_template_for_session,
-    trim_slots_to_duration,
 )
 from Services.strength.sport_profiles import apply_profile_to_template
 
@@ -74,30 +80,79 @@ _ECCENTRIC_ORDER = {"low": 0, "med": 1, "high": 2}
 _BLOCK_RANK = {BLOCK_ACTIVATION: 0, BLOCK_MAIN: 1, BLOCK_ADDONS: 2}
 _TIER_RANK = {"primary": 0, "secondary": 1, "accessory": 2, "prehab": 3}
 
-# Bloky, ktoré sa rátajú do cieľovej dĺžky (add_ons sú bonus navyše)
+# Bloky, ktoré sa rátajú do rozpočtu aj do dĺžky jadra (add_ons sú navyše)
 _CORE_BLOCKS = (BLOCK_ACTIVATION, BLOCK_MAIN)
 
 # Ako dlho spätne sa cvik počíta ako "nedávno cvičený"
 RECENT_WINDOW_DAYS = 21
-
 # Ako dlho drží primary cvik svoju pozíciu (mezocyklus)
 PRIMARY_STICKY_DAYS = 42
 
-# 🌟 NOVÉ: parametre dopĺňania do cieľovej dĺžky
-# Jadro >= 92 % cieľa sa berie ako "sedí" (60 min cieľ -> ~55 min stačí).
-FILL_TOLERANCE = 0.92
-# Doplnenie nesmie jadro natiahnuť viac ako 8 % nad cieľ.
-OVERSHOOT_LIMIT = 1.08
-# Max cvikov v hlavnej časti - nad 7 už kvalita sérií klesá.
+# ------------------------------------------------------------
+# 🌟 ROZPOČET OBJEMU
+# ------------------------------------------------------------
+# Tvrdé série na session (aktivácia + hlavná časť, bez prehab).
+SESSION_HARD_SET_BUDGET = {
+    GOAL_GENERAL_RESILIENCE: 16,
+    GOAL_MAX_STRENGTH: 16,
+    GOAL_STRENGTH_ENDURANCE: 16,
+    GOAL_POWER: 14,
+    GOAL_HYPERTROPHY: 20,
+}
+# Strop tvrdých sérií na ťažké nohy (drep/hinge/výpady) v jednej session -
+# aby sa dalo deň po tom behať. Plyometria a lýtka sa sem nerátajú.
+LOWER_BODY_HARD_SET_CAP = {
+    GOAL_GENERAL_RESILIENCE: 8,
+    GOAL_MAX_STRENGTH: 9,
+    GOAL_STRENGTH_ENDURANCE: 8,
+    GOAL_POWER: 8,
+    GOAL_HYPERTROPHY: 10,
+}
+LOWER_HEAVY_PATTERNS = {"squat", "hinge", "lunge"}
+UPPER_PATTERNS = {"push_h", "push_v", "pull_h", "pull_v"}
+
+# Hlavný cvik: min. 4 pracovné série (okrem začiatočníka/deloadu/taperingu).
+PRIMARY_MIN_SETS = 4
+# Pri uberaní sérií nejdeme pod 2 (1 séria je už len "prítomnosť" cviku).
+MIN_SETS_ON_REDUCE = 2
+# Max sérií na cvik pri dopĺňaní (začiatočník o 1 menej).
+SET_CAPS = {"primary": 5, "secondary": 4, "accessory": 3, "prehab": 3}
 MAX_MAIN_EXERCISES = 7
-# Max sérií na cvik po doplnení (začiatočník o 1 menej).
-SET_CAPS = {"primary": 5, "secondary": 4, "accessory": 4, "prehab": 3}
-# Všeobecné vzory na doplnenie, ak šport profil nič neponúkne. Poradie =
-# priorita (jednonožné a vertikálny ťah sú pre vytrvalcov najcennejšie).
-DEFAULT_FILL_PATTERNS = ["lunge", "pull_v", "hinge", "push_h", "squat", "pull_h", "push_v", "carry"]
-# Pod týmto podielom cieľa pridáme warning (aj po doplnení je session krátka,
-# typicky kvôli obmedzenému vybaveniu alebo zraneniam).
-SHORT_SESSION_WARNING_RATIO = 0.75
+MAX_ADDON_EXERCISES = 3
+
+# Trim priority: nižšie = vyhodí sa skôr. Povinné sloty sa nevyhadzujú.
+TRIM_PRIORITY_REQUIRED = 9
+TRIM_PRIORITY_OPTIONAL_DEFAULT = 5
+TRIM_PRIORITY_FILLER = 2
+
+# Všeobecné vzory na doplnenie, ak je session pod rozpočtom (napr. málo
+# vybavenia) a šport profil nič neponúkne.
+DEFAULT_FILL_PATTERNS = ["lunge", "pull_v", "hinge", "push_h", "pull_h", "push_v", "squat", "carry"]
+
+# ------------------------------------------------------------
+# 🌟 ODHAD ČASU
+# ------------------------------------------------------------
+SESSION_WARMUP_S = 360      # 6 min všeobecná rozcvička
+PRIMARY_RAMP_S = 180        # ~3 min rozcvičovacie série pred hlavným cvikom
+_RAMP_LOAD_TYPES = {"barbell", "dumbbell", "kettlebell", "machine"}
+
+SHORT_SESSION_WARNING_MIN = 25
+
+# ------------------------------------------------------------
+# 🌟 ČASOVÉ CVIKY (výdrž / nosenie)
+# ------------------------------------------------------------
+# Tieto cviky sa nerobia na opakovania - plank "12-15 opakovaní" alebo dead
+# hang "12-15 opakovaní" nedáva zmysel. Dostanú rozsah v sekundách
+# ("30-45s"), progression.py taký rozsah zámerne neprogresuje váhou.
+TIME_BASED_REPS = {
+    "plank": "30-45s",
+    "side_plank": "30-45s",
+    "hollow_body_hold": "20-40s",
+    "dead_hang": "30-45s",
+    "farmers_carry": "40-60s",
+    "sandbag_carry": "40-60s",
+    "bucket_carry": "40-60s",
+}
 
 
 # ============================================================
@@ -109,7 +164,6 @@ def _equipment_ok(
     available_equipment: List[str],
     equipment_mode: Optional[str],
 ) -> bool:
-    """Rovnaká logika ako pôvodne v coach_strength_mapper."""
     if equipment_mode == "full_gym":
         return True
 
@@ -125,7 +179,6 @@ def _equipment_ok(
 
 
 def _injury_ok(exercise: Dict[str, Any], injury_areas: Set[str]) -> bool:
-    """Cvik vypadne, ak má kontraindikáciu na niektoré aktívne zranenie."""
     if not injury_areas:
         return True
     contra = set(exercise.get("contraindications") or [])
@@ -133,43 +186,25 @@ def _injury_ok(exercise: Dict[str, Any], injury_areas: Set[str]) -> bool:
 
 
 def _skill_ok(exercise: Dict[str, Any], level: str) -> bool:
-    """
-    🌟 ZMENA: max_skill_demand sa číta zo schemes.LEVEL_ADJUSTMENTS (jeden
-    zdroj pravdy). Predtým mal selector vlastnú tabuľku, kde intermediate =
-    max "med", čo vyradilo barbell back squat, front squat aj conventional
-    deadlift - stredne pokročilý athlete s full gym dostal leg press ako
-    hlavný cvik na nohy.
-    """
+    """max_skill_demand sa číta zo schemes.LEVEL_ADJUSTMENTS (jeden zdroj pravdy)."""
     adj = LEVEL_ADJUSTMENTS.get(level) or LEVEL_ADJUSTMENTS[LEVEL_INTERMEDIATE]
     max_skill = adj.get("max_skill_demand") or "high"
     ex_skill = exercise.get("skill_demand") or "low"
     return _SKILL_ORDER.get(ex_skill, 0) <= _SKILL_ORDER.get(max_skill, 2)
 
 
-def _goal_ok(exercise: Dict[str, Any], goal: str) -> bool:
-    """
-    Cvik sa musí hodiť na daný cieľ. general_resilience akceptuje
-    hypertrophy + endurance + strength, lebo pre vytrvalcov je to presne ten mix.
-    """
-    suitability = set(exercise.get("rep_suitability") or [])
-    if not suitability:
-        return True
-
-    if goal == GOAL_GENERAL_RESILIENCE:
-        return bool(suitability & {"hypertrophy", "endurance", "strength"})
-    return goal in suitability
+# 🌟 ODSTRÁNENÉ: _goal_ok. Porovnával cieľ (napr. "max_strength",
+# "strength_endurance") priamo s rep_suitability v katalógu ("strength",
+# "endurance", ...) - tie hodnoty sa nikdy nezhodovali, takže pri cieli
+# Max sila / Silová vytrvalosť vypadli takmer všetky cviky. Vhodnosť cviku
+# teraz rieši _reps_ok per slot: schéma (a teda rozsah opakovaní) sa
+# odvíja od cieľa, takže je to presnejší filter na tú istú vec.
 
 
 def _rep_classes_for_reps(reps: Any) -> Optional[Set[str]]:
-    """
-    🌟 NOVÉ: ktoré rep_suitability triedy sa hodia na rozsah opakovaní zo
-    schémy. Bez toho selector dal napr. Turkish get-up (len "strength") do
-    doplnkov so schémou 2x12-15, čo nedáva zmysel.
-    None = rozsah sa nedá určiť -> nefiltrujeme.
-    """
-    try:
-        lo = int(str(reps).split("-")[0].strip())
-    except Exception:
+    """Ktoré rep_suitability triedy sa hodia na rozsah opakovaní zo schémy."""
+    lo = _min_reps_from_range(str(reps or ""))
+    if lo is None:
         return None
     if lo <= 5:
         return {"strength", "power"}
@@ -220,48 +255,36 @@ def _score_exercise(
     avoid_high_eccentric: bool,
     avoid_high_fatigue: bool,
 ) -> float:
-    """
-    Vyššie skóre = vhodnejší cvik. Skóre nikdy nerozhoduje o tom, či je
-    cvik povolený - to už vyriešili filtre. Rieši len "ktorý z povolených".
-    """
     score = 0.0
 
-    # --- presná zhoda vzoru je lepšia než fallback ---
     if exercise.get("pattern") == slot["pattern"]:
         score += 20.0
 
-    # --- tier zhoda: primary slot chce primary cvik ---
     tier = exercise.get("tier")
     if tier == slot["tier"]:
         score += 25.0
     elif slot["tier"] == "primary" and tier == "secondary":
-        score += 10.0  # akceptovateľný ústupok
+        score += 10.0
     elif slot["tier"] == "accessory" and tier in ("secondary", "prehab"):
         score += 8.0
 
-    # --- záťažové cviky pri dostupnom vybavení ---
     if prefer_loaded and exercise.get("load_type") != "bodyweight":
         score += 15.0
     if prefer_loaded and exercise.get("load_type") == "bodyweight":
         score -= 10.0
 
-    # --- šport-špecifický dôraz ---
     tags = set(exercise.get("sport_tags") or [])
     if tags & sport_emphasis:
         score += 12.0
 
-    # --- unilaterálne, ak slot žiada ---
     if slot.get("prefer_unilateral") and exercise.get("unilateral"):
         score += 10.0
 
-    # --- ROTÁCIA: primary sticky, accessory rotate ---
     if last_used_days is not None:
         if slot["tier"] == "primary":
-            # Držíme ten istý cvik počas mezocyklu - inak sa nedá merať progres
             if last_used_days <= PRIMARY_STICKY_DAYS:
                 score += 30.0
         else:
-            # Accessory rotujeme - čerstvo cvičené penalizujeme
             if last_used_days <= 7:
                 score -= 18.0
             elif last_used_days <= RECENT_WINDOW_DAYS:
@@ -269,11 +292,8 @@ def _score_exercise(
             else:
                 score += 5.0
     else:
-        # Nikdy necvičené: pre accessory je to plus (variabilita),
-        # pre primary mierne mínus (nemáme referenčnú váhu)
         score += 6.0 if slot["tier"] != "primary" else -4.0
 
-    # --- únava a excentrická záťaž voči behu ---
     if avoid_high_eccentric:
         ecc = _ECCENTRIC_ORDER.get(exercise.get("eccentric_load") or "low", 0)
         score -= ecc * 12.0
@@ -289,12 +309,7 @@ def _score_exercise(
 # ============================================================
 
 def build_usage_map(recent_sessions: List[Dict[str, Any]]) -> Dict[str, int]:
-    """
-    Z logov (strength_sessions rows) vyrobí mapu exercise_id -> dni od
-    posledného použitia. Berie len cviky, kde bola reálne zapísaná aspoň
-    jedna pracovná séria - naplánovaný, ale neodcvičený cvik nič nehovorí
-    o tom, čo athlete reálne robil.
-    """
+    """exercise_id -> dni od posledného reálne odcvičeného použitia."""
     out: Dict[str, int] = {}
 
     for row in recent_sessions or []:
@@ -325,12 +340,59 @@ def build_usage_map(recent_sessions: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 # ============================================================
-# HLAVNÝ VÝBER
+# METRIKY SESSION
 # ============================================================
 
-def _core_seconds(items: List[Dict[str, Any]]) -> int:
-    return sum(it["dur"] for it in items if it["slot"]["block"] in _CORE_BLOCKS)
+def _is_core(it: Dict[str, Any]) -> bool:
+    return it["slot"]["block"] in _CORE_BLOCKS
 
+
+def _is_hard(it: Dict[str, Any]) -> bool:
+    return _is_core(it) and it["slot"]["tier"] != "prehab"
+
+
+def _is_lower_heavy(it: Dict[str, Any]) -> bool:
+    return _is_hard(it) and it["ex"].get("pattern") in LOWER_HEAVY_PATTERNS
+
+
+def _hard_sets(items: List[Dict[str, Any]]) -> int:
+    return sum(int(it["sch"]["sets"]) for it in items if _is_hard(it))
+
+
+def _lower_sets(items: List[Dict[str, Any]]) -> int:
+    return sum(int(it["sch"]["sets"]) for it in items if _is_lower_heavy(it))
+
+
+def _core_seconds(items: List[Dict[str, Any]]) -> int:
+    return SESSION_WARMUP_S + sum(it["dur"] for it in items if _is_core(it))
+
+
+def _work_per_set_s(sch: Dict[str, Any]) -> int:
+    reps = str(sch.get("reps") or "")
+    lo = _min_reps_from_range(reps) or 10
+    if reps.strip().endswith("s"):
+        return max(15, lo)          # časový cvik: "30-45s" = 30 s práce
+    return max(20, int(lo * 3.5))   # ~3.5 s na opakovanie vrátane setupu
+
+
+def _item_duration(ex: Dict[str, Any], sch: Dict[str, Any], slot: Dict[str, Any]) -> int:
+    """Odhad času cviku: práca + pauzy + presun, obe strany, rozcvičovacie série."""
+    sets = int(sch.get("sets") or 0)
+    if sets <= 0:
+        return 0
+    work = _work_per_set_s(sch)
+    rest = int(sch.get("rest_s") or 60)
+    total = sets * work + (sets - 1) * rest + 45
+    if ex.get("unilateral"):
+        total += sets * work
+    if slot["tier"] == "primary" and ex.get("load_type") in _RAMP_LOAD_TYPES:
+        total += PRIMARY_RAMP_S
+    return int(total)
+
+
+# ============================================================
+# HLAVNÝ VÝBER
+# ============================================================
 
 def select_exercises_for_template(
     *,
@@ -348,28 +410,38 @@ def select_exercises_for_template(
     avoid_high_eccentric: bool = False,
     avoid_high_fatigue: bool = False,
     fill_patterns: Optional[List[str]] = None,
+    volume_factor: float = 1.0,
+    upper_main_max_sets: Optional[int] = None,
+    trim_boost: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """
-    Naplní sloty šablóny konkrétnymi cvikmi, priradí im schému a session
-    orezať/doplní na cieľovú dĺžku jadra (activation + strength_main_part).
+    Naplní sloty šablóny cvikmi, priradí schémy a session prispôsobí
+    rozpočtu tvrdých sérií (strop dĺžky = target_duration_min).
 
-    fill_patterns: 🌟 NOVÉ - pohybové vzory, ktorými sa prednostne dopĺňa
-    krátka session (typicky priority_patterns zo šport profilu).
-
-    avoid_high_eccentric / avoid_high_fatigue: nastav True, keď session
-    susedí s kvalitným behom - vysoká excentrická záťaž zhoršuje bežeckú
-    ekonomiku až na 8 h a svalové poškodenie pretrváva dlhšie.
+    volume_factor: 🌟 NOVÉ - násobok rozpočtu (napr. 0.6 týždeň pretekov).
+    Intenzita (váha, opakovania) ostáva, uberajú sa série.
+    upper_main_max_sets: 🌟 NOVÉ - strop sérií pre vedľajšie cviky hornej
+    časti (profil "posilka na beh": horná časť len na udržanie, 2 série).
+    trim_boost: 🌟 NOVÉ - {pattern: trim_priority} pre voliteľné sloty
+    šablóny (profil "posilka na beh" drží výpady/hinge dlhšie než ostatné).
     """
+    trim_boost = trim_boost or {}
     available_equipment = available_equipment or []
     injury_areas = injury_areas or set()
     disliked = set(disliked_exercises or [])
     sport_emphasis = sport_emphasis or {"general"}
     usage_map = usage_map or {}
+    volume_factor = max(0.3, min(1.0, float(volume_factor or 1.0)))
 
     prefer_loaded = equipment_mode in ("full_gym", "minimal")
-    target_s = max(0, int(target_duration_min or 0)) * 60
+    ceiling_s = max(0, int(target_duration_min or 0)) * 60
+    reduced_week = is_deload or volume_factor < 1.0
+    deload_mult = DELOAD_SETS_MULTIPLIER if is_deload else 1.0
 
-    # --- 1) predfiltruj katalóg raz, nie pre každý slot ---
+    budget = max(4, int(round(SESSION_HARD_SET_BUDGET.get(goal, 16) * volume_factor * deload_mult)))
+    lower_cap = max(3, int(round(LOWER_BODY_HARD_SET_CAP.get(goal, 8) * volume_factor * deload_mult)))
+
+    # --- 1) predfiltruj katalóg ---
     candidates: List[Dict[str, Any]] = []
     for ex in STRENGTH_EXERCISE_CATALOG:
         if ex["id"] in disliked:
@@ -380,31 +452,54 @@ def select_exercises_for_template(
             continue
         if not _skill_ok(ex, level):
             continue
-        if not _goal_ok(ex, goal):
-            continue
         candidates.append(ex)
 
     used_ids: Set[str] = set()
     warnings: List[str] = []
+
+    def _scheme_for_slot(slot: Dict[str, Any]) -> Dict[str, Any]:
+        sch = dict(get_scheme(goal=goal, tier=slot["tier"], level=level, is_deload=is_deload))
+        override = slot.get("scheme_override")
+        if override:
+            sets = int(override.get("sets", sch["sets"]))
+            if is_deload:
+                sets = max(1, int(round(sets * DELOAD_SETS_MULTIPLIER)))
+            sch.update(override)
+            sch["sets"] = sets
+        elif (
+            slot["tier"] == "primary"
+            and level != LEVEL_BEGINNER
+            and not reduced_week
+        ):
+            # 🌟 hlavný cvik = progresívny impulz, min. 4 pracovné série
+            sch["sets"] = max(int(sch["sets"]), PRIMARY_MIN_SETS)
+        if (
+            upper_main_max_sets
+            and slot["tier"] != "primary"
+            and slot["block"] == BLOCK_MAIN
+            and slot["pattern"] in UPPER_PATTERNS
+        ):
+            sch["sets"] = min(int(sch["sets"]), int(upper_main_max_sets))
+        return sch
 
     def _choose(slot: Dict[str, Any], *, is_fill: bool = False) -> Optional[Dict[str, Any]]:
         pool = [
             ex for ex in candidates
             if ex["id"] not in used_ids and _pattern_matches(ex, slot)
         ]
-        # 🌟 NOVÉ: doplnkový cvik v hlavnej časti musí byť skutočný silový
-        # cvik (primary/secondary tier) - inak dopĺňanie dalo side plank
-        # alebo bird-dog ako hlavný cvik 3x8-12 s pauzou 105 s.
+        # 🌟 slot môže obmedziť typ záťaže (plyometria = len bodyweight
+        # skoky, inak by vyhral assault bike, ktorý má v katalógu pattern jump)
+        load_types = slot.get("load_types")
+        if load_types:
+            pool = [ex for ex in pool if ex.get("load_type") in load_types]
+        # doplnkový cvik v hlavnej časti musí byť skutočný silový cvik
         if is_fill:
             pool = [ex for ex in pool if ex.get("tier") in ("primary", "secondary")]
-        # 🌟 NOVÉ: cvik musí sedieť na rozsah opakovaní, ktorý mu schéma dá.
-        # Pri povinných slotoch radšej nevhodný cvik než prázdny slot,
-        # preto fallback na nefiltrovaný pool (okrem fill slotov).
-        rep_classes = _rep_classes_for_reps(
-            get_scheme(goal=goal, tier=slot["tier"], level=level, is_deload=is_deload).get("reps")
-        )
+        # cvik musí sedieť na rozsah opakovaní zo schémy (pri povinných
+        # slotoch fallback na nefiltrovaný pool - radšej cvik než prázdny slot)
+        rep_classes = _rep_classes_for_reps(_scheme_for_slot(slot).get("reps"))
         rep_pool = [ex for ex in pool if _reps_ok(ex, rep_classes)]
-        if rep_pool or is_fill:
+        if rep_pool or is_fill or not slot.get("required"):
             pool = rep_pool
         if not pool:
             return None
@@ -421,94 +516,184 @@ def select_exercises_for_template(
             ),
         )
 
-    def _make_item(slot: Dict[str, Any], ex: Dict[str, Any]) -> Dict[str, Any]:
-        sch = get_scheme(goal=goal, tier=slot["tier"], level=level, is_deload=is_deload)
-        return {"slot": slot, "ex": ex, "sch": sch, "dur": estimate_exercise_duration_s(sch)}
+    def _make_item(slot: Dict[str, Any], ex: Dict[str, Any], pos: int) -> Dict[str, Any]:
+        sch = _scheme_for_slot(slot)
+        if ex["id"] in TIME_BASED_REPS:
+            sch["reps"] = TIME_BASED_REPS[ex["id"]]
+        trim = slot.get("trim_priority")
+        if trim is None:
+            if slot.get("required"):
+                trim = TRIM_PRIORITY_REQUIRED
+            else:
+                trim = trim_boost.get(slot["pattern"], TRIM_PRIORITY_OPTIONAL_DEFAULT)
+        return {
+            "slot": slot,
+            "ex": ex,
+            "sch": sch,
+            "dur": _item_duration(ex, sch, slot),
+            "trim": int(trim),
+            "pos": pos,
+        }
 
-    # --- 2) pre každý slot vyber najlepšieho kandidáta ---
-    # 🌟 ZMENA: držíme jednu štruktúru items (slot + cvik + schéma + čas)
-    # namiesto paralelných zoznamov s None. Rieši aj Pylance
-    # reportOptionalSubscript na sch["sets"].
+    def _set_sets(it: Dict[str, Any], n: int) -> None:
+        it["sch"] = {**it["sch"], "sets": int(n)}
+        it["dur"] = _item_duration(it["ex"], it["sch"], it["slot"])
+
+    # --- 2) naplň sloty šablóny (+ extra sloty profilu) ---
     items: List[Dict[str, Any]] = []
-    for slot in list(template.get("slots") or []):
+    for pos, slot in enumerate(list(template.get("slots") or [])):
         ex = _choose(slot)
         if ex is None:
             if slot.get("required"):
-                warnings.append(
-                    f"no_exercise_for_required_slot:{slot['pattern']}/{slot['tier']}"
-                )
+                warnings.append(f"no_exercise_for_required_slot:{slot['pattern']}/{slot['tier']}")
             continue
         used_ids.add(ex["id"])
-        items.append(_make_item(slot, ex))
+        items.append(_make_item(slot, ex, pos))
 
-    # --- 3) orež voliteľné sloty, ak je session nad cieľom ---
-    kept_slots = trim_slots_to_duration(
-        [it["slot"] for it in items],
-        [it["dur"] for it in items],
-        target_duration_min,
-    )
-    kept_ids = {id(s) for s in kept_slots}
-    for it in items:
-        if id(it["slot"]) not in kept_ids:
-            used_ids.discard(it["ex"]["id"])
-    items = [it for it in items if id(it["slot"]) in kept_ids]
+    # doplnky: max MAX_ADDON_EXERCISES (v redukovanom týždni o 1 menej)
+    addon_limit = MAX_ADDON_EXERCISES - (1 if reduced_week else 0)
+    addons = [it for it in items if it["slot"]["block"] == BLOCK_ADDONS]
+    if len(addons) > addon_limit:
+        addons_sorted = sorted(addons, key=lambda it: (-it["trim"], it["pos"]))
+        drop = {id(it) for it in addons_sorted[addon_limit:]}
+        for it in items:
+            if id(it) in drop:
+                used_ids.discard(it["ex"]["id"])
+        items = [it for it in items if id(it) not in drop]
 
-    # --- 4) 🌟 NOVÉ: doplň session, ak je pod cieľom ---
-    # Deload je zámerne kratší (objem ~60 %), ten nedopĺňame.
-    if target_s > 0 and not is_deload:
-        # 4a) ďalšie cvikmi na nepokryté vzory (variabilita pred objemom)
+    # --- 3) 🌟 zmenši session na rozpočet / strop nôh / strop dĺžky ---
+    # Akcia s najnižšou "cenou" vyhráva: vyhodiť voliteľný slot = trim*10,
+    # ubrať sériu = trim*10 - 5 (radšej uberieme sériu cviku, než by sme ho
+    # vyhodili celý, ale cvik s nižšou prioritou vyhodíme skôr, než uberieme
+    # sériu dôležitejšiemu). Primary sa uberá až úplne nakoniec.
+    for _ in range(80):
+        over_budget = _hard_sets(items) > budget
+        over_lower = _lower_sets(items) > lower_cap
+        over_time = ceiling_s > 0 and _core_seconds(items) > ceiling_s
+        if not (over_budget or over_lower or over_time):
+            break
+
+        actions: List[tuple] = []
+        for it in items:
+            if not _is_core(it):
+                continue
+            relevant = (
+                (over_budget and _is_hard(it))
+                or (over_lower and _is_lower_heavy(it))
+                or over_time
+            )
+            if not relevant:
+                continue
+            # pri prekročenom strope nôh uberáme najprv nohy
+            lower_bonus = -3 if (over_lower and _is_lower_heavy(it)) else 0
+            if not it["slot"].get("required"):
+                actions.append((it["trim"] * 10 + lower_bonus, "drop", it))
+            sets = int(it["sch"]["sets"])
+            is_primary = it["slot"]["tier"] == "primary"
+            min_sets = 3 if (is_primary and not reduced_week and level != LEVEL_BEGINNER) else MIN_SETS_ON_REDUCE
+            if sets > min_sets and _is_hard(it):
+                cost = (95 if is_primary else it["trim"] * 10 - 5) + lower_bonus
+                actions.append((cost, "reduce", it))
+
+        if not actions:
+            warnings.append("session_over_budget_required_only")
+            break
+
+        actions.sort(key=lambda a: (a[0], -a[2]["pos"]))
+        _cost, kind, target = actions[0]
+        if kind == "drop":
+            used_ids.discard(target["ex"]["id"])
+            items = [it for it in items if it is not target]
+        else:
+            _set_sets(target, int(target["sch"]["sets"]) - 1)
+
+    # --- 4) doplň, ak je session pod rozpočtom (nie v redukovanom týždni) ---
+    if not reduced_week:
+        cap_delta = -1 if level == LEVEL_BEGINNER else 0
+
+        def _fits(add_hard: int, add_lower: int, add_s: int) -> bool:
+            if _hard_sets(items) + add_hard > budget:
+                return False
+            if _lower_sets(items) + add_lower > lower_cap:
+                return False
+            if ceiling_s > 0 and _core_seconds(items) + add_s > ceiling_s:
+                return False
+            return True
+
+        # 4a) ďalšie cviky na nepokryté vzory
         patterns: List[str] = []
         for p in list(fill_patterns or []) + DEFAULT_FILL_PATTERNS:
             if p not in patterns:
                 patterns.append(p)
-
+        next_pos = 1000
         for pat in patterns:
-            if _core_seconds(items) >= target_s * FILL_TOLERANCE:
-                break
             main_items = [it for it in items if it["slot"]["block"] == BLOCK_MAIN]
             if len(main_items) >= MAX_MAIN_EXERCISES:
                 break
             if any(it["ex"].get("pattern") == pat for it in main_items):
                 continue
-            fill_slot = _slot(pat, "secondary", BLOCK_MAIN, required=False)
+            fill_slot = {
+                **_slot(pat, "secondary", BLOCK_MAIN, required=False),
+                "trim_priority": TRIM_PRIORITY_FILLER,
+            }
             ex = _choose(fill_slot, is_fill=True)
             if ex is None:
                 continue
-            item = _make_item(fill_slot, ex)
-            if _core_seconds(items) + item["dur"] > target_s * OVERSHOOT_LIMIT:
+            item = _make_item(fill_slot, ex, next_pos)
+            # skús plný počet sérií, ak sa nezmestí, tak menej (min. 2)
+            placed = False
+            for sets in range(int(item["sch"]["sets"]), MIN_SETS_ON_REDUCE - 1, -1):
+                _set_sets(item, sets)
+                add_lower = sets if pat in LOWER_HEAVY_PATTERNS else 0
+                if _fits(sets, add_lower, item["dur"]):
+                    placed = True
+                    break
+            if not placed:
                 continue
             used_ids.add(ex["id"])
             items.append(item)
+            next_pos += 1
 
-        # 4b) série navyše na hlavných cvikoch (primary prvé)
-        cap_delta = -1 if level == LEVEL_BEGINNER else 0
-        while _core_seconds(items) < target_s * FILL_TOLERANCE:
+        # 4b) série navyše (primary prvé)
+        while True:
             progressed = False
-            main_sorted = sorted(
-                (it for it in items if it["slot"]["block"] == BLOCK_MAIN),
-                key=lambda it: _TIER_RANK.get(it["slot"]["tier"], 9),
-            )
-            for it in main_sorted:
-                if _core_seconds(items) >= target_s * FILL_TOLERANCE:
-                    break
+            for it in sorted(
+                (it for it in items if _is_hard(it) and it["slot"]["block"] == BLOCK_MAIN),
+                key=lambda it: (_TIER_RANK.get(it["slot"]["tier"], 9), -it["trim"], it["pos"]),
+            ):
+                if it["slot"].get("scheme_override"):
+                    continue  # plyometria má pevný nízky objem
                 cap = SET_CAPS.get(it["slot"]["tier"], 3) + cap_delta
-                if int(it["sch"]["sets"]) >= cap:
+                if (
+                    upper_main_max_sets
+                    and it["slot"]["tier"] != "primary"
+                    and it["slot"]["pattern"] in UPPER_PATTERNS
+                ):
+                    cap = min(cap, int(upper_main_max_sets))
+                sets = int(it["sch"]["sets"])
+                if sets >= cap:
                     continue
-                new_sch = {**it["sch"], "sets": int(it["sch"]["sets"]) + 1}
-                new_dur = estimate_exercise_duration_s(new_sch)
-                if _core_seconds(items) - it["dur"] + new_dur > target_s * OVERSHOOT_LIMIT:
+                new_sch = {**it["sch"], "sets": sets + 1}
+                new_dur = _item_duration(it["ex"], new_sch, it["slot"])
+                if not _fits(1, 1 if _is_lower_heavy(it) else 0, new_dur - it["dur"]):
                     continue
-                it["sch"] = new_sch
-                it["dur"] = new_dur
+                _set_sets(it, sets + 1)
                 progressed = True
+                break  # po každej sérii znova od primary
             if not progressed:
                 break
 
-        if _core_seconds(items) < target_s * SHORT_SESSION_WARNING_RATIO:
-            warnings.append("session_below_target_duration")
+    if _core_seconds(items) < SHORT_SESSION_WARNING_MIN * 60 and not reduced_week:
+        warnings.append("session_below_target_duration")
 
-    # --- 5) výstup, zoradený podľa bloku (sort je stabilný) ---
-    items.sort(key=lambda it: _BLOCK_RANK.get(it["slot"]["block"], 9))
+    # --- 5) výstup: blok -> v hlavnej časti plyometria prvá -> poradie šablóny ---
+    items.sort(
+        key=lambda it: (
+            _BLOCK_RANK.get(it["slot"]["block"], 9),
+            0 if it["slot"].get("order_first") else 1,
+            it["pos"],
+        )
+    )
 
     exercises: List[Dict[str, Any]] = []
     for order, it in enumerate(items):
@@ -535,7 +720,7 @@ def select_exercises_for_template(
         )
 
     core_s = _core_seconds(items)
-    total_s = sum(it["dur"] for it in items)
+    total_s = core_s + sum(it["dur"] for it in items if not _is_core(it))
 
     return {
         "template_key": template.get("key"),
@@ -543,8 +728,13 @@ def select_exercises_for_template(
         "sport_profile": template.get("sport_profile"),
         "exercises": exercises,
         "target_duration_min": int(target_duration_min or 0),
+        "general_warmup_min": int(round(SESSION_WARMUP_S / 60)),
         "estimated_core_duration_min": int(round(core_s / 60)),
         "estimated_total_duration_min": int(round(total_s / 60)),
+        "hard_sets": _hard_sets(items),
+        "lower_body_hard_sets": _lower_sets(items),
+        "hard_set_budget": budget,
+        "volume_factor": volume_factor,
         "is_deload": is_deload,
         "warnings": warnings,
     }
@@ -568,15 +758,15 @@ def build_strength_session(
     force_maintenance: bool = False,
     avoid_high_eccentric: bool = False,
     avoid_high_fatigue: bool = False,
+    volume_factor: float = 1.0,
 ) -> Dict[str, Any]:
     """
     Vysokoúrovňový vstupný bod: z nastavení athléta poskladá hotovú
     silovú session. Toto volá builder pred odoslaním do AI.
 
-    sport_profile: 🌟 NOVÉ - celý profil z resolve_sport_profile(). Pridá
-    extra sloty šablóne (napr. grip/carry pre OCR), dodá sport_emphasis
-    (ak nie je zadaný explicitne) a priority_patterns na dopĺňanie.
-    Maintenance šablóna sa profilom nerozširuje - má byť ľahká.
+    sport_profile: profil z sport_profiles.build_sport_profile() - pridá
+    extra sloty šablóne, dodá emphasis a vzory na dopĺňanie.
+    volume_factor: 🌟 NOVÉ - zníženie objemu pred pretekmi (builder).
     """
     template = pick_template_for_session(
         sessions_per_week=sessions_per_week,
@@ -591,6 +781,11 @@ def build_strength_session(
         if sport_emphasis is None:
             sport_emphasis = set(sport_profile.get("emphasis") or {"general"})
         fill_patterns = list(sport_profile.get("priority_patterns") or [])
+        upper_main_max_sets = sport_profile.get("upper_main_max_sets")
+        trim_boost = sport_profile.get("trim_boost")
+    else:
+        upper_main_max_sets = None
+        trim_boost = None
 
     usage_map = build_usage_map(recent_sessions or [])
 
@@ -609,4 +804,7 @@ def build_strength_session(
         avoid_high_eccentric=avoid_high_eccentric,
         avoid_high_fatigue=avoid_high_fatigue,
         fill_patterns=fill_patterns,
+        volume_factor=volume_factor,
+        upper_main_max_sets=upper_main_max_sets,
+        trim_boost=trim_boost,
     )

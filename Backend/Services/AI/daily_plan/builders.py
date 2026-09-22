@@ -20,7 +20,7 @@ from Services.AI.athlete_state.builders import build_input_from_db
 # /pauzy) a AI robí len coaching vrstvu.
 from Services.strength.selector import build_strength_session, build_usage_map
 from Services.strength.progression import build_progression_context
-from Services.strength.sport_profiles import resolve_sport_profile
+from Services.strength.sport_profiles import build_sport_profile
 from Services.strength.schemes import (
     ALL_GOALS,
     ALL_LEVELS,
@@ -51,6 +51,15 @@ DEFAULT_STRENGTH_SESSION_DURATION_MIN = 60
 # progression context (2-for-2). 7 týždňov pokrýva aj sticky primary okno
 # (PRIMARY_STICKY_DAYS = 42 dní = 6 týždňov v selector.py) s malou rezervou.
 STRENGTH_HISTORY_LOOKBACK_WEEKS = 7
+
+# 🌟 NOVÉ: zníženie objemu silového pred pretekmi. Ak je A/B pretek do
+# TAPER_WINDOW_DAYS od začiatku generovaného týždňa, rozpočet tvrdých sérií
+# sa vynásobí faktorom (intenzita ostáva, uberajú sa série). Referenčný dátum
+# je week_start, nie dnešok - pri generovaní budúcich týždňov musí tapering
+# padnúť na týždeň pretekov, nie na dnešok.
+TAPER_WINDOW_DAYS = 10
+TAPER_VOLUME_FACTOR = {"A": 0.6, "B": 0.8}
+_RACE_PRIORITY_RANK = {"A": 0, "B": 1, "C": 2}
 
 
 # ============================================================
@@ -335,9 +344,13 @@ def _sport_context_from_prefs(prefs: Dict[str, Any]) -> tuple[Optional[str], Opt
             if isinstance(targets_fallback, dict) else None
         )
 
-    targets = prefs.get("targets")
-    run_targets = (targets or {}).get("run") if isinstance(targets, dict) else None
-    race_type = (run_targets or {}).get("race_type") if isinstance(run_targets, dict) else None
+    # 🌟 ZMENA: race_type prednostne z hlavného nadchádzajúceho preteku
+    # (priorita A > B > C, potom najbližší), fallback targets.run.race_type
+    race_type = _key_race_type(prefs, date.today())
+    if not race_type:
+        targets = prefs.get("targets")
+        run_targets = (targets or {}).get("run") if isinstance(targets, dict) else None
+        race_type = (run_targets or {}).get("race_type") if isinstance(run_targets, dict) else None
 
     add_ons = prefs.get("add_on_sports") or prefs.get("included_sports") or []
     if not isinstance(add_ons, list):
@@ -347,6 +360,64 @@ def _sport_context_from_prefs(prefs: Dict[str, Any]) -> tuple[Optional[str], Opt
         race_type if isinstance(race_type, str) else None,
         [str(s) for s in add_ons if isinstance(s, str)],
     )
+
+
+def _upcoming_races(prefs: Dict[str, Any], ref: date) -> List[Dict[str, Any]]:
+    """Preteky z prefs.targets.run.races s dátumom >= ref."""
+    targets = prefs.get("targets")
+    run_targets = (targets or {}).get("run") if isinstance(targets, dict) else None
+    races = (run_targets or {}).get("races") if isinstance(run_targets, dict) else None
+    out: List[Dict[str, Any]] = []
+    for r in races or []:
+        if not isinstance(r, dict):
+            continue
+        try:
+            d = date.fromisoformat(str(r.get("date") or "")[:10])
+        except Exception:
+            continue
+        if d < ref:
+            continue
+        out.append({**r, "_date": d})
+    return out
+
+
+def _key_race_type(prefs: Dict[str, Any], ref: date) -> Optional[str]:
+    """
+    🌟 NOVÉ: race_type hlavného nadchádzajúceho preteku (najvyššia priorita,
+    potom najbližší dátum). Spoľahlivejšie než targets.run.race_type, ktorý
+    môže ostať zo staršieho nastavenia - rozhoduje pretek, na ktorý sa
+    athlete reálne pripravuje.
+    """
+    races = [r for r in _upcoming_races(prefs, ref) if r.get("race_type")]
+    if not races:
+        return None
+    races.sort(key=lambda r: (_RACE_PRIORITY_RANK.get(str(r.get("priority") or ""), 3), r["_date"]))
+    return str(races[0].get("race_type"))
+
+
+def _strength_volume_factor(prefs: Dict[str, Any], week_start: Any) -> float:
+    """🌟 NOVÉ: faktor objemu silového podľa blízkosti A/B preteku."""
+    try:
+        ref = date.fromisoformat(str(week_start)[:10]) if week_start else date.today()
+    except Exception:
+        ref = date.today()
+    factor = 1.0
+    for r in _upcoming_races(prefs, ref):
+        prio = str(r.get("priority") or "")
+        if prio not in TAPER_VOLUME_FACTOR:
+            continue
+        if (r["_date"] - ref).days <= TAPER_WINDOW_DAYS:
+            factor = min(factor, TAPER_VOLUME_FACTOR[prio])
+    return factor
+
+
+def _strength_specificity_from_prefs(prefs: Dict[str, Any]) -> Optional[str]:
+    """🌟 NOVÉ: strength_settings.sport_specificity (low/balanced/high)."""
+    strength_settings = prefs.get("strength_settings")
+    if not isinstance(strength_settings, dict):
+        return None
+    raw = strength_settings.get("sport_specificity")
+    return str(raw) if isinstance(raw, str) and raw.strip() else None
 
 
 def _fetch_recent_strength_sessions(
@@ -605,8 +676,21 @@ def build_daily_context_from_db(
             injury_areas = set(prefs_ai.get("injuries") or [])
             main_sport, race_type, add_on_sports = _sport_context_from_prefs(prefs_ai)
 
-            sport_profile = resolve_sport_profile(
-                main_sport=main_sport, race_type=race_type, add_on_sports=add_on_sports
+            specificity = _strength_specificity_from_prefs(prefs_ai)
+            sport_profile = build_sport_profile(
+                main_sport=main_sport,
+                race_type=race_type,
+                add_on_sports=add_on_sports,
+                specificity=specificity,
+            )
+            volume_factor = _strength_volume_factor(prefs_ai, week_meta.get("week_start"))
+
+            print(
+                f"[DAILY][strength] user={user_id} week={week_index} "
+                f"sessions={sessions_target} goal={goal} level={level} "
+                f"eq={eq_mode} main_sport={main_sport} race_type={race_type} "
+                f"specificity={specificity} profile={sport_profile.get('key')} "
+                f"volume_factor={volume_factor} duration_max={duration_target}"
             )
 
             recent_sessions = _fetch_recent_strength_sessions(user_id=user_id, ctx=ctx)
@@ -630,8 +714,18 @@ def build_daily_context_from_db(
                     # dopĺňanie krátkej session do cieľovej dĺžky.
                     sport_profile=sport_profile,
                     target_duration_min=duration_target,
+                    volume_factor=volume_factor,
                 )
                 strength_sessions_plan.append(session_plan)
+                print(
+                    f"[DAILY][strength]   #{session_index} {session_plan.get('template_key')} "
+                    f"hard={session_plan.get('hard_sets')}/{session_plan.get('hard_set_budget')} "
+                    f"lower={session_plan.get('lower_body_hard_sets')} "
+                    f"core={session_plan.get('estimated_core_duration_min')}min "
+                    f"total={session_plan.get('estimated_total_duration_min')}min "
+                    f"warn={session_plan.get('warnings')} "
+                    f"ex={[e['exercise_id'] for e in session_plan.get('exercises') or []]}"
+                )
                 all_exercise_ids.extend(
                     ex["exercise_id"] for ex in session_plan.get("exercises") or []
                 )

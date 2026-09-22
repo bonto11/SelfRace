@@ -909,11 +909,16 @@ export const en = {
           general_resilience: "General resilience",
         },
         goalHints: {
-          max_strength: "4–6 reps, heavy load, 2–3 min rest. Demanding on recovery.",
-          hypertrophy: "6–12 reps, moderate load, 1–2 min rest. Higher work volume.",
-          strength_endurance: "15–20 reps, lighter load, short rest. Good for OCR and Hyrox.",
-          power: "3–5 fast reps, lighter load, long rest. Develops explosiveness.",
-          general_resilience: "6–12 reps at moderate load. Supports running without excess fatigue.",
+          max_strength:
+            "4–6 reps, heavy load, 2–3 min rest. Demanding on recovery.",
+          hypertrophy:
+            "6–12 reps, moderate load, 1–2 min rest. Higher work volume.",
+          strength_endurance:
+            "15–20 reps, lighter load, short rest. Good for OCR and Hyrox.",
+          power:
+            "3–5 fast reps, lighter load, long rest. Develops explosiveness.",
+          general_resilience:
+            "6–12 reps at moderate load. Supports running without excess fatigue.",
         },
         levelLabel: "Gym experience",
         levelTooltip: [
@@ -963,6 +968,20 @@ export const en = {
         dislikedAdd: "Add exercise",
         dislikedSearch: "Search exercise…",
         dislikedNoMatch: "No exercise found",
+        specificityLabel: "Race specificity",
+        specificityTooltip:
+          "Applies if you're racing OCR or Hyrox. Decides whether gym work targets running or race-specific skills (grip, carries).",
+        specificity: {
+          low: "Running",
+          balanced: "Balanced",
+          high: "Race-specific",
+        },
+        specificityHints: {
+          low: "Gym work builds running strength and speed – jumps, heavy legs, calves. Grip and carries only briefly for maintenance.",
+          balanced:
+            "Running strength and race-specific work (grip, carries) in the main part.",
+          high: "Focus on race-specific skills – hangs, grip, loaded carries. Less running emphasis.",
+        },
       },
 
       thresholdsSection: {
@@ -3161,40 +3180,40 @@ export const en = {
       empty: "No sessions logged yet",
       logNow: "Log session",
     },
-  helpTitle: "How to log your session",
-  help: [
-    "Log what you actually did — your coach uses it to track progression and knows when to add weight.",
-    "",
-    "How to:",
-    "• For each exercise, tap “+ set” and enter weight and reps.",
-    "• The next set is pre-filled with the same weight — only change what differs.",
-    "• Saves automatically, no need to confirm anything.",
-    "",
-    "Warmup sets (W):",
-    "• Tap the set number to mark it as a warmup — it turns into a yellow “W”.",
-    "• Warmup sets don't count toward volume or progression.",
-    "• Example: squat 40 kg × 10 as warmup (W), then 70 kg × 8 as working sets.",
-    "",
-    "RPE (optional, advanced mode):",
-    "• How hard the set felt on a 1–10 scale. RPE 8 means you could have done 2 more reps.",
-    "",
-    "Tip:",
-    "• If the session is in your plan, load the exercises with “Import from plan” instead of adding them manually.",
-  ].join("\n"),
-  importFromPlan: "Import from plan",
-  importPickerTitle: "Pick a planned session",
-  importNoPlans: "No planned strength sessions in recent days.",
-  importConfirmTitle: "Replace exercises?",
-  importConfirmMessage: "Exercises from the plan will replace the current list. Logged sets will be lost.",
-  importSuccess: "Exercises imported from plan.",
-  importError: "Import from plan failed.",
-  exercisesUnit: "exercises",
-  deleteSession: "Delete session",
-  deleteConfirmTitle: "Delete this session?",
-  deleteConfirmMessage: "The record and all logged sets will be permanently removed. This cannot be undone.",
-  deleteError: "Delete failed, please retry",
-
-
+    helpTitle: "How to log your session",
+    help: [
+      "Log what you actually did — your coach uses it to track progression and knows when to add weight.",
+      "",
+      "How to:",
+      "• For each exercise, tap “+ set” and enter weight and reps.",
+      "• The next set is pre-filled with the same weight — only change what differs.",
+      "• Saves automatically, no need to confirm anything.",
+      "",
+      "Warmup sets (W):",
+      "• Tap the set number to mark it as a warmup — it turns into a yellow “W”.",
+      "• Warmup sets don't count toward volume or progression.",
+      "• Example: squat 40 kg × 10 as warmup (W), then 70 kg × 8 as working sets.",
+      "",
+      "RPE (optional, advanced mode):",
+      "• How hard the set felt on a 1–10 scale. RPE 8 means you could have done 2 more reps.",
+      "",
+      "Tip:",
+      "• If the session is in your plan, load the exercises with “Import from plan” instead of adding them manually.",
+    ].join("\n"),
+    importFromPlan: "Import from plan",
+    importPickerTitle: "Pick a planned session",
+    importNoPlans: "No planned strength sessions in recent days.",
+    importConfirmTitle: "Replace exercises?",
+    importConfirmMessage:
+      "Exercises from the plan will replace the current list. Logged sets will be lost.",
+    importSuccess: "Exercises imported from plan.",
+    importError: "Import from plan failed.",
+    exercisesUnit: "exercises",
+    deleteSession: "Delete session",
+    deleteConfirmTitle: "Delete this session?",
+    deleteConfirmMessage:
+      "The record and all logged sets will be permanently removed. This cannot be undone.",
+    deleteError: "Delete failed, please retry",
   },
   activitySelector: {
     unknownActivity: "(Unknown workout)",

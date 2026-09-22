@@ -22,7 +22,7 @@ const GEAR_OPTIONS = [
   "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel"
 ] as const;
 
-// 🌟 Cieľ silového tréningu - riadi série, opakovania aj pauzy
+// Cieľ silového tréningu - riadi série, opakovania aj pauzy
 // (Services/strength/schemes.py). Poradie od najľahšieho po najťažší.
 const GOAL_OPTIONS = [
   "general_resilience",
@@ -32,11 +32,15 @@ const GOAL_OPTIONS = [
   "power",
 ] as const;
 
-// 🌟 Skúsenosť v posilňovni (nie v hlavnom športe) - riadi počet sérií,
+// 🌟 NOVÉ: špecifickosť k preteku (Services/strength/sport_profiles.py).
+// Uplatní sa len pre bežca s OCR/Hyrox pretekom - pre ostatných je bez vplyvu.
+const SPECIFICITY_OPTIONS = ["low", "balanced", "high"] as const;
+
+// Skúsenosť v posilňovni (nie v hlavnom športe) - riadi počet sérií,
 // technickú náročnosť povolených cvikov a vzdialenosť od zlyhania.
 const LEVEL_OPTIONS = ["beginner", "intermediate", "advanced"] as const;
 
-// 🌟 Referenčné maximá pre % based programovanie a odhad váh.
+// Referenčné maximá pre % based programovanie a odhad váh.
 const REFERENCE_LIFTS = ["squat_kg", "deadlift_kg", "bench_kg", "ohp_kg"] as const;
 
 const DURATION_STEP = 15;
@@ -46,6 +50,7 @@ const DURATION_DEFAULT = 60;
 
 const GOAL_DEFAULT = "general_resilience";
 const LEVEL_DEFAULT = "intermediate";
+const SPECIFICITY_DEFAULT = "balanced";
 
 export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const t = useT();
@@ -58,9 +63,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const sessionsPerWeek: number | null = settings.sessions_per_week != null ? Number(settings.sessions_per_week) : null;
   const sessionDurationMin: number = settings.session_duration_min != null ? Number(settings.session_duration_min) : DURATION_DEFAULT;
 
-  // 🌟 NOVÉ
   const goal: string = settings.goal ?? GOAL_DEFAULT;
   const level: string = settings.experience_level ?? LEVEL_DEFAULT;
+  const specificity: string = settings.sport_specificity ?? SPECIFICITY_DEFAULT;
   const disliked: string[] = Array.isArray(settings.disliked_exercises) ? settings.disliked_exercises : [];
   const refLifts: Record<string, number | null> = settings.reference_lifts ?? {};
 
@@ -105,6 +110,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const setMode = (next: string | null) => patchSettings({ equipment_mode: next });
   const setGoal = (next: string) => patchSettings({ goal: next });
   const setLevel = (next: string) => patchSettings({ experience_level: next });
+  const setSpecificity = (next: string) => patchSettings({ sport_specificity: next });
 
   const toggleGear = (key: string) => {
     const next = available.includes(key)
@@ -113,9 +119,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
     patchSettings({ available: next });
   };
 
-  // 🌟 ZMENA: NumberField posiela hodnotu priamo (string | number), nie
-  // ChangeEvent ako predtým surový <input> - signatúra zjednotená s tým,
-  // ako sa NumberField volá v ThresholdsSection.
+  // NumberField posiela hodnotu priamo (number | ""), nie ChangeEvent
   const setRefLift = (key: string, value: string | number) => {
     const num = value === "" ? null : Number(value);
     patchSettings({
@@ -166,8 +170,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
       backdropVariant="default"
     >
       <div className={[INPUTS_CARD_BODY, PANEL_STACK].join(" ")}>
-        {/* 🌟 NOVÉ: cieľ silového tréningu - najdôležitejšie nastavenie,
-            ide úplne hore, lebo riadi všetko ostatné */}
+        {/* cieľ silového tréningu - najdôležitejšie nastavenie, ide úplne hore */}
         <div>
           <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
             <span>{t("prefs.sections.strengthSection.goalLabel")}</span>
@@ -189,6 +192,31 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           </div>
           <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
             {(t as any)(`prefs.sections.strengthSection.goalHints.${goal}`)}
+          </div>
+        </div>
+
+        {/* 🌟 NOVÉ: špecifickosť k preteku */}
+        <div>
+          <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+            <span>{t("prefs.sections.strengthSection.specificityLabel" as any)}</span>
+            <TooltipIcon text={t("prefs.sections.strengthSection.specificityTooltip" as any)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {SPECIFICITY_OPTIONS.map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="sm"
+                variant="prefs"
+                active={specificity === s}
+                onClick={() => setSpecificity(s)}
+              >
+                {(t as any)(`prefs.sections.strengthSection.specificity.${s}`)}
+              </Button>
+            ))}
+          </div>
+          <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
+            {(t as any)(`prefs.sections.strengthSection.specificityHints.${specificity}`)}
           </div>
         </div>
 
@@ -220,7 +248,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.durationHint")}</div>
           </div>
 
-          {/* 🌟 NOVÉ: skúsenosť v posilke */}
+          {/* skúsenosť v posilke */}
           <div>
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.levelLabel")}</span>
@@ -278,9 +306,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
           </div>
 
-          {/* 🌟 referenčné maximá (1RM) - teraz cez NumberField (rovnaký
-              vzor ako hr_bpm/power_watt v ThresholdsSection), namiesto
-              surového <input type="number"> */}
+          {/* referenčné maximá (1RM) */}
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.refLiftsLabel")}</span>
@@ -307,8 +333,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             </div>
           </div>
 
-          {/* 🌟 nechcené cviky - vyhľadávanie teraz cez TextField namiesto
-              surového <input> */}
+          {/* nechcené cviky */}
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.dislikedLabel")}</span>

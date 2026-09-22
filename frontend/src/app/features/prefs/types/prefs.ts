@@ -283,11 +283,11 @@ export const DEFAULT_PREFS: CoachPrefs = {
     session_duration_min: 60,
     goal: "general_resilience",
     experience_level: "intermediate",
+    // 🌟 NOVÉ
+    sport_specificity: "balanced",
     disliked_exercises: [],
     reference_lifts: null,
   },
-
-
 };
 
 /* -------- strength settings -------- */
@@ -305,6 +305,15 @@ export type StrengthGoal =
 
 /** Skúsenosť v posilňovni (nie v hlavnom športe). */
 export type StrengthExperienceLevel = "beginner" | "intermediate" | "advanced";
+
+/**
+ * 🌟 NOVÉ: špecifickosť posilňovne k preteku (Services/strength/sport_profiles.py).
+ * Uplatní sa pre bežca s OCR/Hyrox pretekom:
+ *   low      - posilka na beh (plyometria, ťažké nohy), preteková špecifika len na udržanie
+ *   balanced - beh aj preteková špecifika
+ *   high     - dôraz na špecifiká preteku
+ */
+export type StrengthSportSpecificity = "low" | "balanced" | "high";
 
 export type StrengthEquipmentKey =
   | "dumbbells"
@@ -333,11 +342,13 @@ export type StrengthSettings = {
   equipment_mode?: StrengthEquipmentMode | null;
   available?: StrengthEquipmentKey[];
   sessions_per_week?: number | null;
+  /** Maximálna dĺžka jednej session (strop, nie cieľ). */
   session_duration_min?: number | null;
 
-  // 🌟 NOVÉ: vstupy pre deterministickú vrstvu (Services/strength/)
+  // vstupy pre deterministickú vrstvu (Services/strength/)
   goal?: StrengthGoal | null;
   experience_level?: StrengthExperienceLevel | null;
+  sport_specificity?: StrengthSportSpecificity | null;
   /** exercise_id z katalógu, ktoré athlete nechce dostávať */
   disliked_exercises?: string[];
   reference_lifts?: ReferenceLifts | null;
