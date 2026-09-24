@@ -170,8 +170,12 @@ def _slim_strength_constraints(pc: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "exercise_id": p.get("exercise_id"),
                 "should_progress": True,
+                # 🌟 NOVÉ: pri bodyweight cvikoch (zhyby, kliky) sa progresuje
+                # opakovaniami, nie kilami - AI musí vedieť, ktorý cue použiť
+                "progression_type": p.get("progression_type"),
                 "last_weight_kg": p.get("last_weight_kg"),
                 "suggested_weight_kg": p.get("suggested_weight_kg"),
+                "suggested_reps": p.get("suggested_reps"),
             }
             for p in prog
             if isinstance(p, dict) and p.get("should_progress")

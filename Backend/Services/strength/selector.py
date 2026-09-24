@@ -139,20 +139,25 @@ _RAMP_LOAD_TYPES = {"barbell", "dumbbell", "kettlebell", "machine"}
 SHORT_SESSION_WARNING_MIN = 25
 
 # ------------------------------------------------------------
-# 🌟 ČASOVÉ CVIKY (výdrž / nosenie)
+# 🌟 ČASOVÉ / VZDIALENOSTNÉ CVIKY (measure z katalógu)
 # ------------------------------------------------------------
-# Tieto cviky sa nerobia na opakovania - plank "12-15 opakovaní" alebo dead
-# hang "12-15 opakovaní" nedáva zmysel. Dostanú rozsah v sekundách
-# ("30-45s"), progression.py taký rozsah zámerne neprogresuje váhou.
-TIME_BASED_REPS = {
-    "plank": "30-45s",
-    "side_plank": "30-45s",
-    "hollow_body_hold": "20-40s",
-    "dead_hang": "30-45s",
-    "farmers_carry": "40-60s",
-    "sandbag_carry": "40-60s",
-    "bucket_carry": "40-60s",
+# Plank ani dead hang sa nerobia "na 12 opakovaní" - katalóg má pole
+# measure (reps|time|distance) a podľa neho sa prepíše rozsah zo schémy.
+# Rozsah závisí od tieru: prehab/accessory kratšie, secondary dlhšie.
+TIME_RANGE_BY_TIER = {
+    "prehab": "30-45s",
+    "accessory": "30-45s",
+    "secondary": "40-60s",
+    "primary": "40-60s",
 }
+DISTANCE_RANGE_BY_TIER = {
+    "prehab": "20-30m",
+    "accessory": "20-30m",
+    "secondary": "30-50m",
+    "primary": "30-50m",
+}
+# Odhad času pri vzdialenostnom cviku (sled push/pull, ~30 m)
+DISTANCE_WORK_S = 35
 
 
 # ============================================================
@@ -216,6 +221,10 @@ def _rep_classes_for_reps(reps: Any) -> Optional[Set[str]]:
 
 
 def _reps_ok(exercise: Dict[str, Any], rep_classes: Optional[Set[str]]) -> bool:
+    # 🌟 NOVÉ: časový/vzdialenostný cvik nemá zmysel filtrovať podľa rozsahu
+    # opakovaní zo schémy - jeho rozsah sa aj tak prepíše (30-45s / 20-30m)
+    if (exercise.get("measure") or "reps") != "reps":
+        return True
     if not rep_classes:
         return True
     suitability = set(exercise.get("rep_suitability") or [])
@@ -368,10 +377,12 @@ def _core_seconds(items: List[Dict[str, Any]]) -> int:
 
 
 def _work_per_set_s(sch: Dict[str, Any]) -> int:
-    reps = str(sch.get("reps") or "")
+    reps = str(sch.get("reps") or "").strip()
     lo = _min_reps_from_range(reps) or 10
-    if reps.strip().endswith("s"):
+    if reps.endswith("s"):
         return max(15, lo)          # časový cvik: "30-45s" = 30 s práce
+    if reps.endswith("m"):
+        return DISTANCE_WORK_S      # vzdialenostný cvik (sled)
     return max(20, int(lo * 3.5))   # ~3.5 s na opakovanie vrátane setupu
 
 
@@ -518,8 +529,12 @@ def select_exercises_for_template(
 
     def _make_item(slot: Dict[str, Any], ex: Dict[str, Any], pos: int) -> Dict[str, Any]:
         sch = _scheme_for_slot(slot)
-        if ex["id"] in TIME_BASED_REPS:
-            sch["reps"] = TIME_BASED_REPS[ex["id"]]
+        # 🌟 ZMENA: rozsah podľa measure z katalógu (bol natvrdo zoznam id)
+        measure = ex.get("measure") or "reps"
+        if measure == "time":
+            sch["reps"] = TIME_RANGE_BY_TIER.get(slot["tier"], "30-45s")
+        elif measure == "distance":
+            sch["reps"] = DISTANCE_RANGE_BY_TIER.get(slot["tier"], "20-30m")
         trim = slot.get("trim_priority")
         if trim is None:
             if slot.get("required"):
@@ -708,6 +723,11 @@ def select_exercises_for_template(
                 "tier": slot["tier"],
                 "unilateral": bool(ex.get("unilateral")),
                 "load_type": ex.get("load_type"),
+                # 🌟 NOVÉ: pre zápis tréningu - ako sa cvik meria a či sa
+                # kg zadávajú povinne (external) alebo voliteľne ako
+                # prídavné závažie (bodyweight_plus)
+                "measure": ex.get("measure") or "reps",
+                "load_mode": ex.get("load_mode") or "external",
                 "planned": {
                     "sets": sch["sets"],
                     "reps": sch["reps"],
