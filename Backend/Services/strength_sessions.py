@@ -214,6 +214,22 @@ def service_get_by_plan_session(
     return db_get_strength_session_by_plan(user_id, plan_session_id, ctx=ctx)
 
 
+def service_get_by_activity(
+    *, user_id: int, activity_id: int, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
+    """
+    🌟 NOVÉ: zápis silového tréningu naviazaný na Strava aktivitu.
+
+    Väzbu vytvára service_match_strength_session_to_activity pri importe
+    aktivity. DB vrstva to vedela (db_get_strength_session_by_activity), ale
+    service ani route to nesprístupňovali - detail aktivity si preto nevedel
+    natiahnuť, čo sa v tej aktivite reálne odcvičilo.
+    """
+    if not user_id or not activity_id:
+        return None
+    return db_get_strength_session_by_activity(user_id, int(activity_id), ctx=ctx)
+
+
 def service_list_strength_sessions(
     *, user_id: int, weeks_back: int = 12, limit: int = 100, ctx: AuthCtx
 ) -> List[Dict[str, Any]]:

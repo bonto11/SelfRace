@@ -3214,6 +3214,11 @@ export const en = {
     deleteConfirmMessage:
       "The record and all logged sets will be permanently removed. This cannot be undone.",
     deleteError: "Delete failed, please retry",
+    changeExercise: "Change exercise",
+    changeExerciseTitle: "Pick a replacement exercise",
+    activitySummaryTitle: "What you logged",
+    topSet: "Top set",
+    bestSet: "best",
   },
   activitySelector: {
     unknownActivity: "(Unknown workout)",

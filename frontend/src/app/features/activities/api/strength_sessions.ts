@@ -108,6 +108,29 @@ export async function apiGetStrengthSessionByPlan(
   }
 }
 
+/**
+ * 🌟 NOVÉ: zápis naviazaný na Strava aktivitu (väzbu robí sync pri importe
+ * aktivity). Detail aktivity vďaka tomu vie ukázať, čo sa reálne odcvičilo -
+ * objem, počet sérií, najťažšia séria.
+ * Vyžaduje BE endpoint GET /strength-sessions/{userId}/by-activity/{activityId}.
+ */
+export async function apiGetStrengthSessionByActivity(
+  userId: number,
+  activityId: number,
+): Promise<StrengthSession | null> {
+  if (!userId || !activityId) return null;
+  try {
+    const json = await callBackend<any>(`${base(userId)}/by-activity/${activityId}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return json?.success ? ((json.data as StrengthSession) ?? null) : null;
+  } catch (e) {
+    console.error("[StrengthSessions] by-activity error", e);
+    return null;
+  }
+}
+
 export async function apiListStrengthSessions(
   userId: number,
   opts: { weeks_back?: number; limit?: number } = {},

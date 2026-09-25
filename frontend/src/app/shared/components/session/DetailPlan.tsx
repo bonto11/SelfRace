@@ -13,6 +13,8 @@ import type { SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+// 🌟 NOVÉ: spoločné formátovanie predpisu (pauza 1:45 min, výdrž 30-45s)
+import { formatPrescription } from "@/app/shared/utils/strengthFormat";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import StrengthLogEditor from "@/app/features/activities/components/StrengthLogEditor";
@@ -59,7 +61,7 @@ export default function DetailPlan({
     strengthMainPart.length > 0 ||
     strengthAddOns.length > 0;
 
-  // 🌟 Zápis odcvičeného - strength_sessions záznam naviazaný na tento plán.
+  // Zápis odcvičeného - strength_sessions záznam naviazaný na tento plán.
   // Funguje bez ohľadu na dátum (aj budúci tréning, ak ho spravíš skôr)
   // aj bez Strava aktivity.
   const [logSessionId, setLogSessionId] = useState<number | null>(null);
@@ -86,6 +88,19 @@ export default function DetailPlan({
     if (created) setLogSessionId(created.id);
   };
 
+  // 🌟 ZMENA: predpis sa formátuje cez spoločný helper - pauza ako
+  // "2:30 min" namiesto "150s", výdrž/vzdialenosť ("30-45s", "20-30m")
+  // sa zobrazí tak, ako prišla, bez dopísania "opak."
+  const prescriptionLabels = useMemo(
+    () => ({
+      sets: t("sessions.detail.unitSets") || "sérií",
+      reps: t("sessions.detail.unitReps") || "opak.",
+      rest: t("sessions.detail.unitRest") || "Pauza",
+      sec: t("sessions.detail.unitSec") || "s",
+    }),
+    [t],
+  );
+
   const renderExerciseList = (exercises: any[], fallbackLabel: string) => (
     <ul className={PLAN_EX_LIST}>
       {exercises.map((e: any, i: number) => {
@@ -102,14 +117,15 @@ export default function DetailPlan({
           formattedId ||
           `${fallbackLabel} ${i + 1}`;
 
-        const repsString = String(e?.reps || "");
-        const hasTimeFormat =
-          repsString.includes("s") || repsString.includes("min");
-        const formattedReps = e?.reps
-          ? hasTimeFormat
-            ? e.reps
-            : `${e.reps} ${t("sessions.detail.unitReps") || "opak."}`
-          : null;
+        const prescription = formatPrescription(
+          {
+            sets: e?.sets,
+            reps: e?.reps,
+            rest_s: e?.rest_s ?? e?.rest_sec,
+            seconds: e?.seconds,
+          },
+          prescriptionLabels,
+        );
 
         return (
           <li key={i} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
@@ -125,22 +141,7 @@ export default function DetailPlan({
 
             {showAdvanced && (
               <div className="mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className={PLAN_EX_LINE}>
-                  {[
-                    e?.sets
-                      ? `${e.sets} ${t("sessions.detail.unitSets") || "sérií"}`
-                      : null,
-                    formattedReps,
-                    e?.seconds
-                      ? `${e.seconds}${t("sessions.detail.unitSec") || "s"}`
-                      : null,
-                    e?.rest_sec || e?.rest_s
-                      ? `${t("sessions.detail.unitRest") || "Pauza"} ${e.rest_sec || e.rest_s}s`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "—"}
-                </div>
+                <div className={PLAN_EX_LINE}>{prescription || "—"}</div>
                 {e?.notes && (
                   <div className={PLAN_EX_NOTE}>{safeText(e.notes)}</div>
                 )}

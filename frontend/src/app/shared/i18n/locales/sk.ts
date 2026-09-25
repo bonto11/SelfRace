@@ -3206,6 +3206,11 @@ export const sk = {
     deleteConfirmMessage:
       "Záznam aj všetky zapísané série sa natrvalo odstránia. Túto akciu nie je možné vrátiť.",
     deleteError: "Zmazanie sa nepodarilo, skús znova",
+    changeExercise: "Vymeniť cvik",
+    changeExerciseTitle: "Vyber náhradný cvik",
+    activitySummaryTitle: "Čo si odcvičil",
+    topSet: "Najťažšia séria",
+    bestSet: "najlepšia",
   },
   activitySelector: {
     unknownActivity: "(Neznámy tréning)",
