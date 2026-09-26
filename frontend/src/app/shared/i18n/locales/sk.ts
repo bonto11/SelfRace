@@ -68,7 +68,9 @@ export const sk = {
       athletes: "Športová úroveň",
       fitness: "Kondičná úroveň",
       average: "Priemer",
-      obese: "Nadváha (Obezita)",
+      obese: "Nadváha",
+      overweight: "Nadváha",
+
 
       low: "Nízka",
       moderate: "Stredná",
