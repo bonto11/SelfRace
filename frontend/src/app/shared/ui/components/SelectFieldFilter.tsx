@@ -4,6 +4,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/app/shared/ui/utils/inputs";
+import { appColors } from "@/app/shared/ui/theme/app_colors";
 import {
   FIELD_READONLY_BASE,
   FIELD_EDITABLE_BASE,
@@ -51,16 +52,14 @@ type Props = {
 
   options: Option[];
   placeholder?: string;
-  /** Placeholder vyhľadávacieho poľa v menu. */
   searchPlaceholder?: string;
-  /** Text, keď filter nič nenájde. */
   emptyLabel?: string;
   containerClassName?: string;
   variant?: "readonly" | "editable";
 };
 
 /**
- * 🌟 NOVÉ: SelectField s vyhľadávaním a pevnou výškou menu.
+ * SelectField s vyhľadávaním a pevnou výškou menu.
  *
  * SelectField pri veľa options (napr. celý cvikový katalóg) pretečie mimo
  * obrazovky - menu je portálom v position:fixed mimo bežného toku stránky,
@@ -108,6 +107,15 @@ export default function SelectFieldFilter({
     ...(editable ? SELECT_OPT_EDITABLE_STYLE : SELECT_OPT_READONLY_STYLE),
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
+
+  // 🌟 FIX: predtým natvrdo text-white/bg-white - na svetlom pozadí menu
+  // (SELECT_MENU_EDITABLE_STYLE) bol text takmer neviditeľný. appColors
+  // sedí nezávisle od motívu, rovnako ako zvyšok appky.
+  const searchInputStyle: React.CSSProperties = {
+    color: appColors.textPrimary,
+    background: appColors.backgroundAlt,
+    borderColor: appColors.surfaceCardBorder,
+  };
 
   const [pos, setPos] = React.useState<{
     left: number;
@@ -159,8 +167,6 @@ export default function SelectFieldFilter({
     const update = () => {
       const r = el.getBoundingClientRect();
       const top = r.bottom + 8;
-      // 🌟 kľúčová oprava: menu dostane reálnu dostupnú výšku do spodku
-      // viewportu (s malou rezervou), namiesto neobmedzenej výšky
       const available = window.innerHeight - top - 16;
       const maxHeight = Math.max(160, Math.min(360, available));
       setPos({ left: r.left, top, width: r.width, maxHeight });
@@ -177,7 +183,6 @@ export default function SelectFieldFilter({
 
   React.useEffect(() => {
     if (open) {
-      // autofocus vyhľadávania hneď po otvorení
       const id = requestAnimationFrame(() => searchRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
@@ -247,7 +252,8 @@ export default function SelectFieldFilter({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={searchPlaceholder}
-                    className="w-full rounded bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none placeholder:text-white/30"
+                    className="w-full rounded border px-3 py-2 text-sm focus:outline-none"
+                    style={searchInputStyle}
                   />
                 </div>
 
