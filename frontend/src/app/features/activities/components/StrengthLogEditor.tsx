@@ -512,7 +512,8 @@ export default function StrengthLogEditor({
                     ? t("strengthLog.unitSeconds") || "Sekundy"
                     : meta.measure === "distance"
                       ? t("strengthLog.unitMeters") || "Metre"
-                      : t("strengthLog.unitReps") || "Opakovania";
+                      : t("strengthLog.repsShort") || "Opakovania";
+
                 const weightLabel = isBodyweight
                   ? t("strengthLog.unitExtraWeight") || "+kg"
                   : t("strengthLog.unitWeight") || "Kg";
