@@ -3219,6 +3219,12 @@ export const en = {
     activitySummaryTitle: "What you logged",
     topSet: "Top set",
     bestSet: "best",
+    setLabel: "Set",
+    warmupLabel: "Warm-up",
+    unitSeconds: "Seconds",
+    unitMeters: "Meters",
+    unitWeight: "Kg",
+    unitExtraWeight: "+kg",
   },
   activitySelector: {
     unknownActivity: "(Unknown workout)",
