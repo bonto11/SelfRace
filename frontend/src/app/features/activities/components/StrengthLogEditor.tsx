@@ -10,12 +10,15 @@ import { formatPrescription } from "@/app/shared/utils/strengthFormat";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
-import SelectField from "@/app/shared/ui/components/SelectField";
+// 🌟 ZMENA: SelectField -> SelectFieldFilter pre oba cvikové pickery
+// (výber v katalógu 81 cvikov bez filtra sa nedal scrollovať)
+import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import TextField from "@/app/shared/ui/components/TextField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
+import ExerciseSuggestionModal from "@/app/features/activities/components/ExerciseSuggestionModal";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
@@ -35,8 +38,6 @@ import {
   PLAN_EX_ITEM,
   PLAN_EX_ITEM_STYLE,
   PLAN_EX_LINE,
-  // 🌟 NOVÉ: rovnaká dlaždica ako Subcard v DetailAthleteState - zjednocuje
-  // vzhľad série so zvyškom appky (nadpis hore, výrazná hodnota dole).
   SESSION_SUBCARD,
   SESSION_SUBCARD_STYLE,
   PANEL_PAD,
@@ -66,25 +67,11 @@ function formatPlanDate(iso: string): string {
   return `${wd} · ${day}`;
 }
 
-/**
- * 🌟 NOVÉ: malá dlaždica pre jednu hodnotu série (opakovania/čas/vzdialenosť
- * alebo váha) - popisok hore, výrazný vstup dole. Rovnaký princíp ako
- * Subcard (title hore, bold value), len prispôsobené na input.
- */
-function SetFieldTile({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function SetFieldTile({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div
       className="rounded-xl border flex-1 min-w-0 px-3 py-2"
-      style={{
-        background: appColors.backgroundAlt,
-        borderColor: appColors.surfaceCardBorder,
-      }}
+      style={{ background: appColors.backgroundAlt, borderColor: appColors.surfaceCardBorder }}
     >
       <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-1">
         {label}
@@ -94,10 +81,7 @@ function SetFieldTile({
   );
 }
 
-export default function StrengthLogEditor({
-  sessionId,
-  onDeleted,
-}: Props) {
+export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const t = useT();
   const { userId } = useUserId();
   const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
@@ -113,13 +97,13 @@ export default function StrengthLogEditor({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
 
-  // Picker slúži len na pridanie nového cviku - výmena existujúceho ide
-  // priamo cez SelectField v riadku cviku (bez modálu).
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [addBlock, setAddBlock] = useState<StrengthBlock>("strength_main_part");
   const [pendingExerciseId, setPendingExerciseId] = useState("");
 
-  // Import z plánu
+  // 🌟 NOVÉ: modal na návrh chýbajúceho cviku do katalógu
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const [plannedSessions, setPlannedSessions] = useState<PlannedStrengthSession[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -130,10 +114,7 @@ export default function StrengthLogEditor({
   const latest = useRef({ exercises, completed, note, sessionDate, title });
   latest.current = { exercises, completed, note, sessionDate, title };
 
-  /* --- load --- */
   useEffect(() => {
-    // Bez sessionId nemáme čo načítať - zhodíme loading, nech komponent
-    // nevisí na nekonečnom spinneri (stávalo sa pri renderovaní bez propu).
     if (!userId || !sessionId) {
       setLoading(false);
       return;
@@ -157,7 +138,6 @@ export default function StrengthLogEditor({
     };
   }, [userId, sessionId]);
 
-  /* --- autosave --- */
   const scheduleSave = useCallback(() => {
     if (!userId || !sessionId) return;
     if (timer.current) clearTimeout(timer.current);
@@ -174,9 +154,7 @@ export default function StrengthLogEditor({
       });
       setSaving(false);
       if (res) {
-        setSavedAt(
-          new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }),
-        );
+        setSavedAt(new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }));
       } else {
         setSaveError(true);
       }
@@ -187,11 +165,8 @@ export default function StrengthLogEditor({
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  // Zmazanie celého zápisu. Po úspechu zavoláme onDeleted, ktorý
-  // v detail stránke presmeruje späť na zoznam.
   const handleDeleteSession = useCallback(async () => {
     if (!userId || !sessionId || deleting) return;
-
     const ok = await confirm({
       title: t("strengthLog.deleteConfirmTitle"),
       message: t("strengthLog.deleteConfirmMessage"),
@@ -202,7 +177,6 @@ export default function StrengthLogEditor({
     if (!ok) return;
 
     setDeleting(true);
-    // Zrušíme rozrobený autosave, nech neuloží niečo po zmazaní.
     if (timer.current) clearTimeout(timer.current);
 
     const done = await apiDeleteStrengthSession(Number(userId), sessionId);
@@ -216,16 +190,11 @@ export default function StrengthLogEditor({
     }
   }, [userId, sessionId, deleting, t, onDeleted]);
 
-
-  /* --- import z plánu --- */
   const openPlanPicker = useCallback(async () => {
     if (!userId) return;
     setPlanPickerOpen(true);
     setPlansLoading(true);
-    const rows = await apiListPlannedStrengthSessions(userId, {
-      days_back: 14,
-      days_forward: 7,
-    });
+    const rows = await apiListPlannedStrengthSessions(userId, { days_back: 14, days_forward: 7 });
     setPlannedSessions(rows);
     setPlansLoading(false);
   }, [userId]);
@@ -234,7 +203,6 @@ export default function StrengthLogEditor({
     async (planSessionId: number) => {
       if (!userId || !sessionId || importing) return;
 
-      // Ak už má user niečo zapísané, upozorníme - import prepíše zoznam.
       const hasLoggedSets = exercises.some((ex) => (ex.sets ?? []).length > 0);
       if (hasLoggedSets) {
         const ok = await confirm({
@@ -263,7 +231,6 @@ export default function StrengthLogEditor({
     [userId, sessionId, importing, exercises, t],
   );
 
-  /* --- mutácie --- */
   const mutate = useCallback(
     (exIdx: number, fn: (ex: StrengthExerciseLog) => StrengthExerciseLog) => {
       setExercises((prev) => {
@@ -295,9 +262,7 @@ export default function StrengthLogEditor({
   const removeSet = useCallback(
     (exIdx: number, sIdx: number) =>
       mutate(exIdx, (ex) => {
-        ex.sets = ex.sets
-          .filter((_, i) => i !== sIdx)
-          .map((s, i) => ({ ...s, set_index: i + 1 }));
+        ex.sets = ex.sets.filter((_, i) => i !== sIdx).map((s, i) => ({ ...s, set_index: i + 1 }));
         return ex;
       }),
     [mutate],
@@ -320,21 +285,14 @@ export default function StrengthLogEditor({
     [scheduleSave],
   );
 
-  // Výmena cviku priamo z riadku (SelectField), bez modálu. Ukladá sa nové
-  // exercise_id, nie len iný text - rotácia aj progresia (2-for-2) potom
-  // pracujú s tým, čo si reálne odcvičil.
   const replaceExercise = useCallback(
     (exIdx: number, exerciseId: string) => {
-      setExercises((prev) =>
-        prev.map((ex, i) => (i === exIdx ? { ...ex, exercise_id: exerciseId } : ex)),
-      );
+      setExercises((prev) => prev.map((ex, i) => (i === exIdx ? { ...ex, exercise_id: exerciseId } : ex)));
       scheduleSave();
     },
     [scheduleSave],
   );
 
-  // Pridanie cviku sa spustí hneď po výbere v SelectField - netreba
-  // samostatné potvrdzovacie tlačidlo.
   const addExercise = useCallback(
     (exerciseId: string) => {
       setExercises((prev) => [
@@ -354,7 +312,6 @@ export default function StrengthLogEditor({
     [addBlock, scheduleSave],
   );
 
-  /* --- odvodené --- */
   const grouped = useMemo(() => {
     const map = new Map<StrengthBlock, Array<{ ex: StrengthExerciseLog; idx: number }>>();
     exercises.forEach((ex, idx) => {
@@ -365,8 +322,6 @@ export default function StrengthLogEditor({
     return map;
   }, [exercises]);
 
-  // Do objemu rátame len cviky merané na opakovania - pri planku je "reps"
-  // počet sekúnd, to by objem skreslilo.
   const totalVolume = useMemo(() => {
     let v = 0;
     for (const ex of exercises) {
@@ -377,7 +332,6 @@ export default function StrengthLogEditor({
     return Math.round(v);
   }, [exercises]);
 
-  // options pre SelectField (value/label) - natívny select, žiadny live-search.
   const catalogOptions = useMemo(
     () =>
       Object.entries(STRENGTH_CATALOG_FE)
@@ -406,30 +360,26 @@ export default function StrengthLogEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Akčný riadok: import z plánu + help tooltip vpravo hore */}
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={openPlanPicker}
-          disabled={importing || !sessionId}
-        >
-          {importing ? <LoadingSpinner size="button" /> : t("strengthLog.importFromPlan")}
-        </Button>
+      {/* Akčný riadok: import z plánu, návrh cviku, help */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" variant="secondary" onClick={openPlanPicker} disabled={importing || !sessionId}>
+            {importing ? <LoadingSpinner size="button" /> : t("strengthLog.importFromPlan")}
+          </Button>
+          {/* 🌟 NOVÉ: návrh cviku, ktorý chýba v katalógu */}
+          <Button size="sm" variant="secondary" onClick={() => setSuggestOpen(true)}>
+            {t("strengthLog.suggestExercise")}
+          </Button>
+        </div>
 
-        <TooltipIcon
-          text={t("strengthLog.help")}
-          title={t("strengthLog.helpTitle")}
-          size={26}
-        />
+        <TooltipIcon text={t("strengthLog.help")} title={t("strengthLog.helpTitle")} size={26} />
       </div>
 
-      {/* Picker naplánovaných tréningov */}
+      {suggestOpen && <ExerciseSuggestionModal onClose={() => setSuggestOpen(false)} />}
+
       {planPickerOpen && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2 animate-in fade-in">
-          <div className="text-xs font-semibold opacity-80">
-            {t("strengthLog.importPickerTitle")}
-          </div>
+          <div className="text-xs font-semibold opacity-80">{t("strengthLog.importPickerTitle")}</div>
 
           {plansLoading ? (
             <div className="flex justify-center py-3">
@@ -451,8 +401,7 @@ export default function StrengthLogEditor({
                     {p.title || t("strengthLog.widget.title")}
                   </div>
                   <div className="text-[11px] opacity-50 mt-0.5">
-                    {formatPlanDate(p.plan_date)} · {p.exercise_count}{" "}
-                    {t("strengthLog.exercisesUnit")}
+                    {formatPlanDate(p.plan_date)} · {p.exercise_count} {t("strengthLog.exercisesUnit")}
                   </div>
                 </button>
               ))}
@@ -465,7 +414,6 @@ export default function StrengthLogEditor({
         </div>
       )}
 
-      {/* Hlavička: dátum + názov */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <div className="text-xs opacity-60 mb-1">{t("strengthLog.dateLabel")}</div>
@@ -489,7 +437,6 @@ export default function StrengthLogEditor({
         />
       </div>
 
-      {/* Cviky */}
       <div className={PLAN_STRUCT_STACK}>
         {BLOCK_ORDER.filter((b) => (grouped.get(b) ?? []).length > 0).map((block) => (
           <div key={block} className={PLAN_BLOCK}>
@@ -497,11 +444,7 @@ export default function StrengthLogEditor({
             <ul className={PLAN_EX_LIST}>
               {(grouped.get(block) ?? []).map(({ ex, idx }) => {
                 const plannedLine = formatPrescription(
-                  {
-                    sets: ex.planned?.sets,
-                    reps: ex.planned?.reps,
-                    rest_s: ex.planned?.rest_s,
-                  },
+                  { sets: ex.planned?.sets, reps: ex.planned?.reps, rest_s: ex.planned?.rest_s },
                   prescriptionLabels,
                 );
                 const workCount = (ex.sets ?? []).filter((s) => !s.is_warmup).length;
@@ -513,7 +456,6 @@ export default function StrengthLogEditor({
                     : meta.measure === "distance"
                       ? t("strengthLog.unitMeters") || "Metre"
                       : t("strengthLog.repsShort") || "Opakovania";
-
                 const weightLabel = isBodyweight
                   ? t("strengthLog.unitExtraWeight") || "+kg"
                   : t("strengthLog.unitWeight") || "Kg";
@@ -521,13 +463,12 @@ export default function StrengthLogEditor({
                 return (
                   <li key={`${ex.exercise_id}-${idx}`} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
                     <div className="flex items-center gap-2">
-                      {/* Meno cviku je priamo SelectField - výber hneď
-                          vymení cvik, žiadny extra krok */}
                       <div className="flex-1 min-w-0">
-                        <SelectField
+                        <SelectFieldFilter
                           value={ex.exercise_id}
                           onValueChange={(id) => replaceExercise(idx, id)}
                           options={catalogOptions}
+                          searchPlaceholder={t("strengthLog.searchExercise")}
                         />
                       </div>
                       <button
@@ -543,18 +484,10 @@ export default function StrengthLogEditor({
 
                     {plannedLine && <div className={PLAN_EX_LINE}>{plannedLine}</div>}
 
-                    {/* 🌟 ZMENA: každá séria je vlastná dlaždica (rovnaký
-                        SESSION_SUBCARD ako Subcard v athlete state), nie
-                        drobný riadok s malým číslom vedľa veľkých polí. */}
                     <div className="mt-2 flex flex-col gap-2">
                       {(ex.sets ?? []).map((s, sIdx) => (
-                        <div
-                          key={sIdx}
-                          className={SESSION_SUBCARD}
-                          style={SESSION_SUBCARD_STYLE}
-                        >
+                        <div key={sIdx} className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
                           <div className={[PANEL_PAD, "flex flex-col gap-2"].join(" ")}>
-                            {/* Hlavička dlaždice: séria / rozcvička + zmazať */}
                             <div className="flex items-center justify-between gap-2">
                               <button
                                 type="button"
@@ -562,9 +495,7 @@ export default function StrengthLogEditor({
                                 title={t("strengthLog.warmupToggle")}
                                 className="text-xs font-bold uppercase tracking-wide transition-colors"
                                 style={{
-                                  color: s.is_warmup
-                                    ? appColors.statusWarning
-                                    : appColors.textMuted,
+                                  color: s.is_warmup ? appColors.statusWarning : appColors.textMuted,
                                 }}
                               >
                                 {s.is_warmup
@@ -581,7 +512,6 @@ export default function StrengthLogEditor({
                               </button>
                             </div>
 
-                            {/* Telo dlaždice: hodnota cviku + váha, rovnocenné polia */}
                             <div className="flex gap-2">
                               <SetFieldTile label={primaryLabel}>
                                 <TextField
@@ -642,7 +572,6 @@ export default function StrengthLogEditor({
         ))}
       </div>
 
-      {/* Pridať cvik */}
       {addPanelOpen ? (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
           <div className="flex gap-2 flex-wrap">
@@ -659,11 +588,12 @@ export default function StrengthLogEditor({
               </Button>
             ))}
           </div>
-          <SelectField
+          <SelectFieldFilter
             value={pendingExerciseId}
             onValueChange={(id) => addExercise(id)}
             options={catalogOptions}
             placeholder={t("strengthLog.searchExercise")}
+            searchPlaceholder={t("strengthLog.searchExercise")}
           />
           <Button size="xs" variant="secondary" onClick={() => setAddPanelOpen(false)}>
             {t("common.cancel")}
@@ -683,7 +613,6 @@ export default function StrengthLogEditor({
         </Button>
       )}
 
-      {/* Pätička */}
       <div className="pt-3 border-t border-white/10 flex flex-col gap-3">
         <textarea
           className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
@@ -714,8 +643,7 @@ export default function StrengthLogEditor({
 
           {totalVolume > 0 && (
             <div className="text-[11px] opacity-60">
-              {t("strengthLog.totalVolume")}:{" "}
-              <span className="font-semibold">{totalVolume} kg</span>
+              {t("strengthLog.totalVolume")}: <span className="font-semibold">{totalVolume} kg</span>
             </div>
           )}
         </div>
@@ -741,7 +669,6 @@ export default function StrengthLogEditor({
         >
           {deleting ? <LoadingSpinner size="button" /> : t("strengthLog.deleteSession")}
         </Button>
-
       </div>
     </div>
   );
