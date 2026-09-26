@@ -35,6 +35,11 @@ import {
   PLAN_EX_ITEM,
   PLAN_EX_ITEM_STYLE,
   PLAN_EX_LINE,
+  // 🌟 NOVÉ: rovnaká dlaždica ako Subcard v DetailAthleteState - zjednocuje
+  // vzhľad série so zvyškom appky (nadpis hore, výrazná hodnota dole).
+  SESSION_SUBCARD,
+  SESSION_SUBCARD_STYLE,
+  PANEL_PAD,
 } from "@/app/shared/ui/tokens";
 
 const SAVE_DEBOUNCE_MS = 1200;
@@ -61,11 +66,36 @@ function formatPlanDate(iso: string): string {
   return `${wd} · ${day}`;
 }
 
+/**
+ * 🌟 NOVÉ: malá dlaždica pre jednu hodnotu série (opakovania/čas/vzdialenosť
+ * alebo váha) - popisok hore, výrazný vstup dole. Rovnaký princíp ako
+ * Subcard (title hore, bold value), len prispôsobené na input.
+ */
+function SetFieldTile({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-xl border flex-1 min-w-0 px-3 py-2"
+      style={{
+        background: appColors.backgroundAlt,
+        borderColor: appColors.surfaceCardBorder,
+      }}
+    >
+      <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-1">
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default function StrengthLogEditor({
   sessionId,
-  // showAdvanced: 🌟 ZMENA - RPE (jediná vec, ktorú predtým gejtoval) je
-  // preč úplne, nielen skryté za advanced. Prop necháme kvôli rozhraniu
-  // s DetailPlan, vnútri sa už nepoužíva.
   onDeleted,
 }: Props) {
   const t = useT();
@@ -83,8 +113,8 @@ export default function StrengthLogEditor({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
 
-  // 🌟 ZMENA: picker teraz slúži LEN na pridanie nového cviku - výmena
-  // existujúceho cviku ide priamo cez SelectField v riadku (bez modálu).
+  // Picker slúži len na pridanie nového cviku - výmena existujúceho ide
+  // priamo cez SelectField v riadku cviku (bez modálu).
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [addBlock, setAddBlock] = useState<StrengthBlock>("strength_main_part");
   const [pendingExerciseId, setPendingExerciseId] = useState("");
@@ -290,9 +320,9 @@ export default function StrengthLogEditor({
     [scheduleSave],
   );
 
-  // 🌟 NOVÉ: výmena cviku priamo z riadku (SelectField), bez modálu.
-  // Ukladá sa nové exercise_id, nie len iný text - rotácia aj progresia
-  // (2-for-2) potom pracujú s tým, čo si reálne odcvičil.
+  // Výmena cviku priamo z riadku (SelectField), bez modálu. Ukladá sa nové
+  // exercise_id, nie len iný text - rotácia aj progresia (2-for-2) potom
+  // pracujú s tým, čo si reálne odcvičil.
   const replaceExercise = useCallback(
     (exIdx: number, exerciseId: string) => {
       setExercises((prev) =>
@@ -303,8 +333,8 @@ export default function StrengthLogEditor({
     [scheduleSave],
   );
 
-  // 🌟 NOVÉ: pridanie cviku sa spustí hneď po výbere v SelectField -
-  // netreba samostatné potvrdzovacie tlačidlo.
+  // Pridanie cviku sa spustí hneď po výbere v SelectField - netreba
+  // samostatné potvrdzovacie tlačidlo.
   const addExercise = useCallback(
     (exerciseId: string) => {
       setExercises((prev) => [
@@ -347,8 +377,7 @@ export default function StrengthLogEditor({
     return Math.round(v);
   }, [exercises]);
 
-  // 🌟 ZMENA: options pre SelectField (value/label) - žiadny live-search filter,
-  // SelectField je natívny select bez vyhľadávania.
+  // options pre SelectField (value/label) - natívny select, žiadny live-search.
   const catalogOptions = useMemo(
     () =>
       Object.entries(STRENGTH_CATALOG_FE)
@@ -448,7 +477,6 @@ export default function StrengthLogEditor({
             }}
           />
         </div>
-        {/* 🌟 ZMENA: vlastný TextField namiesto raw <input> */}
         <TextField
           label={t("strengthLog.titleLabel")}
           value={title}
@@ -477,18 +505,23 @@ export default function StrengthLogEditor({
                   prescriptionLabels,
                 );
                 const workCount = (ex.sets ?? []).filter((s) => !s.is_warmup).length;
-                // 🌟 podľa katalógu vieme, čo pri cviku pýtať
                 const meta = getExerciseMeta(ex.exercise_id);
                 const isBodyweight = meta.load_mode === "bodyweight_plus";
-                const measureUnit =
-                  meta.measure === "time" ? "s" : meta.measure === "distance" ? "m" : null;
-                const primaryPlaceholder = measureUnit ?? (t("strengthLog.repsShort") || "opak.");
+                const primaryLabel =
+                  meta.measure === "time"
+                    ? t("strengthLog.unitSeconds") || "Sekundy"
+                    : meta.measure === "distance"
+                      ? t("strengthLog.unitMeters") || "Metre"
+                      : t("strengthLog.unitReps") || "Opakovania";
+                const weightLabel = isBodyweight
+                  ? t("strengthLog.unitExtraWeight") || "+kg"
+                  : t("strengthLog.unitWeight") || "Kg";
 
                 return (
                   <li key={`${ex.exercise_id}-${idx}`} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
                     <div className="flex items-center gap-2">
-                      {/* 🌟 ZMENA: meno cviku je priamo SelectField - výber
-                          hneď vymení cvik, žiadny extra krok */}
+                      {/* Meno cviku je priamo SelectField - výber hneď
+                          vymení cvik, žiadny extra krok */}
                       <div className="flex-1 min-w-0">
                         <SelectField
                           value={ex.exercise_id}
@@ -509,81 +542,86 @@ export default function StrengthLogEditor({
 
                     {plannedLine && <div className={PLAN_EX_LINE}>{plannedLine}</div>}
 
-                    <div className="mt-2 flex flex-col gap-1.5">
+                    {/* 🌟 ZMENA: každá séria je vlastná dlaždica (rovnaký
+                        SESSION_SUBCARD ako Subcard v athlete state), nie
+                        drobný riadok s malým číslom vedľa veľkých polí. */}
+                    <div className="mt-2 flex flex-col gap-2">
                       {(ex.sets ?? []).map((s, sIdx) => (
-                        <div key={sIdx} className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => updateSet(idx, sIdx, { is_warmup: !s.is_warmup })}
-                            title={t("strengthLog.warmupToggle")}
-                            className="w-6 h-6 shrink-0 rounded text-[10px] font-bold border transition-colors"
-                            style={{
-                              borderColor: s.is_warmup
-                                ? appColors.statusWarning
-                                : "rgba(255,255,255,0.12)",
-                              color: s.is_warmup ? appColors.statusWarning : appColors.textMuted,
-                            }}
-                          >
-                            {s.is_warmup ? "W" : s.set_index}
-                          </button>
+                        <div
+                          key={sIdx}
+                          className={SESSION_SUBCARD}
+                          style={SESSION_SUBCARD_STYLE}
+                        >
+                          <div className={[PANEL_PAD, "flex flex-col gap-2"].join(" ")}>
+                            {/* Hlavička dlaždice: séria / rozcvička + zmazať */}
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateSet(idx, sIdx, { is_warmup: !s.is_warmup })}
+                                title={t("strengthLog.warmupToggle")}
+                                className="text-xs font-bold uppercase tracking-wide transition-colors"
+                                style={{
+                                  color: s.is_warmup
+                                    ? appColors.statusWarning
+                                    : appColors.textMuted,
+                                }}
+                              >
+                                {s.is_warmup
+                                  ? t("strengthLog.warmupLabel") || "Rozcvička"
+                                  : `${t("strengthLog.setLabel") || "Séria"} ${s.set_index}`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeSet(idx, sIdx)}
+                                className="w-6 h-6 shrink-0 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
+                                style={{ color: appColors.statusError }}
+                              >
+                                ×
+                              </button>
+                            </div>
 
-                          {/* 🌟 ZMENA: primárna hodnota cviku ide PRVÁ -
-                              opakovania / sekundy / metre podľa cviku */}
-                          <TextField
-                            type="number"
-                            inputMode={meta.measure === "reps" ? "numeric" : "decimal"}
-                            min={0}
-                            containerClassName="w-[64px] shrink-0"
-                            className="text-center"
-                            placeholder={primaryPlaceholder}
-                            value={s.reps ?? ""}
-                            onChange={(e) =>
-                              updateSet(idx, sIdx, {
-                                reps: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                          />
-                          {measureUnit && (
-                            <span className="text-[11px] opacity-50">{measureUnit}</span>
-                          )}
+                            {/* Telo dlaždice: hodnota cviku + váha, rovnocenné polia */}
+                            <div className="flex gap-2">
+                              <SetFieldTile label={primaryLabel}>
+                                <TextField
+                                  type="number"
+                                  inputMode={meta.measure === "reps" ? "numeric" : "decimal"}
+                                  min={0}
+                                  className="text-center text-lg font-bold w-full"
+                                  placeholder="—"
+                                  value={s.reps ?? ""}
+                                  onChange={(e) =>
+                                    updateSet(idx, sIdx, {
+                                      reps: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                              </SetFieldTile>
 
-                          <span className="text-[11px] opacity-30">×</span>
-
-                          {/* Váha - pri bodyweight cvikoch VOLITEĽNÉ prídavné
-                              závažie ("+kg"), inak povinná váha ("kg") */}
-                          <TextField
-                            type="number"
-                            step="0.5"
-                            min={0}
-                            containerClassName="w-[64px] shrink-0"
-                            className="text-center"
-                            placeholder={isBodyweight ? "+kg" : "kg"}
-                            value={s.weight_kg ?? ""}
-                            onChange={(e) =>
-                              updateSet(idx, sIdx, {
-                                weight_kg: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                          />
-                          <span className="text-[11px] opacity-50">
-                            {isBodyweight ? "+kg" : "kg"}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => removeSet(idx, sIdx)}
-                            className="ml-auto w-6 h-6 shrink-0 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
-                            style={{ color: appColors.statusError }}
-                          >
-                            ×
-                          </button>
+                              <SetFieldTile label={weightLabel}>
+                                <TextField
+                                  type="number"
+                                  step="0.5"
+                                  min={0}
+                                  className="text-center text-lg font-bold w-full"
+                                  placeholder="—"
+                                  value={s.weight_kg ?? ""}
+                                  onChange={(e) =>
+                                    updateSet(idx, sIdx, {
+                                      weight_kg: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                              </SetFieldTile>
+                            </div>
+                          </div>
                         </div>
                       ))}
 
                       <button
                         type="button"
                         onClick={() => addSet(idx)}
-                        className="self-start mt-0.5 text-[11px] font-semibold px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
+                        className="self-start text-[11px] font-semibold px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
                         style={{ color: appColors.brandPrimary }}
                       >
                         + {t("strengthLog.addSet")}
@@ -620,8 +658,6 @@ export default function StrengthLogEditor({
               </Button>
             ))}
           </div>
-          {/* 🌟 ZMENA: SelectField namiesto vyhľadávacieho textového poľa -
-              výber cviku ho rovno pridá do zoznamu */}
           <SelectField
             value={pendingExerciseId}
             onValueChange={(id) => addExercise(id)}
