@@ -866,6 +866,8 @@ export const sk = {
           sandbag: "Sandbag (vrece s pieskom)",
           box: "Debna (Plyo box)",
           abwheel: "Koliesko na brucho",
+          none: "Bez vybavenia",
+          other: "Iné",
         },
         widget: {
           title: "Silový tréning",
@@ -3244,6 +3246,7 @@ export const sk = {
       anti_extension: "Anti-extenzia (core)",
       other: "Iné",
     },
+
   },
   activitySelector: {
     unknownActivity: "(Neznámy tréning)",
