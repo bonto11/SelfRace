@@ -1,7 +1,7 @@
 // src/app/features/activities/components/ExerciseSuggestionModal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
@@ -33,15 +33,36 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // 🌟 FIX: kým je modal otvorený, zamkneme scroll stránky pod ním. Bez
-  // toho niektoré mobilné prehliadače priraďujú dotykové gesto k spodnej
-  // stránke namiesto k modalu (vyzeralo to, akoby sa modal nedal scrollovať).
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
+  }, []);
+
+  // 🌟 FIX: na mobile modal žije v position:fixed mimo bežného scroll flow
+  // stránky, takže keď sa otvorí klávesnica, systém nevie sám posunúť
+  // obsah tak, aby bolo fokusnuté pole vidno (fungovalo by to, len keby
+  // bol input súčasťou normálne scrollovanej stránky). Namiesto toho
+  // počúvame focusin v rámci vlastného scroll kontajnera a fokusnuté pole
+  // scrollneme ručne - s malým oneskorením, kým sa klávesnica doanimuje.
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const onFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !container.contains(target)) return;
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 300);
+    };
+
+    container.addEventListener("focusin", onFocusIn);
+    return () => container.removeEventListener("focusin", onFocusIn);
   }, []);
 
   const toggleEquipment = (key: string) =>
@@ -67,14 +88,6 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
     }
   };
 
-  // 🌟 FIX: predtým bol tento modal obyčajný `position: fixed` div vnorený
-  // v strome komponentov. Ak mal niektorý predok nastavený transform/filter
-  // (typicky animácie ako `animate-in`), `position: fixed` sa prestal
-  // počítať od viewportu a začal sa počítať od toho predka - modal sa
-  // zmestil len do jeho výšky a spodná navigácia appky (skutočne fixed
-  // voči viewportu) ho prekryla, takže tlačidlá Zrušiť/Odoslať boli
-  // nedosiahnuteľné. Portovanie do document.body (rovnako ako to robia
-  // SelectField a SelectFieldFilter) toto rieši natrvalo.
   return createPortal(
     <div
       className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 p-3"
@@ -87,8 +100,6 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
         className="w-full sm:max-w-md rounded-2xl bg-[#0d1a12] border border-white/10 flex flex-col max-h-[85dvh]"
         style={{ overscrollBehavior: "contain" }}
       >
-        {/* Hlavička je mimo scrollovacej oblasti a vždy viditeľná -
-            zavrieť sa dá odtiaľto, netreba scrollovať dole k tlačidlám. */}
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
           <div className="text-sm font-semibold">{t("strengthLog.suggestExerciseTitle")}</div>
           <button
@@ -102,6 +113,7 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
         </div>
 
         <div
+          ref={scrollRef}
           className="flex flex-col gap-3 p-4 overflow-y-auto"
           style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
         >
@@ -170,7 +182,6 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           />
         </div>
 
-        {/* Pätička tiež mimo scrollovacej oblasti - Odoslať je vždy na dosah. */}
         <div className="flex items-center gap-2 justify-end px-4 py-3 border-t border-white/10 shrink-0">
           <Button size="sm" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
