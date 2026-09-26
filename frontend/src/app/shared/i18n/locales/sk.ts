@@ -3211,6 +3211,12 @@ export const sk = {
     activitySummaryTitle: "Čo si odcvičil",
     topSet: "Najťažšia séria",
     bestSet: "najlepšia",
+    setLabel: "Séria",
+    warmupLabel: "Rozcvička",
+    unitSeconds: "Sekundy",
+    unitMeters: "Metre",
+    unitWeight: "Kg",
+    unitExtraWeight: "+kg",
   },
   activitySelector: {
     unknownActivity: "(Neznámy tréning)",
