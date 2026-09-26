@@ -1,7 +1,8 @@
 // src/app/features/activities/components/ExerciseSuggestionModal.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
@@ -32,6 +33,17 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // 🌟 FIX: kým je modal otvorený, zamkneme scroll stránky pod ním. Bez
+  // toho niektoré mobilné prehliadače priraďujú dotykové gesto k spodnej
+  // stránke namiesto k modalu (vyzeralo to, akoby sa modal nedal scrollovať).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const toggleEquipment = (key: string) =>
     setEquipment((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
@@ -55,76 +67,111 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[999998] flex items-end sm:items-center justify-center bg-black/60 p-3">
-      <div className="w-full sm:max-w-md rounded-2xl bg-[#0d1a12] border border-white/10 p-4 flex flex-col gap-3 max-h-[90vh] overflow-y-auto">
-        <div className="text-sm font-semibold">{t("strengthLog.suggestExerciseTitle")}</div>
-
-        <TextField
-          label={t("strengthLog.suggestNameLabel")}
-          value={name}
-          maxLength={100}
-          placeholder={t("strengthLog.suggestNamePlaceholder")}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <SelectField
-          label={t("strengthLog.suggestPatternLabel")}
-          value={pattern}
-          onValueChange={setPattern}
-          options={PATTERN_OPTIONS.map((p) => ({ value: p, label: t(`strengthLog.patterns.${p}` as any) }))}
-        />
-
-        <div className="grid grid-cols-2 gap-3">
-          <SelectField
-            label={t("strengthLog.suggestLoadModeLabel")}
-            value={loadMode}
-            onValueChange={(v) => setLoadMode(v as any)}
-            options={[
-              { value: "external", label: t("strengthLog.unitWeight") || "Kg" },
-              { value: "bodyweight_plus", label: t("strengthLog.unitExtraWeight") || "+kg" },
-            ]}
-          />
-          <SelectField
-            label={t("strengthLog.suggestMeasureLabel")}
-            value={measure}
-            onValueChange={(v) => setMeasure(v as any)}
-            options={[
-              { value: "reps", label: t("strengthLog.repsShort") || "Opakovania" },
-              { value: "time", label: t("strengthLog.unitSeconds") || "Sekundy" },
-              { value: "distance", label: t("strengthLog.unitMeters") || "Metre" },
-            ]}
-          />
+  // 🌟 FIX: predtým bol tento modal obyčajný `position: fixed` div vnorený
+  // v strome komponentov. Ak mal niektorý predok nastavený transform/filter
+  // (typicky animácie ako `animate-in`), `position: fixed` sa prestal
+  // počítať od viewportu a začal sa počítať od toho predka - modal sa
+  // zmestil len do jeho výšky a spodná navigácia appky (skutočne fixed
+  // voči viewportu) ho prekryla, takže tlačidlá Zrušiť/Odoslať boli
+  // nedosiahnuteľné. Portovanie do document.body (rovnako ako to robia
+  // SelectField a SelectFieldFilter) toto rieši natrvalo.
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 p-3"
+      style={{ zIndex: 2147483000 }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="w-full sm:max-w-md rounded-2xl bg-[#0d1a12] border border-white/10 flex flex-col max-h-[85dvh]"
+        style={{ overscrollBehavior: "contain" }}
+      >
+        {/* Hlavička je mimo scrollovacej oblasti a vždy viditeľná -
+            zavrieť sa dá odtiaľto, netreba scrollovať dole k tlačidlám. */}
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+          <div className="text-sm font-semibold">{t("strengthLog.suggestExerciseTitle")}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 shrink-0 rounded text-lg opacity-60 hover:opacity-100 transition-opacity"
+            aria-label={t("common.cancel")}
+          >
+            ×
+          </button>
         </div>
 
-        <div>
-          <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestEquipmentLabel")}</div>
-          <div className="flex flex-wrap gap-2">
-            {EQUIPMENT_OPTIONS.map((key) => (
-              <Button
-                key={key}
-                type="button"
-                size="xs"
-                variant="prefs"
-                active={equipment.includes(key)}
-                onClick={() => toggleEquipment(key)}
-              >
-                {t(`prefs.sections.strengthSection.gear.${key}` as any)}
-              </Button>
-            ))}
+        <div
+          className="flex flex-col gap-3 p-4 overflow-y-auto"
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+        >
+          <TextField
+            label={t("strengthLog.suggestNameLabel")}
+            value={name}
+            maxLength={100}
+            placeholder={t("strengthLog.suggestNamePlaceholder")}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <SelectField
+            label={t("strengthLog.suggestPatternLabel")}
+            value={pattern}
+            onValueChange={setPattern}
+            options={PATTERN_OPTIONS.map((p) => ({ value: p, label: t(`strengthLog.patterns.${p}` as any) }))}
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField
+              label={t("strengthLog.suggestLoadModeLabel")}
+              value={loadMode}
+              onValueChange={(v) => setLoadMode(v as any)}
+              options={[
+                { value: "external", label: t("strengthLog.unitWeight") || "Kg" },
+                { value: "bodyweight_plus", label: t("strengthLog.unitExtraWeight") || "+kg" },
+              ]}
+            />
+            <SelectField
+              label={t("strengthLog.suggestMeasureLabel")}
+              value={measure}
+              onValueChange={(v) => setMeasure(v as any)}
+              options={[
+                { value: "reps", label: t("strengthLog.repsShort") || "Opakovania" },
+                { value: "time", label: t("strengthLog.unitSeconds") || "Sekundy" },
+                { value: "distance", label: t("strengthLog.unitMeters") || "Metre" },
+              ]}
+            />
           </div>
+
+          <div>
+            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestEquipmentLabel")}</div>
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT_OPTIONS.map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={equipment.includes(key)}
+                  onClick={() => toggleEquipment(key)}
+                >
+                  {t(`prefs.sections.strengthSection.gear.${key}` as any)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
+            rows={3}
+            maxLength={500}
+            value={notes}
+            placeholder={t("strengthLog.suggestNotesPlaceholder")}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </div>
 
-        <textarea
-          className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
-          rows={3}
-          maxLength={500}
-          value={notes}
-          placeholder={t("strengthLog.suggestNotesPlaceholder")}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-
-        <div className="flex items-center gap-2 justify-end mt-1">
+        {/* Pätička tiež mimo scrollovacej oblasti - Odoslať je vždy na dosah. */}
+        <div className="flex items-center gap-2 justify-end px-4 py-3 border-t border-white/10 shrink-0">
           <Button size="sm" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
           </Button>
@@ -133,6 +180,7 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
