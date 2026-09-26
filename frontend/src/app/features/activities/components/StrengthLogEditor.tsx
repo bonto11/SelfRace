@@ -5,11 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-// 🌟 NOVÉ: measure (reps/time/distance) + load_mode (external/bodyweight_plus)
-import { getExerciseMeta, repsUnitLabel } from "@/app/shared/constants/strengthMeta";
+import { getExerciseMeta } from "@/app/shared/constants/strengthMeta";
+import { formatPrescription } from "@/app/shared/utils/strengthFormat";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
+import SelectField from "@/app/shared/ui/components/SelectField";
+import TextField from "@/app/shared/ui/components/TextField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { confirm } from "@/app/shared/ui/components/Confirm";
@@ -32,10 +34,8 @@ import {
   PLAN_EX_LIST,
   PLAN_EX_ITEM,
   PLAN_EX_ITEM_STYLE,
-  PLAN_EX_NAME,
   PLAN_EX_LINE,
 } from "@/app/shared/ui/tokens";
-import { formatRest } from "@/app/shared/utils/strengthFormat";
 
 const SAVE_DEBOUNCE_MS = 1200;
 
@@ -53,37 +53,6 @@ type Props = {
   onDeleted?: () => void;
 };
 
-function resolveName(exerciseId: string, lang: "sk" | "en"): string {
-  const entry = STRENGTH_CATALOG_FE[exerciseId];
-  if (entry) return entry[lang];
-  return exerciseId.replace(/_/g, " ");
-}
-
-function formatPlanned(
-  planned: StrengthExerciseLog["planned"],
-  t: (k: any) => string,
-): string | null {
-  if (!planned) return null;
-  const repsStr = String(planned.reps ?? "");
-  // 🌟 ZMENA: "30-45s" (výdrž) aj "20-30m" (vzdialenosť) sa zobrazia tak,
-  // ako prišli - jednotku nepridávame. Len opakovania dostanú "opak.".
-  const isTimeOrDistance = /[sm]$/i.test(repsStr.trim()) || repsStr.includes("min");
-  const restStr = formatRest(planned.rest_s);
-  return (
-    [
-      planned.sets ? `${planned.sets} ${t("sessions.detail.unitSets") || "sérií"}` : null,
-      planned.reps
-        ? isTimeOrDistance
-          ? planned.reps
-          : `${planned.reps} ${t("sessions.detail.unitReps") || "opak."}`
-        : null,
-      restStr ? `${t("sessions.detail.unitRest") || "Pauza"} ${restStr}` : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || null
-  );
-}
-
 function formatPlanDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
@@ -94,7 +63,9 @@ function formatPlanDate(iso: string): string {
 
 export default function StrengthLogEditor({
   sessionId,
-  showAdvanced = false,
+  // showAdvanced: 🌟 ZMENA - RPE (jediná vec, ktorú predtým gejtoval) je
+  // preč úplne, nielen skryté za advanced. Prop necháme kvôli rozhraniu
+  // s DetailPlan, vnútri sa už nepoužíva.
   onDeleted,
 }: Props) {
   const t = useT();
@@ -112,12 +83,11 @@ export default function StrengthLogEditor({
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
 
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerBlock, setPickerBlock] = useState<StrengthBlock>("strength_main_part");
-  const [pickerQuery, setPickerQuery] = useState("");
-  // 🌟 NOVÉ: rovnaký picker slúži aj na VÝMENU cviku. null = pridávame nový,
-  // číslo = meníme cvik na tomto indexe (série ostanú zachované).
-  const [replaceIdx, setReplaceIdx] = useState<number | null>(null);
+  // 🌟 ZMENA: picker teraz slúži LEN na pridanie nového cviku - výmena
+  // existujúceho cviku ide priamo cez SelectField v riadku (bez modálu).
+  const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [addBlock, setAddBlock] = useState<StrengthBlock>("strength_main_part");
+  const [pendingExerciseId, setPendingExerciseId] = useState("");
 
   // Import z plánu
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
@@ -320,49 +290,38 @@ export default function StrengthLogEditor({
     [scheduleSave],
   );
 
-  // 🌟 NOVÉ: otvorenie pickera nad konkrétnym cvikom = výmena cviku
-  const openReplacePicker = useCallback((exIdx: number, block: StrengthBlock) => {
-    setReplaceIdx(exIdx);
-    setPickerBlock(block);
-    setPickerQuery("");
-    setPickerOpen(true);
-  }, []);
-
-  const closePicker = useCallback(() => {
-    setPickerOpen(false);
-    setReplaceIdx(null);
-    setPickerQuery("");
-  }, []);
-
-  /**
-   * 🌟 ZMENA: picker teraz buď PRIDÁ cvik, alebo VYMENÍ existujúci.
-   * Pri výmene sa ukladá nové exercise_id (nie len iný text), takže
-   * rotácia cvikov aj progresia (2-for-2) pracujú s tým, čo si reálne
-   * odcvičil - napr. príťahy na stroji namiesto veľkej činky kvôli chrbtu.
-   * Zapísané série ostávajú, `planned` tiež (je to pôvodný predpis z plánu).
-   */
-  const pickExercise = useCallback(
-    (exerciseId: string) => {
-      if (replaceIdx !== null) {
-        setExercises((prev) =>
-          prev.map((ex, i) => (i === replaceIdx ? { ...ex, exercise_id: exerciseId } : ex)),
-        );
-      } else {
-        setExercises((prev) => [
-          ...prev,
-          {
-            exercise_id: exerciseId,
-            block: pickerBlock,
-            order_index: prev.length,
-            planned: null,
-            sets: [{ set_index: 1, weight_kg: null, reps: null, rpe: null, is_warmup: false }],
-          },
-        ]);
-      }
-      closePicker();
+  // 🌟 NOVÉ: výmena cviku priamo z riadku (SelectField), bez modálu.
+  // Ukladá sa nové exercise_id, nie len iný text - rotácia aj progresia
+  // (2-for-2) potom pracujú s tým, čo si reálne odcvičil.
+  const replaceExercise = useCallback(
+    (exIdx: number, exerciseId: string) => {
+      setExercises((prev) =>
+        prev.map((ex, i) => (i === exIdx ? { ...ex, exercise_id: exerciseId } : ex)),
+      );
       scheduleSave();
     },
-    [replaceIdx, pickerBlock, closePicker, scheduleSave],
+    [scheduleSave],
+  );
+
+  // 🌟 NOVÉ: pridanie cviku sa spustí hneď po výbere v SelectField -
+  // netreba samostatné potvrdzovacie tlačidlo.
+  const addExercise = useCallback(
+    (exerciseId: string) => {
+      setExercises((prev) => [
+        ...prev,
+        {
+          exercise_id: exerciseId,
+          block: addBlock,
+          order_index: prev.length,
+          planned: null,
+          sets: [{ set_index: 1, weight_kg: null, reps: null, rpe: null, is_warmup: false }],
+        },
+      ]);
+      setAddPanelOpen(false);
+      setPendingExerciseId("");
+      scheduleSave();
+    },
+    [addBlock, scheduleSave],
   );
 
   /* --- odvodené --- */
@@ -376,9 +335,8 @@ export default function StrengthLogEditor({
     return map;
   }, [exercises]);
 
-  // 🌟 ZMENA: do objemu rátame len cviky s reálnou váhou a opakovaniami.
-  // Pri časových cvikoch je "reps" počet sekúnd - 45s × 0 kg je síce 0,
-  // ale pri planku so závažím by to inak nafúklo objem nezmyselne.
+  // Do objemu rátame len cviky merané na opakovania - pri planku je "reps"
+  // počet sekúnd, to by objem skreslilo.
   const totalVolume = useMemo(() => {
     let v = 0;
     for (const ex of exercises) {
@@ -389,17 +347,25 @@ export default function StrengthLogEditor({
     return Math.round(v);
   }, [exercises]);
 
-  const catalogOptions = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase();
-    return Object.entries(STRENGTH_CATALOG_FE)
-      .map(([id, names]) => ({ id, name: (names as any)[lang] as string }))
-      .filter((o) => !q || o.name.toLowerCase().includes(q) || o.id.includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 40);
-  }, [pickerQuery, lang]);
+  // 🌟 ZMENA: options pre SelectField (value/label) - žiadny live-search filter,
+  // SelectField je natívny select bez vyhľadávania.
+  const catalogOptions = useMemo(
+    () =>
+      Object.entries(STRENGTH_CATALOG_FE)
+        .map(([id, names]) => ({ value: id, label: (names as any)[lang] as string }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [lang],
+  );
 
-  const numInput =
-    "w-[58px] rounded bg-white/5 border border-white/10 px-2 py-1 text-sm text-white text-center focus:border-white/30 focus:outline-none";
+  const prescriptionLabels = useMemo(
+    () => ({
+      sets: t("sessions.detail.unitSets") || "sérií",
+      reps: t("sessions.detail.unitReps") || "opak.",
+      rest: t("sessions.detail.unitRest") || "Pauza",
+      sec: t("sessions.detail.unitSec") || "s",
+    }),
+    [t],
+  );
 
   if (loading) {
     return (
@@ -482,19 +448,17 @@ export default function StrengthLogEditor({
             }}
           />
         </div>
-        <div>
-          <div className="text-xs opacity-60 mb-1">{t("strengthLog.titleLabel")}</div>
-          <input
-            className="w-full rounded bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none placeholder:text-white/20"
-            value={title}
-            maxLength={200}
-            placeholder={t("strengthLog.titlePlaceholder")}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              scheduleSave();
-            }}
-          />
-        </div>
+        {/* 🌟 ZMENA: vlastný TextField namiesto raw <input> */}
+        <TextField
+          label={t("strengthLog.titleLabel")}
+          value={title}
+          maxLength={200}
+          placeholder={t("strengthLog.titlePlaceholder")}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            scheduleSave();
+          }}
+        />
       </div>
 
       {/* Cviky */}
@@ -504,33 +468,34 @@ export default function StrengthLogEditor({
             <div className={PLAN_BLOCK_LABEL}>{t(BLOCK_LABEL_KEY[block] as any)}</div>
             <ul className={PLAN_EX_LIST}>
               {(grouped.get(block) ?? []).map(({ ex, idx }) => {
-                const plannedLine = formatPlanned(ex.planned, t);
+                const plannedLine = formatPrescription(
+                  {
+                    sets: ex.planned?.sets,
+                    reps: ex.planned?.reps,
+                    rest_s: ex.planned?.rest_s,
+                  },
+                  prescriptionLabels,
+                );
                 const workCount = (ex.sets ?? []).filter((s) => !s.is_warmup).length;
-                // 🌟 NOVÉ: podľa katalógu vieme, čo pri cviku pýtať
+                // 🌟 podľa katalógu vieme, čo pri cviku pýtať
                 const meta = getExerciseMeta(ex.exercise_id);
-                const repsUnit = repsUnitLabel(meta.measure);
                 const isBodyweight = meta.load_mode === "bodyweight_plus";
-                const repsPlaceholder =
-                  meta.measure === "time"
-                    ? "s"
-                    : meta.measure === "distance"
-                      ? "m"
-                      : t("strengthLog.repsShort");
+                const measureUnit =
+                  meta.measure === "time" ? "s" : meta.measure === "distance" ? "m" : null;
+                const primaryPlaceholder = measureUnit ?? (t("strengthLog.repsShort") || "opak.");
+
                 return (
                   <li key={`${ex.exercise_id}-${idx}`} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
-                    <div className="flex items-start justify-between gap-2">
-                      {/* 🌟 ZMENA: názov je tlačidlo - klikom vymeníš cvik
-                          (napr. príťahy s činkou -> na stroji kvôli chrbtu) */}
-                      <button
-                        type="button"
-                        onClick={() => openReplacePicker(idx, block)}
-                        className={`${PLAN_EX_NAME} text-left hover:opacity-80 transition-opacity`}
-                        style={{ textTransform: "capitalize", fontWeight: 600 }}
-                        title={t("strengthLog.changeExercise")}
-                      >
-                        {resolveName(ex.exercise_id, lang)}
-                        <span className="ml-1 text-[11px] opacity-40">▾</span>
-                      </button>
+                    <div className="flex items-center gap-2">
+                      {/* 🌟 ZMENA: meno cviku je priamo SelectField - výber
+                          hneď vymení cvik, žiadny extra krok */}
+                      <div className="flex-1 min-w-0">
+                        <SelectField
+                          value={ex.exercise_id}
+                          onValueChange={(id) => replaceExercise(idx, id)}
+                          options={catalogOptions}
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeExercise(idx)}
@@ -562,15 +527,36 @@ export default function StrengthLogEditor({
                             {s.is_warmup ? "W" : s.set_index}
                           </button>
 
-                          {/* 🌟 ZMENA: pri bodyweight cvikoch (zhyby, kliky,
-                              plank) je kg VOLITEĽNÉ prídavné závažie -
-                              prázdne pole = čistá vlastná váha */}
-                          <input
+                          {/* 🌟 ZMENA: primárna hodnota cviku ide PRVÁ -
+                              opakovania / sekundy / metre podľa cviku */}
+                          <TextField
                             type="number"
-                            inputMode="decimal"
+                            inputMode={meta.measure === "reps" ? "numeric" : "decimal"}
+                            min={0}
+                            containerClassName="w-[64px] shrink-0"
+                            className="text-center"
+                            placeholder={primaryPlaceholder}
+                            value={s.reps ?? ""}
+                            onChange={(e) =>
+                              updateSet(idx, sIdx, {
+                                reps: e.target.value === "" ? null : Number(e.target.value),
+                              })
+                            }
+                          />
+                          {measureUnit && (
+                            <span className="text-[11px] opacity-50">{measureUnit}</span>
+                          )}
+
+                          <span className="text-[11px] opacity-30">×</span>
+
+                          {/* Váha - pri bodyweight cvikoch VOLITEĽNÉ prídavné
+                              závažie ("+kg"), inak povinná váha ("kg") */}
+                          <TextField
+                            type="number"
                             step="0.5"
-                            min="0"
-                            className={numInput}
+                            min={0}
+                            containerClassName="w-[64px] shrink-0"
+                            className="text-center"
                             placeholder={isBodyweight ? "+kg" : "kg"}
                             value={s.weight_kg ?? ""}
                             onChange={(e) =>
@@ -582,44 +568,6 @@ export default function StrengthLogEditor({
                           <span className="text-[11px] opacity-50">
                             {isBodyweight ? "+kg" : "kg"}
                           </span>
-                          <span className="text-[11px] opacity-50">×</span>
-
-                          {/* 🌟 ZMENA: pri výdrži sa zadávajú sekundy, pri
-                              nosení metre - nie "opakovania" */}
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            className={numInput}
-                            placeholder={repsPlaceholder}
-                            value={s.reps ?? ""}
-                            onChange={(e) =>
-                              updateSet(idx, sIdx, {
-                                reps: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                          />
-                          {repsUnit !== "reps" && (
-                            <span className="text-[11px] opacity-50">{repsUnit}</span>
-                          )}
-
-                          {showAdvanced && (
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              step="0.5"
-                              min="1"
-                              max="10"
-                              className={numInput}
-                              placeholder="RPE"
-                              value={s.rpe ?? ""}
-                              onChange={(e) =>
-                                updateSet(idx, sIdx, {
-                                  rpe: e.target.value === "" ? null : Number(e.target.value),
-                                })
-                              }
-                            />
-                          )}
 
                           <button
                             type="button"
@@ -655,53 +603,32 @@ export default function StrengthLogEditor({
         ))}
       </div>
 
-      {/* Pridať / vymeniť cvik */}
-      {pickerOpen ? (
+      {/* Pridať cvik */}
+      {addPanelOpen ? (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
-          {/* 🌟 NOVÉ: pri výmene je blok daný pôvodným cvikom, prepínač netreba */}
-          {replaceIdx === null ? (
-            <div className="flex gap-2 flex-wrap">
-              {BLOCK_ORDER.map((b) => (
-                <Button
-                  key={b}
-                  type="button"
-                  size="xs"
-                  variant="prefs"
-                  active={pickerBlock === b}
-                  onClick={() => setPickerBlock(b)}
-                >
-                  {t(BLOCK_LABEL_KEY[b] as any)}
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <div className="text-xs font-semibold opacity-80">
-              {t("strengthLog.changeExerciseTitle")}
-            </div>
-          )}
-          <input
-            autoFocus
-            className="w-full rounded bg-white/5 border border-white/10 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none placeholder:text-white/20"
-            placeholder={t("strengthLog.searchExercise")}
-            value={pickerQuery}
-            onChange={(e) => setPickerQuery(e.target.value)}
-          />
-          <div className="max-h-[220px] overflow-y-auto flex flex-col gap-1">
-            {catalogOptions.map((o) => (
-              <button
-                key={o.id}
+          <div className="flex gap-2 flex-wrap">
+            {BLOCK_ORDER.map((b) => (
+              <Button
+                key={b}
                 type="button"
-                onClick={() => pickExercise(o.id)}
-                className="text-left text-sm px-3 py-2 rounded hover:bg-white/10 transition-colors capitalize"
+                size="xs"
+                variant="prefs"
+                active={addBlock === b}
+                onClick={() => setAddBlock(b)}
               >
-                {o.name}
-              </button>
+                {t(BLOCK_LABEL_KEY[b] as any)}
+              </Button>
             ))}
-            {catalogOptions.length === 0 && (
-              <div className="text-xs opacity-40 px-3 py-2">{t("strengthLog.noMatch")}</div>
-            )}
           </div>
-          <Button size="xs" variant="secondary" onClick={closePicker}>
+          {/* 🌟 ZMENA: SelectField namiesto vyhľadávacieho textového poľa -
+              výber cviku ho rovno pridá do zoznamu */}
+          <SelectField
+            value={pendingExerciseId}
+            onValueChange={(id) => addExercise(id)}
+            options={catalogOptions}
+            placeholder={t("strengthLog.searchExercise")}
+          />
+          <Button size="xs" variant="secondary" onClick={() => setAddPanelOpen(false)}>
             {t("common.cancel")}
           </Button>
         </div>
@@ -710,8 +637,8 @@ export default function StrengthLogEditor({
           size="sm"
           variant="secondary"
           onClick={() => {
-            setReplaceIdx(null);
-            setPickerOpen(true);
+            setPendingExerciseId("");
+            setAddPanelOpen(true);
           }}
           className="self-start"
         >
