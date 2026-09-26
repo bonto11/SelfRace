@@ -871,6 +871,8 @@ export const en = {
           sandbag: "Sandbag",
           box: "Plyo box",
           abwheel: "Ab wheel",
+          none: "No equipment",
+          other: "Other",
         },
         widget: {
           title: "Strength Training",
