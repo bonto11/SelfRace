@@ -67,7 +67,8 @@ export const en = {
       athletes: "Athletic level",
       fitness: "Fitness level",
       average: "Average",
-      obese: "Overweight (Obese)",
+      obese: "Overweight",
+      overweight: "Overweight",
 
       low: "Low",
       moderate: "Moderate",
