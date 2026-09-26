@@ -34,7 +34,8 @@ from Routes import (
     body_scan,
     strava_admin,
     activities_wrapped,
-    strength_sessions
+    strength_sessions,
+    exercise_suggestions
 )
 
 app = FastAPI()
@@ -94,7 +95,7 @@ app.include_router(notifications.router)
 app.include_router(trigger.router)
 app.include_router(body_scan.router)
 app.include_router(strength_sessions.router)
-
+app.include_router(exercise_suggestions.router)
 
 app.include_router(webhook_strava.router)
 
