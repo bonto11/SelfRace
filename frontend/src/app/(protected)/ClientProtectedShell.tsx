@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -40,6 +40,21 @@ import {
   PROTECTED_GLOBAL_HEADER_HEIGHT_PX,
 } from "@/app/shared/ui/components/AppHeaderOffsetContext";
 
+/** Je práve fokusnuté pole, pri ktorom môže byť otvorená klávesnica? */
+function isEditableFocused(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  if (tag === "TEXTAREA") return true;
+  if (tag === "INPUT") {
+    const type = ((el as HTMLInputElement).type || "text").toLowerCase();
+    // tieto typy klávesnicu neotvárajú
+    return !["button", "submit", "reset", "checkbox", "radio", "range", "color", "file", "image", "hidden"].includes(type);
+  }
+  return false;
+}
+
 export default function ClientProtectedShell({
   children,
 }: {
@@ -64,42 +79,83 @@ export default function ClientProtectedShell({
     };
   }, []);
 
-  // 🔧 NOVÝ FIX: iOS pri otvorení klávesnice posúva VIZUÁLNY viewport
-  // (visualViewport), nie document/window scroll — to je úplne iný
-  // mechanizmus, na OS úrovni, ktorý CSS overflow:hidden vôbec nerieši.
-  // Preto sa header "odsunul" presne len pri focuse na input a vrátil sa
-  // až pri prepnutí obrazovky (nový render resetol visualViewport).
-  //
-  // Namiesto snahy "vrátiť to späť" po fakte, naviažeme výšku appky priamo
-  // na aktuálnu visuálnu výšku (--app-vh) — appka sa tak vždy presne
-  // prispôsobí, aj s otvorenou klávesnicou, takže sa nemá čo posúvať.
+  /**
+   * Výška appky podľa visualViewport (kvôli klávesnici na iOS).
+   *
+   * 🔧 FIX "polovica obrazovky zelená": predtým sa --app-vh nastavovalo
+   * VŽDY na visualViewport.height a spoliehali sme sa, že pri zatvorení
+   * klávesnice príde ďalší resize event. Na iOS (hlavne v PWA) ten event
+   * niekedy nepríde - klávesnica sa zavrie prechodom na inú stránku,
+   * prepnutím appky alebo zamknutím telefónu. --app-vh potom ostalo na
+   * výške s klávesnicou (~polovica) a spodok ukazoval len pozadie body,
+   * kým sa appka nereštartovala.
+   *
+   * Teraz:
+   *  1) zmenšenú výšku použijeme LEN keď je fokusnuté textové pole
+   *     (bez fokusu klávesnica otvorená byť nemôže) - inak premennú
+   *     zmažeme a platí fallback 100dvh,
+   *  2) prepočítavame pri viacerých udalostiach, nie len pri jednom
+   *     resize evente, ktorý iOS občas vynechá.
+   */
+  const syncAppVh = useCallback(() => {
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+
+    if (vv && isEditableFocused()) {
+      root.style.setProperty("--app-vh", `${vv.height}px`);
+    } else {
+      root.style.removeProperty("--app-vh");
+    }
+    // poistka: ak by OS niečo posunul na document úrovni, vráť to na 0
+    window.scrollTo(0, 0);
+  }, []);
+
   useEffect(() => {
     const vv = window.visualViewport;
-    if (!vv) return; // starší prehliadač bez podpory -> ostáva fallback 100dvh
+    const timers: number[] = [];
 
-    const setAppVh = () => {
-      document.documentElement.style.setProperty("--app-vh", `${vv.height}px`);
-      // poistka navyše: ak by OS napriek tomu niečo posunul na document
-      // úrovni, vynúť to späť na 0.
-      window.scrollTo(0, 0);
+    // Klávesnica sa animuje ~300 ms - prepočítame hneď aj po jej doanimovaní.
+    const syncSoonAndLater = () => {
+      syncAppVh();
+      timers.push(window.setTimeout(syncAppVh, 350));
     };
 
-    setAppVh();
-    vv.addEventListener("resize", setAppVh);
-    vv.addEventListener("scroll", setAppVh);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncSoonAndLater();
+    };
+
+    syncAppVh();
+
+    vv?.addEventListener("resize", syncAppVh);
+    vv?.addEventListener("scroll", syncAppVh);
+    window.addEventListener("resize", syncAppVh);
+    window.addEventListener("orientationchange", syncSoonAndLater);
+    window.addEventListener("pageshow", syncSoonAndLater);
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("focusin", syncSoonAndLater);
+    document.addEventListener("focusout", syncSoonAndLater);
 
     return () => {
-      vv.removeEventListener("resize", setAppVh);
-      vv.removeEventListener("scroll", setAppVh);
+      timers.forEach((id) => window.clearTimeout(id));
+      vv?.removeEventListener("resize", syncAppVh);
+      vv?.removeEventListener("scroll", syncAppVh);
+      window.removeEventListener("resize", syncAppVh);
+      window.removeEventListener("orientationchange", syncSoonAndLater);
+      window.removeEventListener("pageshow", syncSoonAndLater);
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("focusin", syncSoonAndLater);
+      document.removeEventListener("focusout", syncSoonAndLater);
     };
-  }, []);
+  }, [syncAppVh]);
 
   useEffect(() => {
     desktopScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     window.scrollTo(0, 0);
     setSidebarOpen(false);
-  }, [pathname, setSidebarOpen]);
+    // 🔧 prechod na inú stránku často zavrie klávesnicu bez resize eventu
+    syncAppVh();
+  }, [pathname, setSidebarOpen, syncAppVh]);
 
   return (
     <AppHeaderOffsetProvider value={PROTECTED_GLOBAL_HEADER_HEIGHT_PX}>
