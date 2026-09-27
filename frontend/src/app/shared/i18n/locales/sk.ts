@@ -199,7 +199,7 @@ export const sk = {
     promo: {
       badge: "Limitovaná ponuka",
       title: "Prvý mesiac úplne zadarmo",
-      body: "Bez skrytých poplatkov, bez háčika — na môj účet. Proste to vyskúšaj a uvidíš, či ti to sadne.",
+      body: "Bez skrytých poplatkov, bez háčikov — proste na môj účet. Len to vyskúšaj a uvidíš, či ti to sadne.",
       cta: "Vyskúšať zadarmo",
     },
   },
