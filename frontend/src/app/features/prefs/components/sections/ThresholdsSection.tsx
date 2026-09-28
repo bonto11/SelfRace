@@ -37,6 +37,12 @@ function secToPace(n: any): string {
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 }
 
+// 🌟 NOVÉ: kompletné "mm:ss" (oba segmenty 2-ciferné). Len takú hodnotu
+// prepočítavame na sekundy a posielame do parentu - viď FIX nižšie.
+function isCompletePace(v: string): boolean {
+  return /^\d{2}:\d{2}$/.test(v);
+}
+
 /* ---------- types ---------- */
 type Props = {
   thresholds: any | undefined;
@@ -75,8 +81,17 @@ export default function ThresholdsSection({
 
   const [paceStr, setPaceStr] = useState<string>(secToPace(thr.pace_sec_km));
 
+  // 🌟 FIX: predtým tento effect VŽDY prepísal paceStr zo sekúnd. Počas
+  // písania to robilo "05:3" -> 303 s -> "05:03" a TimeField si prepísal
+  // interné číslice, takže sa nedalo napísať 05:30. Teraz sa paceStr
+  // prepíše len vtedy, keď sa hodnota zvonku naozaj líši od toho, čo je
+  // v poli (load z DB, reset, zmena športu/typu).
   useEffect(() => {
-    setPaceStr(secToPace(thr.pace_sec_km));
+    const target =
+      thr.pace_sec_km == null || thr.pace_sec_km === ""
+        ? null
+        : Number(thr.pace_sec_km);
+    setPaceStr((cur) => (paceToSec(cur) === target ? cur : secToPace(target)));
   }, [thr.pace_sec_km]);
 
   const latestByCombo = useMemo(() => {
@@ -250,7 +265,16 @@ export default function ThresholdsSection({
               value={paceStr}
               onChange={(v) => {
                 setPaceStr(v);
-                onChange({ ...thr, pace_sec_km: paceToSec(v) });
+                // 🌟 FIX: do parentu len prázdna alebo kompletná "mm:ss"
+                // hodnota. Nekompletnú ("05:3") necháme len lokálne -
+                // TimeField ju pri blur sám doplní na "05:30" a vtedy sa
+                // uloží. Predtým sa "05:3" prepočítalo na 303 s a vrátilo
+                // späť ako "05:03".
+                if (v === "") {
+                  onChange({ ...thr, pace_sec_km: null });
+                } else if (isCompletePace(v)) {
+                  onChange({ ...thr, pace_sec_km: paceToSec(v) });
+                }
               }}
             />
           </section>
@@ -322,6 +346,7 @@ export default function ThresholdsSection({
                   {r.pace_sec_km ? (
                     <span> · {secToPace(r.pace_sec_km)} /km</span>
                   ) : null}
+                  {r.pace_sec_km ? null : null}
                   {r.power_watt ? (
                     <span> · {Math.round(r.power_watt)} W</span>
                   ) : null}

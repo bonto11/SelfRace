@@ -12,6 +12,7 @@ import { STRAVA_ASSETS } from "@/app/shared/ui/components/Strava";
 import LangSelector from "@/app/shared/i18n/LangSelector";
 import { useT } from "@/app/shared/i18n/useT";
 import { getSupabaseBrowser } from "@/app/shared/utils/supabaseBrowser";
+import FreeTrialPromoBanner from "@/app/shared/ui/components/FreeTrialPromoBanner";
 
 export default function LandingPage() {
   const t = useT();
@@ -41,6 +42,7 @@ export default function LandingPage() {
 
   return (
     <AppBackdrop>
+      <FreeTrialPromoBanner />
       {/* 🌟 flex-col wrapper: karta sa centruje vo flex-1 priestore nad
           footerom (rovnaká štruktúra, akú predtým riešil root layout.tsx
           pre všetky stránky spolu — landing si to teraz rieši sama). */}

@@ -17,6 +17,7 @@ import WidgetMonthlySummary from "@/app/shared/components/widgets/WidgetMonthlyS
 import WidgetRouteMatch from "@/app/shared/components/widgets/WidgetRouteMatch";
 import WidgetTodayActivities from "@/app/shared/components/widgets/WidgetTodayActivities";
 import WidgetActivitiesWrapped from "@/app/shared/components/widgets/WidgetActivitiesWrapped";
+import WidgetStrengthLog from "@/app/shared/components/widgets/WidgetStrengthLog";
 
 import Button from "@/app/shared/ui/components/Button";
 import IconRefresh from "@/app/shared/svg/Refresh";
@@ -57,6 +58,12 @@ export default function ActivitiesPage() {
         <WidgetTodayActivities
           onOpenDetail={(activityId) =>
             router.push(`/activities/detail/${activityId}`)
+          }
+        />
+        <WidgetStrengthLog
+          onOpenDetail={() => router.push("/activities/strength")}
+          onOpenSession={(sessionId) =>
+            router.push(`/activities/strength/${sessionId}`)
           }
         />
         <WidgetActivitiesWrapped onOpenDetail={() => router.push("/activities/wrapped")} />

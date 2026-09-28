@@ -139,39 +139,6 @@ export interface SwimTargets {
   sessions_per_week?: number | null;
 }
 
-
-/* -------- strength settings -------- */
-
-export type StrengthLocation = "gym" | "home" | "outdoor";
-export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
-
-export type StrengthEquipmentKey =
-  | "dumbbells"
-  | "barbell"
-  | "kettlebell"
-  | "trx"
-  | "pullup_bar"
-  | "resistance_bands"
-  | "bench"
-  | "medicine_ball"
-  | "sandbag"
-  | "box"
-  | "abwheel"
-  | "other";
-
-export type StrengthSettings = {
-  location?: StrengthLocation | null;
-  equipment_mode?: StrengthEquipmentMode | null;
-  available?: StrengthEquipmentKey[];
-  sessions_per_week?: number | null;
-  // 🌟 NOVÉ: cieľová dĺžka JEDNEJ strength session v minútach (vrátane
-  // aktivácie, hlavnej časti aj doplnkov). Bez tohto poľa AI nemala žiadny
-  // signál, ako dlho má tréning trvať, a systematicky generovala príliš
-  // krátke sessiony (35-40 min namiesto očakávanej hodiny).
-  session_duration_min?: number | null;
-};
-
-
 /* -------- rules -------- */
 
 export type TwoADayPrefs = {
@@ -314,6 +281,75 @@ export const DEFAULT_PREFS: CoachPrefs = {
     available: [],
     sessions_per_week: 2,
     session_duration_min: 60,
+    goal: "general_resilience",
+    experience_level: "intermediate",
+    // 🌟 NOVÉ
+    sport_specificity: "balanced",
+    disliked_exercises: [],
+    reference_lifts: null,
   },
+};
 
+/* -------- strength settings -------- */
+
+export type StrengthLocation = "gym" | "home" | "outdoor";
+export type StrengthEquipmentMode = "none" | "bodyweight" | "minimal" | "full_gym";
+
+/** Tréningový cieľ silového tréningu — riadi série, opakovania aj pauzy. */
+export type StrengthGoal =
+  | "max_strength"
+  | "hypertrophy"
+  | "strength_endurance"
+  | "power"
+  | "general_resilience";
+
+/** Skúsenosť v posilňovni (nie v hlavnom športe). */
+export type StrengthExperienceLevel = "beginner" | "intermediate" | "advanced";
+
+/**
+ * 🌟 NOVÉ: špecifickosť posilňovne k preteku (Services/strength/sport_profiles.py).
+ * Uplatní sa pre bežca s OCR/Hyrox pretekom:
+ *   low      - posilka na beh (plyometria, ťažké nohy), preteková špecifika len na udržanie
+ *   balanced - beh aj preteková špecifika
+ *   high     - dôraz na špecifiká preteku
+ */
+export type StrengthSportSpecificity = "low" | "balanced" | "high";
+
+export type StrengthEquipmentKey =
+  | "dumbbells"
+  | "barbell"
+  | "kettlebell"
+  | "trx"
+  | "pullup_bar"
+  | "resistance_bands"
+  | "bench"
+  | "medicine_ball"
+  | "sandbag"
+  | "box"
+  | "abwheel"
+  | "other";
+
+/** Referenčné maximá (1RM) — vstup pre % based programovanie. */
+export type ReferenceLifts = {
+  squat_kg?: number | null;
+  deadlift_kg?: number | null;
+  bench_kg?: number | null;
+  ohp_kg?: number | null;
+};
+
+export type StrengthSettings = {
+  location?: StrengthLocation | null;
+  equipment_mode?: StrengthEquipmentMode | null;
+  available?: StrengthEquipmentKey[];
+  sessions_per_week?: number | null;
+  /** Maximálna dĺžka jednej session (strop, nie cieľ). */
+  session_duration_min?: number | null;
+
+  // vstupy pre deterministickú vrstvu (Services/strength/)
+  goal?: StrengthGoal | null;
+  experience_level?: StrengthExperienceLevel | null;
+  sport_specificity?: StrengthSportSpecificity | null;
+  /** exercise_id z katalógu, ktoré athlete nechce dostávať */
+  disliked_exercises?: string[];
+  reference_lifts?: ReferenceLifts | null;
 };

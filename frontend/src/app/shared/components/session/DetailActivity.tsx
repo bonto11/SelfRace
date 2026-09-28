@@ -45,6 +45,7 @@ import { useT } from "@/app/shared/i18n/useT";
 import { apiFetchActivityExtrasCombined } from "@/app/features/activities/api/analytics_activities";
 
 import ActivityShareModal from "./ActivityShareModal";
+import SectionStrengthSummary from "./SectionStrengthSummary";
 
 function fmtTime(min: number) {
   if (min < 1) return "<1m";
@@ -432,6 +433,10 @@ export function DetailActivity({ item, compactChart, onOpenActivity }: any) {
 
       {!!act.activityId && (
         <SectionReview item={act} activityId={Number(act.activityId)} />
+      )}
+
+      {!!act.activityId && (
+        <SectionStrengthSummary activityId={Number(act.activityId)} />
       )}
 
       {hasValidStreamsForChart && (

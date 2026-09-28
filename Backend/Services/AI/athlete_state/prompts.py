@@ -119,6 +119,41 @@ def _no_raw_technical_values_rule() -> str:
     )
 
 
+def _strength_log_rule(strength_log: Optional[Dict[str, Any]]) -> str:
+    """
+    🌟 NOVÉ: pravidlo pre blok 'strength_log' (reálne odcvičená sila zo
+    strength_sessions).
+
+    Zámerne nepridávame do schémy nové polia - AI má silu spomenúť vo
+    voľnom texte (user_summary.bullets + capabilities.strength.comment),
+    aby athlete videl, ako mu ide posilňovňa, rovnako ako vidí beh.
+    """
+    if not strength_log:
+        # Bez logov nech si AI silu nevymýšľa z prefs - sessions_per_week
+        # je len zámer, nie odcvičený tréning.
+        return (
+            "- STRENGTH DATA: No logged strength sessions are available. Do NOT claim anything about "
+            "the athlete's gym progress, lifted weights or strength trend, and do NOT infer them from "
+            "planned sessions_per_week in prefs. If relevant, you may note in one short clause that "
+            "strength work is not being logged yet.\n"
+        )
+    return (
+        "- STRENGTH DATA (USE IT): 'strength_log' summarizes what the athlete ACTUALLY lifted "
+        "(logged sessions, not the plan). Mention strength explicitly:\n"
+        "  - in user_summary.bullets: one short sentence on how strength is going - frequency "
+        "(sessions_last_28d, sessions_per_week_avg), volume direction (volume_change_pct_vs_prev_28d) "
+        "and the clearest progress from key_lifts.\n"
+        "  - in capabilities.strength: base level_1_to_5 and comment on this data, not on guesses.\n"
+        "  - key_lifts entries with 'change_kg' are loaded lifts -> talk in kilograms (e.g. 'v drepe si "
+        "za 6 týždňov pridal 15 kg'). Entries with 'change_reps' are bodyweight exercises -> talk in "
+        "repetitions, NEVER in kilograms.\n"
+        "  - If days_since_last_session is over 14, or sessions_last_28d is 0-1, say that strength work "
+        "has dropped off and what that means for the main sport.\n"
+        "  - Never invent numbers that are not in the block, and never write exercise ids literally - "
+        "use a natural name for the movement.\n"
+    )
+
+
 PB_VALID_DAYS = 180  # hranica "aktuálny" vs "potenciál" pre osobné rekordy
 
 
@@ -164,6 +199,8 @@ def minify_analyze_context_for_ai(context: Dict[str, Any]) -> Dict[str, Any]:
     - prefs.targets: odstráni sporty ktoré nie sú v main/add_on_sports
     - races: pridá days_until_race pre lepší kontext AI
     - last_activities: max 10, bez interných ID
+    - strength_log: 🌟 NOVÉ - prechádza bez zmeny, builder ho už posiela
+      zhustený (pár desiatok tokenov)
     """
     if not isinstance(context, dict):
         return {}
@@ -391,6 +428,9 @@ def build_prompts_for_analyze(
     days_since_last_run = _get_days_since_last_run(last_acts)
     detraining_hint = _build_detraining_hint(days_since_last_run)
 
+    # 🌟 NOVÉ: reálne odcvičená sila - AI o nej má napísať pár viet
+    strength_rule = _strength_log_rule(context_for_llm.get("strength_log"))
+
     beginner_hint = (
         "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
         if is_beginner else ""
@@ -426,6 +466,7 @@ def build_prompts_for_analyze(
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
         + _pb_validity_rule()
+        + strength_rule
         + lthr_rule
         + race_hint
         + beginner_hint
@@ -493,6 +534,11 @@ def build_prompts_for_progress(
         + _terminology_rule(lang_label)
         + _no_raw_technical_values_rule()
         + _terrain_variability_rule()
+        # 🌟 NOVÉ: capabilities.strength už stojí na reálnych logoch, takže
+        # jeho zmena je skutočný posun v sile - nech to progress spomenie.
+        + "- STRENGTH: capabilities.strength in both states is based on logged gym sessions. "
+        "If it changed, say in one clause how strength is developing alongside the main sport; "
+        "if it did not change, do not invent strength progress.\n"
         + "- If possible, extract and compare estimated_vo2max from metrics.\n"
     )
 
@@ -517,7 +563,7 @@ def _analyze_schema(lang_label: str) -> str:
     "capabilities": {{
       "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }},
       "ride":     {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }} | null,
-      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }} | null
+      "strength": {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence, based on strength_log if present" }} | null
     }},
     "fatigue_level": "low" | "moderate" | "high",
     "injury_risk": "low" | "moderate" | "high",
