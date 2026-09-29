@@ -15,9 +15,44 @@ import {
   PLAN_MAIN_NOTE,
 } from "@/app/shared/ui/tokens";
 
-function getDuration(block: any): string | null {
-  if (typeof block === "string") return null;
-  const m = block?.duration_min ?? block?.minutes ?? block?.work_min;
+/**
+ * 🌟 NOVÉ: vzdialenosť úseku/pauzy. Pod 1 km v metroch, inak v km
+ * (max 2 desatinné miesta, desatinná čiarka podľa locale).
+ */
+function fmtDistance(meters: number, locale: string): string {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  const km = (meters / 1000).toLocaleString(locale, { maximumFractionDigits: 2 });
+  return `${km} km`;
+}
+
+/**
+ * 🌟 NOVÉ: trvanie v sekundách. Celé minúty cez fmtMin (zhodne so
+ * zvyškom appky), inak "M:SS min" (napr. 90 s -> "1:30 min", 30 s -> "0:30 min").
+ */
+function fmtSeconds(sec: number): string {
+  if (sec % 60 === 0) return fmtMin(sec / 60);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")} min`;
+}
+
+/**
+ * Dĺžka bloku. Poradie: distance_m (ručné intervaly na vzdialenosť) ->
+ * duration_s (ručné intervaly na čas) -> minutes/duration_min/work_min
+ * (AI plány, rozcvička, výklus). 0 / prázdne = null (nezobrazí sa).
+ */
+function getDuration(block: any, locale: string): string | null {
+  if (!block || typeof block === "string") return null;
+
+  const dist = Number(block.distance_m);
+  if (Number.isFinite(dist) && dist > 0) return fmtDistance(dist, locale);
+
+  const sec = Number(block.duration_s);
+  if (block.duration_s != null && Number.isFinite(sec)) {
+    return sec > 0 ? fmtSeconds(Math.round(sec)) : null;
+  }
+
+  const m = block.duration_min ?? block.minutes ?? block.work_min;
   return m ? fmtMin(m) : null;
 }
 
@@ -36,7 +71,6 @@ export type SectionTrainingStructureProps = {
 /**
  * SectionTrainingStructure - endurance (beh/bike) štruktúra tréningu:
  * rozcvička / hlavná časť / výklus, vrátane interval blokov.
- * Vyextrahované z DetailPlan.tsx, aby bolo samostatne udržiavateľné.
  */
 export function hasTrainingStructure(structure: any): boolean {
   const wu = structure?.warmup;
@@ -53,6 +87,7 @@ export default function SectionTrainingStructure({
   status,
 }: SectionTrainingStructureProps) {
   const t = useT();
+  const locale = (t("common.locale" as any) as string) || "sk-SK";
 
   const wu = structure?.warmup;
   const rawMain = structure?.main_part;
@@ -80,7 +115,7 @@ export default function SectionTrainingStructure({
           <div className={PLAN_BLOCK}>
             <div className={PLAN_BLOCK_LABEL}>{t("sessions.detail.plan.warmup")}</div>
             <div className={PLAN_BLOCK_TEXT}>
-              {typeof wu === "string" ? wu : getDuration(wu) || "—"}
+              {typeof wu === "string" ? wu : getDuration(wu, locale) || "—"}
             </div>
             {showAdvanced && typeof wu !== "string" && getNote(wu) && (
               <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
@@ -103,16 +138,13 @@ export default function SectionTrainingStructure({
                   );
                 }
 
-                // --- HANDLING PRE OBA FORMÁTY ---
                 const isIntervalFlat = blk.kind === "interval_block";
                 const isIntervalNested = !!blk.interval_block;
                 const isInterval = isIntervalFlat || isIntervalNested;
 
                 if (isInterval) {
                   const iData = isIntervalNested ? blk.interval_block : blk;
-                  // OPRAVA: AI generuje niekedy 'repeats', niekedy 'rounds' —
-                  // predtým sa čítalo len 'repeats', takže pri 'rounds' spadlo
-                  // na fallback 1× aj keď reálne malo byť 6×.
+                  // AI generuje niekedy 'repeats', niekedy 'rounds'
                   const reps = iData.repeats ?? iData.rounds ?? 1;
 
                   // Nested: intervals[0] = work, intervals[1] = rest
@@ -124,16 +156,17 @@ export default function SectionTrainingStructure({
                     ? (iData.intervals?.[1] ?? iData.rest ?? null)
                     : iData.rest;
 
-                  const workDur = getDuration(workBlock);
-                  const restDur = getDuration(restBlock);
+                  const workDur = getDuration(workBlock, locale);
+                  const restDur = getDuration(restBlock, locale);
                   const workNote = getNote(workBlock);
+                  const restNote = getNote(restBlock);
 
                   return (
                     <div key={idx} className={PLAN_MAIN_ITEM} style={PLAN_MAIN_ITEM_STYLE}>
-                      <div className="flex items-baseline gap-2 mb-1">
+                      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5 mb-1">
                         <span className="text-white font-bold text-base">{reps}×</span>
                         <span className="opacity-90">
-                          {workDur}{" "}
+                          {workDur || "—"}{" "}
                           {showAdvanced && (
                             <span className="opacity-60 text-xs">
                               ({t("sessions.detail.plan.work")})
@@ -156,12 +189,17 @@ export default function SectionTrainingStructure({
                           {safeText(workNote)}
                         </div>
                       )}
+                      {showAdvanced && restDur && restNote && (
+                        <div className={PLAN_MAIN_NOTE + " mt-1 opacity-70 animate-in fade-in"}>
+                          {t("sessions.detail.plan.recovery")}: {safeText(restNote)}
+                        </div>
+                      )}
                     </div>
                   );
                 }
 
                 // --- SIMPLE BLOCK ---
-                const dur = getDuration(blk);
+                const dur = getDuration(blk, locale);
                 const note = getNote(blk);
 
                 return (
@@ -183,7 +221,7 @@ export default function SectionTrainingStructure({
           <div className={PLAN_BLOCK}>
             <div className={PLAN_BLOCK_LABEL}>{t("sessions.detail.plan.cooldown")}</div>
             <div className={PLAN_BLOCK_TEXT}>
-              {typeof cd === "string" ? cd : getDuration(cd) || "—"}
+              {typeof cd === "string" ? cd : getDuration(cd, locale) || "—"}
             </div>
             {showAdvanced && typeof cd !== "string" && getNote(cd) && (
               <div className={PLAN_MAIN_NOTE + " mt-1 animate-in fade-in"}>
