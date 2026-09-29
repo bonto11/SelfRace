@@ -515,6 +515,9 @@ export default function CoachPreferencies() {
     return lt2?.hr_bpm ?? null;
   }, [local?.thresholds?.hr_bpm, local.thresholds_latest]);
 
+  
+      const isAdvisorMode = local.coach_mode === "advisor";
+
   return (
     <div className={[PANEL_STACK, NO_X].join(" ")}>
       {hasActivePlan === true && <PlanLifecycleSection prefs={local} />}
@@ -533,12 +536,23 @@ export default function CoachPreferencies() {
             {t("prefs.noActivePlanBanner.title")}
           </div>
           <div style={{ fontSize: 13, opacity: 0.75, lineHeight: 1.4 }}>
-            {t("prefs.noActivePlanBanner.text")}
+            {isAdvisorMode
+              ? t("prefs.noActivePlanBanner.textAdvisor")
+              : t("prefs.noActivePlanBanner.text")}
           </div>
         </div>
       )}
 
-      {hasActivePlan !== null && (
+      {/* 🌟 ZMENA: najprv režim, potom začiatok plánu */}
+      <CoachModeSection
+        local={local}
+        setPref={setPref}
+        hasActivePlan={hasActivePlan === true}
+      />
+
+      {/* Začiatok/koniec pre AI plán - v advisor režime sa koniec volí
+          priamo pri "Začať plán" (PlanLifecycleSection) */}
+      {hasActivePlan !== null && !isAdvisorMode && (
         <PlanStartSection
           local={local}
           setLocal={setLocal}
@@ -547,15 +561,12 @@ export default function CoachPreferencies() {
         />
       )}
 
-      <CoachModeSection local={local} setPref={setPref} />
-
       <GoalSection
         local={local}
         setPref={setPref}
         upsertRunTargets={upsertRunTargets}
       />
 
-      {/* 🌟 NOVÉ: toggle pre detailný prístup, uložený v preferences.detailed_mode */}
       <DetailedModeToggle
         checked={!!pref.detailed_mode}
         onToggle={() =>
@@ -644,4 +655,5 @@ export default function CoachPreferencies() {
       {hasActivePlan !== true && <PlanLifecycleSection prefs={local} />}
     </div>
   );
+
 }
