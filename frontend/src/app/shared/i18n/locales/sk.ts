@@ -404,6 +404,8 @@ export const sk = {
     noActivePlanBanner: {
       title: "Zatiaľ nemáš nastaveného trénera",
       text: "Vyplň svoje tréningové preferencie nižšie a potom dole požiadaj o návrh plánu a spusti ho.",
+      textAdvisor: "Zvoľ si nastavenia, ulož ich a dole začni plán. Tréningy si potom pridávaš sám.",
+
     },
     detailedMode: {
       title: "Chcem nastaviť tréning detailne",
@@ -440,6 +442,7 @@ export const sk = {
     sections: {
       planLifecycleSection: {
         title: "Tvorba plánu",
+
         goToWeekly: "Týždenný plán",
         generateButton: "Vygenerovať plán",
         needRaceOrDate:
@@ -450,6 +453,11 @@ export const sk = {
           msg3: "Nový rozpis bude stáť za to!",
           msg4: "Analyzujú sa dáta. Chvíľu to potrvá, progres je dôležitý.",
         },
+advisorEndLabel: "Koniec plánu (voliteľné)",
+advisorEndHint: "Bez konca plán beží, kým ho nezrušíš. S koncom sa po ňom automaticky uzavrie a dostaneš sumár prípravy.",
+advisorRunning: "Plán beží od {{start}} · koniec: {{end}}",
+advisorNoEnd: "bez pevného konca",
+
         actions: {
           openPlan: "Denný plán",
           startPlan: "Spustiť tréningový plán",
@@ -472,6 +480,8 @@ export const sk = {
           cancel: "Zrušiť",
         },
         errors: {
+invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
+
           advisorNotSaved: "Najprv ulož nastavenia s režimom Poradca.",
           genericStart: "Tento plán sa nepodarilo spustiť.",
           medicalBlocked:
