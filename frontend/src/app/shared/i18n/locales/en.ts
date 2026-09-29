@@ -402,6 +402,8 @@ export const en = {
   prefs: {
     title: "Training preferences",
     noActivePlanBanner: {
+textAdvisor: "Choose your settings, save them and start the plan below. You then add workouts yourself.",
+
       title: "No trainer set up yet",
       text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
     },
@@ -450,6 +452,11 @@ export const en = {
           msg3: "The new plan will be worth it!",
           msg4: "Analyzing data. This will take a moment, progress matters.",
         },
+advisorEndLabel: "Plan end (optional)",
+advisorEndHint: "Without an end date, the plan runs until you cancel it. With one, it closes automatically afterwards and you get a preparation summary.",
+advisorRunning: "Plan running since {{start}} · end: {{end}}",
+advisorNoEnd: "no fixed end",
+
         actions: {
           openPlan: "Daily plan",
           startPlan: "Start training plan",
@@ -475,6 +482,8 @@ export const en = {
         },
 
         errors: {
+invalidEndDate: "Plan end can't be in the past.",
+
           advisorNotSaved: "Save your settings with Advisor mode first.",
           genericStart: "This plan could not be started.",
           medicalBlocked:
