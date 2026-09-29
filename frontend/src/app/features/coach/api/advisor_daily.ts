@@ -10,6 +10,8 @@ export type ManualStrengthExercisePayload = {
 
 export type ManualRunSessionType = "easy" | "recovery" | "long" | "tempo" | "interval";
 
+export type IntervalUnit = "time" | "distance";
+
 export type ManualDailySessionCreatePayload = {
   plan_date: string;
   sport: "run" | "ride" | "swim" | "strength" | "other";
@@ -26,10 +28,15 @@ export type ManualDailySessionCreatePayload = {
   cooldown_notes?: string | null;
   main_minutes?: number | null;
   main_notes?: string | null;
+
   rounds?: number | null;
-  work_min?: number | null;
+  work_unit?: IntervalUnit | null;
+  work_duration_s?: number | null;
+  work_distance_m?: number | null;
   work_notes?: string | null;
-  rest_min?: number | null;
+  rest_unit?: IntervalUnit | null;
+  rest_duration_s?: number | null;
+  rest_distance_m?: number | null;
   rest_notes?: string | null;
 
   exercises?: ManualStrengthExercisePayload[] | null;
