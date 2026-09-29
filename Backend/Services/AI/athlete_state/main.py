@@ -43,12 +43,27 @@ from Modules.Supabase.auth import AuthCtx
 ADVISOR_PLAN_DAYS_BACK = 7
 ADVISOR_PLAN_DAYS_FORWARD = 7
 
+def _part_seconds(part: Dict[str, Any]) -> Optional[int]:
+    """Sekundy časti intervalu - duration_s, fallback z minutes."""
+    if part.get("duration_s") is not None:
+        try:
+            return int(part["duration_s"])
+        except (TypeError, ValueError):
+            return None
+    if part.get("minutes") is not None:
+        try:
+            return int(round(float(part["minutes"]) * 60))
+        except (TypeError, ValueError):
+            return None
+    return None
+
 
 def _compact_plan_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
     """
-    🌟 NOVÉ: zhustená štruktúra plánovanej session pre advisor kontext.
-    Silové cviky idú s menom a pohybovým vzorom (nie exercise_id), aby
-    AI vedela komentovať vyváženosť (napr. chýba vertikálny ťah).
+    Zhustená štruktúra plánovanej session pre advisor kontext.
+    Silové cviky idú s menom a pohybovým vzorom (nie exercise_id).
+    Intervaly: úsek/pauza v sekundách (work_s/rest_s) alebo metroch
+    (work_m/rest_m).
     """
     if not isinstance(structure, dict):
         return None
@@ -77,8 +92,10 @@ def _compact_plan_structure(sport: str, structure: Any) -> Optional[Dict[str, An
             rest = b.get("rest") or {}
             main_out.append({
                 "rounds": b.get("rounds"),
-                "work_min": work.get("minutes"),
-                "rest_min": rest.get("minutes"),
+                "work_s": _part_seconds(work) if work.get("distance_m") is None else None,
+                "work_m": work.get("distance_m"),
+                "rest_s": _part_seconds(rest) if rest.get("distance_m") is None else None,
+                "rest_m": rest.get("distance_m"),
                 "work_notes": str(work.get("notes") or "")[:80] or None,
             })
         else:
