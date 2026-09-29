@@ -1,11 +1,12 @@
 // src/app/features/prefs/components/sections/PlanLifecycleSection.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
+import DateField from "@/app/shared/ui/components/DateField";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
@@ -30,6 +31,19 @@ import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarni
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
+/** Lokálny dnešný dátum (nie UTC) vo formáte YYYY-MM-DD. */
+function todayIsoLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatDay(iso: string | null | undefined, locale: string): string {
+  if (!iso) return "";
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export default function PlanLifecycleSection({
   prefs,
 }: {
@@ -42,13 +56,13 @@ export default function PlanLifecycleSection({
   const router = useRouter();
   const { userId, userUuid } = useUserId();
   const t = useT();
+  const locale = (t("common.locale" as any) as string) || "sk-SK";
 
   const coach = useCoachDataOptional();
   const refreshCoach = useCallback(() => {
     void coach?.refresh(true);
   }, [coach]);
 
-  // 🌟 NOVÉ: advisor režim - plán si user skladá sám
   const isAdvisor = prefs?.coach_mode === "advisor";
 
   const canGenerate = useMemo(() => {
@@ -58,6 +72,21 @@ export default function PlanLifecycleSection({
     return hasStartDate || hasRace;
   }, [prefs?.start_date, prefs?.targets]);
 
+  // 🌟 NOVÉ: advisor - najbližšie budúce preteky (A-priorita má prednosť)
+  // ako predvyplnený koniec plánu
+  const nearestRaceDate = useMemo(() => {
+    const races = Array.isArray(prefs?.targets?.run?.races) ? prefs!.targets!.run!.races! : [];
+    const today = todayIsoLocal();
+    const future = races
+      .filter((r: any) => r?.date && String(r.date).slice(0, 10) >= today)
+      .sort(
+        (a: any, b: any) =>
+          (a.priority === "A" ? 0 : 1) - (b.priority === "A" ? 0 : 1) ||
+          String(a.date).localeCompare(String(b.date)),
+      );
+    return future[0] ? String(future[0].date).slice(0, 10) : "";
+  }, [prefs?.targets]);
+
   const [latestStateId, setLatestStateId] = useState<number | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,14 +95,24 @@ export default function PlanLifecycleSection({
   const [isPlanActive, setIsPlanActive] = useState(false);
   const [hasWeekly, setHasWeekly] = useState(false);
   const [hasDaily, setHasDaily] = useState(false);
+  const [activeMeta, setActiveMeta] = useState<any>(null);
 
   const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
   const [loadingStepLabel, setLoadingStepLabel] = useState<string | null>(null);
 
+  // 🌟 NOVÉ: advisor - voliteľný koniec plánu
+  const [advisorEnd, setAdvisorEnd] = useState<string>("");
+  const advisorEndTouched = useRef(false);
+
+  useEffect(() => {
+    if (!advisorEndTouched.current && nearestRaceDate) {
+      setAdvisorEnd(nearestRaceDate);
+    }
+  }, [nearestRaceDate]);
+
   const loading = loadingKind !== null && loadingKind !== "status";
   const isMedicalSuspend = maxInjurySeverity >= 7;
-  // 🌟 NOVÉ: v advisor režime sa plán pri zranení neblokuje - len varujeme
   const blockActions = isMedicalSuspend && !isAdvisor;
 
   const dailyRoute = isAdvisor ? "/coach/advisor/daily" : "/coach/ai/dailyPlan";
@@ -112,6 +151,7 @@ export default function PlanLifecycleSection({
         setIsPlanActive(!!planStatus.has_active);
         setHasWeekly(!!planStatus.has_weekly_data);
         setHasDaily(!!planStatus.has_daily_data);
+        setActiveMeta(planStatus.has_active ? (planStatus as any).meta ?? null : null);
       }
 
       if (healthLogs && healthLogs.length > 0) {
@@ -215,13 +255,19 @@ export default function PlanLifecycleSection({
     }
   }, [userId, isMedicalSuspend, fetchStatus, t, refreshCoach]);
 
-  // 🌟 NOVÉ: "Začať plán" v advisor režime - prázdny aktívny plán bez AI
+  // "Začať plán" v advisor režime - prázdny aktívny plán bez AI
   const handleStartManual = useCallback(async () => {
     if (!userId || loading) return;
     setError(null);
+
+    if (advisorEnd && advisorEnd < todayIsoLocal()) {
+      setError(t("prefs.sections.planLifecycleSection.errors.invalidEndDate" as any));
+      return;
+    }
+
     setLoadingKind("start");
     try {
-      const res = await apiStartManualPlan(userId);
+      const res = await apiStartManualPlan(userId, { end_date: advisorEnd || null });
       if (res.success) {
         await fetchStatus();
         refreshCoach();
@@ -232,6 +278,8 @@ export default function PlanLifecycleSection({
         setError(t("prefs.sections.planLifecycleSection.errors.advisorNotSaved" as any));
       } else if (res.error_code === "active_plan_exists") {
         setError(t("prefs.sections.planLifecycleSection.errors.alreadyActive" as any));
+      } else if (res.error_code === "invalid_end_date") {
+        setError(t("prefs.sections.planLifecycleSection.errors.invalidEndDate" as any));
       } else {
         setError(res.message || t("prefs.sections.planLifecycleSection.errors.genericStart" as any));
       }
@@ -240,7 +288,7 @@ export default function PlanLifecycleSection({
     } finally {
       setLoadingKind(null);
     }
-  }, [userId, loading, fetchStatus, refreshCoach, router, t]);
+  }, [userId, loading, advisorEnd, fetchStatus, refreshCoach, router, t]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
@@ -277,6 +325,17 @@ export default function PlanLifecycleSection({
     if (!hasDaily) return t("prefs.sections.planLifecycleSection.errors.needDaily" as any);
     return null;
   }, [isPlanActive, latestStateId, hasWeekly, hasDaily, isMedicalSuspend, t]);
+
+  const advisorRunningText = useMemo(() => {
+    if (!isAdvisor || !isPlanActive || !activeMeta) return null;
+    const start = formatDay(activeMeta.start_date, locale);
+    const end = activeMeta.end_date
+      ? formatDay(activeMeta.end_date, locale)
+      : t("prefs.sections.planLifecycleSection.advisorNoEnd" as any);
+    return (t("prefs.sections.planLifecycleSection.advisorRunning" as any) as string)
+      .replace("{{start}}", start)
+      .replace("{{end}}", end);
+  }, [isAdvisor, isPlanActive, activeMeta, locale, t]);
 
   return (
     <div
@@ -350,7 +409,6 @@ export default function PlanLifecycleSection({
 
       {!blockActions && (
         <>
-          {/* Prekliky - v advisor režime len denný plán (weekly neexistuje) */}
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <Button
               variant="secondary"
@@ -374,15 +432,36 @@ export default function PlanLifecycleSection({
             )}
           </div>
 
-          {/* 🌟 ADVISOR: Začať plán (bez AI) */}
+          {/* ADVISOR: plán beží */}
+          {advisorRunningText && (
+            <div className="text-xs opacity-70 text-center mb-2">{advisorRunningText}</div>
+          )}
+
+          {/* ADVISOR: voliteľný koniec + Začať plán */}
           {isAdvisor && !isPlanActive && (
-            <>
+            <div className="flex flex-col gap-2 mb-2">
+              <div>
+                <div className="text-xs opacity-60 mb-1">
+                  {t("prefs.sections.planLifecycleSection.advisorEndLabel" as any)}
+                </div>
+                <DateField
+                  value={advisorEnd}
+                  onChange={(v: string | null) => {
+                    advisorEndTouched.current = true;
+                    setAdvisorEnd(v ?? "");
+                  }}
+                />
+                <div className="text-[11px] opacity-50 mt-1 leading-snug">
+                  {t("prefs.sections.planLifecycleSection.advisorEndHint" as any)}
+                </div>
+              </div>
+
               <Button
                 variant="primary"
                 size="sm"
                 onClick={handleStartManual}
                 disabled={isGlobalLoading}
-                className="w-full mb-2"
+                className="w-full"
               >
                 {loadingKind === "start" ? (
                   <LoadingSpinner size="button" />
@@ -390,10 +469,10 @@ export default function PlanLifecycleSection({
                   t("prefs.sections.planLifecycleSection.actions.startManual" as any)
                 )}
               </Button>
-              <div className="text-[11px] opacity-60 text-center mb-2">
+              <div className="text-[11px] opacity-60 text-center">
                 {t("prefs.sections.planLifecycleSection.advisorHint" as any)}
               </div>
-            </>
+            </div>
           )}
 
           {/* COACH: Vygenerovať */}
