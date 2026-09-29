@@ -21,50 +21,129 @@ VALID_RUN_SESSION_TYPES = {"easy", "recovery", "long", "tempo", "interval"}
 MAX_STRENGTH_EXERCISES = 15
 MAX_TITLE_LEN = 200
 MAX_NOTES_LEN = 1000
+MAX_PART_NOTES_LEN = 300
 MAX_SESSIONS_PER_DAY = 2  # rovnaký limit ako reschedule (max_per_day=2)
 
 
-def _build_run_like_structure(
+# ============================================================
+# STRUCTURE BUILDERS
+# ============================================================
+
+def _int_or_none(v: Any) -> Optional[int]:
+    try:
+        if v is None or v == "":
+            return None
+        return int(round(float(v)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _interval_part(
     *,
-    mode: str,  # "simple" | "intervals"
-    warmup_min: Optional[int],
-    warmup_notes: Optional[str],
-    cooldown_min: Optional[int],
-    cooldown_notes: Optional[str],
-    main_minutes: Optional[int],
-    main_notes: Optional[str],
-    rounds: Optional[int],
-    work_min: Optional[int],
-    work_notes: Optional[str],
-    rest_min: Optional[int],
-    rest_notes: Optional[str],
+    unit: Optional[str],
+    duration_s: Any,
+    distance_m: Any,
+    legacy_minutes: Any,
+    notes: Optional[str],
+    required: bool,
+    label: str,
 ) -> Dict[str, Any]:
     """
-    Zostaví structure JSON pre run/ride/swim - rovnaký tvar, aký produkuje
-    AI generátor. Warmup/cooldown sú voliteľné.
+    🌟 NOVÉ: jedna časť intervalu (úsek alebo pauza) - na čas alebo na
+    vzdialenosť.
+
+    - čas: {"duration_s": 90, "minutes": 1.5, "notes": ...}. "minutes" sa
+      ukladá navyše, aby staré čítanie štruktúry (AI prompty, render,
+      plan-match) fungovalo bez zmeny.
+    - vzdialenosť: {"distance_m": 400, "notes": ...}
+
+    legacy_minutes: spätná kompatibilita pre staré volania s work_min/rest_min.
     """
+    notes_clean = (notes or "")[:MAX_PART_NOTES_LEN]
+
+    if unit == "distance":
+        dist = _int_or_none(distance_m)
+        if dist and dist > 0:
+            return {"distance_m": dist, "notes": notes_clean}
+        if required:
+            raise ValueError(f"{label} requires distance_m")
+        return {"duration_s": 0, "minutes": 0, "notes": notes_clean}
+
+    sec = _int_or_none(duration_s)
+    if sec is None and legacy_minutes not in (None, ""):
+        try:
+            sec = int(round(float(legacy_minutes) * 60))
+        except (TypeError, ValueError):
+            sec = None
+
+    if not sec or sec <= 0:
+        if required:
+            raise ValueError(f"{label} requires duration_s")
+        return {"duration_s": 0, "minutes": 0, "notes": notes_clean}
+
+    return {"duration_s": sec, "minutes": round(sec / 60, 2), "notes": notes_clean}
+
+
+def _build_run_like_structure(inp: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    """
+    Zostaví structure pre run/ride/swim. Rovnaký tvar ako AI generátor,
+    rozšírený o duration_s / distance_m v intervaloch. Vráti (structure, mode).
+    """
+    mode = inp.get("structure_mode") if inp.get("structure_mode") in ("simple", "intervals") else "simple"
     structure: Dict[str, Any] = {}
 
+    warmup_min = _int_or_none(inp.get("warmup_min"))
+    cooldown_min = _int_or_none(inp.get("cooldown_min"))
     if warmup_min:
-        structure["warmup"] = {"minutes": int(warmup_min), "notes": warmup_notes or ""}
+        structure["warmup"] = {
+            "minutes": warmup_min,
+            "notes": (inp.get("warmup_notes") or "")[:MAX_PART_NOTES_LEN],
+        }
     if cooldown_min:
-        structure["cooldown"] = {"minutes": int(cooldown_min), "notes": cooldown_notes or ""}
+        structure["cooldown"] = {
+            "minutes": cooldown_min,
+            "notes": (inp.get("cooldown_notes") or "")[:MAX_PART_NOTES_LEN],
+        }
 
     if mode == "intervals":
-        if not rounds or not work_min:
-            raise ValueError("intervals mode requires rounds and work_min")
+        rounds = _int_or_none(inp.get("rounds"))
+        if not rounds or rounds <= 0:
+            raise ValueError("intervals mode requires rounds")
+
+        work = _interval_part(
+            unit=inp.get("work_unit"),
+            duration_s=inp.get("work_duration_s"),
+            distance_m=inp.get("work_distance_m"),
+            legacy_minutes=inp.get("work_min"),
+            notes=inp.get("work_notes"),
+            required=True,
+            label="work",
+        )
+        rest = _interval_part(
+            unit=inp.get("rest_unit"),
+            duration_s=inp.get("rest_duration_s"),
+            distance_m=inp.get("rest_distance_m"),
+            legacy_minutes=inp.get("rest_min"),
+            notes=inp.get("rest_notes"),
+            required=False,
+            label="rest",
+        )
         structure["main_part"] = [{
             "kind": "interval_block",
-            "rounds": int(rounds),
-            "work": {"minutes": int(work_min), "notes": work_notes or ""},
-            "rest": {"minutes": int(rest_min or 0), "notes": rest_notes or ""},
+            "rounds": rounds,
+            "work": work,
+            "rest": rest,
         }]
     else:
+        main_minutes = _int_or_none(inp.get("main_minutes"))
         if not main_minutes:
             raise ValueError("simple mode requires main_minutes")
-        structure["main_part"] = [{"minutes": int(main_minutes), "notes": main_notes or ""}]
+        structure["main_part"] = [{
+            "minutes": main_minutes,
+            "notes": (inp.get("main_notes") or "")[:MAX_PART_NOTES_LEN],
+        }]
 
-    return structure
+    return structure, mode
 
 
 def _build_strength_structure(exercises: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -84,9 +163,9 @@ def _build_strength_structure(exercises: List[Dict[str, Any]]) -> Dict[str, Any]
         if not get_exercise(ex_id):
             raise ValueError(f"unknown exercise_id: {ex_id}")
 
-        sets = ex.get("sets")
+        sets = _int_or_none(ex.get("sets"))
         reps = ex.get("reps")
-        if not isinstance(sets, int) or sets <= 0 or sets > 20:
+        if not sets or sets <= 0 or sets > 20:
             raise ValueError(f"invalid sets for {ex_id}")
         if not reps or not str(reps).strip():
             raise ValueError(f"invalid reps for {ex_id}")
@@ -94,7 +173,7 @@ def _build_strength_structure(exercises: List[Dict[str, Any]]) -> Dict[str, Any]
         main_part.append({
             "exercise_id": ex_id,
             "sets": sets,
-            "reps": str(reps)[:20],
+            "reps": str(reps).strip()[:20],
         })
 
     return {"strength_main_part": main_part}
@@ -108,41 +187,18 @@ def _normalize_sport(sport: Optional[str]) -> str:
 
 
 def _resolve_structure(
-    *,
-    sport_clean: str,
-    session_type: Optional[str],
-    structure_mode: Optional[str],
-    warmup_min: Optional[int],
-    warmup_notes: Optional[str],
-    cooldown_min: Optional[int],
-    cooldown_notes: Optional[str],
-    main_minutes: Optional[int],
-    main_notes: Optional[str],
-    rounds: Optional[int],
-    work_min: Optional[int],
-    work_notes: Optional[str],
-    rest_min: Optional[int],
-    rest_notes: Optional[str],
-    exercises: Optional[List[Dict[str, Any]]],
+    *, sport_clean: str, inp: Dict[str, Any]
 ) -> Tuple[Optional[Dict[str, Any]], str]:
     """
-    Spoločné jadro pre create aj update - rozhodne tvar structure podľa
-    sport a vráti (structure, session_type).
+    Spoločné jadro pre create aj update - vráti (structure, session_type).
 
-    session_type: pre run/ride/swim si ho user vyberá (easy/recovery/long/
-    tempo/interval). Ak chýba alebo je neplatný, odvodí sa z režimu
-    (intervals -> interval, simple -> easy).
+    inp obsahuje všetky voliteľné štruktúrne polia (session_type,
+    structure_mode, warmup/cooldown, main, intervaly, exercises). Pridanie
+    ďalšieho poľa = len zmena tu a v route modeli, nie v 3 signatúrach.
     """
     if sport_clean in VALID_RUN_LIKE_SPORTS:
-        mode = structure_mode if structure_mode in ("simple", "intervals") else "simple"
-        structure = _build_run_like_structure(
-            mode=mode,
-            warmup_min=warmup_min, warmup_notes=warmup_notes,
-            cooldown_min=cooldown_min, cooldown_notes=cooldown_notes,
-            main_minutes=main_minutes, main_notes=main_notes,
-            rounds=rounds, work_min=work_min, work_notes=work_notes,
-            rest_min=rest_min, rest_notes=rest_notes,
-        )
+        structure, mode = _build_run_like_structure(inp)
+        session_type = inp.get("session_type")
         if session_type in VALID_RUN_SESSION_TYPES:
             resolved_type = str(session_type)
         else:
@@ -150,10 +206,14 @@ def _resolve_structure(
         return structure, resolved_type
 
     if sport_clean == "strength":
-        return _build_strength_structure(exercises or []), "other"
+        return _build_strength_structure(inp.get("exercises") or []), "other"
 
     return None, "external_event"
 
+
+# ============================================================
+# CREATE / UPDATE / DELETE
+# ============================================================
 
 def service_create_manual_daily_session(
     user_id: int,
@@ -164,29 +224,14 @@ def service_create_manual_daily_session(
     duration_min: int,
     notes: Optional[str] = None,
     plan_meta_id: Optional[int] = None,
-    session_type: Optional[str] = None,
-    structure_mode: Optional[str] = None,
-    warmup_min: Optional[int] = None,
-    warmup_notes: Optional[str] = None,
-    cooldown_min: Optional[int] = None,
-    cooldown_notes: Optional[str] = None,
-    main_minutes: Optional[int] = None,
-    main_notes: Optional[str] = None,
-    rounds: Optional[int] = None,
-    work_min: Optional[int] = None,
-    work_notes: Optional[str] = None,
-    rest_min: Optional[int] = None,
-    rest_notes: Optional[str] = None,
-    exercises: Optional[List[Dict[str, Any]]] = None,
+    structure_input: Optional[Dict[str, Any]] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Ručné pridanie jedného tréningu do denného plánu. coach_mode sa zámerne
     nekontroluje (spontánny futbal dáva zmysel aj v coach režime).
-
-    🌟 NOVÉ: limit MAX_SESSIONS_PER_DAY rovnako ako pri reschedule. Ak na
-    dni existuje "rest" riadok (duration 0/NULL), nepočíta sa a pri
-    pridaní reálneho tréningu sa zmaže.
+    Limit MAX_SESSIONS_PER_DAY rovnako ako pri reschedule; "rest" riadok
+    (duration 0/NULL) sa nepočíta a pri pridaní reálneho tréningu sa zmaže.
     """
     plan_date = str(plan_date)[:10]
     if not plan_date or len(plan_date) != 10:
@@ -212,20 +257,11 @@ def service_create_manual_daily_session(
 
     try:
         structure, resolved_type = _resolve_structure(
-            sport_clean=sport_clean,
-            session_type=session_type,
-            structure_mode=structure_mode,
-            warmup_min=warmup_min, warmup_notes=warmup_notes,
-            cooldown_min=cooldown_min, cooldown_notes=cooldown_notes,
-            main_minutes=main_minutes, main_notes=main_notes,
-            rounds=rounds, work_min=work_min, work_notes=work_notes,
-            rest_min=rest_min, rest_notes=rest_notes,
-            exercises=exercises,
+            sport_clean=sport_clean, inp=structure_input or {}
         )
     except ValueError as e:
         return {"ok": False, "code": "invalid_structure", "message": str(e)}
 
-    # 🌟 NOVÉ: kapacita dňa
     rest_row = db_get_rest_session_on_day(
         user_id=user_id, plan_meta_id=plan_meta_id, plan_date=plan_date, ctx=ctx
     )
@@ -280,25 +316,12 @@ def service_update_manual_daily_session(
     duration_min: Optional[int] = None,
     notes: Optional[str] = None,
     sport: Optional[str] = None,
-    session_type: Optional[str] = None,
-    structure_mode: Optional[str] = None,
-    warmup_min: Optional[int] = None,
-    warmup_notes: Optional[str] = None,
-    cooldown_min: Optional[int] = None,
-    cooldown_notes: Optional[str] = None,
-    main_minutes: Optional[int] = None,
-    main_notes: Optional[str] = None,
-    rounds: Optional[int] = None,
-    work_min: Optional[int] = None,
-    work_notes: Optional[str] = None,
-    rest_min: Optional[int] = None,
-    rest_notes: Optional[str] = None,
-    exercises: Optional[List[Dict[str, Any]]] = None,
+    structure_input: Optional[Dict[str, Any]] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Úprava existujúceho tréningu. Ak je zadané sport, structure aj
-    session_type sa prepočítajú celé nanovo cez _resolve_structure.
+    session_type sa prepočítajú celé nanovo zo structure_input.
     """
     existing = db_get_daily_session_by_id_full(user_id, session_id, ctx=ctx)
     if not existing:
@@ -324,15 +347,7 @@ def service_update_manual_daily_session(
         sport_clean = _normalize_sport(sport)
         try:
             structure, resolved_type = _resolve_structure(
-                sport_clean=sport_clean,
-                session_type=session_type,
-                structure_mode=structure_mode,
-                warmup_min=warmup_min, warmup_notes=warmup_notes,
-                cooldown_min=cooldown_min, cooldown_notes=cooldown_notes,
-                main_minutes=main_minutes, main_notes=main_notes,
-                rounds=rounds, work_min=work_min, work_notes=work_notes,
-                rest_min=rest_min, rest_notes=rest_notes,
-                exercises=exercises,
+                sport_clean=sport_clean, inp=structure_input or {}
             )
         except ValueError as e:
             return {"ok": False, "code": "invalid_structure", "message": str(e)}
