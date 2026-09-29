@@ -57,15 +57,28 @@ async def save_active_plan(
 # POST /coach-plan-active/{user_id}/start-manual
 # 🌟 NOVÉ: advisor režim - prázdny aktívny plán bez AI generovania
 # ----------------------------------------------------
+class StartManualPlanPayload(BaseModel):
+    end_date: Optional[str] = None  # YYYY-MM-DD, voliteľné
+
+
+# ----------------------------------------------------
+# POST /coach-plan-active/{user_id}/start-manual
+# advisor režim - prázdny aktívny plán bez AI generovania
+# ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/start-manual")
 async def start_manual_plan(
     req: Request,
     user_id: int,
+    payload: Optional[StartManualPlanPayload] = None,
 ):
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        result = service_start_manual_plan(user_id=user_id, ctx=ctx)
+        result = service_start_manual_plan(
+            user_id=user_id,
+            end_date=payload.end_date if payload else None,
+            ctx=ctx,
+        )
         if not result.get("ok"):
             return {
                 "success": False,
@@ -83,7 +96,6 @@ async def start_manual_plan(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"start_manual_plan ERROR: {str(e)}")
-
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/cancel
