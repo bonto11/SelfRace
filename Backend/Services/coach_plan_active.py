@@ -80,6 +80,7 @@ def service_save_active_plan(
 # 🌟 NOVÉ: "Začať plán" - advisor mode, bez AI
 # ============================================================
 
+
 def service_start_manual_plan(
     user_id: int,
     *,
@@ -157,6 +158,7 @@ def service_start_manual_plan(
         "plan_end": final_meta.get("end_date"),
         "meta": final_meta,
     }
+
 
 
 def service_cancel_active_plan(
