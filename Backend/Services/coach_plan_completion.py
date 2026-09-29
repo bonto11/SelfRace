@@ -21,7 +21,7 @@ from DB.coach_plan_summaries import (
 )
 from Services.user_prefs import service_load_coach_prefs_for_analysis
 from Services.AI.plan_completion.generate import service_generate_plan_completion_summary
-
+from Services.coach_mode import service_get_coach_mode
 
 RACE_GOAL_KM: Dict[str, float] = {
     "5k": 5.0,
@@ -561,9 +561,14 @@ def service_check_and_generate_plan_summary(
         activity_distance_km = float(distance_m) / 1000.0
         matching_race = _find_matching_race(prefs, str(activity_date), activity_distance_km)
 
-    # FIX: teraz scoped na tento konkrétny meta_id - pozri docstring
-    # _is_last_plan_session_match vyššie.
-    is_last_session = _is_last_plan_session_match(user_id, meta_id, str(activity_date), ctx=ctx)
+    # 🌟 NOVÉ: v advisor režime sa plán NEuzatvára podľa "poslednej
+    # naplánovanej session". User si tréningy pridáva priebežne pár dní
+    # dopredu, takže posledná session je skoro vždy "posledná" - plán by
+    # sa uzavrel a všetky ručné tréningy by sa zmazali. Uzavretie pri
+    # pretekoch (race_match) a po end_date (cron) ostáva.
+    is_last_session = False
+    if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
+        is_last_session = _is_last_plan_session_match(user_id, meta_id, str(activity_date), ctx=ctx)
 
     if not matching_race and not is_last_session:
         return None
@@ -579,7 +584,6 @@ def service_check_and_generate_plan_summary(
         is_plan_completed=True,
         ctx=ctx,
     )
-
 
 # ============================================================
 # ENTRYPOINT B: MANUÁLNY "MILESTONE" SUMÁR (volaný z FE, kedykoľvek)

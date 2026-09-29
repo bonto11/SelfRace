@@ -10,6 +10,8 @@ from Modules.Supabase.auth import AuthCtx
 from DB.coach_plan_meta import (
     db_get_latest_plan_meta_for_user,
     db_get_active_plan_meta_for_user,
+    db_get_generated_plan_metas_for_user,
+    db_insert_plan_meta_generated,
     db_update_plan_status,
     db_delete_plan_meta,
     db_archive_plan_meta,
@@ -28,6 +30,8 @@ from DB.coach_plan_weekly import (
 )
 from DB.coach_strength_history import db_clear_strength_history_for_user
 from Services.coach_plan_completion import service_complete_plan_due_to_date
+from Services.coach_mode import service_get_coach_mode
+from Services.user_prefs import service_load_coach_prefs_for_analysis
 
 
 def _ensure_latest_plan_meta(
@@ -71,6 +75,84 @@ def service_save_active_plan(
         "meta": final_meta,
     }
 
+
+# ============================================================
+# 🌟 NOVÉ: "Začať plán" - advisor mode, bez AI
+# ============================================================
+
+def service_start_manual_plan(
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    Vytvorí prázdny AKTÍVNY plán bez AI generovania - advisor režim.
+
+    start_date = DNES (nie prefs.start_date - FE ho normalizuje na zajtra
+    a neskôr, čo v advisor režime nedáva zmysel, user chce pridať tréning
+    hneď).
+
+    end_date z prefs (typicky dátum hlavného preteku). Ak chýba alebo je
+    v minulosti, ostane NULL - plán potom beží, kým ho user sám nezruší
+    (nočný cron filtruje end_date < dnes, NULL nikdy nevyhovie).
+    """
+    if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
+        return {
+            "ok": False,
+            "code": "not_advisor_mode",
+            "message": "Začať plán bez generovania je dostupné len v advisor režime.",
+        }
+
+    active_meta_guard = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    if active_meta_guard:
+        return {
+            "ok": False,
+            "code": "active_plan_exists",
+            "message": "Máš už aktívny plán - najprv ho zruš alebo nechaj doviesť do konca.",
+        }
+
+    old_drafts = db_get_generated_plan_metas_for_user(user_id=user_id, ctx=ctx)
+    for old in old_drafts:
+        old_id = old.get("id")
+        if old_id is None:
+            continue
+        db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
+        db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
+        db_delete_plan_meta(user_id=user_id, meta_id=old_id, ctx=ctx)
+        print(f"[MANUAL-PLAN][user={user_id}] cleaned up stale draft plan_meta_id={old_id}")
+
+    today_iso = datetime.now(ZoneInfo("Europe/Bratislava")).date().isoformat()
+
+    prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx) or {}
+    end_raw = prefs.get("end_date")
+    end_date = str(end_raw)[:10] if end_raw else None
+    if end_date and end_date < today_iso:
+        end_date = None
+
+    meta_row = db_insert_plan_meta_generated(
+        user_id=user_id,
+        weeks_total=None,
+        start_date=today_iso,
+        end_date=end_date,
+        ctx=ctx,
+    )
+    if not meta_row or not meta_row.get("id"):
+        return {"ok": False, "code": "insert_failed", "message": "Nepodarilo sa vytvoriť plán."}
+
+    activated = db_update_plan_status(
+        user_id=user_id,
+        meta_id=meta_row["id"],
+        new_status="active",
+        ctx=ctx,
+    )
+    final_meta = activated or meta_row
+
+    return {
+        "ok": True,
+        "plan_start": final_meta.get("start_date"),
+        "plan_end": final_meta.get("end_date"),
+        "meta": final_meta,
+    }
 
 def service_cancel_active_plan(
     user_id: int,

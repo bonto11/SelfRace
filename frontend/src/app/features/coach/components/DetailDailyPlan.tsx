@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import Button from "@/app/shared/ui/components/Button";
 import { confirm } from "@/app/shared/ui/components/Confirm";
+import { toast } from "@/app/shared/ui/components/Toast";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import ShowAdvancedToggle from "@/app/shared/ui/components/ShowAdvancedToggle";
@@ -16,12 +17,15 @@ import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataPro
 import {
   apiSaveDailyReschedule,
   type DailyRescheduleMove,
+  type DailyPlanSession,
 } from "@/app/features/coach/api/coach_plan_daily";
+import { apiDeleteManualSession } from "@/app/features/coach/api/advisor_daily";
 
 import SessionCard, {
   type KPI,
   type SessionItem,
 } from "@/app/shared/components/session/SessionCard";
+import ManualSessionForm from "@/app/features/coach/components/ManualSessionForm";
 
 import {
   PANEL_STACK,
@@ -31,6 +35,7 @@ import {
   PANEL_SECTION_TITLE,
   PANEL_SECTION_SUBTITLE,
   PANEL_PREVIEW,
+  PANEL_ACTIONS_INLINE,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 
@@ -95,32 +100,47 @@ function Card({
 
 /* ---------- main ---------- */
 
-export default function DetailDailyPlan() {
+type Props = {
+  /**
+   * 🌟 NOVÉ: advisor režim - keď true, zobrazí sa "+ Pridať tréning" a
+   * na každej karte Upraviť/Vymazať. Coach režim (default) ostáva presne
+   * ako predtým, čisto na čítanie.
+   */
+  editable?: boolean;
+};
+
+export default function DetailDailyPlan({ editable = false }: Props) {
   const { userId } = useUserId();
   const t = useT();
 
-  const { settings } = useSettings() as any; 
-  const showAdvanced = settings?.show_advanced ?? false; 
+  const { settings } = useSettings() as any;
+  const showAdvanced = settings?.show_advanced ?? false;
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  // 🌟 Vytiahneme globálne dáta
   const { plan: { rows: globalRows }, loading: isGlobalLoading, refresh: refreshCoach } = useCoachData();
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
-  const [showAllDays, setShowAllDays] = useState(false); 
+  const [showAllDays, setShowAllDays] = useState(false);
   const [moves, setMoves] = useState<DailyRescheduleMove[]>([]);
 
-  // 🌟 Pretransformujeme globálne riadky do pôvodnej štruktúry 'days'
+  // 🌟 NOVÉ: stav formulára pre pridanie/úpravu ručného tréningu.
+  // null = zavretý. { mode: "create" } = nová session na selectedDate.
+  // { mode: "edit", session } = úprava existujúcej.
+  const [formState, setFormState] = useState<
+    | null
+    | { mode: "create"; planDate: string }
+    | { mode: "edit"; session: DailyPlanSession }
+  >(null);
+
   const days = useMemo(() => {
     if (!globalRows || !Array.isArray(globalRows)) return [];
-    
+
     const daysMap = new Map<string, any>();
-    
-    // Predpokladáme zobrazenie +- 7 dní (alebo celého rozsahu z DB)
+
     for (const r of globalRows) {
       const pDate = String(r.plan_date).slice(0, 10);
       if (!daysMap.has(pDate)) {
@@ -129,17 +149,14 @@ export default function DetailDailyPlan() {
       daysMap.get(pDate).sessions.push(r);
     }
 
-    // Sortneme od najstaršieho po najnovší
     return Array.from(daysMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [globalRows]);
 
   const hasPlan = days.length > 0;
 
-  // 🌟 Definované PRED filteredDays, keďže filteredDays ho teraz potrebuje
   const planDates = useMemo(() => {
     const out: string[] = [];
-    const base = new Date(); 
-    // Horizon necháme hardcoded na 7 dní dopredu, keďže to postačuje
+    const base = new Date();
     for (let i = 0; i <= 7; i++) {
       const d = new Date(base);
       d.setDate(d.getDate() + i);
@@ -150,16 +167,13 @@ export default function DetailDailyPlan() {
 
   const filteredDays = useMemo(() => {
     if (showAllDays) {
-      // OPRAVA: predtým sa vracalo úplne celé 'days' pole (t.j. aj historické
-      // záznamy z globalRows, napr. spred 11 dní), teraz sa obmedzí na tie isté
-      // dátumy ako ukazuje MiniCalendar / planDates (dnes .. +7 dní).
       const allowedDates = new Set(planDates);
       return days.filter((d) => allowedDates.has(d.date));
     }
     const list = days.filter((d) => d.date === selectedDate);
     return list;
   }, [days, showAllDays, selectedDate, planDates]);
-  
+
   const dayCounts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
     for (const d of days) {
@@ -172,8 +186,6 @@ export default function DetailDailyPlan() {
   const dirty = moves.length > 0;
 
   const addMove = (m: DailyRescheduleMove) => {
-    // ⚠️ Keďže teraz máme SSOT z providera, local override zrušíme, aby to nerobilo ghosting bugy. 
-    // Používateľ rovno uloží zmeny, čím zabezpečíme konzistenciu.
     setMoves((prev) => [...prev, m]);
   };
 
@@ -188,8 +200,7 @@ export default function DetailDailyPlan() {
     try {
       await apiSaveDailyReschedule(userId, moves);
       setMoves([]);
-      // 🌟 Globálny refresh!
-      refreshCoach(false); 
+      refreshCoach(false);
     } catch (e: any) {
       setSaveError(t(e?.message as any));
     } finally {
@@ -199,7 +210,39 @@ export default function DetailDailyPlan() {
 
   const handleSelectDate = (isoDate: string) => {
     setSelectedDate(isoDate);
-    setShowAllDays(false); 
+    setShowAllDays(false);
+  };
+
+  // 🌟 NOVÉ: handlery pre editable mode
+  const openAddForm = (planDate: string) => {
+    setFormState({ mode: "create", planDate });
+  };
+
+  const openEditForm = async (sessionId: number) => {
+    // Nájdeme session v globalRows podľa id (planId, ktoré posiela SessionCard)
+    const row = (globalRows || []).find((r: any) => Number(r.id) === sessionId);
+    if (!row) {
+      toast.error(t("common.error") || "Chyba");
+      return;
+    }
+    setFormState({ mode: "edit", session: row as unknown as DailyPlanSession });
+  };
+
+  const handleDeleteSession = async (sessionId: number) => {
+    if (!userId) return;
+    try {
+      await apiDeleteManualSession(userId, sessionId);
+      toast.success(t("common.deleted") || "Odstránené");
+      refreshCoach(false);
+    } catch (e: any) {
+      toast.error(t(e?.message as any) || t("common.error") || "Chyba");
+    }
+  };
+
+  const closeForm = () => setFormState(null);
+
+  const handleFormSaved = () => {
+    refreshCoach(false);
   };
 
   if (!userId) {
@@ -210,7 +253,6 @@ export default function DetailDailyPlan() {
     );
   }
 
-  // Loading zobrazíme len pri prvotnom loade
   if (isGlobalLoading && days.length === 0) {
     return (
       <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -223,7 +265,6 @@ export default function DetailDailyPlan() {
     );
   }
 
-  // Odfiltrujeme 'postponed'
   const daysForList = filteredDays.map(day => ({
     ...day,
     sessions: (day.sessions || []).filter((s: any) => s.status !== "postponed")
@@ -233,24 +274,56 @@ export default function DetailDailyPlan() {
 
   return (
     <div className={PANEL_STACK}>
+      {formState && (
+        <ManualSessionForm
+          planDate={formState.mode === "create" ? formState.planDate : String(formState.session.plan_date || selectedDate)}
+          planMetaId={null}
+          initialSession={formState.mode === "edit" ? formState.session : null}
+          onClose={closeForm}
+          onSaved={handleFormSaved}
+        />
+      )}
+
       {hasPlan && <ShowAdvancedToggle />}
 
       {hasPlan && (
         <div className="mb-2 space-y-2">
           <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-             <MiniCalendar 
-               startFrom="today" 
-               content="plan" 
-               selectedDateIso={showAllDays ? undefined : selectedDate} 
-               onSelectDate={handleSelectDate} 
+             <MiniCalendar
+               startFrom="today"
+               content="plan"
+               selectedDateIso={showAllDays ? undefined : selectedDate}
+               onSelectDate={handleSelectDate}
              />
           </div>
-          
-          <Toggle 
-            label={t("coach.daily.toggleAllWeek")}
-            checked={showAllDays}
-            onChange={setShowAllDays}
-          />
+
+          <div className={PANEL_ACTIONS_INLINE} style={{ justifyContent: "space-between" }}>
+            <Toggle
+              label={t("coach.daily.toggleAllWeek")}
+              checked={showAllDays}
+              onChange={setShowAllDays}
+            />
+
+            {editable && !showAllDays && (
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={() => openAddForm(selectedDate)}
+              >
+                + {t("advisorDaily.addButton") || "Pridať tréning"}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 NOVÉ: keď plán ešte neexistuje vôbec (advisor bez ani jedného
+          tréningu), umožníme pridať prvý priamo na dnešný deň. */}
+      {!hasPlan && editable && (
+        <div className={[PANEL_ACTIONS_INLINE, "justify-center"].join(" ")}>
+          <Button size="sm" variant="primary" onClick={() => openAddForm(todayIso)}>
+            + {t("advisorDaily.addButton") || "Pridať tréning"}
+          </Button>
         </div>
       )}
 
@@ -303,30 +376,33 @@ export default function DetailDailyPlan() {
         {!hasPlan ? (
           <div className={PANEL_PREVIEW}>{t("coach.daily.noPlan")}</div>
         ) : !hasVisibleSessions ? (
-          <div className={PANEL_PREVIEW}>
-            {t("coach.daily.noSessionsOnDay")}
+          <div className="flex flex-col items-center gap-3 py-4">
+            <div className={PANEL_PREVIEW}>
+              {t("coach.daily.noSessionsOnDay")}
+            </div>
+            {editable && !showAllDays && (
+              <Button size="xs" variant="secondary" onClick={() => openAddForm(selectedDate)}>
+                + {t("advisorDaily.addButton") || "Pridať tréning"}
+              </Button>
+            )}
           </div>
         ) : (
           <div className={PANEL_STACK}>
             {daysForList.flatMap((d) => {
               if (!d.date) return [];
               if (!d.sessions || d.sessions.length === 0) return [];
-              
+
               const dateIso = d.date;
               const dateLabel = formatDate(d.date) ?? d.date;
               const wd = weekdayLabel(d.date) ?? "";
 
               return d.sessions.map((s: any) => {
-                // Aby sme zachovali payload (ak existuje) alebo len surový objekt
                 const rawData = s.payload ?? s;
 
                 const kpis: KPI[] = [];
                 if (rawData.duration_min) kpis.push({ label: t("common.metrics.duration").toUpperCase(), value: `${rawData.duration_min} ${t("common.units.min")}` });
                 if (rawData.intensity) kpis.push({ label: t("common.metrics.intensity").toUpperCase(), value: String(rawData.intensity) });
 
-                // 🌟 activityId - ak je plán už spárovaný so skutočnou aktivitou
-                // (predtým sa toto pole vôbec nenastavovalo, takže spárované session
-                // tu nezobrazovali Activity sekciu).
                 const rawActId = s.activity_id;
                 const activityId =
                   rawActId != null && !Number.isNaN(Number(rawActId))
@@ -350,7 +426,7 @@ export default function DetailDailyPlan() {
                   planDur: rawData.duration_min ? `${rawData.duration_min} ${t("common.units.min")}` : null,
                   planIntensity: rawData.intensity ?? null,
                   planNotes: rawData.notes ?? null,
-                  planRaw: s, // Ukladame cely DB riadok pre pripadne volania
+                  planRaw: s,
                   planStructure: rawData.structure ?? null,
                   planExercises: (rawData.structure?.strength_exercises as any[]) ?? [],
                 };
@@ -361,8 +437,10 @@ export default function DetailDailyPlan() {
                     variant="calendar"
                     item={item}
                     showAdvanced={showAdvanced}
-                    // 🌟 REFRESH PO postpone/MATCHi
                     onRefreshPlan={() => refreshCoach(false)}
+                    editable={editable}
+                    onEditSession={editable ? openEditForm : undefined}
+                    onDeleteSession={editable ? handleDeleteSession : undefined}
                     planReschedule={{
                       enabled: true,
                       dates: planDates,
@@ -380,7 +458,7 @@ export default function DetailDailyPlan() {
           </div>
         )}
       </Card>
-      
+
     </div>
   );
 }

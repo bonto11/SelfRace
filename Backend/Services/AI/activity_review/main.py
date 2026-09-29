@@ -26,7 +26,7 @@ from DB.user_thresholds import db_upsert_user_threshold
 from DB.user_prefs import db_get_pref_single
 from DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
 from DB.app_subscription import db_get_active_app_subscription_for_user
-
+from Services.coach_mode import service_get_coach_mode
 
 # ============================================================
 # HELPERS
@@ -277,6 +277,13 @@ def service_activity_review(
         is_race_effort=is_race_effort,
     )
     context_for_ai = _minify_context_for_ai(input_data)
+
+    # 🌟 NOVÉ: advisor režim - plan_today/plan_tomorrow si user zostavil sám
+    try:
+        if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+            context_for_ai["coach_mode"] = "advisor"
+    except Exception as e:
+        print(f"❌ [AR] coach_mode read error: {repr(e)}")
 
     # Ochrana: ak aktivita nemá metriky, nema zmysel volať AI
     act = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None

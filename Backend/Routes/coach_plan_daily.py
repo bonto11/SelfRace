@@ -175,9 +175,9 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        stats = db_get_compliance_stats(user_id, days=30, ctx=ctx)
-        postponed = db_get_postponed_sessions(user_id, ctx=ctx)
-        unmatched_summary = db_get_unmatched_activities_summary(user_id, days=30, ctx=ctx)
+        stats = db_get_compliance_stats(user_id, plan_meta_id=None, days=30, ctx=ctx)
+        postponed = db_get_postponed_sessions(user_id, plan_meta_id=None, ctx=ctx)
+        unmatched_summary = db_get_unmatched_activities_summary(user_id, plan_meta_id=None, days=30, ctx=ctx)
 
         return {
             "success": True,
@@ -189,7 +189,7 @@ def get_plan_compliance(req: Request, user_id: int) -> Dict[str, Any]:
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @router.get("/by-activity/{user_id}/{activity_id}")
 def get_plan_by_activity_id(
     req: Request,

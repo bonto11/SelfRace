@@ -71,7 +71,6 @@ export const sk = {
       obese: "Nadváha",
       overweight: "Nadváha",
 
-
       low: "Nízka",
       moderate: "Stredná",
       medium: "Stredná",
@@ -383,6 +382,22 @@ export const sk = {
     stepsAndroid:
       "Klepni na tri bodky (vpravo hore alebo dole) a vyber „Otvoriť v prehliadači“.",
   },
+  advisorReview: {
+    title: "Hodnotenie trénera",
+    subtitle: "Zhodnotenie týždňa a odporúčania na ďalších 7 dní.",
+    updatedAt: "Aktualizované",
+    empty:
+      "Zatiaľ žiadne hodnotenie. Automaticky príde v nedeľu večer, alebo si ho vyžiadaj teraz.",
+    lastWeek: "Uplynulý týždeň",
+    wentWell: "Čo sa podarilo",
+    toImprove: "Na čom zapracovať",
+    upcomingCheck: "Kontrola naplánovaných tréningov",
+    nextWeek: "Odporúčania na ďalší týždeň",
+    analyzeBtn: "Skontroluj mi týždeň",
+    analyzing: "Analyzujem tvoj týždeň, chvíľu to potrvá...",
+    success: "Hodnotenie je pripravené.",
+    error: "Hodnotenie sa nepodarilo, skús to znova.",
+  },
 
   prefs: {
     title: "Tréningové preferencie",
@@ -411,6 +426,17 @@ export const sk = {
     widget: {
       title: "Tréningové nastavenia",
     },
+    coachMode: {
+      title: "Režim koučovania",
+      coachLabel: "Coach",
+      advisorLabel: "Poradca",
+      coachDesc:
+        "AI ti automaticky generuje tréningový plán na základe tvojho cieľa a histórie.",
+      advisorDesc:
+        "Plán si zostavuješ sám. AI ti na požiadanie zhodnotí týždeň a dá odporúčania na ďalších 7 dní, ale sama nič negeneruje.",
+      activePlanHint:
+        "Máš aktívny plán. Zmena režimu ho neprepíše — plán ostane, ako je. Ak chceš začať v novom režime od nuly, po uložení aktuálny plán zruš a spusti nový.",
+    },
     sections: {
       planLifecycleSection: {
         title: "Tvorba plánu",
@@ -428,6 +454,15 @@ export const sk = {
           openPlan: "Denný plán",
           startPlan: "Spustiť tréningový plán",
           cancelPlan: "Zrušiť plán",
+          startManual: "Začať plán",
+        },
+        advisorHint: "Tréningy si potom pridávaš sám v dennom pláne.",
+        medicalSuspendBanner: {
+          title: "Tréningový stop-stav",
+          text: "Plán bol pozastavený kvôli bolesti ({{severity}}/10).",
+          textAdvisor:
+            "Máš nahlásenú silnú bolesť ({{severity}}/10). Plán ti nemením, ale odporúčam tréning vynechať a poradiť sa s lekárom.",
+          action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
         },
         confirmCancel: {
           title: "Naozaj ukončiť tento plán?",
@@ -436,12 +471,8 @@ export const sk = {
           ok: "Ukončiť plán",
           cancel: "Zrušiť",
         },
-        medicalSuspendBanner: {
-          title: "Tréningový stop-stav",
-          text: "Plán bol pozastavený kvôli bolesti ({{severity}}/10).",
-          action: "Zranenie v profile zmaž až vtedy, keď tréning povolí lekár.",
-        },
         errors: {
+          advisorNotSaved: "Najprv ulož nastavenia s režimom Poradca.",
           genericStart: "Tento plán sa nepodarilo spustiť.",
           medicalBlocked:
             "Kvôli zraneniu nie je možné vytvoriť plán. Najprv sa prosím vylieč.",
@@ -1423,6 +1454,7 @@ export const sk = {
     title: "Denný plán",
     widget: {
       title: "Denný plán",
+      titleAdvisor: "Tvoj plán",
       tooltip: [
         "Detailný prehľad tréningov na najbližšie obdobie.",
         "",
@@ -2879,6 +2911,65 @@ export const sk = {
       rightLeg: "Pravá noha",
     },
   },
+  advisorDaily: {
+    addButton: "Pridať tréning",
+    form: {
+      addTitle: "Pridať tréning",
+      editTitle: "Upraviť tréning",
+      sportLabel: "Šport",
+      titleLabel: "Názov",
+      titlePlaceholder: "Napr. Ľahký beh",
+      durationLabel: "Dĺžka (min)",
+      simple: "Jednoduché",
+      intervals: "Intervaly",
+      mainMinutes: "Hlavná časť (min)",
+      mainNotes: "Poznámka k tempu/zóne",
+      rounds: "Počet kôl",
+      workMin: "Úsek (min)",
+      workNotes: "Poznámka k úseku (tempo/zóna)",
+      restMin: "Odpočinok medzi kolami (min)",
+      restNotes: "Poznámka k odpočinku",
+      warmupMin: "Rozcvička (min)",
+      cooldownMin: "Vyklusanie (min)",
+      exercisesLabel: "Cviky",
+      sets: "Série",
+      reps: "Opakovania",
+      otherHint:
+        "Pre iné aktivity (futbal, padel, prechádzka...) stačí názov a dĺžka.",
+      notesPlaceholder: "Poznámka (voliteľné)",
+      errorTitle: "Zadaj názov tréningu.",
+      errorDuration: "Zadaj platnú dĺžku.",
+      errorMain: "Zadaj dĺžku hlavnej časti.",
+      errorIntervals: "Zadaj počet kôl a dĺžku úseku.",
+      errorExercises: "Pridaj aspoň jeden cvik.",
+      errorExerciseFields: "Doplň série a opakovania pri každom cviku.",
+      saveError: "Nepodarilo sa uložiť.",
+      sessionTypeLabel: "Typ tréningu",
+      sessionTypes: {
+        easy: "Ľahký",
+        recovery: "Regeneračný",
+        long: "Dlhý",
+        tempo: "Tempo",
+        interval: "Intervaly",
+      },
+      durationAuto:
+        "Celková dĺžka sa počíta automaticky z rozcvičky, hlavnej časti a vyklusania.",
+    },
+    errors: {
+      day_full: "V tento deň už máš 2 tréningy. Jeden presuň alebo vymaž.",
+      no_active_plan:
+        "Nemáš aktívny plán. Najprv ho začni v nastaveniach trénera.",
+      invalid_structure: "Skontroluj údaje tréningu.",
+      title_required: "Zadaj názov tréningu.",
+      invalid_duration: "Zadaj platnú dĺžku.",
+      invalid_plan_date: "Neplatný dátum.",
+      insert_failed: "Tréning sa nepodarilo uložiť.",
+      session_not_found: "Tréning sa nenašiel.",
+      update_failed: "Zmeny sa nepodarilo uložiť.",
+      delete_failed: "Tréning sa nepodarilo vymazať.",
+      REQUEST_FAILED: "Požiadavka zlyhala, skús to znova.",
+    },
+  },
   sessions: {
     preview: {
       title: "Náhľad tréningu",
@@ -3123,6 +3214,8 @@ export const sk = {
         unmatch: "Zrušiť spárovanie",
         discard: "Zahodiť",
         discardConfirm: "Naozaj chcete tento tréning vymazať?",
+        delete: "Vymazať",
+        deleteConfirm: "Naozaj chceš tento tréning vymazať?",
       },
       reschedule: {
         title: "Presunúť tréning na iný deň",
@@ -3184,30 +3277,30 @@ export const sk = {
     },
     helpTitle: "Ako zapisovať tréning",
     help: [
-  "Zapíš si, čo si reálne odcvičil — tréner z toho počíta progresiu a vie, kedy ti pridať váhu.",
-  "",
-  "Ako na to:",
-  "• Pri každom cviku klikni na „+ séria“ a zadaj hodnotu cviku (opakovania, sekundy alebo metre) a váhu.",
-  "• Ďalšia séria sa predvyplní rovnakou hodnotou — meníš len to, čo sa líši.",
-  "• Ukladá sa automaticky, netreba nič potvrdzovať.",
-  "",
-  "Váha pri jednostranných cvikoch:",
-  "• Jednoručkový tlak/príťah (pracuje len jedna ruka): zapíš váhu JEDNEJ činky.",
-  "• Rozdelený drep, výpady a podobné (záťaž len nesieš, pracujú nohy): zapíš SÚČET oboch činiek/kettlebellov.",
-  "• Pravidlo: záťaž nesie jedna strana → váha tej strany. Záťaž len držíš a pracuje iná časť tela → súčet.",
-  "",
-  "Opakovania pri jednostranných cvikoch:",
-  "• Pri cvikoch na jednu nohu/ruku (rozdelený drep, výpady, jednoručkový príťah) zapíš opakovania na JEDNU stranu, nie na obe spolu.",
-  "",
-  "Rozcvičkové série:",
-  "• Klikom na názov série ju prepneš na rozcvičkovú.",
-  "• Rozcvičkové série sa nepočítajú do objemu ani do progresie.",
-  "• Príklad: drep 40 kg × 10 ako rozcvička, potom 70 kg × 8 ako pracovné série.",
-  "",
-  "Tip:",
-  "• Ak máš tréning v pláne, načítaj si cviky tlačidlom „Načítať z plánu“ — nemusíš ich klikať ručne.",
-  "• Ak ti chýba cvik v zozname, navrhni ho tlačidlom „Navrhnúť cvik“.",
-].join("\n"),
+      "Zapíš si, čo si reálne odcvičil — tréner z toho počíta progresiu a vie, kedy ti pridať váhu.",
+      "",
+      "Ako na to:",
+      "• Pri každom cviku klikni na „+ séria“ a zadaj hodnotu cviku (opakovania, sekundy alebo metre) a váhu.",
+      "• Ďalšia séria sa predvyplní rovnakou hodnotou — meníš len to, čo sa líši.",
+      "• Ukladá sa automaticky, netreba nič potvrdzovať.",
+      "",
+      "Váha pri jednostranných cvikoch:",
+      "• Jednoručkový tlak/príťah (pracuje len jedna ruka): zapíš váhu JEDNEJ činky.",
+      "• Rozdelený drep, výpady a podobné (záťaž len nesieš, pracujú nohy): zapíš SÚČET oboch činiek/kettlebellov.",
+      "• Pravidlo: záťaž nesie jedna strana → váha tej strany. Záťaž len držíš a pracuje iná časť tela → súčet.",
+      "",
+      "Opakovania pri jednostranných cvikoch:",
+      "• Pri cvikoch na jednu nohu/ruku (rozdelený drep, výpady, jednoručkový príťah) zapíš opakovania na JEDNU stranu, nie na obe spolu.",
+      "",
+      "Rozcvičkové série:",
+      "• Klikom na názov série ju prepneš na rozcvičkovú.",
+      "• Rozcvičkové série sa nepočítajú do objemu ani do progresie.",
+      "• Príklad: drep 40 kg × 10 ako rozcvička, potom 70 kg × 8 ako pracovné série.",
+      "",
+      "Tip:",
+      "• Ak máš tréning v pláne, načítaj si cviky tlačidlom „Načítať z plánu“ — nemusíš ich klikať ručne.",
+      "• Ak ti chýba cvik v zozname, navrhni ho tlačidlom „Navrhnúť cvik“.",
+    ].join("\n"),
     importFromPlan: "Načítať z plánu",
     importPickerTitle: "Vyber naplánovaný tréning",
     importNoPlans: "Žiadne naplánované silové tréningy za posledné dni.",
@@ -3262,7 +3355,6 @@ export const sk = {
       anti_extension: "Anti-extenzia (core)",
       other: "Iné",
     },
-
   },
   activitySelector: {
     unknownActivity: "(Neznámy tréning)",

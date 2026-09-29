@@ -17,6 +17,7 @@ from Modules.Supabase.client import get_sb
 
 from Services.AI.athlete_state.main import service_analyze_athlete
 from Services.AI.weekly_plan.main import service_generate_weekly_plan
+from Services.coach_mode import service_get_coach_mode
 
 from Services.AI.daily_plan.main import (
     service_generate_daily_week,
@@ -39,6 +40,18 @@ from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_
 
 # --- Import notifikácií ---
 from Services.notifications import service_notify_autorecovery_applied
+
+
+# 🌟 NOVÉ: force_reason hodnoty, ktoré v advisor režime úplne preskočíme -
+# všetky by menili/mazali plán (suspend, soften, replan, autorecovery).
+ADVISOR_SKIP_REASONS = {
+    "autorecovery",
+    "health_critical",
+    "health_mild_restriction",
+    "health_menstruation",
+    "health_resolved",
+    "return_to_training",
+}
 
 
 def _to_date(val: Any) -> Optional[date]:
@@ -120,9 +133,6 @@ def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx:
     today_iso = date.today().isoformat()
 
     try:
-        # FIX: teraz scoped na plan_meta_id (predtým čítalo naprieč
-        # všetkými plánmi usera - autorecovery mohla omylom upraviť
-        # "dnešnú session" nesúvisiaceho draftu namiesto aktívneho plánu).
         sessions = db_get_planned_range_rows(user_id=user_id, plan_meta_id=plan_meta_id, date_from=today_iso, date_to=today_iso, ctx=ctx)
 
         if not sessions:
@@ -136,7 +146,6 @@ def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx:
         if session_type == "recovery" or kind == "recovery" or "regen" in title or "recovery" in title:
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_recovery"}
             
-        # Ochrana pretekov a externých udalostí
         if kind == "race" or session_type == "external_event" or "pretek" in title or "race" in title:
             print(f"[AUTORECOVERY] Skipped: User {user_id} has a RACE today. Ignoring bad HRV.")
             return {"changed": False, "mode": "autorecovery", "reason": "today_is_race_day"}
@@ -146,7 +155,6 @@ def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx:
         
         payload = first_session.get("payload") or {}
         
-        # Oprava štruktúry (pole)
         payload["structure"] = {
             "warmup": {"minutes": 5, "notes": "Z1 - veľmi pomaly"},
             "main_part": [
@@ -180,6 +188,33 @@ def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx:
         print(f"[AUTORECOVERY] Error for user {user_id}: {repr(e)}")
         return {"changed": False, "mode": "autorecovery", "reason": "internal_error"}
 
+
+def _advisor_analysis_only(user_id: int, *, force_reason: Optional[str], ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: advisor režim - plán sa NIKDY nemení.
+    - health / autorecovery force_reason -> úplný skip (tie vetvy len mažú
+      alebo prepisujú tréningy).
+    - všetko ostatné (bežný autoadjust po sync, manual_review) -> prebehne
+      len analýza athlete state, aby bol stav aktuálny a prípadné varovanie
+      (plan_adjustment.should_notify_user) sa vyhodnotilo rovnako ako
+      v coach režime. soften_next_days / should_replan_weekly sa ignorujú.
+    """
+    if force_reason in ADVISOR_SKIP_REASONS:
+        print(f"[AUTOADJUST DEBUG] Advisor mode - skipping force_reason={force_reason}.")
+        return {"changed": False, "mode": "advisor_mode", "reason": f"advisor_skip_{force_reason}"}
+
+    print(f"[AUTOADJUST DEBUG] Advisor mode - analysis only, no plan changes.")
+    analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
+    ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
+
+    return {
+        "changed": False,
+        "mode": "advisor_analysis_only",
+        "state_id": analyze_resp.get("state_id"),
+        "plan_adjustment": ai_state.get("plan_adjustment") or {},
+    }
+
+
 def service_coach_autoadjust_after_update(
     user_id: int,
     *,
@@ -189,14 +224,9 @@ def service_coach_autoadjust_after_update(
     
     print(f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}")
 
-    # FIX (ROOT CAUSE): plan_meta_id sa zisťuje RAZ, hneď na začiatku, a
-    # posiela sa do ÚPLNE VŠETKÝCH volaní nižšie (weekly generate, daily
-    # generate, daily extend, autorecovery, weekly rows lookup). Predtým sa
-    # nikde neposielal - každá DB funkcia si čítala/mazala naprieč VŠETKÝMI
-    # plánmi usera, takže ak mal user rozbehnutý nedokončený draft (napr. z
-    # testovania skrátenia plánu) SÚČASNE s aktívnym plánom, autoadjust
-    # aktívneho plánu si "požičal" week_index/dátumy z toho draftu -
-    # presne toto spôsobilo, že ultra beh 29.8. nikdy neukončil plán.
+    if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+        return _advisor_analysis_only(user_id, force_reason=force_reason, ctx=ctx)
+
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
         print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
@@ -222,7 +252,6 @@ def service_coach_autoadjust_after_update(
     soften_reason = ""
     weekly_replan_reason = ""
 
-    # KRITICKÉ ZRANENIE / CHOROBA / MENŠTRUÁCIA (Severity >= 7 posiela tento flag)
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
         
@@ -252,7 +281,6 @@ def service_coach_autoadjust_after_update(
             "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}"
         }
 
-    #  1. Zjemniť (Soften) pre SKUTOČNÉ zdravotné obmedzenia a fázy cyklu
     if force_reason in ["health_mild_restriction", "health_menstruation"]:
         soften_should = True 
         soften_days = 7 
@@ -260,14 +288,12 @@ def service_coach_autoadjust_after_update(
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
         
-    # 2. KOMPLETNÝ REPLAN (Návrat do tréningu)
     elif force_reason in ["health_resolved", "return_to_training"]:
         weekly_replan_should = True 
         weekly_replan_reason = f"Health status resolved, initiating Return to Play. (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
-    # 3. Klasický auto-adjust
     else:
         analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
         state_id = analyze_resp.get("state_id")
@@ -412,9 +438,6 @@ def service_reschedule_daily_plan(
             ctx=ctx,
         )
 
-    # FIX: reschedule (presúvanie tréningov v kalendári) potrebuje
-    # plan_meta_id, aby db_reschedule_daily_sessions_bulk správne počítalo
-    # obsadenosť dní / rest-day kolízie v rámci TOHTO plánu.
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     plan_meta_id = meta.get("id") if meta else None
 

@@ -76,11 +76,14 @@ SENSITIVE_KEYS: Set[str] = {
     "openai_api_key",
 }
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
 def _as_dict(x: Any) -> Dict[str, Any]:
     return x if isinstance(x, dict) else {}
+
 
 def _scrub_dict(x: Any) -> Any:
     if isinstance(x, dict):
@@ -96,20 +99,30 @@ def _scrub_dict(x: Any) -> Any:
 
 
 def _notify_job_finished_best_effort(
-    *, ctx: AuthCtx, user_id: int, job_type: str, ok: bool, payload: Dict[str, Any]
+    *,
+    ctx: AuthCtx,
+    user_id: int,
+    job_type: str,
+    ok: bool,
+    payload: Dict[str, Any],
+    result: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
-    🌟 NOVÉ: wrapper okolo service_notify_job_finished - nikdy nesmie
-    zhodiť samotný job (notifikácia je len "nice to have", nie kritická
-    súčasť výsledku). Pre activity_review notifikujeme LEN ak ho reálne
-    vyžiadal user ("source": "user") - automatické review po každom
-    synchronizovanom tréningu (source="auto") by inak spamovalo pushmi
-    po každom importe zo Stravy.
+    Wrapper okolo service_notify_job_finished - nikdy nesmie zhodiť job.
+    activity_review notifikujeme len ak ho vyžiadal user (source="user").
+
+    🌟 NOVÉ: coach_autoadjust notifikujeme pri úspechu LEN ak sa plán
+    reálne zmenil (result.changed). Inak by prišiel push "plán bol
+    upravený" aj pri no_adjustment_needed a v advisor režime, kde sa
+    plán nikdy nemení.
     """
     if job_type not in NOTIFY_ON_FINISH_JOB_TYPES:
         return
 
     if job_type == "activity_review" and payload.get("source") != "user":
+        return
+
+    if job_type == "coach_autoadjust" and ok and not (result or {}).get("changed"):
         return
 
     try:
@@ -124,15 +137,19 @@ def _notify_job_finished_best_effort(
 
 
 def _enqueue_autoadjust_debounced(
-    ctx: AuthCtx, *, user_id: int, delay_sec: int = 120, force_reason: Optional[str] = None
+    ctx: AuthCtx,
+    *,
+    user_id: int,
+    delay_sec: int = 120,
+    force_reason: Optional[str] = None,
 ) -> None:
     run_after = (
         datetime.now(timezone.utc) + timedelta(seconds=int(delay_sec))
     ).isoformat()
-    
+
     payload = {}
     if force_reason:
-        payload["force_reason"] = force_reason 
+        payload["force_reason"] = force_reason
 
     service_enqueue_job(
         user_id=int(user_id),
@@ -143,7 +160,8 @@ def _enqueue_autoadjust_debounced(
         run_after=run_after,
         ctx=ctx,
     )
-    
+
+
 def _enqueue_activity_review_best_effort(
     ctx: AuthCtx, *, user_id: int, activity_id: int
 ) -> None:
@@ -155,7 +173,7 @@ def _enqueue_activity_review_best_effort(
                 "activity_id": int(activity_id),
                 "model": None,
                 "source": "auto",
-                "comment": None,       
+                "comment": None,
                 "service": True,
                 "save_to_db": True,
             },
@@ -166,14 +184,19 @@ def _enqueue_activity_review_best_effort(
     except Exception as e:  # noqa: BLE001
         print(
             "[ACTIVITY-REVIEW][enqueue] failed",
-            "user_id=", user_id,
-            "activity_id=", activity_id,
-            "err=", repr(e),
+            "user_id=",
+            user_id,
+            "activity_id=",
+            activity_id,
+            "err=",
+            repr(e),
         )
+
 
 # ============================================================
 # ENQUEUE (FAST)
 # ============================================================
+
 
 def service_enqueue_job(
     user_id: int,
@@ -273,6 +296,7 @@ def service_list_active_jobs(
 # EXECUTE (WORKER)
 # ============================================================
 
+
 def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
     job_id = int(job["id"])
     user_id = int(job["user_id"])
@@ -311,9 +335,12 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 drop_past_days=bool(payload.get("drop_past_days", False)),
                 reason=payload.get("reason"),
             )
-    
+
         elif job_type == "daily_replan_and_extend":
-            from Services.AI.daily_plan.main import service_replan_current_week_and_extend
+            from Services.AI.daily_plan.main import (
+                service_replan_current_week_and_extend,
+            )
+
             result = service_replan_current_week_and_extend(
                 user_id=user_id,
                 week_index=int(payload["week_index"]),
@@ -322,7 +349,6 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 min_horizon_days=payload.get("min_horizon_days"),
                 ctx=ctx,
             )
-
 
         elif job_type == "plan_match":
             result = auto_map_plans_for_activities(
@@ -346,7 +372,9 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id,
                 ctx=ctx,
                 min_horizon_days=int(
-                    payload.get("min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS)
+                    payload.get(
+                        "min_horizon_days", COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+                    )
                 ),
             )
 
@@ -379,7 +407,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                         ctx=ctx,
                         user_id=user_id,
                         delay_sec=5,
-                        force_reason="manual_review"
+                        force_reason="manual_review",
                     )
                 else:
                     print(
@@ -389,13 +417,13 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
         elif job_type == "sync":
             from Services.synchronization_bulk import import_activities_bulk
+
             result = import_activities_bulk(
                 user_id=user_id,
                 ctx=ctx,
                 trigger=str(payload.get("trigger") or "async_worker"),
                 job_id=job_id,
             )
-
 
         # -------------------------------
         # STRAVA PIPELINE
@@ -413,7 +441,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                 fetch_details=fetch_details,
                 ctx=ctx,
             )
-            
+
             if bool(payload.get("enqueue_plan_match", False)):
                 try:
                     service_enqueue_job(
@@ -422,8 +450,12 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
                         job_type="plan_match",
                         payload={
                             "activity_ids": [int(activity_id)],
-                            "days_window": int(payload.get("plan_match_days_window", 2)),
-                            "score_threshold": float(payload.get("plan_match_score_threshold", 0.55)),
+                            "days_window": int(
+                                payload.get("plan_match_days_window", 2)
+                            ),
+                            "score_threshold": float(
+                                payload.get("plan_match_score_threshold", 0.55)
+                            ),
                         },
                         priority=120,
                         dedupe_key=f"plan_match:{user_id}:{activity_id}",
@@ -434,9 +466,7 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
         elif job_type == "coach_autoadjust":
             force_reason = payload.get("force_reason")
             result = service_coach_autoadjust_after_update(
-                user_id=int(user_id),
-                ctx=ctx,
-                force_reason=force_reason 
+                user_id=int(user_id), ctx=ctx, force_reason=force_reason
             )
 
         elif job_type == "mark_activity_deleted":
@@ -463,9 +493,13 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
             ctx=ctx,
         )
 
-        # 🌟 NOVÉ: push notifikácia o úspešnom dokončení (best-effort).
         _notify_job_finished_best_effort(
-            ctx=ctx, user_id=user_id, job_type=job_type, ok=True, payload=payload
+            ctx=ctx,
+            user_id=user_id,
+            job_type=job_type,
+            ok=True,
+            payload=payload,
+            result=result,
         )
 
         return {"ok": True}
@@ -523,6 +557,6 @@ def service_run_job_now(
             return {"job": latest, "error": "job_not_queued_or_already_running"}
         job = locked
 
-    out = service_execute_job(ctx=ctx,job=job)
+    out = service_execute_job(ctx=ctx, job=job)
     latest = db_get_job_by_id(user_id=int(user_id), job_id=int(job_id), ctx=ctx)
     return {"job": latest, "error": out.get("error")}

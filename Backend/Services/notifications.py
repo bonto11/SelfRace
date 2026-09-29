@@ -25,6 +25,8 @@ from DB.users import db_list_users_for_cron
 from DB.user_prefs import db_get_pref_single
 from Services.AI.provider.provider import get_ai_health_status
 from Modules.Supabase.client import get_service_client
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
+from Services.coach_mode import service_get_coach_mode
 
 from Configs.config import VAPID_PRIVATE_KEY, VAPID_CLAIM_EMAIL
 
@@ -39,8 +41,6 @@ PUSH_TRANSLATIONS = {
         "review_body": "Ohodnoť svoj posledný tréning.",
         "training_title": "Dnes ťa ešte čaká tréning! 👟",
         "training_body": "Tvoj plán na dnes ešte nie je splnený. Stíhaš to?",
-        "progress_title": "Nová Analýza Výkonnosti 📈",
-        "progress_body": "Tvoj Athlete State bol práve aktualizovaný. Pozri si svoj progres!",
         "test_title": "Test Notifikácie 🚀",
         "test_body": "Všetko funguje! PWA je pripravená a smeruje ťa na domovskú obrazovku.",
         "autorecovery_applied_title": "Úprava dnešného tréningu 🧘",
@@ -97,8 +97,6 @@ PUSH_TRANSLATIONS = {
         "review_body": "Rate and review your latest training session.",
         "training_title": "Training pending today! 👟",
         "training_body": "Your plan for today is not finished yet. Will you make it?",
-        "progress_title": "New Performance Analysis 📈",
-        "progress_body": "Your Athlete State was just updated. Check out your progress!",
         "test_title": "Test Notification 🚀",
         "test_body": "Everything works! The PWA is ready and routing you to the home screen.",
         "autorecovery_applied_title": "Today's training adjusted 🧘",
@@ -166,6 +164,23 @@ JOB_NOTIFY_URL: Dict[str, str] = {
     "sync": "/activities",
     "coach_autoadjust": "/coach/ai/dailyPlan",
 }
+
+# 🌟 NOVÉ: v advisor režime vedú tieto notifikácie inam - denný plán aj
+# hodnotenie trénera (AdvisorReviewCard) sú na /coach/advisor/daily.
+ADVISOR_JOB_NOTIFY_URL: Dict[str, str] = {
+    "ai_analyze": "/coach/advisor/daily",
+    "coach_autoadjust": "/coach/advisor/daily",
+}
+
+
+def _daily_plan_url(user_id: int, ctx: AuthCtx) -> str:
+    """🌟 NOVÉ: URL denného plánu podľa coach_mode."""
+    try:
+        if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+            return "/coach/advisor/daily"
+    except Exception as e:
+        print(f"[Push] coach_mode read failed user={user_id}: {repr(e)}")
+    return "/coach/ai/dailyPlan"
 
 # =====================================================================
 # POMOCNE FUNKCIE
@@ -476,7 +491,6 @@ def service_send_test_to_subscription(
 # JOB-COMPLETION NOTIFIKACIA (NOVÉ)
 # =====================================================================
 
-
 def service_notify_job_finished(
     user_id: int,
     job_type: str,
@@ -485,21 +499,22 @@ def service_notify_job_finished(
     url_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Pošle používateľovi notifikáciu o tom, že asynchrónny job (bežiaci na
-    pozadí cez BackgroundTasks) sa dokončil - úspešne alebo neúspešne.
+    Pošle notifikáciu o dokončení async jobu (úspech/zlyhanie).
+    Best-effort - volajúci ju obaľuje do try/except.
 
-    Volá sa z async_jobs.py po každom dokončení jobu, ktorého job_type je
-    v JOB_NOTIFY_URL (t.j. má zmysel informovať usera priamo - napr.
-    vygenerovanie plánu, import aktivít, review, autoadjust po zdravotnom
-    zázname). Interné/chained joby (plan_match, daily_extend,
-    mark_activity_deleted) v tomto zozname zámerne nie sú - nemajú
-    samostatný user-facing výsledok, o ktorom by malo zmysel notifikovať.
-
-    Best-effort: zlyhanie tejto funkcie (napr. chýbajúce preklady,
-    chýbajúca subscription) nesmie zhodiť samotný job - volajúci ju má
-    obaliť do try/except.
+    🌟 NOVÉ: v advisor režime sa URL pre ai_analyze/coach_autoadjust
+    presmeruje na /coach/advisor/daily.
     """
-    url = url_override or JOB_NOTIFY_URL.get(job_type)
+    url = url_override
+    if not url:
+        url = JOB_NOTIFY_URL.get(job_type)
+        if url and job_type in ADVISOR_JOB_NOTIFY_URL:
+            try:
+                if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+                    url = ADVISOR_JOB_NOTIFY_URL[job_type]
+            except Exception as e:
+                print(f"[JOB-NOTIFY] coach_mode read failed user={user_id}: {repr(e)}")
+
     if not url:
         return {
             "success": False,
@@ -528,7 +543,6 @@ def service_notify_job_finished(
         url=url,
         ctx=ctx,
     )
-
 
 # =====================================================================
 # CRON FUNKCIE
@@ -587,7 +601,14 @@ def service_cron_notify_review(ctx: AuthCtx) -> Dict[str, Any]:
 
 
 def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
-    """Volane z denneho cronu o 19:00."""
+    """
+    Volane z denneho cronu o 19:00.
+
+    🌟 FIX: db_has_uncompleted_daily_sessions je scoped na plan_meta_id -
+    kontroluje sa len AKTÍVNY plán (predtým mohol push vyvolať aj riadok
+    zo starého draftu). User bez aktívneho plánu push nedostane.
+    🌟 NOVÉ: URL podľa coach_mode (advisor -> /coach/advisor/daily).
+    """
     today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     users = db_list_users_for_cron(ctx=ctx)
     total_sent = 0
@@ -596,8 +617,16 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
         user_id = u.get("id")
         if not user_id:
             continue
+
+        meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+        if not meta or not meta.get("id"):
+            continue
+
         if db_has_uncompleted_daily_sessions(
-            user_id=user_id, plan_date=today_iso, ctx=ctx
+            user_id=user_id,
+            plan_meta_id=meta.get("id"),
+            plan_date=today_iso,
+            ctx=ctx,
         ):
             lang = _get_user_language(user_id, ctx)
             t = PUSH_TRANSLATIONS[lang]
@@ -605,13 +634,12 @@ def service_cron_notify_training(ctx: AuthCtx) -> Dict[str, Any]:
                 user_id=user_id,
                 title=t["training_title"],
                 body=t["training_body"],
-                url="/coach/ai/dailyPlan",
+                url=_daily_plan_url(user_id, ctx),
                 ctx=ctx,
             )
             total_sent += res.get("sent", 0)
 
     return {"success": True, "sent": total_sent}
-
 
 def service_cron_notify_monthly_summary(ctx: AuthCtx) -> Dict[str, Any]:
     """Volane 1. dna v mesiaci o 09:00. Generuje AI review a notifikuje userov."""
@@ -725,18 +753,6 @@ def service_notify_autorecovery_applied(user_id: int, ctx: AuthCtx) -> Dict[str,
         title=t["autorecovery_applied_title"],
         body=t["autorecovery_applied_body"],
         url="/coach/ai/dailyPlan",
-        ctx=ctx,
-    )
-
-
-def service_notify_athlete_state_progress(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
-    lang = _get_user_language(user_id, ctx)
-    t = PUSH_TRANSLATIONS[lang]
-    return service_send_push_notification(
-        user_id=user_id,
-        title=t["progress_title"],
-        body=t["progress_body"],
-        url="/coach/ai/progress",
         ctx=ctx,
     )
 

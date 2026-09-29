@@ -11,6 +11,45 @@ from Modules.Supabase.auth import AuthCtx
 # ============================================================
 # HELPERS
 # ============================================================
+def _advisor_rules(advisor_plan: Optional[Dict[str, Any]]) -> str:
+    """
+    🌟 NOVÉ: advisor režim - athlete si plán skladá sám, AI je mentor.
+    """
+    has_plan = isinstance(advisor_plan, dict) and advisor_plan.get("has_active_plan")
+    no_plan_note = (
+        "  - The athlete has no active plan yet - base last_week only on last_activities and say "
+        "that upcoming sessions are not planned yet.\n"
+        if not has_plan else ""
+    )
+    return (
+        "\n--- ADVISOR MODE (CRITICAL) ---\n"
+        "The athlete builds their OWN training plan. You are a mentor/advisor, NOT a planner.\n"
+        "'advisor_plan.past_7_days' = what they planned in the last 7 days and whether each session "
+        "was completed (status: done / not_done / missed / postponed). Compare it with "
+        "'last_activities' (what they actually did, including unplanned activities).\n"
+        "'advisor_plan.next_7_days' = what they have planned for the upcoming days.\n"
+        + no_plan_note
+        + "Fill 'advisor_review':\n"
+        "  - last_week: honest assessment of how the week was structured and executed - easy/hard "
+        "balance, volume vs volume_tolerance, adherence to their own plan, recovery. Be concrete, "
+        "refer to specific days (use weekday names in the athlete's language).\n"
+        "  - upcoming_check: review the athlete's planned upcoming sessions and flag concrete issues: "
+        "two hard sessions on consecutive days, a hard session right after a long run or right before a "
+        "race, a big volume jump vs recent weeks, no easy/rest day, heavy leg strength the day before a key "
+        "run, conflicts with active injuries/illness/fatigue. For strength sessions you may comment on "
+        "movement-pattern balance (e.g. only horizontal pulls and no vertical pull, no hinge) using natural "
+        "exercise names - never raw pattern codes. If the plan looks good, say so in one short point. "
+        "If nothing is planned, say so.\n"
+        "  - next_week_guidance: VERBAL recommendations how to compose the next 7 days - session types, "
+        "counts, approximate durations and zones, where the long run fits, where to put rest and strength. "
+        "Do NOT write a day-by-day plan with dates and do NOT present workouts as already scheduled - "
+        "the athlete decides.\n"
+        "  - health_warning: if the context contains active injuries, illness or clear high-fatigue signals, "
+        "one clear sentence advising to reduce or skip training (and to see a doctor for severe pain); "
+        "otherwise null.\n"
+        "  - Tone: experienced mentor - direct, specific, supportive. No generic filler.\n"
+        "  - Keep plan_adjustment fields as usual, the athlete's plan is never changed automatically.\n"
+    )
 
 def _remove_empty(d: Any) -> Any:
     """Rekurzívne vymaže None, [], {} — menej tokenov."""
@@ -379,6 +418,8 @@ def build_prompts_for_analyze(
     """
     Zostaví (system_prompt, user_prompt) pre athlete state analýzu.
     Detekuje detraining, beginner stav a prispôsobí inštrukcie.
+    🌟 NOVÉ: advisor režim (context.coach_mode == "advisor") pridá
+    advisor_review do schémy a advisor pravidlá.
     """
     settings = settings or {}
     lang_label, second_person_note = _lang_notes(settings)
@@ -390,14 +431,14 @@ def build_prompts_for_analyze(
     }
     context_for_llm = minify_analyze_context_for_ai(context2)
 
-    # Prefs
+    is_advisor = context_for_llm.get("coach_mode") == "advisor"
+
     prefs = context_for_llm.get("prefs") or {}
     prefs2 = prefs.get("value", prefs) if isinstance(prefs, dict) else {}
     weeks = int(prefs2.get("weeks") or 4)
     main_sport = prefs2.get("main_sport") or "run"
     is_beginner = bool(context_for_llm.get("is_returning_beginner"))
 
-    # LTHR pre explicitné pravidlo zón
     thresholds = context_for_llm.get("thresholds") or {}
     run_thresh = thresholds.get("run") or {}
     lthr = run_thresh.get("lthr_bpm")
@@ -407,7 +448,6 @@ def build_prompts_for_analyze(
         if lthr else ""
     )
 
-    # Najbližší pretek
     targets = prefs2.get("targets") or {}
     run_target = targets.get("run") or {}
     races = run_target.get("races") or []
@@ -423,18 +463,18 @@ def build_prompts_for_analyze(
         if next_race else ""
     )
 
-    # Detekcia detraining
     last_acts = context_for_llm.get("last_activities") or []
     days_since_last_run = _get_days_since_last_run(last_acts)
     detraining_hint = _build_detraining_hint(days_since_last_run)
 
-    # 🌟 NOVÉ: reálne odcvičená sila - AI o nej má napísať pár viet
     strength_rule = _strength_log_rule(context_for_llm.get("strength_log"))
 
     beginner_hint = (
         "- USER IS DETECTED AS BEGINNER/RETURNING. Assign capabilities.run.level_1_to_5 = 1.\n"
         if is_beginner else ""
     )
+
+    advisor_rules = _advisor_rules(context_for_llm.get("advisor_plan")) if is_advisor else ""
 
     system_txt = (
         "You are an endurance coaching assistant for runners and multisport athletes. "
@@ -443,7 +483,7 @@ def build_prompts_for_analyze(
         "Do NOT output prose or code fences, only JSON."
     )
 
-    schema_text = _analyze_schema(lang_label)
+    schema_text = _analyze_schema(lang_label, advisor=is_advisor)
 
     user_txt = (
         f"Analyze the athlete context JSON and fill the schema.\n"
@@ -471,6 +511,7 @@ def build_prompts_for_analyze(
         + race_hint
         + beginner_hint
         + detraining_hint
+        + advisor_rules
         + "\nCRITICAL INSTRUCTIONS FOR 'estimated_paces':\n"
         "1. NO RUNS = NO UPDATE (UNLESS DETRAINING).\n"
         "2. DO NOT USE OVERALL AVG PACE FOR INTERVALS.\n"
@@ -480,7 +521,6 @@ def build_prompts_for_analyze(
     )
 
     return system_txt, user_txt
-
 
 # ============================================================
 # PROMPTS: PROGRESS
@@ -549,8 +589,28 @@ def build_prompts_for_progress(
 # SCHEMAS
 # ============================================================
 
-def _analyze_schema(lang_label: str) -> str:
-    """JSON schéma pre athlete state analýzu."""
+def _analyze_schema(lang_label: str, advisor: bool = False) -> str:
+    """JSON schéma pre athlete state analýzu. 🌟 advisor=True pridá advisor_review."""
+    advisor_block = (
+        f"""
+  "advisor_review": {{
+    "headline": "1 sentence in {lang_label}, 2nd person",
+    "last_week": {{
+      "assessment": "2-3 sentences",
+      "went_well": ["max 3 short points"],
+      "to_improve": ["max 3 short points"]
+    }},
+    "upcoming_check": ["max 4 short points about the athlete's planned upcoming sessions"],
+    "next_week_guidance": {{
+      "summary": "2-3 sentences",
+      "suggested_structure": ["max 6 short verbal points, e.g. '2x ľahký beh 40-50 min v Z2'"]
+    }},
+    "health_warning": "max 1 sentence" | null
+  }},"""
+        if advisor
+        else ""
+    )
+
     return f"""
 {{
   "user_summary": {{
@@ -558,7 +618,7 @@ def _analyze_schema(lang_label: str) -> str:
     "bullets": ["max 3 short points"],
     "risks": ["max 2 short points"],
     "suggestions_short": ["max 3 short points"]
-  }},
+  }},{advisor_block}
   "ai_state": {{
     "capabilities": {{
       "run":      {{ "level_1_to_5": number, "label": "Beginner"|"Hobby"|"Intermediate"|"Performance"|"Elite", "comment": "max 1 sentence" }},
@@ -595,7 +655,6 @@ def _analyze_schema(lang_label: str) -> str:
   }}
 }}
 """.strip()
-
 
 def _progress_schema(lang_label: str) -> str:
     """JSON schéma pre progress porovnanie."""

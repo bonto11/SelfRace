@@ -383,7 +383,22 @@ export const en = {
     stepsAndroid:
       'Tap the three dots (top or bottom right) and choose "Open in browser".',
   },
-
+  advisorReview: {
+    title: "Coach review",
+    subtitle: "Week review and recommendations for the next 7 days.",
+    updatedAt: "Updated",
+    empty:
+      "No review yet. It arrives automatically on Sunday evening, or request it now.",
+    lastWeek: "Past week",
+    wentWell: "What went well",
+    toImprove: "What to work on",
+    upcomingCheck: "Planned sessions check",
+    nextWeek: "Recommendations for next week",
+    analyzeBtn: "Review my week",
+    analyzing: "Analyzing your week, this takes a moment...",
+    success: "Review is ready.",
+    error: "Review failed, please try again.",
+  },
   prefs: {
     title: "Training preferences",
     noActivePlanBanner: {
@@ -411,6 +426,17 @@ export const en = {
     widget: {
       title: "Training settings",
     },
+    coachMode: {
+      title: "Coaching mode",
+      coachLabel: "Coach",
+      advisorLabel: "Advisor",
+      coachDesc:
+        "AI automatically generates your training plan based on your goal and history.",
+      advisorDesc:
+        "You build your own plan. AI reviews your week on request and gives recommendations for the next 7 days, but doesn't generate anything on its own.",
+      activePlanHint:
+        "You have an active plan. Changing the mode won't rewrite it — the plan stays as it is. To start fresh in the new mode, cancel the current plan after saving and start a new one.",
+    },
     sections: {
       planLifecycleSection: {
         title: "Plan Creation",
@@ -428,7 +454,18 @@ export const en = {
           openPlan: "Daily plan",
           startPlan: "Start training plan",
           cancelPlan: "Cancel plan",
+          startManual: "Start plan",
         },
+        advisorHint: "You then add workouts yourself in the daily plan.",
+        medicalSuspendBanner: {
+          title: "Training stop-state",
+          text: "The plan was paused due to pain ({{severity}}/10).",
+          textAdvisor:
+            "You reported severe pain ({{severity}}/10). I'm not changing your plan, but I recommend skipping training and consulting a doctor.",
+          action:
+            "Only clear the injury from your profile once a doctor clears you for training.",
+        },
+
         confirmCancel: {
           title: "Really end this plan?",
           message:
@@ -436,13 +473,9 @@ export const en = {
           ok: "End plan",
           cancel: "Cancel",
         },
-        medicalSuspendBanner: {
-          title: "Training stop-state",
-          text: "The plan was paused due to pain ({{severity}}/10).",
-          action:
-            "Only clear the injury from your profile once a doctor clears you for training.",
-        },
+
         errors: {
+          advisorNotSaved: "Save your settings with Advisor mode first.",
           genericStart: "This plan could not be started.",
           medicalBlocked:
             "A plan cannot be created due to an injury. Please recover first.",
@@ -1429,6 +1462,7 @@ export const en = {
     title: "Daily plan",
     widget: {
       title: "What to expect in the coming days",
+      titleAdvisor: "Your plan",
       tooltip: [
         "The specific schedule for the upcoming period.",
         "",
@@ -2883,7 +2917,65 @@ export const en = {
       rightLeg: "Right Leg",
     },
   },
-
+  advisorDaily: {
+    addButton: "Add workout",
+    form: {
+      addTitle: "Add workout",
+      editTitle: "Edit workout",
+      sportLabel: "Sport",
+      titleLabel: "Title",
+      titlePlaceholder: "e.g. Easy run",
+      durationLabel: "Duration (min)",
+      simple: "Simple",
+      intervals: "Intervals",
+      mainMinutes: "Main part (min)",
+      mainNotes: "Pace/zone note",
+      rounds: "Rounds",
+      workMin: "Interval (min)",
+      workNotes: "Interval note (pace/zone)",
+      restMin: "Rest between rounds (min)",
+      restNotes: "Rest note",
+      warmupMin: "Warmup (min)",
+      cooldownMin: "Cooldown (min)",
+      exercisesLabel: "Exercises",
+      sets: "Sets",
+      reps: "Reps",
+      otherHint:
+        "For other activities (football, padel, walking...) a title and duration is enough.",
+      notesPlaceholder: "Note (optional)",
+      errorTitle: "Enter a workout title.",
+      errorDuration: "Enter a valid duration.",
+      errorMain: "Enter the main part duration.",
+      errorIntervals: "Enter the number of rounds and interval duration.",
+      errorExercises: "Add at least one exercise.",
+      errorExerciseFields: "Fill in sets and reps for every exercise.",
+      saveError: "Couldn't save.",
+      sessionTypeLabel: "Session type",
+      sessionTypes: {
+        easy: "Easy",
+        recovery: "Recovery",
+        long: "Long",
+        tempo: "Tempo",
+        interval: "Intervals",
+      },
+      durationAuto:
+        "Total duration is calculated automatically from warmup, main part and cooldown.",
+    },
+    errors: {
+      day_full: "You already have 2 workouts on this day. Move or delete one.",
+      no_active_plan:
+        "You don't have an active plan. Start one in coach settings first.",
+      invalid_structure: "Check the workout details.",
+      title_required: "Enter a workout title.",
+      invalid_duration: "Enter a valid duration.",
+      invalid_plan_date: "Invalid date.",
+      insert_failed: "The workout couldn't be saved.",
+      session_not_found: "Workout not found.",
+      update_failed: "Changes couldn't be saved.",
+      delete_failed: "The workout couldn't be deleted.",
+      REQUEST_FAILED: "Request failed, please try again.",
+    },
+  },
   sessions: {
     preview: {
       title: "Session preview",
@@ -3130,6 +3222,8 @@ export const en = {
         unmatch: "Unlink activity",
         discard: "Discard",
         discardConfirm: "Are you sure you want to delete this workout?",
+        delete: "Delete",
+        deleteConfirm: "Do you really want remove this training?",
       },
       reschedule: {
         title: "Move workout to a different day",

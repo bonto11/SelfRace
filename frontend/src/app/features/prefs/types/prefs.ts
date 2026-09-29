@@ -6,6 +6,9 @@ export type GoalKind = "improve_speed" | "improve_endurance" | "improve_overall"
 /** Podporované športy v coach prefs. */
 export type SportKind = "run" | "ride" | "swim";
 
+/** Režim koučovania: "coach" generuje plány, "advisor" len hodnotí to, čo si athlete zostaví sám. */
+export type CoachMode = "coach" | "advisor";
+
 export type SecondaryRole = "none" | "supplement" | "improve";
 
 export type SecondaryMix = {
@@ -220,6 +223,9 @@ export type CoachPrefs = {
   start_date?: string | null;
   end_date?: string | null;
 
+  /** "coach" (default) generuje plány automaticky, "advisor" ich len hodnotí. */
+  coach_mode?: CoachMode;
+
   goal_kind?: GoalKind;
   volume?: VolumePrefs;
 
@@ -241,6 +247,7 @@ export type CoachPrefs = {
 };
 
 export const DEFAULT_PREFS: CoachPrefs = {
+  coach_mode: "coach",
   goal_kind: "improve_overall",
   main_sport: "run",
   add_on_sports: [],

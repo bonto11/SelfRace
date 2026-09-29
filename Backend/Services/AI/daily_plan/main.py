@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
-from Configs.config import COACH_PLAN_SCAN_HORIZON_DAYS, COACH_PLAN_GENERATE_MIN_HORIZON_DAYS
+from Configs.config import (
+    COACH_PLAN_SCAN_HORIZON_DAYS,
+    COACH_PLAN_GENERATE_MIN_HORIZON_DAYS,
+)
 from Services.AI.daily_plan.generate import generate_daily_week_json
 from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
@@ -13,6 +16,7 @@ from DB.coach_plan_daily import (
 )
 from DB.coach_plan_weekly import db_get_weekly_for_user_plan
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
+from Services.coach_mode import service_get_coach_mode
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
     get_user_monthly_usage_tokens,
@@ -28,10 +32,10 @@ from Services.coach_user_notes import service_consume_pending_ephemeral
 
 from Modules.Supabase.auth import AuthCtx
 
-
 # ============================================================
 # HELPERS
 # ============================================================
+
 
 def _reindex_sessions_per_day(daily_plan: Dict[str, Any]) -> Dict[str, Any]:
     """Opraví session_index v každom dni — zaručí 0-based sekvenciu."""
@@ -83,7 +87,9 @@ def _log_ai_usage(
         print(f"[AI_BILLING] daily_plan error: {repr(e)}")
 
 
-def _resolve_plan_meta_id(user_id: int, plan_meta_id: Optional[int], *, ctx: AuthCtx) -> Optional[int]:
+def _resolve_plan_meta_id(
+    user_id: int, plan_meta_id: Optional[int], *, ctx: AuthCtx
+) -> Optional[int]:
     """Ak nebol plan_meta_id explicitne poslaný, dohľadá aktívny plán usera."""
     if plan_meta_id is not None:
         return plan_meta_id
@@ -155,7 +161,9 @@ def service_generate_daily_week(
             "message": err_msg,
         }
 
-    week_start = str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
+    week_start = (
+        str(week_meta.get("week_start") or ai_plan.get("week_start") or "") or None
+    )
     week_end = str(week_meta.get("week_end") or ai_plan.get("week_end") or "") or None
 
     ai_plan.setdefault("week_index", week_index)
@@ -166,7 +174,11 @@ def service_generate_daily_week(
 
     days: List[Dict[str, Any]] = ai_plan.get("days") or []
     if len(days) == 0:
-        return {"ok": False, "code": "daily_plan_empty", "message": "AI vrátil prázdny plán."}
+        return {
+            "ok": False,
+            "code": "daily_plan_empty",
+            "message": "AI vrátil prázdny plán.",
+        }
 
     model_used = str(trace.get("ok_model") or ai_plan.get("model") or "unknown")
     _log_ai_usage(user_id, trace, model_used, week_index, ctx)
@@ -199,10 +211,16 @@ def service_generate_daily_week(
     deleted_rows = 0
     if date_from and date_to:
         deleted_rows = db_clear_daily_for_user_range(
-            user_id=user_id, plan_meta_id=plan_meta_id, date_from=date_from, date_to=date_to, ctx=ctx
+            user_id=user_id,
+            plan_meta_id=plan_meta_id,
+            date_from=date_from,
+            date_to=date_to,
+            ctx=ctx,
         )
 
-    rows_to_insert = build_daily_rows_from_ai(user_id=user_id, daily_plan=ai_plan, plan_meta_id=plan_meta_id)
+    rows_to_insert = build_daily_rows_from_ai(
+        user_id=user_id, daily_plan=ai_plan, plan_meta_id=plan_meta_id
+    )
     if drop_past_days:
         rows_to_insert = [
             r for r in rows_to_insert if str(r.get("plan_date", "")) >= today_iso
@@ -240,9 +258,11 @@ def service_generate_daily_week(
         "error": None,
     }
 
+
 # ============================================================
 # READ
 # ============================================================
+
 
 def service_get_daily_overview(
     user_id: int,
@@ -259,7 +279,10 @@ def service_get_daily_overview(
 
     rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=horizon_days, ctx=ctx
+            user_id=user_id,
+            plan_meta_id=plan_meta_id,
+            horizon_days=horizon_days,
+            ctx=ctx,
         )
         or []
     )
@@ -286,24 +309,28 @@ def service_get_daily_overview(
             payload = s.get("payload") or {}
             structure = s.get("structure") or payload.get("structure")
             if structure is None:
-                strength_ex = s.get("strength_exercises") or payload.get("strength_exercises")
+                strength_ex = s.get("strength_exercises") or payload.get(
+                    "strength_exercises"
+                )
                 if strength_ex:
                     structure = {"strength_exercises": strength_ex}
-            sessions_out.append({
-                "id": s.get("id"),
-                "plan_date": str(s.get("plan_date") or "")[:10],
-                "session_index": int(s.get("session_index") or 0),
-                "sport": s.get("sport") or "other",
-                "title": s.get("title"),
-                "duration_min": s.get("duration_min"),
-                "intensity": s.get("intensity"),
-                "notes": s.get("notes"),
-                "session_type": s.get("session_type"),
-                "structure": structure,
-                "payload": payload,
-                "status": s.get("status"),
-                "activity_id": s.get("activity_id"),
-            })
+            sessions_out.append(
+                {
+                    "id": s.get("id"),
+                    "plan_date": str(s.get("plan_date") or "")[:10],
+                    "session_index": int(s.get("session_index") or 0),
+                    "sport": s.get("sport") or "other",
+                    "title": s.get("title"),
+                    "duration_min": s.get("duration_min"),
+                    "intensity": s.get("intensity"),
+                    "notes": s.get("notes"),
+                    "session_type": s.get("session_type"),
+                    "structure": structure,
+                    "payload": payload,
+                    "status": s.get("status"),
+                    "activity_id": s.get("activity_id"),
+                }
+            )
 
         days_out.append({"date": date_str, "sessions": sessions_out})
         d += timedelta(days=1)
@@ -314,6 +341,7 @@ def service_get_daily_overview(
 # ============================================================
 # AUTO EXTEND
 # ============================================================
+
 
 def service_auto_extend_daily_plan(
     user_id: int,
@@ -332,7 +360,17 @@ def service_auto_extend_daily_plan(
     po synchronizácii aktivity si poznámku spotrebuje samo, ako doteraz).
     False sa používa len z service_replan_current_week_and_extend, kde
     poznámku spotrebúva až volajúci, na úplnom konci reťazca.
+
+    🌟 NOVÉ: v advisor režime sa nič negeneruje - user si plán stavia sám
+    a automatický dogenerovaný týždeň by mu ho prepísal. Kontrola beží
+    hneď na začiatku, pred akýmkoľvek DB/AI volaním. Táto funkcia je
+    centrálny vstupný bod pre "daily_extend" job, ktorý sa enqueue-uje
+    po každom "plan_match" jobe (teda po každom importe aktivity zo
+    Stravy) - gate tu preto pokrýva celú automatickú cestu.
     """
+    if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+        return {"changed": False, "reason": "advisor_mode"}
+
     if min_horizon_days <= 0:
         min_horizon_days = 6
 
@@ -342,7 +380,10 @@ def service_auto_extend_daily_plan(
 
     daily_rows: List[Dict[str, Any]] = (
         db_list_daily_for_user_horizon(
-            user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
+            user_id=user_id,
+            plan_meta_id=plan_meta_id,
+            horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
+            ctx=ctx,
         )
         or []
     )
@@ -364,7 +405,8 @@ def service_auto_extend_daily_plan(
         }
 
     weekly_rows: List[Dict[str, Any]] = (
-        db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
+        db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
+        or []
     )
     if not weekly_rows:
         return {
@@ -426,7 +468,10 @@ def service_auto_extend_daily_plan(
 
         daily_rows = (
             db_list_daily_for_user_horizon(
-                user_id=user_id, plan_meta_id=plan_meta_id, horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS, ctx=ctx
+                user_id=user_id,
+                plan_meta_id=plan_meta_id,
+                horizon_days=COACH_PLAN_SCAN_HORIZON_DAYS,
+                ctx=ctx,
             )
             or []
         )
@@ -450,6 +495,7 @@ def service_auto_extend_daily_plan(
 # ============================================================
 # SESSION STATUS UPDATE
 # ============================================================
+
 
 def service_update_daily_session_status(
     user_id: int,
@@ -487,7 +533,8 @@ def service_update_daily_session_status(
         raise ValueError("Session not found or update failed")
 
     return {"success": True, "data": row, "message": "Session updated successfully"}
-    
+
+
 def service_replan_current_week_and_extend(
     user_id: int,
     *,
@@ -510,7 +557,18 @@ def service_replan_current_week_and_extend(
 
     Ak krok 1 zlyhá, krok 2 sa vôbec nespustí a poznámka sa nespotrebuje
     (zostáva "pending" pre ďalší pokus).
+
+    🌟 NOVÉ: v advisor režime toto tlačidlo vo FE nemá existovať, ale
+    kontrola je aj tu (defense in depth) - keby sem prišlo volanie,
+    nič neprepíše ručný plán.
     """
+    if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+        return {
+            "ok": False,
+            "code": "advisor_mode",
+            "message": "Replan nie je dostupný v advisor režime.",
+        }
+
     current = service_generate_daily_week(
         user_id=user_id,
         week_index=week_index,

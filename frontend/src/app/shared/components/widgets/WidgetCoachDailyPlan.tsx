@@ -34,8 +34,9 @@ import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarni
 
 type Props = {
   onOpenDetail?: () => void;
+  title?: string;
+  tooltip?: string;
 };
-
 type UiState = {
   daysCount: number;
   sessionsCount: number;
@@ -104,7 +105,7 @@ function buildUiState(
   };
 }
 
-export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
+export default function WidgetCoachDailyPlan({ onOpenDetail, title, tooltip }: Props) {
   const { userId, isChecking } = useUserId();
   const t = useT();
   const { lang } = useSettings();
@@ -159,8 +160,8 @@ export default function WidgetCoachDailyPlan({ onOpenDetail }: Props) {
 
   return (
     <WidgetCard
-      title={t("coachDaily.widget.title")}
-      tooltip={t("coachDaily.widget.tooltip")}
+      title={title ?? t("coachDaily.widget.title")}
+      tooltip={tooltip ?? t("coachDaily.widget.tooltip")}
       accent={ui.isMedicalSuspend ? "danger" : "none"}
       onOpen={onOpenDetail}
       interactive={!!onOpenDetail}

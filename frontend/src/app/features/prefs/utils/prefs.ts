@@ -7,6 +7,7 @@ import type {
   Preferences,
   TrainingBlocks,
   IntensityModel,
+  CoachMode,
 } from "@/app/features/prefs/types/prefs";
 import type { CoachPrefsLegacyLoose } from "@/app/features/coach/types/coachTypes";
 import { DEFAULT_PREFS } from "@/app/features/prefs/types/prefs";
@@ -34,6 +35,10 @@ const clampSports = (xs?: unknown): SportKind[] | undefined => {
   );
   return out.length ? out : undefined;
 };
+
+function normalizeCoachMode(anyIn: any): CoachMode {
+  return anyIn?.coach_mode === "advisor" ? "advisor" : "coach";
+}
 
 function lsGet(): CoachPrefs | null {
   try {
@@ -194,7 +199,8 @@ export function normalizeCoachPrefs(
     "volume" in anyIn ||
     "weeks" in anyIn ||
     "start_date" in anyIn ||
-    "end_date" in anyIn;
+    "end_date" in anyIn ||
+    "coach_mode" in anyIn;
 
   if (hasAnyNew) {
     const incomingPrefs = (anyIn.preferences ?? {}) as any;
@@ -202,6 +208,7 @@ export function normalizeCoachPrefs(
     const two_a_day = normalizeTwoADay(incomingPrefs, anyIn);
     const intensity_model = normalizeIntensityModel(incomingPrefs, anyIn);
     const training_blocks = normalizeTrainingBlocks(incomingPrefs, anyIn);
+    const coach_mode = normalizeCoachMode(anyIn);
 
         const prefs: Preferences = {
       days_off:
@@ -247,6 +254,7 @@ export function normalizeCoachPrefs(
       ...DEFAULT_PREFS,
       ...(anyIn as any),
 
+      coach_mode,
       main_sport: mainSport,
       add_on_sports: addOns,
 
@@ -286,6 +294,7 @@ export function normalizeCoachPrefs(
     goal_kind: (l.goal_kind ??
       DEFAULT_PREFS.goal_kind) as CoachPrefs["goal_kind"],
     weeks: l.weeks ?? DEFAULT_PREFS.weeks,
+    coach_mode: "coach",
     preferences: legacyPrefs,
   };
 

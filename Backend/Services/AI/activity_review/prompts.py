@@ -314,6 +314,24 @@ def _clarifying_question_rule() -> str:
         "would genuinely improve your next response or understanding of their situation.\n"
     )
 
+def _advisor_mode_rule(context_payload: Dict[str, Any]) -> str:
+    """
+    🌟 NOVÉ: advisor režim - plán si athlete skladá sám, AI nepredpisuje
+    nové tréningy, len hodnotí jeho vlastné rozhodnutia.
+    """
+    if (context_payload or {}).get("coach_mode") != "advisor":
+        return ""
+    return (
+        "\n--- ADVISOR MODE ---\n"
+        "The athlete builds their own plan - 'context.plan_today' and 'context.plan_tomorrow' were "
+        "created by the athlete, not by you.\n"
+        "- PLAN ADHERENCE: evaluate the session against what THEY planned. If they deviated, say "
+        "whether the deviation made sense.\n"
+        "- next_day_plan: do NOT prescribe a new workout. If plan_tomorrow exists, say whether it fits "
+        "after today's load and what to watch (keep it easy, shorten it, watch HR). If it does not fit, "
+        "suggest in general terms how to adjust it (shorter, easier, swap with rest). If there is no "
+        "plan_tomorrow, give general recovery guidance only.\n"
+    )
 
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
@@ -448,6 +466,7 @@ def build_prompts_for_activity_review(
     pre_session_note = _pre_session_conversation_rule(pre_session_ctx)
 
     clarifying_note = _clarifying_question_rule()
+    advisor_note = _advisor_mode_rule(context_payload)
 
     user_txt = (
         f"Analyze this {resolved_sport.upper()} session. "
@@ -467,6 +486,7 @@ def build_prompts_for_activity_review(
         + race_logic
         + conversation_note
         + pre_session_note
+        + advisor_note
         + clarifying_note
         + "\n- Return ONLY raw JSON."
     )

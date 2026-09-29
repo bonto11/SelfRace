@@ -1,4 +1,4 @@
-// src/app/coach/ai/daily/page.tsx
+// src/app/coach/ai/dailyPlan/page.tsx
 "use client";
 
 import PageShell from "@/app/shared/ui/components/PageShell";
@@ -9,7 +9,7 @@ export default function Page() {
   const t = useT();
   return (
     <PageShell title={t("coachDaily.title")} showBack showPoweredByStrava={false}>
-      <DetailDailyPlan />
+      <DetailDailyPlan editable={false} />
     </PageShell>
   );
 }

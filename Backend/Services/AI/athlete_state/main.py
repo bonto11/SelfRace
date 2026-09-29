@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
+from datetime import date, datetime, timedelta, timezone
 
+from Configs.strength_catalog import get_exercise
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
+from DB.coach_plan_daily import db_get_planned_range_rows
+from Services.coach_mode import service_get_coach_mode
 from DB.user_metrics import db_insert_metrics
 from DB.user_pace_history import db_insert_pace_row
 from DB.coach_athlete_state import (
@@ -17,7 +21,6 @@ from DB.coach_athlete_state import (
     db_get_latest_athlete_progress,
 )
 from DB.users import db_list_users_for_athlete_state
-from Services.notifications import service_notify_athlete_state_progress
 
 from Services.AI.utils.billing import (
     extract_usage_from_trace,
@@ -37,6 +40,112 @@ from Modules.Supabase.auth import AuthCtx
 # ============================================================
 # HELPERS
 # ============================================================
+ADVISOR_PLAN_DAYS_BACK = 7
+ADVISOR_PLAN_DAYS_FORWARD = 7
+
+
+def _compact_plan_structure(sport: str, structure: Any) -> Optional[Dict[str, Any]]:
+    """
+    🌟 NOVÉ: zhustená štruktúra plánovanej session pre advisor kontext.
+    Silové cviky idú s menom a pohybovým vzorom (nie exercise_id), aby
+    AI vedela komentovať vyváženosť (napr. chýba vertikálny ťah).
+    """
+    if not isinstance(structure, dict):
+        return None
+
+    if sport == "strength":
+        exercises: List[Dict[str, Any]] = []
+        for block in ("activation", "strength_main_part", "add_ons"):
+            for ex in structure.get(block) or []:
+                if not isinstance(ex, dict) or not ex.get("exercise_id"):
+                    continue
+                meta = get_exercise(str(ex["exercise_id"])) or {}
+                exercises.append({
+                    "name": meta.get("name_en") or str(ex["exercise_id"]),
+                    "pattern": meta.get("pattern"),
+                    "sets": ex.get("sets"),
+                    "reps": ex.get("reps"),
+                })
+        return {"exercises": exercises} if exercises else None
+
+    main_out: List[Dict[str, Any]] = []
+    for b in structure.get("main_part") or []:
+        if not isinstance(b, dict):
+            continue
+        if b.get("kind") == "interval_block":
+            work = b.get("work") or {}
+            rest = b.get("rest") or {}
+            main_out.append({
+                "rounds": b.get("rounds"),
+                "work_min": work.get("minutes"),
+                "rest_min": rest.get("minutes"),
+                "work_notes": str(work.get("notes") or "")[:80] or None,
+            })
+        else:
+            main_out.append({
+                "minutes": b.get("minutes"),
+                "notes": str(b.get("notes") or "")[:80] or None,
+            })
+
+    return {
+        "warmup_min": (structure.get("warmup") or {}).get("minutes"),
+        "main": main_out,
+        "cooldown_min": (structure.get("cooldown") or {}).get("minutes"),
+    }
+
+
+def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: kontext plánu pre advisor režim - čo si athlete naplánoval
+    minulých 7 dní (a či to odtrénoval) a čo má naplánované na ďalších 7.
+    """
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    if not meta:
+        return {"has_active_plan": False}
+
+    today = date.today()
+    today_iso = today.isoformat()
+    rows = db_get_planned_range_rows(
+        user_id=user_id,
+        plan_meta_id=meta.get("id"),
+        date_from=(today - timedelta(days=ADVISOR_PLAN_DAYS_BACK)).isoformat(),
+        date_to=(today + timedelta(days=ADVISOR_PLAN_DAYS_FORWARD)).isoformat(),
+        ctx=ctx,
+    ) or []
+
+    past: List[Dict[str, Any]] = []
+    upcoming: List[Dict[str, Any]] = []
+
+    for r in rows:
+        d = str(r.get("plan_date") or "")[:10]
+        if not d:
+            continue
+        sport = str(r.get("sport") or "other")
+
+        status = r.get("status") or "planned"
+        if r.get("activity_id"):
+            status = "done"
+        elif d < today_iso and status == "planned":
+            status = "not_done"
+
+        item = {
+            "date": d,
+            "weekday": date.fromisoformat(d).strftime("%a"),
+            "sport": sport,
+            "title": r.get("title"),
+            "duration_min": r.get("duration_min"),
+            "session_type": r.get("session_type"),
+            "status": status,
+            "structure": _compact_plan_structure(sport, r.get("structure")),
+        }
+        (past if d < today_iso else upcoming).append(item)
+
+    return {
+        "has_active_plan": True,
+        "today": today_iso,
+        "past_7_days": past,
+        "next_7_days": upcoming,
+    }
 
 def _now_iso() -> str:
     """Aktuálny UTC čas ako ISO string."""
@@ -259,9 +368,12 @@ def service_analyze_athlete(
     """
     Hlavný service pre AI analýzu stavu športovca.
     Zostaví kontext z DB, zavolá AI, uloží výsledky, spustí progress porovnanie.
-    model=None = provider použije default z ENV (odporúčané).
+
+    🌟 NOVÉ: v advisor režime sa do kontextu pridá 'advisor_plan' (plán
+    minulých/nasledujúcich 7 dní) a AI vyplní navyše blok 'advisor_review'
+    (hodnotenie týždňa, kontrola naplánovaného, slovné odporúčania).
+    Beží rovnako pri nedeľnom jobe aj pri "Skontroluj mi týždeň".
     """
-    # Kvóta check
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
@@ -271,11 +383,9 @@ def service_analyze_athlete(
             "used_tokens_this_month": used,
         }
 
-    # Builder — zostaví kompletný kontext z DB
     input_data = build_input_from_db(user_id=user_id, ctx=ctx)
     context_for_ai = _minify_context_for_ai(input_data)
 
-    # Odstránenie interných polí pred odoslaním do AI
     u = context_for_ai.get("user")
     if isinstance(u, dict):
         u.pop("id", None)
@@ -287,7 +397,17 @@ def service_analyze_athlete(
             pv.pop("external_activities", None)
         prefs_block.pop("external_activities", None)
 
-    # AI generovanie — provider vyberie model podľa ENV
+    # 🌟 NOVÉ: advisor kontext
+    is_advisor = service_get_coach_mode(user_id, ctx=ctx) == "advisor"
+    if is_advisor:
+        try:
+            context_for_ai["coach_mode"] = "advisor"
+            context_for_ai["advisor_plan"] = _minify_context_for_ai(
+                _build_advisor_plan_context(user_id, ctx=ctx)
+            )
+        except Exception as e:
+            print(f"[AI-STATE] advisor plan context error: {repr(e)}")
+
     analysis, trace, err_msg = generate_athlete_state_json(
         context_payload=context_for_ai,
         model=model,
@@ -299,11 +419,11 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
+    if is_advisor:
+        analysis["coach_mode"] = "advisor"
 
-    # Billing
     _log_ai_usage(user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx)
 
-    # Plan adjustment signály
     try:
         signals = compute_plan_adjustment_signals(
             analyze_input=input_data, analysis=analysis
@@ -328,14 +448,11 @@ def service_analyze_athlete(
         "weekly_replan_reason": signals.get("weekly_replan_reason"),
     }
 
-    # Uloženie do DB
     state_id = service_save_state_to_db(user_id=user_id, analysis=analysis, ctx=ctx)
 
-    # Vedľajšie výstupy
     _maybe_save_estimated_vo2max(user_id, analysis, ctx)
     _maybe_save_estimated_paces(user_id, analysis, ctx)
 
-    # Progress porovnanie s predchádzajúcim stavom
     compare_previous: Optional[Dict[str, Any]] = None
     try:
         progress_result = service_compare_latest_athlete_states(
@@ -360,7 +477,6 @@ def service_analyze_athlete(
         resp["compare_previous"] = compare_previous
 
     return resp
-
 
 # ============================================================
 # CORE: COMPARE STATES
@@ -425,12 +541,6 @@ def service_compare_latest_athlete_states(
             )
     except Exception as e:
         print(f"[service_compare] db_update error: {repr(e)}")
-
-    # Push notifikácia
-    try:
-        service_notify_athlete_state_progress(user_id=user_id, ctx=ctx)
-    except Exception as e:
-        print(f"[service_compare] push notification error: {repr(e)}")
 
     return {
         "ok": True,

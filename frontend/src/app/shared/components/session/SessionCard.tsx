@@ -201,6 +201,12 @@ export type SessionCardProps = {
   onRefreshPlan?: () => void;
   onDiscard?: (sessionId: number) => void;
 
+  // 🌟 NOVÉ: advisor režim - ručne spravovaný plán potrebuje priame
+  // Upraviť/Vymazať akcie na karte, nezávisle od showAdvanced.
+  editable?: boolean;
+  onDeleteSession?: (sessionId: number) => void | Promise<void>;
+  onEditSession?: (sessionId: number) => void;
+
   planReschedule?: {
     enabled?: boolean;
     dates: string[];
@@ -257,6 +263,9 @@ export default function SessionCard({
   showAdvanced = false,
   onRefreshPlan,
   onDiscard,
+  editable = false,
+  onDeleteSession,
+  onEditSession,
   planReschedule,
 }: SessionCardProps) {
   const t = useT();
@@ -537,6 +546,9 @@ export default function SessionCard({
               showAdvanced={showAdvanced}
               onRefreshPlan={onRefreshPlan}
               onDiscard={onDiscard}
+              editable={editable}
+              onDeleteSession={onDeleteSession}
+              onEditSession={onEditSession}
               planRescheduleUI={
                 canReschedulePlan
                   ? {

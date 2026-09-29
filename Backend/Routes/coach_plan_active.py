@@ -11,6 +11,7 @@ from Services.coach_plan_active import (
     service_link_activity,
     service_get_active_plan_status,
     service_get_plan_history,
+    service_start_manual_plan,
 )
 from Modules.Supabase.auth import get_auth_ctx, require_user
 from DB.coach_plan_daily import db_get_planned_range_rows
@@ -53,6 +54,38 @@ async def save_active_plan(
 
 
 # ----------------------------------------------------
+# POST /coach-plan-active/{user_id}/start-manual
+# 🌟 NOVÉ: advisor režim - prázdny aktívny plán bez AI generovania
+# ----------------------------------------------------
+@router.post("/coach-plan-active/{user_id}/start-manual")
+async def start_manual_plan(
+    req: Request,
+    user_id: int,
+):
+    try:
+        ctx = require_user(get_auth_ctx(req))
+
+        result = service_start_manual_plan(user_id=user_id, ctx=ctx)
+        if not result.get("ok"):
+            return {
+                "success": False,
+                "error_code": result.get("code") or "REQUEST_FAILED",
+                "message": result.get("message"),
+            }
+
+        return {
+            "success": True,
+            "plan_start": result.get("plan_start"),
+            "plan_end": result.get("plan_end"),
+            "meta": result.get("meta"),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"start_manual_plan ERROR: {str(e)}")
+
+
+# ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/cancel
 # ----------------------------------------------------
 @router.post("/coach-plan-active/{user_id}/cancel")
@@ -63,7 +96,6 @@ async def cancel_active_plan(
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        # NOVÉ:
         result = service_cancel_active_plan(user_id=user_id, target_status="canceled", ctx=ctx)
         return {"success": True, **result}
     except ValueError as e:
@@ -87,7 +119,6 @@ async def link_activity(
     if id_raw is None:
         raise HTTPException(status_code=400, detail="id must be provided")
 
-    # safe cast
     try:
         id = int(id_raw)
     except Exception:
@@ -127,14 +158,7 @@ def get_plan_range(
 ) -> Dict[str, Any]:
     """
     Vráti všetky plánované sessions (coach_plan_daily) pre usera
-    v danom dátumovom intervale.
-
-    🌟 FIX: predtým čítalo naprieč VŠETKÝMI plánmi usera (žiadny
-    plan_meta_id scope) - presne toto bolo to chýbajúce miesto, čo
-    spôsobilo crash po zavedení plan_meta_id (parameter mal default None,
-    takže nespadlo, ale ani nebolo scoped). Teraz si dohľadá aktívny plán a
-    pošle jeho id ako scope - rovnaký vzor ako v Services/AI/daily_plan/main.py
-    (_resolve_plan_meta_id).
+    v danom dátumovom intervale, scoped na aktívny plán.
     """
     try:
         ctx = require_user(get_auth_ctx(req))
@@ -166,12 +190,9 @@ async def get_active_plan_status(
     user_id: int,
     req: Request,
 ) -> Dict[str, Any]:
-    """
-    Vráti info, či má user aktívny plán.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-        
+
         status = service_get_active_plan_status(user_id=user_id, ctx=ctx)
         return {
             "success": True,
@@ -181,8 +202,8 @@ async def get_active_plan_status(
         raise HTTPException(
             status_code=500, detail=f"get_active_plan_status ERROR: {e}"
         )
-        
-        
+
+
 # ----------------------------------------------------
 # GET /coach-plan-active/{user_id}/history
 # ----------------------------------------------------
@@ -191,11 +212,6 @@ async def get_plan_history(
     user_id: int,
     req: Request,
 ) -> List[Dict[str, Any]]:
-    """
-    Vráti zoznam archivovaných plánov (completed a canceled).
-    Frontend očakáva čistý List/Array (nie obalený v "success").
-    """
-
     try:
         ctx = require_user(get_auth_ctx(req))
         data = service_get_plan_history(user_id=user_id, ctx=ctx)
@@ -206,23 +222,19 @@ async def get_plan_history(
             status_code=500, detail=f"get_plan_history ERROR: {e}"
         )
 
+
 @router.post("/coach-plan-active/milestone-summary/{user_id}")
 def generate_milestone_summary(
     req: Request,
     user_id: int,
 ):
-    """
-    Manuálny 'checkpoint' sumár prípravy - kedykoľvek, bez ohľadu na
-    dokončenie plánu. Plán zostáva active, nič sa nearchivuje.
-    """
     try:
         ctx = require_user(get_auth_ctx(req))
-       
+
         result = service_generate_milestone_summary_on_demand(user_id=user_id, ctx=ctx)
         return result
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @router.get("/coach-plan-active/plan-summaries/{user_id}")

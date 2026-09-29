@@ -24,42 +24,32 @@ import {
 } from "@/app/features/coach/api/coach_plan_active";
 import { apiGenerateWeeklyPlan } from "@/app/features/coach/api/coach_plan_weekly";
 import { apiGenerateDailyForWeek } from "@/app/features/coach/api/coach_plan_daily";
+import { apiStartManualPlan } from "@/app/features/coach/api/advisor_daily";
 import { apiGetActiveHealthLogs } from "@/app/features/coach/api/users_health_log";
 import AiUsageWarningBanner from "@/app/features/billing/components/AiUsageWarningBanner";
-
-/* ============================================================ */
-/* PLAN LIFECYCLE SEKCIA - jedno miesto na cely zivotny cyklus   */
-/* planu (analyze -> weekly -> daily -> aktivovat -> zrusit).   */
-/*                                                                */
-/* Sekcia je VZDY viditeľná (nie skryta pred prvym Save):        */
-/* - Weekly/Daily prekliky vzdy klikatelne                      */
-/* - "Vygenerovat" vzdy zobrazene (ked plan nie je aktivny),      */
-/*   ale enabled len ked su vyplnene prefs (canGenerate/prefs)    */
-/* - "Aktivovat" len po plnom vygenerovani                       */
-/* - "Zrusit" len ked je plan AKTIVNY                            */
-/*                                                                */
-/* ============================================================ */
 
 type LoadingKind = "generate" | "start" | "cancel" | "status" | null;
 
 export default function PlanLifecycleSection({
   prefs,
 }: {
-  prefs: { start_date?: string | null; targets?: { run?: { races?: any[] } } };
+  prefs: {
+    start_date?: string | null;
+    targets?: { run?: { races?: any[] } };
+    coach_mode?: "coach" | "advisor";
+  };
 }) {
   const router = useRouter();
   const { userId, userUuid } = useUserId();
   const t = useT();
 
-  // 🌟 NOVÉ: po generovaní / aktivácii / zrušení treba obnoviť globálne
-  // coach dáta (weekly + daily riadky). Predtým sa tu nastavili len lokálne
-  // flagy hasWeekly/hasDaily, provider ostal so starými (prázdnymi) dátami
-  // a Weekly/Daily stránky po prekliku ukazovali prázdno. Optional verzia,
-  // aby sekcia nepadla, ak by bola vykreslená mimo providera.
   const coach = useCoachDataOptional();
   const refreshCoach = useCallback(() => {
     void coach?.refresh(true);
   }, [coach]);
+
+  // 🌟 NOVÉ: advisor režim - plán si user skladá sám
+  const isAdvisor = prefs?.coach_mode === "advisor";
 
   const canGenerate = useMemo(() => {
     const hasStartDate = !!(prefs?.start_date && prefs.start_date.trim());
@@ -79,13 +69,14 @@ export default function PlanLifecycleSection({
 
   const [maxInjurySeverity, setMaxInjurySeverity] = useState(0);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(1);
-
-  // "Na hulváta" progress odhad pre generovanie - žiadny reálny BE
-  // progress tracking, len časovač (~20s na krok). Čisto kozmetické.
   const [loadingStepLabel, setLoadingStepLabel] = useState<string | null>(null);
 
   const loading = loadingKind !== null && loadingKind !== "status";
   const isMedicalSuspend = maxInjurySeverity >= 7;
+  // 🌟 NOVÉ: v advisor režime sa plán pri zranení neblokuje - len varujeme
+  const blockActions = isMedicalSuspend && !isAdvisor;
+
+  const dailyRoute = isAdvisor ? "/coach/advisor/daily" : "/coach/ai/dailyPlan";
 
   useEffect(() => {
     if (loading) {
@@ -138,10 +129,6 @@ export default function PlanLifecycleSection({
     fetchStatus();
   }, [fetchStatus]);
 
-  // Sekvenčné generovanie: analyze -> weekly (full_reset) -> daily (week 1).
-  // full_reset: true zaisťuje, že opakované generovanie z Prefs (pred prvým
-  // spustením plánu) kompletne premaže predošlý draft namiesto pridávania
-  // duplicitných týždňov vedľa neho.
   const handleGenerate = useCallback(async () => {
     if (!userId || !userUuid || isMedicalSuspend || loading) return;
     setError(null);
@@ -184,9 +171,6 @@ export default function PlanLifecycleSection({
       }
       setHasWeekly(true);
 
-      // plan_meta_id novo vytvoreného draftu sa musí poslať ďalej do daily
-      // generovania - čerstvý draft ešte nie je aktívny, backend by si ho
-      // sám nenašiel a daily riadky by dostali plan_meta_id=NULL.
       const newPlanMetaId = (weeklyOut as any)?.plan_meta_id ?? null;
 
       await apiEnsureCoachPlanStartFuture(userId);
@@ -208,9 +192,6 @@ export default function PlanLifecycleSection({
       clearTimeout(stepTimer3);
       setLoadingKind(null);
       setLoadingStepLabel(null);
-      // 🌟 NOVÉ: obnov coach dáta vždy po pokuse o generovanie (aj pri
-      // čiastočnom úspechu - napr. weekly prebehol, daily padol, weekly
-      // dáta sú v DB a majú byť vidieť).
       refreshCoach();
     }
   }, [userId, userUuid, latestStateId, formatAiError, isMedicalSuspend, loading, t, refreshCoach]);
@@ -223,7 +204,6 @@ export default function PlanLifecycleSection({
       const res = await apiActivePlanSave(userId, {});
       if (res.success) {
         await fetchStatus();
-        // 🌟 NOVÉ: aktivácia mení, ktorý plán backend vracia ako aktívny
         refreshCoach();
       } else {
         setError(res.error || t("prefs.sections.planLifecycleSection.errors.genericStart" as any));
@@ -234,6 +214,33 @@ export default function PlanLifecycleSection({
       setLoadingKind(null);
     }
   }, [userId, isMedicalSuspend, fetchStatus, t, refreshCoach]);
+
+  // 🌟 NOVÉ: "Začať plán" v advisor režime - prázdny aktívny plán bez AI
+  const handleStartManual = useCallback(async () => {
+    if (!userId || loading) return;
+    setError(null);
+    setLoadingKind("start");
+    try {
+      const res = await apiStartManualPlan(userId);
+      if (res.success) {
+        await fetchStatus();
+        refreshCoach();
+        router.push("/coach/advisor/daily");
+        return;
+      }
+      if (res.error_code === "not_advisor_mode") {
+        setError(t("prefs.sections.planLifecycleSection.errors.advisorNotSaved" as any));
+      } else if (res.error_code === "active_plan_exists") {
+        setError(t("prefs.sections.planLifecycleSection.errors.alreadyActive" as any));
+      } else {
+        setError(res.message || t("prefs.sections.planLifecycleSection.errors.genericStart" as any));
+      }
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setLoadingKind(null);
+    }
+  }, [userId, loading, fetchStatus, refreshCoach, router, t]);
 
   const handleCancelPlan = useCallback(async () => {
     if (!userId) return;
@@ -250,7 +257,6 @@ export default function PlanLifecycleSection({
     try {
       await apiActivePlanCancel(userId);
       await fetchStatus();
-      // 🌟 NOVÉ: po zrušení plánu vyčisti aj globálne coach dáta
       refreshCoach();
     } catch (e: any) {
       setError(e?.message || String(e));
@@ -293,7 +299,7 @@ export default function PlanLifecycleSection({
         {t("prefs.sections.planLifecycleSection.title" as any)}
       </div>
 
-      <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />
+      {!isAdvisor && <AiUsageWarningBanner forceShow={quotaExceeded} className="mb-3" />}
 
       {isMedicalSuspend && (
         <div
@@ -311,10 +317,13 @@ export default function PlanLifecycleSection({
             </strong>
           </div>
           <p className="text-xs opacity-90 leading-relaxed mb-3">
-            {(t("prefs.sections.planLifecycleSection.medicalSuspendBanner.text" as any) as string).replace(
-              "{{severity}}",
-              String(maxInjurySeverity),
-            )}
+            {(
+              t(
+                (isAdvisor
+                  ? "prefs.sections.planLifecycleSection.medicalSuspendBanner.textAdvisor"
+                  : "prefs.sections.planLifecycleSection.medicalSuspendBanner.text") as any,
+              ) as string
+            ).replace("{{severity}}", String(maxInjurySeverity))}
           </p>
           <Button
             size="sm"
@@ -339,33 +348,56 @@ export default function PlanLifecycleSection({
         </div>
       )}
 
-      {!isMedicalSuspend && (
+      {!blockActions && (
         <>
-          {/* Prekliky na Weekly/Daily - VŽDY viditeľné, nezávisle od stavu plánu */}
+          {/* Prekliky - v advisor režime len denný plán (weekly neexistuje) */}
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push("/coach/ai/dailyPlan")}
+              onClick={() => router.push(dailyRoute)}
               disabled={isGlobalLoading}
               className="flex-1"
             >
               {t("prefs.sections.planLifecycleSection.actions.openPlan" as any)}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push("/coach/ai/weeklyPlan")}
-              disabled={isGlobalLoading}
-              className="flex-1"
-            >
-              {t("prefs.sections.planLifecycleSection.goToWeekly" as any)}
-            </Button>
+            {!isAdvisor && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push("/coach/ai/weeklyPlan")}
+                disabled={isGlobalLoading}
+                className="flex-1"
+              >
+                {t("prefs.sections.planLifecycleSection.goToWeekly" as any)}
+              </Button>
+            )}
           </div>
 
-          {/* Vygenerovať - VŽDY viditeľné (keď plán nie je aktívny), enabled
-              len keď sú vyplnené prefs (race alebo start_date) */}
-          {!isPlanActive && (
+          {/* 🌟 ADVISOR: Začať plán (bez AI) */}
+          {isAdvisor && !isPlanActive && (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleStartManual}
+                disabled={isGlobalLoading}
+                className="w-full mb-2"
+              >
+                {loadingKind === "start" ? (
+                  <LoadingSpinner size="button" />
+                ) : (
+                  t("prefs.sections.planLifecycleSection.actions.startManual" as any)
+                )}
+              </Button>
+              <div className="text-[11px] opacity-60 text-center mb-2">
+                {t("prefs.sections.planLifecycleSection.advisorHint" as any)}
+              </div>
+            </>
+          )}
+
+          {/* COACH: Vygenerovať */}
+          {!isAdvisor && !isPlanActive && (
             <Button
               variant="primary"
               size="sm"
@@ -386,8 +418,8 @@ export default function PlanLifecycleSection({
             </Button>
           )}
 
-          {/* Aktivovať - viditeľné len keď je plán plne vygenerovaný, ale ešte nie aktívny */}
-          {!isPlanActive && isFullyGenerated && (
+          {/* COACH: Aktivovať - len po plnom vygenerovaní */}
+          {!isAdvisor && !isPlanActive && isFullyGenerated && (
             <Button
               variant="primary"
               size="sm"
@@ -404,7 +436,7 @@ export default function PlanLifecycleSection({
             </Button>
           )}
 
-          {/* Zrušiť - viditeľné/enabled len keď je plán AKTÍVNY */}
+          {/* Zrušiť - oba režimy, len keď je plán AKTÍVNY */}
           {isPlanActive && (
             <Button
               variant="danger"
@@ -421,7 +453,7 @@ export default function PlanLifecycleSection({
             </Button>
           )}
 
-          {loading && (
+          {loading && !isAdvisor && (
             <div className="text-[10px] text-center opacity-60 italic py-1 mt-2">
               <span className="animate-pulse block text-white/80">
                 {loadingKind === "generate" && loadingStepLabel

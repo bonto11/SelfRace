@@ -44,6 +44,7 @@ import { FocusAvoidSection } from "@/app/features/prefs/components/sections/Focu
 import { RehabSection } from "@/app/features/prefs/components/sections/RehabSection";
 import { VolumeSection } from "@/app/features/prefs/components/sections/VolumeSection";
 import PlanLifecycleSection from "@/app/features/prefs/components/sections/PlanLifecycleSection";
+import { CoachModeSection } from "@/app/features/prefs/components/sections/CoachModeSection";
 
 import {
   PANEL_STACK,
@@ -94,10 +95,22 @@ function DetailedModeToggle({
       }}
     >
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: appColors.textPrimary }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: appColors.textPrimary,
+          }}
+        >
           {t("prefs.detailedMode.title")}
         </div>
-        <div style={{ fontSize: 12, opacity: 0.75, color: appColors.textSecondary }}>
+        <div
+          style={{
+            fontSize: 12,
+            opacity: 0.75,
+            color: appColors.textSecondary,
+          }}
+        >
           {t("prefs.detailedMode.text")}
         </div>
       </div>
@@ -127,7 +140,9 @@ function DetailedModeToggle({
             width: 20,
             height: 20,
             borderRadius: "50%",
-            background: checked ? appColors.buttonMainText : appColors.textMuted,
+            background: checked
+              ? appColors.buttonMainText
+              : appColors.textMuted,
             transition: "left 0.2s ease",
           }}
         />
@@ -333,8 +348,9 @@ export default function CoachPreferencies() {
       const normalized: any = {
         ...rest,
         start_date: !startIso || startIso < minIso ? minIso : startIso,
-        secondary_mix: (local.secondary_mix ?? [])
-          .filter((x) => x.role !== "none" && Number(x.share_pct) > 0),
+        secondary_mix: (local.secondary_mix ?? []).filter(
+          (x) => x.role !== "none" && Number(x.share_pct) > 0,
+        ),
       };
 
       if (normalized.targets) {
@@ -531,6 +547,8 @@ export default function CoachPreferencies() {
         />
       )}
 
+      <CoachModeSection local={local} setPref={setPref} />
+
       <GoalSection
         local={local}
         setPref={setPref}
@@ -541,10 +559,7 @@ export default function CoachPreferencies() {
       <DetailedModeToggle
         checked={!!pref.detailed_mode}
         onToggle={() =>
-          setPrefNested(
-            "preferences.detailed_mode" as any,
-            !pref.detailed_mode,
-          )
+          setPrefNested("preferences.detailed_mode" as any, !pref.detailed_mode)
         }
       />
 

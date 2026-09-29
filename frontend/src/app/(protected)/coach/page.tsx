@@ -6,12 +6,6 @@ import { useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
 import { PAGE_GRID_2 } from "@/app/shared/ui/tokens/pageTokens";
 
-// 🌟 ZMENA: už sa neimportuje CoachDataProvider - stránka používa globálny
-// provider z ClientProtectedShell.tsx. Predtým si tu obaľovala vlastnú
-// (druhú) inštanciu, ktorá prekryla globálnu: refresh na /coach obnovil len
-// tú vnorenú, kým Daily/Weekly detail stránky čítali globálnu, ktorá sa
-// načítala raz pri prihlásení - preto po generovaní ukazovali prázdno
-// a pomohlo až odhlásenie/prihlásenie.
 import { useCoachData } from "@/app/shared/components/dataProviders/CoachDataProvider";
 import { useActivityData } from "@/app/shared/components/dataProviders/ActivityDataProvider";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
@@ -60,8 +54,6 @@ function RefreshIconBtn() {
   );
 }
 
-// 🌟 ZMENA: bývalý ClientPage je teraz priamo default export stránky -
-// wrapper s vlastným providerom už netreba.
 export default function Page() {
   const router = useRouter();
   const t = useT();
@@ -69,19 +61,12 @@ export default function Page() {
   const { settings } = useSettings() as any;
   const showAdvanced = settings?.show_advanced ?? false;
 
-  // Weekly/daily dáta z globálneho providera - keď sa zmenia (refresh po
-  // generovaní, aktivácii, alebo cez RefreshIconBtn), zistíme stav plánu
-  // znova. Predtým sa hasActivePlan zistil len raz pri načítaní stránky.
-  const { weekly, plan } = useCoachData();
+  const { weekly, plan, prefs } = useCoachData();
 
-  // Poradie widgetov sa mení podľa toho, či má user aktívny plán - keď nie
-  // je aktívny, najdôležitejšie je nastaviť prefs a spustiť plán (Prefs hore).
-  // Keď je aktívny, najdôležitejšie sú aktuálne tréningy (Daily/Weekly hore).
-  //
-  // WidgetCoachPlanSummary je v OBOCH vetvách - sám sa skryje (vráti null),
-  // ak sumár neexistuje. Keď sa plán práve dokončí, hasActivePlan sa prepne
-  // na false, takže widget musí byť viditeľný aj v "bez aktívneho plánu"
-  // vetve, inak by user čerstvo vygenerovaný sumár nikdy neuvidel.
+  // 🌟 NOVÉ: coach_mode žije v tom istom coach.prefs blobe ako ostatné
+  // prefs, takže netreba nový fetch - len čítanie z existujúceho providera.
+  const isAdvisorMode = (prefs as any)?.coach_mode === "advisor";
+
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -118,8 +103,22 @@ export default function Page() {
         /* ─── AKTÍVNY PLÁN: čo je práve najviac potrebné hore ─── */
         <div className={PAGE_GRID_2}>
           <WidgetUpcomingRace onOpenDetail={() => router.push("/coach/race-countdown")} />
-          <WidgetCoachAIDaily onOpenDetail={() => router.push("/coach/ai/dailyPlan")} />
-          <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
+
+          {/* 🌟 Daily widget je rovnaký v oboch režimoch - líši sa len
+              titulok a cieľová route (editovateľný vs. AI-generovaný detail). */}
+          <WidgetCoachAIDaily
+            title={isAdvisorMode ? t("coachDaily.widget.titleAdvisor") : undefined}
+            onOpenDetail={() =>
+              router.push(isAdvisorMode ? "/coach/advisor/daily" : "/coach/ai/dailyPlan")
+            }
+          />
+
+          {/* 🌟 Weekly widget sa v advisor režime nezobrazuje vôbec -
+              weekly plán sa v advisor režime negeneruje. */}
+          {!isAdvisorMode && (
+            <WidgetCoachAIWeekly onOpenDetail={() => router.push("/coach/ai/weeklyPlan")} />
+          )}
+
           <WidgetCoachAIAnalyze onOpenDetail={() => router.push("/coach/ai/athleteState")} />
           <WidgetCoachPlanSummary onOpenDetail={() => router.push("/coach/ai/planSummary")} />
 
@@ -129,6 +128,8 @@ export default function Page() {
               <WidgetCoachNotes onOpenDetail={() => router.push("/coach/notes")} />
               <WidgetAthleteHealth onOpenDetail={() => router.push("/coach/health")} />
               <WidgetExternalEvents />
+              {/* 🌟 Compliance zostáva v oboch režimoch - plán (aj ručný)
+                  existuje, štatistiky done/missed/postponed sú validné. */}
               <WidgetCoachPlanCompliance onOpenDetail={() => router.push("/coach/compliance")} />
             </>
           )}

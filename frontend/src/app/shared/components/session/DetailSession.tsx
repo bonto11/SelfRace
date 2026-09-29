@@ -58,6 +58,11 @@ function todayIso() {
  * (maju vlastnu domenovu logiku a pouzivaju sa aj mimo tejto karty - napr.
  * DetailActivity v bests/review kontextoch). Tento komponent je cisto
  * orchestracna vrstva nad nimi.
+ *
+ * 🌟 NOVÉ: editable/onDeleteSession/onEditSession - advisor režim (ručne
+ * spravovaný plán) potrebuje vedieť tréning upraviť/vymazať bez ohľadu na
+ * showAdvanced (ten prepína len zobrazenie "Správa tréningu" bloku pre
+ * postpone/match/unmatch, čo je iná zodpovednosť).
  */
 export function DetailSession({
   variant,
@@ -72,6 +77,9 @@ export function DetailSession({
   onRefreshPlan,
   onDiscard,
   planRescheduleUI,
+  editable = false,
+  onDeleteSession,
+  onEditSession,
 }: {
   variant: ComponentVariant;
   item: SessionCardItem;
@@ -92,6 +100,9 @@ export function DetailSession({
     options: { value: string; label: string }[];
     onSelect: (toDate: string) => void | Promise<void>;
   };
+  editable?: boolean;
+  onDeleteSession?: (sessionId: number) => void | Promise<void>;
+  onEditSession?: (sessionId: number) => void;
 }) {
   const t = useT();
   const { userId } = useUserId();
@@ -237,6 +248,24 @@ export function DetailSession({
     }
   };
 
+  const handleDelete = async () => {
+    if (!planForDetail?.planId || !onDeleteSession || isProcessing) return;
+    if (
+      !window.confirm(
+        t("sessions.card.actions.deleteConfirm") ||
+          "Naozaj chceš tento tréning vymazať?",
+      )
+    ) {
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await onDeleteSession(Number(planForDetail.planId));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const showBothLabels = hasPlan && hasActivity;
 
   return (
@@ -250,6 +279,34 @@ export function DetailSession({
                 {t("sessions.detail.labelPlan") || "Plán"}
               </span>
               <span className="flex-1 h-px bg-white/10" />
+            </div>
+          )}
+
+          {/* 🌟 NOVÉ: Upraviť / Vymazať - viditeľné vždy keď editable=true,
+              nezávisle od showAdvanced (advisor režim ich potrebuje ako
+              primárnu akciu, nie skrytú za "pokročilé"). */}
+          {editable && planForDetail && (onEditSession || onDeleteSession) && (
+            <div className="flex flex-wrap gap-2">
+              {onEditSession && (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  disabled={isProcessing}
+                  onClick={() => onEditSession(Number(planForDetail.planId))}
+                >
+                  {t("common.edit") || "Upraviť"}
+                </Button>
+              )}
+              {onDeleteSession && (
+                <Button
+                  size="xs"
+                  variant="danger"
+                  disabled={isProcessing}
+                  onClick={handleDelete}
+                >
+                  {t("sessions.card.actions.delete") || "Vymazať"}
+                </Button>
+              )}
             </div>
           )}
 
