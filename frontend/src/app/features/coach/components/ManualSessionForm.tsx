@@ -7,6 +7,8 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
+import NumberField from "@/app/shared/ui/components/NumberField";
+import TimeField from "@/app/shared/ui/components/TimeField";
 import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
@@ -16,13 +18,14 @@ import {
   apiCreateManualSession,
   apiUpdateManualSession,
   type ManualDailySessionCreatePayload,
-  type ManualStrengthExercisePayload,
   type ManualRunSessionType,
+  type IntervalUnit,
 } from "@/app/features/coach/api/advisor_daily";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
+type NumVal = number | "";
 
 const SPORT_OPTIONS: { value: SportOption; labelKey: string }[] = [
   { value: "run", labelKey: "common.sports.run" },
@@ -34,7 +37,12 @@ const SPORT_OPTIONS: { value: SportOption; labelKey: string }[] = [
 
 const SESSION_TYPES: ManualRunSessionType[] = ["easy", "recovery", "long", "tempo", "interval"];
 
-type StrengthDraftExercise = ManualStrengthExercisePayload & { _key: string };
+type StrengthDraftExercise = {
+  _key: string;
+  exercise_id: string;
+  sets: NumVal;
+  reps: string;
+};
 
 let keyCounter = 0;
 function nextKey() {
@@ -42,35 +50,64 @@ function nextKey() {
   return `ex_${keyCounter}`;
 }
 
-function numStr(v: unknown): string {
-  return v == null || v === "" ? "" : String(v);
+/* ---------- helpers ---------- */
+
+function n(v: NumVal): number {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0;
 }
 
-function toNum(v: string): number {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+function toNumVal(v: unknown): NumVal {
+  if (v == null || v === "") return "";
+  const num = Number(v);
+  return Number.isFinite(num) && num > 0 ? num : "";
+}
+
+/** "MM:SS" (aj rozpísané, napr. "01:3") -> sekundy. Doplnenie zhodné s TimeField blur. */
+function mmssToSeconds(v: string): number {
+  if (!v) return 0;
+  const [m = "", s = ""] = v.split(":");
+  const mm = parseInt(m || "0", 10);
+  const ss = parseInt((s || "").padEnd(2, "0") || "0", 10);
+  const total = (Number.isNaN(mm) ? 0 : mm) * 60 + (Number.isNaN(ss) ? 0 : ss);
+  return total > 0 ? total : 0;
+}
+
+/** sekundy -> "MM:SS" pre TimeField (max 59:59). */
+function secondsToMmss(sec: number): string {
+  if (!sec || sec <= 0) return "";
+  const clamped = Math.min(sec, 59 * 60 + 59);
+  const mm = Math.floor(clamped / 60);
+  const ss = clamped % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+function partSeconds(part: any): number {
+  if (!part) return 0;
+  if (part.duration_s != null) return Number(part.duration_s) || 0;
+  if (part.minutes != null) return Math.round(Number(part.minutes) * 60) || 0;
+  return 0;
 }
 
 type ParsedInitial = {
   structureMode: StructureMode;
-  warmupMin: string;
+  warmupMin: NumVal;
   warmupNotes: string;
-  cooldownMin: string;
+  cooldownMin: NumVal;
   cooldownNotes: string;
-  mainMinutes: string;
+  mainMinutes: NumVal;
   mainNotes: string;
-  rounds: string;
-  workMin: string;
+  rounds: NumVal;
+  workUnit: IntervalUnit;
+  workTime: string;
+  workDistance: NumVal;
   workNotes: string;
-  restMin: string;
+  restUnit: IntervalUnit;
+  restTime: string;
+  restDistance: NumVal;
   restNotes: string;
   exercises: StrengthDraftExercise[];
 };
 
-/**
- * Predvyplnenie formulára z existujúcej session. Vždy vracia kompletný
- * objekt s defaultmi - žiadne union typy, žiadne undefined vetvy.
- */
 function parseInitial(session: DailyPlanSession | null | undefined): ParsedInitial {
   const base: ParsedInitial = {
     structureMode: "simple",
@@ -81,9 +118,13 @@ function parseInitial(session: DailyPlanSession | null | undefined): ParsedIniti
     mainMinutes: "",
     mainNotes: "",
     rounds: "",
-    workMin: "",
+    workUnit: "time",
+    workTime: "",
+    workDistance: "",
     workNotes: "",
-    restMin: "",
+    restUnit: "time",
+    restTime: "",
+    restDistance: "",
     restNotes: "",
     exercises: [],
   };
@@ -100,7 +141,7 @@ function parseInitial(session: DailyPlanSession | null | undefined): ParsedIniti
         exs.push({
           _key: nextKey(),
           exercise_id: String(ex.exercise_id),
-          sets: Number(ex.sets) || 1,
+          sets: toNumVal(ex.sets),
           reps: String(ex.reps ?? ""),
         });
       }
@@ -110,23 +151,73 @@ function parseInitial(session: DailyPlanSession | null | undefined): ParsedIniti
 
   const mainPart = Array.isArray(structure.main_part) ? structure.main_part[0] : null;
   const isIntervals = mainPart?.kind === "interval_block";
+  const work = mainPart?.work ?? null;
+  const rest = mainPart?.rest ?? null;
+
+  const workIsDistance = work?.distance_m != null;
+  const restIsDistance = rest?.distance_m != null;
 
   return {
     ...base,
     structureMode: isIntervals ? "intervals" : "simple",
-    warmupMin: numStr(structure.warmup?.minutes),
+    warmupMin: toNumVal(structure.warmup?.minutes),
     warmupNotes: structure.warmup?.notes ?? "",
-    cooldownMin: numStr(structure.cooldown?.minutes),
+    cooldownMin: toNumVal(structure.cooldown?.minutes),
     cooldownNotes: structure.cooldown?.notes ?? "",
-    mainMinutes: !isIntervals ? numStr(mainPart?.minutes) : "",
+    mainMinutes: !isIntervals ? toNumVal(mainPart?.minutes) : "",
     mainNotes: !isIntervals ? mainPart?.notes ?? "" : "",
-    rounds: isIntervals ? numStr(mainPart?.rounds) : "",
-    workMin: isIntervals ? numStr(mainPart?.work?.minutes) : "",
-    workNotes: isIntervals ? mainPart?.work?.notes ?? "" : "",
-    restMin: isIntervals ? numStr(mainPart?.rest?.minutes) : "",
-    restNotes: isIntervals ? mainPart?.rest?.notes ?? "" : "",
+    rounds: isIntervals ? toNumVal(mainPart?.rounds) : "",
+    workUnit: workIsDistance ? "distance" : "time",
+    workTime: isIntervals && !workIsDistance ? secondsToMmss(partSeconds(work)) : "",
+    workDistance: workIsDistance ? toNumVal(work.distance_m) : "",
+    workNotes: isIntervals ? work?.notes ?? "" : "",
+    restUnit: restIsDistance ? "distance" : "time",
+    restTime: isIntervals && !restIsDistance ? secondsToMmss(partSeconds(rest)) : "",
+    restDistance: restIsDistance ? toNumVal(rest.distance_m) : "",
+    restNotes: isIntervals ? rest?.notes ?? "" : "",
   };
 }
+
+/* ---------- small UI helpers ---------- */
+
+function UnitToggle({
+  value,
+  onChange,
+  timeLabel,
+  distanceLabel,
+}: {
+  value: IntervalUnit;
+  onChange: (u: IntervalUnit) => void;
+  timeLabel: string;
+  distanceLabel: string;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Button
+        type="button"
+        size="xs"
+        variant="prefs"
+        active={value === "time"}
+        onClick={() => onChange("time")}
+        className="flex-1"
+      >
+        {timeLabel}
+      </Button>
+      <Button
+        type="button"
+        size="xs"
+        variant="prefs"
+        active={value === "distance"}
+        onClick={() => onChange("distance")}
+        className="flex-1"
+      >
+        {distanceLabel}
+      </Button>
+    </div>
+  );
+}
+
+/* ---------- main ---------- */
 
 type Props = {
   planDate: string;
@@ -164,23 +255,26 @@ export default function ManualSessionForm({
 
   const [sport, setSport] = useState<SportOption>(initialSport);
   const [title, setTitle] = useState(initialSession?.title || "");
-  const [durationMin, setDurationMin] = useState<string>(numStr(initialSession?.duration_min));
+  const [durationMin, setDurationMin] = useState<NumVal>(toNumVal(initialSession?.duration_min));
   const [notes, setNotes] = useState(initialSession?.notes || "");
 
   // run/ride/swim
   const [sessionType, setSessionType] = useState<ManualRunSessionType>(initialSessionType);
   const [sessionTypeTouched, setSessionTypeTouched] = useState(isEdit);
   const [structureMode, setStructureMode] = useState<StructureMode>(init.structureMode);
-  const [warmupMin, setWarmupMin] = useState(init.warmupMin);
-  const [warmupNotes, setWarmupNotes] = useState(init.warmupNotes);
-  const [cooldownMin, setCooldownMin] = useState(init.cooldownMin);
-  const [cooldownNotes, setCooldownNotes] = useState(init.cooldownNotes);
-  const [mainMinutes, setMainMinutes] = useState(init.mainMinutes);
+  const [warmupMin, setWarmupMin] = useState<NumVal>(init.warmupMin);
+  const [cooldownMin, setCooldownMin] = useState<NumVal>(init.cooldownMin);
+  const [mainMinutes, setMainMinutes] = useState<NumVal>(init.mainMinutes);
   const [mainNotes, setMainNotes] = useState(init.mainNotes);
-  const [rounds, setRounds] = useState(init.rounds);
-  const [workMin, setWorkMin] = useState(init.workMin);
+
+  const [rounds, setRounds] = useState<NumVal>(init.rounds);
+  const [workUnit, setWorkUnit] = useState<IntervalUnit>(init.workUnit);
+  const [workTime, setWorkTime] = useState(init.workTime);
+  const [workDistance, setWorkDistance] = useState<NumVal>(init.workDistance);
   const [workNotes, setWorkNotes] = useState(init.workNotes);
-  const [restMin, setRestMin] = useState(init.restMin);
+  const [restUnit, setRestUnit] = useState<IntervalUnit>(init.restUnit);
+  const [restTime, setRestTime] = useState(init.restTime);
+  const [restDistance, setRestDistance] = useState<NumVal>(init.restDistance);
   const [restNotes, setRestNotes] = useState(init.restNotes);
 
   // strength
@@ -223,24 +317,26 @@ export default function ManualSessionForm({
   const isRunLike = sport === "run" || sport === "ride" || sport === "swim";
   const isStrength = sport === "strength";
   const isOther = sport === "other";
+  const isIntervals = structureMode === "intervals";
 
-  // 🌟 NOVÉ: dĺžka pre run/ride/swim sa počíta z častí tréningu
-  const computedDuration = useMemo(() => {
+  // Dĺžka sa dá spočítať len keď je všetko na čas
+  const durationIsAuto =
+    isRunLike && (!isIntervals || (workUnit === "time" && restUnit === "time"));
+
+  const autoDuration = useMemo(() => {
     if (!isRunLike) return 0;
-    const wu = toNum(warmupMin);
-    const cd = toNum(cooldownMin);
-    if (structureMode === "simple") {
-      return wu + toNum(mainMinutes) + cd;
-    }
-    const r = toNum(rounds);
-    const work = toNum(workMin);
-    const rest = toNum(restMin);
-    return wu + r * work + Math.max(r - 1, 0) * rest + cd;
-  }, [isRunLike, structureMode, warmupMin, cooldownMin, mainMinutes, rounds, workMin, restMin]);
+    const wu = n(warmupMin);
+    const cd = n(cooldownMin);
+    if (!isIntervals) return wu + n(mainMinutes) + cd;
+    const r = n(rounds);
+    const workS = mmssToSeconds(workTime);
+    const restS = mmssToSeconds(restTime);
+    const totalS = r * workS + Math.max(r - 1, 0) * restS;
+    return Math.round(wu + totalS / 60 + cd);
+  }, [isRunLike, isIntervals, warmupMin, cooldownMin, mainMinutes, rounds, workTime, restTime]);
 
   const changeStructureMode = (mode: StructureMode) => {
     setStructureMode(mode);
-    // kým user typ ručne nezmenil, drž ho v súlade s režimom
     if (!sessionTypeTouched) {
       setSessionType(mode === "intervals" ? "interval" : "easy");
     }
@@ -263,31 +359,26 @@ export default function ManualSessionForm({
     setExercises((prev) => prev.map((e) => (e._key === key ? { ...e, ...patch } : e)));
   };
 
+  const finalDuration = durationIsAuto ? autoDuration : n(durationMin);
+
   const validate = (): string | null => {
     if (!title.trim()) return t("advisorDaily.form.errorTitle");
 
     if (isRunLike) {
-      if (structureMode === "simple" && !toNum(mainMinutes)) {
-        return t("advisorDaily.form.errorMain");
+      if (!isIntervals && !n(mainMinutes)) return t("advisorDaily.form.errorMain");
+      if (isIntervals) {
+        const workOk =
+          workUnit === "time" ? mmssToSeconds(workTime) > 0 : n(workDistance) >= 50;
+        if (!n(rounds) || !workOk) return t("advisorDaily.form.errorIntervals");
       }
-      if (structureMode === "intervals" && (!toNum(rounds) || !toNum(workMin))) {
-        return t("advisorDaily.form.errorIntervals");
-      }
-      if (computedDuration <= 0 || computedDuration > 600) {
-        return t("advisorDaily.form.errorDuration");
-      }
-      return null;
     }
 
-    const dur = Number(durationMin);
-    if (!Number.isFinite(dur) || dur <= 0 || dur > 600) {
-      return t("advisorDaily.form.errorDuration");
-    }
+    if (finalDuration <= 0 || finalDuration > 600) return t("advisorDaily.form.errorDuration");
 
     if (isStrength) {
       if (exercises.length === 0) return t("advisorDaily.form.errorExercises");
       for (const ex of exercises) {
-        if (!ex.exercise_id || !ex.sets || !ex.reps.trim()) {
+        if (!ex.exercise_id || !n(ex.sets) || !ex.reps.trim()) {
           return t("advisorDaily.form.errorExerciseFields");
         }
       }
@@ -308,7 +399,7 @@ export default function ManualSessionForm({
       plan_date: planDate,
       sport,
       title: title.trim(),
-      duration_min: isRunLike ? Math.round(computedDuration) : Math.round(Number(durationMin)),
+      duration_min: Math.round(finalDuration),
       notes: notes.trim() || null,
       plan_meta_id: planMetaId ?? null,
     };
@@ -316,22 +407,22 @@ export default function ManualSessionForm({
     if (isRunLike) {
       payload.session_type = sessionType;
       payload.structure_mode = structureMode;
-      if (toNum(warmupMin)) {
-        payload.warmup_min = toNum(warmupMin);
-        payload.warmup_notes = warmupNotes.trim() || null;
-      }
-      if (toNum(cooldownMin)) {
-        payload.cooldown_min = toNum(cooldownMin);
-        payload.cooldown_notes = cooldownNotes.trim() || null;
-      }
-      if (structureMode === "simple") {
-        payload.main_minutes = toNum(mainMinutes);
+      if (n(warmupMin)) payload.warmup_min = n(warmupMin);
+      if (n(cooldownMin)) payload.cooldown_min = n(cooldownMin);
+
+      if (!isIntervals) {
+        payload.main_minutes = n(mainMinutes);
         payload.main_notes = mainNotes.trim() || null;
       } else {
-        payload.rounds = toNum(rounds);
-        payload.work_min = toNum(workMin);
+        payload.rounds = n(rounds);
+        payload.work_unit = workUnit;
+        if (workUnit === "time") payload.work_duration_s = mmssToSeconds(workTime);
+        else payload.work_distance_m = n(workDistance);
         payload.work_notes = workNotes.trim() || null;
-        payload.rest_min = toNum(restMin);
+
+        payload.rest_unit = restUnit;
+        if (restUnit === "time") payload.rest_duration_s = mmssToSeconds(restTime);
+        else payload.rest_distance_m = n(restDistance);
         payload.rest_notes = restNotes.trim() || null;
       }
     }
@@ -339,7 +430,7 @@ export default function ManualSessionForm({
     if (isStrength) {
       payload.exercises = exercises.map((e) => ({
         exercise_id: e.exercise_id,
-        sets: e.sets,
+        sets: n(e.sets),
         reps: e.reps.trim(),
       }));
     }
@@ -347,7 +438,6 @@ export default function ManualSessionForm({
     setSubmitting(true);
     try {
       if (isEdit && initialSession?.id) {
-        // plan_date sa pri úprave nemení - na to je reschedule
         const { plan_date: _pd, plan_meta_id: _pm, ...updatePayload } = payload;
         await apiUpdateManualSession(Number(userId), Number(initialSession.id), updatePayload);
       } else {
@@ -389,12 +479,12 @@ export default function ManualSessionForm({
           </button>
         </div>
 
+        {/* 🌟 FIX: flex-1 + min-h-0, inak sa kontajner roztiahne na obsah a nescrolluje */}
         <div
           ref={scrollRef}
-          className="flex flex-col gap-3 p-4 overflow-y-auto"
+          className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
           style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
         >
-          {/* Šport - v edit móde zamknutý (iný šport = iná štruktúra) */}
           <div>
             <div className="text-xs opacity-60 mb-1">{t("advisorDaily.form.sportLabel")}</div>
             <div className="flex flex-wrap gap-2">
@@ -422,22 +512,22 @@ export default function ManualSessionForm({
             onChange={(e) => setTitle(e.target.value)}
           />
 
-          {/* Dĺžka - pre run/ride/swim automaticky, inak ručne */}
-          {isRunLike ? (
+          {durationIsAuto ? (
             <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-2">
               <div className="text-xs opacity-60">{t("advisorDaily.form.durationLabel")}</div>
               <div className="text-sm font-semibold">
-                {computedDuration > 0 ? `${computedDuration} ${t("common.units.min")}` : "—"}
+                {autoDuration > 0 ? `${autoDuration} ${t("common.units.min")}` : "—"}
               </div>
             </div>
           ) : (
-            <TextField
+            <NumberField
               label={t("advisorDaily.form.durationLabel")}
-              type="number"
-              inputMode="numeric"
+              hint={isRunLike ? t("advisorDaily.form.durationManualHint") : undefined}
+              unit={t("common.units.min")}
               min={1}
+              max={600}
               value={durationMin}
-              onChange={(e) => setDurationMin(e.target.value)}
+              onChange={setDurationMin}
             />
           )}
 
@@ -470,7 +560,7 @@ export default function ManualSessionForm({
                   type="button"
                   size="xs"
                   variant="prefs"
-                  active={structureMode === "simple"}
+                  active={!isIntervals}
                   onClick={() => changeStructureMode("simple")}
                   className="flex-1"
                 >
@@ -480,7 +570,7 @@ export default function ManualSessionForm({
                   type="button"
                   size="xs"
                   variant="prefs"
-                  active={structureMode === "intervals"}
+                  active={isIntervals}
                   onClick={() => changeStructureMode("intervals")}
                   className="flex-1"
                 >
@@ -488,15 +578,15 @@ export default function ManualSessionForm({
                 </Button>
               </div>
 
-              {structureMode === "simple" ? (
+              {!isIntervals ? (
                 <>
-                  <TextField
+                  <NumberField
                     label={t("advisorDaily.form.mainMinutes")}
-                    type="number"
-                    inputMode="numeric"
+                    unit={t("common.units.min")}
                     min={1}
+                    max={600}
                     value={mainMinutes}
-                    onChange={(e) => setMainMinutes(e.target.value)}
+                    onChange={setMainMinutes}
                   />
                   <TextField
                     label={t("advisorDaily.form.mainNotes")}
@@ -507,66 +597,109 @@ export default function ManualSessionForm({
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <TextField
-                      label={t("advisorDaily.form.rounds")}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      value={rounds}
-                      onChange={(e) => setRounds(e.target.value)}
+                  <NumberField
+                    label={t("advisorDaily.form.rounds")}
+                    min={1}
+                    max={50}
+                    value={rounds}
+                    onChange={setRounds}
+                  />
+
+                  {/* Úsek */}
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
+                    <div className="text-xs font-semibold opacity-80">{t("advisorDaily.form.workLabel")}</div>
+                    <UnitToggle
+                      value={workUnit}
+                      onChange={setWorkUnit}
+                      timeLabel={t("advisorDaily.form.unitTime")}
+                      distanceLabel={t("advisorDaily.form.unitDistance")}
                     />
+                    {workUnit === "time" ? (
+                      <TimeField
+                        label={t("advisorDaily.form.timeMmss")}
+                        hh={false}
+                        mm
+                        ss
+                        value={workTime}
+                        onChange={setWorkTime}
+                      />
+                    ) : (
+                      <NumberField
+                        label={t("advisorDaily.form.distanceM")}
+                        unit="m"
+                        min={50}
+                        max={50000}
+                        value={workDistance}
+                        onChange={setWorkDistance}
+                      />
+                    )}
                     <TextField
-                      label={t("advisorDaily.form.workMin")}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      value={workMin}
-                      onChange={(e) => setWorkMin(e.target.value)}
+                      label={t("advisorDaily.form.workNotes")}
+                      value={workNotes}
+                      maxLength={300}
+                      onChange={(e) => setWorkNotes(e.target.value)}
                     />
                   </div>
-                  <TextField
-                    label={t("advisorDaily.form.workNotes")}
-                    value={workNotes}
-                    maxLength={300}
-                    onChange={(e) => setWorkNotes(e.target.value)}
-                  />
-                  <TextField
-                    label={t("advisorDaily.form.restMin")}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={restMin}
-                    onChange={(e) => setRestMin(e.target.value)}
-                  />
-                  <TextField
-                    label={t("advisorDaily.form.restNotes")}
-                    value={restNotes}
-                    maxLength={300}
-                    onChange={(e) => setRestNotes(e.target.value)}
-                  />
+
+                  {/* Pauza */}
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
+                    <div className="text-xs font-semibold opacity-80">{t("advisorDaily.form.restLabel")}</div>
+                    <UnitToggle
+                      value={restUnit}
+                      onChange={setRestUnit}
+                      timeLabel={t("advisorDaily.form.unitTime")}
+                      distanceLabel={t("advisorDaily.form.unitDistance")}
+                    />
+                    {restUnit === "time" ? (
+                      <TimeField
+                        label={t("advisorDaily.form.timeMmss")}
+                        hh={false}
+                        mm
+                        ss
+                        value={restTime}
+                        onChange={setRestTime}
+                      />
+                    ) : (
+                      <NumberField
+                        label={t("advisorDaily.form.distanceM")}
+                        unit="m"
+                        min={0}
+                        max={10000}
+                        value={restDistance}
+                        onChange={setRestDistance}
+                      />
+                    )}
+                    <TextField
+                      label={t("advisorDaily.form.restNotes")}
+                      value={restNotes}
+                      maxLength={300}
+                      onChange={(e) => setRestNotes(e.target.value)}
+                    />
+                  </div>
                 </>
               )}
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-                <TextField
+                <NumberField
                   label={t("advisorDaily.form.warmupMin")}
-                  type="number"
-                  inputMode="numeric"
+                  unit={t("common.units.min")}
                   min={0}
+                  max={120}
                   value={warmupMin}
-                  onChange={(e) => setWarmupMin(e.target.value)}
+                  onChange={setWarmupMin}
                 />
-                <TextField
+                <NumberField
                   label={t("advisorDaily.form.cooldownMin")}
-                  type="number"
-                  inputMode="numeric"
+                  unit={t("common.units.min")}
                   min={0}
+                  max={120}
                   value={cooldownMin}
-                  onChange={(e) => setCooldownMin(e.target.value)}
+                  onChange={setCooldownMin}
                 />
               </div>
-              <div className="text-[10px] opacity-50">{t("advisorDaily.form.durationAuto")}</div>
+              {durationIsAuto && (
+                <div className="text-[10px] opacity-50">{t("advisorDaily.form.durationAuto")}</div>
+              )}
             </div>
           )}
 
@@ -600,19 +733,18 @@ export default function ManualSessionForm({
                           </button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <TextField
+                          <NumberField
                             label={t("advisorDaily.form.sets")}
-                            type="number"
-                            inputMode="numeric"
                             min={1}
-                            value={String(ex.sets)}
-                            onChange={(e) =>
-                              updateExercise(ex._key, { sets: Number(e.target.value) || 1 })
-                            }
+                            max={20}
+                            showReset={false}
+                            value={ex.sets}
+                            onChange={(v) => updateExercise(ex._key, { sets: v })}
                           />
                           <TextField
                             label={t("advisorDaily.form.reps")}
                             placeholder="8-12"
+                            maxLength={20}
                             value={ex.reps}
                             onChange={(e) => updateExercise(ex._key, { reps: e.target.value })}
                           />
@@ -629,17 +761,17 @@ export default function ManualSessionForm({
                 options={catalogOptions}
                 placeholder={t("strengthLog.searchExercise")}
                 searchPlaceholder={t("strengthLog.searchExercise")}
+                emptyLabel={t("strengthLog.noMatch")}
               />
             </div>
           )}
 
-          {/* --- OTHER --- */}
           {isOther && (
             <div className="text-xs opacity-50">{t("advisorDaily.form.otherHint")}</div>
           )}
 
           <textarea
-            className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
+            className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20 shrink-0"
             rows={2}
             maxLength={1000}
             value={notes}
