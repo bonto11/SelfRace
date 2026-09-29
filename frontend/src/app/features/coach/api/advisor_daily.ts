@@ -62,7 +62,10 @@ function errorKey(json: any, fallback: string): string {
   return code ? `advisorDaily.errors.${code}` : fallback;
 }
 
-export async function apiStartManualPlan(userId: number): Promise<StartManualPlanResult> {
+export async function apiStartManualPlan(
+  userId: number,
+  opts: { end_date?: string | null } = {}
+): Promise<StartManualPlanResult> {
   if (!userId) throw new Error("api.common.missingUserAuth");
 
   const path = `/coach-plan-active/${encodeURIComponent(String(userId))}/start-manual`;
@@ -72,7 +75,7 @@ export async function apiStartManualPlan(userId: number): Promise<StartManualPla
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ end_date: opts.end_date || null }),
     });
     return {
       success: !!json?.success,
@@ -87,6 +90,7 @@ export async function apiStartManualPlan(userId: number): Promise<StartManualPla
     return { success: false, error_code: "REQUEST_FAILED", message: null };
   }
 }
+
 
 export async function apiCreateManualSession(
   userId: number,
