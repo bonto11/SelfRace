@@ -59,6 +59,13 @@ type Props = {
 };
 
 /**
+ * 🌟 FIX: menu musí byť NAD modalmi (ExerciseSuggestionModal,
+ * ManualSessionForm majú zIndex 2147483000). Pôvodných 999999 ho
+ * schovalo pod modal - dropdown sa otvoril, ale nebol vidieť.
+ */
+const MENU_Z_INDEX = 2147483600;
+
+/**
  * SelectField s vyhľadávaním a pevnou výškou menu.
  *
  * SelectField pri veľa options (napr. celý cvikový katalóg) pretečie mimo
@@ -108,9 +115,6 @@ export default function SelectFieldFilter({
     ...FORM_TEXT_VARS,
   } as React.CSSProperties;
 
-  // 🌟 FIX: predtým natvrdo text-white/bg-white - na svetlom pozadí menu
-  // (SELECT_MENU_EDITABLE_STYLE) bol text takmer neviditeľný. appColors
-  // sedí nezávisle od motívu, rovnako ako zvyšok appky.
   const searchInputStyle: React.CSSProperties = {
     color: appColors.textPrimary,
     background: appColors.backgroundAlt,
@@ -241,7 +245,7 @@ export default function SelectFieldFilter({
                   top: pos.top,
                   width: pos.width,
                   maxHeight: pos.maxHeight,
-                  zIndex: 999999,
+                  zIndex: MENU_Z_INDEX,
                   overflow: "hidden",
                 }}
               >
