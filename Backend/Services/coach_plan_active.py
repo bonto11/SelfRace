@@ -83,18 +83,17 @@ def service_save_active_plan(
 def service_start_manual_plan(
     user_id: int,
     *,
+    end_date: Optional[str] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Vytvorí prázdny AKTÍVNY plán bez AI generovania - advisor režim.
 
-    start_date = DNES (nie prefs.start_date - FE ho normalizuje na zajtra
-    a neskôr, čo v advisor režime nedáva zmysel, user chce pridať tréning
-    hneď).
-
-    end_date z prefs (typicky dátum hlavného preteku). Ak chýba alebo je
-    v minulosti, ostane NULL - plán potom beží, kým ho user sám nezruší
-    (nočný cron filtruje end_date < dnes, NULL nikdy nevyhovie).
+    start_date = DNES.
+    end_date = z requestu (voliteľné). Prefs sa už nečítajú - user volí koniec
+    priamo pri "Začať plán". Bez konca plán beží, kým ho nezruší (nočný cron
+    filtruje end_date < dnes, NULL nikdy nevyhovie). S koncom ho cron uzavrie
+    a vygeneruje sumár rovnako ako v coach režime.
     """
     if service_get_coach_mode(user_id, ctx=ctx) != "advisor":
         return {
@@ -111,6 +110,19 @@ def service_start_manual_plan(
             "message": "Máš už aktívny plán - najprv ho zruš alebo nechaj doviesť do konca.",
         }
 
+    today_iso = datetime.now(ZoneInfo("Europe/Bratislava")).date().isoformat()
+
+    end_clean: Optional[str] = None
+    if end_date:
+        candidate = str(end_date)[:10]
+        try:
+            date.fromisoformat(candidate)
+        except ValueError:
+            return {"ok": False, "code": "invalid_end_date"}
+        if candidate < today_iso:
+            return {"ok": False, "code": "invalid_end_date"}
+        end_clean = candidate
+
     old_drafts = db_get_generated_plan_metas_for_user(user_id=user_id, ctx=ctx)
     for old in old_drafts:
         old_id = old.get("id")
@@ -121,19 +133,11 @@ def service_start_manual_plan(
         db_delete_plan_meta(user_id=user_id, meta_id=old_id, ctx=ctx)
         print(f"[MANUAL-PLAN][user={user_id}] cleaned up stale draft plan_meta_id={old_id}")
 
-    today_iso = datetime.now(ZoneInfo("Europe/Bratislava")).date().isoformat()
-
-    prefs = service_load_coach_prefs_for_analysis(user_id, ctx=ctx) or {}
-    end_raw = prefs.get("end_date")
-    end_date = str(end_raw)[:10] if end_raw else None
-    if end_date and end_date < today_iso:
-        end_date = None
-
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
         weeks_total=None,
         start_date=today_iso,
-        end_date=end_date,
+        end_date=end_clean,
         ctx=ctx,
     )
     if not meta_row or not meta_row.get("id"):
@@ -153,6 +157,7 @@ def service_start_manual_plan(
         "plan_end": final_meta.get("end_date"),
         "meta": final_meta,
     }
+
 
 def service_cancel_active_plan(
     user_id: int,
