@@ -10,9 +10,6 @@ import { formatPrescription } from "@/app/shared/utils/strengthFormat";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
-// 🌟 ZMENA: SelectField -> SelectFieldFilter pre oba cvikové pickery
-// (výber v katalógu 81 cvikov bez filtra sa nedal scrollovať)
-import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import TextField from "@/app/shared/ui/components/TextField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
@@ -42,10 +39,14 @@ import {
   SESSION_SUBCARD_STYLE,
   PANEL_PAD,
 } from "@/app/shared/ui/tokens";
-
+import ExercisePicker from "@/app/shared/ui/components/ExercisePicker";
 const SAVE_DEBOUNCE_MS = 1200;
 
-const BLOCK_ORDER: StrengthBlock[] = ["activation", "strength_main_part", "add_ons"];
+const BLOCK_ORDER: StrengthBlock[] = [
+  "activation",
+  "strength_main_part",
+  "add_ons",
+];
 
 const BLOCK_LABEL_KEY: Record<StrengthBlock, string> = {
   activation: "sessions.detail.plan.activation",
@@ -62,16 +63,28 @@ type Props = {
 function formatPlanDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
-  const day = d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit" });
+  const day = d.toLocaleDateString("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+  });
   const wd = d.toLocaleDateString("sk-SK", { weekday: "short" });
   return `${wd} · ${day}`;
 }
 
-function SetFieldTile({ label, children }: { label: string; children: React.ReactNode }) {
+function SetFieldTile({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div
       className="rounded-xl border flex-1 min-w-0 px-3 py-2"
-      style={{ background: appColors.backgroundAlt, borderColor: appColors.surfaceCardBorder }}
+      style={{
+        background: appColors.backgroundAlt,
+        borderColor: appColors.surfaceCardBorder,
+      }}
     >
       <div className="text-[10px] uppercase tracking-wider font-bold opacity-50 mb-1">
         {label}
@@ -105,7 +118,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const [suggestOpen, setSuggestOpen] = useState(false);
 
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
-  const [plannedSessions, setPlannedSessions] = useState<PlannedStrengthSession[]>([]);
+  const [plannedSessions, setPlannedSessions] = useState<
+    PlannedStrengthSession[]
+  >([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -154,16 +169,24 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       });
       setSaving(false);
       if (res) {
-        setSavedAt(new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }));
+        setSavedAt(
+          new Date().toLocaleTimeString("sk-SK", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        );
       } else {
         setSaveError(true);
       }
     }, SAVE_DEBOUNCE_MS);
   }, [userId, sessionId]);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const handleDeleteSession = useCallback(async () => {
     if (!userId || !sessionId || deleting) return;
@@ -194,7 +217,10 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
     if (!userId) return;
     setPlanPickerOpen(true);
     setPlansLoading(true);
-    const rows = await apiListPlannedStrengthSessions(userId, { days_back: 14, days_forward: 7 });
+    const rows = await apiListPlannedStrengthSessions(userId, {
+      days_back: 14,
+      days_forward: 7,
+    });
     setPlannedSessions(rows);
     setPlansLoading(false);
   }, [userId]);
@@ -216,7 +242,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       }
 
       setImporting(true);
-      const updated = await apiImportFromPlan(Number(userId), sessionId, planSessionId);
+      const updated = await apiImportFromPlan(
+        Number(userId),
+        sessionId,
+        planSessionId,
+      );
       setImporting(false);
 
       if (updated) {
@@ -235,7 +265,10 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
     (exIdx: number, fn: (ex: StrengthExerciseLog) => StrengthExerciseLog) => {
       setExercises((prev) => {
         const next = [...prev];
-        next[exIdx] = fn({ ...next[exIdx], sets: [...(next[exIdx].sets ?? [])] });
+        next[exIdx] = fn({
+          ...next[exIdx],
+          sets: [...(next[exIdx].sets ?? [])],
+        });
         return next;
       });
       scheduleSave();
@@ -262,7 +295,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   const removeSet = useCallback(
     (exIdx: number, sIdx: number) =>
       mutate(exIdx, (ex) => {
-        ex.sets = ex.sets.filter((_, i) => i !== sIdx).map((s, i) => ({ ...s, set_index: i + 1 }));
+        ex.sets = ex.sets
+          .filter((_, i) => i !== sIdx)
+          .map((s, i) => ({ ...s, set_index: i + 1 }));
         return ex;
       }),
     [mutate],
@@ -287,7 +322,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
 
   const replaceExercise = useCallback(
     (exIdx: number, exerciseId: string) => {
-      setExercises((prev) => prev.map((ex, i) => (i === exIdx ? { ...ex, exercise_id: exerciseId } : ex)));
+      setExercises((prev) =>
+        prev.map((ex, i) =>
+          i === exIdx ? { ...ex, exercise_id: exerciseId } : ex,
+        ),
+      );
       scheduleSave();
     },
     [scheduleSave],
@@ -302,7 +341,15 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
           block: addBlock,
           order_index: prev.length,
           planned: null,
-          sets: [{ set_index: 1, weight_kg: null, reps: null, rpe: null, is_warmup: false }],
+          sets: [
+            {
+              set_index: 1,
+              weight_kg: null,
+              reps: null,
+              rpe: null,
+              is_warmup: false,
+            },
+          ],
         },
       ]);
       setAddPanelOpen(false);
@@ -313,7 +360,10 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
   );
 
   const grouped = useMemo(() => {
-    const map = new Map<StrengthBlock, Array<{ ex: StrengthExerciseLog; idx: number }>>();
+    const map = new Map<
+      StrengthBlock,
+      Array<{ ex: StrengthExerciseLog; idx: number }>
+    >();
     exercises.forEach((ex, idx) => {
       const b = (ex.block || "strength_main_part") as StrengthBlock;
       if (!map.has(b)) map.set(b, []);
@@ -331,14 +381,6 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
     }
     return Math.round(v);
   }, [exercises]);
-
-  const catalogOptions = useMemo(
-    () =>
-      Object.entries(STRENGTH_CATALOG_FE)
-        .map(([id, names]) => ({ value: id, label: (names as any)[lang] as string }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [lang],
-  );
 
   const prescriptionLabels = useMemo(
     () => ({
@@ -363,30 +405,53 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       {/* Akčný riadok: import z plánu, návrh cviku, help */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="secondary" onClick={openPlanPicker} disabled={importing || !sessionId}>
-            {importing ? <LoadingSpinner size="button" /> : t("strengthLog.importFromPlan")}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={openPlanPicker}
+            disabled={importing || !sessionId}
+          >
+            {importing ? (
+              <LoadingSpinner size="button" />
+            ) : (
+              t("strengthLog.importFromPlan")
+            )}
           </Button>
           {/* 🌟 NOVÉ: návrh cviku, ktorý chýba v katalógu */}
-          <Button size="sm" variant="secondary" onClick={() => setSuggestOpen(true)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setSuggestOpen(true)}
+          >
             {t("strengthLog.suggestExercise")}
           </Button>
         </div>
 
-        <TooltipIcon text={t("strengthLog.help")} title={t("strengthLog.helpTitle")} size={26} />
+        <TooltipIcon
+          text={t("strengthLog.help")}
+          title={t("strengthLog.helpTitle")}
+          size={26}
+        />
       </div>
 
-      {suggestOpen && <ExerciseSuggestionModal onClose={() => setSuggestOpen(false)} />}
+      {suggestOpen && (
+        <ExerciseSuggestionModal onClose={() => setSuggestOpen(false)} />
+      )}
 
       {planPickerOpen && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2 animate-in fade-in">
-          <div className="text-xs font-semibold opacity-80">{t("strengthLog.importPickerTitle")}</div>
+          <div className="text-xs font-semibold opacity-80">
+            {t("strengthLog.importPickerTitle")}
+          </div>
 
           {plansLoading ? (
             <div className="flex justify-center py-3">
               <LoadingSpinner size="button" />
             </div>
           ) : plannedSessions.length === 0 ? (
-            <div className="text-xs opacity-40 py-2">{t("strengthLog.importNoPlans")}</div>
+            <div className="text-xs opacity-40 py-2">
+              {t("strengthLog.importNoPlans")}
+            </div>
           ) : (
             <div className="max-h-[240px] overflow-y-auto flex flex-col gap-1">
               {plannedSessions.map((p) => (
@@ -401,14 +466,19 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                     {p.title || t("strengthLog.widget.title")}
                   </div>
                   <div className="text-[11px] opacity-50 mt-0.5">
-                    {formatPlanDate(p.plan_date)} · {p.exercise_count} {t("strengthLog.exercisesUnit")}
+                    {formatPlanDate(p.plan_date)} · {p.exercise_count}{" "}
+                    {t("strengthLog.exercisesUnit")}
                   </div>
                 </button>
               ))}
             </div>
           )}
 
-          <Button size="xs" variant="secondary" onClick={() => setPlanPickerOpen(false)}>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => setPlanPickerOpen(false)}
+          >
             {t("common.cancel")}
           </Button>
         </div>
@@ -416,7 +486,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <div className="text-xs opacity-60 mb-1">{t("strengthLog.dateLabel")}</div>
+          <div className="text-xs opacity-60 mb-1">
+            {t("strengthLog.dateLabel")}
+          </div>
           <DateField
             value={sessionDate}
             onChange={(v) => {
@@ -438,138 +510,181 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
       </div>
 
       <div className={PLAN_STRUCT_STACK}>
-        {BLOCK_ORDER.filter((b) => (grouped.get(b) ?? []).length > 0).map((block) => (
-          <div key={block} className={PLAN_BLOCK}>
-            <div className={PLAN_BLOCK_LABEL}>{t(BLOCK_LABEL_KEY[block] as any)}</div>
-            <ul className={PLAN_EX_LIST}>
-              {(grouped.get(block) ?? []).map(({ ex, idx }) => {
-                const plannedLine = formatPrescription(
-                  { sets: ex.planned?.sets, reps: ex.planned?.reps, rest_s: ex.planned?.rest_s },
-                  prescriptionLabels,
-                );
-                const workCount = (ex.sets ?? []).filter((s) => !s.is_warmup).length;
-                const meta = getExerciseMeta(ex.exercise_id);
-                const isBodyweight = meta.load_mode === "bodyweight_plus";
-                const primaryLabel =
-                  meta.measure === "time"
-                    ? t("strengthLog.unitSeconds") || "Sekundy"
-                    : meta.measure === "distance"
-                      ? t("strengthLog.unitMeters") || "Metre"
-                      : t("strengthLog.repsShort") || "Opakovania";
-                const weightLabel = isBodyweight
-                  ? t("strengthLog.unitExtraWeight") || "+kg"
-                  : t("strengthLog.unitWeight") || "Kg";
+        {BLOCK_ORDER.filter((b) => (grouped.get(b) ?? []).length > 0).map(
+          (block) => (
+            <div key={block} className={PLAN_BLOCK}>
+              <div className={PLAN_BLOCK_LABEL}>
+                {t(BLOCK_LABEL_KEY[block] as any)}
+              </div>
+              <ul className={PLAN_EX_LIST}>
+                {(grouped.get(block) ?? []).map(({ ex, idx }) => {
+                  const plannedLine = formatPrescription(
+                    {
+                      sets: ex.planned?.sets,
+                      reps: ex.planned?.reps,
+                      rest_s: ex.planned?.rest_s,
+                    },
+                    prescriptionLabels,
+                  );
+                  const workCount = (ex.sets ?? []).filter(
+                    (s) => !s.is_warmup,
+                  ).length;
+                  const meta = getExerciseMeta(ex.exercise_id);
+                  const isBodyweight = meta.load_mode === "bodyweight_plus";
+                  const primaryLabel =
+                    meta.measure === "time"
+                      ? t("strengthLog.unitSeconds") || "Sekundy"
+                      : meta.measure === "distance"
+                        ? t("strengthLog.unitMeters") || "Metre"
+                        : t("strengthLog.repsShort") || "Opakovania";
+                  const weightLabel = isBodyweight
+                    ? t("strengthLog.unitExtraWeight") || "+kg"
+                    : t("strengthLog.unitWeight") || "Kg";
 
-                return (
-                  <li key={`${ex.exercise_id}-${idx}`} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <SelectFieldFilter
-                          value={ex.exercise_id}
-                          onValueChange={(id) => replaceExercise(idx, id)}
-                          options={catalogOptions}
-                          searchPlaceholder={t("strengthLog.searchExercise")}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeExercise(idx)}
-                        className="shrink-0 w-6 h-6 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
-                        style={{ color: appColors.statusError }}
-                        title={t("common.delete")}
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    {plannedLine && <div className={PLAN_EX_LINE}>{plannedLine}</div>}
-
-                    <div className="mt-2 flex flex-col gap-2">
-                      {(ex.sets ?? []).map((s, sIdx) => (
-                        <div key={sIdx} className={SESSION_SUBCARD} style={SESSION_SUBCARD_STYLE}>
-                          <div className={[PANEL_PAD, "flex flex-col gap-2"].join(" ")}>
-                            <div className="flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => updateSet(idx, sIdx, { is_warmup: !s.is_warmup })}
-                                title={t("strengthLog.warmupToggle")}
-                                className="text-xs font-bold uppercase tracking-wide transition-colors"
-                                style={{
-                                  color: s.is_warmup ? appColors.statusWarning : appColors.textMuted,
-                                }}
-                              >
-                                {s.is_warmup
-                                  ? t("strengthLog.warmupLabel") || "Rozcvička"
-                                  : `${t("strengthLog.setLabel") || "Séria"} ${s.set_index}`}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeSet(idx, sIdx)}
-                                className="w-6 h-6 shrink-0 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
-                                style={{ color: appColors.statusError }}
-                              >
-                                ×
-                              </button>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <SetFieldTile label={primaryLabel}>
-                                <TextField
-                                  type="number"
-                                  inputMode={meta.measure === "reps" ? "numeric" : "decimal"}
-                                  min={0}
-                                  className="text-center text-lg font-bold w-full"
-                                  placeholder="—"
-                                  value={s.reps ?? ""}
-                                  onChange={(e) =>
-                                    updateSet(idx, sIdx, {
-                                      reps: e.target.value === "" ? null : Number(e.target.value),
-                                    })
-                                  }
-                                />
-                              </SetFieldTile>
-
-                              <SetFieldTile label={weightLabel}>
-                                <TextField
-                                  type="number"
-                                  step="0.5"
-                                  min={0}
-                                  className="text-center text-lg font-bold w-full"
-                                  placeholder="—"
-                                  value={s.weight_kg ?? ""}
-                                  onChange={(e) =>
-                                    updateSet(idx, sIdx, {
-                                      weight_kg: e.target.value === "" ? null : Number(e.target.value),
-                                    })
-                                  }
-                                />
-                              </SetFieldTile>
-                            </div>
+                  return (
+                    <li
+                      key={`${ex.exercise_id}-${idx}`}
+                      className={PLAN_EX_ITEM}
+                      style={PLAN_EX_ITEM_STYLE}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0">
+                            <ExercisePicker
+                              value={ex.exercise_id}
+                              onValueChange={(id) => replaceExercise(idx, id)}
+                              hideMuscleHint
+                            />
                           </div>
                         </div>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => removeExercise(idx)}
+                          className="shrink-0 w-6 h-6 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
+                          style={{ color: appColors.statusError }}
+                          title={t("common.delete")}
+                        >
+                          ×
+                        </button>
+                      </div>
 
-                      <button
-                        type="button"
-                        onClick={() => addSet(idx)}
-                        className="self-start text-[11px] font-semibold px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
-                        style={{ color: appColors.brandPrimary }}
-                      >
-                        + {t("strengthLog.addSet")}
-                      </button>
-
-                      {workCount > 0 && (
-                        <div className="text-[10px] opacity-40">
-                          {workCount} {t("strengthLog.setsLogged")}
-                        </div>
+                      {plannedLine && (
+                        <div className={PLAN_EX_LINE}>{plannedLine}</div>
                       )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+
+                      <div className="mt-2 flex flex-col gap-2">
+                        {(ex.sets ?? []).map((s, sIdx) => (
+                          <div
+                            key={sIdx}
+                            className={SESSION_SUBCARD}
+                            style={SESSION_SUBCARD_STYLE}
+                          >
+                            <div
+                              className={[
+                                PANEL_PAD,
+                                "flex flex-col gap-2",
+                              ].join(" ")}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateSet(idx, sIdx, {
+                                      is_warmup: !s.is_warmup,
+                                    })
+                                  }
+                                  title={t("strengthLog.warmupToggle")}
+                                  className="text-xs font-bold uppercase tracking-wide transition-colors"
+                                  style={{
+                                    color: s.is_warmup
+                                      ? appColors.statusWarning
+                                      : appColors.textMuted,
+                                  }}
+                                >
+                                  {s.is_warmup
+                                    ? t("strengthLog.warmupLabel") ||
+                                      "Rozcvička"
+                                    : `${t("strengthLog.setLabel") || "Séria"} ${s.set_index}`}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeSet(idx, sIdx)}
+                                  className="w-6 h-6 shrink-0 rounded text-sm opacity-30 hover:opacity-100 transition-opacity"
+                                  style={{ color: appColors.statusError }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <SetFieldTile label={primaryLabel}>
+                                  <TextField
+                                    type="number"
+                                    inputMode={
+                                      meta.measure === "reps"
+                                        ? "numeric"
+                                        : "decimal"
+                                    }
+                                    min={0}
+                                    className="text-center text-lg font-bold w-full"
+                                    placeholder="—"
+                                    value={s.reps ?? ""}
+                                    onChange={(e) =>
+                                      updateSet(idx, sIdx, {
+                                        reps:
+                                          e.target.value === ""
+                                            ? null
+                                            : Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </SetFieldTile>
+
+                                <SetFieldTile label={weightLabel}>
+                                  <TextField
+                                    type="number"
+                                    step="0.5"
+                                    min={0}
+                                    className="text-center text-lg font-bold w-full"
+                                    placeholder="—"
+                                    value={s.weight_kg ?? ""}
+                                    onChange={(e) =>
+                                      updateSet(idx, sIdx, {
+                                        weight_kg:
+                                          e.target.value === ""
+                                            ? null
+                                            : Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </SetFieldTile>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() => addSet(idx)}
+                          className="self-start text-[11px] font-semibold px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"
+                          style={{ color: appColors.brandPrimary }}
+                        >
+                          + {t("strengthLog.addSet")}
+                        </button>
+
+                        {workCount > 0 && (
+                          <div className="text-[10px] opacity-40">
+                            {workCount} {t("strengthLog.setsLogged")}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ),
+        )}
       </div>
 
       {addPanelOpen ? (
@@ -588,14 +703,16 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
               </Button>
             ))}
           </div>
-          <SelectFieldFilter
+          <ExercisePicker
             value={pendingExerciseId}
             onValueChange={(id) => addExercise(id)}
-            options={catalogOptions}
             placeholder={t("strengthLog.searchExercise")}
-            searchPlaceholder={t("strengthLog.searchExercise")}
           />
-          <Button size="xs" variant="secondary" onClick={() => setAddPanelOpen(false)}>
+          <Button
+            size="xs"
+            variant="secondary"
+            onClick={() => setAddPanelOpen(false)}
+          >
             {t("common.cancel")}
           </Button>
         </div>
@@ -638,12 +755,15 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
               className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 cursor-pointer"
               style={{ accentColor: appColors.brandPrimary }}
             />
-            <span className="font-semibold">{t("strengthLog.markCompleted")}</span>
+            <span className="font-semibold">
+              {t("strengthLog.markCompleted")}
+            </span>
           </label>
 
           {totalVolume > 0 && (
             <div className="text-[11px] opacity-60">
-              {t("strengthLog.totalVolume")}: <span className="font-semibold">{totalVolume} kg</span>
+              {t("strengthLog.totalVolume")}:{" "}
+              <span className="font-semibold">{totalVolume} kg</span>
             </div>
           )}
         </div>
@@ -652,7 +772,9 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
           {saving ? (
             <span className="opacity-50">{t("strengthLog.saving")}</span>
           ) : saveError ? (
-            <span style={{ color: appColors.statusError }}>{t("strengthLog.saveError")}</span>
+            <span style={{ color: appColors.statusError }}>
+              {t("strengthLog.saveError")}
+            </span>
           ) : savedAt ? (
             <span className="opacity-40">
               {t("strengthLog.savedAt")} {savedAt}
@@ -667,7 +789,11 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
           disabled={deleting || !sessionId}
           className="self-start mt-1"
         >
-          {deleting ? <LoadingSpinner size="button" /> : t("strengthLog.deleteSession")}
+          {deleting ? (
+            <LoadingSpinner size="button" />
+          ) : (
+            t("strengthLog.deleteSession")
+          )}
         </Button>
       </div>
     </div>

@@ -9,7 +9,6 @@ import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import TimeField from "@/app/shared/ui/components/TimeField";
-import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
@@ -22,7 +21,7 @@ import {
   type IntervalUnit,
 } from "@/app/features/coach/api/advisor_daily";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
-
+import ExercisePicker from "@/app/shared/ui/components/ExercisePicker";
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
 type NumVal = number | "";
@@ -35,7 +34,13 @@ const SPORT_OPTIONS: { value: SportOption; labelKey: string }[] = [
   { value: "other", labelKey: "common.sports.other" },
 ];
 
-const SESSION_TYPES: ManualRunSessionType[] = ["easy", "recovery", "long", "tempo", "interval"];
+const SESSION_TYPES: ManualRunSessionType[] = [
+  "easy",
+  "recovery",
+  "long",
+  "tempo",
+  "interval",
+];
 
 type StrengthDraftExercise = {
   _key: string;
@@ -108,7 +113,9 @@ type ParsedInitial = {
   exercises: StrengthDraftExercise[];
 };
 
-function parseInitial(session: DailyPlanSession | null | undefined): ParsedInitial {
+function parseInitial(
+  session: DailyPlanSession | null | undefined,
+): ParsedInitial {
   const base: ParsedInitial = {
     structureMode: "simple",
     warmupMin: "",
@@ -149,7 +156,9 @@ function parseInitial(session: DailyPlanSession | null | undefined): ParsedIniti
     return { ...base, exercises: exs };
   }
 
-  const mainPart = Array.isArray(structure.main_part) ? structure.main_part[0] : null;
+  const mainPart = Array.isArray(structure.main_part)
+    ? structure.main_part[0]
+    : null;
   const isIntervals = mainPart?.kind === "interval_block";
   const work = mainPart?.work ?? null;
   const rest = mainPart?.rest ?? null;
@@ -165,16 +174,18 @@ function parseInitial(session: DailyPlanSession | null | undefined): ParsedIniti
     cooldownMin: toNumVal(structure.cooldown?.minutes),
     cooldownNotes: structure.cooldown?.notes ?? "",
     mainMinutes: !isIntervals ? toNumVal(mainPart?.minutes) : "",
-    mainNotes: !isIntervals ? mainPart?.notes ?? "" : "",
+    mainNotes: !isIntervals ? (mainPart?.notes ?? "") : "",
     rounds: isIntervals ? toNumVal(mainPart?.rounds) : "",
     workUnit: workIsDistance ? "distance" : "time",
-    workTime: isIntervals && !workIsDistance ? secondsToMmss(partSeconds(work)) : "",
+    workTime:
+      isIntervals && !workIsDistance ? secondsToMmss(partSeconds(work)) : "",
     workDistance: workIsDistance ? toNumVal(work.distance_m) : "",
-    workNotes: isIntervals ? work?.notes ?? "" : "",
+    workNotes: isIntervals ? (work?.notes ?? "") : "",
     restUnit: restIsDistance ? "distance" : "time",
-    restTime: isIntervals && !restIsDistance ? secondsToMmss(partSeconds(rest)) : "",
+    restTime:
+      isIntervals && !restIsDistance ? secondsToMmss(partSeconds(rest)) : "",
     restDistance: restIsDistance ? toNumVal(rest.distance_m) : "",
-    restNotes: isIntervals ? rest?.notes ?? "" : "",
+    restNotes: isIntervals ? (rest?.notes ?? "") : "",
   };
 }
 
@@ -241,7 +252,9 @@ export default function ManualSessionForm({
 
   const init = useMemo(() => parseInitial(initialSession), [initialSession]);
 
-  const initialSport: SportOption = SPORT_OPTIONS.some((o) => o.value === initialSession?.sport)
+  const initialSport: SportOption = SPORT_OPTIONS.some(
+    (o) => o.value === initialSession?.sport,
+  )
     ? (initialSession!.sport as SportOption)
     : "run";
 
@@ -255,13 +268,18 @@ export default function ManualSessionForm({
 
   const [sport, setSport] = useState<SportOption>(initialSport);
   const [title, setTitle] = useState(initialSession?.title || "");
-  const [durationMin, setDurationMin] = useState<NumVal>(toNumVal(initialSession?.duration_min));
+  const [durationMin, setDurationMin] = useState<NumVal>(
+    toNumVal(initialSession?.duration_min),
+  );
   const [notes, setNotes] = useState(initialSession?.notes || "");
 
   // run/ride/swim
-  const [sessionType, setSessionType] = useState<ManualRunSessionType>(initialSessionType);
+  const [sessionType, setSessionType] =
+    useState<ManualRunSessionType>(initialSessionType);
   const [sessionTypeTouched, setSessionTypeTouched] = useState(isEdit);
-  const [structureMode, setStructureMode] = useState<StructureMode>(init.structureMode);
+  const [structureMode, setStructureMode] = useState<StructureMode>(
+    init.structureMode,
+  );
   const [warmupMin, setWarmupMin] = useState<NumVal>(init.warmupMin);
   const [cooldownMin, setCooldownMin] = useState<NumVal>(init.cooldownMin);
   const [mainMinutes, setMainMinutes] = useState<NumVal>(init.mainMinutes);
@@ -278,7 +296,9 @@ export default function ManualSessionForm({
   const [restNotes, setRestNotes] = useState(init.restNotes);
 
   // strength
-  const [exercises, setExercises] = useState<StrengthDraftExercise[]>(init.exercises);
+  const [exercises, setExercises] = useState<StrengthDraftExercise[]>(
+    init.exercises,
+  );
   const [pendingExerciseId, setPendingExerciseId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
@@ -306,14 +326,6 @@ export default function ManualSessionForm({
     return () => container.removeEventListener("focusin", onFocusIn);
   }, []);
 
-  const catalogOptions = useMemo(
-    () =>
-      Object.entries(STRENGTH_CATALOG_FE)
-        .map(([id, names]) => ({ value: id, label: (names as any)[lang] as string }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [lang],
-  );
-
   const isRunLike = sport === "run" || sport === "ride" || sport === "swim";
   const isStrength = sport === "strength";
   const isOther = sport === "other";
@@ -333,7 +345,16 @@ export default function ManualSessionForm({
     const restS = mmssToSeconds(restTime);
     const totalS = r * workS + Math.max(r - 1, 0) * restS;
     return Math.round(wu + totalS / 60 + cd);
-  }, [isRunLike, isIntervals, warmupMin, cooldownMin, mainMinutes, rounds, workTime, restTime]);
+  }, [
+    isRunLike,
+    isIntervals,
+    warmupMin,
+    cooldownMin,
+    mainMinutes,
+    rounds,
+    workTime,
+    restTime,
+  ]);
 
   const changeStructureMode = (mode: StructureMode) => {
     setStructureMode(mode);
@@ -355,8 +376,13 @@ export default function ManualSessionForm({
     setExercises((prev) => prev.filter((e) => e._key !== key));
   };
 
-  const updateExercise = (key: string, patch: Partial<StrengthDraftExercise>) => {
-    setExercises((prev) => prev.map((e) => (e._key === key ? { ...e, ...patch } : e)));
+  const updateExercise = (
+    key: string,
+    patch: Partial<StrengthDraftExercise>,
+  ) => {
+    setExercises((prev) =>
+      prev.map((e) => (e._key === key ? { ...e, ...patch } : e)),
+    );
   };
 
   const finalDuration = durationIsAuto ? autoDuration : n(durationMin);
@@ -365,15 +391,19 @@ export default function ManualSessionForm({
     if (!title.trim()) return t("advisorDaily.form.errorTitle");
 
     if (isRunLike) {
-      if (!isIntervals && !n(mainMinutes)) return t("advisorDaily.form.errorMain");
+      if (!isIntervals && !n(mainMinutes))
+        return t("advisorDaily.form.errorMain");
       if (isIntervals) {
         const workOk =
-          workUnit === "time" ? mmssToSeconds(workTime) > 0 : n(workDistance) >= 50;
+          workUnit === "time"
+            ? mmssToSeconds(workTime) > 0
+            : n(workDistance) >= 50;
         if (!n(rounds) || !workOk) return t("advisorDaily.form.errorIntervals");
       }
     }
 
-    if (finalDuration <= 0 || finalDuration > 600) return t("advisorDaily.form.errorDuration");
+    if (finalDuration <= 0 || finalDuration > 600)
+      return t("advisorDaily.form.errorDuration");
 
     if (isStrength) {
       if (exercises.length === 0) return t("advisorDaily.form.errorExercises");
@@ -416,12 +446,14 @@ export default function ManualSessionForm({
       } else {
         payload.rounds = n(rounds);
         payload.work_unit = workUnit;
-        if (workUnit === "time") payload.work_duration_s = mmssToSeconds(workTime);
+        if (workUnit === "time")
+          payload.work_duration_s = mmssToSeconds(workTime);
         else payload.work_distance_m = n(workDistance);
         payload.work_notes = workNotes.trim() || null;
 
         payload.rest_unit = restUnit;
-        if (restUnit === "time") payload.rest_duration_s = mmssToSeconds(restTime);
+        if (restUnit === "time")
+          payload.rest_duration_s = mmssToSeconds(restTime);
         else payload.rest_distance_m = n(restDistance);
         payload.rest_notes = restNotes.trim() || null;
       }
@@ -439,7 +471,11 @@ export default function ManualSessionForm({
     try {
       if (isEdit && initialSession?.id) {
         const { plan_date: _pd, plan_meta_id: _pm, ...updatePayload } = payload;
-        await apiUpdateManualSession(Number(userId), Number(initialSession.id), updatePayload);
+        await apiUpdateManualSession(
+          Number(userId),
+          Number(initialSession.id),
+          updatePayload,
+        );
       } else {
         await apiCreateManualSession(Number(userId), payload);
       }
@@ -467,7 +503,9 @@ export default function ManualSessionForm({
       >
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
           <div className="text-sm font-semibold">
-            {isEdit ? t("advisorDaily.form.editTitle") : t("advisorDaily.form.addTitle")}
+            {isEdit
+              ? t("advisorDaily.form.editTitle")
+              : t("advisorDaily.form.addTitle")}
           </div>
           <button
             type="button"
@@ -483,10 +521,15 @@ export default function ManualSessionForm({
         <div
           ref={scrollRef}
           className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
-          style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+          style={{
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+          }}
         >
           <div>
-            <div className="text-xs opacity-60 mb-1">{t("advisorDaily.form.sportLabel")}</div>
+            <div className="text-xs opacity-60 mb-1">
+              {t("advisorDaily.form.sportLabel")}
+            </div>
             <div className="flex flex-wrap gap-2">
               {SPORT_OPTIONS.map((opt) => (
                 <Button
@@ -514,15 +557,23 @@ export default function ManualSessionForm({
 
           {durationIsAuto ? (
             <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-2">
-              <div className="text-xs opacity-60">{t("advisorDaily.form.durationLabel")}</div>
+              <div className="text-xs opacity-60">
+                {t("advisorDaily.form.durationLabel")}
+              </div>
               <div className="text-sm font-semibold">
-                {autoDuration > 0 ? `${autoDuration} ${t("common.units.min")}` : "—"}
+                {autoDuration > 0
+                  ? `${autoDuration} ${t("common.units.min")}`
+                  : "—"}
               </div>
             </div>
           ) : (
             <NumberField
               label={t("advisorDaily.form.durationLabel")}
-              hint={isRunLike ? t("advisorDaily.form.durationManualHint") : undefined}
+              hint={
+                isRunLike
+                  ? t("advisorDaily.form.durationManualHint")
+                  : undefined
+              }
               unit={t("common.units.min")}
               min={1}
               max={600}
@@ -535,7 +586,9 @@ export default function ManualSessionForm({
           {isRunLike && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-3">
               <div>
-                <div className="text-xs opacity-60 mb-1">{t("advisorDaily.form.sessionTypeLabel")}</div>
+                <div className="text-xs opacity-60 mb-1">
+                  {t("advisorDaily.form.sessionTypeLabel")}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {SESSION_TYPES.map((st) => (
                     <Button
@@ -607,7 +660,9 @@ export default function ManualSessionForm({
 
                   {/* Úsek */}
                   <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
-                    <div className="text-xs font-semibold opacity-80">{t("advisorDaily.form.workLabel")}</div>
+                    <div className="text-xs font-semibold opacity-80">
+                      {t("advisorDaily.form.workLabel")}
+                    </div>
                     <UnitToggle
                       value={workUnit}
                       onChange={setWorkUnit}
@@ -643,7 +698,9 @@ export default function ManualSessionForm({
 
                   {/* Pauza */}
                   <div className="rounded-lg border border-white/10 bg-black/20 p-2.5 flex flex-col gap-2">
-                    <div className="text-xs font-semibold opacity-80">{t("advisorDaily.form.restLabel")}</div>
+                    <div className="text-xs font-semibold opacity-80">
+                      {t("advisorDaily.form.restLabel")}
+                    </div>
                     <UnitToggle
                       value={restUnit}
                       onChange={setRestUnit}
@@ -698,7 +755,9 @@ export default function ManualSessionForm({
                 />
               </div>
               {durationIsAuto && (
-                <div className="text-[10px] opacity-50">{t("advisorDaily.form.durationAuto")}</div>
+                <div className="text-[10px] opacity-50">
+                  {t("advisorDaily.form.durationAuto")}
+                </div>
               )}
             </div>
           )}
@@ -714,14 +773,17 @@ export default function ManualSessionForm({
                 <ul className="flex flex-col gap-2">
                   {exercises.map((ex) => {
                     const label =
-                      (STRENGTH_CATALOG_FE as any)[ex.exercise_id]?.[lang] || ex.exercise_id;
+                      (STRENGTH_CATALOG_FE as any)[ex.exercise_id]?.[lang] ||
+                      ex.exercise_id;
                     return (
                       <li
                         key={ex._key}
                         className="rounded-lg border border-white/10 bg-black/20 p-2 flex flex-col gap-2"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-medium truncate">{label}</div>
+                          <div className="text-sm font-medium truncate">
+                            {label}
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeExercise(ex._key)}
@@ -739,14 +801,18 @@ export default function ManualSessionForm({
                             max={20}
                             showReset={false}
                             value={ex.sets}
-                            onChange={(v) => updateExercise(ex._key, { sets: v })}
+                            onChange={(v) =>
+                              updateExercise(ex._key, { sets: v })
+                            }
                           />
                           <TextField
                             label={t("advisorDaily.form.reps")}
                             placeholder="8-12"
                             maxLength={20}
                             value={ex.reps}
-                            onChange={(e) => updateExercise(ex._key, { reps: e.target.value })}
+                            onChange={(e) =>
+                              updateExercise(ex._key, { reps: e.target.value })
+                            }
                           />
                         </div>
                       </li>
@@ -755,19 +821,18 @@ export default function ManualSessionForm({
                 </ul>
               )}
 
-              <SelectFieldFilter
+              <ExercisePicker
                 value={pendingExerciseId}
                 onValueChange={(id) => addExercise(id)}
-                options={catalogOptions}
                 placeholder={t("strengthLog.searchExercise")}
-                searchPlaceholder={t("strengthLog.searchExercise")}
-                emptyLabel={t("strengthLog.noMatch")}
               />
             </div>
           )}
 
           {isOther && (
-            <div className="text-xs opacity-50">{t("advisorDaily.form.otherHint")}</div>
+            <div className="text-xs opacity-50">
+              {t("advisorDaily.form.otherHint")}
+            </div>
           )}
 
           <textarea
@@ -784,7 +849,12 @@ export default function ManualSessionForm({
           <Button size="sm" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button size="sm" variant="primary" onClick={handleSubmit} disabled={submitting}>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
             {submitting ? <LoadingSpinner size="button" /> : t("common.save")}
           </Button>
         </div>

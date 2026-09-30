@@ -1,52 +1,32 @@
 # DB/exercise_suggestions.py
 """
-⚠️ TENTO SÚBOR JE NAJISTEJŠÍ ODHAD, NIE OVERENÝ VZOR.
+Návrhy cvikov od userov na doplnenie do STRENGTH_EXERCISE_CATALOG.
 
-Nemám k dispozícii žiadny existujúci DB/*.py modul z tohto projektu, takže
-neviem, akým presným spôsobom sa u vás získava Supabase klient scoped na
-`ctx` (RLS). Funkcie nižšie majú správne mená a signatúry (podľa toho, ako
-ich volá Services/exercise_suggestions.py), ale telo funkcie `_client(ctx)`
-je nutné nahradiť tým, čo reálne robí napr. DB/strength_sessions.py alebo
-akýkoľvek iný váš existujúci DB modul. Skopíruj odtiaľ hlavičku importu
-a spôsob získania klienta, ostatné (insert/select) už bude sedieť na
-rovnaký vzor ako zvyšok tohto súboru.
+Zber podnetov, nie živý katalóg - schválený návrh pridávaš ručne do
+Configs/strength_catalog.py a Configs/strength_muscles.py.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from Modules.Supabase.client import get_sb
 from Modules.Supabase.auth import AuthCtx
 
-TABLE = "exercise_suggestions"
+TABLE_EXERCISE_SUGGESTIONS = "exercise_suggestions"
 
 
-def _client(ctx: AuthCtx):
-    """
-    ⚠️ NAHRAĎ týmto istým spôsobom, akým iné DB moduly získavajú klienta,
-    napr. (over si presný import a názov funkcie vo vašom kóde):
-
-        from Modules.Supabase.client import get_client_for_ctx
-        return get_client_for_ctx(ctx)
-
-    alebo ak ctx už samo o sebe nesie klienta:
-
-        return ctx.client
-    """
-    raise NotImplementedError(
-        "DB/exercise_suggestions.py: _client(ctx) treba napojiť na váš "
-        "skutočný spôsob získania Supabase klienta - pozri iný DB modul."
-    )
-
-
-def db_insert_exercise_suggestion(row: Dict[str, Any], *, ctx: AuthCtx) -> Optional[Dict[str, Any]]:
+def db_insert_exercise_suggestion(
+    row: Dict[str, Any], *, ctx: AuthCtx
+) -> Optional[Dict[str, Any]]:
     """Vloží nový návrh cviku. Vracia vložený riadok alebo None pri zlyhaní."""
+    sb = get_sb(ctx, caller="exercise_suggestions.db_insert_exercise_suggestion")
     try:
-        res = _client(ctx).table(TABLE).insert(row).execute()
-        rows = getattr(res, "data", None) or []
+        res = sb.table(TABLE_EXERCISE_SUGGESTIONS).insert(row).execute()
+        rows = res.data or []
         return rows[0] if rows else None
     except Exception as e:  # noqa: BLE001
-        print(f"[DB][exercise_suggestions] insert failed: {repr(e)}")
+        print("[DB-EX-SUGGEST] insert error:", repr(e))
         return None
 
 
@@ -54,17 +34,36 @@ def db_list_exercise_suggestions_for_user(
     user_id: int, *, limit: int = 50, ctx: AuthCtx
 ) -> List[Dict[str, Any]]:
     """Návrhy jedného usera, najnovšie prvé."""
+    sb = get_sb(ctx, caller="exercise_suggestions.db_list_exercise_suggestions_for_user")
     try:
         res = (
-            _client(ctx)
-            .table(TABLE)
+            sb.table(TABLE_EXERCISE_SUGGESTIONS)
             .select("*")
-            .eq("user_id", user_id)
+            .eq("user_id", int(user_id))
             .order("created_at", desc=True)
-            .limit(limit)
+            .limit(int(limit))
             .execute()
         )
-        return getattr(res, "data", None) or []
+        return res.data or []
     except Exception as e:  # noqa: BLE001
-        print(f"[DB][exercise_suggestions] list failed: {repr(e)}")
+        print("[DB-EX-SUGGEST] list error:", repr(e))
+        return []
+
+
+def db_list_all_exercise_suggestions(
+    *, status: Optional[str] = None, limit: int = 200, ctx: AuthCtx
+) -> List[Dict[str, Any]]:
+    """
+    Všetky návrhy naprieč usermi - pre admin prehľad, čo treba doplniť
+    do katalógu. status: new | approved | rejected (None = všetky).
+    """
+    sb = get_sb(ctx, caller="exercise_suggestions.db_list_all_exercise_suggestions")
+    try:
+        q = sb.table(TABLE_EXERCISE_SUGGESTIONS).select("*")
+        if status:
+            q = q.eq("status", str(status))
+        res = q.order("created_at", desc=True).limit(int(limit)).execute()
+        return res.data or []
+    except Exception as e:  # noqa: BLE001
+        print("[DB-EX-SUGGEST] list_all error:", repr(e))
         return []

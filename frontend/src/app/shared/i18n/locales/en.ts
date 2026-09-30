@@ -402,7 +402,8 @@ export const en = {
   prefs: {
     title: "Training preferences",
     noActivePlanBanner: {
-textAdvisor: "Choose your settings, save them and start the plan below. You then add workouts yourself.",
+      textAdvisor:
+        "Choose your settings, save them and start the plan below. You then add workouts yourself.",
 
       title: "No trainer set up yet",
       text: "Fill in your training preferences below, then request a plan proposal at the bottom and start it.",
@@ -452,10 +453,11 @@ textAdvisor: "Choose your settings, save them and start the plan below. You then
           msg3: "The new plan will be worth it!",
           msg4: "Analyzing data. This will take a moment, progress matters.",
         },
-advisorEndLabel: "Plan end (optional)",
-advisorEndHint: "Without an end date, the plan runs until you cancel it. With one, it closes automatically afterwards and you get a preparation summary.",
-advisorRunning: "Plan running since {{start}} · end: {{end}}",
-advisorNoEnd: "no fixed end",
+        advisorEndLabel: "Plan end (optional)",
+        advisorEndHint:
+          "Without an end date, the plan runs until you cancel it. With one, it closes automatically afterwards and you get a preparation summary.",
+        advisorRunning: "Plan running since {{start}} · end: {{end}}",
+        advisorNoEnd: "no fixed end",
 
         actions: {
           openPlan: "Daily plan",
@@ -482,7 +484,7 @@ advisorNoEnd: "no fixed end",
         },
 
         errors: {
-invalidEndDate: "Plan end can't be in the past.",
+          invalidEndDate: "Plan end can't be in the past.",
 
           advisorNotSaved: "Save your settings with Advisor mode first.",
           genericStart: "This plan could not be started.",
@@ -925,6 +927,19 @@ invalidEndDate: "Plan end can't be in the past.",
           machine: "Machine",
           cable: "Cable",
         },
+        volumeGoalLabel: "Strength training volume",
+        volumeGoalTooltip:
+          "How many sets per muscle group you should do each week. Maintaining keeps what you have. Building means more work and more fatigue.",
+        volumeGoals: {
+          maintain: "Maintain",
+          develop: "Build",
+        },
+        volumeGoalHints: {
+          maintain:
+            "About 6 sets per muscle per week. Keeps your strength and muscle, running stays the priority.",
+          develop:
+            "About 12 sets per muscle per week. If you run a lot, the target for legs drops automatically so you don't overreach — upper body stays full.",
+        },
         widget: {
           title: "Strength Training",
           tooltip: [
@@ -1164,6 +1179,33 @@ invalidEndDate: "Plan end can't be in the past.",
   },
   bio: {
     title: "Profile (Bio)",
+  },
+  muscleVolume: {
+    title: "Volume by muscle",
+    subtitle: "This week",
+    tooltip:
+      "Working sets per muscle group this week. Warm-up sets don't count. An exercise also counts toward assisting muscles — a bench press is one set for chest and half a set for triceps.",
+    empty: "No sets logged this week yet.",
+    legCapHint:
+      "You run a lot, so the leg target is lower — running already loads them and extra gym volume would compromise your key sessions.",
+    goals: {
+      maintain: "Goal: maintain",
+      develop: "Goal: build",
+    },
+    muscles: {
+      chest: "Chest",
+      back: "Back",
+      shoulders: "Shoulders",
+      biceps: "Biceps",
+      triceps: "Triceps",
+      forearms: "Forearms",
+      core: "Core",
+      glutes: "Glutes",
+      quads: "Quads",
+      hamstrings: "Hamstrings",
+      calves: "Calves",
+    },
+    filterAll: "All",
   },
   onboarding: {
     welcome: {
@@ -2928,7 +2970,7 @@ invalidEndDate: "Plan end can't be in the past.",
       rightLeg: "Right Leg",
     },
   },
-    advisorDaily: {
+  advisorDaily: {
     addButton: "Add workout",
     form: {
       addTitle: "Add workout",
@@ -2937,8 +2979,10 @@ invalidEndDate: "Plan end can't be in the past.",
       titleLabel: "Title",
       titlePlaceholder: "e.g. Easy run",
       durationLabel: "Duration (min)",
-      durationAuto: "Total duration is calculated automatically from warmup, main part and cooldown.",
-      durationManualHint: "With distance-based intervals, enter the total workout duration manually.",
+      durationAuto:
+        "Total duration is calculated automatically from warmup, main part and cooldown.",
+      durationManualHint:
+        "With distance-based intervals, enter the total workout duration manually.",
       sessionTypeLabel: "Session type",
       sessionTypes: {
         easy: "Easy",
@@ -2965,7 +3009,8 @@ invalidEndDate: "Plan end can't be in the past.",
       exercisesLabel: "Exercises",
       sets: "Sets",
       reps: "Reps",
-      otherHint: "For other activities (football, padel, walking...) a title and duration is enough.",
+      otherHint:
+        "For other activities (football, padel, walking...) a title and duration is enough.",
       notesPlaceholder: "Note (optional)",
       errorTitle: "Enter a workout title.",
       errorDuration: "Enter a valid duration.",
@@ -2977,7 +3022,8 @@ invalidEndDate: "Plan end can't be in the past.",
     },
     errors: {
       day_full: "You already have 2 workouts on this day. Move or delete one.",
-      no_active_plan: "You don't have an active plan. Start one in coach settings first.",
+      no_active_plan:
+        "You don't have an active plan. Start one in coach settings first.",
       invalid_structure: "Check the workout details.",
       title_required: "Enter a workout title.",
       invalid_duration: "Enter a valid duration.",

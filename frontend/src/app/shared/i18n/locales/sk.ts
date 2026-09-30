@@ -404,8 +404,8 @@ export const sk = {
     noActivePlanBanner: {
       title: "Zatiaľ nemáš nastaveného trénera",
       text: "Vyplň svoje tréningové preferencie nižšie a potom dole požiadaj o návrh plánu a spusti ho.",
-      textAdvisor: "Zvoľ si nastavenia, ulož ich a dole začni plán. Tréningy si potom pridávaš sám.",
-
+      textAdvisor:
+        "Zvoľ si nastavenia, ulož ich a dole začni plán. Tréningy si potom pridávaš sám.",
     },
     detailedMode: {
       title: "Chcem nastaviť tréning detailne",
@@ -453,10 +453,11 @@ export const sk = {
           msg3: "Nový rozpis bude stáť za to!",
           msg4: "Analyzujú sa dáta. Chvíľu to potrvá, progres je dôležitý.",
         },
-advisorEndLabel: "Koniec plánu (voliteľné)",
-advisorEndHint: "Bez konca plán beží, kým ho nezrušíš. S koncom sa po ňom automaticky uzavrie a dostaneš sumár prípravy.",
-advisorRunning: "Plán beží od {{start}} · koniec: {{end}}",
-advisorNoEnd: "bez pevného konca",
+        advisorEndLabel: "Koniec plánu (voliteľné)",
+        advisorEndHint:
+          "Bez konca plán beží, kým ho nezrušíš. S koncom sa po ňom automaticky uzavrie a dostaneš sumár prípravy.",
+        advisorRunning: "Plán beží od {{start}} · koniec: {{end}}",
+        advisorNoEnd: "bez pevného konca",
 
         actions: {
           openPlan: "Denný plán",
@@ -480,7 +481,7 @@ advisorNoEnd: "bez pevného konca",
           cancel: "Zrušiť",
         },
         errors: {
-invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
+          invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
 
           advisorNotSaved: "Najprv ulož nastavenia s režimom Poradca.",
           genericStart: "Tento plán sa nepodarilo spustiť.",
@@ -919,7 +920,19 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
           other: "Iné",
           machine: "Stroj",
           cable: "Kladka",
-
+        },
+        volumeGoalLabel: "Objem silového tréningu",
+        volumeGoalTooltip:
+          "Koľko sérií na svalovú partiu za týždeň máš odcvičiť. Udržiavanie stačí na to, aby si o svaly neprišiel. Naberanie znamená viac práce aj viac únavy.",
+        volumeGoals: {
+          maintain: "Udržiavať",
+          develop: "Naberať",
+        },
+        volumeGoalHints: {
+          maintain:
+            "Zhruba 6 sérií na partiu týždenne. Svaly a silu udržíš, beh ostáva prioritou.",
+          develop:
+            "Zhruba 12 sérií na partiu týždenne. Ak veľa behávaš, cieľ pre nohy sa automaticky zníži, aby si sa neprepálil — horná časť tela ostáva naplno.",
         },
         widget: {
           title: "Silový tréning",
@@ -1157,6 +1170,33 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
   },
   bio: {
     title: "Profil (Bio)",
+  },
+  muscleVolume: {
+    title: "Objem na partie",
+    subtitle: "Tento týždeň",
+    tooltip:
+      "Počet pracovných sérií na svalovú partiu za tento týždeň. Rozcvičkové série sa nerátajú. Cvik sa započíta aj partiám, ktoré pomáhajú — bench je séria na prsia a zároveň polovica série na triceps.",
+    empty: "Tento týždeň zatiaľ žiadne zapísané série.",
+    legCapHint:
+      "Veľa behávaš, preto je cieľ pre nohy nižší — beh ich zaťažuje sám a zbytočný objem v posilňovni by ti pokazil kľúčové tréningy.",
+    goals: {
+      maintain: "Cieľ: udržiavať",
+      develop: "Cieľ: naberať",
+    },
+    muscles: {
+      chest: "Prsia",
+      back: "Chrbát",
+      shoulders: "Ramená",
+      biceps: "Biceps",
+      triceps: "Triceps",
+      forearms: "Predlaktia",
+      core: "Stred tela",
+      glutes: "Zadok",
+      quads: "Predné stehná",
+      hamstrings: "Zadné stehná",
+      calves: "Lýtka",
+    },
+    filterAll: "Všetko",
   },
   onboarding: {
     welcome: {
@@ -2924,7 +2964,7 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
       rightLeg: "Pravá noha",
     },
   },
-    advisorDaily: {
+  advisorDaily: {
     addButton: "Pridať tréning",
     form: {
       addTitle: "Pridať tréning",
@@ -2933,8 +2973,10 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
       titleLabel: "Názov",
       titlePlaceholder: "Napr. Ľahký beh",
       durationLabel: "Dĺžka (min)",
-      durationAuto: "Celková dĺžka sa počíta automaticky z rozcvičky, hlavnej časti a vyklusania.",
-      durationManualHint: "Pri úsekoch na vzdialenosť zadaj celkovú dĺžku tréningu ručne.",
+      durationAuto:
+        "Celková dĺžka sa počíta automaticky z rozcvičky, hlavnej časti a vyklusania.",
+      durationManualHint:
+        "Pri úsekoch na vzdialenosť zadaj celkovú dĺžku tréningu ručne.",
       sessionTypeLabel: "Typ tréningu",
       sessionTypes: {
         easy: "Ľahký",
@@ -2961,7 +3003,8 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
       exercisesLabel: "Cviky",
       sets: "Série",
       reps: "Opakovania",
-      otherHint: "Pre iné aktivity (futbal, padel, prechádzka...) stačí názov a dĺžka.",
+      otherHint:
+        "Pre iné aktivity (futbal, padel, prechádzka...) stačí názov a dĺžka.",
       notesPlaceholder: "Poznámka (voliteľné)",
       errorTitle: "Zadaj názov tréningu.",
       errorDuration: "Zadaj platnú dĺžku.",
@@ -2973,7 +3016,8 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
     },
     errors: {
       day_full: "V tento deň už máš 2 tréningy. Jeden presuň alebo vymaž.",
-      no_active_plan: "Nemáš aktívny plán. Najprv ho začni v nastaveniach trénera.",
+      no_active_plan:
+        "Nemáš aktívny plán. Najprv ho začni v nastaveniach trénera.",
       invalid_structure: "Skontroluj údaje tréningu.",
       title_required: "Zadaj názov tréningu.",
       invalid_duration: "Zadaj platnú dĺžku.",

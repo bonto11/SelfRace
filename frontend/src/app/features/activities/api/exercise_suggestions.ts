@@ -3,7 +3,7 @@ import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type ExerciseSuggestionPayload = {
   name: string;
-  pattern: string;
+  muscles: string[];
   load_mode: "external" | "bodyweight_plus";
   measure: "reps" | "time" | "distance";
   equipment: string[];

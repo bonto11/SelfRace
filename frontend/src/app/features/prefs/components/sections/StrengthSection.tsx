@@ -17,6 +17,11 @@ type Props = {
   markDirty: () => void;
 };
 
+// 🌟 NOVÉ: udržiavať svaly vs. naberať. Riadi cieľový počet sérií na partiu
+// za týždeň (Configs/strength_volume.py). Pri vysokom behovom objeme sa
+// cieľ pre nohy automaticky zníži - beh ich už zaťažuje sám.
+const VOLUME_GOAL_OPTIONS = ["maintain", "develop"] as const;
+const VOLUME_GOAL_DEFAULT = "maintain";
 const GEAR_OPTIONS = [
   "dumbbells", "barbell", "kettlebell", "trx", "pullup_bar",
   "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel"
@@ -71,6 +76,7 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
 
   const [dislikeQuery, setDislikeQuery] = useState("");
   const [dislikePickerOpen, setDislikePickerOpen] = useState(false);
+  const volumeGoal: string = settings.volume_goal ?? VOLUME_GOAL_DEFAULT;
 
   const previewText = useMemo(() => {
     const locText = location ? (t as any)(`prefs.sections.strengthSection.locations.${location}`) : "—";
@@ -111,6 +117,8 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
   const setGoal = (next: string) => patchSettings({ goal: next });
   const setLevel = (next: string) => patchSettings({ experience_level: next });
   const setSpecificity = (next: string) => patchSettings({ sport_specificity: next });
+
+  const setVolumeGoal = (next: string) => patchSettings({ volume_goal: next });
 
   const toggleGear = (key: string) => {
     const next = available.includes(key)
@@ -192,6 +200,31 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           </div>
           <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
             {(t as any)(`prefs.sections.strengthSection.goalHints.${goal}`)}
+          </div>
+        </div>
+
+        {/* 🌟 NOVÉ: udržiavať vs. naberať */}
+        <div>
+          <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
+            <span>{t("prefs.sections.strengthSection.volumeGoalLabel" as any)}</span>
+            <TooltipIcon text={t("prefs.sections.strengthSection.volumeGoalTooltip" as any)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {VOLUME_GOAL_OPTIONS.map((v) => (
+              <Button
+                key={v}
+                type="button"
+                size="sm"
+                variant="prefs"
+                active={volumeGoal === v}
+                onClick={() => setVolumeGoal(v)}
+              >
+                {(t as any)(`prefs.sections.strengthSection.volumeGoals.${v}`)}
+              </Button>
+            ))}
+          </div>
+          <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
+            {(t as any)(`prefs.sections.strengthSection.volumeGoalHints.${volumeGoal}`)}
           </div>
         </div>
 

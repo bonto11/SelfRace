@@ -7,7 +7,10 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
-import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
+import {
+  MUSCLE_GROUPS,
+  type MuscleKey,
+} from "@/app/shared/constants/strengthMuscles";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { apiSuggestExercise } from "@/app/features/activities/api/exercise_suggestions";
 
@@ -30,7 +33,10 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   const { userId } = useUserId();
 
   const [name, setName] = useState("");
-  const [pattern, setPattern] = useState<string>("other");
+  // 🌟 ZMENA: pohybový vzor (tlak horizontálny / ťah vertikálny) je interná
+  // vec generátora, user mu nerozumie. Zadáva partie, vzor doplníš pri
+  // schvaľovaní návrhu.
+  const [muscles, setMuscles] = useState<MuscleKey[]>([]);
   const [loadMode, setLoadMode] = useState<LoadMode>("external");
   const [measure, setMeasure] = useState<Measure>("reps");
   const [equipment, setEquipment] = useState<string[]>([]);
@@ -38,6 +44,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   const [submitting, setSubmitting] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleMuscle = (m: MuscleKey) =>
+    setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -73,7 +82,7 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
     setSubmitting(true);
     const ok = await apiSuggestExercise(Number(userId), {
       name: name.trim(),
-      pattern,
+      muscles,
       load_mode: loadMode,
       measure,
       equipment,
@@ -138,17 +147,25 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           />
 
           {/* 🌟 ZMENA: SelectFieldFilter - jeho menu je nad modalom */}
-          <SelectFieldFilter
-            label={t("strengthLog.suggestPatternLabel")}
-            value={pattern}
-            onValueChange={setPattern}
-            options={PATTERN_OPTIONS.map((p) => ({
-              value: p,
-              label: t(`strengthLog.patterns.${p}` as any),
-            }))}
-            searchPlaceholder={t("strengthLog.searchExercise")}
-            emptyLabel={t("strengthLog.noMatch")}
-          />
+          <div>
+            <div className="text-xs opacity-60 mb-1">
+              {t("strengthLog.suggestMusclesLabel" as any)}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {MUSCLE_GROUPS.map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={muscles.includes(m)}
+                  onClick={() => toggleMuscle(m)}
+                >
+                  {t(`muscleVolume.muscles.${m}` as any)}
+                </Button>
+              ))}
+            </div>
+          </div>
 
           {/* 🌟 ZMENA: 2-3 možnosti = tlačidlá namiesto dropdownu */}
           <div>
@@ -221,8 +238,11 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           <Button size="sm" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button size="sm" variant="primary" onClick={handleSubmit} disabled={!name.trim() || submitting}>
-            {submitting ? t("common.loading") : t("strengthLog.suggestSubmit")}
+          <Button          
+            size="sm"
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={!name.trim() || muscles.length === 0 || submitting}>
           </Button>
         </div>
       </div>

@@ -271,3 +271,46 @@ export async function apiImportFromPlan(
     return null;
   }
 }
+
+/* ─── OBJEM NA SVALOVÉ PARTIE ─── */
+
+export type MuscleVolumeStatus = "none" | "under" | "on_track" | "over";
+
+export type MuscleVolumeRow = {
+  muscle: string;
+  sets_this_week: number;
+  sets_avg_per_week: number;
+  target: number;
+  pct: number;
+  status: MuscleVolumeStatus;
+};
+
+export type MuscleVolumeOverview = {
+  week_start: string;
+  goal: "maintain" | "develop";
+  run_volume_tier: "low" | "moderate" | "high";
+  weeks_analyzed: number;
+  muscles: MuscleVolumeRow[];
+  total_sets_this_week: number;
+};
+
+/**
+ * 🌟 NOVÉ: koľko pracovných sérií na partiu má user za tento týždeň a aký
+ * je cieľ. Cieľ počíta backend z prefs a z reálneho behového objemu.
+ */
+export async function apiGetMuscleVolume(
+  userId: number,
+  weeksBack = 4,
+): Promise<MuscleVolumeOverview | null> {
+  if (!userId) return null;
+  try {
+    const json = await callBackend<any>(
+      `${base(userId)}/muscle-volume?weeks_back=${weeksBack}`,
+      { method: "GET", cache: "no-store" },
+    );
+    return json?.success ? (json.data as MuscleVolumeOverview) : null;
+  } catch (e) {
+    console.error("[StrengthSessions] muscle volume error", e);
+    return null;
+  }
+}

@@ -1,7 +1,7 @@
 # Services/strength_sessions.py
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from Modules.Supabase.auth import AuthCtx
@@ -16,7 +16,11 @@ from DB.strength_sessions import (
     db_find_unmatched_strength_sessions_for_date,
     db_list_planned_strength_sessions,
 )
+from Configs.strength_muscles import MUSCLE_GROUPS, get_muscles
+from Configs.strength_volume import build_targets, compare_to_target, run_volume_tier
 from DB.coach_plan_daily import db_get_daily_session_by_id_full
+from DB.user_prefs import db_get_pref_single
+from Services.analytics_RecentLoad import service_build_recent_load_raw
 
 LOG_VERSION = 1
 VALID_BLOCKS = {"activation", "strength_main_part", "add_ons"}
@@ -99,6 +103,52 @@ def _validate_set(s: Any) -> Optional[Dict[str, Any]]:
         "is_warmup": bool(s.get("is_warmup")),
         "done_at": s.get("done_at") or _now_iso(),
     }
+
+def _resolve_volume_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: cieľ objemu a behový objem si service zistí sám - FE nemá dôvod
+    posielať niečo, čo je uložené v prefs.
+
+    weekly_run_minutes: priemer posledných troch ukončených týždňov z
+    recent_load. Jeden vynechaný týždeň tak nespôsobí, že sa cieľ pre nohy
+    hneď vystrelí hore.
+    """
+    goal = "maintain"
+    sessions_per_week: Optional[int] = None
+
+    try:
+        pref_row = db_get_pref_single(user_id=user_id, key="coach.prefs", ctx=ctx)
+        prefs_val = (pref_row.get("value") or {}) if pref_row else {}
+        settings = prefs_val.get("strength_settings") or {}
+        if settings.get("volume_goal") in ("maintain", "develop"):
+            goal = settings["volume_goal"]
+        spw = settings.get("sessions_per_week")
+        if spw is not None:
+            sessions_per_week = int(spw)
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRENGTH-VOLUME] prefs read failed user={user_id}: {repr(e)}")
+
+    weekly_run_minutes: Optional[float] = None
+    try:
+        rl = service_build_recent_load_raw(user_id=user_id, window_days=28, ctx=ctx)
+        weeks = [
+            w for w in (rl.get("weeks") or [])
+            if isinstance(w, dict) and int(w.get("week_index_from_now", 0)) < 0
+        ]
+        if weeks:
+            recent = sorted(weeks, key=lambda w: int(w.get("week_index_from_now") or 0))[-3:]
+            weekly_run_minutes = sum(
+                float(w.get("total_minutes") or 0.0) for w in recent
+            ) / len(recent)
+    except Exception as e:  # noqa: BLE001
+        print(f"[STRENGTH-VOLUME] recent load failed user={user_id}: {repr(e)}")
+
+    return {
+        "goal": goal,
+        "sessions_per_week": sessions_per_week,
+        "weekly_run_minutes": weekly_run_minutes,
+    }
+
 
 
 def _normalize_exercises(raw: Any) -> List[Dict[str, Any]]:
@@ -433,3 +483,113 @@ def service_import_from_plan(
     if not updated:
         return {"ok": False, "code": "update_failed"}
     return {"ok": True, "data": updated}
+
+def service_get_weekly_muscle_volume(
+    *,
+    user_id: int,
+    weeks_back: int = 4,
+    goal: str = "maintain",
+    sessions_per_week: Optional[int] = None,
+    weekly_run_minutes: Optional[float] = None,
+    ctx: AuthCtx,
+) -> Dict[str, Any]:
+    """
+    🌟 NOVÉ: týždenný objem na svalovú partiu.
+
+    Ráta LEN pracovné série (warmup sa ignoruje) a rozdeľuje ich zlomkovo
+    podľa strength_muscles.py - bench je 1 séria na prsia a zároveň 0.5
+    série na triceps a ramená. Bez zlomkov by vyšlo, že triceps nerobíš.
+
+    Vracia posledný ukončený týždeň (pondelok-nedeľa) ako 'current' plus
+    priemer za weeks_back týždňov, aby jeden vynechaný týždeň nevyzeral
+    ako katastrofa.
+    """
+    rows = db_list_strength_sessions(user_id, weeks_back=weeks_back, limit=200, ctx=ctx)
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    window_start = week_start - timedelta(weeks=max(0, weeks_back - 1))
+
+    current: Dict[str, float] = {m: 0.0 for m in MUSCLE_GROUPS}
+    window: Dict[str, float] = {m: 0.0 for m in MUSCLE_GROUPS}
+    weeks_seen: set = set()
+
+    for row in rows:
+        d_raw = str(row.get("session_date") or "")[:10]
+        try:
+            d = date.fromisoformat(d_raw)
+        except ValueError:
+            continue
+        if d < window_start or d > today:
+            continue
+
+        w_start = d - timedelta(days=d.weekday())
+        weeks_seen.add(w_start.isoformat())
+        is_current = w_start == week_start
+
+        log = row.get("log")
+        if not isinstance(log, dict):
+            continue
+
+        for ex in (log.get("exercises") or []):
+            if not isinstance(ex, dict):
+                continue
+            work_sets = [
+                s for s in (ex.get("sets") or [])
+                if isinstance(s, dict)
+                and not s.get("is_warmup")
+                and (s.get("reps") or s.get("weight_kg"))
+            ]
+            if not work_sets:
+                continue
+
+            for muscle, weight in get_muscles(str(ex.get("exercise_id") or "")).items():
+                contribution = len(work_sets) * float(weight)
+                window[muscle] = window.get(muscle, 0.0) + contribution
+                if is_current:
+                    current[muscle] = current.get(muscle, 0.0) + contribution
+
+    week_count = max(1, len(weeks_seen))
+    targets = build_targets(
+        MUSCLE_GROUPS,
+        goal=goal if goal in ("maintain", "develop") else "maintain",
+        weekly_run_minutes=weekly_run_minutes,
+        sessions_per_week=sessions_per_week,
+    )
+
+    muscles_out: List[Dict[str, Any]] = []
+    for m in MUSCLE_GROUPS:
+        cmp_now = compare_to_target(current.get(m, 0.0), targets[m])
+        muscles_out.append({
+            "muscle": m,
+            "sets_this_week": cmp_now["actual"],
+            "sets_avg_per_week": round(window.get(m, 0.0) / week_count, 1),
+            "target": cmp_now["target"],
+            "pct": cmp_now["pct"],
+            "status": cmp_now["status"],
+        })
+
+    return {
+        "week_start": week_start.isoformat(),
+        "goal": goal,
+        "run_volume_tier": run_volume_tier(weekly_run_minutes),
+        "weeks_analyzed": week_count,
+        "muscles": muscles_out,
+        "total_sets_this_week": round(
+            sum(m["sets_this_week"] for m in muscles_out), 1
+        ),
+    }
+
+def service_get_muscle_volume_overview(
+    *, user_id: int, weeks_back: int = 4, ctx: AuthCtx
+) -> Dict[str, Any]:
+    """Objem na partie s cieľmi odvodenými z prefs a reálneho behového objemu."""
+    vc = _resolve_volume_context(user_id, ctx=ctx)
+    return service_get_weekly_muscle_volume(
+        user_id=user_id,
+        weeks_back=weeks_back,
+        goal=vc["goal"],
+        sessions_per_week=vc["sessions_per_week"],
+        weekly_run_minutes=vc["weekly_run_minutes"],
+        ctx=ctx,
+    )

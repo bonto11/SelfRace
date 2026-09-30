@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 
 from Modules.Supabase.auth import AuthCtx
@@ -47,6 +47,7 @@ def _ensure_latest_plan_meta(
         raise ValueError("No generated plan meta found for this user.")
     return meta
 
+
 def service_save_active_plan(
     user_id: int,
     payload: Dict[str, Any],
@@ -55,7 +56,7 @@ def service_save_active_plan(
 ) -> Dict[str, Any]:
     meta = _ensure_latest_plan_meta(user_id=user_id, ctx=ctx)
     meta_id = meta.get("id")
-    
+
     if not meta_id:
         raise ValueError("Cannot activate plan without a valid ID.")
 
@@ -65,7 +66,7 @@ def service_save_active_plan(
         new_status="active",
         ctx=ctx,
     )
-    
+
     final_meta = updated if updated else meta
 
     return {
@@ -132,7 +133,9 @@ def service_start_manual_plan(
         db_clear_weekly_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
         db_clear_daily_for_user_plan(user_id=user_id, plan_meta_id=old_id, ctx=ctx)
         db_delete_plan_meta(user_id=user_id, meta_id=old_id, ctx=ctx)
-        print(f"[MANUAL-PLAN][user={user_id}] cleaned up stale draft plan_meta_id={old_id}")
+        print(
+            f"[MANUAL-PLAN][user={user_id}] cleaned up stale draft plan_meta_id={old_id}"
+        )
 
     meta_row = db_insert_plan_meta_generated(
         user_id=user_id,
@@ -142,7 +145,11 @@ def service_start_manual_plan(
         ctx=ctx,
     )
     if not meta_row or not meta_row.get("id"):
-        return {"ok": False, "code": "insert_failed", "message": "Nepodarilo sa vytvoriť plán."}
+        return {
+            "ok": False,
+            "code": "insert_failed",
+            "message": "Nepodarilo sa vytvoriť plán.",
+        }
 
     activated = db_update_plan_status(
         user_id=user_id,
@@ -160,20 +167,21 @@ def service_start_manual_plan(
     }
 
 
-
 def service_cancel_active_plan(
     user_id: int,
-    target_status: str, 
+    target_status: str,
     *,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     meta = db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
-    if not meta: return {"meta": None, "archived": False, "deleted": False}
+    if not meta:
+        return {"meta": None, "archived": False, "deleted": False}
 
     current_status = meta.get("status")
     meta_id = meta.get("id")
-    if not meta_id: return {"meta": None, "archived": False, "deleted": False}
-        
+    if not meta_id:
+        return {"meta": None, "archived": False, "deleted": False}
+
     meta_id = int(meta_id)
 
     if current_status == "generated":
@@ -188,24 +196,28 @@ def service_cancel_active_plan(
         return {"meta": None, "archived": False, "deleted": True}
 
     if current_status == "active":
-        weeks = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
-        
+        weeks = db_get_weekly_for_user_plan(
+            user_id=user_id, plan_meta_id=meta_id, ctx=ctx
+        )
+
         final_planned = {}
         final_actual = {}
 
         for w in weeks:
             ps = w.get("planned_stats") or {}
             as_ = w.get("actual_stats") or {}
-            
+
             for k, v in ps.items():
                 final_planned[k] = final_planned.get(k, 0) + (v or 0)
             for k, v in as_.items():
                 final_actual[k] = final_actual.get(k, 0) + (v or 0)
 
         for k in final_planned:
-            if isinstance(final_planned[k], float): final_planned[k] = round(final_planned[k], 2)
+            if isinstance(final_planned[k], float):
+                final_planned[k] = round(final_planned[k], 2)
         for k in final_actual:
-            if isinstance(final_actual[k], float): final_actual[k] = round(final_actual[k], 2)
+            if isinstance(final_actual[k], float):
+                final_actual[k] = round(final_actual[k], 2)
 
         final_stats = {
             "weeks_tracked": len(weeks),
@@ -222,7 +234,7 @@ def service_cancel_active_plan(
             new_status=target_status,
             final_stats=final_stats,
             ended_at=ended_at,
-            ctx=ctx
+            ctx=ctx,
         )
 
         # FIX: scoped na tento meta_id - pozri komentár vyššie pri "generated".
@@ -244,8 +256,7 @@ def service_link_activity(
 ) -> bool:
     try:
         db_link_session_to_activity(
-            user_id=user_id,
-            id=id, activity_id=activity_id, ctx=ctx
+            user_id=user_id, id=id, activity_id=activity_id, ctx=ctx
         )
         return True
     except Exception:
@@ -287,8 +298,12 @@ def service_get_active_plan_status(
     # FIX: scoped na tento konkrétny plán, nie "má user vôbec kdekoľvek
     # nejaké weekly/daily riadky" (čo mohlo predtým ukázať True aj vtedy,
     # keď mal aktívny plán prázdny a dáta patrili len osirotenému draftu).
-    has_weekly = db_check_weekly_data_exists(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
-    has_daily = db_check_daily_data_exists(user_id=user_id, plan_meta_id=meta_id, ctx=ctx)
+    has_weekly = db_check_weekly_data_exists(
+        user_id=user_id, plan_meta_id=meta_id, ctx=ctx
+    )
+    has_daily = db_check_daily_data_exists(
+        user_id=user_id, plan_meta_id=meta_id, ctx=ctx
+    )
 
     return {
         "has_active": has_active,
@@ -298,10 +313,11 @@ def service_get_active_plan_status(
         "meta": meta,
     }
 
+
 def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
     tz_ba = ZoneInfo("Europe/Bratislava")
     today_iso = datetime.now(tz_ba).date().isoformat()
-    
+
     users_to_complete = db_get_due_active_plans(today_iso=today_iso, ctx=ctx)
 
     processed = 0
@@ -324,9 +340,10 @@ def service_complete_due_active_plans(*, ctx: AuthCtx) -> Dict[str, Any]:
     return {
         "processed_users": processed,
         "errors": errors,
-        "note": f"Checked against local date {today_iso}"
+        "note": f"Checked against local date {today_iso}",
     }
-    
+
+
 def service_get_plan_history(
     user_id: int,
     *,
