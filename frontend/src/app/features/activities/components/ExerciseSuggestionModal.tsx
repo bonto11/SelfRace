@@ -7,7 +7,7 @@ import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
 import Button from "@/app/shared/ui/components/Button";
 import TextField from "@/app/shared/ui/components/TextField";
-import SelectField from "@/app/shared/ui/components/SelectField";
+import SelectFieldFilter from "@/app/shared/ui/components/SelectFieldFilter";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { apiSuggestExercise } from "@/app/features/activities/api/exercise_suggestions";
 
@@ -16,10 +16,14 @@ const PATTERN_OPTIONS = [
   "carry", "grip", "rotation", "anti_rotation", "calf", "jump", "anti_extension", "other",
 ] as const;
 
+// 🌟 NOVÉ: machine + cable - katalóg ich používa, v návrhu chýbali
 const EQUIPMENT_OPTIONS = [
-  "none", "dumbbells", "barbell", "kettlebell", "trx", "pullup_bar",
+  "none", "dumbbells", "barbell", "kettlebell", "machine", "cable", "trx", "pullup_bar",
   "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel", "other",
 ] as const;
+
+type LoadMode = "external" | "bodyweight_plus";
+type Measure = "reps" | "time" | "distance";
 
 export default function ExerciseSuggestionModal({ onClose }: { onClose: () => void }) {
   const t = useT();
@@ -27,8 +31,8 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
 
   const [name, setName] = useState("");
   const [pattern, setPattern] = useState<string>("other");
-  const [loadMode, setLoadMode] = useState<"external" | "bodyweight_plus">("external");
-  const [measure, setMeasure] = useState<"reps" | "time" | "distance">("reps");
+  const [loadMode, setLoadMode] = useState<LoadMode>("external");
+  const [measure, setMeasure] = useState<Measure>("reps");
   const [equipment, setEquipment] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -43,12 +47,8 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
     };
   }, []);
 
-  // 🌟 FIX: na mobile modal žije v position:fixed mimo bežného scroll flow
-  // stránky, takže keď sa otvorí klávesnica, systém nevie sám posunúť
-  // obsah tak, aby bolo fokusnuté pole vidno (fungovalo by to, len keby
-  // bol input súčasťou normálne scrollovanej stránky). Namiesto toho
-  // počúvame focusin v rámci vlastného scroll kontajnera a fokusnuté pole
-  // scrollneme ručne - s malým oneskorením, kým sa klávesnica doanimuje.
+  // Na mobile žije modal v position:fixed mimo scroll flow stránky - pri
+  // otvorení klávesnice fokusnuté pole scrollneme ručne do stredu.
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
@@ -88,6 +88,17 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
     }
   };
 
+  const loadModeOptions: { value: LoadMode; label: string }[] = [
+    { value: "external", label: t("strengthLog.unitWeight") || "Kg" },
+    { value: "bodyweight_plus", label: t("strengthLog.unitExtraWeight") || "+kg" },
+  ];
+
+  const measureOptions: { value: Measure; label: string }[] = [
+    { value: "reps", label: t("strengthLog.repsShort") || "opak." },
+    { value: "time", label: t("strengthLog.unitSeconds") || "Sekundy" },
+    { value: "distance", label: t("strengthLog.unitMeters") || "Metre" },
+  ];
+
   return createPortal(
     <div
       className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/60 p-3"
@@ -112,9 +123,10 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           </button>
         </div>
 
+        {/* 🌟 FIX: flex-1 + min-h-0, inak kontajner nescrolluje */}
         <div
           ref={scrollRef}
-          className="flex flex-col gap-3 p-4 overflow-y-auto"
+          className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
           style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
         >
           <TextField
@@ -125,33 +137,56 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
             onChange={(e) => setName(e.target.value)}
           />
 
-          <SelectField
+          {/* 🌟 ZMENA: SelectFieldFilter - jeho menu je nad modalom */}
+          <SelectFieldFilter
             label={t("strengthLog.suggestPatternLabel")}
             value={pattern}
             onValueChange={setPattern}
-            options={PATTERN_OPTIONS.map((p) => ({ value: p, label: t(`strengthLog.patterns.${p}` as any) }))}
+            options={PATTERN_OPTIONS.map((p) => ({
+              value: p,
+              label: t(`strengthLog.patterns.${p}` as any),
+            }))}
+            searchPlaceholder={t("strengthLog.searchExercise")}
+            emptyLabel={t("strengthLog.noMatch")}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField
-              label={t("strengthLog.suggestLoadModeLabel")}
-              value={loadMode}
-              onValueChange={(v) => setLoadMode(v as any)}
-              options={[
-                { value: "external", label: t("strengthLog.unitWeight") || "Kg" },
-                { value: "bodyweight_plus", label: t("strengthLog.unitExtraWeight") || "+kg" },
-              ]}
-            />
-            <SelectField
-              label={t("strengthLog.suggestMeasureLabel")}
-              value={measure}
-              onValueChange={(v) => setMeasure(v as any)}
-              options={[
-                { value: "reps", label: t("strengthLog.repsShort") || "Opakovania" },
-                { value: "time", label: t("strengthLog.unitSeconds") || "Sekundy" },
-                { value: "distance", label: t("strengthLog.unitMeters") || "Metre" },
-              ]}
-            />
+          {/* 🌟 ZMENA: 2-3 možnosti = tlačidlá namiesto dropdownu */}
+          <div>
+            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestLoadModeLabel")}</div>
+            <div className="flex gap-2">
+              {loadModeOptions.map((o) => (
+                <Button
+                  key={o.value}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={loadMode === o.value}
+                  onClick={() => setLoadMode(o.value)}
+                  className="flex-1"
+                >
+                  {o.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestMeasureLabel")}</div>
+            <div className="flex gap-2">
+              {measureOptions.map((o) => (
+                <Button
+                  key={o.value}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={measure === o.value}
+                  onClick={() => setMeasure(o.value)}
+                  className="flex-1"
+                >
+                  {o.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -173,7 +208,7 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           </div>
 
           <textarea
-            className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20"
+            className="w-full rounded bg-white/5 border border-white/10 p-2.5 text-sm text-white focus:border-white/30 focus:outline-none resize-none placeholder:text-white/20 shrink-0"
             rows={3}
             maxLength={500}
             value={notes}
