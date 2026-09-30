@@ -24,6 +24,7 @@ import {
   PANEL_STACK,
   PANEL_PAD,
 } from "@/app/shared/ui/tokens";
+import MuscleVolumeCard from "@/app/features/strength/components/MuscleVolumeCard";
 
 function sessionVolume(s: StrengthSession): number {
   let v = 0;
@@ -125,6 +126,8 @@ export default function Page() {
       showPoweredByStrava={false}
     >
       <div className={PANEL_STACK}>
+        <MuscleVolumeCard />
+
         <Button
           variant="primary"
           size="sm"
