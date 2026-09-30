@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from Services.coach_plan_active import (
     service_save_active_plan,
@@ -23,6 +24,10 @@ from DB.coach_plan_summaries import (
 )
 
 router = APIRouter()
+
+
+class StartManualPlanPayload(BaseModel):
+    end_date: Optional[str] = None  # YYYY-MM-DD, voliteľné
 
 
 # ----------------------------------------------------
@@ -51,14 +56,6 @@ async def save_active_plan(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"save_active_plan ERROR: {str(e)}")
-
-
-# ----------------------------------------------------
-# POST /coach-plan-active/{user_id}/start-manual
-# 🌟 NOVÉ: advisor režim - prázdny aktívny plán bez AI generovania
-# ----------------------------------------------------
-class StartManualPlanPayload(BaseModel):
-    end_date: Optional[str] = None  # YYYY-MM-DD, voliteľné
 
 
 # ----------------------------------------------------
@@ -96,6 +93,7 @@ async def start_manual_plan(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"start_manual_plan ERROR: {str(e)}")
+
 
 # ----------------------------------------------------
 # POST /coach-plan-active/{user_id}/cancel
