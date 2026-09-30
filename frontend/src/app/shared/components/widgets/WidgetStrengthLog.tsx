@@ -12,7 +12,7 @@ import {
   apiListStrengthSessions,
   apiCreateStrengthSession,
   type StrengthSession,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   WIDGET_LOADING_WRAP,
   WIDGET_VALUE_ROW,
@@ -25,7 +25,8 @@ function sessionVolume(s: StrengthSession): number {
   let v = 0;
   for (const ex of s.log?.exercises ?? [])
     for (const set of ex.sets ?? [])
-      if (!set.is_warmup && set.weight_kg && set.reps) v += set.weight_kg * set.reps;
+      if (!set.is_warmup && set.weight_kg && set.reps)
+        v += set.weight_kg * set.reps;
   return Math.round(v);
 }
 
@@ -113,9 +114,15 @@ export default function WidgetStrengthLog({
         </div>
       ) : (
         <>
-          <div className={WIDGET_VALUE_ROW} style={{ alignItems: "baseline", gap: 4 }}>
+          <div
+            className={WIDGET_VALUE_ROW}
+            style={{ alignItems: "baseline", gap: 4 }}
+          >
             <span style={{ fontSize: 22, marginRight: 2 }}>🏋️</span>
-            <span className={WIDGET_VALUE_PRIMARY} style={{ color: valueColor }}>
+            <span
+              className={WIDGET_VALUE_PRIMARY}
+              style={{ color: valueColor }}
+            >
               {thisWeekCount}
             </span>
             <span className={WIDGET_VALUE_UNIT} style={{ color: valueColor }}>
@@ -124,7 +131,14 @@ export default function WidgetStrengthLog({
           </div>
 
           {last ? (
-            <p style={{ fontSize: 11, color: appColors.textMuted, marginTop: 4, opacity: 0.8 }}>
+            <p
+              style={{
+                fontSize: 11,
+                color: appColors.textMuted,
+                marginTop: 4,
+                opacity: 0.8,
+              }}
+            >
               {t("strengthLog.widget.last") as any}:{" "}
               {lastDaysAgo === 0
                 ? (t("strengthLog.widget.today") as any)
@@ -132,7 +146,9 @@ export default function WidgetStrengthLog({
               {lastVolume > 0 ? ` · ${lastVolume} kg` : ""}
             </p>
           ) : (
-            <p className={WIDGET_NOTE}>{t("strengthLog.widget.empty") as any}</p>
+            <p className={WIDGET_NOTE}>
+              {t("strengthLog.widget.empty") as any}
+            </p>
           )}
 
           <div className="mt-3">
@@ -145,7 +161,11 @@ export default function WidgetStrengthLog({
               }}
               disabled={creating}
             >
-              {creating ? <LoadingSpinner size="button" /> : `+ ${t("strengthLog.widget.logNow")}`}
+              {creating ? (
+                <LoadingSpinner size="button" />
+              ) : (
+                `+ ${t("strengthLog.widget.logNow")}`
+              )}
             </Button>
           </div>
         </>

@@ -16,7 +16,7 @@ import {
   apiCreateStrengthSession,
   apiDeleteStrengthSession,
   type StrengthSession,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   SESSION_CARD,
   SESSION_CARD_STYLE,
@@ -29,7 +29,8 @@ function sessionVolume(s: StrengthSession): number {
   let v = 0;
   for (const ex of s.log?.exercises ?? [])
     for (const set of ex.sets ?? [])
-      if (!set.is_warmup && set.weight_kg && set.reps) v += set.weight_kg * set.reps;
+      if (!set.is_warmup && set.weight_kg && set.reps)
+        v += set.weight_kg * set.reps;
   return Math.round(v);
 }
 
@@ -65,7 +66,10 @@ export default function Page() {
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const rows = await apiListStrengthSessions(userId, { weeks_back: 26, limit: 200 });
+    const rows = await apiListStrengthSessions(userId, {
+      weeks_back: 26,
+      limit: 200,
+    });
     setSessions(rows);
     setLoading(false);
   }, [userId]);
@@ -128,7 +132,11 @@ export default function Page() {
           disabled={creating || !userId}
           className="self-start"
         >
-          {creating ? <LoadingSpinner size="button" /> : `+ ${t("strengthLog.widget.logNow")}`}
+          {creating ? (
+            <LoadingSpinner size="button" />
+          ) : (
+            `+ ${t("strengthLog.widget.logNow")}`
+          )}
         </Button>
 
         {loading ? (
@@ -137,7 +145,9 @@ export default function Page() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="py-10 text-center border border-dashed border-white/10 rounded-xl">
-            <p className="text-sm opacity-50">{t("strengthLog.widget.empty")}</p>
+            <p className="text-sm opacity-50">
+              {t("strengthLog.widget.empty")}
+            </p>
           </div>
         ) : (
           sessions.map((s) => {
@@ -156,7 +166,9 @@ export default function Page() {
                   <div className="flex items-start justify-between gap-3">
                     <button
                       type="button"
-                      onClick={() => router.push(`/activities/strength/${s.id}`)}
+                      onClick={() =>
+                        router.push(`/activities/strength/${s.id}`)
+                      }
                       className="min-w-0 text-left flex-1"
                     >
                       <div className="text-sm font-semibold truncate">
@@ -178,7 +190,9 @@ export default function Page() {
                           </span>
                         )}
                         {s.activity_id && (
-                          <span className="text-[10px] opacity-40">Strava ✓</span>
+                          <span className="text-[10px] opacity-40">
+                            Strava ✓
+                          </span>
                         )}
                       </div>
 
@@ -205,8 +219,12 @@ export default function Page() {
                   >
                     <div className="mt-2 text-[11px] opacity-70">
                       {[
-                        exCount > 0 ? `${exCount} ${t("strengthLog.exercisesUnit")}` : null,
-                        sets > 0 ? `${sets} ${t("strengthLog.setsLogged")}` : null,
+                        exCount > 0
+                          ? `${exCount} ${t("strengthLog.exercisesUnit")}`
+                          : null,
+                        sets > 0
+                          ? `${sets} ${t("strengthLog.setsLogged")}`
+                          : null,
                         vol > 0 ? `${vol} kg` : null,
                       ]
                         .filter(Boolean)

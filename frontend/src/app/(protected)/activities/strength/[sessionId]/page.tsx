@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import PageShell from "@/app/shared/ui/components/PageShell";
-import StrengthLogEditor from "@/app/features/activities/components/StrengthLogEditor";
+import StrengthLogEditor from "@/app/features/strength/components/StrengthLogEditor";
 import { useSettings } from "@/app/shared/i18n/SettingsProvider";
 import { useT } from "@/app/shared/i18n/useT";
 
@@ -19,7 +19,11 @@ export default function Page() {
 
   if (!sessionId || Number.isNaN(sessionId)) {
     return (
-      <PageShell title={t("strengthLog.widget.title")} showBack showPoweredByStrava={false}>
+      <PageShell
+        title={t("strengthLog.widget.title")}
+        showBack
+        showPoweredByStrava={false}
+      >
         <div className="py-10 text-center text-sm opacity-50">
           {t("common.errors.missingUser")}
         </div>

@@ -12,16 +12,16 @@ import { safeText } from "@/app/shared/components/session/sessionUtils";
 import type { SessionItem } from "@/app/shared/components/session/SessionCard";
 import { useT } from "@/app/shared/i18n/useT";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 // 🌟 NOVÉ: spoločné formátovanie predpisu (pauza 1:45 min, výdrž 30-45s)
-import { formatPrescription } from "@/app/shared/utils/strengthFormat";
+import { formatPrescription } from "@/app/features/strength/utils/strengthFormat";
 import Button from "@/app/shared/ui/components/Button";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
-import StrengthLogEditor from "@/app/features/activities/components/StrengthLogEditor";
+import StrengthLogEditor from "@/app/features/strength/components/StrengthLogEditor";
 import {
   apiCreateStrengthSession,
   apiGetStrengthSessionByPlan,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   PLAN_STRUCT_STACK,
   PLAN_BLOCK,
@@ -70,9 +70,11 @@ export default function DetailPlan({
   useEffect(() => {
     if (!userId || item.planId == null) return;
     let alive = true;
-    apiGetStrengthSessionByPlan(Number(userId), Number(item.planId)).then((s) => {
-      if (alive && s) setLogSessionId(s.id);
-    });
+    apiGetStrengthSessionByPlan(Number(userId), Number(item.planId)).then(
+      (s) => {
+        if (alive && s) setLogSessionId(s.id);
+      },
+    );
     return () => {
       alive = false;
     };

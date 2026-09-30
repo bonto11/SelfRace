@@ -4,13 +4,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/shared/i18n/useT";
 import { useUserId } from "@/app/shared/hooks/useUserId";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import { getExerciseMeta } from "@/app/shared/constants/strengthMeta";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { getExerciseMeta } from "@/app/features/strength/constants/strengthMeta";
 import { ActivitySectionShell } from "@/app/shared/components/session/DetailActivity";
 import {
   apiGetStrengthSessionByActivity,
   type StrengthSession,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   PLAN_EX_LIST,
   PLAN_EX_ITEM,
@@ -29,7 +29,11 @@ import {
  * Objem sa ráta len z cvikov meraných na opakovania a len z pracovných sérií -
  * pri planku je "reps" počet sekúnd, to by objem skreslilo.
  */
-export default function SectionStrengthSummary({ activityId }: { activityId: number }) {
+export default function SectionStrengthSummary({
+  activityId,
+}: {
+  activityId: number;
+}) {
   const t = useT();
   const { userId } = useUserId();
   const lang = (t as any)?.locale?.startsWith("en") ? "en" : "sk";
@@ -39,9 +43,11 @@ export default function SectionStrengthSummary({ activityId }: { activityId: num
   useEffect(() => {
     if (!userId || !activityId) return;
     let alive = true;
-    apiGetStrengthSessionByActivity(Number(userId), Number(activityId)).then((s) => {
-      if (alive) setSession(s);
-    });
+    apiGetStrengthSessionByActivity(Number(userId), Number(activityId)).then(
+      (s) => {
+        if (alive) setSession(s);
+      },
+    );
     return () => {
       alive = false;
     };
@@ -61,7 +67,9 @@ export default function SectionStrengthSummary({ activityId }: { activityId: num
 
     for (const ex of exercises) {
       const measure = getExerciseMeta(ex.exercise_id).measure;
-      const work = (ex.sets ?? []).filter((s) => !s.is_warmup && (s.reps || s.weight_kg));
+      const work = (ex.sets ?? []).filter(
+        (s) => !s.is_warmup && (s.reps || s.weight_kg),
+      );
       if (!work.length) continue;
       workSets += work.length;
 
@@ -76,7 +84,9 @@ export default function SectionStrengthSummary({ activityId }: { activityId: num
         }
       }
 
-      const bestSet = work.reduce((a, b) => ((b.weight_kg ?? 0) > (a.weight_kg ?? 0) ? b : a));
+      const bestSet = work.reduce((a, b) =>
+        (b.weight_kg ?? 0) > (a.weight_kg ?? 0) ? b : a,
+      );
       const unit = measure === "time" ? "s" : measure === "distance" ? "m" : "";
       const best =
         bestSet.weight_kg && bestSet.reps
@@ -107,9 +117,15 @@ export default function SectionStrengthSummary({ activityId }: { activityId: num
     STRENGTH_CATALOG_FE[id]?.[lang] ?? id.replace(/_/g, " ");
 
   const items = [
-    { label: t("strengthLog.totalVolume"), value: stats.volume > 0 ? `${stats.volume} kg` : "—" },
+    {
+      label: t("strengthLog.totalVolume"),
+      value: stats.volume > 0 ? `${stats.volume} kg` : "—",
+    },
     { label: t("strengthLog.setsLogged"), value: stats.workSets },
-    { label: t("sessions.detail.sectionExercises"), value: stats.exerciseCount },
+    {
+      label: t("sessions.detail.sectionExercises"),
+      value: stats.exerciseCount,
+    },
     {
       label: t("strengthLog.topSet"),
       value:
@@ -128,18 +144,24 @@ export default function SectionStrengthSummary({ activityId }: { activityId: num
       <ul className={PLAN_EX_LIST}>
         {stats.rows.map((r) => (
           <li key={r.id} className={PLAN_EX_ITEM} style={PLAN_EX_ITEM_STYLE}>
-            <div className={PLAN_EX_NAME} style={{ textTransform: "capitalize", fontWeight: 600 }}>
+            <div
+              className={PLAN_EX_NAME}
+              style={{ textTransform: "capitalize", fontWeight: 600 }}
+            >
               {name(r.id)}
             </div>
             <div className={PLAN_EX_LINE}>
-              {r.sets} {t("strengthLog.setsLogged")} · {t("strengthLog.bestSet")}: {r.best}
+              {r.sets} {t("strengthLog.setsLogged")} ·{" "}
+              {t("strengthLog.bestSet")}: {r.best}
             </div>
           </li>
         ))}
       </ul>
 
       {stats.note && (
-        <div className="mt-3 text-sm text-white/70 leading-relaxed">{stats.note}</div>
+        <div className="mt-3 text-sm text-white/70 leading-relaxed">
+          {stats.note}
+        </div>
       )}
     </ActivitySectionShell>
   );

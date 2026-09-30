@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserId } from "@/app/shared/hooks/useUserId";
 import { useT } from "@/app/shared/i18n/useT";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
-import { getExerciseMeta } from "@/app/shared/constants/strengthMeta";
-import { formatPrescription } from "@/app/shared/utils/strengthFormat";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
+import { getExerciseMeta } from "@/app/features/strength/constants/strengthMeta";
+import { formatPrescription } from "@/app/features/strength/utils/strengthFormat";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import Button from "@/app/shared/ui/components/Button";
 import DateField from "@/app/shared/ui/components/DateField";
@@ -15,7 +15,7 @@ import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { confirm } from "@/app/shared/ui/components/Confirm";
 import { toast } from "@/app/shared/ui/components/Toast";
-import ExerciseSuggestionModal from "@/app/features/activities/components/ExerciseSuggestionModal";
+import ExerciseSuggestionModal from "@/app/features/strength/components/ExerciseSuggestionModal";
 import {
   apiGetStrengthSession,
   apiUpdateStrengthSession,
@@ -26,7 +26,7 @@ import {
   type StrengthSetEntry,
   type StrengthBlock,
   type PlannedStrengthSession,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   PLAN_STRUCT_STACK,
   PLAN_BLOCK,

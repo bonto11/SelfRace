@@ -10,25 +10,55 @@ import TextField from "@/app/shared/ui/components/TextField";
 import {
   MUSCLE_GROUPS,
   type MuscleKey,
-} from "@/app/shared/constants/strengthMuscles";
+} from "@/app/features/strength/constants/strengthMuscles";
 import { toast } from "@/app/shared/ui/components/Toast";
-import { apiSuggestExercise } from "@/app/features/activities/api/exercise_suggestions";
+import { apiSuggestExercise } from "@/app/features/strength/api/exercise_suggestions";
 
 const PATTERN_OPTIONS = [
-  "squat", "hinge", "lunge", "push_h", "push_v", "pull_h", "pull_v",
-  "carry", "grip", "rotation", "anti_rotation", "calf", "jump", "anti_extension", "other",
+  "squat",
+  "hinge",
+  "lunge",
+  "push_h",
+  "push_v",
+  "pull_h",
+  "pull_v",
+  "carry",
+  "grip",
+  "rotation",
+  "anti_rotation",
+  "calf",
+  "jump",
+  "anti_extension",
+  "other",
 ] as const;
 
 // 🌟 NOVÉ: machine + cable - katalóg ich používa, v návrhu chýbali
 const EQUIPMENT_OPTIONS = [
-  "none", "dumbbells", "barbell", "kettlebell", "machine", "cable", "trx", "pullup_bar",
-  "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel", "other",
+  "none",
+  "dumbbells",
+  "barbell",
+  "kettlebell",
+  "machine",
+  "cable",
+  "trx",
+  "pullup_bar",
+  "resistance_bands",
+  "bench",
+  "medicine_ball",
+  "sandbag",
+  "box",
+  "abwheel",
+  "other",
 ] as const;
 
 type LoadMode = "external" | "bodyweight_plus";
 type Measure = "reps" | "time" | "distance";
 
-export default function ExerciseSuggestionModal({ onClose }: { onClose: () => void }) {
+export default function ExerciseSuggestionModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
   const t = useT();
   const { userId } = useUserId();
 
@@ -46,7 +76,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const toggleMuscle = (m: MuscleKey) =>
-    setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+    setMuscles((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m],
+    );
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -75,7 +107,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
   }, []);
 
   const toggleEquipment = (key: string) =>
-    setEquipment((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    setEquipment((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
 
   const handleSubmit = async () => {
     if (!userId || !name.trim() || submitting) return;
@@ -99,7 +133,10 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
 
   const loadModeOptions: { value: LoadMode; label: string }[] = [
     { value: "external", label: t("strengthLog.unitWeight") || "Kg" },
-    { value: "bodyweight_plus", label: t("strengthLog.unitExtraWeight") || "+kg" },
+    {
+      value: "bodyweight_plus",
+      label: t("strengthLog.unitExtraWeight") || "+kg",
+    },
   ];
 
   const measureOptions: { value: Measure; label: string }[] = [
@@ -121,7 +158,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
         style={{ overscrollBehavior: "contain" }}
       >
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-          <div className="text-sm font-semibold">{t("strengthLog.suggestExerciseTitle")}</div>
+          <div className="text-sm font-semibold">
+            {t("strengthLog.suggestExerciseTitle")}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -136,7 +175,10 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
         <div
           ref={scrollRef}
           className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto"
-          style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+          style={{
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+          }}
         >
           <TextField
             label={t("strengthLog.suggestNameLabel")}
@@ -169,7 +211,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
 
           {/* 🌟 ZMENA: 2-3 možnosti = tlačidlá namiesto dropdownu */}
           <div>
-            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestLoadModeLabel")}</div>
+            <div className="text-xs opacity-60 mb-1">
+              {t("strengthLog.suggestLoadModeLabel")}
+            </div>
             <div className="flex gap-2">
               {loadModeOptions.map((o) => (
                 <Button
@@ -188,7 +232,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           </div>
 
           <div>
-            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestMeasureLabel")}</div>
+            <div className="text-xs opacity-60 mb-1">
+              {t("strengthLog.suggestMeasureLabel")}
+            </div>
             <div className="flex gap-2">
               {measureOptions.map((o) => (
                 <Button
@@ -207,7 +253,9 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           </div>
 
           <div>
-            <div className="text-xs opacity-60 mb-1">{t("strengthLog.suggestEquipmentLabel")}</div>
+            <div className="text-xs opacity-60 mb-1">
+              {t("strengthLog.suggestEquipmentLabel")}
+            </div>
             <div className="flex flex-wrap gap-2">
               {EQUIPMENT_OPTIONS.map((key) => (
                 <Button
@@ -238,12 +286,12 @@ export default function ExerciseSuggestionModal({ onClose }: { onClose: () => vo
           <Button size="sm" variant="secondary" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button          
+          <Button
             size="sm"
             variant="primary"
             onClick={handleSubmit}
-            disabled={!name.trim() || muscles.length === 0 || submitting}>
-          </Button>
+            disabled={!name.trim() || muscles.length === 0 || submitting}
+          ></Button>
         </div>
       </div>
     </div>,

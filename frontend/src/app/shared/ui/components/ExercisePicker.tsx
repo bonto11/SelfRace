@@ -5,13 +5,13 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/app/shared/i18n/useT";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import {
   MUSCLE_GROUPS,
   primaryMuscles,
   worksMuscle,
   type MuscleKey,
-} from "@/app/shared/constants/strengthMuscles";
+} from "@/app/features/strength/constants/strengthMuscles";
 import {
   FIELD_EDITABLE_BASE,
   FIELD_EDITABLE_STYLE,
@@ -73,7 +73,8 @@ export default function ExercisePicker({
   } | null>(null);
 
   const name = React.useCallback(
-    (id: string) => (STRENGTH_CATALOG_FE as any)[id]?.[lang] ?? id.replace(/_/g, " "),
+    (id: string) =>
+      (STRENGTH_CATALOG_FE as any)[id]?.[lang] ?? id.replace(/_/g, " "),
     [lang],
   );
 
@@ -156,11 +157,17 @@ export default function ExercisePicker({
     return () => cancelAnimationFrame(id);
   }, [open]);
 
-  const selectedLabel = value ? name(value) : (placeholder ?? t("strengthLog.searchExercise"));
+  const selectedLabel = value
+    ? name(value)
+    : (placeholder ?? t("strengthLog.searchExercise"));
   const selectedMuscles = value && !hideMuscleHint ? primaryMuscles(value) : [];
 
   return (
-    <div className="space-y-1" ref={wrapRef} style={{ ...FIELD_EDITABLE_STYLE, ...FORM_TEXT_VARS }}>
+    <div
+      className="space-y-1"
+      ref={wrapRef}
+      style={{ ...FIELD_EDITABLE_STYLE, ...FORM_TEXT_VARS }}
+    >
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       <button
@@ -168,7 +175,11 @@ export default function ExercisePicker({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className={[FIELD_EDITABLE_BASE, SELECT_BTN, !value ? SELECT_OPT_EMPTY : ""].join(" ")}
+        className={[
+          FIELD_EDITABLE_BASE,
+          SELECT_BTN,
+          !value ? SELECT_OPT_EMPTY : "",
+        ].join(" ")}
         aria-expanded={open}
       >
         <span className="truncate">{selectedLabel}</span>
@@ -235,10 +246,16 @@ export default function ExercisePicker({
                   onClick={() => setMuscle(null)}
                   className="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
                   style={{
-                    background: muscle === null ? appColors.buttonMainBg : "transparent",
-                    color: muscle === null ? appColors.buttonMainText : appColors.textSecondary,
+                    background:
+                      muscle === null ? appColors.buttonMainBg : "transparent",
+                    color:
+                      muscle === null
+                        ? appColors.buttonMainText
+                        : appColors.textSecondary,
                     border: `1px solid ${
-                      muscle === null ? appColors.buttonMainBg : appColors.surfaceCardBorder
+                      muscle === null
+                        ? appColors.buttonMainBg
+                        : appColors.surfaceCardBorder
                     }`,
                   }}
                 >
@@ -253,10 +270,16 @@ export default function ExercisePicker({
                       onClick={() => setMuscle(active ? null : m)}
                       className="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
                       style={{
-                        background: active ? appColors.buttonMainBg : "transparent",
-                        color: active ? appColors.buttonMainText : appColors.textSecondary,
+                        background: active
+                          ? appColors.buttonMainBg
+                          : "transparent",
+                        color: active
+                          ? appColors.buttonMainText
+                          : appColors.textSecondary,
                         border: `1px solid ${
-                          active ? appColors.buttonMainBg : appColors.surfaceCardBorder
+                          active
+                            ? appColors.buttonMainBg
+                            : appColors.surfaceCardBorder
                         }`,
                       }}
                     >
@@ -267,7 +290,10 @@ export default function ExercisePicker({
               </div>
 
               {/* Zoznam cvikov */}
-              <div className="overflow-y-auto min-h-0 border-t" style={{ borderColor: appColors.surfaceCardBorder }}>
+              <div
+                className="overflow-y-auto min-h-0 border-t"
+                style={{ borderColor: appColors.surfaceCardBorder }}
+              >
                 {filtered.map((o) => {
                   const active = o.id === value;
                   const muscles = primaryMuscles(o.id);
@@ -280,7 +306,11 @@ export default function ExercisePicker({
                         onValueChange(o.id);
                       }}
                       className="w-full text-left px-3 py-2.5 transition-colors hover:bg-white/5"
-                      style={{ background: active ? "rgba(255,255,255,0.06)" : undefined }}
+                      style={{
+                        background: active
+                          ? "rgba(255,255,255,0.06)"
+                          : undefined,
+                      }}
                     >
                       <div className="text-sm truncate">{o.label}</div>
                       {muscles.length > 0 && (

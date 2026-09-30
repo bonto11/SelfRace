@@ -12,7 +12,7 @@ import TimeField from "@/app/shared/ui/components/TimeField";
 import LoadingSpinner from "@/app/shared/ui/components/LoadingSpinner";
 import { toast } from "@/app/shared/ui/components/Toast";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import {
   apiCreateManualSession,
   apiUpdateManualSession,

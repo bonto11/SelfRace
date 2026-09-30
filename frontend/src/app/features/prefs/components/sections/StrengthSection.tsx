@@ -7,7 +7,7 @@ import TextField from "@/app/shared/ui/components/TextField";
 import NumberField from "@/app/shared/ui/components/NumberField";
 import { TooltipIcon } from "@/app/shared/ui/components/Tooltip";
 import { useT } from "@/app/shared/i18n/useT";
-import { STRENGTH_CATALOG_FE } from "@/app/shared/constants/strengthCatalog";
+import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { INPUTS_CARD_BODY, PANEL_STACK } from "@/app/shared/ui/tokens";
 
@@ -23,8 +23,17 @@ type Props = {
 const VOLUME_GOAL_OPTIONS = ["maintain", "develop"] as const;
 const VOLUME_GOAL_DEFAULT = "maintain";
 const GEAR_OPTIONS = [
-  "dumbbells", "barbell", "kettlebell", "trx", "pullup_bar",
-  "resistance_bands", "bench", "medicine_ball", "sandbag", "box", "abwheel"
+  "dumbbells",
+  "barbell",
+  "kettlebell",
+  "trx",
+  "pullup_bar",
+  "resistance_bands",
+  "bench",
+  "medicine_ball",
+  "sandbag",
+  "box",
+  "abwheel",
 ] as const;
 
 // Cieľ silového tréningu - riadi série, opakovania aj pauzy
@@ -46,7 +55,12 @@ const SPECIFICITY_OPTIONS = ["low", "balanced", "high"] as const;
 const LEVEL_OPTIONS = ["beginner", "intermediate", "advanced"] as const;
 
 // Referenčné maximá pre % based programovanie a odhad váh.
-const REFERENCE_LIFTS = ["squat_kg", "deadlift_kg", "bench_kg", "ohp_kg"] as const;
+const REFERENCE_LIFTS = [
+  "squat_kg",
+  "deadlift_kg",
+  "bench_kg",
+  "ohp_kg",
+] as const;
 
 const DURATION_STEP = 15;
 const DURATION_MIN = 30;
@@ -64,32 +78,57 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
 
   const location: string | null = settings.location ?? null;
   const mode: string | null = settings.equipment_mode ?? null;
-  const available: string[] = Array.isArray(settings.available) ? settings.available : [];
-  const sessionsPerWeek: number | null = settings.sessions_per_week != null ? Number(settings.sessions_per_week) : null;
-  const sessionDurationMin: number = settings.session_duration_min != null ? Number(settings.session_duration_min) : DURATION_DEFAULT;
+  const available: string[] = Array.isArray(settings.available)
+    ? settings.available
+    : [];
+  const sessionsPerWeek: number | null =
+    settings.sessions_per_week != null
+      ? Number(settings.sessions_per_week)
+      : null;
+  const sessionDurationMin: number =
+    settings.session_duration_min != null
+      ? Number(settings.session_duration_min)
+      : DURATION_DEFAULT;
 
   const goal: string = settings.goal ?? GOAL_DEFAULT;
   const level: string = settings.experience_level ?? LEVEL_DEFAULT;
   const specificity: string = settings.sport_specificity ?? SPECIFICITY_DEFAULT;
-  const disliked: string[] = Array.isArray(settings.disliked_exercises) ? settings.disliked_exercises : [];
-  const refLifts: Record<string, number | null> = settings.reference_lifts ?? {};
+  const disliked: string[] = Array.isArray(settings.disliked_exercises)
+    ? settings.disliked_exercises
+    : [];
+  const refLifts: Record<string, number | null> =
+    settings.reference_lifts ?? {};
 
   const [dislikeQuery, setDislikeQuery] = useState("");
   const [dislikePickerOpen, setDislikePickerOpen] = useState(false);
   const volumeGoal: string = settings.volume_goal ?? VOLUME_GOAL_DEFAULT;
 
   const previewText = useMemo(() => {
-    const locText = location ? (t as any)(`prefs.sections.strengthSection.locations.${location}`) : "—";
-    const modeText = mode ? (t as any)(`prefs.sections.strengthSection.modes.${mode}`) : "—";
+    const locText = location
+      ? (t as any)(`prefs.sections.strengthSection.locations.${location}`)
+      : "—";
+    const modeText = mode
+      ? (t as any)(`prefs.sections.strengthSection.modes.${mode}`)
+      : "—";
     const goalText = (t as any)(`prefs.sections.strengthSection.goals.${goal}`);
     const spw = sessionsPerWeek ?? "—";
     const gearCount = available.length;
 
-    const listShort = gearCount === 0
-      ? t("common.none")
-      : gearCount <= 3
-        ? available.map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")
-        : `${available.slice(0, 3).map(k => (t as any)(`prefs.sections.strengthSection.gear.${k}`)).join(", ")} +${gearCount - 3} ${t("common.more")}`;
+    const listShort =
+      gearCount === 0
+        ? t("common.none")
+        : gearCount <= 3
+          ? available
+              .map((k) =>
+                (t as any)(`prefs.sections.strengthSection.gear.${k}`),
+              )
+              .join(", ")
+          : `${available
+              .slice(0, 3)
+              .map((k) =>
+                (t as any)(`prefs.sections.strengthSection.gear.${k}`),
+              )
+              .join(", ")} +${gearCount - 3} ${t("common.more")}`;
 
     return `${t("prefs.sections.strengthSection.previewGoal")}: ${goalText} • ${t("prefs.sections.strengthSection.previewSessions")}: ${spw} • ${t("prefs.sections.strengthSection.previewDuration")}: ${sessionDurationMin} ${t("common.units.min")} • ${t("prefs.sections.strengthSection.previewLocation")}: ${locText} • ${t("prefs.sections.strengthSection.previewMode")}: ${modeText} | ${t("prefs.sections.strengthSection.previewGear")} (${gearCount}): ${listShort}`;
   }, [location, mode, available, sessionsPerWeek, sessionDurationMin, goal, t]);
@@ -109,14 +148,20 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
 
   const setSessionDurationMin = (next: number) =>
     patchSettings({
-      session_duration_min: Math.max(DURATION_MIN, Math.min(DURATION_MAX, next)),
+      session_duration_min: Math.max(
+        DURATION_MIN,
+        Math.min(DURATION_MAX, next),
+      ),
     });
 
-  const setLocation = (next: string | null) => patchSettings({ location: next });
-  const setMode = (next: string | null) => patchSettings({ equipment_mode: next });
+  const setLocation = (next: string | null) =>
+    patchSettings({ location: next });
+  const setMode = (next: string | null) =>
+    patchSettings({ equipment_mode: next });
   const setGoal = (next: string) => patchSettings({ goal: next });
   const setLevel = (next: string) => patchSettings({ experience_level: next });
-  const setSpecificity = (next: string) => patchSettings({ sport_specificity: next });
+  const setSpecificity = (next: string) =>
+    patchSettings({ sport_specificity: next });
 
   const setVolumeGoal = (next: string) => patchSettings({ volume_goal: next });
 
@@ -169,7 +214,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
       title={
         <div className="flex items-center gap-2">
           <span>{t("prefs.sections.strengthSection.widget.title")}</span>
-          <TooltipIcon text={t("prefs.sections.strengthSection.widget.tooltip")} />
+          <TooltipIcon
+            text={t("prefs.sections.strengthSection.widget.tooltip")}
+          />
         </div>
       }
       subtitle={t("prefs.sections.strengthSection.subtitle")}
@@ -182,7 +229,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         <div>
           <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
             <span>{t("prefs.sections.strengthSection.goalLabel")}</span>
-            <TooltipIcon text={t("prefs.sections.strengthSection.goalTooltip")} />
+            <TooltipIcon
+              text={t("prefs.sections.strengthSection.goalTooltip")}
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             {GOAL_OPTIONS.map((g) => (
@@ -206,8 +255,14 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
         {/* 🌟 NOVÉ: udržiavať vs. naberať */}
         <div>
           <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-            <span>{t("prefs.sections.strengthSection.volumeGoalLabel" as any)}</span>
-            <TooltipIcon text={t("prefs.sections.strengthSection.volumeGoalTooltip" as any)} />
+            <span>
+              {t("prefs.sections.strengthSection.volumeGoalLabel" as any)}
+            </span>
+            <TooltipIcon
+              text={t(
+                "prefs.sections.strengthSection.volumeGoalTooltip" as any,
+              )}
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             {VOLUME_GOAL_OPTIONS.map((v) => (
@@ -224,15 +279,23 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             ))}
           </div>
           <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
-            {(t as any)(`prefs.sections.strengthSection.volumeGoalHints.${volumeGoal}`)}
+            {(t as any)(
+              `prefs.sections.strengthSection.volumeGoalHints.${volumeGoal}`,
+            )}
           </div>
         </div>
 
         {/* 🌟 NOVÉ: špecifickosť k preteku */}
         <div>
           <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
-            <span>{t("prefs.sections.strengthSection.specificityLabel" as any)}</span>
-            <TooltipIcon text={t("prefs.sections.strengthSection.specificityTooltip" as any)} />
+            <span>
+              {t("prefs.sections.strengthSection.specificityLabel" as any)}
+            </span>
+            <TooltipIcon
+              text={t(
+                "prefs.sections.strengthSection.specificityTooltip" as any,
+              )}
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             {SPECIFICITY_OPTIONS.map((s) => (
@@ -249,7 +312,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
             ))}
           </div>
           <div className="text-[11px] opacity-60 mt-1.5 leading-relaxed">
-            {(t as any)(`prefs.sections.strengthSection.specificityHints.${specificity}`)}
+            {(t as any)(
+              `prefs.sections.strengthSection.specificityHints.${specificity}`,
+            )}
           </div>
         </div>
 
@@ -257,35 +322,101 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           <div>
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.sessionsLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.sessionsTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.sessionsTooltip")}
+              />
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionsPerWeek(Math.max(0, (sessionsPerWeek ?? 2) - 1))} title={t("prefs.sections.strengthSection.btnDecrease")}>−</Button>
-              <div className="min-w-[42px] text-center text-sm font-semibold">{sessionsPerWeek ?? 2}</div>
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionsPerWeek(Math.min(7, (sessionsPerWeek ?? 2) + 1))} title={t("prefs.sections.strengthSection.btnIncrease")}>+</Button>
-              <Button type="button" size="sm" variant="prefs" active={sessionsPerWeek == null} onClick={() => setSessionsPerWeek(null)} title={t("prefs.sections.strengthSection.btnUnset")}>—</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() =>
+                  setSessionsPerWeek(Math.max(0, (sessionsPerWeek ?? 2) - 1))
+                }
+                title={t("prefs.sections.strengthSection.btnDecrease")}
+              >
+                −
+              </Button>
+              <div className="min-w-[42px] text-center text-sm font-semibold">
+                {sessionsPerWeek ?? 2}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() =>
+                  setSessionsPerWeek(Math.min(7, (sessionsPerWeek ?? 2) + 1))
+                }
+                title={t("prefs.sections.strengthSection.btnIncrease")}
+              >
+                +
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                active={sessionsPerWeek == null}
+                onClick={() => setSessionsPerWeek(null)}
+                title={t("prefs.sections.strengthSection.btnUnset")}
+              >
+                —
+              </Button>
             </div>
-            <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.currentLabel")}: {sessionsPerWeek ?? 2}</div>
+            <div className="text-[11px] opacity-60 mt-1">
+              {t("prefs.sections.strengthSection.currentLabel")}:{" "}
+              {sessionsPerWeek ?? 2}
+            </div>
           </div>
 
           <div>
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.durationLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.durationTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.durationTooltip")}
+              />
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin - DURATION_STEP)} disabled={sessionDurationMin <= DURATION_MIN} title={t("prefs.sections.strengthSection.btnDecrease")}>−</Button>
-              <div className="min-w-[56px] text-center text-sm font-semibold">{sessionDurationMin} {t("common.units.min")}</div>
-              <Button type="button" size="sm" variant="prefs" onClick={() => setSessionDurationMin(sessionDurationMin + DURATION_STEP)} disabled={sessionDurationMin >= DURATION_MAX} title={t("prefs.sections.strengthSection.btnIncrease")}>+</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() =>
+                  setSessionDurationMin(sessionDurationMin - DURATION_STEP)
+                }
+                disabled={sessionDurationMin <= DURATION_MIN}
+                title={t("prefs.sections.strengthSection.btnDecrease")}
+              >
+                −
+              </Button>
+              <div className="min-w-[56px] text-center text-sm font-semibold">
+                {sessionDurationMin} {t("common.units.min")}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="prefs"
+                onClick={() =>
+                  setSessionDurationMin(sessionDurationMin + DURATION_STEP)
+                }
+                disabled={sessionDurationMin >= DURATION_MAX}
+                title={t("prefs.sections.strengthSection.btnIncrease")}
+              >
+                +
+              </Button>
             </div>
-            <div className="text-[11px] opacity-60 mt-1">{t("prefs.sections.strengthSection.durationHint")}</div>
+            <div className="text-[11px] opacity-60 mt-1">
+              {t("prefs.sections.strengthSection.durationHint")}
+            </div>
           </div>
 
           {/* skúsenosť v posilke */}
           <div>
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.levelLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.levelTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.levelTooltip")}
+              />
             </div>
             <div className="flex flex-wrap gap-2">
               {LEVEL_OPTIONS.map((l) => (
@@ -304,21 +435,41 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           </div>
 
           <div>
-            <div className="text-xs opacity-80 mb-1">{t("prefs.sections.strengthSection.locationLabel")}</div>
+            <div className="text-xs opacity-80 mb-1">
+              {t("prefs.sections.strengthSection.locationLabel")}
+            </div>
             <div className="flex flex-wrap gap-2">
               {["gym", "home", "outdoor"].map((loc) => (
-                <Button key={loc} type="button" size="sm" variant="prefs" active={location === loc} onClick={() => setLocation(location === loc ? null : loc)}>
-                  {(t as any)(`prefs.sections.strengthSection.locations.${loc}`)}
+                <Button
+                  key={loc}
+                  type="button"
+                  size="sm"
+                  variant="prefs"
+                  active={location === loc}
+                  onClick={() => setLocation(location === loc ? null : loc)}
+                >
+                  {(t as any)(
+                    `prefs.sections.strengthSection.locations.${loc}`,
+                  )}
                 </Button>
               ))}
             </div>
           </div>
 
           <div>
-            <div className="text-xs opacity-80 mb-1">{t("prefs.sections.strengthSection.modeLabel")}</div>
+            <div className="text-xs opacity-80 mb-1">
+              {t("prefs.sections.strengthSection.modeLabel")}
+            </div>
             <div className="flex flex-wrap gap-2">
               {["none", "bodyweight", "minimal", "full_gym"].map((m) => (
-                <Button key={m} type="button" size="sm" variant="prefs" active={mode === m} onClick={() => setMode(mode === m ? null : m)}>
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant="prefs"
+                  active={mode === m}
+                  onClick={() => setMode(mode === m ? null : m)}
+                >
                   {(t as any)(`prefs.sections.strengthSection.modes.${m}`)}
                 </Button>
               ))}
@@ -328,11 +479,21 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.gearLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.gearTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.gearTooltip")}
+              />
             </div>
             <div className="flex flex-wrap gap-2">
               {GEAR_OPTIONS.map((key) => (
-                <Button key={key} type="button" size="xs" variant="prefs" active={available.includes(key)} onClick={() => toggleGear(key)} className="text-xs">
+                <Button
+                  key={key}
+                  type="button"
+                  size="xs"
+                  variant="prefs"
+                  active={available.includes(key)}
+                  onClick={() => toggleGear(key)}
+                  className="text-xs"
+                >
                   {(t as any)(`prefs.sections.strengthSection.gear.${key}`)}
                 </Button>
               ))}
@@ -343,13 +504,17 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.refLiftsLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.refLiftsTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.refLiftsTooltip")}
+              />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {REFERENCE_LIFTS.map((key) => (
                 <div key={key}>
                   <div className="text-[11px] opacity-60 mb-1">
-                    {(t as any)(`prefs.sections.strengthSection.refLifts.${key}`)}
+                    {(t as any)(
+                      `prefs.sections.strengthSection.refLifts.${key}`,
+                    )}
                   </div>
                   <NumberField
                     min={0}
@@ -370,7 +535,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-xs opacity-80 mb-1">
               <span>{t("prefs.sections.strengthSection.dislikedLabel")}</span>
-              <TooltipIcon text={t("prefs.sections.strengthSection.dislikedTooltip")} />
+              <TooltipIcon
+                text={t("prefs.sections.strengthSection.dislikedTooltip")}
+              />
             </div>
 
             {disliked.length > 0 && (
@@ -398,7 +565,9 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
               <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-2">
                 <TextField
                   autoFocus
-                  placeholder={t("prefs.sections.strengthSection.dislikedSearch")}
+                  placeholder={t(
+                    "prefs.sections.strengthSection.dislikedSearch",
+                  )}
                   value={dislikeQuery}
                   onChange={(e) => setDislikeQuery(e.target.value)}
                 />
@@ -419,7 +588,11 @@ export function StrengthSection({ local, setLocal, markDirty }: Props) {
                     </div>
                   )}
                 </div>
-                <Button size="xs" variant="secondary" onClick={() => setDislikePickerOpen(false)}>
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => setDislikePickerOpen(false)}
+                >
                   {t("common.cancel")}
                 </Button>
               </div>

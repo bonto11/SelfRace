@@ -12,7 +12,7 @@ import {
   type MuscleVolumeOverview,
   type MuscleVolumeRow,
   type MuscleVolumeStatus,
-} from "@/app/features/activities/api/strength_sessions";
+} from "@/app/features/strength/api/strength_sessions";
 import {
   PANEL_PAD,
   PANEL_INNER_STACK,
@@ -22,7 +22,10 @@ import {
   PANEL_PREVIEW,
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
-import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
+import {
+  SESSION_CARD,
+  SESSION_CARD_STYLE,
+} from "@/app/shared/ui/tokens/sessionCard";
 
 function statusColor(status: MuscleVolumeStatus): string {
   if (status === "on_track") return appColors.statusSuccess;
@@ -61,7 +64,11 @@ function MuscleRow({ row, label }: { row: MuscleVolumeRow; label: string }) {
  * voči cieľu. Cieľ počíta backend z prefs a z behového objemu - pri veľa
  * behu sa cieľ pre nohy automaticky zníži.
  */
-export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number }) {
+export default function MuscleVolumeCard({
+  weeksBack = 4,
+}: {
+  weeksBack?: number;
+}) {
   const t = useT();
   const { userId } = useUserId();
 

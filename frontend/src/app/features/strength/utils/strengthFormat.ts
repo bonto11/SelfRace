@@ -2,7 +2,10 @@
 // 🌟 NOVÉ: spoločné formátovanie predpisu cviku (plán aj zápis).
 // Predtým si každý komponent riešil "105s" sám a rôzne.
 
-import { getExerciseMeta, repsUnitLabel } from "@/app/shared/constants/strengthMeta";
+import {
+  getExerciseMeta,
+  repsUnitLabel,
+} from "@/app/features/strength/constants/strengthMeta";
 
 /**
  * Pauza čitateľne: pod minútu sekundy ("45s"), inak "1:45 min".
@@ -47,7 +50,9 @@ export function formatPrescription(
     input.sets ? `${input.sets} ${labels.sets}` : null,
     formatReps(input.reps, labels.reps),
     input.seconds ? `${input.seconds}${labels.sec}` : null,
-    formatRest(input.rest_s) ? `${labels.rest} ${formatRest(input.rest_s)}` : null,
+    formatRest(input.rest_s)
+      ? `${labels.rest} ${formatRest(input.rest_s)}`
+      : null,
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
