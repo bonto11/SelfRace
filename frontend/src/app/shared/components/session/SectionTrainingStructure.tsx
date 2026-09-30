@@ -30,11 +30,12 @@ function fmtDistance(meters: number, locale: string): string {
  * zvyškom appky), inak "M:SS min" (napr. 90 s -> "1:30 min", 30 s -> "0:30 min").
  */
 function fmtSeconds(sec: number): string {
-  if (sec % 60 === 0) return fmtMin(sec / 60);
+  if (sec % 60 === 0) return fmtMin(sec / 60) ?? `${sec / 60} min`;
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${String(s).padStart(2, "0")} min`;
 }
+
 
 /**
  * Dĺžka bloku. Poradie: distance_m (ručné intervaly na vzdialenosť) ->
