@@ -154,7 +154,25 @@ def list_planned_sessions(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{user_id}/muscle-volume")
+def get_muscle_volume(
+    req: Request, user_id: int, weeks_back: int = 4
+) -> Dict[str, Any]:
+    """
+    Týždenný objem na svalovú partiu vs. cieľ (zapísané + naplánované).
 
+    ⚠️ MUSÍ byť PRED "/{user_id}/{session_id}" - inak sa "muscle-volume"
+    pokúsi naparsovať ako session_id a vráti 422.
+    """
+    try:
+        ctx = require_user(get_auth_ctx(req))
+        data = service_get_muscle_volume_overview(
+            user_id=user_id, weeks_back=weeks_back, ctx=ctx
+        )
+        return {"success": True, "data": data}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e))
+    
 # ─── GENERICKÉ CESTY S {session_id} ───
 
 
@@ -224,27 +242,5 @@ def import_from_plan(
         if not result.get("ok"):
             return {"success": False, "error_code": result.get("code"), "data": None}
         return {"success": True, "data": result["data"]}
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/{user_id}/muscle-volume")
-def get_muscle_volume(
-    req: Request, user_id: int, weeks_back: int = 4
-) -> Dict[str, Any]:
-    """
-    🌟 NOVÉ: týždenný objem na svalovú partiu vs. cieľ.
-
-    Cieľ sa počíta z prefs (strength_settings.volume_goal) a z reálneho
-    behového objemu - pri veľa behu sa cieľ pre nohy zníži.
-
-    ⚠️ Musí byť PRED "/{user_id}/{session_id}", inak "muscle-volume"
-    spadne do generickej routy a skončí na 422.
-    """
-    try:
-        ctx = require_user(get_auth_ctx(req))
-        data = service_get_muscle_volume_overview(
-            user_id=user_id, weeks_back=weeks_back, ctx=ctx
-        )
-        return {"success": True, "data": data}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
