@@ -922,6 +922,8 @@ invalidEndDate: "Plan end can't be in the past.",
           abwheel: "Ab wheel",
           none: "No equipment",
           other: "Other",
+          machine: "Machine",
+          cable: "Cable",
         },
         widget: {
           title: "Strength Training",
