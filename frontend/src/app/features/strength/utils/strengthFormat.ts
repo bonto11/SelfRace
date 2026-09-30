@@ -1,4 +1,6 @@
-// src/app/shared/utils/strengthFormat.ts
+// src/app/features/strength/utils/strengthFormat.ts
+
+
 // 🌟 NOVÉ: spoločné formátovanie predpisu cviku (plán aj zápis).
 // Predtým si každý komponent riešil "105s" sám a rôzne.
 

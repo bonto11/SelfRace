@@ -1,4 +1,4 @@
-// src/app/shared/constants/strengthMuscles.ts
+// src/app/features/strength/constants/strengthMuscles.ts
 // 🌟 NOVÉ: generované z Configs/strength_muscles.py.
 // Slúži na filtrovanie cvikov podľa partie vo výbere cviku. Pri zmene
 // katalógu na BE treba tento súbor pregenerovať.

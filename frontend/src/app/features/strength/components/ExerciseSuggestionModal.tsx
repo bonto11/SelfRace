@@ -1,4 +1,4 @@
-// src/app/features/activities/components/ExerciseSuggestionModal.tsx
+// src/app/features/strength/components/ExerciseSuggestionModal.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";

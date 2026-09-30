@@ -1,4 +1,4 @@
-// src/app/shared/constants/strengthCatalog.ts
+// src/app/features/strength/constants/strengthCatalog.ts
 
 export type ExerciseLangMap = {
   en: string;

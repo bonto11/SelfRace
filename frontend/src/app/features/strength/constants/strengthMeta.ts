@@ -1,4 +1,4 @@
-// src/app/shared/constants/strengthMeta.ts
+// src/app/features/strength/constants/strengthMeta.ts
 // 🌟 NOVÉ: generované z Configs/strength_catalog.py (measure + load_mode).
 // Editor zápisu podľa toho vie, či má pri cviku pýtať opakovania, sekundy
 // alebo metre, a či sú kilá povinné (external) alebo voliteľné prídavné

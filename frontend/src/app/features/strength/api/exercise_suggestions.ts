@@ -1,4 +1,4 @@
-// src/app/features/activities/api/exercise_suggestions.ts
+// src/app/features/strength/api/exercise_suggestions.ts
 import { callBackend } from "@/app/shared/utils/callBackend";
 
 export type ExerciseSuggestionPayload = {
