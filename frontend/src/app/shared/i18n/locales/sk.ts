@@ -917,6 +917,9 @@ invalidEndDate: "Koniec plánu nemôže byť v minulosti.",
           abwheel: "Koliesko na brucho",
           none: "Bez vybavenia",
           other: "Iné",
+          machine: "Stroj",
+          cable: "Kladka",
+
         },
         widget: {
           title: "Silový tréning",
