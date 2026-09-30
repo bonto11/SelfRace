@@ -1175,8 +1175,11 @@ export const sk = {
     title: "Objem na partie",
     subtitle: "Tento týždeň",
     tooltip:
-      "Počet pracovných sérií na svalovú partiu za tento týždeň. Rozcvičkové série sa nerátajú. Cvik sa započíta aj partiám, ktoré pomáhajú — bench je séria na prsia a zároveň polovica série na triceps.",
-    empty: "Tento týždeň zatiaľ žiadne zapísané série.",
+      "Počet pracovných sérií na svalovú partiu za tento týždeň. Rátajú sa zapísané tréningy plus to, čo máš ešte naplánované na dnes a ďalšie dni. Rozcvičkové série sa nerátajú. Cvik sa započíta aj pomáhajúcim partiám — bench je séria na prsia a zároveň polovica série na triceps.",
+    empty: "Tento týždeň zatiaľ žiadne zapísané ani naplánované série.",
+    error: "Objem sa nepodarilo načítať.",
+    legend:
+      "Plná čiara = odcvičené, svetlá = naplánované na dnes a ďalšie dni.",
     legCapHint:
       "Veľa behávaš, preto je cieľ pre nohy nižší — beh ich zaťažuje sám a zbytočný objem v posilňovni by ti pokazil kľúčové tréningy.",
     goals: {

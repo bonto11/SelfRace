@@ -1184,8 +1184,11 @@ export const en = {
     title: "Volume by muscle",
     subtitle: "This week",
     tooltip:
-      "Working sets per muscle group this week. Warm-up sets don't count. An exercise also counts toward assisting muscles — a bench press is one set for chest and half a set for triceps.",
-    empty: "No sets logged this week yet.",
+      "Working sets per muscle group this week. Logged workouts count, plus what's still planned for today and the coming days. Warm-up sets don't count. An exercise also counts toward assisting muscles — a bench press is one set for chest and half a set for triceps.",
+    empty: "No logged or planned sets this week yet.",
+    error: "Couldn't load volume.",
+    legend:
+      "Solid bar = done, light bar = planned for today and the coming days.",
     legCapHint:
       "You run a lot, so the leg target is lower — running already loads them and extra gym volume would compromise your key sessions.",
     goals: {

@@ -4,6 +4,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/app/shared/i18n/useT";
+import { cx } from "@/app/shared/ui/utils/inputs";
 import { appColors } from "@/app/shared/ui/theme/app_colors";
 import { STRENGTH_CATALOG_FE } from "@/app/features/strength/constants/strengthCatalog";
 import {
@@ -19,11 +20,20 @@ import {
   FORM_TEXT_VARS,
   SELECT_BTN,
   SELECT_ICON,
+  SELECT_MENU,
+  SELECT_MENU_EDITABLE,
+  SELECT_MENU_EDITABLE_STYLE,
+  SELECT_OPT,
+  SELECT_OPT_ACTIVE,
+  SELECT_OPT_EDITABLE_STYLE,
   SELECT_OPT_EMPTY,
 } from "@/app/shared/ui/tokens";
 
 /** Nad modalmi (ManualSessionForm, ExerciseSuggestionModal majú 2147483000). */
 const MENU_Z_INDEX = 2147483600;
+
+/** Text na zelenom podklade menu (rovnaký ako v NumberField/TimeField). */
+const ON_GREEN = "#111111";
 
 type Props = {
   label?: string;
@@ -31,19 +41,14 @@ type Props = {
   onValueChange: (exerciseId: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  /** Skryje štítok s partiami pod názvom cviku (napr. v hustom zozname sérií). */
+  /** Skryje štítok s partiami pod výberom (napr. v hustom zozname sérií). */
   hideMuscleHint?: boolean;
 };
 
 /**
- * 🌟 NOVÉ: výber cviku s filtrom podľa svalovej partie.
- *
- * Katalóg má cez 80 cvikov a hľadanie podľa názvu funguje len vtedy, keď
- * user vie, ako sa cvik volá. Tlačidlá partií ("Prsia", "Chrbát") sú to,
- * ako nad tréningom reálne rozmýšľa.
- *
- * Filter berie aj pomocné partie (bench sa nájde aj pod tricepsom), takže
- * user nájde, čo hľadá, aj keď to nie je hlavný hýbateľ.
+ * Výber cviku s filtrom podľa svalovej partie. Vzhľad menu je zhodný so
+ * SelectFieldFilter (zelené, nepriehľadné). Filter berie aj pomocné partie,
+ * takže bench sa nájde aj pod tricepsom.
  */
 export default function ExercisePicker({
   label,
@@ -73,8 +78,7 @@ export default function ExercisePicker({
   } | null>(null);
 
   const name = React.useCallback(
-    (id: string) =>
-      (STRENGTH_CATALOG_FE as any)[id]?.[lang] ?? id.replace(/_/g, " "),
+    (id: string) => (STRENGTH_CATALOG_FE as any)[id]?.[lang] ?? id.replace(/_/g, " "),
     [lang],
   );
 
@@ -157,17 +161,17 @@ export default function ExercisePicker({
     return () => cancelAnimationFrame(id);
   }, [open]);
 
-  const selectedLabel = value
-    ? name(value)
-    : (placeholder ?? t("strengthLog.searchExercise"));
+  const selectedLabel = value ? name(value) : (placeholder ?? t("strengthLog.searchExercise"));
   const selectedMuscles = value && !hideMuscleHint ? primaryMuscles(value) : [];
 
+  const menuStyle = {
+    ...SELECT_MENU_EDITABLE_STYLE,
+    ...SELECT_OPT_EDITABLE_STYLE,
+    ...FORM_TEXT_VARS,
+  } as React.CSSProperties;
+
   return (
-    <div
-      className="space-y-1"
-      ref={wrapRef}
-      style={{ ...FIELD_EDITABLE_STYLE, ...FORM_TEXT_VARS }}
-    >
+    <div className="space-y-1" ref={wrapRef} style={{ ...FIELD_EDITABLE_STYLE, ...FORM_TEXT_VARS }}>
       {label ? <label className={FIELD_LABEL}>{label}</label> : null}
 
       <button
@@ -175,11 +179,7 @@ export default function ExercisePicker({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className={[
-          FIELD_EDITABLE_BASE,
-          SELECT_BTN,
-          !value ? SELECT_OPT_EMPTY : "",
-        ].join(" ")}
+        className={cx(FIELD_EDITABLE_BASE, SELECT_BTN, !value && SELECT_OPT_EMPTY)}
         aria-expanded={open}
       >
         <span className="truncate">{selectedLabel}</span>
@@ -205,8 +205,10 @@ export default function ExercisePicker({
         ? createPortal(
             <div
               ref={menuRef}
-              className="rounded-xl border flex flex-col shadow-xl"
+              className={cx(SELECT_MENU, SELECT_MENU_EDITABLE, "flex flex-col")}
+              role="listbox"
               style={{
+                ...menuStyle,
                 position: "fixed",
                 left: pos.left,
                 top: pos.top,
@@ -214,13 +216,10 @@ export default function ExercisePicker({
                 maxHeight: pos.maxHeight,
                 zIndex: MENU_Z_INDEX,
                 overflow: "hidden",
-                background: appColors.surfaceCard,
-                borderColor: appColors.surfaceCardBorder,
-                color: appColors.textPrimary,
               }}
             >
               {/* Hľadanie */}
-              <div className="p-2 shrink-0">
+              <div className="p-1.5 shrink-0">
                 <input
                   ref={searchRef}
                   type="text"
@@ -238,52 +237,24 @@ export default function ExercisePicker({
 
               {/* Filter podľa partie */}
               <div
-                className="px-2 pb-2 shrink-0 flex gap-1.5 overflow-x-auto"
+                className="px-1.5 pb-2 shrink-0 flex gap-1.5 overflow-x-auto"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <button
-                  type="button"
-                  onClick={() => setMuscle(null)}
-                  className="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                  style={{
-                    background:
-                      muscle === null ? appColors.buttonMainBg : "transparent",
-                    color:
-                      muscle === null
-                        ? appColors.buttonMainText
-                        : appColors.textSecondary,
-                    border: `1px solid ${
-                      muscle === null
-                        ? appColors.buttonMainBg
-                        : appColors.surfaceCardBorder
-                    }`,
-                  }}
-                >
-                  {t("muscleVolume.filterAll" as any)}
-                </button>
-                {MUSCLE_GROUPS.map((m) => {
+                {[null, ...MUSCLE_GROUPS].map((m) => {
                   const active = muscle === m;
                   return (
                     <button
-                      key={m}
+                      key={m ?? "all"}
                       type="button"
-                      onClick={() => setMuscle(active ? null : m)}
-                      className="shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                      onClick={() => setMuscle(m === null ? null : active ? null : m)}
+                      className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
                       style={{
-                        background: active
-                          ? appColors.buttonMainBg
-                          : "transparent",
-                        color: active
-                          ? appColors.buttonMainText
-                          : appColors.textSecondary,
-                        border: `1px solid ${
-                          active
-                            ? appColors.buttonMainBg
-                            : appColors.surfaceCardBorder
-                        }`,
+                        background: active ? "#0d1a12" : "transparent",
+                        color: active ? "#ffffff" : ON_GREEN,
+                        border: `1px solid ${active ? "#0d1a12" : "rgba(0,0,0,0.3)"}`,
                       }}
                     >
-                      {muscleLabel(m)}
+                      {m === null ? t("muscleVolume.filterAll" as any) : muscleLabel(m)}
                     </button>
                   );
                 })}
@@ -292,7 +263,7 @@ export default function ExercisePicker({
               {/* Zoznam cvikov */}
               <div
                 className="overflow-y-auto min-h-0 border-t"
-                style={{ borderColor: appColors.surfaceCardBorder }}
+                style={{ borderColor: "rgba(0,0,0,0.15)" }}
               >
                 {filtered.map((o) => {
                   const active = o.id === value;
@@ -301,28 +272,25 @@ export default function ExercisePicker({
                     <button
                       key={o.id}
                       type="button"
+                      className={cx(SELECT_OPT, active && SELECT_OPT_ACTIVE)}
                       onClick={() => {
                         close();
                         onValueChange(o.id);
                       }}
-                      className="w-full text-left px-3 py-2.5 transition-colors hover:bg-white/5"
-                      style={{
-                        background: active
-                          ? "rgba(255,255,255,0.06)"
-                          : undefined,
-                      }}
                     >
-                      <div className="text-sm truncate">{o.label}</div>
-                      {muscles.length > 0 && (
-                        <div className="text-[10px] opacity-40 mt-0.5">
-                          {muscles.map(muscleLabel).join(" · ")}
-                        </div>
-                      )}
+                      <div className="w-full">
+                        <div className="truncate">{o.label}</div>
+                        {muscles.length > 0 && (
+                          <div className="text-[10px] opacity-60 mt-0.5">
+                            {muscles.map(muscleLabel).join(" · ")}
+                          </div>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
                 {filtered.length === 0 && (
-                  <div className="px-3 py-4 text-xs opacity-40">
+                  <div className="px-3 py-4 text-xs opacity-50">
                     {t("strengthLog.noMatch" as any)}
                   </div>
                 )}

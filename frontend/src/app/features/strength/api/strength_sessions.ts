@@ -278,10 +278,13 @@ export type MuscleVolumeStatus = "none" | "under" | "on_track" | "over";
 
 export type MuscleVolumeRow = {
   muscle: string;
-  sets_this_week: number;
+  sets_this_week: number;   // zapísané
+  sets_planned: number;     // naplánované od dnes do nedele
+  sets_projected: number;   // zapísané + naplánované
   sets_avg_per_week: number;
   target: number;
-  pct: number;
+  pct_done: number;
+  pct: number;              // predpoveď (zapísané + naplánované)
   status: MuscleVolumeStatus;
 };
 
@@ -292,6 +295,7 @@ export type MuscleVolumeOverview = {
   weeks_analyzed: number;
   muscles: MuscleVolumeRow[];
   total_sets_this_week: number;
+  total_sets_planned: number;
 };
 
 /**

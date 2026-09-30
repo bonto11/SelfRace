@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
-
+import re
 from Modules.Supabase.auth import AuthCtx
 from DB.strength_sessions import (
     db_insert_strength_session,
@@ -16,9 +16,11 @@ from DB.strength_sessions import (
     db_find_unmatched_strength_sessions_for_date,
     db_list_planned_strength_sessions,
 )
+
+from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Configs.strength_muscles import MUSCLE_GROUPS, get_muscles
 from Configs.strength_volume import build_targets, compare_to_target, run_volume_tier
-from DB.coach_plan_daily import db_get_daily_session_by_id_full
+from DB.coach_plan_daily import db_get_daily_session_by_id_full,  db_get_daily_session_by_id_full, db_get_planned_range_rows
 from DB.user_prefs import db_get_pref_single
 from Services.analytics_RecentLoad import service_build_recent_load_raw
 
@@ -32,6 +34,78 @@ def _now_iso() -> str:
 
 def _empty_log() -> Dict[str, Any]:
     return {"version": LOG_VERSION, "exercises": []}
+
+def _parse_sets(v: Any) -> int:
+    """Počet sérií z plánu: 3, "3" alebo "3-4" (vezme prvé číslo)."""
+    if isinstance(v, (int, float)):
+        return max(0, int(v))
+    m = re.search(r"\d+", str(v or ""))
+    return int(m.group()) if m else 0
+
+
+def _planned_muscle_sets(
+    user_id: int,
+    *,
+    week_start: date,
+    today: date,
+    logged_dates: set,
+    logged_plan_ids: set,
+    ctx: AuthCtx,
+) -> Dict[str, float]:
+    """
+    🌟 NOVÉ: série z NAPLÁNOVANÝCH silových tréningov od dnes po nedeľu.
+
+    Preskakuje sa:
+    - tréning, ktorý už má zapísané pracovné série (cez plan_session_id),
+    - deň, v ktorom už nejaký zápis existuje (aby sa nepočítalo dvakrát),
+    - hotové tréningy (status != planned, alebo viazané na aktivitu).
+    Minulé neodcvičené plány sa ignorujú.
+    """
+    out: Dict[str, float] = {}
+
+    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    if not meta or meta.get("id") is None:
+        return out
+
+    week_end = week_start + timedelta(days=6)
+    rows = db_get_planned_range_rows(
+        user_id=user_id,
+        plan_meta_id=meta.get("id"),
+        date_from=max(today, week_start).isoformat(),
+        date_to=week_end.isoformat(),
+        ctx=ctx,
+    ) or []
+
+    for r in rows:
+        if str(r.get("sport") or "") != "strength":
+            continue
+        if (r.get("status") or "planned") != "planned" or r.get("activity_id"):
+            continue
+
+        rid = r.get("id")
+        if rid is not None and int(rid) in logged_plan_ids:
+            continue
+        if str(r.get("plan_date") or "")[:10] in logged_dates:
+            continue
+
+        structure = r.get("structure") or (r.get("payload") or {}).get("structure")
+        if structure is None and rid is not None:
+            full = db_get_daily_session_by_id_full(user_id, int(rid), ctx=ctx) or {}
+            structure = full.get("structure")
+        if not isinstance(structure, dict):
+            continue
+
+        for block in ("activation", "strength_main_part", "add_ons"):
+            for ex in structure.get(block) or []:
+                if not isinstance(ex, dict):
+                    continue
+                n_sets = _parse_sets(ex.get("sets"))
+                if n_sets <= 0:
+                    continue
+                for muscle, weight in get_muscles(str(ex.get("exercise_id") or "")).items():
+                    out[muscle] = out.get(muscle, 0.0) + n_sets * float(weight)
+
+    return out
 
 
 def _seed_exercises_from_plan_structure(structure: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -484,6 +558,7 @@ def service_import_from_plan(
         return {"ok": False, "code": "update_failed"}
     return {"ok": True, "data": updated}
 
+
 def service_get_weekly_muscle_volume(
     *,
     user_id: int,
@@ -494,15 +569,11 @@ def service_get_weekly_muscle_volume(
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
-    🌟 NOVÉ: týždenný objem na svalovú partiu.
+    Týždenný objem na svalovú partiu = ZAPÍSANÉ + NAPLÁNOVANÉ.
 
-    Ráta LEN pracovné série (warmup sa ignoruje) a rozdeľuje ich zlomkovo
-    podľa strength_muscles.py - bench je 1 séria na prsia a zároveň 0.5
-    série na triceps a ramená. Bez zlomkov by vyšlo, že triceps nerobíš.
-
-    Vracia posledný ukončený týždeň (pondelok-nedeľa) ako 'current' plus
-    priemer za weeks_back týždňov, aby jeden vynechaný týždeň nevyzeral
-    ako katastrofa.
+    Ráta len pracovné série (warmup nie), zlomkovo podľa strength_muscles.py.
+    Stav (under/on_track/over) sa hodnotí voči PREDPOVEDI (zapísané +
+    naplánované), aby user videl, kam ho tento týždeň dovedie plán.
     """
     rows = db_list_strength_sessions(user_id, weeks_back=weeks_back, limit=200, ctx=ctx)
 
@@ -513,6 +584,8 @@ def service_get_weekly_muscle_volume(
     current: Dict[str, float] = {m: 0.0 for m in MUSCLE_GROUPS}
     window: Dict[str, float] = {m: 0.0 for m in MUSCLE_GROUPS}
     weeks_seen: set = set()
+    logged_dates: set = set()
+    logged_plan_ids: set = set()
 
     for row in rows:
         d_raw = str(row.get("session_date") or "")[:10]
@@ -520,17 +593,21 @@ def service_get_weekly_muscle_volume(
             d = date.fromisoformat(d_raw)
         except ValueError:
             continue
-        if d < window_start or d > today:
+        if d < window_start:
             continue
 
         w_start = d - timedelta(days=d.weekday())
-        weeks_seen.add(w_start.isoformat())
         is_current = w_start == week_start
+        # zápisy s budúcim dátumom v aktuálnom týždni sú platné, staršie
+        # týždne len do dneška
+        if d > today and not is_current:
+            continue
 
         log = row.get("log")
         if not isinstance(log, dict):
             continue
 
+        row_has_sets = False
         for ex in (log.get("exercises") or []):
             if not isinstance(ex, dict):
                 continue
@@ -542,12 +619,29 @@ def service_get_weekly_muscle_volume(
             ]
             if not work_sets:
                 continue
+            row_has_sets = True
 
             for muscle, weight in get_muscles(str(ex.get("exercise_id") or "")).items():
                 contribution = len(work_sets) * float(weight)
                 window[muscle] = window.get(muscle, 0.0) + contribution
                 if is_current:
                     current[muscle] = current.get(muscle, 0.0) + contribution
+
+        if row_has_sets:
+            weeks_seen.add(w_start.isoformat())
+            if is_current:
+                logged_dates.add(d.isoformat())
+                if row.get("plan_session_id") is not None:
+                    logged_plan_ids.add(int(row["plan_session_id"]))
+
+    planned = _planned_muscle_sets(
+        user_id,
+        week_start=week_start,
+        today=today,
+        logged_dates=logged_dates,
+        logged_plan_ids=logged_plan_ids,
+        ctx=ctx,
+    )
 
     week_count = max(1, len(weeks_seen))
     targets = build_targets(
@@ -559,14 +653,21 @@ def service_get_weekly_muscle_volume(
 
     muscles_out: List[Dict[str, Any]] = []
     for m in MUSCLE_GROUPS:
-        cmp_now = compare_to_target(current.get(m, 0.0), targets[m])
+        done = current.get(m, 0.0)
+        plan = planned.get(m, 0.0)
+        projected = done + plan
+        target = targets[m]
+        cmp_proj = compare_to_target(projected, target)
         muscles_out.append({
             "muscle": m,
-            "sets_this_week": cmp_now["actual"],
+            "sets_this_week": round(done, 1),
+            "sets_planned": round(plan, 1),
+            "sets_projected": round(projected, 1),
             "sets_avg_per_week": round(window.get(m, 0.0) / week_count, 1),
-            "target": cmp_now["target"],
-            "pct": cmp_now["pct"],
-            "status": cmp_now["status"],
+            "target": target,
+            "pct_done": round(done / target * 100) if target > 0 else 0,
+            "pct": cmp_proj["pct"],
+            "status": cmp_proj["status"],
         })
 
     return {
@@ -575,9 +676,8 @@ def service_get_weekly_muscle_volume(
         "run_volume_tier": run_volume_tier(weekly_run_minutes),
         "weeks_analyzed": week_count,
         "muscles": muscles_out,
-        "total_sets_this_week": round(
-            sum(m["sets_this_week"] for m in muscles_out), 1
-        ),
+        "total_sets_this_week": round(sum(x["sets_this_week"] for x in muscles_out), 1),
+        "total_sets_planned": round(sum(x["sets_planned"] for x in muscles_out), 1),
     }
 
 def service_get_muscle_volume_overview(
