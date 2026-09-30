@@ -21,7 +21,7 @@ import {
   type IntervalUnit,
 } from "@/app/features/coach/api/advisor_daily";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
-import ExercisePicker from "@/app/shared/ui/components/ExercisePicker";
+import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
 type NumVal = number | "";

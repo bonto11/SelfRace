@@ -1,4 +1,4 @@
-// src/app/shared/ui/components/ExercisePicker.tsx
+// src/app/features/strength/components/ExercisePicker.tsx
 "use client";
 
 import * as React from "react";

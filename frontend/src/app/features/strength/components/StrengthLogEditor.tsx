@@ -39,7 +39,7 @@ import {
   SESSION_SUBCARD_STYLE,
   PANEL_PAD,
 } from "@/app/shared/ui/tokens";
-import ExercisePicker from "@/app/shared/ui/components/ExercisePicker";
+import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
 const SAVE_DEBOUNCE_MS = 1200;
 
 const BLOCK_ORDER: StrengthBlock[] = [
