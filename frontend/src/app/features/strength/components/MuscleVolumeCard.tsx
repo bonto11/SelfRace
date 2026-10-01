@@ -24,21 +24,128 @@ import {
 } from "@/app/shared/ui/tokens";
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
 
+type Bands = MuscleVolumeOverview["bands"];
+
 function statusColor(status: MuscleVolumeStatus): string {
   if (status === "on_track") return appColors.statusSuccess;
   if (status === "over" || status === "under") return appColors.statusWarning;
   return appColors.textMuted;
 }
 
-/** 12 -> "12", 1.5 -> "1.5" (bez zbytočných núl). */
+/** 12 -> "12", 1.5 -> "1.5" */
 function fmt(v: number): string {
   return String(Number(v.toFixed(1)));
 }
 
-function MuscleRow({ row, label }: { row: MuscleVolumeRow; label: string }) {
+/**
+ * Pásma na pozadí pruhu - udržiavanie a rozvoj. Všetky pruhy zdieľajú
+ * jednu mierku (0..scaleMax), takže sú navzájom porovnateľné a pásma
+ * sedia na rovnakom mieste.
+ */
+function BandBackground({ bands, scaleMax }: { bands: Bands; scaleMax: number }) {
+  const pct = (v: number) => `${Math.min((v / scaleMax) * 100, 100)}%`;
+  const width = (from: number, to: number) =>
+    `${Math.max(0, Math.min((to - from) / scaleMax, 1)) * 100}%`;
+
+  return (
+    <>
+      <div
+        className="absolute inset-y-0"
+        style={{
+          left: pct(bands.maintenance_min),
+          width: width(bands.maintenance_min, bands.maintenance_max),
+          background: "rgba(255,255,255,0.07)",
+        }}
+      />
+      <div
+        className="absolute inset-y-0"
+        style={{
+          left: pct(bands.development_min),
+          width: width(bands.development_min, bands.development_max),
+          background: "rgba(255,255,255,0.13)",
+        }}
+      />
+    </>
+  );
+}
+
+function ScaleLegend({ bands, scaleMax }: { bands: Bands; scaleMax: number }) {
+  const t = useT();
+  const left = (v: number) => `${(v / scaleMax) * 100}%`;
+  const width = (from: number, to: number) => `${((to - from) / scaleMax) * 100}%`;
+
+  const Segment = ({
+    from,
+    to,
+    label,
+    opacity,
+  }: {
+    from: number;
+    to: number;
+    label: string;
+    opacity: number;
+  }) => (
+    <div
+      className="absolute h-full rounded flex items-center justify-center overflow-hidden"
+      style={{
+        left: left(from),
+        width: width(from, to),
+        background: `rgba(255,255,255,${opacity})`,
+      }}
+    >
+      <span className="text-[9px] uppercase tracking-wide opacity-70 whitespace-nowrap px-1">
+        {label}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-1 mb-1">
+      <div className="relative h-4">
+        <Segment
+          from={bands.maintenance_min}
+          to={bands.maintenance_max}
+          label={t("muscleVolume.bandMaintain" as any)}
+          opacity={0.07}
+        />
+        <Segment
+          from={bands.development_min}
+          to={bands.development_max}
+          label={t("muscleVolume.bandDevelop" as any)}
+          opacity={0.13}
+        />
+      </div>
+      <div className="relative h-3 text-[9px] opacity-40 tabular-nums">
+        {[0, bands.maintenance_min, bands.development_min, bands.development_max].map((v) => (
+          <span
+            key={v}
+            className="absolute -translate-x-1/2"
+            style={{ left: left(v) }}
+          >
+            {v}
+          </span>
+        ))}
+        <span className="absolute right-0">
+          {t("muscleVolume.scaleUnit" as any)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MuscleRow({
+  row,
+  label,
+  bands,
+  scaleMax,
+}: {
+  row: MuscleVolumeRow;
+  label: string;
+  bands: Bands;
+  scaleMax: number;
+}) {
   const color = statusColor(row.status);
-  const donePct = Math.min(row.pct_done, 100);
-  const projectedPct = Math.min(row.pct, 100);
+  const w = (v: number) => `${Math.min((v / scaleMax) * 100, 100)}%`;
 
   return (
     <div className="flex flex-col gap-1">
@@ -51,18 +158,25 @@ function MuscleRow({ row, label }: { row: MuscleVolumeRow; label: string }) {
       </div>
 
       <div
-        className="relative h-1.5 rounded-full overflow-hidden"
+        className="relative h-2 rounded-full overflow-hidden"
         style={{ background: appColors.surfaceSolid }}
       >
+        <BandBackground bands={bands} scaleMax={scaleMax} />
+
         {/* naplánované (svetlejšie) */}
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all"
-          style={{ width: `${projectedPct}%`, background: color, opacity: 0.35 }}
+          style={{ width: w(row.sets_projected), background: color, opacity: 0.4 }}
         />
         {/* zapísané */}
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all"
-          style={{ width: `${donePct}%`, background: color }}
+          style={{ width: w(row.sets_this_week), background: color }}
+        />
+        {/* cieľ */}
+        <div
+          className="absolute inset-y-0 w-[2px]"
+          style={{ left: w(row.target), background: "rgba(255,255,255,0.75)" }}
         />
       </div>
     </div>
@@ -71,8 +185,8 @@ function MuscleRow({ row, label }: { row: MuscleVolumeRow; label: string }) {
 
 /**
  * Objem na partie za tento týždeň: zapísané série + to, čo je ešte
- * naplánované na dnes a ďalšie dni. Cieľ počíta backend z prefs a z
- * behového objemu.
+ * naplánované. Pásma (udržiavanie / rozvoj) a cieľ sú v jednej mierke,
+ * takže je hneď vidieť, na čom partia je.
  */
 export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number }) {
   const t = useT();
@@ -100,6 +214,7 @@ export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number
   const rows = (data?.muscles ?? []).filter(
     (m) => m.sets_this_week > 0 || m.sets_planned > 0 || m.sets_avg_per_week > 0,
   );
+  const scaleMax = data?.scale_max || 22;
 
   return (
     <section className={SESSION_CARD} style={SESSION_CARD_STYLE}>
@@ -126,27 +241,30 @@ export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number
           </div>
         ) : failed ? (
           <div className={PANEL_PREVIEW}>{t("muscleVolume.error" as any)}</div>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 || !data ? (
           <div className={PANEL_PREVIEW}>{t("muscleVolume.empty" as any)}</div>
         ) : (
           <>
+            <ScaleLegend bands={data.bands} scaleMax={scaleMax} />
+
             <div className="flex flex-col gap-2.5">
               {rows.map((row) => (
                 <MuscleRow
                   key={row.muscle}
                   row={row}
                   label={t(`muscleVolume.muscles.${row.muscle}` as any)}
+                  bands={data.bands}
+                  scaleMax={scaleMax}
                 />
               ))}
             </div>
 
-            {(data?.total_sets_planned ?? 0) > 0 && (
-              <div className="text-[11px] opacity-60 leading-snug mt-1">
-                {t("muscleVolume.legend" as any)}
-              </div>
-            )}
+            <div className="text-[11px] opacity-60 leading-snug mt-1">
+              {t("muscleVolume.legendTarget" as any)}
+              {data.total_sets_planned > 0 ? ` ${t("muscleVolume.legend" as any)}` : ""}
+            </div>
 
-            {data?.run_volume_tier === "high" && (
+            {data.run_volume_tier === "high" && (
               <div className="text-[11px] opacity-60 leading-snug">
                 {t("muscleVolume.legCapHint" as any)}
               </div>

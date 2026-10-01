@@ -38,6 +38,15 @@ BASE_TARGET = {
     "develop": 12,
 }
 
+# Pásma týždenného objemu - zdroj pravdy pre backend aj pre graf v UI
+VOLUME_BANDS = {
+    "maintenance_min": 4,
+    "maintenance_max": 8,
+    "development_min": 10,
+    "development_max": 20,
+    "overreach": 22,
+}
+
 # Pásma týždenného behového objemu (minúty behu za týždeň)
 RUN_VOLUME_TIERS = {
     "low": 180,       # do 3 h behu - silový tréning nič nelimituje
@@ -71,6 +80,27 @@ def run_volume_tier(weekly_run_minutes: Optional[float]) -> str:
     if weekly_run_minutes <= RUN_VOLUME_TIERS["moderate"]:
         return "moderate"
     return "high"
+
+
+def volume_status(sets_per_week: float) -> str:
+    """
+    Zaradí týždenný objem partie do pásma.
+    none | low | maintenance | development | high
+    """
+    if sets_per_week <= 0:
+        return "none"
+    if sets_per_week < VOLUME_BANDS["maintenance_min"]:
+        return "low"
+    if sets_per_week < VOLUME_BANDS["development_min"]:
+        return "maintenance"
+    if sets_per_week <= VOLUME_BANDS["development_max"]:
+        return "development"
+    return "high"
+
+
+def volume_bands_public() -> Dict[str, int]:
+    """Pásma pre UI - aby FE neduplikoval čísla z tohto súboru."""
+    return dict(VOLUME_BANDS)
 
 
 def target_for_muscle(

@@ -296,6 +296,14 @@ export type MuscleVolumeOverview = {
   muscles: MuscleVolumeRow[];
   total_sets_this_week: number;
   total_sets_planned: number;
+  bands: {
+    maintenance_min: number;
+    maintenance_max: number;
+    development_min: number;
+    development_max: number;
+    overreach: number;
+  };
+  scale_max: number;
 };
 
 /**

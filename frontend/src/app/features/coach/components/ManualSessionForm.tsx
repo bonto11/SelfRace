@@ -22,6 +22,8 @@ import {
 } from "@/app/features/coach/api/advisor_daily";
 import type { DailyPlanSession } from "@/app/features/coach/api/coach_plan_daily";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
+import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+
 type SportOption = "run" | "ride" | "swim" | "strength" | "other";
 type StructureMode = "simple" | "intervals";
 type NumVal = number | "";
@@ -826,6 +828,13 @@ export default function ManualSessionForm({
                 onValueChange={(id) => addExercise(id)}
                 placeholder={t("strengthLog.searchExercise")}
               />
+               <MuscleVolumeDeltaStrip
+                draft={exercises.map((e) => ({
+                  exercise_id: e.exercise_id,
+                  sets: n(e.sets),
+                }))}
+              />
+
             </div>
           )}
 

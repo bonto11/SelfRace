@@ -1200,6 +1200,11 @@ export const sk = {
       calves: "Lýtka",
     },
     filterAll: "Všetko",
+    bandMaintain: "Udržanie",
+    bandDevelop: "Rast",
+    scaleUnit: "sérií/týž.",
+    legendTarget: "Biela čiarka = tvoj cieľ pre danú partiu.",
+    deltaTitle: "Dopad na týždenný objem",
   },
   onboarding: {
     welcome: {

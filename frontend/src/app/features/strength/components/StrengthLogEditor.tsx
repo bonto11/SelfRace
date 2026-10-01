@@ -40,6 +40,8 @@ import {
   PANEL_PAD,
 } from "@/app/shared/ui/tokens";
 import ExercisePicker from "@/app/features/strength/components/ExercisePicker";
+import MuscleVolumeDeltaStrip from "@/app/features/strength/components/MuscleVolumeDeltaStrip";
+
 const SAVE_DEBOUNCE_MS = 1200;
 
 const BLOCK_ORDER: StrengthBlock[] = [
@@ -554,6 +556,14 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                               value={ex.exercise_id}
                               onValueChange={(id) => replaceExercise(idx, id)}
                               hideMuscleHint
+                            />
+                            <MuscleVolumeDeltaStrip
+                              draft={exercises.map((ex) => ({
+                                exercise_id: ex.exercise_id,
+                                sets: (ex.sets ?? []).filter(
+                                  (s) => !s.is_warmup,
+                                ).length,
+                              }))}
                             />
                           </div>
                         </div>

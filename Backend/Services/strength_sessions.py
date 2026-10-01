@@ -19,7 +19,7 @@ from DB.strength_sessions import (
 
 from DB.coach_plan_meta import db_get_active_plan_meta_for_user
 from Configs.strength_muscles import MUSCLE_GROUPS, get_muscles
-from Configs.strength_volume import build_targets, compare_to_target, run_volume_tier
+from Configs.strength_volume import build_targets, compare_to_target, run_volume_tier, volume_bands_public
 from DB.coach_plan_daily import db_get_daily_session_by_id_full,  db_get_daily_session_by_id_full, db_get_planned_range_rows
 from DB.user_prefs import db_get_pref_single
 from Services.analytics_RecentLoad import service_build_recent_load_raw
@@ -670,6 +670,13 @@ def service_get_weekly_muscle_volume(
             "status": cmp_proj["status"],
         })
 
+    bands = volume_bands_public()
+    scale_max = max(
+        bands["overreach"],
+        max((x["target"] for x in muscles_out), default=0),
+        max((x["sets_projected"] for x in muscles_out), default=0),
+    )
+
     return {
         "week_start": week_start.isoformat(),
         "goal": goal,
@@ -678,6 +685,8 @@ def service_get_weekly_muscle_volume(
         "muscles": muscles_out,
         "total_sets_this_week": round(sum(x["sets_this_week"] for x in muscles_out), 1),
         "total_sets_planned": round(sum(x["sets_planned"] for x in muscles_out), 1),
+        "bands": bands,
+        "scale_max": int(round(scale_max)),
     }
 
 def service_get_muscle_volume_overview(

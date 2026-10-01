@@ -1209,6 +1209,11 @@ export const en = {
       calves: "Calves",
     },
     filterAll: "All",
+    bandMaintain: "Maintain",
+    bandDevelop: "Growth",
+    scaleUnit: "sets/week",
+    legendTarget: "White tick = your target for that muscle.",
+    deltaTitle: "Impact on weekly volume",
   },
   onboarding: {
     welcome: {
