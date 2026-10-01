@@ -388,7 +388,7 @@ export const sk = {
     updatedAt: "Aktualizované",
     empty:
       "Zatiaľ žiadne hodnotenie. Automaticky príde v nedeľu večer, alebo si ho vyžiadaj teraz.",
-    lastWeek: "Uplynulý týždeň",
+    lastWeek: "Tento týždeň",
     wentWell: "Čo sa podarilo",
     toImprove: "Na čom zapracovať",
     upcomingCheck: "Kontrola naplánovaných tréningov",
