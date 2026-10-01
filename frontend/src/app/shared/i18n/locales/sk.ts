@@ -1203,7 +1203,7 @@ export const sk = {
     bandMaintain: "Udržanie",
     bandDevelop: "Rast",
     scaleUnit: "sérií/týž.",
-    legendTarget: "Biela čiarka = tvoj cieľ pre danú partiu.",
+    bandTarget: "Tvoj cieľ",
     deltaTitle: "Dopad na týždenný objem",
   },
   onboarding: {

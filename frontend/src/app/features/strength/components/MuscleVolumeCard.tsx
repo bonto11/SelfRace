@@ -26,6 +26,11 @@ import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/session
 
 type Bands = MuscleVolumeOverview["bands"];
 
+/** Farby zvislých rysiek na pruhu. */
+const TICK_MAINTAIN = "#7dd3fc"; // modrá - hranica udržania
+const TICK_DEVELOP = "#86efac";  // zelená - hranica rastu
+const TICK_TARGET = "#ffffff";   // biela - individuálny cieľ
+
 function statusColor(status: MuscleVolumeStatus): string {
   if (status === "on_track") return appColors.statusSuccess;
   if (status === "over" || status === "under") return appColors.statusWarning;
@@ -37,99 +42,36 @@ function fmt(v: number): string {
   return String(Number(v.toFixed(1)));
 }
 
-/**
- * Pásma na pozadí pruhu - udržiavanie a rozvoj. Všetky pruhy zdieľajú
- * jednu mierku (0..scaleMax), takže sú navzájom porovnateľné a pásma
- * sedia na rovnakom mieste.
- */
-function BandBackground({ bands, scaleMax }: { bands: Bands; scaleMax: number }) {
-  const pct = (v: number) => `${Math.min((v / scaleMax) * 100, 100)}%`;
-  const width = (from: number, to: number) =>
-    `${Math.max(0, Math.min((to - from) / scaleMax, 1)) * 100}%`;
-
-  return (
-    <>
-      <div
-        className="absolute inset-y-0"
-        style={{
-          left: pct(bands.maintenance_min),
-          width: width(bands.maintenance_min, bands.maintenance_max),
-          background: "rgba(255,255,255,0.07)",
-        }}
-      />
-      <div
-        className="absolute inset-y-0"
-        style={{
-          left: pct(bands.development_min),
-          width: width(bands.development_min, bands.development_max),
-          background: "rgba(255,255,255,0.13)",
-        }}
-      />
-    </>
-  );
+/** Popisky mierky: 0, 5, 10, 15, 20 (podľa scaleMax). */
+function scaleTicks(scaleMax: number): number[] {
+  const out: number[] = [];
+  for (let v = 0; v <= scaleMax; v += 5) out.push(v);
+  return out;
 }
 
-function ScaleLegend({ bands, scaleMax }: { bands: Bands; scaleMax: number }) {
-  const t = useT();
-  const left = (v: number) => `${(v / scaleMax) * 100}%`;
-  const width = (from: number, to: number) => `${((to - from) / scaleMax) * 100}%`;
-
-  const Segment = ({
-    from,
-    to,
-    label,
-    opacity,
-  }: {
-    from: number;
-    to: number;
-    label: string;
-    opacity: number;
-  }) => (
-    <div
-      className="absolute h-full rounded flex items-center justify-center overflow-hidden"
-      style={{
-        left: left(from),
-        width: width(from, to),
-        background: `rgba(255,255,255,${opacity})`,
-      }}
-    >
-      <span className="text-[9px] uppercase tracking-wide opacity-70 whitespace-nowrap px-1">
-        {label}
-      </span>
-    </div>
-  );
-
+function Tick({
+  value,
+  scaleMax,
+  color,
+  strong = false,
+}: {
+  value: number;
+  scaleMax: number;
+  color: string;
+  strong?: boolean;
+}) {
+  if (value <= 0 || value > scaleMax) return null;
   return (
-    <div className="flex flex-col gap-1 mb-1">
-      <div className="relative h-4">
-        <Segment
-          from={bands.maintenance_min}
-          to={bands.maintenance_max}
-          label={t("muscleVolume.bandMaintain" as any)}
-          opacity={0.07}
-        />
-        <Segment
-          from={bands.development_min}
-          to={bands.development_max}
-          label={t("muscleVolume.bandDevelop" as any)}
-          opacity={0.13}
-        />
-      </div>
-      <div className="relative h-3 text-[9px] opacity-40 tabular-nums">
-        {[0, bands.maintenance_min, bands.development_min, bands.development_max].map((v) => (
-          <span
-            key={v}
-            className="absolute -translate-x-1/2"
-            style={{ left: left(v) }}
-          >
-            {v}
-          </span>
-        ))}
-        <span className="absolute right-0">
-          {t("muscleVolume.scaleUnit" as any)}
-        </span>
-      </div>
-    </div>
+    <div
+      className="absolute inset-y-0"
+      style={{
+        left: `${(value / scaleMax) * 100}%`,
+        width: strong ? 2 : 1.5,
+        background: color,
+        opacity: strong ? 0.95 : 0.65,
+        transform: "translateX(-50%)",
+      }}
+    />
   );
 }
 
@@ -157,12 +99,11 @@ function MuscleRow({
         </span>
       </div>
 
+      {/* Jednoliaty pruh - pásma sú rysky, nie výplň */}
       <div
-        className="relative h-2 rounded-full overflow-hidden"
-        style={{ background: appColors.surfaceSolid }}
+        className="relative h-2.5 rounded-full overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.08)" }}
       >
-        <BandBackground bands={bands} scaleMax={scaleMax} />
-
         {/* naplánované (svetlejšie) */}
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all"
@@ -173,20 +114,32 @@ function MuscleRow({
           className="absolute inset-y-0 left-0 rounded-full transition-all"
           style={{ width: w(row.sets_this_week), background: color }}
         />
-        {/* cieľ */}
-        <div
-          className="absolute inset-y-0 w-[2px]"
-          style={{ left: w(row.target), background: "rgba(255,255,255,0.75)" }}
-        />
+
+        {/* hranice pásiem + individuálny cieľ */}
+        <Tick value={bands.maintenance_min} scaleMax={scaleMax} color={TICK_MAINTAIN} />
+        <Tick value={bands.development_min} scaleMax={scaleMax} color={TICK_DEVELOP} />
+        <Tick value={row.target} scaleMax={scaleMax} color={TICK_TARGET} strong />
       </div>
     </div>
   );
 }
 
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block rounded-sm"
+        style={{ width: 2.5, height: 11, background: color }}
+      />
+      <span>{label}</span>
+    </span>
+  );
+}
+
 /**
  * Objem na partie za tento týždeň: zapísané série + to, čo je ešte
- * naplánované. Pásma (udržiavanie / rozvoj) a cieľ sú v jednej mierke,
- * takže je hneď vidieť, na čom partia je.
+ * naplánované. Mierka je spoločná pre všetky partie, cieľ je individuálny
+ * (biela ryska) - pri malých partiách je nižšie než pri veľkých.
  */
 export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number }) {
   const t = useT();
@@ -245,7 +198,22 @@ export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number
           <div className={PANEL_PREVIEW}>{t("muscleVolume.empty" as any)}</div>
         ) : (
           <>
-            <ScaleLegend bands={data.bands} scaleMax={scaleMax} />
+            {/* Mierka: len čísla. Jednotka má vlastný riadok, aby sa
+                neprekrývala s posledným popiskom. */}
+            <div className="text-[10px] opacity-40 mb-0.5">
+              {t("muscleVolume.scaleUnit" as any)}
+            </div>
+            <div className="relative h-3 text-[10px] opacity-40 tabular-nums mb-1">
+              {scaleTicks(scaleMax).map((v) => (
+                <span
+                  key={v}
+                  className="absolute -translate-x-1/2"
+                  style={{ left: `${(v / scaleMax) * 100}%` }}
+                >
+                  {v}
+                </span>
+              ))}
+            </div>
 
             <div className="flex flex-col gap-2.5">
               {rows.map((row) => (
@@ -259,10 +227,24 @@ export default function MuscleVolumeCard({ weeksBack = 4 }: { weeksBack?: number
               ))}
             </div>
 
-            <div className="text-[11px] opacity-60 leading-snug mt-1">
-              {t("muscleVolume.legendTarget" as any)}
-              {data.total_sets_planned > 0 ? ` ${t("muscleVolume.legend" as any)}` : ""}
+            {/* Legenda k zvislým ryskám */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] opacity-70 mt-1.5">
+              <LegendDot
+                color={TICK_MAINTAIN}
+                label={`${t("muscleVolume.bandMaintain" as any)} (${data.bands.maintenance_min}+)`}
+              />
+              <LegendDot
+                color={TICK_DEVELOP}
+                label={`${t("muscleVolume.bandDevelop" as any)} (${data.bands.development_min}+)`}
+              />
+              <LegendDot color={TICK_TARGET} label={t("muscleVolume.bandTarget" as any)} />
             </div>
+
+            {data.total_sets_planned > 0 && (
+              <div className="text-[11px] opacity-60 leading-snug">
+                {t("muscleVolume.legend" as any)}
+              </div>
+            )}
 
             {data.run_volume_tier === "high" && (
               <div className="text-[11px] opacity-60 leading-snug">

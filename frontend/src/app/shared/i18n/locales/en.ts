@@ -1211,8 +1211,8 @@ export const en = {
     filterAll: "All",
     bandMaintain: "Maintain",
     bandDevelop: "Growth",
-    scaleUnit: "sets/week",
-    legendTarget: "White tick = your target for that muscle.",
+    bandTarget: "Your target",
+    scaleUnit: "Sets per week",
     deltaTitle: "Impact on weekly volume",
   },
   onboarding: {
