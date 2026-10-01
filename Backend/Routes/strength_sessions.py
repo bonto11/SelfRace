@@ -156,23 +156,30 @@ def list_planned_sessions(
 
 @router.get("/{user_id}/muscle-volume")
 def get_muscle_volume(
-    req: Request, user_id: int, weeks_back: int = 4
+    req: Request,
+    user_id: int,
+    weeks_back: int = 4,
+    exclude_session_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Týždenný objem na svalovú partiu vs. cieľ (zapísané + naplánované).
 
-    ⚠️ MUSÍ byť PRED "/{user_id}/{session_id}" - inak sa "muscle-volume"
-    pokúsi naparsovať ako session_id a vráti 422.
+    exclude_session_id: vynechá jeden zápis zo základu - používa to živý
+    náhľad v editore, aby sa práve upravovaný tréning nerátal dvakrát.
+
+    ⚠️ MUSÍ byť PRED "/{user_id}/{session_id}" - inak 422.
     """
     try:
         ctx = require_user(get_auth_ctx(req))
         data = service_get_muscle_volume_overview(
-            user_id=user_id, weeks_back=weeks_back, ctx=ctx
+            user_id=user_id,
+            weeks_back=weeks_back,
+            exclude_session_id=exclude_session_id,
+            ctx=ctx,
         )
         return {"success": True, "data": data}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
-    
 # ─── GENERICKÉ CESTY S {session_id} ───
 
 

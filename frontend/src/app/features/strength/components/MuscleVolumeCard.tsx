@@ -23,56 +23,22 @@ import {
   ACCORDION_FOOTER_BAR_MUTED,
 } from "@/app/shared/ui/tokens";
 import { SESSION_CARD, SESSION_CARD_STYLE } from "@/app/shared/ui/tokens/sessionCard";
+import MuscleVolumeBar, {
+  TICK_MAINTAIN,
+  TICK_DEVELOP,
+  TICK_TARGET,
+  fmtSets,
+  volumeColor,
+} from "@/app/features/strength/components/MuscleVolumeBar";
+
 
 type Bands = MuscleVolumeOverview["bands"];
-
-/** Farby zvislých rysiek na pruhu. */
-const TICK_MAINTAIN = "#7dd3fc"; // modrá - hranica udržania
-const TICK_DEVELOP = "#86efac";  // zelená - hranica rastu
-const TICK_TARGET = "#ffffff";   // biela - individuálny cieľ
-
-function statusColor(status: MuscleVolumeStatus): string {
-  if (status === "on_track") return appColors.statusSuccess;
-  if (status === "over" || status === "under") return appColors.statusWarning;
-  return appColors.textMuted;
-}
-
-/** 12 -> "12", 1.5 -> "1.5" */
-function fmt(v: number): string {
-  return String(Number(v.toFixed(1)));
-}
 
 /** Popisky mierky: 0, 5, 10, 15, 20 (podľa scaleMax). */
 function scaleTicks(scaleMax: number): number[] {
   const out: number[] = [];
   for (let v = 0; v <= scaleMax; v += 5) out.push(v);
   return out;
-}
-
-function Tick({
-  value,
-  scaleMax,
-  color,
-  strong = false,
-}: {
-  value: number;
-  scaleMax: number;
-  color: string;
-  strong?: boolean;
-}) {
-  if (value <= 0 || value > scaleMax) return null;
-  return (
-    <div
-      className="absolute inset-y-0"
-      style={{
-        left: `${(value / scaleMax) * 100}%`,
-        width: strong ? 2 : 1.5,
-        background: color,
-        opacity: strong ? 0.95 : 0.65,
-        transform: "translateX(-50%)",
-      }}
-    />
-  );
 }
 
 function MuscleRow({
@@ -83,43 +49,28 @@ function MuscleRow({
 }: {
   row: MuscleVolumeRow;
   label: string;
-  bands: Bands;
+  bands: MuscleVolumeOverview["bands"];
   scaleMax: number;
 }) {
-  const color = statusColor(row.status);
-  const w = (v: number) => `${Math.min((v / scaleMax) * 100, 100)}%`;
+  const color = volumeColor(row.sets_projected, row.target);
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm">{label}</span>
         <span className="text-xs font-semibold tabular-nums" style={{ color }}>
-          {fmt(row.sets_this_week)}
-          {row.sets_planned > 0 ? ` (+${fmt(row.sets_planned)})` : ""} / {row.target}
+          {fmtSets(row.sets_this_week)}
+          {row.sets_planned > 0 ? ` (+${fmtSets(row.sets_planned)})` : ""} / {row.target}
         </span>
       </div>
-
-      {/* Jednoliaty pruh - pásma sú rysky, nie výplň */}
-      <div
-        className="relative h-2.5 rounded-full overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.08)" }}
-      >
-        {/* naplánované (svetlejšie) */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all"
-          style={{ width: w(row.sets_projected), background: color, opacity: 0.4 }}
-        />
-        {/* zapísané */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all"
-          style={{ width: w(row.sets_this_week), background: color }}
-        />
-
-        {/* hranice pásiem + individuálny cieľ */}
-        <Tick value={bands.maintenance_min} scaleMax={scaleMax} color={TICK_MAINTAIN} />
-        <Tick value={bands.development_min} scaleMax={scaleMax} color={TICK_DEVELOP} />
-        <Tick value={row.target} scaleMax={scaleMax} color={TICK_TARGET} strong />
-      </div>
+      <MuscleVolumeBar
+        done={row.sets_this_week}
+        added={row.sets_planned}
+        target={row.target}
+        bands={bands}
+        scaleMax={scaleMax}
+        addedKind="planned"
+      />
     </div>
   );
 }
@@ -129,7 +80,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     <span className="inline-flex items-center gap-1.5">
       <span
         className="inline-block rounded-sm"
-        style={{ width: 2.5, height: 11, background: color }}
+        style={{ width: 4, height: 12, background: color }}
       />
       <span>{label}</span>
     </span>

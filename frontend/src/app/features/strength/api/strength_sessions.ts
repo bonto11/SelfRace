@@ -313,11 +313,14 @@ export type MuscleVolumeOverview = {
 export async function apiGetMuscleVolume(
   userId: number,
   weeksBack = 4,
+  excludeSessionId?: number | null,
 ): Promise<MuscleVolumeOverview | null> {
   if (!userId) return null;
+  const qs = new URLSearchParams({ weeks_back: String(weeksBack) });
+  if (excludeSessionId) qs.set("exclude_session_id", String(excludeSessionId));
   try {
     const json = await callBackend<any>(
-      `${base(userId)}/muscle-volume?weeks_back=${weeksBack}`,
+      `${base(userId)}/muscle-volume?${qs.toString()}`,
       { method: "GET", cache: "no-store" },
     );
     return json?.success ? (json.data as MuscleVolumeOverview) : null;

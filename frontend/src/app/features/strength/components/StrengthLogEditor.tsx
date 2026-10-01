@@ -558,6 +558,8 @@ export default function StrengthLogEditor({ sessionId, onDeleted }: Props) {
                               hideMuscleHint
                             />
                             <MuscleVolumeDeltaStrip
+                              kind="logged"
+                              excludeSessionId={sessionId}
                               draft={exercises.map((ex) => ({
                                 exercise_id: ex.exercise_id,
                                 sets: (ex.sets ?? []).filter(

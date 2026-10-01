@@ -1214,6 +1214,10 @@ export const en = {
     bandTarget: "Your target",
     scaleUnit: "Sets per week",
     deltaTitle: "Impact on weekly volume",
+    deltaTitleLogged: "This workout in your weekly volume",
+    deltaHintPlanned: "Grey part = what this planned workout adds.",
+    deltaHintLogged:
+      "Light part = what this workout adds. The rest of the week is in solid colour.",
   },
   onboarding: {
     welcome: {

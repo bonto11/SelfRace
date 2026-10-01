@@ -828,13 +828,12 @@ export default function ManualSessionForm({
                 onValueChange={(id) => addExercise(id)}
                 placeholder={t("strengthLog.searchExercise")}
               />
-               <MuscleVolumeDeltaStrip
+              <MuscleVolumeDeltaStrip
                 draft={exercises.map((e) => ({
                   exercise_id: e.exercise_id,
                   sets: n(e.sets),
                 }))}
               />
-
             </div>
           )}
 

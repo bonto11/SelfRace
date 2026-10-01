@@ -1205,6 +1205,10 @@ export const sk = {
     scaleUnit: "sérií/týž.",
     bandTarget: "Tvoj cieľ",
     deltaTitle: "Dopad na týždenný objem",
+    deltaTitleLogged: "Tento tréning v týždennom objeme",
+    deltaHintPlanned: "Sivá časť = čo pridá tento naplánovaný tréning.",
+    deltaHintLogged:
+      "Svetlá časť = čo pridáva tento tréning. Zvyšok týždňa je plnou farbou.",
   },
   onboarding: {
     welcome: {

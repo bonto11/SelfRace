@@ -566,6 +566,7 @@ def service_get_weekly_muscle_volume(
     goal: str = "maintain",
     sessions_per_week: Optional[int] = None,
     weekly_run_minutes: Optional[float] = None,
+    exclude_session_id: Optional[int] = None,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
@@ -588,6 +589,8 @@ def service_get_weekly_muscle_volume(
     logged_plan_ids: set = set()
 
     for row in rows:
+        if exclude_session_id is not None and row.get("id") == exclude_session_id:
+            continue
         d_raw = str(row.get("session_date") or "")[:10]
         try:
             d = date.fromisoformat(d_raw)
@@ -690,9 +693,18 @@ def service_get_weekly_muscle_volume(
     }
 
 def service_get_muscle_volume_overview(
-    *, user_id: int, weeks_back: int = 4, ctx: AuthCtx
+    *,
+    user_id: int,
+    weeks_back: int = 4,
+    exclude_session_id: Optional[int] = None,
+    ctx: AuthCtx,
 ) -> Dict[str, Any]:
-    """Objem na partie s cieľmi odvodenými z prefs a reálneho behového objemu."""
+    """
+    Objem na partie s cieľmi odvodenými z prefs a reálneho behového objemu.
+
+    exclude_session_id: práve editovaný zápis sa zo základu vynechá - inak
+    by sa v živom náhľade počítal dvakrát (raz zo základu, raz z draftu).
+    """
     vc = _resolve_volume_context(user_id, ctx=ctx)
     return service_get_weekly_muscle_volume(
         user_id=user_id,
@@ -700,5 +712,6 @@ def service_get_muscle_volume_overview(
         goal=vc["goal"],
         sessions_per_week=vc["sessions_per_week"],
         weekly_run_minutes=vc["weekly_run_minutes"],
+        exclude_session_id=exclude_session_id,
         ctx=ctx,
     )
