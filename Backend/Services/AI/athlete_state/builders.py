@@ -172,184 +172,6 @@ def _load_user_profile_for_analysis(user_id: int, ctx: AuthCtx) -> Dict[str, Any
 
 
 # ============================================================
-# 🌟 NOVÉ: SILOVÉ TRÉNINGY (zo strength_sessions logov)
-# ============================================================
-# Doteraz athlete state stál výhradne na Strava aktivitách, takže AI o
-# posilňovni nevedela nič - hodnotila "capabilities.strength" naslepo a v
-# texte ju nespomínala. Teraz dostane kompaktný súhrn z reálnych zápisov:
-# koľko sa cvičí, aký objem, a ako idú hlavné cviky v čase.
-#
-# Zdroj pravdy je LOG (čo athlete reálne odcvičil), nie plán. Session bez
-# zapísanej pracovnej série sa vôbec neráta - naplánovaný a neodcvičený
-# tréning nehovorí nič o stave atléta.
-
-STRENGTH_WINDOW_WEEKS = 8      # ako ďaleko do histórie sa pozeráme
-STRENGTH_RECENT_DAYS = 28      # okno pre "posledný mesiac"
-STRENGTH_MAX_KEY_LIFTS = 4     # koľko hlavných cvikov ide do AI kontextu
-
-
-def _strength_work_sets(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return [
-        s
-        for s in (ex.get("sets") or [])
-        if isinstance(s, dict) and not s.get("is_warmup") and (s.get("reps") or s.get("weight_kg"))
-    ]
-
-
-def build_strength_block_for_analysis(
-    user_id: int, *, ctx: AuthCtx, weeks_back: int = STRENGTH_WINDOW_WEEKS
-) -> Optional[Dict[str, Any]]:
-    """
-    Kompaktný súhrn silových tréningov pre AI analýzu.
-
-    Vracia None, ak athlete nemá žiadny zápis s odcvičenou sériou - vtedy sa
-    blok do kontextu vôbec nepridá a AI o posilňovni nemá čo písať.
-
-    Tvar:
-      {
-        "sessions_last_28d": 6,
-        "sessions_per_week_avg": 1.5,
-        "days_since_last": 2,
-        "avg_work_sets_per_session": 15,
-        "volume_kg_last_28d": 42150,
-        "key_lifts": [
-          {"exercise_id": "barbell_back_squat", "sessions": 4,
-           "first_top_weight_kg": 80, "last_top_weight_kg": 90, "change_kg": 10},
-          {"exercise_id": "pullup_strict", "sessions": 3,
-           "first_top_reps": 8, "last_top_reps": 11, "change_reps": 3}
-        ]
-      }
-
-    Pri cvikoch s vlastnou váhou (load_mode="bodyweight_plus" bez závažia) sa
-    trend počíta z OPAKOVANÍ, nie z kíl - inak by zhyby vyzerali ako stagnácia.
-    """
-    try:
-        from Services.strength_sessions import service_list_strength_sessions
-        from Configs.strength_catalog import CATALOG_BY_ID
-    except Exception as e:  # noqa: BLE001
-        print(f"[AS][builder] strength import failed: {repr(e)}")
-        return None
-
-    try:
-        rows = service_list_strength_sessions(
-            user_id=user_id, weeks_back=weeks_back, limit=200, ctx=ctx
-        ) or []
-    except Exception as e:  # noqa: BLE001
-        print(f"[AS][builder] strength sessions fetch failed: {repr(e)}")
-        return None
-
-    sessions: List[Dict[str, Any]] = []
-    # exercise_id -> [(days_ago, top_weight_kg, top_reps)] zoradené od najnovšieho
-    per_exercise: Dict[str, List[Dict[str, Any]]] = {}
-
-    for row in rows:
-        log = row.get("log")
-        if not isinstance(log, dict):
-            continue
-        d_ago = _days_ago(row.get("session_date"))
-        if d_ago is None:
-            continue
-
-        work_sets_total = 0
-        volume = 0.0
-        exercises_done = 0
-
-        for ex in log.get("exercises") or []:
-            if not isinstance(ex, dict):
-                continue
-            ex_id = ex.get("exercise_id")
-            work = _strength_work_sets(ex)
-            if not ex_id or not work:
-                continue
-
-            exercises_done += 1
-            work_sets_total += len(work)
-
-            meta = CATALOG_BY_ID.get(ex_id) or {}
-            measure = meta.get("measure") or "reps"
-
-            # objem má zmysel len pri opakovaniach so záťažou
-            if measure == "reps":
-                for s in work:
-                    w = _to_float(s.get("weight_kg")) or 0.0
-                    r = _to_int(s.get("reps")) or 0
-                    volume += w * r
-
-            top_w = max((_to_float(s.get("weight_kg")) or 0.0) for s in work)
-            top_r = max((_to_int(s.get("reps")) or 0) for s in work)
-            per_exercise.setdefault(ex_id, []).append(
-                {
-                    "days_ago": d_ago,
-                    "top_weight_kg": top_w or None,
-                    "top_reps": top_r or None,
-                    "measure": measure,
-                }
-            )
-
-        if work_sets_total > 0:
-            sessions.append(
-                {
-                    "days_ago": d_ago,
-                    "work_sets": work_sets_total,
-                    "volume_kg": volume,
-                    "exercises": exercises_done,
-                }
-            )
-
-    if not sessions:
-        return None
-
-    recent = [s for s in sessions if s["days_ago"] <= STRENGTH_RECENT_DAYS]
-    weeks = max(1.0, float(weeks_back))
-
-    key_lifts: List[Dict[str, Any]] = []
-    # najčastejšie cvičené cviky s aspoň dvoma záznamami (aby bol trend)
-    ranked = sorted(per_exercise.items(), key=lambda kv: len(kv[1]), reverse=True)
-    for ex_id, entries in ranked:
-        if len(key_lifts) >= STRENGTH_MAX_KEY_LIFTS:
-            break
-        if len(entries) < 2:
-            continue
-        ordered = sorted(entries, key=lambda e: e["days_ago"], reverse=True)  # najstaršie prvé
-        first, last = ordered[0], ordered[-1]
-
-        # váhový trend, ak sa cvik reálne zaťažuje; inak trend v opakovaniach
-        if first.get("top_weight_kg") and last.get("top_weight_kg"):
-            key_lifts.append(
-                {
-                    "exercise_id": ex_id,
-                    "sessions": len(entries),
-                    "first_top_weight_kg": round(first["top_weight_kg"], 1),
-                    "last_top_weight_kg": round(last["top_weight_kg"], 1),
-                    "change_kg": round(last["top_weight_kg"] - first["top_weight_kg"], 1),
-                }
-            )
-        elif first.get("top_reps") and last.get("top_reps"):
-            key_lifts.append(
-                {
-                    "exercise_id": ex_id,
-                    "sessions": len(entries),
-                    "first_top_reps": first["top_reps"],
-                    "last_top_reps": last["top_reps"],
-                    "change_reps": last["top_reps"] - first["top_reps"],
-                }
-            )
-
-    avg_sets = round(sum(s["work_sets"] for s in sessions) / len(sessions))
-    volume_recent = round(sum(s["volume_kg"] for s in recent))
-
-    return {
-        "window_weeks": int(weeks_back),
-        "sessions_last_28d": len(recent),
-        "sessions_per_week_avg": round(len(sessions) / weeks, 1),
-        "days_since_last": min(s["days_ago"] for s in sessions),
-        "avg_work_sets_per_session": avg_sets,
-        "volume_kg_last_28d": volume_recent or None,
-        "key_lifts": key_lifts,
-    }
-
-
-# ============================================================
 # 🌟 NOVÉ: SILOVÉ LOGY (strength_sessions)
 # ============================================================
 # Doteraz analýza athléta stála výhradne na Strava aktivitách, takže o
@@ -480,27 +302,61 @@ def _build_strength_block(
         "key_lifts": key_lifts[:STRENGTH_MAX_KEY_LIFTS],
     }
 
-
 def build_strength_log_block_for_analysis(
     user_id: int, *, ctx: AuthCtx, weeks_back: int = STRENGTH_LOOKBACK_WEEKS
 ) -> Optional[Dict[str, Any]]:
     """
-    Blok o reálne odcvičenej sile. Zlyhanie je non-fatal - analýza athléta
-    musí prejsť aj bez neho (rovnako ako bez external events).
+    Blok o reálne odcvičenej sile + týždenný objem na svalové partie.
+
+    🌟 NOVÉ: 'muscle_volume' je to isté, čo vidí athlete v karte "Objem na
+    partie" - koľko sérií na partiu má tento týždeň odcvičených, koľko má
+    ešte naplánovaných a aký je cieľ. AI tak hovorí rovnakou rečou ako UI
+    ("chrbát máš na 8,5 z 12"), nie internými pohybovými vzormi.
+
+    Zlyhanie je non-fatal - analýza athléta musí prejsť aj bez tohto bloku.
     """
     try:
-        from Services.strength_sessions import service_list_strength_sessions
+        from Services.strength_sessions import (
+            service_list_strength_sessions,
+            service_get_muscle_volume_overview,
+        )
         from Configs.strength_catalog import CATALOG_BY_ID
 
         rows = service_list_strength_sessions(
             user_id=user_id, weeks_back=weeks_back, limit=200, ctx=ctx
         )
-        if not isinstance(rows, list) or not rows:
-            return None
-        return _build_strength_block(rows, CATALOG_BY_ID)
+        block = _build_strength_block(rows, CATALOG_BY_ID) if rows else None
     except Exception as e:  # noqa: BLE001
         print(f"[AS][builder] strength log block failed: {repr(e)}")
         return None
+
+    # Objem na partie má zmysel aj bez histórie zdvihov (napr. prvý týždeň),
+    # preto sa ráta samostatne a blok vznikne aj keď _build_strength_block
+    # vráti None.
+    try:
+        vol = service_get_muscle_volume_overview(user_id=user_id, weeks_back=4, ctx=ctx)
+        muscles = [
+            {
+                "muscle": m["muscle"],
+                "sets_done": m["sets_this_week"],
+                "sets_planned": m["sets_planned"],
+                "target": m["target"],
+                "status": m["status"],
+            }
+            for m in (vol.get("muscles") or [])
+            if m["sets_this_week"] > 0 or m["sets_planned"] > 0 or m["target"] > 0
+        ]
+        if muscles:
+            block = block or {}
+            block["muscle_volume"] = {
+                "goal": vol.get("goal"),
+                "run_volume_tier": vol.get("run_volume_tier"),
+                "muscles": muscles,
+            }
+    except Exception as e:  # noqa: BLE001
+        print(f"[AS][builder] muscle volume block failed: {repr(e)}")
+
+    return block or None
 
 
 # ============================================================
@@ -765,8 +621,8 @@ def build_base_input(user_id: int) -> Dict[str, Any]:
         },
         "external_events": None,
         "last_activities": [],
-        # 🌟 NOVÉ: súhrn odcvičených silových tréningov (None = žiadne logy)
-        "strength": None,
+        # 🌟 Súhrn odcvičenej sily + objem na partie (None = žiadne logy)
+        "strength_log": None,
         "latest_paces": None,
         "is_returning_beginner": False,
     }
@@ -797,13 +653,14 @@ def build_input_from_db(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     )
     input_data["latest_paces"] = db_get_latest_paces(user_id=user_id, ctx=ctx)
 
-    # 🌟 NOVÉ: silové tréningy z reálnych logov. Zlyhanie je non-fatal -
-    # analýza bežeckej časti musí prejsť aj keď posilňovňa nie je dostupná.
+     # 🌟 Silové tréningy z reálnych logov + objem na svalové partie.
+    # Kľúč MUSÍ byť "strength_log" - presne to hľadá _strength_log_rule
+    # v prompts.py. Zlyhanie je non-fatal.
     try:
-        input_data["strength"] = build_strength_block_for_analysis(user_id, ctx=ctx)
+        input_data["strength_log"] = build_strength_log_block_for_analysis(user_id, ctx=ctx)
     except Exception as e:  # noqa: BLE001
         print(f"[AS][builder] strength block failed: {repr(e)}")
-        input_data["strength"] = None
+        input_data["strength_log"] = None
 
     acts = build_last_activities_block_for_analysis(
         user_id=user_id, ctx=ctx, limit=6

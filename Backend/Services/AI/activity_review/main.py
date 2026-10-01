@@ -27,10 +27,96 @@ from DB.user_prefs import db_get_pref_single
 from DB.user_zones import db_user_zones_fetch_latest, db_user_zones_insert_row
 from DB.app_subscription import db_get_active_app_subscription_for_user
 from Services.coach_mode import service_get_coach_mode
-
+from Services.strength_sessions import service_get_by_activity
 # ============================================================
 # HELPERS
 # ============================================================
+def _canonical_sport_simple(s: Any) -> str:
+    """Normalizuje sport na run/ride/strength/swim/other."""
+    v = str(s or "").lower().strip()
+    if "strength" in v or "gym" in v or "weight" in v:
+        return "strength"
+    if v.startswith("run") or v in ("trail", "trail_run"):
+        return "run"
+    if v.startswith(("ride", "bike", "cycle")):
+        return "ride"
+    if "swim" in v:
+        return "swim"
+    return "other"
+
+
+def _summarize_strength_log(row: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    🌟 NOVÉ: zhustený obsah silového tréningu pre AI review.
+
+    Posielame mená cvikov a svalové partie (nie exercise_id ani pohybové
+    vzory) - AI má o tréningu hovoriť rečou, ktorej athlete rozumie.
+    Rozcvičovacie série sa nerátajú.
+    """
+    if not isinstance(row, dict):
+        return None
+
+    try:
+        from Configs.strength_catalog import get_exercise
+        from Configs.strength_muscles import get_muscles
+    except Exception:  # noqa: BLE001
+        return None
+
+    log = row.get("log")
+    if not isinstance(log, dict):
+        return None
+
+    exercises: List[Dict[str, Any]] = []
+    muscle_sets: Dict[str, float] = {}
+    total_sets = 0
+    volume = 0.0
+
+    for ex in (log.get("exercises") or []):
+        if not isinstance(ex, dict):
+            continue
+        ex_id = str(ex.get("exercise_id") or "")
+        work = [
+            s for s in (ex.get("sets") or [])
+            if isinstance(s, dict) and not s.get("is_warmup") and (s.get("reps") or s.get("weight_kg"))
+        ]
+        if not ex_id or not work:
+            continue
+
+        meta = get_exercise(ex_id) or {}
+        measure = meta.get("measure") or "reps"
+        total_sets += len(work)
+
+        if measure == "reps":
+            for s in work:
+                w = s.get("weight_kg")
+                r = s.get("reps")
+                if w and r:
+                    volume += float(w) * int(r)
+
+        top = max(work, key=lambda s: (s.get("weight_kg") or 0, s.get("reps") or 0))
+        exercises.append({
+            "name": meta.get("name_en") or ex_id.replace("_", " "),
+            "sets": len(work),
+            "top_weight_kg": top.get("weight_kg"),
+            "top_reps": top.get("reps"),
+            "measure": measure,
+        })
+
+        for muscle, weight in get_muscles(ex_id).items():
+            muscle_sets[muscle] = muscle_sets.get(muscle, 0.0) + len(work) * float(weight)
+
+    if not exercises:
+        return None
+
+    return {
+        "exercises": exercises[:12],
+        "total_work_sets": total_sets,
+        "volume_kg": round(volume) or None,
+        "muscle_sets": {m: round(v, 1) for m, v in sorted(
+            muscle_sets.items(), key=lambda kv: kv[1], reverse=True
+        )},
+        "session_note": row.get("session_note"),
+    }
 
 def _calculate_zones_from_lthr(lthr: int, hr_max: int) -> Dict[str, int]:
     """Vypočíta zónové hranice z LTHR — zhodná logika s FE."""
@@ -258,6 +344,21 @@ def service_activity_review(
     src = (source or "").strip().lower() or "auto"
     safe_comment = _norm_comment(comment)
 
+    # 🌟 NOVÉ: silový tréning sa automaticky NEhodnotí. Pri importe zo Stravy
+    # ešte spravidla neexistuje zápis sérií, takže by AI komentovala prázdno.
+    # Hodnotenie dáva zmysel až keď si ho athlete vyžiada - vtedy buď zápis
+    # má, alebo mu AI povie, nech ho doplní.
+    if src != "user":
+        try:
+            summaries = db_get_summary_for_activities(
+                ctx=ctx, user_id=user_id, activity_ids=[activity_id]
+            )
+            sport_raw = (summaries[0] or {}).get("sport_type_fe") if summaries else None
+            if str(sport_raw or "").lower() == "strength":
+                return {"ok": False, "code": "strength_review_on_request_only"}
+        except Exception as e:  # noqa: BLE001
+            print(f"❌ [AR] strength auto-skip check failed: {repr(e)}")
+
     # Kvóta check — len pre user-initiated volania
     if src == "user" and is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
@@ -277,6 +378,24 @@ def service_activity_review(
         is_race_effort=is_race_effort,
     )
     context_for_ai = _minify_context_for_ai(input_data)
+
+    # 🌟 NOVÉ: zápis silového tréningu naviazaný na túto aktivitu. Ak chýba,
+    # AI musí povedať, že obsah tréningu komentovať nevie - nie si ho vymyslieť.
+    try:
+        act_block = context_for_ai.get("activity") if isinstance(context_for_ai, dict) else None
+        sport_canon = _canonical_sport_simple(
+            (act_block or {}).get("sport") or context_for_ai.get("sport")
+        )
+        if sport_canon == "strength":
+            context_for_ai["is_strength"] = True
+            log_row = service_get_by_activity(
+                user_id=user_id, activity_id=activity_id, ctx=ctx
+            )
+            summary = _summarize_strength_log(log_row)
+            if summary:
+                context_for_ai["strength_session"] = summary
+    except Exception as e:  # noqa: BLE001
+        print(f"❌ [AR] strength session context failed: {repr(e)}")
 
     # 🌟 NOVÉ: advisor režim - plan_today/plan_tomorrow si user zostavil sám
     try:

@@ -3446,6 +3446,7 @@ export const sk = {
       statusFailed: "Nepodarilo sa načítať stav súhrnu.",
     },
     ai_errors: {
+      strength_review_on_request_only: "Silový tréning sa hodnotí len na vyžiadanie.",
       activity_not_found: "Tréning sa nenašiel.",
       activity_too_old:
         "Hodnotenie je možné len pre tréningy mladšie ako 7 dní.",

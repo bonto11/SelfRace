@@ -333,6 +333,50 @@ def _advisor_mode_rule(context_payload: Dict[str, Any]) -> str:
         "plan_tomorrow, give general recovery guidance only.\n"
     )
 
+def _strength_review_rule(context_payload: Dict[str, Any]) -> str:
+    """
+    🌟 NOVÉ: pravidlo pre hodnotenie SILOVÉHO tréningu.
+
+    Strava pri silovom tréningu dáva len čas a tep - o tom, čo sa reálne
+    cvičilo, vie appka iba zo zápisu (strength_sessions). Ak zápis chýba,
+    AI NESMIE obsah tréningu komentovať ani si ho domýšľať - zhodnotí
+    celkovú záťaž a vyzve athléta, nech tréning zapíše.
+    """
+    if not (context_payload or {}).get("is_strength"):
+        return ""
+
+    session = (context_payload or {}).get("strength_session")
+    if not session:
+        return (
+            "\n--- STRENGTH SESSION WITHOUT A LOG ---\n"
+            "This is a STRENGTH activity, but the athlete has NOT logged what they did - you only have "
+            "duration and heart rate from the tracker.\n"
+            "- Assess ONLY what the data supports: overall load, duration, heart rate response, how this "
+            "session fits the recent training week and recovery.\n"
+            "- You MUST state clearly, in one sentence, that you cannot comment on the CONTENT of the "
+            "session (exercises, sets, weights, muscle groups) because it was not logged, and invite the "
+            "athlete to log it so you can evaluate it next time.\n"
+            "- NEVER guess or invent exercises, sets, weights or which muscle groups were trained.\n"
+            "- Keep 'key_numbers' to what the tracker actually provides.\n"
+        )
+
+    return (
+        "\n--- STRENGTH SESSION WITH A LOG (USE IT) ---\n"
+        "'strength_session' contains what the athlete ACTUALLY lifted in this session:\n"
+        "  - 'exercises': name, number of working sets and the best set (warm-up sets excluded)\n"
+        "  - 'muscle_sets': working sets per MUSCLE GROUP (fractional values are correct - an exercise "
+        "counts fully for its primary muscles and half for assisting ones)\n"
+        "  - 'total_work_sets', 'volume_kg': overall load of the session\n"
+        "- Evaluate the session by MUSCLE GROUP names the athlete understands (chest, back, shoulders, "
+        "biceps, triceps, forearms, core, glutes, quads, hamstrings, calves - in their language). NEVER use "
+        "movement-pattern jargon like 'vertical pull' or 'horizontal push', and never write exercise ids.\n"
+        "- Say what the session emphasised and what it left out, and whether that balance makes sense for a "
+        "runner (heavy leg work close to a key run is a real risk; upper body is not).\n"
+        "- Reference concrete numbers from the block - sets per muscle group, best set in kilograms or "
+        "repetitions. Never invent numbers that are not there.\n"
+        "- For bodyweight exercises without added weight, talk in REPETITIONS, never kilograms.\n"
+    )
+
 def _schema(lang: str, sport: str, is_race: bool = False) -> str:
     """Vráti JSON schému výstupu — kratšia pre training, dlhšia pre race."""
     review_len = "4–6 sentences" if is_race else "3–4 concise sentences"
@@ -466,6 +510,7 @@ def build_prompts_for_activity_review(
     pre_session_note = _pre_session_conversation_rule(pre_session_ctx)
 
     clarifying_note = _clarifying_question_rule()
+    strength_note = _strength_review_rule(context_payload)
     advisor_note = _advisor_mode_rule(context_payload)
 
     user_txt = (
@@ -487,6 +532,7 @@ def build_prompts_for_activity_review(
         + conversation_note
         + pre_session_note
         + advisor_note
+        + strength_note
         + clarifying_note
         + "\n- Return ONLY raw JSON."
     )

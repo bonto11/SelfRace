@@ -3454,6 +3454,7 @@ export const en = {
       statusFailed: "Failed to load summary status.",
     },
     ai_errors: {
+      strength_review_on_request_only: "Strength sessions are reviewed on request only.",
       activity_not_found: "Workout was not found.",
       activity_too_old:
         "Evaluation is only possible for workouts younger than 7 days.",
