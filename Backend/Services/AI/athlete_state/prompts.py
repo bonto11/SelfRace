@@ -13,47 +13,65 @@ from Modules.Supabase.auth import AuthCtx
 # ============================================================
 def _advisor_rules(advisor_plan: Optional[Dict[str, Any]]) -> str:
     """
-    🌟 NOVÉ: advisor režim - athlete si plán skladá sám, AI je mentor.
+    Advisor režim - athlete si plán skladá sám, AI je mentor.
+
+    🌟 ZMENA: kontext ide po KALENDÁRNOM týždni (pondelok-nedeľa), nie
+    rolling 7/7. Rovnako to počíta aj objem na svalové partie, takže si tie
+    dve čísla neprotirečia.
     """
     has_plan = isinstance(advisor_plan, dict) and advisor_plan.get("has_active_plan")
-    no_plan_note = (
-        "  - The athlete has no active plan yet - base last_week only on last_activities and say "
-        "that upcoming sessions are not planned yet.\n"
-        if not has_plan
-        else ""
-    )
+    if not has_plan:
+        plan_note = (
+            "  - The athlete has no active plan yet - base last_week only on last_activities and say "
+            "that upcoming sessions are not planned yet.\n"
+        )
+        week_note = ""
+    else:
+        plan_note = ""
+        days_left = advisor_plan.get("days_left_in_week")
+        week_note = (
+            "The plan context covers the CURRENT CALENDAR WEEK (Monday-Sunday), not a rolling window:\n"
+            "  - 'advisor_plan.past_days' = Monday up to yesterday, with status per session "
+            "(done / not_done / missed / postponed). Compare it with 'last_activities' (what they "
+            "actually did, including unplanned activities).\n"
+            "  - 'advisor_plan.upcoming_days' = today up to Sunday - what is still ahead THIS week.\n"
+            "  - 'advisor_plan.next_week' (if present) = sessions already planned for next week.\n"
+            f"  - There are {days_left} days left in this week. "
+            "If that number is 0 (it is Sunday), you are closing the week: review it as a whole. "
+            "If several days remain, the week is still in progress - judge it as a partial week and "
+            "do NOT blame the athlete for sessions that are simply still ahead.\n"
+        )
+
     return (
         "\n--- ADVISOR MODE (CRITICAL) ---\n"
         "The athlete builds their OWN training plan. You are a mentor/advisor, NOT a planner.\n"
-        "'advisor_plan.past_7_days' = what they planned in the last 7 days and whether each session "
-        "was completed (status: done / not_done / missed / postponed). Compare it with "
-        "'last_activities' (what they actually did, including unplanned activities).\n"
-        "'advisor_plan.next_7_days' = what they have planned for the upcoming days.\n"
-        + no_plan_note
+        + week_note
+        + plan_note
         + "Fill 'advisor_review':\n"
-        "  - last_week: honest assessment of how the week was structured and executed - easy/hard "
-        "balance, volume vs volume_tolerance, adherence to their own plan, recovery. Be concrete, "
-        "refer to specific days (use weekday names in the athlete's language).\n"
-        "  - upcoming_check: review the athlete's planned upcoming sessions and flag concrete issues: "
-        "two hard sessions on consecutive days, a hard session right after a long run or right before a "
-        "race, a big volume jump vs recent weeks, no easy/rest day, heavy leg strength the day before a key "
-        "run, conflicts with active injuries/illness/fatigue. For strength sessions comment on MUSCLE GROUP "
-        "balance using 'strength_log.muscle_volume' - name the muscle groups that are neglected this week "
-        "(e.g. 'brucho máš len 2 série z 12') and those already at target. Use muscle group names the "
-        "athlete understands, never movement-pattern jargon like 'vertical pull' and never exercise ids. "
-        "If the plan looks good, say so in one short point. "
-        "If nothing is planned, say so.\n"
-        "  - next_week_guidance: VERBAL recommendations how to compose the next 7 days - session types, "
-        "counts, approximate durations and zones, where the long run fits, where to put rest and strength. "
-        "Do NOT write a day-by-day plan with dates and do NOT present workouts as already scheduled - "
-        "the athlete decides. If some muscle groups are under their weekly target, say which ones to "
-        "prioritise in the next strength session - by muscle group name, not by exercise list.\n"
+        "  - last_week: honest assessment of how the week has been structured and executed so far - "
+        "easy/hard balance, volume vs volume_tolerance, adherence to their own plan, recovery. Be concrete, "
+        "refer to specific days (use weekday names in the athlete's language). If the week is still in "
+        "progress, say so plainly instead of judging it as finished.\n"
+        "  - upcoming_check: review what is still planned (rest of this week, plus next week if present) "
+        "and flag concrete issues: two hard sessions on consecutive days, a hard session right after a long "
+        "run or right before a race, a big volume jump vs recent weeks, no easy/rest day, heavy leg strength "
+        "the day before a key run, conflicts with active injuries/illness/fatigue. For strength sessions "
+        "comment on MUSCLE GROUP balance using 'strength_log.muscle_volume' - name the muscle groups that "
+        "are neglected this week (e.g. 'brucho máš len 2 série z 12') and those already at target. Use "
+        "muscle group names the athlete understands, never movement-pattern jargon like 'vertical pull' and "
+        "never exercise ids. If the plan looks good, say so in one short point. If nothing is planned, say so.\n"
+        "  - next_week_guidance: VERBAL recommendations how to compose the NEXT calendar week (Monday to "
+        "Sunday) - session types, counts, approximate durations and zones, where the long run fits, where to "
+        "put rest and strength. Do NOT write a day-by-day plan with dates and do NOT present workouts as "
+        "already scheduled - the athlete decides. If some muscle groups are under their weekly target, say "
+        "which ones to prioritise in the next strength session - by muscle group name, not by exercise list.\n"
         "  - health_warning: if the context contains active injuries, illness or clear high-fatigue signals, "
         "one clear sentence advising to reduce or skip training (and to see a doctor for severe pain); "
         "otherwise null.\n"
         "  - Tone: experienced mentor - direct, specific, supportive. No generic filler.\n"
         "  - Keep plan_adjustment fields as usual, the athlete's plan is never changed automatically.\n"
     )
+
 
 
 def _remove_empty(d: Any) -> Any:
