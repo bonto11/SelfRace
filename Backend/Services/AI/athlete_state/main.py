@@ -40,8 +40,6 @@ from Modules.Supabase.auth import AuthCtx
 # ============================================================
 # HELPERS
 # ============================================================
-ADVISOR_PLAN_DAYS_BACK = 7
-ADVISOR_PLAN_DAYS_FORWARD = 7
 
 def _part_seconds(part: Dict[str, Any]) -> Optional[int]:
     """Sekundy časti intervalu - duration_s, fallback z minutes."""
@@ -111,10 +109,24 @@ def _compact_plan_structure(sport: str, structure: Any) -> Optional[Dict[str, An
     }
 
 
+# Advisor kontext ide po KALENDÁRNYCH týždňoch (pondelok-nedeľa), nie
+# rolling 7/7. Dôvod: "zhodnoť mi týždeň" znamená pre athléta pondelok až
+# nedeľu, a rovnako to počíta aj objem na svalové partie - inak by si tie
+# dve čísla protirečili.
+ADVISOR_NEXT_WEEK_PREVIEW = True
+
+
 def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]:
     """
-    🌟 NOVÉ: kontext plánu pre advisor režim - čo si athlete naplánoval
-    minulých 7 dní (a či to odtrénoval) a čo má naplánované na ďalších 7.
+    Kontext plánu pre advisor režim v rámci AKTUÁLNEHO kalendárneho týždňa.
+
+    past_days      = pondelok .. včera (čo už malo byť odcvičené)
+    upcoming_days  = dnes .. nedeľa (čo ešte v tomto týždni čaká)
+    next_week      = pondelok .. nedeľa nasledujúceho týždňa (ak už niečo má)
+
+    V nedeľu teda 'past_days' pokryje pondelok až sobotu a 'upcoming_days'
+    len nedeľu - hodnotí sa celý týždeň. V stredu to je pondelok až utorok
+    dozadu a streda až nedeľa dopredu.
     """
     meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
@@ -122,21 +134,34 @@ def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]
 
     today = date.today()
     today_iso = today.isoformat()
+    week_start = today - timedelta(days=today.weekday())      # pondelok
+    week_end = week_start + timedelta(days=6)                 # nedeľa
+    next_week_start = week_start + timedelta(days=7)
+    next_week_end = next_week_start + timedelta(days=6)
+
+    date_to = next_week_end if ADVISOR_NEXT_WEEK_PREVIEW else week_end
+
     rows = db_get_planned_range_rows(
         user_id=user_id,
         plan_meta_id=meta.get("id"),
-        date_from=(today - timedelta(days=ADVISOR_PLAN_DAYS_BACK)).isoformat(),
-        date_to=(today + timedelta(days=ADVISOR_PLAN_DAYS_FORWARD)).isoformat(),
+        date_from=week_start.isoformat(),
+        date_to=date_to.isoformat(),
         ctx=ctx,
     ) or []
 
     past: List[Dict[str, Any]] = []
     upcoming: List[Dict[str, Any]] = []
+    next_week: List[Dict[str, Any]] = []
 
     for r in rows:
         d = str(r.get("plan_date") or "")[:10]
         if not d:
             continue
+        try:
+            d_obj = date.fromisoformat(d)
+        except ValueError:
+            continue
+
         sport = str(r.get("sport") or "other")
 
         status = r.get("status") or "planned"
@@ -147,7 +172,7 @@ def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]
 
         item = {
             "date": d,
-            "weekday": date.fromisoformat(d).strftime("%a"),
+            "weekday": d_obj.strftime("%a"),
             "sport": sport,
             "title": r.get("title"),
             "duration_min": r.get("duration_min"),
@@ -155,14 +180,34 @@ def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]
             "status": status,
             "structure": _compact_plan_structure(sport, r.get("structure")),
         }
-        (past if d < today_iso else upcoming).append(item)
 
-    return {
+        if d_obj > week_end:
+            next_week.append(item)
+        elif d < today_iso:
+            past.append(item)
+        else:
+            upcoming.append(item)
+
+    out: Dict[str, Any] = {
         "has_active_plan": True,
         "today": today_iso,
-        "past_7_days": past,
-        "next_7_days": upcoming,
+        "today_weekday": today.strftime("%a"),
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "days_left_in_week": (week_end - today).days,
+        "past_days": past,
+        "upcoming_days": upcoming,
     }
+    if next_week:
+        out["next_week"] = {
+            "week_start": next_week_start.isoformat(),
+            "week_end": next_week_end.isoformat(),
+            "sessions": next_week,
+        }
+    return out
+
+    
+
 
 def _now_iso() -> str:
     """Aktuálny UTC čas ako ISO string."""
