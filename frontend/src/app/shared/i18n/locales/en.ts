@@ -389,7 +389,7 @@ export const en = {
     updatedAt: "Updated",
     empty:
       "No review yet. It arrives automatically on Sunday evening, or request it now.",
-    lastWeek: "Past week",
+    lastWeek: "This week",
     wentWell: "What went well",
     toImprove: "What to work on",
     upcomingCheck: "Planned sessions check",
