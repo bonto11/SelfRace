@@ -28,7 +28,8 @@ def _advisor_rules(advisor_plan: Optional[Dict[str, Any]]) -> str:
         week_note = ""
     else:
         plan_note = ""
-        days_left = advisor_plan.get("days_left_in_week")
+        plan: Dict[str, Any] = advisor_plan or {}
+        days_left = plan.get("days_left_in_week")
         week_note = (
             "The plan context covers the CURRENT CALENDAR WEEK (Monday-Sunday), not a rolling window:\n"
             "  - 'advisor_plan.past_days' = Monday up to yesterday, with status per session "

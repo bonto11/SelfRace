@@ -92,8 +92,30 @@ def service_adapt_plan_for_health(user_id: int, ctx: AuthCtx) -> Dict[str, Any]:
     # Detekujeme, či je menštruácia aktívna (bez ohľadu na závažnosť, ale prioritu má kritická závažnosť)
     has_menstruation = any(log.get("event_type") == "menstruation" for log in active_logs)
 
-    # 1. AK JE ZÁVAŽNOSŤ >= 7 (Nezáleží, či je to menštruácia, choroba, zranenie)
+    # 1. AK JE ZÁVAŽNOSŤ >= 7 (nezáleží, či menštruácia, choroba, zranenie)
     if max_severity >= 7:
+        # 🌟 NOVÉ: v advisor režime plán nemeníme, ale athlete má dostať
+        # čerstvé hodnotenie s varovaním (advisor_review.health_warning).
+        # Autoadjust by to neurobil - health_critical je v ADVISOR_SKIP_REASONS.
+        try:
+            from Services.coach_mode import service_get_coach_mode
+
+            if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+                service_enqueue_job(
+                    user_id=user_id,
+                    job_type="ai_analyze",
+                    payload={"with_advisor_review": True},
+                    priority=100,
+                    dedupe_key=f"ai_analyze_health_critical_{user_id}_{ts}",
+                    ctx=ctx,
+                )
+                return {
+                    "action": "advisor_warning",
+                    "message": "Tvoj plán nemeníme, ale tréner ti pripraví hodnotenie s odporúčaním.",
+                }
+        except Exception as e:  # noqa: BLE001
+            print(f"[HEALTH] advisor review enqueue failed user={user_id}: {repr(e)}")
+
         service_enqueue_job(
             user_id=user_id,
             job_type="coach_autoadjust",

@@ -21,15 +21,19 @@ def analyze_athlete(
     req: Request,
     user_id: int,
 ):
+    """
+    Manuálna analýza - vždy čerstvá a vždy s advisor hodnotením týždňa
+    (v advisor režime). Toto je to, čo spúšťa tlačidlo "Skontroluj mi týždeň".
+    """
     try:
         ctx = require_user(get_auth_ctx(req))
 
-        # Frontend už neposiela model, takže natvrdo posúvame None
-        # Vďaka tomu sa spustí tvoja funkcia _default_ai_model() a potiahne sa .env
         result = service_analyze_athlete(
             user_id=user_id,
             ctx=ctx,
-            model=None, 
+            model=None,
+            with_advisor_review=True,
+            force=True,
         )
         
         if not result.get("ok"):

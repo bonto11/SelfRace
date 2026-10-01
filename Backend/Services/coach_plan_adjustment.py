@@ -10,7 +10,7 @@ from DB.coach_plan_daily import (
     db_clear_daily_for_user_range,
     db_get_planned_range_rows,
     db_update_daily_session_data,
-    db_delete_daily_session
+    db_delete_daily_session,
 )
 from Modules.Supabase.auth import AuthCtx
 from Modules.Supabase.client import get_sb
@@ -32,7 +32,7 @@ from DB.coach_plan_meta import (
 )
 from DB.coach_plan_weekly import (
     db_get_weekly_for_user_plan,
-    db_delete_future_weekly_plans
+    db_delete_future_weekly_plans,
 )
 from DB.user_recovery import db_get_recent_recovery
 
@@ -40,7 +40,6 @@ from Configs.config import WEEKLY_REPLAN_COOLDOWN_DAYS, MIN_DAILY_HORIZON_AFTER_
 
 # --- Import notifikácií ---
 from Services.notifications import service_notify_autorecovery_applied
-
 
 # 🌟 NOVÉ: force_reason hodnoty, ktoré v advisor režime úplne preskočíme -
 # všetky by menili/mazali plán (suspend, soften, replan, autorecovery).
@@ -55,66 +54,125 @@ ADVISOR_SKIP_REASONS = {
 
 
 def _to_date(val: Any) -> Optional[date]:
-    if isinstance(val, date) and not isinstance(val, datetime): return val
-    if isinstance(val, datetime): return val.date()
+    if isinstance(val, date) and not isinstance(val, datetime):
+        return val
+    if isinstance(val, datetime):
+        return val.date()
     if isinstance(val, str):
-        try: return datetime.fromisoformat(val[:10]).date()
-        except Exception: return None
+        try:
+            return datetime.fromisoformat(val[:10]).date()
+        except Exception:
+            return None
     return None
 
-def _safe_int(v: Any, default: int = 0) -> int:
-    try: return int(v) if v is not None else default
-    except Exception: return default
 
-def _find_current_week_index(weekly_rows: List[Dict[str, Any]], *, today: date) -> Optional[int]:
-    if not isinstance(weekly_rows, list) or not weekly_rows: return None
+def _safe_int(v: Any, default: int = 0) -> int:
+    try:
+        return int(v) if v is not None else default
+    except Exception:
+        return default
+
+
+def _find_current_week_index(
+    weekly_rows: List[Dict[str, Any]], *, today: date
+) -> Optional[int]:
+    if not isinstance(weekly_rows, list) or not weekly_rows:
+        return None
     weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
     for w in weekly_sorted:
         ws = _to_date(w.get("week_start"))
         we = _to_date(w.get("week_end") or w.get("week_start"))
-        if not ws or not we: continue
-        if ws <= today <= we: return int(w.get("week_index") or 0)
+        if not ws or not we:
+            continue
+        if ws <= today <= we:
+            return int(w.get("week_index") or 0)
     candidate: Optional[int] = None
     for w in weekly_sorted:
         ws = _to_date(w.get("week_start"))
-        if not ws: continue
-        if ws <= today: candidate = int(w.get("week_index") or 0)
+        if not ws:
+            continue
+        if ws <= today:
+            candidate = int(w.get("week_index") or 0)
     return candidate
 
-def _compute_be_flags_recent_load(user_id: int, *, window_days: int = 42, ctx: AuthCtx) -> Dict[str, Any]:
-    rl = service_build_recent_load_raw(user_id=user_id, window_days=window_days, ctx=ctx)
+
+def _compute_be_flags_recent_load(
+    user_id: int, *, window_days: int = 42, ctx: AuthCtx
+) -> Dict[str, Any]:
+    rl = service_build_recent_load_raw(
+        user_id=user_id, window_days=window_days, ctx=ctx
+    )
     weeks: List[Dict[str, Any]] = rl.get("weeks") or []
     if not weeks:
-        return {"has_data": False, "should_trigger_ai": False, "action": None, "reason": "no_recent_load_data"}
-    
+        return {
+            "has_data": False,
+            "should_trigger_ai": False,
+            "action": None,
+            "reason": "no_recent_load_data",
+        }
+
     current = next((w for w in weeks if w.get("week_index_from_now") == 0), weeks[-1])
     curr_min = float(current.get("total_minutes") or 0.0)
-    prev_weeks = [w for w in weeks if isinstance(w.get("week_index_from_now"), int) and w["week_index_from_now"] < 0]
+    prev_weeks = [
+        w
+        for w in weeks
+        if isinstance(w.get("week_index_from_now"), int)
+        and w["week_index_from_now"] < 0
+    ]
     prev_weeks_sorted = sorted(prev_weeks, key=lambda w: int(w.get("week_index") or 0))
-    recent_baseline_weeks = prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
-    
-    baseline = sum(float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks) / len(recent_baseline_weeks) if recent_baseline_weeks else curr_min
+    recent_baseline_weeks = (
+        prev_weeks_sorted[-3:] if len(prev_weeks_sorted) >= 3 else prev_weeks_sorted
+    )
+
+    baseline = (
+        sum(float(w.get("total_minutes") or 0.0) for w in recent_baseline_weeks)
+        / len(recent_baseline_weeks)
+        if recent_baseline_weeks
+        else curr_min
+    )
     ratio = curr_min / baseline if baseline > 0 else 1.0
     hard_current = int(current.get("hard_sessions") or 0)
 
     if ratio > 1.4 or (curr_min > baseline + 150):
-        return {"has_data": True, "should_trigger_ai": True, "action": "weekly_replan", "reason": "large_weekly_load_spike", "ratio": ratio}
+        return {
+            "has_data": True,
+            "should_trigger_ai": True,
+            "action": "weekly_replan",
+            "reason": "large_weekly_load_spike",
+            "ratio": ratio,
+        }
     if ratio > 1.2 or hard_current >= 3:
-        return {"has_data": True, "should_trigger_ai": True, "action": "daily_soften", "reason": "moderate_spike_or_many_hard_sessions", "ratio": ratio}
-    return {"has_data": True, "should_trigger_ai": False, "action": None, "reason": "load_within_normal_range", "ratio": ratio}
+        return {
+            "has_data": True,
+            "should_trigger_ai": True,
+            "action": "daily_soften",
+            "reason": "moderate_spike_or_many_hard_sessions",
+            "ratio": ratio,
+        }
+    return {
+        "has_data": True,
+        "should_trigger_ai": False,
+        "action": None,
+        "reason": "load_within_normal_range",
+        "ratio": ratio,
+    }
 
-def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Optional[Dict[str, Any]]:
+
+def _compute_recovery_debug(
+    user_id: int, *, ctx: AuthCtx, days: int = 21
+) -> Optional[Dict[str, Any]]:
     rows = db_get_recent_recovery(user_id, days, ctx=ctx) or []
-    if not rows: return {"latest_date": None, "latest_RHR_bpm": None, "latest_HRV_ms": None}
-    
+    if not rows:
+        return {"latest_date": None, "latest_RHR_bpm": None, "latest_HRV_ms": None}
+
     latest = rows[0]
-    
+
     recent_vals: List[float] = []
     for r in rows[:7]:
         v = r.get("HRV_avg_ms")
         if isinstance(v, (int, float)) and v > 0:
             recent_vals.append(float(v))
-            
+
     prev_vals: List[float] = []
     for r in rows[7:21]:
         v = r.get("HRV_avg_ms")
@@ -129,88 +187,158 @@ def _compute_recovery_debug(user_id: int, *, ctx: AuthCtx, days: int = 21) -> Op
         "hrv_prev_7_21d_avg": mean(prev_vals) if prev_vals else None,
     }
 
-def _apply_autorecovery_to_today(user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx) -> Dict[str, Any]:
+
+def _apply_autorecovery_to_today(
+    user_id: int, plan_meta_id: Optional[int], ctx: AuthCtx
+) -> Dict[str, Any]:
     today_iso = date.today().isoformat()
 
     try:
-        sessions = db_get_planned_range_rows(user_id=user_id, plan_meta_id=plan_meta_id, date_from=today_iso, date_to=today_iso, ctx=ctx)
+        sessions = db_get_planned_range_rows(
+            user_id=user_id,
+            plan_meta_id=plan_meta_id,
+            date_from=today_iso,
+            date_to=today_iso,
+            ctx=ctx,
+        )
 
         if not sessions:
-            return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_rest_day"}
-        
+            return {
+                "changed": False,
+                "mode": "autorecovery",
+                "reason": "today_is_already_rest_day",
+            }
+
         first_session = sessions[0]
         title = str(first_session.get("title") or "").lower()
         session_type = str(first_session.get("session_type") or "").lower()
         kind = str(first_session.get("kind") or "").lower()
-        
-        if session_type == "recovery" or kind == "recovery" or "regen" in title or "recovery" in title:
-            return {"changed": False, "mode": "autorecovery", "reason": "today_is_already_recovery"}
-            
-        if kind == "race" or session_type == "external_event" or "pretek" in title or "race" in title:
-            print(f"[AUTORECOVERY] Skipped: User {user_id} has a RACE today. Ignoring bad HRV.")
-            return {"changed": False, "mode": "autorecovery", "reason": "today_is_race_day"}
-        
+
+        if (
+            session_type == "recovery"
+            or kind == "recovery"
+            or "regen" in title
+            or "recovery" in title
+        ):
+            return {
+                "changed": False,
+                "mode": "autorecovery",
+                "reason": "today_is_already_recovery",
+            }
+
+        if (
+            kind == "race"
+            or session_type == "external_event"
+            or "pretek" in title
+            or "race" in title
+        ):
+            print(
+                f"[AUTORECOVERY] Skipped: User {user_id} has a RACE today. Ignoring bad HRV."
+            )
+            return {
+                "changed": False,
+                "mode": "autorecovery",
+                "reason": "today_is_race_day",
+            }
+
         sport = first_session.get("sport") or "run"
-        sport_label = "beh" if sport == "run" else "jazda" if sport in ("ride", "cycling") else "tréning"
-        
+        sport_label = (
+            "beh"
+            if sport == "run"
+            else "jazda" if sport in ("ride", "cycling") else "tréning"
+        )
+
         payload = first_session.get("payload") or {}
-        
+
         payload["structure"] = {
             "warmup": {"minutes": 5, "notes": "Z1 - veľmi pomaly"},
             "main_part": [
-                {"minutes": 25, "notes": "Z1/Z2 - regeneračné tempo, čisto na uvoľnenie nôh"}
+                {
+                    "minutes": 25,
+                    "notes": "Z1/Z2 - regeneračné tempo, čisto na uvoľnenie nôh",
+                }
             ],
-            "cooldown": {"minutes": 5, "notes": "Z1 / Chôdza"}
+            "cooldown": {"minutes": 5, "notes": "Z1 / Chôdza"},
         }
-        
+
         update_data = {
             "title": f"Regeneračný {sport_label} (Auto-Recovery)",
             "duration_min": 35,
             "intensity": "Z1/Z2",
             "session_type": "recovery",
             "notes": "Systém automaticky upravil dnešný tréning na ľahký kvôli tvojim horším dátam z nočnej regenerácie.",
-            "payload": payload
+            "payload": payload,
         }
-        
-        db_update_daily_session_data(user_id=user_id, session_id=int(first_session["id"]), update_data=update_data, ctx=ctx)
-        
+
+        db_update_daily_session_data(
+            user_id=user_id,
+            session_id=int(first_session["id"]),
+            update_data=update_data,
+            ctx=ctx,
+        )
+
         for extra_session in sessions[1:]:
-            db_delete_daily_session(user_id=user_id, session_id=int(extra_session["id"]), ctx=ctx)
-            
+            db_delete_daily_session(
+                user_id=user_id, session_id=int(extra_session["id"]), ctx=ctx
+            )
+
         try:
             service_notify_autorecovery_applied(user_id=user_id, ctx=ctx)
         except Exception as e:
             print(f"[AUTORECOVERY] Failed to send push notification: {repr(e)}")
-            
-        return {"changed": True, "mode": "autorecovery", "reason": "today_changed_to_recovery"}
-        
+
+        return {
+            "changed": True,
+            "mode": "autorecovery",
+            "reason": "today_changed_to_recovery",
+        }
+
     except Exception as e:
         print(f"[AUTORECOVERY] Error for user {user_id}: {repr(e)}")
         return {"changed": False, "mode": "autorecovery", "reason": "internal_error"}
 
 
-def _advisor_analysis_only(user_id: int, *, force_reason: Optional[str], ctx: AuthCtx) -> Dict[str, Any]:
+def _advisor_analysis_only(
+    user_id: int, *, force_reason: Optional[str], ctx: AuthCtx
+) -> Dict[str, Any]:
     """
-    🌟 NOVÉ: advisor režim - plán sa NIKDY nemení.
-    - health / autorecovery force_reason -> úplný skip (tie vetvy len mažú
-      alebo prepisujú tréningy).
-    - všetko ostatné (bežný autoadjust po sync, manual_review) -> prebehne
-      len analýza athlete state, aby bol stav aktuálny a prípadné varovanie
-      (plan_adjustment.should_notify_user) sa vyhodnotilo rovnako ako
-      v coach režime. soften_next_days / should_replan_weekly sa ignorujú.
+    Advisor režim - plán sa NIKDY nemení automaticky.
+
+    🌟 ZMENA: autoadjust už NEprepisuje advisor_review. To vzniká len v
+    nedeľnom jobe, na tlačidlo "Skontroluj mi týždeň" a pri kritickom
+    zdravotnom zázname - inak sa athletovi menilo hodnotenie pod rukami
+    po každom vyžiadanom review aktivity.
+
+    Analýza stavu beží s force=False, takže ak je posledný stav čerstvý
+    (< STATE_FRESH_HOURS), AI sa nevolá vôbec.
     """
     if force_reason in ADVISOR_SKIP_REASONS:
-        print(f"[AUTOADJUST DEBUG] Advisor mode - skipping force_reason={force_reason}.")
-        return {"changed": False, "mode": "advisor_mode", "reason": f"advisor_skip_{force_reason}"}
+        print(
+            f"[AUTOADJUST DEBUG] Advisor mode - skipping force_reason={force_reason}."
+        )
+        return {
+            "changed": False,
+            "mode": "advisor_mode",
+            "reason": f"advisor_skip_{force_reason}",
+        }
 
-    print(f"[AUTOADJUST DEBUG] Advisor mode - analysis only, no plan changes.")
-    analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
+    print(
+        "[AUTOADJUST DEBUG] Advisor mode - analysis only, no plan changes, no advisor review."
+    )
+    analyze_resp = service_analyze_athlete(
+        user_id=user_id,
+        ctx=ctx,
+        model=None,
+        with_advisor_review=False,
+        force=False,
+    )
     ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
 
     return {
         "changed": False,
         "mode": "advisor_analysis_only",
         "state_id": analyze_resp.get("state_id"),
+        "from_cache": bool(analyze_resp.get("from_cache")),
         "plan_adjustment": ai_state.get("plan_adjustment") or {},
     }
 
@@ -219,23 +347,31 @@ def service_coach_autoadjust_after_update(
     user_id: int,
     *,
     ctx: AuthCtx,
-    force_reason: Optional[str] = None, 
+    force_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    
-    print(f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}")
+
+    print(
+        f"[AUTOADJUST DEBUG] Started for user_id={user_id}, force_reason={force_reason}"
+    )
 
     if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
         return _advisor_analysis_only(user_id, force_reason=force_reason, ctx=ctx)
 
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id, ctx=ctx
+    ) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     if not meta:
         print("[AUTOADJUST DEBUG] No plan meta found. Exiting.")
         return {"changed": False, "mode": "no_plan"}
     plan_meta_id = meta.get("id")
-    print(f"[AUTOADJUST DEBUG] Resolved plan_meta_id={plan_meta_id} (status={meta.get('status')}, start={meta.get('start_date')}, end={meta.get('end_date')})")
+    print(
+        f"[AUTOADJUST DEBUG] Resolved plan_meta_id={plan_meta_id} (status={meta.get('status')}, start={meta.get('start_date')}, end={meta.get('end_date')})"
+    )
 
     if force_reason == "autorecovery":
-        return _apply_autorecovery_to_today(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx)
+        return _apply_autorecovery_to_today(
+            user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx
+        )
 
     today = date.today()
 
@@ -254,12 +390,12 @@ def service_coach_autoadjust_after_update(
 
     if force_reason == "health_critical":
         print("[AUTOADJUST DEBUG] Critical health reported! Suspending future plan.")
-        
+
         days_to_monday = (7 - today.weekday()) % 7
-        if days_to_monday == 0: 
-            days_to_monday = 7 
+        if days_to_monday == 0:
+            days_to_monday = 7
         next_monday = today + timedelta(days=days_to_monday)
-        
+
         db_clear_daily_for_user_range(
             user_id=user_id,
             plan_meta_id=plan_meta_id,
@@ -267,49 +403,56 @@ def service_coach_autoadjust_after_update(
             date_to=(today + timedelta(days=100)).isoformat(),
             ctx=ctx,
         )
-        
+
         db_delete_future_weekly_plans(
-             user_id=user_id,
-             plan_meta_id=plan_meta_id,
-             from_date_iso=next_monday.isoformat(),
-             ctx=ctx
+            user_id=user_id,
+            plan_meta_id=plan_meta_id,
+            from_date_iso=next_monday.isoformat(),
+            ctx=ctx,
         )
 
         return {
             "changed": True,
             "mode": "plan_suspended",
-            "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}"
+            "reason": f"critical_health_issue_reported_future_deleted_from_{next_monday.isoformat()}",
         }
 
     if force_reason in ["health_mild_restriction", "health_menstruation"]:
-        soften_should = True 
-        soften_days = 7 
-        soften_reason = f"Health limitation or Cycle phase triggered soften. Reason: {force_reason}"
+        soften_should = True
+        soften_days = 7
+        soften_reason = (
+            f"Health limitation or Cycle phase triggered soften. Reason: {force_reason}"
+        )
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
-        
+
     elif force_reason in ["health_resolved", "return_to_training"]:
-        weekly_replan_should = True 
+        weekly_replan_should = True
         weekly_replan_reason = f"Health status resolved, initiating Return to Play. (Reason: {force_reason})."
         plan_adjustment = {"reason": force_reason}
         be_flags["should_trigger_ai"] = True
 
     else:
-        analyze_resp = service_analyze_athlete(user_id=user_id, ctx=ctx, model=None)
+        # Čerstvý stav sa znova neanalyzuje - soften/replan stojí hlavne na
+        # be_flags z recent load, ktoré sa počíta vždy nanovo.
+        analyze_resp = service_analyze_athlete(
+            user_id=user_id, ctx=ctx, model=None, force=False
+        )
         state_id = analyze_resp.get("state_id")
         ai_state = (analyze_resp.get("analysis") or {}).get("ai_state") or {}
         plan_adjustment = ai_state.get("plan_adjustment") or {}
 
         soften_block = plan_adjustment.get("soften_next_days") or {}
         soften_should = bool(soften_block.get("should_soften"))
-        soften_days = soften_block.get("days") or 0
         soften_reason = soften_block.get("reason")
         weekly_replan_should = bool(plan_adjustment.get("should_replan_weekly"))
         weekly_replan_reason = plan_adjustment.get("weekly_replan_reason")
 
-    print(f"[AUTOADJUST DEBUG] Evaluation complete. soften_should={soften_should}, weekly_replan_should={weekly_replan_should}")
-
-    if not be_flags.get("should_trigger_ai") and not soften_should and not weekly_replan_should:
+    if (
+        not be_flags.get("should_trigger_ai")
+        and not soften_should
+        and not weekly_replan_should
+    ):
         return {
             "changed": False,
             "mode": "no_adjustment_needed",
@@ -317,12 +460,20 @@ def service_coach_autoadjust_after_update(
         }
 
     if weekly_replan_should:
-        print("[AUTOADJUST DEBUG] Starting Weekly Replan...")
-        
-        health_bypass = ["health_mild_restriction", "health_critical", "health_resolved", "return_to_training", "health_menstruation"]
-        
-        if force_reason not in health_bypass and weekly_age_days is not None and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS:
-            print("[AUTOADJUST DEBUG] Weekly replan on cooldown, converting to soften.")
+
+        health_bypass = [
+            "health_mild_restriction",
+            "health_critical",
+            "health_resolved",
+            "return_to_training",
+            "health_menstruation",
+        ]
+
+        if (
+            force_reason not in health_bypass
+            and weekly_age_days is not None
+            and weekly_age_days < WEEKLY_REPLAN_COOLDOWN_DAYS
+        ):
             soften_should = True
             soften_days = 3
             soften_reason = "Weekly replan on cooldown, applying daily soften instead."
@@ -334,7 +485,6 @@ def service_coach_autoadjust_after_update(
                 date_to=(today + timedelta(days=100)).isoformat(),
                 ctx=ctx,
             )
-            print("[AUTOADJUST DEBUG] Cleared future daily plan rows.")
 
             weekly_resp = service_generate_weekly_plan(
                 user_id=user_id,
@@ -343,35 +493,38 @@ def service_coach_autoadjust_after_update(
                 state_id=state_id,
                 weeks=None,
                 model=None,
-                override_start_date=None, 
+                override_start_date=None,
                 plan_meta_id=plan_meta_id,
                 ctx=ctx,
             )
-            print(f"[AUTOADJUST DEBUG] Weekly generator finished. Success: {weekly_resp.get('ok')}")
+
             plan_meta_id = weekly_resp.get("plan_meta_id") or plan_meta_id
 
-            weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
-            
+            weekly_rows = (
+                db_get_weekly_for_user_plan(
+                    user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx
+                )
+                or []
+            )
+
             cur_idx = _find_current_week_index(weekly_rows, today=today)
             if cur_idx is None and weekly_rows:
-                weekly_sorted = sorted(weekly_rows, key=lambda w: int(w.get("week_index") or 0))
+                weekly_sorted = sorted(
+                    weekly_rows, key=lambda w: int(w.get("week_index") or 0)
+                )
                 cur_idx = int(weekly_sorted[0].get("week_index") or 1)
             elif cur_idx is None:
                 cur_idx = 1
-                
-            print(f"[AUTOADJUST DEBUG] Decided to generate daily plan for week_index={cur_idx}")
-            
+
             daily_res = service_generate_daily_week(
                 user_id=user_id,
                 week_index=cur_idx,
                 plan_meta_id=plan_meta_id,
                 model=None,
-                drop_past_days=False, 
+                drop_past_days=False,
                 reason=force_reason or "weekly_replan",
                 ctx=ctx,
             )
-            
-            print(f"[AUTOADJUST DEBUG] Daily generator finished. Output: {daily_res}")
 
             daily_extend = service_auto_extend_daily_plan(
                 user_id=user_id,
@@ -387,42 +540,51 @@ def service_coach_autoadjust_after_update(
                 "plan_meta_id": plan_meta_id,
                 "plan_adjustment": plan_adjustment,
                 "daily_extend": daily_extend,
-                "daily_result_debug": daily_res
+                "daily_result_debug": daily_res,
             }
 
     if soften_should:
         print("[AUTOADJUST DEBUG] Starting Daily Soften...")
-        weekly_rows = db_get_weekly_for_user_plan(user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx) or []
+        weekly_rows = (
+            db_get_weekly_for_user_plan(
+                user_id=user_id, plan_meta_id=plan_meta_id, ctx=ctx
+            )
+            or []
+        )
         if not isinstance(weekly_rows, list):
             weekly_rows = []
-            
-        if not weekly_rows: return {"changed": False, "mode": "no_weekly_rows"}
-        
-        cur_idx = _find_current_week_index(weekly_rows, today=today)
-        if cur_idx is None: return {"changed": False, "mode": "cannot_determine_current_week"}
 
-        print(f"[AUTOADJUST DEBUG] Daily Soften running for week_index={cur_idx}")
+        if not weekly_rows:
+            return {"changed": False, "mode": "no_weekly_rows"}
+
+        cur_idx = _find_current_week_index(weekly_rows, today=today)
+        if cur_idx is None:
+            return {"changed": False, "mode": "cannot_determine_current_week"}
+
         daily_resp = service_generate_daily_week(
-            user_id=user_id, 
-            week_index=cur_idx, 
+            user_id=user_id,
+            week_index=cur_idx,
             plan_meta_id=plan_meta_id,
-            model=None, 
-            drop_past_days=False, 
+            model=None,
+            drop_past_days=False,
             reason=force_reason or "soften",
-            ctx=ctx
+            ctx=ctx,
         )
-        print(f"[AUTOADJUST DEBUG] Daily soften finished. Output: {daily_resp}")
-        
+
         return {
             "changed": True,
             "mode": "daily_soften",
             "reason": soften_reason,
             "affected_week_index": cur_idx,
             "plan_meta_id": plan_meta_id,
-            "daily_result": {"week_index": daily_resp.get("week_index"), "debug": daily_resp}
+            "daily_result": {
+                "week_index": daily_resp.get("week_index"),
+                "debug": daily_resp,
+            },
         }
 
     return {"changed": False, "mode": "no_adjustment", "reason": "No changes requested"}
+
 
 def service_reschedule_daily_plan(
     user_id: int,
@@ -438,7 +600,9 @@ def service_reschedule_daily_plan(
             ctx=ctx,
         )
 
-    meta = db_get_active_plan_meta_for_user(user_id=user_id, ctx=ctx) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
+    meta = db_get_active_plan_meta_for_user(
+        user_id=user_id, ctx=ctx
+    ) or db_get_latest_plan_meta_for_user(user_id=user_id, ctx=ctx)
     plan_meta_id = meta.get("id") if meta else None
 
     cleaned: List[Dict[str, Any]] = []

@@ -305,10 +305,15 @@ def service_execute_job(ctx: AuthCtx, job: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         if job_type == "ai_analyze":
+            # with_advisor_review zapína hodnotenie týždňa (advisor režim).
+            # Posiela ho len to, čo ho reálne chce - tlačidlo a kritický
+            # zdravotný záznam. Bežné interné volania ho nechávajú vypnuté.
             result = service_analyze_athlete(
                 user_id=user_id,
                 ctx=ctx,
                 model=payload.get("model"),
+                with_advisor_review=bool(payload.get("with_advisor_review", False)),
+                force=bool(payload.get("force", True)),
             )
 
         elif job_type == "weekly_generate":

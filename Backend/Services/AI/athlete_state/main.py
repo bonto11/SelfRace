@@ -41,6 +41,12 @@ from Modules.Supabase.auth import AuthCtx
 # HELPERS
 # ============================================================
 
+# Ako dlho je uložený athlete state považovaný za čerstvý. Interné volania
+# (autoadjust) vtedy nespúšťajú novú AI analýzu - stav sa len prečíta.
+# Nedeľný job a manuálne volanie majú force=True.
+STATE_FRESH_HOURS = 12
+
+
 def _part_seconds(part: Dict[str, Any]) -> Optional[int]:
     """Sekundy časti intervalu - duration_s, fallback z minutes."""
     if part.get("duration_s") is not None:
@@ -206,8 +212,6 @@ def _build_advisor_plan_context(user_id: int, *, ctx: AuthCtx) -> Dict[str, Any]
         }
     return out
 
-    
-
 
 def _now_iso() -> str:
     """Aktuálny UTC čas ako ISO string."""
@@ -225,6 +229,22 @@ def _get_optional_int(v: Any) -> Optional[int]:
 def _minify_context_for_ai(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Deep copy s konverziou neserializovateľných hodnôt na string."""
     return json.loads(json.dumps(payload, default=str))
+
+
+def _latest_state_age_hours(user_id: int, *, ctx: AuthCtx) -> Optional[float]:
+    """Vek posledného uloženého athlete state v hodinách, None ak žiadny nie je."""
+    try:
+        row = db_get_latest_state_for_user(user_id=user_id, version=1, ctx=ctx)
+        created = (row or {}).get("created_at")
+        if not created:
+            return None
+        dt = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    except Exception as e:  # noqa: BLE001
+        print(f"[AI-STATE] latest state age check failed: {repr(e)}")
+        return None
 
 
 # ============================================================
@@ -425,17 +445,45 @@ def service_get_latest_athlete_progress(
 # ============================================================
 
 def service_analyze_athlete(
-    user_id: int, *, ctx: AuthCtx, model: Optional[str] = None
+    user_id: int,
+    *,
+    ctx: AuthCtx,
+    model: Optional[str] = None,
+    with_advisor_review: bool = False,
+    force: bool = True,
 ) -> Dict[str, Any]:
     """
     Hlavný service pre AI analýzu stavu športovca.
     Zostaví kontext z DB, zavolá AI, uloží výsledky, spustí progress porovnanie.
 
-    🌟 NOVÉ: v advisor režime sa do kontextu pridá 'advisor_plan' (plán
-    minulých/nasledujúcich 7 dní) a AI vyplní navyše blok 'advisor_review'
-    (hodnotenie týždňa, kontrola naplánovaného, slovné odporúčania).
-    Beží rovnako pri nedeľnom jobe aj pri "Skontroluj mi týždeň".
+    with_advisor_review: v advisor režime pridá do kontextu plán týždňa a
+        AI vyplní blok 'advisor_review'. Zapína sa LEN tam, kde athlete
+        hodnotenie reálne čaká - nedeľný job, tlačidlo "Skontroluj mi
+        týždeň" a kritický zdravotný záznam. Interné volania (autoadjust
+        po hodnotení aktivity) ho NESMÚ prepísať pod rukami.
+
+    force: False = ak je posledný stav mladší než STATE_FRESH_HOURS,
+        AI sa vôbec nevolá a vráti sa uložený stav. Šetrí tokeny pri
+        častých interných volaniach.
     """
+    if not force:
+        age = _latest_state_age_hours(user_id, ctx=ctx)
+        if age is not None and age < STATE_FRESH_HOURS:
+            cached = service_get_latest_athlete_state(user_id, version=1, ctx=ctx)
+            if cached:
+                print(
+                    f"[AI-STATE] user={user_id} reusing state "
+                    f"(age {age:.1f}h < {STATE_FRESH_HOURS}h), no AI call."
+                )
+                return {
+                    "ok": True,
+                    "state_id": cached.get("id"),
+                    "model": cached.get("model"),
+                    "analysis": cached.get("state") or {},
+                    "from_cache": True,
+                    "error": None,
+                }
+
     if is_user_over_token_quota(user_id, ctx=ctx):
         used = get_user_monthly_usage_tokens(ctx=ctx, user_id=user_id)
         return {
@@ -459,9 +507,10 @@ def service_analyze_athlete(
             pv.pop("external_activities", None)
         prefs_block.pop("external_activities", None)
 
-    # 🌟 NOVÉ: advisor kontext
+    # Advisor kontext a hodnotenie týždňa len keď je vyžiadané
     is_advisor = service_get_coach_mode(user_id, ctx=ctx) == "advisor"
-    if is_advisor:
+    wants_review = is_advisor and with_advisor_review
+    if wants_review:
         try:
             context_for_ai["coach_mode"] = "advisor"
             context_for_ai["advisor_plan"] = _minify_context_for_ai(
@@ -481,7 +530,7 @@ def service_analyze_athlete(
 
     analysis.setdefault("schema_version", 1)
     analysis.setdefault("generated_at", _now_iso())
-    if is_advisor:
+    if wants_review:
         analysis["coach_mode"] = "advisor"
 
     _log_ai_usage(user_id, trace, str(analysis.get("model") or ""), "coach.analyze_state", ctx)
@@ -539,6 +588,7 @@ def service_analyze_athlete(
         resp["compare_previous"] = compare_previous
 
     return resp
+
 
 # ============================================================
 # CORE: COMPARE STATES
@@ -626,7 +676,10 @@ def service_run_weekly_athlete_state(
 ) -> Dict[str, Any]:
     """
     Spúšťa weekly athlete state analýzu pre všetkých userov.
-    Volaný schedulerom každú nedeľu. model=None = ENV default.
+    Volaný schedulerom každú nedeľu o 23:00.
+
+    with_advisor_review=True: nedeľa je jediný automatický moment, kedy sa
+    advisor hodnotenie týždňa generuje samo - vtedy je týždeň uzavretý.
     """
     users = db_list_users_for_athlete_state(ctx=ctx, limit=max_users or 1000)
     if not users:
@@ -640,7 +693,13 @@ def service_run_weekly_athlete_state(
         if not uid:
             continue
         try:
-            resp = service_analyze_athlete(ctx=ctx, user_id=int(uid), model=None)
+            resp = service_analyze_athlete(
+                ctx=ctx,
+                user_id=int(uid),
+                model=None,
+                with_advisor_review=True,
+                force=True,
+            )
             state_id = resp.get("state_id")
             results.append(
                 {"user_id": uid, "state_id": state_id, "ok": bool(state_id is not None)}
