@@ -121,8 +121,22 @@ def service_generate_daily_week(
     reťazci, napr. service_replan_current_week_and_extend nižšie). Default
     True zachováva pôvodné správanie pre všetky ostatné volania.
     """
+    
+    
+    # 🌟 V advisor režime AI plán NIKDY negeneruje - tréningy si pridáva
+    # athlete sám. Gate musí byť tu, nie len v auto_extend: túto funkciu
+    # volá priamo job "daily_generate" aj autoadjust (soften / weekly
+    # replan), takže bez nej by sa ručný plán prepísal.
+    if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
+        return {
+            "ok": False,
+            "code": "advisor_mode",
+            "message": "V režime Poradca si tréningy pridávaš sám.",
+        }
+
     if week_index <= 0:
         raise ValueError("week_index must be >= 1")
+
 
     plan_meta_id = _resolve_plan_meta_id(user_id, plan_meta_id, ctx=ctx)
 
@@ -343,30 +357,31 @@ def service_get_daily_overview(
 # ============================================================
 
 
+
 def service_auto_extend_daily_plan(
     user_id: int,
     *,
     min_horizon_days: int = 4,
     plan_meta_id: Optional[int] = None,
-    consume_ephemeral: bool = True,  # 🌟 NOVÉ
+    consume_ephemeral: bool = True,
     ctx: AuthCtx,
 ) -> Dict[str, Any]:
     """
     Automaticky rozšíri denný plán DANÉHO PLÁNU ak zostáva menej ako
     min_horizon_days dní. Pri aktuálnom týždni zachová odtrénované dni.
 
-    consume_ephemeral: NOVÉ — prenáša sa do každého vnútorného volania
+    consume_ephemeral: prenáša sa do každého vnútorného volania
     service_generate_daily_week. Default True (bežné automatické volanie
-    po synchronizácii aktivity si poznámku spotrebuje samo, ako doteraz).
-    False sa používa len z service_replan_current_week_and_extend, kde
-    poznámku spotrebúva až volajúci, na úplnom konci reťazca.
+    po synchronizácii aktivity si poznámku spotrebuje samo). False sa
+    používa len z service_replan_current_week_and_extend, kde poznámku
+    spotrebúva až volajúci, na úplnom konci reťazca.
 
-    🌟 NOVÉ: v advisor režime sa nič negeneruje - user si plán stavia sám
-    a automatický dogenerovaný týždeň by mu ho prepísal. Kontrola beží
-    hneď na začiatku, pred akýmkoľvek DB/AI volaním. Táto funkcia je
-    centrálny vstupný bod pre "daily_extend" job, ktorý sa enqueue-uje
-    po každom "plan_match" jobe (teda po každom importe aktivity zo
-    Stravy) - gate tu preto pokrýva celú automatickú cestu.
+    🌟 V advisor režime sa nič negeneruje - athlete si plán stavia sám.
+    Táto funkcia je centrálny vstupný bod pre "daily_extend" job, ktorý sa
+    enqueue-uje po každom "plan_match" (teda po každom importe aktivity zo
+    Stravy), takže gate tu pokrýva celú automatickú cestu. Dôležité aj pri
+    prepnutí coach -> advisor uprostred plánu: weekly riadky ostanú v DB
+    a bez tejto poistky by z nich extend ďalej generoval denné tréningy.
     """
     if service_get_coach_mode(user_id, ctx=ctx) == "advisor":
         return {"changed": False, "reason": "advisor_mode"}
