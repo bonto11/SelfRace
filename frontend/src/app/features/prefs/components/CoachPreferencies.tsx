@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   CoachPrefs,
+  CoachMode,
   SportKind,
   CoachPersona,
   RunTargets,
@@ -164,6 +165,9 @@ export default function CoachPreferencies() {
   );
 
   const [isFemale, setIsFemale] = useState(false);
+  // Režim uložený v DB - po uložení sa aktualizuje, aby sa zámok
+  // prepnutia späť na trénera zapol hneď, nie až po reloade.
+  const [savedCoachMode, setSavedCoachMode] = useState<CoachMode>("coach");
 
   // 🌟 Stav aktivneho planu - riadi poradie sekcii (ked je plan aktivny,
   // PlanLifecycleSection ide hore a PlanStartSection je defaultne zabalena;
@@ -221,6 +225,8 @@ export default function CoachPreferencies() {
         };
 
         if (!dirtyRef.current) setLocal(next);
+        setSavedCoachMode(((p as any).coach_mode as CoachMode) ?? "coach");
+
       } catch (e: any) {
         console.error("[CoachPrefs]init error", t(e?.message as any));
       }
@@ -389,11 +395,17 @@ export default function CoachPreferencies() {
 
       const { external_activities: _ext2, ...normalizedClean } = normalized;
       await saveCoachPrefs(userId, normalizedClean);
+      setSavedCoachMode((normalizedClean.coach_mode as CoachMode) ?? "coach");
       toast.success(t("prefs.info.saveSuccess"));
       dirtyRef.current = false;
-    } catch (e: any) {
+      } catch (e: any) {
+      if (e?.message === "advisor_plan_active") {
+        toast.error(t("prefs.coachMode.cannotSwitchBack" as any));
+        return;
+      }
       toast.error(t(e?.message as any) || t("api.prefs.saveFailed"));
     }
+
   };
 
   const onRefresh = async () => {
@@ -425,6 +437,8 @@ export default function CoachPreferencies() {
       };
 
       if (!dirtyRef.current) setLocal(next);
+      setSavedCoachMode(((p as any).coach_mode as CoachMode) ?? "coach");
+
       toast.success(t("prefs.info.refreshSuccess"));
     } catch (e: any) {
       toast.error(t(e?.message as any) || t("api.common.fetchFailed"));
@@ -548,7 +562,9 @@ export default function CoachPreferencies() {
         local={local}
         setPref={setPref}
         hasActivePlan={hasActivePlan === true}
+        savedMode={savedCoachMode}
       />
+
 
       {/* Začiatok/koniec pre AI plán - v advisor režime sa koniec volí
           priamo pri "Začať plán" (PlanLifecycleSection) */}
