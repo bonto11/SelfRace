@@ -16,6 +16,7 @@ router = APIRouter(
     tags=["coach-athlete"],
 )
 
+
 @router.post("/analyze/{user_id}")
 def analyze_athlete(
     req: Request,
@@ -32,23 +33,23 @@ def analyze_athlete(
             user_id=user_id,
             ctx=ctx,
             model=None,
-            with_advisor_review=True,
             force=True,
         )
-        
+
         if not result.get("ok"):
-             return {
-                 "success": False, 
-                 "data": None, 
-                 "error_code": result.get("code") or "REQUEST_FAILED",
-                 "message": result.get("message")
-             }
+            return {
+                "success": False,
+                "data": None,
+                "error_code": result.get("code") or "REQUEST_FAILED",
+                "message": result.get("message"),
+            }
 
         return {"success": True, "data": result, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/state/latest/{user_id}")
 def get_latest_athlete_state(
@@ -62,20 +63,21 @@ def get_latest_athlete_state(
             ctx=ctx,
             version=1,
         )
-        
+
         if not row:
-             return {
-                 "success": False, 
-                 "data": None, 
-                 "error_code": "NOT_FOUND",
-                 "message": "Nepodarilo sa nájsť žiadny uložený stav."
-             }
-             
+            return {
+                "success": False,
+                "data": None,
+                "error_code": "NOT_FOUND",
+                "message": "Nepodarilo sa nájsť žiadny uložený stav.",
+            }
+
         return {"success": True, "data": row, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/state/history/{user_id}")
 def list_athlete_states_meta(
@@ -93,8 +95,9 @@ def list_athlete_states_meta(
         return {"success": True, "data": rows, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/state/latest-progress/{user_id}")
 def get_latest_athlete_progress(
@@ -108,17 +111,17 @@ def get_latest_athlete_progress(
             version=1,
             ctx=ctx,
         )
-        
+
         if not row:
-             return {
-                 "success": False, 
-                 "data": None, 
-                 "error_code": "NOT_FOUND",
-                 "message": "Nenašiel sa žiadny progress report."
-             }
-             
+            return {
+                "success": False,
+                "data": None,
+                "error_code": "NOT_FOUND",
+                "message": "Nenašiel sa žiadny progress report.",
+            }
+
         return {"success": True, "data": row, "error_code": None, "message": None}
     except HTTPException:
         raise
-    except Exception as e:  
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
